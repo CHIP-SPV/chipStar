@@ -6,6 +6,8 @@ set(CMAKE_CXX_COMPILER clang++)
 include(CTest)
 enable_testing()
 
+include_directories(./)
+
 set(HIPXX_SRC HIPxxDriver.cc)
 set(DRIVER_SRC main.cc)
 
