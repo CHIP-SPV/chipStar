@@ -6,10 +6,10 @@ set(CMAKE_CXX_COMPILER clang++)
 include(CTest)
 enable_testing()
 
-include_directories(./)
+include_directories(src)
 
-set(HIPXX_SRC HIPxxDriver.cc)
-set(DRIVER_SRC main.cc)
+set(HIPXX_SRC src/HIPxxDriver.cc)
+set(DRIVER_SRC src/main.cc)
 
 add_library(HIPxx ${HIPXX_SRC})
 add_executable(driver ${DRIVER_SRC})
