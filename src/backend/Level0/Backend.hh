@@ -1,0 +1,4 @@
+#ifndef HIPXX_BACKEND_LEVEL0_H
+#define HIPXX_BACKEND_LEVEL0_H
+
+#endif
