@@ -26,12 +26,40 @@ class HIPxxContext {
 
 class HIPxxDevice {
  protected:
+  /// Vector of contexts to which this device belongs to
   std::vector<HIPxxContext*> xxContexts;
 
  public:
+  /// default constructor
   HIPxxDevice(){};
+
+  /// default desctructor
   ~HIPxxDevice(){};
-  virtual void initialize() = 0;
+
+  /**
+   * @brief Add a context to the vector of HIPxxContexts* to which this device
+   * belongs to
+   * @param ctx pointer to HIPxxContext object
+   * @return true if added successfully
+   * @return false if failed to add
+   */
+  bool add_context(HIPxxContext* ctx) {
+    xxContexts.push_back(ctx);
+    // TODO check for success
+    return true;
+  }
+
+  /**
+   * @brief Get the default context object
+   *
+   * @return HIPxxContext* pointer to the 0th element in the internal context
+   * array
+   */
+  HIPxxContext* get_default_context() {
+    // TODO Check for initialization
+    // if (xxContexts.size() == 0)
+    return xxContexts.at(0);
+  }
 };
 
 class HIPxxQueue {
@@ -45,9 +73,13 @@ class HIPxxQueue {
   virtual void initialize(HIPxxDevice* dev) = 0;
 };
 
+/**
+ * @brief Primary object to interact with the backend
+ */
 class HIPxxBackend {
  protected:
-  HIPxxContext* xxContext;
+  std::vector<HIPxxContext*> xxContexts;
+  std::vector<HIPxxQueue*> xxQueues;
 
  public:
   HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
