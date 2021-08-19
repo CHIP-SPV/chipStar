@@ -8,13 +8,15 @@ enable_testing()
 
 include_directories(src)
 
-set(HIPXX_SRC src/HIPxxDriver.cc)
+find_package(Threads REQUIRED)
+set(HIPXX_SRC src/HIPxxDriver.cc )
 set(DRIVER_SRC src/main.cc)
 
 add_library(HIPxx ${HIPXX_SRC})
 add_executable(driver ${DRIVER_SRC})
 
-target_link_libraries(driver -lstdc++)
+
+target_link_libraries(driver -lstdc++ HIPxx Threads::Threads)
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)

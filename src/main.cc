@@ -1,3 +1,9 @@
 #include <iostream>
 
-int main() { std::cout << "Hello, World!\n"; }
+#include "HIPxxDriver.hh"
+
+int main() {
+  std::cout << "Hello, World!\n";
+  initialize();
+  initialize();
+}
