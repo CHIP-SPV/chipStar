@@ -17,13 +17,37 @@
 #include <iostream>
 #include <vector>
 
+/**
+ * @brief Context class
+ * Contexts contain execution queues and are created on top of a single or
+ * multiple devices. Provides for creation of additional queues, events, and
+ * interaction with devices.
+ */
 class HIPxxContext {
  protected:
+  std::vector<HIPxxDevice*> Devices;
+
  public:
   HIPxxContext(){};
   ~HIPxxContext(){};
+
+  /**
+   * @brief Add a device to this context
+   *
+   * @param dev pointer to HIPxxDevice object
+   * @return true if device was added successfully
+   * @return false upon failure
+   */
+  bool add_device(HIPxxDevice* dev) {
+    Devices.push_back(dev);
+    // TODO check for success
+    return true;
+  }
 };
 
+/**
+ * @brief Compute device class
+ */
 class HIPxxDevice {
  protected:
   /// Vector of contexts to which this device belongs to
@@ -62,9 +86,14 @@ class HIPxxDevice {
   }
 };
 
+/**
+ * @brief Queue class for submitting kernels to for execution
+ */
 class HIPxxQueue {
  protected:
+  /// Device on which this queue will execute
   HIPxxDevice* xxDevice;
+  /// Context to which device belongs to
   HIPxxContext* xxContext;
 
  public:
