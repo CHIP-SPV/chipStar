@@ -49,6 +49,33 @@ class HIPxxExecItem {
 };
 
 /**
+ * @brief Contains information about the function on the host and device
+ */
+class HIPxxKernel {
+ protected:
+  /// Name of the function
+  std::string HostFunctionName;
+  /// Pointer to the host function
+  void* HostFunctionPointer;
+  /// Pointer to the device function
+  void* DeviceFunctionPointer;
+
+ public:
+  HIPxxKernel(){};
+  ~HIPxxKernel(){};
+};
+
+/**
+ * @brief a HIPxxKernel and argument container to be submitted to HIPxxQueue
+ */
+class HIPxxExecItem {
+ protected:
+  /// Kernel to be executed
+  HIPxxKernel* Kernel;
+  // TODO Args
+};
+
+/**
  * @brief Context class
  * Contexts contain execution queues and are created on top of a single or
  * multiple devices. Provides for creation of additional queues, events, and
