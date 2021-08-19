@@ -15,10 +15,43 @@
 #define HIPXX_BACKEND_H
 
 #include <iostream>
+#include <vector>
+
+class HIPxxContext {
+ protected:
+ public:
+  HIPxxContext(){};
+  ~HIPxxContext(){};
+};
+
+class HIPxxDevice {
+ protected:
+  std::vector<HIPxxContext*> xxContexts;
+
+ public:
+  HIPxxDevice(){};
+  ~HIPxxDevice(){};
+  virtual void initialize() = 0;
+};
+
+class HIPxxQueue {
+ protected:
+  HIPxxDevice* xxDevice;
+  HIPxxContext* xxContext;
+
+ public:
+  HIPxxQueue(){};
+  ~HIPxxQueue(){};
+  virtual void initialize(HIPxxDevice* dev) = 0;
+};
 
 class HIPxxBackend {
+ protected:
+  HIPxxContext* xxContext;
+
  public:
-  HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; }
+  HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
+  ~HIPxxBackend(){};
   virtual void initialize() = 0;
 };
 
