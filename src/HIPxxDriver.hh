@@ -1,3 +1,15 @@
+/**
+ * @file HIPxxDriver.hh
+ * @author Paulius Velesko (pvelesko@gmail.com)
+ * @brief Header defining global HIPxx classes and functions such as
+ * HIPxxBackend type pointer Backend which gets initialized at the start of
+ * execution.
+ * @version 0.1
+ * @date 2021-08-19
+ *
+ * @copyright Copyright (c) 2021
+ *
+ */
 #ifndef HIPXX_DRIVER_H
 #define HIPXX_DRIVER_H
 #include <iostream>
