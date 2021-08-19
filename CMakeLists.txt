@@ -6,7 +6,7 @@ set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang)
 include(CTest)
 enable_testing()
 
-include_directories(src)
+include_directories(src backend)
 
 find_package(Threads REQUIRED)
 set(HIPXX_SRC src/HIPxxDriver.cc )
