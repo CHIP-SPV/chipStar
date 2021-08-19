@@ -7,6 +7,7 @@ void _initialize() {
   std::cout << "HIPxxDriver Initialize\n";
   // Get the current Backend Env Var
   Backend = new HIPxxBackendOpenCL();
+  Backend->initialize();
 };
 
 void initialize() { std::call_once(initialized, &_initialize); }
