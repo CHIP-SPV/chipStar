@@ -15,7 +15,38 @@
 #define HIPXX_BACKEND_H
 
 #include <iostream>
+#include <string>
 #include <vector>
+
+// Forward Declarations
+class HIPxxDevice;
+
+/**
+ * @brief Contains information about the function on the host and device
+ */
+class HIPxxKernel {
+ protected:
+  /// Name of the function
+  std::string HostFunctionName;
+  /// Pointer to the host function
+  void* HostFunctionPointer;
+  /// Pointer to the device function
+  void* DeviceFunctionPointer;
+
+ public:
+  HIPxxKernel(){};
+  ~HIPxxKernel(){};
+};
+
+/**
+ * @brief a HIPxxKernel and argument container to be submitted to HIPxxQueue
+ */
+class HIPxxExecItem {
+ protected:
+  /// Kernel to be executed
+  HIPxxKernel* Kernel;
+  // TODO Args
+};
 
 /**
  * @brief Context class
@@ -99,7 +130,11 @@ class HIPxxQueue {
  public:
   HIPxxQueue(){};
   ~HIPxxQueue(){};
+
+  /// Initialize this queue for a given device
   virtual void initialize(HIPxxDevice* dev) = 0;
+  /// Submit a kernel for execution
+  virtual void submit(HIPxxExecItem* exec_item) = 0;
 };
 
 /**
