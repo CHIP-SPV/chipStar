@@ -14,38 +14,39 @@
 #ifndef HIPXX_BACKEND_H
 #define HIPXX_BACKEND_H
 
+#include <algorithm>
 #include <iostream>
+#include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
+#include "HIPxxDriver.hh"
+#include "temporary.hh"
+
 // Forward Declarations
 class HIPxxDevice;
+class HIPxxContext;
+class HIPxxModule;
 
-/**
- * @brief Contains information about the function on the host and device
- */
-class HIPxxKernel {
+class HIPxxModule {
  protected:
-  /// Name of the function
-  std::string HostFunctionName;
-  /// Pointer to the host function
-  void* HostFunctionPointer;
-  /// Pointer to the device function
-  void* DeviceFunctionPointer;
+  std::vector<HIPxxKernel*> Kernels;
 
  public:
-  HIPxxKernel(){};
-  ~HIPxxKernel(){};
-};
+  HIPxxModule(){};
+  ~HIPxxModule(){};
 
-/**
- * @brief a HIPxxKernel and argument container to be submitted to HIPxxQueue
- */
-class HIPxxExecItem {
- protected:
-  /// Kernel to be executed
-  HIPxxKernel* Kernel;
-  // TODO Args
+  HIPxxModule(std::string* module_str) {
+    // TODO
+    logDebug("Initializing HIPxxModule from binary string\n", "");
+  }
+
+  void add_kernel(void* HostFunctionPtr, std::string HostFunctionName) {
+    // TODO
+    HIPxxKernel* kernel = new HIPxxKernel();
+    Kernels.push_back(kernel);
+  }
 };
 
 /**
