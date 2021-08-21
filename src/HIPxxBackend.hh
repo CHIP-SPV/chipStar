@@ -189,6 +189,13 @@ class HIPxxBackend {
   std::vector<HIPxxContext*> xxContexts;
   std::vector<HIPxxQueue*> xxQueues;
   std::vector<HIPxxDevice*> xxDevices;
+  /**
+   * @brief Modules stored in binary representation.
+   * During compilation each translation unit is parsed for functions that are
+   * marked for execution on the device. These functions are then compiled to
+   * device code and stored in binary representation.
+   *  */
+  std::vector<std::string*> ModulesStr;
 
  public:
   HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
@@ -197,6 +204,7 @@ class HIPxxBackend {
 
   std::vector<HIPxxDevice*> get_devices() { return xxDevices; }
   size_t get_num_devices() { return xxDevices.size(); }
+  std::vector<std::string*> get_modules_bin() { return ModulesStr; }
 };
 
 #endif
