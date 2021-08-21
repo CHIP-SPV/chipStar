@@ -144,11 +144,15 @@ class HIPxxDevice {
     return true;
   }
 
+  bool HIPxxDevice::registerFunction(std::string* module_str,
+                                     const void* HostFunction,
+                                     const char* FunctionName);
+
   /**
    * @brief Get the default context object
    *
-   * @return HIPxxContext* pointer to the 0th element in the internal context
-   * array
+   * @return HIPxxContext* pointer to the 0th element in the internal
+   * context array
    */
   HIPxxContext* get_default_context() {
     // TODO Check for initialization
