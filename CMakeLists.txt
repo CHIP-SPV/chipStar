@@ -6,6 +6,8 @@ set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang)
 include(CTest)
 enable_testing()
 
+add_compile_options(-Wno-format-extra-args)
+
 include_directories(src backend)
 
 find_package(Threads REQUIRED)
