@@ -171,11 +171,15 @@ class HIPxxBackend {
  protected:
   std::vector<HIPxxContext*> xxContexts;
   std::vector<HIPxxQueue*> xxQueues;
+  std::vector<HIPxxDevice*> xxDevices;
 
  public:
   HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
   ~HIPxxBackend(){};
   virtual void initialize() = 0;
+
+  std::vector<HIPxxDevice*> get_devices() { return xxDevices; }
+  size_t get_num_devices() { return xxDevices.size(); }
 };
 
 #endif
