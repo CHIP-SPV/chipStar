@@ -109,13 +109,25 @@ class HIPxxContext {
  */
 class HIPxxDevice {
  protected:
+  std::mutex DeviceMutex;
+
   /// Vector of contexts to which this device belongs to
   std::vector<HIPxxContext*> xxContexts;
+  /// Modules in binary representation
+  std::vector<std::string*> ModulesStr;
+  /// Modules in parsed representation
+  std::vector<HIPxxModule*> Modules;
+
+  /// Map host pointer to module in binary representation
+  std::map<const void*, std::string*> HostPtrToModuleStrMap;
+  /// Map host pointer to module in parsed representation
+  std::map<const void*, HIPxxModule*> HostPtrToModuleMap;
+  /// Map host pointer to a function name
+  std::map<const void*, std::string> HostPtrToNameMap;
 
  public:
   /// default constructor
   HIPxxDevice(){};
-
   /// default desctructor
   ~HIPxxDevice(){};
 
