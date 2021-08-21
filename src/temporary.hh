@@ -3,6 +3,7 @@
 
 #define dim3 int
 #define logDebug(x, y) printf(x, y)
+#define logError(x, y) printf(x, y)
 #define logCritical(x, y) printf(x, y)
 
 #endif
