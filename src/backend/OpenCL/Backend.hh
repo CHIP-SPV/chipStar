@@ -25,7 +25,8 @@
 
 class HIPxxBackendOpenCL : public HIPxxBackend {
  public:
-  void initialize() override {
+  void initialize(std::string HIPxxPlatformStr, std::string HIPxxDeviceTypeStr,
+                  std::string HIPxxDeviceStr) override {
     std::cout << "HIPxxBackendOpenCL Initialize\n";
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);

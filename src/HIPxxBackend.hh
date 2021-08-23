@@ -181,7 +181,9 @@ class HIPxxBackend {
  public:
   HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
   ~HIPxxBackend(){};
-  virtual void initialize() = 0;
+  virtual void initialize(std::string HIPxxPlatformStr,
+                          std::string HIPxxDeviceTypeStr,
+                          std::string HIPxxDeviceStr) = 0;
 
   std::vector<HIPxxDevice*> get_devices() { return xxDevices; }
   size_t get_num_devices() { return xxDevices.size(); }

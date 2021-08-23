@@ -12,16 +12,56 @@
  */
 #include "HIPxxDriver.hh"
 
+#include <string>
+
 #include "backend/backends.hh"
 
 std::once_flag initialized;
 HIPxxBackend* Backend;
 
+void read_env_vars(std::string& HIPxxPlatformStr,
+                   std::string& HIPxxDeviceTypeStr,
+                   std::string& HIPxxDeviceStr) {
+  const char* HIPxxPlatformStr_in = std::getenv("HIPXX_PLATFORM");
+  const char* HIPxxDeviceTypeStr_in = std::getenv("HIPXX_DEVICE_TYPE");
+  const char* HIPxxDeviceStr_in = std::getenv("HIPXX_DEVICE");
+
+  std::cout << "\n";
+  if (HIPxxPlatformStr_in == nullptr) {
+    std::cout << "HIPXX_PLATFORM unset. Using default.\n";
+    HIPxxPlatformStr = "DEFAULT";
+  } else {
+    HIPxxPlatformStr = HIPxxPlatformStr_in;
+  }
+
+  if (HIPxxDeviceTypeStr_in == nullptr) {
+    std::cout << "HIPXX_DEVICE_TYPE unset. Using default.\n";
+    HIPxxDeviceTypeStr = "DEFAULT";
+  } else {
+    HIPxxDeviceTypeStr = HIPxxDeviceTypeStr_in;
+  }
+
+  if (HIPxxDeviceStr_in == nullptr) {
+    std::cout << "HIPXX_DEVICE unset. Using default.\n";
+    HIPxxDeviceStr = "DEFAULT";
+  } else {
+    HIPxxDeviceStr = HIPxxDeviceStr_in;
+  }
+
+  std::cout << "\n";
+  std::cout << "HIPXX_PLATFORM=" << HIPxxPlatformStr << std::endl;
+  std::cout << "HIPXX_DEVICE_TYPE=" << HIPxxDeviceTypeStr << std::endl;
+  std::cout << "HIPXX_DEVICE=" << HIPxxDeviceStr << std::endl;
+  std::cout << "\n";
+};
+
 void _initialize() {
+  std::string HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr;
+  read_env_vars(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
   std::cout << "HIPxxDriver Initialize\n";
   // Get the current Backend Env Var
   Backend = new HIPxxBackendOpenCL();
-  Backend->initialize();
+  Backend->initialize(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
 };
 
-void initialize() { std::call_once(initialized, &_initialize); }
+void initialize() { std::call_once(initialized, &_initialize); };
