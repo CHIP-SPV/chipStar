@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(HIPxx VERSION 0.1.0)
 
-set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang)
+set(CMAKE_CXX_COMPILER /soft/modulefiles/hipcl/20210506_wrapper/clang++)
 
 include(CTest)
 enable_testing()
 
 add_compile_options(-Wno-format-extra-args)
 
-include_directories(src backend)
+include_directories(src backend include)
 
 find_package(Threads REQUIRED)
-set(HIPXX_SRC src/HIPxxDriver.cc )
+set(HIPXX_SRC src/HIPxxDriver.cc src/HIPxxBackend.cc)
 set(DRIVER_SRC src/main.cc)
 
 add_library(HIPxx ${HIPXX_SRC})
