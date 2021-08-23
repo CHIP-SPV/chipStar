@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(HIPxx VERSION 0.1.0)
 
-set(CMAKE_CXX_COMPILER /soft/modulefiles/hipcl/20210506_wrapper/clang++)
+set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang++)
+set(CXX_STANDARD 17)
+
 
 include(CTest)
 enable_testing()
 
+add_compile_options(-std=c++17)
 add_compile_options(-Wno-format-extra-args)
 
 include_directories(src backend include)
