@@ -21,15 +21,15 @@
 #include <string>
 #include <vector>
 
-#include "HIPxxDriver.hh"
-#include "temporary.hh"
-
 // Forward Declarations
 class HIPxxDevice;
 class HIPxxContext;
 class HIPxxModule;
 class HIPxxKernel;
 class HIPxxBackend;
+
+#include "HIPxxDriver.hh"
+#include "temporary.hh"
 
 class HIPxxModule {
  protected:
