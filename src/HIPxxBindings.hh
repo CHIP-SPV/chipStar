@@ -18,7 +18,75 @@
 
 #include "HIPxxBackend.hh"
 #include "HIPxxDriver.hh"
+#include "hip/hip_fatbin.h"
 #include "temporary.hh"
+
+#define SPIR_TRIPLE "hip-spir64-unknown-unknown"
+
+static unsigned binaries_loaded = 0;
+
+extern "C" void **__hipRegisterFatBinary(const void *data) {
+  Backend->initialize();
+
+  const __CudaFatBinaryWrapper *fbwrapper =
+      reinterpret_cast<const __CudaFatBinaryWrapper *>(data);
+  if (fbwrapper->magic != __hipFatMAGIC2 || fbwrapper->version != 1) {
+    logCritical("The given object is not hipFatBinary !\n");
+    std::abort();
+  }
+
+  const __ClangOffloadBundleHeader *header = fbwrapper->binary;
+  std::string magic(reinterpret_cast<const char *>(header),
+                    sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
+  if (magic.compare(CLANG_OFFLOAD_BUNDLER_MAGIC)) {
+    logCritical(
+        "The bundled binaries are not Clang bundled "
+        "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)\n");
+    std::abort();
+  }
+
+  std::string *module = new std::string;
+  if (!module) {
+    logCritical("Failed to allocate memory\n");
+    std::abort();
+  }
+
+  const __ClangOffloadBundleDesc *desc = &header->desc[0];
+  bool found = false;
+
+  for (uint64_t i = 0; i < header->numBundles;
+       ++i, desc = reinterpret_cast<const __ClangOffloadBundleDesc *>(
+                reinterpret_cast<uintptr_t>(&desc->triple[0]) +
+                desc->tripleSize)) {
+    std::string triple{&desc->triple[0], sizeof(SPIR_TRIPLE) - 1};
+    logDebug("Triple of bundle {} is: {}\n", i, triple);
+
+    if (triple.compare(SPIR_TRIPLE) == 0) {
+      found = true;
+      break;
+    } else {
+      logDebug("not a SPIR triple, ignoring\n");
+      continue;
+    }
+  }
+
+  if (!found) {
+    logDebug("Didn't find any suitable compiled binary!\n");
+    std::abort();
+  }
+
+  const char *string_data = reinterpret_cast<const char *>(
+      reinterpret_cast<uintptr_t>(header) + (uintptr_t)desc->offset);
+  size_t string_size = desc->size;
+  module->assign(string_data, string_size);
+
+  logDebug("Register module: {} \n", (void *)module);
+
+  Backend->get_modules_str.push_back(module);
+  ++binaries_loaded;
+
+  return (void **)module;
+}
 
 extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
                                       char *deviceFunction,
