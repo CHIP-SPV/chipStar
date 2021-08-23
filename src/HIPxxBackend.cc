@@ -19,7 +19,7 @@ bool HIPxxDevice::registerFunction(std::string* module_str,
   HIPxxModule* module = new HIPxxModule(module_str);
 
   HostPtrToModuleStrMap.emplace(std::make_pair(HostFunctionPtr, module_str));
-  HostPtrToModuleStrMap.emplace(std::make_pair(HostFunctionPtr, module));
+  HostPtrToModuleMap.emplace(std::make_pair(HostFunctionPtr, module));
   HostPtrToNameMap.emplace(std::make_pair(HostFunctionPtr, FunctionName));
 
   // TODO Create & compile/createProgram a kernel
