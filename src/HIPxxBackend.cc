@@ -32,3 +32,32 @@ bool HIPxxDevice::registerFunction(std::string* module_str,
   // return (PrimaryContext->createProgramBuiltin(module, HostFunctionPtr, temp)
   return true;
 }
+
+HIPxxModule::HIPxxModule(std::string* module_str) {
+  // TODO
+  logDebug("Initializing HIPxxModule from binary string\n", "");
+}
+
+void HIPxxModule::add_kernel(void* HostFunctionPtr,
+                             std::string HostFunctionName) {
+  // TODO
+  HIPxxKernel* kernel = new HIPxxKernel();
+  Kernels.push_back(kernel);
+}
+
+bool HIPxxContext::add_device(HIPxxDevice* dev) {
+  Devices.push_back(dev);
+  // TODO check for success
+  return true;
+}
+
+bool HIPxxDevice::add_context(HIPxxContext* ctx) {
+  xxContexts.push_back(ctx);
+  // TODO check for success
+  return true;
+}
+
+HIPxxContext* HIPxxDevice::get_default_context() {
+  // TODO Check for initialization
+  // if (xxContexts.size() == 0)
+  return xxContexts.at(0);

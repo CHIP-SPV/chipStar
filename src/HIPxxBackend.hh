@@ -28,6 +28,7 @@
 class HIPxxDevice;
 class HIPxxContext;
 class HIPxxModule;
+class HIPxxKernel;
 
 class HIPxxModule {
  protected:
@@ -37,16 +38,8 @@ class HIPxxModule {
   HIPxxModule(){};
   ~HIPxxModule(){};
 
-  HIPxxModule(std::string* module_str) {
-    // TODO
-    logDebug("Initializing HIPxxModule from binary string\n", "");
-  }
-
-  void add_kernel(void* HostFunctionPtr, std::string HostFunctionName) {
-    // TODO
-    HIPxxKernel* kernel = new HIPxxKernel();
-    Kernels.push_back(kernel);
-  }
+  HIPxxModule(std::string* module_str);
+  void add_kernel(void* HostFunctionPtr, std::string HostFunctionName);
 };
 
 /**
@@ -97,11 +90,7 @@ class HIPxxContext {
    * @return true if device was added successfully
    * @return false upon failure
    */
-  bool add_device(HIPxxDevice* dev) {
-    Devices.push_back(dev);
-    // TODO check for success
-    return true;
-  }
+  bool add_device(HIPxxDevice* dev);
 };
 
 /**
@@ -138,15 +127,10 @@ class HIPxxDevice {
    * @return true if added successfully
    * @return false if failed to add
    */
-  bool add_context(HIPxxContext* ctx) {
-    xxContexts.push_back(ctx);
-    // TODO check for success
-    return true;
-  }
+  bool add_context(HIPxxContext* ctx);
 
-  bool HIPxxDevice::registerFunction(std::string* module_str,
-                                     const void* HostFunction,
-                                     const char* FunctionName);
+  bool registerFunction(std::string* module_str, const void* HostFunction,
+                        const char* FunctionName);
 
   /**
    * @brief Get the default context object
@@ -154,11 +138,7 @@ class HIPxxDevice {
    * @return HIPxxContext* pointer to the 0th element in the internal
    * context array
    */
-  HIPxxContext* get_default_context() {
-    // TODO Check for initialization
-    // if (xxContexts.size() == 0)
-    return xxContexts.at(0);
-  }
+  HIPxxContext* get_default_context();
 };
 
 /**
