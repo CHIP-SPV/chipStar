@@ -61,3 +61,4 @@ HIPxxContext* HIPxxDevice::get_default_context() {
   // TODO Check for initialization
   // if (xxContexts.size() == 0)
   return xxContexts.at(0);
+}
