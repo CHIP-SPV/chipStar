@@ -5,12 +5,15 @@ set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang++)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(OpenCL_LIBRARY /soft/libraries/khronos/loader/master-2021.01.04/lib64/libOpenCL.so.1.2)
+set(OpenCL_INCLUDE_DIR /soft/libraries/khronos/headers/master-2021.01.04/include)
+
 include(CTest)
 enable_testing()
 
 add_compile_options(-Wno-format-extra-args)
 
-include_directories(src backend include)
+include_directories(src backend include ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
 set(HIPXX_SRC src/HIPxxDriver.cc src/HIPxxBackend.cc)
@@ -20,7 +23,11 @@ add_library(HIPxx ${HIPXX_SRC})
 add_executable(driver ${DRIVER_SRC})
 
 
-target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads)
+target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_LIBARY})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
+
+#-DOpenCL_LIBRARY=/soft/libraries/khronos/loader/master-2021.01.04/lib64/libOpenCL.so.1.2 -DOpenCL_INCLUDE_DIR=/soft/libraries/khronos/headers/master-2021.01.04/include
+
+
