@@ -16,7 +16,7 @@
 #include <mutex>
 
 #include "HIPxxBackend.hh"
-#include "backend/backends.hh"
+
 /**
  * @brief
  * Global Backend pointer through which backend-specific operations are

@@ -12,6 +12,8 @@
  */
 #include "HIPxxDriver.hh"
 
+#include "backend/backends.hh"
+
 std::once_flag initialized;
 HIPxxBackend* Backend;
 
