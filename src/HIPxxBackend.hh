@@ -29,6 +29,7 @@ class HIPxxDevice;
 class HIPxxContext;
 class HIPxxModule;
 class HIPxxKernel;
+class HIPxxBackend;
 
 class HIPxxModule {
  protected:
