@@ -21,7 +21,7 @@ add_library(HIPxx ${HIPXX_SRC})
 add_executable(driver ${DRIVER_SRC})
 
 
-target_link_libraries(driver -lstdc++ HIPxx Threads::Threads)
+target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads)
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
