@@ -20,6 +20,7 @@ set(HIPXX_SRC src/HIPxxDriver.cc src/HIPxxBackend.cc)
 set(DRIVER_SRC src/main.cc)
 
 add_library(HIPxx ${HIPXX_SRC})
+target_link_libraries(HIPxx ${OpenCL_LIBRARY})
 add_executable(driver ${DRIVER_SRC})
 
 

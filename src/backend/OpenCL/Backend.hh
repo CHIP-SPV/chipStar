@@ -19,7 +19,7 @@
 
 #include <CL/cl_ext_intel.h>
 
-#include <CL/opencl.h>
+#include <CL/opencl.hpp>
 
 #include "../../HIPxxBackend.hh"
 
@@ -27,6 +27,8 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
  public:
   void initialize() override {
     std::cout << "HIPxxBackendOpenCL Initialize\n";
+    std::vector<cl::Platform> Platforms;
+    cl_int err = cl::Platform::get(&Platforms);
   };
 };
 
