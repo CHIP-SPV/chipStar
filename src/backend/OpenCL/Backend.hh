@@ -55,7 +55,6 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     cl_bitfield selected_dev_type = 0;
 
     try {
-      selected_platform = std::stoi(HIPxxPlatformStr);
       if (!HIPxxDeviceStr.compare("all")) {  // Use all devices that match type
         selected_device = -1;
       } else {
@@ -63,13 +62,33 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       }
 
       // Platform index in range?
+      selected_platform = std::stoi(HIPxxPlatformStr);
       if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
         throw InvalidPlatformOrDeviceNumber(
             "HIPXX_PLATFORM: platform number out of range");
+      std::cout << "Selected Platform: " << selected_platform << ". "
+                << Platforms[selected_platform].getInfo<CL_PLATFORM_NAME>()
+                << "\n";
+
       // Device  index in range?
+      std::vector<cl::Device> enabled_devices;
+      err =  // Get All devices and print
+          Platforms[selected_platform].getDevices(CL_DEVICE_TYPE_ALL, &Devices);
+      for (int i = 0; i < Devices.size(); i++) {
+        std::cout << i << ". " << Devices[i].getInfo<CL_DEVICE_NAME>() << "\n";
+      }
       if (selected_device >= Devices.size())
         throw InvalidPlatformOrDeviceNumber(
             "HIPXX_DEVICE: device number out of range");
+      if (selected_device == -1) {  // All devices enabled
+        enabled_devices = Devices;
+        logDebug("All Devices enabled\n", "");
+      } else {
+        enabled_devices.push_back(Devices[selected_device]);
+        std::cout << "\nEnabled Devices:\n";
+        std::cout << selected_device << ". "
+                  << enabled_devices[0].getInfo<CL_DEVICE_NAME>() << "\n";
+      }
 
       if (err != CL_SUCCESS)
         throw InvalidPlatformOrDeviceNumber(
@@ -88,18 +107,23 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       else
         throw InvalidDeviceType(
             "Unknown value provided for HIPXX_DEVICE_TYPE\n");
+      std::cout << "Using Devices of type " << HIPxxDeviceTypeStr << "\n";
+
     } catch (const InvalidDeviceType &e) {
       // logCritical("{}\n", e.what());
+      logCritical("\nInvalidDeviceType", "");
       return;
     } catch (const InvalidPlatformOrDeviceNumber &e) {
       // logCritical("{}\n", e.what());
+      logCritical("\nInvalidPlatformOrDeviceNumber", "");
       return;
     } catch (const std::invalid_argument &e) {
-      // logCritical(
-      //    "Could not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number\n");
+      logCritical(
+          "\nCould not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number\n",
+          "");
       return;
     } catch (const std::out_of_range &e) {
-      // logCritical("HIPXX_PLATFORM or HIPXX_DEVICES is out of range\n");
+      logCritical("\nHIPXX_PLATFORM or HIPXX_DEVICES is out of range\n", "");
       return;
     }
 
