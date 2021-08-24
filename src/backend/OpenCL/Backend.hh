@@ -43,6 +43,11 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
     if (err != CL_SUCCESS) return;
+    std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
+    for (int i = 0; i < Platforms.size(); i++) {
+      std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>()
+                << "\n";
+    }
 
     std::vector<cl::Device> Devices;
     int selected_platform;
