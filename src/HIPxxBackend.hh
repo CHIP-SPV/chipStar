@@ -188,6 +188,7 @@ class HIPxxBackend {
   std::vector<HIPxxDevice*> get_devices() { return xxDevices; }
   size_t get_num_devices() { return xxDevices.size(); }
   std::vector<std::string*> get_modules_str() { return ModulesStr; }
+  void add_context(HIPxxContext* ctx_in) { xxContexts.push_back(ctx_in); }
 };
 
 #endif

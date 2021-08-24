@@ -22,13 +22,17 @@
 #include <CL/opencl.hpp>
 
 #include "../../HIPxxBackend.hh"
+#include "exceptions.hh"
 
-class InvalidDeviceType : public std::invalid_argument {
-  using std::invalid_argument::invalid_argument;
-};
+class HIPxxContextOpenCL : public HIPxxContext {
+ protected:
+  cl::Context *ctx;
 
-class InvalidPlatformOrDeviceNumber : public std::out_of_range {
-  using std::out_of_range::out_of_range;
+ public:
+  HIPxxContextOpenCL(cl::Context *ctx_in) {
+    std::cout << "HIPxxContextOpenCL Initialized via OpenCL Context pointer.\n";
+    ctx = ctx_in;
+  };
 };
 
 class HIPxxBackendOpenCL : public HIPxxBackend {
@@ -38,53 +42,47 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     std::cout << "HIPxxBackendOpenCL Initialize\n";
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
-
-    std::string ver;
     if (err != CL_SUCCESS) return;
 
-    size_t NumDevices = 0;
     std::vector<cl::Device> Devices;
-    int selected_platform = -1;
-    int selected_device = -1;
+    int selected_platform;
+    int selected_device;
     cl_bitfield selected_dev_type = 0;
+
     try {
-      if (!HIPxxPlatformStr.compare("")) {
-        selected_platform = std::stoi(HIPxxPlatformStr);
-        if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
-          throw InvalidPlatformOrDeviceNumber(
-              "HIPLZ_PLATFORM: platform number out of range");
-      }
-
-      if (!HIPxxDeviceStr.compare("")) {
+      selected_platform = std::stoi(HIPxxPlatformStr);
+      if (!HIPxxDeviceStr.compare("all")) {  // Use all devices that match type
+        selected_device = -1;
+      } else {
         selected_device = std::stoi(HIPxxDeviceStr);
-        Devices.clear();
-        if (selected_platform < 0) selected_platform = 0;
-        err = Platforms[selected_platform].getDevices(CL_DEVICE_TYPE_ALL,
-                                                      &Devices);
-        if (err != CL_SUCCESS)
-          throw InvalidPlatformOrDeviceNumber(
-              "HIPLZ_DEVICE: can't get devices for platform");
-        if ((selected_device < 0) || (selected_device >= Devices.size()))
-          throw InvalidPlatformOrDeviceNumber(
-              "HIPLZ_DEVICE: device number out of range");
       }
 
-      if (!HIPxxDeviceStr.compare("")) {
-        std::string s(HIPxxDeviceStr);
-        if (s == "all")
-          selected_dev_type = CL_DEVICE_TYPE_ALL;
-        else if (s == "cpu")
-          selected_dev_type = CL_DEVICE_TYPE_CPU;
-        else if (s == "gpu")
-          selected_dev_type = CL_DEVICE_TYPE_GPU;
-        else if (s == "default")
-          selected_dev_type = CL_DEVICE_TYPE_DEFAULT;
-        else if (s == "accel")
-          selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
-        else
-          throw InvalidDeviceType(
-              "Unknown value provided for HIPLZ_DEVICE_TYPE\n");
-      }
+      // Platform index in range?
+      if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
+        throw InvalidPlatformOrDeviceNumber(
+            "HIPXX_PLATFORM: platform number out of range");
+      // Device  index in range?
+      if (selected_device >= Devices.size())
+        throw InvalidPlatformOrDeviceNumber(
+            "HIPXX_DEVICE: device number out of range");
+
+      if (err != CL_SUCCESS)
+        throw InvalidPlatformOrDeviceNumber(
+            "HIPXX_DEVICE: can't get devices for platform");
+
+      if (HIPxxDeviceTypeStr == "all")
+        selected_dev_type = CL_DEVICE_TYPE_ALL;
+      else if (HIPxxDeviceTypeStr == "cpu")
+        selected_dev_type = CL_DEVICE_TYPE_CPU;
+      else if (HIPxxDeviceTypeStr == "gpu")
+        selected_dev_type = CL_DEVICE_TYPE_GPU;
+      else if (HIPxxDeviceTypeStr == "default")
+        selected_dev_type = CL_DEVICE_TYPE_DEFAULT;
+      else if (HIPxxDeviceTypeStr == "accel")
+        selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
+      else
+        throw InvalidDeviceType(
+            "Unknown value provided for HIPXX_DEVICE_TYPE\n");
     } catch (const InvalidDeviceType &e) {
       // logCritical("{}\n", e.what());
       return;
@@ -93,37 +91,30 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       return;
     } catch (const std::invalid_argument &e) {
       // logCritical(
-      //    "Could not convert HIPLZ_PLATFORM or HIPLZ_DEVICES to a number\n");
+      //    "Could not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number\n");
       return;
     } catch (const std::out_of_range &e) {
-      // logCritical("HIPLZ_PLATFORM or HIPLZ_DEVICES is out of range\n");
+      // logCritical("HIPXX_PLATFORM or HIPXX_DEVICES is out of range\n");
       return;
     }
 
-    if (selected_dev_type == 0) selected_dev_type = CL_DEVICE_TYPE_ALL;
-    for (auto Platform : Platforms) {
-      Devices.clear();
-      err = Platform.getDevices(selected_dev_type, &Devices);
-      if (err != CL_SUCCESS) continue;
-      if (Devices.size() == 0) continue;
-      if (selected_platform >= 0 && (Platforms[selected_platform] != Platform))
-        continue;
+    // Get All the devices on the selected platform of selected type
+    err = Platforms[selected_platform].getDevices(selected_dev_type, &Devices);
 
-      for (cl::Device &Dev : Devices) {
-        ver.clear();
-        if (selected_device >= 0 && (Devices[selected_device] != Dev)) continue;
-        ver = Dev.getInfo<CL_DEVICE_IL_VERSION>(&err);
+    std::vector<cl::Device> spirv_enabled_devices;
+    for (cl::Platform &platform : Platforms) {
+      for (cl::Device &dev : Devices) {
+        std::string ver = dev.getInfo<CL_DEVICE_IL_VERSION>(&err);
         if ((err == CL_SUCCESS) && (ver.rfind("SPIR-V_1.", 0) == 0)) {
-          // ClDevice *temp = new ClDevice(Dev, Platform, NumDevices);
-          // temp->setPrimaryCtx();
-          // OpenCLDevices.emplace_back(temp);
-          ++NumDevices;
+          spirv_enabled_devices.push_back(dev);
         }
       }
     }
 
-    logDebug("DEVICES {}", NumDevices);
-    // assert(NumDevices == OpenCLDevices.size());
+    // 1. Create a context for this device
+    cl::Context *ctx = new cl::Context(spirv_enabled_devices);
+    HIPxxContextOpenCL *HIPxxCtx = new HIPxxContextOpenCL(ctx);
+    Backend->add_context(HIPxxCtx);
   };
 };
 

@@ -29,21 +29,21 @@ void read_env_vars(std::string& HIPxxPlatformStr,
   std::cout << "\n";
   if (HIPxxPlatformStr_in == nullptr) {
     std::cout << "HIPXX_PLATFORM unset. Using default.\n";
-    HIPxxPlatformStr = "DEFAULT";
+    HIPxxPlatformStr = "0";
   } else {
     HIPxxPlatformStr = HIPxxPlatformStr_in;
   }
 
   if (HIPxxDeviceTypeStr_in == nullptr) {
     std::cout << "HIPXX_DEVICE_TYPE unset. Using default.\n";
-    HIPxxDeviceTypeStr = "DEFAULT";
+    HIPxxDeviceTypeStr = "default";
   } else {
     HIPxxDeviceTypeStr = HIPxxDeviceTypeStr_in;
   }
 
   if (HIPxxDeviceStr_in == nullptr) {
     std::cout << "HIPXX_DEVICE unset. Using default.\n";
-    HIPxxDeviceStr = "DEFAULT";
+    HIPxxDeviceStr = "0";
   } else {
     HIPxxDeviceStr = HIPxxDeviceStr_in;
   }
