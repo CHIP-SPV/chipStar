@@ -180,6 +180,7 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       }
     }
 
+    // TODO uncomment this once testing on SPIR-V Enabled OpenCL HW
     // std::cout << "SPIR-V Enabled Devices: " << spirv_enabled_devices.size()
     //          << "\n";
     // for (int i = 0; i < spirv_enabled_devices.size(); i++) {
