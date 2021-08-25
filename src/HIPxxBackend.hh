@@ -158,8 +158,6 @@ class HIPxxQueue {
   HIPxxQueue(){};
   ~HIPxxQueue(){};
 
-  /// Initialize this queue for a given device
-  virtual void initialize() = 0;
   /// Submit a kernel for execution
   virtual void submit(HIPxxExecItem* exec_item) {
     std::cout << "HIPxxQueue.submit() Base Call\n";
@@ -189,6 +187,17 @@ class HIPxxBackend {
                           std::string HIPxxDeviceTypeStr,
                           std::string HIPxxDeviceStr) = 0;
 
+  HIPxxQueue* get_default_queue() {
+    if (xxQueues.size() == 0) {
+      logCritical(
+          "HIPxxBackend.get_default_queue() was called but no queues have been "
+          "initialized;\n",
+          "");
+      std::abort();
+    }
+
+    return xxQueues[0];
+  };
   std::vector<HIPxxDevice*> get_devices() { return xxDevices; }
   size_t get_num_devices() { return xxDevices.size(); }
   std::vector<std::string*> get_modules_str() { return ModulesStr; }
@@ -196,12 +205,7 @@ class HIPxxBackend {
   void add_queue(HIPxxQueue* q_in) { xxQueues.push_back(q_in); }
   void submit(HIPxxExecItem* _e) {
     std::cout << "HIPxxBackend.submit()\n";
-    if (xxQueues.size() == 0) {
-      std::cout << "HIPxxBackend.submit() was called but no queues were "
-                   "initialized...\n";
-      std::abort();
-    }
-    xxQueues[0]->submit(_e);
+    get_default_queue()->submit(_e);
   };
 };
 

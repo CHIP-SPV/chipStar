@@ -26,6 +26,7 @@
 
 class HIPxxExecItemOpenCL : public HIPxxExecItem {
  public:
+  cl::Kernel *kernel;
   virtual void run() override { std::cout << "HIPxxExecItemOpenCL run()\n"; };
 };
 
@@ -45,23 +46,32 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
 };
 
 class HIPxxQueueOpenCL : public HIPxxQueue {
- protected:
+ public:
+  // Any reason to make these private/protected?
   cl::Context *ctx;
   cl::Device *dev;
-
- public:
   cl::CommandQueue *q;
 
-  virtual void initialize() override {
-    std::cout << "HIPxxQueueOpenCL initialized via HIPxxDeviceOpenCL pointer\n";
+  HIPxxQueueOpenCL() = delete;  // delete default constructor
+  HIPxxQueueOpenCL(const HIPxxQueueOpenCL &) =
+      delete;  // delete copy constructor
 
+  HIPxxQueueOpenCL(cl::Context *_ctx, cl::Device *_dev) {
+    std::cout << "HIPxxQueueOpenCL Initialized via context, device pointers\n";
+    ctx = _ctx;
+    dev = _dev;
     q = new cl::CommandQueue(*ctx, *dev);
+  };
+
+  ~HIPxxQueueOpenCL() {
+    delete ctx;
+    delete dev;
   }
 
   virtual void submit(HIPxxExecItem *_e) override {
     std::cout << "HIPxxQueueOpenCL.submit()\n";
-    cl::Kernel kernel;  // HIPxxExecItem.get_kernel()
     HIPxxExecItemOpenCL *e = (HIPxxExecItemOpenCL *)_e;
+    cl::Kernel kernel;  // HIPxxExecItem.get_kernel()
     _e->run();
   }
 };
@@ -191,10 +201,8 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     // Create context which has devices
     // Create queues that have devices each of which has an associated context
     cl::Context *ctx = new cl::Context(enabled_devices);
-    cl::CommandQueue *clqueue = new cl::CommandQueue(*ctx, enabled_devices[0]);
-    HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL();
-    queue->q = clqueue;
-    // Backend->add_context(HIPxxCtx);
+    cl::Device *dev = &enabled_devices[0];
+    HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(ctx, dev);
     Backend->add_queue(queue);
     std::cout << "OpenCL Context Initialized.\n";
   };
