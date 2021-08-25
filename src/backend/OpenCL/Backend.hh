@@ -102,7 +102,6 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
   }
 };
 
-
 class HIPxxBackendOpenCL : public HIPxxBackend {
  public:
   void initialize(std::string HIPxxPlatformStr, std::string HIPxxDeviceTypeStr,
