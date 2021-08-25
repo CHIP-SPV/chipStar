@@ -206,10 +206,6 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     Backend->add_queue(queue);
     std::cout << "OpenCL Context Initialized.\n";
   };
-
-  // virtual void submit(HIPxxExecItem *_e) override{
-  //   xxQueues[0]->submit(_e);
-  // };
 };
 
 #endif
