@@ -24,6 +24,15 @@
 #include "../../HIPxxBackend.hh"
 #include "exceptions.hh"
 
+class HIPxxContextOpenCL : public HIPxxContext {
+ public:
+  cl::Context *cl_ctx;
+  HIPxxContextOpenCL(cl::Context *ctx_in) {
+    std::cout << "HIPxxContextOpenCL Initialized via OpenCL Context pointer.\n";
+    cl_ctx = ctx_in;
+  }
+};
+
 class HIPxxExecItemOpenCL : public HIPxxExecItem {
  public:
   cl::Kernel *kernel;
@@ -76,16 +85,6 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
   }
 };
 
-class HIPxxContextOpenCL : public HIPxxContext {
- protected:
-  cl::Context *ctx;
-
- public:
-  HIPxxContextOpenCL(cl::Context *ctx_in) {
-    std::cout << "HIPxxContextOpenCL Initialized via OpenCL Context pointer.\n";
-    ctx = ctx_in;
-  };
-};
 
 class HIPxxBackendOpenCL : public HIPxxBackend {
  public:
