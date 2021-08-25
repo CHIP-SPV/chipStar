@@ -27,7 +27,7 @@ bool HIPxxDevice::registerFunction(std::string* module_str,
   // HIPxxKernel kernel(HostFunctionPtr, FunctionName);
   // module->add_kernel(kernel);
 
-  Modules.push_back(module);
+  hipxx_modules.push_back(module);
 
   // return (PrimaryContext->createProgramBuiltin(module, HostFunctionPtr, temp)
   return true;
@@ -52,13 +52,13 @@ bool HIPxxContext::add_device(HIPxxDevice* dev) {
 }
 
 bool HIPxxDevice::add_context(HIPxxContext* ctx) {
-  xxContexts.push_back(ctx);
+  hipxx_contexts.push_back(ctx);
   // TODO check for success
   return true;
 }
 
 HIPxxContext* HIPxxDevice::get_default_context() {
   // TODO Check for initialization
-  // if (xxContexts.size() == 0)
-  return xxContexts.at(0);
+  // if (hipxx_contexts.size() == 0)
+  return hipxx_contexts.at(0);
 }

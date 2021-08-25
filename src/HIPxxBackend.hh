@@ -103,12 +103,13 @@ class HIPxxDevice {
  protected:
   std::mutex DeviceMutex;
 
+ public:
   /// Vector of contexts to which this device belongs to
-  std::vector<HIPxxContext*> xxContexts;
-  /// Modules in binary representation
+  std::vector<HIPxxContext*> hipxx_contexts;
+  /// hipxx_modules in binary representation
   std::vector<std::string*> ModulesStr;
-  /// Modules in parsed representation
-  std::vector<HIPxxModule*> Modules;
+  /// hipxx_modules in parsed representation
+  std::vector<HIPxxModule*> hipxx_modules;
 
   /// Map host pointer to module in binary representation
   std::map<const void*, std::string*> HostPtrToModuleStrMap;
@@ -117,7 +118,6 @@ class HIPxxDevice {
   /// Map host pointer to a function name
   std::map<const void*, std::string> HostPtrToNameMap;
 
- public:
   /// default constructor
   HIPxxDevice(){};
   /// default desctructor
@@ -142,6 +142,7 @@ class HIPxxDevice {
    * context array
    */
   HIPxxContext* get_default_context();
+  virtual std::string get_name() = 0;
 };
 
 /**
@@ -149,18 +150,23 @@ class HIPxxDevice {
  */
 class HIPxxQueue {
  protected:
-  /// Device on which this queue will execute
-  HIPxxDevice* xxDevice;
-  /// Context to which device belongs to
-  HIPxxContext* xxContext;
-
  public:
+  /// Device on which this queue will execute
+  HIPxxDevice* hipxx_device;
+  /// Context to which device belongs to
+  HIPxxContext* hipxx_context;
   HIPxxQueue(){};
   ~HIPxxQueue(){};
 
   /// Submit a kernel for execution
   virtual void submit(HIPxxExecItem* exec_item) {
     std::cout << "HIPxxQueue.submit() Base Call\n";
+  };
+
+  virtual std::string get_info() {
+    std::string info;
+    info = hipxx_device->get_name();
+    return info;
   };
 };
 
@@ -169,11 +175,11 @@ class HIPxxQueue {
  */
 class HIPxxBackend {
  protected:
-  std::vector<HIPxxContext*> xxContexts;
-  std::vector<HIPxxQueue*> xxQueues;
-  std::vector<HIPxxDevice*> xxDevices;
+  std::vector<HIPxxContext*> hipxx_contexts;
+  std::vector<HIPxxQueue*> hipxx_queues;
+  std::vector<HIPxxDevice*> hipxx_devices;
   /**
-   * @brief Modules stored in binary representation.
+   * @brief hipxx_modules stored in binary representation.
    * During compilation each translation unit is parsed for functions that are
    * marked for execution on the device. These functions are then compiled to
    * device code and stored in binary representation.
@@ -188,7 +194,7 @@ class HIPxxBackend {
                           std::string HIPxxDeviceStr) = 0;
 
   HIPxxQueue* get_default_queue() {
-    if (xxQueues.size() == 0) {
+    if (hipxx_queues.size() == 0) {
       logCritical(
           "HIPxxBackend.get_default_queue() was called but no queues have been "
           "initialized;\n",
@@ -196,13 +202,17 @@ class HIPxxBackend {
       std::abort();
     }
 
-    return xxQueues[0];
+    return hipxx_queues[0];
   };
-  std::vector<HIPxxDevice*> get_devices() { return xxDevices; }
-  size_t get_num_devices() { return xxDevices.size(); }
+  std::vector<HIPxxDevice*> get_devices() { return hipxx_devices; }
+  size_t get_num_devices() { return hipxx_devices.size(); }
   std::vector<std::string*> get_modules_str() { return ModulesStr; }
-  void add_context(HIPxxContext* ctx_in) { xxContexts.push_back(ctx_in); }
-  void add_queue(HIPxxQueue* q_in) { xxQueues.push_back(q_in); }
+  void add_context(HIPxxContext* ctx_in) { hipxx_contexts.push_back(ctx_in); }
+  void add_queue(HIPxxQueue* q_in) {
+    std::cout << "HIPxxBackend.add_queue()\n";
+    // logDebug("Adding queue for device %s\n", q_in->get_info().c_str());
+    hipxx_queues.push_back(q_in);
+  }
   void submit(HIPxxExecItem* _e) {
     std::cout << "HIPxxBackend.submit()\n";
     get_default_queue()->submit(_e);

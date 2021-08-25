@@ -41,40 +41,57 @@ class HIPxxExecItemOpenCL : public HIPxxExecItem {
 
 class HIPxxDeviceOpenCL : public HIPxxDevice {
  public:
-  cl::Device *dev;
-  cl::Context *ctx;
-  HIPxxDeviceOpenCL(cl::Device *dev_in, cl::Context *ctx_in) {
+  cl::Device *cl_dev;
+  cl::Context *cl_ctx;
+  HIPxxDeviceOpenCL(cl::Context *ctx_in, cl::Device *dev_in) {
     std::cout << "HIPxxDeviceOpenCL initialized via OpenCL device pointer and "
                  "context pointer\n";
-    dev = dev_in;
-    ctx = ctx_in;
+    cl_dev = dev_in;
+    cl_ctx = ctx_in;
   }
 
-  cl::Device *get_device() { return dev; }
-  cl::Context *get_context() { return ctx; }
+  virtual std::string get_name() override {
+    if (cl_dev == nullptr) {
+      logCritical("HIPxxDeviceOpenCL.get_name() called on uninitialized ptr\n",
+                  "");
+      std::abort();
+    }
+    return std::string(cl_dev->getInfo<CL_DEVICE_NAME>());
+  }
 };
 
 class HIPxxQueueOpenCL : public HIPxxQueue {
- public:
+ protected:
   // Any reason to make these private/protected?
-  cl::Context *ctx;
-  cl::Device *dev;
-  cl::CommandQueue *q;
+  cl::Context *cl_ctx;
+  cl::Device *cl_dev;
+  cl::CommandQueue *cl_q;
 
+ public:
   HIPxxQueueOpenCL() = delete;  // delete default constructor
   HIPxxQueueOpenCL(const HIPxxQueueOpenCL &) =
       delete;  // delete copy constructor
 
-  HIPxxQueueOpenCL(cl::Context *_ctx, cl::Device *_dev) {
+  // HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
+  //   std::cout << "HIPxxQueueOpenCL Initialized via context, device
+  //   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new
+  //   cl::CommandQueue(*cl_ctx, *cl_dev);
+  // };
+
+  // Can get device and context from one object? No - each device might have
+  // multiple contexts
+  HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
     std::cout << "HIPxxQueueOpenCL Initialized via context, device pointers\n";
-    ctx = _ctx;
-    dev = _dev;
-    q = new cl::CommandQueue(*ctx, *dev);
+    cl_ctx = _ctx->cl_ctx;
+    cl_dev = _dev->cl_dev;
+    cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
+    hipxx_device = _dev;
+    hipxx_context = _ctx;
   };
 
   ~HIPxxQueueOpenCL() {
-    delete ctx;
-    delete dev;
+    delete cl_ctx;
+    delete cl_dev;
   }
 
   virtual void submit(HIPxxExecItem *_e) override {
@@ -199,10 +216,15 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
 
     // Create context which has devices
     // Create queues that have devices each of which has an associated context
+    // TODO Change this to spirv_enabled_devices
     cl::Context *ctx = new cl::Context(enabled_devices);
-    cl::Device *dev = &enabled_devices[0];
-    HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(ctx, dev);
-    Backend->add_queue(queue);
+    HIPxxContextOpenCL *hipxx_context = new HIPxxContextOpenCL(ctx);
+    for (auto dev : enabled_devices) {
+      HIPxxDeviceOpenCL *hipxx_dev = new HIPxxDeviceOpenCL(ctx, &dev);
+      HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_context, hipxx_dev);
+      // std::cout << "Adding Queue " << queue->dev
+      Backend->add_queue(queue);
+    }
     std::cout << "OpenCL Context Initialized.\n";
   };
 };
