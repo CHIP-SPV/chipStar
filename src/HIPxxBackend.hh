@@ -65,9 +65,11 @@ class HIPxxKernel {
  */
 class HIPxxExecItem {
  protected:
-  /// Kernel to be executed
+  /// Kernel to be ejjxecuted
   HIPxxKernel* Kernel;
   // TODO Args
+ public:
+  virtual void run(){};
 };
 
 /**
@@ -157,9 +159,11 @@ class HIPxxQueue {
   ~HIPxxQueue(){};
 
   /// Initialize this queue for a given device
-  virtual void initialize(HIPxxDevice* dev) = 0;
+  virtual void initialize() = 0;
   /// Submit a kernel for execution
-  virtual void submit(HIPxxExecItem* exec_item) = 0;
+  virtual void submit(HIPxxExecItem* exec_item) {
+    std::cout << "HIPxxQueue.submit() Base Call\n";
+  };
 };
 
 /**
@@ -189,6 +193,16 @@ class HIPxxBackend {
   size_t get_num_devices() { return xxDevices.size(); }
   std::vector<std::string*> get_modules_str() { return ModulesStr; }
   void add_context(HIPxxContext* ctx_in) { xxContexts.push_back(ctx_in); }
+  void add_queue(HIPxxQueue* q_in) { xxQueues.push_back(q_in); }
+  void submit(HIPxxExecItem* _e) {
+    std::cout << "HIPxxBackend.submit()\n";
+    if (xxQueues.size() == 0) {
+      std::cout << "HIPxxBackend.submit() was called but no queues were "
+                   "initialized...\n";
+      std::abort();
+    }
+    xxQueues[0]->submit(_e);
+  };
 };
 
 #endif

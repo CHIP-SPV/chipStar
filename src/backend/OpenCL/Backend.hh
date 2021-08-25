@@ -24,6 +24,48 @@
 #include "../../HIPxxBackend.hh"
 #include "exceptions.hh"
 
+class HIPxxExecItemOpenCL : public HIPxxExecItem {
+ public:
+  virtual void run() override { std::cout << "HIPxxExecItemOpenCL run()\n"; };
+};
+
+class HIPxxDeviceOpenCL : public HIPxxDevice {
+ public:
+  cl::Device *dev;
+  cl::Context *ctx;
+  HIPxxDeviceOpenCL(cl::Device *dev_in, cl::Context *ctx_in) {
+    std::cout << "HIPxxDeviceOpenCL initialized via OpenCL device pointer and "
+                 "context pointer\n";
+    dev = dev_in;
+    ctx = ctx_in;
+  }
+
+  cl::Device *get_device() { return dev; }
+  cl::Context *get_context() { return ctx; }
+};
+
+class HIPxxQueueOpenCL : public HIPxxQueue {
+ protected:
+  cl::Context *ctx;
+  cl::Device *dev;
+
+ public:
+  cl::CommandQueue *q;
+
+  virtual void initialize() override {
+    std::cout << "HIPxxQueueOpenCL initialized via HIPxxDeviceOpenCL pointer\n";
+
+    q = new cl::CommandQueue(*ctx, *dev);
+  }
+
+  virtual void submit(HIPxxExecItem *_e) override {
+    std::cout << "HIPxxQueueOpenCL.submit()\n";
+    cl::Kernel kernel;  // HIPxxExecItem.get_kernel()
+    HIPxxExecItemOpenCL *e = (HIPxxExecItemOpenCL *)_e;
+    _e->run();
+  }
+};
+
 class HIPxxContextOpenCL : public HIPxxContext {
  protected:
   cl::Context *ctx;
@@ -42,13 +84,17 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     std::cout << "HIPxxBackendOpenCL Initialize\n";
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
-    if (err != CL_SUCCESS) return;
+    if (err != CL_SUCCESS) {
+      std::cout << "Failed to get OpenCL platforms! Exiting...\n";
+      return;
+    }
     std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
     for (int i = 0; i < Platforms.size(); i++) {
       std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>()
                 << "\n";
     }
 
+    std::vector<cl::Device> enabled_devices;
     std::vector<cl::Device> Devices;
     int selected_platform;
     int selected_device;
@@ -71,7 +117,6 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
                 << "\n";
 
       // Device  index in range?
-      std::vector<cl::Device> enabled_devices;
       err =  // Get All devices and print
           Platforms[selected_platform].getDevices(CL_DEVICE_TYPE_ALL, &Devices);
       for (int i = 0; i < Devices.size(); i++) {
@@ -127,24 +172,35 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       return;
     }
 
-    // Get All the devices on the selected platform of selected type
-    err = Platforms[selected_platform].getDevices(selected_dev_type, &Devices);
-
     std::vector<cl::Device> spirv_enabled_devices;
-    for (cl::Platform &platform : Platforms) {
-      for (cl::Device &dev : Devices) {
-        std::string ver = dev.getInfo<CL_DEVICE_IL_VERSION>(&err);
-        if ((err == CL_SUCCESS) && (ver.rfind("SPIR-V_1.", 0) == 0)) {
-          spirv_enabled_devices.push_back(dev);
-        }
+    for (cl::Device dev : enabled_devices) {
+      std::string ver = dev.getInfo<CL_DEVICE_IL_VERSION>(&err);
+      if ((err == CL_SUCCESS) && (ver.rfind("SPIR-V_1.", 0) == 0)) {
+        spirv_enabled_devices.push_back(dev);
       }
     }
 
-    // 1. Create a context for this device
-    cl::Context *ctx = new cl::Context(spirv_enabled_devices);
-    HIPxxContextOpenCL *HIPxxCtx = new HIPxxContextOpenCL(ctx);
-    Backend->add_context(HIPxxCtx);
+    // std::cout << "SPIR-V Enabled Devices: " << spirv_enabled_devices.size()
+    //          << "\n";
+    // for (int i = 0; i < spirv_enabled_devices.size(); i++) {
+    //  std::cout << i << ". "
+    //            << spirv_enabled_devices[i].getInfo<CL_DEVICE_NAME>() << "\n";
+    //}
+
+    // Create context which has devices
+    // Create queues that have devices each of which has an associated context
+    cl::Context *ctx = new cl::Context(enabled_devices);
+    cl::CommandQueue *clqueue = new cl::CommandQueue(*ctx, enabled_devices[0]);
+    HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL();
+    queue->q = clqueue;
+    // Backend->add_context(HIPxxCtx);
+    Backend->add_queue(queue);
+    std::cout << "OpenCL Context Initialized.\n";
   };
+
+  // virtual void submit(HIPxxExecItem *_e) override{
+  //   xxQueues[0]->submit(_e);
+  // };
 };
 
 #endif
