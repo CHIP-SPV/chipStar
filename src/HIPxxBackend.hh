@@ -175,9 +175,6 @@ class HIPxxQueue {
  */
 class HIPxxBackend {
  protected:
-  std::vector<HIPxxContext*> hipxx_contexts;
-  std::vector<HIPxxQueue*> hipxx_queues;
-  std::vector<HIPxxDevice*> hipxx_devices;
   /**
    * @brief hipxx_modules stored in binary representation.
    * During compilation each translation unit is parsed for functions that are
