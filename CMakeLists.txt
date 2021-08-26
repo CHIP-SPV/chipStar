@@ -12,8 +12,6 @@ find_package(Catch2 REQUIRED)
 
 # FetchContent_MakeAvailable(Catch2)
 
-add_executable(tests tests/TestHIPxxDriver.cc)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 
 set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang++)
 set(CMAKE_CXX_STANDARD 17)
@@ -42,6 +40,9 @@ target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_L
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
+
+add_executable(tests tests/TestHIPxxDriver.cc)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain HIPxx)
 
 #-DOpenCL_LIBRARY=/soft/libraries/khronos/loader/master-2021.01.04/lib64/libOpenCL.so.1.2 -DOpenCL_INCLUDE_DIR=/soft/libraries/khronos/headers/master-2021.01.04/include
 
