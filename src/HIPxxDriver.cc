@@ -19,34 +19,28 @@
 std::once_flag initialized;
 HIPxxBackend* Backend;
 
+std::string read_env_var(std::string ENV_VAR) {
+  const char* ENV_VAR_IN = std::getenv(ENV_VAR.c_str());
+  if (ENV_VAR_IN == nullptr) {
+    return std::string();
+  }
+
+  return std::string(ENV_VAR_IN);
+};
+
+std::string read_backend_selection();
+
 void read_env_vars(std::string& HIPxxPlatformStr,
                    std::string& HIPxxDeviceTypeStr,
                    std::string& HIPxxDeviceStr) {
-  const char* HIPxxPlatformStr_in = std::getenv("HIPXX_PLATFORM");
-  const char* HIPxxDeviceTypeStr_in = std::getenv("HIPXX_DEVICE_TYPE");
-  const char* HIPxxDeviceStr_in = std::getenv("HIPXX_DEVICE");
+  HIPxxPlatformStr = read_env_var("HIPXX_PLATFORM");
+  if (HIPxxPlatformStr.size() == 0) HIPxxPlatformStr = "0";
 
-  std::cout << "\n";
-  if (HIPxxPlatformStr_in == nullptr) {
-    std::cout << "HIPXX_PLATFORM unset. Using default.\n";
-    HIPxxPlatformStr = "0";
-  } else {
-    HIPxxPlatformStr = HIPxxPlatformStr_in;
-  }
+  HIPxxDeviceTypeStr = read_env_var("HIPXX_DEVICE_TYPE");
+  if (HIPxxDeviceTypeStr.size() == 0) HIPxxDeviceTypeStr = "default";
 
-  if (HIPxxDeviceTypeStr_in == nullptr) {
-    std::cout << "HIPXX_DEVICE_TYPE unset. Using default.\n";
-    HIPxxDeviceTypeStr = "default";
-  } else {
-    HIPxxDeviceTypeStr = HIPxxDeviceTypeStr_in;
-  }
-
-  if (HIPxxDeviceStr_in == nullptr) {
-    std::cout << "HIPXX_DEVICE unset. Using default.\n";
-    HIPxxDeviceStr = "0";
-  } else {
-    HIPxxDeviceStr = HIPxxDeviceStr_in;
-  }
+  HIPxxDeviceStr = read_env_var("HIPXX_DEVICE");
+  if (HIPxxDeviceStr.size() == 0) HIPxxDeviceStr = "0";
 
   std::cout << "\n";
   std::cout << "HIPXX_PLATFORM=" << HIPxxPlatformStr << std::endl;
@@ -60,9 +54,21 @@ void _initialize(std::string BE) {
   read_env_vars(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
   std::cout << "HIPxxDriver Initialize\n";
   // Get the current Backend Env Var
-  Backend = new HIPxxBackendOpenCL();
+  std::string HIPXX_BE = read_env_var("HIPXX_BE");
+  if (!HIPXX_BE.compare("OPENCL")) {
+    Backend = new HIPxxBackendOpenCL();
+  } else if (!HIPXX_BE.compare("LEVEL0")) {
+    std::cout << "LEVEL0 Backend not yet implemented\n";
+    std::abort();
+  } else if (!HIPXX_BE.compare("")) {
+    std::cout << "HIPXX_BE was not set. Defaulting to OPENCL\n";
+    Backend = new HIPxxBackendOpenCL();
+  } else {
+    std::cout << "Invalid Backend Selection\n";
+    std::abort();
+  }
   Backend->initialize(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
-};
+}
 
 void initialize(std::string BE) {
   std::call_once(initialized, &_initialize, BE);
