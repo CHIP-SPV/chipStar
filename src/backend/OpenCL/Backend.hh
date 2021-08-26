@@ -110,8 +110,8 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
     if (err != CL_SUCCESS) {
-      std::cout << "Failed to get OpenCL platforms! Exiting...\n";
-      return;
+      std::cout << "Failed to get OpenCL platforms!\n";
+      std::abort();
     }
     std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
     for (int i = 0; i < Platforms.size(); i++) {
