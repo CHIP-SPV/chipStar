@@ -187,6 +187,9 @@ class HIPxxBackend {
   std::vector<std::string*> ModulesStr;
 
  public:
+  std::vector<HIPxxContext*> hipxx_contexts;
+  std::vector<HIPxxQueue*> hipxx_queues;
+  std::vector<HIPxxDevice*> hipxx_devices;
   HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
   ~HIPxxBackend(){};
   virtual void initialize(std::string HIPxxPlatformStr,
@@ -213,6 +216,7 @@ class HIPxxBackend {
     // logDebug("Adding queue for device %s\n", q_in->get_info().c_str());
     hipxx_queues.push_back(q_in);
   }
+  void add_device(HIPxxDevice* dev_in) {hipxx_devices.push_back(dev_in);}
   void submit(HIPxxExecItem* _e) {
     std::cout << "HIPxxBackend.submit()\n";
     get_default_queue()->submit(_e);

@@ -218,8 +218,10 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     // TODO Change this to spirv_enabled_devices
     cl::Context *ctx = new cl::Context(enabled_devices);
     HIPxxContextOpenCL *hipxx_context = new HIPxxContextOpenCL(ctx);
+    Backend->add_context(hipxx_context);
     for (auto dev : enabled_devices) {
       HIPxxDeviceOpenCL *hipxx_dev = new HIPxxDeviceOpenCL(ctx, &dev);
+      Backend->add_device(hipxx_dev);
       HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_context, hipxx_dev);
       // std::cout << "Adding Queue " << queue->dev
       Backend->add_queue(queue);
