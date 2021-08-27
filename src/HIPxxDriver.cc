@@ -54,7 +54,16 @@ void _initialize(std::string BE) {
   read_env_vars(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
   std::cout << "HIPxxDriver Initialize\n";
   // Get the current Backend Env Var
-  std::string HIPXX_BE = read_env_var("HIPXX_BE");
+
+  
+  // If no BE is passed to init explicitly, read env var
+  std::string HIPXX_BE;
+  if (BE.size() == 0) {
+    HIPXX_BE = read_env_var("HIPXX_BE");
+  } else {
+    HIPXX_BE = BE;
+  }
+
   if (!HIPXX_BE.compare("OPENCL")) {
     Backend = new HIPxxBackendOpenCL();
   } else if (!HIPXX_BE.compare("LEVEL0")) {
