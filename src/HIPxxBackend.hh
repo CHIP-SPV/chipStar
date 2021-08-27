@@ -30,6 +30,7 @@ class HIPxxBackend;
 
 #include "HIPxxDriver.hh"
 #include "temporary.hh"
+#include "logging.hh"
 
 class HIPxxModule {
  protected:
