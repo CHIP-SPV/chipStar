@@ -52,7 +52,7 @@ void read_env_vars(std::string& HIPxxPlatformStr,
 void _initialize(std::string BE) {
   std::string HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr;
   read_env_vars(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
-  std::cout << "HIPxxDriver Initialize\n";
+  logDebug("HIPxxDriver Initialize");
   // Get the current Backend Env Var
 
   
@@ -67,13 +67,13 @@ void _initialize(std::string BE) {
   if (!HIPXX_BE.compare("OPENCL")) {
     Backend = new HIPxxBackendOpenCL();
   } else if (!HIPXX_BE.compare("LEVEL0")) {
-    std::cout << "LEVEL0 Backend not yet implemented\n";
+    logCritical("LEVEL0 Backend not yet implemented");
     std::abort();
   } else if (!HIPXX_BE.compare("")) {
-    std::cout << "HIPXX_BE was not set. Defaulting to OPENCL\n";
+    logWarn("HIPXX_BE was not set. Defaulting to OPENCL");
     Backend = new HIPxxBackendOpenCL();
   } else {
-    std::cout << "Invalid Backend Selection\n";
+    logCritical("Invalid Backend Selection");
     std::abort();
   }
   Backend->initialize(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);

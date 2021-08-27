@@ -29,8 +29,8 @@ class HIPxxKernel;
 class HIPxxBackend;
 
 #include "HIPxxDriver.hh"
-#include "temporary.hh"
 #include "logging.hh"
+#include "temporary.hh"
 
 class HIPxxModule {
  protected:
@@ -161,7 +161,7 @@ class HIPxxQueue {
 
   /// Submit a kernel for execution
   virtual void submit(HIPxxExecItem* exec_item) {
-    std::cout << "HIPxxQueue.submit() Base Call\n";
+    logDebug("HIPxxQueue.submit() Base Call");
   };
 
   virtual std::string get_info() {
@@ -188,7 +188,7 @@ class HIPxxBackend {
   std::vector<HIPxxContext*> hipxx_contexts;
   std::vector<HIPxxQueue*> hipxx_queues;
   std::vector<HIPxxDevice*> hipxx_devices;
-  HIPxxBackend() { std::cout << "HIPxxBackend Base Constructor\n"; };
+  HIPxxBackend() { logDebug("HIPxxBackend Base Constructor"); };
   ~HIPxxBackend(){};
   virtual void initialize(std::string HIPxxPlatformStr,
                           std::string HIPxxDeviceTypeStr,
@@ -210,13 +210,12 @@ class HIPxxBackend {
   std::vector<std::string*> get_modules_str() { return ModulesStr; }
   void add_context(HIPxxContext* ctx_in) { hipxx_contexts.push_back(ctx_in); }
   void add_queue(HIPxxQueue* q_in) {
-    std::cout << "HIPxxBackend.add_queue()\n";
-    // logDebug("Adding queue for device %s\n", q_in->get_info().c_str());
+    logDebug("HIPxxBackend.add_queue()");
     hipxx_queues.push_back(q_in);
   }
-  void add_device(HIPxxDevice* dev_in) {hipxx_devices.push_back(dev_in);}
+  void add_device(HIPxxDevice* dev_in) { hipxx_devices.push_back(dev_in); }
   void submit(HIPxxExecItem* _e) {
-    std::cout << "HIPxxBackend.submit()\n";
+    logDebug("HIPxxBackend.submit()");
     get_default_queue()->submit(_e);
   };
 };

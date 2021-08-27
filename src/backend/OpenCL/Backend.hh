@@ -28,7 +28,7 @@ class HIPxxContextOpenCL : public HIPxxContext {
  public:
   cl::Context *cl_ctx;
   HIPxxContextOpenCL(cl::Context *ctx_in) {
-    std::cout << "HIPxxContextOpenCL Initialized via OpenCL Context pointer.\n";
+    logDebug("HIPxxContextOpenCL Initialized via OpenCL Context pointer.");
     cl_ctx = ctx_in;
   }
 };
@@ -36,7 +36,7 @@ class HIPxxContextOpenCL : public HIPxxContext {
 class HIPxxExecItemOpenCL : public HIPxxExecItem {
  public:
   cl::Kernel *kernel;
-  virtual void run() override { std::cout << "HIPxxExecItemOpenCL run()\n"; };
+  virtual void run() override { logDebug("HIPxxExecItemOpenCL run()\n"); };
 };
 
 class HIPxxDeviceOpenCL : public HIPxxDevice {
@@ -44,16 +44,14 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
   cl::Device *cl_dev;
   cl::Context *cl_ctx;
   HIPxxDeviceOpenCL(cl::Context *ctx_in, cl::Device *dev_in) {
-    std::cout << "HIPxxDeviceOpenCL initialized via OpenCL device pointer and "
-                 "context pointer\n";
+    logDebug("HIPxxDeviceOpenCL initialized via OpenCL device pointer and context pointer");
     cl_dev = dev_in;
     cl_ctx = ctx_in;
   }
 
   virtual std::string get_name() override {
     if (cl_dev == nullptr) {
-      logCritical("HIPxxDeviceOpenCL.get_name() called on uninitialized ptr\n",
-                  "");
+      logCritical("HIPxxDeviceOpenCL.get_name() called on uninitialized ptr");
       std::abort();
     }
     return std::string(cl_dev->getInfo<CL_DEVICE_NAME>());
@@ -81,7 +79,7 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
   // Can get device and context from one object? No - each device might have
   // multiple contexts
   HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
-    std::cout << "HIPxxQueueOpenCL Initialized via context, device pointers\n";
+    logDebug("HIPxxQueueOpenCL Initialized via context, device pointers");
     cl_ctx = _ctx->cl_ctx;
     cl_dev = _dev->cl_dev;
     cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
@@ -95,7 +93,7 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
   }
 
   virtual void submit(HIPxxExecItem *_e) override {
-    std::cout << "HIPxxQueueOpenCL.submit()\n";
+    logDebug("HIPxxQueueOpenCL.submit()");
     HIPxxExecItemOpenCL *e = (HIPxxExecItemOpenCL *)_e;
     cl::Kernel kernel;  // HIPxxExecItem.get_kernel()
     _e->run();
@@ -106,11 +104,11 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
  public:
   void initialize(std::string HIPxxPlatformStr, std::string HIPxxDeviceTypeStr,
                   std::string HIPxxDeviceStr) override {
-    std::cout << "HIPxxBackendOpenCL Initialize\n";
+    logDebug("HIPxxBackendOpenCL Initialize");
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
     if (err != CL_SUCCESS) {
-      std::cout << "Failed to get OpenCL platforms!\n" << err <<std::endl;
+      logCritical("Failed to get OpenCL platforms! {}", err);
       std::abort();
     }
     std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
@@ -180,20 +178,16 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       std::cout << "Using Devices of type " << HIPxxDeviceTypeStr << "\n";
 
     } catch (const InvalidDeviceType &e) {
-      // logCritical("{}\n", e.what());
-      logCritical("\nInvalidDeviceType", "");
+      logCritical("{}\n", e.what());
       return;
     } catch (const InvalidPlatformOrDeviceNumber &e) {
-      // logCritical("{}\n", e.what());
-      logCritical("\nInvalidPlatformOrDeviceNumber", "");
+      logCritical("{}\n", e.what());
       return;
     } catch (const std::invalid_argument &e) {
-      logCritical(
-          "\nCould not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number\n",
-          "");
+      logCritical("Could not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number");
       return;
     } catch (const std::out_of_range &e) {
-      logCritical("\nHIPXX_PLATFORM or HIPXX_DEVICES is out of range\n", "");
+      logCritical("HIPXX_PLATFORM or HIPXX_DEVICES is out of range", "");
       return;
     }
 
@@ -223,7 +217,6 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       HIPxxDeviceOpenCL *hipxx_dev = new HIPxxDeviceOpenCL(ctx, &dev);
       Backend->add_device(hipxx_dev);
       HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_context, hipxx_dev);
-      // std::cout << "Adding Queue " << queue->dev
       Backend->add_queue(queue);
     }
     std::cout << "OpenCL Context Initialized.\n";
