@@ -12,6 +12,16 @@ extern std::once_flag SpdlogWasSetup;
 extern void setupSpdlog();
 extern void _setupSpdlog();
 
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_TRACE
+template <typename... Args>
+void logTrace(const char *fmt, const Args &...args) {
+  setupSpdlog();
+  spdlog::trace(fmt, std::forward<const Args>(args)...);
+}
+#else
+#define logDebug(...) void(0)
+#endif
+
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
 template <typename... Args>
 void logDebug(const char *fmt, const Args &...args) {
