@@ -49,13 +49,12 @@ void read_env_vars(std::string& HIPxxPlatformStr,
   std::cout << "\n";
 };
 
-void _initialize(std::string BE) {
+void HIPxxInitializeCallOnce(std::string BE) {
   std::string HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr;
   read_env_vars(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
   logDebug("HIPxxDriver Initialize");
   // Get the current Backend Env Var
 
-  
   // If no BE is passed to init explicitly, read env var
   std::string HIPXX_BE;
   if (BE.size() == 0) {
@@ -79,6 +78,6 @@ void _initialize(std::string BE) {
   Backend->initialize(HIPxxPlatformStr, HIPxxDeviceTypeStr, HIPxxDeviceStr);
 }
 
-void initialize(std::string BE) {
-  std::call_once(initialized, &_initialize, BE);
+extern void HIPxxInitialize(std::string BE) {
+  std::call_once(initialized, &HIPxxInitializeCallOnce, BE);
 };

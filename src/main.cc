@@ -7,8 +7,7 @@ void testf() { std::cout << "Test Function Executed\n"; }
 
 int main() {
   std::cout << "Hello, World!\n";
-  initialize();
-  initialize();
+  HIPxxInitialize();
 
   HIPxxExecItem ex;
   Backend->submit(&ex);

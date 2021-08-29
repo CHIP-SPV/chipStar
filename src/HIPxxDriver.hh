@@ -34,13 +34,13 @@ extern std::once_flag initialized;
  * @brief
  * Singleton backend initialization function outer wrapper
  */
-extern void initialize(std::string BE = "");
+extern void HIPxxInitialize(std::string BE = "");
 
 /**
  * @brief
  * Singleton backend initialization function called via std::call_once
  */
-void _initialize(std::string BE = "");
+void HIPxxInitializeCallOnce(std::string BE = "");
 
 std::string read_env_var(std::string ENV_VAR);
 std::string read_backend_selection();

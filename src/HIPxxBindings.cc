@@ -26,7 +26,7 @@
 static unsigned binaries_loaded = 0;
 
 extern "C" void **__hipRegisterFatBinary(const void *data) {
-  Backend->initialize();
+  HIPxxInitialize();
 
   const __CudaFatBinaryWrapper *fbwrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(data);
@@ -82,7 +82,7 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
 
   logDebug("Register module: {} \n", (void *)module);
 
-  Backend->get_modules_str.push_back(module);
+  Backend->get_modules_str().push_back(module);
   ++binaries_loaded;
 
   return (void **)module;
@@ -94,7 +94,7 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
                                       unsigned int threadLimit, void *tid,
                                       void *bid, dim3 *blockDim, dim3 *gridDim,
                                       int *wSize) {
-  Backend->initialize();
+  HIPxxInitialize();
   std::string *module_str = reinterpret_cast<std::string *>(data);
 
   std::string devFunc = deviceFunction;

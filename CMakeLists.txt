@@ -38,7 +38,12 @@ add_compile_options(-Wno-format-extra-args)
 include_directories(src backend include . ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
-set(HIPXX_SRC src/HIPxxDriver.cc src/HIPxxBackend.cc src/logging.cc)
+set(HIPXX_SRC 
+    src/HIPxxDriver.cc 
+    src/HIPxxBackend.cc 
+    src/logging.cc
+    src/HIPxxBindings.cc
+)
 set(DRIVER_SRC src/main.cc)
 
 add_library(HIPxx SHARED ${HIPXX_SRC})
