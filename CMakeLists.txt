@@ -13,7 +13,9 @@ find_package(Catch2 REQUIRED)
 # FetchContent_MakeAvailable(Catch2)
 
 
-set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang++)
+#set(CMAKE_CXX_COMPILER /soft/compilers/llvm/release-12.0.1/bin/clang++)
+set(CMAKE_CXX_COMPILER /soft/compilers/clang-hipcl/13.0-experimental/bin/clang++)
+set(CMAKE_C_COMPILER /soft/compilers/clang-hipcl/13.0-experimental/bin/clang)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
