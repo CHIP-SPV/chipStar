@@ -17,6 +17,7 @@
 #include "backend/backends.hh"
 
 std::once_flag initialized;
+std::once_flag uninitialized;
 HIPxxBackend* Backend;
 
 std::string read_env_var(std::string ENV_VAR) {
@@ -81,3 +82,12 @@ void HIPxxInitializeCallOnce(std::string BE) {
 extern void HIPxxInitialize(std::string BE) {
   std::call_once(initialized, &HIPxxInitializeCallOnce, BE);
 };
+
+void HIPxxUninitializeCallOnce() {
+  logTrace("Uninitializing HIPxx...");
+  Backend->uninitialize();
+}
+
+extern void HIPxxUninitialize() {
+  std::call_once(uninitialized, &HIPxxUninitializeCallOnce);
+}

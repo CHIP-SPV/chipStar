@@ -82,10 +82,27 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
 
   logDebug("Register module: {} \n", (void *)module);
 
-  Backend->get_modules_str().push_back(module);
+  Backend->register_module(module);
+
   ++binaries_loaded;
 
   return (void **)module;
+}
+
+extern "C" void __hipUnregisterFatBinary(void *data) {
+  std::string *module = reinterpret_cast<std::string *>(data);
+
+  logDebug("Unregister module: {} \n", (void *)module);
+  Backend->unregister_module(module);
+
+  --binaries_loaded;
+  logDebug("__hipUnRegisterFatBinary {}\n", binaries_loaded);
+
+  if (binaries_loaded == 0) {
+    HIPxxUninitialize();
+  }
+
+  delete module;
 }
 
 extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,

@@ -225,7 +225,7 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     std::cout << "OpenCL Context Initialized.\n";
   };
 
-  void uninitialize() {
+  void uninitialize() override {
     logTrace("HIPxxBackendOpenCL uninitializing");
     logWarn("HIPxxBackendOpenCL->uninitialize() not implemented");
   }

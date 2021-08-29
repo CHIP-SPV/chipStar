@@ -194,6 +194,8 @@ class HIPxxBackend {
                           std::string HIPxxDeviceTypeStr,
                           std::string HIPxxDeviceStr) = 0;
 
+  virtual void uninitialize() = 0;
+
   HIPxxQueue* get_default_queue() {
     if (hipxx_queues.size() == 0) {
       logCritical(
@@ -217,6 +219,24 @@ class HIPxxBackend {
   void submit(HIPxxExecItem* _e) {
     logDebug("HIPxxBackend.submit()");
     get_default_queue()->submit(_e);
+  };
+
+  void register_module(std::string* mod_str) {
+    logTrace("HIPxxBackend->register_module()");
+    get_modules_str().push_back(mod_str);
+  };
+
+  void unregister_module(std::string* mod_str) {
+    logTrace("HIPxxBackend->unregister_module()");
+    auto found_mod = std::find(ModulesStr.begin(), ModulesStr.end(), mod_str);
+    if (found_mod != ModulesStr.end()) {
+      get_modules_str().erase(found_mod);
+    } else {
+      logWarn(
+          "Module {} not found in HIPxxBackend.ModulesStr while trying to "
+          "unregister",
+          (void*)mod_str);
+    }
   };
 };
 

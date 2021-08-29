@@ -29,6 +29,7 @@ extern HIPxxBackend* Backend;
  * Singleton backend initialization flag
  */
 extern std::once_flag initialized;
+extern std::once_flag uninitialized;
 
 /**
  * @brief
@@ -38,9 +39,21 @@ extern void HIPxxInitialize(std::string BE = "");
 
 /**
  * @brief
+ * Singleton backend initialization function outer wrapper
+ */
+extern void HIPxxUninitialize();
+
+/**
+ * @brief
  * Singleton backend initialization function called via std::call_once
  */
 void HIPxxInitializeCallOnce(std::string BE = "");
+
+/**
+ * @brief
+ * Singleton backend uninitialization function called via std::call_once
+ */
+void HIPxxUninitializeCallOnce();
 
 std::string read_env_var(std::string ENV_VAR);
 std::string read_backend_selection();
