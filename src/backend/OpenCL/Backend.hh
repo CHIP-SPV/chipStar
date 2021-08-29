@@ -44,7 +44,9 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
   cl::Device *cl_dev;
   cl::Context *cl_ctx;
   HIPxxDeviceOpenCL(cl::Context *ctx_in, cl::Device *dev_in) {
-    logDebug("HIPxxDeviceOpenCL initialized via OpenCL device pointer and context pointer");
+    logDebug(
+        "HIPxxDeviceOpenCL initialized via OpenCL device pointer and context "
+        "pointer");
     cl_dev = dev_in;
     cl_ctx = ctx_in;
   }
@@ -184,7 +186,8 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       logCritical("{}\n", e.what());
       return;
     } catch (const std::invalid_argument &e) {
-      logCritical("Could not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number");
+      logCritical(
+          "Could not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number");
       return;
     } catch (const std::out_of_range &e) {
       logCritical("HIPXX_PLATFORM or HIPXX_DEVICES is out of range", "");
@@ -221,6 +224,11 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     }
     std::cout << "OpenCL Context Initialized.\n";
   };
+
+  void uninitialize() {
+    logTrace("HIPxxBackendOpenCL uninitializing");
+    logWarn("HIPxxBackendOpenCL->uninitialize() not implemented");
+  }
 };
 
 #endif
