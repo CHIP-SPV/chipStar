@@ -292,6 +292,7 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
   std::string devFunc = deviceFunction;
   logDebug("RegisterFunction on module {}\n", (void *)module_str);
 
+  logDebug("RegisterFunction on {} devices", Backend->get_num_devices());
   for (HIPxxDevice *dev : Backend->get_devices()) {
     if (dev->registerFunction(module_str, hostFunction, deviceName)) {
       logDebug("__hipRegisterFunction: kernel {} found\n", deviceName);

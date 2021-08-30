@@ -221,7 +221,7 @@ class HIPxxBackend {
    * marked for execution on the device. These functions are then compiled to
    * device code and stored in binary representation.
    *  */
-  std::vector<std::string*> ModulesStr;
+  std::vector<std::string*> modules_str;
 
  public:
   std::vector<HIPxxContext*> hipxx_contexts;
@@ -260,7 +260,7 @@ class HIPxxBackend {
 
   std::vector<HIPxxDevice*> get_devices() { return hipxx_devices; }
   size_t get_num_devices() { return hipxx_devices.size(); }
-  std::vector<std::string*> get_modules_str() { return ModulesStr; }
+  std::vector<std::string*>& get_modules_str() { return modules_str; }
   void add_context(HIPxxContext* ctx_in) { hipxx_contexts.push_back(ctx_in); }
   void add_queue(HIPxxQueue* q_in) {
     logDebug("HIPxxBackend.add_queue()");
@@ -279,8 +279,8 @@ class HIPxxBackend {
 
   void unregister_module(std::string* mod_str) {
     logTrace("HIPxxBackend->unregister_module()");
-    auto found_mod = std::find(ModulesStr.begin(), ModulesStr.end(), mod_str);
-    if (found_mod != ModulesStr.end()) {
+    auto found_mod = std::find(modules_str.begin(), modules_str.end(), mod_str);
+    if (found_mod != modules_str.end()) {
       get_modules_str().erase(found_mod);
     } else {
       logWarn(
