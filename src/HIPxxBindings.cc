@@ -19,6 +19,7 @@
 #include "HIPxxBackend.hh"
 #include "HIPxxDriver.hh"
 #include "hip/hip_fatbin.h"
+#include "hip/hip.hh"
 #include "temporary.hh"
 
 #define SPIR_TRIPLE "hip-spir64-unknown-unknown"
@@ -129,6 +130,16 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
   // Put the function information into a temproary storage
   // LZDriver::RegFunctions.push_back(
   //    std::make_tuple(module, hostFunction, deviceName));
+}
+
+hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
+  logTrace("hipSetupArgument");
+  HIPxxInitialize();
+
+  // LZContext *lzCtx = getTlsDefaultLzCtx();
+  // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
+  // RETURN(lzCtx->setArg(arg, size, offset));
+  return hipSuccess;
 }
 
 #endif
