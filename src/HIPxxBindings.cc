@@ -26,6 +26,26 @@
 
 static unsigned binaries_loaded = 0;
 
+hipError_t hipEventCreate(hipEvent_t *event) {
+  return hipEventCreateWithFlags(event, 0);
+}
+
+hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
+  HIPxxInitialize();
+
+  ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  // hipEvent_t EventPtr = cont->createEvent(flags);
+  // TODO
+  hipEvent_t EventPtr;
+  if (EventPtr) {
+    *event = EventPtr;
+    RETURN(hipSuccess);
+  } else {
+    RETURN(hipErrorOutOfMemory);
+  }
+}
+
 extern "C" void **__hipRegisterFatBinary(const void *data) {
   HIPxxInitialize();
 

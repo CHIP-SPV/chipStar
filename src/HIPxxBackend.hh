@@ -21,16 +21,54 @@
 #include <string>
 #include <vector>
 
+#include "include/hip/hip.hh"
+
 // Forward Declarations
 class HIPxxDevice;
 class HIPxxContext;
 class HIPxxModule;
 class HIPxxKernel;
 class HIPxxBackend;
+class HIPxxEvent;
+class HIPxxQueue;
 
 #include "HIPxxDriver.hh"
 #include "logging.hh"
 #include "temporary.hh"
+
+class HIPxxEvent {
+ protected:
+  std::mutex mutex;
+  HIPxxQueue* hipxx_queue;
+  event_status_e status;
+  unsigned flags;
+  HIPxxContext* hipxx_context;
+
+ public:
+  HIPxxEvent(HIPxxContext* ctx_in, unsigned flags_in)
+      : status(EVENT_STATUS_INIT), flags(flags_in), hipxx_context(ctx_in) {}
+
+  HIPxxEvent() {
+    // TODO:
+  }
+
+  virtual ~HIPxxEvent() {
+    // TODO
+    // if (Event) delete Event;
+  }
+
+  // virtual uint64_t getFinishTime();
+  // virtual cl::Event getEvent() { return *Event; }
+  // virtual bool isFromContext(cl::Context& Other) { return (Context == Other);
+  // } virtual bool isFromStream(hipStream_t& Other) { return (Stream == Other);
+  // } virtual bool isFinished() const { return (Status ==
+  // EVENT_STATUS_RECORDED); } virtual bool isRecordingOrRecorded() const {
+  //   return (Status >= EVENT_STATUS_RECORDING);
+  // }
+  // virtual bool recordStream(hipStream_t S, cl_event E);
+  // virtual bool updateFinishStatus();
+  // virtual bool wait();
+};
 
 class HIPxxModule {
  protected:

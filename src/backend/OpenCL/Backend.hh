@@ -24,6 +24,12 @@
 #include "../../HIPxxBackend.hh"
 #include "exceptions.hh"
 
+class HIPxxContextOpenCL;
+class HIPxxEventOpenCL : public HIPxxEvent {
+ protected:
+  cl::Event *cl_event;
+};
+
 class HIPxxContextOpenCL : public HIPxxContext {
  public:
   cl::Context *cl_ctx;
