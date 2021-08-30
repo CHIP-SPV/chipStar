@@ -1,3 +1,6 @@
+#ifndef HIP_H
+#define HIP_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -36,26 +39,24 @@
 #define HIP_KERNEL_NAME(...) __VA_ARGS__
 #define HIP_SYMBOL(X) #X
 
-#define HIP_DYNAMIC_SHARED(type, var) \
-       __shared__ type var[4294967295];
+#define HIP_DYNAMIC_SHARED(type, var) __shared__ type var[4294967295];
 
 #define HIP_DYNAMIC_SHARED_ATTRIBUTE
 
-
 typedef int hipLaunchParm;
 
-#define hipLaunchKernel(kernelName, numblocks, numthreads, memperblock,        \
-                        streamId, ...)                                         \
-  do {                                                                         \
-    kernelName<<<(numblocks), (numthreads), (memperblock), (streamId)>>>(      \
-        hipLaunchParm{}, ##__VA_ARGS__);                                       \
+#define hipLaunchKernel(kernelName, numblocks, numthreads, memperblock,   \
+                        streamId, ...)                                    \
+  do {                                                                    \
+    kernelName<<<(numblocks), (numthreads), (memperblock), (streamId)>>>( \
+        hipLaunchParm{}, ##__VA_ARGS__);                                  \
   } while (0)
 
-#define hipLaunchKernelGGL(kernelName, numblocks, numthreads, memperblock,     \
-                           streamId, ...)                                      \
-  do {                                                                         \
-    kernelName<<<(numblocks), (numthreads), (memperblock), (streamId)>>>(      \
-        __VA_ARGS__);                                                          \
+#define hipLaunchKernelGGL(kernelName, numblocks, numthreads, memperblock, \
+                           streamId, ...)                                  \
+  do {                                                                     \
+    kernelName<<<(numblocks), (numthreads), (memperblock), (streamId)>>>(  \
+        __VA_ARGS__);                                                      \
   } while (0)
 
 #pragma push_macro("__DEVICE__")
@@ -81,8 +82,8 @@ __DEVICE__ uint __hip_get_grid_dim_x() { return _Z14get_num_groupsj(0); }
 __DEVICE__ uint __hip_get_grid_dim_y() { return _Z14get_num_groupsj(1); }
 __DEVICE__ uint __hip_get_grid_dim_z() { return _Z14get_num_groupsj(2); }
 
-#define __HIP_DEVICE_BUILTIN(DIMENSION, FUNCTION)                              \
-  __declspec(property(get = __get_##DIMENSION)) uint DIMENSION;                \
+#define __HIP_DEVICE_BUILTIN(DIMENSION, FUNCTION)               \
+  __declspec(property(get = __get_##DIMENSION)) uint DIMENSION; \
   __DEVICE__ uint __get_##DIMENSION(void) { return FUNCTION; }
 
 struct __hip_builtin_threadIdx_t {
@@ -135,7 +136,7 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 #define hipGridDim_y gridDim.y
 #define hipGridDim_z gridDim.z
 
-#endif // defined(__clang__) && defined(__HIP__)
+#endif  // defined(__clang__) && defined(__HIP__)
 
 /*************************************************************************************************/
 
@@ -155,12 +156,12 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
  * Memory type (for pointer attributes)
  */
 typedef enum hipMemoryType {
-  hipMemoryTypeHost,   ///< Memory is physically located on host
-  hipMemoryTypeDevice, ///< Memory is physically located on device. (see
-                       ///< deviceId for specific device)
-  hipMemoryTypeArray,  ///< Array memory, physically located on device. (see
-                       ///< deviceId for specific device)
-  hipMemoryTypeUnified ///< Not used currently
+  hipMemoryTypeHost,    ///< Memory is physically located on host
+  hipMemoryTypeDevice,  ///< Memory is physically located on device. (see
+                        ///< deviceId for specific device)
+  hipMemoryTypeArray,   ///< Array memory, physically located on device. (see
+                        ///< deviceId for specific device)
+  hipMemoryTypeUnified  ///< Not used currently
 } hipMemoryType;
 
 typedef struct hipFuncAttributes {
@@ -194,7 +195,7 @@ typedef struct hipChannelFormatDesc {
 
 typedef struct hipResourceDesc {
   int resType;
-  void * res;
+  void *res;
 } hipResourceDesc;
 
 typedef struct hipTextureDesc {
@@ -290,8 +291,8 @@ typedef struct hipPitchedPtr {
 } hipPitchedPtr;
 
 typedef struct hipExtent {
-  size_t width; // Width in elements when referring to array memory, in bytes
-                // when referring to linear memory
+  size_t width;  // Width in elements when referring to array memory, in bytes
+                 // when referring to linear memory
   size_t height;
   size_t depth;
 } hipExtent;
@@ -303,12 +304,12 @@ typedef struct hipPos {
 } hipPos;
 
 typedef enum hipMemcpyKind {
-  hipMemcpyHostToHost = 0,     ///< Host-to-Host Copy
-  hipMemcpyHostToDevice = 1,   ///< Host-to-Device Copy
-  hipMemcpyDeviceToHost = 2,   ///< Device-to-Host Copy
-  hipMemcpyDeviceToDevice = 3, ///< Device-to-Device Copy
-  hipMemcpyDefault = 4 ///< Runtime will automatically determine copy-kind based
-                       ///< on virtual addresses.
+  hipMemcpyHostToHost = 0,      ///< Host-to-Host Copy
+  hipMemcpyHostToDevice = 1,    ///< Host-to-Device Copy
+  hipMemcpyDeviceToHost = 2,    ///< Device-to-Host Copy
+  hipMemcpyDeviceToDevice = 3,  ///< Device-to-Device Copy
+  hipMemcpyDefault = 4  ///< Runtime will automatically determine copy-kind
+                        ///< based on virtual addresses.
 } hipMemcpyKind;
 
 typedef struct hipMemcpy3DParms {
@@ -357,7 +358,7 @@ typedef struct hipMemcpy3DParms {
 #endif
 
 typedef enum __HIP_NODISCARD hipError_t {
-  hipSuccess = 0, ///< Successful completion.
+  hipSuccess = 0,  ///< Successful completion.
   hipErrorOutOfMemory = 2,
   hipErrorNotInitialized = 3,
   hipErrorDeinitialized = 4,
@@ -367,7 +368,7 @@ typedef enum __HIP_NODISCARD hipError_t {
   hipErrorProfilerAlreadyStopped = 8,
   hipErrorInsufficientDriver = 35,
   hipErrorInvalidImage = 200,
-  hipErrorInvalidContext = 201, ///< Produced when input context is invalid.
+  hipErrorInvalidContext = 201,  ///< Produced when input context is invalid.
   hipErrorContextAlreadyCurrent = 202,
   hipErrorMapFailed = 205,
   hipErrorUnmapFailed = 206,
@@ -383,7 +384,7 @@ typedef enum __HIP_NODISCARD hipError_t {
   hipErrorContextAlreadyInUse = 216,
   hipErrorPeerAccessUnsupported = 217,
   hipErrorInvalidKernelFile =
-      218, ///< In CUDA DRV, it is CUDA_ERROR_INVALID_PTX
+      218,  ///< In CUDA DRV, it is CUDA_ERROR_INVALID_PTX
   hipErrorInvalidGraphicsContext = 219,
   hipErrorInvalidSource = 300,
   hipErrorFileNotFound = 301,
@@ -398,134 +399,134 @@ typedef enum __HIP_NODISCARD hipError_t {
   hipErrorNotSupported = 801,
   // Runtime Error Codes start here.
   hipErrorMissingConfiguration = 1001,
-  hipErrorMemoryAllocation = 1002, ///< Memory allocation error.
+  hipErrorMemoryAllocation = 1002,  ///< Memory allocation error.
   hipErrorInitializationError =
-      1003, ///< TODO comment from hipErrorInitializationError
+      1003,  ///< TODO comment from hipErrorInitializationError
   hipErrorLaunchFailure =
-      1004, ///< An exception occurred on the device while executing a kernel.
+      1004,  ///< An exception occurred on the device while executing a kernel.
   hipErrorPriorLaunchFailure = 1005,
   hipErrorLaunchTimeOut = 1006,
-  hipErrorLaunchOutOfResources = 1007, ///< Out of resources error.
+  hipErrorLaunchOutOfResources = 1007,  ///< Out of resources error.
   hipErrorInvalidDeviceFunction = 1008,
   hipErrorInvalidConfiguration = 1009,
   hipErrorInvalidDevice =
-      1010, ///< DeviceID must be in range 0...#compute-devices.
+      1010,  ///< DeviceID must be in range 0...#compute-devices.
   hipErrorInvalidValue =
-      1011, ///< One or more of the parameters passed to the API call is NULL
-            ///< or not in an acceptable range.
-  hipErrorInvalidDevicePointer = 1017,   ///< Invalid Device Pointer
-  hipErrorInvalidMemcpyDirection = 1021, ///< Invalid memory copy direction
-  hipErrorUnknown = 1030,                ///< Unknown error.
+      1011,  ///< One or more of the parameters passed to the API call is NULL
+             ///< or not in an acceptable range.
+  hipErrorInvalidDevicePointer = 1017,    ///< Invalid Device Pointer
+  hipErrorInvalidMemcpyDirection = 1021,  ///< Invalid memory copy direction
+  hipErrorUnknown = 1030,                 ///< Unknown error.
   hipErrorInvalidResourceHandle =
-      1033, ///< Resource handle (hipEvent_t or hipStream_t) invalid.
+      1033,  ///< Resource handle (hipEvent_t or hipStream_t) invalid.
   hipErrorNotReady =
-      1034, ///< Indicates that asynchronous operations enqueued earlier are not
-            ///< ready.  This is not actually an error, but is used to
-            ///< distinguish from hipSuccess (which indicates completion).  APIs
-            ///< that return this error include hipEventQuery and
-            ///< hipStreamQuery.
-  hipErrorNoDevice = 1038, ///< Call to hipGetDeviceCount returned 0 devices
+      1034,  ///< Indicates that asynchronous operations enqueued earlier are
+             ///< not ready.  This is not actually an error, but is used to
+             ///< distinguish from hipSuccess (which indicates completion). APIs
+             ///< that return this error include hipEventQuery and
+             ///< hipStreamQuery.
+  hipErrorNoDevice = 1038,  ///< Call to hipGetDeviceCount returned 0 devices
   hipErrorPeerAccessAlreadyEnabled =
-      1050, ///< Peer access was already enabled from the current device.
+      1050,  ///< Peer access was already enabled from the current device.
 
   hipErrorPeerAccessNotEnabled =
-      1051, ///< Peer access was never enabled from the current device.
-  hipErrorRuntimeMemory = 1052, ///< HSA runtime memory call returned error.
-                                ///< Typically not seen in production systems.
+      1051,  ///< Peer access was never enabled from the current device.
+  hipErrorRuntimeMemory = 1052,  ///< HSA runtime memory call returned error.
+                                 ///< Typically not seen in production systems.
   hipErrorRuntimeOther =
-      1053, ///< HSA runtime call other than memory returned error.  Typically
-            ///< not seen in production systems.
+      1053,  ///< HSA runtime call other than memory returned error.  Typically
+             ///< not seen in production systems.
   hipErrorHostMemoryAlreadyRegistered =
-      1061, ///< Produced when trying to lock a page-locked memory.
+      1061,  ///< Produced when trying to lock a page-locked memory.
   hipErrorHostMemoryNotRegistered =
-      1062, ///< Produced when trying to unlock a non-page-locked memory.
+      1062,  ///< Produced when trying to unlock a non-page-locked memory.
   hipErrorMapBufferObjectFailed =
-      1071, ///< Produced when the IPC memory attach failed from ROCr.
-  hipErrorAssert = 1081, ///< Produced when the kernel calls assert.
-  hipErrorTbd            ///< Marker that more error codes are needed.
+      1071,  ///< Produced when the IPC memory attach failed from ROCr.
+  hipErrorAssert = 1081,  ///< Produced when the kernel calls assert.
+  hipErrorTbd             ///< Marker that more error codes are needed.
 } hipError_t;
 
 typedef struct {
   // 32-bit Atomics
   unsigned
-      hasGlobalInt32Atomics : 1; ///< 32-bit integer atomics for global memory.
-  unsigned hasGlobalFloatAtomicExch : 1; ///< 32-bit float atomic exch for
-                                         ///< global memory.
+      hasGlobalInt32Atomics : 1;  ///< 32-bit integer atomics for global memory.
+  unsigned hasGlobalFloatAtomicExch : 1;  ///< 32-bit float atomic exch for
+                                          ///< global memory.
   unsigned
-      hasSharedInt32Atomics : 1; ///< 32-bit integer atomics for shared memory.
-  unsigned hasSharedFloatAtomicExch : 1; ///< 32-bit float atomic exch for
-                                         ///< shared memory.
-  unsigned hasFloatAtomicAdd : 1; ///< 32-bit float atomic add in global and
-                                  ///< shared memory.
+      hasSharedInt32Atomics : 1;  ///< 32-bit integer atomics for shared memory.
+  unsigned hasSharedFloatAtomicExch : 1;  ///< 32-bit float atomic exch for
+                                          ///< shared memory.
+  unsigned hasFloatAtomicAdd : 1;  ///< 32-bit float atomic add in global and
+                                   ///< shared memory.
 
   // 64-bit Atomics
   unsigned
-      hasGlobalInt64Atomics : 1; ///< 64-bit integer atomics for global memory.
+      hasGlobalInt64Atomics : 1;  ///< 64-bit integer atomics for global memory.
   unsigned
-      hasSharedInt64Atomics : 1; ///< 64-bit integer atomics for shared memory.
+      hasSharedInt64Atomics : 1;  ///< 64-bit integer atomics for shared memory.
 
   // Doubles
-  unsigned hasDoubles : 1; ///< Double-precision floating point.
+  unsigned hasDoubles : 1;  ///< Double-precision floating point.
 
   // Warp cross-lane operations
-  unsigned hasWarpVote : 1;    ///< Warp vote instructions (__any, __all).
-  unsigned hasWarpBallot : 1;  ///< Warp ballot instructions (__ballot).
-  unsigned hasWarpShuffle : 1; ///< Warp shuffle operations. (__shfl_*).
+  unsigned hasWarpVote : 1;     ///< Warp vote instructions (__any, __all).
+  unsigned hasWarpBallot : 1;   ///< Warp ballot instructions (__ballot).
+  unsigned hasWarpShuffle : 1;  ///< Warp shuffle operations. (__shfl_*).
   unsigned
-      hasFunnelShift : 1; ///< Funnel two words into one with shift&mask caps.
+      hasFunnelShift : 1;  ///< Funnel two words into one with shift&mask caps.
 
   // Sync
-  unsigned hasThreadFenceSystem : 1; ///< __threadfence_system.
-  unsigned hasSyncThreadsExt : 1;    ///< __syncthreads_count, syncthreads_and,
-                                     ///< syncthreads_or.
+  unsigned hasThreadFenceSystem : 1;  ///< __threadfence_system.
+  unsigned hasSyncThreadsExt : 1;     ///< __syncthreads_count, syncthreads_and,
+                                      ///< syncthreads_or.
 
   // Misc
-  unsigned hasSurfaceFuncs : 1; ///< Surface functions.
-  unsigned has3dGrid : 1; ///< Grid and group dims are 3D (rather than 2D).
-  unsigned hasDynamicParallelism : 1; ///< Dynamic parallelism.
+  unsigned hasSurfaceFuncs : 1;  ///< Surface functions.
+  unsigned has3dGrid : 1;  ///< Grid and group dims are 3D (rather than 2D).
+  unsigned hasDynamicParallelism : 1;  ///< Dynamic parallelism.
 } hipDeviceArch_t;
 
 typedef struct hipDeviceProp_t {
-  char name[256];           ///< Device name.
-  size_t totalGlobalMem;    ///< Size of global memory region (in bytes).
-  size_t sharedMemPerBlock; ///< Size of shared memory region (in bytes).
-  int regsPerBlock;         ///< Registers per block.
-  int warpSize;             ///< Warp size.
-  int maxThreadsPerBlock;   ///< Max work items per work group or workgroup max
-                            ///< size.
-  int maxThreadsDim[3]; ///< Max number of threads in each dimension (XYZ) of a
-                        ///< block.
-  int maxGridSize[3];   ///< Max grid dimensions (XYZ).
-  int clockRate;        ///< Max clock frequency of the multiProcessors in khz.
-  int memoryClockRate;  ///< Max global memory clock frequency in khz.
-  int memoryBusWidth;   ///< Global memory bus width in bits.
-  size_t totalConstMem; ///< Size of shared memory region (in bytes).
-  int major; ///< Major compute capability.  On HCC, this is an approximation
-             ///< and features may differ from CUDA CC.  See the arch feature
-             ///< flags for portable ways to query feature caps.
-  int minor; ///< Minor compute capability.  On HCC, this is an approximation
-             ///< and features may differ from CUDA CC.  See the arch feature
-             ///< flags for portable ways to query feature caps.
-  int multiProcessorCount; ///< Number of multi-processors (compute units).
-  int l2CacheSize;         ///< L2 cache size.
-  int maxThreadsPerMultiProcessor; ///< Maximum resident threads per
-                                   ///< multi-processor.
-  int computeMode;                 ///< Compute mode.
-  int clockInstructionRate; ///< Frequency in khz of the timer used by the
-                            ///< device-side "clock*" instructions.  New for
-                            ///< HIP.
-  hipDeviceArch_t arch;     ///< Architectural feature flags.  New for HIP.
-  int concurrentKernels;    ///< Device can possibly execute multiple kernels
-                            ///< concurrently.
-  int pciDomainID;          ///< PCI Domain ID
-  int pciBusID;             ///< PCI Bus ID.
-  int pciDeviceID;          ///< PCI Device ID.
-  size_t maxSharedMemoryPerMultiProcessor; ///< Maximum Shared Memory Per
-                                           ///< Multiprocessor.
-  int isMultiGpuBoard;  ///< 1 if device is on a multi-GPU board, 0 if not.
-  int canMapHostMemory; ///< Check whether HIP can map host memory
-  int gcnArch;          ///< AMD GCN Arch Value. Eg: 803, 701
-  int integrated;       ///< APU vs dGPU
+  char name[256];            ///< Device name.
+  size_t totalGlobalMem;     ///< Size of global memory region (in bytes).
+  size_t sharedMemPerBlock;  ///< Size of shared memory region (in bytes).
+  int regsPerBlock;          ///< Registers per block.
+  int warpSize;              ///< Warp size.
+  int maxThreadsPerBlock;    ///< Max work items per work group or workgroup max
+                             ///< size.
+  int maxThreadsDim[3];  ///< Max number of threads in each dimension (XYZ) of a
+                         ///< block.
+  int maxGridSize[3];    ///< Max grid dimensions (XYZ).
+  int clockRate;         ///< Max clock frequency of the multiProcessors in khz.
+  int memoryClockRate;   ///< Max global memory clock frequency in khz.
+  int memoryBusWidth;    ///< Global memory bus width in bits.
+  size_t totalConstMem;  ///< Size of shared memory region (in bytes).
+  int major;  ///< Major compute capability.  On HCC, this is an approximation
+              ///< and features may differ from CUDA CC.  See the arch feature
+              ///< flags for portable ways to query feature caps.
+  int minor;  ///< Minor compute capability.  On HCC, this is an approximation
+              ///< and features may differ from CUDA CC.  See the arch feature
+              ///< flags for portable ways to query feature caps.
+  int multiProcessorCount;  ///< Number of multi-processors (compute units).
+  int l2CacheSize;          ///< L2 cache size.
+  int maxThreadsPerMultiProcessor;  ///< Maximum resident threads per
+                                    ///< multi-processor.
+  int computeMode;                  ///< Compute mode.
+  int clockInstructionRate;  ///< Frequency in khz of the timer used by the
+                             ///< device-side "clock*" instructions.  New for
+                             ///< HIP.
+  hipDeviceArch_t arch;      ///< Architectural feature flags.  New for HIP.
+  int concurrentKernels;     ///< Device can possibly execute multiple kernels
+                             ///< concurrently.
+  int pciDomainID;           ///< PCI Domain ID
+  int pciBusID;              ///< PCI Bus ID.
+  int pciDeviceID;           ///< PCI Device ID.
+  size_t maxSharedMemoryPerMultiProcessor;  ///< Maximum Shared Memory Per
+                                            ///< Multiprocessor.
+  int isMultiGpuBoard;   ///< 1 if device is on a multi-GPU board, 0 if not.
+  int canMapHostMemory;  ///< Check whether HIP can map host memory
+  int gcnArch;           ///< AMD GCN Arch Value. Eg: 803, 701
+  int integrated;        ///< APU vs dGPU
 } hipDeviceProp_t;
 
 typedef struct hipPointerAttribute_t {
@@ -539,46 +540,47 @@ typedef struct hipPointerAttribute_t {
 } hipPointerAttribute_t;
 
 typedef enum hipDeviceAttribute_t {
-  hipDeviceAttributeMaxThreadsPerBlock, ///< Maximum number of threads per
-                                        ///< block.
-  hipDeviceAttributeMaxBlockDimX,       ///< Maximum x-dimension of a block.
-  hipDeviceAttributeMaxBlockDimY,       ///< Maximum y-dimension of a block.
-  hipDeviceAttributeMaxBlockDimZ,       ///< Maximum z-dimension of a block.
-  hipDeviceAttributeMaxGridDimX,        ///< Maximum x-dimension of a grid.
-  hipDeviceAttributeMaxGridDimY,        ///< Maximum y-dimension of a grid.
-  hipDeviceAttributeMaxGridDimZ,        ///< Maximum z-dimension of a grid.
-  hipDeviceAttributeMaxSharedMemoryPerBlock, ///< Maximum shared memory
-                                             ///< available per block in bytes.
-  hipDeviceAttributeTotalConstantMemory,     ///< Constant memory size in bytes.
-  hipDeviceAttributeWarpSize,                ///< Warp size in threads.
-  hipDeviceAttributeMaxRegistersPerBlock,    ///< Maximum number of 32-bit
-                                          ///< registers available to a thread
-                                          ///< block. This number is shared by
-                                          ///< all thread blocks simultaneously
-                                          ///< resident on a multiprocessor.
-  hipDeviceAttributeClockRate,           ///< Peak clock frequency in kilohertz.
-  hipDeviceAttributeMemoryClockRate,     ///< Peak memory clock frequency in
-                                         ///< kilohertz.
-  hipDeviceAttributeMemoryBusWidth,      ///< Global memory bus width in bits.
-  hipDeviceAttributeMultiprocessorCount, ///< Number of multiprocessors on the
-                                         ///< device.
-  hipDeviceAttributeComputeMode, ///< Compute mode that device is currently in.
-  hipDeviceAttributeL2CacheSize, ///< Size of L2 cache in bytes. 0 if the device
-                                 ///< doesn't have L2 cache.
-  hipDeviceAttributeMaxThreadsPerMultiProcessor, ///< Maximum resident threads
-                                                 ///< per multiprocessor.
-  hipDeviceAttributeComputeCapabilityMajor,      ///< Major compute capability
-                                                 ///< version number.
-  hipDeviceAttributeComputeCapabilityMinor,      ///< Minor compute capability
-                                                 ///< version number.
-  hipDeviceAttributeConcurrentKernels, ///< Device can possibly execute multiple
-                                       ///< kernels concurrently.
-  hipDeviceAttributePciBusId,          ///< PCI Bus ID.
-  hipDeviceAttributePciDeviceId,       ///< PCI Device ID.
-  hipDeviceAttributeMaxSharedMemoryPerMultiprocessor, ///< Maximum Shared Memory
-                                                      ///< Per Multiprocessor.
-  hipDeviceAttributeIsMultiGpuBoard,                  ///< Multiple GPU devices.
-  hipDeviceAttributeIntegrated,                       ///< iGPU
+  hipDeviceAttributeMaxThreadsPerBlock,  ///< Maximum number of threads per
+                                         ///< block.
+  hipDeviceAttributeMaxBlockDimX,        ///< Maximum x-dimension of a block.
+  hipDeviceAttributeMaxBlockDimY,        ///< Maximum y-dimension of a block.
+  hipDeviceAttributeMaxBlockDimZ,        ///< Maximum z-dimension of a block.
+  hipDeviceAttributeMaxGridDimX,         ///< Maximum x-dimension of a grid.
+  hipDeviceAttributeMaxGridDimY,         ///< Maximum y-dimension of a grid.
+  hipDeviceAttributeMaxGridDimZ,         ///< Maximum z-dimension of a grid.
+  hipDeviceAttributeMaxSharedMemoryPerBlock,  ///< Maximum shared memory
+                                              ///< available per block in bytes.
+  hipDeviceAttributeTotalConstantMemory,   ///< Constant memory size in bytes.
+  hipDeviceAttributeWarpSize,              ///< Warp size in threads.
+  hipDeviceAttributeMaxRegistersPerBlock,  ///< Maximum number of 32-bit
+                                           ///< registers available to a thread
+                                           ///< block. This number is shared by
+                                           ///< all thread blocks simultaneously
+                                           ///< resident on a multiprocessor.
+  hipDeviceAttributeClockRate,        ///< Peak clock frequency in kilohertz.
+  hipDeviceAttributeMemoryClockRate,  ///< Peak memory clock frequency in
+                                      ///< kilohertz.
+  hipDeviceAttributeMemoryBusWidth,   ///< Global memory bus width in bits.
+  hipDeviceAttributeMultiprocessorCount,  ///< Number of multiprocessors on the
+                                          ///< device.
+  hipDeviceAttributeComputeMode,  ///< Compute mode that device is currently in.
+  hipDeviceAttributeL2CacheSize,  ///< Size of L2 cache in bytes. 0 if the
+                                  ///< device doesn't have L2 cache.
+  hipDeviceAttributeMaxThreadsPerMultiProcessor,  ///< Maximum resident threads
+                                                  ///< per multiprocessor.
+  hipDeviceAttributeComputeCapabilityMajor,       ///< Major compute capability
+                                                  ///< version number.
+  hipDeviceAttributeComputeCapabilityMinor,       ///< Minor compute capability
+                                                  ///< version number.
+  hipDeviceAttributeConcurrentKernels,  ///< Device can possibly execute
+                                        ///< multiple kernels concurrently.
+  hipDeviceAttributePciBusId,           ///< PCI Bus ID.
+  hipDeviceAttributePciDeviceId,        ///< PCI Device ID.
+  hipDeviceAttributeMaxSharedMemoryPerMultiprocessor,  ///< Maximum Shared
+                                                       ///< Memory Per
+                                                       ///< Multiprocessor.
+  hipDeviceAttributeIsMultiGpuBoard,  ///< Multiple GPU devices.
+  hipDeviceAttributeIntegrated,       ///< iGPU
 } hipDeviceAttribute_t;
 
 enum hipComputeMode {
@@ -587,7 +589,6 @@ enum hipComputeMode {
   hipComputeModeProhibited = 2,
   hipComputeModeExclusiveProcess = 3
 };
-
 
 /* implementation details */
 
@@ -639,10 +640,10 @@ typedef void (*hipStreamCallback_t)(hipStream_t stream, hipError_t status,
 
 /**************************************************************************************************/
 
-#define DEPRECATED_MSG                                                         \
-  "This API is marked as deprecated and may not be supported in future "       \
-  "releases.For more details please refer "                                    \
-  "https://github.com/ROCm-Developer-Tools/HIP/tree/master/docs/markdown/"     \
+#define DEPRECATED_MSG                                                     \
+  "This API is marked as deprecated and may not be supported in future "   \
+  "releases.For more details please refer "                                \
+  "https://github.com/ROCm-Developer-Tools/HIP/tree/master/docs/markdown/" \
   "hip_deprecated_api_list"
 
 #define DEPRECATED(msg) __attribute__((deprecated(msg)))
@@ -658,75 +659,75 @@ enum hipLimit_t {
 };
 
 //! Flags that can be used with hipStreamCreateWithFlags
-#define hipStreamDefault                                                       \
-  0x00 ///< Default stream creation flags. These are used with
-       ///< hipStreamCreate().
-#define hipStreamNonBlocking                                                   \
-  0x01 ///< Stream does not implicitly synchronize with null stream
+#define hipStreamDefault \
+  0x00  ///< Default stream creation flags. These are used with
+        ///< hipStreamCreate().
+#define hipStreamNonBlocking \
+  0x01  ///< Stream does not implicitly synchronize with null stream
 
 //! Flags that can be used with hipEventCreateWithFlags:
-#define hipEventDefault 0x0 ///< Default flags
-#define hipEventBlockingSync                                                   \
-  0x1 ///< Waiting will yield CPU.  Power-friendly and usage-friendly but may
-      ///< increase latency.
-#define hipEventDisableTiming                                                  \
-  0x2 ///< Disable event's capability to record timing information.  May improve
-      ///< performance.
-#define hipEventInterprocess                                                   \
-  0x4 ///< Event can support IPC.  @warning - not supported in HIP.
-#define hipEventReleaseToDevice                                                \
-  0x40000000 /// < Use a device-scope release when recording this event.  This
-             /// flag is useful to obtain more precise timings of commands
-             /// between events.  The flag is a no-op on CUDA platforms.
-#define hipEventReleaseToSystem                                                \
-  0x80000000 /// < Use a system-scope release that when recording this event.
-             /// This flag is useful to make non-coherent host memory visible to
-             /// the host.  The flag is a no-op on CUDA platforms.
+#define hipEventDefault 0x0  ///< Default flags
+#define hipEventBlockingSync \
+  0x1  ///< Waiting will yield CPU.  Power-friendly and usage-friendly but may
+       ///< increase latency.
+#define hipEventDisableTiming \
+  0x2  ///< Disable event's capability to record timing information.  May
+       ///< improve performance.
+#define hipEventInterprocess \
+  0x4  ///< Event can support IPC.  @warning - not supported in HIP.
+#define hipEventReleaseToDevice \
+  0x40000000  /// < Use a device-scope release when recording this event.  This
+              /// flag is useful to obtain more precise timings of commands
+              /// between events.  The flag is a no-op on CUDA platforms.
+#define hipEventReleaseToSystem \
+  0x80000000  /// < Use a system-scope release that when recording this event.
+              /// This flag is useful to make non-coherent host memory visible
+              /// to the host.  The flag is a no-op on CUDA platforms.
 
 //! Flags that can be used with hipHostMalloc
 #define hipHostMallocDefault 0x0
-#define hipHostMallocPortable                                                  \
-  0x1 ///< Memory is considered allocated by all contexts.
-#define hipHostMallocMapped                                                    \
-  0x2 ///< Map the allocation into the address space for the current device. The
-      ///< device pointer can be obtained with #hipHostGetDevicePointer.
+#define hipHostMallocPortable \
+  0x1  ///< Memory is considered allocated by all contexts.
+#define hipHostMallocMapped \
+  0x2  ///< Map the allocation into the address space for the current device.
+       ///< The device pointer can be obtained with #hipHostGetDevicePointer.
 #define hipHostMallocWriteCombined 0x4
-#define hipHostMallocCoherent                                                  \
-  0x40000000 ///< Allocate coherent memory. Overrides HIP_COHERENT_HOST_ALLOC
-             ///< for specific allocation.
-#define hipHostMallocNonCoherent                                               \
-  0x80000000 ///< Allocate non-coherent memory. Overrides
-             ///< HIP_COHERENT_HOST_ALLOC for specific allocation.
+#define hipHostMallocCoherent \
+  0x40000000  ///< Allocate coherent memory. Overrides HIP_COHERENT_HOST_ALLOC
+              ///< for specific allocation.
+#define hipHostMallocNonCoherent \
+  0x80000000  ///< Allocate non-coherent memory. Overrides
+              ///< HIP_COHERENT_HOST_ALLOC for specific allocation.
 
 #define hipDeviceMallocDefault 0x0
-#define hipDeviceMallocFinegrained                                             \
-  0x1 ///< Memory is allocated in fine grained region of device.
+#define hipDeviceMallocFinegrained \
+  0x1  ///< Memory is allocated in fine grained region of device.
 
 //! Flags that can be used with hipHostRegister
-#define hipHostRegisterDefault 0x0 ///< Memory is Mapped and Portable
-#define hipHostRegisterPortable                                                \
-  0x1 ///< Memory is considered registered by all contexts.
-#define hipHostRegisterMapped                                                  \
-  0x2 ///< Map the allocation into the address space for the current device. The
-      ///< device pointer can be obtained with #hipHostGetDevicePointer.
-#define hipHostRegisterIoMemory 0x4 ///< Not supported.
+#define hipHostRegisterDefault 0x0  ///< Memory is Mapped and Portable
+#define hipHostRegisterPortable \
+  0x1  ///< Memory is considered registered by all contexts.
+#define hipHostRegisterMapped \
+  0x2  ///< Map the allocation into the address space for the current device.
+       ///< The device pointer can be obtained with #hipHostGetDevicePointer.
+#define hipHostRegisterIoMemory 0x4  ///< Not supported.
 
-#define hipDeviceScheduleAuto                                                  \
-  0x0 ///< Automatically select between Spin and Yield
-#define hipDeviceScheduleSpin                                                  \
-  0x1 ///< Dedicate a CPU core to spin-wait.  Provides lowest latency, but burns
-      ///< a CPU core and may consume more power.
-#define hipDeviceScheduleYield                                                 \
-  0x2 ///< Yield the CPU to the operating system when waiting.  May increase
-      ///< latency, but lowers power and is friendlier to other threads in the
-      ///< system.
+#define hipDeviceScheduleAuto \
+  0x0  ///< Automatically select between Spin and Yield
+#define hipDeviceScheduleSpin \
+  0x1  ///< Dedicate a CPU core to spin-wait.  Provides lowest latency, but
+       ///< burns a CPU core and may consume more power.
+#define hipDeviceScheduleYield \
+  0x2  ///< Yield the CPU to the operating system when waiting.  May increase
+       ///< latency, but lowers power and is friendlier to other threads in the
+       ///< system.
 #define hipDeviceScheduleBlockingSync 0x4
 #define hipDeviceScheduleMask 0x7
 
 #define hipDeviceMapHost 0x8
 #define hipDeviceLmemResizeToMax 0x16
 
-#define hipArrayDefault 0x00 ///< Default HIP array allocation flag
+#define hipArrayDefault 0x00  ///< Default HIP array allocation flag
 #define hipArrayLayered 0x01
 #define hipArraySurfaceLoadStore 0x02
 #define hipArrayCubemap 0x04
@@ -754,28 +755,28 @@ typedef enum hipJitOption {
 } hipJitOption;
 
 typedef enum hipFuncCache_t {
-  hipFuncCachePreferNone,   ///< no preference for shared memory or L1 (default)
-  hipFuncCachePreferShared, ///< prefer larger shared memory and smaller L1
-                            ///< cache
-  hipFuncCachePreferL1,    ///< prefer larger L1 cache and smaller shared memory
-  hipFuncCachePreferEqual, ///< prefer equal size L1 cache and shared memory
+  hipFuncCachePreferNone,  ///< no preference for shared memory or L1 (default)
+  hipFuncCachePreferShared,  ///< prefer larger shared memory and smaller L1
+                             ///< cache
+  hipFuncCachePreferL1,  ///< prefer larger L1 cache and smaller shared memory
+  hipFuncCachePreferEqual,  ///< prefer equal size L1 cache and shared memory
 } hipFuncCache_t;
 
 typedef enum hipSharedMemConfig {
-  hipSharedMemBankSizeDefault, ///< The compiler selects a device-specific value
-                               ///< for the banking.
-  hipSharedMemBankSizeFourByte, ///< Shared mem is banked at 4-bytes intervals
-                                ///< and performs best when adjacent threads
-                                ///< access data 4 bytes apart.
-  hipSharedMemBankSizeEightByte ///< Shared mem is banked at 8-byte intervals
-                                ///< and performs best when adjacent threads
-                                ///< access data 4 bytes apart.
+  hipSharedMemBankSizeDefault,   ///< The compiler selects a device-specific
+                                 ///< value for the banking.
+  hipSharedMemBankSizeFourByte,  ///< Shared mem is banked at 4-bytes intervals
+                                 ///< and performs best when adjacent threads
+                                 ///< access data 4 bytes apart.
+  hipSharedMemBankSizeEightByte  ///< Shared mem is banked at 8-byte intervals
+                                 ///< and performs best when adjacent threads
+                                 ///< access data 4 bytes apart.
 } hipSharedMemConfig;
 
 typedef struct dim3 {
-  uint32_t x; ///< x
-  uint32_t y; ///< y
-  uint32_t z; ///< z
+  uint32_t x;  ///< x
+  uint32_t y;  ///< y
+  uint32_t z;  ///< z
 #ifdef __cplusplus
   dim3(uint32_t _x = 1, uint32_t _y = 1, uint32_t _z = 1)
       : x(_x), y(_y), z(_z){};
@@ -1226,11 +1227,11 @@ hipError_t hipStreamDestroy(hipStream_t stream);
  */
 hipError_t hipStreamQuery(hipStream_t stream);
 
-
 /**
  * Query the hip stream related native informtions
  */
-hipError_t hiplzStreamNativeInfo(hipStream_t stream, unsigned long* nativeInfo, int* size);
+hipError_t hiplzStreamNativeInfo(hipStream_t stream, unsigned long *nativeInfo,
+                                 int *size);
 
 /**
  * @brief Wait for all commands in stream to complete.
@@ -2461,10 +2462,12 @@ hipError_t hipMemcpyPeerAsync(void *dst, int dstDeviceId, const void *src,
 hipError_t hipInit(unsigned int flags);
 
 /**
- * @brief Explicitly intiialization the HIP runtime with given device, context and queue
- * 
+ * @brief Explicitly intiialization the HIP runtime with given device, context
+ * and queue
+ *
  */
-hipError_t hipInitFromOutside(void* driverPtr, void* devicePtr, void* ctxPtr, void* queuePtr);
+hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr, void *ctxPtr,
+                              void *queuePtr);
 
 /**
  *-------------------------------------------------------------------------------------------------
@@ -2905,9 +2908,10 @@ hipError_t hipDriverGetVersion(int *driverVersion);
  */
 hipError_t hipRuntimeGetVersion(int *runtimeVersion);
 
-hipError_t hipCreateTextureObject(hipTextureObject_t* texObj, hipResourceDesc* resDesc,
-                                  hipTextureDesc* texDesc, void* opt);
-  
+hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
+                                  hipResourceDesc *resDesc,
+                                  hipTextureDesc *texDesc, void *opt);
+
 /**
  * @brief Loads code object from file into a hipModule_t
  *
@@ -3047,12 +3051,14 @@ hipError_t hipMemcpyToSymbolAsync(const void *symbol, const void *src,
                                   size_t sizeBytes, size_t offset,
                                   hipMemcpyKind kind,
                                   hipStream_t stream __dparm(0));
-hipError_t hipMemcpyFromSymbol(void *dst, const void *symbol, size_t sizeBytes,
-			       size_t offset __dparm(0),
-			       hipMemcpyKind kind __dparm(hipMemcpyDeviceToHost));
+hipError_t hipMemcpyFromSymbol(
+    void *dst, const void *symbol, size_t sizeBytes, size_t offset __dparm(0),
+    hipMemcpyKind kind __dparm(hipMemcpyDeviceToHost));
 
-hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol, size_t sizeBytes, size_t offset,
-                                    hipMemcpyKind kind, hipStream_t stream __dparm(0));
+hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol,
+                                    size_t sizeBytes, size_t offset,
+                                    hipMemcpyKind kind,
+                                    hipStream_t stream __dparm(0));
 
 // doxygen end Version Management
 /**
@@ -3243,7 +3249,8 @@ hipError_t hipLaunchByPtr(const void *func);
 /**
  * @brief: C++ wrapper for hipMalloc
  *
- * Perform automatic type conversion to eliminate need for excessive typecasting (ie void**)
+ * Perform automatic type conversion to eliminate need for excessive typecasting
+ * (ie void**)
  *
  * __HIP_DISABLE_CPP_FUNCTIONS__ macro can be defined to suppress these
  * wrappers. It is useful for applications which need to obtain decltypes of
@@ -3253,16 +3260,16 @@ hipError_t hipLaunchByPtr(const void *func);
  */
 #if defined(__cplusplus) && !defined(__HIP_DISABLE_CPP_FUNCTIONS__)
 template <class T>
-static inline hipError_t hipMalloc(T** devPtr, size_t size) {
-    return hipMalloc((void**)devPtr, size);
+static inline hipError_t hipMalloc(T **devPtr, size_t size) {
+  return hipMalloc((void **)devPtr, size);
 }
 
-// Provide an override to automatically typecast the pointer type from void**, and also provide a
-// default for the flags.
+// Provide an override to automatically typecast the pointer type from void**,
+// and also provide a default for the flags.
 template <class T>
-static inline hipError_t hipHostMalloc(T** ptr, size_t size,
-                                       unsigned int flags = hipHostMallocDefault) {
-    return hipHostMalloc((void**)ptr, size, flags);
+static inline hipError_t hipHostMalloc(
+    T **ptr, size_t size, unsigned int flags = hipHostMallocDefault) {
+  return hipHostMalloc((void **)ptr, size, flags);
 }
 #endif
 
@@ -3270,3 +3277,5 @@ static inline hipError_t hipHostMalloc(T** ptr, size_t size,
 /**
  *   @}
  */
+
+#endif
