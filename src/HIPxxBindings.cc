@@ -30,6 +30,160 @@ hipError_t hipEventCreate(hipEvent_t *event) {
   return hipEventCreateWithFlags(event, 0);
 }
 
+hipError_t hipFree(void *ptr) {
+  logWarn("hipFree not yet implemented");
+  return hipSuccess;
+  // LZ_TRY
+  // ERROR_IF((ptr == nullptr), hipSuccess);
+
+  // LZContext *cont = getTlsDefaultLzCtx();
+  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+
+  // if (cont->free(ptr))
+  //   RETURN(hipSuccess);
+  // else
+  //   RETURN(hipErrorInvalidDevicePointer);
+  // LZ_CATCH
+  RETURN(hipSuccess);
+};
+
+hipError_t hipLaunchByPtr(const void *hostFunction) {
+  logWarn("hipLaunchByPtr not yet implemented");
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+
+  // // Try for HipLZ kernel at first
+  // LZContext* lzCtx = getTlsDefaultLzCtx();
+  // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
+  // if (lzCtx->launchHostFunc(hostFunction))
+  //   RETURN(hipSuccess);
+  // else
+  //   RETURN(hipErrorLaunchFailure);
+
+  // LZ_CATCH
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
+  logWarn("hipGetDevicePropertiesh not yet implemented");
+  // HIPLZ_INIT();
+
+  // // TODO: make a real properties retrieving function
+  // ERROR_CHECK_DEVNUM(deviceId);
+  // LZDriver::GetPrimaryDriver().GetDeviceById(deviceId).copyProperties(prop);
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
+                     hipMemcpyKind kind) {
+  logWarn("hipMemcpy not yet implemented");
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+  // LZContext *cont = getTlsDefaultLzCtx();
+  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+
+  // if (kind == hipMemcpyHostToHost) {
+  //   memcpy(dst, src, sizeBytes);
+  //   RETURN(hipSuccess);
+  // } else {
+  //   RETURN(cont->memCopy(dst, src, sizeBytes, nullptr));
+  // }
+  // LZ_CATCH
+  // ze_result_t status = zeCommandQueueSynchronize(cont->hQueue, UINT64_MAX);
+  // if (status != ZE_RESULT_SUCCESS) {
+  // 	  throw InvalidLevel0Initialization("HipLZ zeCommandQueueSynchronize
+  // FAILED with return code " + std::to_string(status));
+  // }
+  RETURN(hipSuccess);
+}
+
+hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
+  logWarn("hipEventRecord not yet implemented");
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+  // ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  // LZContext* cont = getTlsDefaultLzCtx();
+  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+
+  // RETURN(cont->recordEvent(stream, event));
+
+  // LZ_CATCH
+  RETURN(hipSuccess);
+}
+
+hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
+                            hipStream_t stream) {
+  logWarn("hipConfigureCall not yet implemented");
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+
+  // LZContext* lzCtx = getTlsDefaultLzCtx();
+  // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
+  // RETURN(lzCtx->configureCall(gridDim, blockDim, sharedMem, stream));
+
+  // LZ_CATCH
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceSynchronize(void) {
+  logWarn("hipDeviceSynchronize not yet implemented");
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+
+  // LZContext *cont = getTlsDefaultLzCtx();
+  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+  // // Synchronize among HipLZ queues
+  // cont->finishAll();
+  // RETURN(hipSuccess);
+
+  // LZ_CATCH
+  RETURN(hipSuccess);
+}
+
+hipError_t hipEventElapsedTime(float *ms, hipEvent_t start, hipEvent_t stop) {
+  logWarn("hipEventElapsedTime not yet implemented");
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+  // ERROR_IF((start == nullptr), hipErrorInvalidValue);
+  // ERROR_IF((stop == nullptr), hipErrorInvalidValue);
+
+  // LZContext* cont = getTlsDefaultLzCtx();
+  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+
+  // RETURN(cont->eventElapsedTime(ms, start, stop));
+  // LZ_CATCH
+  RETURN(hipSuccess);
+}
+
+hipError_t hipEventDestroy(hipEvent_t event) {
+  logWarn("hipEventDestroy not yet implemented");
+  // HIPLZ_INIT();
+
+  // ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  // delete event;
+  RETURN(hipSuccess);
+}
+
+hipError_t hipGetLastError(void) {
+  logWarn("hipGetLastError not yet implemented");
+  // HIPLZ_INIT();
+
+  // hipError_t temp = tls_LastError;
+  // tls_LastError = hipSuccess;
+  // return temp;
+  RETURN(hipSuccess);
+}
+
 hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
   HIPxxInitialize();
 
