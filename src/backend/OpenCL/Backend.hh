@@ -31,6 +31,11 @@ class HIPxxContextOpenCL : public HIPxxContext {
     logDebug("HIPxxContextOpenCL Initialized via OpenCL Context pointer.");
     cl_ctx = ctx_in;
   }
+
+  void *allocate(size_t size) override {
+    logWarn("HIPxxContextOpenCL->allocate() not yet implemented");
+    return (void *)0xDEADBEEF;
+  }
 };
 
 class HIPxxExecItemOpenCL : public HIPxxExecItem {

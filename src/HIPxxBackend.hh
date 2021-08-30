@@ -95,6 +95,7 @@ class HIPxxContext {
    * @return false upon failure
    */
   bool add_device(HIPxxDevice* dev);
+  virtual void* allocate(size_t size) = 0;
 };
 
 /**
@@ -204,9 +205,21 @@ class HIPxxBackend {
           "");
       std::abort();
     }
-
     return hipxx_queues[0];
   };
+
+  HIPxxContext* get_default_context() {
+    if (hipxx_contexts.size() == 0) {
+      logCritical(
+          "HIPxxBackend.get_default_context() was called but no contexts "
+          "have been "
+          "initialized;\n",
+          "");
+      std::abort();
+    }
+    return hipxx_contexts[0];
+  };
+
   std::vector<HIPxxDevice*> get_devices() { return hipxx_devices; }
   size_t get_num_devices() { return hipxx_devices.size(); }
   std::vector<std::string*> get_modules_str() { return ModulesStr; }

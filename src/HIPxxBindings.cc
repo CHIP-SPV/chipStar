@@ -136,9 +136,26 @@ hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   logTrace("hipSetupArgument");
   HIPxxInitialize();
 
-  // LZContext *lzCtx = getTlsDefaultLzCtx();
+  // LZContext *lzCtx =  ();
   // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
   // RETURN(lzCtx->setArg(arg, size, offset));
+  return hipSuccess;
+}
+
+hipError_t hipMalloc(void **ptr, size_t size) {
+  HIPxxInitialize();
+
+  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
+
+  if (size == 0) {
+    *ptr = nullptr;
+    RETURN(hipSuccess);
+  }
+
+  void *retval = Backend->get_default_context()->allocate(size);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
   return hipSuccess;
 }
 
