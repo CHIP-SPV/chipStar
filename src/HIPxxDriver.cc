@@ -67,8 +67,7 @@ void HIPxxInitializeCallOnce(std::string BE) {
   if (!HIPXX_BE.compare("OPENCL")) {
     Backend = new HIPxxBackendOpenCL();
   } else if (!HIPXX_BE.compare("LEVEL0")) {
-    logCritical("LEVEL0 Backend not yet implemented");
-    std::abort();
+    Backend = new HIPxxBackendLevel0();
   } else if (!HIPXX_BE.compare("")) {
     logWarn("HIPXX_BE was not set. Defaulting to OPENCL");
     Backend = new HIPxxBackendOpenCL();
