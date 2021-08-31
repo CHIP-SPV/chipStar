@@ -52,12 +52,14 @@ void HIPxxModule::add_kernel(void* HostFunctionPtr,
 }
 
 bool HIPxxContext::add_device(HIPxxDevice* dev) {
-  Devices.push_back(dev);
+  logTrace("HIPxxContext.add_device() {}", dev->get_name());
+  hipxx_devices.push_back(dev);
   // TODO check for success
   return true;
 }
 
 bool HIPxxDevice::add_context(HIPxxContext* ctx) {
+  logTrace("HIPxxDevice.add_context() {}");
   hipxx_contexts.push_back(ctx);
   // TODO check for success
   return true;

@@ -119,7 +119,7 @@ class HIPxxExecItem {
  */
 class HIPxxContext {
  protected:
-  std::vector<HIPxxDevice*> Devices;
+  std::vector<HIPxxDevice*> hipxx_devices;
 
  public:
   HIPxxContext(){};
@@ -134,6 +134,12 @@ class HIPxxContext {
    */
   bool add_device(HIPxxDevice* dev);
   virtual void* allocate(size_t size) = 0;
+  std::vector<HIPxxDevice*>& get_devices() {
+    if (hipxx_devices.size() == 0)
+      logWarn(
+          "HIPxxContext.get_devices() was called but hipxx_devices is empty");
+    return hipxx_devices;
+  };
 };
 
 /**
@@ -158,10 +164,27 @@ class HIPxxDevice {
   /// Map host pointer to a function name
   std::map<const void*, std::string> HostPtrToNameMap;
 
+  hipDevice_t pcie_idx;
+  hipDeviceProp_t hip_device_props;
+
   /// default constructor
-  HIPxxDevice(){};
+  HIPxxDevice() {
+    logDebug("Device {} is {}: name \"{}\" \n", pcie_idx, (void*)this,
+             hip_device_props.name);
+  };
   /// default desctructor
   ~HIPxxDevice(){};
+
+  /**
+   * @brief Use a backend to populate device properties such as memory
+   * available, frequencies, etc.
+   */
+  virtual void populate_device_properties() = 0;
+  void copy_device_properties(hipDeviceProp_t* prop) {
+    logTrace("HIPxxDevice->copy_device_properties()");
+    if (prop)
+      std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
+  }
 
   /**
    * @brief Add a context to the vector of HIPxxContexts* to which this device
@@ -266,7 +289,11 @@ class HIPxxBackend {
     logDebug("HIPxxBackend.add_queue()");
     hipxx_queues.push_back(q_in);
   }
-  void add_device(HIPxxDevice* dev_in) { hipxx_devices.push_back(dev_in); }
+  void add_device(HIPxxDevice* dev_in) {
+    logTrace("HIPxxDeviceOpenCL.add_device() {}", dev_in->get_name());
+    hipxx_devices.push_back(dev_in);
+  }
+
   void submit(HIPxxExecItem* _e) {
     logDebug("HIPxxBackend.submit()");
     get_default_queue()->submit(_e);

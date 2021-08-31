@@ -67,14 +67,23 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
 }
 
 hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
-  logWarn("hipGetDevicePropertiesh not yet implemented");
-  // HIPLZ_INIT();
+  logTrace("hipGetDeviceProperties");
+  HIPxxInitialize();
+  std::vector<HIPxxDevice *> devices =
+      Backend->get_default_context()->get_devices();
+  if (deviceId > devices.size() - 1) {
+    logCritical(
+        "hipGetDeviceProperties requested a deviceId {} greater than number of "
+        "devices {}",
+        deviceId, devices.size());
+    std::abort();
+  }
+  // TODO WHYY??!!?!?
+  // devices[deviceId]->populate_device_properties();
+  devices[deviceId]->copy_device_properties(prop);
+  logTrace("done hipGetDeviceProperties");
 
-  // // TODO: make a real properties retrieving function
-  // ERROR_CHECK_DEVNUM(deviceId);
-  // LZDriver::GetPrimaryDriver().GetDeviceById(deviceId).copyProperties(prop);
-
-  RETURN(hipSuccess);
+  return (hipSuccess);
 }
 
 hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
@@ -185,19 +194,21 @@ hipError_t hipGetLastError(void) {
 }
 
 hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
+  logWarn("hipEventCreateWithFlags not yet implemented");
   HIPxxInitialize();
 
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
   // hipEvent_t EventPtr = cont->createEvent(flags);
   // TODO
-  hipEvent_t EventPtr;
-  if (EventPtr) {
-    *event = EventPtr;
-    RETURN(hipSuccess);
-  } else {
-    RETURN(hipErrorOutOfMemory);
-  }
+  // hipEvent_t EventPtr;
+  // if (EventPtr) {
+  //  *event = EventPtr;
+  //  RETURN(hipSuccess);
+  //} else {
+  //  RETURN(hipErrorOutOfMemory);
+  //}
+  return (hipSuccess);
 }
 
 extern "C" void **__hipRegisterFatBinary(const void *data) {
