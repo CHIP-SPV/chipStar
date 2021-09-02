@@ -254,7 +254,9 @@ class HIPxxBackend {
   ~HIPxxBackend(){};
   virtual void initialize(std::string HIPxxPlatformStr,
                           std::string HIPxxDeviceTypeStr,
-                          std::string HIPxxDeviceStr) = 0;
+                          std::string HIPxxDeviceStr){};
+
+  virtual void initialize() = 0;
 
   virtual void uninitialize() = 0;
 
