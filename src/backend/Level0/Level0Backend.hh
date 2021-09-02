@@ -1,13 +1,12 @@
 #ifndef HIPXX_BACKEND_LEVEL0_H
 #define HIPXX_BACKEND_LEVEL0_H
-class HIPxxBackendLevel0 : public HIPxxBackend {};
 
-#if 0
 #include "../../HIPxxBackend.hh"
-#include "ze_api.h"
+#include "../include/ze_api.h"
 
 class HIPxxBackendLevel0 : public HIPxxBackend {
  public:
+  HIPxxBackendLevel0(){};
   virtual void initialize() override {
     // Initialize the driver
     ze_result_t status = zeInit(0);
@@ -68,5 +67,4 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
   }
 };
 
-#endif
 #endif
