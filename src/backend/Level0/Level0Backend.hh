@@ -6,8 +6,10 @@
 
 class HIPxxBackendLevel0 : public HIPxxBackend {
  public:
-  HIPxxBackendLevel0(){};
-  virtual void initialize() override {
+  virtual void initialize(std::string HIPxxPlatformStr,
+                          std::string HIPxxDeviceTypeStr,
+                          std::string HIPxxDeviceStr) override {
+    logDebug("HIPxxBackendLevel0 Initialize");
     // Initialize the driver
     ze_result_t status = zeInit(0);
     // LZ_PROCESS_ERROR(status);
@@ -59,6 +61,11 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     //     }
     //   }
     // }
+  }
+
+  virtual void initialize() override {
+    std::string empty;
+    initialize(empty, empty, empty);
   }
 
   void uninitialize() override {

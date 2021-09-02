@@ -66,8 +66,10 @@ void HIPxxInitializeCallOnce(std::string BE) {
 
   // TODO Check configuration for what backends are configured
   if (!HIPXX_BE.compare("OPENCL")) {
+    logTrace("HIPXXBE=OPENCL... Initializing OpenCL Backend");
     Backend = new HIPxxBackendOpenCL();
   } else if (!HIPXX_BE.compare("LEVEL0")) {
+    logTrace("HIPXXBE=LEVEL0... Initializing Level0 Backend");
     Backend = new HIPxxBackendLevel0();
   } else if (!HIPXX_BE.compare("")) {
     logWarn("HIPXX_BE was not set. Defaulting to OPENCL");
