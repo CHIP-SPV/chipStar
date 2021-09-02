@@ -69,29 +69,40 @@ set(HIPXX_SRC
 )
 set(DRIVER_SRC src/main.cc)
 
-find_library(Level0_LIBRARY
-  NAMES libpi_level_zero.so
-  PATHS ENV LD_LIBRARY_PATH
-)
-if(${Level0_LIBRARY} STREQUAL Level0_LIBRARY-NOTFOUND)
-  message(FATAL_ERROR "Level0 library not found in LD_LIBRARY_PATH")
-else()
-  message(STATUS "Level0 Found: ${Level0_LIBRARY}")
-endif()
+# Level0 Runtime
+macro(find_library_dynamic libname)
+  message(STATUS "\nSearching for ${libname}")
+  find_library(${libname}_LIBRARY
+    NAMES ${libname}
+    PATHS ENV LD_LIBRARY_PATH
+  )
+  if(${${libname}_LIBRARY} STREQUAL ${libname}_LIBRARY-NOTFOUND)
+    message(FATAL_ERROR "${libname} library not found in LD_LIBRARY_PATH")
+  else()
+    message(STATUS "Found: ${${libname}_LIBRARY}\n")
+    list(APPEND Level0_LIBRARIES ${${libname}_LIBRARY})
+  endif()
+endmacro()
 
+find_library_dynamic(libpi_level_zero.so)
+find_library_dynamic(libze_loader.so.1)
+find_library_dynamic(libsvml.so)
+find_library_dynamic(libirng.so)
+find_library_dynamic(libimf.so)
+find_library_dynamic(libintlc.so.5)
+
+message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
 add_library(HIPxx SHARED ${HIPXX_SRC})
-target_link_libraries(HIPxx ${OpenCL_LIBRARY} ${Level0_LIBRARY})
+target_link_libraries(HIPxx ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
 add_executable(driver ${DRIVER_SRC})
 
-target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARY})
+target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 add_executable(tests tests/TestHIPxxDriver.cc tests/TestHIPxxBackend.cc tests/TestHIPxxBackendOpenCL.cc)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain HIPxx ${Level0})
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain HIPxx ${Level0_LIBRARIES})
 # Add to LD_LIBRARY_PATH
-#/soft/restricted/CNDA/sdk/2021.04.30.001/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin
-#/soft/libraries/intel-level-zero/api_+_loader/v1.2.3-Release-2021.06.01/lib64
 #clang++ -pthread -fPIE -O2 -g -std=c++11 `hipcl_config -C` -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/HIPxx/build -lHIPxx
