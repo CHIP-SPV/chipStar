@@ -24,9 +24,32 @@ message(STATUS "HIPxx will be installed to: ${CMAKE_INSTALL_PREFIX}")
    message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
-find_package(OpenCL 1.2 REQUIRED)
-#set(OpenCL_LIBRARY /soft/libraries/khronos/loader/master-2021.01.04/lib64/libOpenCL.so.1.2)
-#set(OpenCL_INCLUDE_DIR /soft/libraries/khronos/headers/master-2021.01.04/include)
+# Find OpenCL
+if(NOT DEFINED OpenCL_LIBRARY_PATH)
+  message(STATUS "-DOpenCL_LIBRARY_PATH was not used, checking LD_LIBRARY_PATH for OpenCL")
+  find_library(OpenCL_LIBRARY 
+    NAMES OpenCL 
+    PATHS ENV LD_LIBRARY_PATH
+    NOCACHE)
+  if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
+    message(FATAL_ERROR "OpenCL library not found in LD_LIBRARY_PATH")
+  else()
+    message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
+  endif()
+else()
+  message(STATUS "-DOpenCL_LIBRARY_PATH was set. Looking for OpenCL.so")
+  find_library(OpenCL_LIBRARY 
+    NAMES OpenCL 
+    PATHS ${OpenCL_LIBRARY_PATH}
+    NOCACHE)
+  if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
+    message(FATAL_ERROR "OpenCL library not found in OpenCL_LIBRARY_PATH")
+  else()
+    message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
+  endif()
+endif()
+
+# TODO : Check OpenCL version
 
 # Setup Testing
 find_package(Catch2 REQUIRED)
@@ -46,15 +69,29 @@ set(HIPXX_SRC
 )
 set(DRIVER_SRC src/main.cc)
 
+find_library(Level0_LIBRARY
+  NAMES libpi_level_zero.so
+  PATHS ENV LD_LIBRARY_PATH
+)
+if(${Level0_LIBRARY} STREQUAL Level0_LIBRARY-NOTFOUND)
+  message(FATAL_ERROR "Level0 library not found in LD_LIBRARY_PATH")
+else()
+  message(STATUS "Level0 Found: ${Level0_LIBRARY}")
+endif()
+
+
 add_library(HIPxx SHARED ${HIPXX_SRC})
-target_link_libraries(HIPxx ${OpenCL_LIBRARY})
+target_link_libraries(HIPxx ${OpenCL_LIBRARY} ${Level0_LIBRARY})
 add_executable(driver ${DRIVER_SRC})
 
-
-target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_LIBARY})
+target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARY})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 add_executable(tests tests/TestHIPxxDriver.cc tests/TestHIPxxBackend.cc tests/TestHIPxxBackendOpenCL.cc)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain HIPxx)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain HIPxx ${Level0})
+# Add to LD_LIBRARY_PATH
+#/soft/restricted/CNDA/sdk/2021.04.30.001/oneapi/compiler/2021.2.0/linux/compiler/lib/intel64_lin
+#/soft/libraries/intel-level-zero/api_+_loader/v1.2.3-Release-2021.06.01/lib64
+#clang++ -pthread -fPIE -O2 -g -std=c++11 `hipcl_config -C` -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/HIPxx/build -lHIPxx
