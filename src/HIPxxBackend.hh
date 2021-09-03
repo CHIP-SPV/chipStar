@@ -23,15 +23,6 @@
 
 #include "include/hip/hip.hh"
 
-// Forward Declarations
-class HIPxxDevice;
-class HIPxxContext;
-class HIPxxModule;
-class HIPxxKernel;
-class HIPxxBackend;
-class HIPxxEvent;
-class HIPxxQueue;
-
 #include "HIPxxDriver.hh"
 #include "logging.hh"
 #include "temporary.hh"

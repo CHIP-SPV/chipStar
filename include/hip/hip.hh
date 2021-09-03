@@ -595,45 +595,27 @@ enum hipComputeMode {
 typedef int hipDevice_t;
 
 typedef void *hipDeviceptr_t;
+// Forward Declarations
+class HIPxxDevice;
+class HIPxxContext;
+class HIPxxModule;
+class HIPxxKernel;
+class HIPxxBackend;
+class HIPxxEvent;
+class HIPxxQueue;
+class HIPxxTexture;
+typedef HIPxxEvent *hipEvent_t;
+typedef HIPxxKernel *hipFunction_t;
+typedef HIPxxModule *hipModule_t;
+typedef HIPxxQueue *hipStream_t;
+typedef HIPxxTexture *hipTextureObject_t;
+typedef HIPxxContext *hipCtx_t;
 
 typedef enum {
   EVENT_STATUS_INIT = 5,
   EVENT_STATUS_RECORDING,
   EVENT_STATUS_RECORDED
 } event_status_e;
-
-class ClEvent;
-
-class LZEvent;
-
-typedef ClEvent *hipEvent_t;
-
-class ClKernel;
-
-typedef ClKernel *hipFunction_t;
-
-class ClProgram;
-
-class LZModule;
-
-// typedef ClProgram *hipModule_t;
-typedef LZModule *hipModule_t;
-
-class ClQueue;
-
-typedef ClQueue *hipStream_t;
-
-class LZQueue;
-
-typedef LZQueue *hipStream_t_xxx;
-
-class LZImage;
-
-typedef LZImage *hipTextureObject_t;
-
-class ClContext;
-
-typedef ClContext *hipCtx_t;
 
 typedef void (*hipStreamCallback_t)(hipStream_t stream, hipError_t status,
                                     void *userData);
