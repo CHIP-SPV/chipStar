@@ -224,62 +224,10 @@ class HIPxxDevice {
   HIPxxContext* get_default_context();
   virtual std::string get_name() = 0;
 
-  bool reserve_mem(size_t bytes) {
-    logTrace("HIPxxDevice->reserve_mem()");
-    std::lock_guard<std::mutex> Lock(DeviceMutex);
-    if (bytes <= (hip_device_props.totalGlobalMem - TotalUsedMem)) {
-      TotalUsedMem += bytes;
-      if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
-      logDebug("Currently used memory on dev {}: {} M\n", pcie_idx,
-               (TotalUsedMem >> 20));
-      return true;
-    } else {
-      logError(
-          "Can't allocate {} bytes of memory on device # {}\n. "
-          "GlobalMemSize:{} TotalUsedMem: {}",
-          bytes, pcie_idx, hip_device_props.totalGlobalMem, TotalUsedMem);
-      return false;
-    }
-  }
+  bool reserve_mem(size_t bytes);
 
-  bool release_mem(size_t bytes) {
-    std::lock_guard<std::mutex> Lock(DeviceMutex);
-    if (TotalUsedMem >= bytes) {
-      TotalUsedMem -= bytes;
-      return true;
-    } else {
-      return false;
-    }
-  }
-};
-
-/**
- * @brief Queue class for submitting kernels to for execution
- */
-class HIPxxQueue {
- protected:
-  std::mutex mtx;
-
- public:
-  /// Device on which this queue will execute
-  HIPxxDevice* hipxx_device;
-  /// Context to which device belongs to
-  HIPxxContext* hipxx_context;
-  HIPxxQueue(){};
-  ~HIPxxQueue(){};
-
-  /// Submit a kernel for execution
-  virtual hipError_t launch(HIPxxKernel* kernel, HIPxxExecItem* exec_item) {
-    logWarn("HIPxxQueue->launch() Base Call");
-    return hipSuccess;
+  bool release_mem(size_t bytes);
   };
-
-  virtual std::string get_info() {
-    std::string info;
-    info = hipxx_device->get_name();
-    return info;
-  };
-};
 
 /**
  * @brief Primary object to interact with the backend

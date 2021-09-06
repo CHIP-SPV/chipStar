@@ -70,3 +70,31 @@ HIPxxContext* HIPxxDevice::get_default_context() {
   // if (hipxx_contexts.size() == 0)
   return hipxx_contexts.at(0);
 }
+
+bool HIPxxDevice::reserve_mem(size_t bytes) {
+  logTrace("HIPxxDevice->reserve_mem()");
+  std::lock_guard<std::mutex> Lock(DeviceMutex);
+  if (bytes <= (hip_device_props.totalGlobalMem - TotalUsedMem)) {
+    TotalUsedMem += bytes;
+    if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
+    logDebug("Currently used memory on dev {}: {} M\n", pcie_idx,
+             (TotalUsedMem >> 20));
+    return true;
+  } else {
+    logError(
+        "Can't allocate {} bytes of memory on device # {}\n. "
+        "GlobalMemSize:{} TotalUsedMem: {}",
+        bytes, pcie_idx, hip_device_props.totalGlobalMem, TotalUsedMem);
+    return false;
+  }
+}
+
+bool HIPxxDevice::release_mem(size_t bytes) {
+  std::lock_guard<std::mutex> Lock(DeviceMutex);
+  if (TotalUsedMem >= bytes) {
+    TotalUsedMem -= bytes;
+    return true;
+  } else {
+    return false;
+  }
+}
