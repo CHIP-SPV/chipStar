@@ -344,6 +344,7 @@ hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
 }
 
 hipError_t hipMalloc(void **ptr, size_t size) {
+  logTrace("hipMalloc");
   HIPxxInitialize();
 
   ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
