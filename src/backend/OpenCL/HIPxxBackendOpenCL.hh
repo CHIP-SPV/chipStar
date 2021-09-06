@@ -34,15 +34,9 @@ class HIPxxQueueOpenCL;
 class HIPxxContextOpenCL : public HIPxxContext {
  public:
   cl::Context *cl_ctx;
-  HIPxxContextOpenCL(cl::Context *ctx_in) {
-    logDebug("HIPxxContextOpenCL Initialized via OpenCL Context pointer.");
-    cl_ctx = ctx_in;
-  }
+  HIPxxContextOpenCL(cl::Context *ctx_in);
 
-  void *allocate(size_t size) override {
-    logWarn("HIPxxContextOpenCL->allocate() not yet implemented");
-    return (void *)0xDEADBEEF;
-  }
+  void *allocate(size_t size) override;
 };
 
 class HIPxxDeviceOpenCL : public HIPxxDevice {
