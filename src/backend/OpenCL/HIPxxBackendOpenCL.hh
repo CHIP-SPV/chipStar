@@ -30,6 +30,8 @@ class HIPxxDeviceOpenCL;
 class HIPxxExecItemOpenCL;
 class HIPxxKernelOpenCL;
 class HIPxxQueueOpenCL;
+class HIPxxEventOpenCL;
+class HIPxxBackendOpenCL;
 
 class HIPxxContextOpenCL : public HIPxxContext {
  public:
