@@ -58,19 +58,10 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
 
  public:
   HIPxxQueueOpenCL() = delete;  // delete default constructor
-  HIPxxQueueOpenCL(const HIPxxQueueOpenCL &) =
-      delete;  // delete copy constructor
-
-  // HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
-  //   std::cout << "HIPxxQueueOpenCL Initialized via context, device
-  //   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new
-  //   cl::CommandQueue(*cl_ctx, *cl_dev);
-  // };
-
-  // Can get device and context from one object? No - each device might have
-  // multiple contexts
+  HIPxxQueueOpenCL(const HIPxxQueueOpenCL &) = delete;
   HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev);
   ~HIPxxQueueOpenCL();
+
   virtual hipError_t launch(HIPxxKernel *kernel,
                             HIPxxExecItem *exec_item) override;
 };

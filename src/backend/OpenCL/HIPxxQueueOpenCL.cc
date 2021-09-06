@@ -29,3 +29,9 @@ HIPxxQueueOpenCL::~HIPxxQueueOpenCL() {
   delete cl_ctx;
   delete cl_dev;
 }
+
+// HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
+//   std::cout << "HIPxxQueueOpenCL Initialized via context, device
+//   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new
+//   cl::CommandQueue(*cl_ctx, *cl_dev);
+// };
