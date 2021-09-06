@@ -70,6 +70,7 @@ set(HIPXX_SRC
     src/backend/OpenCL/HIPxxContextOpenCL.cc
     src/backend/OpenCL/HIPxxDeviceOpenCL.cc
     src/backend/OpenCL/HIPxxKernelOpenCL.cc
+    src/backend/OpenCL/HIPxxExecItemOpenCL.cc
 )
 set(DRIVER_SRC src/main.cc)
 
