@@ -70,12 +70,7 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
  public:
   cl::Kernel ocl_kernel;
 
-  OCLFuncInfo *get_func_info() const {
-    logWarn("HIPxxKernelOpenCL->getFuncInfo() not yet implemented");
-    // return FuncInfo;
-    return new OCLFuncInfo();
-  }
-
+  OCLFuncInfo *get_func_info() const;
   cl::Kernel get() const { return ocl_kernel; }
 };
 
