@@ -28,6 +28,12 @@
 #include "logging.hh"
 #include "temporary.hh"
 
+// fw declares
+class HIPxxExecItem;
+class HIPxxQueue;
+class HIPxxContext;
+class HIPxxDevice;
+
 class HIPxxEvent {
  protected:
   std::mutex mutex;
@@ -133,6 +139,7 @@ class HIPxxExecItem {
 class HIPxxContext {
  protected:
   std::vector<HIPxxDevice*> hipxx_devices;
+  std::vector<HIPxxQueue*> hipxx_queues;
   std::mutex mtx;
 
  public:
@@ -153,6 +160,30 @@ class HIPxxContext {
       logWarn(
           "HIPxxContext.get_devices() was called but hipxx_devices is empty");
     return hipxx_devices;
+  }
+
+  std::vector<HIPxxQueue*>& get_queues() {
+    if (hipxx_queues.size() == 0) {
+      logCritical(
+          "HIPxxContext.get_queues() was called but no queues were added to "
+          "this context");
+      std::abort();
+    }
+    return hipxx_queues;
+  }
+  void add_queue(HIPxxQueue* q) { hipxx_queues.push_back(q); }
+
+  virtual hipError_t memCopy(void* dst, const void* src, size_t size,
+                             hipStream_t stream) = 0;
+
+  hipStream_t findQueue(hipStream_t stream) {
+    std::vector<HIPxxQueue*> Queues = get_queues();
+    HIPxxQueue* DefaultQueue = Queues.at(0);
+    if (stream == nullptr || stream == DefaultQueue) return DefaultQueue;
+
+    auto I = std::find(Queues.begin(), Queues.end(), stream);
+    if (I == Queues.end()) return nullptr;
+    return *I;
   }
 };
 
@@ -227,7 +258,7 @@ class HIPxxDevice {
   bool reserve_mem(size_t bytes);
 
   bool release_mem(size_t bytes);
-  };
+};
 
 /**
  * @brief Primary object to interact with the backend
@@ -258,6 +289,7 @@ class HIPxxBackend {
 
   virtual void uninitialize() = 0;
 
+  std::vector<HIPxxQueue*>& get_queues() { return hipxx_queues; }
   HIPxxQueue* get_default_queue() {
     if (hipxx_queues.size() == 0) {
       logCritical(
@@ -330,6 +362,36 @@ class HIPxxBackend {
 
     return hipSuccess;
   }
+};
+
+/**
+ * @brief Queue class for submitting kernels to for execution
+ */
+class HIPxxQueue {
+ protected:
+  std::mutex mtx;
+
+ public:
+  /// Device on which this queue will execute
+  HIPxxDevice* hipxx_device;
+  /// Context to which device belongs to
+  HIPxxContext* hipxx_context;
+  HIPxxQueue(){};
+  ~HIPxxQueue(){};
+
+  virtual hipError_t memCopy(void* dst, const void* src, size_t size) = 0;
+
+  /// Submit a kernel for execution
+  virtual hipError_t launch(HIPxxKernel* kernel, HIPxxExecItem* exec_item) {
+    logWarn("HIPxxQueue->launch() Base Call");
+    return hipSuccess;
+  };
+
+  virtual std::string get_info() {
+    std::string info;
+    info = hipxx_device->get_name();
+    return info;
+  };
 };
 
 #endif

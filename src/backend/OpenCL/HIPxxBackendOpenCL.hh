@@ -65,6 +65,8 @@ class HIPxxContextOpenCL : public HIPxxContext {
   HIPxxContextOpenCL(cl::Context *ctx_in);
 
   void *allocate(size_t size) override;
+  virtual hipError_t memCopy(void *dst, const void *src, size_t size,
+                             hipStream_t stream) override;
 };
 
 class HIPxxDeviceOpenCL : public HIPxxDevice {
@@ -92,6 +94,8 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
 
   virtual hipError_t launch(HIPxxKernel *kernel,
                             HIPxxExecItem *exec_item) override;
+
+  virtual hipError_t memCopy(void *dst, const void *src, size_t size) override;
 };
 
 class HIPxxKernelOpenCL : public HIPxxKernel {

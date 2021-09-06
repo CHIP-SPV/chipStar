@@ -95,19 +95,18 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
 
 hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
                      hipMemcpyKind kind) {
-  logWarn("hipMemcpy not yet implemented");
-  // HIPLZ_INIT();
+  logTrace("hipMemcpy");
+  HIPxxInitialize();
 
-  // LZ_TRY
-  // LZContext *cont = getTlsDefaultLzCtx();
-  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+  HIPxxContext *ctx = Backend->get_default_context();
+  ERROR_IF((ctx == nullptr), hipErrorInvalidDevice);
 
-  // if (kind == hipMemcpyHostToHost) {
-  //   memcpy(dst, src, sizeBytes);
-  //   RETURN(hipSuccess);
-  // } else {
-  //   RETURN(cont->memCopy(dst, src, sizeBytes, nullptr));
-  // }
+  if (kind == hipMemcpyHostToHost) {
+    memcpy(dst, src, sizeBytes);
+    RETURN(hipSuccess);
+  } else {
+    RETURN(ctx->memCopy(dst, src, sizeBytes, nullptr));
+  }
   // LZ_CATCH
   // ze_result_t status = zeCommandQueueSynchronize(cont->hQueue, UINT64_MAX);
   // if (status != ZE_RESULT_SUCCESS) {

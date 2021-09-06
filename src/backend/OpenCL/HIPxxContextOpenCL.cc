@@ -17,3 +17,17 @@ void *HIPxxContextOpenCL::allocate(size_t size) {
 
   return retval;
 }
+
+hipError_t HIPxxContextOpenCL::memCopy(void *dst, const void *src, size_t size,
+                                       hipStream_t stream) {
+  logWarn("HIPxxContextOpenCL::memCopy not implemented");
+  // FIND_QUEUE_LOCKED(stream);
+  std::lock_guard<std::mutex> Lock(mtx);
+  HIPxxQueue *Queue = findQueue(stream);
+  if (Queue == nullptr) return hipErrorInvalidResourceHandle;
+
+  if (svm_memory.hasPointer(dst) || svm_memory.hasPointer(src))
+    return Queue->memCopy(dst, src, size);
+  else
+    return hipErrorInvalidDevicePointer;
+}

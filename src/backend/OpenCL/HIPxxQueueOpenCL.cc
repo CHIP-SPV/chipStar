@@ -23,11 +23,34 @@ HIPxxQueueOpenCL::HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx,
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
   hipxx_device = _dev;
   hipxx_context = _ctx;
+  hipxx_context->add_queue(this);
 }
 
 HIPxxQueueOpenCL::~HIPxxQueueOpenCL() {
   delete cl_ctx;
   delete cl_dev;
+}
+
+hipError_t HIPxxQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logDebug("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
+  cl_event ev = nullptr;
+  auto LastEvent = ev;
+  int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
+                                    nullptr, &ev);
+  if (retval == CL_SUCCESS) {
+    // TODO
+    if (LastEvent != nullptr) {
+      logDebug("memCopy: LastEvent == {}, will be: {}", (void *)LastEvent,
+               (void *)ev);
+      clReleaseEvent(LastEvent);
+    } else
+      logDebug("memCopy: LastEvent == NULL, will be: {}\n", (void *)ev);
+    LastEvent = ev;
+  } else {
+    logError("clEnqueueSVMMemCopy() failed with error {}\n", retval);
+  }
+  return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
 }
 
 // HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
