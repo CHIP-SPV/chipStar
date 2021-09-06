@@ -72,6 +72,7 @@ set(HIPXX_SRC
     src/backend/OpenCL/HIPxxKernelOpenCL.cc
     src/backend/OpenCL/HIPxxExecItemOpenCL.cc
     src/backend/OpenCL/HIPxxEventOpenCL.cc
+    src/backend/OpenCL/SVMemoryRegion.cc
 )
 set(DRIVER_SRC src/main.cc)
 

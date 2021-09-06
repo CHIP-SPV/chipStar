@@ -162,6 +162,7 @@ class HIPxxContext {
 class HIPxxDevice {
  protected:
   std::mutex DeviceMutex;
+  std::string device_name;
 
  public:
   /// Vector of contexts to which this device belongs to
@@ -180,6 +181,8 @@ class HIPxxDevice {
 
   hipDevice_t pcie_idx;
   hipDeviceProp_t hip_device_props;
+
+  size_t TotalUsedMem, MaxUsedMem;
 
   /// default constructor
   HIPxxDevice() {
@@ -220,6 +223,34 @@ class HIPxxDevice {
    */
   HIPxxContext* get_default_context();
   virtual std::string get_name() = 0;
+
+  bool reserve_mem(size_t bytes) {
+    logTrace("HIPxxDevice->reserve_mem()");
+    std::lock_guard<std::mutex> Lock(DeviceMutex);
+    if (bytes <= (hip_device_props.totalGlobalMem - TotalUsedMem)) {
+      TotalUsedMem += bytes;
+      if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
+      logDebug("Currently used memory on dev {}: {} M\n", pcie_idx,
+               (TotalUsedMem >> 20));
+      return true;
+    } else {
+      logError(
+          "Can't allocate {} bytes of memory on device # {}\n. "
+          "GlobalMemSize:{} TotalUsedMem: {}",
+          bytes, pcie_idx, hip_device_props.totalGlobalMem, TotalUsedMem);
+      return false;
+    }
+  }
+
+  bool release_mem(size_t bytes) {
+    std::lock_guard<std::mutex> Lock(DeviceMutex);
+    if (TotalUsedMem >= bytes) {
+      TotalUsedMem -= bytes;
+      return true;
+    } else {
+      return false;
+    }
+  }
 };
 
 /**

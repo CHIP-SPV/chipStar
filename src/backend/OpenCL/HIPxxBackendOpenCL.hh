@@ -33,8 +33,34 @@ class HIPxxQueueOpenCL;
 class HIPxxEventOpenCL;
 class HIPxxBackendOpenCL;
 
+class SVMemoryRegion {
+  // ContextMutex should be enough
+
+  std::map<void *, size_t> SvmAllocations;
+  cl::Context Context;
+
+ public:
+  void init(cl::Context &C) { Context = C; }
+  SVMemoryRegion &operator=(SVMemoryRegion &&rhs) {
+    SvmAllocations = std::move(rhs.SvmAllocations);
+    Context = std::move(rhs.Context);
+    return *this;
+  }
+
+  void *allocate(cl::Context ctx, size_t size);
+  bool free(void *p, size_t *size);
+  bool hasPointer(const void *p);
+  bool pointerSize(void *ptr, size_t *size);
+  bool pointerInfo(void *ptr, void **pbase, size_t *psize);
+  int memCopy(void *dst, const void *src, size_t size, cl::CommandQueue &queue);
+  int memFill(void *dst, size_t size, const void *pattern, size_t patt_size,
+              cl::CommandQueue &queue);
+  void clear();
+};
+
 class HIPxxContextOpenCL : public HIPxxContext {
  public:
+  SVMemoryRegion svm_memory;
   cl::Context *cl_ctx;
   HIPxxContextOpenCL(cl::Context *ctx_in);
 
