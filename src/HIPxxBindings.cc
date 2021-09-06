@@ -128,16 +128,9 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
 
 hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
                             hipStream_t stream) {
-  logWarn("hipConfigureCall not yet implemented");
-  // HIPLZ_INIT();
-
-  // LZ_TRY
-
-  // LZContext* lzCtx = getTlsDefaultLzCtx();
-  // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
-  // RETURN(lzCtx->configureCall(gridDim, blockDim, sharedMem, stream));
-
-  // LZ_CATCH
+  HIPxxInitialize();
+  logTrace("hipConfigureCall()");
+  RETURN(Backend->configure_call(gridDim, blockDim, sharedMem, stream));
   RETURN(hipSuccess);
 }
 
@@ -322,9 +315,8 @@ hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   logTrace("hipSetupArgument");
   HIPxxInitialize();
 
-  // LZContext *lzCtx =  ();
   // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
-  // RETURN(lzCtx->setArg(arg, size, offset));
+  RETURN(Backend->set_arg(arg, size, offset));
   return hipSuccess;
 }
 

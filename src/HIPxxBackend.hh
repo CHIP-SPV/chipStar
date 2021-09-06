@@ -20,6 +20,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <stack>
 
 #include "include/hip/hip.hh"
 
@@ -95,11 +96,31 @@ class HIPxxKernel {
  */
 class HIPxxExecItem {
  protected:
-  /// Kernel to be ejjxecuted
   HIPxxKernel* Kernel;
-  // TODO Args
+  HIPxxQueue* q;
+
+  size_t SharedMem;
+  hipStream_t Stream;
+  std::vector<uint8_t> ArgData;
+  std::vector<std::tuple<size_t, size_t>> OffsetsSizes;
+
  public:
-  virtual void run(){};
+  dim3 GridDim;
+  dim3 BlockDim;
+  HIPxxExecItem(dim3 grid_in, dim3 block_in, size_t shared_in, hipStream_t q_in)
+      : GridDim(grid_in), BlockDim(block_in), SharedMem(shared_in), q(q_in){};
+
+  void set_arg(const void* arg, size_t size, size_t offset) {
+    if ((offset + size) > ArgData.size()) ArgData.resize(offset + size + 1024);
+
+    std::memcpy(ArgData.data() + offset, arg, size);
+    logDebug("setArg on {} size {} offset {}\n", (void*)this, size, offset);
+    OffsetsSizes.push_back(std::make_tuple(offset, size));
+  }
+  virtual hipError_t launch(HIPxxKernel* Kernel) {
+    logWarn("Calling HIPxxExecItem base launch which does nothing");
+    return hipSuccess;
+  };
 };
 
 /**
@@ -111,6 +132,7 @@ class HIPxxExecItem {
 class HIPxxContext {
  protected:
   std::vector<HIPxxDevice*> hipxx_devices;
+  std::mutex mtx;
 
  public:
   HIPxxContext(){};
@@ -130,7 +152,7 @@ class HIPxxContext {
       logWarn(
           "HIPxxContext.get_devices() was called but hipxx_devices is empty");
     return hipxx_devices;
-  };
+  }
 };
 
 /**
@@ -204,6 +226,8 @@ class HIPxxDevice {
  */
 class HIPxxQueue {
  protected:
+  std::mutex mtx;
+
  public:
   /// Device on which this queue will execute
   HIPxxDevice* hipxx_device;
@@ -213,8 +237,9 @@ class HIPxxQueue {
   ~HIPxxQueue(){};
 
   /// Submit a kernel for execution
-  virtual void submit(HIPxxExecItem* exec_item) {
-    logDebug("HIPxxQueue.submit() Base Call");
+  virtual hipError_t launch(HIPxxKernel* kernel, HIPxxExecItem* exec_item) {
+    logWarn("HIPxxQueue->launch() Base Call");
+    return hipSuccess;
   };
 
   virtual std::string get_info() {
@@ -236,6 +261,8 @@ class HIPxxBackend {
    * device code and stored in binary representation.
    *  */
   std::vector<std::string*> modules_str;
+  std::mutex mtx;
+  std::stack<HIPxxExecItem*> hipxx_execstack;
 
  public:
   std::vector<HIPxxContext*> hipxx_contexts;
@@ -254,9 +281,8 @@ class HIPxxBackend {
   HIPxxQueue* get_default_queue() {
     if (hipxx_queues.size() == 0) {
       logCritical(
-          "HIPxxBackend.get_default_queue() was called but no queues have been "
-          "initialized;\n",
-          "");
+          "HIPxxBackend.get_default_queue() was called but no queues have "
+          "been initialized;\n");
       std::abort();
     }
     return hipxx_queues[0];
@@ -287,11 +313,6 @@ class HIPxxBackend {
     hipxx_devices.push_back(dev_in);
   }
 
-  void submit(HIPxxExecItem* _e) {
-    logDebug("HIPxxBackend.submit()");
-    get_default_queue()->submit(_e);
-  };
-
   void register_module(std::string* mod_str) {
     logTrace("HIPxxBackend->register_module()");
     get_modules_str().push_back(mod_str);
@@ -308,7 +329,26 @@ class HIPxxBackend {
           "unregister",
           (void*)mod_str);
     }
-  };
+  }
+
+  hipError_t configure_call(dim3 grid, dim3 block, size_t shared,
+                            hipStream_t q) {
+    logTrace("HIPxxBackend->configure_call()");
+    std::lock_guard<std::mutex> Lock(mtx);
+    if (q == nullptr) q = get_default_queue();
+    HIPxxExecItem* ex = new HIPxxExecItem(grid, block, shared, q);
+    hipxx_execstack.push(ex);
+
+    return hipSuccess;
+  }
+
+  hipError_t set_arg(const void* arg, size_t size, size_t offset) {
+    std::lock_guard<std::mutex> Lock(mtx);
+    HIPxxExecItem* ex = hipxx_execstack.top();
+    ex->set_arg(arg, size, offset);
+
+    return hipSuccess;
+  }
 };
 
 #endif
