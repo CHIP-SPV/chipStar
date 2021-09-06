@@ -3,7 +3,7 @@
 #define SVM_ALIGNMENT 128
 
 void *SVMemoryRegion::allocate(cl::Context ctx, size_t size) {
-  void *Ptr = ::clSVMAlloc(Context(), CL_MEM_READ_WRITE, size, SVM_ALIGNMENT);
+  void *Ptr = ::clSVMAlloc(ctx.get(), CL_MEM_READ_WRITE, size, SVM_ALIGNMENT);
   if (Ptr) {
     logDebug("clSVMAlloc allocated: {} / {}\n", Ptr, size);
     SvmAllocations.emplace(Ptr, size);
