@@ -67,6 +67,7 @@ set(HIPXX_SRC
     src/logging.cc
     src/HIPxxBindings.cc
     src/backend/OpenCL/HIPxxQueueOpenCL.cc
+    src/backend/OpenCL/HIPxxContextOpenCL.cc
 )
 set(DRIVER_SRC src/main.cc)
 

@@ -2,6 +2,6 @@
 #define HIPXX_BACKENDS_H
 
 #include "Level0/Level0Backend.hh"
-#include "OpenCL/OpenCLBackend.hh"
+#include "OpenCL/HIPxxBackendOpenCL.hh"
 
 #endif

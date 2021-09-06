@@ -1,4 +1,4 @@
-#include "OpenCLBackend.hh"
+#include "HIPxxBackendOpenCL.hh"
 
 hipError_t HIPxxQueueOpenCL::launch(HIPxxKernel *kernel,
                                     HIPxxExecItem *exec_item) {
