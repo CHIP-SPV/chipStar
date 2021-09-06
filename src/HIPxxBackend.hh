@@ -114,11 +114,12 @@ class HIPxxExecItem {
     if ((offset + size) > ArgData.size()) ArgData.resize(offset + size + 1024);
 
     std::memcpy(ArgData.data() + offset, arg, size);
-    logDebug("setArg on {} size {} offset {}\n", (void*)this, size, offset);
+    logDebug("HIPxxExecItem.set_arg() on {} size {} offset {}\n", (void*)this,
+             size, offset);
     OffsetsSizes.push_back(std::make_tuple(offset, size));
   }
   virtual hipError_t launch(HIPxxKernel* Kernel) {
-    logWarn("Calling HIPxxExecItem base launch which does nothing");
+    logWarn("Calling HIPxxExecItem.launch() base launch which does nothing");
     return hipSuccess;
   };
 };
@@ -343,6 +344,7 @@ class HIPxxBackend {
   }
 
   hipError_t set_arg(const void* arg, size_t size, size_t offset) {
+    logTrace("HIPxxBackend->set_arg()");
     std::lock_guard<std::mutex> Lock(mtx);
     HIPxxExecItem* ex = hipxx_execstack.top();
     ex->set_arg(arg, size, offset);
