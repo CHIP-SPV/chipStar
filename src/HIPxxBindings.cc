@@ -30,6 +30,13 @@ hipError_t hipEventCreate(hipEvent_t *event) {
   return hipEventCreateWithFlags(event, 0);
 }
 
+class ClEvent;
+hipError_t hipEventCreate(ClEvent **event) {
+  logWarn("hipEventCreate not implemented");
+  return hipSuccess;
+  // return hipEventCreateWithFlags(event, 0);
+}
+
 hipError_t hipFree(void *ptr) {
   logWarn("hipFree not yet implemented");
   return hipSuccess;
@@ -126,6 +133,12 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   RETURN(hipSuccess);
 }
 
+class ClQueue;
+hipError_t hipEventRecord(ClEvent *, ClQueue *) {
+  logWarn("hipEventRecord not yet implemented");
+  RETURN(hipSuccess);
+}
+
 hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
                             hipStream_t stream) {
   HIPxxInitialize();
@@ -163,6 +176,16 @@ hipError_t hipEventElapsedTime(float *ms, hipEvent_t start, hipEvent_t stop) {
 
   // RETURN(cont->eventElapsedTime(ms, start, stop));
   // LZ_CATCH
+  RETURN(hipSuccess);
+}
+
+hipError_t hipEventElapsedTime(float *, ClEvent *, ClEvent *) {
+  logWarn("hipEventElapsedTime not yet implemented");
+  RETURN(hipSuccess);
+}
+
+hipError_t hipEventDestroy(ClEvent *) {
+  logWarn("hipEventDestroy not yet implemented");
   RETURN(hipSuccess);
 }
 
