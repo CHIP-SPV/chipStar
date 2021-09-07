@@ -32,6 +32,11 @@ class HIPxxKernelOpenCL;
 class HIPxxQueueOpenCL;
 class HIPxxEventOpenCL;
 class HIPxxBackendOpenCL;
+class HIPxxModuleOpenCL;
+
+class HIPxxModuleOpenCL : public HIPxxModule {
+  virtual void compile(std::string *module_str) override;
+};
 
 class SVMemoryRegion {
   // ContextMutex should be enough
@@ -248,6 +253,13 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
   void uninitialize() override {
     logTrace("HIPxxBackendOpenCL uninitializing");
     logWarn("HIPxxBackendOpenCL->uninitialize() not implemented");
+  }
+
+  virtual bool register_function_as_kernel(std::string *module_str,
+                                           const void *HostFunctionPtr,
+                                           const char *FunctionName) override {
+    logTrace("HIPxxBackendOpenCL.register_function_as_kernel()");
+    return true;
   }
 };
 

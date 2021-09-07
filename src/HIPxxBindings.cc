@@ -311,16 +311,17 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
   logDebug("RegisterFunction on module {}\n", (void *)module_str);
 
   logDebug("RegisterFunction on {} devices", Backend->get_num_devices());
-  for (HIPxxDevice *dev : Backend->get_devices()) {
-    if (dev->register_function_as_kernel(module_str, hostFunction,
-                                         deviceName)) {
-      logDebug("__hipRegisterFunction: kernel {} found\n", deviceName);
-    } else {
-      logCritical("__hipRegisterFunction can NOT find kernel: {} \n",
-                  deviceName);
-      std::abort();
-    }
-  }
+  Backend->register_function_as_kernel(module_str, hostFunction, deviceName);
+  //  for (HIPxxDevice *dev : Backend->get_devices()) {
+  // if (dev->register_function_as_kernel(module_str, hostFunction,
+  // deviceName)) {
+  // logDebug("__hipRegisterFunction: kernel {} found\n", deviceName);
+  //} else {
+  // logCritical("__hipRegisterFunction can NOT find kernel: {} \n",
+  // deviceName);
+  // std::abort();
+  //}
+  //}
   // Put the function information into a temproary storage
   // LZDriver::RegFunctions.push_back(
   //    std::make_tuple(module, hostFunction, deviceName));

@@ -79,6 +79,14 @@ class HIPxxModule {
 
   HIPxxModule(std::string* module_str);
   void add_kernel(void* HostFunctionPtr, std::string HostFunctionName);
+
+  /**
+   * @brief Take a binary representation of a module, compile it, extract
+   * kernels and add them to this module;
+   *
+   * @param module_str binary representation of a module
+   */
+  virtual void compile(std::string* module_str) = 0;
 };
 
 /**
@@ -130,99 +138,6 @@ class HIPxxExecItem {
     return hipSuccess;
   };
 };
-
-/**
- * @brief Context class
- * Contexts contain execution queues and are created on top of a single or
- * multiple devices. Provides for creation of additional queues, events, and
- * interaction with devices.
- */
-class HIPxxContext {
- protected:
-  std::vector<HIPxxDevice*> hipxx_devices;
-  std::vector<HIPxxQueue*> hipxx_queues;
-  std::mutex mtx;
-
- public:
-  HIPxxContext(){};
-  ~HIPxxContext(){};
-
-  /**
-   * @brief Add a device to this context
-   *
-   * @param dev pointer to HIPxxDevice object
-   * @return true if device was added successfully
-   * @return false upon failure
-   */
-  bool add_device(HIPxxDevice* dev);
-  virtual void* allocate(size_t size) = 0;
-  hipError_t launchHostFunc(const void* HostFunction) {
-    std::string FunctionName;
-    std::string* module;
-    HIPxxModule* hipxx_module;
-    // TODO
-    HIPxxDevice* dev = hipxx_devices.at(0);
-
-    if (!dev->getModuleAndFName(HostFunction, FunctionName, hipxx_module)) {
-      logCritical("can NOT find kernel with stub address {} for device {}\n",
-                  HostFunction, dev->pcie_idx);
-      return hipErrorLaunchFailure;
-    }
-
-    std::lock_guard<std::mutex> Lock(mtx);
-
-    // TODO
-    // ClKernel* Kernel = nullptr;
-    // // TODO can this happen ?
-    // if (BuiltinPrograms.find(HostFunction) != BuiltinPrograms.end())
-    //   Kernel = BuiltinPrograms[HostFunction]->getKernel(FunctionName);
-
-    // if (Kernel == nullptr) {
-    //   logCritical("can NOT find kernel with stub address {} for device {}\n",
-    //               HostFunction, Device->getHipDeviceT());
-    //   return hipErrorLaunchFailure;
-    // }
-
-    // ExecItem* Arguments;
-    // Arguments = ExecStack.top();
-    // ExecStack.pop();
-
-    // return Arguments->launch(Kernel);
-    return hipSuccess;
-  }
-
-  std::vector<HIPxxDevice*>& get_devices() {
-    if (hipxx_devices.size() == 0)
-      logWarn(
-          "HIPxxContext.get_devices() was called but hipxx_devices is empty");
-    return hipxx_devices;
-  }
-
-  std::vector<HIPxxQueue*>& get_queues() {
-    if (hipxx_queues.size() == 0) {
-      logCritical(
-          "HIPxxContext.get_queues() was called but no queues were added to "
-          "this context");
-      std::abort();
-    }
-    return hipxx_queues;
-  }
-  void add_queue(HIPxxQueue* q) { hipxx_queues.push_back(q); }
-
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream) = 0;
-
-  hipStream_t findQueue(hipStream_t stream) {
-    std::vector<HIPxxQueue*> Queues = get_queues();
-    HIPxxQueue* DefaultQueue = Queues.at(0);
-    if (stream == nullptr || stream == DefaultQueue) return DefaultQueue;
-
-    auto I = std::find(Queues.begin(), Queues.end(), stream);
-    if (I == Queues.end()) return nullptr;
-    return *I;
-  }
-};
-
 /**
  * @brief Compute device class
  */
@@ -315,6 +230,98 @@ class HIPxxDevice {
     FunctionName.assign(it2->second);
     hipxx_module = it1->second;
     return true;
+  }
+};
+
+/**
+ * @brief Context class
+ * Contexts contain execution queues and are created on top of a single or
+ * multiple devices. Provides for creation of additional queues, events, and
+ * interaction with devices.
+ */
+class HIPxxContext {
+ protected:
+  std::vector<HIPxxDevice*> hipxx_devices;
+  std::vector<HIPxxQueue*> hipxx_queues;
+  std::mutex mtx;
+
+ public:
+  HIPxxContext(){};
+  ~HIPxxContext(){};
+
+  /**
+   * @brief Add a device to this context
+   *
+   * @param dev pointer to HIPxxDevice object
+   * @return true if device was added successfully
+   * @return false upon failure
+   */
+  bool add_device(HIPxxDevice* dev);
+  virtual void* allocate(size_t size) = 0;
+  hipError_t launchHostFunc(const void* HostFunction) {
+    std::string FunctionName;
+    std::string* module;
+    HIPxxModule* hipxx_module;
+    // TODO
+    HIPxxDevice* dev = hipxx_devices.at(0);
+
+    if (!dev->getModuleAndFName(HostFunction, FunctionName, hipxx_module)) {
+      logCritical("can NOT find kernel with stub address {} for device {}\n",
+                  HostFunction, dev->pcie_idx);
+      return hipErrorLaunchFailure;
+    }
+
+    std::lock_guard<std::mutex> Lock(mtx);
+
+    // TODO
+    // ClKernel* Kernel = nullptr;
+    // // TODO can this happen ?
+    // if (BuiltinPrograms.find(HostFunction) != BuiltinPrograms.end())
+    //   Kernel = BuiltinPrograms[HostFunction]->getKernel(FunctionName);
+
+    // if (Kernel == nullptr) {
+    //   logCritical("can NOT find kernel with stub address {} for device {}\n",
+    //               HostFunction, Device->getHipDeviceT());
+    //   return hipErrorLaunchFailure;
+    // }
+
+    // ExecItem* Arguments;
+    // Arguments = ExecStack.top();
+    // ExecStack.pop();
+
+    // return Arguments->launch(Kernel);
+    return hipSuccess;
+  }
+
+  std::vector<HIPxxDevice*>& get_devices() {
+    if (hipxx_devices.size() == 0)
+      logWarn(
+          "HIPxxContext.get_devices() was called but hipxx_devices is empty");
+    return hipxx_devices;
+  }
+
+  std::vector<HIPxxQueue*>& get_queues() {
+    if (hipxx_queues.size() == 0) {
+      logCritical(
+          "HIPxxContext.get_queues() was called but no queues were added to "
+          "this context");
+      std::abort();
+    }
+    return hipxx_queues;
+  }
+  void add_queue(HIPxxQueue* q) { hipxx_queues.push_back(q); }
+
+  virtual hipError_t memCopy(void* dst, const void* src, size_t size,
+                             hipStream_t stream) = 0;
+
+  hipStream_t findQueue(hipStream_t stream) {
+    std::vector<HIPxxQueue*> Queues = get_queues();
+    HIPxxQueue* DefaultQueue = Queues.at(0);
+    if (stream == nullptr || stream == DefaultQueue) return DefaultQueue;
+
+    auto I = std::find(Queues.begin(), Queues.end(), stream);
+    if (I == Queues.end()) return nullptr;
+    return *I;
   }
 };
 
@@ -421,6 +428,20 @@ class HIPxxBackend {
 
     return hipSuccess;
   }
+
+  /**
+   * @brief Register this function as a kernel for all devices initialized in
+   * this backend
+   *
+   * @param module_str
+   * @param HostFunctionPtr
+   * @param FunctionName
+   * @return true
+   * @return false
+   */
+  virtual bool register_function_as_kernel(std::string* module_str,
+                                           const void* HostFunctionPtr,
+                                           const char* FunctionName) = 0;
 };
 
 /**
