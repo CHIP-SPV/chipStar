@@ -1,9 +1,9 @@
 #include "HIPxxBackend.hh"
 
-bool HIPxxDevice::registerFunction(std::string* module_str,
-                                   const void* HostFunctionPtr,
-                                   const char* FunctionName) {
-  std::lock_guard<std::mutex> Lock(DeviceMutex);
+bool HIPxxDevice::register_function_as_kernel(std::string* module_str,
+                                              const void* HostFunctionPtr,
+                                              const char* FunctionName) {
+  std::lock_guard<std::mutex> Lock(mtx);
   logTrace("HIPxxDevice::registerFunction");
 
   // Get modules in binary representation
@@ -73,7 +73,7 @@ HIPxxContext* HIPxxDevice::get_default_context() {
 
 bool HIPxxDevice::reserve_mem(size_t bytes) {
   logTrace("HIPxxDevice->reserve_mem()");
-  std::lock_guard<std::mutex> Lock(DeviceMutex);
+  std::lock_guard<std::mutex> Lock(mtx);
   if (bytes <= (hip_device_props.totalGlobalMem - TotalUsedMem)) {
     TotalUsedMem += bytes;
     if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
@@ -90,7 +90,7 @@ bool HIPxxDevice::reserve_mem(size_t bytes) {
 }
 
 bool HIPxxDevice::release_mem(size_t bytes) {
-  std::lock_guard<std::mutex> Lock(DeviceMutex);
+  std::lock_guard<std::mutex> Lock(mtx);
   if (TotalUsedMem >= bytes) {
     TotalUsedMem -= bytes;
     return true;

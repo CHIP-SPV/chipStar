@@ -71,6 +71,7 @@ class HIPxxEvent {
 class HIPxxModule {
  protected:
   std::vector<HIPxxKernel*> Kernels;
+  std::mutex mtx;
 
  public:
   HIPxxModule(){};
@@ -155,6 +156,41 @@ class HIPxxContext {
    */
   bool add_device(HIPxxDevice* dev);
   virtual void* allocate(size_t size) = 0;
+  hipError_t launchHostFunc(const void* HostFunction) {
+    std::string FunctionName;
+    std::string* module;
+    HIPxxModule* hipxx_module;
+    // TODO
+    HIPxxDevice* dev = hipxx_devices.at(0);
+
+    if (!dev->getModuleAndFName(HostFunction, FunctionName, hipxx_module)) {
+      logCritical("can NOT find kernel with stub address {} for device {}\n",
+                  HostFunction, dev->pcie_idx);
+      return hipErrorLaunchFailure;
+    }
+
+    std::lock_guard<std::mutex> Lock(mtx);
+
+    // TODO
+    // ClKernel* Kernel = nullptr;
+    // // TODO can this happen ?
+    // if (BuiltinPrograms.find(HostFunction) != BuiltinPrograms.end())
+    //   Kernel = BuiltinPrograms[HostFunction]->getKernel(FunctionName);
+
+    // if (Kernel == nullptr) {
+    //   logCritical("can NOT find kernel with stub address {} for device {}\n",
+    //               HostFunction, Device->getHipDeviceT());
+    //   return hipErrorLaunchFailure;
+    // }
+
+    // ExecItem* Arguments;
+    // Arguments = ExecStack.top();
+    // ExecStack.pop();
+
+    // return Arguments->launch(Kernel);
+    return hipSuccess;
+  }
+
   std::vector<HIPxxDevice*>& get_devices() {
     if (hipxx_devices.size() == 0)
       logWarn(
@@ -192,14 +228,14 @@ class HIPxxContext {
  */
 class HIPxxDevice {
  protected:
-  std::mutex DeviceMutex;
   std::string device_name;
+  std::mutex mtx;
 
  public:
   /// Vector of contexts to which this device belongs to
   std::vector<HIPxxContext*> hipxx_contexts;
   /// hipxx_modules in binary representation
-  std::vector<std::string*> ModulesStr;
+  std::vector<std::string*> modules_str;
   /// hipxx_modules in parsed representation
   std::vector<HIPxxModule*> hipxx_modules;
 
@@ -209,6 +245,11 @@ class HIPxxDevice {
   std::map<const void*, HIPxxModule*> HostPtrToModuleMap;
   /// Map host pointer to a function name
   std::map<const void*, std::string> HostPtrToNameMap;
+  /// Map host pointer to HIPxxKernel
+  std::map<const void*, HIPxxKernel*> HostPtrToKernelStrMap;
+
+  // TODO
+  std::vector<HIPxxKernel*>& get_kernels();
 
   hipDevice_t pcie_idx;
   hipDeviceProp_t hip_device_props;
@@ -243,8 +284,9 @@ class HIPxxDevice {
    */
   bool add_context(HIPxxContext* ctx);
 
-  bool registerFunction(std::string* module_str, const void* HostFunction,
-                        const char* FunctionName);
+  bool register_function_as_kernel(std::string* module_str,
+                                   const void* HostFunction,
+                                   const char* FunctionName);
 
   /**
    * @brief Get the default context object
@@ -258,6 +300,22 @@ class HIPxxDevice {
   bool reserve_mem(size_t bytes);
 
   bool release_mem(size_t bytes);
+
+  bool getModuleAndFName(const void* HostFunction, std::string& FunctionName,
+                         HIPxxModule* hipxx_module) {
+    logTrace("HIPxxDevice.getModuleAndFName");
+    std::lock_guard<std::mutex> Lock(mtx);
+
+    auto it1 = HostPtrToModuleMap.find(HostFunction);
+    auto it2 = HostPtrToNameMap.find(HostFunction);
+
+    if ((it1 == HostPtrToModuleMap.end()) || (it2 == HostPtrToNameMap.end()))
+      return false;
+
+    FunctionName.assign(it2->second);
+    hipxx_module = it1->second;
+    return true;
+  }
 };
 
 /**
@@ -327,6 +385,7 @@ class HIPxxBackend {
 
   void register_module(std::string* mod_str) {
     logTrace("HIPxxBackend->register_module()");
+    std::lock_guard<std::mutex> Lock(mtx);
     get_modules_str().push_back(mod_str);
   };
 
@@ -337,7 +396,7 @@ class HIPxxBackend {
       get_modules_str().erase(found_mod);
     } else {
       logWarn(
-          "Module {} not found in HIPxxBackend.ModulesStr while trying to "
+          "Module {} not found in HIPxxBackend.modules_str while trying to "
           "unregister",
           (void*)mod_str);
     }
