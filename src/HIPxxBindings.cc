@@ -59,7 +59,7 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
 
   HIPxxContext *ctx = Backend->get_default_context();
   if (ctx->launchHostFunc(hostFunction))
-  RETURN(hipSuccess);
+    RETURN(hipSuccess);
   else
     RETURN(hipErrorLaunchFailure);
 }
@@ -312,7 +312,8 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
 
   logDebug("RegisterFunction on {} devices", Backend->get_num_devices());
   for (HIPxxDevice *dev : Backend->get_devices()) {
-    if (dev->registerFunction(module_str, hostFunction, deviceName)) {
+    if (dev->register_function_as_kernel(module_str, hostFunction,
+                                         deviceName)) {
       logDebug("__hipRegisterFunction: kernel {} found\n", deviceName);
     } else {
       logCritical("__hipRegisterFunction can NOT find kernel: {} \n",
