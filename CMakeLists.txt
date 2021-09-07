@@ -62,6 +62,7 @@ include_directories(src backend include . ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
 set(HIPXX_SRC 
+    src/spirv.cc 
     src/HIPxxDriver.cc 
     src/HIPxxBackend.cc 
     src/logging.cc

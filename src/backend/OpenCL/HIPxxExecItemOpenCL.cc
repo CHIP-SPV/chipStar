@@ -1,5 +1,30 @@
 #include "HIPxxBackendOpenCL.hh"
 
+static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
+                        cl_kernel kernel) {
+  logWarn("setLocalSize not yet implemented");
+  int err = CL_SUCCESS;
+
+  if (shared > 0) {
+    logDebug("setLocalMemSize to {}\n", shared);
+    size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
+    if (FuncInfo->ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
+      // this can happen if for example the llvm optimizes away
+      // the dynamic local variable
+      logWarn(
+          "Can't set the dynamic local size, "
+          "because the kernel doesn't use any local memory.\n");
+    } else {
+      err = ::clSetKernelArg(kernel, LastArgIdx, shared, nullptr);
+      if (err != CL_SUCCESS) {
+        logError("clSetKernelArg() failed to set dynamic local size!\n");
+      }
+    }
+  }
+
+  return err;
+}
+
 hipError_t HIPxxExecItemOpenCL::launch(HIPxxKernel *hipxx_kernel) {
   logTrace("HIPxxExecItemOpenCL->launch()");
   HIPxxQueueOpenCL *ocl_q = (HIPxxQueueOpenCL *)q;
