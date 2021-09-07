@@ -219,6 +219,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
 
 extern "C" void **__hipRegisterFatBinary(const void *data) {
   HIPxxInitialize();
+  logTrace("__hipRegisterFatBinary");
 
   const __CudaFatBinaryWrapper *fbwrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(data);
