@@ -233,9 +233,9 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     HIPxxContextOpenCL *hipxx_context = new HIPxxContextOpenCL(ctx);
     Backend->add_context(hipxx_context);
     for (int i = 0; i < enabled_devices.size(); i++) {
-      auto dev = enabled_devices[i];
+      cl::Device *dev = new cl::Device(enabled_devices[i]);
       HIPxxDeviceOpenCL *hipxx_dev =
-          new HIPxxDeviceOpenCL(hipxx_context, &dev, i);
+          new HIPxxDeviceOpenCL(hipxx_context, dev, i);
       logDebug("HIPxxDeviceOpenCL {}",
                hipxx_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
       hipxx_dev->populate_device_properties();
