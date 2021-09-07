@@ -55,22 +55,13 @@ hipError_t hipFree(void *ptr) {
 };
 
 hipError_t hipLaunchByPtr(const void *hostFunction) {
-  logWarn("hipLaunchByPtr not yet implemented");
-  // HIPLZ_INIT();
+  HIPxxInitialize();
 
-  // LZ_TRY
-
-  // // Try for HipLZ kernel at first
-  // LZContext* lzCtx = getTlsDefaultLzCtx();
-  // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
-  // if (lzCtx->launchHostFunc(hostFunction))
-  //   RETURN(hipSuccess);
-  // else
-  //   RETURN(hipErrorLaunchFailure);
-
-  // LZ_CATCH
-
+  HIPxxContext *ctx = Backend->get_default_context();
+  if (ctx->launchHostFunc(hostFunction))
   RETURN(hipSuccess);
+  else
+    RETURN(hipErrorLaunchFailure);
 }
 
 hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
