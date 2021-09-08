@@ -23,7 +23,7 @@
 
 #include "../../HIPxxBackend.hh"
 #include "exceptions.hh"
-#include "common.hh"
+#include "spirv.hh"
 
 class HIPxxContextOpenCL;
 class HIPxxDeviceOpenCL;
@@ -106,6 +106,14 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
 class HIPxxKernelOpenCL : public HIPxxKernel {
  public:
   cl::Kernel ocl_kernel;
+
+  HIPxxKernelOpenCL(const cl::Kernel &&cl_kernel, std::string name_in,
+                    const void *hostptr_in)
+      : ocl_kernel(cl_kernel) {
+    // ocl_kernel = cl::Kernel(cl_kernel);
+    HostFunctionName = name_in;
+    HostFunctionPointer = hostptr_in;
+  }
 
   OCLFuncInfo *get_func_info() const;
   cl::Kernel get() const { return ocl_kernel; }
@@ -259,6 +267,66 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
                                            const void *HostFunctionPtr,
                                            const char *FunctionName) override {
     logTrace("HIPxxBackendOpenCL.register_function_as_kernel()");
+
+    // Maybe want to implement these in derived class?
+    HIPxxContextOpenCL *hipxx_ctx = (HIPxxContextOpenCL *)get_default_context();
+    cl::Context cl_ctx = *(hipxx_ctx->cl_ctx);
+
+    OpenCLFunctionInfoMap FuncInfos;
+
+    std::string binary = *module_str;
+    size_t numWords = binary.size() / 4;
+    int32_t *bindata = new int32_t[numWords + 1];
+    std::memcpy(bindata, binary.data(), binary.size());
+    bool res = parseSPIR(bindata, numWords, FuncInfos);
+    delete[] bindata;
+    if (!res) {
+      logError("SPIR-V parsing failed\n");
+      return false;
+    }
+
+    int err;
+    std::vector<char> binary_vec(binary.begin(), binary.end());
+    auto Program = cl::Program(cl_ctx, binary_vec, false, &err);
+    if (err != CL_SUCCESS) {
+      logError("CreateProgramWithIL Failed: {}\n", err);
+      return false;
+    }
+
+    // HIPxxDeviceOpenCL *hipxx_dev = (HIPxxDeviceOpenCL *)get_devices().at(0);
+    // loop over all devices
+    for (auto hipxx_dev : get_devices()) {
+      HIPxxDeviceOpenCL *hipxx_ocl_device = (HIPxxDeviceOpenCL *)hipxx_dev;
+      std::string name = hipxx_ocl_device->get_name();
+
+      int build_failed = Program.build("-x spir -cl-kernel-arg-info");
+
+      std::string log = Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
+          *hipxx_ocl_device->cl_dev, &err);
+      if (err != CL_SUCCESS) {
+        logError("clGetProgramBuildInfo() Failed:{}\n", err);
+        return false;
+      }
+      logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
+               hipxx_ocl_device->pcie_idx, name, log);
+      if (build_failed != CL_SUCCESS) {
+        logError("clBuildProgram() Failed: {}\n", build_failed);
+        return false;
+      }
+
+      std::vector<cl::Kernel> kernels;
+      err = Program.createKernels(&kernels);
+      if (err != CL_SUCCESS) {
+        logError("clCreateKernels() Failed: {}\n", err);
+        return false;
+      }
+      logDebug("Kernels in program: {} \n", kernels.size());
+      for (auto &kernel : kernels) {
+        HIPxxKernelOpenCL *hipxx_kernel = new HIPxxKernelOpenCL(
+            std::move(kernel), std::string(FunctionName), HostFunctionPtr);
+        hipxx_ocl_device->add_kernel(hipxx_kernel);
+      }
+    }  // end looping over devices
     return true;
   }
 };

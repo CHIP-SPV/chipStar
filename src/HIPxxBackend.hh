@@ -97,13 +97,14 @@ class HIPxxKernel {
   /// Name of the function
   std::string HostFunctionName;
   /// Pointer to the host function
-  void* HostFunctionPointer;
+  const void* HostFunctionPointer;
   /// Pointer to the device function
-  void* DeviceFunctionPointer;
+  const void* DeviceFunctionPointer;
 
  public:
   HIPxxKernel(){};
   ~HIPxxKernel(){};
+  std::string get_name() { return HostFunctionName; }
 };
 
 /**
@@ -145,6 +146,7 @@ class HIPxxDevice {
  protected:
   std::string device_name;
   std::mutex mtx;
+  std::vector<HIPxxKernel*> hipxx_kernels;
 
  public:
   /// Vector of contexts to which this device belongs to
@@ -164,7 +166,12 @@ class HIPxxDevice {
   std::map<const void*, HIPxxKernel*> HostPtrToKernelStrMap;
 
   // TODO
-  std::vector<HIPxxKernel*>& get_kernels();
+  std::vector<HIPxxKernel*>& get_kernels() { return hipxx_kernels; };
+  void add_kernel(HIPxxKernel* kernel) {
+    logTrace("Adding kernel {} to device # {} {}", kernel->get_name(), pcie_idx,
+             device_name);
+    hipxx_kernels.push_back(kernel);
+  }
 
   hipDevice_t pcie_idx;
   hipDeviceProp_t hip_device_props;
@@ -377,7 +384,7 @@ class HIPxxBackend {
     return hipxx_contexts[0];
   };
 
-  std::vector<HIPxxDevice*> get_devices() { return hipxx_devices; }
+  std::vector<HIPxxDevice*>& get_devices() { return hipxx_devices; }
   size_t get_num_devices() { return hipxx_devices.size(); }
   std::vector<std::string*>& get_modules_str() { return modules_str; }
   void add_context(HIPxxContext* ctx_in) { hipxx_contexts.push_back(ctx_in); }
