@@ -105,6 +105,9 @@ class HIPxxKernel {
   HIPxxKernel(){};
   ~HIPxxKernel(){};
   std::string get_name() { return HostFunctionName; }
+  // TODO Error Handling?
+  const void* get_host_ptr() { return HostFunctionPointer; }
+  const void* get_device_ptr() { return DeviceFunctionPointer; }
 };
 
 /**
@@ -112,19 +115,17 @@ class HIPxxKernel {
  */
 class HIPxxExecItem {
  protected:
-  HIPxxKernel* Kernel;
-  HIPxxQueue* q;
-
   size_t SharedMem;
   hipStream_t Stream;
   std::vector<uint8_t> ArgData;
   std::vector<std::tuple<size_t, size_t>> OffsetsSizes;
 
  public:
+  HIPxxKernel* Kernel;
   dim3 GridDim;
   dim3 BlockDim;
   HIPxxExecItem(dim3 grid_in, dim3 block_in, size_t shared_in, hipStream_t q_in)
-      : GridDim(grid_in), BlockDim(block_in), SharedMem(shared_in), q(q_in){};
+      : GridDim(grid_in), BlockDim(block_in), SharedMem(shared_in){};
 
   void set_arg(const void* arg, size_t size, size_t offset) {
     if ((offset + size) > ArgData.size()) ArgData.resize(offset + size + 1024);
@@ -265,40 +266,7 @@ class HIPxxContext {
    */
   bool add_device(HIPxxDevice* dev);
   virtual void* allocate(size_t size) = 0;
-  hipError_t launchHostFunc(const void* HostFunction) {
-    std::string FunctionName;
-    std::string* module;
-    HIPxxModule* hipxx_module;
-    // TODO
-    HIPxxDevice* dev = hipxx_devices.at(0);
-
-    if (!dev->getModuleAndFName(HostFunction, FunctionName, hipxx_module)) {
-      logCritical("can NOT find kernel with stub address {} for device {}\n",
-                  HostFunction, dev->pcie_idx);
-      return hipErrorLaunchFailure;
-    }
-
-    std::lock_guard<std::mutex> Lock(mtx);
-
-    // TODO
-    // ClKernel* Kernel = nullptr;
-    // // TODO can this happen ?
-    // if (BuiltinPrograms.find(HostFunction) != BuiltinPrograms.end())
-    //   Kernel = BuiltinPrograms[HostFunction]->getKernel(FunctionName);
-
-    // if (Kernel == nullptr) {
-    //   logCritical("can NOT find kernel with stub address {} for device {}\n",
-    //               HostFunction, Device->getHipDeviceT());
-    //   return hipErrorLaunchFailure;
-    // }
-
-    // ExecItem* Arguments;
-    // Arguments = ExecStack.top();
-    // ExecStack.pop();
-
-    // return Arguments->launch(Kernel);
-    return hipSuccess;
-  }
+  hipError_t launchHostFunc(const void* HostFunction);
 
   std::vector<HIPxxDevice*>& get_devices() {
     if (hipxx_devices.size() == 0)
@@ -345,9 +313,9 @@ class HIPxxBackend {
    *  */
   std::vector<std::string*> modules_str;
   std::mutex mtx;
-  std::stack<HIPxxExecItem*> hipxx_execstack;
 
  public:
+  std::stack<HIPxxExecItem*> hipxx_execstack;
   std::vector<HIPxxContext*> hipxx_contexts;
   std::vector<HIPxxQueue*> hipxx_queues;
   std::vector<HIPxxDevice*> hipxx_devices;
@@ -449,6 +417,8 @@ class HIPxxBackend {
   virtual bool register_function_as_kernel(std::string* module_str,
                                            const void* HostFunctionPtr,
                                            const char* FunctionName) = 0;
+
+  virtual hipError_t launch(HIPxxKernel* kernel, HIPxxExecItem* args) = 0;
 };
 
 /**
@@ -469,16 +439,15 @@ class HIPxxQueue {
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) = 0;
 
   /// Submit a kernel for execution
-  virtual hipError_t launch(HIPxxKernel* kernel, HIPxxExecItem* exec_item) {
-    logWarn("HIPxxQueue->launch() Base Call");
-    return hipSuccess;
-  };
+  virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
 
   virtual std::string get_info() {
     std::string info;
     info = hipxx_device->get_name();
     return info;
-  };
+  }
+
+  virtual hipError_t launchHostFunc(const void* HostFunction);
 };
 
 #endif

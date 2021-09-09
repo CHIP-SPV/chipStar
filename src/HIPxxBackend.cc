@@ -33,28 +33,28 @@
 // return true;
 //}
 
-void HIPxxModule::add_kernel(void* HostFunctionPtr,
+void HIPxxModule::add_kernel(void *HostFunctionPtr,
                              std::string HostFunctionName) {
   // TODO
-  HIPxxKernel* kernel = new HIPxxKernel();
+  HIPxxKernel *kernel = new HIPxxKernel();
   Kernels.push_back(kernel);
 }
 
-bool HIPxxContext::add_device(HIPxxDevice* dev) {
+bool HIPxxContext::add_device(HIPxxDevice *dev) {
   logTrace("HIPxxContext.add_device() {}", dev->get_name());
   hipxx_devices.push_back(dev);
   // TODO check for success
   return true;
 }
 
-bool HIPxxDevice::add_context(HIPxxContext* ctx) {
+bool HIPxxDevice::add_context(HIPxxContext *ctx) {
   logTrace("HIPxxDevice.add_context() {}");
   hipxx_contexts.push_back(ctx);
   // TODO check for success
   return true;
 }
 
-HIPxxContext* HIPxxDevice::get_default_context() {
+HIPxxContext *HIPxxDevice::get_default_context() {
   // TODO Check for initialization
   // if (hipxx_contexts.size() == 0)
   return hipxx_contexts.at(0);
@@ -86,4 +86,42 @@ bool HIPxxDevice::release_mem(size_t bytes) {
   } else {
     return false;
   }
+}
+
+hipError_t HIPxxQueue::launchHostFunc(const void *HostFunction) {
+  logTrace("HIPxxQueue Looking up function {}", HostFunction);
+  std::string FunctionName;
+  std::string *module;
+  HIPxxModule *hipxx_module;
+  HIPxxDevice *dev = hipxx_device;
+  std::vector<HIPxxKernel *> hipxx_kernels = dev->get_kernels();
+  logDebug("Listing Kernels for device {}", dev->get_name());
+  for (auto &kernel : hipxx_kernels) {
+    logDebug("{}", kernel->get_name());
+  }
+
+  auto found_kernel =
+      std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
+                   [&HostFunction](HIPxxKernel *kernel) {
+                     return kernel->get_host_ptr() == HostFunction;
+                   });
+
+  if (found_kernel == hipxx_kernels.end()) {
+    logCritical("Failed to launch kernel {}", HostFunction);
+    return hipErrorLaunchFailure;
+  } else {
+    logDebug("Found kernel {} with host pointer {}",
+             (*found_kernel)->get_name(), (*found_kernel)->get_host_ptr());
+  }
+
+  // TODO
+  // std::lock_guard<std::mutex> Lock(mtx);
+
+  HIPxxExecItem *exec_item = Backend->hipxx_execstack.top();
+  // TODO pop()
+  exec_item->Kernel = *found_kernel;
+  launch(exec_item);
+
+  // arguments->launch(*found_kernel);
+  return hipSuccess;
 }

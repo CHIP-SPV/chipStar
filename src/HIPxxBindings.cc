@@ -57,8 +57,8 @@ hipError_t hipFree(void *ptr) {
 hipError_t hipLaunchByPtr(const void *hostFunction) {
   HIPxxInitialize();
 
-  HIPxxContext *ctx = Backend->get_default_context();
-  if (ctx->launchHostFunc(hostFunction))
+  HIPxxQueue *q = Backend->get_default_queue();
+  if (q->launchHostFunc(hostFunction))
     RETURN(hipSuccess);
   else
     RETURN(hipErrorLaunchFailure);

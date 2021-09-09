@@ -27,8 +27,8 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
 
 hipError_t HIPxxExecItemOpenCL::launch(HIPxxKernel *hipxx_kernel) {
   logTrace("HIPxxExecItemOpenCL->launch()");
-  HIPxxQueueOpenCL *ocl_q = (HIPxxQueueOpenCL *)q;
-  return (hipError_t)(ocl_q->launch(Kernel, this) == hipSuccess);
+  return hipSuccess;
+  // return (hipError_t)(ocl_q->launch(Kernel, this) == hipSuccess);
 }
 
 int HIPxxExecItemOpenCL::setup_all_args(HIPxxKernelOpenCL *kernel) {

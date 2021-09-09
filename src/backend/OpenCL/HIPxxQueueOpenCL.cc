@@ -1,11 +1,11 @@
 #include "HIPxxBackendOpenCL.hh"
 
-hipError_t HIPxxQueueOpenCL::launch(HIPxxKernel *kernel,
-                                    HIPxxExecItem *exec_item) {
-  std::lock_guard<std::mutex> Lock(mtx);
+hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
+  // std::lock_guard<std::mutex> Lock(mtx);
   logTrace("HIPxxQueueOpenCL->launch()");
   HIPxxExecItemOpenCL *hipxx_ocl_exec_item = (HIPxxExecItemOpenCL *)exec_item;
-  HIPxxKernelOpenCL *hipxx_opencl_kernel = (HIPxxKernelOpenCL *)kernel;
+  HIPxxKernelOpenCL *hipxx_opencl_kernel =
+      (HIPxxKernelOpenCL *)hipxx_ocl_exec_item->kernel;
   //_e->run();
 
   if (hipxx_ocl_exec_item->setup_all_args(hipxx_opencl_kernel) != CL_SUCCESS) {
