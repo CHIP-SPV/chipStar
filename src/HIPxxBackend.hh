@@ -422,8 +422,6 @@ class HIPxxBackend {
   virtual bool register_function_as_kernel(std::string* module_str,
                                            const void* HostFunctionPtr,
                                            const char* FunctionName) = 0;
-
-  virtual hipError_t launch(HIPxxKernel* kernel, HIPxxExecItem* args) = 0;
 };
 
 /**

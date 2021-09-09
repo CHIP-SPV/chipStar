@@ -12,7 +12,6 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
     logError("Failed to set kernel arguments for launch! \n");
     return hipErrorLaunchFailure;
   }
-  return hipSuccess;
 
   dim3 GridDim = hipxx_ocl_exec_item->GridDim;
   dim3 BlockDim = hipxx_ocl_exec_item->BlockDim;
@@ -29,19 +28,22 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
     logError("clEnqueueNDRangeKernel() failed with: {}\n", err);
   hipError_t retval = (err == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
 
-  cl_event LastEvent;
-  if (retval == hipSuccess) {
-    if (LastEvent != nullptr) {
-      logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
-               (void *)ev.get());
-      clReleaseEvent(LastEvent);
-    } else
-      logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
-    LastEvent = ev.get();
-    clRetainEvent(LastEvent);
-  }
+  // TODO
+  // cl_event LastEvent;
+  // if (retval == hipSuccess) {
+  //   if (LastEvent != nullptr) {
+  //     logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
+  //              (void *)ev.get());
+  //     clReleaseEvent(LastEvent);
+  //   } else
+  //     logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
+  //   LastEvent = ev.get();
+  //   clRetainEvent(LastEvent);
+  // }
 
-  delete hipxx_ocl_exec_item;
+  // TODO remove this
+  cl_q->finish();
+  // delete hipxx_ocl_exec_item;
   return retval;
 }
 

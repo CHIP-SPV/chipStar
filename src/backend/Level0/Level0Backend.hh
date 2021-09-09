@@ -79,11 +79,6 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     logTrace("HIPxxBackendLevel0.register_function_as_kernel()");
     return true;
   }
-
-  virtual hipError_t launch(HIPxxKernel *kernel, HIPxxExecItem *args) override {
-    logTrace("HIPxxBackendLevel0.launch()");
-    return hipSuccess;
-  }
 };
 
 #endif

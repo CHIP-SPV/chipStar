@@ -375,49 +375,6 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     }  // end looping over devices
     return true;
   }
-
-  virtual hipError_t launch(HIPxxKernel *kernel, HIPxxExecItem *args) override {
-    logTrace("HIPxxBackendOpenCL.launch()");
-    HIPxxExecItemOpenCL *hipxx_exec_item_ocl = (HIPxxExecItemOpenCL *)args;
-    HIPxxKernelOpenCL *ocl_kernel = (HIPxxKernelOpenCL *)kernel;
-    HIPxxQueueOpenCL *q = (HIPxxQueueOpenCL *)get_default_queue();
-
-    if (hipxx_exec_item_ocl->setup_all_args(ocl_kernel) != CL_SUCCESS) {
-      logError("Failed to set kernel arguments for launch! \n");
-      return hipErrorLaunchFailure;
-    }
-
-    dim3 GridDim = hipxx_exec_item_ocl->GridDim;
-    dim3 BlockDim = hipxx_exec_item_ocl->BlockDim;
-
-    const cl::NDRange global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
-                             GridDim.z * BlockDim.z);
-    const cl::NDRange local(BlockDim.x, BlockDim.y, BlockDim.z);
-
-    cl::Event ev;
-    int err = q->get()->enqueueNDRangeKernel(ocl_kernel->get(), cl::NullRange,
-                                             global, local, nullptr, &ev);
-
-    if (err != CL_SUCCESS)
-      logError("clEnqueueNDRangeKernel() failed with: {}\n", err);
-    hipError_t retval =
-        (err == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
-
-    cl_event LastEvent;
-    if (retval == hipSuccess) {
-      if (LastEvent != nullptr) {
-        logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
-                 (void *)ev.get());
-        clReleaseEvent(LastEvent);
-      } else
-        logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
-      LastEvent = ev.get();
-      clRetainEvent(LastEvent);
-    }
-
-    delete hipxx_exec_item_ocl;
-    return retval;
-  }
 };
 
 class HIPxxEventOpenCL : public HIPxxEvent {

@@ -2,7 +2,7 @@
 
 static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
                         cl_kernel kernel) {
-  logWarn("setLocalSize not yet implemented");
+  logWarn("setLocalSize");
   int err = CL_SUCCESS;
 
   if (shared > 0) {
