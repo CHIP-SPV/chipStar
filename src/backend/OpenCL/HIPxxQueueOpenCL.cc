@@ -42,7 +42,6 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
   // }
 
   // TODO remove this
-  cl_q->finish();
   // delete hipxx_ocl_exec_item;
   return retval;
 }
