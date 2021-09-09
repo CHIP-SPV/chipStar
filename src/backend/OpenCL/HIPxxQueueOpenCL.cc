@@ -4,15 +4,45 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
   // std::lock_guard<std::mutex> Lock(mtx);
   logTrace("HIPxxQueueOpenCL->launch()");
   HIPxxExecItemOpenCL *hipxx_ocl_exec_item = (HIPxxExecItemOpenCL *)exec_item;
-  HIPxxKernelOpenCL *hipxx_opencl_kernel =
-      (HIPxxKernelOpenCL *)hipxx_ocl_exec_item->kernel;
-  //_e->run();
+  HIPxxKernelOpenCL *kernel = (HIPxxKernelOpenCL *)hipxx_ocl_exec_item->Kernel;
+  assert(kernel != nullptr);
+  logTrace("Launching Kernel {}", kernel->get_name());
 
-  if (hipxx_ocl_exec_item->setup_all_args(hipxx_opencl_kernel) != CL_SUCCESS) {
+  if (hipxx_ocl_exec_item->setup_all_args(kernel) != CL_SUCCESS) {
     logError("Failed to set kernel arguments for launch! \n");
     return hipErrorLaunchFailure;
   }
   return hipSuccess;
+
+  dim3 GridDim = hipxx_ocl_exec_item->GridDim;
+  dim3 BlockDim = hipxx_ocl_exec_item->BlockDim;
+
+  const cl::NDRange global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
+                           GridDim.z * BlockDim.z);
+  const cl::NDRange local(BlockDim.x, BlockDim.y, BlockDim.z);
+
+  cl::Event ev;
+  int err = cl_q->enqueueNDRangeKernel(kernel->get(), cl::NullRange, global,
+                                       local, nullptr, &ev);
+
+  if (err != CL_SUCCESS)
+    logError("clEnqueueNDRangeKernel() failed with: {}\n", err);
+  hipError_t retval = (err == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
+
+  cl_event LastEvent;
+  if (retval == hipSuccess) {
+    if (LastEvent != nullptr) {
+      logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
+               (void *)ev.get());
+      clReleaseEvent(LastEvent);
+    } else
+      logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
+    LastEvent = ev.get();
+    clRetainEvent(LastEvent);
+  }
+
+  delete hipxx_ocl_exec_item;
+  return retval;
 }
 
 HIPxxQueueOpenCL::HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx,

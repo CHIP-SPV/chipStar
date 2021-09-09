@@ -56,9 +56,11 @@ hipError_t hipFree(void *ptr) {
 
 hipError_t hipLaunchByPtr(const void *hostFunction) {
   HIPxxInitialize();
+  logTrace("hipLaunchByPtr");
+  HIPxxExecItem *exec_item = Backend->hipxx_execstack.top();
+  Backend->hipxx_execstack.pop();
 
-  HIPxxQueue *q = Backend->get_default_queue();
-  if (q->launchHostFunc(hostFunction))
+  if (exec_item->launchByHostPtr(hostFunction))
     RETURN(hipSuccess);
   else
     RETURN(hipErrorLaunchFailure);
@@ -312,26 +314,11 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
 
   logDebug("RegisterFunction on {} devices", Backend->get_num_devices());
   Backend->register_function_as_kernel(module_str, hostFunction, deviceName);
-  //  for (HIPxxDevice *dev : Backend->get_devices()) {
-  // if (dev->register_function_as_kernel(module_str, hostFunction,
-  // deviceName)) {
-  // logDebug("__hipRegisterFunction: kernel {} found\n", deviceName);
-  //} else {
-  // logCritical("__hipRegisterFunction can NOT find kernel: {} \n",
-  // deviceName);
-  // std::abort();
-  //}
-  //}
-  // Put the function information into a temproary storage
-  // LZDriver::RegFunctions.push_back(
-  //    std::make_tuple(module, hostFunction, deviceName));
 }
 
 hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   logTrace("hipSetupArgument");
   HIPxxInitialize();
-
-  // ERROR_IF((lzCtx == nullptr), hipErrorInvalidDevice);
   RETURN(Backend->set_arg(arg, size, offset));
   return hipSuccess;
 }
@@ -346,7 +333,8 @@ hipError_t hipMalloc(void **ptr, size_t size) {
     *ptr = nullptr;
     RETURN(hipSuccess);
   }
-
+  // TODO Can we have multiple contexts on one backend? Should allocations take
+  // place on all existing contexts?
   void *retval = Backend->get_default_context()->allocate(size);
   ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
 

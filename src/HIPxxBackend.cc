@@ -88,40 +88,42 @@ bool HIPxxDevice::release_mem(size_t bytes) {
   }
 }
 
-hipError_t HIPxxQueue::launchHostFunc(const void *HostFunction) {
-  logTrace("HIPxxQueue Looking up function {}", HostFunction);
-  std::string FunctionName;
-  std::string *module;
-  HIPxxModule *hipxx_module;
-  HIPxxDevice *dev = hipxx_device;
-  std::vector<HIPxxKernel *> hipxx_kernels = dev->get_kernels();
-  logDebug("Listing Kernels for device {}", dev->get_name());
+hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
+  if (q == nullptr) {
+    logCritical("HIPxxExecItem.launch() was called but queue pointer is null");
+    // TODO better errors
+    std::abort();
+  }
+
+  HIPxxDevice *dev = q->get_device();
+  this->Kernel = dev->findKernelByHostPtr(hostPtr);
+  logTrace("Found kernel for host pointer {} : {}", hostPtr,
+           Kernel->get_name());
+  // TODO verify that all is in place either here or in HIPxxQueue
+  return q->launch(this);
+}
+
+HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
+  logTrace("HIPxxDevice::findKernelByHostPtr({})", hostPtr);
+  std::vector<HIPxxKernel *> hipxx_kernels = get_kernels();
+  logDebug("Listing Kernels for device {}", device_name);
   for (auto &kernel : hipxx_kernels) {
     logDebug("{}", kernel->get_name());
   }
 
-  auto found_kernel =
-      std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
-                   [&HostFunction](HIPxxKernel *kernel) {
-                     return kernel->get_host_ptr() == HostFunction;
-                   });
+  auto found_kernel = std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
+                                   [&hostPtr](HIPxxKernel *kernel) {
+                                     return kernel->get_host_ptr() == hostPtr;
+                                   });
 
   if (found_kernel == hipxx_kernels.end()) {
-    logCritical("Failed to launch kernel {}", HostFunction);
-    return hipErrorLaunchFailure;
+    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, pcie_idx,
+                device_name);
+    std::abort();  // Exception
   } else {
     logDebug("Found kernel {} with host pointer {}",
              (*found_kernel)->get_name(), (*found_kernel)->get_host_ptr());
   }
 
-  // TODO
-  // std::lock_guard<std::mutex> Lock(mtx);
-
-  HIPxxExecItem *exec_item = Backend->hipxx_execstack.top();
-  // TODO pop()
-  exec_item->Kernel = *found_kernel;
-  launch(exec_item);
-
-  // arguments->launch(*found_kernel);
-  return hipSuccess;
+  return *found_kernel;
 }

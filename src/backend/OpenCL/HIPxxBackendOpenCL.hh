@@ -104,28 +104,70 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
 };
 
 class HIPxxKernelOpenCL : public HIPxxKernel {
+ private:
+  std::string name;
+  size_t TotalArgSize;
+
  public:
   OCLFuncInfo *FuncInfo;
   cl::Kernel ocl_kernel;
 
   HIPxxKernelOpenCL(const cl::Kernel &&cl_kernel, std::string name_in,
-                    const void *hostptr_in)
-      : ocl_kernel(cl_kernel) {
+                    const void *hostptr_in, int kernel_idx,
+                    OpenCLFunctionInfoMap &FuncInfoMap)
+      : name(name_in), ocl_kernel(cl_kernel) {
     // ocl_kernel = cl::Kernel(cl_kernel);
     HostFunctionName = name_in;
     HostFunctionPointer = hostptr_in;
+
+    int err = 0;
+    name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
+    if (err != CL_SUCCESS) {
+      logError("clGetKernelInfo(CL_KERNEL_FUNCTION_NAME) failed: {}\n", err);
+    }
+
+    logDebug("Kernel {} is: {} \n", kernel_idx, name);
+
+    auto it = FuncInfoMap.find(name);
+    assert(it != FuncInfoMap.end());
+    FuncInfo = it->second;
+
+    // TODO attributes
+    cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
+    if (err != CL_SUCCESS) {
+      logError("clGetKernelInfo(CL_KERNEL_NUM_ARGS) failed: {}\n", err);
+    }
+
+    assert(FuncInfo->ArgTypeInfo.size() == NumArgs);
+
+    if (NumArgs > 0) {
+      logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
+      logDebug("  RET_TYPE: {} {} {}\n", FuncInfo->retTypeInfo.size,
+               (unsigned)FuncInfo->retTypeInfo.space,
+               (unsigned)FuncInfo->retTypeInfo.type);
+      for (auto &argty : FuncInfo->ArgTypeInfo) {
+        logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
+                 (unsigned)argty.space, (unsigned)argty.type);
+        TotalArgSize += argty.size;
+      }
+    }
   }
 
-  OCLFuncInfo *get_func_info() const;
+  OCLFuncInfo *get_func_info() const { return FuncInfo; }
+  std::string get_name() { return name; }
   cl::Kernel get() const { return ocl_kernel; }
+  size_t getTotalArgSize() const { return TotalArgSize; };
 };
 
 class HIPxxExecItemOpenCL : public HIPxxExecItem {
+ private:
+  cl::Kernel *cl_kernel;
+
  public:
-  cl::Kernel *kernel;
   OCLFuncInfo FuncInfo;
   virtual hipError_t launch(HIPxxKernel *hipxx_kernel) override;
   int setup_all_args(HIPxxKernelOpenCL *kernel);
+  cl::Kernel *get() { return cl_kernel; }
 };
 
 class HIPxxBackendOpenCL : public HIPxxBackend {
@@ -268,6 +310,7 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
   virtual bool register_function_as_kernel(std::string *module_str,
                                            const void *HostFunctionPtr,
                                            const char *FunctionName) override {
+    // TODO Most of this can go to Base class
     logTrace("HIPxxBackendOpenCL.register_function_as_kernel()");
 
     // Maybe want to implement these in derived class?
@@ -323,9 +366,10 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
         return false;
       }
       logDebug("Kernels in program: {} \n", kernels.size());
-      for (auto &kernel : kernels) {
+      for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
         HIPxxKernelOpenCL *hipxx_kernel = new HIPxxKernelOpenCL(
-            std::move(kernel), std::string(FunctionName), HostFunctionPtr);
+            std::move(kernels[kernel_idx]), std::string(FunctionName),
+            HostFunctionPtr, kernel_idx, FuncInfos);
         hipxx_ocl_device->add_kernel(hipxx_kernel);
       }
     }  // end looping over devices

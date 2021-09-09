@@ -122,10 +122,11 @@ class HIPxxExecItem {
 
  public:
   HIPxxKernel* Kernel;
+  HIPxxQueue* q;
   dim3 GridDim;
   dim3 BlockDim;
   HIPxxExecItem(dim3 grid_in, dim3 block_in, size_t shared_in, hipStream_t q_in)
-      : GridDim(grid_in), BlockDim(block_in), SharedMem(shared_in){};
+      : GridDim(grid_in), BlockDim(block_in), SharedMem(shared_in), q(q_in){};
 
   void set_arg(const void* arg, size_t size, size_t offset) {
     if ((offset + size) > ArgData.size()) ArgData.resize(offset + size + 1024);
@@ -139,6 +140,8 @@ class HIPxxExecItem {
     logWarn("Calling HIPxxExecItem.launch() base launch which does nothing");
     return hipSuccess;
   };
+
+  virtual hipError_t launchByHostPtr(const void* hostPtr);
 };
 /**
  * @brief Compute device class
@@ -210,6 +213,8 @@ class HIPxxDevice {
   bool register_function_as_kernel(std::string* module_str,
                                    const void* HostFunction,
                                    const char* FunctionName);
+
+  HIPxxKernel* findKernelByHostPtr(const void* hostPtr);
 
   /**
    * @brief Get the default context object
@@ -433,6 +438,8 @@ class HIPxxQueue {
   HIPxxDevice* hipxx_device;
   /// Context to which device belongs to
   HIPxxContext* hipxx_context;
+
+  // TODO these should take device and context as arguments.
   HIPxxQueue(){};
   ~HIPxxQueue(){};
 
@@ -447,7 +454,15 @@ class HIPxxQueue {
     return info;
   }
 
-  virtual hipError_t launchHostFunc(const void* HostFunction);
+  HIPxxDevice* get_device() {
+    if (hipxx_device == nullptr) {
+      logCritical(
+          "HIPxxQueue.get_device() was called but device is a null pointer");
+      std::abort();  // TODO Exception?
+    }
+
+    return hipxx_device;
+  }
 };
 
 #endif
