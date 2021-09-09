@@ -115,3 +115,66 @@ std::string HIPxxDeviceOpenCL::get_name() {
   }
   return std::string(cl_dev->getInfo<CL_DEVICE_NAME>());
 }
+
+bool HIPxxContextOpenCL::register_function_as_kernel(
+    std::string *module_str, const void *HostFunctionPtr,
+    const char *FunctionName) {
+  // TODO Most of this can go to Base class
+  logTrace("HIPxxContextOpenCL.register_function_as_kernel()");
+
+  OpenCLFunctionInfoMap FuncInfos;
+
+  std::string binary = *module_str;
+  size_t numWords = binary.size() / 4;
+  int32_t *bindata = new int32_t[numWords + 1];
+  std::memcpy(bindata, binary.data(), binary.size());
+  bool res = parseSPIR(bindata, numWords, FuncInfos);
+  delete[] bindata;
+  if (!res) {
+    logError("SPIR-V parsing failed\n");
+    return false;
+  }
+
+  int err;
+  std::vector<char> binary_vec(binary.begin(), binary.end());
+  auto Program = cl::Program(*cl_ctx, binary_vec, false, &err);
+  if (err != CL_SUCCESS) {
+    logError("CreateProgramWithIL Failed: {}\n", err);
+    return false;
+  }
+
+  for (HIPxxDevice *hipxx_dev : hipxx_devices) {
+    HIPxxDeviceOpenCL *hipxx_ocl_device = (HIPxxDeviceOpenCL *)hipxx_dev;
+    std::string name = hipxx_ocl_device->get_name();
+
+    int build_failed = Program.build("-x spir -cl-kernel-arg-info");
+
+    std::string log = Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
+        *hipxx_ocl_device->cl_dev, &err);
+    if (err != CL_SUCCESS) {
+      logError("clGetProgramBuildInfo() Failed:{}\n", err);
+      return false;
+    }
+    logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
+             hipxx_ocl_device->pcie_idx, name, log);
+    if (build_failed != CL_SUCCESS) {
+      logError("clBuildProgram() Failed: {}\n", build_failed);
+      return false;
+    }
+
+    std::vector<cl::Kernel> kernels;
+    err = Program.createKernels(&kernels);
+    if (err != CL_SUCCESS) {
+      logError("clCreateKernels() Failed: {}\n", err);
+      return false;
+    }
+    logDebug("Kernels in program: {} \n", kernels.size());
+    for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
+      HIPxxKernelOpenCL *hipxx_kernel = new HIPxxKernelOpenCL(
+          std::move(kernels[kernel_idx]), std::string(FunctionName),
+          HostFunctionPtr, kernel_idx, FuncInfos);
+      hipxx_ocl_device->add_kernel(hipxx_kernel);
+    }
+  }  // Loop over devices in this context
+  return true;
+}

@@ -1,38 +1,5 @@
 #include "HIPxxBackend.hh"
 
-// bool HIPxxBackend::register_function_as_kernel(std::string* module_str,
-// const void* HostFunctionPtr,
-// const char* FunctionName) {
-// std::lock_guard<std::mutex> Lock(mtx);
-// logTrace("HIPxxDevice::registerFunction");
-
-//// Get modules in binary representation
-//// These are extracted from the fat binary
-// std::vector<std::string*> modules_str = Backend->get_modules_str();
-// if (modules_str.size() == 0) {
-// logCritical(
-//"HIPxxDevice tried to register function but modules_str was empty");
-// std::abort();
-//}
-
-// auto it = std::find(modules_str.begin(), modules_str.end(), module_str);
-// if (it == modules_str.end()) {
-// logError("Module PTR not FOUND: {}\n", (void*)module_str);
-// return false;
-//}
-
-// HostPtrToModuleStrMap.emplace(std::make_pair(HostFunctionPtr, module_str));
-// HostPtrToNameMap.emplace(std::make_pair(HostFunctionPtr, FunctionName));
-
-//// TODO Create & compile/createProgram a kernel
-//// Maybe this should be done in the Module constructor?
-//// HIPxxKernel kernel(HostFunctionPtr, FunctionName);
-//// module->add_kernel(kernel);
-
-//// return (PrimaryContext->createProgramBuiltin(module, HostFunctionPtr, temp)
-// return true;
-//}
-
 void HIPxxModule::add_kernel(void *HostFunctionPtr,
                              std::string HostFunctionName) {
   // TODO

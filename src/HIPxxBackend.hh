@@ -210,10 +210,6 @@ class HIPxxDevice {
    */
   bool add_context(HIPxxContext* ctx);
 
-  bool register_function_as_kernel(std::string* module_str,
-                                   const void* HostFunction,
-                                   const char* FunctionName);
-
   HIPxxKernel* findKernelByHostPtr(const void* hostPtr);
 
   /**
@@ -303,6 +299,9 @@ class HIPxxContext {
     if (I == Queues.end()) return nullptr;
     return *I;
   }
+  virtual bool register_function_as_kernel(std::string* module_str,
+                                           const void* HostFunctionPtr,
+                                           const char* FunctionName) = 0;
 };
 
 /**
@@ -419,9 +418,17 @@ class HIPxxBackend {
    * @return true
    * @return false
    */
+
   virtual bool register_function_as_kernel(std::string* module_str,
                                            const void* HostFunctionPtr,
-                                           const char* FunctionName) = 0;
+                                           const char* FunctionName) {
+    logTrace("HIPxxBackend.register_function_as_kernel()");
+    for (auto& ctx : hipxx_contexts) {
+      ctx->register_function_as_kernel(module_str, HostFunctionPtr,
+                                       FunctionName);
+    }
+    return true;
+  }
 };
 
 /**

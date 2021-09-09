@@ -72,11 +72,15 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     logTrace("HIPxxBackendLevel0 uninitializing");
     logWarn("HIPxxBackendLevel0->uninitialize() not implemented");
   }
+};
 
-  virtual bool register_function_as_kernel(std::string *module_str,
-                                           const void *HostFunctionPtr,
-                                           const char *FunctionName) override {
-    logTrace("HIPxxBackendLevel0.register_function_as_kernel()");
+class HIPxxContextLevel0 : public HIPxxContext {
+ public:
+  virtual bool register_function_as_kernel(std::string* module_str,
+                                           const void* HostFunctionPtr,
+                                           const char* FunctionName) {
+    logDebug(
+        "HIPxxContextLevel0.register_function_as_kernel not yet implemented");
     return true;
   }
 };
