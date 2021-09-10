@@ -1,3 +1,6 @@
+#ifndef HIP_COMMON_H
+#define HIP_COMMON_H
+
 #include <map>
 #include <vector>
 enum class OCLType : unsigned { POD = 0, Pointer = 1, Image = 2, Sampler = 3 };
@@ -26,3 +29,5 @@ typedef std::map<int32_t, OCLFuncInfo *> OCLFuncInfoMap;
 typedef std::map<std::string, OCLFuncInfo *> OpenCLFunctionInfoMap;
 
 bool parseSPIR(int32_t *stream, size_t numWords, OpenCLFunctionInfoMap &output);
+
+#endif
