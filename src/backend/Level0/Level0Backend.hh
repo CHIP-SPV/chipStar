@@ -204,6 +204,7 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
         new HIPxxContextLevel0(std::move(ze_ctx));
 
     // Associate devices with contexts and vice versa
+    // TODO Make this more automatic via constructor calls
     for (auto dev : Backend->get_devices()) {
       hipxx_l0_ctx->add_device(dev);
       dev->add_context(hipxx_l0_ctx);
