@@ -137,11 +137,10 @@ class HIPxxDeviceLevel0 : public HIPxxDevice {
 
  public:
   HIPxxDeviceLevel0(ze_device_handle_t&& _ze_device) : ze_device(_ze_device) {}
-  virtual void populate_device_properties() override {}
-  virtual std::string get_name() override {
-    // TODO
-    return std::string();
+  virtual void populate_device_properties() override {
+    logWarn("HIPxxDeviceLevel0.populate_device_properties not yet implemented");
   }
+  virtual std::string get_name() override { return device_name; }
   ze_device_handle_t get() { return ze_device; }
 };
 

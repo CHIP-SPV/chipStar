@@ -455,6 +455,7 @@ class HIPxxQueue {
   virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
 
   virtual std::string get_info() {
+    // TODO review this
     std::string info;
     info = hipxx_device->get_name();
     return info;
