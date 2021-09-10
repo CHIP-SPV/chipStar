@@ -366,7 +366,7 @@ class HIPxxBackend {
     hipxx_queues.push_back(q_in);
   }
   void add_device(HIPxxDevice* dev_in) {
-    logTrace("HIPxxDeviceOpenCL.add_device() {}", dev_in->get_name());
+    logTrace("HIPxxDevice.add_device() {}", dev_in->get_name());
     hipxx_devices.push_back(dev_in);
   }
 
