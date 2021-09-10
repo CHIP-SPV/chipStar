@@ -22,6 +22,7 @@
 #include <vector>
 #include <stack>
 
+#include "spirv.hh"
 #include "include/hip/hip.hh"
 
 #include "HIPxxDriver.hh"
