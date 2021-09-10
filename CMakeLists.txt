@@ -5,7 +5,7 @@ project(HIPxx
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
-
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare")
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -16,7 +16,7 @@ endif()
 message(STATUS "HIPxx will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
 
- if(UNIX AND (CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang"))
+ if(UNIX AND ((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")))
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
      message(FATAL_ERROR "this project requires clang >= 8.0")
    endif()
