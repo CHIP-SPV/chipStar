@@ -3,6 +3,9 @@
 
 #include <map>
 #include <vector>
+#include <stdint.h>
+#include <string>
+
 enum class OCLType : unsigned { POD = 0, Pointer = 1, Image = 2, Sampler = 3 };
 
 enum class OCLSpace : unsigned {

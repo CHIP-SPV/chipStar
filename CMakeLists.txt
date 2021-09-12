@@ -67,6 +67,7 @@ set(HIPXX_SRC
     src/HIPxxBackend.cc 
     src/logging.cc
     src/HIPxxBindings.cc
+    src/backend/Level0/Level0Backend.cc
     src/backend/OpenCL/HIPxxQueueOpenCL.cc
     src/backend/OpenCL/HIPxxContextOpenCL.cc
     src/backend/OpenCL/HIPxxDeviceOpenCL.cc

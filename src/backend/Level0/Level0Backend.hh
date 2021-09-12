@@ -7,120 +7,121 @@
 
 enum class LZMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 
-const char* lzResultToString(ze_result_t status) {
-  switch (status) {
-    case ZE_RESULT_SUCCESS:
-      return "ZE_RESULT_SUCCESS";
-    case ZE_RESULT_NOT_READY:
-      return "ZE_RESULT_NOT_READY";
-    case ZE_RESULT_ERROR_DEVICE_LOST:
-      return "ZE_RESULT_ERROR_DEVICE_LOST";
-    case ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY:
-      return "ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY";
-    case ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY:
-      return "ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY";
-    case ZE_RESULT_ERROR_MODULE_BUILD_FAILURE:
-      return "ZE_RESULT_ERROR_MODULE_BUILD_FAILURE";
-    case ZE_RESULT_ERROR_MODULE_LINK_FAILURE:
-      return "ZE_RESULT_ERROR_MODULE_LINK_FAILURE";
-    case ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS:
-      return "ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS";
-    case ZE_RESULT_ERROR_NOT_AVAILABLE:
-      return "ZE_RESULT_ERROR_NOT_AVAILABLE";
-    case ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE:
-      return "ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE";
-    case ZE_RESULT_ERROR_UNINITIALIZED:
-      return "ZE_RESULT_ERROR_UNINITIALIZED";
-    case ZE_RESULT_ERROR_UNSUPPORTED_VERSION:
-      return "ZE_RESULT_ERROR_UNSUPPORTED_VERSION";
-    case ZE_RESULT_ERROR_UNSUPPORTED_FEATURE:
-      return "ZE_RESULT_ERROR_UNSUPPORTED_FEATURE";
-    case ZE_RESULT_ERROR_INVALID_ARGUMENT:
-      return "ZE_RESULT_ERROR_INVALID_ARGUMENT";
-    case ZE_RESULT_ERROR_INVALID_NULL_HANDLE:
-      return "ZE_RESULT_ERROR_INVALID_NULL_HANDLE";
-    case ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE:
-      return "ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE";
-    case ZE_RESULT_ERROR_INVALID_NULL_POINTER:
-      return "ZE_RESULT_ERROR_INVALID_NULL_POINTER";
-    case ZE_RESULT_ERROR_INVALID_SIZE:
-      return "ZE_RESULT_ERROR_INVALID_SIZE";
-    case ZE_RESULT_ERROR_UNSUPPORTED_SIZE:
-      return "ZE_RESULT_ERROR_UNSUPPORTED_SIZE";
-    case ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT:
-      return "ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT";
-    case ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT:
-      return "ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT";
-    case ZE_RESULT_ERROR_INVALID_ENUMERATION:
-      return "ZE_RESULT_ERROR_INVALID_ENUMERATION";
-    case ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION:
-      return "ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION";
-    case ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT:
-      return "ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT";
-    case ZE_RESULT_ERROR_INVALID_NATIVE_BINARY:
-      return "ZE_RESULT_ERROR_INVALID_NATIVE_BINARY";
-    case ZE_RESULT_ERROR_INVALID_GLOBAL_NAME:
-      return "ZE_RESULT_ERROR_INVALID_GLOBAL_NAME";
-    case ZE_RESULT_ERROR_INVALID_KERNEL_NAME:
-      return "ZE_RESULT_ERROR_INVALID_KERNEL_NAME";
-    case ZE_RESULT_ERROR_INVALID_FUNCTION_NAME:
-      return "ZE_RESULT_ERROR_INVALID_FUNCTION_NAME";
-    case ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION:
-      return "ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION";
-    case ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION:
-      return "ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION";
-    case ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX:
-      return "ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX";
-    case ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE:
-      return "ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE";
-    case ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE:
-      return "ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE";
-    case ZE_RESULT_ERROR_INVALID_MODULE_UNLINKED:
-      return "ZE_RESULT_ERROR_INVALID_MODULE_UNLINKED";
-    case ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE:
-      return "ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE";
-    case ZE_RESULT_ERROR_OVERLAPPING_REGIONS:
-      return "ZE_RESULT_ERROR_OVERLAPPING_REGIONS";
-    case ZE_RESULT_ERROR_UNKNOWN:
-      return "ZE_RESULT_ERROR_UNKNOWN";
-    default:
-      return "Unknown Error Code";
-  }
-}
-#define LZ_LOG_ERROR(msg, status)                                            \
-  logError("{} ({}) in {}:{}:{}\n", msg, lzResultToString(status), __FILE__, \
-           __LINE__, __func__)
+// const char* lzResultToString(ze_result_t status) {
+//   switch (status) {
+//     case ZE_RESULT_SUCCESS:
+//       return "ZE_RESULT_SUCCESS";
+//     case ZE_RESULT_NOT_READY:
+//       return "ZE_RESULT_NOT_READY";
+//     case ZE_RESULT_ERROR_DEVICE_LOST:
+//       return "ZE_RESULT_ERROR_DEVICE_LOST";
+//     case ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY:
+//       return "ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY";
+//     case ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY:
+//       return "ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY";
+//     case ZE_RESULT_ERROR_MODULE_BUILD_FAILURE:
+//       return "ZE_RESULT_ERROR_MODULE_BUILD_FAILURE";
+//     case ZE_RESULT_ERROR_MODULE_LINK_FAILURE:
+//       return "ZE_RESULT_ERROR_MODULE_LINK_FAILURE";
+//     case ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS:
+//       return "ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS";
+//     case ZE_RESULT_ERROR_NOT_AVAILABLE:
+//       return "ZE_RESULT_ERROR_NOT_AVAILABLE";
+//     case ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE:
+//       return "ZE_RESULT_ERROR_DEPENDENCY_UNAVAILABLE";
+//     case ZE_RESULT_ERROR_UNINITIALIZED:
+//       return "ZE_RESULT_ERROR_UNINITIALIZED";
+//     case ZE_RESULT_ERROR_UNSUPPORTED_VERSION:
+//       return "ZE_RESULT_ERROR_UNSUPPORTED_VERSION";
+//     case ZE_RESULT_ERROR_UNSUPPORTED_FEATURE:
+//       return "ZE_RESULT_ERROR_UNSUPPORTED_FEATURE";
+//     case ZE_RESULT_ERROR_INVALID_ARGUMENT:
+//       return "ZE_RESULT_ERROR_INVALID_ARGUMENT";
+//     case ZE_RESULT_ERROR_INVALID_NULL_HANDLE:
+//       return "ZE_RESULT_ERROR_INVALID_NULL_HANDLE";
+//     case ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE:
+//       return "ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE";
+//     case ZE_RESULT_ERROR_INVALID_NULL_POINTER:
+//       return "ZE_RESULT_ERROR_INVALID_NULL_POINTER";
+//     case ZE_RESULT_ERROR_INVALID_SIZE:
+//       return "ZE_RESULT_ERROR_INVALID_SIZE";
+//     case ZE_RESULT_ERROR_UNSUPPORTED_SIZE:
+//       return "ZE_RESULT_ERROR_UNSUPPORTED_SIZE";
+//     case ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT:
+//       return "ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT";
+//     case ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT:
+//       return "ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT";
+//     case ZE_RESULT_ERROR_INVALID_ENUMERATION:
+//       return "ZE_RESULT_ERROR_INVALID_ENUMERATION";
+//     case ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION:
+//       return "ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION";
+//     case ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT:
+//       return "ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT";
+//     case ZE_RESULT_ERROR_INVALID_NATIVE_BINARY:
+//       return "ZE_RESULT_ERROR_INVALID_NATIVE_BINARY";
+//     case ZE_RESULT_ERROR_INVALID_GLOBAL_NAME:
+//       return "ZE_RESULT_ERROR_INVALID_GLOBAL_NAME";
+//     case ZE_RESULT_ERROR_INVALID_KERNEL_NAME:
+//       return "ZE_RESULT_ERROR_INVALID_KERNEL_NAME";
+//     case ZE_RESULT_ERROR_INVALID_FUNCTION_NAME:
+//       return "ZE_RESULT_ERROR_INVALID_FUNCTION_NAME";
+//     case ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION:
+//       return "ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION";
+//     case ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION:
+//       return "ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION";
+//     case ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX:
+//       return "ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX";
+//     case ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE:
+//       return "ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE";
+//     case ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE:
+//       return "ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE";
+//     case ZE_RESULT_ERROR_INVALID_MODULE_UNLINKED:
+//       return "ZE_RESULT_ERROR_INVALID_MODULE_UNLINKED";
+//     case ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE:
+//       return "ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE";
+//     case ZE_RESULT_ERROR_OVERLAPPING_REGIONS:
+//       return "ZE_RESULT_ERROR_OVERLAPPING_REGIONS";
+//     case ZE_RESULT_ERROR_UNKNOWN:
+//       return "ZE_RESULT_ERROR_UNKNOWN";
+//     default:
+//       return "Unknown Error Code";
+//   }
+// }
+// #define LZ_LOG_ERROR(msg, status) \
+//   logError("{} ({}) in {}:{}:{}\n", msg, lzResultToString(status), __FILE__,
+//   \
+//            __LINE__, __func__)
 
-#define LZ_PROCESS_ERROR_MSG(msg, status)                               \
-  do {                                                                  \
-    if (status != ZE_RESULT_SUCCESS && status != ZE_RESULT_NOT_READY) { \
-      LZ_LOG_ERROR(msg, status);                                        \
-      throw status;                                                     \
-    }                                                                   \
-  } while (0)
+// #define LZ_PROCESS_ERROR_MSG(msg, status)                               \
+//   do {                                                                  \
+//     if (status != ZE_RESULT_SUCCESS && status != ZE_RESULT_NOT_READY) { \
+//       LZ_LOG_ERROR(msg, status);                                        \
+//       throw status;                                                     \
+//     }                                                                   \
+//   } while (0)
 
-#define LZ_PROCESS_ERROR(status) \
-  LZ_PROCESS_ERROR_MSG("Level Zero Error", status)
+// #define LZ_PROCESS_ERROR(status) \
+//   LZ_PROCESS_ERROR_MSG("Level Zero Error", status)
 
-#define LZ_RETURN_ERROR_MSG(msg, status)                                \
-  do {                                                                  \
-    if (status != ZE_RESULT_SUCCESS && status != ZE_RESULT_NOT_READY) { \
-      LZ_LOG_ERROR(msg, status);                                        \
-      return lzConvertResult(status);                                   \
-    }                                                                   \
-  } while (0)
+// #define LZ_RETURN_ERROR_MSG(msg, status)                                \
+//   do {                                                                  \
+//     if (status != ZE_RESULT_SUCCESS && status != ZE_RESULT_NOT_READY) { \
+//       LZ_LOG_ERROR(msg, status);                                        \
+//       return lzConvertResult(status);                                   \
+//     }                                                                   \
+//   } while (0)
 
-#define HIP_LOG_ERROR(msg, status)                                          \
-  logError("{} ({}) in {}:{}:{}\n", msg, hipGetErrorName(status), __FILE__, \
-           __LINE__, __func__)
+// #define HIP_LOG_ERROR(msg, status)                                          \
+//   logError("{} ({}) in {}:{}:{}\n", msg, hipGetErrorName(status), __FILE__, \
+//            __LINE__, __func__)
 
-#define HIP_PROCESS_ERROR_MSG(msg, status)                    \
-  do {                                                        \
-    if (status != hipSuccess && status != hipErrorNotReady) { \
-      HIP_LOG_ERROR(msg, status);                             \
-      throw status;                                           \
-    }                                                         \
-  } while (0)
+// #define HIP_PROCESS_ERROR_MSG(msg, status)                    \
+//   do {                                                        \
+//     if (status != hipSuccess && status != hipErrorNotReady) { \
+//       HIP_LOG_ERROR(msg, status);                             \
+//       throw status;                                           \
+//     }                                                         \
+//   } while (0)
 
 #define HIP_PROCESS_ERROR(status) HIP_PROCESS_ERROR_MSG("HIP Error", status)
 
@@ -132,14 +133,14 @@ const char* lzResultToString(ze_result_t status) {
   }                                                         \
   }                                                         \
   while (0)
+class HIPxxContextLevel0;
+class HIPxxDeviceLevel0;
 
 class HIPxxQueueLevel0 : public HIPxxQueue {
- private:
+ protected:
   ze_command_queue_handle_t hCommandQueue;
   ze_context_handle_t ze_ctx;
   ze_device_handle_t ze_dev;
-
- public:
   HIPxxQueueLevel0(ze_context_handle_t _ze_ctx, ze_device_handle_t _ze_dev)
       : ze_ctx(_ze_ctx), ze_dev(_ze_dev) {
     logTrace(
@@ -178,6 +179,10 @@ class HIPxxQueueLevel0 : public HIPxxQueue {
         ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
     zeCommandQueueCreate(ze_ctx, ze_dev, &commandQueueDesc, &hCommandQueue);
   }
+
+ public:
+  HIPxxQueueLevel0(HIPxxContextLevel0* _hipxx_ctx,
+                   HIPxxDeviceLevel0* _hipxx_dev);
 
   virtual hipError_t launch(HIPxxExecItem* exec_item) override {
     logWarn("HIPxxQueueLevel0.launch() not yet implemented");
@@ -229,8 +234,9 @@ class HIPxxContextLevel0 : public HIPxxContext {
       ze_result_t status = zeMemAllocShared(ze_ctx, &dmaDesc, &hmaDesc, size,
                                             alignment, ze_dev, &ptr);
 
-      LZ_PROCESS_ERROR_MSG(
-          "HipLZ could not allocate shared memory with error code: ", status);
+      // LZ_PROCESS_ERROR_MSG(
+      //     "HipLZ could not allocate shared memory with error code: ",
+      //     status);
       logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
       return ptr;
@@ -246,15 +252,16 @@ class HIPxxContextLevel0 : public HIPxxContext {
 
       ze_result_t status =
           zeMemAllocDevice(ze_ctx, &dmaDesc, size, alignment, ze_dev, &ptr);
-      LZ_PROCESS_ERROR_MSG(
-          "HipLZ could not allocate device memory with error code: ", status);
+      // LZ_PROCESS_ERROR_MSG(
+      //     "HipLZ could not allocate device memory with error code: ",
+      //     status);
       logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocDevice {} ", status);
 
       return ptr;
     }
 
-    HIP_PROCESS_ERROR_MSG("HipLZ could not recognize allocation options",
-                          hipErrorNotSupported);
+    // HIP_PROCESS_ERROR_MSG("HipLZ could not recognize allocation options",
+    //                       hipErrorNotSupported);
   }
 
   virtual void* allocate(size_t size) override {
@@ -386,8 +393,9 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     for (auto dev : Backend->get_devices()) {
       hipxx_l0_ctx->add_device(dev);
       dev->add_context(hipxx_l0_ctx);
-      Backend->add_queue(new HIPxxQueueLevel0(
-          hipxx_l0_ctx->get(), ((HIPxxDeviceLevel0*)dev)->get()));
+
+      Backend->add_queue(
+          new HIPxxQueueLevel0(hipxx_l0_ctx, (HIPxxDeviceLevel0*)dev));
     }
     Backend->add_context(hipxx_l0_ctx);
   }
