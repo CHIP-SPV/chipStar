@@ -135,6 +135,21 @@ enum class LZMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
   while (0)
 class HIPxxContextLevel0;
 class HIPxxDeviceLevel0;
+class HIPxxKernelLevel0 : public HIPxxKernel {
+ protected:
+  ze_kernel_handle_t ze_kernel;
+
+ public:
+  HIPxxKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
+                    const void* _host_ptr)
+      : ze_kernel(_ze_kernel) {
+    HostFunctionName = _funcName;
+    HostFunctionPointer = _host_ptr;
+    logTrace("HIPxxKernelLevel0 constructor via ze_kernel_handle");
+  }
+
+  ze_kernel_handle_t get() { return ze_kernel; }
+};
 
 class HIPxxQueueLevel0 : public HIPxxQueue {
  protected:
@@ -262,6 +277,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
 
     // HIP_PROCESS_ERROR_MSG("HipLZ could not recognize allocation options",
     //                       hipErrorNotSupported);
+    return nullptr;
   }
 
   virtual void* allocate(size_t size) override {
@@ -278,53 +294,59 @@ class HIPxxContextLevel0 : public HIPxxContext {
                                            const void* HostFunctionPtr,
                                            const char* FunctionName) override {
     logWarn("HIPxxContextLevel0.register_function_as_kernel not implemented");
+    logDebug("HIPxxContextLevel0.register_function_as_kernel {} ",
+             FunctionName);
+    uint8_t* funcIL = (uint8_t*)module_str->data();
+    size_t ilSize = module_str->length();
+    std::string funcName = FunctionName;
 
-    // logDebug("HIPxxContextLevel0.register_function_as_kernel {} ",
-    //          FunctionName);
-    // uint8_t* funcIL = (uint8_t*)module_str->data();
-    // size_t ilSize = module_str->length();
-    // std::string funcName = FunctionName;
+    // Parse the SPIR-V fat binary to retrieve kernel function
+    size_t numWords = ilSize / 4;
+    int32_t* binarydata = new int32_t[numWords + 1];
+    std::memcpy(binarydata, funcIL, ilSize);
+    // Extract kernel function information
+    bool res = parseSPIR(binarydata, numWords, FuncInfos);
+    delete[] binarydata;
+    if (!res) {
+      logError("SPIR-V parsing failed\n");
+      return false;
+    }
 
-    // // Parse the SPIR-V fat binary to retrieve kernel function information
-    // size_t numWords = ilSize / 4;
-    // int32_t* binarydata = new int32_t[numWords + 1];
-    // std::memcpy(binarydata, funcIL, ilSize);
-    // // Extract kernel function information
-    // bool res = parseSPIR(binarydata, numWords, FuncInfos);
-    // delete[] binarydata;
-    // if (!res) {
-    //   logError("SPIR-V parsing failed\n");
-    //   return false;
-    // }
+    logDebug("LZ PARSE SPIR {} ", funcName);
+    ze_module_handle_t ze_module;
+    // Create module with global address aware
+    std::string compilerOptions =
+        " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi";
+    ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
+                                   nullptr,
+                                   ZE_MODULE_FORMAT_IL_SPIRV,
+                                   ilSize,
+                                   funcIL,
+                                   compilerOptions.c_str(),
+                                   nullptr};
+    for (HIPxxDevice* hipxx_dev : get_devices()) {
+      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)hipxx_dev)->get();
+      ze_result_t status =
+          zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
+      logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
 
-    // logDebug("LZ PARSE SPIR {} ", funcName);
-    // ze_module_handle_t ze_module;
-    // // Create module with global address aware
-    // std::string compilerOptions =
-    //     " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi";
-    // ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
-    //                                nullptr,
-    //                                ZE_MODULE_FORMAT_IL_SPIRV,
-    //                                ilSize,
-    //                                funcIL,
-    //                                compilerOptions.c_str(),
-    //                                nullptr};
-    // ze_result_t status = zeModuleCreate(ze_ctx,
-    // GetDevice()->GetDeviceHandle(),
-    //                                     &moduleDesc, &ze_module, nullptr);
+      // Create kernel
+      ze_kernel_handle_t ze_kernel;
+      ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
+                                     0,  // flags
+                                     funcName.c_str()};
+      status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
 
-    // logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
+      // LZ_PROCESS_ERROR_MSG("HipLZ zeKernelCreate FAILED with return
+      // code ", status);
 
-    // // Create kernel
-    // ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
-    //                                0,  // flags
-    //                                funcName.c_str()};
-    // ze_kernel_handle_t hKernel;
-    // ze_result_t status = zeKernelCreate(hModule, &kernelDesc, &hKernel);
-    // // LZ_PROCESS_ERROR_MSG("HipLZ zeKernelCreate FAILED with return code ",
-    // //  status);
+      logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
+      HIPxxKernelLevel0* hipxx_ze_kernel =
+          new HIPxxKernelLevel0(ze_kernel, FunctionName, HostFunctionPtr);
 
-    // logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
+      hipxx_dev->add_kernel(hipxx_ze_kernel);
+    }
+
     return true;
   }
 };  // HIPxxContextLevel0
@@ -360,6 +382,8 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     status = zeDriverGet(&driverCount, ze_drivers.data());
 
     // TODO Allow for multilpe platforms(drivers)
+    // TODO Check platform ID is not the same as OpenCL. You can have two OCL
+    // platforms but only one level0 driver
     ze_driver_handle_t ze_driver = ze_drivers[platform_idx];
 
     assert(ze_driver != nullptr);

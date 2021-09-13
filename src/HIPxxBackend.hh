@@ -287,6 +287,8 @@ class HIPxxContext {
     return hipxx_queues;
   }
   void add_queue(HIPxxQueue* q) { hipxx_queues.push_back(q); }
+  std::vector<HIPxxDevice*>& get_hipxx_devices() { return hipxx_devices; }
+  std::vector<HIPxxQueue*>& get_hipxx_queues() { return hipxx_queues; }
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) = 0;
