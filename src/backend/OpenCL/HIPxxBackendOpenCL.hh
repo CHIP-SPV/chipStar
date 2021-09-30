@@ -235,6 +235,8 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
         throw InvalidPlatformOrDeviceNumber(
             "HIPXX_DEVICE: can't get devices for platform");
 
+      std::transform(HIPxxDeviceTypeStr.begin(), HIPxxDeviceTypeStr.end(),
+                     HIPxxDeviceTypeStr.begin(), ::tolower);
       if (HIPxxDeviceTypeStr == "all")
         selected_dev_type = CL_DEVICE_TYPE_ALL;
       else if (HIPxxDeviceTypeStr == "cpu")
