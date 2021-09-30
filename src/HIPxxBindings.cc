@@ -342,4 +342,17 @@ hipError_t hipMalloc(void **ptr, size_t size) {
   return hipSuccess;
 }
 
+hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
+  logCritical("hipHostMalloc not yet implemented");
+  std::abort();
+  // HIPLZ_INIT();
+
+  // LZ_TRY
+  // LZContext *cont = getTlsDefaultLzCtx();
+  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+  // *ptr = cont->allocate(size, 0x1000, ClMemoryType::Shared);
+  // LZ_CATCH
+  // RETURN(hipSuccess);
+}
+
 #endif
