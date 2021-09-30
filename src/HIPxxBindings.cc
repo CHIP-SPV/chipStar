@@ -32,7 +32,7 @@ hipError_t hipEventCreate(hipEvent_t *event) {
 
 class ClEvent;
 hipError_t hipEventCreate(ClEvent **event) {
-  logWarn("hipEventCreate not implemented");
+  // logWarn("hipEventCreate not implemented");
   return hipSuccess;
   // return hipEventCreateWithFlags(event, 0);
 }
@@ -110,7 +110,7 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
 }
 
 hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
-  logWarn("hipEventRecord not yet implemented");
+  // logWarn("hipEventRecord not yet implemented");
   // HIPLZ_INIT();
 
   // LZ_TRY
@@ -127,7 +127,7 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
 
 class ClQueue;
 hipError_t hipEventRecord(ClEvent *, ClQueue *) {
-  logWarn("hipEventRecord not yet implemented");
+  // logWarn("hipEventRecord not yet implemented");
   RETURN(hipSuccess);
 }
 
@@ -140,7 +140,7 @@ hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
 }
 
 hipError_t hipDeviceSynchronize(void) {
-  logWarn("hipDeviceSynchronize not yet implemented");
+  // logWarn("hipDeviceSynchronize not yet implemented");
   // HIPLZ_INIT();
 
   // LZ_TRY
@@ -156,7 +156,7 @@ hipError_t hipDeviceSynchronize(void) {
 }
 
 hipError_t hipEventElapsedTime(float *ms, hipEvent_t start, hipEvent_t stop) {
-  logWarn("hipEventElapsedTime not yet implemented");
+  // logWarn("hipEventElapsedTime not yet implemented");
   // HIPLZ_INIT();
 
   // LZ_TRY
@@ -172,17 +172,17 @@ hipError_t hipEventElapsedTime(float *ms, hipEvent_t start, hipEvent_t stop) {
 }
 
 hipError_t hipEventElapsedTime(float *, ClEvent *, ClEvent *) {
-  logWarn("hipEventElapsedTime not yet implemented");
+  // logWarn("hipEventElapsedTime not yet implemented");
   RETURN(hipSuccess);
 }
 
 hipError_t hipEventDestroy(ClEvent *) {
-  logWarn("hipEventDestroy not yet implemented");
+  // logWarn("hipEventDestroy not yet implemented");
   RETURN(hipSuccess);
 }
 
 hipError_t hipEventDestroy(hipEvent_t event) {
-  logWarn("hipEventDestroy not yet implemented");
+  // logWarn("hipEventDestroy not yet implemented");
   // HIPLZ_INIT();
 
   // ERROR_IF((event == nullptr), hipErrorInvalidValue);
@@ -192,7 +192,7 @@ hipError_t hipEventDestroy(hipEvent_t event) {
 }
 
 hipError_t hipGetLastError(void) {
-  logWarn("hipGetLastError not yet implemented");
+  // logWarn("hipGetLastError not yet implemented");
   // HIPLZ_INIT();
 
   // hipError_t temp = tls_LastError;
@@ -202,7 +202,7 @@ hipError_t hipGetLastError(void) {
 }
 
 hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
-  logWarn("hipEventCreateWithFlags not yet implemented");
+  // logWarn("hipEventCreateWithFlags not yet implemented");
   HIPxxInitialize();
 
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
