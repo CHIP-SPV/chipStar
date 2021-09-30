@@ -286,10 +286,21 @@ class HIPxxContext {
     }
     return hipxx_queues;
   }
-  void add_queue(HIPxxQueue* q) { hipxx_queues.push_back(q); }
+  void add_queue(HIPxxQueue* q) {
+    logTrace("HIPxxContext.add_queue()");
+    hipxx_queues.push_back(q);
+  }
   std::vector<HIPxxDevice*>& get_hipxx_devices() { return hipxx_devices; }
   std::vector<HIPxxQueue*>& get_hipxx_queues() { return hipxx_queues; }
-  HIPxxQueue* get_default_queue() { return hipxx_queues[0]; }
+  HIPxxQueue* get_default_queue() {
+    if (hipxx_queues.size() == 0) {
+      logCritical(
+          "HIPxxContext.get_default_queue() was called but hipxx_queues is "
+          "empty");
+      std::abort();
+    }
+    return hipxx_queues[0];
+  }
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) = 0;
