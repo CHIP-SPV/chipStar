@@ -73,47 +73,9 @@ class HIPxxKernelLevel0 : public HIPxxKernel {
 
 class HIPxxQueueLevel0 : public HIPxxQueue {
  protected:
-  ze_command_queue_handle_t hCommandQueue;
+  ze_command_queue_handle_t ze_q;
   ze_context_handle_t ze_ctx;
   ze_device_handle_t ze_dev;
-  HIPxxQueueLevel0(ze_context_handle_t _ze_ctx, ze_device_handle_t _ze_dev)
-      : ze_ctx(_ze_ctx), ze_dev(_ze_dev) {
-    logTrace(
-        "HIPxxQueueLevel0 constructor called via ze_context_handle_t and "
-        "ze_device_handle_t");
-    // Discover all command queue groups
-    uint32_t cmdqueueGroupCount = 0;
-    zeDeviceGetCommandQueueGroupProperties(ze_dev, &cmdqueueGroupCount,
-                                           nullptr);
-    logDebug("CommandGroups found: {}", cmdqueueGroupCount);
-
-    ze_command_queue_group_properties_t* cmdqueueGroupProperties =
-        (ze_command_queue_group_properties_t*)malloc(
-            cmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
-    zeDeviceGetCommandQueueGroupProperties(ze_dev, &cmdqueueGroupCount,
-                                           cmdqueueGroupProperties);
-
-    // Find a command queue type that support compute
-    uint32_t computeQueueGroupOrdinal = cmdqueueGroupCount;
-    for (uint32_t i = 0; i < cmdqueueGroupCount; ++i) {
-      if (cmdqueueGroupProperties[i].flags &
-          ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
-        computeQueueGroupOrdinal = i;
-        logDebug("Found compute command group");
-        break;
-      }
-    }
-
-    ze_command_queue_desc_t commandQueueDesc = {
-        ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-        nullptr,
-        computeQueueGroupOrdinal,
-        0,  // index
-        0,  // flags
-        ZE_COMMAND_QUEUE_MODE_DEFAULT,
-        ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-    zeCommandQueueCreate(ze_ctx, ze_dev, &commandQueueDesc, &hCommandQueue);
-  }
 
  public:
   HIPxxQueueLevel0(HIPxxContextLevel0* _hipxx_ctx,
@@ -124,10 +86,9 @@ class HIPxxQueueLevel0 : public HIPxxQueue {
     return hipSuccess;
   };
 
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size) override {
-    logWarn("HIPxxQueueLevel0.memCopy() not yet implemented");
-    return hipSuccess;
-  };
+  ze_command_queue_handle_t get() { return ze_q; }
+
+  virtual hipError_t memCopy(void* dst, const void* src, size_t size) override;
 };
 
 class HIPxxDeviceLevel0 : public HIPxxDevice {
@@ -136,10 +97,12 @@ class HIPxxDeviceLevel0 : public HIPxxDevice {
  public:
   HIPxxDeviceLevel0(ze_device_handle_t&& _ze_device) : ze_device(_ze_device) {}
   virtual void populate_device_properties() override {
-    logWarn("HIPxxDeviceLevel0.populate_device_properties not yet implemented");
+    logWarn(
+        "HIPxxDeviceLevel0.populate_device_properties not yet "
+        "implemented");
   }
   virtual std::string get_name() override { return device_name; }
-  ze_device_handle_t get() { return ze_device; }
+  ze_device_handle_t& get() { return ze_device; }
 };
 
 class HIPxxContextLevel0 : public HIPxxContext {
@@ -147,7 +110,9 @@ class HIPxxContextLevel0 : public HIPxxContext {
   OpenCLFunctionInfoMap FuncInfos;
 
  public:
-  HIPxxContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx){};
+  ze_command_list_handle_t ze_cmd_list;
+  ze_command_list_handle_t get_cmd_list() { return ze_cmd_list; }
+  HIPxxContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx) {}
 
   void* allocate(size_t size, size_t alignment, LZMemoryType memTy) {
     void* ptr = 0;
@@ -170,8 +135,8 @@ class HIPxxContextLevel0 : public HIPxxContext {
                                             alignment, ze_dev, &ptr);
 
       // LZ_PROCESS_ERROR_MSG(
-      //     "HipLZ could not allocate shared memory with error code: ",
-      //     status);
+      //     "HipLZ could not allocate shared memory with error code:
+      //     ", status);
       logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
       return ptr;
@@ -187,15 +152,15 @@ class HIPxxContextLevel0 : public HIPxxContext {
 
       ze_result_t status =
           zeMemAllocDevice(ze_ctx, &dmaDesc, size, alignment, ze_dev, &ptr);
-      // LZ_PROCESS_ERROR_MSG(
-      //     "HipLZ could not allocate device memory with error code: ",
-      //     status);
+      LZ_PROCESS_ERROR_MSG(
+          "HipLZ could not allocate device memory with error code: ", status);
       logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocDevice {} ", status);
 
       return ptr;
     }
 
-    // HIP_PROCESS_ERROR_MSG("HipLZ could not recognize allocation options",
+    // HIP_PROCESS_ERROR_MSG("HipLZ could not recognize allocation
+    // options",
     //                       hipErrorNotSupported);
     return nullptr;
   }
@@ -204,16 +169,16 @@ class HIPxxContextLevel0 : public HIPxxContext {
     return allocate(size, 0x1000, LZMemoryType::Device);
   }
 
-  ze_context_handle_t get() { return ze_ctx; }
+  ze_context_handle_t& get() { return ze_ctx; }
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream) override {
-    logWarn("HIPxxContextLevel0.memCopy not yet implemented");
-    return hipSuccess;
-  };
+                             hipStream_t stream) override;
+
   virtual bool register_function_as_kernel(std::string* module_str,
                                            const void* HostFunctionPtr,
                                            const char* FunctionName) override {
-    logWarn("HIPxxContextLevel0.register_function_as_kernel not implemented");
+    logWarn(
+        "HIPxxContextLevel0.register_function_as_kernel not "
+        "implemented");
     logDebug("HIPxxContextLevel0.register_function_as_kernel {} ",
              FunctionName);
     uint8_t* funcIL = (uint8_t*)module_str->data();
@@ -302,8 +267,8 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     status = zeDriverGet(&driverCount, ze_drivers.data());
 
     // TODO Allow for multilpe platforms(drivers)
-    // TODO Check platform ID is not the same as OpenCL. You can have two OCL
-    // platforms but only one level0 driver
+    // TODO Check platform ID is not the same as OpenCL. You can have
+    // two OCL platforms but only one level0 driver
     ze_driver_handle_t ze_driver = ze_drivers[platform_idx];
 
     assert(ze_driver != nullptr);
@@ -314,8 +279,8 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
 
     const ze_context_desc_t ctxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr,
                                        0};
-    // Filter in only devices of selected type and add them to the backend as
-    // derivates of HIPxxDevice
+    // Filter in only devices of selected type and add them to the
+    // backend as derivates of HIPxxDevice
     for (int i = 0; i < deviceCount; i++) {
       auto dev = ze_devices[i];
       ze_device_properties_t device_properties;
@@ -323,6 +288,8 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
       if (ze_device_type == device_properties.type) {
         HIPxxDeviceLevel0* hipxx_l0_dev = new HIPxxDeviceLevel0(std::move(dev));
         Backend->add_device(hipxx_l0_dev);
+        // TODO
+        break;  // For now don't add more than one device
       }
     }  // End adding HIPxxDevices
 
