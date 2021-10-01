@@ -28,7 +28,7 @@
 #define NUM (WIDTH * WIDTH)
 
 // how many times to run the matmul kernel
-#define ITERS 30
+#define ITERS 1
 
 #define ERR_CHECK_2                   \
   do {                                \
