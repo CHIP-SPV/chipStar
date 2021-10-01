@@ -100,12 +100,6 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
   } else {
     RETURN(ctx->memCopy(dst, src, sizeBytes, nullptr));
   }
-  // LZ_CATCH
-  // ze_result_t status = zeCommandQueueSynchronize(cont->hQueue, UINT64_MAX);
-  // if (status != ZE_RESULT_SUCCESS) {
-  // 	  throw InvalidLevel0Initialization("HipLZ zeCommandQueueSynchronize
-  // FAILED with return code " + std::to_string(status));
-  // }
   RETURN(hipSuccess);
 }
 
@@ -140,18 +134,8 @@ hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
 }
 
 hipError_t hipDeviceSynchronize(void) {
-  // logWarn("hipDeviceSynchronize not yet implemented");
-  // HIPLZ_INIT();
-
-  // LZ_TRY
-
-  // LZContext *cont = getTlsDefaultLzCtx();
-  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
-  // // Synchronize among HipLZ queues
-  // cont->finishAll();
-  // RETURN(hipSuccess);
-
-  // LZ_CATCH
+  logCritical("hipDeviceSynchronize not yet implemented");
+  std::abort();
   RETURN(hipSuccess);
 }
 
