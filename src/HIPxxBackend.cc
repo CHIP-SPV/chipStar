@@ -217,7 +217,117 @@ hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
   return *I;
 }
 
+// HIPxxBackend
 //*************************************************************************************
+
+HIPxxBackend::HIPxxBackend() { logDebug("HIPxxBackend Base Constructor"); };
+HIPxxBackend::~HIPxxBackend(){};
+
+void HIPxxBackend::initialize(std::string platform_str,
+                              std::string device_type_str,
+                              std::string device_ids_str){};
+
+std::vector<HIPxxQueue *> &HIPxxBackend::getQueues() { return hipxx_queues; }
+HIPxxQueue *HIPxxBackend::getDefaultQueue() {
+  if (hipxx_queues.size() == 0) {
+    logCritical(
+        "HIPxxBackend.get_default_queue() was called but no queues have "
+        "been initialized;\n");
+    std::abort();
+  }
+  return hipxx_queues[0];
+};
+
+HIPxxContext *HIPxxBackend::getDefaultContext() {
+  if (hipxx_contexts.size() == 0) {
+    logCritical(
+        "HIPxxBackend.get_default_context() was called but no contexts "
+        "have been "
+        "initialized;\n",
+        "");
+    std::abort();
+  }
+  return hipxx_contexts[0];
+};
+
+std::vector<HIPxxDevice *> &HIPxxBackend::getDevices() { return hipxx_devices; }
+
+size_t HIPxxBackend::getNumDevices() { return hipxx_devices.size(); }
+std::vector<std::string *> &HIPxxBackend::getModulesStr() {
+  return modules_str;
+}
+
+void HIPxxBackend::addContext(HIPxxContext *ctx_in) {
+  hipxx_contexts.push_back(ctx_in);
+}
+void HIPxxBackend::addQueue(HIPxxQueue *q_in) {
+  logDebug("HIPxxBackend.add_queue()");
+  hipxx_queues.push_back(q_in);
+}
+void HIPxxBackend::addDevice(HIPxxDevice *dev_in) {
+  logTrace("HIPxxDevice.add_device() {}", dev_in->getName());
+  hipxx_devices.push_back(dev_in);
+}
+
+void HIPxxBackend::registerModuleStr(std::string *mod_str) {
+  logTrace("HIPxxBackend->register_module()");
+  std::lock_guard<std::mutex> Lock(mtx);
+  getModulesStr().push_back(mod_str);
+}
+
+void HIPxxBackend::unregisterModuleStr(std::string *mod_str) {
+  logTrace("HIPxxBackend->unregister_module()");
+  auto found_mod = std::find(modules_str.begin(), modules_str.end(), mod_str);
+  if (found_mod != modules_str.end()) {
+    getModulesStr().erase(found_mod);
+  } else {
+    logWarn(
+        "Module {} not found in HIPxxBackend.modules_str while trying to "
+        "unregister",
+        (void *)mod_str);
+  }
+}
+
+hipError_t HIPxxBackend::configureCall(dim3 grid, dim3 block, size_t shared,
+                                       hipStream_t q) {
+  logTrace("HIPxxBackend->configure_call()");
+  std::lock_guard<std::mutex> Lock(mtx);
+  if (q == nullptr) q = getDefaultQueue();
+  HIPxxExecItem *ex = new HIPxxExecItem(grid, block, shared, q);
+  hipxx_execstack.push(ex);
+
+  return hipSuccess;
+}
+
+hipError_t HIPxxBackend::setArg(const void *arg, size_t size, size_t offset) {
+  logTrace("HIPxxBackend->set_arg()");
+  std::lock_guard<std::mutex> Lock(mtx);
+  HIPxxExecItem *ex = hipxx_execstack.top();
+  ex->setArg(arg, size, offset);
+
+  return hipSuccess;
+}
+
+/**
+ * @brief Register this function as a kernel for all devices initialized in
+ * this backend
+ *
+ * @param module_str
+ * @param HostFunctionPtr
+ * @param FunctionName
+ * @return true
+ * @return false
+ */
+
+bool HIPxxBackend::registerFunctionAsKernel(std::string *module_str,
+                                            const void *host_f_ptr,
+                                            const char *host_f_name) {
+  logTrace("HIPxxBackend.registerFunctionAsKernel()");
+  for (auto &ctx : hipxx_contexts) {
+    ctx->registerFunctionAsKernel(module_str, host_f_ptr, host_f_name);
+  }
+  return true;
+}
 
 std::string HIPxxQueue::get_info() {
   // TODO review this

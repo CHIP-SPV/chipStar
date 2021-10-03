@@ -289,7 +289,7 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     // TODO Change this to spirv_enabled_devices
     cl::Context *ctx = new cl::Context(enabled_devices);
     HIPxxContextOpenCL *hipxx_context = new HIPxxContextOpenCL(ctx);
-    Backend->add_context(hipxx_context);
+    Backend->addContext(hipxx_context);
     for (int i = 0; i < enabled_devices.size(); i++) {
       cl::Device *dev = new cl::Device(enabled_devices[i]);
       HIPxxDeviceOpenCL *hipxx_dev =
@@ -297,9 +297,9 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
       logDebug("HIPxxDeviceOpenCL {}",
                hipxx_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
       hipxx_dev->populateDeviceProperties();
-      Backend->add_device(hipxx_dev);
+      Backend->addDevice(hipxx_dev);
       HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_context, hipxx_dev);
-      Backend->add_queue(queue);
+      Backend->addQueue(queue);
     }
     std::cout << "OpenCL Context Initialized.\n";
   };

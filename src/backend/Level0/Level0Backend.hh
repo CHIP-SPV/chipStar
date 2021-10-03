@@ -287,7 +287,7 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
       zeDeviceGetProperties(dev, &device_properties);
       if (ze_device_type == device_properties.type) {
         HIPxxDeviceLevel0* hipxx_l0_dev = new HIPxxDeviceLevel0(std::move(dev));
-        Backend->add_device(hipxx_l0_dev);
+        Backend->addDevice(hipxx_l0_dev);
         // TODO
         break;  // For now don't add more than one device
       }
@@ -301,14 +301,14 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
 
     // Associate devices with contexts and vice versa
     // TODO Make this more automatic via constructor calls
-    for (auto dev : Backend->get_devices()) {
+    for (auto dev : Backend->getDevices()) {
       hipxx_l0_ctx->addDevice(dev);
       dev->addContext(hipxx_l0_ctx);
 
-      Backend->add_queue(
+      Backend->addQueue(
           new HIPxxQueueLevel0(hipxx_l0_ctx, (HIPxxDeviceLevel0*)dev));
     }
-    Backend->add_context(hipxx_l0_ctx);
+    Backend->addContext(hipxx_l0_ctx);
   }
 
   virtual void initialize() override {

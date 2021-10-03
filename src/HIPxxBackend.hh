@@ -251,111 +251,42 @@ class HIPxxBackend {
   std::vector<HIPxxContext*> hipxx_contexts;
   std::vector<HIPxxQueue*> hipxx_queues;
   std::vector<HIPxxDevice*> hipxx_devices;
-  HIPxxBackend() { logDebug("HIPxxBackend Base Constructor"); };
-  ~HIPxxBackend(){};
-  virtual void initialize(std::string HIPxxPlatformStr,
-                          std::string HIPxxDeviceTypeStr,
-                          std::string HIPxxDeviceStr){};
 
+  HIPxxBackend();
+  ~HIPxxBackend();
+
+  virtual void initialize(std::string platform_str, std::string device_type_str,
+                          std::string device_ids_str);
   virtual void initialize() = 0;
-
   virtual void uninitialize() = 0;
 
-  std::vector<HIPxxQueue*>& get_queues() { return hipxx_queues; }
-  HIPxxQueue* get_default_queue() {
-    if (hipxx_queues.size() == 0) {
-      logCritical(
-          "HIPxxBackend.get_default_queue() was called but no queues have "
-          "been initialized;\n");
-      std::abort();
-    }
-    return hipxx_queues[0];
-  };
-
-  HIPxxContext* get_default_context() {
-    if (hipxx_contexts.size() == 0) {
-      logCritical(
-          "HIPxxBackend.get_default_context() was called but no contexts "
-          "have been "
-          "initialized;\n",
-          "");
-      std::abort();
-    }
-    return hipxx_contexts[0];
-  };
-
-  std::vector<HIPxxDevice*>& get_devices() { return hipxx_devices; }
-  size_t get_num_devices() { return hipxx_devices.size(); }
-  std::vector<std::string*>& get_modules_str() { return modules_str; }
-  void add_context(HIPxxContext* ctx_in) { hipxx_contexts.push_back(ctx_in); }
-  void add_queue(HIPxxQueue* q_in) {
-    logDebug("HIPxxBackend.add_queue()");
-    hipxx_queues.push_back(q_in);
-  }
-  void add_device(HIPxxDevice* dev_in) {
-    logTrace("HIPxxDevice.add_device() {}", dev_in->getName());
-    hipxx_devices.push_back(dev_in);
-  }
-
-  void register_module(std::string* mod_str) {
-    logTrace("HIPxxBackend->register_module()");
-    std::lock_guard<std::mutex> Lock(mtx);
-    get_modules_str().push_back(mod_str);
-  };
-
-  void unregister_module(std::string* mod_str) {
-    logTrace("HIPxxBackend->unregister_module()");
-    auto found_mod = std::find(modules_str.begin(), modules_str.end(), mod_str);
-    if (found_mod != modules_str.end()) {
-      get_modules_str().erase(found_mod);
-    } else {
-      logWarn(
-          "Module {} not found in HIPxxBackend.modules_str while trying to "
-          "unregister",
-          (void*)mod_str);
-    }
-  }
-
-  hipError_t configure_call(dim3 grid, dim3 block, size_t shared,
-                            hipStream_t q) {
-    logTrace("HIPxxBackend->configure_call()");
-    std::lock_guard<std::mutex> Lock(mtx);
-    if (q == nullptr) q = get_default_queue();
-    HIPxxExecItem* ex = new HIPxxExecItem(grid, block, shared, q);
-    hipxx_execstack.push(ex);
-
-    return hipSuccess;
-  }
-
-  hipError_t set_arg(const void* arg, size_t size, size_t offset) {
-    logTrace("HIPxxBackend->set_arg()");
-    std::lock_guard<std::mutex> Lock(mtx);
-    HIPxxExecItem* ex = hipxx_execstack.top();
-    ex->setArg(arg, size, offset);
-
-    return hipSuccess;
-  }
+  std::vector<HIPxxQueue*>& getQueues();
+  HIPxxQueue* getDefaultQueue();
+  HIPxxContext* getDefaultContext();
+  std::vector<HIPxxDevice*>& getDevices();
+  size_t getNumDevices();
+  std::vector<std::string*>& getModulesStr();
+  void addContext(HIPxxContext* ctx_in);
+  void addQueue(HIPxxQueue* q_in);
+  void addDevice(HIPxxDevice* dev_in);
+  void registerModuleStr(std::string* mod_str);
+  void unregisterModuleStr(std::string* mod_str);
+  hipError_t configureCall(dim3 grid, dim3 block, size_t shared, hipStream_t q);
+  hipError_t setArg(const void* arg, size_t size, size_t offset);
 
   /**
    * @brief Register this function as a kernel for all devices initialized in
    * this backend
    *
    * @param module_str
-   * @param HostFunctionPtr
-   * @param FunctionName
+   * @param host_f_ptr
+   * @param host_f_name
    * @return true
    * @return false
    */
-
-  virtual bool register_function_as_kernel(std::string* module_str,
-                                           const void* HostFunctionPtr,
-                                           const char* FunctionName) {
-    logTrace("HIPxxBackend.register_function_as_kernel()");
-    for (auto& ctx : hipxx_contexts) {
-      ctx->registerFunctionAsKernel(module_str, HostFunctionPtr, FunctionName);
-    }
-    return true;
-  }
+  virtual bool registerFunctionAsKernel(std::string* module_str,
+                                        const void* host_f_ptr,
+                                        const char* host_f_name);
 };
 
 /**
