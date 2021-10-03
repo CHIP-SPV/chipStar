@@ -5,6 +5,10 @@ HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, unsigned flags_in)
 HIPxxEvent::HIPxxEvent() {}
 HIPxxEvent::~HIPxxEvent() {}
 
+bool HIPxxEvent::recordStream(HIPxxQueue *hipxx_queue_){};
+bool HIPxxEvent::wait(){};
+bool HIPxxEvent::isFinished(){};
+float HIPxxEvent::getElapsedTime(HIPxxEvent *other){};
 //*************************************************************************************
 void HIPxxModule::addKernel(void *HostFunctionPtr,
                             std::string HostFunctionName) {
