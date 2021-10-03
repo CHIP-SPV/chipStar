@@ -4,7 +4,8 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
   // std::lock_guard<std::mutex> Lock(mtx);
   logTrace("HIPxxQueueOpenCL->launch()");
   HIPxxExecItemOpenCL *hipxx_ocl_exec_item = (HIPxxExecItemOpenCL *)exec_item;
-  HIPxxKernelOpenCL *kernel = (HIPxxKernelOpenCL *)hipxx_ocl_exec_item->Kernel;
+  HIPxxKernelOpenCL *kernel =
+      (HIPxxKernelOpenCL *)hipxx_ocl_exec_item->hipxx_kernel;
   assert(kernel != nullptr);
   logTrace("Launching Kernel {}", kernel->get_name());
 
@@ -13,8 +14,8 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
     return hipErrorLaunchFailure;
   }
 
-  dim3 GridDim = hipxx_ocl_exec_item->GridDim;
-  dim3 BlockDim = hipxx_ocl_exec_item->BlockDim;
+  dim3 GridDim = hipxx_ocl_exec_item->grid_dim;
+  dim3 BlockDim = hipxx_ocl_exec_item->block_dim;
 
   const cl::NDRange global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
                            GridDim.z * BlockDim.z);

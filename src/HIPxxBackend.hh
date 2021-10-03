@@ -103,34 +103,26 @@ class HIPxxKernel {
  */
 class HIPxxExecItem {
  protected:
-  size_t SharedMem;
-  hipStream_t Stream;
-  std::vector<uint8_t> ArgData;
-  std::vector<std::tuple<size_t, size_t>> OffsetsSizes;
+  size_t shared_mem;
+  hipStream_t stream;
+  std::vector<uint8_t> arg_data;
+  std::vector<std::tuple<size_t, size_t>> offset_sizes;
 
  public:
-  HIPxxKernel* Kernel;
-  HIPxxQueue* q;
-  dim3 GridDim;
-  dim3 BlockDim;
-  HIPxxExecItem(dim3 grid_in, dim3 block_in, size_t shared_in, hipStream_t q_in)
-      : GridDim(grid_in), BlockDim(block_in), SharedMem(shared_in), q(q_in){};
+  HIPxxKernel* hipxx_kernel;
+  HIPxxQueue* hipxx_queue;
+  dim3 grid_dim;
+  dim3 block_dim;
 
-  void set_arg(const void* arg, size_t size, size_t offset) {
-    if ((offset + size) > ArgData.size()) ArgData.resize(offset + size + 1024);
+  HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
+                hipStream_t hipxx_queue_);
+  ~HIPxxExecItem();
 
-    std::memcpy(ArgData.data() + offset, arg, size);
-    logDebug("HIPxxExecItem.set_arg() on {} size {} offset {}\n", (void*)this,
-             size, offset);
-    OffsetsSizes.push_back(std::make_tuple(offset, size));
-  }
-  virtual hipError_t launch(HIPxxKernel* Kernel) {
-    logWarn("Calling HIPxxExecItem.launch() base launch which does nothing");
-    return hipSuccess;
-  };
-
+  void setArg(const void* arg, size_t size, size_t offset);
+  virtual hipError_t launch(HIPxxKernel* Kernel);
   virtual hipError_t launchByHostPtr(const void* hostPtr);
 };
+
 /**
  * @brief Compute device class
  */
@@ -379,7 +371,7 @@ class HIPxxBackend {
     logTrace("HIPxxBackend->set_arg()");
     std::lock_guard<std::mutex> Lock(mtx);
     HIPxxExecItem* ex = hipxx_execstack.top();
-    ex->set_arg(arg, size, offset);
+    ex->setArg(arg, size, offset);
 
     return hipSuccess;
   }

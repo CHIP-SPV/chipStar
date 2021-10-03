@@ -23,6 +23,42 @@ std::string HIPxxKernel::getName() { return host_f_name; }
 const void *HIPxxKernel::getHostPtr() { return host_f_ptr; }
 const void *HIPxxKernel::getDevPtr() { return dev_f_ptr; }
 //*************************************************************************************
+HIPxxExecItem::HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_,
+                             size_t shared_mem_, hipStream_t hipxx_queue_)
+    : grid_dim(grid_dim_),
+      block_dim(block_dim_),
+      shared_mem(shared_mem_),
+      hipxx_queue(hipxx_queue_){};
+HIPxxExecItem::~HIPxxExecItem(){};
+
+void HIPxxExecItem::setArg(const void *arg, size_t size, size_t offset) {
+  if ((offset + size) > arg_data.size()) arg_data.resize(offset + size + 1024);
+
+  std::memcpy(arg_data.data() + offset, arg, size);
+  logDebug("HIPxxExecItem.set_arg() on {} size {} offset {}\n", (void *)this,
+           size, offset);
+  offset_sizes.push_back(std::make_tuple(offset, size));
+}
+hipError_t HIPxxExecItem::launch(HIPxxKernel *Kernel) {
+  logWarn("Calling HIPxxExecItem.launch() base launch which does nothing");
+  return hipSuccess;
+};
+
+hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
+  if (hipxx_queue == nullptr) {
+    logCritical("HIPxxExecItem.launch() was called but queue pointer is null");
+    // TODO better errors
+    std::abort();
+  }
+
+  HIPxxDevice *dev = hipxx_queue->get_device();
+  this->hipxx_kernel = dev->findKernelByHostPtr(hostPtr);
+  logTrace("Found kernel for host pointer {} : {}", hostPtr,
+           hipxx_kernel->getName());
+  // TODO verify that all is in place either here or in HIPxxQueue
+  return hipxx_queue->launch(this);
+}
+//*************************************************************************************
 HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
   logTrace("HIPxxDevice::findKernelByHostPtr({})", hostPtr);
   std::vector<HIPxxKernel *> hipxx_kernels = get_kernels();
@@ -133,19 +169,6 @@ bool HIPxxDevice::release_mem(size_t bytes) {
 }
 
 //*************************************************************************************
-hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
-  if (q == nullptr) {
-    logCritical("HIPxxExecItem.launch() was called but queue pointer is null");
-    // TODO better errors
-    std::abort();
-  }
-
-  HIPxxDevice *dev = q->get_device();
-  this->Kernel = dev->findKernelByHostPtr(hostPtr);
-  logTrace("Found kernel for host pointer {} : {}", hostPtr, Kernel->getName());
-  // TODO verify that all is in place either here or in HIPxxQueue
-  return q->launch(this);
-}
 
 //*************************************************************************************
 
