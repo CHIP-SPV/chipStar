@@ -91,11 +91,11 @@ class HIPxxKernel {
   const void* dev_f_ptr;
 
  public:
-  HIPxxKernel(){};
-  ~HIPxxKernel(){};
-  std::string getName() { return host_f_name; }
-  const void* getHostPtr() { return host_f_ptr; }
-  const void* getDevPtr() { return dev_f_ptr; }
+  HIPxxKernel();
+  ~HIPxxKernel();
+  std::string getName();
+  const void* getHostPtr();
+  const void* getDevPtr();
 };
 
 /**

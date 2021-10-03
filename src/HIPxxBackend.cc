@@ -17,6 +17,37 @@ void HIPxxModule::addKernel(void *HostFunctionPtr,
   hipxx_kernels.push_back(kernel);
 }
 //*************************************************************************************
+HIPxxKernel::HIPxxKernel(){};
+HIPxxKernel::~HIPxxKernel(){};
+std::string HIPxxKernel::getName() { return host_f_name; }
+const void *HIPxxKernel::getHostPtr() { return host_f_ptr; }
+const void *HIPxxKernel::getDevPtr() { return dev_f_ptr; }
+//*************************************************************************************
+HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
+  logTrace("HIPxxDevice::findKernelByHostPtr({})", hostPtr);
+  std::vector<HIPxxKernel *> hipxx_kernels = get_kernels();
+  logDebug("Listing Kernels for device {}", device_name);
+  for (auto &kernel : hipxx_kernels) {
+    logDebug("{}", kernel->getName());
+  }
+
+  auto found_kernel = std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
+                                   [&hostPtr](HIPxxKernel *kernel) {
+                                     return kernel->getHostPtr() == hostPtr;
+                                   });
+
+  if (found_kernel == hipxx_kernels.end()) {
+    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, pcie_idx,
+                device_name);
+    std::abort();  // Exception
+  } else {
+    logDebug("Found kernel {} with host pointer {}", (*found_kernel)->getName(),
+             (*found_kernel)->getHostPtr());
+  }
+
+  return *found_kernel;
+}
+
 bool HIPxxContext::add_device(HIPxxDevice *dev) {
   logTrace("HIPxxContext.add_device() {}", dev->get_name());
   hipxx_devices.push_back(dev);
@@ -99,31 +130,6 @@ bool HIPxxDevice::release_mem(size_t bytes) {
   } else {
     return false;
   }
-}
-
-HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
-  logTrace("HIPxxDevice::findKernelByHostPtr({})", hostPtr);
-  std::vector<HIPxxKernel *> hipxx_kernels = get_kernels();
-  logDebug("Listing Kernels for device {}", device_name);
-  for (auto &kernel : hipxx_kernels) {
-    logDebug("{}", kernel->getName());
-  }
-
-  auto found_kernel = std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
-                                   [&hostPtr](HIPxxKernel *kernel) {
-                                     return kernel->getHostPtr() == hostPtr;
-                                   });
-
-  if (found_kernel == hipxx_kernels.end()) {
-    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, pcie_idx,
-                device_name);
-    std::abort();  // Exception
-  } else {
-    logDebug("Found kernel {} with host pointer {}", (*found_kernel)->getName(),
-             (*found_kernel)->getHostPtr());
-  }
-
-  return *found_kernel;
 }
 
 //*************************************************************************************
