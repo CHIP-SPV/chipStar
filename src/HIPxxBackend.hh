@@ -84,19 +84,18 @@ class HIPxxModule {
 class HIPxxKernel {
  protected:
   /// Name of the function
-  std::string HostFunctionName;
+  std::string host_f_name;
   /// Pointer to the host function
-  const void* HostFunctionPointer;
+  const void* host_f_ptr;
   /// Pointer to the device function
-  const void* DeviceFunctionPointer;
+  const void* dev_f_ptr;
 
  public:
   HIPxxKernel(){};
   ~HIPxxKernel(){};
-  std::string get_name() { return HostFunctionName; }
-  // TODO Error Handling?
-  const void* get_host_ptr() { return HostFunctionPointer; }
-  const void* get_device_ptr() { return DeviceFunctionPointer; }
+  std::string getName() { return host_f_name; }
+  const void* getHostPtr() { return host_f_ptr; }
+  const void* getDevPtr() { return dev_f_ptr; }
 };
 
 /**

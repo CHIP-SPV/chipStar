@@ -62,7 +62,7 @@ std::vector<HIPxxKernel *> &HIPxxDevice::get_kernels() {
 };
 
 void HIPxxDevice::add_kernel(HIPxxKernel *kernel) {
-  logTrace("Adding kernel {} to device # {} {}", kernel->get_name(), pcie_idx,
+  logTrace("Adding kernel {} to device # {} {}", kernel->getName(), pcie_idx,
            device_name);
   hipxx_kernels.push_back(kernel);
 }
@@ -106,12 +106,12 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
   std::vector<HIPxxKernel *> hipxx_kernels = get_kernels();
   logDebug("Listing Kernels for device {}", device_name);
   for (auto &kernel : hipxx_kernels) {
-    logDebug("{}", kernel->get_name());
+    logDebug("{}", kernel->getName());
   }
 
   auto found_kernel = std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
                                    [&hostPtr](HIPxxKernel *kernel) {
-                                     return kernel->get_host_ptr() == hostPtr;
+                                     return kernel->getHostPtr() == hostPtr;
                                    });
 
   if (found_kernel == hipxx_kernels.end()) {
@@ -119,8 +119,8 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
                 device_name);
     std::abort();  // Exception
   } else {
-    logDebug("Found kernel {} with host pointer {}",
-             (*found_kernel)->get_name(), (*found_kernel)->get_host_ptr());
+    logDebug("Found kernel {} with host pointer {}", (*found_kernel)->getName(),
+             (*found_kernel)->getHostPtr());
   }
 
   return *found_kernel;
@@ -136,8 +136,7 @@ hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
 
   HIPxxDevice *dev = q->get_device();
   this->Kernel = dev->findKernelByHostPtr(hostPtr);
-  logTrace("Found kernel for host pointer {} : {}", hostPtr,
-           Kernel->get_name());
+  logTrace("Found kernel for host pointer {} : {}", hostPtr, Kernel->getName());
   // TODO verify that all is in place either here or in HIPxxQueue
   return q->launch(this);
 }

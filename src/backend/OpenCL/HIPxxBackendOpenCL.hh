@@ -120,8 +120,8 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
                     OpenCLFunctionInfoMap &FuncInfoMap)
       : name(name_in), ocl_kernel(cl_kernel) {
     // ocl_kernel = cl::Kernel(cl_kernel);
-    HostFunctionName = name_in;
-    HostFunctionPointer = hostptr_in;
+    host_f_name = name_in;
+    host_f_ptr = hostptr_in;
 
     int err = 0;
     name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
