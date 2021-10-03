@@ -6,11 +6,11 @@ HIPxxEvent::HIPxxEvent() {}
 HIPxxEvent::~HIPxxEvent() {}
 
 //*************************************************************************************
-void HIPxxModule::add_kernel(void *HostFunctionPtr,
-                             std::string HostFunctionName) {
+void HIPxxModule::addKernel(void *HostFunctionPtr,
+                            std::string HostFunctionName) {
   // TODO
   HIPxxKernel *kernel = new HIPxxKernel();
-  Kernels.push_back(kernel);
+  hipxx_kernels.push_back(kernel);
 }
 //*************************************************************************************
 bool HIPxxContext::add_device(HIPxxDevice *dev) {

@@ -56,15 +56,15 @@ class HIPxxEvent {
 
 class HIPxxModule {
  protected:
-  std::vector<HIPxxKernel*> Kernels;
+  std::vector<HIPxxKernel*> hipxx_kernels;
   std::mutex mtx;
 
  public:
-  HIPxxModule(){};
-  ~HIPxxModule(){};
-
+  HIPxxModule();
+  ~HIPxxModule();
   HIPxxModule(std::string* module_str);
-  void add_kernel(void* HostFunctionPtr, std::string HostFunctionName);
+
+  void addKernel(void* host_f_ptr, std::string host_f_name);
 
   /**
    * @brief Take a binary representation of a module, compile it, extract
@@ -72,7 +72,10 @@ class HIPxxModule {
    *
    * @param module_str binary representation of a module
    */
-  virtual void compile(std::string* module_str) = 0;
+  virtual void compile(std::string* module_str);
+  virtual bool getsymboladdresssize(const char* name, void* dptr,
+                                    size_t* bytes) = 0;
+  virtual bool symbolsupported() = 0;
 };
 
 /**
