@@ -10,9 +10,9 @@ void* HIPxxContextOpenCL::allocate(size_t size) {
   void* retval;
 
   for (auto dev : hipxx_devices) {
-    if (!dev->reserve_mem(size)) return nullptr;
+    if (!dev->allocate(size)) return nullptr;
     retval = svm_memory.allocate(*cl_ctx, size);
-    if (retval == nullptr) dev->release_mem(size);
+    if (retval == nullptr) dev->free(size);
   }
 
   return retval;

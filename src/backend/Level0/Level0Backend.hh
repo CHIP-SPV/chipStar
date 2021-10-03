@@ -96,12 +96,12 @@ class HIPxxDeviceLevel0 : public HIPxxDevice {
 
  public:
   HIPxxDeviceLevel0(ze_device_handle_t&& _ze_device) : ze_device(_ze_device) {}
-  virtual void populate_device_properties() override {
+  virtual void populateDeviceProperties() override {
     logWarn(
         "HIPxxDeviceLevel0.populate_device_properties not yet "
         "implemented");
   }
-  virtual std::string get_name() override { return device_name; }
+  virtual std::string getName() override { return device_name; }
   ze_device_handle_t& get() { return ze_device; }
 };
 
@@ -229,7 +229,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       HIPxxKernelLevel0* hipxx_ze_kernel =
           new HIPxxKernelLevel0(ze_kernel, FunctionName, HostFunctionPtr);
 
-      hipxx_dev->add_kernel(hipxx_ze_kernel);
+      hipxx_dev->addKernel(hipxx_ze_kernel);
     }
 
     return true;
@@ -303,7 +303,7 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     // TODO Make this more automatic via constructor calls
     for (auto dev : Backend->get_devices()) {
       hipxx_l0_ctx->add_device(dev);
-      dev->add_context(hipxx_l0_ctx);
+      dev->addContext(hipxx_l0_ctx);
 
       Backend->add_queue(
           new HIPxxQueueLevel0(hipxx_l0_ctx, (HIPxxDeviceLevel0*)dev));

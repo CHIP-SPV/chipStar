@@ -7,13 +7,13 @@ HIPxxDeviceOpenCL::HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx,
       "pointer");
   cl_dev = dev_in;
   cl_ctx = hipxx_ctx->cl_ctx;
-  pcie_idx = idx;
+  global_id = idx;
 
   hipxx_ctx->add_device(this);
   hipxx_contexts.push_back(hipxx_ctx);
 }
 
-void HIPxxDeviceOpenCL::populate_device_properties() {
+void HIPxxDeviceOpenCL::populateDeviceProperties() {
   logTrace("HIPxxDeviceOpenCL->populate_device_properties()");
   cl_int err;
   std::string Temp;
@@ -100,7 +100,7 @@ void HIPxxDeviceOpenCL::populate_device_properties() {
   hip_device_props.concurrentKernels = 1;
   hip_device_props.pciDomainID = 0;
   hip_device_props.pciBusID = 0x10;
-  hip_device_props.pciDeviceID = 0x40 + pcie_idx;
+  hip_device_props.pciDeviceID = 0x40 + global_id;
   hip_device_props.isMultiGpuBoard = 0;
   hip_device_props.canMapHostMemory = 1;
   hip_device_props.gcnArch = 0;
@@ -108,7 +108,7 @@ void HIPxxDeviceOpenCL::populate_device_properties() {
   hip_device_props.maxSharedMemoryPerMultiProcessor = 0;
 }
 
-std::string HIPxxDeviceOpenCL::get_name() {
+std::string HIPxxDeviceOpenCL::getName() {
   if (cl_dev == nullptr) {
     logCritical("HIPxxDeviceOpenCL.get_name() called on uninitialized ptr");
     std::abort();
@@ -145,7 +145,7 @@ bool HIPxxContextOpenCL::register_function_as_kernel(
 
   for (HIPxxDevice *hipxx_dev : hipxx_devices) {
     HIPxxDeviceOpenCL *hipxx_ocl_device = (HIPxxDeviceOpenCL *)hipxx_dev;
-    std::string name = hipxx_ocl_device->get_name();
+    std::string name = hipxx_ocl_device->getName();
 
     int build_failed = Program.build("-x spir -cl-kernel-arg-info");
 
@@ -156,7 +156,7 @@ bool HIPxxContextOpenCL::register_function_as_kernel(
       return false;
     }
     logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
-             hipxx_ocl_device->pcie_idx, name, log);
+             hipxx_ocl_device->global_id, name, log);
     if (build_failed != CL_SUCCESS) {
       logError("clBuildProgram() Failed: {}\n", build_failed);
       return false;
@@ -173,7 +173,7 @@ bool HIPxxContextOpenCL::register_function_as_kernel(
       HIPxxKernelOpenCL *hipxx_kernel = new HIPxxKernelOpenCL(
           std::move(kernels[kernel_idx]), std::string(FunctionName),
           HostFunctionPtr, kernel_idx, FuncInfos);
-      hipxx_ocl_device->add_kernel(hipxx_kernel);
+      hipxx_ocl_device->addKernel(hipxx_kernel);
     }
   }  // Loop over devices in this context
   return true;

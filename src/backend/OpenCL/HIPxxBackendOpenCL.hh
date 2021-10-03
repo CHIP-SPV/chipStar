@@ -83,8 +83,8 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
   cl::Context *cl_ctx;
   HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx, cl::Device *dev_in, int idx);
 
-  virtual void populate_device_properties() override;
-  virtual std::string get_name() override;
+  virtual void populateDeviceProperties() override;
+  virtual std::string getName() override;
 };
 
 class HIPxxQueueOpenCL : public HIPxxQueue {
@@ -296,7 +296,7 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
           new HIPxxDeviceOpenCL(hipxx_context, dev, i);
       logDebug("HIPxxDeviceOpenCL {}",
                hipxx_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
-      hipxx_dev->populate_device_properties();
+      hipxx_dev->populateDeviceProperties();
       Backend->add_device(hipxx_dev);
       HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_context, hipxx_dev);
       Backend->add_queue(queue);

@@ -1,5 +1,6 @@
 #include "HIPxxBackend.hh"
-//*************************************************************************************
+// HIPxxEvent
+// ************************************************************************
 HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, unsigned flags_in)
     : status(EVENT_STATUS_INIT), flags(flags_in), hipxx_context(ctx_in) {}
 HIPxxEvent::HIPxxEvent() {}
@@ -9,6 +10,8 @@ bool HIPxxEvent::recordStream(HIPxxQueue *hipxx_queue_){};
 bool HIPxxEvent::wait(){};
 bool HIPxxEvent::isFinished(){};
 float HIPxxEvent::getElapsedTime(HIPxxEvent *other){};
+
+// HIPxxModule
 //*************************************************************************************
 void HIPxxModule::addKernel(void *HostFunctionPtr,
                             std::string HostFunctionName) {
@@ -16,12 +19,16 @@ void HIPxxModule::addKernel(void *HostFunctionPtr,
   HIPxxKernel *kernel = new HIPxxKernel();
   hipxx_kernels.push_back(kernel);
 }
+
+// HIPxxKernel
 //*************************************************************************************
 HIPxxKernel::HIPxxKernel(){};
 HIPxxKernel::~HIPxxKernel(){};
 std::string HIPxxKernel::getName() { return host_f_name; }
 const void *HIPxxKernel::getHostPtr() { return host_f_ptr; }
 const void *HIPxxKernel::getDevPtr() { return dev_f_ptr; }
+
+// HIPxxExecItem
 //*************************************************************************************
 HIPxxExecItem::HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_,
                              size_t shared_mem_, hipStream_t hipxx_queue_)
@@ -58,10 +65,37 @@ hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
   // TODO verify that all is in place either here or in HIPxxQueue
   return hipxx_queue->launch(this);
 }
+
+// HIPxxDevice
 //*************************************************************************************
+HIPxxDevice::HIPxxDevice() {
+  logDebug("Device {} is {}: name \"{}\" \n", global_id, (void *)this,
+           hip_device_props.name);
+};
+HIPxxDevice::~HIPxxDevice(){};
+
+void HIPxxDevice::addKernel(HIPxxKernel *kernel) {
+  logTrace("Adding kernel {} to device # {} {}", kernel->getName(), global_id,
+           device_name);
+  hipxx_kernels.push_back(kernel);
+}
+std::vector<HIPxxKernel *> &HIPxxDevice::getKernels() { return hipxx_kernels; };
+
+void HIPxxDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
+  logTrace("HIPxxDevice->copy_device_properties()");
+  if (prop) std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
+}
+
+bool HIPxxDevice::addContext(HIPxxContext *ctx) {
+  logTrace("HIPxxDevice.add_context() {}");
+  hipxx_contexts.push_back(ctx);
+  // TODO check for success
+  return true;
+}
+
 HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
   logTrace("HIPxxDevice::findKernelByHostPtr({})", hostPtr);
-  std::vector<HIPxxKernel *> hipxx_kernels = get_kernels();
+  std::vector<HIPxxKernel *> hipxx_kernels = getKernels();
   logDebug("Listing Kernels for device {}", device_name);
   for (auto &kernel : hipxx_kernels) {
     logDebug("{}", kernel->getName());
@@ -73,7 +107,7 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
                                    });
 
   if (found_kernel == hipxx_kernels.end()) {
-    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, pcie_idx,
+    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, global_id,
                 device_name);
     std::abort();  // Exception
   } else {
@@ -83,35 +117,22 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
 
   return *found_kernel;
 }
-
-bool HIPxxContext::add_device(HIPxxDevice *dev) {
-  logTrace("HIPxxContext.add_device() {}", dev->get_name());
-  hipxx_devices.push_back(dev);
-  // TODO check for success
-  return true;
+HIPxxContext *HIPxxDevice::getDefaultContext() {
+  // TODO Check for initialization
+  // if (hipxx_contexts.size() == 0)
+  return hipxx_contexts.at(0);
 }
-//*************************************************************************************
-HIPxxDevice::HIPxxDevice() {
-  logDebug("Device {} is {}: name \"{}\" \n", pcie_idx, (void *)this,
-           hip_device_props.name);
-};
-bool HIPxxDevice::add_context(HIPxxContext *ctx) {
-  logTrace("HIPxxDevice.add_context() {}");
-  hipxx_contexts.push_back(ctx);
-  // TODO check for success
-  return true;
-}
-
 bool HIPxxDevice::getModuleAndFName(const void *HostFunction,
                                     std::string &FunctionName,
                                     HIPxxModule *hipxx_module) {
   logTrace("HIPxxDevice.getModuleAndFName");
   std::lock_guard<std::mutex> Lock(mtx);
 
-  auto it1 = HostPtrToModuleMap.find(HostFunction);
-  auto it2 = HostPtrToNameMap.find(HostFunction);
+  auto it1 = host_ptr_to_hipxxmodule_map.find(HostFunction);
+  auto it2 = host_ptr_to_name_map.find(HostFunction);
 
-  if ((it1 == HostPtrToModuleMap.end()) || (it2 == HostPtrToNameMap.end()))
+  if ((it1 == host_ptr_to_hipxxmodule_map.end()) ||
+      (it2 == host_ptr_to_name_map.end()))
     return false;
 
   FunctionName.assign(it2->second);
@@ -119,63 +140,47 @@ bool HIPxxDevice::getModuleAndFName(const void *HostFunction,
   return true;
 }
 
-void HIPxxDevice::copy_device_properties(hipDeviceProp_t *prop) {
-  logTrace("HIPxxDevice->copy_device_properties()");
-  if (prop) std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
-}
-
-std::vector<HIPxxKernel *> &HIPxxDevice::get_kernels() {
-  return hipxx_kernels;
-};
-
-void HIPxxDevice::add_kernel(HIPxxKernel *kernel) {
-  logTrace("Adding kernel {} to device # {} {}", kernel->getName(), pcie_idx,
-           device_name);
-  hipxx_kernels.push_back(kernel);
-}
-
-HIPxxContext *HIPxxDevice::get_default_context() {
-  // TODO Check for initialization
-  // if (hipxx_contexts.size() == 0)
-  return hipxx_contexts.at(0);
-}
-
-bool HIPxxDevice::reserve_mem(size_t bytes) {
+bool HIPxxDevice::allocate(size_t bytes) {
   logTrace("HIPxxDevice->reserve_mem()");
   std::lock_guard<std::mutex> Lock(mtx);
-  if (bytes <= (hip_device_props.totalGlobalMem - TotalUsedMem)) {
-    TotalUsedMem += bytes;
-    if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
-    logDebug("Currently used memory on dev {}: {} M\n", pcie_idx,
-             (TotalUsedMem >> 20));
+  if (bytes <= (hip_device_props.totalGlobalMem - total_used_mem)) {
+    total_used_mem += bytes;
+    if (total_used_mem > max_used_mem) max_used_mem = total_used_mem;
+    logDebug("Currently used memory on dev {}: {} M\n", global_id,
+             (total_used_mem >> 20));
     return true;
   } else {
     logError(
         "Can't allocate {} bytes of memory on device # {}\n. "
         "GlobalMemSize:{} TotalUsedMem: {}",
-        bytes, pcie_idx, hip_device_props.totalGlobalMem, TotalUsedMem);
+        bytes, global_id, hip_device_props.totalGlobalMem, total_used_mem);
     return false;
   }
 }
-
-bool HIPxxDevice::release_mem(size_t bytes) {
+bool HIPxxDevice::free(size_t bytes) {
   std::lock_guard<std::mutex> Lock(mtx);
-  if (TotalUsedMem >= bytes) {
-    TotalUsedMem -= bytes;
+  if (total_used_mem >= bytes) {
+    total_used_mem -= bytes;
     return true;
   } else {
     return false;
   }
 }
 
+// HIPxxContext
 //*************************************************************************************
-
+bool HIPxxContext::add_device(HIPxxDevice *dev) {
+  logTrace("HIPxxContext.add_device() {}", dev->getName());
+  hipxx_devices.push_back(dev);
+  // TODO check for success
+  return true;
+}
 //*************************************************************************************
 
 std::string HIPxxQueue::get_info() {
   // TODO review this
   std::string info;
-  info = hipxx_device->get_name();
+  info = hipxx_device->getName();
   return info;
 }
 

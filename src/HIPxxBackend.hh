@@ -141,32 +141,30 @@ class HIPxxDevice {
   std::vector<HIPxxModule*> hipxx_modules;
 
   /// Map host pointer to module in binary representation
-  std::map<const void*, std::string*> HostPtrToModuleStrMap;
+  std::map<const void*, std::string*> host_ptr_to_module_str_map;
   /// Map host pointer to module in parsed representation
-  std::map<const void*, HIPxxModule*> HostPtrToModuleMap;
+  std::map<const void*, HIPxxModule*> host_ptr_to_hipxxmodule_map;
   /// Map host pointer to a function name
-  std::map<const void*, std::string> HostPtrToNameMap;
+  std::map<const void*, std::string> host_ptr_to_name_map;
   /// Map host pointer to HIPxxKernel
-  std::map<const void*, HIPxxKernel*> HostPtrToKernelStrMap;
+  std::map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
 
-  // TODO
-  std::vector<HIPxxKernel*>& get_kernels();
-  void add_kernel(HIPxxKernel* kernel);
-  hipDevice_t pcie_idx;
+  hipDevice_t global_id;
   hipDeviceProp_t hip_device_props;
+  size_t total_used_mem, max_used_mem;
 
-  size_t TotalUsedMem, MaxUsedMem;
+  HIPxxDevice();
+  ~HIPxxDevice();
 
-  /// default constructor
-  HIPxxDevice();  /// default desctructor
-  ~HIPxxDevice(){};
+  void addKernel(HIPxxKernel* kernel);
+  std::vector<HIPxxKernel*>& getKernels();
 
   /**
    * @brief Use a backend to populate device properties such as memory
    * available, frequencies, etc.
    */
-  virtual void populate_device_properties() = 0;
-  void copy_device_properties(hipDeviceProp_t* prop);
+  virtual void populateDeviceProperties() = 0;
+  void copyDeviceProperties(hipDeviceProp_t* prop);
 
   /**
    * @brief Add a context to the vector of HIPxxContexts* to which this device
@@ -175,7 +173,7 @@ class HIPxxDevice {
    * @return true if added successfully
    * @return false if failed to add
    */
-  bool add_context(HIPxxContext* ctx);
+  bool addContext(HIPxxContext* ctx);
 
   HIPxxKernel* findKernelByHostPtr(const void* hostPtr);
 
@@ -185,15 +183,13 @@ class HIPxxDevice {
    * @return HIPxxContext* pointer to the 0th element in the internal
    * context array
    */
-  HIPxxContext* get_default_context();
-  virtual std::string get_name() = 0;
-
-  bool reserve_mem(size_t bytes);
-
-  bool release_mem(size_t bytes);
+  HIPxxContext* getDefaultContext();
+  virtual std::string getName() = 0;
 
   bool getModuleAndFName(const void* HostFunction, std::string& FunctionName,
                          HIPxxModule* hipxx_module);
+  bool allocate(size_t bytes);
+  bool free(size_t bytes);
 };
 
 /**
@@ -333,7 +329,7 @@ class HIPxxBackend {
     hipxx_queues.push_back(q_in);
   }
   void add_device(HIPxxDevice* dev_in) {
-    logTrace("HIPxxDevice.add_device() {}", dev_in->get_name());
+    logTrace("HIPxxDevice.add_device() {}", dev_in->getName());
     hipxx_devices.push_back(dev_in);
   }
 

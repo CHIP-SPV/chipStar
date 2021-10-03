@@ -80,7 +80,7 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
   }
   // TODO WHYY??!!?!?
   // devices[deviceId]->populate_device_properties();
-  devices[deviceId]->copy_device_properties(prop);
+  devices[deviceId]->copyDeviceProperties(prop);
   logTrace("done hipGetDeviceProperties");
 
   return (hipSuccess);
