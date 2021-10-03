@@ -58,7 +58,7 @@ hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
     std::abort();
   }
 
-  HIPxxDevice *dev = hipxx_queue->get_device();
+  HIPxxDevice *dev = hipxx_queue->getDevice();
   this->hipxx_kernel = dev->findKernelByHostPtr(hostPtr);
   logTrace("Found kernel for host pointer {} : {}", hostPtr,
            hipxx_kernel->getName());
@@ -329,17 +329,23 @@ bool HIPxxBackend::registerFunctionAsKernel(std::string *module_str,
   return true;
 }
 
-std::string HIPxxQueue::get_info() {
+// HIPxxQueue
+//*************************************************************************************
+
+HIPxxQueue::HIPxxQueue(){};
+HIPxxQueue::~HIPxxQueue(){};
+
+std::string HIPxxQueue::getInfo() {
   // TODO review this
   std::string info;
   info = hipxx_device->getName();
   return info;
 }
 
-HIPxxDevice *HIPxxQueue::get_device() {
+HIPxxDevice *HIPxxQueue::getDevice() {
   if (hipxx_device == nullptr) {
     logCritical(
-        "HIPxxQueue.get_device() was called but device is a null pointer");
+        "HIPxxQueue.getDevice() was called but device is a null pointer");
     std::abort();  // TODO Exception?
   }
 

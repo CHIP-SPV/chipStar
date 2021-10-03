@@ -304,17 +304,17 @@ class HIPxxQueue {
   HIPxxContext* hipxx_context;
 
   // TODO these should take device and context as arguments.
-  HIPxxQueue(){};
-  ~HIPxxQueue(){};
+  HIPxxQueue();
+  ~HIPxxQueue();
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) = 0;
 
   /// Submit a kernel for execution
   virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
 
-  virtual std::string get_info();
+  virtual std::string getInfo();
 
-  HIPxxDevice* get_device();
+  HIPxxDevice* getDevice();
 };
 
 #endif
