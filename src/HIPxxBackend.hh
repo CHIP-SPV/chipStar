@@ -27,7 +27,7 @@
 
 #include "HIPxxDriver.hh"
 #include "logging.hh"
-#include "temporary.hh"
+#include "macros.hh"
 
 // fw declares
 class HIPxxExecItem;

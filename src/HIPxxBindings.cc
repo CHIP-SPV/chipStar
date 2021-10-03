@@ -20,7 +20,7 @@
 #include "HIPxxDriver.hh"
 #include "hip/hip_fatbin.h"
 #include "hip/hip.hh"
-#include "temporary.hh"
+#include "macros.hh"
 
 #define SPIR_TRIPLE "hip-spir64-unknown-unknown"
 
