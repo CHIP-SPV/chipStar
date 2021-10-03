@@ -1,5 +1,11 @@
 #include "HIPxxBackend.hh"
+//*************************************************************************************
+HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, unsigned flags_in)
+    : status(EVENT_STATUS_INIT), flags(flags_in), hipxx_context(ctx_in) {}
+HIPxxEvent::HIPxxEvent() {}
+HIPxxEvent::~HIPxxEvent() {}
 
+//*************************************************************************************
 void HIPxxModule::add_kernel(void *HostFunctionPtr,
                              std::string HostFunctionName) {
   // TODO

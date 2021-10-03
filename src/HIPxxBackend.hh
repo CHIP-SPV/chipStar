@@ -44,29 +44,14 @@ class HIPxxEvent {
   HIPxxContext* hipxx_context;
 
  public:
-  HIPxxEvent(HIPxxContext* ctx_in, unsigned flags_in)
-      : status(EVENT_STATUS_INIT), flags(flags_in), hipxx_context(ctx_in) {}
+  HIPxxEvent(HIPxxContext* ctx_, unsigned flags_);
+  HIPxxEvent();
+  ~HIPxxEvent();
 
-  HIPxxEvent() {
-    // TODO:
-  }
-
-  virtual ~HIPxxEvent() {
-    // TODO
-    // if (Event) delete Event;
-  }
-
-  // virtual uint64_t getFinishTime();
-  // virtual cl::Event getEvent() { return *Event; }
-  // virtual bool isFromContext(cl::Context& Other) { return (Context == Other);
-  // } virtual bool isFromStream(hipStream_t& Other) { return (Stream == Other);
-  // } virtual bool isFinished() const { return (Status ==
-  // EVENT_STATUS_RECORDED); } virtual bool isRecordingOrRecorded() const {
-  //   return (Status >= EVENT_STATUS_RECORDING);
-  // }
-  // virtual bool recordStream(hipStream_t S, cl_event E);
-  // virtual bool updateFinishStatus();
-  // virtual bool wait();
+  virtual bool recordStream(HIPxxQueue* hipxx_queue_);
+  virtual bool wait();
+  virtual bool isFinished();
+  virtual float getElapsedTime(HIPxxEvent* other);
 };
 
 class HIPxxModule {
