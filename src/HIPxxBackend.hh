@@ -205,8 +205,8 @@ class HIPxxContext {
   std::mutex mtx;
 
  public:
-  HIPxxContext(){};
-  ~HIPxxContext(){};
+  HIPxxContext();
+  ~HIPxxContext();
 
   /**
    * @brief Add a device to this context
@@ -215,57 +215,21 @@ class HIPxxContext {
    * @return true if device was added successfully
    * @return false upon failure
    */
-  bool add_device(HIPxxDevice* dev);
+  bool addDevice(HIPxxDevice* dev);
+  void addQueue(HIPxxQueue* q);
+  HIPxxQueue* getDefaultQueue();
+  hipStream_t findQueue(hipStream_t stream);
+  std::vector<HIPxxDevice*>& getDevices();
+  std::vector<HIPxxQueue*>& getQueues();
+
   virtual void* allocate(size_t size) = 0;
-  hipError_t launchHostFunc(const void* HostFunction);
-
-  std::vector<HIPxxDevice*>& get_devices() {
-    if (hipxx_devices.size() == 0)
-      logWarn(
-          "HIPxxContext.get_devices() was called but hipxx_devices is empty");
-    return hipxx_devices;
-  }
-
-  std::vector<HIPxxQueue*>& get_queues() {
-    if (hipxx_queues.size() == 0) {
-      logCritical(
-          "HIPxxContext.get_queues() was called but no queues were added to "
-          "this context");
-      std::abort();
-    }
-    return hipxx_queues;
-  }
-  void add_queue(HIPxxQueue* q) {
-    logTrace("HIPxxContext.add_queue()");
-    hipxx_queues.push_back(q);
-  }
-  std::vector<HIPxxDevice*>& get_hipxx_devices() { return hipxx_devices; }
-  std::vector<HIPxxQueue*>& get_hipxx_queues() { return hipxx_queues; }
-  HIPxxQueue* get_default_queue() {
-    if (hipxx_queues.size() == 0) {
-      logCritical(
-          "HIPxxContext.get_default_queue() was called but hipxx_queues is "
-          "empty");
-      std::abort();
-    }
-    return hipxx_queues[0];
-  }
-
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) = 0;
 
-  hipStream_t findQueue(hipStream_t stream) {
-    std::vector<HIPxxQueue*> Queues = get_queues();
-    HIPxxQueue* DefaultQueue = Queues.at(0);
-    if (stream == nullptr || stream == DefaultQueue) return DefaultQueue;
-
-    auto I = std::find(Queues.begin(), Queues.end(), stream);
-    if (I == Queues.end()) return nullptr;
-    return *I;
-  }
-  virtual bool register_function_as_kernel(std::string* module_str,
-                                           const void* HostFunctionPtr,
-                                           const char* FunctionName) = 0;
+  virtual bool registerFunctionAsKernel(std::string* module_str,
+                                        const void* HostFunctionPtr,
+                                        const char* FunctionName) = 0;
+  hipError_t launchHostFunc(const void* HostFunction);
 };
 
 /**
@@ -388,8 +352,7 @@ class HIPxxBackend {
                                            const char* FunctionName) {
     logTrace("HIPxxBackend.register_function_as_kernel()");
     for (auto& ctx : hipxx_contexts) {
-      ctx->register_function_as_kernel(module_str, HostFunctionPtr,
-                                       FunctionName);
+      ctx->registerFunctionAsKernel(module_str, HostFunctionPtr, FunctionName);
     }
     return true;
   }

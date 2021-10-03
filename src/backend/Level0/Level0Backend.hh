@@ -128,7 +128,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       hmaDesc.flags = 0;
 
       // TODO Check if devices support cross-device sharing?
-      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)get_devices()[0])->get();
+      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)getDevices()[0])->get();
       ze_dev = nullptr;  // Do not associate allocation
 
       ze_result_t status = zeMemAllocShared(ze_ctx, &dmaDesc, &hmaDesc, size,
@@ -148,7 +148,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       dmaDesc.ordinal = 0;
 
       // TODO Select proper device
-      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)get_devices()[0])->get();
+      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)getDevices()[0])->get();
 
       ze_result_t status =
           zeMemAllocDevice(ze_ctx, &dmaDesc, size, alignment, ze_dev, &ptr);
@@ -173,9 +173,9 @@ class HIPxxContextLevel0 : public HIPxxContext {
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) override;
 
-  virtual bool register_function_as_kernel(std::string* module_str,
-                                           const void* HostFunctionPtr,
-                                           const char* FunctionName) override {
+  virtual bool registerFunctionAsKernel(std::string* module_str,
+                                        const void* HostFunctionPtr,
+                                        const char* FunctionName) override {
     logWarn(
         "HIPxxContextLevel0.register_function_as_kernel not "
         "implemented");
@@ -209,7 +209,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
                                    funcIL,
                                    compilerOptions.c_str(),
                                    nullptr};
-    for (HIPxxDevice* hipxx_dev : get_devices()) {
+    for (HIPxxDevice* hipxx_dev : getDevices()) {
       ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)hipxx_dev)->get();
       ze_result_t status =
           zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
@@ -302,7 +302,7 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     // Associate devices with contexts and vice versa
     // TODO Make this more automatic via constructor calls
     for (auto dev : Backend->get_devices()) {
-      hipxx_l0_ctx->add_device(dev);
+      hipxx_l0_ctx->addDevice(dev);
       dev->addContext(hipxx_l0_ctx);
 
       Backend->add_queue(

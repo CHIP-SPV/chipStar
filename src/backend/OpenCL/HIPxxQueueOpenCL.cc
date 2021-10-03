@@ -55,7 +55,7 @@ HIPxxQueueOpenCL::HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx,
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
   hipxx_device = _dev;
   hipxx_context = _ctx;
-  hipxx_context->add_queue(this);
+  hipxx_context->addQueue(this);
 }
 
 HIPxxQueueOpenCL::~HIPxxQueueOpenCL() {

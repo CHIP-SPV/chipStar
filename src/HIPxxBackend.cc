@@ -169,12 +169,54 @@ bool HIPxxDevice::free(size_t bytes) {
 
 // HIPxxContext
 //*************************************************************************************
-bool HIPxxContext::add_device(HIPxxDevice *dev) {
+HIPxxContext::HIPxxContext() {}
+HIPxxContext::~HIPxxContext() {}
+bool HIPxxContext::addDevice(HIPxxDevice *dev) {
   logTrace("HIPxxContext.add_device() {}", dev->getName());
   hipxx_devices.push_back(dev);
   // TODO check for success
   return true;
 }
+
+std::vector<HIPxxDevice *> &HIPxxContext::getDevices() {
+  if (hipxx_devices.size() == 0)
+    logWarn("HIPxxContext.get_devices() was called but hipxx_devices is empty");
+  return hipxx_devices;
+}
+
+std::vector<HIPxxQueue *> &HIPxxContext::getQueues() {
+  if (hipxx_queues.size() == 0) {
+    logCritical(
+        "HIPxxContext.get_queues() was called but no queues were added to "
+        "this context");
+    std::abort();
+  }
+  return hipxx_queues;
+}
+void HIPxxContext::addQueue(HIPxxQueue *q) {
+  logTrace("HIPxxContext.add_queue()");
+  hipxx_queues.push_back(q);
+}
+HIPxxQueue *HIPxxContext::getDefaultQueue() {
+  if (hipxx_queues.size() == 0) {
+    logCritical(
+        "HIPxxContext.get_default_queue() was called but hipxx_queues is "
+        "empty");
+    std::abort();
+  }
+  return hipxx_queues[0];
+}
+
+hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
+  std::vector<HIPxxQueue *> Queues = getQueues();
+  HIPxxQueue *DefaultQueue = Queues.at(0);
+  if (stream == nullptr || stream == DefaultQueue) return DefaultQueue;
+
+  auto I = std::find(Queues.begin(), Queues.end(), stream);
+  if (I == Queues.end()) return nullptr;
+  return *I;
+}
+
 //*************************************************************************************
 
 std::string HIPxxQueue::get_info() {

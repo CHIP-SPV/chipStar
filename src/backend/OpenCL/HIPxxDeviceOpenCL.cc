@@ -9,7 +9,7 @@ HIPxxDeviceOpenCL::HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx,
   cl_ctx = hipxx_ctx->cl_ctx;
   global_id = idx;
 
-  hipxx_ctx->add_device(this);
+  hipxx_ctx->addDevice(this);
   hipxx_contexts.push_back(hipxx_ctx);
 }
 
@@ -116,9 +116,9 @@ std::string HIPxxDeviceOpenCL::getName() {
   return std::string(cl_dev->getInfo<CL_DEVICE_NAME>());
 }
 
-bool HIPxxContextOpenCL::register_function_as_kernel(
-    std::string *module_str, const void *HostFunctionPtr,
-    const char *FunctionName) {
+bool HIPxxContextOpenCL::registerFunctionAsKernel(std::string *module_str,
+                                                  const void *HostFunctionPtr,
+                                                  const char *FunctionName) {
   // TODO Most of this can go to Base class
   logTrace("HIPxxContextOpenCL.register_function_as_kernel()");
 

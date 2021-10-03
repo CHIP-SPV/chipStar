@@ -70,7 +70,7 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
   logTrace("hipGetDeviceProperties");
   HIPxxInitialize();
   std::vector<HIPxxDevice *> devices =
-      Backend->get_default_context()->get_devices();
+      Backend->get_default_context()->getDevices();
   if (deviceId > devices.size() - 1) {
     logCritical(
         "hipGetDeviceProperties requested a deviceId {} greater than number of "
