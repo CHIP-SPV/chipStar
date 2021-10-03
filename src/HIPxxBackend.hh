@@ -171,24 +171,15 @@ class HIPxxDevice {
   std::map<const void*, HIPxxKernel*> HostPtrToKernelStrMap;
 
   // TODO
-  std::vector<HIPxxKernel*>& get_kernels() { return hipxx_kernels; };
-  void add_kernel(HIPxxKernel* kernel) {
-    logTrace("Adding kernel {} to device # {} {}", kernel->get_name(), pcie_idx,
-             device_name);
-    hipxx_kernels.push_back(kernel);
-  }
-
+  std::vector<HIPxxKernel*>& get_kernels();
+  void add_kernel(HIPxxKernel* kernel);
   hipDevice_t pcie_idx;
   hipDeviceProp_t hip_device_props;
 
   size_t TotalUsedMem, MaxUsedMem;
 
   /// default constructor
-  HIPxxDevice() {
-    logDebug("Device {} is {}: name \"{}\" \n", pcie_idx, (void*)this,
-             hip_device_props.name);
-  };
-  /// default desctructor
+  HIPxxDevice();  /// default desctructor
   ~HIPxxDevice(){};
 
   /**
@@ -196,11 +187,7 @@ class HIPxxDevice {
    * available, frequencies, etc.
    */
   virtual void populate_device_properties() = 0;
-  void copy_device_properties(hipDeviceProp_t* prop) {
-    logTrace("HIPxxDevice->copy_device_properties()");
-    if (prop)
-      std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
-  }
+  void copy_device_properties(hipDeviceProp_t* prop);
 
   /**
    * @brief Add a context to the vector of HIPxxContexts* to which this device
@@ -227,20 +214,7 @@ class HIPxxDevice {
   bool release_mem(size_t bytes);
 
   bool getModuleAndFName(const void* HostFunction, std::string& FunctionName,
-                         HIPxxModule* hipxx_module) {
-    logTrace("HIPxxDevice.getModuleAndFName");
-    std::lock_guard<std::mutex> Lock(mtx);
-
-    auto it1 = HostPtrToModuleMap.find(HostFunction);
-    auto it2 = HostPtrToNameMap.find(HostFunction);
-
-    if ((it1 == HostPtrToModuleMap.end()) || (it2 == HostPtrToNameMap.end()))
-      return false;
-
-    FunctionName.assign(it2->second);
-    hipxx_module = it1->second;
-    return true;
-  }
+                         HIPxxModule* hipxx_module);
 };
 
 /**
@@ -452,6 +426,7 @@ class HIPxxBackend {
 class HIPxxQueue {
  protected:
   std::mutex mtx;
+  int priority;
 
  public:
   /// Device on which this queue will execute
@@ -468,22 +443,9 @@ class HIPxxQueue {
   /// Submit a kernel for execution
   virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
 
-  virtual std::string get_info() {
-    // TODO review this
-    std::string info;
-    info = hipxx_device->get_name();
-    return info;
-  }
+  virtual std::string get_info();
 
-  HIPxxDevice* get_device() {
-    if (hipxx_device == nullptr) {
-      logCritical(
-          "HIPxxQueue.get_device() was called but device is a null pointer");
-      std::abort();  // TODO Exception?
-    }
-
-    return hipxx_device;
-  }
+  HIPxxDevice* get_device();
 };
 
 #endif
