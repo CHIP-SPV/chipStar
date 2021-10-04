@@ -130,32 +130,34 @@ bool HIPxxDevice::getModuleAndFName(const void *host_f_ptr,
   return true;
 }
 
-bool HIPxxDevice::allocate(size_t bytes) {
-  logTrace("HIPxxDevice->reserve_mem()");
-  std::lock_guard<std::mutex> Lock(mtx);
-  if (bytes <= (hip_device_props.totalGlobalMem - total_used_mem)) {
-    total_used_mem += bytes;
-    if (total_used_mem > max_used_mem) max_used_mem = total_used_mem;
-    logDebug("Currently used memory on dev {}: {} M\n", idx,
-             (total_used_mem >> 20));
-    return true;
-  } else {
-    logError(
-        "Can't allocate {} bytes of memory on device # {}\n. "
-        "GlobalMemSize:{} TotalUsedMem: {}",
-        bytes, idx, hip_device_props.totalGlobalMem, total_used_mem);
-    return false;
-  }
-}
-bool HIPxxDevice::free(size_t bytes) {
-  std::lock_guard<std::mutex> Lock(mtx);
-  if (total_used_mem >= bytes) {
-    total_used_mem -= bytes;
-    return true;
-  } else {
-    return false;
-  }
-}
+// TODO HIPxx Design Choice - should this be even called that?
+// bool HIPxxDevice::allocate(size_t bytes) {
+//   logTrace("HIPxxDevice->reserve_mem()");
+//   std::lock_guard<std::mutex> Lock(mtx);
+//   if (bytes <= (hip_device_props.totalGlobalMem - total_used_mem)) {
+//     total_used_mem += bytes;
+//     if (total_used_mem > max_used_mem) max_used_mem = total_used_mem;
+//     logDebug("Currently used memory on dev {}: {} M\n", idx,
+//              (total_used_mem >> 20));
+//     return true;
+//   } else {
+//     logError(
+//         "Can't allocate {} bytes of memory on device # {}\n. "
+//         "GlobalMemSize:{} TotalUsedMem: {}",
+//         bytes, idx, hip_device_props.totalGlobalMem, total_used_mem);
+//     return false;
+//   }
+// }
+
+// bool HIPxxDevice::free(size_t bytes) {
+//   std::lock_guard<std::mutex> Lock(mtx);
+//   if (total_used_mem >= bytes) {
+//     total_used_mem -= bytes;
+//     return true;
+//   } else {
+//     return false;
+//   }
+// }
 
 int HIPxxDevice::getAttr(int *pi, hipDeviceAttribute_t attr) {
   logWarn("hipDeviceAttribute initialization not yet implemented");

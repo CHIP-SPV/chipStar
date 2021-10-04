@@ -685,6 +685,56 @@ hipError_t hipEventQuery(hipEvent_t event) {
     RETURN(hipErrorNotReady);
 }
 
+hipError_t hipMalloc(void **ptr, size_t size) {
+  HIPxxInitialize();
+
+  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
+
+  if (size == 0) {
+    *ptr = nullptr;
+    RETURN(hipSuccess);
+  }
+  void *retval =
+      Backend->getActiveContext()->allocate(size, HIPxxMemoryType::Device);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
+  return hipSuccess;
+}
+
+hipError_t hipMallocManaged(void **ptr, size_t size) {
+  HIPxxInitialize();
+  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
+
+  if (size == 0) {
+    *ptr = nullptr;
+    RETURN(hipSuccess);
+  }
+
+  void *retval =
+      Backend->getActiveContext()->allocate(size, HIPxxMemoryType::Shared);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
+  RETURN(hipSuccess);
+}
+
+DEPRECATED("use hipHostMalloc instead")
+hipError_t hipMallocHost(void **ptr, size_t size) {
+  return hipMalloc(ptr, size);
+}
+
+hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
+  HIPxxInitialize();
+
+  void *retval = Backend->getActiveContext()->allocate(size, 0x1000,
+                                                       HIPxxMemoryType::Host);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
@@ -827,38 +877,6 @@ hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   HIPxxInitialize();
   RETURN(Backend->setArg(arg, size, offset));
   return hipSuccess;
-}
-
-hipError_t hipMalloc(void **ptr, size_t size) {
-  logTrace("hipMalloc");
-  HIPxxInitialize();
-
-  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
-
-  if (size == 0) {
-    *ptr = nullptr;
-    RETURN(hipSuccess);
-  }
-  // TODO Can we have multiple contexts on one backend? Should allocations take
-  // place on all existing contexts?
-  void *retval = Backend->getActiveContext()->allocate(size);
-  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
-
-  *ptr = retval;
-  return hipSuccess;
-}
-
-hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
-  logCritical("hipHostMalloc not yet implemented");
-  std::abort();
-  // HIPLZ_INIT();
-
-  // LZ_TRY
-  // LZContext *cont = getTlsDefaultLzCtx();
-  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
-  // *ptr = cont->allocate(size, 0x1000, ClMemoryType::Shared);
-  // LZ_CATCH
-  // RETURN(hipSuccess);
 }
 
 #endif
