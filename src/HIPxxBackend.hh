@@ -314,6 +314,9 @@ class HIPxxBackend {
   virtual bool registerFunctionAsKernel(std::string* module_str,
                                         const void* host_f_ptr,
                                         const char* host_f_name);
+
+  HIPxxDevice* findDeviceMatchingProps(
+      const hipDeviceProp_t* props);  // HIPxx TODO
 };
 
 /**

@@ -269,6 +269,36 @@ hipError_t hipDeviceDisablePeerAccess(int peerDeviceId) {
   RETURN(dev->setPeerAccess(peer, 0, false));
 }
 
+hipError_t hipChooseDevice(int *deviceId, const hipDeviceProp_t *prop) {
+  HIPxxInitialize();
+
+  HIPxxDevice *dev = Backend->findDeviceMatchingProps(prop);
+  if (!dev) RETURN(hipErrorInvalidValue);
+
+  *deviceId = dev->getDeviceId();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDriverGetVersion(int *driverVersion) {
+  HIPxxInitialize();
+
+  if (driverVersion) {
+    *driverVersion = 4;
+    RETURN(hipSuccess);
+  } else
+    RETURN(hipErrorInvalidValue);
+}
+
+hipError_t hipRuntimeGetVersion(int *runtimeVersion) {
+  HIPxxInitialize();
+
+  if (runtimeVersion) {
+    *runtimeVersion = 1;
+    RETURN(hipSuccess);
+  } else
+    RETURN(hipErrorInvalidValue);
+}
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
