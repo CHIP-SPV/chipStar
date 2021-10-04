@@ -7,10 +7,10 @@ HIPxxDeviceOpenCL::HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx,
       "pointer");
   cl_dev = dev_in;
   cl_ctx = hipxx_ctx->cl_ctx;
-  global_id = idx;
+  idx = idx;
 
   hipxx_ctx->addDevice(this);
-  hipxx_contexts.push_back(hipxx_ctx);
+  ctx = hipxx_ctx;
 }
 
 void HIPxxDeviceOpenCL::populateDeviceProperties() {
@@ -100,7 +100,7 @@ void HIPxxDeviceOpenCL::populateDeviceProperties() {
   hip_device_props.concurrentKernels = 1;
   hip_device_props.pciDomainID = 0;
   hip_device_props.pciBusID = 0x10;
-  hip_device_props.pciDeviceID = 0x40 + global_id;
+  hip_device_props.pciDeviceID = 0x40 + idx;
   hip_device_props.isMultiGpuBoard = 0;
   hip_device_props.canMapHostMemory = 1;
   hip_device_props.gcnArch = 0;
@@ -156,7 +156,7 @@ bool HIPxxContextOpenCL::registerFunctionAsKernel(std::string *module_str,
       return false;
     }
     logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
-             hipxx_ocl_device->global_id, name, log);
+             hipxx_ocl_device->idx, name, log);
     if (build_failed != CL_SUCCESS) {
       logError("clBuildProgram() Failed: {}\n", build_failed);
       return false;

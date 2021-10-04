@@ -16,3 +16,7 @@
   } while (0)
 
 #endif
+
+#define ERROR_CHECK_DEVNUM(device)                                         \
+  ERROR_IF(((device < 0) || ((size_t)device >= Backend->getNumDevices())), \
+           hipErrorInvalidDevice)

@@ -26,6 +26,42 @@
 
 static unsigned binaries_loaded = 0;
 
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
+hipError_t hipGetDevice(int *deviceId) {
+  HIPxxInitialize();
+
+  ERROR_IF((deviceId == nullptr), hipErrorInvalidValue);
+
+  HIPxxDevice *dev = Backend->getActiveDevice();
+  *deviceId = dev->getDeviceId();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipGetDeviceCount(int *count) {
+  HIPxxInitialize();
+  ERROR_IF((count == nullptr), hipErrorInvalidValue);
+  *count = Backend->getNumDevices();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipSetDevice(int deviceId) {
+  HIPxxInitialize();
+
+  ERROR_CHECK_DEVNUM(deviceId);
+
+  HIPxxDevice *selected_device = Backend->getDevices()[deviceId];
+  Backend->setActiveDevice(selected_device);
+
+  RETURN(hipSuccess);
+}
+
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
 hipError_t hipEventCreate(hipEvent_t *event) {
   return hipEventCreateWithFlags(event, 0);
 }
@@ -70,7 +106,7 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
   logTrace("hipGetDeviceProperties");
   HIPxxInitialize();
   std::vector<HIPxxDevice *> devices =
-      Backend->getDefaultContext()->getDevices();
+      Backend->getActiveContext()->getDevices();
   if (deviceId > devices.size() - 1) {
     logCritical(
         "hipGetDeviceProperties requested a deviceId {} greater than number of "
@@ -91,7 +127,7 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
   logTrace("hipMemcpy");
   HIPxxInitialize();
 
-  HIPxxContext *ctx = Backend->getDefaultContext();
+  HIPxxContext *ctx = Backend->getActiveContext();
   ERROR_IF((ctx == nullptr), hipErrorInvalidDevice);
 
   if (kind == hipMemcpyHostToHost) {
@@ -319,7 +355,7 @@ hipError_t hipMalloc(void **ptr, size_t size) {
   }
   // TODO Can we have multiple contexts on one backend? Should allocations take
   // place on all existing contexts?
-  void *retval = Backend->getDefaultContext()->allocate(size);
+  void *retval = Backend->getActiveContext()->allocate(size);
   ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
 
   *ptr = retval;

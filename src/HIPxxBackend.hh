@@ -131,10 +131,10 @@ class HIPxxDevice {
   std::string device_name;
   std::mutex mtx;
   std::vector<HIPxxKernel*> hipxx_kernels;
+  HIPxxContext* ctx;
+  HIPxxQueue* q;
 
  public:
-  /// Vector of contexts to which this device belongs to
-  std::vector<HIPxxContext*> hipxx_contexts;
   /// hipxx_modules in binary representation
   std::vector<std::string*> modules_str;
   /// hipxx_modules in parsed representation
@@ -149,7 +149,7 @@ class HIPxxDevice {
   /// Map host pointer to HIPxxKernel
   std::map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
 
-  hipDevice_t global_id;
+  hipDevice_t idx;
   hipDeviceProp_t hip_device_props;
   size_t total_used_mem, max_used_mem;
 
@@ -166,27 +166,20 @@ class HIPxxDevice {
   virtual void populateDeviceProperties() = 0;
   void copyDeviceProperties(hipDeviceProp_t* prop);
 
-  /**
-   * @brief Add a context to the vector of HIPxxContexts* to which this device
-   * belongs to
-   * @param ctx pointer to HIPxxContext object
-   * @return true if added successfully
-   * @return false if failed to add
-   */
-  bool addContext(HIPxxContext* ctx);
-
   HIPxxKernel* findKernelByHostPtr(const void* hostPtr);
 
   /**
-   * @brief Get the default context object
+   * @brief Get the context object
    *
-   * @return HIPxxContext* pointer to the 0th element in the internal
-   * context array
+   * @return HIPxxContext* pointer to the HIPxxContext object this HIPxxDevice
+   * was created with
    */
-  HIPxxContext* getDefaultContext();
+  HIPxxContext* getContext();
+  HIPxxQueue* getQueue();
+  hipDevice_t getDeviceId();
   virtual std::string getName() = 0;
 
-  bool getModuleAndFName(const void* HostFunction, std::string& FunctionName,
+  bool getModuleAndFName(const void* host_f_ptr, std::string& host_f_name,
                          HIPxxModule* hipxx_module);
   bool allocate(size_t bytes);
   bool free(size_t bytes);
@@ -246,7 +239,15 @@ class HIPxxBackend {
   std::vector<std::string*> modules_str;
   std::mutex mtx;
 
+  HIPxxContext* active_ctx;
+  HIPxxDevice* active_dev;
+  HIPxxQueue* active_q;
+
  public:
+  // Adds -std=c++17 requirement
+  inline static thread_local hipError_t tls_last_error = hipSuccess;
+  inline static thread_local HIPxxContext* tls_active_ctx;
+
   std::stack<HIPxxExecItem*> hipxx_execstack;
   std::vector<HIPxxContext*> hipxx_contexts;
   std::vector<HIPxxQueue*> hipxx_queues;
@@ -261,8 +262,11 @@ class HIPxxBackend {
   virtual void uninitialize() = 0;
 
   std::vector<HIPxxQueue*>& getQueues();
-  HIPxxQueue* getDefaultQueue();
-  HIPxxContext* getDefaultContext();
+  HIPxxQueue* getActiveQueue();
+  HIPxxContext* getActiveContext();
+  HIPxxDevice* getActiveDevice();
+  void setActiveDevice(HIPxxDevice* hipxx_dev);
+
   std::vector<HIPxxDevice*>& getDevices();
   size_t getNumDevices();
   std::vector<std::string*>& getModulesStr();

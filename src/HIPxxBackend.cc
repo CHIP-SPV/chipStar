@@ -69,13 +69,13 @@ hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
 // HIPxxDevice
 //*************************************************************************************
 HIPxxDevice::HIPxxDevice() {
-  logDebug("Device {} is {}: name \"{}\" \n", global_id, (void *)this,
+  logDebug("Device {} is {}: name \"{}\" \n", idx, (void *)this,
            hip_device_props.name);
 };
 HIPxxDevice::~HIPxxDevice(){};
 
 void HIPxxDevice::addKernel(HIPxxKernel *kernel) {
-  logTrace("Adding kernel {} to device # {} {}", kernel->getName(), global_id,
+  logTrace("Adding kernel {} to device # {} {}", kernel->getName(), idx,
            device_name);
   hipxx_kernels.push_back(kernel);
 }
@@ -84,13 +84,6 @@ std::vector<HIPxxKernel *> &HIPxxDevice::getKernels() { return hipxx_kernels; };
 void HIPxxDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
   logTrace("HIPxxDevice->copy_device_properties()");
   if (prop) std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
-}
-
-bool HIPxxDevice::addContext(HIPxxContext *ctx) {
-  logTrace("HIPxxDevice.add_context() {}");
-  hipxx_contexts.push_back(ctx);
-  // TODO check for success
-  return true;
 }
 
 HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
@@ -107,7 +100,7 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
                                    });
 
   if (found_kernel == hipxx_kernels.end()) {
-    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, global_id,
+    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, idx,
                 device_name);
     std::abort();  // Exception
   } else {
@@ -117,25 +110,23 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
 
   return *found_kernel;
 }
-HIPxxContext *HIPxxDevice::getDefaultContext() {
-  // TODO Check for initialization
-  // if (hipxx_contexts.size() == 0)
-  return hipxx_contexts.at(0);
-}
-bool HIPxxDevice::getModuleAndFName(const void *HostFunction,
-                                    std::string &FunctionName,
+HIPxxContext *HIPxxDevice::getContext() { return ctx; }
+HIPxxQueue *HIPxxDevice::getQueue() { return q; }
+int HIPxxDevice::getDeviceId() { return idx; }
+bool HIPxxDevice::getModuleAndFName(const void *host_f_ptr,
+                                    std::string &host_f_name,
                                     HIPxxModule *hipxx_module) {
   logTrace("HIPxxDevice.getModuleAndFName");
   std::lock_guard<std::mutex> Lock(mtx);
 
-  auto it1 = host_ptr_to_hipxxmodule_map.find(HostFunction);
-  auto it2 = host_ptr_to_name_map.find(HostFunction);
+  auto it1 = host_ptr_to_hipxxmodule_map.find(host_f_ptr);
+  auto it2 = host_ptr_to_name_map.find(host_f_ptr);
 
   if ((it1 == host_ptr_to_hipxxmodule_map.end()) ||
       (it2 == host_ptr_to_name_map.end()))
     return false;
 
-  FunctionName.assign(it2->second);
+  host_f_name.assign(it2->second);
   hipxx_module = it1->second;
   return true;
 }
@@ -146,14 +137,14 @@ bool HIPxxDevice::allocate(size_t bytes) {
   if (bytes <= (hip_device_props.totalGlobalMem - total_used_mem)) {
     total_used_mem += bytes;
     if (total_used_mem > max_used_mem) max_used_mem = total_used_mem;
-    logDebug("Currently used memory on dev {}: {} M\n", global_id,
+    logDebug("Currently used memory on dev {}: {} M\n", idx,
              (total_used_mem >> 20));
     return true;
   } else {
     logError(
         "Can't allocate {} bytes of memory on device # {}\n. "
         "GlobalMemSize:{} TotalUsedMem: {}",
-        bytes, global_id, hip_device_props.totalGlobalMem, total_used_mem);
+        bytes, idx, hip_device_props.totalGlobalMem, total_used_mem);
     return false;
   }
 }
@@ -227,27 +218,45 @@ void HIPxxBackend::initialize(std::string platform_str,
                               std::string device_type_str,
                               std::string device_ids_str){};
 
-std::vector<HIPxxQueue *> &HIPxxBackend::getQueues() { return hipxx_queues; }
-HIPxxQueue *HIPxxBackend::getDefaultQueue() {
-  if (hipxx_queues.size() == 0) {
+void HIPxxBackend::setActiveDevice(HIPxxDevice *hipxx_dev) {
+  auto I = std::find(hipxx_devices.begin(), hipxx_devices.end(), hipxx_dev);
+  if (I == hipxx_devices.end()) {
     logCritical(
-        "HIPxxBackend.get_default_queue() was called but no queues have "
+        "Tried to set active device with HIPxxDevice pointer that is not in "
+        "HIPxxBackend::hipxx_devices");
+    std::abort();
+  };
+  active_dev = hipxx_dev;
+  active_ctx = hipxx_dev->getContext();
+  active_q = hipxx_dev->getQueue();
+}
+std::vector<HIPxxQueue *> &HIPxxBackend::getQueues() { return hipxx_queues; }
+HIPxxQueue *HIPxxBackend::getActiveQueue() {
+  if (active_q == nullptr) {
+    logCritical(
+        "HIPxxBackend.getActiveQueue() was called but no queues have "
         "been initialized;\n");
     std::abort();
   }
-  return hipxx_queues[0];
+  return active_q;
 };
 
-HIPxxContext *HIPxxBackend::getDefaultContext() {
-  if (hipxx_contexts.size() == 0) {
+HIPxxContext *HIPxxBackend::getActiveContext() {
+  if (active_ctx == nullptr) {
     logCritical(
-        "HIPxxBackend.get_default_context() was called but no contexts "
-        "have been "
-        "initialized;\n",
-        "");
+        "HIPxxBackend.getActiveContext() was called but active_ctx is null");
     std::abort();
   }
-  return hipxx_contexts[0];
+  return active_ctx;
+};
+
+HIPxxDevice *HIPxxBackend::getActiveDevice() {
+  if (active_dev == nullptr) {
+    logCritical(
+        "HIPxxBackend.getActiveDevice() was called but active_ctx is null");
+    std::abort();
+  }
+  return active_dev;
 };
 
 std::vector<HIPxxDevice *> &HIPxxBackend::getDevices() { return hipxx_devices; }
@@ -292,7 +301,7 @@ hipError_t HIPxxBackend::configureCall(dim3 grid, dim3 block, size_t shared,
                                        hipStream_t q) {
   logTrace("HIPxxBackend->configure_call()");
   std::lock_guard<std::mutex> Lock(mtx);
-  if (q == nullptr) q = getDefaultQueue();
+  if (q == nullptr) q = getActiveQueue();
   HIPxxExecItem *ex = new HIPxxExecItem(grid, block, shared, q);
   hipxx_execstack.push(ex);
 

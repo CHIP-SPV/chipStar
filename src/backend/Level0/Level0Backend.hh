@@ -92,17 +92,19 @@ class HIPxxQueueLevel0 : public HIPxxQueue {
 };
 
 class HIPxxDeviceLevel0 : public HIPxxDevice {
-  ze_device_handle_t ze_device;
+  ze_device_handle_t ze_dev;
+  ze_context_handle_t ze_ctx;
 
  public:
-  HIPxxDeviceLevel0(ze_device_handle_t&& _ze_device) : ze_device(_ze_device) {}
+  HIPxxDeviceLevel0(ze_device_handle_t&& ze_dev_, ze_context_handle_t ze_ctx_)
+      : ze_dev(ze_dev_), ze_ctx(ze_ctx_) {}
   virtual void populateDeviceProperties() override {
     logWarn(
         "HIPxxDeviceLevel0.populate_device_properties not yet "
         "implemented");
   }
   virtual std::string getName() override { return device_name; }
-  ze_device_handle_t& get() { return ze_device; }
+  ze_device_handle_t& get() { return ze_dev; }
 };
 
 class HIPxxContextLevel0 : public HIPxxContext {
@@ -279,19 +281,6 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
 
     const ze_context_desc_t ctxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr,
                                        0};
-    // Filter in only devices of selected type and add them to the
-    // backend as derivates of HIPxxDevice
-    for (int i = 0; i < deviceCount; i++) {
-      auto dev = ze_devices[i];
-      ze_device_properties_t device_properties;
-      zeDeviceGetProperties(dev, &device_properties);
-      if (ze_device_type == device_properties.type) {
-        HIPxxDeviceLevel0* hipxx_l0_dev = new HIPxxDeviceLevel0(std::move(dev));
-        Backend->addDevice(hipxx_l0_dev);
-        // TODO
-        break;  // For now don't add more than one device
-      }
-    }  // End adding HIPxxDevices
 
     ze_context_handle_t ze_ctx;
     zeContextCreateEx(ze_driver, &ctxDesc, deviceCount, ze_devices.data(),
@@ -299,15 +288,21 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     HIPxxContextLevel0* hipxx_l0_ctx =
         new HIPxxContextLevel0(std::move(ze_ctx));
 
-    // Associate devices with contexts and vice versa
-    // TODO Make this more automatic via constructor calls
-    for (auto dev : Backend->getDevices()) {
-      hipxx_l0_ctx->addDevice(dev);
-      dev->addContext(hipxx_l0_ctx);
+    // Filter in only devices of selected type and add them to the
+    // backend as derivates of HIPxxDevice
+    for (int i = 0; i < deviceCount; i++) {
+      auto dev = ze_devices[i];
+      ze_device_properties_t device_properties;
+      zeDeviceGetProperties(dev, &device_properties);
+      if (ze_device_type == device_properties.type) {
+        HIPxxDeviceLevel0* hipxx_l0_dev =
+            new HIPxxDeviceLevel0(std::move(dev), ze_ctx);
+        Backend->addDevice(hipxx_l0_dev);
+        // TODO
+        break;  // For now don't add more than one device
+      }
+    }  // End adding HIPxxDevices
 
-      Backend->addQueue(
-          new HIPxxQueueLevel0(hipxx_l0_ctx, (HIPxxDeviceLevel0*)dev));
-    }
     Backend->addContext(hipxx_l0_ctx);
   }
 
