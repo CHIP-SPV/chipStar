@@ -735,6 +735,11 @@ hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
   RETURN(hipSuccess);
 }
 
+DEPRECATED("use hipHostMalloc instead")
+hipError_t hipHostAlloc(void **ptr, size_t size, unsigned int flags) {
+  return hipMalloc(ptr, size);
+}
+
 hipError_t hipMemPrefetchAsync(const void *ptr, size_t count, int dstDevId,
                                hipStream_t stream) {
   HIPxxInitialize();
