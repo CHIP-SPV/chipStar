@@ -59,6 +59,17 @@ hipError_t hipSetDevice(int deviceId) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipDeviceSynchronize(void) {
+  HIPxxInitialize();
+
+  HIPxxContext *ctx = Backend->getActiveContext();
+  ERROR_IF((ctx == nullptr), hipErrorInvalidDevice);
+  // Synchronize among HipLZ queues
+  ctx->finishAll();
+
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
@@ -166,12 +177,6 @@ hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
   HIPxxInitialize();
   logTrace("hipConfigureCall()");
   RETURN(Backend->configureCall(gridDim, blockDim, sharedMem, stream));
-  RETURN(hipSuccess);
-}
-
-hipError_t hipDeviceSynchronize(void) {
-  logCritical("hipDeviceSynchronize not yet implemented");
-  std::abort();
   RETURN(hipSuccess);
 }
 

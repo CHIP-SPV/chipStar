@@ -5,7 +5,7 @@ project(HIPxx
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
-set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare")
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare -Wno-return-type")
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

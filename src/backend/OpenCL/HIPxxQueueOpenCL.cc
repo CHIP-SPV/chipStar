@@ -85,6 +85,11 @@ hipError_t HIPxxQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
   return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
 }
 
+void HIPxxQueueOpenCL::finish() {
+  logCritical("HIPxxQueueOpenCL::finish() not yet implemented");
+  std::abort();
+}
+
 // HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
 //   std::cout << "HIPxxQueueOpenCL Initialized via context, device
 //   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new

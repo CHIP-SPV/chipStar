@@ -101,6 +101,7 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
   ~HIPxxQueueOpenCL();
 
   virtual hipError_t launch(HIPxxExecItem *exec_item) override;
+  virtual void finish() override;
 
   virtual hipError_t memCopy(void *dst, const void *src, size_t size) override;
   cl::CommandQueue *get() { return cl_q; }

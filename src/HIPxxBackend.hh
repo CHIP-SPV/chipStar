@@ -223,6 +223,7 @@ class HIPxxContext {
                                         const void* HostFunctionPtr,
                                         const char* FunctionName) = 0;
   hipError_t launchHostFunc(const void* HostFunction);
+  void finishAll();
 };
 
 /**
@@ -319,6 +320,7 @@ class HIPxxQueue {
   virtual std::string getInfo();
 
   HIPxxDevice* getDevice();
+  virtual void finish() = 0;
 };
 
 #endif

@@ -208,6 +208,10 @@ hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
   return *I;
 }
 
+void HIPxxContext::finishAll() {
+  for (HIPxxQueue *q : hipxx_queues) q->finish();
+}
+
 // HIPxxBackend
 //*************************************************************************************
 
