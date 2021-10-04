@@ -568,6 +568,55 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *pbase, size_t *psize,
     RETURN(hipErrorInvalidValue);
 }
 
+hipError_t hipDevicePrimaryCtxGetState(hipDevice_t device, unsigned int *flags,
+                                       int *active) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+
+  ERROR_IF((flags == nullptr || active == nullptr), hipErrorInvalidValue);
+
+  HIPxxContext *currentCtx = Backend->getActiveContext();
+
+  // Currently device only has 1 context
+  HIPxxContext *primaryCtx = (*device)->getContext();
+
+  *active = (primaryCtx == currentCtx) ? 1 : 0;
+  *flags = primaryCtx->getFlags();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDevicePrimaryCtxRelease(hipDevice_t device) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *pctx, hipDevice_t device) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+  *pctx = (*device)->getContext()->retain();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDevicePrimaryCtxReset(hipDevice_t device) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+  (*device)->getContext()->reset();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t device, unsigned int flags) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+
+  if ((*device)->getContext()->setFlags(flags)) {
+    RETURN(hipSuccess);
+  } else {
+    RETURN(hipErrorContextAlreadyInUse);
+  }
+}
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
