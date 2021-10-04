@@ -194,6 +194,37 @@ hipError_t hipFuncSetCacheConfig(const void *func, hipFuncCache_t config) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipDeviceGetPCIBusId(char *pciBusId, int len, int deviceId) {
+  HIPxxInitialize();
+
+  ERROR_CHECK_DEVNUM(deviceId);
+  HIPxxDevice *dev = Backend->getDevices()[deviceId];
+
+  hipDeviceProp_t prop;
+  dev->copyDeviceProperties(&prop);
+  snprintf(pciBusId, len, "%04x:%04x:%04x", prop.pciDomainID, prop.pciBusID,
+           prop.pciDeviceID);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGetByPCIBusId(int *deviceId, const char *pciBusId) {
+  HIPxxInitialize();
+
+  int pciDomainID, pciBusID, pciDeviceID;
+  int err =
+      sscanf(pciBusId, "%4x:%4x:%4x", &pciDomainID, &pciBusID, &pciDeviceID);
+  if (err == EOF || err < 3) RETURN(hipErrorInvalidValue);
+  for (size_t i = 0; i < Backend->getNumDevices(); i++) {
+    HIPxxDevice *dev = Backend->getDevices()[i];
+    if (dev->hasPCIBusId(pciDomainID, pciBusID, pciDeviceID)) {
+      *deviceId = i;
+      RETURN(hipSuccess);
+    }
+  }
+
+  RETURN(hipErrorInvalidDevice);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

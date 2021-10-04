@@ -196,6 +196,9 @@ class HIPxxDevice {
   /* = 0;*/                                                          // TODO
   hipSharedMemConfig getSharedMemConfig();                           // TODO
   void setFuncCacheConfig(const void* func, hipFuncCache_t config);  // TODO
+  // Check if the current device has same PCI bus ID as the one given by
+  // input
+  bool hasPCIBusId(int pciDomainID, int pciBusID, int pciDeviceID);  // TODO
 };
 
 /**
