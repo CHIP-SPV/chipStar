@@ -1021,6 +1021,73 @@ hipError_t hipMemPtrGetInfo(void *ptr, size_t *size) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
+                          hipMemcpyKind kind, hipStream_t stream) {
+  HIPxxInitialize();
+
+  if (stream == nullptr) stream = Backend->getActiveQueue();
+
+  /*
+  if ((kind == hipMemcpyDeviceToDevice) || (kind == hipMemcpyDeviceToHost)) {
+    if (!cont->hasPointer(src))
+      RETURN(hipErrorInvalidDevicePointer);
+  }
+
+  if ((kind == hipMemcpyDeviceToDevice) || (kind == hipMemcpyHostToDevice)) {
+    if (!cont->hasPointer(dst))
+      RETURN(hipErrorInvalidDevicePointer);
+  }*/
+
+  if (kind == hipMemcpyHostToHost) {
+    memcpy(dst, src, sizeBytes);
+    RETURN(hipSuccess);
+  } else {
+    RETURN(stream->memCopy(dst, src, sizeBytes));
+  }
+}
+
+hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
+                     hipMemcpyKind kind) {
+  HIPxxInitialize();
+
+  if (kind == hipMemcpyHostToHost) {
+    memcpy(dst, src, sizeBytes);
+    RETURN(hipSuccess);
+  } else {
+    hipError_t retval = Backend->getActiveQueue()->memCopy(dst, src, sizeBytes);
+    Backend->getActiveQueue()->finish();  // TODO Is this necessary?
+    RETURN(retval);
+  }
+}
+
+hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t dst, hipDeviceptr_t src,
+                              size_t sizeBytes, hipStream_t stream) {
+  return hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyDeviceToDevice, stream);
+}
+
+hipError_t hipMemcpyDtoD(hipDeviceptr_t dst, hipDeviceptr_t src,
+                         size_t sizeBytes) {
+  return hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToDevice);
+}
+
+hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t dst, void *src, size_t sizeBytes,
+                              hipStream_t stream) {
+  return hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyHostToDevice, stream);
+}
+
+hipError_t hipMemcpyHtoD(hipDeviceptr_t dst, void *src, size_t sizeBytes) {
+  return hipMemcpy(dst, src, sizeBytes, hipMemcpyHostToDevice);
+}
+
+hipError_t hipMemcpyDtoHAsync(void *dst, hipDeviceptr_t src, size_t sizeBytes,
+                              hipStream_t stream) {
+  return hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyDeviceToHost, stream);
+}
+
+hipError_t hipMemcpyDtoH(void *dst, hipDeviceptr_t src, size_t sizeBytes) {
+  return hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToHost);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
@@ -1035,23 +1102,6 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
     RETURN(hipSuccess);
   else
     RETURN(hipErrorLaunchFailure);
-}
-
-hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
-                     hipMemcpyKind kind) {
-  logTrace("hipMemcpy");
-  HIPxxInitialize();
-
-  HIPxxContext *ctx = Backend->getActiveContext();
-  ERROR_IF((ctx == nullptr), hipErrorInvalidDevice);
-
-  if (kind == hipMemcpyHostToHost) {
-    memcpy(dst, src, sizeBytes);
-    RETURN(hipSuccess);
-  } else {
-    RETURN(ctx->memCopy(dst, src, sizeBytes, nullptr));
-  }
-  RETURN(hipSuccess);
 }
 
 hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
