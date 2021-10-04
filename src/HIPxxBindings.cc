@@ -90,6 +90,79 @@ hipError_t hipDeviceGet(hipDevice_t *device, int ordinal) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipDeviceComputeCapability(int *major, int *minor,
+                                      hipDevice_t device) {
+  HIPxxInitialize();
+
+  ERROR_CHECK_DEVHANDLE(*device);
+
+  hipDeviceProp_t props;
+  (*device)->copyDeviceProperties(&props);
+
+  if (major) *major = props.major;
+  if (minor) *minor = props.minor;
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGetAttribute(int *pi, hipDeviceAttribute_t attr,
+                                 int deviceId) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVNUM(deviceId);
+
+  if (Backend->getDevices()[deviceId]->getAttr(pi, attr))
+    RETURN(hipErrorInvalidValue);
+  else
+    RETURN(hipSuccess);
+}
+
+hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVNUM(deviceId);
+  Backend->getDevices()[deviceId]->copyDeviceProperties(prop);
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGetLimit(size_t *pValue, enum hipLimit_t limit) {
+  HIPxxInitialize();
+  ERROR_IF((pValue == nullptr), hipErrorInvalidValue);
+  switch (limit) {
+    case hipLimitMallocHeapSize:
+      *pValue = 0;  // TODO Get this from properties
+      break;
+    default:
+      RETURN(hipErrorUnsupportedLimit);
+  }
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGetName(char *name, int len, hipDevice_t device) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+  std::string dev_name = (*device)->getName();
+
+  size_t namelen = dev_name.size();
+  namelen = (namelen < (size_t)len ? namelen : len - 1);
+  memcpy(name, dev_name.data(), namelen);
+  name[namelen] = 0;
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceTotalMem(size_t *bytes, hipDevice_t device) {
+  HIPxxInitialize();
+  ERROR_CHECK_DEVHANDLE(*device);
+  // TODO why did this not throw error if passed in should I do this check: ?
+  // if (bytes == nullptr) {
+  //  logCritical(
+  //      "hipDeviceTotalMem was passed a null pointer for returning size");
+  //  std::abort();
+  //}
+
+  if (bytes) *bytes = (*device)->getGlobalMemSize();
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
@@ -131,26 +204,6 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
     RETURN(hipSuccess);
   else
     RETURN(hipErrorLaunchFailure);
-}
-
-hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
-  logTrace("hipGetDeviceProperties");
-  HIPxxInitialize();
-  std::vector<HIPxxDevice *> devices =
-      Backend->getActiveContext()->getDevices();
-  if (deviceId > devices.size() - 1) {
-    logCritical(
-        "hipGetDeviceProperties requested a deviceId {} greater than number of "
-        "devices {}",
-        deviceId, devices.size());
-    std::abort();
-  }
-  // TODO WHYY??!!?!?
-  // devices[deviceId]->populate_device_properties();
-  devices[deviceId]->copyDeviceProperties(prop);
-  logTrace("done hipGetDeviceProperties");
-
-  return (hipSuccess);
 }
 
 hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,

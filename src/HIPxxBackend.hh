@@ -134,6 +134,9 @@ class HIPxxDevice {
   HIPxxContext* ctx;
   HIPxxQueue* q;
 
+  // TODO Implement filling this in. Seems redudant with props
+  hipDeviceAttribute_t attrs;
+
  public:
   /// hipxx_modules in binary representation
   std::vector<std::string*> modules_str;
@@ -185,6 +188,8 @@ class HIPxxDevice {
   bool free(size_t bytes);
 
   virtual void reset() = 0;
+  int getAttr(int* pi, hipDeviceAttribute_t attr);
+  size_t getGlobalMemSize();  // TODO
 };
 
 /**

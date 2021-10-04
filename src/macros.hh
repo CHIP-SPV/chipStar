@@ -20,3 +20,8 @@
 #define ERROR_CHECK_DEVNUM(device)                                         \
   ERROR_IF(((device < 0) || ((size_t)device >= Backend->getNumDevices())), \
            hipErrorInvalidDevice)
+
+#define ERROR_CHECK_DEVHANDLE(device)                      \
+  auto I = std::find(Backend->getDevices().begin(),        \
+                     Backend->getDevices().end(), device); \
+  ERROR_IF(I == Backend->getDevices().end(), hipErrorInvalidDevice)

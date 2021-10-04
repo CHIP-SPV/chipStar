@@ -158,6 +158,12 @@ bool HIPxxDevice::free(size_t bytes) {
   }
 }
 
+int HIPxxDevice::getAttr(int *pi, hipDeviceAttribute_t attr) {
+  logWarn("hipDeviceAttribute initialization not yet implemented");
+  std::abort();
+  return 0;
+}
+
 // HIPxxContext
 //*************************************************************************************
 HIPxxContext::HIPxxContext() {}
