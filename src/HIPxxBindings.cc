@@ -735,6 +735,42 @@ hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipMemPrefetchAsync(const void *ptr, size_t count, int dstDevId,
+                               hipStream_t stream) {
+  HIPxxInitialize();
+  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
+
+  ERROR_CHECK_DEVNUM(dstDevId);
+  HIPxxDevice *dev = Backend->getDevices()[dstDevId];
+  HIPxxContext *ctx = dev->getContext();
+
+  // Check if given stream belongs to the requested device
+  if (stream != nullptr)
+    ERROR_IF(stream->getDevice() != dev, hipErrorInvalidDevice);
+
+  bool retval = stream->memPrefetch(ptr, count);  // TODO Error Check
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemAdvise(const void *ptr, size_t count, hipMemoryAdvise advice,
+                        int dstDevId) {
+  HIPxxInitialize();
+
+  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
+
+  if (ptr == 0 || count == 0) {
+    RETURN(hipSuccess);
+  }
+
+  // hipError_t retval = cont->memAdvise(ptr, count, advice);
+  // ERROR_IF(retval != hipSuccess, hipErrorInvalidDevice);
+  logCritical("hipMemAdvise not yet implemented");
+  std::abort();
+
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

@@ -615,6 +615,23 @@ typedef enum {
   EVENT_STATUS_RECORDED
 } event_status_e;
 
+typedef enum hipMemoryAdvise {
+  hipMemAdviseSetReadMostly =
+      1,  // Data will mostly be read and only occassionally be written to
+  hipMemAdviseUnsetReadMostly =
+      2,  // Undo the effect of cudaMemAdviseSetReadMostly
+  hipMemAdviseSetPreferredLocation =
+      3,  // Set the preferred location for the data as the specified device
+  hipMemAdviseUnsetPreferredLocation =
+      4,  // Clear the preferred location for the data
+  hipMemAdviseSetAccessedBy =
+      5,  // Data will be accessed by the specified device, so prevent page
+          // faults as much as possible
+  hipMemAdviseUnsetAccessedBy =
+      6  // Let the Unified Memory subsystem decide on the page faulting policy
+         // for the specified device
+} hipMemoryAdvise;
+
 typedef void (*hipStreamCallback_t)(hipStream_t stream, hipError_t status,
                                     void *userData);
 

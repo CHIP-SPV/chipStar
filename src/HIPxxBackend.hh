@@ -373,6 +373,7 @@ class HIPxxQueue {
   unsigned int getFlags();                                         // TODO HIPxx
   int getPriority();                                               // TODO HIPxx
   bool addCallback(hipStreamCallback_t callback, void* userData);  // TODO HIPxx
+  bool memPrefetch(const void* ptr, size_t count);                 // TODO HIPxx
 };
 
 #endif
