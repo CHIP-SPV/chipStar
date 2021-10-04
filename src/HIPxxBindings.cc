@@ -877,6 +877,128 @@ hipError_t hipMallocPitch(void **ptr, size_t *pitch, size_t width,
   return hipMallocPitch3D(ptr, pitch, width, height, 0);
 }
 
+hipError_t hipMallocArray(hipArray **array, const hipChannelFormatDesc *desc,
+                          size_t width, size_t height, unsigned int flags) {
+  HIPxxInitialize();
+
+  ERROR_IF((width == 0), hipErrorInvalidValue);
+
+  *array = new hipArray;
+  ERROR_IF((*array == nullptr), hipErrorOutOfMemory);
+
+  array[0]->type = flags;
+  array[0]->width = width;
+  array[0]->height = height;
+  array[0]->depth = 1;
+  array[0]->desc = *desc;
+  array[0]->isDrv = false;
+  array[0]->textureType = hipTextureType2D;
+  void **ptr = &array[0]->data;
+
+  size_t size = width;
+  if (height > 0) {
+    size = size * height;
+  }
+  const size_t allocSize = size * ((desc->x + desc->y + desc->z + desc->w) / 8);
+
+  void *retval = Backend->getActiveContext()->allocate(allocSize);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
+  RETURN(hipSuccess);
+}
+
+hipError_t hipArrayCreate(hipArray **array,
+                          const HIP_ARRAY_DESCRIPTOR *pAllocateArray) {
+  HIPxxInitialize();
+
+  ERROR_IF((pAllocateArray->width == 0), hipErrorInvalidValue);
+
+  *array = new hipArray;
+  ERROR_IF((*array == nullptr), hipErrorOutOfMemory);
+
+  array[0]->drvDesc = *pAllocateArray;
+  array[0]->width = pAllocateArray->width;
+  array[0]->height = pAllocateArray->height;
+  array[0]->isDrv = true;
+  array[0]->textureType = hipTextureType2D;
+  void **ptr = &array[0]->data;
+
+  size_t size = pAllocateArray->width;
+  if (pAllocateArray->height > 0) {
+    size = size * pAllocateArray->height;
+  }
+  size_t allocSize = 0;
+  switch (pAllocateArray->format) {
+    case HIP_AD_FORMAT_UNSIGNED_INT8:
+      allocSize = size * sizeof(uint8_t);
+      break;
+    case HIP_AD_FORMAT_UNSIGNED_INT16:
+      allocSize = size * sizeof(uint16_t);
+      break;
+    case HIP_AD_FORMAT_UNSIGNED_INT32:
+      allocSize = size * sizeof(uint32_t);
+      break;
+    case HIP_AD_FORMAT_SIGNED_INT8:
+      allocSize = size * sizeof(int8_t);
+      break;
+    case HIP_AD_FORMAT_SIGNED_INT16:
+      allocSize = size * sizeof(int16_t);
+      break;
+    case HIP_AD_FORMAT_SIGNED_INT32:
+      allocSize = size * sizeof(int32_t);
+      break;
+    case HIP_AD_FORMAT_HALF:
+      allocSize = size * sizeof(int16_t);
+      break;
+    case HIP_AD_FORMAT_FLOAT:
+      allocSize = size * sizeof(float);
+      break;
+    default:
+      allocSize = size;
+      break;
+  }
+
+  void *retval = Backend->getActiveContext()->allocate(allocSize);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
+  RETURN(hipSuccess);
+}
+
+hipError_t hipFreeArray(hipArray *array) {
+  HIPxxInitialize();
+
+  ERROR_IF((array == nullptr), hipErrorInvalidValue);
+
+  assert(array->data != nullptr);
+
+  hipError_t e = hipFree(array->data);
+
+  delete array;
+
+  return e;
+}
+
+hipError_t hipMalloc3D(hipPitchedPtr *pitchedDevPtr, hipExtent extent) {
+  HIPxxInitialize();
+
+  ERROR_IF((extent.width == 0 || extent.height == 0), hipErrorInvalidValue);
+  ERROR_IF((pitchedDevPtr == nullptr), hipErrorInvalidValue);
+
+  size_t pitch;
+
+  hipError_t hip_status = hipMallocPitch3D(
+      &pitchedDevPtr->ptr, &pitch, extent.width, extent.height, extent.depth);
+
+  if (hip_status == hipSuccess) {
+    pitchedDevPtr->pitch = pitch;
+    pitchedDevPtr->xsize = extent.width;
+    pitchedDevPtr->ysize = extent.height;
+  }
+  RETURN(hip_status);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
