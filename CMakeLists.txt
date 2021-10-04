@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 cmake_policy(VERSION 3.4)
 
+option(ABORT_IF_NOT_IMPLEMENTED OFF)
+
+if (ABORT_IF_NOT_IMPLEMENTED)
+  add_compile_options(-DHIPXX_ABORT_ON_UNIMPL)
+endif()
+
 project(HIPxx
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
