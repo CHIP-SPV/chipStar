@@ -163,6 +163,37 @@ hipError_t hipDeviceTotalMem(size_t *bytes, hipDevice_t device) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipDeviceSetCacheConfig(hipFuncCache_t cacheConfig) {
+  HIPxxInitialize();
+  Backend->getActiveDevice()->setCacheConfig(cacheConfig);
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGetCacheConfig(hipFuncCache_t *cacheConfig) {
+  HIPxxInitialize();
+
+  if (cacheConfig) *cacheConfig = Backend->getActiveDevice()->getCacheConfig();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGetSharedMemConfig(hipSharedMemConfig *pConfig) {
+  HIPxxInitialize();
+  if (pConfig) *pConfig = Backend->getActiveDevice()->getSharedMemConfig();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceSetSharedMemConfig(hipSharedMemConfig pConfig) {
+  HIPxxInitialize();
+  Backend->getActiveDevice()->setSharedMemConfig(pConfig);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipFuncSetCacheConfig(const void *func, hipFuncCache_t config) {
+  HIPxxInitialize();
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

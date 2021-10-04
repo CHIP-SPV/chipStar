@@ -189,7 +189,13 @@ class HIPxxDevice {
 
   virtual void reset() = 0;
   int getAttr(int* pi, hipDeviceAttribute_t attr);
-  size_t getGlobalMemSize();  // TODO
+  size_t getGlobalMemSize();                                  // TODO
+  /*virtual*/ void setCacheConfig(hipFuncCache_t); /* = 0;*/  // TODO
+  hipFuncCache_t getCacheConfig();                            // TODO
+  /*virtual*/ void setSharedMemConfig(hipSharedMemConfig config);
+  /* = 0;*/                                                          // TODO
+  hipSharedMemConfig getSharedMemConfig();                           // TODO
+  void setFuncCacheConfig(const void* func, hipFuncCache_t config);  // TODO
 };
 
 /**
