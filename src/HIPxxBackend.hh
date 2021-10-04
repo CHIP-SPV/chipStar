@@ -149,7 +149,7 @@ class HIPxxDevice {
   /// Map host pointer to HIPxxKernel
   std::map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
 
-  hipDevice_t idx;
+  int idx;
   hipDeviceProp_t hip_device_props;
   size_t total_used_mem, max_used_mem;
 
@@ -176,13 +176,15 @@ class HIPxxDevice {
    */
   HIPxxContext* getContext();
   HIPxxQueue* getQueue();
-  hipDevice_t getDeviceId();
+  int getDeviceId();
   virtual std::string getName() = 0;
 
   bool getModuleAndFName(const void* host_f_ptr, std::string& host_f_name,
                          HIPxxModule* hipxx_module);
   bool allocate(size_t bytes);
   bool free(size_t bytes);
+
+  virtual void reset() = 0;
 };
 
 /**

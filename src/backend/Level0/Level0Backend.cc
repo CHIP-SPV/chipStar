@@ -70,7 +70,7 @@ hipError_t HIPxxContextLevel0::memCopy(void* dst, const void* src, size_t size,
                                        hipStream_t stream) {
   logTrace("HIPxxContextLevel0.memCopy");
   if (stream == nullptr) {
-    getDefaultQueue()->memCopy(dst, src, size);
+    return getDefaultQueue()->memCopy(dst, src, size);
   } else {
     logCritical("Queue lookup not yet implemented");
     std::abort();
@@ -94,6 +94,11 @@ hipError_t HIPxxQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   ze_result_t status = zeCommandListAppendMemoryCopy(ze_cmd_list, dst, src,
                                                      size, nullptr, 0, NULL);
   return hipSuccess;
+}
+
+void HIPxxDeviceLevel0::reset() {
+  logCritical("HIPxxDeviceLevel0::reset() not yet implemented");
+  std::abort();
 }
 
 const char* lzResultToString(ze_result_t status) {

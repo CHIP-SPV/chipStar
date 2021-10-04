@@ -70,6 +70,26 @@ hipError_t hipDeviceSynchronize(void) {
   RETURN(hipSuccess);
 }
 
+hipError_t hipDeviceReset(void) {
+  HIPxxInitialize();
+
+  HIPxxDevice *dev = Backend->getActiveDevice();
+  ERROR_IF((dev == nullptr), hipErrorInvalidDevice);
+
+  dev->reset();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceGet(hipDevice_t *device, int ordinal) {
+  HIPxxInitialize();
+
+  ERROR_IF((device == nullptr), hipErrorInvalidDevice);
+  ERROR_CHECK_DEVNUM(ordinal);
+
+  **device = Backend->getDevices()[ordinal];
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

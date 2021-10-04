@@ -590,11 +590,6 @@ enum hipComputeMode {
   hipComputeModeExclusiveProcess = 3
 };
 
-/* implementation details */
-
-typedef int hipDevice_t;
-
-typedef void *hipDeviceptr_t;
 // Forward Declarations
 class HIPxxDevice;
 class HIPxxContext;
@@ -604,12 +599,15 @@ class HIPxxBackend;
 class HIPxxEvent;
 class HIPxxQueue;
 class HIPxxTexture;
+/* implementation details */
 typedef HIPxxEvent *hipEvent_t;
 typedef HIPxxKernel *hipFunction_t;
 typedef HIPxxModule *hipModule_t;
 typedef HIPxxQueue *hipStream_t;
 typedef HIPxxTexture *hipTextureObject_t;
 typedef HIPxxContext *hipCtx_t;
+typedef HIPxxDevice **hipDevice_t;
+typedef void *hipDeviceptr_t;
 
 typedef enum {
   EVENT_STATUS_INIT = 5,

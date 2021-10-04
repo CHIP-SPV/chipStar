@@ -105,6 +105,8 @@ class HIPxxDeviceLevel0 : public HIPxxDevice {
   }
   virtual std::string getName() override { return device_name; }
   ze_device_handle_t& get() { return ze_dev; }
+
+  virtual void reset() override;
 };
 
 class HIPxxContextLevel0 : public HIPxxContext {

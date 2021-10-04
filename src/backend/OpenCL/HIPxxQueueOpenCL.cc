@@ -90,6 +90,11 @@ void HIPxxQueueOpenCL::finish() {
   std::abort();
 }
 
+void HIPxxDeviceOpenCL::reset() {
+  logCritical("HIPxxDeviceOpenCL::reset() not yet implemented");
+  std::abort();
+}
+
 // HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
 //   std::cout << "HIPxxQueueOpenCL Initialized via context, device
 //   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new

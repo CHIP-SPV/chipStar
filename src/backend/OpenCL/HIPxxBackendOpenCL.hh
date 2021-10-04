@@ -85,6 +85,8 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
 
   virtual void populateDeviceProperties() override;
   virtual std::string getName() override;
+
+  virtual void reset() override;
 };
 
 class HIPxxQueueOpenCL : public HIPxxQueue {
