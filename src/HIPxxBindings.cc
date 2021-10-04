@@ -557,6 +557,17 @@ hipError_t hipStreamAddCallback(hipStream_t stream,
     RETURN(hipErrorInvalidValue);
 }
 
+hipError_t hipMemGetAddressRange(hipDeviceptr_t *pbase, size_t *psize,
+                                 hipDeviceptr_t dptr) {
+  HIPxxInitialize();
+  HIPxxContext *ctx = Backend->getActiveContext();
+
+  if (ctx->findPointerInfo(pbase, psize, dptr))
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidValue);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

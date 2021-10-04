@@ -255,6 +255,8 @@ class HIPxxContext {
                                         const char* FunctionName) = 0;
   hipError_t launchHostFunc(const void* HostFunction);
   void finishAll();
+  bool findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
+                       hipDeviceptr_t dptr);  // TODO HIPxx
 };
 
 /**
