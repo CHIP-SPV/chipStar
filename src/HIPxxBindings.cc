@@ -1152,6 +1152,196 @@ hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value,
   return hipMemset(dest, value, sizeBytes);
 }
 
+hipError_t hipMemcpyParam2D(const hip_Memcpy2D *pCopy) {
+  ERROR_IF((pCopy == nullptr), hipErrorInvalidValue);
+
+  return hipMemcpy2D(pCopy->dstArray->data, pCopy->widthInBytes, pCopy->srcHost,
+                     pCopy->srcPitch, pCopy->widthInBytes, pCopy->height,
+                     hipMemcpyDefault);
+}
+
+hipError_t hipMemcpy2DAsync(void *dst, size_t dpitch, const void *src,
+                            size_t spitch, size_t width, size_t height,
+                            hipMemcpyKind kind, hipStream_t stream) {
+  HIPxxInitialize();
+
+  if (spitch == 0) spitch = width;
+  if (dpitch == 0) dpitch = width;
+
+  if (spitch == 0 || dpitch == 0) RETURN(hipErrorInvalidValue);
+
+  for (size_t i = 0; i < height; ++i) {
+    if (hipMemcpyAsync(dst, src, width, kind, stream) != hipSuccess)
+      RETURN(hipErrorLaunchFailure);
+    src = (char *)src + spitch;
+    dst = (char *)dst + dpitch;
+  }
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpy2D(void *dst, size_t dpitch, const void *src, size_t spitch,
+                       size_t width, size_t height, hipMemcpyKind kind) {
+  HIPxxInitialize();
+
+  hipError_t e = hipMemcpy2DAsync(dst, dpitch, src, spitch, width, height, kind,
+                                  Backend->getActiveQueue());
+  if (e != hipSuccess) return e;
+
+  Backend->getActiveQueue()->finish();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpy2DToArray(hipArray *dst, size_t wOffset, size_t hOffset,
+                              const void *src, size_t spitch, size_t width,
+                              size_t height, hipMemcpyKind kind) {
+  HIPxxInitialize();
+
+  size_t byteSize;
+  if (dst) {
+    switch (dst[0].desc.f) {
+      case hipChannelFormatKindSigned:
+        byteSize = sizeof(int);
+        break;
+      case hipChannelFormatKindUnsigned:
+        byteSize = sizeof(unsigned int);
+        break;
+      case hipChannelFormatKindFloat:
+        byteSize = sizeof(float);
+        break;
+      case hipChannelFormatKindNone:
+        byteSize = sizeof(size_t);
+        break;
+    }
+  } else {
+    RETURN(hipErrorUnknown);
+  }
+
+  if ((wOffset + width > (dst->width * byteSize)) || width > spitch) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  size_t src_w = spitch;
+  size_t dst_w = (dst->width) * byteSize;
+
+  for (size_t i = 0; i < height; ++i) {
+    void *dst_p = ((unsigned char *)dst->data + i * dst_w);
+    void *src_p = ((unsigned char *)src + i * src_w);
+    if (hipMemcpyAsync(dst_p, src_p, width, kind, Backend->getActiveQueue()) !=
+        hipSuccess)
+      RETURN(hipErrorLaunchFailure);
+  }
+
+  Backend->getActiveQueue()->finish();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpyToArray(hipArray *dst, size_t wOffset, size_t hOffset,
+                            const void *src, size_t count, hipMemcpyKind kind) {
+  void *dst_p = (unsigned char *)dst->data + wOffset;
+  return hipMemcpy(dst_p, src, count, kind);
+}
+
+hipError_t hipMemcpyFromArray(void *dst, hipArray_const_t srcArray,
+                              size_t wOffset, size_t hOffset, size_t count,
+                              hipMemcpyKind kind) {
+  void *src_p = (unsigned char *)srcArray->data + wOffset;
+  return hipMemcpy(dst, src_p, count, kind);
+}
+
+hipError_t hipMemcpyAtoH(void *dst, hipArray *srcArray, size_t srcOffset,
+                         size_t count) {
+  return hipMemcpy((char *)dst, (char *)srcArray->data + srcOffset, count,
+                   hipMemcpyDeviceToHost);
+}
+
+hipError_t hipMemcpyHtoA(hipArray *dstArray, size_t dstOffset,
+                         const void *srcHost, size_t count) {
+  return hipMemcpy((char *)dstArray->data + dstOffset, srcHost, count,
+                   hipMemcpyHostToDevice);
+}
+
+hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *p) {
+  HIPxxInitialize();
+
+  ERROR_IF((p == nullptr), hipErrorInvalidValue);
+
+  size_t byteSize;
+  size_t depth;
+  size_t height;
+  size_t widthInBytes;
+  size_t srcPitch;
+  size_t dstPitch;
+  void *srcPtr;
+  void *dstPtr;
+  size_t ySize;
+
+  if (p->dstArray != nullptr) {
+    if (p->dstArray->isDrv == false) {
+      switch (p->dstArray->desc.f) {
+        case hipChannelFormatKindSigned:
+          byteSize = sizeof(int);
+          break;
+        case hipChannelFormatKindUnsigned:
+          byteSize = sizeof(unsigned int);
+          break;
+        case hipChannelFormatKindFloat:
+          byteSize = sizeof(float);
+          break;
+        case hipChannelFormatKindNone:
+          byteSize = sizeof(size_t);
+          break;
+      }
+      depth = p->extent.depth;
+      height = p->extent.height;
+      widthInBytes = p->extent.width * byteSize;
+      srcPitch = p->srcPtr.pitch;
+      srcPtr = p->srcPtr.ptr;
+      ySize = p->srcPtr.ysize;
+      dstPitch = p->dstArray->width * byteSize;
+      dstPtr = p->dstArray->data;
+    } else {
+      depth = p->Depth;
+      height = p->Height;
+      widthInBytes = p->WidthInBytes;
+      dstPitch = p->dstArray->width * 4;
+      srcPitch = p->srcPitch;
+      srcPtr = (void *)p->srcHost;
+      ySize = p->srcHeight;
+      dstPtr = p->dstArray->data;
+    }
+  } else {
+    // Non array destination
+    depth = p->extent.depth;
+    height = p->extent.height;
+    widthInBytes = p->extent.width;
+    srcPitch = p->srcPtr.pitch;
+    srcPtr = p->srcPtr.ptr;
+    dstPtr = p->dstPtr.ptr;
+    ySize = p->srcPtr.ysize;
+    dstPitch = p->dstPtr.pitch;
+  }
+
+  if ((widthInBytes == dstPitch) && (widthInBytes == srcPitch)) {
+    return hipMemcpy((void *)dstPtr, (void *)srcPtr,
+                     widthInBytes * height * depth, p->kind);
+  } else {
+    for (size_t i = 0; i < depth; i++) {
+      for (size_t j = 0; j < height; j++) {
+        unsigned char *src =
+            (unsigned char *)srcPtr + i * ySize * srcPitch + j * srcPitch;
+        unsigned char *dst =
+            (unsigned char *)dstPtr + i * height * dstPitch + j * dstPitch;
+        if (hipMemcpyAsync(dst, src, widthInBytes, p->kind,
+                           Backend->getActiveQueue()) != hipSuccess)
+          RETURN(hipErrorLaunchFailure);
+      }
+    }
+
+    Backend->getActiveQueue()->finish();
+    RETURN(hipSuccess);
+  }
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
