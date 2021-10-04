@@ -111,7 +111,6 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
   return *found_kernel;
 }
 HIPxxContext *HIPxxDevice::getContext() { return ctx; }
-HIPxxQueue *HIPxxDevice::getQueue() { return q; }
 int HIPxxDevice::getDeviceId() { return idx; }
 bool HIPxxDevice::getModuleAndFName(const void *host_f_ptr,
                                     std::string &host_f_name,
@@ -238,7 +237,7 @@ void HIPxxBackend::setActiveDevice(HIPxxDevice *hipxx_dev) {
   };
   active_dev = hipxx_dev;
   active_ctx = hipxx_dev->getContext();
-  active_q = hipxx_dev->getQueue();
+  active_q = hipxx_dev->getActiveQueue();
 }
 std::vector<HIPxxQueue *> &HIPxxBackend::getQueues() { return hipxx_queues; }
 HIPxxQueue *HIPxxBackend::getActiveQueue() {

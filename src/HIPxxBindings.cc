@@ -32,7 +32,8 @@ static unsigned binaries_loaded = 0;
 hipError_t hipGetDevice(int *deviceId) {
   HIPxxInitialize();
 
-  ERROR_IF((deviceId == nullptr), hipErrorInvalidValue);
+  ERROR_IF((deviceId == nullptr),
+           hipErrorInvalidValue);  // Check API compliance
 
   HIPxxDevice *dev = Backend->getActiveDevice();
   *deviceId = dev->getDeviceId();
@@ -42,7 +43,7 @@ hipError_t hipGetDevice(int *deviceId) {
 
 hipError_t hipGetDeviceCount(int *count) {
   HIPxxInitialize();
-  ERROR_IF((count == nullptr), hipErrorInvalidValue);
+  ERROR_IF((count == nullptr), hipErrorInvalidValue);  // Check API compliance
   *count = Backend->getNumDevices();
 
   RETURN(hipSuccess);
@@ -445,6 +446,115 @@ const char *hipGetErrorName(hipError_t hip_error) {
 
 const char *hipGetErrorString(hipError_t hipError) {
   return hipGetErrorName(hipError);
+}
+
+hipError_t hipStreamCreate(hipStream_t *stream) {
+  return hipStreamCreateWithFlags(stream, 0);
+}
+
+hipError_t hipStreamCreateWithFlags(hipStream_t *stream, unsigned int flags) {
+  return hipStreamCreateWithPriority(stream, flags, 0);
+}
+
+hipError_t hipStreamCreateWithPriority(hipStream_t *stream, unsigned int flags,
+                                       int priority) {
+  HIPxxInitialize();
+
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+
+  HIPxxDevice *dev = Backend->getActiveDevice();
+  ERROR_IF((dev == nullptr), hipErrorInvalidDevice);
+
+  *stream = dev->addQueue(flags, priority);
+
+  if (stream)
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidValue);
+}
+
+hipError_t hipDeviceGetStreamPriorityRange(int *leastPriority,
+                                           int *greatestPriority) {
+  HIPxxQueue *q = Backend->getActiveQueue();
+
+  if (leastPriority) *leastPriority = q->getPriorityRange(0);
+  if (greatestPriority) *greatestPriority = q->getPriorityRange(1);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipStreamDestroy(hipStream_t stream) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+
+  HIPxxDevice *dev = Backend->getActiveDevice();
+  ERROR_IF((dev == nullptr), hipErrorInvalidDevice);
+
+  if (dev->removeQueue(stream))
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidValue);
+}
+
+hipError_t hipStreamQuery(hipStream_t stream) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+
+  if (stream->query()) {
+    RETURN(hipSuccess);
+  } else {
+    RETURN(hipErrorNotReady);
+  }
+}
+
+hipError_t hipStreamSynchronize(hipStream_t stream) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+  stream->finish();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipStreamWaitEvent(hipStream_t stream, hipEvent_t event,
+                              unsigned int flags) {
+  HIPxxInitialize();
+
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+  ERROR_IF((event == nullptr), hipErrorInvalidResourceHandle);
+
+  if (stream->enqueueBarrierForEvent(event))
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidValue);
+}
+
+hipError_t hipStreamGetFlags(hipStream_t stream, unsigned int *flags) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+  ERROR_IF((flags == nullptr), hipErrorInvalidResourceHandle);
+
+  *flags = stream->getFlags();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipStreamGetPriority(hipStream_t stream, int *priority) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+  ERROR_IF((priority == nullptr), hipErrorInvalidResourceHandle);
+
+  *priority = stream->getPriority();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipStreamAddCallback(hipStream_t stream,
+                                hipStreamCallback_t callback, void *userData,
+                                unsigned int flags) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+  ERROR_IF((callback == nullptr), hipErrorInvalidResourceHandle);
+
+  if (stream->addCallback(callback, userData))
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidValue);
 }
 
 //*****************************************************************************

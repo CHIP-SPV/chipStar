@@ -133,6 +133,7 @@ class HIPxxDevice {
   std::vector<HIPxxKernel*> hipxx_kernels;
   HIPxxContext* ctx;
   HIPxxQueue* q;
+  int active_queue_id = 0;
 
   // TODO Implement filling this in. Seems redudant with props
   hipDeviceAttribute_t attrs;
@@ -178,7 +179,12 @@ class HIPxxDevice {
    * was created with
    */
   HIPxxContext* getContext();
-  HIPxxQueue* getQueue();
+  HIPxxQueue* addQueue(unsigned int flags,
+                       int priority);    // TODO HIPxx
+  std::vector<HIPxxQueue*> getQueues();  // TODO HIPxx
+  HIPxxQueue* getActiveQueue();          // TODO HIPxx
+  bool removeQueue(HIPxxQueue* q);       // TODO HIPxx
+
   int getDeviceId();
   virtual std::string getName() = 0;
 
@@ -189,17 +195,20 @@ class HIPxxDevice {
 
   virtual void reset() = 0;
   int getAttr(int* pi, hipDeviceAttribute_t attr);
-  size_t getGlobalMemSize();                                  // TODO
-  /*virtual*/ void setCacheConfig(hipFuncCache_t); /* = 0;*/  // TODO
-  hipFuncCache_t getCacheConfig();                            // TODO
+  size_t getGlobalMemSize();  // TODO
+  /*virtual*/ void setCacheConfig(hipFuncCache_t);
+  /* = 0;*/                         // TODO
+  hipFuncCache_t getCacheConfig();  // TODO
   /*virtual*/ void setSharedMemConfig(hipSharedMemConfig config);
-  /* = 0;*/                                                          // TODO
-  hipSharedMemConfig getSharedMemConfig();                           // TODO
-  void setFuncCacheConfig(const void* func, hipFuncCache_t config);  // TODO
-  // Check if the current device has same PCI bus ID as the one given by
-  // input
-  bool hasPCIBusId(int pciDomainID, int pciBusID, int pciDeviceID);  // TODO
-  int getPeerAccess(HIPxxDevice* peerDevice);                        // TODO
+  /* = 0;*/                                 // TODO
+  hipSharedMemConfig getSharedMemConfig();  // TODO
+  void setFuncCacheConfig(const void* func,
+                          hipFuncCache_t config);  // TODO
+  // Check if the current device has same PCI bus ID as the
+  // one given by input
+  bool hasPCIBusId(int pciDomainID, int pciBusID,
+                   int pciDeviceID);           // TODO
+  int getPeerAccess(HIPxxDevice* peerDevice);  // TODO
 
   // Enable/Disable the peer access
   // from given devince
@@ -346,6 +355,12 @@ class HIPxxQueue {
 
   HIPxxDevice* getDevice();
   virtual void finish() = 0;
+  bool query();                                                    // TODO HIPxx
+  int getPriorityRange(int lower_or_upper);                        // TODO HIPxx
+  bool enqueueBarrierForEvent(HIPxxEvent* e);                      // TODO HIPxx
+  unsigned int getFlags();                                         // TODO HIPxx
+  int getPriority();                                               // TODO HIPxx
+  bool addCallback(hipStreamCallback_t callback, void* userData);  // TODO HIPxx
 };
 
 #endif
