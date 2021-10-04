@@ -1342,6 +1342,29 @@ hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *p) {
   }
 }
 
+hipError_t hipFuncGetAttributes(hipFuncAttributes *attr, const void *func) {
+  HIPxxInitialize();
+#ifdef HIPXX_ABORT_ON_UNIMPL
+  logCritical("hipFuncGetAttributes not yet implemented");
+  std::abort();
+#else
+  logWarn("hipFuncGetAttributes not yet implemented");
+#endif
+  RETURN(hipSuccess);
+}
+
+hipError_t hipModuleGetGlobal(hipDeviceptr_t *dptr, size_t *bytes,
+                              hipModule_t hmod, const char *name) {
+  HIPxxInitialize();
+
+  ERROR_IF((!dptr || !bytes || !name || !hmod), hipErrorInvalidValue);
+  ERROR_IF((!hmod->symbolSupported()), hipErrorNotSupported);
+  ERROR_IF((!hmod->getSymbolAddressSize(name, dptr, bytes)),
+           hipErrorInvalidSymbol);
+
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

@@ -75,9 +75,9 @@ class HIPxxModule {
    * @param module_str binary representation of a module
    */
   virtual void compile(std::string* module_str);
-  virtual bool getsymboladdresssize(const char* name, void* dptr,
-                                    size_t* bytes) = 0;
-  virtual bool symbolsupported() = 0;
+  virtual bool getSymbolAddressSize(const char* name, void* dptr,
+                                    size_t* bytes);  // TODO Make virtual
+  virtual bool symbolSupported();                    // TODO Make virtual
 };
 
 /**
