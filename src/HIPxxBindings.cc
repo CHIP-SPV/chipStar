@@ -617,36 +617,77 @@ hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t device, unsigned int flags) {
     RETURN(hipErrorContextAlreadyInUse);
   }
 }
-//*****************************************************************************
-//*****************************************************************************
-//*****************************************************************************
+
 hipError_t hipEventCreate(hipEvent_t *event) {
   return hipEventCreateWithFlags(event, 0);
 }
 
-class ClEvent;
-hipError_t hipEventCreate(ClEvent **event) {
-  // logWarn("hipEventCreate not implemented");
-  return hipSuccess;
-  // return hipEventCreateWithFlags(event, 0);
+hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
+  HIPxxInitialize();
+
+  ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  HIPxxEvent *event_ptr = new HIPxxEvent(Backend->getActiveContext(), flags);
+  if (event_ptr) {
+    *event = event_ptr;
+    RETURN(hipSuccess);
+  } else {
+    RETURN(hipErrorOutOfMemory);
+  }
 }
 
-hipError_t hipFree(void *ptr) {
-  logWarn("hipFree not yet implemented");
-  return hipSuccess;
-  // LZ_TRY
-  // ERROR_IF((ptr == nullptr), hipSuccess);
+hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
+  HIPxxInitialize();
+  ERROR_IF((stream == nullptr), hipErrorInvalidValue);
+  ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
-  // LZContext *cont = getTlsDefaultLzCtx();
-  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
+  if (Backend->getActiveContext()->recordEvent(stream, event)) {
+    RETURN(hipSuccess);
+  } else {
+    RETURN(hipErrorLaunchFailure);
+  }
+}
 
-  // if (cont->free(ptr))
-  //   RETURN(hipSuccess);
-  // else
-  //   RETURN(hipErrorInvalidDevicePointer);
-  // LZ_CATCH
+hipError_t hipEventDestroy(hipEvent_t event) {
+  HIPxxInitialize();
+  ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  delete event;
   RETURN(hipSuccess);
-};
+}
+
+hipError_t hipEventSynchronize(hipEvent_t event) {
+  HIPxxInitialize();
+  ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  if (event->wait())
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidValue);
+}
+
+hipError_t hipEventElapsedTime(float *ms, hipEvent_t start, hipEvent_t stop) {
+  HIPxxInitialize();
+  ERROR_IF((start == nullptr), hipErrorInvalidValue);
+  ERROR_IF((stop == nullptr), hipErrorInvalidValue);
+
+  *ms = start->getElapsedTime(stop);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipEventQuery(hipEvent_t event) {
+  HIPxxInitialize();
+  ERROR_IF((event == nullptr), hipErrorInvalidValue);
+
+  if (event->isFinished())
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorNotReady);
+}
+
+//*****************************************************************************
+//*****************************************************************************
+//*****************************************************************************
 
 hipError_t hipLaunchByPtr(const void *hostFunction) {
   HIPxxInitialize();
@@ -677,28 +718,6 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
   RETURN(hipSuccess);
 }
 
-hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
-  // logWarn("hipEventRecord not yet implemented");
-  // HIPLZ_INIT();
-
-  // LZ_TRY
-  // ERROR_IF((event == nullptr), hipErrorInvalidValue);
-
-  // LZContext* cont = getTlsDefaultLzCtx();
-  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
-
-  // RETURN(cont->recordEvent(stream, event));
-
-  // LZ_CATCH
-  RETURN(hipSuccess);
-}
-
-class ClQueue;
-hipError_t hipEventRecord(ClEvent *, ClQueue *) {
-  // logWarn("hipEventRecord not yet implemented");
-  RETURN(hipSuccess);
-}
-
 hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
                             hipStream_t stream) {
   HIPxxInitialize();
@@ -706,61 +725,6 @@ hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
   RETURN(Backend->configureCall(gridDim, blockDim, sharedMem, stream));
   RETURN(hipSuccess);
 }
-
-hipError_t hipEventElapsedTime(float *ms, hipEvent_t start, hipEvent_t stop) {
-  // logWarn("hipEventElapsedTime not yet implemented");
-  // HIPLZ_INIT();
-
-  // LZ_TRY
-  // ERROR_IF((start == nullptr), hipErrorInvalidValue);
-  // ERROR_IF((stop == nullptr), hipErrorInvalidValue);
-
-  // LZContext* cont = getTlsDefaultLzCtx();
-  // ERROR_IF((cont == nullptr), hipErrorInvalidDevice);
-
-  // RETURN(cont->eventElapsedTime(ms, start, stop));
-  // LZ_CATCH
-  RETURN(hipSuccess);
-}
-
-hipError_t hipEventElapsedTime(float *, ClEvent *, ClEvent *) {
-  // logWarn("hipEventElapsedTime not yet implemented");
-  RETURN(hipSuccess);
-}
-
-hipError_t hipEventDestroy(ClEvent *) {
-  // logWarn("hipEventDestroy not yet implemented");
-  RETURN(hipSuccess);
-}
-
-hipError_t hipEventDestroy(hipEvent_t event) {
-  // logWarn("hipEventDestroy not yet implemented");
-  // HIPLZ_INIT();
-
-  // ERROR_IF((event == nullptr), hipErrorInvalidValue);
-
-  // delete event;
-  RETURN(hipSuccess);
-}
-
-hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
-  // logWarn("hipEventCreateWithFlags not yet implemented");
-  HIPxxInitialize();
-
-  ERROR_IF((event == nullptr), hipErrorInvalidValue);
-
-  // hipEvent_t EventPtr = cont->createEvent(flags);
-  // TODO
-  // hipEvent_t EventPtr;
-  // if (EventPtr) {
-  //  *event = EventPtr;
-  //  RETURN(hipSuccess);
-  //} else {
-  //  RETURN(hipErrorOutOfMemory);
-  //}
-  return (hipSuccess);
-}
-
 extern "C" void **__hipRegisterFatBinary(const void *data) {
   HIPxxInitialize();
   logTrace("__hipRegisterFatBinary");

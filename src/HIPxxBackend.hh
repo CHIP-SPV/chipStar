@@ -256,11 +256,12 @@ class HIPxxContext {
   hipError_t launchHostFunc(const void* HostFunction);
   void finishAll();
   bool findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
-                       hipDeviceptr_t dptr);  // TODO HIPxx
-  unsigned int getFlags();                    // TODO HIPxx
-  bool setFlags(unsigned int flags);          // TODO HIPxx
-  void reset();                               // TODO HIPxx
-  HIPxxContext* retain();                     // TODO HIPxx
+                       hipDeviceptr_t dptr);           // TODO HIPxx
+  unsigned int getFlags();                             // TODO HIPxx
+  bool setFlags(unsigned int flags);                   // TODO HIPxx
+  void reset();                                        // TODO HIPxx
+  HIPxxContext* retain();                              // TODO HIPxx
+  bool recordEvent(HIPxxQueue* q, HIPxxEvent* event);  // TODO HIPxx
 };
 
 /**
