@@ -225,6 +225,50 @@ hipError_t hipDeviceGetByPCIBusId(int *deviceId, const char *pciBusId) {
   RETURN(hipErrorInvalidDevice);
 }
 
+hipError_t hipSetDeviceFlags(unsigned flags) {
+  // TODO
+  HIPxxInitialize();
+  logCritical("hipSetDeviceFlags not yet implemented");
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceCanAccessPeer(int *canAccessPeer, int deviceId,
+                                  int peerDeviceId) {
+  HIPxxInitialize();
+
+  ERROR_CHECK_DEVNUM(deviceId);
+  ERROR_CHECK_DEVNUM(peerDeviceId);
+  if (deviceId == peerDeviceId) {
+    *canAccessPeer = 0;
+    RETURN(hipSuccess);
+  }
+
+  HIPxxDevice *dev = Backend->getDevices()[deviceId];
+  HIPxxDevice *peer = Backend->getDevices()[peerDeviceId];
+
+  *canAccessPeer = dev->getPeerAccess(peer);
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipDeviceEnablePeerAccess(int peerDeviceId, unsigned int flags) {
+  HIPxxInitialize();
+
+  HIPxxDevice *dev = Backend->getActiveDevice();
+  HIPxxDevice *peer = Backend->getDevices()[peerDeviceId];
+
+  RETURN(dev->setPeerAccess(peer, flags, true));
+}
+
+hipError_t hipDeviceDisablePeerAccess(int peerDeviceId) {
+  HIPxxInitialize();
+
+  HIPxxDevice *dev = Backend->getActiveDevice();
+  HIPxxDevice *peer = Backend->getDevices()[peerDeviceId];
+
+  RETURN(dev->setPeerAccess(peer, 0, false));
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

@@ -199,6 +199,12 @@ class HIPxxDevice {
   // Check if the current device has same PCI bus ID as the one given by
   // input
   bool hasPCIBusId(int pciDomainID, int pciBusID, int pciDeviceID);  // TODO
+  int getPeerAccess(HIPxxDevice* peerDevice);                        // TODO
+
+  // Enable/Disable the peer access
+  // from given devince
+  hipError_t setPeerAccess(HIPxxDevice* peer, int flags,
+                           bool canAccessPeer);  // TODO
 };
 
 /**
