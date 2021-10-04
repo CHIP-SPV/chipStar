@@ -854,6 +854,29 @@ hipError_t hipHostUnregister(void *hostPtr) {
   RETURN(hipSuccess);
 }
 
+static hipError_t hipMallocPitch3D(void **ptr, size_t *pitch, size_t width,
+                                   size_t height, size_t depth) {
+  HIPxxInitialize();
+
+  ERROR_IF((ptr == nullptr), hipErrorInvalidValue);
+
+  *pitch = ((((int)width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
+  const size_t sizeBytes = (*pitch) * height * ((depth == 0) ? 1 : depth);
+
+  void *retval = Backend->getActiveContext()->allocate(sizeBytes);
+  ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
+
+  *ptr = retval;
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMallocPitch(void **ptr, size_t *pitch, size_t width,
+                          size_t height) {
+  HIPxxInitialize();
+
+  return hipMallocPitch3D(ptr, pitch, width, height, 0);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
