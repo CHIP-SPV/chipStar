@@ -197,25 +197,27 @@ class HIPxxDevice {
 
   virtual void reset() = 0;
   int getAttr(int* pi, hipDeviceAttribute_t attr);
-  size_t getGlobalMemSize();  // TODO
+  size_t getGlobalMemSize();  // TODO HIPxx
   /*virtual*/ void setCacheConfig(hipFuncCache_t);
-  /* = 0;*/                         // TODO
-  hipFuncCache_t getCacheConfig();  // TODO
+  /* = 0;*/                         // TODO HIPxx
+  hipFuncCache_t getCacheConfig();  // TODO HIPxx
   /*virtual*/ void setSharedMemConfig(hipSharedMemConfig config);
-  /* = 0;*/                                 // TODO
-  hipSharedMemConfig getSharedMemConfig();  // TODO
+  /* = 0;*/                                 // TODO HIPxx
+  hipSharedMemConfig getSharedMemConfig();  // TODO HIPxx
   void setFuncCacheConfig(const void* func,
-                          hipFuncCache_t config);  // TODO
+                          hipFuncCache_t config);  // TODO HIPxx
   // Check if the current device has same PCI bus ID as the
   // one given by input
   bool hasPCIBusId(int pciDomainID, int pciBusID,
-                   int pciDeviceID);           // TODO
-  int getPeerAccess(HIPxxDevice* peerDevice);  // TODO
+                   int pciDeviceID);           // TODO HIPxx
+  int getPeerAccess(HIPxxDevice* peerDevice);  // TODO HIPxx
 
   // Enable/Disable the peer access
   // from given devince
   hipError_t setPeerAccess(HIPxxDevice* peer, int flags,
-                           bool canAccessPeer);  // TODO
+                           bool canAccessPeer);  // TODO HIPxx
+
+  size_t getUsedGlobalMem();  // TODO HIPxx
 };
 
 /**
@@ -268,6 +270,7 @@ class HIPxxContext {
   void reset();                                        // TODO HIPxx
   HIPxxContext* retain();                              // TODO HIPxx
   bool recordEvent(HIPxxQueue* q, HIPxxEvent* event);  // TODO HIPxx
+  size_t getPointerSize(void* ptr);                    // TODO HIPxx
 };
 
 /**

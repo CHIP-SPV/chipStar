@@ -999,6 +999,28 @@ hipError_t hipMalloc3D(hipPitchedPtr *pitchedDevPtr, hipExtent extent) {
   RETURN(hip_status);
 }
 
+hipError_t hipMemGetInfo(size_t *free, size_t *total) {
+  HIPxxInitialize();
+
+  ERROR_IF((total == nullptr || free == nullptr), hipErrorInvalidValue);
+
+  auto device = Backend->getActiveDevice();
+  *total = device->getGlobalMemSize();
+  assert(device->getGlobalMemSize() > device->getUsedGlobalMem());
+  *free = device->getGlobalMemSize() - device->getUsedGlobalMem();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemPtrGetInfo(void *ptr, size_t *size) {
+  HIPxxInitialize();
+
+  ERROR_IF((ptr == nullptr || size == nullptr), hipErrorInvalidValue);
+
+  *size = Backend->getActiveContext()->getPointerSize(ptr);
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
