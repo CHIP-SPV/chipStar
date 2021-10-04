@@ -1042,7 +1042,7 @@ hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
     memcpy(dst, src, sizeBytes);
     RETURN(hipSuccess);
   } else {
-    RETURN(stream->memCopy(dst, src, sizeBytes));
+    RETURN(stream->memCopyAsync(dst, src, sizeBytes));
   }
 }
 
@@ -1054,9 +1054,7 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
     memcpy(dst, src, sizeBytes);
     RETURN(hipSuccess);
   } else {
-    hipError_t retval = Backend->getActiveQueue()->memCopy(dst, src, sizeBytes);
-    Backend->getActiveQueue()->finish();  // TODO Is this necessary?
-    RETURN(retval);
+    RETURN(Backend->getActiveQueue()->memCopy(dst, src, sizeBytes));
   }
 }
 
@@ -1086,6 +1084,72 @@ hipError_t hipMemcpyDtoHAsync(void *dst, hipDeviceptr_t src, size_t sizeBytes,
 
 hipError_t hipMemcpyDtoH(void *dst, hipDeviceptr_t src, size_t sizeBytes) {
   return hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToHost);
+}
+
+hipError_t hipMemsetD32Async(hipDeviceptr_t dst, int value, size_t count,
+                             hipStream_t stream) {
+  HIPxxInitialize();
+
+  if (stream == nullptr) stream = Backend->getActiveQueue();
+
+  stream->memFillAsync(dst, 4 * count, &value, 4);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemsetD32(hipDeviceptr_t dst, int value, size_t count) {
+  HIPxxInitialize();
+
+  Backend->getActiveQueue()->memFill(dst, 4 * count, &value, 4);
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemset2DAsync(void *dst, size_t pitch, int value, size_t width,
+                            size_t height, hipStream_t stream) {
+  size_t sizeBytes = pitch * height;
+  return hipMemsetAsync(dst, value, sizeBytes, stream);
+}
+
+hipError_t hipMemset2D(void *dst, size_t pitch, int value, size_t width,
+                       size_t height) {
+  size_t sizeBytes = pitch * height;
+  return hipMemset(dst, value, sizeBytes);
+}
+
+hipError_t hipMemset3DAsync(hipPitchedPtr pitchedDevPtr, int value,
+                            hipExtent extent, hipStream_t stream) {
+  size_t sizeBytes = pitchedDevPtr.pitch * extent.height * extent.depth;
+  return hipMemsetAsync(pitchedDevPtr.ptr, value, sizeBytes, stream);
+}
+
+hipError_t hipMemset3D(hipPitchedPtr pitchedDevPtr, int value,
+                       hipExtent extent) {
+  size_t sizeBytes = pitchedDevPtr.pitch * extent.height * extent.depth;
+  return hipMemset(pitchedDevPtr.ptr, value, sizeBytes);
+}
+
+hipError_t hipMemsetAsync(void *dst, int value, size_t sizeBytes,
+                          hipStream_t stream) {
+  HIPxxInitialize();
+
+  if (stream == nullptr) stream = Backend->getActiveQueue();
+  char c_value = value;
+  stream->memFillAsync(dst, sizeBytes, &c_value, 1);
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemset(void *dst, int value, size_t sizeBytes) {
+  HIPxxInitialize();
+
+  char c_value = value;
+  Backend->getActiveQueue()->memFill(dst, sizeBytes, &c_value, 1);
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value,
+                       size_t sizeBytes) {
+  return hipMemset(dest, value, sizeBytes);
 }
 
 //*****************************************************************************

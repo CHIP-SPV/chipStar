@@ -256,7 +256,7 @@ class HIPxxContext {
                          HIPxxMemoryType mem_type);  // TODO HIPxx
   bool free(void* ptr);                              // TODO HIPxx
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream) = 0;
+                             hipStream_t stream);  // TODO HIPxx
 
   virtual bool registerFunctionAsKernel(std::string* module_str,
                                         const void* HostFunctionPtr,
@@ -362,7 +362,13 @@ class HIPxxQueue {
   HIPxxQueue();
   ~HIPxxQueue();
 
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size) = 0;
+  virtual hipError_t memCopy(void* dst, const void* src, size_t size);
+  virtual hipError_t memCopyAsync(void* dst, const void* src, size_t size);
+
+  virtual void memFill(void* dst, size_t size, const void* pattern,
+                       size_t pattern_size);
+  virtual void memFillAsync(void* dst, size_t size, const void* pattern,
+                            size_t pattern_size);
 
   /// Submit a kernel for execution
   virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
