@@ -796,6 +796,62 @@ hipError_t hipMemAdvise(const void *ptr, size_t count, hipMemoryAdvise advice,
   RETURN(hipSuccess);
 }
 
+hipError_t hipHostGetDevicePointer(void **devPtr, void *hstPtr,
+                                   unsigned int flags) {
+  HIPxxInitialize();
+
+  ERROR_IF(((hstPtr == nullptr) || (devPtr == nullptr)), hipErrorInvalidValue);
+
+#ifdef HIPXX_ABORT_ON_UNIMPL
+  logCritical("hipHostGetDevicePointer not yet implemented");
+  std::abort();
+#else
+  logWarn(
+      "hipHostGetDevicePointer returning devPtr as hostPtr - assuming "
+      "allocation was shared");
+  *devPtr = hstPtr;
+#endif
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipHostGetFlags(unsigned int *flagsPtr, void *hostPtr) {
+  HIPxxInitialize();
+
+#ifdef HIPXX_ABORT_ON_UNIMPL
+  logCritical("hipHostGetFlags not yet implemented");
+  std::abort();
+#else
+  logWarn("hipHostGetFlags always returns 0");
+  *flagsPtr = 0;
+#endif
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipHostRegister(void *hostPtr, size_t sizeBytes,
+                           unsigned int flags) {
+  HIPxxInitialize();
+#ifdef HIPXX_ABORT_ON_UNIMPL
+  logCritical("hipHostRegister not yet implemented");
+  std::abort();
+#else
+  logWarn("hipHostRegister does nothing");
+#endif
+  RETURN(hipSuccess);
+}
+
+hipError_t hipHostUnregister(void *hostPtr) {
+  HIPxxInitialize();
+#ifdef HIPXX_ABORT_ON_UNIMPL
+  logCritical("hipHostUnregister not yet implemented");
+  std::abort();
+#else
+  logWarn("hipHostUnregister does nothing");
+#endif
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
