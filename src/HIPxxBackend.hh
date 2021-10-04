@@ -252,6 +252,7 @@ class HIPxxContext {
   virtual void* allocate(size_t size, HIPxxMemoryType mem_type);  // TODO HIPxx
   virtual void* allocate(size_t size, size_t alignment,
                          HIPxxMemoryType mem_type);  // TODO HIPxx
+  bool free(void* ptr);                              // TODO HIPxx
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) = 0;
 

@@ -740,6 +740,21 @@ hipError_t hipHostAlloc(void **ptr, size_t size, unsigned int flags) {
   return hipMalloc(ptr, size);
 }
 
+hipError_t hipFree(void *ptr) {
+  HIPxxInitialize();
+  ERROR_IF((ptr == nullptr), hipSuccess);
+
+  if (Backend->getActiveContext()->free(ptr))
+    RETURN(hipSuccess);
+  else
+    RETURN(hipErrorInvalidDevicePointer);
+}
+
+hipError_t hipHostFree(void *ptr) { return hipFree(ptr); }
+
+DEPRECATED("use hipHostFree instead")
+hipError_t hipFreeHost(void *ptr) { return hipHostFree(ptr); }
+
 hipError_t hipMemPrefetchAsync(const void *ptr, size_t count, int dstDevId,
                                hipStream_t stream) {
   HIPxxInitialize();
