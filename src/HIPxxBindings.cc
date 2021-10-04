@@ -750,7 +750,12 @@ hipError_t hipFree(void *ptr) {
     RETURN(hipErrorInvalidDevicePointer);
 }
 
-hipError_t hipHostFree(void *ptr) { return hipFree(ptr); }
+hipError_t hipHostFree(void *ptr) {
+  // Can I just call hipFree? what is no Unified memory?
+  logCritical("hipHostFree not yet implemented");
+  std::abort();
+  RETURN(hipFree(ptr));
+}
 
 DEPRECATED("use hipHostFree instead")
 hipError_t hipFreeHost(void *ptr) { return hipHostFree(ptr); }
