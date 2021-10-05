@@ -75,9 +75,9 @@ class HIPxxModule {
    * @param module_str binary representation of a module
    */
   virtual void compile(std::string* module_str);
-  virtual bool getSymbolAddressSize(const char* name, void* dptr,
-                                    size_t* bytes);  // TODO Make virtual
-  virtual bool symbolSupported();                    // TODO Make virtual
+  virtual bool getDynGlobalVar(const char* name, void* dptr,
+                               size_t* bytes);  // TODO Make virtual
+  virtual bool symbolSupported();               // TODO Make virtual
 };
 
 /**
@@ -125,6 +125,21 @@ class HIPxxExecItem {
   virtual hipError_t launchByHostPtr(const void* hostPtr);
 };
 
+class HIPxxDeviceVar {
+ private:
+  std::string host_var_name;
+  void* dev_ptr;
+  size_t size;
+
+ public:
+  HIPxxDeviceVar(std::string host_var_name_, void* dev_ptr_, size_t size);
+  ~HIPxxDeviceVar();
+
+  void* getDevAddr();
+  std::string getName();
+  size_t getSize();
+};
+
 /**
  * @brief Compute device class
  */
@@ -147,13 +162,21 @@ class HIPxxDevice {
   std::vector<HIPxxModule*> hipxx_modules;
 
   /// Map host pointer to module in binary representation
-  std::map<const void*, std::string*> host_ptr_to_module_str_map;
+  std::unordered_map<const void*, std::string*> host_ptr_to_module_str_map;
   /// Map host pointer to module in parsed representation
-  std::map<const void*, HIPxxModule*> host_ptr_to_hipxxmodule_map;
+  std::unordered_map<const void*, HIPxxModule*> host_ptr_to_hipxxmodule_map;
   /// Map host pointer to a function name
-  std::map<const void*, std::string> host_ptr_to_name_map;
+  std::unordered_map<const void*, std::string> host_ptr_to_name_map;
   /// Map host pointer to HIPxxKernel
-  std::map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
+  std::unordered_map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
+  /// Map host variable address to device pointer and size for statically loaded
+  /// global vars
+  std::unordered_map<const void*, HIPxxDeviceVar*>
+      host_var_ptr_to_hipxxdevicevar_stat;
+  /// Map host variable address to device pointer and size for dynamically
+  /// loaded global vars
+  std::unordered_map<const void*, HIPxxDeviceVar*>
+      host_var_ptr_to_hipxxdevicevar_dyn;
 
   int idx;
   hipDeviceProp_t hip_device_props;
@@ -218,6 +241,10 @@ class HIPxxDevice {
                            bool canAccessPeer);  // TODO HIPxx
 
   size_t getUsedGlobalMem();  // TODO HIPxx
+
+  HIPxxDeviceVar* getDynGlobalVar(const void* host_var_ptr);   // TODO HIPxx
+  HIPxxDeviceVar* getStatGlobalVar(const void* host_var_ptr);  // TODO HIPxx
+  HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);      // TODO HIPxx
 };
 
 /**

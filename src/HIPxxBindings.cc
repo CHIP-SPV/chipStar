@@ -1358,11 +1358,95 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *dptr, size_t *bytes,
   HIPxxInitialize();
 
   ERROR_IF((!dptr || !bytes || !name || !hmod), hipErrorInvalidValue);
-  ERROR_IF((!hmod->symbolSupported()), hipErrorNotSupported);
-  ERROR_IF((!hmod->getSymbolAddressSize(name, dptr, bytes)),
-           hipErrorInvalidSymbol);
+  // TODO HIPLZ This returns true?
+  // ERROR_IF((!hmod->symbolSupported()), hipErrorNotSupported);
+  ERROR_IF((!hmod->getDynGlobalVar(name, dptr, bytes)), hipErrorInvalidSymbol);
 
   RETURN(hipSuccess);
+}
+
+hipError_t hipGetSymbolSize(size_t *size, const void *symbol) {
+  HIPxxInitialize();
+
+  HIPxxDeviceVar *var = Backend->getActiveDevice()->getGlobalVar(symbol);
+  ERROR_IF(!var, hipErrorInvalidSymbol);
+
+  *size = var->getSize();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpyToSymbol(const void *symbol, const void *src,
+                             size_t sizeBytes, size_t offset,
+                             hipMemcpyKind kind) {
+  HIPxxInitialize();
+
+  hipError_t e = hipMemcpyToSymbolAsync(symbol, src, sizeBytes, offset, kind,
+                                        Backend->getActiveQueue());
+  if (e != hipSuccess) RETURN(e);
+
+  Backend->getActiveQueue()->finish();
+
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpyToSymbolAsync(const void *symbol, const void *src,
+                                  size_t sizeBytes, size_t offset,
+                                  hipMemcpyKind kind, hipStream_t stream) {
+  HIPxxInitialize();
+
+  if (!stream) stream = Backend->getActiveQueue();
+
+  void *symPtr = NULL;
+  size_t symSize = 0;
+  HIPxxDeviceVar *var = Backend->getActiveDevice()->getGlobalVar(symbol);
+  ERROR_IF(!var, hipErrorInvalidSymbol);
+
+  RETURN(hipMemcpyAsync((void *)((intptr_t)symPtr + offset), src, sizeBytes,
+                        kind, stream));
+}
+
+hipError_t hipMemcpyFromSymbol(void *dst, const void *symbol, size_t sizeBytes,
+                               size_t offset, hipMemcpyKind kind) {
+  HIPxxInitialize();
+
+  hipError_t e = hipMemcpyFromSymbolAsync(dst, symbol, sizeBytes, offset, kind,
+                                          Backend->getActiveQueue());
+  if (e != hipSuccess) RETURN(e);
+
+  Backend->getActiveQueue()->finish();
+  RETURN(hipSuccess);
+}
+
+hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol,
+                                    size_t sizeBytes, size_t offset,
+                                    hipMemcpyKind kind, hipStream_t stream) {
+  HIPxxInitialize();
+
+  void *symPtr;
+  size_t symSize;
+
+  HIPxxDeviceVar *var = stream->getDevice()->getGlobalVar(symbol);
+  ERROR_IF(!var, hipErrorInvalidSymbol);
+
+  RETURN(hipMemcpyAsync(dst, (void *)((intptr_t)symPtr + offset), sizeBytes,
+                        kind, stream));
+}
+
+hipError_t hipModuleLoadData(hipModule_t *module, const void *image) {
+#ifdef HIPXX_ABORT_ON_UNIMPL
+  logCritical("hipModuleLoadData not yet implemented");
+  std::abort();
+#else
+  logWarn("hipModuleLoadData not yet implemented");
+#endif
+  RETURN(hipSuccess);
+}
+
+hipError_t hipModuleLoadDataEx(hipModule_t *module, const void *image,
+                               unsigned int numOptions, hipJitOption *options,
+                               void **optionValues) {
+  return hipModuleLoadData(module, image);
 }
 
 //*****************************************************************************
