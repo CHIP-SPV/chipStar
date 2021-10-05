@@ -755,9 +755,7 @@ hipError_t hipFree(void *ptr) {
 }
 
 hipError_t hipHostFree(void *ptr) {
-  // Can I just call hipFree? what is no Unified memory?
-  logCritical("hipHostFree not yet implemented");
-  std::abort();
+  HIPxxInitialize();
   RETURN(hipFree(ptr));
 }
 
