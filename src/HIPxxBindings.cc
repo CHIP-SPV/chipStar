@@ -1024,8 +1024,7 @@ hipError_t hipMemPtrGetInfo(void *ptr, size_t *size) {
 hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
                           hipMemcpyKind kind, hipStream_t stream) {
   HIPxxInitialize();
-
-  if (stream == nullptr) stream = Backend->getActiveQueue();
+  if (!stream) stream = Backend->getActiveQueue();
 
   /*
   if ((kind == hipMemcpyDeviceToDevice) || (kind == hipMemcpyDeviceToHost)) {
@@ -1089,8 +1088,7 @@ hipError_t hipMemcpyDtoH(void *dst, hipDeviceptr_t src, size_t sizeBytes) {
 hipError_t hipMemsetD32Async(hipDeviceptr_t dst, int value, size_t count,
                              hipStream_t stream) {
   HIPxxInitialize();
-
-  if (stream == nullptr) stream = Backend->getActiveQueue();
+  if (!stream) stream = Backend->getActiveQueue();
 
   stream->memFillAsync(dst, 4 * count, &value, 4);
   RETURN(hipSuccess);
@@ -1130,8 +1128,8 @@ hipError_t hipMemset3D(hipPitchedPtr pitchedDevPtr, int value,
 hipError_t hipMemsetAsync(void *dst, int value, size_t sizeBytes,
                           hipStream_t stream) {
   HIPxxInitialize();
+  if (!stream) stream = Backend->getActiveQueue();
 
-  if (stream == nullptr) stream = Backend->getActiveQueue();
   char c_value = value;
   stream->memFillAsync(dst, sizeBytes, &c_value, 1);
 
@@ -1164,6 +1162,7 @@ hipError_t hipMemcpy2DAsync(void *dst, size_t dpitch, const void *src,
                             size_t spitch, size_t width, size_t height,
                             hipMemcpyKind kind, hipStream_t stream) {
   HIPxxInitialize();
+  if (!stream) stream = Backend->getActiveQueue();
 
   if (spitch == 0) spitch = width;
   if (dpitch == 0) dpitch = width;
@@ -1394,7 +1393,6 @@ hipError_t hipMemcpyToSymbolAsync(const void *symbol, const void *src,
                                   size_t sizeBytes, size_t offset,
                                   hipMemcpyKind kind, hipStream_t stream) {
   HIPxxInitialize();
-
   if (!stream) stream = Backend->getActiveQueue();
 
   void *symPtr = NULL;
@@ -1422,6 +1420,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol,
                                     size_t sizeBytes, size_t offset,
                                     hipMemcpyKind kind, hipStream_t stream) {
   HIPxxInitialize();
+  if (!stream) stream = Backend->getActiveQueue();
 
   void *symPtr;
   size_t symSize;
