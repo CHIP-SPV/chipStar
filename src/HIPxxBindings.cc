@@ -1448,6 +1448,19 @@ hipError_t hipModuleLoadDataEx(hipModule_t *module, const void *image,
   return hipModuleLoadData(module, image);
 }
 
+hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
+                           dim3 blockDim, void **args, size_t sharedMem,
+                           hipStream_t stream) {
+  HIPxxInitialize();
+  if (!stream) stream = Backend->getActiveQueue();
+
+  if (!stream->launchHostFunc(hostFunction, gridDim, blockDim, args,
+                              sharedMem)) {
+    RETURN(hipErrorLaunchFailure);
+  }
+  RETURN(hipSuccess);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

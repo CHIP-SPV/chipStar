@@ -411,6 +411,8 @@ class HIPxxQueue {
   int getPriority();                                               // TODO HIPxx
   bool addCallback(hipStreamCallback_t callback, void* userData);  // TODO HIPxx
   bool memPrefetch(const void* ptr, size_t count);                 // TODO HIPxx
+  bool launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
+                      void** args, size_t sharedMemBytes);  // TODO HIPxx
 };
 
 #endif
