@@ -1461,6 +1461,20 @@ hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
   RETURN(hipSuccess);
 }
 
+hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
+                                  hipResourceDesc *resDesc,
+                                  hipTextureDesc *texDesc, void *opt) {
+  HIPxxInitialize();
+
+  hipTextureObject_t retObj =
+      Backend->getActiveContext()->createImage(resDesc, texDesc);
+  if (retObj != nullptr) {
+    *texObj = retObj;
+    RETURN(hipSuccess);
+  } else
+    RETURN(hipErrorLaunchFailure);
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************

@@ -298,6 +298,7 @@ class HIPxxContext {
   HIPxxContext* retain();                              // TODO HIPxx
   bool recordEvent(HIPxxQueue* q, HIPxxEvent* event);  // TODO HIPxx
   size_t getPointerSize(void* ptr);                    // TODO HIPxx
+  HIPxxTexture* createImage(hipResourceDesc* resDesc, hipTextureDesc* texDesc);
 };
 
 /**
