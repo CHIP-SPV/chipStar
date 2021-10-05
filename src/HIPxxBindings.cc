@@ -231,9 +231,15 @@ hipError_t hipDeviceGetByPCIBusId(int *deviceId, const char *pciBusId) {
 }
 
 hipError_t hipSetDeviceFlags(unsigned flags) {
-  // TODO
   HIPxxInitialize();
+
+#ifdef HIPXX_ABORT_ON_UNIMPL
   logCritical("hipSetDeviceFlags not yet implemented");
+  std::abort();
+#else
+  logWarn("hipSetDeviceFlags does nothing");
+#endif
+
   RETURN(hipSuccess);
 }
 
@@ -790,10 +796,14 @@ hipError_t hipMemAdvise(const void *ptr, size_t count, hipMemoryAdvise advice,
     RETURN(hipSuccess);
   }
 
+#ifdef HIPXX_ABORT_ON_UNIMPL
   // hipError_t retval = cont->memAdvise(ptr, count, advice);
   // ERROR_IF(retval != hipSuccess, hipErrorInvalidDevice);
   logCritical("hipMemAdvise not yet implemented");
   std::abort();
+#else
+  logWarn("hipHostGetFlags always returns 0");
+#endif
 
   RETURN(hipSuccess);
 }
@@ -808,9 +818,7 @@ hipError_t hipHostGetDevicePointer(void **devPtr, void *hstPtr,
   logCritical("hipHostGetDevicePointer not yet implemented");
   std::abort();
 #else
-  logWarn(
-      "hipHostGetDevicePointer returning devPtr as hostPtr - assuming "
-      "allocation was shared");
+  logWarn("hipHostGetDevicePointer returning devPtr as hostPtr");
   *devPtr = hstPtr;
 #endif
 
