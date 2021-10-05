@@ -16,6 +16,8 @@
 #ifndef HIPXX_BINDINGS_H
 #define HIPXX_BINDINGS_H
 
+#include <fstream>
+
 #include "HIPxxBackend.hh"
 #include "HIPxxDriver.hh"
 #include "hip/hip_fatbin.h"
@@ -1473,6 +1475,74 @@ hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
     RETURN(hipSuccess);
   } else
     RETURN(hipErrorLaunchFailure);
+}
+
+hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {
+  HIPxxInitialize();
+
+  std::ifstream file(fname, std::ios::in | std::ios::binary | std::ios::ate);
+  ERROR_IF((file.fail()), hipErrorFileNotFound);
+
+  size_t size = file.tellg();
+  char *memblock = new char[size];
+  file.seekg(0, std::ios::beg);
+  file.read(memblock, size);
+  file.close();
+  std::string content(memblock, size);
+  delete[] memblock;
+
+  HIPxxModule *hipxx_module = new HIPxxModule(std::move(content));
+  RETURN(Backend->addModule(hipxx_module));
+}
+
+hipError_t hipModuleUnload(hipModule_t module) {
+  HIPxxInitialize();
+
+  RETURN(Backend->removeModule(module));
+}
+
+hipError_t hipModuleGetFunction(hipFunction_t *function, hipModule_t module,
+                                const char *kname) {
+  HIPxxInitialize();
+
+  ERROR_IF(!module, hipErrorInvalidValue);
+  HIPxxKernel *kernel = module->getKernel(kname);
+
+  ERROR_IF((kernel == nullptr), hipErrorInvalidDeviceFunction);
+
+  *function = kernel;
+  RETURN(hipSuccess);
+}
+
+hipError_t hipModuleLaunchKernel(hipFunction_t k, unsigned int gridDimX,
+                                 unsigned int gridDimY, unsigned int gridDimZ,
+                                 unsigned int blockDimX, unsigned int blockDimY,
+                                 unsigned int blockDimZ,
+                                 unsigned int sharedMemBytes,
+                                 hipStream_t stream, void **kernelParams,
+                                 void **extra) {
+  HIPxxInitialize();
+  if (!stream) stream = Backend->getActiveQueue();
+
+  if (sharedMemBytes > 0) {
+    logCritical("Dynamic shared memory not yet implemented");
+    RETURN(hipErrorLaunchFailure);
+  }
+
+  if (kernelParams == nullptr && extra == nullptr) {
+    logError("either kernelParams or extra is required!\n");
+    RETURN(hipErrorLaunchFailure);
+  }
+
+  dim3 grid(gridDimX, gridDimY, gridDimZ);
+  dim3 block(blockDimX, blockDimY, blockDimZ);
+
+  if (kernelParams)
+    RETURN(stream->launchWithKernelParams(grid, block, sharedMemBytes,
+                                          kernelParams, k));
+  else
+    RETURN(
+        stream->launchWithExtraParams(grid, block, sharedMemBytes, extra, k));
 }
 
 //*****************************************************************************

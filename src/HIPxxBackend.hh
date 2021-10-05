@@ -64,6 +64,7 @@ class HIPxxModule {
  public:
   HIPxxModule();
   ~HIPxxModule();
+  HIPxxModule(std::string&& module_str);
   HIPxxModule(std::string* module_str);
 
   void addKernel(void* host_f_ptr, std::string host_f_name);
@@ -78,6 +79,7 @@ class HIPxxModule {
   virtual bool getDynGlobalVar(const char* name, void* dptr,
                                size_t* bytes);  // TODO Make virtual
   virtual bool symbolSupported();               // TODO Make virtual
+  HIPxxKernel* getKernel(std::string name);     // TODO HIPxx
 };
 
 /**
@@ -370,6 +372,21 @@ class HIPxxBackend {
 
   HIPxxDevice* findDeviceMatchingProps(
       const hipDeviceProp_t* props);  // HIPxx TODO
+
+  /**
+   * @brief Add a HIPxxModule to every initialized device
+   *
+   * @param hipxx_module pointer to HIPxxModule object
+   * @return hipError_t
+   */
+  hipError_t addModule(HIPxxModule* hipxx_module);
+  /**
+   * @brief Remove this module from every device
+   *
+   * @param hipxx_module pointer to the module which is to be removed
+   * @return hipError_t
+   */
+  hipError_t removeModule(HIPxxModule* hipxx_module);
 };
 
 /**
@@ -414,6 +431,12 @@ class HIPxxQueue {
   bool memPrefetch(const void* ptr, size_t count);                 // TODO HIPxx
   bool launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
                       void** args, size_t sharedMemBytes);  // TODO HIPxx
+  hipError_t launchWithKernelParams(dim3 grid, dim3 block,
+                                    unsigned int sharedMemBytes, void** args,
+                                    HIPxxKernel* kernel);
+  hipError_t launchWithExtraParams(dim3 grid, dim3 block,
+                                   unsigned int sharedMemBytes, void** extra,
+                                   HIPxxKernel* kernel);
 };
 
 #endif
