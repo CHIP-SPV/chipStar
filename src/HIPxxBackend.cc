@@ -355,13 +355,6 @@ bool HIPxxBackend::registerFunctionAsKernel(std::string *module_str,
 HIPxxQueue::HIPxxQueue(){};
 HIPxxQueue::~HIPxxQueue(){};
 
-std::string HIPxxQueue::getInfo() {
-  // TODO review this
-  std::string info;
-  info = hipxx_device->getName();
-  return info;
-}
-
 HIPxxDevice *HIPxxQueue::getDevice() {
   if (hipxx_device == nullptr) {
     logCritical(

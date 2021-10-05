@@ -78,7 +78,6 @@ class HIPxxModule {
   virtual void compile(std::string* module_str);
   virtual bool getDynGlobalVar(const char* name, void* dptr,
                                size_t* bytes);  // TODO Make virtual
-  virtual bool symbolSupported();               // TODO Make virtual
   HIPxxKernel* getKernel(std::string name);     // TODO HIPxx
 };
 
@@ -417,8 +416,6 @@ class HIPxxQueue {
 
   /// Submit a kernel for execution
   virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
-
-  virtual std::string getInfo();
 
   HIPxxDevice* getDevice();
   virtual void finish() = 0;
