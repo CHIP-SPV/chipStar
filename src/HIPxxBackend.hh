@@ -30,6 +30,12 @@
 #include "macros.hh"
 
 enum class HIPxxMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
+enum class HIPxxEventType : unsigned {
+  Default = hipEventDefault,
+  BlockingSync = hipEventBlockingSync,
+  DisableTiming = hipEventDisableTiming,
+  Interprocess = hipEventInterprocess
+};
 
 // fw declares
 class HIPxxExecItem;
@@ -40,19 +46,64 @@ class HIPxxDevice;
 class HIPxxEvent {
  protected:
   std::mutex mutex;
-  HIPxxQueue* hipxx_queue;
   event_status_e status;
-  unsigned flags;
+  /**
+   * @brief event bahavior modifier -  valid values are hipEventDefault,
+   * hipEventBlockingSync, hipEventDisableTiming, hipEventInterprocess
+   *
+   */
+  HIPxxEventType flags;
+  /**
+   * @brief Events are always created with a context
+   *
+   */
   HIPxxContext* hipxx_context;
 
  public:
-  HIPxxEvent(HIPxxContext* ctx_, unsigned flags_);
-  HIPxxEvent();
+  /**
+   * @brief HIPxxEvent constructor. Must always be created with some context.
+   *
+   */
+  HIPxxEvent(HIPxxContext* ctx_, unsigned flags_ = 0);
+  /**
+   * @brief Deleted default constructor for HIPxxEvent
+   *
+   */
+  HIPxxEvent() = delete;
+  /**
+   * @brief Destroy the HIPxxEvent object
+   *
+   */
   ~HIPxxEvent();
-
+  /**
+   * @brief Enqueue this event in a given HIPxxQueue
+   *
+   * @param hipxx_queue_ HIPxxQueue in which to enque this event
+   * @return true
+   * @return false
+   */
   virtual bool recordStream(HIPxxQueue* hipxx_queue_);
+  /**
+   * @brief Wait for this event to complete
+   *
+   * @return true
+   * @return false
+   */
   virtual bool wait();
+  /**
+   * @brief Query the event to see if it completed
+   *
+   * @return true
+   * @return false
+   */
   virtual bool isFinished();
+  /**
+   * @brief Calculate absolute difference between completion timestamps of this
+   * event and other
+   *
+   * @param other
+   * @return float
+   */
   virtual float getElapsedTime(HIPxxEvent* other);
 };
 
