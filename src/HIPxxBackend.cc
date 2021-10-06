@@ -71,7 +71,6 @@ HIPxxDeviceVar *HIPxxModule::getGlobalVar(std::string name) {
 
 // HIPxxKernel
 //*************************************************************************************
-HIPxxKernel::HIPxxKernel(){};
 HIPxxKernel::~HIPxxKernel(){};
 std::string HIPxxKernel::getName() { return host_f_name; }
 const void *HIPxxKernel::getHostPtr() { return host_f_ptr; }

@@ -60,9 +60,10 @@ class HIPxxKernelLevel0 : public HIPxxKernel {
   ze_kernel_handle_t ze_kernel;
 
  public:
+  HIPxxKernelLevel0(){};
   HIPxxKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
-                    const void* _host_ptr)
-      : ze_kernel(_ze_kernel) {
+                    const void* _host_ptr) {
+    ze_kernel = _ze_kernel;
     host_f_name = _funcName;
     host_f_ptr = _host_ptr;
     logTrace("HIPxxKernelLevel0 constructor via ze_kernel_handle");

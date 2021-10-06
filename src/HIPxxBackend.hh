@@ -74,6 +74,13 @@ class HIPxxEvent {
    */
   HIPxxContext* hipxx_context;
 
+  /**
+   * @brief hidden default constructor for HIPxxEvent. Only derived class
+   * constructor should be called.
+   *
+   */
+  HIPxxEvent() = default;
+
  public:
   /**
    * @brief HIPxxEvent constructor. Must always be created with some context.
@@ -81,11 +88,6 @@ class HIPxxEvent {
    */
   HIPxxEvent(HIPxxContext* ctx_,
              HIPxxEventType flags_ = HIPxxEventType::Default);
-  /**
-   * @brief Deleted default constructor for HIPxxEvent
-   *
-   */
-  HIPxxEvent() = delete;
   /**
    * @brief Destroy the HIPxxEvent object
    *
@@ -143,12 +145,14 @@ class HIPxxModule {
   // Kernel JIT compilation can be lazy
   std::once_flag compiled;
 
- public:
   /**
-   * @brief Deleted default constuctor
+   * @brief hidden default constuctor. Only derived type constructor should be
+   * called.
    *
    */
-  HIPxxModule() = delete;
+  HIPxxModule() = default;
+
+ public:
   /**
    * @brief Destroy the HIPxxModule object
    *
@@ -225,6 +229,12 @@ class HIPxxModule {
  */
 class HIPxxKernel {
  protected:
+  /**
+   * @brief hidden default constructor. Only derived type constructor should be
+   * called.
+   *
+   */
+  HIPxxKernel() = default;
   /// Name of the function
   std::string host_f_name;
   /// Pointer to the host function
@@ -233,10 +243,25 @@ class HIPxxKernel {
   const void* dev_f_ptr;
 
  public:
-  HIPxxKernel();
   ~HIPxxKernel();
+
+  /**
+   * @brief Get the Name object
+   *
+   * @return std::string
+   */
   std::string getName();
+  /**
+   * @brief Get the associated host pointer to a host function
+   *
+   * @return const void*
+   */
   const void* getHostPtr();
+  /**
+   * @brief Get the associated funciton pointer on the device
+   *
+   * @return const void*
+   */
   const void* getDevPtr();
 };
 
