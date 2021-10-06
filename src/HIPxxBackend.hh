@@ -123,6 +123,14 @@ class HIPxxEvent {
   virtual float getElapsedTime(HIPxxEvent* other);
 };
 
+/**
+ * @brief Module abstraction. Contains global variables and kernels. Can be
+ * extracted from FatBinary or loaded at runtime.
+ * OpenCL - ClProgram
+ * Level Zero - zeModule
+ * ROCclr - amd::Program
+ * CUDA - CUmodule
+ */
 class HIPxxModule {
  protected:
   std::mutex mtx;
