@@ -37,6 +37,21 @@ enum class HIPxxEventType : unsigned {
   Interprocess = hipEventInterprocess
 };
 
+class HIPxxDeviceVar {
+ private:
+  std::string host_var_name;
+  void* dev_ptr;
+  size_t size;
+
+ public:
+  HIPxxDeviceVar(std::string host_var_name_, void* dev_ptr_, size_t size);
+  ~HIPxxDeviceVar();
+
+  void* getDevAddr();
+  std::string getName();
+  size_t getSize();
+};
+
 // fw declares
 class HIPxxExecItem;
 class HIPxxQueue;
@@ -64,7 +79,8 @@ class HIPxxEvent {
    * @brief HIPxxEvent constructor. Must always be created with some context.
    *
    */
-  HIPxxEvent(HIPxxContext* ctx_, unsigned flags_ = 0);
+  HIPxxEvent(HIPxxContext* ctx_,
+             HIPxxEventType flags_ = HIPxxEventType::Default);
   /**
    * @brief Deleted default constructor for HIPxxEvent
    *
@@ -109,27 +125,91 @@ class HIPxxEvent {
 
 class HIPxxModule {
  protected:
-  std::vector<HIPxxKernel*> hipxx_kernels;
   std::mutex mtx;
+  // Global variables
+  std::vector<HIPxxDeviceVar*> hipxx_vars;
+  // Kernels
+  std::vector<HIPxxKernel*> hipxx_kernels;
+  /// Binary representation extracted from FatBinary
+  std::string src;
+  // Kernel JIT compilation can be lazy
+  std::once_flag compiled;
 
  public:
-  HIPxxModule();
+  /**
+   * @brief Deleted default constuctor
+   *
+   */
+  HIPxxModule() = delete;
+  /**
+   * @brief Destroy the HIPxxModule object
+   *
+   */
   ~HIPxxModule();
-  HIPxxModule(std::string&& module_str);
+  /**
+   * @brief Construct a new HIPxxModule object.
+   * This constructor should be implemented by the derived class (specific
+   * backend implementation). Call to this constructor should result in a
+   * populated hipxx_kernels vector.
+   *
+   * @param module_str string prepresenting the binary extracted from FatBinary
+   */
   HIPxxModule(std::string* module_str);
-
-  void addKernel(void* host_f_ptr, std::string host_f_name);
+  /**
+   * @brief Construct a new HIPxxModule object using move semantics
+   *
+   * @param module_str string from which to move resources
+   */
+  HIPxxModule(std::string&& module_str);
 
   /**
-   * @brief Take a binary representation of a module, compile it, extract
-   * kernels and add them to this module;
+   * @brief Add a HIPxxKernel to this module.
+   * During initialization when the FatBinary is consumed, a HIPxxModule is
+   * constructed for every device. SPIR-V kernels reside in this module. This
+   * method is called called via the constructor during this initialization
+   * phase. Modules can also be loaded from a file during runtime, however.
    *
-   * @param module_str binary representation of a module
+   * @param kernel HIPxxKernel to be added to this module.
    */
-  virtual void compile(std::string* module_str);
-  virtual bool getDynGlobalVar(const char* name, void* dptr,
-                               size_t* bytes);  // TODO Make virtual
-  HIPxxKernel* getKernel(std::string name);     // TODO HIPxx
+  void addKernel(HIPxxKernel* kernel);
+
+  /**
+   * @brief Wrapper around compile() called via std::call_once
+   *
+   */
+  void compileOnce();
+  /**
+   * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
+   * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
+   * compiled until the first call to one of its kernels. If LAZY_JIT is set to
+   * false(default) then this method should be called in the constructor;
+   *
+   */
+  virtual void compile();
+  /**
+   * @brief Get the Global Var object
+   * A module, along with device kernels, can also contain global variables.
+   *
+   * @param name global variable name
+   * @return HIPxxDeviceVar*
+   */
+  HIPxxDeviceVar* getGlobalVar(std::string name);
+
+  /**
+   * @brief Get the Kernel object
+   *
+   * @param name name of the corresponding host function
+   * @return HIPxxKernel*
+   */
+  HIPxxKernel* getKernel(std::string name);
+
+  /**
+   * @brief Get the Kernel object
+   *
+   * @param host_f_ptr host-side function pointer
+   * @return HIPxxKernel*
+   */
+  HIPxxKernel* getKernel(const void* host_f_ptr);
 };
 
 /**
@@ -175,21 +255,6 @@ class HIPxxExecItem {
   void setArg(const void* arg, size_t size, size_t offset);
   virtual hipError_t launch(HIPxxKernel* Kernel);
   virtual hipError_t launchByHostPtr(const void* hostPtr);
-};
-
-class HIPxxDeviceVar {
- private:
-  std::string host_var_name;
-  void* dev_ptr;
-  size_t size;
-
- public:
-  HIPxxDeviceVar(std::string host_var_name_, void* dev_ptr_, size_t size);
-  ~HIPxxDeviceVar();
-
-  void* getDevAddr();
-  std::string getName();
-  size_t getSize();
 };
 
 /**

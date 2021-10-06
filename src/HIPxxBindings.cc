@@ -637,7 +637,8 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
 
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
-  HIPxxEvent *event_ptr = new HIPxxEvent(Backend->getActiveContext(), flags);
+  HIPxxEvent *event_ptr =
+      new HIPxxEvent(Backend->getActiveContext(), (HIPxxEventType)flags);
   if (event_ptr) {
     *event = event_ptr;
     RETURN(hipSuccess);
@@ -1365,9 +1366,7 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *dptr, size_t *bytes,
   HIPxxInitialize();
 
   ERROR_IF((!dptr || !bytes || !name || !hmod), hipErrorInvalidValue);
-  // TODO HIPLZ This returns true?
-  // ERROR_IF((!hmod->symbolSupported()), hipErrorNotSupported);
-  ERROR_IF((!hmod->getDynGlobalVar(name, dptr, bytes)), hipErrorInvalidSymbol);
+  HIPxxDeviceVar *var = hmod->getGlobalVar(name);
 
   RETURN(hipSuccess);
 }

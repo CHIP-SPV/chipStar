@@ -1,9 +1,8 @@
 #include "HIPxxBackend.hh"
 // HIPxxEvent
 // ************************************************************************
-HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, unsigned flags_in)
-    : status(EVENT_STATUS_INIT), flags(flags_in), hipxx_context(ctx_in) {}
-HIPxxEvent::HIPxxEvent() {}
+HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, HIPxxEventType event_type_)
+    : status(EVENT_STATUS_INIT), flags(event_type_), hipxx_context(ctx_in) {}
 HIPxxEvent::~HIPxxEvent() {}
 
 bool HIPxxEvent::recordStream(HIPxxQueue *hipxx_queue_){};
@@ -13,11 +12,61 @@ float HIPxxEvent::getElapsedTime(HIPxxEvent *other){};
 
 // HIPxxModule
 //*************************************************************************************
-void HIPxxModule::addKernel(void *HostFunctionPtr,
-                            std::string HostFunctionName) {
-  // TODO
-  HIPxxKernel *kernel = new HIPxxKernel();
+HIPxxModule::HIPxxModule(std::string *module_str) { src = *module_str; }
+HIPxxModule::HIPxxModule(std::string &&module_str) { src = module_str; }
+HIPxxModule::~HIPxxModule() {}
+
+void HIPxxModule::addKernel(HIPxxKernel *kernel) {
   hipxx_kernels.push_back(kernel);
+}
+
+void HIPxxModule::compileOnce() {
+  std::call_once(compiled, &HIPxxModule::compile, this);
+}
+
+void HIPxxModule::compile() {
+  logCritical(
+      "HIPxxModule::compile() base implementation should never be called");
+  std::abort();
+}
+
+HIPxxKernel *HIPxxModule::getKernel(std::string name) {
+  auto kernel = std::find_if(
+      hipxx_kernels.begin(), hipxx_kernels.end(),
+      [name](HIPxxKernel *k) { return k->getName().compare(name) == 0; });
+  if (kernel == hipxx_kernels.end()) {
+    logError("Failed to find kernel {} in module {}", name.c_str(),
+             (void *)this);
+    return nullptr;
+  }
+
+  return *kernel;
+}
+
+HIPxxKernel *HIPxxModule::getKernel(const void *host_f_ptr) {
+  auto kernel = std::find_if(
+      hipxx_kernels.begin(), hipxx_kernels.end(),
+      [host_f_ptr](HIPxxKernel *k) { return k->getHostPtr() == host_f_ptr; });
+  if (kernel == hipxx_kernels.end()) {
+    logError("Failed to find kernel with host pointer {} in module {}",
+             host_f_ptr, (void *)this);
+    return nullptr;
+  }
+
+  return *kernel;
+}
+
+HIPxxDeviceVar *HIPxxModule::getGlobalVar(std::string name) {
+  auto var = std::find_if(
+      hipxx_vars.begin(), hipxx_vars.end(),
+      [name](HIPxxDeviceVar *v) { return v->getName().compare(name) == 0; });
+  if (var == hipxx_vars.end()) {
+    logError("Failed to find global variable {} in module {}", name,
+             (void *)this);
+    return nullptr;
+  }
+
+  return *var;
 }
 
 // HIPxxKernel
