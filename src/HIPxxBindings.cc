@@ -1569,6 +1569,7 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
 hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
                             hipStream_t stream) {
   HIPxxInitialize();
+  if (!stream) stream = Backend->getActiveQueue();
   logTrace("hipConfigureCall()");
   RETURN(Backend->configureCall(gridDim, blockDim, sharedMem, stream));
   RETURN(hipSuccess);

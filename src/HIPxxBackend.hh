@@ -266,28 +266,99 @@ class HIPxxKernel {
 };
 
 /**
- * @brief a HIPxxKernel and argument container to be submitted to HIPxxQueue
+ * @brief Contains kernel arguments and a queue on which to execute.
+ * Prior to kernel launch, the arguments are setup via
+ * HIPxxBackend::configureCall(). Because of this, we get the kernel last so the
+ * kernel so the launch() takes a kernel argument as opposed to queue receiving
+ * a HIPxxExecItem containing the kernel and arguments
+ *
  */
 class HIPxxExecItem {
  protected:
   size_t shared_mem;
-  hipStream_t stream;
   std::vector<uint8_t> arg_data;
   std::vector<std::tuple<size_t, size_t>> offset_sizes;
 
- public:
-  HIPxxKernel* hipxx_kernel;
-  HIPxxQueue* hipxx_queue;
   dim3 grid_dim;
   dim3 block_dim;
 
+  HIPxxQueue* stream;
+  HIPxxKernel* hipxx_kernel;
+  HIPxxQueue* hipxx_queue;
+
+ public:
+  /**
+   * @brief Deleted default constructor
+   * Doesn't make sense for HIPxxExecItem to exist without arguments
+   *
+   */
+  HIPxxExecItem() = delete;
+  /**
+   * @brief Construct a new HIPxxExecItem object
+   *
+   * @param grid_dim_
+   * @param block_dim_
+   * @param shared_mem_
+   * @param hipxx_queue_
+   */
   HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
                 hipStream_t hipxx_queue_);
   ~HIPxxExecItem();
 
+  /**
+   * @brief Get the Kernel object
+   *
+   * @return HIPxxKernel* Kernel to be executed
+   */
+  HIPxxKernel* getKernel();
+  /**
+   * @brief Get the Queue object
+   *
+   * @return HIPxxQueue*
+   */
+  HIPxxQueue* getQueue();
+
+  /**
+   * @brief Get the Grid object
+   *
+   * @return dim3
+   */
+  dim3 getGrid();
+
+  /**
+   * @brief Get the Block object
+   *
+   * @return dim3
+   */
+  dim3 getBlock();
+
+  /**
+   * @brief Setup a single argument.
+   * gets called by hipSetupArgument calls to which are emitted by hip-clang.
+   *
+   * @param arg
+   * @param size
+   * @param offset
+   */
   void setArg(const void* arg, size_t size, size_t offset);
+
+  /**
+   * @brief Submit a kernel to the associated queue for execution.
+   * hipxx_queue must be set prior to this call.
+   *
+   * @param Kernel kernel which is to be launched
+   * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
+   */
   virtual hipError_t launch(HIPxxKernel* Kernel);
-  virtual hipError_t launchByHostPtr(const void* hostPtr);
+
+  /**
+   * @brief Launch a kernel associated with a host function pointer.
+   * Looks up the HIPxxKernel associated with this pointer and calls launch()
+   *
+   * @param hostPtr pointer to the host function
+   * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
+   */
+  hipError_t launchByHostPtr(const void* hostPtr);
 };
 
 /**

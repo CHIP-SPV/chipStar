@@ -90,10 +90,11 @@ void HIPxxExecItem::setArg(const void *arg, size_t size, size_t offset) {
   if ((offset + size) > arg_data.size()) arg_data.resize(offset + size + 1024);
 
   std::memcpy(arg_data.data() + offset, arg, size);
-  logDebug("HIPxxExecItem.set_arg() on {} size {} offset {}\n", (void *)this,
+  logDebug("HIPxxExecItem.setArg() on {} size {} offset {}\n", (void *)this,
            size, offset);
   offset_sizes.push_back(std::make_tuple(offset, size));
 }
+
 hipError_t HIPxxExecItem::launch(HIPxxKernel *Kernel) {
   logWarn("Calling HIPxxExecItem.launch() base launch which does nothing");
   return hipSuccess;
@@ -101,17 +102,16 @@ hipError_t HIPxxExecItem::launch(HIPxxKernel *Kernel) {
 
 hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
   if (hipxx_queue == nullptr) {
-    logCritical("HIPxxExecItem.launch() was called but queue pointer is null");
-    // TODO better errors
-    std::abort();
+    logCritical(
+        "HIPxxExecItem.launchByHostPtr() was called but queue pointer is null");
+    return (hipErrorLaunchFailure);
   }
 
   HIPxxDevice *dev = hipxx_queue->getDevice();
   this->hipxx_kernel = dev->findKernelByHostPtr(hostPtr);
   logTrace("Found kernel for host pointer {} : {}", hostPtr,
            hipxx_kernel->getName());
-  // TODO verify that all is in place either here or in HIPxxQueue
-  return hipxx_queue->launch(this);
+  return launch(hipxx_kernel);
 }
 
 // HIPxxDevice
@@ -358,8 +358,8 @@ void HIPxxBackend::unregisterModuleStr(std::string *mod_str) {
 
 hipError_t HIPxxBackend::configureCall(dim3 grid, dim3 block, size_t shared,
                                        hipStream_t q) {
-  logTrace("HIPxxBackend->configure_call()");
   std::lock_guard<std::mutex> Lock(mtx);
+  logTrace("HIPxxBackend->configureCall()");
   if (q == nullptr) q = getActiveQueue();
   HIPxxExecItem *ex = new HIPxxExecItem(grid, block, shared, q);
   hipxx_execstack.push(ex);
