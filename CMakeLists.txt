@@ -78,12 +78,7 @@ set(HIPXX_SRC
     src/logging.cc
     src/HIPxxBindings.cc
     src/backend/Level0/Level0Backend.cc
-    src/backend/OpenCL/HIPxxQueueOpenCL.cc
-    src/backend/OpenCL/HIPxxContextOpenCL.cc
-    src/backend/OpenCL/HIPxxDeviceOpenCL.cc
-    src/backend/OpenCL/HIPxxKernelOpenCL.cc
-    src/backend/OpenCL/HIPxxExecItemOpenCL.cc
-    src/backend/OpenCL/HIPxxEventOpenCL.cc
+    src/backend/OpenCL/HIPxxBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc
 )
 set(DRIVER_SRC src/main.cc)

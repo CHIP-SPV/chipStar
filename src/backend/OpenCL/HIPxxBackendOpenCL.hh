@@ -35,7 +35,12 @@ class HIPxxBackendOpenCL;
 class HIPxxModuleOpenCL;
 
 class HIPxxModuleOpenCL : public HIPxxModule {
+ protected:
+  cl::Program program;
+
+ public:
   virtual void compile(HIPxxDevice *hipxx_dev) override;
+  cl::Program &get() { return program; }
 };
 
 class SVMemoryRegion {
