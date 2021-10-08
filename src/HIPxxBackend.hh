@@ -197,6 +197,10 @@ class HIPxxModule {
    * compiled until the first call to one of its kernels. If LAZY_JIT is set to
    * false(default) then this method should be called in the constructor;
    *
+   * This method should populate this modules hipxx_kernels vector. These
+   * kernels would have a name extracted from the kernel but no associated host
+   * function pointers.
+   *
    */
   virtual void compile(HIPxxDevice* hipxx_dev);
   /**
@@ -410,11 +414,11 @@ class HIPxxDevice {
   std::vector<HIPxxModule*> hipxx_modules;
 
   /// Map host pointer to module in binary representation
-  std::unordered_map<const void*, std::string*> host_ptr_to_module_str_map;
+  std::unordered_map<const void*, std::string*> host_f_ptr_to_module_str_map;
   /// Map host pointer to module in parsed representation
-  std::unordered_map<const void*, HIPxxModule*> host_ptr_to_hipxxmodule_map;
+  std::unordered_map<const void*, HIPxxModule*> host_f_ptr_to_hipxxmodule_map;
   /// Map host pointer to a function name
-  std::unordered_map<const void*, std::string> host_ptr_to_name_map;
+  std::unordered_map<const void*, std::string> host_f_ptr_to_host_f_name_map;
   /// Map host pointer to HIPxxKernel
   std::unordered_map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
   /// Map host variable address to device pointer and size for statically loaded
@@ -504,6 +508,9 @@ class HIPxxDevice {
   HIPxxDeviceVar* getDynGlobalVar(const void* host_var_ptr);   // TODO HIPxx
   HIPxxDeviceVar* getStatGlobalVar(const void* host_var_ptr);  // TODO HIPxx
   HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);      // TODO HIPxx
+
+  void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
+                                const char* host_f_name);
 };
 
 /**
@@ -544,9 +551,6 @@ class HIPxxContext {
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream);  // TODO HIPxx
 
-  virtual bool registerFunctionAsKernel(std::string* module_str,
-                                        const void* HostFunctionPtr,
-                                        const char* FunctionName) = 0;
   hipError_t launchHostFunc(const void* HostFunction);
   void finishAll();
   bool findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
@@ -588,6 +592,17 @@ class HIPxxBackend {
   std::vector<HIPxxQueue*> hipxx_queues;
   std::vector<HIPxxDevice*> hipxx_devices;
 
+  // key for caching compiled modules. To get a cached compiled module on a
+  // particular device you must make sure that you have a module which matches
+  // the host funciton pointer and also that this module was compiled for the
+  // same device model.
+  // typedef  std::pair<const void*, std::string> ptr_dev;
+  // /**
+  //  * @brief
+  //  *
+  //  */
+  // std::unordered_map<ptr_dev, HIPxxModule*> host_f_ptr_to_hipxxmodule_map;
+
   HIPxxBackend();
   ~HIPxxBackend();
 
@@ -614,8 +629,8 @@ class HIPxxBackend {
   hipError_t setArg(const void* arg, size_t size, size_t offset);
 
   /**
-   * @brief Register this function as a kernel for all devices initialized in
-   * this backend
+   * @brief Register this function as a kernel for all devices initialized
+   * in this backend
    *
    * @param module_str
    * @param host_f_ptr

@@ -1,4 +1,5 @@
 #include "HIPxxBackend.hh"
+#include <utility>
 // HIPxxEvent
 // ************************************************************************
 HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, HIPxxEventType event_type_)
@@ -176,11 +177,11 @@ bool HIPxxDevice::getModuleAndFName(const void *host_f_ptr,
   logTrace("HIPxxDevice.getModuleAndFName");
   std::lock_guard<std::mutex> Lock(mtx);
 
-  auto it1 = host_ptr_to_hipxxmodule_map.find(host_f_ptr);
-  auto it2 = host_ptr_to_name_map.find(host_f_ptr);
+  auto it1 = host_f_ptr_to_hipxxmodule_map.find(host_f_ptr);
+  auto it2 = host_f_ptr_to_host_f_name_map.find(host_f_ptr);
 
-  if ((it1 == host_ptr_to_hipxxmodule_map.end()) ||
-      (it2 == host_ptr_to_name_map.end()))
+  if ((it1 == host_f_ptr_to_hipxxmodule_map.end()) ||
+      (it2 == host_f_ptr_to_host_f_name_map.end()))
     return false;
 
   host_f_name.assign(it2->second);
@@ -223,6 +224,36 @@ int HIPxxDevice::getAttr(int *pi, hipDeviceAttribute_t attr) {
   return 0;
 }
 
+void HIPxxDevice::registerFunctionAsKernel(std::string *module_str,
+                                           const void *host_f_ptr,
+                                           const char *host_f_name) {
+  HIPxxModule *hipxx_module;
+  auto hipxx_module_found = host_f_ptr_to_hipxxmodule_map.find(host_f_ptr);
+  if (hipxx_module_found != host_f_ptr_to_hipxxmodule_map.end()) {
+    hipxx_module = hipxx_module_found->second;
+  } else {
+    hipxx_module =
+        new HIPxxModule(module_str);  // Create a new module for this source
+    hipxx_module->compileOnce(this);  // Compile it
+    host_f_ptr_to_hipxxmodule_map[module_str] = hipxx_module;
+    // TODO Place it in the Backend cache
+  }
+  HIPxxKernel *kernel = hipxx_module->getKernel(std::string(host_f_name));
+  if (!kernel) {
+    logCritical(
+        "Device {}: tried to register host function <{}, {}> but failed to "
+        "find kernel with matching name",
+        getDeviceId(), host_f_ptr, host_f_name);
+    std::abort();
+  }
+
+  kernel->setHostPtr(host_f_ptr);
+  assert(kernel->getDevPtr() != nullptr);
+
+  hipxx_kernels.push_back(kernel);
+  logDebug("Device {}: successfully registered function as kernel.", getName());
+  return;
+}
 // HIPxxContext
 //*************************************************************************************
 HIPxxContext::HIPxxContext() {}
@@ -401,9 +432,9 @@ bool HIPxxBackend::registerFunctionAsKernel(std::string *module_str,
                                             const void *host_f_ptr,
                                             const char *host_f_name) {
   logTrace("HIPxxBackend.registerFunctionAsKernel()");
-  for (auto &ctx : hipxx_contexts) {
-    ctx->registerFunctionAsKernel(module_str, host_f_ptr, host_f_name);
-  }
+  for (auto &ctx : hipxx_contexts)
+    for (auto &dev : ctx->getDevices())
+      dev->registerFunctionAsKernel(module_str, host_f_ptr, host_f_name);
   return true;
 }
 

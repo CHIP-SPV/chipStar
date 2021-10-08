@@ -72,9 +72,6 @@ class HIPxxContextOpenCL : public HIPxxContext {
   void *allocate(size_t size) override;
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
-  virtual bool registerFunctionAsKernel(std::string *module_str,
-                                        const void *HostFunctionPtr,
-                                        const char *FunctionName) override;
 };
 
 class HIPxxDeviceOpenCL : public HIPxxDevice {
