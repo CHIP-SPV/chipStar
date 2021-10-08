@@ -35,7 +35,7 @@ class HIPxxBackendOpenCL;
 class HIPxxModuleOpenCL;
 
 class HIPxxModuleOpenCL : public HIPxxModule {
-  virtual void compile() override;
+  virtual void compile(HIPxxDevice *hipxx_dev) override;
 };
 
 class SVMemoryRegion {

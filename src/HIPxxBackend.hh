@@ -188,8 +188,9 @@ class HIPxxModule {
   /**
    * @brief Wrapper around compile() called via std::call_once
    *
+   * @param hipxx_dev device for which to compile the kernels
    */
-  void compileOnce();
+  void compileOnce(HIPxxDevice* hipxx_dev);
   /**
    * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
    * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
@@ -197,7 +198,7 @@ class HIPxxModule {
    * false(default) then this method should be called in the constructor;
    *
    */
-  virtual void compile();
+  virtual void compile(HIPxxDevice* hipxx_dev);
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
@@ -214,6 +215,13 @@ class HIPxxModule {
    * @return HIPxxKernel*
    */
   HIPxxKernel* getKernel(std::string name);
+
+  /**
+   * @brief Get the Kernels object
+   *
+   * @return std::vector<HIPxxKernel*>&
+   */
+  std::vector<HIPxxKernel*>& getKernels();
 
   /**
    * @brief Get the Kernel object
@@ -263,6 +271,25 @@ class HIPxxKernel {
    * @return const void*
    */
   const void* getDevPtr();
+
+  /**
+   * @brief Get the Name object
+   *
+   * @return std::string
+   */
+  void setName(std::string host_f_name_);
+  /**
+   * @brief Get the associated host pointer to a host function
+   *
+   * @return const void*
+   */
+  void setHostPtr(const void* host_f_ptr_);
+  /**
+   * @brief Get the associated funciton pointer on the device
+   *
+   * @return const void*
+   */
+  void setDevPtr(const void* hev_f_ptr_);
 };
 
 /**
@@ -414,8 +441,19 @@ class HIPxxDevice {
    * available, frequencies, etc.
    */
   virtual void populateDeviceProperties() = 0;
+  /**
+   * @brief Query the device for properties
+   *
+   * @param prop
+   */
   void copyDeviceProperties(hipDeviceProp_t* prop);
 
+  /**
+   * @brief Use the host function pointer to retrieve the kernel
+   *
+   * @param hostPtr
+   * @return HIPxxKernel* HIPxxKernel associated with this host pointer
+   */
   HIPxxKernel* findKernelByHostPtr(const void* hostPtr);
 
   /**

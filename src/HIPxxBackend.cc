@@ -20,11 +20,11 @@ void HIPxxModule::addKernel(HIPxxKernel *kernel) {
   hipxx_kernels.push_back(kernel);
 }
 
-void HIPxxModule::compileOnce() {
-  std::call_once(compiled, &HIPxxModule::compile, this);
+void HIPxxModule::compileOnce(HIPxxDevice *hipxx_dev) {
+  std::call_once(compiled, &HIPxxModule::compile, this, hipxx_dev);
 }
 
-void HIPxxModule::compile() {
+void HIPxxModule::compile(HIPxxDevice *hipxx_dev) {
   logCritical(
       "HIPxxModule::compile() base implementation should never be called");
   std::abort();
@@ -56,6 +56,8 @@ HIPxxKernel *HIPxxModule::getKernel(const void *host_f_ptr) {
   return *kernel;
 }
 
+std::vector<HIPxxKernel *> &HIPxxModule::getKernels() { return hipxx_kernels; }
+
 HIPxxDeviceVar *HIPxxModule::getGlobalVar(std::string name) {
   auto var = std::find_if(
       hipxx_vars.begin(), hipxx_vars.end(),
@@ -75,6 +77,14 @@ HIPxxKernel::~HIPxxKernel(){};
 std::string HIPxxKernel::getName() { return host_f_name; }
 const void *HIPxxKernel::getHostPtr() { return host_f_ptr; }
 const void *HIPxxKernel::getDevPtr() { return dev_f_ptr; }
+
+void HIPxxKernel::setName(std::string host_f_name_) {
+  host_f_name = host_f_name_;
+}
+void HIPxxKernel::setHostPtr(const void *host_f_ptr_) {
+  host_f_ptr = host_f_ptr_;
+}
+void HIPxxKernel::setDevPtr(const void *dev_f_ptr_) { dev_f_ptr = dev_f_ptr_; }
 
 // HIPxxExecItem
 //*************************************************************************************
