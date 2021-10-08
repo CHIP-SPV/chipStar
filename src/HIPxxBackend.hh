@@ -437,7 +437,11 @@ class HIPxxDevice {
   HIPxxDevice();
   ~HIPxxDevice();
 
-  void addKernel(HIPxxKernel* kernel);
+  /**
+   * @brief Get the Kernels object
+   *
+   * @return std::vector<HIPxxKernel*>&
+   */
   std::vector<HIPxxKernel*>& getKernels();
 
   /**
@@ -476,8 +480,6 @@ class HIPxxDevice {
   int getDeviceId();
   virtual std::string getName() = 0;
 
-  bool getModuleAndFName(const void* host_f_ptr, std::string& host_f_name,
-                         HIPxxModule* hipxx_module);
   bool allocate(size_t bytes);
   bool free(size_t bytes);
 

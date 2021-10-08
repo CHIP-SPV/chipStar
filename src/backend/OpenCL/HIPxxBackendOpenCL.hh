@@ -77,6 +77,7 @@ class HIPxxContextOpenCL : public HIPxxContext {
   void *allocate(size_t size) override;
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
+  cl::Context *get() { return cl_ctx; }
 };
 
 class HIPxxDeviceOpenCL : public HIPxxDevice {
@@ -115,18 +116,13 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
  private:
   std::string name;
   size_t TotalArgSize;
-
- public:
-  OCLFuncInfo *FuncInfo;
+  OCLFuncInfo *func_info;
   cl::Kernel ocl_kernel;
 
-  HIPxxKernelOpenCL(const cl::Kernel &&cl_kernel, std::string name_in,
-                    const void *hostptr_in, int kernel_idx,
-                    OpenCLFunctionInfoMap &FuncInfoMap)
-      : name(name_in), ocl_kernel(cl_kernel) {
-    // ocl_kernel = cl::Kernel(cl_kernel);
-    host_f_name = name_in;
-    host_f_ptr = hostptr_in;
+ public:
+  HIPxxKernelOpenCL(const cl::Kernel &&cl_kernel,
+                    OpenCLFunctionInfoMap &func_info_map) {
+    ocl_kernel = cl_kernel;
 
     int err = 0;
     name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
@@ -134,11 +130,9 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
       logError("clGetKernelInfo(CL_KERNEL_FUNCTION_NAME) failed: {}\n", err);
     }
 
-    logDebug("Kernel {} is: {} \n", kernel_idx, name);
-
-    auto it = FuncInfoMap.find(name);
-    assert(it != FuncInfoMap.end());
-    FuncInfo = it->second;
+    auto it = func_info_map.find(name);
+    assert(it != func_info_map.end());
+    func_info = it->second;
 
     // TODO attributes
     cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
@@ -146,14 +140,14 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
       logError("clGetKernelInfo(CL_KERNEL_NUM_ARGS) failed: {}\n", err);
     }
 
-    assert(FuncInfo->ArgTypeInfo.size() == NumArgs);
+    assert(func_info->ArgTypeInfo.size() == NumArgs);
 
     if (NumArgs > 0) {
       logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
-      logDebug("  RET_TYPE: {} {} {}\n", FuncInfo->retTypeInfo.size,
-               (unsigned)FuncInfo->retTypeInfo.space,
-               (unsigned)FuncInfo->retTypeInfo.type);
-      for (auto &argty : FuncInfo->ArgTypeInfo) {
+      logDebug("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
+               (unsigned)func_info->retTypeInfo.space,
+               (unsigned)func_info->retTypeInfo.type);
+      for (auto &argty : func_info->ArgTypeInfo) {
         logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
                  (unsigned)argty.space, (unsigned)argty.type);
         TotalArgSize += argty.size;
@@ -161,7 +155,7 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
     }
   }
 
-  OCLFuncInfo *get_func_info() const { return FuncInfo; }
+  OCLFuncInfo *get_func_info() const { return func_info; }
   std::string get_name() { return name; }
   cl::Kernel get() const { return ocl_kernel; }
   size_t getTotalArgSize() const { return TotalArgSize; };

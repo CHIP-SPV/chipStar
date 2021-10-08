@@ -133,11 +133,6 @@ HIPxxDevice::HIPxxDevice() {
 };
 HIPxxDevice::~HIPxxDevice(){};
 
-void HIPxxDevice::addKernel(HIPxxKernel *kernel) {
-  logTrace("Adding kernel {} to device # {} {}", kernel->getName(), idx,
-           device_name);
-  hipxx_kernels.push_back(kernel);
-}
 std::vector<HIPxxKernel *> &HIPxxDevice::getKernels() { return hipxx_kernels; };
 
 void HIPxxDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
@@ -171,23 +166,6 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
 }
 HIPxxContext *HIPxxDevice::getContext() { return ctx; }
 int HIPxxDevice::getDeviceId() { return idx; }
-bool HIPxxDevice::getModuleAndFName(const void *host_f_ptr,
-                                    std::string &host_f_name,
-                                    HIPxxModule *hipxx_module) {
-  logTrace("HIPxxDevice.getModuleAndFName");
-  std::lock_guard<std::mutex> Lock(mtx);
-
-  auto it1 = host_f_ptr_to_hipxxmodule_map.find(host_f_ptr);
-  auto it2 = host_f_ptr_to_host_f_name_map.find(host_f_ptr);
-
-  if ((it1 == host_f_ptr_to_hipxxmodule_map.end()) ||
-      (it2 == host_f_ptr_to_host_f_name_map.end()))
-    return false;
-
-  host_f_name.assign(it2->second);
-  hipxx_module = it1->second;
-  return true;
-}
 
 // TODO HIPxx Design Choice - should this be even called that?
 // bool HIPxxDevice::allocate(size_t bytes) {
