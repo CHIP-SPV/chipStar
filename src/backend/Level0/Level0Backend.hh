@@ -79,8 +79,7 @@ class HIPxxQueueLevel0 : public HIPxxQueue {
   ze_device_handle_t ze_dev;
 
  public:
-  HIPxxQueueLevel0(HIPxxContextLevel0* _hipxx_ctx,
-                   HIPxxDeviceLevel0* _hipxx_dev);
+  HIPxxQueueLevel0(HIPxxDeviceLevel0* hixx_dev_);
 
   virtual hipError_t launch(HIPxxExecItem* exec_item) override {
     logWarn("HIPxxQueueLevel0.launch() not yet implemented");

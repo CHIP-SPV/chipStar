@@ -475,7 +475,10 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *stream, unsigned int flags,
   HIPxxDevice *dev = Backend->getActiveDevice();
   ERROR_IF((dev == nullptr), hipErrorInvalidDevice);
 
-  *stream = dev->addQueue(flags, priority);
+  HIPxxQueue *new_queue = new HIPxxQueue(dev, flags, priority);
+  dev->addQueue(new_queue);
+
+  *stream = new_queue;
 
   if (stream)
     RETURN(hipSuccess);

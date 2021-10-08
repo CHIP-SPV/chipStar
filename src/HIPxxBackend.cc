@@ -164,6 +164,7 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
 
   return *found_kernel;
 }
+
 HIPxxContext *HIPxxDevice::getContext() { return ctx; }
 int HIPxxDevice::getDeviceId() { return idx; }
 
@@ -230,6 +231,13 @@ void HIPxxDevice::registerFunctionAsKernel(std::string *module_str,
 
   hipxx_kernels.push_back(kernel);
   logDebug("Device {}: successfully registered function as kernel.", getName());
+  return;
+}
+
+void HIPxxDevice::addQueue(HIPxxQueue *hipxx_queue_) {
+  auto queue_found =
+      std::find(hipxx_queues.begin(), hipxx_queues.end(), hipxx_queue_);
+  if (queue_found == hipxx_queues.end()) hipxx_queues.push_back(hipxx_queue_);
   return;
 }
 // HIPxxContext
@@ -416,10 +424,119 @@ bool HIPxxBackend::registerFunctionAsKernel(std::string *module_str,
   return true;
 }
 
+HIPxxDevice *HIPxxBackend::findDeviceMatchingProps(
+    const hipDeviceProp_t *properties) {
+  HIPxxDevice *matched_device;
+  int maxMatchedCount = 0;
+  for (auto &dev : hipxx_devices) {
+    hipDeviceProp_t currentProp = {0};
+    dev->copyDeviceProperties(&currentProp);
+    int validPropCount = 0;
+    int matchedCount = 0;
+    if (properties->major != 0) {
+      validPropCount++;
+      if (currentProp.major >= properties->major) {
+        matchedCount++;
+      }
+    }
+    if (properties->minor != 0) {
+      validPropCount++;
+      if (currentProp.minor >= properties->minor) {
+        matchedCount++;
+      }
+    }
+    if (properties->totalGlobalMem != 0) {
+      validPropCount++;
+      if (currentProp.totalGlobalMem >= properties->totalGlobalMem) {
+        matchedCount++;
+      }
+    }
+    if (properties->sharedMemPerBlock != 0) {
+      validPropCount++;
+      if (currentProp.sharedMemPerBlock >= properties->sharedMemPerBlock) {
+        matchedCount++;
+      }
+    }
+    if (properties->maxThreadsPerBlock != 0) {
+      validPropCount++;
+      if (currentProp.maxThreadsPerBlock >= properties->maxThreadsPerBlock) {
+        matchedCount++;
+      }
+    }
+    if (properties->totalConstMem != 0) {
+      validPropCount++;
+      if (currentProp.totalConstMem >= properties->totalConstMem) {
+        matchedCount++;
+      }
+    }
+    if (properties->multiProcessorCount != 0) {
+      validPropCount++;
+      if (currentProp.multiProcessorCount >= properties->multiProcessorCount) {
+        matchedCount++;
+      }
+    }
+    if (properties->maxThreadsPerMultiProcessor != 0) {
+      validPropCount++;
+      if (currentProp.maxThreadsPerMultiProcessor >=
+          properties->maxThreadsPerMultiProcessor) {
+        matchedCount++;
+      }
+    }
+    if (properties->memoryClockRate != 0) {
+      validPropCount++;
+      if (currentProp.memoryClockRate >= properties->memoryClockRate) {
+        matchedCount++;
+      }
+    }
+    if (properties->memoryBusWidth != 0) {
+      validPropCount++;
+      if (currentProp.memoryBusWidth >= properties->memoryBusWidth) {
+        matchedCount++;
+      }
+    }
+    if (properties->l2CacheSize != 0) {
+      validPropCount++;
+      if (currentProp.l2CacheSize >= properties->l2CacheSize) {
+        matchedCount++;
+      }
+    }
+    if (properties->regsPerBlock != 0) {
+      validPropCount++;
+      if (currentProp.regsPerBlock >= properties->regsPerBlock) {
+        matchedCount++;
+      }
+    }
+    if (properties->maxSharedMemoryPerMultiProcessor != 0) {
+      validPropCount++;
+      if (currentProp.maxSharedMemoryPerMultiProcessor >=
+          properties->maxSharedMemoryPerMultiProcessor) {
+        matchedCount++;
+      }
+    }
+    if (properties->warpSize != 0) {
+      validPropCount++;
+      if (currentProp.warpSize >= properties->warpSize) {
+        matchedCount++;
+      }
+    }
+    if (validPropCount == matchedCount) {
+      matched_device = matchedCount > maxMatchedCount ? dev : matched_device;
+      maxMatchedCount = std::max(matchedCount, maxMatchedCount);
+    }
+  }
+}
+
 // HIPxxQueue
 //*************************************************************************************
-
-HIPxxQueue::HIPxxQueue(){};
+HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_, unsigned int flags_,
+                       int priority_)
+    : hipxx_device(hipxx_device_), flags(flags_), priority(priority_) {
+  hipxx_context = hipxx_device_->getContext();
+};
+HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_, unsigned int flags_)
+    : HIPxxQueue(hipxx_device_, flags_, 0){};
+HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_)
+    : HIPxxQueue(hipxx_device_, 0, 0){};
 HIPxxQueue::~HIPxxQueue(){};
 
 HIPxxDevice *HIPxxQueue::getDevice() {

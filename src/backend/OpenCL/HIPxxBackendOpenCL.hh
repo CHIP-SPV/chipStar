@@ -86,6 +86,8 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
   cl::Context *cl_ctx;
   HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx, cl::Device *dev_in, int idx);
 
+  cl::Device *get() { return cl_dev; }
+
   virtual void populateDeviceProperties() override;
   virtual std::string getName() override;
 
@@ -102,7 +104,7 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
  public:
   HIPxxQueueOpenCL() = delete;  // delete default constructor
   HIPxxQueueOpenCL(const HIPxxQueueOpenCL &) = delete;
-  HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev);
+  HIPxxQueueOpenCL(HIPxxDevice *hipxx_device);
   ~HIPxxQueueOpenCL();
 
   virtual hipError_t launch(HIPxxExecItem *exec_item) override;
@@ -297,7 +299,7 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
                hipxx_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
       hipxx_dev->populateDeviceProperties();
       Backend->addDevice(hipxx_dev);
-      HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_context, hipxx_dev);
+      HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_dev);
       Backend->addQueue(queue);
     }
     std::cout << "OpenCL Context Initialized.\n";

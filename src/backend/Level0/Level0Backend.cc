@@ -1,12 +1,10 @@
 #include "Level0Backend.hh"
 
-HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxContextLevel0* _hipxx_ctx,
-                                   HIPxxDeviceLevel0* _hipxx_dev) {
-  hipxx_device = _hipxx_dev;
-  hipxx_context = _hipxx_ctx;
-
-  ze_ctx = _hipxx_ctx->get();
-  ze_dev = _hipxx_dev->get();
+HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxDeviceLevel0* hipxx_dev_)
+    : HIPxxQueue(hipxx_dev_) {
+  HIPxxContextLevel0* hipxx_context_lz = (HIPxxContextLevel0*)hipxx_context;
+  ze_ctx = hipxx_context_lz->get();
+  ze_dev = hipxx_dev_->get();
 
   logTrace(
       "HIPxxQueueLevel0 constructor called via HIPxxContextLevel0 and "
@@ -50,8 +48,8 @@ HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxContextLevel0* _hipxx_ctx,
   clDesc.commandQueueGroupOrdinal = 0;
   clDesc.pNext = nullptr;
   // TODO more devices support
-  ze_result_t status =
-      zeCommandListCreate(ze_ctx, ze_dev, &clDesc, &(_hipxx_ctx->ze_cmd_list));
+  ze_result_t status = zeCommandListCreate(ze_ctx, ze_dev, &clDesc,
+                                           &(hipxx_context_lz->ze_cmd_list));
   if (((HIPxxContextLevel0*)hipxx_context)->get_cmd_list() == nullptr) {
     logCritical("Failed to initialize ze_cmd_list");
     std::abort();

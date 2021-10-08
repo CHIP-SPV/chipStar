@@ -355,15 +355,12 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
   return retval;
 }
 
-HIPxxQueueOpenCL::HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx,
-                                   HIPxxDeviceOpenCL *_dev) {
-  logDebug("HIPxxQueueOpenCL Initialized via context, device pointers");
-  cl_ctx = _ctx->cl_ctx;
-  cl_dev = _dev->cl_dev;
+HIPxxQueueOpenCL::HIPxxQueueOpenCL(HIPxxDevice *hipxx_device_)
+    : HIPxxQueue(hipxx_device_) {
+  cl_ctx = ((HIPxxContextOpenCL *)hipxx_context)->get();
+  cl_dev = ((HIPxxDeviceOpenCL *)hipxx_device)->get();
+
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
-  hipxx_device = _dev;
-  hipxx_context = _ctx;
-  hipxx_context->addQueue(this);
 }
 
 HIPxxQueueOpenCL::~HIPxxQueueOpenCL() {

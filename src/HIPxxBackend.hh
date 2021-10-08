@@ -401,7 +401,7 @@ class HIPxxDevice {
   std::mutex mtx;
   std::vector<HIPxxKernel*> hipxx_kernels;
   HIPxxContext* ctx;
-  HIPxxQueue* q;
+  std::vector<HIPxxQueue*> hipxx_queues;
   int active_queue_id = 0;
 
   // TODO Implement filling this in. Seems redudant with props
@@ -433,8 +433,15 @@ class HIPxxDevice {
   int idx;
   hipDeviceProp_t hip_device_props;
   size_t total_used_mem, max_used_mem;
-
+  /**
+   * @brief Construct a new HIPxxDevice object
+   *
+   */
   HIPxxDevice();
+  /**
+   * @brief Destroy the HIPxxDevice object
+   *
+   */
   ~HIPxxDevice();
 
   /**
@@ -471,8 +478,21 @@ class HIPxxDevice {
    * was created with
    */
   HIPxxContext* getContext();
-  HIPxxQueue* addQueue(unsigned int flags,
-                       int priority);    // TODO HIPxx
+  /**
+   * @brief Construct an additional queue for this device
+   *
+   * @param flags
+   * @param priority
+   * @return HIPxxQueue* pointer to the newly created queue (can also be found
+   * in hipxx_queues vector)
+   */
+  void addQueue(HIPxxQueue* hipxx_queue_);
+
+  /**
+   * @brief Get the Queues object
+   *
+   * @return std::vector<HIPxxQueue*>
+   */
   std::vector<HIPxxQueue*> getQueues();  // TODO HIPxx
   HIPxxQueue* getActiveQueue();          // TODO HIPxx
   bool removeQueue(HIPxxQueue* q);       // TODO HIPxx
@@ -511,6 +531,14 @@ class HIPxxDevice {
   HIPxxDeviceVar* getStatGlobalVar(const void* host_var_ptr);  // TODO HIPxx
   HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);      // TODO HIPxx
 
+  /**
+   * @brief Take the module source, compile the kernels and associate the host
+   * function pointer with a kernel whose name matches host function name
+   *
+   * @param module_str Binary representation of the SPIR-V module
+   * @param host_f_ptr host function pointer
+   * @param host_f_name host function name
+   */
   void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
                                 const char* host_f_name);
 };
@@ -644,8 +672,7 @@ class HIPxxBackend {
                                         const void* host_f_ptr,
                                         const char* host_f_name);
 
-  HIPxxDevice* findDeviceMatchingProps(
-      const hipDeviceProp_t* props);  // HIPxx TODO
+  HIPxxDevice* findDeviceMatchingProps(const hipDeviceProp_t* props);
 
   /**
    * @brief Add a HIPxxModule to every initialized device
@@ -670,15 +697,21 @@ class HIPxxQueue {
  protected:
   std::mutex mtx;
   int priority;
-
- public:
+  unsigned int flags;
   /// Device on which this queue will execute
   HIPxxDevice* hipxx_device;
   /// Context to which device belongs to
   HIPxxContext* hipxx_context;
 
-  // TODO these should take device and context as arguments.
-  HIPxxQueue();
+ public:
+  /**
+   * @brief Construct a new HIPxxQueue object
+   *
+   * @param hipxx_dev
+   */
+  HIPxxQueue(HIPxxDevice* hipxx_dev);
+  HIPxxQueue(HIPxxDevice* hipxx_dev, unsigned int flags);
+  HIPxxQueue(HIPxxDevice* hipxx_dev, unsigned int flags, int priority);
   ~HIPxxQueue();
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size);
@@ -690,10 +723,10 @@ class HIPxxQueue {
                             size_t pattern_size);
 
   /// Submit a kernel for execution
-  virtual hipError_t launch(HIPxxExecItem* exec_item) = 0;
+  virtual hipError_t launch(HIPxxExecItem* exec_item);
 
   HIPxxDevice* getDevice();
-  virtual void finish() = 0;
+  virtual void finish();
   bool query();                                                    // TODO HIPxx
   int getPriorityRange(int lower_or_upper);                        // TODO HIPxx
   bool enqueueBarrierForEvent(HIPxxEvent* e);                      // TODO HIPxx
