@@ -672,6 +672,12 @@ class HIPxxBackend {
                                         const void* host_f_ptr,
                                         const char* host_f_name);
 
+  /**
+   * @brief Return a device which meets or exceeds the requirements
+   *
+   * @param props
+   * @return HIPxxDevice*
+   */
   HIPxxDevice* findDeviceMatchingProps(const hipDeviceProp_t* props);
 
   /**
