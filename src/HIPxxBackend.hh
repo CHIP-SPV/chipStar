@@ -633,29 +633,134 @@ class HIPxxBackend {
   //  */
   // std::unordered_map<ptr_dev, HIPxxModule*> host_f_ptr_to_hipxxmodule_map;
 
+  /**
+   * @brief Construct a new HIPxxBackend object
+   *
+   */
   HIPxxBackend();
+  /**
+   * @brief Destroy the HIPxxBackend objectk
+   *
+   */
   ~HIPxxBackend();
 
+  /**
+   * @brief
+   *
+   * @param platform_str
+   * @param device_type_str
+   * @param device_ids_str
+   */
   virtual void initialize(std::string platform_str, std::string device_type_str,
                           std::string device_ids_str);
+
+  /**
+   * @brief
+   *
+   */
   virtual void initialize() = 0;
+
+  /**
+   * @brief
+   *
+   */
   virtual void uninitialize() = 0;
 
+  /**
+   * @brief Get the Queues object
+   *
+   * @return std::vector<HIPxxQueue*>&
+   */
   std::vector<HIPxxQueue*>& getQueues();
+  /**
+   * @brief Get the Active Queue object
+   *
+   * @return HIPxxQueue*
+   */
   HIPxxQueue* getActiveQueue();
+  /**
+   * @brief Get the Active Context object. Returns the context of the active
+   * queue.
+   *
+   * @return HIPxxContext*
+   */
   HIPxxContext* getActiveContext();
+  /**
+   * @brief Get the Active Device object. Returns the device of the active
+   * queue.
+   *
+   * @return HIPxxDevice*
+   */
   HIPxxDevice* getActiveDevice();
+  /**
+   * @brief Set the active device. Sets the active queue to this device's
+   * first/default/primary queue.
+   *
+   * @param hipxx_dev
+   */
   void setActiveDevice(HIPxxDevice* hipxx_dev);
 
   std::vector<HIPxxDevice*>& getDevices();
+  /**
+   * @brief Get the Num Devices object
+   *
+   * @return size_t
+   */
   size_t getNumDevices();
+  /**
+   * @brief Get the vector of registered modules (in string/binary format)
+   *
+   * @return std::vector<std::string*>&
+   */
   std::vector<std::string*>& getModulesStr();
+  /**
+   * @brief Add a context to this backend.
+   *
+   * @param ctx_in
+   */
   void addContext(HIPxxContext* ctx_in);
+  /**
+   * @brief Add a context to this backend.
+   *
+   * @param q_in
+   */
   void addQueue(HIPxxQueue* q_in);
+  /**
+   * @brief  Add a device to this backend.
+   *
+   * @param dev_in
+   */
   void addDevice(HIPxxDevice* dev_in);
+  /**
+   * @brief
+   *
+   * @param mod_str
+   */
   void registerModuleStr(std::string* mod_str);
+  /**
+   * @brief
+   *
+   * @param mod_str
+   */
   void unregisterModuleStr(std::string* mod_str);
+  /**
+   * @brief Configure an upcoming kernel call
+   *
+   * @param grid
+   * @param block
+   * @param shared
+   * @param q
+   * @return hipError_t
+   */
   hipError_t configureCall(dim3 grid, dim3 block, size_t shared, hipStream_t q);
+  /**
+   * @brief Set the Arg object
+   *
+   * @param arg
+   * @param size
+   * @param offset
+   * @return hipError_t
+   */
   hipError_t setArg(const void* arg, size_t size, size_t offset);
 
   /**
