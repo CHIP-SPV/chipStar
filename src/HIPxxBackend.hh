@@ -716,35 +716,190 @@ class HIPxxQueue {
    * @param hipxx_dev
    */
   HIPxxQueue(HIPxxDevice* hipxx_dev);
+  /**
+   * @brief Construct a new HIPxxQueue object
+   *
+   * @param hipxx_dev
+   * @param flags
+   */
   HIPxxQueue(HIPxxDevice* hipxx_dev, unsigned int flags);
+  /**
+   * @brief Construct a new HIPxxQueue object
+   *
+   * @param hipxx_dev
+   * @param flags
+   * @param priority
+   */
   HIPxxQueue(HIPxxDevice* hipxx_dev, unsigned int flags, int priority);
+  /**
+   * @brief Destroy the HIPxxQueue object
+   *
+   */
   ~HIPxxQueue();
 
+  /**
+   * @brief Blocking memory copy
+   *
+   * @param dst Destination
+   * @param src Source
+   * @param size Transfer size
+   * @return hipError_t
+   */
+
   virtual hipError_t memCopy(void* dst, const void* src, size_t size);
+  /**
+   * @brief Non-blocking memory copy
+   *
+   * @param dst Destination
+   * @param src Source
+   * @param size Transfer size
+   * @return hipError_t
+   */
   virtual hipError_t memCopyAsync(void* dst, const void* src, size_t size);
 
+  /**
+   * @brief Blocking memset
+   *
+   * @param dst
+   * @param size
+   * @param pattern
+   * @param pattern_size
+   */
   virtual void memFill(void* dst, size_t size, const void* pattern,
                        size_t pattern_size);
+
+  /**
+   * @brief Non-blocking mem set
+   *
+   * @param dst
+   * @param size
+   * @param pattern
+   * @param pattern_size
+   */
   virtual void memFillAsync(void* dst, size_t size, const void* pattern,
                             size_t pattern_size);
 
-  /// Submit a kernel for execution
+  /**
+   * @brief Submit a HIPxxExecItem to this queue for execution. HIPxxExecItem
+   * needs to be complete - contain the kernel and arguments
+   *
+   * @param exec_item
+   * @return hipError_t
+   */
   virtual hipError_t launch(HIPxxExecItem* exec_item);
 
+  /**
+   * @brief Get the Device obj
+   *
+   * @return HIPxxDevice*
+   */
+
   HIPxxDevice* getDevice();
+  /**
+   * @brief Wait for this queue to finish.
+   *
+   */
+
   virtual void finish();
-  bool query();                                                    // TODO HIPxx
-  int getPriorityRange(int lower_or_upper);                        // TODO HIPxx
-  bool enqueueBarrierForEvent(HIPxxEvent* e);                      // TODO HIPxx
-  unsigned int getFlags();                                         // TODO HIPxx
-  int getPriority();                                               // TODO HIPxx
+  /**
+   * @brief Check if the queue is still actively executing
+   *
+   * @return true
+   * @return false
+   */
+
+  bool query();  // TODO HIPxx
+  /**
+   * @brief Get the Priority Range object defining the bounds for
+   * hipStreamCreateWithPriority
+   *
+   * @param lower_or_upper 0 to get lower bound, 1 to get upper bound
+   * @return int bound
+   */
+
+  int getPriorityRange(int lower_or_upper);  // TODO HIPxx
+  /**
+   * @brief Insert an event into this queue
+   *
+   * @param e
+   * @return true
+   * @return false
+   */
+
+  bool enqueueBarrierForEvent(HIPxxEvent* e);  // TODO HIPxx
+  /**
+   * @brief Get the Flags object with which this queue was created.
+   *
+   * @return unsigned int
+   */
+
+  unsigned int getFlags();  // TODO HIPxx
+  /**
+   * @brief Get the Priority object with which this queue was created.
+   *
+   * @return int
+   */
+
+  int getPriority();  // TODO HIPxx
+  /**
+   * @brief Add a callback funciton to be called on the host after the specified
+   * stream is done
+   *
+   * @param callback function pointer for a ballback function
+   * @param userData
+   * @return true
+   * @return false
+   */
+
   bool addCallback(hipStreamCallback_t callback, void* userData);  // TODO HIPxx
-  bool memPrefetch(const void* ptr, size_t count);                 // TODO HIPxx
+  /**
+   * @brief Insert a memory prefetch
+   *
+   * @param ptr
+   * @param count
+   * @return true
+   * @return false
+   */
+
+  bool memPrefetch(const void* ptr, size_t count);  // TODO HIPxx
+  /**
+   * @brief Launch a kernel on this queue given a host pointer and arguments
+   *
+   * @param hostFunction
+   * @param numBlocks
+   * @param dimBlocks
+   * @param args
+   * @param sharedMemBytes
+   * @return true
+   * @return false
+   */
   bool launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
                       void** args, size_t sharedMemBytes);  // TODO HIPxx
+
+  /**
+   * @brief
+   *
+   * @param grid
+   * @param block
+   * @param sharedMemBytes
+   * @param args
+   * @param kernel
+   * @return hipError_t
+   */
   hipError_t launchWithKernelParams(dim3 grid, dim3 block,
                                     unsigned int sharedMemBytes, void** args,
                                     HIPxxKernel* kernel);
+
+  /**
+   * @brief
+   *
+   * @param grid
+   * @param block
+   * @param sharedMemBytes
+   * @param extra
+   * @param kernel
+   * @return hipError_t
+   */
   hipError_t launchWithExtraParams(dim3 grid, dim3 block,
                                    unsigned int sharedMemBytes, void** extra,
                                    HIPxxKernel* kernel);
