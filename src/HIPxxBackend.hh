@@ -494,18 +494,58 @@ class HIPxxDevice {
    * @return std::vector<HIPxxQueue*>
    */
   std::vector<HIPxxQueue*> getQueues();  // TODO HIPxx
-  HIPxxQueue* getActiveQueue();          // TODO HIPxx
-  bool removeQueue(HIPxxQueue* q);       // TODO HIPxx
+  /**
+   * @brief HIP API allows for setting the active device, not the active queue
+   * so active device's active queue is always it's 0th/default/primary queue
+   *
+   * @return HIPxxQueue*
+   */
+  HIPxxQueue* getActiveQueue();  // TODO HIPxx
+  /**
+   * @brief Remove a queue from this device's queue vector
+   *
+   * @param q
+   * @return true
+   * @return false
+   */
+  bool removeQueue(HIPxxQueue* q);  // TODO HIPxx
 
+  /**
+   * @brief Get the integer ID of this device as it appears in the Backend's
+   * hipxx_devices list
+   *
+   * @return int
+   */
   int getDeviceId();
+  /**
+   * @brief Get the device name
+   *
+   * @return std::string
+   */
   virtual std::string getName() = 0;
 
   bool allocate(size_t bytes);
   bool free(size_t bytes);
 
+  /**
+   * @brief Reset the device
+   *
+   */
   virtual void reset() = 0;
+
   int getAttr(int* pi, hipDeviceAttribute_t attr);
+
+  /**
+   * @brief Get the total global memory available for this device.
+   *
+   * @return size_t
+   */
   size_t getGlobalMemSize();  // TODO HIPxx
+
+  /**
+   * @brief
+   *
+   */
   /*virtual*/ void setCacheConfig(hipFuncCache_t);
   /* = 0;*/                         // TODO HIPxx
   hipFuncCache_t getCacheConfig();  // TODO HIPxx
@@ -514,17 +554,44 @@ class HIPxxDevice {
   hipSharedMemConfig getSharedMemConfig();  // TODO HIPxx
   void setFuncCacheConfig(const void* func,
                           hipFuncCache_t config);  // TODO HIPxx
-  // Check if the current device has same PCI bus ID as the
-  // one given by input
+
+  /**
+   * @brief Check if the current device has same PCI bus ID as the one given by
+   * input
+   *
+   * @param pciDomainID
+   * @param pciBusID
+   * @param pciDeviceID
+   * @return true
+   * @return false
+   */
   bool hasPCIBusId(int pciDomainID, int pciBusID,
-                   int pciDeviceID);           // TODO HIPxx
+                   int pciDeviceID);  // TODO HIPxx
+
+  /**
+   * @brief Get peer-accesability between this and another device
+   *
+   * @param peerDevice
+   * @return int
+   */
   int getPeerAccess(HIPxxDevice* peerDevice);  // TODO HIPxx
 
-  // Enable/Disable the peer access
-  // from given devince
+  /**
+   * @brief Set access between this and another device
+   *
+   * @param peer
+   * @param flags
+   * @param canAccessPeer
+   * @return hipError_t
+   */
   hipError_t setPeerAccess(HIPxxDevice* peer, int flags,
                            bool canAccessPeer);  // TODO HIPxx
 
+  /**
+   * @brief Get the total used global memory
+   *
+   * @return size_t
+   */
   size_t getUsedGlobalMem();  // TODO HIPxx
 
   HIPxxDeviceVar* getDynGlobalVar(const void* host_var_ptr);   // TODO HIPxx
