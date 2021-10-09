@@ -62,13 +62,13 @@ class HIPxxAllocationTracker {
    *
    * @return allocation_info contains the base pointer and allocation size;
    */
-  allocation_info getByHostPtr(const void*);
+  allocation_info* getByHostPtr(const void*);
   /**
    * @brief Get allocation_info based on device pointer
    *
    * @return allocation_info contains the base pointer and allocation size;
    */
-  allocation_info getByDevPtr(const void*);
+  allocation_info* getByDevPtr(const void*);
 };
 
 class HIPxxDeviceVar {
@@ -794,7 +794,7 @@ class HIPxxContext {
    * @return true Success
    * @return false Failure
    */
-  bool free(void* ptr);
+  hipError_t free(void* ptr);
 
   /**
    * @brief Free memory
@@ -804,12 +804,24 @@ class HIPxxContext {
    * @return true
    * @return false
    */
-  virtual bool free_(void* ptr) = 0;
+  virtual void free_(void* ptr) = 0;
 
+  /**
+   * @brief Copy memory
+   *
+   * @param dst destination
+   * @param src source
+   * @param size size of the copy
+   * @param stream queue to which this copy should be submitted to
+   * @return hipError_t
+   */
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream);  // TODO HIPxx
+                             hipStream_t stream) = 0;
 
-  hipError_t launchHostFunc(const void* HostFunction);
+  /**
+   * @brief Finish all the queues in this context
+   *
+   */
   void finishAll();
 
   /**
@@ -824,13 +836,52 @@ class HIPxxContext {
   virtual hipError_t findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
                                      hipDeviceptr_t dptr);
 
-  unsigned int getFlags();                             // TODO HIPxx
-  bool setFlags(unsigned int flags);                   // TODO HIPxx
-  void reset();                                        // TODO HIPxx
-  HIPxxContext* retain();                              // TODO HIPxx
-  bool recordEvent(HIPxxQueue* q, HIPxxEvent* event);  // TODO HIPxx
-  size_t getPointerSize(void* ptr);                    // TODO HIPxx
-  HIPxxTexture* createImage(hipResourceDesc* resDesc, hipTextureDesc* texDesc);
+  /**
+   * @brief Get the flags set on this context
+   *
+   * @return unsigned int context flags
+   */
+  unsigned int getFlags();
+
+  /**
+   * @brief Set the flags for this context
+   *
+   * @param flags flags to set on this context
+   */
+  void setFlags(unsigned int flags);
+
+  /**
+   * @brief Reset this context.
+   * TODO: what does it mean to reset a context?
+   *
+   */
+  void reset();
+
+  /**
+   * @brief Retain this context.
+   * TODO: What does it mean to retain a context?
+   *
+   * @return HIPxxContext*
+   */
+  HIPxxContext* retain();
+
+  /**
+   * @brief Record an event in a given queue
+   *
+   * @param q queue into which to insert the event
+   * @param event event to be inserted
+   */
+  void recordEvent(HIPxxQueue* q, HIPxxEvent* event);
+
+  /**
+   * @brief Create a Image objct
+   *
+   * @param resDesc
+   * @param texDesc
+   * @return HIPxxTexture*
+   */
+  virtual HIPxxTexture* createImage(hipResourceDesc* resDesc,
+                                    hipTextureDesc* texDesc);
 };
 
 /**

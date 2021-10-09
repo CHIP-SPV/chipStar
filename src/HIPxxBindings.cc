@@ -625,11 +625,8 @@ hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t device, unsigned int flags) {
   HIPxxInitialize();
   ERROR_CHECK_DEVHANDLE(*device);
 
-  if ((*device)->getContext()->setFlags(flags)) {
-    RETURN(hipSuccess);
-  } else {
-    RETURN(hipErrorContextAlreadyInUse);
-  }
+  (*device)->getContext()->setFlags(flags);
+  RETURN(hipSuccess);
 }
 
 hipError_t hipEventCreate(hipEvent_t *event) {
@@ -656,11 +653,15 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   ERROR_IF((stream == nullptr), hipErrorInvalidValue);
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
-  if (Backend->getActiveContext()->recordEvent(stream, event)) {
-    RETURN(hipSuccess);
-  } else {
-    RETURN(hipErrorLaunchFailure);
-  }
+  // TODO Make recordEvent return hip error
+  // if (Backend->getActiveContext()->recordEvent(stream, event)) {
+  //  RETURN(hipSuccess);
+  //} else {
+  //  RETURN(hipErrorLaunchFailure);
+  //}
+
+  Backend->getActiveContext()->recordEvent(stream, event);
+  RETURN(hipSuccess);
 }
 
 hipError_t hipEventDestroy(hipEvent_t event) {
@@ -759,10 +760,7 @@ hipError_t hipFree(void *ptr) {
   HIPxxInitialize();
   ERROR_IF((ptr == nullptr), hipSuccess);
 
-  if (Backend->getActiveContext()->free(ptr))
-    RETURN(hipSuccess);
-  else
-    RETURN(hipErrorInvalidDevicePointer);
+  RETURN(Backend->getActiveContext()->free(ptr));
 }
 
 hipError_t hipHostFree(void *ptr) {
@@ -1030,7 +1028,9 @@ hipError_t hipMemPtrGetInfo(void *ptr, size_t *size) {
 
   ERROR_IF((ptr == nullptr || size == nullptr), hipErrorInvalidValue);
 
-  *size = Backend->getActiveContext()->getPointerSize(ptr);
+  allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
+  if (!info) return hipErrorInvalidDevicePointer;
+  *size = info->size;
   RETURN(hipSuccess);
 }
 

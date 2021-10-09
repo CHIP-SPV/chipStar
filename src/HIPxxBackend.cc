@@ -1,9 +1,9 @@
 #include "HIPxxBackend.hh"
 #include <utility>
 
-allocation_info HIPxxAllocationTracker::getByHostPtr(const void *host_ptr) {
+allocation_info *HIPxxAllocationTracker::getByHostPtr(const void *host_ptr) {
 }  // TODO
-allocation_info HIPxxAllocationTracker::getByDevPtr(const void *dev_ptr) {
+allocation_info *HIPxxAllocationTracker::getByDevPtr(const void *dev_ptr) {
 }  // TODO
 
 // HIPxxEvent
@@ -481,11 +481,35 @@ void *HIPxxContext::allocate(size_t size, size_t alignment,
 
 hipError_t HIPxxContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
                                          hipDeviceptr_t dptr) {
-  allocation_info info = Backend->AllocationTracker.getByDevPtr(dptr);
-  *pbase = info.base_ptr;
-  *psize = info.size;
+  allocation_info *info = Backend->AllocationTracker.getByDevPtr(dptr);
+  if (!info) return hipErrorInvalidDevicePointer;
+  *pbase = info->base_ptr;
+  *psize = info->size;
   return hipSuccess;
 }
+
+unsigned int HIPxxContext::getFlags() {}
+
+void HIPxxContext::setFlags(unsigned int flags) {}
+
+void HIPxxContext::reset() {}
+
+HIPxxContext *HIPxxContext::retain() {}
+
+hipError_t HIPxxContext::free(void *ptr) {
+  HIPxxDevice *hipxx_dev = Backend->getActiveDevice();
+  allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
+  if (!info) return hipErrorInvalidDevicePointer;
+
+  hipxx_dev->releaseMemReservation(info->size);
+  free_(ptr);
+  return hipSuccess;
+}
+
+void HIPxxContext::recordEvent(HIPxxQueue *q, HIPxxEvent *event) {}
+
+HIPxxTexture *HIPxxContext::createImage(hipResourceDesc *resDesc,
+                                        hipTextureDesc *texDesc) {}
 
 // HIPxxBackend
 //*************************************************************************************

@@ -171,7 +171,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
     return nullptr;
   }
 
-  bool free_(void* ptr) override{};  // TODO
+  void free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) override;
