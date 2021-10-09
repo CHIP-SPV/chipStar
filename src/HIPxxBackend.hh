@@ -404,8 +404,8 @@ class HIPxxDevice {
   std::vector<HIPxxQueue*> hipxx_queues;
   int active_queue_id = 0;
 
-  // TODO Implement filling this in. Seems redudant with props
   hipDeviceAttribute_t attrs;
+  hipDeviceProp_t hip_device_props;
 
  public:
   /// hipxx_modules in binary representation
@@ -533,7 +533,14 @@ class HIPxxDevice {
    */
   virtual void reset() = 0;
 
-  int getAttr(int* pi, hipDeviceAttribute_t attr);
+  /**
+   * @brief Query for a specific device attribute. Implementation copied from
+   * HIPAMD.
+   *
+   * @param attr attribute to query
+   * @return int attribute value. In case invalid query returns -1;
+   */
+  int getAttr(hipDeviceAttribute_t attr);
 
   /**
    * @brief Get the total global memory available for this device.

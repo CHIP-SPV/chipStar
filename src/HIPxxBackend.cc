@@ -197,10 +197,178 @@ int HIPxxDevice::getDeviceId() { return idx; }
 //   }
 // }
 
-int HIPxxDevice::getAttr(int *pi, hipDeviceAttribute_t attr) {
-  logWarn("hipDeviceAttribute initialization not yet implemented");
-  std::abort();
-  return 0;
+int HIPxxDevice::getAttr(hipDeviceAttribute_t attr) {
+  int *pi;
+  hipDeviceProp_t prop = {0};
+  copyDeviceProperties(&prop);
+
+  switch (attr) {
+    case hipDeviceAttributeMaxThreadsPerBlock:
+      *pi = prop.maxThreadsPerBlock;
+      break;
+    case hipDeviceAttributeMaxBlockDimX:
+      *pi = prop.maxThreadsDim[0];
+      break;
+    case hipDeviceAttributeMaxBlockDimY:
+      *pi = prop.maxThreadsDim[1];
+      break;
+    case hipDeviceAttributeMaxBlockDimZ:
+      *pi = prop.maxThreadsDim[2];
+      break;
+    case hipDeviceAttributeMaxGridDimX:
+      *pi = prop.maxGridSize[0];
+      break;
+    case hipDeviceAttributeMaxGridDimY:
+      *pi = prop.maxGridSize[1];
+      break;
+    case hipDeviceAttributeMaxGridDimZ:
+      *pi = prop.maxGridSize[2];
+      break;
+    case hipDeviceAttributeMaxSharedMemoryPerBlock:
+      *pi = prop.sharedMemPerBlock;
+      break;
+    case hipDeviceAttributeTotalConstantMemory:
+      *pi = prop.totalConstMem;
+      break;
+    case hipDeviceAttributeWarpSize:
+      *pi = prop.warpSize;
+      break;
+    case hipDeviceAttributeMaxRegistersPerBlock:
+      *pi = prop.regsPerBlock;
+      break;
+    case hipDeviceAttributeClockRate:
+      *pi = prop.clockRate;
+      break;
+    case hipDeviceAttributeMemoryClockRate:
+      *pi = prop.memoryClockRate;
+      break;
+    case hipDeviceAttributeMemoryBusWidth:
+      *pi = prop.memoryBusWidth;
+      break;
+    case hipDeviceAttributeMultiprocessorCount:
+      *pi = prop.multiProcessorCount;
+      break;
+    case hipDeviceAttributeComputeMode:
+      *pi = prop.computeMode;
+      break;
+    case hipDeviceAttributeL2CacheSize:
+      *pi = prop.l2CacheSize;
+      break;
+    case hipDeviceAttributeMaxThreadsPerMultiProcessor:
+      *pi = prop.maxThreadsPerMultiProcessor;
+      break;
+    case hipDeviceAttributeComputeCapabilityMajor:
+      *pi = prop.major;
+      break;
+    case hipDeviceAttributeComputeCapabilityMinor:
+      *pi = prop.minor;
+      break;
+    case hipDeviceAttributePciBusId:
+      *pi = prop.pciBusID;
+      break;
+    case hipDeviceAttributeConcurrentKernels:
+      *pi = prop.concurrentKernels;
+      break;
+    case hipDeviceAttributePciDeviceId:
+      *pi = prop.pciDeviceID;
+      break;
+    case hipDeviceAttributeMaxSharedMemoryPerMultiprocessor:
+      *pi = prop.maxSharedMemoryPerMultiProcessor;
+      break;
+    case hipDeviceAttributeIsMultiGpuBoard:
+      *pi = prop.isMultiGpuBoard;
+      break;
+      // TODO - These are undefined
+      // case hipDeviceAttributeCooperativeLaunch:
+      //   *pi = prop.cooperativeLaunch;
+      //   break;
+      // case hipDeviceAttributeCooperativeMultiDeviceLaunch:
+      //   *pi = prop.cooperativeMultiDeviceLaunch;
+      //   break;
+      // case hipDeviceAttributeIntegrated:
+      //   *pi = prop.integrated;
+      //   break;
+      // case hipDeviceAttributeMaxTexture1DWidth:
+      //   *pi = prop.maxTexture1D;
+      //   break;
+      // case hipDeviceAttributeMaxTexture2DWidth:
+      //   *pi = prop.maxTexture2D[0];
+      //   break;
+      // case hipDeviceAttributeMaxTexture2DHeight:
+      //   *pi = prop.maxTexture2D[1];
+      //   break;
+      // case hipDeviceAttributeMaxTexture3DWidth:
+      //   *pi = prop.maxTexture3D[0];
+      //   break;
+      // case hipDeviceAttributeMaxTexture3DHeight:
+      //   *pi = prop.maxTexture3D[1];
+      //   break;
+      // case hipDeviceAttributeMaxTexture3DDepth:
+      //   *pi = prop.maxTexture3D[2];
+      //   break;
+      // case hipDeviceAttributeHdpMemFlushCntl:
+      //   *reinterpret_cast<unsigned int **>(pi) = prop.hdpMemFlushCntl;
+      //   break;
+      // case hipDeviceAttributeHdpRegFlushCntl:
+      //   *reinterpret_cast<unsigned int **>(pi) = prop.hdpRegFlushCntl;
+      //   break;
+      // case hipDeviceAttributeMaxPitch:
+      //   *pi = prop.memPitch;
+      //   break;
+      // case hipDeviceAttributeTextureAlignment:
+      //   *pi = prop.textureAlignment;
+      //   break;
+      // case hipDeviceAttributeTexturePitchAlignment:
+      //   *pi = prop.texturePitchAlignment;
+      //   break;
+      // case hipDeviceAttributeKernelExecTimeout:
+      //   *pi = prop.kernelExecTimeoutEnabled;
+      //   break;
+      // case hipDeviceAttributeCanMapHostMemory:
+      //   *pi = prop.canMapHostMemory;
+      //   break;
+      // case hipDeviceAttributeEccEnabled:
+      //   *pi = prop.ECCEnabled;
+      //   break;
+      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedFunc:
+      //   *pi = prop.cooperativeMultiDeviceUnmatchedFunc;
+      //   break;
+      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedGridDim:
+      //   *pi = prop.cooperativeMultiDeviceUnmatchedGridDim;
+      //   break;
+      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedBlockDim:
+      //   *pi = prop.cooperativeMultiDeviceUnmatchedBlockDim;
+      //   break;
+      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedSharedMem:
+      //   *pi = prop.cooperativeMultiDeviceUnmatchedSharedMem;
+      //   break;
+      // case hipDeviceAttributeAsicRevision:
+      //   *pi = prop.asicRevision;
+      //   break;
+      // case hipDeviceAttributeManagedMemory:
+      //   *pi = prop.managedMemory;
+      //   break;
+      // case hipDeviceAttributeDirectManagedMemAccessFromHost:
+      //   *pi = prop.directManagedMemAccessFromHost;
+      //   break;
+      // case hipDeviceAttributeConcurrentManagedAccess:
+      //   *pi = prop.concurrentManagedAccess;
+      //   break;
+      // case hipDeviceAttributePageableMemoryAccess:
+      //   *pi = prop.pageableMemoryAccess;
+      //   break;
+      // case hipDeviceAttributePageableMemoryAccessUsesHostPageTables:
+      //   *pi = prop.pageableMemoryAccessUsesHostPageTables;
+      //   break;
+      // case hipDeviceAttributeCanUseStreamWaitValue:
+      //   // hipStreamWaitValue64() and hipStreamWaitValue32() support
+      //   *pi = g_devices[device]->devices()[0]->info().aqlBarrierValue_;
+      break;
+    default:
+      // HIP_RETURN(hipErrorInvalidValue);
+      return -1;
+  }
+  return *pi;
 }
 
 void HIPxxDevice::registerFunctionAsKernel(std::string *module_str,
