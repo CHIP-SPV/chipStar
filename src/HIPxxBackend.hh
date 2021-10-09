@@ -566,6 +566,7 @@ class HIPxxDevice {
    * @brief Reserve memory for an allocation.
    * This method is run prior to allocations to keep track of how much memory is
    * available on the device
+   * TODO: Move to AllocationTracker
    *
    * @param bytes
    * @return true Reservation successful
@@ -575,6 +576,7 @@ class HIPxxDevice {
 
   /**
    * @brief Release some of the reserved memory. Called by free()
+   * TODO: Move to AllocationTracker
    *
    * @param bytes
    * @return true
@@ -699,7 +701,7 @@ class HIPxxDevice {
    * @brief Get the global variable
    *
    * @param host_var_ptr host pointer to the variable
-   * @return HIPxxDeviceVar*
+   * @return HIPxxDeviceVar* if not found returns nullptr
    */
   HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);
 

@@ -203,6 +203,32 @@ int HIPxxDevice::getDeviceId() { return idx; }
 //   }
 // }
 
+HIPxxDeviceVar *HIPxxDevice::getDynGlobalVar(const void *host_var_ptr) {
+  auto found_dyn = host_var_ptr_to_hipxxdevicevar_dyn.find(host_var_ptr);
+  if (found_dyn != host_var_ptr_to_hipxxdevicevar_dyn.end())
+    return found_dyn->second;
+
+  return nullptr;
+}
+
+HIPxxDeviceVar *HIPxxDevice::getStatGlobalVar(const void *host_var_ptr) {
+  auto found_stat = host_var_ptr_to_hipxxdevicevar_stat.find(host_var_ptr);
+  if (found_stat != host_var_ptr_to_hipxxdevicevar_stat.end())
+    return found_stat->second;
+
+  return nullptr;
+}
+
+HIPxxDeviceVar *HIPxxDevice::getGlobalVar(const void *host_var_ptr) {
+  auto found_dyn = getDynGlobalVar(host_var_ptr);
+  if (found_dyn) return found_dyn;
+
+  auto found_stat = getStatGlobalVar(host_var_ptr);
+  if (found_stat) return found_stat;
+
+  return nullptr;
+}
+
 int HIPxxDevice::getAttr(hipDeviceAttribute_t attr) {
   int *pi;
   hipDeviceProp_t prop = {0};
