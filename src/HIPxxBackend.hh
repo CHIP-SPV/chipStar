@@ -37,6 +37,40 @@ enum class HIPxxEventType : unsigned {
   Interprocess = hipEventInterprocess
 };
 
+struct allocation_info {
+  void* base_ptr;
+  size_t size;
+};
+
+/**
+ * @brief Class for keeping track of device allocations.
+ *
+ */
+class HIPxxAllocationTracker {
+ private:
+  std::unordered_map<void*, void*> host_to_dev;
+  std::unordered_map<void*, void*> dev_to_host;
+
+  std::unordered_map<void*, allocation_info> dev_to_allocation_info;
+
+ public:
+  HIPxxAllocationTracker();
+  ~HIPxxAllocationTracker();
+
+  /**
+   * @brief Get allocation_info based on host pointer
+   *
+   * @return allocation_info contains the base pointer and allocation size;
+   */
+  allocation_info getByHostPtr(const void*);
+  /**
+   * @brief Get allocation_info based on device pointer
+   *
+   * @return allocation_info contains the base pointer and allocation size;
+   */
+  allocation_info getByDevPtr(const void*);
+};
+
 class HIPxxDeviceVar {
  private:
   std::string host_var_name;
@@ -777,8 +811,19 @@ class HIPxxContext {
 
   hipError_t launchHostFunc(const void* HostFunction);
   void finishAll();
-  bool findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
-                       hipDeviceptr_t dptr);           // TODO HIPxx
+
+  /**
+   * @brief For a given device pointer, return the base address of the
+   * allocation to which it belongs to along with the allocation size
+   *
+   * @param pbase device base pointer to which dptr belongs to
+   * @param psize size of the allocation with which pbase was created
+   * @param dptr device pointer
+   * @return hipError_t
+   */
+  virtual hipError_t findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
+                                     hipDeviceptr_t dptr);
+
   unsigned int getFlags();                             // TODO HIPxx
   bool setFlags(unsigned int flags);                   // TODO HIPxx
   void reset();                                        // TODO HIPxx
@@ -807,6 +852,13 @@ class HIPxxBackend {
   HIPxxQueue* active_q;
 
  public:
+  /**
+   * @brief Keep track of pointers allocated on the device. Used to get info
+   * about allocaitons based on device poitner in case that findPointerInfo() is
+   * not overriden
+   *
+   */
+  HIPxxAllocationTracker AllocationTracker;
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t tls_last_error = hipSuccess;
   inline static thread_local HIPxxContext* tls_active_ctx;

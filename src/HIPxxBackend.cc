@@ -1,5 +1,11 @@
 #include "HIPxxBackend.hh"
 #include <utility>
+
+allocation_info HIPxxAllocationTracker::getByHostPtr(const void *host_ptr) {
+}  // TODO
+allocation_info HIPxxAllocationTracker::getByDevPtr(const void *dev_ptr) {
+}  // TODO
+
 // HIPxxEvent
 // ************************************************************************
 HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, HIPxxEventType event_type_)
@@ -471,6 +477,14 @@ void *HIPxxContext::allocate(size_t size, size_t alignment,
   if (retval == nullptr) hipxx_dev->releaseMemReservation(size);
 
   return retval;
+}
+
+hipError_t HIPxxContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
+                                         hipDeviceptr_t dptr) {
+  allocation_info info = Backend->AllocationTracker.getByDevPtr(dptr);
+  *pbase = info.base_ptr;
+  *psize = info.size;
+  return hipSuccess;
 }
 
 // HIPxxBackend
