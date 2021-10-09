@@ -377,6 +377,18 @@ int HIPxxDevice::getAttr(hipDeviceAttribute_t attr) {
   return *pi;
 }
 
+size_t HIPxxDevice::getGlobalMemSize() {}
+
+void setCacheConfig(hipFuncCache_t) {}
+
+hipFuncCache_t getCacheConfig() {}
+
+void setSharedMemConfig(hipSharedMemConfig config) {}
+
+hipSharedMemConfig getSharedMemConfig() {}
+
+void setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
+
 void HIPxxDevice::registerFunctionAsKernel(std::string *module_str,
                                            const void *host_f_ptr,
                                            const char *host_f_name) {

@@ -603,20 +603,44 @@ class HIPxxDevice {
    *
    * @return size_t
    */
-  size_t getGlobalMemSize();  // TODO HIPxx
+  size_t getGlobalMemSize();
 
   /**
-   * @brief
+   * @brief Set the Cache Config object
    *
+   * @param cfg configuration
    */
-  /*virtual*/ void setCacheConfig(hipFuncCache_t);
-  /* = 0;*/                         // TODO HIPxx
-  hipFuncCache_t getCacheConfig();  // TODO HIPxx
-  /*virtual*/ void setSharedMemConfig(hipSharedMemConfig config);
-  /* = 0;*/                                 // TODO HIPxx
-  hipSharedMemConfig getSharedMemConfig();  // TODO HIPxx
-  void setFuncCacheConfig(const void* func,
-                          hipFuncCache_t config);  // TODO HIPxx
+  virtual void setCacheConfig(hipFuncCache_t cfg);
+
+  /**
+   * @brief Get the cache configuration for this device
+   *
+   * @return hipFuncCache_t
+   */
+  virtual hipFuncCache_t getCacheConfig();
+
+  /**
+   * @brief Configure shared memory for this device
+   *
+   * @param config
+   */
+  virtual void setSharedMemConfig(hipSharedMemConfig config);
+
+  /**
+   * @brief Get the shared memory configuration for this device
+   *
+   * @return hipSharedMemConfig
+   */
+  virtual hipSharedMemConfig getSharedMemConfig();
+
+  /**
+   * @brief Setup the cache configuration for the device to use when executing
+   * this function
+   *
+   * @param func
+   * @param config
+   */
+  virtual void setFuncCacheConfig(const void* func, hipFuncCache_t config);
 
   /**
    * @brief Check if the current device has same PCI bus ID as the one given by
@@ -628,8 +652,7 @@ class HIPxxDevice {
    * @return true
    * @return false
    */
-  bool hasPCIBusId(int pciDomainID, int pciBusID,
-                   int pciDeviceID);  // TODO HIPxx
+  bool hasPCIBusId(int pciDomainID, int pciBusID, int pciDeviceID);
 
   /**
    * @brief Get peer-accesability between this and another device
@@ -637,7 +660,7 @@ class HIPxxDevice {
    * @param peerDevice
    * @return int
    */
-  int getPeerAccess(HIPxxDevice* peerDevice);  // TODO HIPxx
+  int getPeerAccess(HIPxxDevice* peerDevice);
 
   /**
    * @brief Set access between this and another device
@@ -647,19 +670,38 @@ class HIPxxDevice {
    * @param canAccessPeer
    * @return hipError_t
    */
-  hipError_t setPeerAccess(HIPxxDevice* peer, int flags,
-                           bool canAccessPeer);  // TODO HIPxx
+  hipError_t setPeerAccess(HIPxxDevice* peer, int flags, bool canAccessPeer);
 
   /**
    * @brief Get the total used global memory
    *
    * @return size_t
    */
-  size_t getUsedGlobalMem();  // TODO HIPxx
+  size_t getUsedGlobalMem();
 
-  HIPxxDeviceVar* getDynGlobalVar(const void* host_var_ptr);   // TODO HIPxx
-  HIPxxDeviceVar* getStatGlobalVar(const void* host_var_ptr);  // TODO HIPxx
-  HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);      // TODO HIPxx
+  /**
+   * @brief Get the global variable that came from a FatBinary module
+   *
+   * @param host_var_ptr host pointer to the variable
+   * @return HIPxxDeviceVar*
+   */
+  HIPxxDeviceVar* getDynGlobalVar(const void* host_var_ptr);
+
+  /**
+   * @brief Get the global variable that from from a module loaded at runtime
+   *
+   * @param host_var_ptr host pointer to the variable
+   * @return HIPxxDeviceVar*
+   */
+  HIPxxDeviceVar* getStatGlobalVar(const void* host_var_ptr);
+
+  /**
+   * @brief Get the global variable
+   *
+   * @param host_var_ptr host pointer to the variable
+   * @return HIPxxDeviceVar*
+   */
+  HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);
 
   /**
    * @brief Take the module source, compile the kernels and associate the host
@@ -919,6 +961,7 @@ class HIPxxBackend {
   std::vector<HIPxxQueue*> hipxx_queues;
   std::vector<HIPxxDevice*> hipxx_devices;
 
+  // TODO
   // key for caching compiled modules. To get a cached compiled module on a
   // particular device you must make sure that you have a module which matches
   // the host funciton pointer and also that this module was compiled for the
@@ -942,7 +985,7 @@ class HIPxxBackend {
   ~HIPxxBackend();
 
   /**
-   * @brief
+   * @brief Initialize this backend with given environment flags
    *
    * @param platform_str
    * @param device_type_str
