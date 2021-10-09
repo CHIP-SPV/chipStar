@@ -74,7 +74,10 @@ class HIPxxContextOpenCL : public HIPxxContext {
   cl::Context *cl_ctx;
   HIPxxContextOpenCL(cl::Context *ctx_in);
 
-  void *allocate(size_t size) override;
+  void *allocate_(size_t size, size_t alignment,
+                  HIPxxMemoryType mem_type) override;
+
+  bool free_(void *ptr) override;
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
   cl::Context *get() { return cl_ctx; }

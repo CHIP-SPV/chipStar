@@ -67,14 +67,15 @@ HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxDeviceLevel0* hipxx_dev_)
 hipError_t HIPxxContextLevel0::memCopy(void* dst, const void* src, size_t size,
                                        hipStream_t stream) {
   logTrace("HIPxxContextLevel0.memCopy");
-  if (stream == nullptr) {
-    return getDefaultQueue()->memCopy(dst, src, size);
-  } else {
-    logCritical("Queue lookup not yet implemented");
-    std::abort();
-  }
+  // Stream halding done in Bindings.
+  // if (stream == nullptr) {
+  //   return getDefaultQueue()->memCopy(dst, src, size);
+  // } else {
+  //   logCritical("Queue lookup not yet implemented");
+  //   std::abort();
+  // }
 
-  HIPxxQueueLevel0* hipxx_q = (HIPxxQueueLevel0*)getDefaultQueue();
+  HIPxxQueueLevel0* hipxx_q = (HIPxxQueueLevel0*)stream;
   ze_result_t status = zeCommandQueueSynchronize(hipxx_q->get(), UINT64_MAX);
   if (status != ZE_RESULT_SUCCESS) {
     logCritical("Failed to memcopy");

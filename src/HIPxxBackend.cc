@@ -438,20 +438,9 @@ void HIPxxContext::addQueue(HIPxxQueue *q) {
   logTrace("HIPxxContext.add_queue()");
   hipxx_queues.push_back(q);
 }
-HIPxxQueue *HIPxxContext::getDefaultQueue() {
-  if (hipxx_queues.size() == 0) {
-    logCritical(
-        "HIPxxContext.get_default_queue() was called but hipxx_queues is "
-        "empty");
-    std::abort();
-  }
-  return hipxx_queues[0];
-}
-
 hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
   std::vector<HIPxxQueue *> Queues = getQueues();
-  HIPxxQueue *DefaultQueue = Queues.at(0);
-  if (stream == nullptr || stream == DefaultQueue) return DefaultQueue;
+  if (stream == nullptr) return Backend->getActiveQueue();
 
   auto I = std::find(Queues.begin(), Queues.end(), stream);
   if (I == Queues.end()) return nullptr;
@@ -460,6 +449,28 @@ hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
 
 void HIPxxContext::finishAll() {
   for (HIPxxQueue *q : hipxx_queues) q->finish();
+}
+
+void *HIPxxContext::allocate(size_t size) {
+  return allocate(size, 0, HIPxxMemoryType::Shared);
+}
+
+void *HIPxxContext::allocate(size_t size, HIPxxMemoryType mem_type) {
+  return allocate(size, 0, mem_type);
+}
+void *HIPxxContext::allocate(size_t size, size_t alignment,
+                             HIPxxMemoryType mem_type) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  void *retval;
+
+  HIPxxDevice *hipxx_dev = Backend->getActiveDevice();
+  assert(hipxx_dev->getContext() == this);
+
+  if (!hipxx_dev->reserveMem(size)) return nullptr;
+  retval = allocate_(size, alignment, mem_type);
+  if (retval == nullptr) hipxx_dev->releaseMemReservation(size);
+
+  return retval;
 }
 
 // HIPxxBackend

@@ -334,6 +334,11 @@ class HIPxxExecItem {
    */
   HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
                 hipStream_t hipxx_queue_);
+
+  /**
+   * @brief Destroy the HIPxxExecItem object
+   *
+   */
   ~HIPxxExecItem();
 
   /**
@@ -431,7 +436,6 @@ class HIPxxDevice {
       host_var_ptr_to_hipxxdevicevar_dyn;
 
   int idx;
-  hipDeviceProp_t hip_device_props;
   size_t total_used_mem, max_used_mem;
   /**
    * @brief Construct a new HIPxxDevice object
@@ -524,11 +528,29 @@ class HIPxxDevice {
    */
   virtual std::string getName() = 0;
 
-  bool allocate(size_t bytes);
-  bool free(size_t bytes);
+  /**
+   * @brief Reserve memory for an allocation.
+   * This method is run prior to allocations to keep track of how much memory is
+   * available on the device
+   *
+   * @param bytes
+   * @return true Reservation successful
+   * @return false Not enough available memory for reservation of this size.
+   */
+  bool reserveMem(size_t bytes);
 
   /**
-   * @brief Reset the device
+   * @brief Release some of the reserved memory. Called by free()
+   *
+   * @param bytes
+   * @return true
+   * @return false
+   */
+  bool releaseMemReservation(size_t bytes);
+
+  /**
+   * @brief Destroy all allocations and reset all state on the current device in
+   the current process.
    *
    */
   virtual void reset() = 0;
@@ -630,7 +652,15 @@ class HIPxxContext {
   std::mutex mtx;
 
  public:
+  /**
+   * @brief Construct a new HIPxxContext object
+   *
+   */
   HIPxxContext();
+  /**
+   * @brief Destroy the HIPxxContext object
+   *
+   */
   ~HIPxxContext();
 
   /**
@@ -641,17 +671,107 @@ class HIPxxContext {
    * @return false upon failure
    */
   bool addDevice(HIPxxDevice* dev);
+  /**
+   * @brief Add a queue to this context
+   *
+   * @param q HIPxxQueue to be added
+   */
   void addQueue(HIPxxQueue* q);
-  HIPxxQueue* getDefaultQueue();
-  hipStream_t findQueue(hipStream_t stream);
+
+  /**
+   * @brief Get this context's HIPxxDevices
+   *
+   * @return std::vector<HIPxxDevice*>&
+   */
   std::vector<HIPxxDevice*>& getDevices();
+
+  /**
+   * @brief Get the this contexts HIPxxQueues
+   *
+   * @return std::vector<HIPxxQueue*>&
+   */
   std::vector<HIPxxQueue*>& getQueues();
 
-  virtual void* allocate(size_t size) = 0;
-  virtual void* allocate(size_t size, HIPxxMemoryType mem_type);  // TODO HIPxx
-  virtual void* allocate(size_t size, size_t alignment,
-                         HIPxxMemoryType mem_type);  // TODO HIPxx
-  bool free(void* ptr);                              // TODO HIPxx
+  /**
+   * @brief Find a queue. If a null pointer is passed, return the Active Queue
+   * (active devices's primary queue). If this queue is not found in this
+   * context then return nullptr
+   *
+   * @param stream HIPxxQueue to find
+   * @return hipStream_t
+   */
+  hipStream_t findQueue(hipStream_t stream);
+
+  /**
+   * @brief Allocate data.
+   * Calls reserveMem() to keep track memory used on the device.
+   * Calls HIPxxContext::allocate_(size_t size, size_t alignment,
+   * HIPxxMemoryType mem_type) with allignment = 0 and allocation type = Shared
+   *
+   *
+   * @param size size of the allocation
+   * @return void* pointer to allocated memory
+   */
+  void* allocate(size_t size);
+
+  /**
+   * @brief Allocate data.
+   * Calls reserveMem() to keep track memory used on the device.
+   * Calls HIPxxContext::allocate_(size_t size, size_t alignment,
+   * HIPxxMemoryType mem_type) with allignment = 0
+   *
+   * @param size size of the allocation
+   * @param mem_type type of the allocation: Host, Device, Shared
+   * @return void* pointer to allocated memory
+   */
+  void* allocate(size_t size, HIPxxMemoryType mem_type);
+
+  /**
+   * @brief Allocate data.
+   * Calls reserveMem() to keep track memory used on the device.
+   * Calls HIPxxContext::allocate_(size_t size, size_t alignment,
+   * HIPxxMemoryType mem_type)
+   *
+   * @param size size of the allocation
+   * @param alignment allocation alignment in bytes
+   * @param mem_type type of the allocation: Host, Device, Shared
+   * @return void* pointer to allocated memory
+   */
+  void* allocate(size_t size, size_t alignment, HIPxxMemoryType mem_type);
+
+  /**
+   * @brief Allocate data. Pure virtual function - to be overriden by each
+   * backend. This member function is the one that's called by all the
+   * publically visible HIPxxContext::allocate() variants
+   *
+   * @param size size of the allocation.
+   * @param alignment allocation alignment in bytes
+   * @param mem_type type of the allocation: Host, Device, Shared
+   * @return void*
+   */
+  virtual void* allocate_(size_t size, size_t alignment,
+                          HIPxxMemoryType mem_type) = 0;
+
+  /**
+   * @brief Free memory
+   *
+   * @param ptr pointer to the memory location to be deallocated. Internally
+   * calls HIPxxContext::free_()
+   * @return true Success
+   * @return false Failure
+   */
+  bool free(void* ptr);
+
+  /**
+   * @brief Free memory
+   * To be overriden by the backend
+   *
+   * @param ptr
+   * @return true
+   * @return false
+   */
+  virtual bool free_(void* ptr) = 0;
+
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream);  // TODO HIPxx
 

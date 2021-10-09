@@ -118,9 +118,11 @@ class HIPxxContextLevel0 : public HIPxxContext {
   ze_command_list_handle_t get_cmd_list() { return ze_cmd_list; }
   HIPxxContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx) {}
 
-  void* allocate(size_t size, size_t alignment, LZMemoryType memTy) {
+  void* allocate_(size_t size, size_t alignment,
+                  HIPxxMemoryType memTy) override {
+    alignment = 0x1000;  // TODO Where/why
     void* ptr = 0;
-    if (memTy == LZMemoryType::Shared) {
+    if (memTy == HIPxxMemoryType::Shared) {
       ze_device_mem_alloc_desc_t dmaDesc;
       dmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
       dmaDesc.pNext = NULL;
@@ -144,7 +146,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
       return ptr;
-    } else if (memTy == LZMemoryType::Device) {
+    } else if (memTy == HIPxxMemoryType::Device) {
       ze_device_mem_alloc_desc_t dmaDesc;
       dmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
       dmaDesc.pNext = NULL;
@@ -169,10 +171,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
     return nullptr;
   }
 
-  virtual void* allocate(size_t size) override {
-    return allocate(size, 0x1000, LZMemoryType::Device);
-  }
-
+  bool free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) override;

@@ -115,7 +115,8 @@ hipError_t hipDeviceGetAttribute(int *pi, hipDeviceAttribute_t attr,
   HIPxxInitialize();
   ERROR_CHECK_DEVNUM(deviceId);
 
-  if (Backend->getDevices()[deviceId]->getAttr(pi, attr))
+  *pi = Backend->getDevices()[deviceId]->getAttr(attr);
+  if (*pi == -1)
     RETURN(hipErrorInvalidValue);
   else
     RETURN(hipSuccess);

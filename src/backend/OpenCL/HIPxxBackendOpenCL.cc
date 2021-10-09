@@ -60,16 +60,12 @@ HIPxxContextOpenCL::HIPxxContextOpenCL(cl::Context *ctx_in) {
   cl_ctx = ctx_in;
 }
 
-void *HIPxxContextOpenCL::allocate(size_t size) {
+void *HIPxxContextOpenCL::allocate_(size_t size, size_t alignment,
+                                    HIPxxMemoryType mem_type) {
   std::lock_guard<std::mutex> Lock(mtx);
   void *retval;
 
-  for (auto dev : hipxx_devices) {
-    if (!dev->allocate(size)) return nullptr;
-    retval = svm_memory.allocate(*cl_ctx, size);
-    if (retval == nullptr) dev->free(size);
-  }
-
+  retval = svm_memory.allocate(*cl_ctx, size);
   return retval;
 }
 
