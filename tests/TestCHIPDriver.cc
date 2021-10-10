@@ -1,19 +1,19 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "HIPxxBackend.hh"
-#include "HIPxxDriver.hh"
+#include "CHIPBackend.hh"
+#include "CHIPDriver.hh"
 
 TEST_CASE("OpenCL - Backend init creates context, device, and a queue",
-          "[HIPxxBackend]") {
-  HIPxxInitialize("OPENCL");
+          "[CHIPBackend]") {
+  CHIPInitialize("OPENCL");
   REQUIRE(Backend->hipxx_contexts.size() == 1);
   REQUIRE(Backend->hipxx_devices.size() == 1);
   REQUIRE(Backend->hipxx_queues.size() == 1);
 }
 
 TEST_CASE("Level0 - Backend init creates context, device, and a queue",
-          "[HIPxxBackend]") {
-  HIPxxInitialize("LEVEL0");
+          "[CHIPBackend]") {
+  CHIPInitialize("LEVEL0");
   REQUIRE(Backend->hipxx_contexts.size() == 1);
   REQUIRE(Backend->hipxx_devices.size() == 1);
   REQUIRE(Backend->hipxx_queues.size() == 1);

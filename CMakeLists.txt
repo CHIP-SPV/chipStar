@@ -11,7 +11,7 @@ endif()
 
 
 
-project(HIPxx
+project(CHIP
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
@@ -23,7 +23,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "/opt/hipxx" CACHE PATH "Install path prefix" FORCE)
 endif()
-message(STATUS "HIPxx will be installed to: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "CHIP will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
 
  if(UNIX AND ((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")))
@@ -73,12 +73,12 @@ include_directories(src backend include . ${OpenCL_INCLUDE_DIR})
 find_package(Threads REQUIRED)
 set(HIPXX_SRC 
     src/spirv.cc 
-    src/HIPxxDriver.cc 
-    src/HIPxxBackend.cc 
+    src/CHIPDriver.cc 
+    src/CHIPBackend.cc 
     src/logging.cc
-    src/HIPxxBindings.cc
+    src/CHIPBindings.cc
     src/backend/Level0/Level0Backend.cc
-    src/backend/OpenCL/HIPxxBackendOpenCL.cc
+    src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc
 )
 set(DRIVER_SRC src/main.cc)
@@ -107,16 +107,16 @@ find_library_dynamic(libintlc.so.5)
 
 message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
-add_library(HIPxx SHARED ${HIPXX_SRC})
-target_link_libraries(HIPxx ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
+add_library(CHIP SHARED ${HIPXX_SRC})
+target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
 add_executable(driver ${DRIVER_SRC})
 
-target_link_libraries(driver -stdlib=libstdc++ HIPxx Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
+target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-add_executable(tests tests/TestHIPxxDriver.cc tests/TestHIPxxBackend.cc tests/TestHIPxxBackendOpenCL.cc)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain HIPxx ${Level0_LIBRARIES})
+add_executable(tests tests/TestCHIPDriver.cc tests/TestCHIPBackend.cc tests/TestCHIPBackendOpenCL.cc)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain CHIP ${Level0_LIBRARIES})
 # Add to LD_LIBRARY_PATH
-#clang++ -pthread -fPIE -O2 -g -std=c++11 `hipcl_config -C` -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/HIPxx/build -lHIPxx
+#clang++ -pthread -fPIE -O2 -g -std=c++11 `hipcl_config -C` -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP/build -lCHIP

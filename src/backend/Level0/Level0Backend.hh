@@ -2,7 +2,7 @@
 #define HIPXX_BACKEND_LEVEL0_H
 
 #include "../src/common.hh"
-#include "../../HIPxxBackend.hh"
+#include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
 enum class LZMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 
@@ -53,36 +53,36 @@ const char* lzResultToString(ze_result_t status);
   }                                                         \
   }                                                         \
   while (0)
-class HIPxxContextLevel0;
-class HIPxxDeviceLevel0;
-class HIPxxKernelLevel0 : public HIPxxKernel {
+class CHIPContextLevel0;
+class CHIPDeviceLevel0;
+class CHIPKernelLevel0 : public CHIPKernel {
  protected:
   ze_kernel_handle_t ze_kernel;
 
  public:
-  HIPxxKernelLevel0(){};
-  HIPxxKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
-                    const void* _host_ptr) {
+  CHIPKernelLevel0(){};
+  CHIPKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
+                   const void* _host_ptr) {
     ze_kernel = _ze_kernel;
     host_f_name = _funcName;
     host_f_ptr = _host_ptr;
-    logTrace("HIPxxKernelLevel0 constructor via ze_kernel_handle");
+    logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
   }
 
   ze_kernel_handle_t get() { return ze_kernel; }
 };
 
-class HIPxxQueueLevel0 : public HIPxxQueue {
+class CHIPQueueLevel0 : public CHIPQueue {
  protected:
   ze_command_queue_handle_t ze_q;
   ze_context_handle_t ze_ctx;
   ze_device_handle_t ze_dev;
 
  public:
-  HIPxxQueueLevel0(HIPxxDeviceLevel0* hixx_dev_);
+  CHIPQueueLevel0(CHIPDeviceLevel0* hixx_dev_);
 
-  virtual hipError_t launch(HIPxxExecItem* exec_item) override {
-    logWarn("HIPxxQueueLevel0.launch() not yet implemented");
+  virtual hipError_t launch(CHIPExecItem* exec_item) override {
+    logWarn("CHIPQueueLevel0.launch() not yet implemented");
     return hipSuccess;
   };
 
@@ -91,16 +91,16 @@ class HIPxxQueueLevel0 : public HIPxxQueue {
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) override;
 };
 
-class HIPxxDeviceLevel0 : public HIPxxDevice {
+class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_handle_t ze_dev;
   ze_context_handle_t ze_ctx;
 
  public:
-  HIPxxDeviceLevel0(ze_device_handle_t&& ze_dev_, ze_context_handle_t ze_ctx_)
+  CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_, ze_context_handle_t ze_ctx_)
       : ze_dev(ze_dev_), ze_ctx(ze_ctx_) {}
   virtual void populateDeviceProperties() override {
     logWarn(
-        "HIPxxDeviceLevel0.populate_device_properties not yet "
+        "CHIPDeviceLevel0.populate_device_properties not yet "
         "implemented");
   }
   virtual std::string getName() override { return device_name; }
@@ -109,20 +109,20 @@ class HIPxxDeviceLevel0 : public HIPxxDevice {
   virtual void reset() override;
 };
 
-class HIPxxContextLevel0 : public HIPxxContext {
+class CHIPContextLevel0 : public CHIPContext {
   ze_context_handle_t ze_ctx;
   OpenCLFunctionInfoMap FuncInfos;
 
  public:
   ze_command_list_handle_t ze_cmd_list;
   ze_command_list_handle_t get_cmd_list() { return ze_cmd_list; }
-  HIPxxContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx) {}
+  CHIPContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx) {}
 
   void* allocate_(size_t size, size_t alignment,
-                  HIPxxMemoryType memTy) override {
+                  CHIPMemoryType memTy) override {
     alignment = 0x1000;  // TODO Where/why
     void* ptr = 0;
-    if (memTy == HIPxxMemoryType::Shared) {
+    if (memTy == CHIPMemoryType::Shared) {
       ze_device_mem_alloc_desc_t dmaDesc;
       dmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
       dmaDesc.pNext = NULL;
@@ -134,7 +134,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       hmaDesc.flags = 0;
 
       // TODO Check if devices support cross-device sharing?
-      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)getDevices()[0])->get();
+      ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)getDevices()[0])->get();
       ze_dev = nullptr;  // Do not associate allocation
 
       ze_result_t status = zeMemAllocShared(ze_ctx, &dmaDesc, &hmaDesc, size,
@@ -146,7 +146,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
       return ptr;
-    } else if (memTy == HIPxxMemoryType::Device) {
+    } else if (memTy == CHIPMemoryType::Device) {
       ze_device_mem_alloc_desc_t dmaDesc;
       dmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
       dmaDesc.pNext = NULL;
@@ -154,7 +154,7 @@ class HIPxxContextLevel0 : public HIPxxContext {
       dmaDesc.ordinal = 0;
 
       // TODO Select proper device
-      ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)getDevices()[0])->get();
+      ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)getDevices()[0])->get();
 
       ze_result_t status =
           zeMemAllocDevice(ze_ctx, &dmaDesc, size, alignment, ze_dev, &ptr);
@@ -180,9 +180,9 @@ class HIPxxContextLevel0 : public HIPxxContext {
   //                                       const void* HostFunctionPtr,
   //                                       const char* FunctionName) override {
   //   logWarn(
-  //       "HIPxxContextLevel0.register_function_as_kernel not "
+  //       "CHIPContextLevel0.register_function_as_kernel not "
   //       "implemented");
-  //   logDebug("HIPxxContextLevel0.register_function_as_kernel {} ",
+  //   logDebug("CHIPContextLevel0.register_function_as_kernel {} ",
   //            FunctionName);
   //   uint8_t* funcIL = (uint8_t*)module_str->data();
   //   size_t ilSize = module_str->length();
@@ -212,8 +212,8 @@ class HIPxxContextLevel0 : public HIPxxContext {
   //                                  funcIL,
   //                                  compilerOptions.c_str(),
   //                                  nullptr};
-  //   for (HIPxxDevice* hipxx_dev : getDevices()) {
-  //     ze_device_handle_t ze_dev = ((HIPxxDeviceLevel0*)hipxx_dev)->get();
+  //   for (CHIPDevice* hipxx_dev : getDevices()) {
+  //     ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)hipxx_dev)->get();
   //     ze_result_t status =
   //         zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
   //     logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
@@ -229,35 +229,35 @@ class HIPxxContextLevel0 : public HIPxxContext {
   //     // code ", status);
 
   //     logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
-  //     HIPxxKernelLevel0* hipxx_ze_kernel =
-  //         new HIPxxKernelLevel0(ze_kernel, FunctionName, HostFunctionPtr);
+  //     CHIPKernelLevel0* hipxx_ze_kernel =
+  //         new CHIPKernelLevel0(ze_kernel, FunctionName, HostFunctionPtr);
 
   //     hipxx_dev->addKernel(hipxx_ze_kernel);
   //   }
 
   //   return true;
   // }
-};  // HIPxxContextLevel0
+};  // CHIPContextLevel0
 
-class HIPxxBackendLevel0 : public HIPxxBackend {
+class CHIPBackendLevel0 : public CHIPBackend {
  public:
-  virtual void initialize(std::string HIPxxPlatformStr,
-                          std::string HIPxxDeviceTypeStr,
-                          std::string HIPxxDeviceStr) override {
-    logDebug("HIPxxBackendLevel0 Initialize");
+  virtual void initialize(std::string CHIPPlatformStr,
+                          std::string CHIPDeviceTypeStr,
+                          std::string CHIPDeviceStr) override {
+    logDebug("CHIPBackendLevel0 Initialize");
     ze_result_t status;
     status = zeInit(0);
     logDebug("INITIALIZE LEVEL-0 (via calling zeInit) {}\n", status);
 
     ze_device_type_t ze_device_type;
-    if (!HIPxxDeviceTypeStr.compare("GPU")) {
+    if (!CHIPDeviceTypeStr.compare("GPU")) {
       ze_device_type = ZE_DEVICE_TYPE_GPU;
-    } else if (!HIPxxDeviceTypeStr.compare("FPGA")) {
+    } else if (!CHIPDeviceTypeStr.compare("FPGA")) {
       ze_device_type = ZE_DEVICE_TYPE_FPGA;
     } else {
       logCritical("HIPXX_DEVICE_TYPE must be either GPU or FPGA");
     }
-    int platform_idx = std::atoi(HIPxxPlatformStr.c_str());
+    int platform_idx = std::atoi(CHIPPlatformStr.c_str());
     std::vector<ze_driver_handle_t> ze_drivers;
     std::vector<ze_device_handle_t> ze_devices;
 
@@ -286,23 +286,22 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
     ze_context_handle_t ze_ctx;
     zeContextCreateEx(ze_driver, &ctxDesc, deviceCount, ze_devices.data(),
                       &ze_ctx);
-    HIPxxContextLevel0* hipxx_l0_ctx =
-        new HIPxxContextLevel0(std::move(ze_ctx));
+    CHIPContextLevel0* hipxx_l0_ctx = new CHIPContextLevel0(std::move(ze_ctx));
 
     // Filter in only devices of selected type and add them to the
-    // backend as derivates of HIPxxDevice
+    // backend as derivates of CHIPDevice
     for (int i = 0; i < deviceCount; i++) {
       auto dev = ze_devices[i];
       ze_device_properties_t device_properties;
       zeDeviceGetProperties(dev, &device_properties);
       if (ze_device_type == device_properties.type) {
-        HIPxxDeviceLevel0* hipxx_l0_dev =
-            new HIPxxDeviceLevel0(std::move(dev), ze_ctx);
+        CHIPDeviceLevel0* hipxx_l0_dev =
+            new CHIPDeviceLevel0(std::move(dev), ze_ctx);
         Backend->addDevice(hipxx_l0_dev);
         // TODO
         break;  // For now don't add more than one device
       }
-    }  // End adding HIPxxDevices
+    }  // End adding CHIPDevices
 
     Backend->addContext(hipxx_l0_ctx);
   }
@@ -313,9 +312,9 @@ class HIPxxBackendLevel0 : public HIPxxBackend {
   }
 
   void uninitialize() override {
-    logTrace("HIPxxBackendLevel0 uninitializing");
-    logWarn("HIPxxBackendLevel0->uninitialize() not implemented");
+    logTrace("CHIPBackendLevel0 uninitializing");
+    logWarn("CHIPBackendLevel0->uninitialize() not implemented");
   }
-};  // HIPxxBackendLevel0
+};  // CHIPBackendLevel0
 
 #endif

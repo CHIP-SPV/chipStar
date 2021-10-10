@@ -1,10 +1,10 @@
 /**
- * @file HIPxxBackend.hh
+ * @file CHIPBackend.hh
  * @author Paulius Velesko (pvelesko@gmail.com)
- * @brief HIPxxBackend class definition. HIPxx backends are to inherit from this
+ * @brief CHIPBackend class definition. CHIP backends are to inherit from this
  * base class and override desired virtual functions. Overrides for this class
  * are expected to be minimal with primary overrides being done on lower-level
- * classes such as HIPxxContext consturctors, etc.
+ * classes such as CHIPContext consturctors, etc.
  * @version 0.1
  * @date 2021-08-19
  *
@@ -25,12 +25,12 @@
 #include "spirv.hh"
 #include "include/hip/hip.hh"
 
-#include "HIPxxDriver.hh"
+#include "CHIPDriver.hh"
 #include "logging.hh"
 #include "macros.hh"
 
-enum class HIPxxMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
-enum class HIPxxEventType : unsigned {
+enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
+enum class CHIPEventType : unsigned {
   Default = hipEventDefault,
   BlockingSync = hipEventBlockingSync,
   DisableTiming = hipEventDisableTiming,
@@ -46,7 +46,7 @@ struct allocation_info {
  * @brief Class for keeping track of device allocations.
  *
  */
-class HIPxxAllocationTracker {
+class CHIPAllocationTracker {
  private:
   std::unordered_map<void*, void*> host_to_dev;
   std::unordered_map<void*, void*> dev_to_host;
@@ -54,8 +54,8 @@ class HIPxxAllocationTracker {
   std::unordered_map<void*, allocation_info> dev_to_allocation_info;
 
  public:
-  HIPxxAllocationTracker();
-  ~HIPxxAllocationTracker();
+  CHIPAllocationTracker();
+  ~CHIPAllocationTracker();
 
   /**
    * @brief Get allocation_info based on host pointer
@@ -71,15 +71,15 @@ class HIPxxAllocationTracker {
   allocation_info* getByDevPtr(const void*);
 };
 
-class HIPxxDeviceVar {
+class CHIPDeviceVar {
  private:
   std::string host_var_name;
   void* dev_ptr;
   size_t size;
 
  public:
-  HIPxxDeviceVar(std::string host_var_name_, void* dev_ptr_, size_t size);
-  ~HIPxxDeviceVar();
+  CHIPDeviceVar(std::string host_var_name_, void* dev_ptr_, size_t size);
+  ~CHIPDeviceVar();
 
   void* getDevAddr();
   std::string getName();
@@ -87,12 +87,12 @@ class HIPxxDeviceVar {
 };
 
 // fw declares
-class HIPxxExecItem;
-class HIPxxQueue;
-class HIPxxContext;
-class HIPxxDevice;
+class CHIPExecItem;
+class CHIPQueue;
+class CHIPContext;
+class CHIPDevice;
 
-class HIPxxEvent {
+class CHIPEvent {
  protected:
   std::mutex mutex;
   event_status_e status;
@@ -101,40 +101,39 @@ class HIPxxEvent {
    * hipEventBlockingSync, hipEventDisableTiming, hipEventInterprocess
    *
    */
-  HIPxxEventType flags;
+  CHIPEventType flags;
   /**
    * @brief Events are always created with a context
    *
    */
-  HIPxxContext* hipxx_context;
+  CHIPContext* hipxx_context;
 
   /**
-   * @brief hidden default constructor for HIPxxEvent. Only derived class
+   * @brief hidden default constructor for CHIPEvent. Only derived class
    * constructor should be called.
    *
    */
-  HIPxxEvent() = default;
+  CHIPEvent() = default;
 
  public:
   /**
-   * @brief HIPxxEvent constructor. Must always be created with some context.
+   * @brief CHIPEvent constructor. Must always be created with some context.
    *
    */
-  HIPxxEvent(HIPxxContext* ctx_,
-             HIPxxEventType flags_ = HIPxxEventType::Default);
+  CHIPEvent(CHIPContext* ctx_, CHIPEventType flags_ = CHIPEventType::Default);
   /**
-   * @brief Destroy the HIPxxEvent object
+   * @brief Destroy the CHIPEvent object
    *
    */
-  ~HIPxxEvent();
+  ~CHIPEvent();
   /**
-   * @brief Enqueue this event in a given HIPxxQueue
+   * @brief Enqueue this event in a given CHIPQueue
    *
-   * @param hipxx_queue_ HIPxxQueue in which to enque this event
+   * @param hipxx_queue_ CHIPQueue in which to enque this event
    * @return true
    * @return false
    */
-  virtual bool recordStream(HIPxxQueue* hipxx_queue_);
+  virtual bool recordStream(CHIPQueue* hipxx_queue_);
   /**
    * @brief Wait for this event to complete
    *
@@ -156,7 +155,7 @@ class HIPxxEvent {
    * @param other
    * @return float
    */
-  virtual float getElapsedTime(HIPxxEvent* other);
+  virtual float getElapsedTime(CHIPEvent* other);
 };
 
 /**
@@ -167,13 +166,13 @@ class HIPxxEvent {
  * ROCclr - amd::Program
  * CUDA - CUmodule
  */
-class HIPxxModule {
+class CHIPModule {
  protected:
   std::mutex mtx;
   // Global variables
-  std::vector<HIPxxDeviceVar*> hipxx_vars;
+  std::vector<CHIPDeviceVar*> hipxx_vars;
   // Kernels
-  std::vector<HIPxxKernel*> hipxx_kernels;
+  std::vector<CHIPKernel*> hipxx_kernels;
   /// Binary representation extracted from FatBinary
   std::string src;
   // Kernel JIT compilation can be lazy
@@ -184,47 +183,47 @@ class HIPxxModule {
    * called.
    *
    */
-  HIPxxModule() = default;
+  CHIPModule() = default;
 
  public:
   /**
-   * @brief Destroy the HIPxxModule object
+   * @brief Destroy the CHIPModule object
    *
    */
-  ~HIPxxModule();
+  ~CHIPModule();
   /**
-   * @brief Construct a new HIPxxModule object.
+   * @brief Construct a new CHIPModule object.
    * This constructor should be implemented by the derived class (specific
    * backend implementation). Call to this constructor should result in a
    * populated hipxx_kernels vector.
    *
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
-  HIPxxModule(std::string* module_str);
+  CHIPModule(std::string* module_str);
   /**
-   * @brief Construct a new HIPxxModule object using move semantics
+   * @brief Construct a new CHIPModule object using move semantics
    *
    * @param module_str string from which to move resources
    */
-  HIPxxModule(std::string&& module_str);
+  CHIPModule(std::string&& module_str);
 
   /**
-   * @brief Add a HIPxxKernel to this module.
-   * During initialization when the FatBinary is consumed, a HIPxxModule is
+   * @brief Add a CHIPKernel to this module.
+   * During initialization when the FatBinary is consumed, a CHIPModule is
    * constructed for every device. SPIR-V kernels reside in this module. This
    * method is called called via the constructor during this initialization
    * phase. Modules can also be loaded from a file during runtime, however.
    *
-   * @param kernel HIPxxKernel to be added to this module.
+   * @param kernel CHIPKernel to be added to this module.
    */
-  void addKernel(HIPxxKernel* kernel);
+  void addKernel(CHIPKernel* kernel);
 
   /**
    * @brief Wrapper around compile() called via std::call_once
    *
    * @param hipxx_dev device for which to compile the kernels
    */
-  void compileOnce(HIPxxDevice* hipxx_dev);
+  void compileOnce(CHIPDevice* hipxx_dev);
   /**
    * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
    * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
@@ -236,51 +235,51 @@ class HIPxxModule {
    * function pointers.
    *
    */
-  virtual void compile(HIPxxDevice* hipxx_dev);
+  virtual void compile(CHIPDevice* hipxx_dev);
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
    *
    * @param name global variable name
-   * @return HIPxxDeviceVar*
+   * @return CHIPDeviceVar*
    */
-  HIPxxDeviceVar* getGlobalVar(std::string name);
+  CHIPDeviceVar* getGlobalVar(std::string name);
 
   /**
    * @brief Get the Kernel object
    *
    * @param name name of the corresponding host function
-   * @return HIPxxKernel*
+   * @return CHIPKernel*
    */
-  HIPxxKernel* getKernel(std::string name);
+  CHIPKernel* getKernel(std::string name);
 
   /**
    * @brief Get the Kernels object
    *
-   * @return std::vector<HIPxxKernel*>&
+   * @return std::vector<CHIPKernel*>&
    */
-  std::vector<HIPxxKernel*>& getKernels();
+  std::vector<CHIPKernel*>& getKernels();
 
   /**
    * @brief Get the Kernel object
    *
    * @param host_f_ptr host-side function pointer
-   * @return HIPxxKernel*
+   * @return CHIPKernel*
    */
-  HIPxxKernel* getKernel(const void* host_f_ptr);
+  CHIPKernel* getKernel(const void* host_f_ptr);
 };
 
 /**
  * @brief Contains information about the function on the host and device
  */
-class HIPxxKernel {
+class CHIPKernel {
  protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be
    * called.
    *
    */
-  HIPxxKernel() = default;
+  CHIPKernel() = default;
   /// Name of the function
   std::string host_f_name;
   /// Pointer to the host function
@@ -289,7 +288,7 @@ class HIPxxKernel {
   const void* dev_f_ptr;
 
  public:
-  ~HIPxxKernel();
+  ~CHIPKernel();
 
   /**
    * @brief Get the Name object
@@ -333,12 +332,12 @@ class HIPxxKernel {
 /**
  * @brief Contains kernel arguments and a queue on which to execute.
  * Prior to kernel launch, the arguments are setup via
- * HIPxxBackend::configureCall(). Because of this, we get the kernel last so the
+ * CHIPBackend::configureCall(). Because of this, we get the kernel last so the
  * kernel so the launch() takes a kernel argument as opposed to queue receiving
- * a HIPxxExecItem containing the kernel and arguments
+ * a CHIPExecItem containing the kernel and arguments
  *
  */
-class HIPxxExecItem {
+class CHIPExecItem {
  protected:
   size_t shared_mem;
   std::vector<uint8_t> arg_data;
@@ -347,46 +346,46 @@ class HIPxxExecItem {
   dim3 grid_dim;
   dim3 block_dim;
 
-  HIPxxQueue* stream;
-  HIPxxKernel* hipxx_kernel;
-  HIPxxQueue* hipxx_queue;
+  CHIPQueue* stream;
+  CHIPKernel* hipxx_kernel;
+  CHIPQueue* hipxx_queue;
 
  public:
   /**
    * @brief Deleted default constructor
-   * Doesn't make sense for HIPxxExecItem to exist without arguments
+   * Doesn't make sense for CHIPExecItem to exist without arguments
    *
    */
-  HIPxxExecItem() = delete;
+  CHIPExecItem() = delete;
   /**
-   * @brief Construct a new HIPxxExecItem object
+   * @brief Construct a new CHIPExecItem object
    *
    * @param grid_dim_
    * @param block_dim_
    * @param shared_mem_
    * @param hipxx_queue_
    */
-  HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
-                hipStream_t hipxx_queue_);
+  CHIPExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
+               hipStream_t hipxx_queue_);
 
   /**
-   * @brief Destroy the HIPxxExecItem object
+   * @brief Destroy the CHIPExecItem object
    *
    */
-  ~HIPxxExecItem();
+  ~CHIPExecItem();
 
   /**
    * @brief Get the Kernel object
    *
-   * @return HIPxxKernel* Kernel to be executed
+   * @return CHIPKernel* Kernel to be executed
    */
-  HIPxxKernel* getKernel();
+  CHIPKernel* getKernel();
   /**
    * @brief Get the Queue object
    *
-   * @return HIPxxQueue*
+   * @return CHIPQueue*
    */
-  HIPxxQueue* getQueue();
+  CHIPQueue* getQueue();
 
   /**
    * @brief Get the Grid object
@@ -419,11 +418,11 @@ class HIPxxExecItem {
    * @param Kernel kernel which is to be launched
    * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
    */
-  virtual hipError_t launch(HIPxxKernel* Kernel);
+  virtual hipError_t launch(CHIPKernel* Kernel);
 
   /**
    * @brief Launch a kernel associated with a host function pointer.
-   * Looks up the HIPxxKernel associated with this pointer and calls launch()
+   * Looks up the CHIPKernel associated with this pointer and calls launch()
    *
    * @param hostPtr pointer to the host function
    * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
@@ -434,13 +433,13 @@ class HIPxxExecItem {
 /**
  * @brief Compute device class
  */
-class HIPxxDevice {
+class CHIPDevice {
  protected:
   std::string device_name;
   std::mutex mtx;
-  std::vector<HIPxxKernel*> hipxx_kernels;
-  HIPxxContext* ctx;
-  std::vector<HIPxxQueue*> hipxx_queues;
+  std::vector<CHIPKernel*> hipxx_kernels;
+  CHIPContext* ctx;
+  std::vector<CHIPQueue*> hipxx_queues;
   int active_queue_id = 0;
 
   hipDeviceAttribute_t attrs;
@@ -450,44 +449,44 @@ class HIPxxDevice {
   /// hipxx_modules in binary representation
   std::vector<std::string*> modules_str;
   /// hipxx_modules in parsed representation
-  std::vector<HIPxxModule*> hipxx_modules;
+  std::vector<CHIPModule*> hipxx_modules;
 
   /// Map host pointer to module in binary representation
   std::unordered_map<const void*, std::string*> host_f_ptr_to_module_str_map;
   /// Map host pointer to module in parsed representation
-  std::unordered_map<const void*, HIPxxModule*> host_f_ptr_to_hipxxmodule_map;
+  std::unordered_map<const void*, CHIPModule*> host_f_ptr_to_hipxxmodule_map;
   /// Map host pointer to a function name
   std::unordered_map<const void*, std::string> host_f_ptr_to_host_f_name_map;
-  /// Map host pointer to HIPxxKernel
-  std::unordered_map<const void*, HIPxxKernel*> host_ptr_to_hipxxkernel_map;
+  /// Map host pointer to CHIPKernel
+  std::unordered_map<const void*, CHIPKernel*> host_ptr_to_hipxxkernel_map;
   /// Map host variable address to device pointer and size for statically loaded
   /// global vars
-  std::unordered_map<const void*, HIPxxDeviceVar*>
+  std::unordered_map<const void*, CHIPDeviceVar*>
       host_var_ptr_to_hipxxdevicevar_stat;
   /// Map host variable address to device pointer and size for dynamically
   /// loaded global vars
-  std::unordered_map<const void*, HIPxxDeviceVar*>
+  std::unordered_map<const void*, CHIPDeviceVar*>
       host_var_ptr_to_hipxxdevicevar_dyn;
 
   int idx;
   size_t total_used_mem, max_used_mem;
   /**
-   * @brief Construct a new HIPxxDevice object
+   * @brief Construct a new CHIPDevice object
    *
    */
-  HIPxxDevice();
+  CHIPDevice();
   /**
-   * @brief Destroy the HIPxxDevice object
+   * @brief Destroy the CHIPDevice object
    *
    */
-  ~HIPxxDevice();
+  ~CHIPDevice();
 
   /**
    * @brief Get the Kernels object
    *
-   * @return std::vector<HIPxxKernel*>&
+   * @return std::vector<CHIPKernel*>&
    */
-  std::vector<HIPxxKernel*>& getKernels();
+  std::vector<CHIPKernel*>& getKernels();
 
   /**
    * @brief Use a backend to populate device properties such as memory
@@ -505,40 +504,40 @@ class HIPxxDevice {
    * @brief Use the host function pointer to retrieve the kernel
    *
    * @param hostPtr
-   * @return HIPxxKernel* HIPxxKernel associated with this host pointer
+   * @return CHIPKernel* CHIPKernel associated with this host pointer
    */
-  HIPxxKernel* findKernelByHostPtr(const void* hostPtr);
+  CHIPKernel* findKernelByHostPtr(const void* hostPtr);
 
   /**
    * @brief Get the context object
    *
-   * @return HIPxxContext* pointer to the HIPxxContext object this HIPxxDevice
+   * @return CHIPContext* pointer to the CHIPContext object this CHIPDevice
    * was created with
    */
-  HIPxxContext* getContext();
+  CHIPContext* getContext();
   /**
    * @brief Construct an additional queue for this device
    *
    * @param flags
    * @param priority
-   * @return HIPxxQueue* pointer to the newly created queue (can also be found
+   * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in hipxx_queues vector)
    */
-  void addQueue(HIPxxQueue* hipxx_queue_);
+  void addQueue(CHIPQueue* hipxx_queue_);
 
   /**
    * @brief Get the Queues object
    *
-   * @return std::vector<HIPxxQueue*>
+   * @return std::vector<CHIPQueue*>
    */
-  std::vector<HIPxxQueue*> getQueues();  // TODO HIPxx
+  std::vector<CHIPQueue*> getQueues();  // TODO CHIP
   /**
    * @brief HIP API allows for setting the active device, not the active queue
    * so active device's active queue is always it's 0th/default/primary queue
    *
-   * @return HIPxxQueue*
+   * @return CHIPQueue*
    */
-  HIPxxQueue* getActiveQueue();  // TODO HIPxx
+  CHIPQueue* getActiveQueue();  // TODO CHIP
   /**
    * @brief Remove a queue from this device's queue vector
    *
@@ -546,7 +545,7 @@ class HIPxxDevice {
    * @return true
    * @return false
    */
-  bool removeQueue(HIPxxQueue* q);  // TODO HIPxx
+  bool removeQueue(CHIPQueue* q);  // TODO CHIP
 
   /**
    * @brief Get the integer ID of this device as it appears in the Backend's
@@ -662,7 +661,7 @@ class HIPxxDevice {
    * @param peerDevice
    * @return int
    */
-  int getPeerAccess(HIPxxDevice* peerDevice);
+  int getPeerAccess(CHIPDevice* peerDevice);
 
   /**
    * @brief Set access between this and another device
@@ -672,7 +671,7 @@ class HIPxxDevice {
    * @param canAccessPeer
    * @return hipError_t
    */
-  hipError_t setPeerAccess(HIPxxDevice* peer, int flags, bool canAccessPeer);
+  hipError_t setPeerAccess(CHIPDevice* peer, int flags, bool canAccessPeer);
 
   /**
    * @brief Get the total used global memory
@@ -685,25 +684,25 @@ class HIPxxDevice {
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param host_var_ptr host pointer to the variable
-   * @return HIPxxDeviceVar*
+   * @return CHIPDeviceVar*
    */
-  HIPxxDeviceVar* getDynGlobalVar(const void* host_var_ptr);
+  CHIPDeviceVar* getDynGlobalVar(const void* host_var_ptr);
 
   /**
    * @brief Get the global variable that from from a module loaded at runtime
    *
    * @param host_var_ptr host pointer to the variable
-   * @return HIPxxDeviceVar*
+   * @return CHIPDeviceVar*
    */
-  HIPxxDeviceVar* getStatGlobalVar(const void* host_var_ptr);
+  CHIPDeviceVar* getStatGlobalVar(const void* host_var_ptr);
 
   /**
    * @brief Get the global variable
    *
    * @param host_var_ptr host pointer to the variable
-   * @return HIPxxDeviceVar* if not found returns nullptr
+   * @return CHIPDeviceVar* if not found returns nullptr
    */
-  HIPxxDeviceVar* getGlobalVar(const void* host_var_ptr);
+  CHIPDeviceVar* getGlobalVar(const void* host_var_ptr);
 
   /**
    * @brief Take the module source, compile the kernels and associate the host
@@ -723,59 +722,59 @@ class HIPxxDevice {
  * multiple devices. Provides for creation of additional queues, events, and
  * interaction with devices.
  */
-class HIPxxContext {
+class CHIPContext {
  protected:
-  std::vector<HIPxxDevice*> hipxx_devices;
-  std::vector<HIPxxQueue*> hipxx_queues;
+  std::vector<CHIPDevice*> hipxx_devices;
+  std::vector<CHIPQueue*> hipxx_queues;
   std::mutex mtx;
 
  public:
   /**
-   * @brief Construct a new HIPxxContext object
+   * @brief Construct a new CHIPContext object
    *
    */
-  HIPxxContext();
+  CHIPContext();
   /**
-   * @brief Destroy the HIPxxContext object
+   * @brief Destroy the CHIPContext object
    *
    */
-  ~HIPxxContext();
+  ~CHIPContext();
 
   /**
    * @brief Add a device to this context
    *
-   * @param dev pointer to HIPxxDevice object
+   * @param dev pointer to CHIPDevice object
    * @return true if device was added successfully
    * @return false upon failure
    */
-  bool addDevice(HIPxxDevice* dev);
+  bool addDevice(CHIPDevice* dev);
   /**
    * @brief Add a queue to this context
    *
-   * @param q HIPxxQueue to be added
+   * @param q CHIPQueue to be added
    */
-  void addQueue(HIPxxQueue* q);
+  void addQueue(CHIPQueue* q);
 
   /**
-   * @brief Get this context's HIPxxDevices
+   * @brief Get this context's CHIPDevices
    *
-   * @return std::vector<HIPxxDevice*>&
+   * @return std::vector<CHIPDevice*>&
    */
-  std::vector<HIPxxDevice*>& getDevices();
+  std::vector<CHIPDevice*>& getDevices();
 
   /**
-   * @brief Get the this contexts HIPxxQueues
+   * @brief Get the this contexts CHIPQueues
    *
-   * @return std::vector<HIPxxQueue*>&
+   * @return std::vector<CHIPQueue*>&
    */
-  std::vector<HIPxxQueue*>& getQueues();
+  std::vector<CHIPQueue*>& getQueues();
 
   /**
    * @brief Find a queue. If a null pointer is passed, return the Active Queue
    * (active devices's primary queue). If this queue is not found in this
    * context then return nullptr
    *
-   * @param stream HIPxxQueue to find
+   * @param stream CHIPQueue to find
    * @return hipStream_t
    */
   hipStream_t findQueue(hipStream_t stream);
@@ -783,8 +782,8 @@ class HIPxxContext {
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls HIPxxContext::allocate_(size_t size, size_t alignment,
-   * HIPxxMemoryType mem_type) with allignment = 0 and allocation type = Shared
+   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * CHIPMemoryType mem_type) with allignment = 0 and allocation type = Shared
    *
    *
    * @param size size of the allocation
@@ -795,32 +794,32 @@ class HIPxxContext {
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls HIPxxContext::allocate_(size_t size, size_t alignment,
-   * HIPxxMemoryType mem_type) with allignment = 0
+   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * CHIPMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void* allocate(size_t size, HIPxxMemoryType mem_type);
+  void* allocate(size_t size, CHIPMemoryType mem_type);
 
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls HIPxxContext::allocate_(size_t size, size_t alignment,
-   * HIPxxMemoryType mem_type)
+   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * CHIPMemoryType mem_type)
    *
    * @param size size of the allocation
    * @param alignment allocation alignment in bytes
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void* allocate(size_t size, size_t alignment, HIPxxMemoryType mem_type);
+  void* allocate(size_t size, size_t alignment, CHIPMemoryType mem_type);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
    * backend. This member function is the one that's called by all the
-   * publically visible HIPxxContext::allocate() variants
+   * publically visible CHIPContext::allocate() variants
    *
    * @param size size of the allocation.
    * @param alignment allocation alignment in bytes
@@ -828,13 +827,13 @@ class HIPxxContext {
    * @return void*
    */
   virtual void* allocate_(size_t size, size_t alignment,
-                          HIPxxMemoryType mem_type) = 0;
+                          CHIPMemoryType mem_type) = 0;
 
   /**
    * @brief Free memory
    *
    * @param ptr pointer to the memory location to be deallocated. Internally
-   * calls HIPxxContext::free_()
+   * calls CHIPContext::free_()
    * @return true Success
    * @return false Failure
    */
@@ -905,9 +904,9 @@ class HIPxxContext {
    * @brief Retain this context.
    * TODO: What does it mean to retain a context?
    *
-   * @return HIPxxContext*
+   * @return CHIPContext*
    */
-  HIPxxContext* retain();
+  CHIPContext* retain();
 
   /**
    * @brief Record an event in a given queue
@@ -915,23 +914,23 @@ class HIPxxContext {
    * @param q queue into which to insert the event
    * @param event event to be inserted
    */
-  void recordEvent(HIPxxQueue* q, HIPxxEvent* event);
+  void recordEvent(CHIPQueue* q, CHIPEvent* event);
 
   /**
    * @brief Create a Image objct
    *
    * @param resDesc
    * @param texDesc
-   * @return HIPxxTexture*
+   * @return CHIPTexture*
    */
-  virtual HIPxxTexture* createImage(hipResourceDesc* resDesc,
-                                    hipTextureDesc* texDesc);
+  virtual CHIPTexture* createImage(hipResourceDesc* resDesc,
+                                   hipTextureDesc* texDesc);
 };
 
 /**
  * @brief Primary object to interact with the backend
  */
-class HIPxxBackend {
+class CHIPBackend {
  protected:
   /**
    * @brief hipxx_modules stored in binary representation.
@@ -942,9 +941,9 @@ class HIPxxBackend {
   std::vector<std::string*> modules_str;
   std::mutex mtx;
 
-  HIPxxContext* active_ctx;
-  HIPxxDevice* active_dev;
-  HIPxxQueue* active_q;
+  CHIPContext* active_ctx;
+  CHIPDevice* active_dev;
+  CHIPQueue* active_q;
 
  public:
   /**
@@ -953,15 +952,15 @@ class HIPxxBackend {
    * not overriden
    *
    */
-  HIPxxAllocationTracker AllocationTracker;
+  CHIPAllocationTracker AllocationTracker;
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t tls_last_error = hipSuccess;
-  inline static thread_local HIPxxContext* tls_active_ctx;
+  inline static thread_local CHIPContext* tls_active_ctx;
 
-  std::stack<HIPxxExecItem*> hipxx_execstack;
-  std::vector<HIPxxContext*> hipxx_contexts;
-  std::vector<HIPxxQueue*> hipxx_queues;
-  std::vector<HIPxxDevice*> hipxx_devices;
+  std::stack<CHIPExecItem*> hipxx_execstack;
+  std::vector<CHIPContext*> hipxx_contexts;
+  std::vector<CHIPQueue*> hipxx_queues;
+  std::vector<CHIPDevice*> hipxx_devices;
 
   // TODO
   // key for caching compiled modules. To get a cached compiled module on a
@@ -973,18 +972,18 @@ class HIPxxBackend {
   //  * @brief
   //  *
   //  */
-  // std::unordered_map<ptr_dev, HIPxxModule*> host_f_ptr_to_hipxxmodule_map;
+  // std::unordered_map<ptr_dev, CHIPModule*> host_f_ptr_to_hipxxmodule_map;
 
   /**
-   * @brief Construct a new HIPxxBackend object
+   * @brief Construct a new CHIPBackend object
    *
    */
-  HIPxxBackend();
+  CHIPBackend();
   /**
-   * @brief Destroy the HIPxxBackend objectk
+   * @brief Destroy the CHIPBackend objectk
    *
    */
-  ~HIPxxBackend();
+  ~CHIPBackend();
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1011,38 +1010,38 @@ class HIPxxBackend {
   /**
    * @brief Get the Queues object
    *
-   * @return std::vector<HIPxxQueue*>&
+   * @return std::vector<CHIPQueue*>&
    */
-  std::vector<HIPxxQueue*>& getQueues();
+  std::vector<CHIPQueue*>& getQueues();
   /**
    * @brief Get the Active Queue object
    *
-   * @return HIPxxQueue*
+   * @return CHIPQueue*
    */
-  HIPxxQueue* getActiveQueue();
+  CHIPQueue* getActiveQueue();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
    *
-   * @return HIPxxContext*
+   * @return CHIPContext*
    */
-  HIPxxContext* getActiveContext();
+  CHIPContext* getActiveContext();
   /**
    * @brief Get the Active Device object. Returns the device of the active
    * queue.
    *
-   * @return HIPxxDevice*
+   * @return CHIPDevice*
    */
-  HIPxxDevice* getActiveDevice();
+  CHIPDevice* getActiveDevice();
   /**
    * @brief Set the active device. Sets the active queue to this device's
    * first/default/primary queue.
    *
    * @param hipxx_dev
    */
-  void setActiveDevice(HIPxxDevice* hipxx_dev);
+  void setActiveDevice(CHIPDevice* hipxx_dev);
 
-  std::vector<HIPxxDevice*>& getDevices();
+  std::vector<CHIPDevice*>& getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1060,19 +1059,19 @@ class HIPxxBackend {
    *
    * @param ctx_in
    */
-  void addContext(HIPxxContext* ctx_in);
+  void addContext(CHIPContext* ctx_in);
   /**
    * @brief Add a context to this backend.
    *
    * @param q_in
    */
-  void addQueue(HIPxxQueue* q_in);
+  void addQueue(CHIPQueue* q_in);
   /**
    * @brief  Add a device to this backend.
    *
    * @param dev_in
    */
-  void addDevice(HIPxxDevice* dev_in);
+  void addDevice(CHIPDevice* dev_in);
   /**
    * @brief
    *
@@ -1123,66 +1122,66 @@ class HIPxxBackend {
    * @brief Return a device which meets or exceeds the requirements
    *
    * @param props
-   * @return HIPxxDevice*
+   * @return CHIPDevice*
    */
-  HIPxxDevice* findDeviceMatchingProps(const hipDeviceProp_t* props);
+  CHIPDevice* findDeviceMatchingProps(const hipDeviceProp_t* props);
 
   /**
-   * @brief Add a HIPxxModule to every initialized device
+   * @brief Add a CHIPModule to every initialized device
    *
-   * @param hipxx_module pointer to HIPxxModule object
+   * @param hipxx_module pointer to CHIPModule object
    * @return hipError_t
    */
-  hipError_t addModule(HIPxxModule* hipxx_module);
+  hipError_t addModule(CHIPModule* hipxx_module);
   /**
    * @brief Remove this module from every device
    *
    * @param hipxx_module pointer to the module which is to be removed
    * @return hipError_t
    */
-  hipError_t removeModule(HIPxxModule* hipxx_module);
+  hipError_t removeModule(CHIPModule* hipxx_module);
 };
 
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class HIPxxQueue {
+class CHIPQueue {
  protected:
   std::mutex mtx;
   int priority;
   unsigned int flags;
   /// Device on which this queue will execute
-  HIPxxDevice* hipxx_device;
+  CHIPDevice* hipxx_device;
   /// Context to which device belongs to
-  HIPxxContext* hipxx_context;
+  CHIPContext* hipxx_context;
 
  public:
   /**
-   * @brief Construct a new HIPxxQueue object
+   * @brief Construct a new CHIPQueue object
    *
    * @param hipxx_dev
    */
-  HIPxxQueue(HIPxxDevice* hipxx_dev);
+  CHIPQueue(CHIPDevice* hipxx_dev);
   /**
-   * @brief Construct a new HIPxxQueue object
+   * @brief Construct a new CHIPQueue object
    *
    * @param hipxx_dev
    * @param flags
    */
-  HIPxxQueue(HIPxxDevice* hipxx_dev, unsigned int flags);
+  CHIPQueue(CHIPDevice* hipxx_dev, unsigned int flags);
   /**
-   * @brief Construct a new HIPxxQueue object
+   * @brief Construct a new CHIPQueue object
    *
    * @param hipxx_dev
    * @param flags
    * @param priority
    */
-  HIPxxQueue(HIPxxDevice* hipxx_dev, unsigned int flags, int priority);
+  CHIPQueue(CHIPDevice* hipxx_dev, unsigned int flags, int priority);
   /**
-   * @brief Destroy the HIPxxQueue object
+   * @brief Destroy the CHIPQueue object
    *
    */
-  ~HIPxxQueue();
+  ~CHIPQueue();
 
   /**
    * @brief Blocking memory copy
@@ -1227,21 +1226,21 @@ class HIPxxQueue {
                             size_t pattern_size);
 
   /**
-   * @brief Submit a HIPxxExecItem to this queue for execution. HIPxxExecItem
+   * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
    * needs to be complete - contain the kernel and arguments
    *
    * @param exec_item
    * @return hipError_t
    */
-  virtual hipError_t launch(HIPxxExecItem* exec_item);
+  virtual hipError_t launch(CHIPExecItem* exec_item);
 
   /**
    * @brief Get the Device obj
    *
-   * @return HIPxxDevice*
+   * @return CHIPDevice*
    */
 
-  HIPxxDevice* getDevice();
+  CHIPDevice* getDevice();
   /**
    * @brief Wait for this queue to finish.
    *
@@ -1255,7 +1254,7 @@ class HIPxxQueue {
    * @return false
    */
 
-  bool query();  // TODO HIPxx
+  bool query();  // TODO CHIP
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority
@@ -1264,7 +1263,7 @@ class HIPxxQueue {
    * @return int bound
    */
 
-  int getPriorityRange(int lower_or_upper);  // TODO HIPxx
+  int getPriorityRange(int lower_or_upper);  // TODO CHIP
   /**
    * @brief Insert an event into this queue
    *
@@ -1273,21 +1272,21 @@ class HIPxxQueue {
    * @return false
    */
 
-  bool enqueueBarrierForEvent(HIPxxEvent* e);  // TODO HIPxx
+  bool enqueueBarrierForEvent(CHIPEvent* e);  // TODO CHIP
   /**
    * @brief Get the Flags object with which this queue was created.
    *
    * @return unsigned int
    */
 
-  unsigned int getFlags();  // TODO HIPxx
+  unsigned int getFlags();  // TODO CHIP
   /**
    * @brief Get the Priority object with which this queue was created.
    *
    * @return int
    */
 
-  int getPriority();  // TODO HIPxx
+  int getPriority();  // TODO CHIP
   /**
    * @brief Add a callback funciton to be called on the host after the specified
    * stream is done
@@ -1322,7 +1321,7 @@ class HIPxxQueue {
    * @return false
    */
   bool launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
-                      void** args, size_t sharedMemBytes);  // TODO HIPxx
+                      void** args, size_t sharedMemBytes);  // TODO CHIP
 
   /**
    * @brief
@@ -1336,7 +1335,7 @@ class HIPxxQueue {
    */
   hipError_t launchWithKernelParams(dim3 grid, dim3 block,
                                     unsigned int sharedMemBytes, void** args,
-                                    HIPxxKernel* kernel);
+                                    CHIPKernel* kernel);
 
   /**
    * @brief
@@ -1350,7 +1349,7 @@ class HIPxxQueue {
    */
   hipError_t launchWithExtraParams(dim3 grid, dim3 block,
                                    unsigned int sharedMemBytes, void** extra,
-                                   HIPxxKernel* kernel);
+                                   CHIPKernel* kernel);
 };
 
 #endif

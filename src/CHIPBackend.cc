@@ -1,53 +1,53 @@
-#include "HIPxxBackend.hh"
+#include "CHIPBackend.hh"
 #include <utility>
-// HIPxxDeviceVar
+// CHIPDeviceVar
 // ************************************************************************
-size_t HIPxxDeviceVar::getSize() {}
-std::string HIPxxDeviceVar::getName() {}
+size_t CHIPDeviceVar::getSize() {}
+std::string CHIPDeviceVar::getName() {}
 
-// HIPxxAllocationTracker
+// CHIPAllocationTracker
 // ************************************************************************
-HIPxxAllocationTracker::HIPxxAllocationTracker() {}
-HIPxxAllocationTracker::~HIPxxAllocationTracker() {}
+CHIPAllocationTracker::CHIPAllocationTracker() {}
+CHIPAllocationTracker::~CHIPAllocationTracker() {}
 
-allocation_info *HIPxxAllocationTracker::getByHostPtr(const void *host_ptr) {}
-allocation_info *HIPxxAllocationTracker::getByDevPtr(const void *dev_ptr) {}
+allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {}
+allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {}
 
-// HIPxxEvent
+// CHIPEvent
 // ************************************************************************
-HIPxxEvent::HIPxxEvent(HIPxxContext *ctx_in, HIPxxEventType event_type_)
+CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
     : status(EVENT_STATUS_INIT), flags(event_type_), hipxx_context(ctx_in) {}
-HIPxxEvent::~HIPxxEvent() {}
+CHIPEvent::~CHIPEvent() {}
 
-bool HIPxxEvent::recordStream(HIPxxQueue *hipxx_queue_){};
-bool HIPxxEvent::wait(){};
-bool HIPxxEvent::isFinished(){};
-float HIPxxEvent::getElapsedTime(HIPxxEvent *other){};
+bool CHIPEvent::recordStream(CHIPQueue *hipxx_queue_){};
+bool CHIPEvent::wait(){};
+bool CHIPEvent::isFinished(){};
+float CHIPEvent::getElapsedTime(CHIPEvent *other){};
 
-// HIPxxModule
+// CHIPModule
 //*************************************************************************************
-HIPxxModule::HIPxxModule(std::string *module_str) { src = *module_str; }
-HIPxxModule::HIPxxModule(std::string &&module_str) { src = module_str; }
-HIPxxModule::~HIPxxModule() {}
+CHIPModule::CHIPModule(std::string *module_str) { src = *module_str; }
+CHIPModule::CHIPModule(std::string &&module_str) { src = module_str; }
+CHIPModule::~CHIPModule() {}
 
-void HIPxxModule::addKernel(HIPxxKernel *kernel) {
+void CHIPModule::addKernel(CHIPKernel *kernel) {
   hipxx_kernels.push_back(kernel);
 }
 
-void HIPxxModule::compileOnce(HIPxxDevice *hipxx_dev) {
-  std::call_once(compiled, &HIPxxModule::compile, this, hipxx_dev);
+void CHIPModule::compileOnce(CHIPDevice *hipxx_dev) {
+  std::call_once(compiled, &CHIPModule::compile, this, hipxx_dev);
 }
 
-void HIPxxModule::compile(HIPxxDevice *hipxx_dev) {
+void CHIPModule::compile(CHIPDevice *hipxx_dev) {
   logCritical(
-      "HIPxxModule::compile() base implementation should never be called");
+      "CHIPModule::compile() base implementation should never be called");
   std::abort();
 }
 
-HIPxxKernel *HIPxxModule::getKernel(std::string name) {
+CHIPKernel *CHIPModule::getKernel(std::string name) {
   auto kernel = std::find_if(
       hipxx_kernels.begin(), hipxx_kernels.end(),
-      [name](HIPxxKernel *k) { return k->getName().compare(name) == 0; });
+      [name](CHIPKernel *k) { return k->getName().compare(name) == 0; });
   if (kernel == hipxx_kernels.end()) {
     logError("Failed to find kernel {} in module {}", name.c_str(),
              (void *)this);
@@ -57,10 +57,10 @@ HIPxxKernel *HIPxxModule::getKernel(std::string name) {
   return *kernel;
 }
 
-HIPxxKernel *HIPxxModule::getKernel(const void *host_f_ptr) {
+CHIPKernel *CHIPModule::getKernel(const void *host_f_ptr) {
   auto kernel = std::find_if(
       hipxx_kernels.begin(), hipxx_kernels.end(),
-      [host_f_ptr](HIPxxKernel *k) { return k->getHostPtr() == host_f_ptr; });
+      [host_f_ptr](CHIPKernel *k) { return k->getHostPtr() == host_f_ptr; });
   if (kernel == hipxx_kernels.end()) {
     logError("Failed to find kernel with host pointer {} in module {}",
              host_f_ptr, (void *)this);
@@ -70,12 +70,12 @@ HIPxxKernel *HIPxxModule::getKernel(const void *host_f_ptr) {
   return *kernel;
 }
 
-std::vector<HIPxxKernel *> &HIPxxModule::getKernels() { return hipxx_kernels; }
+std::vector<CHIPKernel *> &CHIPModule::getKernels() { return hipxx_kernels; }
 
-HIPxxDeviceVar *HIPxxModule::getGlobalVar(std::string name) {
+CHIPDeviceVar *CHIPModule::getGlobalVar(std::string name) {
   auto var = std::find_if(
       hipxx_vars.begin(), hipxx_vars.end(),
-      [name](HIPxxDeviceVar *v) { return v->getName().compare(name) == 0; });
+      [name](CHIPDeviceVar *v) { return v->getName().compare(name) == 0; });
   if (var == hipxx_vars.end()) {
     logError("Failed to find global variable {} in module {}", name,
              (void *)this);
@@ -85,87 +85,87 @@ HIPxxDeviceVar *HIPxxModule::getGlobalVar(std::string name) {
   return *var;
 }
 
-// HIPxxKernel
+// CHIPKernel
 //*************************************************************************************
-HIPxxKernel::~HIPxxKernel(){};
-std::string HIPxxKernel::getName() { return host_f_name; }
-const void *HIPxxKernel::getHostPtr() { return host_f_ptr; }
-const void *HIPxxKernel::getDevPtr() { return dev_f_ptr; }
+CHIPKernel::~CHIPKernel(){};
+std::string CHIPKernel::getName() { return host_f_name; }
+const void *CHIPKernel::getHostPtr() { return host_f_ptr; }
+const void *CHIPKernel::getDevPtr() { return dev_f_ptr; }
 
-void HIPxxKernel::setName(std::string host_f_name_) {
+void CHIPKernel::setName(std::string host_f_name_) {
   host_f_name = host_f_name_;
 }
-void HIPxxKernel::setHostPtr(const void *host_f_ptr_) {
+void CHIPKernel::setHostPtr(const void *host_f_ptr_) {
   host_f_ptr = host_f_ptr_;
 }
-void HIPxxKernel::setDevPtr(const void *dev_f_ptr_) { dev_f_ptr = dev_f_ptr_; }
+void CHIPKernel::setDevPtr(const void *dev_f_ptr_) { dev_f_ptr = dev_f_ptr_; }
 
-// HIPxxExecItem
+// CHIPExecItem
 //*************************************************************************************
-HIPxxExecItem::HIPxxExecItem(dim3 grid_dim_, dim3 block_dim_,
-                             size_t shared_mem_, hipStream_t hipxx_queue_)
+CHIPExecItem::CHIPExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
+                           hipStream_t hipxx_queue_)
     : grid_dim(grid_dim_),
       block_dim(block_dim_),
       shared_mem(shared_mem_),
       hipxx_queue(hipxx_queue_){};
-HIPxxExecItem::~HIPxxExecItem(){};
+CHIPExecItem::~CHIPExecItem(){};
 
-void HIPxxExecItem::setArg(const void *arg, size_t size, size_t offset) {
+void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
   if ((offset + size) > arg_data.size()) arg_data.resize(offset + size + 1024);
 
   std::memcpy(arg_data.data() + offset, arg, size);
-  logDebug("HIPxxExecItem.setArg() on {} size {} offset {}\n", (void *)this,
+  logDebug("CHIPExecItem.setArg() on {} size {} offset {}\n", (void *)this,
            size, offset);
   offset_sizes.push_back(std::make_tuple(offset, size));
 }
 
-hipError_t HIPxxExecItem::launch(HIPxxKernel *Kernel) {
-  logWarn("Calling HIPxxExecItem.launch() base launch which does nothing");
+hipError_t CHIPExecItem::launch(CHIPKernel *Kernel) {
+  logWarn("Calling CHIPExecItem.launch() base launch which does nothing");
   return hipSuccess;
 };
 
-hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
+hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   if (hipxx_queue == nullptr) {
     logCritical(
-        "HIPxxExecItem.launchByHostPtr() was called but queue pointer is null");
+        "CHIPExecItem.launchByHostPtr() was called but queue pointer is null");
     return (hipErrorLaunchFailure);
   }
 
-  HIPxxDevice *dev = hipxx_queue->getDevice();
+  CHIPDevice *dev = hipxx_queue->getDevice();
   this->hipxx_kernel = dev->findKernelByHostPtr(hostPtr);
   logTrace("Found kernel for host pointer {} : {}", hostPtr,
            hipxx_kernel->getName());
   return launch(hipxx_kernel);
 }
 
-dim3 HIPxxExecItem::getBlock() { return block_dim; }
-dim3 HIPxxExecItem::getGrid() { return grid_dim; }
-HIPxxKernel *HIPxxExecItem::getKernel() { return hipxx_kernel; }
-// HIPxxDevice
+dim3 CHIPExecItem::getBlock() { return block_dim; }
+dim3 CHIPExecItem::getGrid() { return grid_dim; }
+CHIPKernel *CHIPExecItem::getKernel() { return hipxx_kernel; }
+// CHIPDevice
 //*************************************************************************************
-HIPxxDevice::HIPxxDevice() {
+CHIPDevice::CHIPDevice() {
   logDebug("Device {} is {}: name \"{}\" \n", idx, (void *)this,
            hip_device_props.name);
 };
-HIPxxDevice::~HIPxxDevice(){};
+CHIPDevice::~CHIPDevice(){};
 
-std::vector<HIPxxKernel *> &HIPxxDevice::getKernels() { return hipxx_kernels; };
+std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return hipxx_kernels; };
 
-void HIPxxDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
-  logTrace("HIPxxDevice->copy_device_properties()");
+void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
+  logTrace("CHIPDevice->copy_device_properties()");
   if (prop) std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
 }
 
-HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
-  logTrace("HIPxxDevice::findKernelByHostPtr({})", hostPtr);
-  std::vector<HIPxxKernel *> hipxx_kernels = getKernels();
+CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
+  logTrace("CHIPDevice::findKernelByHostPtr({})", hostPtr);
+  std::vector<CHIPKernel *> hipxx_kernels = getKernels();
   logDebug("Listing Kernels for device {}", device_name);
   for (auto &kernel : hipxx_kernels) {
     logDebug("{}", kernel->getName());
   }
 
   auto found_kernel = std::find_if(hipxx_kernels.begin(), hipxx_kernels.end(),
-                                   [&hostPtr](HIPxxKernel *kernel) {
+                                   [&hostPtr](CHIPKernel *kernel) {
                                      return kernel->getHostPtr() == hostPtr;
                                    });
 
@@ -181,12 +181,12 @@ HIPxxKernel *HIPxxDevice::findKernelByHostPtr(const void *hostPtr) {
   return *found_kernel;
 }
 
-HIPxxContext *HIPxxDevice::getContext() { return ctx; }
-int HIPxxDevice::getDeviceId() { return idx; }
+CHIPContext *CHIPDevice::getContext() { return ctx; }
+int CHIPDevice::getDeviceId() { return idx; }
 
-// TODO HIPxx Design Choice - should this be even called that?
-// bool HIPxxDevice::allocate(size_t bytes) {
-//   logTrace("HIPxxDevice->reserve_mem()");
+// TODO CHIP Design Choice - should this be even called that?
+// bool CHIPDevice::allocate(size_t bytes) {
+//   logTrace("CHIPDevice->reserve_mem()");
 //   std::lock_guard<std::mutex> Lock(mtx);
 //   if (bytes <= (hip_device_props.totalGlobalMem - total_used_mem)) {
 //     total_used_mem += bytes;
@@ -203,7 +203,7 @@ int HIPxxDevice::getDeviceId() { return idx; }
 //   }
 // }
 
-// bool HIPxxDevice::free(size_t bytes) {
+// bool CHIPDevice::free(size_t bytes) {
 //   std::lock_guard<std::mutex> Lock(mtx);
 //   if (total_used_mem >= bytes) {
 //     total_used_mem -= bytes;
@@ -213,7 +213,7 @@ int HIPxxDevice::getDeviceId() { return idx; }
 //   }
 // }
 
-HIPxxDeviceVar *HIPxxDevice::getDynGlobalVar(const void *host_var_ptr) {
+CHIPDeviceVar *CHIPDevice::getDynGlobalVar(const void *host_var_ptr) {
   auto found_dyn = host_var_ptr_to_hipxxdevicevar_dyn.find(host_var_ptr);
   if (found_dyn != host_var_ptr_to_hipxxdevicevar_dyn.end())
     return found_dyn->second;
@@ -221,7 +221,7 @@ HIPxxDeviceVar *HIPxxDevice::getDynGlobalVar(const void *host_var_ptr) {
   return nullptr;
 }
 
-HIPxxDeviceVar *HIPxxDevice::getStatGlobalVar(const void *host_var_ptr) {
+CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *host_var_ptr) {
   auto found_stat = host_var_ptr_to_hipxxdevicevar_stat.find(host_var_ptr);
   if (found_stat != host_var_ptr_to_hipxxdevicevar_stat.end())
     return found_stat->second;
@@ -229,7 +229,7 @@ HIPxxDeviceVar *HIPxxDevice::getStatGlobalVar(const void *host_var_ptr) {
   return nullptr;
 }
 
-HIPxxDeviceVar *HIPxxDevice::getGlobalVar(const void *host_var_ptr) {
+CHIPDeviceVar *CHIPDevice::getGlobalVar(const void *host_var_ptr) {
   auto found_dyn = getDynGlobalVar(host_var_ptr);
   if (found_dyn) return found_dyn;
 
@@ -239,7 +239,7 @@ HIPxxDeviceVar *HIPxxDevice::getGlobalVar(const void *host_var_ptr) {
   return nullptr;
 }
 
-int HIPxxDevice::getAttr(hipDeviceAttribute_t attr) {
+int CHIPDevice::getAttr(hipDeviceAttribute_t attr) {
   int *pi;
   hipDeviceProp_t prop = {0};
   copyDeviceProperties(&prop);
@@ -413,7 +413,7 @@ int HIPxxDevice::getAttr(hipDeviceAttribute_t attr) {
   return *pi;
 }
 
-size_t HIPxxDevice::getGlobalMemSize() {}
+size_t CHIPDevice::getGlobalMemSize() {}
 
 void setCacheConfig(hipFuncCache_t) {}
 
@@ -425,21 +425,21 @@ hipSharedMemConfig getSharedMemConfig() {}
 
 void setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
 
-void HIPxxDevice::registerFunctionAsKernel(std::string *module_str,
-                                           const void *host_f_ptr,
-                                           const char *host_f_name) {
-  HIPxxModule *hipxx_module;
+void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
+                                          const void *host_f_ptr,
+                                          const char *host_f_name) {
+  CHIPModule *hipxx_module;
   auto hipxx_module_found = host_f_ptr_to_hipxxmodule_map.find(host_f_ptr);
   if (hipxx_module_found != host_f_ptr_to_hipxxmodule_map.end()) {
     hipxx_module = hipxx_module_found->second;
   } else {
     hipxx_module =
-        new HIPxxModule(module_str);  // Create a new module for this source
+        new CHIPModule(module_str);   // Create a new module for this source
     hipxx_module->compileOnce(this);  // Compile it
     host_f_ptr_to_hipxxmodule_map[module_str] = hipxx_module;
     // TODO Place it in the Backend cache
   }
-  HIPxxKernel *kernel = hipxx_module->getKernel(std::string(host_f_name));
+  CHIPKernel *kernel = hipxx_module->getKernel(std::string(host_f_name));
   if (!kernel) {
     logCritical(
         "Device {}: tried to register host function <{}, {}> but failed to "
@@ -456,71 +456,71 @@ void HIPxxDevice::registerFunctionAsKernel(std::string *module_str,
   return;
 }
 
-void HIPxxDevice::addQueue(HIPxxQueue *hipxx_queue_) {
+void CHIPDevice::addQueue(CHIPQueue *hipxx_queue_) {
   auto queue_found =
       std::find(hipxx_queues.begin(), hipxx_queues.end(), hipxx_queue_);
   if (queue_found == hipxx_queues.end()) hipxx_queues.push_back(hipxx_queue_);
   return;
 }
 
-bool HIPxxDevice::reserveMem(size_t bytes) {}
+bool CHIPDevice::reserveMem(size_t bytes) {}
 
-hipError_t HIPxxDevice::setPeerAccess(HIPxxDevice *peer, int flags,
-                                      bool canAccessPeer) {}
+hipError_t CHIPDevice::setPeerAccess(CHIPDevice *peer, int flags,
+                                     bool canAccessPeer) {}
 
-int HIPxxDevice::getPeerAccess(HIPxxDevice *peerDevice) {}
+int CHIPDevice::getPeerAccess(CHIPDevice *peerDevice) {}
 
-void HIPxxDevice::setCacheConfig(hipFuncCache_t cfg) {}
+void CHIPDevice::setCacheConfig(hipFuncCache_t cfg) {}
 
-void HIPxxDevice::setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
+void CHIPDevice::setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
 
-hipFuncCache_t HIPxxDevice::getCacheConfig() {}
+hipFuncCache_t CHIPDevice::getCacheConfig() {}
 
-hipSharedMemConfig HIPxxDevice::getSharedMemConfig() {}
+hipSharedMemConfig CHIPDevice::getSharedMemConfig() {}
 
-bool HIPxxDevice::removeQueue(HIPxxQueue *q) {}
+bool CHIPDevice::removeQueue(CHIPQueue *q) {}
 
-void HIPxxDevice::setSharedMemConfig(hipSharedMemConfig config) {}
+void CHIPDevice::setSharedMemConfig(hipSharedMemConfig config) {}
 
-size_t HIPxxDevice::getUsedGlobalMem() {}
+size_t CHIPDevice::getUsedGlobalMem() {}
 
-bool HIPxxDevice::hasPCIBusId(int, int, int) {}
+bool CHIPDevice::hasPCIBusId(int, int, int) {}
 
-bool HIPxxDevice::releaseMemReservation(unsigned long) {}
+bool CHIPDevice::releaseMemReservation(unsigned long) {}
 
-HIPxxQueue *HIPxxDevice::getActiveQueue() {}
-// HIPxxContext
+CHIPQueue *CHIPDevice::getActiveQueue() {}
+// CHIPContext
 //*************************************************************************************
-HIPxxContext::HIPxxContext() {}
-HIPxxContext::~HIPxxContext() {}
-bool HIPxxContext::addDevice(HIPxxDevice *dev) {
-  logTrace("HIPxxContext.add_device() {}", dev->getName());
+CHIPContext::CHIPContext() {}
+CHIPContext::~CHIPContext() {}
+bool CHIPContext::addDevice(CHIPDevice *dev) {
+  logTrace("CHIPContext.add_device() {}", dev->getName());
   hipxx_devices.push_back(dev);
   // TODO check for success
   return true;
 }
 
-std::vector<HIPxxDevice *> &HIPxxContext::getDevices() {
+std::vector<CHIPDevice *> &CHIPContext::getDevices() {
   if (hipxx_devices.size() == 0)
-    logWarn("HIPxxContext.get_devices() was called but hipxx_devices is empty");
+    logWarn("CHIPContext.get_devices() was called but hipxx_devices is empty");
   return hipxx_devices;
 }
 
-std::vector<HIPxxQueue *> &HIPxxContext::getQueues() {
+std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   if (hipxx_queues.size() == 0) {
     logCritical(
-        "HIPxxContext.get_queues() was called but no queues were added to "
+        "CHIPContext.get_queues() was called but no queues were added to "
         "this context");
     std::abort();
   }
   return hipxx_queues;
 }
-void HIPxxContext::addQueue(HIPxxQueue *q) {
-  logTrace("HIPxxContext.add_queue()");
+void CHIPContext::addQueue(CHIPQueue *q) {
+  logTrace("CHIPContext.add_queue()");
   hipxx_queues.push_back(q);
 }
-hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
-  std::vector<HIPxxQueue *> Queues = getQueues();
+hipStream_t CHIPContext::findQueue(hipStream_t stream) {
+  std::vector<CHIPQueue *> Queues = getQueues();
   if (stream == nullptr) return Backend->getActiveQueue();
 
   auto I = std::find(Queues.begin(), Queues.end(), stream);
@@ -528,23 +528,23 @@ hipStream_t HIPxxContext::findQueue(hipStream_t stream) {
   return *I;
 }
 
-void HIPxxContext::finishAll() {
-  for (HIPxxQueue *q : hipxx_queues) q->finish();
+void CHIPContext::finishAll() {
+  for (CHIPQueue *q : hipxx_queues) q->finish();
 }
 
-void *HIPxxContext::allocate(size_t size) {
-  return allocate(size, 0, HIPxxMemoryType::Shared);
+void *CHIPContext::allocate(size_t size) {
+  return allocate(size, 0, CHIPMemoryType::Shared);
 }
 
-void *HIPxxContext::allocate(size_t size, HIPxxMemoryType mem_type) {
+void *CHIPContext::allocate(size_t size, CHIPMemoryType mem_type) {
   return allocate(size, 0, mem_type);
 }
-void *HIPxxContext::allocate(size_t size, size_t alignment,
-                             HIPxxMemoryType mem_type) {
+void *CHIPContext::allocate(size_t size, size_t alignment,
+                            CHIPMemoryType mem_type) {
   std::lock_guard<std::mutex> Lock(mtx);
   void *retval;
 
-  HIPxxDevice *hipxx_dev = Backend->getActiveDevice();
+  CHIPDevice *hipxx_dev = Backend->getActiveDevice();
   assert(hipxx_dev->getContext() == this);
 
   if (!hipxx_dev->reserveMem(size)) return nullptr;
@@ -554,8 +554,8 @@ void *HIPxxContext::allocate(size_t size, size_t alignment,
   return retval;
 }
 
-hipError_t HIPxxContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
-                                         hipDeviceptr_t dptr) {
+hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
+                                        hipDeviceptr_t dptr) {
   allocation_info *info = Backend->AllocationTracker.getByDevPtr(dptr);
   if (!info) return hipErrorInvalidDevicePointer;
   *pbase = info->base_ptr;
@@ -563,16 +563,16 @@ hipError_t HIPxxContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
   return hipSuccess;
 }
 
-unsigned int HIPxxContext::getFlags() {}
+unsigned int CHIPContext::getFlags() {}
 
-void HIPxxContext::setFlags(unsigned int flags) {}
+void CHIPContext::setFlags(unsigned int flags) {}
 
-void HIPxxContext::reset() {}
+void CHIPContext::reset() {}
 
-HIPxxContext *HIPxxContext::retain() {}
+CHIPContext *CHIPContext::retain() {}
 
-hipError_t HIPxxContext::free(void *ptr) {
-  HIPxxDevice *hipxx_dev = Backend->getActiveDevice();
+hipError_t CHIPContext::free(void *ptr) {
+  CHIPDevice *hipxx_dev = Backend->getActiveDevice();
   allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
   if (!info) return hipErrorInvalidDevicePointer;
 
@@ -581,115 +581,113 @@ hipError_t HIPxxContext::free(void *ptr) {
   return hipSuccess;
 }
 
-void HIPxxContext::recordEvent(HIPxxQueue *q, HIPxxEvent *event) {}
+void CHIPContext::recordEvent(CHIPQueue *q, CHIPEvent *event) {}
 
-HIPxxTexture *HIPxxContext::createImage(hipResourceDesc *resDesc,
-                                        hipTextureDesc *texDesc) {}
+CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
+                                      hipTextureDesc *texDesc) {}
 
-// HIPxxBackend
+// CHIPBackend
 //*************************************************************************************
 
-HIPxxBackend::HIPxxBackend() { logDebug("HIPxxBackend Base Constructor"); };
-HIPxxBackend::~HIPxxBackend(){};
+CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
+CHIPBackend::~CHIPBackend(){};
 
-void HIPxxBackend::initialize(std::string platform_str,
-                              std::string device_type_str,
-                              std::string device_ids_str){};
+void CHIPBackend::initialize(std::string platform_str,
+                             std::string device_type_str,
+                             std::string device_ids_str){};
 
-void HIPxxBackend::setActiveDevice(HIPxxDevice *hipxx_dev) {
+void CHIPBackend::setActiveDevice(CHIPDevice *hipxx_dev) {
   auto I = std::find(hipxx_devices.begin(), hipxx_devices.end(), hipxx_dev);
   if (I == hipxx_devices.end()) {
     logCritical(
-        "Tried to set active device with HIPxxDevice pointer that is not in "
-        "HIPxxBackend::hipxx_devices");
+        "Tried to set active device with CHIPDevice pointer that is not in "
+        "CHIPBackend::hipxx_devices");
     std::abort();
   };
   active_dev = hipxx_dev;
   active_ctx = hipxx_dev->getContext();
   active_q = hipxx_dev->getActiveQueue();
 }
-std::vector<HIPxxQueue *> &HIPxxBackend::getQueues() { return hipxx_queues; }
-HIPxxQueue *HIPxxBackend::getActiveQueue() {
+std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return hipxx_queues; }
+CHIPQueue *CHIPBackend::getActiveQueue() {
   if (active_q == nullptr) {
     logCritical(
-        "HIPxxBackend.getActiveQueue() was called but no queues have "
+        "CHIPBackend.getActiveQueue() was called but no queues have "
         "been initialized;\n");
     std::abort();
   }
   return active_q;
 };
 
-HIPxxContext *HIPxxBackend::getActiveContext() {
+CHIPContext *CHIPBackend::getActiveContext() {
   if (active_ctx == nullptr) {
     logCritical(
-        "HIPxxBackend.getActiveContext() was called but active_ctx is null");
+        "CHIPBackend.getActiveContext() was called but active_ctx is null");
     std::abort();
   }
   return active_ctx;
 };
 
-HIPxxDevice *HIPxxBackend::getActiveDevice() {
+CHIPDevice *CHIPBackend::getActiveDevice() {
   if (active_dev == nullptr) {
     logCritical(
-        "HIPxxBackend.getActiveDevice() was called but active_ctx is null");
+        "CHIPBackend.getActiveDevice() was called but active_ctx is null");
     std::abort();
   }
   return active_dev;
 };
 
-std::vector<HIPxxDevice *> &HIPxxBackend::getDevices() { return hipxx_devices; }
+std::vector<CHIPDevice *> &CHIPBackend::getDevices() { return hipxx_devices; }
 
-size_t HIPxxBackend::getNumDevices() { return hipxx_devices.size(); }
-std::vector<std::string *> &HIPxxBackend::getModulesStr() {
-  return modules_str;
-}
+size_t CHIPBackend::getNumDevices() { return hipxx_devices.size(); }
+std::vector<std::string *> &CHIPBackend::getModulesStr() { return modules_str; }
 
-void HIPxxBackend::addContext(HIPxxContext *ctx_in) {
+void CHIPBackend::addContext(CHIPContext *ctx_in) {
   hipxx_contexts.push_back(ctx_in);
 }
-void HIPxxBackend::addQueue(HIPxxQueue *q_in) {
-  logDebug("HIPxxBackend.add_queue()");
+void CHIPBackend::addQueue(CHIPQueue *q_in) {
+  logDebug("CHIPBackend.add_queue()");
   hipxx_queues.push_back(q_in);
 }
-void HIPxxBackend::addDevice(HIPxxDevice *dev_in) {
-  logTrace("HIPxxDevice.add_device() {}", dev_in->getName());
+void CHIPBackend::addDevice(CHIPDevice *dev_in) {
+  logTrace("CHIPDevice.add_device() {}", dev_in->getName());
   hipxx_devices.push_back(dev_in);
 }
 
-void HIPxxBackend::registerModuleStr(std::string *mod_str) {
-  logTrace("HIPxxBackend->register_module()");
+void CHIPBackend::registerModuleStr(std::string *mod_str) {
+  logTrace("CHIPBackend->register_module()");
   std::lock_guard<std::mutex> Lock(mtx);
   getModulesStr().push_back(mod_str);
 }
 
-void HIPxxBackend::unregisterModuleStr(std::string *mod_str) {
-  logTrace("HIPxxBackend->unregister_module()");
+void CHIPBackend::unregisterModuleStr(std::string *mod_str) {
+  logTrace("CHIPBackend->unregister_module()");
   auto found_mod = std::find(modules_str.begin(), modules_str.end(), mod_str);
   if (found_mod != modules_str.end()) {
     getModulesStr().erase(found_mod);
   } else {
     logWarn(
-        "Module {} not found in HIPxxBackend.modules_str while trying to "
+        "Module {} not found in CHIPBackend.modules_str while trying to "
         "unregister",
         (void *)mod_str);
   }
 }
 
-hipError_t HIPxxBackend::configureCall(dim3 grid, dim3 block, size_t shared,
-                                       hipStream_t q) {
+hipError_t CHIPBackend::configureCall(dim3 grid, dim3 block, size_t shared,
+                                      hipStream_t q) {
   std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("HIPxxBackend->configureCall()");
+  logTrace("CHIPBackend->configureCall()");
   if (q == nullptr) q = getActiveQueue();
-  HIPxxExecItem *ex = new HIPxxExecItem(grid, block, shared, q);
+  CHIPExecItem *ex = new CHIPExecItem(grid, block, shared, q);
   hipxx_execstack.push(ex);
 
   return hipSuccess;
 }
 
-hipError_t HIPxxBackend::setArg(const void *arg, size_t size, size_t offset) {
-  logTrace("HIPxxBackend->set_arg()");
+hipError_t CHIPBackend::setArg(const void *arg, size_t size, size_t offset) {
+  logTrace("CHIPBackend->set_arg()");
   std::lock_guard<std::mutex> Lock(mtx);
-  HIPxxExecItem *ex = hipxx_execstack.top();
+  CHIPExecItem *ex = hipxx_execstack.top();
   ex->setArg(arg, size, offset);
 
   return hipSuccess;
@@ -706,19 +704,19 @@ hipError_t HIPxxBackend::setArg(const void *arg, size_t size, size_t offset) {
  * @return false
  */
 
-bool HIPxxBackend::registerFunctionAsKernel(std::string *module_str,
-                                            const void *host_f_ptr,
-                                            const char *host_f_name) {
-  logTrace("HIPxxBackend.registerFunctionAsKernel()");
+bool CHIPBackend::registerFunctionAsKernel(std::string *module_str,
+                                           const void *host_f_ptr,
+                                           const char *host_f_name) {
+  logTrace("CHIPBackend.registerFunctionAsKernel()");
   for (auto &ctx : hipxx_contexts)
     for (auto &dev : ctx->getDevices())
       dev->registerFunctionAsKernel(module_str, host_f_ptr, host_f_name);
   return true;
 }
 
-HIPxxDevice *HIPxxBackend::findDeviceMatchingProps(
+CHIPDevice *CHIPBackend::findDeviceMatchingProps(
     const hipDeviceProp_t *properties) {
-  HIPxxDevice *matched_device;
+  CHIPDevice *matched_device;
   int maxMatchedCount = 0;
   for (auto &dev : hipxx_devices) {
     hipDeviceProp_t currentProp = {0};
@@ -818,58 +816,56 @@ HIPxxDevice *HIPxxBackend::findDeviceMatchingProps(
   }
 }
 
-hipError_t HIPxxBackend::removeModule(HIPxxModule *hipxx_module){};
-hipError_t HIPxxBackend::addModule(HIPxxModule *) {}
-// HIPxxQueue
+hipError_t CHIPBackend::removeModule(CHIPModule *hipxx_module){};
+hipError_t CHIPBackend::addModule(CHIPModule *) {}
+// CHIPQueue
 //*************************************************************************************
-HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_, unsigned int flags_,
-                       int priority_)
+CHIPQueue::CHIPQueue(CHIPDevice *hipxx_device_, unsigned int flags_,
+                     int priority_)
     : hipxx_device(hipxx_device_), flags(flags_), priority(priority_) {
   hipxx_context = hipxx_device_->getContext();
 };
-HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_, unsigned int flags_)
-    : HIPxxQueue(hipxx_device_, flags_, 0){};
-HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_)
-    : HIPxxQueue(hipxx_device_, 0, 0){};
-HIPxxQueue::~HIPxxQueue(){};
+CHIPQueue::CHIPQueue(CHIPDevice *hipxx_device_, unsigned int flags_)
+    : CHIPQueue(hipxx_device_, flags_, 0){};
+CHIPQueue::CHIPQueue(CHIPDevice *hipxx_device_)
+    : CHIPQueue(hipxx_device_, 0, 0){};
+CHIPQueue::~CHIPQueue(){};
 
-HIPxxDevice *HIPxxQueue::getDevice() {
+CHIPDevice *CHIPQueue::getDevice() {
   if (hipxx_device == nullptr) {
     logCritical(
-        "HIPxxQueue.getDevice() was called but device is a null pointer");
+        "CHIPQueue.getDevice() was called but device is a null pointer");
     std::abort();  // TODO Exception?
   }
 
   return hipxx_device;
 }
 
-unsigned int HIPxxQueue::getFlags() {}
-hipError_t HIPxxQueue::launch(HIPxxExecItem *) {}
-hipError_t HIPxxQueue::memCopy(void *dst, const void *src, size_t size) {}
-hipError_t HIPxxQueue::memCopyAsync(void *, void const *, unsigned long) {}
+unsigned int CHIPQueue::getFlags() {}
+hipError_t CHIPQueue::launch(CHIPExecItem *) {}
+hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
+hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
 
-hipError_t HIPxxQueue::launchWithKernelParams(dim3 grid, dim3 block,
-                                              unsigned int sharedMemBytes,
-                                              void **args,
-                                              HIPxxKernel *kernel) {}
-
-hipError_t HIPxxQueue::launchWithExtraParams(dim3 grid, dim3 block,
+hipError_t CHIPQueue::launchWithKernelParams(dim3 grid, dim3 block,
                                              unsigned int sharedMemBytes,
-                                             void **extra,
-                                             HIPxxKernel *kernel) {}
+                                             void **args, CHIPKernel *kernel) {}
 
-int HIPxxQueue::getPriorityRange(int lower_or_upper) {}
-int HIPxxQueue::getPriority() {}
-void HIPxxQueue::finish() {}
-bool HIPxxQueue::addCallback(hipStreamCallback_t callback, void *userData) {}
-bool HIPxxQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
-                                dim3 dimBlocks, void **args,
-                                size_t sharedMemBytes) {}
-bool HIPxxQueue::enqueueBarrierForEvent(HIPxxEvent *e) {}
-bool HIPxxQueue::query() {}
-void HIPxxQueue::memFill(void *dst, size_t size, const void *pattern,
-                         size_t pattern_size) {}
-void HIPxxQueue::memFillAsync(void *dst, size_t size, const void *pattern,
-                              size_t pattern_size) {}
+hipError_t CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
+                                            unsigned int sharedMemBytes,
+                                            void **extra, CHIPKernel *kernel) {}
 
-bool HIPxxQueue::memPrefetch(const void *ptr, size_t count) {}
+int CHIPQueue::getPriorityRange(int lower_or_upper) {}
+int CHIPQueue::getPriority() {}
+void CHIPQueue::finish() {}
+bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {}
+bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
+                               dim3 dimBlocks, void **args,
+                               size_t sharedMemBytes) {}
+bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) {}
+bool CHIPQueue::query() {}
+void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
+                        size_t pattern_size) {}
+void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
+                             size_t pattern_size) {}
+
+bool CHIPQueue::memPrefetch(const void *ptr, size_t count) {}

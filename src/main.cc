@@ -1,17 +1,17 @@
 #include <iostream>
 
-#include "HIPxxBackend.hh"
-#include "HIPxxDriver.hh"
+#include "CHIPBackend.hh"
+#include "CHIPDriver.hh"
 #include "include/hip/hip.hh"
 void testf() { std::cout << "Test Function Executed\n"; }
 
 int main() {
   std::cout << "Hello, World!\n";
-  HIPxxInitialize();
+  CHIPInitialize();
 
   hipDeviceProp_t prop;
   hipGetDeviceProperties(&prop, 0);
 
-  HIPxxExecItem ex;
+  CHIPExecItem ex;
   Backend->submit(&ex);
 }

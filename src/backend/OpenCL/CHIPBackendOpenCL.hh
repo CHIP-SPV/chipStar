@@ -1,8 +1,8 @@
 /**
  * @file Backend.hh
  * @author Paulius Velesko (pvelesko@gmail.com)
- * @brief OpenCL backend for HIPxx. HIPxxBackendOpenCL class definition with
- * inheritance from HIPxxBackend. Subsequent virtual function overrides.
+ * @brief OpenCL backend for CHIP. CHIPBackendOpenCL class definition with
+ * inheritance from CHIPBackend. Subsequent virtual function overrides.
  * @version 0.1
  * @date 2021-08-19
  *
@@ -21,25 +21,25 @@
 
 #include <CL/opencl.hpp>
 
-#include "../../HIPxxBackend.hh"
+#include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
 
-class HIPxxContextOpenCL;
-class HIPxxDeviceOpenCL;
-class HIPxxExecItemOpenCL;
-class HIPxxKernelOpenCL;
-class HIPxxQueueOpenCL;
-class HIPxxEventOpenCL;
-class HIPxxBackendOpenCL;
-class HIPxxModuleOpenCL;
+class CHIPContextOpenCL;
+class CHIPDeviceOpenCL;
+class CHIPExecItemOpenCL;
+class CHIPKernelOpenCL;
+class CHIPQueueOpenCL;
+class CHIPEventOpenCL;
+class CHIPBackendOpenCL;
+class CHIPModuleOpenCL;
 
-class HIPxxModuleOpenCL : public HIPxxModule {
+class CHIPModuleOpenCL : public CHIPModule {
  protected:
   cl::Program program;
 
  public:
-  virtual void compile(HIPxxDevice *hipxx_dev) override;
+  virtual void compile(CHIPDevice *hipxx_dev) override;
   cl::Program &get() { return program; }
 };
 
@@ -68,14 +68,14 @@ class SVMemoryRegion {
   void clear();
 };
 
-class HIPxxContextOpenCL : public HIPxxContext {
+class CHIPContextOpenCL : public CHIPContext {
  public:
   SVMemoryRegion svm_memory;
   cl::Context *cl_ctx;
-  HIPxxContextOpenCL(cl::Context *ctx_in);
+  CHIPContextOpenCL(cl::Context *ctx_in);
 
   void *allocate_(size_t size, size_t alignment,
-                  HIPxxMemoryType mem_type) override;
+                  CHIPMemoryType mem_type) override;
 
   void free_(void *ptr) override{};
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
@@ -83,11 +83,11 @@ class HIPxxContextOpenCL : public HIPxxContext {
   cl::Context *get() { return cl_ctx; }
 };
 
-class HIPxxDeviceOpenCL : public HIPxxDevice {
+class CHIPDeviceOpenCL : public CHIPDevice {
  public:
   cl::Device *cl_dev;
   cl::Context *cl_ctx;
-  HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx, cl::Device *dev_in, int idx);
+  CHIPDeviceOpenCL(CHIPContextOpenCL *hipxx_ctx, cl::Device *dev_in, int idx);
 
   cl::Device *get() { return cl_dev; }
 
@@ -97,7 +97,7 @@ class HIPxxDeviceOpenCL : public HIPxxDevice {
   virtual void reset() override;
 };
 
-class HIPxxQueueOpenCL : public HIPxxQueue {
+class CHIPQueueOpenCL : public CHIPQueue {
  protected:
   // Any reason to make these private/protected?
   cl::Context *cl_ctx;
@@ -105,19 +105,19 @@ class HIPxxQueueOpenCL : public HIPxxQueue {
   cl::CommandQueue *cl_q;
 
  public:
-  HIPxxQueueOpenCL() = delete;  // delete default constructor
-  HIPxxQueueOpenCL(const HIPxxQueueOpenCL &) = delete;
-  HIPxxQueueOpenCL(HIPxxDevice *hipxx_device);
-  ~HIPxxQueueOpenCL();
+  CHIPQueueOpenCL() = delete;  // delete default constructor
+  CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
+  CHIPQueueOpenCL(CHIPDevice *hipxx_device);
+  ~CHIPQueueOpenCL();
 
-  virtual hipError_t launch(HIPxxExecItem *exec_item) override;
+  virtual hipError_t launch(CHIPExecItem *exec_item) override;
   virtual void finish() override;
 
   virtual hipError_t memCopy(void *dst, const void *src, size_t size) override;
   cl::CommandQueue *get() { return cl_q; }
 };
 
-class HIPxxKernelOpenCL : public HIPxxKernel {
+class CHIPKernelOpenCL : public CHIPKernel {
  private:
   std::string name;
   size_t TotalArgSize;
@@ -125,8 +125,8 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
   cl::Kernel ocl_kernel;
 
  public:
-  HIPxxKernelOpenCL(const cl::Kernel &&cl_kernel,
-                    OpenCLFunctionInfoMap &func_info_map) {
+  CHIPKernelOpenCL(const cl::Kernel &&cl_kernel,
+                   OpenCLFunctionInfoMap &func_info_map) {
     ocl_kernel = cl_kernel;
 
     int err = 0;
@@ -166,22 +166,22 @@ class HIPxxKernelOpenCL : public HIPxxKernel {
   size_t getTotalArgSize() const { return TotalArgSize; };
 };
 
-class HIPxxExecItemOpenCL : public HIPxxExecItem {
+class CHIPExecItemOpenCL : public CHIPExecItem {
  private:
   cl::Kernel *cl_kernel;
 
  public:
   OCLFuncInfo FuncInfo;
-  virtual hipError_t launch(HIPxxKernel *hipxx_kernel) override;
-  int setup_all_args(HIPxxKernelOpenCL *kernel);
+  virtual hipError_t launch(CHIPKernel *hipxx_kernel) override;
+  int setup_all_args(CHIPKernelOpenCL *kernel);
   cl::Kernel *get() { return cl_kernel; }
 };
 
-class HIPxxBackendOpenCL : public HIPxxBackend {
+class CHIPBackendOpenCL : public CHIPBackend {
  public:
-  void initialize(std::string HIPxxPlatformStr, std::string HIPxxDeviceTypeStr,
-                  std::string HIPxxDeviceStr) override {
-    logDebug("HIPxxBackendOpenCL Initialize");
+  void initialize(std::string CHIPPlatformStr, std::string CHIPDeviceTypeStr,
+                  std::string CHIPDeviceStr) override {
+    logDebug("CHIPBackendOpenCL Initialize");
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
     if (err != CL_SUCCESS) {
@@ -201,14 +201,14 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     cl_bitfield selected_dev_type = 0;
 
     try {
-      if (!HIPxxDeviceStr.compare("all")) {  // Use all devices that match type
+      if (!CHIPDeviceStr.compare("all")) {  // Use all devices that match type
         selected_device = -1;
       } else {
-        selected_device = std::stoi(HIPxxDeviceStr);
+        selected_device = std::stoi(CHIPDeviceStr);
       }
 
       // Platform index in range?
-      selected_platform = std::stoi(HIPxxPlatformStr);
+      selected_platform = std::stoi(CHIPPlatformStr);
       if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
         throw InvalidPlatformOrDeviceNumber(
             "HIPXX_PLATFORM: platform number out of range");
@@ -239,22 +239,22 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
         throw InvalidPlatformOrDeviceNumber(
             "HIPXX_DEVICE: can't get devices for platform");
 
-      std::transform(HIPxxDeviceTypeStr.begin(), HIPxxDeviceTypeStr.end(),
-                     HIPxxDeviceTypeStr.begin(), ::tolower);
-      if (HIPxxDeviceTypeStr == "all")
+      std::transform(CHIPDeviceTypeStr.begin(), CHIPDeviceTypeStr.end(),
+                     CHIPDeviceTypeStr.begin(), ::tolower);
+      if (CHIPDeviceTypeStr == "all")
         selected_dev_type = CL_DEVICE_TYPE_ALL;
-      else if (HIPxxDeviceTypeStr == "cpu")
+      else if (CHIPDeviceTypeStr == "cpu")
         selected_dev_type = CL_DEVICE_TYPE_CPU;
-      else if (HIPxxDeviceTypeStr == "gpu")
+      else if (CHIPDeviceTypeStr == "gpu")
         selected_dev_type = CL_DEVICE_TYPE_GPU;
-      else if (HIPxxDeviceTypeStr == "default")
+      else if (CHIPDeviceTypeStr == "default")
         selected_dev_type = CL_DEVICE_TYPE_DEFAULT;
-      else if (HIPxxDeviceTypeStr == "accel")
+      else if (CHIPDeviceTypeStr == "accel")
         selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
       else
         throw InvalidDeviceType(
             "Unknown value provided for HIPXX_DEVICE_TYPE\n");
-      std::cout << "Using Devices of type " << HIPxxDeviceTypeStr << "\n";
+      std::cout << "Using Devices of type " << CHIPDeviceTypeStr << "\n";
 
     } catch (const InvalidDeviceType &e) {
       logCritical("{}\n", e.what());
@@ -292,17 +292,16 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     // Create queues that have devices each of which has an associated context
     // TODO Change this to spirv_enabled_devices
     cl::Context *ctx = new cl::Context(enabled_devices);
-    HIPxxContextOpenCL *hipxx_context = new HIPxxContextOpenCL(ctx);
+    CHIPContextOpenCL *hipxx_context = new CHIPContextOpenCL(ctx);
     Backend->addContext(hipxx_context);
     for (int i = 0; i < enabled_devices.size(); i++) {
       cl::Device *dev = new cl::Device(enabled_devices[i]);
-      HIPxxDeviceOpenCL *hipxx_dev =
-          new HIPxxDeviceOpenCL(hipxx_context, dev, i);
-      logDebug("HIPxxDeviceOpenCL {}",
+      CHIPDeviceOpenCL *hipxx_dev = new CHIPDeviceOpenCL(hipxx_context, dev, i);
+      logDebug("CHIPDeviceOpenCL {}",
                hipxx_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
       hipxx_dev->populateDeviceProperties();
       Backend->addDevice(hipxx_dev);
-      HIPxxQueueOpenCL *queue = new HIPxxQueueOpenCL(hipxx_dev);
+      CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(hipxx_dev);
       Backend->addQueue(queue);
     }
     std::cout << "OpenCL Context Initialized.\n";
@@ -313,12 +312,12 @@ class HIPxxBackendOpenCL : public HIPxxBackend {
     initialize(empty, empty, empty);
   }
   void uninitialize() override {
-    logTrace("HIPxxBackendOpenCL uninitializing");
-    logWarn("HIPxxBackendOpenCL->uninitialize() not implemented");
+    logTrace("CHIPBackendOpenCL uninitializing");
+    logWarn("CHIPBackendOpenCL->uninitialize() not implemented");
   }
 };
 
-class HIPxxEventOpenCL : public HIPxxEvent {
+class CHIPEventOpenCL : public CHIPEvent {
  protected:
   cl::Event *cl_event;
 };

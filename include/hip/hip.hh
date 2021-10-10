@@ -591,22 +591,22 @@ enum hipComputeMode {
 };
 
 // Forward Declarations
-class HIPxxDevice;
-class HIPxxContext;
-class HIPxxModule;
-class HIPxxKernel;
-class HIPxxBackend;
-class HIPxxEvent;
-class HIPxxQueue;
-class HIPxxTexture;
+class CHIPDevice;
+class CHIPContext;
+class CHIPModule;
+class CHIPKernel;
+class CHIPBackend;
+class CHIPEvent;
+class CHIPQueue;
+class CHIPTexture;
 /* implementation details */
-typedef HIPxxEvent *hipEvent_t;
-typedef HIPxxKernel *hipFunction_t;
-typedef HIPxxModule *hipModule_t;
-typedef HIPxxQueue *hipStream_t;
-typedef HIPxxTexture *hipTextureObject_t;
-typedef HIPxxContext *hipCtx_t;
-typedef HIPxxDevice **hipDevice_t;
+typedef CHIPEvent *hipEvent_t;
+typedef CHIPKernel *hipFunction_t;
+typedef CHIPModule *hipModule_t;
+typedef CHIPQueue *hipStream_t;
+typedef CHIPTexture *hipTextureObject_t;
+typedef CHIPContext *hipCtx_t;
+typedef CHIPDevice **hipDevice_t;
 typedef void *hipDeviceptr_t;
 
 typedef enum {

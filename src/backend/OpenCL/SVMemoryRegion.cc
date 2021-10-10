@@ -1,4 +1,4 @@
-#include "HIPxxBackendOpenCL.hh"
+#include "CHIPBackendOpenCL.hh"
 
 #define SVM_ALIGNMENT 128
 

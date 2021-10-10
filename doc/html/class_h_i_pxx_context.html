@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.2"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>HIPxx: HIPxxContext Class Reference</title>
+<title>CHIP: CHIPContext Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -21,7 +21,7 @@
  <tbody>
  <tr style="height: 56px;">
   <td id="projectalign" style="padding-left: 0.5em;">
-   <div id="projectname">HIPxx<span id="projectnumber">&#160;0.0.1</span>
+   <div id="projectname">CHIP<span id="projectnumber">&#160;0.0.1</span>
    </div>
    <div id="projectbrief">Multiple backend interface for HIP</div>
   </td>
@@ -67,25 +67,25 @@ $(function() {
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="class_h_i_pxx_context-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">HIPxxContext Class Reference</div></div>
+  <div class="headertitle"><div class="title">CHIPContext Class Reference</div></div>
 </div><!--header-->
 <div class="contents">
 
 <p>Context class Contexts contain execution queues and are created on top of a single or multiple devices. Provides for creation of additional queues, events, and interaction with devices.  
  <a href="class_h_i_pxx_context.html#details">More...</a></p>
 
-<p><code>#include &lt;<a class="el" href="_h_i_pxx_backend_8hh_source.html">HIPxxBackend.hh</a>&gt;</code></p>
+<p><code>#include &lt;<a class="el" href="_h_i_pxx_backend_8hh_source.html">CHIPBackend.hh</a>&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a57c9bef569304398a8fafc0f3ef54182"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class_h_i_pxx_context.html#a57c9bef569304398a8fafc0f3ef54182">add_device</a> (<a class="el" href="class_h_i_pxx_device.html">HIPxxDevice</a> *dev)</td></tr>
+<tr class="memitem:a57c9bef569304398a8fafc0f3ef54182"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class_h_i_pxx_context.html#a57c9bef569304398a8fafc0f3ef54182">add_device</a> (<a class="el" href="class_h_i_pxx_device.html">CHIPDevice</a> *dev)</td></tr>
 <tr class="memdesc:a57c9bef569304398a8fafc0f3ef54182"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a device to this context.  <a href="class_h_i_pxx_context.html#a57c9bef569304398a8fafc0f3ef54182">More...</a><br /></td></tr>
 <tr class="separator:a57c9bef569304398a8fafc0f3ef54182"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:afb5fa95fca8a565c0628c828eae917c7"><td class="memItemLeft" align="right" valign="top"><a id="afb5fa95fca8a565c0628c828eae917c7" name="afb5fa95fca8a565c0628c828eae917c7"></a>
-std::vector&lt; <a class="el" href="class_h_i_pxx_device.html">HIPxxDevice</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>Devices</b></td></tr>
+std::vector&lt; <a class="el" href="class_h_i_pxx_device.html">CHIPDevice</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>Devices</b></td></tr>
 <tr class="separator:afb5fa95fca8a565c0628c828eae917c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
@@ -101,9 +101,9 @@ std::vector&lt; <a class="el" href="class_h_i_pxx_device.html">HIPxxDevice</a> *
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool HIPxxContext::add_device </td>
+          <td class="memname">bool CHIPContext::add_device </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="class_h_i_pxx_device.html">HIPxxDevice</a> *&#160;</td>
+          <td class="paramtype"><a class="el" href="class_h_i_pxx_device.html">CHIPDevice</a> *&#160;</td>
           <td class="paramname"><em>dev</em></td><td>)</td>
           <td></td>
         </tr>
@@ -118,7 +118,7 @@ std::vector&lt; <a class="el" href="class_h_i_pxx_device.html">HIPxxDevice</a> *
 <p>Add a device to this context. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">dev</td><td>pointer to <a class="el" href="class_h_i_pxx_device.html" title="Compute device class.">HIPxxDevice</a> object </td></tr>
+    <tr><td class="paramname">dev</td><td>pointer to <a class="el" href="class_h_i_pxx_device.html" title="Compute device class.">CHIPDevice</a> object </td></tr>
   </table>
   </dd>
 </dl>
@@ -129,7 +129,7 @@ false upon failure </dd></dl>
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>
-<li>/Users/pvelesko/local/HIPxx/src/<a class="el" href="_h_i_pxx_backend_8hh_source.html">HIPxxBackend.hh</a></li>
+<li>/Users/pvelesko/local/CHIP/src/<a class="el" href="_h_i_pxx_backend_8hh_source.html">CHIPBackend.hh</a></li>
 </ul>
 </div><!-- contents -->
 <!-- start footer part -->

@@ -1,14 +1,14 @@
 #include "Level0Backend.hh"
 
-HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxDeviceLevel0* hipxx_dev_)
-    : HIPxxQueue(hipxx_dev_) {
-  HIPxxContextLevel0* hipxx_context_lz = (HIPxxContextLevel0*)hipxx_context;
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* hipxx_dev_)
+    : CHIPQueue(hipxx_dev_) {
+  CHIPContextLevel0* hipxx_context_lz = (CHIPContextLevel0*)hipxx_context;
   ze_ctx = hipxx_context_lz->get();
   ze_dev = hipxx_dev_->get();
 
   logTrace(
-      "HIPxxQueueLevel0 constructor called via HIPxxContextLevel0 and "
-      "HIPxxDeviceLevel0");
+      "CHIPQueueLevel0 constructor called via CHIPContextLevel0 and "
+      "CHIPDeviceLevel0");
 
   // Discover all command queue groups
   uint32_t cmdqueueGroupCount = 0;
@@ -50,7 +50,7 @@ HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxDeviceLevel0* hipxx_dev_)
   // TODO more devices support
   ze_result_t status = zeCommandListCreate(ze_ctx, ze_dev, &clDesc,
                                            &(hipxx_context_lz->ze_cmd_list));
-  if (((HIPxxContextLevel0*)hipxx_context)->get_cmd_list() == nullptr) {
+  if (((CHIPContextLevel0*)hipxx_context)->get_cmd_list() == nullptr) {
     logCritical("Failed to initialize ze_cmd_list");
     std::abort();
   }
@@ -64,9 +64,9 @@ HIPxxQueueLevel0::HIPxxQueueLevel0(HIPxxDeviceLevel0* hipxx_dev_)
   hipxx_context->addQueue(this);
 }
 
-hipError_t HIPxxContextLevel0::memCopy(void* dst, const void* src, size_t size,
-                                       hipStream_t stream) {
-  logTrace("HIPxxContextLevel0.memCopy");
+hipError_t CHIPContextLevel0::memCopy(void* dst, const void* src, size_t size,
+                                      hipStream_t stream) {
+  logTrace("CHIPContextLevel0.memCopy");
   // Stream halding done in Bindings.
   // if (stream == nullptr) {
   //   return getDefaultQueue()->memCopy(dst, src, size);
@@ -75,7 +75,7 @@ hipError_t HIPxxContextLevel0::memCopy(void* dst, const void* src, size_t size,
   //   std::abort();
   // }
 
-  HIPxxQueueLevel0* hipxx_q = (HIPxxQueueLevel0*)stream;
+  CHIPQueueLevel0* hipxx_q = (CHIPQueueLevel0*)stream;
   ze_result_t status = zeCommandQueueSynchronize(hipxx_q->get(), UINT64_MAX);
   if (status != ZE_RESULT_SUCCESS) {
     logCritical("Failed to memcopy");
@@ -85,18 +85,18 @@ hipError_t HIPxxContextLevel0::memCopy(void* dst, const void* src, size_t size,
   return hipSuccess;
 }
 
-hipError_t HIPxxQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
+hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   // ze_event_handle_t hSignalEvent = GetSignalEvent(ze_q)->GetEventHandler();
   ze_command_list_handle_t ze_cmd_list =
-      ((HIPxxContextLevel0*)hipxx_context)->ze_cmd_list;
+      ((CHIPContextLevel0*)hipxx_context)->ze_cmd_list;
   assert(ze_cmd_list != nullptr);
   ze_result_t status = zeCommandListAppendMemoryCopy(ze_cmd_list, dst, src,
                                                      size, nullptr, 0, NULL);
   return hipSuccess;
 }
 
-void HIPxxDeviceLevel0::reset() {
-  logCritical("HIPxxDeviceLevel0::reset() not yet implemented");
+void CHIPDeviceLevel0::reset() {
+  logCritical("CHIPDeviceLevel0::reset() not yet implemented");
   std::abort();
 }
 

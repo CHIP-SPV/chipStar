@@ -1,8 +1,8 @@
 /**
- * @file HIPxxDriver.hh
+ * @file CHIPDriver.hh
  * @author Paulius Velesko (pvelesko@gmail.com)
- * @brief Header defining global HIPxx classes and functions such as
- * HIPxxBackend type pointer Backend which gets initialized at the start of
+ * @brief Header defining global CHIP classes and functions such as
+ * CHIPBackend type pointer Backend which gets initialized at the start of
  * execution.
  * @version 0.1
  * @date 2021-08-19
@@ -15,14 +15,14 @@
 #include <iostream>
 #include <mutex>
 
-#include "HIPxxBackend.hh"
+#include "CHIPBackend.hh"
 
 /**
  * @brief
  * Global Backend pointer through which backend-specific operations are
  * performed
  */
-extern HIPxxBackend* Backend;
+extern CHIPBackend* Backend;
 
 /**
  * @brief
@@ -35,25 +35,25 @@ extern std::once_flag uninitialized;
  * @brief
  * Singleton backend initialization function outer wrapper
  */
-extern void HIPxxInitialize(std::string BE = "");
+extern void CHIPInitialize(std::string BE = "");
 
 /**
  * @brief
  * Singleton backend initialization function outer wrapper
  */
-extern void HIPxxUninitialize();
+extern void CHIPUninitialize();
 
 /**
  * @brief
  * Singleton backend initialization function called via std::call_once
  */
-void HIPxxInitializeCallOnce(std::string BE = "");
+void CHIPInitializeCallOnce(std::string BE = "");
 
 /**
  * @brief
  * Singleton backend uninitialization function called via std::call_once
  */
-void HIPxxUninitializeCallOnce();
+void CHIPUninitializeCallOnce();
 
 std::string read_env_var(std::string ENV_VAR);
 std::string read_backend_selection();

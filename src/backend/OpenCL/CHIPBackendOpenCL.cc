@@ -1,9 +1,9 @@
-#include "HIPxxBackendOpenCL.hh"
+#include "CHIPBackendOpenCL.hh"
 
-void HIPxxModuleOpenCL::compile(HIPxxDevice *hipxx_dev_) {
-  HIPxxDeviceOpenCL *hipxx_dev_ocl = (HIPxxDeviceOpenCL *)hipxx_dev_;
-  HIPxxContextOpenCL *hipxx_ctx_ocl =
-      (HIPxxContextOpenCL *)(hipxx_dev_ocl->getContext());
+void CHIPModuleOpenCL::compile(CHIPDevice *hipxx_dev_) {
+  CHIPDeviceOpenCL *hipxx_dev_ocl = (CHIPDeviceOpenCL *)hipxx_dev_;
+  CHIPContextOpenCL *hipxx_ctx_ocl =
+      (CHIPContextOpenCL *)(hipxx_dev_ocl->getContext());
   OpenCLFunctionInfoMap FuncInfos;
 
   std::string binary = src;
@@ -25,7 +25,7 @@ void HIPxxModuleOpenCL::compile(HIPxxDevice *hipxx_dev_) {
     std::abort();
   }
 
-  //   for (HIPxxDevice *hipxx_dev : hipxx_devices) {
+  //   for (CHIPDevice *hipxx_dev : hipxx_devices) {
   std::string name = hipxx_dev_ocl->getName();
   int build_failed = Program.build("-x spir -cl-kernel-arg-info");
 
@@ -48,20 +48,20 @@ void HIPxxModuleOpenCL::compile(HIPxxDevice *hipxx_dev_) {
     logError("clCreateKernels() Failed: {}\n", err);
     std::abort();
   }
-  logDebug("Kernels in HIPxxModuleOpenCL: {} \n", kernels.size());
+  logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
-    HIPxxKernelOpenCL *hipxx_kernel =
-        new HIPxxKernelOpenCL(std::move(kernels[kernel_idx]), FuncInfos);
+    CHIPKernelOpenCL *hipxx_kernel =
+        new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), FuncInfos);
   }
 }
 
-HIPxxContextOpenCL::HIPxxContextOpenCL(cl::Context *ctx_in) {
-  logDebug("HIPxxContextOpenCL Initialized via OpenCL Context pointer.");
+CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *ctx_in) {
+  logDebug("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
   cl_ctx = ctx_in;
 }
 
-void *HIPxxContextOpenCL::allocate_(size_t size, size_t alignment,
-                                    HIPxxMemoryType mem_type) {
+void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
+                                   CHIPMemoryType mem_type) {
   std::lock_guard<std::mutex> Lock(mtx);
   void *retval;
 
@@ -69,12 +69,12 @@ void *HIPxxContextOpenCL::allocate_(size_t size, size_t alignment,
   return retval;
 }
 
-hipError_t HIPxxContextOpenCL::memCopy(void *dst, const void *src, size_t size,
-                                       hipStream_t stream) {
-  logWarn("HIPxxContextOpenCL::memCopy not implemented");
+hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
+                                      hipStream_t stream) {
+  logWarn("CHIPContextOpenCL::memCopy not implemented");
   // FIND_QUEUE_LOCKED(stream);
   std::lock_guard<std::mutex> Lock(mtx);
-  HIPxxQueue *Queue = findQueue(stream);
+  CHIPQueue *Queue = findQueue(stream);
   if (Queue == nullptr) return hipErrorInvalidResourceHandle;
 
   if (svm_memory.hasPointer(dst) || svm_memory.hasPointer(src))
@@ -83,12 +83,12 @@ hipError_t HIPxxContextOpenCL::memCopy(void *dst, const void *src, size_t size,
     return hipErrorInvalidDevicePointer;
 }
 
-#include "HIPxxBackendOpenCL.hh"
+#include "CHIPBackendOpenCL.hh"
 
-HIPxxDeviceOpenCL::HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx,
-                                     cl::Device *dev_in, int idx) {
+CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *hipxx_ctx,
+                                   cl::Device *dev_in, int idx) {
   logDebug(
-      "HIPxxDeviceOpenCL initialized via OpenCL device pointer and context "
+      "CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
       "pointer");
   cl_dev = dev_in;
   cl_ctx = hipxx_ctx->cl_ctx;
@@ -98,8 +98,8 @@ HIPxxDeviceOpenCL::HIPxxDeviceOpenCL(HIPxxContextOpenCL *hipxx_ctx,
   ctx = hipxx_ctx;
 }
 
-void HIPxxDeviceOpenCL::populateDeviceProperties() {
-  logTrace("HIPxxDeviceOpenCL->populate_device_properties()");
+void CHIPDeviceOpenCL::populateDeviceProperties() {
+  logTrace("CHIPDeviceOpenCL->populate_device_properties()");
   cl_int err;
   std::string Temp;
 
@@ -193,9 +193,9 @@ void HIPxxDeviceOpenCL::populateDeviceProperties() {
   hip_device_props.maxSharedMemoryPerMultiProcessor = 0;
 }
 
-std::string HIPxxDeviceOpenCL::getName() {
+std::string CHIPDeviceOpenCL::getName() {
   if (cl_dev == nullptr) {
-    logCritical("HIPxxDeviceOpenCL.get_name() called on uninitialized ptr");
+    logCritical("CHIPDeviceOpenCL.get_name() called on uninitialized ptr");
     std::abort();
   }
   return std::string(cl_dev->getInfo<CL_DEVICE_NAME>());
@@ -226,13 +226,13 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
   return err;
 }
 
-hipError_t HIPxxExecItemOpenCL::launch(HIPxxKernel *hipxx_kernel) {
-  logTrace("HIPxxExecItemOpenCL->launch()");
+hipError_t CHIPExecItemOpenCL::launch(CHIPKernel *hipxx_kernel) {
+  logTrace("CHIPExecItemOpenCL->launch()");
   return hipSuccess;
   // return (hipError_t)(ocl_q->launch(Kernel, this) == hipSuccess);
 }
 
-int HIPxxExecItemOpenCL::setup_all_args(HIPxxKernelOpenCL *kernel) {
+int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
   OCLFuncInfo *FuncInfo = kernel->get_func_info();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
@@ -304,12 +304,12 @@ int HIPxxExecItemOpenCL::setup_all_args(HIPxxKernelOpenCL *kernel) {
   return setLocalSize(shared_mem, FuncInfo, kernel->get().get());
 }
 
-hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
+hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
   // std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("HIPxxQueueOpenCL->launch()");
-  HIPxxExecItemOpenCL *hipxx_ocl_exec_item = (HIPxxExecItemOpenCL *)exec_item;
-  HIPxxKernelOpenCL *kernel =
-      (HIPxxKernelOpenCL *)hipxx_ocl_exec_item->getKernel();
+  logTrace("CHIPQueueOpenCL->launch()");
+  CHIPExecItemOpenCL *hipxx_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
+  CHIPKernelOpenCL *kernel =
+      (CHIPKernelOpenCL *)hipxx_ocl_exec_item->getKernel();
   assert(kernel != nullptr);
   logTrace("Launching Kernel {}", kernel->get_name());
 
@@ -351,20 +351,20 @@ hipError_t HIPxxQueueOpenCL::launch(HIPxxExecItem *exec_item) {
   return retval;
 }
 
-HIPxxQueueOpenCL::HIPxxQueueOpenCL(HIPxxDevice *hipxx_device_)
-    : HIPxxQueue(hipxx_device_) {
-  cl_ctx = ((HIPxxContextOpenCL *)hipxx_context)->get();
-  cl_dev = ((HIPxxDeviceOpenCL *)hipxx_device)->get();
+CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *hipxx_device_)
+    : CHIPQueue(hipxx_device_) {
+  cl_ctx = ((CHIPContextOpenCL *)hipxx_context)->get();
+  cl_dev = ((CHIPDeviceOpenCL *)hipxx_device)->get();
 
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
 }
 
-HIPxxQueueOpenCL::~HIPxxQueueOpenCL() {
+CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   delete cl_ctx;
   delete cl_dev;
 }
 
-hipError_t HIPxxQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
+hipError_t CHIPQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
   std::lock_guard<std::mutex> Lock(mtx);
   logDebug("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
   cl_event ev = nullptr;
@@ -386,18 +386,18 @@ hipError_t HIPxxQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
   return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
 }
 
-void HIPxxQueueOpenCL::finish() {
-  logCritical("HIPxxQueueOpenCL::finish() not yet implemented");
+void CHIPQueueOpenCL::finish() {
+  logCritical("CHIPQueueOpenCL::finish() not yet implemented");
   std::abort();
 }
 
-void HIPxxDeviceOpenCL::reset() {
-  logCritical("HIPxxDeviceOpenCL::reset() not yet implemented");
+void CHIPDeviceOpenCL::reset() {
+  logCritical("CHIPDeviceOpenCL::reset() not yet implemented");
   std::abort();
 }
 
-// HIPxxQueueOpenCL(HIPxxContextOpenCL *_ctx, HIPxxDeviceOpenCL *_dev) {
-//   std::cout << "HIPxxQueueOpenCL Initialized via context, device
+// CHIPQueueOpenCL(CHIPContextOpenCL *_ctx, CHIPDeviceOpenCL *_dev) {
+//   std::cout << "CHIPQueueOpenCL Initialized via context, device
 //   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new
 //   cl::CommandQueue(*cl_ctx, *cl_dev);
 // };
