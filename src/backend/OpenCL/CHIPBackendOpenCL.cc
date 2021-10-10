@@ -1,9 +1,9 @@
 #include "CHIPBackendOpenCL.hh"
 
-void CHIPModuleOpenCL::compile(CHIPDevice *hipxx_dev_) {
-  CHIPDeviceOpenCL *hipxx_dev_ocl = (CHIPDeviceOpenCL *)hipxx_dev_;
-  CHIPContextOpenCL *hipxx_ctx_ocl =
-      (CHIPContextOpenCL *)(hipxx_dev_ocl->getContext());
+void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
+  CHIPDeviceOpenCL *chip_dev_ocl = (CHIPDeviceOpenCL *)chip_dev_;
+  CHIPContextOpenCL *chip_ctx_ocl =
+      (CHIPContextOpenCL *)(chip_dev_ocl->getContext());
   OpenCLFunctionInfoMap FuncInfos;
 
   std::string binary = src;
@@ -19,24 +19,24 @@ void CHIPModuleOpenCL::compile(CHIPDevice *hipxx_dev_) {
 
   int err;
   std::vector<char> binary_vec(binary.begin(), binary.end());
-  auto Program = cl::Program(*(hipxx_ctx_ocl->get()), binary_vec, false, &err);
+  auto Program = cl::Program(*(chip_ctx_ocl->get()), binary_vec, false, &err);
   if (err != CL_SUCCESS) {
     logError("CreateProgramWithIL Failed: {}\n", err);
     std::abort();
   }
 
-  //   for (CHIPDevice *hipxx_dev : hipxx_devices) {
-  std::string name = hipxx_dev_ocl->getName();
+  //   for (CHIPDevice *chip_dev : chip_devices) {
+  std::string name = chip_dev_ocl->getName();
   int build_failed = Program.build("-x spir -cl-kernel-arg-info");
 
   std::string log =
-      Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*hipxx_dev_ocl->cl_dev, &err);
+      Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
   if (err != CL_SUCCESS) {
     logError("clGetProgramBuildInfo() Failed:{}\n", err);
     std::abort();
   }
   logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
-           hipxx_dev_ocl->getDeviceId(), name, log);
+           chip_dev_ocl->getDeviceId(), name, log);
   if (build_failed != CL_SUCCESS) {
     logError("clBuildProgram() Failed: {}\n", build_failed);
     std::abort();
@@ -50,7 +50,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *hipxx_dev_) {
   }
   logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
-    CHIPKernelOpenCL *hipxx_kernel =
+    CHIPKernelOpenCL *chip_kernel =
         new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), FuncInfos);
   }
 }
@@ -85,17 +85,17 @@ hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
 
 #include "CHIPBackendOpenCL.hh"
 
-CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *hipxx_ctx,
+CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx,
                                    cl::Device *dev_in, int idx) {
   logDebug(
       "CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
       "pointer");
   cl_dev = dev_in;
-  cl_ctx = hipxx_ctx->cl_ctx;
+  cl_ctx = chip_ctx->cl_ctx;
   idx = idx;
 
-  hipxx_ctx->addDevice(this);
-  ctx = hipxx_ctx;
+  chip_ctx->addDevice(this);
+  ctx = chip_ctx;
 }
 
 void CHIPDeviceOpenCL::populateDeviceProperties() {
@@ -226,7 +226,7 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
   return err;
 }
 
-hipError_t CHIPExecItemOpenCL::launch(CHIPKernel *hipxx_kernel) {
+hipError_t CHIPExecItemOpenCL::launch(CHIPKernel *chip_kernel) {
   logTrace("CHIPExecItemOpenCL->launch()");
   return hipSuccess;
   // return (hipError_t)(ocl_q->launch(Kernel, this) == hipSuccess);
@@ -307,19 +307,19 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
 hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
   // std::lock_guard<std::mutex> Lock(mtx);
   logTrace("CHIPQueueOpenCL->launch()");
-  CHIPExecItemOpenCL *hipxx_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
+  CHIPExecItemOpenCL *chip_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
   CHIPKernelOpenCL *kernel =
-      (CHIPKernelOpenCL *)hipxx_ocl_exec_item->getKernel();
+      (CHIPKernelOpenCL *)chip_ocl_exec_item->getKernel();
   assert(kernel != nullptr);
   logTrace("Launching Kernel {}", kernel->get_name());
 
-  if (hipxx_ocl_exec_item->setup_all_args(kernel) != CL_SUCCESS) {
+  if (chip_ocl_exec_item->setup_all_args(kernel) != CL_SUCCESS) {
     logError("Failed to set kernel arguments for launch! \n");
     return hipErrorLaunchFailure;
   }
 
-  dim3 GridDim = hipxx_ocl_exec_item->getGrid();
-  dim3 BlockDim = hipxx_ocl_exec_item->getBlock();
+  dim3 GridDim = chip_ocl_exec_item->getGrid();
+  dim3 BlockDim = chip_ocl_exec_item->getBlock();
 
   const cl::NDRange global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
                            GridDim.z * BlockDim.z);
@@ -347,14 +347,14 @@ hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
   // }
 
   // TODO remove this
-  // delete hipxx_ocl_exec_item;
+  // delete chip_ocl_exec_item;
   return retval;
 }
 
-CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *hipxx_device_)
-    : CHIPQueue(hipxx_device_) {
-  cl_ctx = ((CHIPContextOpenCL *)hipxx_context)->get();
-  cl_dev = ((CHIPDeviceOpenCL *)hipxx_device)->get();
+CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
+    : CHIPQueue(chip_device_) {
+  cl_ctx = ((CHIPContextOpenCL *)chip_context)->get();
+  cl_dev = ((CHIPDeviceOpenCL *)chip_device)->get();
 
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
 }

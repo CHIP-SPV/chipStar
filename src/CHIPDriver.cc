@@ -2,7 +2,7 @@
  * @file CHIPDriver.cc
  * @author Paulius Velesko (pvelesko@gmail.com)
  * @brief Definitions of extern declared functions and objects in CHIPDriver.hh
- * Initializing the CHIP runtime with backend selection through HIPXX_BE
+ * Initializing the CHIP runtime with backend selection through CHIP_BE
  * environment variable.
  * @version 0.1
  * @date 2021-08-19
@@ -33,19 +33,19 @@ std::string read_backend_selection();
 
 void read_env_vars(std::string& CHIPPlatformStr, std::string& CHIPDeviceTypeStr,
                    std::string& CHIPDeviceStr) {
-  CHIPPlatformStr = read_env_var("HIPXX_PLATFORM");
+  CHIPPlatformStr = read_env_var("CHIP_PLATFORM");
   if (CHIPPlatformStr.size() == 0) CHIPPlatformStr = "0";
 
-  CHIPDeviceTypeStr = read_env_var("HIPXX_DEVICE_TYPE");
+  CHIPDeviceTypeStr = read_env_var("CHIP_DEVICE_TYPE");
   if (CHIPDeviceTypeStr.size() == 0) CHIPDeviceTypeStr = "default";
 
-  CHIPDeviceStr = read_env_var("HIPXX_DEVICE");
+  CHIPDeviceStr = read_env_var("CHIP_DEVICE");
   if (CHIPDeviceStr.size() == 0) CHIPDeviceStr = "0";
 
   std::cout << "\n";
-  std::cout << "HIPXX_PLATFORM=" << CHIPPlatformStr << std::endl;
-  std::cout << "HIPXX_DEVICE_TYPE=" << CHIPDeviceTypeStr << std::endl;
-  std::cout << "HIPXX_DEVICE=" << CHIPDeviceStr << std::endl;
+  std::cout << "CHIP_PLATFORM=" << CHIPPlatformStr << std::endl;
+  std::cout << "CHIP_DEVICE_TYPE=" << CHIPDeviceTypeStr << std::endl;
+  std::cout << "CHIP_DEVICE=" << CHIPDeviceStr << std::endl;
   std::cout << "\n";
 };
 
@@ -56,22 +56,22 @@ void CHIPInitializeCallOnce(std::string BE) {
   // Get the current Backend Env Var
 
   // If no BE is passed to init explicitly, read env var
-  std::string HIPXX_BE;
+  std::string CHIP_BE;
   if (BE.size() == 0) {
-    HIPXX_BE = read_env_var("HIPXX_BE");
+    CHIP_BE = read_env_var("CHIP_BE");
   } else {
-    HIPXX_BE = BE;
+    CHIP_BE = BE;
   }
 
   // TODO Check configuration for what backends are configured
-  if (!HIPXX_BE.compare("OPENCL")) {
-    logTrace("HIPXXBE=OPENCL... Initializing OpenCL Backend");
+  if (!CHIP_BE.compare("OPENCL")) {
+    logTrace("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
-  } else if (!HIPXX_BE.compare("LEVEL0")) {
-    logTrace("HIPXXBE=LEVEL0... Initializing Level0 Backend");
+  } else if (!CHIP_BE.compare("LEVEL0")) {
+    logTrace("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
-  } else if (!HIPXX_BE.compare("")) {
-    logWarn("HIPXX_BE was not set. Defaulting to OPENCL");
+  } else if (!CHIP_BE.compare("")) {
+    logWarn("CHIP_BE was not set. Defaulting to OPENCL");
     Backend = new CHIPBackendOpenCL();
   } else {
     logCritical("Invalid Backend Selection");

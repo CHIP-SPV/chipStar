@@ -9,8 +9,8 @@
  * @copyright Copyright (c) 2021
  *
  */
-#ifndef HIPXX_BACKEND_OPENCL_H
-#define HIPXX_BACKEND_OPENCL_H
+#ifndef CHIP_BACKEND_OPENCL_H
+#define CHIP_BACKEND_OPENCL_H
 
 #define CL_TARGET_OPENCL_VERSION 210
 #define CL_MINIMUM_OPENCL_VERSION 200
@@ -39,7 +39,7 @@ class CHIPModuleOpenCL : public CHIPModule {
   cl::Program program;
 
  public:
-  virtual void compile(CHIPDevice *hipxx_dev) override;
+  virtual void compile(CHIPDevice *chip_dev) override;
   cl::Program &get() { return program; }
 };
 
@@ -87,7 +87,7 @@ class CHIPDeviceOpenCL : public CHIPDevice {
  public:
   cl::Device *cl_dev;
   cl::Context *cl_ctx;
-  CHIPDeviceOpenCL(CHIPContextOpenCL *hipxx_ctx, cl::Device *dev_in, int idx);
+  CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx, cl::Device *dev_in, int idx);
 
   cl::Device *get() { return cl_dev; }
 
@@ -107,7 +107,7 @@ class CHIPQueueOpenCL : public CHIPQueue {
  public:
   CHIPQueueOpenCL() = delete;  // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
-  CHIPQueueOpenCL(CHIPDevice *hipxx_device);
+  CHIPQueueOpenCL(CHIPDevice *chip_device);
   ~CHIPQueueOpenCL();
 
   virtual hipError_t launch(CHIPExecItem *exec_item) override;
@@ -172,7 +172,7 @@ class CHIPExecItemOpenCL : public CHIPExecItem {
 
  public:
   OCLFuncInfo FuncInfo;
-  virtual hipError_t launch(CHIPKernel *hipxx_kernel) override;
+  virtual hipError_t launch(CHIPKernel *chip_kernel) override;
   int setup_all_args(CHIPKernelOpenCL *kernel);
   cl::Kernel *get() { return cl_kernel; }
 };
@@ -211,7 +211,7 @@ class CHIPBackendOpenCL : public CHIPBackend {
       selected_platform = std::stoi(CHIPPlatformStr);
       if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
         throw InvalidPlatformOrDeviceNumber(
-            "HIPXX_PLATFORM: platform number out of range");
+            "CHIP_PLATFORM: platform number out of range");
       std::cout << "Selected Platform: " << selected_platform << ". "
                 << Platforms[selected_platform].getInfo<CL_PLATFORM_NAME>()
                 << "\n";
@@ -224,7 +224,7 @@ class CHIPBackendOpenCL : public CHIPBackend {
       }
       if (selected_device >= Devices.size())
         throw InvalidPlatformOrDeviceNumber(
-            "HIPXX_DEVICE: device number out of range");
+            "CHIP_DEVICE: device number out of range");
       if (selected_device == -1) {  // All devices enabled
         enabled_devices = Devices;
         logDebug("All Devices enabled\n", "");
@@ -237,7 +237,7 @@ class CHIPBackendOpenCL : public CHIPBackend {
 
       if (err != CL_SUCCESS)
         throw InvalidPlatformOrDeviceNumber(
-            "HIPXX_DEVICE: can't get devices for platform");
+            "CHIP_DEVICE: can't get devices for platform");
 
       std::transform(CHIPDeviceTypeStr.begin(), CHIPDeviceTypeStr.end(),
                      CHIPDeviceTypeStr.begin(), ::tolower);
@@ -253,7 +253,7 @@ class CHIPBackendOpenCL : public CHIPBackend {
         selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
       else
         throw InvalidDeviceType(
-            "Unknown value provided for HIPXX_DEVICE_TYPE\n");
+            "Unknown value provided for CHIP_DEVICE_TYPE\n");
       std::cout << "Using Devices of type " << CHIPDeviceTypeStr << "\n";
 
     } catch (const InvalidDeviceType &e) {
@@ -264,10 +264,10 @@ class CHIPBackendOpenCL : public CHIPBackend {
       return;
     } catch (const std::invalid_argument &e) {
       logCritical(
-          "Could not convert HIPXX_PLATFORM or HIPXX_DEVICES to a number");
+          "Could not convert CHIP_PLATFORM or CHIP_DEVICES to a number");
       return;
     } catch (const std::out_of_range &e) {
-      logCritical("HIPXX_PLATFORM or HIPXX_DEVICES is out of range", "");
+      logCritical("CHIP_PLATFORM or CHIP_DEVICES is out of range", "");
       return;
     }
 
@@ -292,16 +292,16 @@ class CHIPBackendOpenCL : public CHIPBackend {
     // Create queues that have devices each of which has an associated context
     // TODO Change this to spirv_enabled_devices
     cl::Context *ctx = new cl::Context(enabled_devices);
-    CHIPContextOpenCL *hipxx_context = new CHIPContextOpenCL(ctx);
-    Backend->addContext(hipxx_context);
+    CHIPContextOpenCL *chip_context = new CHIPContextOpenCL(ctx);
+    Backend->addContext(chip_context);
     for (int i = 0; i < enabled_devices.size(); i++) {
       cl::Device *dev = new cl::Device(enabled_devices[i]);
-      CHIPDeviceOpenCL *hipxx_dev = new CHIPDeviceOpenCL(hipxx_context, dev, i);
+      CHIPDeviceOpenCL *chip_dev = new CHIPDeviceOpenCL(chip_context, dev, i);
       logDebug("CHIPDeviceOpenCL {}",
-               hipxx_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
-      hipxx_dev->populateDeviceProperties();
-      Backend->addDevice(hipxx_dev);
-      CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(hipxx_dev);
+               chip_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
+      chip_dev->populateDeviceProperties();
+      Backend->addDevice(chip_dev);
+      CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(chip_dev);
       Backend->addQueue(queue);
     }
     std::cout << "OpenCL Context Initialized.\n";

@@ -1,10 +1,10 @@
 #include "Level0Backend.hh"
 
-CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* hipxx_dev_)
-    : CHIPQueue(hipxx_dev_) {
-  CHIPContextLevel0* hipxx_context_lz = (CHIPContextLevel0*)hipxx_context;
-  ze_ctx = hipxx_context_lz->get();
-  ze_dev = hipxx_dev_->get();
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
+    : CHIPQueue(chip_dev_) {
+  CHIPContextLevel0* chip_context_lz = (CHIPContextLevel0*)chip_context;
+  ze_ctx = chip_context_lz->get();
+  ze_dev = chip_dev_->get();
 
   logTrace(
       "CHIPQueueLevel0 constructor called via CHIPContextLevel0 and "
@@ -49,8 +49,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* hipxx_dev_)
   clDesc.pNext = nullptr;
   // TODO more devices support
   ze_result_t status = zeCommandListCreate(ze_ctx, ze_dev, &clDesc,
-                                           &(hipxx_context_lz->ze_cmd_list));
-  if (((CHIPContextLevel0*)hipxx_context)->get_cmd_list() == nullptr) {
+                                           &(chip_context_lz->ze_cmd_list));
+  if (((CHIPContextLevel0*)chip_context)->get_cmd_list() == nullptr) {
     logCritical("Failed to initialize ze_cmd_list");
     std::abort();
   }
@@ -61,7 +61,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* hipxx_dev_)
   logDebug("LZ COMMAND LIST CREATION via calling zeCommandListCreate {} ",
            status);
 
-  hipxx_context->addQueue(this);
+  chip_context->addQueue(this);
 }
 
 hipError_t CHIPContextLevel0::memCopy(void* dst, const void* src, size_t size,
@@ -75,8 +75,8 @@ hipError_t CHIPContextLevel0::memCopy(void* dst, const void* src, size_t size,
   //   std::abort();
   // }
 
-  CHIPQueueLevel0* hipxx_q = (CHIPQueueLevel0*)stream;
-  ze_result_t status = zeCommandQueueSynchronize(hipxx_q->get(), UINT64_MAX);
+  CHIPQueueLevel0* chip_q = (CHIPQueueLevel0*)stream;
+  ze_result_t status = zeCommandQueueSynchronize(chip_q->get(), UINT64_MAX);
   if (status != ZE_RESULT_SUCCESS) {
     logCritical("Failed to memcopy");
     std::abort();
@@ -88,7 +88,7 @@ hipError_t CHIPContextLevel0::memCopy(void* dst, const void* src, size_t size,
 hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   // ze_event_handle_t hSignalEvent = GetSignalEvent(ze_q)->GetEventHandler();
   ze_command_list_handle_t ze_cmd_list =
-      ((CHIPContextLevel0*)hipxx_context)->ze_cmd_list;
+      ((CHIPContextLevel0*)chip_context)->ze_cmd_list;
   assert(ze_cmd_list != nullptr);
   ze_result_t status = zeCommandListAppendMemoryCopy(ze_cmd_list, dst, src,
                                                      size, nullptr, 0, NULL);

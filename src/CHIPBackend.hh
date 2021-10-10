@@ -11,8 +11,8 @@
  * @copyright Copyright (c) 2021
  *
  */
-#ifndef HIPXX_BACKEND_H
-#define HIPXX_BACKEND_H
+#ifndef CHIP_BACKEND_H
+#define CHIP_BACKEND_H
 
 #include <algorithm>
 #include <iostream>
@@ -106,7 +106,7 @@ class CHIPEvent {
    * @brief Events are always created with a context
    *
    */
-  CHIPContext* hipxx_context;
+  CHIPContext* chip_context;
 
   /**
    * @brief hidden default constructor for CHIPEvent. Only derived class
@@ -129,11 +129,11 @@ class CHIPEvent {
   /**
    * @brief Enqueue this event in a given CHIPQueue
    *
-   * @param hipxx_queue_ CHIPQueue in which to enque this event
+   * @param chip_queue_ CHIPQueue in which to enque this event
    * @return true
    * @return false
    */
-  virtual bool recordStream(CHIPQueue* hipxx_queue_);
+  virtual bool recordStream(CHIPQueue* chip_queue_);
   /**
    * @brief Wait for this event to complete
    *
@@ -170,9 +170,9 @@ class CHIPModule {
  protected:
   std::mutex mtx;
   // Global variables
-  std::vector<CHIPDeviceVar*> hipxx_vars;
+  std::vector<CHIPDeviceVar*> chip_vars;
   // Kernels
-  std::vector<CHIPKernel*> hipxx_kernels;
+  std::vector<CHIPKernel*> chip_kernels;
   /// Binary representation extracted from FatBinary
   std::string src;
   // Kernel JIT compilation can be lazy
@@ -195,7 +195,7 @@ class CHIPModule {
    * @brief Construct a new CHIPModule object.
    * This constructor should be implemented by the derived class (specific
    * backend implementation). Call to this constructor should result in a
-   * populated hipxx_kernels vector.
+   * populated chip_kernels vector.
    *
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
@@ -221,21 +221,21 @@ class CHIPModule {
   /**
    * @brief Wrapper around compile() called via std::call_once
    *
-   * @param hipxx_dev device for which to compile the kernels
+   * @param chip_dev device for which to compile the kernels
    */
-  void compileOnce(CHIPDevice* hipxx_dev);
+  void compileOnce(CHIPDevice* chip_dev);
   /**
    * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
    * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
    * compiled until the first call to one of its kernels. If LAZY_JIT is set to
    * false(default) then this method should be called in the constructor;
    *
-   * This method should populate this modules hipxx_kernels vector. These
+   * This method should populate this modules chip_kernels vector. These
    * kernels would have a name extracted from the kernel but no associated host
    * function pointers.
    *
    */
-  virtual void compile(CHIPDevice* hipxx_dev);
+  virtual void compile(CHIPDevice* chip_dev);
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
@@ -347,8 +347,8 @@ class CHIPExecItem {
   dim3 block_dim;
 
   CHIPQueue* stream;
-  CHIPKernel* hipxx_kernel;
-  CHIPQueue* hipxx_queue;
+  CHIPKernel* chip_kernel;
+  CHIPQueue* chip_queue;
 
  public:
   /**
@@ -363,10 +363,10 @@ class CHIPExecItem {
    * @param grid_dim_
    * @param block_dim_
    * @param shared_mem_
-   * @param hipxx_queue_
+   * @param chip_queue_
    */
   CHIPExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
-               hipStream_t hipxx_queue_);
+               hipStream_t chip_queue_);
 
   /**
    * @brief Destroy the CHIPExecItem object
@@ -413,7 +413,7 @@ class CHIPExecItem {
 
   /**
    * @brief Submit a kernel to the associated queue for execution.
-   * hipxx_queue must be set prior to this call.
+   * chip_queue must be set prior to this call.
    *
    * @param Kernel kernel which is to be launched
    * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
@@ -437,36 +437,36 @@ class CHIPDevice {
  protected:
   std::string device_name;
   std::mutex mtx;
-  std::vector<CHIPKernel*> hipxx_kernels;
+  std::vector<CHIPKernel*> chip_kernels;
   CHIPContext* ctx;
-  std::vector<CHIPQueue*> hipxx_queues;
+  std::vector<CHIPQueue*> chip_queues;
   int active_queue_id = 0;
 
   hipDeviceAttribute_t attrs;
   hipDeviceProp_t hip_device_props;
 
  public:
-  /// hipxx_modules in binary representation
+  /// chip_modules in binary representation
   std::vector<std::string*> modules_str;
-  /// hipxx_modules in parsed representation
-  std::vector<CHIPModule*> hipxx_modules;
+  /// chip_modules in parsed representation
+  std::vector<CHIPModule*> chip_modules;
 
   /// Map host pointer to module in binary representation
   std::unordered_map<const void*, std::string*> host_f_ptr_to_module_str_map;
   /// Map host pointer to module in parsed representation
-  std::unordered_map<const void*, CHIPModule*> host_f_ptr_to_hipxxmodule_map;
+  std::unordered_map<const void*, CHIPModule*> host_f_ptr_to_chipmodule_map;
   /// Map host pointer to a function name
   std::unordered_map<const void*, std::string> host_f_ptr_to_host_f_name_map;
   /// Map host pointer to CHIPKernel
-  std::unordered_map<const void*, CHIPKernel*> host_ptr_to_hipxxkernel_map;
+  std::unordered_map<const void*, CHIPKernel*> host_ptr_to_chipkernel_map;
   /// Map host variable address to device pointer and size for statically loaded
   /// global vars
   std::unordered_map<const void*, CHIPDeviceVar*>
-      host_var_ptr_to_hipxxdevicevar_stat;
+      host_var_ptr_to_chipdevicevar_stat;
   /// Map host variable address to device pointer and size for dynamically
   /// loaded global vars
   std::unordered_map<const void*, CHIPDeviceVar*>
-      host_var_ptr_to_hipxxdevicevar_dyn;
+      host_var_ptr_to_chipdevicevar_dyn;
 
   int idx;
   size_t total_used_mem, max_used_mem;
@@ -521,9 +521,9 @@ class CHIPDevice {
    * @param flags
    * @param priority
    * @return CHIPQueue* pointer to the newly created queue (can also be found
-   * in hipxx_queues vector)
+   * in chip_queues vector)
    */
-  void addQueue(CHIPQueue* hipxx_queue_);
+  void addQueue(CHIPQueue* chip_queue_);
 
   /**
    * @brief Get the Queues object
@@ -549,7 +549,7 @@ class CHIPDevice {
 
   /**
    * @brief Get the integer ID of this device as it appears in the Backend's
-   * hipxx_devices list
+   * chip_devices list
    *
    * @return int
    */
@@ -724,8 +724,8 @@ class CHIPDevice {
  */
 class CHIPContext {
  protected:
-  std::vector<CHIPDevice*> hipxx_devices;
-  std::vector<CHIPQueue*> hipxx_queues;
+  std::vector<CHIPDevice*> chip_devices;
+  std::vector<CHIPQueue*> chip_queues;
   std::mutex mtx;
 
  public:
@@ -933,7 +933,7 @@ class CHIPContext {
 class CHIPBackend {
  protected:
   /**
-   * @brief hipxx_modules stored in binary representation.
+   * @brief chip_modules stored in binary representation.
    * During compilation each translation unit is parsed for functions that are
    * marked for execution on the device. These functions are then compiled to
    * device code and stored in binary representation.
@@ -957,10 +957,10 @@ class CHIPBackend {
   inline static thread_local hipError_t tls_last_error = hipSuccess;
   inline static thread_local CHIPContext* tls_active_ctx;
 
-  std::stack<CHIPExecItem*> hipxx_execstack;
-  std::vector<CHIPContext*> hipxx_contexts;
-  std::vector<CHIPQueue*> hipxx_queues;
-  std::vector<CHIPDevice*> hipxx_devices;
+  std::stack<CHIPExecItem*> chip_execstack;
+  std::vector<CHIPContext*> chip_contexts;
+  std::vector<CHIPQueue*> chip_queues;
+  std::vector<CHIPDevice*> chip_devices;
 
   // TODO
   // key for caching compiled modules. To get a cached compiled module on a
@@ -972,7 +972,7 @@ class CHIPBackend {
   //  * @brief
   //  *
   //  */
-  // std::unordered_map<ptr_dev, CHIPModule*> host_f_ptr_to_hipxxmodule_map;
+  // std::unordered_map<ptr_dev, CHIPModule*> host_f_ptr_to_chipmodule_map;
 
   /**
    * @brief Construct a new CHIPBackend object
@@ -1037,9 +1037,9 @@ class CHIPBackend {
    * @brief Set the active device. Sets the active queue to this device's
    * first/default/primary queue.
    *
-   * @param hipxx_dev
+   * @param chip_dev
    */
-  void setActiveDevice(CHIPDevice* hipxx_dev);
+  void setActiveDevice(CHIPDevice* chip_dev);
 
   std::vector<CHIPDevice*>& getDevices();
   /**
@@ -1129,17 +1129,17 @@ class CHIPBackend {
   /**
    * @brief Add a CHIPModule to every initialized device
    *
-   * @param hipxx_module pointer to CHIPModule object
+   * @param chip_module pointer to CHIPModule object
    * @return hipError_t
    */
-  hipError_t addModule(CHIPModule* hipxx_module);
+  hipError_t addModule(CHIPModule* chip_module);
   /**
    * @brief Remove this module from every device
    *
-   * @param hipxx_module pointer to the module which is to be removed
+   * @param chip_module pointer to the module which is to be removed
    * @return hipError_t
    */
-  hipError_t removeModule(CHIPModule* hipxx_module);
+  hipError_t removeModule(CHIPModule* chip_module);
 };
 
 /**
@@ -1151,32 +1151,32 @@ class CHIPQueue {
   int priority;
   unsigned int flags;
   /// Device on which this queue will execute
-  CHIPDevice* hipxx_device;
+  CHIPDevice* chip_device;
   /// Context to which device belongs to
-  CHIPContext* hipxx_context;
+  CHIPContext* chip_context;
 
  public:
   /**
    * @brief Construct a new CHIPQueue object
    *
-   * @param hipxx_dev
+   * @param chip_dev
    */
-  CHIPQueue(CHIPDevice* hipxx_dev);
+  CHIPQueue(CHIPDevice* chip_dev);
   /**
    * @brief Construct a new CHIPQueue object
    *
-   * @param hipxx_dev
+   * @param chip_dev
    * @param flags
    */
-  CHIPQueue(CHIPDevice* hipxx_dev, unsigned int flags);
+  CHIPQueue(CHIPDevice* chip_dev, unsigned int flags);
   /**
    * @brief Construct a new CHIPQueue object
    *
-   * @param hipxx_dev
+   * @param chip_dev
    * @param flags
    * @param priority
    */
-  CHIPQueue(CHIPDevice* hipxx_dev, unsigned int flags, int priority);
+  CHIPQueue(CHIPDevice* chip_dev, unsigned int flags, int priority);
   /**
    * @brief Destroy the CHIPQueue object
    *

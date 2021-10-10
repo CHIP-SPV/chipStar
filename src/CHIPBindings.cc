@@ -13,8 +13,8 @@
  * @copyright Copyright (c) 2021
  *
  */
-#ifndef HIPXX_BINDINGS_H
-#define HIPXX_BINDINGS_H
+#ifndef CHIP_BINDINGS_H
+#define CHIP_BINDINGS_H
 
 #include <fstream>
 
@@ -234,7 +234,7 @@ hipError_t hipDeviceGetByPCIBusId(int *deviceId, const char *pciBusId) {
 hipError_t hipSetDeviceFlags(unsigned flags) {
   CHIPInitialize();
 
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipSetDeviceFlags not yet implemented");
   std::abort();
 #else
@@ -799,7 +799,7 @@ hipError_t hipMemAdvise(const void *ptr, size_t count, hipMemoryAdvise advice,
     RETURN(hipSuccess);
   }
 
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   // hipError_t retval = cont->memAdvise(ptr, count, advice);
   // ERROR_IF(retval != hipSuccess, hipErrorInvalidDevice);
   logCritical("hipMemAdvise not yet implemented");
@@ -817,7 +817,7 @@ hipError_t hipHostGetDevicePointer(void **devPtr, void *hstPtr,
 
   ERROR_IF(((hstPtr == nullptr) || (devPtr == nullptr)), hipErrorInvalidValue);
 
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipHostGetDevicePointer not yet implemented");
   std::abort();
 #else
@@ -831,7 +831,7 @@ hipError_t hipHostGetDevicePointer(void **devPtr, void *hstPtr,
 hipError_t hipHostGetFlags(unsigned int *flagsPtr, void *hostPtr) {
   CHIPInitialize();
 
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipHostGetFlags not yet implemented");
   std::abort();
 #else
@@ -845,7 +845,7 @@ hipError_t hipHostGetFlags(unsigned int *flagsPtr, void *hostPtr) {
 hipError_t hipHostRegister(void *hostPtr, size_t sizeBytes,
                            unsigned int flags) {
   CHIPInitialize();
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipHostRegister not yet implemented");
   std::abort();
 #else
@@ -856,7 +856,7 @@ hipError_t hipHostRegister(void *hostPtr, size_t sizeBytes,
 
 hipError_t hipHostUnregister(void *hostPtr) {
   CHIPInitialize();
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipHostUnregister not yet implemented");
   std::abort();
 #else
@@ -1356,7 +1356,7 @@ hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *p) {
 
 hipError_t hipFuncGetAttributes(hipFuncAttributes *attr, const void *func) {
   CHIPInitialize();
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipFuncGetAttributes not yet implemented");
   std::abort();
 #else
@@ -1444,7 +1444,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol,
 }
 
 hipError_t hipModuleLoadData(hipModule_t *module, const void *image) {
-#ifdef HIPXX_ABORT_ON_UNIMPL
+#ifdef CHIP_ABORT_ON_UNIMPL
   logCritical("hipModuleLoadData not yet implemented");
   std::abort();
 #else
@@ -1500,8 +1500,8 @@ hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {
   std::string content(memblock, size);
   delete[] memblock;
 
-  CHIPModule *hipxx_module = new CHIPModule(std::move(content));
-  RETURN(Backend->addModule(hipxx_module));
+  CHIPModule *chip_module = new CHIPModule(std::move(content));
+  RETURN(Backend->addModule(chip_module));
 }
 
 hipError_t hipModuleUnload(hipModule_t module) {
@@ -1561,8 +1561,8 @@ hipError_t hipModuleLaunchKernel(hipFunction_t k, unsigned int gridDimX,
 hipError_t hipLaunchByPtr(const void *hostFunction) {
   CHIPInitialize();
   logTrace("hipLaunchByPtr");
-  CHIPExecItem *exec_item = Backend->hipxx_execstack.top();
-  Backend->hipxx_execstack.pop();
+  CHIPExecItem *exec_item = Backend->chip_execstack.top();
+  Backend->chip_execstack.pop();
 
   if (exec_item->launchByHostPtr(hostFunction))
     RETURN(hipSuccess);

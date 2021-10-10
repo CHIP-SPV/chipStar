@@ -1,5 +1,5 @@
-#ifndef HIPXX_BACKEND_LEVEL0_H
-#define HIPXX_BACKEND_LEVEL0_H
+#ifndef CHIP_BACKEND_LEVEL0_H
+#define CHIP_BACKEND_LEVEL0_H
 
 #include "../src/common.hh"
 #include "../../CHIPBackend.hh"
@@ -212,8 +212,8 @@ class CHIPContextLevel0 : public CHIPContext {
   //                                  funcIL,
   //                                  compilerOptions.c_str(),
   //                                  nullptr};
-  //   for (CHIPDevice* hipxx_dev : getDevices()) {
-  //     ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)hipxx_dev)->get();
+  //   for (CHIPDevice* chip_dev : getDevices()) {
+  //     ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)chip_dev)->get();
   //     ze_result_t status =
   //         zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
   //     logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
@@ -229,10 +229,10 @@ class CHIPContextLevel0 : public CHIPContext {
   //     // code ", status);
 
   //     logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
-  //     CHIPKernelLevel0* hipxx_ze_kernel =
+  //     CHIPKernelLevel0* chip_ze_kernel =
   //         new CHIPKernelLevel0(ze_kernel, FunctionName, HostFunctionPtr);
 
-  //     hipxx_dev->addKernel(hipxx_ze_kernel);
+  //     chip_dev->addKernel(chip_ze_kernel);
   //   }
 
   //   return true;
@@ -255,7 +255,7 @@ class CHIPBackendLevel0 : public CHIPBackend {
     } else if (!CHIPDeviceTypeStr.compare("FPGA")) {
       ze_device_type = ZE_DEVICE_TYPE_FPGA;
     } else {
-      logCritical("HIPXX_DEVICE_TYPE must be either GPU or FPGA");
+      logCritical("CHIP_DEVICE_TYPE must be either GPU or FPGA");
     }
     int platform_idx = std::atoi(CHIPPlatformStr.c_str());
     std::vector<ze_driver_handle_t> ze_drivers;
@@ -286,7 +286,7 @@ class CHIPBackendLevel0 : public CHIPBackend {
     ze_context_handle_t ze_ctx;
     zeContextCreateEx(ze_driver, &ctxDesc, deviceCount, ze_devices.data(),
                       &ze_ctx);
-    CHIPContextLevel0* hipxx_l0_ctx = new CHIPContextLevel0(std::move(ze_ctx));
+    CHIPContextLevel0* chip_l0_ctx = new CHIPContextLevel0(std::move(ze_ctx));
 
     // Filter in only devices of selected type and add them to the
     // backend as derivates of CHIPDevice
@@ -295,15 +295,15 @@ class CHIPBackendLevel0 : public CHIPBackend {
       ze_device_properties_t device_properties;
       zeDeviceGetProperties(dev, &device_properties);
       if (ze_device_type == device_properties.type) {
-        CHIPDeviceLevel0* hipxx_l0_dev =
+        CHIPDeviceLevel0* chip_l0_dev =
             new CHIPDeviceLevel0(std::move(dev), ze_ctx);
-        Backend->addDevice(hipxx_l0_dev);
+        Backend->addDevice(chip_l0_dev);
         // TODO
         break;  // For now don't add more than one device
       }
     }  // End adding CHIPDevices
 
-    Backend->addContext(hipxx_l0_ctx);
+    Backend->addContext(chip_l0_ctx);
   }
 
   virtual void initialize() override {

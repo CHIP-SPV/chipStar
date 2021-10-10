@@ -10,8 +10,8 @@
  * @copyright Copyright (c) 2021
  *
  */
-#ifndef HIPXX_DRIVER_H
-#define HIPXX_DRIVER_H
+#ifndef CHIP_DRIVER_H
+#define CHIP_DRIVER_H
 #include <iostream>
 #include <mutex>
 

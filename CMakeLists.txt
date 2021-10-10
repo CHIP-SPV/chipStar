@@ -6,7 +6,7 @@ option(LAZY_JIT OFF)
 option(CACHE_KERNELS OFF)
 
 if (ABORT_IF_NOT_IMPLEMENTED)
-  add_compile_options(-DHIPXX_ABORT_ON_UNIMPL)
+  add_compile_options(-DCHIP_ABORT_ON_UNIMPL)
 endif()
 
 
@@ -21,7 +21,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "/opt/hipxx" CACHE PATH "Install path prefix" FORCE)
+  set(CMAKE_INSTALL_PREFIX "/opt/chip" CACHE PATH "Install path prefix" FORCE)
 endif()
 message(STATUS "CHIP will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
@@ -71,7 +71,7 @@ add_compile_options(-Wno-format-extra-args)
 include_directories(src backend include . ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
-set(HIPXX_SRC 
+set(CHIP_SRC 
     src/spirv.cc 
     src/CHIPDriver.cc 
     src/CHIPBackend.cc 
@@ -107,7 +107,7 @@ find_library_dynamic(libintlc.so.5)
 
 message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
-add_library(CHIP SHARED ${HIPXX_SRC})
+add_library(CHIP SHARED ${CHIP_SRC})
 target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
 add_executable(driver ${DRIVER_SRC})
 
