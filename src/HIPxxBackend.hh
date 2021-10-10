@@ -1298,7 +1298,7 @@ class HIPxxQueue {
    * @return false
    */
 
-  bool addCallback(hipStreamCallback_t callback, void* userData);  // TODO HIPxx
+  bool addCallback(hipStreamCallback_t callback, void* userData);
   /**
    * @brief Insert a memory prefetch
    *
@@ -1308,7 +1308,8 @@ class HIPxxQueue {
    * @return false
    */
 
-  bool memPrefetch(const void* ptr, size_t count);  // TODO HIPxx
+  bool memPrefetch(const void* ptr, size_t count);
+
   /**
    * @brief Launch a kernel on this queue given a host pointer and arguments
    *

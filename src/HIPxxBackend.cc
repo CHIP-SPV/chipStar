@@ -1,10 +1,17 @@
 #include "HIPxxBackend.hh"
 #include <utility>
+// HIPxxDeviceVar
+// ************************************************************************
+size_t HIPxxDeviceVar::getSize() {}
+std::string HIPxxDeviceVar::getName() {}
 
-allocation_info *HIPxxAllocationTracker::getByHostPtr(const void *host_ptr) {
-}  // TODO
-allocation_info *HIPxxAllocationTracker::getByDevPtr(const void *dev_ptr) {
-}  // TODO
+// HIPxxAllocationTracker
+// ************************************************************************
+HIPxxAllocationTracker::HIPxxAllocationTracker() {}
+HIPxxAllocationTracker::~HIPxxAllocationTracker() {}
+
+allocation_info *HIPxxAllocationTracker::getByHostPtr(const void *host_ptr) {}
+allocation_info *HIPxxAllocationTracker::getByDevPtr(const void *dev_ptr) {}
 
 // HIPxxEvent
 // ************************************************************************
@@ -131,6 +138,9 @@ hipError_t HIPxxExecItem::launchByHostPtr(const void *hostPtr) {
   return launch(hipxx_kernel);
 }
 
+dim3 HIPxxExecItem::getBlock() { return block_dim; }
+dim3 HIPxxExecItem::getGrid() { return grid_dim; }
+HIPxxKernel *HIPxxExecItem::getKernel() { return hipxx_kernel; }
 // HIPxxDevice
 //*************************************************************************************
 HIPxxDevice::HIPxxDevice() {
@@ -452,6 +462,33 @@ void HIPxxDevice::addQueue(HIPxxQueue *hipxx_queue_) {
   if (queue_found == hipxx_queues.end()) hipxx_queues.push_back(hipxx_queue_);
   return;
 }
+
+bool HIPxxDevice::reserveMem(size_t bytes) {}
+
+hipError_t HIPxxDevice::setPeerAccess(HIPxxDevice *peer, int flags,
+                                      bool canAccessPeer) {}
+
+int HIPxxDevice::getPeerAccess(HIPxxDevice *peerDevice) {}
+
+void HIPxxDevice::setCacheConfig(hipFuncCache_t cfg) {}
+
+void HIPxxDevice::setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
+
+hipFuncCache_t HIPxxDevice::getCacheConfig() {}
+
+hipSharedMemConfig HIPxxDevice::getSharedMemConfig() {}
+
+bool HIPxxDevice::removeQueue(HIPxxQueue *q) {}
+
+void HIPxxDevice::setSharedMemConfig(hipSharedMemConfig config) {}
+
+size_t HIPxxDevice::getUsedGlobalMem() {}
+
+bool HIPxxDevice::hasPCIBusId(int, int, int) {}
+
+bool HIPxxDevice::releaseMemReservation(unsigned long) {}
+
+HIPxxQueue *HIPxxDevice::getActiveQueue() {}
 // HIPxxContext
 //*************************************************************************************
 HIPxxContext::HIPxxContext() {}
@@ -781,6 +818,8 @@ HIPxxDevice *HIPxxBackend::findDeviceMatchingProps(
   }
 }
 
+hipError_t HIPxxBackend::removeModule(HIPxxModule *hipxx_module){};
+hipError_t HIPxxBackend::addModule(HIPxxModule *) {}
 // HIPxxQueue
 //*************************************************************************************
 HIPxxQueue::HIPxxQueue(HIPxxDevice *hipxx_device_, unsigned int flags_,
@@ -803,3 +842,34 @@ HIPxxDevice *HIPxxQueue::getDevice() {
 
   return hipxx_device;
 }
+
+unsigned int HIPxxQueue::getFlags() {}
+hipError_t HIPxxQueue::launch(HIPxxExecItem *) {}
+hipError_t HIPxxQueue::memCopy(void *dst, const void *src, size_t size) {}
+hipError_t HIPxxQueue::memCopyAsync(void *, void const *, unsigned long) {}
+
+hipError_t HIPxxQueue::launchWithKernelParams(dim3 grid, dim3 block,
+                                              unsigned int sharedMemBytes,
+                                              void **args,
+                                              HIPxxKernel *kernel) {}
+
+hipError_t HIPxxQueue::launchWithExtraParams(dim3 grid, dim3 block,
+                                             unsigned int sharedMemBytes,
+                                             void **extra,
+                                             HIPxxKernel *kernel) {}
+
+int HIPxxQueue::getPriorityRange(int lower_or_upper) {}
+int HIPxxQueue::getPriority() {}
+void HIPxxQueue::finish() {}
+bool HIPxxQueue::addCallback(hipStreamCallback_t callback, void *userData) {}
+bool HIPxxQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
+                                dim3 dimBlocks, void **args,
+                                size_t sharedMemBytes) {}
+bool HIPxxQueue::enqueueBarrierForEvent(HIPxxEvent *e) {}
+bool HIPxxQueue::query() {}
+void HIPxxQueue::memFill(void *dst, size_t size, const void *pattern,
+                         size_t pattern_size) {}
+void HIPxxQueue::memFillAsync(void *dst, size_t size, const void *pattern,
+                              size_t pattern_size) {}
+
+bool HIPxxQueue::memPrefetch(const void *ptr, size_t count) {}
