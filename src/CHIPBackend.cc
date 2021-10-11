@@ -137,7 +137,9 @@ hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   this->chip_kernel = dev->findKernelByHostPtr(hostPtr);
   logTrace("Found kernel for host pointer {} : {}", hostPtr,
            chip_kernel->getName());
-  return launch(chip_kernel);
+
+  return (chip_queue->launch(this));
+  // return launch(chip_kernel);
 }
 
 dim3 CHIPExecItem::getBlock() { return block_dim; }
@@ -415,7 +417,9 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t attr) {
   return *pi;
 }
 
-size_t CHIPDevice::getGlobalMemSize() {}
+size_t CHIPDevice::getGlobalMemSize() {
+  return hip_device_props.totalGlobalMem;
+}
 
 void setCacheConfig(hipFuncCache_t) {}
 
@@ -467,7 +471,19 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
   return;
 }
 
-bool CHIPDevice::reserveMem(size_t bytes) {}
+bool CHIPDevice::reserveMem(size_t bytes) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  if (bytes <= (getGlobalMemSize() - TotalUsedMem)) {
+    TotalUsedMem += bytes;
+    if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
+    logDebug("Currently used memory on dev {}: {} M\n", getName().c_str(),
+             (TotalUsedMem >> 20));
+    return true;
+  } else {
+    logError("Can't allocate {} bytes of memory\n", bytes);
+    return false;
+  }
+}
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *peer, int flags,
                                      bool canAccessPeer) {}
@@ -490,7 +506,15 @@ size_t CHIPDevice::getUsedGlobalMem() {}
 
 bool CHIPDevice::hasPCIBusId(int, int, int) {}
 
-bool CHIPDevice::releaseMemReservation(unsigned long) {}
+bool CHIPDevice::releaseMemReservation(unsigned long bytes) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  if (TotalUsedMem >= bytes) {
+    TotalUsedMem -= bytes;
+    return true;
+  } else {
+    return false;
+  }
+}
 
 CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
 // CHIPContext
@@ -596,10 +620,14 @@ CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
 CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
 CHIPBackend::~CHIPBackend(){};
 
-void CHIPBackend::initialize_(std::string platform_str,
-                              std::string device_type_str,
-                              std::string device_ids_str) {
-  initialize(platform_str, device_type_str, device_ids_str);
+void CHIPBackend::initialize(std::string platform_str,
+                             std::string device_type_str,
+                             std::string device_ids_str) {
+  initialize_(platform_str, device_type_str, device_ids_str);
+  if (chip_devices.size() == 0) {
+    logCritical("No CHIPDevices were initialized.");
+    std::abort();
+  }
   setActiveDevice(chip_devices[0]);
 }
 

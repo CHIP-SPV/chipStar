@@ -445,6 +445,9 @@ class CHIPDevice {
   hipDeviceAttribute_t attrs;
   hipDeviceProp_t hip_device_props;
 
+  size_t TotalUsedMem;
+  size_t MaxUsedMem;
+
  public:
   /// chip_modules in binary representation
   std::vector<std::string*> modules_str;
@@ -994,8 +997,8 @@ class CHIPBackend {
    * @param device_type_str
    * @param device_ids_str
    */
-  void initialize_(std::string platform_str, std::string device_type_str,
-                   std::string device_ids_str);
+  void initialize(std::string platform_str, std::string device_type_str,
+                  std::string device_ids_str);
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1004,8 +1007,9 @@ class CHIPBackend {
    * @param device_type_str
    * @param device_ids_str
    */
-  virtual void initialize(std::string platform_str, std::string device_type_str,
-                          std::string device_ids_str) = 0;
+  virtual void initialize_(std::string platform_str,
+                           std::string device_type_str,
+                           std::string device_ids_str) = 0;
 
   /**
    * @brief

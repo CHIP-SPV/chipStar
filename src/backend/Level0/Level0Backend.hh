@@ -241,9 +241,9 @@ class CHIPContextLevel0 : public CHIPContext {
 
 class CHIPBackendLevel0 : public CHIPBackend {
  public:
-  virtual void initialize(std::string CHIPPlatformStr,
-                          std::string CHIPDeviceTypeStr,
-                          std::string CHIPDeviceStr) override {
+  virtual void initialize_(std::string CHIPPlatformStr,
+                           std::string CHIPDeviceTypeStr,
+                           std::string CHIPDeviceStr) override {
     logDebug("CHIPBackendLevel0 Initialize");
     ze_result_t status;
     status = zeInit(0);

@@ -63,7 +63,6 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *ctx_in) {
 
 void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
                                    CHIPMemoryType mem_type) {
-  std::lock_guard<std::mutex> Lock(mtx);
   void *retval;
 
   retval = svm_memory.allocate(*cl_ctx, size);

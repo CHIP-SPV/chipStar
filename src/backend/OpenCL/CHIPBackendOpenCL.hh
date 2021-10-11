@@ -187,8 +187,8 @@ class CHIPExecItemOpenCL : public CHIPExecItem {
 
 class CHIPBackendOpenCL : public CHIPBackend {
  public:
-  void initialize(std::string CHIPPlatformStr, std::string CHIPDeviceTypeStr,
-                  std::string CHIPDeviceStr) override {
+  void initialize_(std::string CHIPPlatformStr, std::string CHIPDeviceTypeStr,
+                   std::string CHIPDeviceStr) override {
     logDebug("CHIPBackendOpenCL Initialize");
     std::vector<cl::Platform> Platforms;
     cl_int err = cl::Platform::get(&Platforms);
@@ -310,6 +310,7 @@ class CHIPBackendOpenCL : public CHIPBackend {
       chip_dev->populateDeviceProperties();
       Backend->addDevice(chip_dev);
       CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(chip_dev);
+      chip_dev->addQueue(queue);
       Backend->addQueue(queue);
     }
     std::cout << "OpenCL Context Initialized.\n";

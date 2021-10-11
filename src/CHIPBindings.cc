@@ -650,7 +650,8 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
 
 hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   CHIPInitialize();
-  ERROR_IF((stream == nullptr), hipErrorInvalidValue);
+  // ERROR_IF((stream == nullptr), hipErrorInvalidValue);
+  if (!stream) stream = Backend->getActiveQueue();
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
   // TODO Make recordEvent return hip error
@@ -1566,10 +1567,7 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
   CHIPExecItem *exec_item = Backend->chip_execstack.top();
   Backend->chip_execstack.pop();
 
-  if (exec_item->launchByHostPtr(hostFunction))
-    RETURN(hipSuccess);
-  else
-    RETURN(hipErrorLaunchFailure);
+  RETURN(exec_item->launchByHostPtr(hostFunction));
 }
 
 hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
