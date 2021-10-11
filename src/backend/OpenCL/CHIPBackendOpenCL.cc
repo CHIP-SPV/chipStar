@@ -98,7 +98,7 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx,
   ctx = chip_ctx;
 }
 
-void CHIPDeviceOpenCL::populateDeviceProperties() {
+void CHIPDeviceOpenCL::populateDeviceProperties_() {
   logTrace("CHIPDeviceOpenCL->populate_device_properties()");
   cl_int err;
   std::string Temp;

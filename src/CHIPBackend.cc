@@ -11,11 +11,39 @@ void *CHIPDeviceVar::getDevAddr() { return dev_ptr; }
 
 // CHIPAllocationTracker
 // ************************************************************************
-CHIPAllocationTracker::CHIPAllocationTracker() {}
+CHIPAllocationTracker::CHIPAllocationTracker(size_t global_mem_size_,
+                                             std::string name_)
+    : global_mem_size(global_mem_size_), total_mem_used(0), max_mem_used(0) {
+  name = name_;
+}
 CHIPAllocationTracker::~CHIPAllocationTracker() {}
 
 allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {}
 allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {}
+
+bool CHIPAllocationTracker::reserveMem(size_t bytes) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  if (bytes <= (global_mem_size - total_mem_used)) {
+    total_mem_used += bytes;
+    if (total_mem_used > max_mem_used) max_mem_used = total_mem_used;
+    logDebug("Currently used memory on dev {}: {} M\n", name,
+             (total_mem_used >> 20));
+    return true;
+  } else {
+    logError("Can't allocate {} bytes of memory\n", bytes);
+    return false;
+  }
+}
+
+bool CHIPAllocationTracker::releaseMemReservation(unsigned long bytes) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  if (total_mem_used >= bytes) {
+    total_mem_used -= bytes;
+    return true;
+  }
+
+  return false;
+}
 
 // CHIPEvent
 // ************************************************************************
@@ -127,7 +155,8 @@ hipError_t CHIPExecItem::launch(CHIPKernel *Kernel) {
 hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   if (chip_queue == nullptr) {
     logCritical(
-        "CHIPExecItem.launchByHostPtr() was called but queue pointer is null");
+        "CHIPExecItem.launchByHostPtr() was called but queue pointer is "
+        "null");
     return (hipErrorLaunchFailure);
   }
 
@@ -153,6 +182,11 @@ CHIPDevice::~CHIPDevice(){};
 
 std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return chip_kernels; };
 
+void CHIPDevice::populateDeviceProperties() {
+  populateDeviceProperties_();
+  allocation_tracker = new CHIPAllocationTracker(
+      hip_device_props.totalGlobalMem, hip_device_props.name);
+}
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
   logTrace("CHIPDevice->copy_device_properties()");
   if (prop) std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
@@ -456,20 +490,6 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
   return;
 }
 
-bool CHIPDevice::reserveMem(size_t bytes) {
-  std::lock_guard<std::mutex> Lock(mtx);
-  if (bytes <= (getGlobalMemSize() - TotalUsedMem)) {
-    TotalUsedMem += bytes;
-    if (TotalUsedMem > MaxUsedMem) MaxUsedMem = TotalUsedMem;
-    logDebug("Currently used memory on dev {}: {} M\n", getName().c_str(),
-             (TotalUsedMem >> 20));
-    return true;
-  } else {
-    logError("Can't allocate {} bytes of memory\n", bytes);
-    return false;
-  }
-}
-
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *peer, int flags,
                                      bool canAccessPeer) {}
 
@@ -490,16 +510,6 @@ void CHIPDevice::setSharedMemConfig(hipSharedMemConfig config) {}
 size_t CHIPDevice::getUsedGlobalMem() {}
 
 bool CHIPDevice::hasPCIBusId(int, int, int) {}
-
-bool CHIPDevice::releaseMemReservation(unsigned long bytes) {
-  std::lock_guard<std::mutex> Lock(mtx);
-  if (TotalUsedMem >= bytes) {
-    TotalUsedMem -= bytes;
-    return true;
-  } else {
-    return false;
-  }
-}
 
 CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
 // CHIPContext
@@ -560,16 +570,19 @@ void *CHIPContext::allocate(size_t size, size_t alignment,
   CHIPDevice *chip_dev = Backend->getActiveDevice();
   assert(chip_dev->getContext() == this);
 
-  if (!chip_dev->reserveMem(size)) return nullptr;
+  if (!chip_dev->allocation_tracker->reserveMem(size)) return nullptr;
   retval = allocate_(size, alignment, mem_type);
-  if (retval == nullptr) chip_dev->releaseMemReservation(size);
+  if (retval == nullptr)
+    chip_dev->allocation_tracker->releaseMemReservation(size);
 
   return retval;
 }
 
 hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
                                         hipDeviceptr_t dptr) {
-  allocation_info *info = Backend->AllocationTracker.getByDevPtr(dptr);
+  // allocation_info *info = Backend->AllocationTracker.getByDevPtr(dptr);
+  allocation_info *info =
+      Backend->getActiveDevice()->allocation_tracker->getByDevPtr(dptr);
   if (!info) return hipErrorInvalidDevicePointer;
   *pbase = info->base_ptr;
   *psize = info->size;
@@ -586,10 +599,10 @@ CHIPContext *CHIPContext::retain() {}
 
 hipError_t CHIPContext::free(void *ptr) {
   CHIPDevice *chip_dev = Backend->getActiveDevice();
-  allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
+  allocation_info *info = chip_dev->allocation_tracker->getByDevPtr(ptr);
   if (!info) return hipErrorInvalidDevicePointer;
 
-  chip_dev->releaseMemReservation(info->size);
+  chip_dev->allocation_tracker->releaseMemReservation(info->size);
   free_(ptr);
   return hipSuccess;
 }

@@ -92,7 +92,7 @@ class CHIPDeviceOpenCL : public CHIPDevice {
 
   cl::Device *get() { return cl_dev; }
 
-  virtual void populateDeviceProperties() override;
+  virtual void populateDeviceProperties_() override;
   virtual std::string getName() override;
 
   virtual void reset() override;

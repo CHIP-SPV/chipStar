@@ -98,7 +98,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
  public:
   CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_, ze_context_handle_t ze_ctx_)
       : ze_dev(ze_dev_), ze_ctx(ze_ctx_) {}
-  virtual void populateDeviceProperties() override {
+  virtual void populateDeviceProperties_() override {
     logWarn(
         "CHIPDeviceLevel0.populate_device_properties not yet "
         "implemented");

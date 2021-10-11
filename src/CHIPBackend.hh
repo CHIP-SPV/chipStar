@@ -48,14 +48,36 @@ struct allocation_info {
  */
 class CHIPAllocationTracker {
  private:
+  std::mutex mtx;
   std::unordered_map<void*, void*> host_to_dev;
   std::unordered_map<void*, void*> dev_to_host;
+  std::string name;
 
   std::unordered_map<void*, allocation_info> dev_to_allocation_info;
 
  public:
-  CHIPAllocationTracker();
+  size_t global_mem_size, total_mem_used, max_mem_used;
+  /**
+   * @brief Construct a new CHIPAllocationTracker object
+   *
+   * @param global_mem_size_ Total available global memory on the device
+   * @param name_ name for this allocation tracker for logging. Normally device
+   * name
+   */
+  CHIPAllocationTracker(size_t global_mem_size_, std::string name_);
+
+  /**
+   * @brief Destroy the CHIPAllocationTracker object
+   *
+   */
   ~CHIPAllocationTracker();
+
+  /**
+   * @brief Get the Name object
+   *
+   * @return std::string
+   */
+  std::string getName();
 
   /**
    * @brief Get allocation_info based on host pointer
@@ -69,6 +91,28 @@ class CHIPAllocationTracker {
    * @return allocation_info contains the base pointer and allocation size;
    */
   allocation_info* getByDevPtr(const void*);
+
+  /**
+   * @brief Reserve memory for an allocation.
+   * This method is run prior to allocations to keep track of how much memory is
+   * available on the device
+   * TODO: Move to AllocationTracker
+   *
+   * @param bytes
+   * @return true Reservation successful
+   * @return false Not enough available memory for reservation of this size.
+   */
+  bool reserveMem(size_t bytes);
+
+  /**
+   * @brief Release some of the reserved memory. Called by free()
+   * TODO: Move to AllocationTracker
+   *
+   * @param bytes
+   * @return true
+   * @return false
+   */
+  bool releaseMemReservation(size_t bytes);
 };
 
 class CHIPDeviceVar {
@@ -472,7 +516,8 @@ class CHIPDevice {
       host_var_ptr_to_chipdevicevar_dyn;
 
   int idx;
-  size_t total_used_mem, max_used_mem;
+  CHIPAllocationTracker* allocation_tracker;
+
   /**
    * @brief Construct a new CHIPDevice object
    *
@@ -495,7 +540,14 @@ class CHIPDevice {
    * @brief Use a backend to populate device properties such as memory
    * available, frequencies, etc.
    */
-  virtual void populateDeviceProperties() = 0;
+  void populateDeviceProperties();
+
+  /**
+   * @brief Use a backend to populate device properties such as memory
+   * available, frequencies, etc.
+   */
+  virtual void populateDeviceProperties_() = 0;
+
   /**
    * @brief Query the device for properties
    *
@@ -563,28 +615,6 @@ class CHIPDevice {
    * @return std::string
    */
   virtual std::string getName() = 0;
-
-  /**
-   * @brief Reserve memory for an allocation.
-   * This method is run prior to allocations to keep track of how much memory is
-   * available on the device
-   * TODO: Move to AllocationTracker
-   *
-   * @param bytes
-   * @return true Reservation successful
-   * @return false Not enough available memory for reservation of this size.
-   */
-  bool reserveMem(size_t bytes);
-
-  /**
-   * @brief Release some of the reserved memory. Called by free()
-   * TODO: Move to AllocationTracker
-   *
-   * @param bytes
-   * @return true
-   * @return false
-   */
-  bool releaseMemReservation(size_t bytes);
 
   /**
    * @brief Destroy all allocations and reset all state on the current device in
@@ -957,7 +987,6 @@ class CHIPBackend {
    * not overriden
    *
    */
-  CHIPAllocationTracker AllocationTracker;
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t tls_last_error = hipSuccess;
   inline static thread_local CHIPContext* tls_active_ctx;

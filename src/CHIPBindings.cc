@@ -1029,7 +1029,9 @@ hipError_t hipMemPtrGetInfo(void *ptr, size_t *size) {
 
   ERROR_IF((ptr == nullptr || size == nullptr), hipErrorInvalidValue);
 
-  allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
+  allocation_info *info =
+      Backend->getActiveDevice()->allocation_tracker->getByDevPtr(ptr);
+  // allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
   if (!info) return hipErrorInvalidDevicePointer;
   *size = info->size;
   RETURN(hipSuccess);
