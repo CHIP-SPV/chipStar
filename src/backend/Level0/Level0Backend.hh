@@ -297,6 +297,8 @@ class CHIPBackendLevel0 : public CHIPBackend {
       if (ze_device_type == device_properties.type) {
         CHIPDeviceLevel0* chip_l0_dev =
             new CHIPDeviceLevel0(std::move(dev), ze_ctx);
+        CHIPQueueLevel0* q = new CHIPQueueLevel0(chip_l0_dev);
+        chip_l0_dev->addQueue(q);
         Backend->addDevice(chip_l0_dev);
         // TODO
         break;  // For now don't add more than one device
