@@ -2,8 +2,12 @@
 #include <utility>
 // CHIPDeviceVar
 // ************************************************************************
-size_t CHIPDeviceVar::getSize() {}
-std::string CHIPDeviceVar::getName() {}
+CHIPDeviceVar::CHIPDeviceVar(std::string host_var_name_, void *dev_ptr_,
+                             size_t size) {}
+CHIPDeviceVar::~CHIPDeviceVar() {}
+size_t CHIPDeviceVar::getSize() { return size; }
+std::string CHIPDeviceVar::getName() { return host_var_name; }
+void *CHIPDeviceVar::getDevAddr() { return dev_ptr; }
 
 // CHIPAllocationTracker
 // ************************************************************************
@@ -429,8 +433,6 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
   if (chip_module_found != host_f_ptr_to_chipmodule_map.end()) {
     chip_module = chip_module_found->second;
   } else {
-    // chip_module =
-    //     new CHIPModule(module_str);  // Create a new module for this source
     chip_module = addModule(module_str);
     chip_module->compileOnce(this);  // Compile it
     host_f_ptr_to_chipmodule_map[module_str] = chip_module;
@@ -446,7 +448,6 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
   }
 
   kernel->setHostPtr(host_f_ptr);
-  // assert(kernel->getDevPtr() != nullptr);
 
   chip_kernels.push_back(kernel);
   logDebug("Device {}: successfully registered function {} as kernel {}",
