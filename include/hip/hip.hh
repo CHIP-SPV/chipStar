@@ -32,7 +32,7 @@
 #endif
 
 #if defined(__clang__) && defined(__HIP__)
-#include "hipcl_mathlib.hh"
+#include "hip_mathlib.hh"
 
 #define uint uint32_t
 

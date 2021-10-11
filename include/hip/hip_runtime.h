@@ -9,11 +9,10 @@
 #include <cmath>
 #include <cstdint>
 
-#include <hip/hipcl.hh>
+#include <hip/hip.hh>
 
 #include <hip/hip_vector_types.h>
 
 #include <hip/hip_fp16.h>
 
 #endif
-
