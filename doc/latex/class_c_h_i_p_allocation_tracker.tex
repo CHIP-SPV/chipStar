@@ -1,0 +1,56 @@
+\hypertarget{class_c_h_i_p_allocation_tracker}{}\doxysection{CHIPAllocation\+Tracker Class Reference}
+\label{class_c_h_i_p_allocation_tracker}\index{CHIPAllocationTracker@{CHIPAllocationTracker}}
+
+
+Class for keeping track of device allocations.  
+
+
+
+
+{\ttfamily \#include $<$CHIPBackend.\+hh$>$}
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} $\ast$ \mbox{\hyperlink{class_c_h_i_p_allocation_tracker_a1bb390011b14cbbadbc474c78efe3fe4}{get\+By\+Host\+Ptr}} (const void $\ast$)
+\begin{DoxyCompactList}\small\item\em Get \mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} based on host pointer. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} $\ast$ \mbox{\hyperlink{class_c_h_i_p_allocation_tracker_af9ae5c2c59ca00cca00a7c85aa8a0f68}{get\+By\+Dev\+Ptr}} (const void $\ast$)
+\begin{DoxyCompactList}\small\item\em Get \mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} based on device pointer. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Class for keeping track of device allocations. 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{class_c_h_i_p_allocation_tracker_af9ae5c2c59ca00cca00a7c85aa8a0f68}\label{class_c_h_i_p_allocation_tracker_af9ae5c2c59ca00cca00a7c85aa8a0f68}} 
+\index{CHIPAllocationTracker@{CHIPAllocationTracker}!getByDevPtr@{getByDevPtr}}
+\index{getByDevPtr@{getByDevPtr}!CHIPAllocationTracker@{CHIPAllocationTracker}}
+\doxysubsubsection{\texorpdfstring{getByDevPtr()}{getByDevPtr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} $\ast$ CHIPAllocation\+Tracker\+::get\+By\+Dev\+Ptr (\begin{DoxyParamCaption}\item[{const void $\ast$}]{dev\+\_\+ptr }\end{DoxyParamCaption})}
+
+
+
+Get \mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} based on device pointer. 
+
+\begin{DoxyReturn}{Returns}
+\mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} contains the base pointer and allocation size; 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_c_h_i_p_allocation_tracker_a1bb390011b14cbbadbc474c78efe3fe4}\label{class_c_h_i_p_allocation_tracker_a1bb390011b14cbbadbc474c78efe3fe4}} 
+\index{CHIPAllocationTracker@{CHIPAllocationTracker}!getByHostPtr@{getByHostPtr}}
+\index{getByHostPtr@{getByHostPtr}!CHIPAllocationTracker@{CHIPAllocationTracker}}
+\doxysubsubsection{\texorpdfstring{getByHostPtr()}{getByHostPtr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} $\ast$ CHIPAllocation\+Tracker\+::get\+By\+Host\+Ptr (\begin{DoxyParamCaption}\item[{const void $\ast$}]{host\+\_\+ptr }\end{DoxyParamCaption})}
+
+
+
+Get \mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} based on host pointer. 
+
+\begin{DoxyReturn}{Returns}
+\mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} contains the base pointer and allocation size; 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/\+Users/pvelesko/local/\+HIPxx/src/\mbox{\hyperlink{_c_h_i_p_backend_8hh}{CHIPBackend.\+hh}}\item 
+/\+Users/pvelesko/local/\+HIPxx/src/CHIPBackend.\+cc\end{DoxyCompactItemize}

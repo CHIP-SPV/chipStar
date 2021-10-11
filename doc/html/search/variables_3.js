@@ -1,4 +1,4 @@
-var searchData =
-  [
-    ['initialized_0', ['initialized', ['../_h_i_pxx_driver_8cc.html#a27fe04307130a8043d19828381435ebb', 1, 'initialized():&#160;CHIPDriver.cc'], ['../_h_i_pxx_driver_8hh.html#a27fe04307130a8043d19828381435ebb', 1, 'initialized():&#160;CHIPDriver.cc']]]
-  ];
+var searchData=
+[
+  ['dev_5ff_5fptr_0',['dev_f_ptr',['../class_c_h_i_p_kernel.html#a3fc76a9d6028b090652482da4a06be69',1,'CHIPKernel']]]
+];

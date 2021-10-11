@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['getactivecontext_178',['getActiveContext',['../class_h_i_pxx_backend.html#add4bc2b4dd2dd73d60098b5e5def5c2f',1,'HIPxxBackend']]],
+  ['getactivedevice_179',['getActiveDevice',['../class_h_i_pxx_backend.html#a615567f11c45af5f912b84be555da5df',1,'HIPxxBackend']]],
+  ['getactivequeue_180',['getActiveQueue',['../class_h_i_pxx_device.html#a0816c5e31df6e0115f5f8f1821cb3114',1,'HIPxxDevice::getActiveQueue()'],['../class_h_i_pxx_backend.html#a609ca999fd9c08c4149be07cea20866a',1,'HIPxxBackend::getActiveQueue()']]],
+  ['getblock_181',['getBlock',['../class_h_i_pxx_exec_item.html#a29acab2fc4f3187476db3a8a8007f510',1,'HIPxxExecItem']]],
+  ['getcontext_182',['getContext',['../class_h_i_pxx_device.html#a889f324981a6db5db39019a9381a52ed',1,'HIPxxDevice']]],
+  ['getdevice_183',['getDevice',['../class_h_i_pxx_queue.html#aabaf2178f97cdf6e690bf76ed0734813',1,'HIPxxQueue']]],
+  ['getdeviceid_184',['getDeviceId',['../class_h_i_pxx_device.html#ad10ebefd7cf475d44d3c04786003b07e',1,'HIPxxDevice']]],
+  ['getdevptr_185',['getDevPtr',['../class_h_i_pxx_kernel.html#af8802c41337d30fb43b164605db6b7a0',1,'HIPxxKernel']]],
+  ['getelapsedtime_186',['getElapsedTime',['../class_h_i_pxx_event.html#a95ecebb02272f47284e8586c892f86d6',1,'HIPxxEvent']]],
+  ['getflags_187',['getFlags',['../class_h_i_pxx_queue.html#a61ae4d845833bfb819ee054a5a3cfd4d',1,'HIPxxQueue']]],
+  ['getglobalmemsize_188',['getGlobalMemSize',['../class_h_i_pxx_device.html#ad87f1e4bfed809f57eea11fa21d54886',1,'HIPxxDevice']]],
+  ['getglobalvar_189',['getGlobalVar',['../class_h_i_pxx_module.html#a04448e05f5adc10c9179aff348270f78',1,'HIPxxModule']]],
+  ['getgrid_190',['getGrid',['../class_h_i_pxx_exec_item.html#a5bbb15da7f140b60c4653b437fa028f2',1,'HIPxxExecItem']]],
+  ['gethostptr_191',['getHostPtr',['../class_h_i_pxx_kernel.html#af3533549d24dcd0192c172a020a69d03',1,'HIPxxKernel']]],
+  ['getkernel_192',['getKernel',['../class_h_i_pxx_module.html#a6c613e3e2c8811313bd981755c9d341d',1,'HIPxxModule::getKernel(std::string name)'],['../class_h_i_pxx_module.html#ad9ec8b6be651a74c3da77bd2c7c567fc',1,'HIPxxModule::getKernel(const void *host_f_ptr)'],['../class_h_i_pxx_exec_item.html#aa9b295f0c7b51527712fd3a8f844d7c0',1,'HIPxxExecItem::getKernel()']]],
+  ['getkernels_193',['getKernels',['../class_h_i_pxx_module.html#a11b4ef03f13ae9d5e91a9253477f9315',1,'HIPxxModule::getKernels()'],['../class_h_i_pxx_device.html#a1e1041313971b2079e8d03f4dd3181c0',1,'HIPxxDevice::getKernels()']]],
+  ['getmodulesstr_194',['getModulesStr',['../class_h_i_pxx_backend.html#a9fb73c8bbefb03f905bcaa8ec11295b7',1,'HIPxxBackend']]],
+  ['getname_195',['getName',['../class_h_i_pxx_device_level0.html#ae57b7cda7ac504faf73b04e8d94822df',1,'HIPxxDeviceLevel0::getName()'],['../class_h_i_pxx_device_open_c_l.html#a3e016700eb7e7eb93e0809b049ed2c1d',1,'HIPxxDeviceOpenCL::getName()'],['../class_h_i_pxx_kernel.html#af11b50bec399b8bddc50f8f9d0309fc6',1,'HIPxxKernel::getName()'],['../class_h_i_pxx_device.html#a4fa4d312d9041833028b8081c3121f50',1,'HIPxxDevice::getName()']]],
+  ['getnumdevices_196',['getNumDevices',['../class_h_i_pxx_backend.html#a0a98401de7e7b0ce88f0016cbfa004ef',1,'HIPxxBackend']]],
+  ['getpeeraccess_197',['getPeerAccess',['../class_h_i_pxx_device.html#a72d153f828e676ce815171025ea71a9a',1,'HIPxxDevice']]],
+  ['getpriority_198',['getPriority',['../class_h_i_pxx_queue.html#a7ca4a754456d189298242e383cd8106d',1,'HIPxxQueue']]],
+  ['getpriorityrange_199',['getPriorityRange',['../class_h_i_pxx_queue.html#a9447373e7ef4f09d326b00b274c140e4',1,'HIPxxQueue']]],
+  ['getqueue_200',['getQueue',['../class_h_i_pxx_exec_item.html#ab47ef67a2b5bf28b6942d73fe8fcb82c',1,'HIPxxExecItem']]],
+  ['getqueues_201',['getQueues',['../class_h_i_pxx_device.html#a0fda2ae5c39bfc5572536d5f9f3cced4',1,'HIPxxDevice::getQueues()'],['../class_h_i_pxx_backend.html#a15c197943af3f8d97ac5777ebd31cd94',1,'HIPxxBackend::getQueues()']]],
+  ['getusedglobalmem_202',['getUsedGlobalMem',['../class_h_i_pxx_device.html#ac688c49da4e9e1deda82fdf454054901',1,'HIPxxDevice']]]
+];

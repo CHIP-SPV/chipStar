@@ -1,0 +1,325 @@
+\begin{theindex}
+
+  \item {addCallback}
+    \subitem {HIPxxQueue}, \hyperpage{48}
+  \item {addContext}
+    \subitem {HIPxxBackend}, \hyperpage{9}
+  \item {addDevice}
+    \subitem {HIPxxBackend}, \hyperpage{9}
+    \subitem {HIPxxContext}, \hyperpage{18}
+  \item {addKernel}
+    \subitem {HIPxxModule}, \hyperpage{42}
+  \item {addModule}
+    \subitem {HIPxxBackend}, \hyperpage{9}
+  \item {addQueue}
+    \subitem {HIPxxBackend}, \hyperpage{10}
+    \subitem {HIPxxDevice}, \hyperpage{22}
+
+  \indexspace
+
+  \item {compile}
+    \subitem {HIPxxModule}, \hyperpage{43}
+    \subitem {HIPxxModuleOpenCL}, \hyperpage{45}
+  \item {compileOnce}
+    \subitem {HIPxxModule}, \hyperpage{43}
+  \item {configureCall}
+    \subitem {HIPxxBackend}, \hyperpage{10}
+  \item {copyDeviceProperties}
+    \subitem {HIPxxDevice}, \hyperpage{22}
+
+  \indexspace
+
+  \item {enqueueBarrierForEvent}
+    \subitem {HIPxxQueue}, \hyperpage{48}
+
+  \indexspace
+
+  \item {findDeviceMatchingProps}
+    \subitem {HIPxxBackend}, \hyperpage{10}
+  \item {findKernelByHostPtr}
+    \subitem {HIPxxDevice}, \hyperpage{22}
+
+  \indexspace
+
+  \item {getActiveContext}
+    \subitem {HIPxxBackend}, \hyperpage{11}
+  \item {getActiveDevice}
+    \subitem {HIPxxBackend}, \hyperpage{11}
+  \item {getActiveQueue}
+    \subitem {HIPxxBackend}, \hyperpage{11}
+    \subitem {HIPxxDevice}, \hyperpage{23}
+  \item {getBlock}
+    \subitem {HIPxxExecItem}, \hyperpage{34}
+  \item {getContext}
+    \subitem {HIPxxDevice}, \hyperpage{23}
+  \item {getDevice}
+    \subitem {HIPxxQueue}, \hyperpage{49}
+  \item {getDeviceId}
+    \subitem {HIPxxDevice}, \hyperpage{23}
+  \item {getDevPtr}
+    \subitem {HIPxxKernel}, \hyperpage{38}
+  \item {getElapsedTime}
+    \subitem {HIPxxEvent}, \hyperpage{30}
+  \item {getFlags}
+    \subitem {HIPxxQueue}, \hyperpage{49}
+  \item {getGlobalMemSize}
+    \subitem {HIPxxDevice}, \hyperpage{23}
+  \item {getGlobalVar}
+    \subitem {HIPxxModule}, \hyperpage{43}
+  \item {getGrid}
+    \subitem {HIPxxExecItem}, \hyperpage{34}
+  \item {getHostPtr}
+    \subitem {HIPxxKernel}, \hyperpage{38}
+  \item {getKernel}
+    \subitem {HIPxxExecItem}, \hyperpage{34}
+    \subitem {HIPxxModule}, \hyperpage{44}
+  \item {getKernels}
+    \subitem {HIPxxDevice}, \hyperpage{24}
+    \subitem {HIPxxModule}, \hyperpage{44}
+  \item {getModulesStr}
+    \subitem {HIPxxBackend}, \hyperpage{11}
+  \item {getName}
+    \subitem {HIPxxDevice}, \hyperpage{24}
+    \subitem {HIPxxDeviceLevel0}, \hyperpage{28}
+    \subitem {HIPxxDeviceOpenCL}, \hyperpage{29}
+    \subitem {HIPxxKernel}, \hyperpage{38}
+  \item {getNumDevices}
+    \subitem {HIPxxBackend}, \hyperpage{12}
+  \item {getPeerAccess}
+    \subitem {HIPxxDevice}, \hyperpage{24}
+  \item {getPriority}
+    \subitem {HIPxxQueue}, \hyperpage{49}
+  \item {getPriorityRange}
+    \subitem {HIPxxQueue}, \hyperpage{49}
+  \item {getQueue}
+    \subitem {HIPxxExecItem}, \hyperpage{34}
+  \item {getQueues}
+    \subitem {HIPxxBackend}, \hyperpage{12}
+    \subitem {HIPxxDevice}, \hyperpage{25}
+  \item {getUsedGlobalMem}
+    \subitem {HIPxxDevice}, \hyperpage{25}
+
+  \indexspace
+
+  \item {hasPCIBusId}
+    \subitem {HIPxxDevice}, \hyperpage{25}
+  \item {HIPxxBackend}, \hyperpage{7}
+    \subitem {addContext}, \hyperpage{9}
+    \subitem {addDevice}, \hyperpage{9}
+    \subitem {addModule}, \hyperpage{9}
+    \subitem {addQueue}, \hyperpage{10}
+    \subitem {configureCall}, \hyperpage{10}
+    \subitem {findDeviceMatchingProps}, \hyperpage{10}
+    \subitem {getActiveContext}, \hyperpage{11}
+    \subitem {getActiveDevice}, \hyperpage{11}
+    \subitem {getActiveQueue}, \hyperpage{11}
+    \subitem {getModulesStr}, \hyperpage{11}
+    \subitem {getNumDevices}, \hyperpage{12}
+    \subitem {getQueues}, \hyperpage{12}
+    \subitem {initialize}, \hyperpage{12}
+    \subitem {registerFunctionAsKernel}, \hyperpage{13}
+    \subitem {registerModuleStr}, \hyperpage{13}
+    \subitem {removeModule}, \hyperpage{13}
+    \subitem {setActiveDevice}, \hyperpage{14}
+    \subitem {setArg}, \hyperpage{14}
+    \subitem {unregisterModuleStr}, \hyperpage{14}
+  \item {HIPxxBackendLevel0}, \hyperpage{15}
+    \subitem {initialize}, \hyperpage{15}
+  \item {HIPxxBackendOpenCL}, \hyperpage{16}
+    \subitem {initialize}, \hyperpage{16}
+  \item {HIPxxContext}, \hyperpage{17}
+    \subitem {addDevice}, \hyperpage{18}
+  \item {HIPxxContextLevel0}, \hyperpage{18}
+  \item {HIPxxContextOpenCL}, \hyperpage{19}
+  \item {HIPxxDevice}, \hyperpage{20}
+    \subitem {addQueue}, \hyperpage{22}
+    \subitem {copyDeviceProperties}, \hyperpage{22}
+    \subitem {findKernelByHostPtr}, \hyperpage{22}
+    \subitem {getActiveQueue}, \hyperpage{23}
+    \subitem {getContext}, \hyperpage{23}
+    \subitem {getDeviceId}, \hyperpage{23}
+    \subitem {getGlobalMemSize}, \hyperpage{23}
+    \subitem {getKernels}, \hyperpage{24}
+    \subitem {getName}, \hyperpage{24}
+    \subitem {getPeerAccess}, \hyperpage{24}
+    \subitem {getQueues}, \hyperpage{25}
+    \subitem {getUsedGlobalMem}, \hyperpage{25}
+    \subitem {hasPCIBusId}, \hyperpage{25}
+    \subitem {host\_var\_ptr\_to\_hipxxdevicevar\_dyn}, \hyperpage{27}
+    \subitem {host\_var\_ptr\_to\_hipxxdevicevar\_stat}, \hyperpage{27}
+    \subitem {registerFunctionAsKernel}, \hyperpage{26}
+    \subitem {removeQueue}, \hyperpage{26}
+    \subitem {setPeerAccess}, \hyperpage{26}
+  \item {HIPxxDeviceLevel0}, \hyperpage{27}
+    \subitem {getName}, \hyperpage{28}
+  \item {HIPxxDeviceOpenCL}, \hyperpage{28}
+    \subitem {getName}, \hyperpage{29}
+  \item {HIPxxDeviceVar}, \hyperpage{29}
+  \item {HIPxxEvent}, \hyperpage{30}
+    \subitem {getElapsedTime}, \hyperpage{30}
+    \subitem {isFinished}, \hyperpage{31}
+    \subitem {recordStream}, \hyperpage{31}
+    \subitem {wait}, \hyperpage{31}
+  \item {HIPxxEventOpenCL}, \hyperpage{32}
+  \item {HIPxxExecItem}, \hyperpage{32}
+    \subitem {getBlock}, \hyperpage{34}
+    \subitem {getGrid}, \hyperpage{34}
+    \subitem {getKernel}, \hyperpage{34}
+    \subitem {getQueue}, \hyperpage{34}
+    \subitem {HIPxxExecItem}, \hyperpage{33}
+    \subitem {launch}, \hyperpage{35}
+    \subitem {launchByHostPtr}, \hyperpage{35}
+    \subitem {setArg}, \hyperpage{35}
+  \item {HIPxxExecItemOpenCL}, \hyperpage{36}
+    \subitem {launch}, \hyperpage{36}
+  \item {HIPxxKernel}, \hyperpage{37}
+    \subitem {getDevPtr}, \hyperpage{38}
+    \subitem {getHostPtr}, \hyperpage{38}
+    \subitem {getName}, \hyperpage{38}
+    \subitem {setDevPtr}, \hyperpage{38}
+    \subitem {setHostPtr}, \hyperpage{39}
+    \subitem {setName}, \hyperpage{39}
+  \item {HIPxxKernelLevel0}, \hyperpage{39}
+  \item {HIPxxKernelOpenCL}, \hyperpage{40}
+  \item {HIPxxModule}, \hyperpage{41}
+    \subitem {addKernel}, \hyperpage{42}
+    \subitem {compile}, \hyperpage{43}
+    \subitem {compileOnce}, \hyperpage{43}
+    \subitem {getGlobalVar}, \hyperpage{43}
+    \subitem {getKernel}, \hyperpage{44}
+    \subitem {getKernels}, \hyperpage{44}
+    \subitem {HIPxxModule}, \hyperpage{42}
+  \item {HIPxxModuleOpenCL}, \hyperpage{45}
+    \subitem {compile}, \hyperpage{45}
+  \item {HIPxxQueue}, \hyperpage{46}
+    \subitem {addCallback}, \hyperpage{48}
+    \subitem {enqueueBarrierForEvent}, \hyperpage{48}
+    \subitem {getDevice}, \hyperpage{49}
+    \subitem {getFlags}, \hyperpage{49}
+    \subitem {getPriority}, \hyperpage{49}
+    \subitem {getPriorityRange}, \hyperpage{49}
+    \subitem {HIPxxQueue}, \hyperpage{47, 48}
+    \subitem {launch}, \hyperpage{50}
+    \subitem {launchHostFunc}, \hyperpage{50}
+    \subitem {launchWithExtraParams}, \hyperpage{51}
+    \subitem {launchWithKernelParams}, \hyperpage{51}
+    \subitem {memCopy}, \hyperpage{52}
+    \subitem {memCopyAsync}, \hyperpage{52}
+    \subitem {memFill}, \hyperpage{52}
+    \subitem {memFillAsync}, \hyperpage{53}
+    \subitem {memPrefetch}, \hyperpage{53}
+    \subitem {query}, \hyperpage{54}
+  \item {HIPxxQueueLevel0}, \hyperpage{54}
+    \subitem {launch}, \hyperpage{55}
+    \subitem {memCopy}, \hyperpage{55}
+  \item {HIPxxQueueOpenCL}, \hyperpage{56}
+    \subitem {launch}, \hyperpage{56}
+    \subitem {memCopy}, \hyperpage{57}
+  \item {host\_var\_ptr\_to\_hipxxdevicevar\_dyn}
+    \subitem {HIPxxDevice}, \hyperpage{27}
+  \item {host\_var\_ptr\_to\_hipxxdevicevar\_stat}
+    \subitem {HIPxxDevice}, \hyperpage{27}
+
+  \indexspace
+
+  \item {initialize}
+    \subitem {HIPxxBackend}, \hyperpage{12}
+    \subitem {HIPxxBackendLevel0}, \hyperpage{15}
+    \subitem {HIPxxBackendOpenCL}, \hyperpage{16}
+  \item {InvalidDeviceType}, \hyperpage{57}
+  \item {InvalidPlatformOrDeviceNumber}, \hyperpage{58}
+  \item {isFinished}
+    \subitem {HIPxxEvent}, \hyperpage{31}
+
+  \indexspace
+
+  \item {launch}
+    \subitem {HIPxxExecItem}, \hyperpage{35}
+    \subitem {HIPxxExecItemOpenCL}, \hyperpage{36}
+    \subitem {HIPxxQueue}, \hyperpage{50}
+    \subitem {HIPxxQueueLevel0}, \hyperpage{55}
+    \subitem {HIPxxQueueOpenCL}, \hyperpage{56}
+  \item {launchByHostPtr}
+    \subitem {HIPxxExecItem}, \hyperpage{35}
+  \item {launchHostFunc}
+    \subitem {HIPxxQueue}, \hyperpage{50}
+  \item {launchWithExtraParams}
+    \subitem {HIPxxQueue}, \hyperpage{51}
+  \item {launchWithKernelParams}
+    \subitem {HIPxxQueue}, \hyperpage{51}
+
+  \indexspace
+
+  \item {memCopy}
+    \subitem {HIPxxQueue}, \hyperpage{52}
+    \subitem {HIPxxQueueLevel0}, \hyperpage{55}
+    \subitem {HIPxxQueueOpenCL}, \hyperpage{57}
+  \item {memCopyAsync}
+    \subitem {HIPxxQueue}, \hyperpage{52}
+  \item {memFill}
+    \subitem {HIPxxQueue}, \hyperpage{52}
+  \item {memFillAsync}
+    \subitem {HIPxxQueue}, \hyperpage{53}
+  \item {memPrefetch}
+    \subitem {HIPxxQueue}, \hyperpage{53}
+
+  \indexspace
+
+  \item {OCLArgTypeInfo}, \hyperpage{58}
+  \item {OCLFuncInfo}, \hyperpage{58}
+
+  \indexspace
+
+  \item {query}
+    \subitem {HIPxxQueue}, \hyperpage{54}
+
+  \indexspace
+
+  \item {recordStream}
+    \subitem {HIPxxEvent}, \hyperpage{31}
+  \item {registerFunctionAsKernel}
+    \subitem {HIPxxBackend}, \hyperpage{13}
+    \subitem {HIPxxDevice}, \hyperpage{26}
+  \item {registerModuleStr}
+    \subitem {HIPxxBackend}, \hyperpage{13}
+  \item {removeModule}
+    \subitem {HIPxxBackend}, \hyperpage{13}
+  \item {removeQueue}
+    \subitem {HIPxxDevice}, \hyperpage{26}
+
+  \indexspace
+
+  \item {setActiveDevice}
+    \subitem {HIPxxBackend}, \hyperpage{14}
+  \item {setArg}
+    \subitem {HIPxxBackend}, \hyperpage{14}
+    \subitem {HIPxxExecItem}, \hyperpage{35}
+  \item {setDevPtr}
+    \subitem {HIPxxKernel}, \hyperpage{38}
+  \item {setHostPtr}
+    \subitem {HIPxxKernel}, \hyperpage{39}
+  \item {setName}
+    \subitem {HIPxxKernel}, \hyperpage{39}
+  \item {setPeerAccess}
+    \subitem {HIPxxDevice}, \hyperpage{26}
+  \item {SPIRVinst}, \hyperpage{59}
+  \item {SPIRVmodule}, \hyperpage{59}
+  \item {SPIRVtype}, \hyperpage{59}
+  \item {SPIRVtypePOD}, \hyperpage{60}
+  \item {SPIRVtypePointer}, \hyperpage{60}
+  \item {src/HIPxxBackend.hh}, \hyperpage{63}
+  \item {src/HIPxxDriver.cc}, \hyperpage{64}
+  \item {src/HIPxxDriver.hh}, \hyperpage{65}
+  \item {SVMemoryRegion}, \hyperpage{61}
+
+  \indexspace
+
+  \item {unregisterModuleStr}
+    \subitem {HIPxxBackend}, \hyperpage{14}
+
+  \indexspace
+
+  \item {wait}
+    \subitem {HIPxxEvent}, \hyperpage{31}
+
+\end{theindex}

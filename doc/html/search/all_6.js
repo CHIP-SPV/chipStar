@@ -1,5 +1,36 @@
-var searchData =
-  [
-    ['initialize_0', ['initialize', ['../class_h_i_pxx_queue.html#a79cd6f8e9213bbc9424606ae2f253ba2', 1, 'CHIPQueue::initialize()'], ['../_h_i_pxx_driver_8cc.html#a25a40b6614565f755233080a384c35f1', 1, 'initialize():&#160;CHIPDriver.cc'], ['../_h_i_pxx_driver_8hh.html#a25a40b6614565f755233080a384c35f1', 1, 'initialize():&#160;CHIPDriver.cc']]],
-    ['initialized_1', ['initialized', ['../_h_i_pxx_driver_8cc.html#a27fe04307130a8043d19828381435ebb', 1, 'initialized():&#160;CHIPDriver.cc'], ['../_h_i_pxx_driver_8hh.html#a27fe04307130a8043d19828381435ebb', 1, 'initialized():&#160;CHIPDriver.cc']]]
-  ];
+var searchData=
+[
+  ['getactivecontext_0',['getActiveContext',['../class_c_h_i_p_backend.html#a6aa8c4c8dec9f2f6a43bff2212e8c684',1,'CHIPBackend']]],
+  ['getactivedevice_1',['getActiveDevice',['../class_c_h_i_p_backend.html#a8268d7b94c10eeb0f50a80ec496997c8',1,'CHIPBackend']]],
+  ['getactivequeue_2',['getActiveQueue',['../class_c_h_i_p_device.html#aebb742c0c5df3f563d1a8f5c13c3b6d4',1,'CHIPDevice::getActiveQueue()'],['../class_c_h_i_p_backend.html#a7559f78f2bb87a202f823a7bc350f49a',1,'CHIPBackend::getActiveQueue()']]],
+  ['getattr_3',['getAttr',['../class_c_h_i_p_device.html#a11990aabcfa593917f152ed9614fb2fd',1,'CHIPDevice']]],
+  ['getblock_4',['getBlock',['../class_c_h_i_p_exec_item.html#aa7cd51c77750bf9f159a1cd6e9fa64e8',1,'CHIPExecItem']]],
+  ['getbydevptr_5',['getByDevPtr',['../class_c_h_i_p_allocation_tracker.html#af9ae5c2c59ca00cca00a7c85aa8a0f68',1,'CHIPAllocationTracker']]],
+  ['getbyhostptr_6',['getByHostPtr',['../class_c_h_i_p_allocation_tracker.html#a1bb390011b14cbbadbc474c78efe3fe4',1,'CHIPAllocationTracker']]],
+  ['getcacheconfig_7',['getCacheConfig',['../class_c_h_i_p_device.html#a8d72d74a69af43d2c66eb6e28199e235',1,'CHIPDevice']]],
+  ['getcontext_8',['getContext',['../class_c_h_i_p_device.html#a967f4b9220725a2debcb6f66d22060fd',1,'CHIPDevice']]],
+  ['getdevice_9',['getDevice',['../class_c_h_i_p_queue.html#a51a3ed46801b642ad48f5d7e71873ba1',1,'CHIPQueue']]],
+  ['getdeviceid_10',['getDeviceId',['../class_c_h_i_p_device.html#a0647eabfa0ae2fe14b1ea95666919090',1,'CHIPDevice']]],
+  ['getdevices_11',['getDevices',['../class_c_h_i_p_context.html#aa6de7c121936615b9020e9459fa260d6',1,'CHIPContext']]],
+  ['getdevptr_12',['getDevPtr',['../class_c_h_i_p_kernel.html#a411f9e8c178291fa130ac9e75ed5e1f7',1,'CHIPKernel']]],
+  ['getdynglobalvar_13',['getDynGlobalVar',['../class_c_h_i_p_device.html#a02c0e81ba452d2736a0803f381b36cfe',1,'CHIPDevice']]],
+  ['getelapsedtime_14',['getElapsedTime',['../class_c_h_i_p_event.html#a0a52a68bd23cfd3cf0f6466869b85a80',1,'CHIPEvent']]],
+  ['getflags_15',['getFlags',['../class_c_h_i_p_context.html#a7f5bb1d44e61f476edfeb4a14d73bae8',1,'CHIPContext::getFlags()'],['../class_c_h_i_p_queue.html#a2146ab0b3a8b0adc47bb47dc3f7e28e3',1,'CHIPQueue::getFlags()']]],
+  ['getglobalmemsize_16',['getGlobalMemSize',['../class_c_h_i_p_device.html#a9ae23fb248d2338119fc81d52cdb8b91',1,'CHIPDevice']]],
+  ['getglobalvar_17',['getGlobalVar',['../class_c_h_i_p_module.html#ab38f04b5f853ae1bd4f2f91c840fb104',1,'CHIPModule::getGlobalVar()'],['../class_c_h_i_p_device.html#a97317260a798fc0d79d1c51c29d60f07',1,'CHIPDevice::getGlobalVar()']]],
+  ['getgrid_18',['getGrid',['../class_c_h_i_p_exec_item.html#aa77c523d9cd1b910bbbc09f1099b2f5d',1,'CHIPExecItem']]],
+  ['gethostptr_19',['getHostPtr',['../class_c_h_i_p_kernel.html#a7a15ce1cd2760e9e28006ff0e9dcf740',1,'CHIPKernel']]],
+  ['getkernel_20',['getKernel',['../class_c_h_i_p_module.html#a786e902acb2d84248501b11660e2598d',1,'CHIPModule::getKernel(std::string name)'],['../class_c_h_i_p_module.html#a12434a4c6058130e9a5ffd46adc0b62f',1,'CHIPModule::getKernel(const void *host_f_ptr)'],['../class_c_h_i_p_exec_item.html#a1cf75c746f3f05b653a577748c77bc44',1,'CHIPExecItem::getKernel()']]],
+  ['getkernels_21',['getKernels',['../class_c_h_i_p_module.html#a706583e02dbd275aaff49f3aa8cde001',1,'CHIPModule::getKernels()'],['../class_c_h_i_p_device.html#a46cae46416b74f4b0f912351503f450c',1,'CHIPDevice::getKernels()']]],
+  ['getmodulesstr_22',['getModulesStr',['../class_c_h_i_p_backend.html#a3d3e11a25d6f8e1ccc56f2f591b3d41f',1,'CHIPBackend']]],
+  ['getname_23',['getName',['../class_c_h_i_p_kernel.html#ac7a16cdbdb05de96ea3fa04b4f625d33',1,'CHIPKernel::getName()'],['../class_c_h_i_p_device.html#a98cebf6120181daeeeab073832c28b7b',1,'CHIPDevice::getName()'],['../class_c_h_i_p_device_open_c_l.html#a5fa748efe4b61972f968275d78a17893',1,'CHIPDeviceOpenCL::getName()'],['../class_c_h_i_p_device_level0.html#a9476b6ed30ddda6dba12c30dfc206157',1,'CHIPDeviceLevel0::getName()']]],
+  ['getnumdevices_24',['getNumDevices',['../class_c_h_i_p_backend.html#a17769144537540460d9d095843f335a4',1,'CHIPBackend']]],
+  ['getpeeraccess_25',['getPeerAccess',['../class_c_h_i_p_device.html#aa293773bba48a9bf66b2fc02f0b7e7f8',1,'CHIPDevice']]],
+  ['getpriority_26',['getPriority',['../class_c_h_i_p_queue.html#a4572f51ceddd12d262d4a592843e011f',1,'CHIPQueue']]],
+  ['getpriorityrange_27',['getPriorityRange',['../class_c_h_i_p_queue.html#a5a9491f6087d089c340e2ca33c516691',1,'CHIPQueue']]],
+  ['getqueue_28',['getQueue',['../class_c_h_i_p_exec_item.html#a0ab70870d2c58e6fa2a3e03762a5134a',1,'CHIPExecItem']]],
+  ['getqueues_29',['getQueues',['../class_c_h_i_p_device.html#a13160a0a12a1e885faa15f20c88e3923',1,'CHIPDevice::getQueues()'],['../class_c_h_i_p_context.html#ae4dec6fa8019567f64b3ee02cc813529',1,'CHIPContext::getQueues()'],['../class_c_h_i_p_backend.html#a008a76d1aff94899c3a859a04ad3e5f4',1,'CHIPBackend::getQueues()']]],
+  ['getsharedmemconfig_30',['getSharedMemConfig',['../class_c_h_i_p_device.html#a73e0e41a593edc15c7337183018cae5b',1,'CHIPDevice']]],
+  ['getstatglobalvar_31',['getStatGlobalVar',['../class_c_h_i_p_device.html#af0fb162a43b0afd71c8d36fb13890729',1,'CHIPDevice']]],
+  ['getusedglobalmem_32',['getUsedGlobalMem',['../class_c_h_i_p_device.html#adfc125b715bd7bfa8d63d684ddf65433',1,'CHIPDevice']]]
+];

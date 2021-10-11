@@ -1,0 +1,123 @@
+\hypertarget{class_c_h_i_p_event}{}\doxysection{CHIPEvent Class Reference}
+\label{class_c_h_i_p_event}\index{CHIPEvent@{CHIPEvent}}
+Inheritance diagram for CHIPEvent\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{class_c_h_i_p_event}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_a52ed87a3aaf412f87a5875a60520d905}\label{class_c_h_i_p_event_a52ed87a3aaf412f87a5875a60520d905}} 
+{\bfseries CHIPEvent} (\mbox{\hyperlink{class_c_h_i_p_context}{CHIPContext}} $\ast$ctx\+\_\+, CHIPEvent\+Type flags\+\_\+=CHIPEvent\+Type\+::\+Default)
+\begin{DoxyCompactList}\small\item\em \mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}} constructor. Must always be created with some context. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_a69301b0e97ad2bf26e4931a636a5d3dd}\label{class_c_h_i_p_event_a69301b0e97ad2bf26e4931a636a5d3dd}} 
+{\bfseries $\sim$\+CHIPEvent} ()
+\begin{DoxyCompactList}\small\item\em Destroy the \mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}} object. \end{DoxyCompactList}\item 
+virtual bool \mbox{\hyperlink{class_c_h_i_p_event_a148183c687547c6d992b1717a33c61e7}{record\+Stream}} (\mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}} $\ast$chip\+\_\+queue\+\_\+)
+\begin{DoxyCompactList}\small\item\em Enqueue this event in a given \mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}}. \end{DoxyCompactList}\item 
+virtual bool \mbox{\hyperlink{class_c_h_i_p_event_a0bba2c6c5c13a27a7f948cc996065f29}{wait}} ()
+\begin{DoxyCompactList}\small\item\em Wait for this event to complete. \end{DoxyCompactList}\item 
+virtual bool \mbox{\hyperlink{class_c_h_i_p_event_adf3684773f64efa1ccb7aa75694dc07e}{is\+Finished}} ()
+\begin{DoxyCompactList}\small\item\em Query the event to see if it completed. \end{DoxyCompactList}\item 
+virtual float \mbox{\hyperlink{class_c_h_i_p_event_a0a52a68bd23cfd3cf0f6466869b85a80}{get\+Elapsed\+Time}} (\mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}} $\ast$other)
+\begin{DoxyCompactList}\small\item\em Calculate absolute difference between completion timestamps of this event and other. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_a68534577cfebbd2c089e8af0a494263c}\label{class_c_h_i_p_event_a68534577cfebbd2c089e8af0a494263c}} 
+{\bfseries CHIPEvent} ()=default
+\begin{DoxyCompactList}\small\item\em hidden default constructor for \mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}}. Only derived class constructor should be called. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_a27cd9368a70b2b29d7b1d913a7e0d842}\label{class_c_h_i_p_event_a27cd9368a70b2b29d7b1d913a7e0d842}} 
+std\+::mutex {\bfseries mutex}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_af80237fcb6db951df8d8aeeaadf0d446}\label{class_c_h_i_p_event_af80237fcb6db951df8d8aeeaadf0d446}} 
+event\+\_\+status\+\_\+e {\bfseries status}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_acd8262b4e41f0c5d87ba2fac14c44bce}\label{class_c_h_i_p_event_acd8262b4e41f0c5d87ba2fac14c44bce}} 
+CHIPEvent\+Type {\bfseries flags}
+\begin{DoxyCompactList}\small\item\em event bahavior modifier -\/ valid values are hip\+Event\+Default, hip\+Event\+Blocking\+Sync, hip\+Event\+Disable\+Timing, hip\+Event\+Interprocess \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_c_h_i_p_event_a4321ad3fc8ba63180a803557a5d9c270}\label{class_c_h_i_p_event_a4321ad3fc8ba63180a803557a5d9c270}} 
+\mbox{\hyperlink{class_c_h_i_p_context}{CHIPContext}} $\ast$ {\bfseries chip\+\_\+context}
+\begin{DoxyCompactList}\small\item\em Events are always created with a context. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{class_c_h_i_p_event_a0a52a68bd23cfd3cf0f6466869b85a80}\label{class_c_h_i_p_event_a0a52a68bd23cfd3cf0f6466869b85a80}} 
+\index{CHIPEvent@{CHIPEvent}!getElapsedTime@{getElapsedTime}}
+\index{getElapsedTime@{getElapsedTime}!CHIPEvent@{CHIPEvent}}
+\doxysubsubsection{\texorpdfstring{getElapsedTime()}{getElapsedTime()}}
+{\footnotesize\ttfamily float CHIPEvent\+::get\+Elapsed\+Time (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}} $\ast$}]{other }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Calculate absolute difference between completion timestamps of this event and other. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em other} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+float 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_c_h_i_p_event_adf3684773f64efa1ccb7aa75694dc07e}\label{class_c_h_i_p_event_adf3684773f64efa1ccb7aa75694dc07e}} 
+\index{CHIPEvent@{CHIPEvent}!isFinished@{isFinished}}
+\index{isFinished@{isFinished}!CHIPEvent@{CHIPEvent}}
+\doxysubsubsection{\texorpdfstring{isFinished()}{isFinished()}}
+{\footnotesize\ttfamily bool CHIPEvent\+::is\+Finished (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Query the event to see if it completed. 
+
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_c_h_i_p_event_a148183c687547c6d992b1717a33c61e7}\label{class_c_h_i_p_event_a148183c687547c6d992b1717a33c61e7}} 
+\index{CHIPEvent@{CHIPEvent}!recordStream@{recordStream}}
+\index{recordStream@{recordStream}!CHIPEvent@{CHIPEvent}}
+\doxysubsubsection{\texorpdfstring{recordStream()}{recordStream()}}
+{\footnotesize\ttfamily bool CHIPEvent\+::record\+Stream (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}} $\ast$}]{chip\+\_\+queue\+\_\+ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Enqueue this event in a given \mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}}. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em chip\+\_\+queue\+\_\+} & \mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}} in which to enque this event \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_c_h_i_p_event_a0bba2c6c5c13a27a7f948cc996065f29}\label{class_c_h_i_p_event_a0bba2c6c5c13a27a7f948cc996065f29}} 
+\index{CHIPEvent@{CHIPEvent}!wait@{wait}}
+\index{wait@{wait}!CHIPEvent@{CHIPEvent}}
+\doxysubsubsection{\texorpdfstring{wait()}{wait()}}
+{\footnotesize\ttfamily bool CHIPEvent\+::wait (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Wait for this event to complete. 
+
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/\+Users/pvelesko/local/\+HIPxx/src/\mbox{\hyperlink{_c_h_i_p_backend_8hh}{CHIPBackend.\+hh}}\item 
+/\+Users/pvelesko/local/\+HIPxx/src/CHIPBackend.\+cc\end{DoxyCompactItemize}

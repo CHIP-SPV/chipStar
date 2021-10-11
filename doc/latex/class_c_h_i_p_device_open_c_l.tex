@@ -1,0 +1,87 @@
+\hypertarget{class_c_h_i_p_device_open_c_l}{}\doxysection{CHIPDevice\+Open\+CL Class Reference}
+\label{class_c_h_i_p_device_open_c_l}\index{CHIPDeviceOpenCL@{CHIPDeviceOpenCL}}
+Inheritance diagram for CHIPDevice\+Open\+CL\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{class_c_h_i_p_device_open_c_l}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_aecc145f7721339310a20a956d1d9ac49}\label{class_c_h_i_p_device_open_c_l_aecc145f7721339310a20a956d1d9ac49}} 
+{\bfseries CHIPDevice\+Open\+CL} (\mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContext\+Open\+CL}} $\ast$chip\+\_\+ctx, cl\+::\+Device $\ast$dev\+\_\+in, int idx)
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_a103fe510caa9c0f2844050eaf5207637}\label{class_c_h_i_p_device_open_c_l_a103fe510caa9c0f2844050eaf5207637}} 
+cl\+::\+Device $\ast$ {\bfseries get} ()
+\item 
+virtual void \mbox{\hyperlink{class_c_h_i_p_device_open_c_l_af4a2ab7d0d56063710d875ab2505755f}{populate\+Device\+Properties}} () override
+\begin{DoxyCompactList}\small\item\em Use a backend to populate device properties such as memory available, frequencies, etc. \end{DoxyCompactList}\item 
+virtual std\+::string \mbox{\hyperlink{class_c_h_i_p_device_open_c_l_a5fa748efe4b61972f968275d78a17893}{get\+Name}} () override
+\begin{DoxyCompactList}\small\item\em Get the device name. \end{DoxyCompactList}\item 
+virtual void \mbox{\hyperlink{class_c_h_i_p_device_open_c_l_acaeee9322c45dbe16d711e30a99758b7}{reset}} () override
+\begin{DoxyCompactList}\small\item\em Destroy all allocations and reset all state on the current device in the current process. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_a5efcb98a8b8b9b32a7d497d47411c5b9}\label{class_c_h_i_p_device_open_c_l_a5efcb98a8b8b9b32a7d497d47411c5b9}} 
+cl\+::\+Device $\ast$ {\bfseries cl\+\_\+dev}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_a6c59a4d28816d6ef7ec45d1ff0416768}\label{class_c_h_i_p_device_open_c_l_a6c59a4d28816d6ef7ec45d1ff0416768}} 
+cl\+::\+Context $\ast$ {\bfseries cl\+\_\+ctx}
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_a5fa748efe4b61972f968275d78a17893}\label{class_c_h_i_p_device_open_c_l_a5fa748efe4b61972f968275d78a17893}} 
+\index{CHIPDeviceOpenCL@{CHIPDeviceOpenCL}!getName@{getName}}
+\index{getName@{getName}!CHIPDeviceOpenCL@{CHIPDeviceOpenCL}}
+\doxysubsubsection{\texorpdfstring{getName()}{getName()}}
+{\footnotesize\ttfamily std\+::string CHIPDevice\+Open\+CL\+::get\+Name (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Get the device name. 
+
+\begin{DoxyReturn}{Returns}
+std\+::string 
+\end{DoxyReturn}
+
+
+Implements \mbox{\hyperlink{class_c_h_i_p_device_a98cebf6120181daeeeab073832c28b7b}{CHIPDevice}}.
+
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_af4a2ab7d0d56063710d875ab2505755f}\label{class_c_h_i_p_device_open_c_l_af4a2ab7d0d56063710d875ab2505755f}} 
+\index{CHIPDeviceOpenCL@{CHIPDeviceOpenCL}!populateDeviceProperties@{populateDeviceProperties}}
+\index{populateDeviceProperties@{populateDeviceProperties}!CHIPDeviceOpenCL@{CHIPDeviceOpenCL}}
+\doxysubsubsection{\texorpdfstring{populateDeviceProperties()}{populateDeviceProperties()}}
+{\footnotesize\ttfamily void CHIPDevice\+Open\+CL\+::populate\+Device\+Properties (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Use a backend to populate device properties such as memory available, frequencies, etc. 
+
+
+
+Implements \mbox{\hyperlink{class_c_h_i_p_device_ab8fb4cdbe080397c5639d2d742c33f2b}{CHIPDevice}}.
+
+\mbox{\Hypertarget{class_c_h_i_p_device_open_c_l_acaeee9322c45dbe16d711e30a99758b7}\label{class_c_h_i_p_device_open_c_l_acaeee9322c45dbe16d711e30a99758b7}} 
+\index{CHIPDeviceOpenCL@{CHIPDeviceOpenCL}!reset@{reset}}
+\index{reset@{reset}!CHIPDeviceOpenCL@{CHIPDeviceOpenCL}}
+\doxysubsubsection{\texorpdfstring{reset()}{reset()}}
+{\footnotesize\ttfamily void CHIPDevice\+Open\+CL\+::reset (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Destroy all allocations and reset all state on the current device in the current process. 
+
+
+
+Implements \mbox{\hyperlink{class_c_h_i_p_device_abd7d4be48339d070b09fcf5d6270caaa}{CHIPDevice}}.
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/\+Users/pvelesko/local/\+HIPxx/src/backend/\+Open\+CL/CHIPBackend\+Open\+CL.\+hh\item 
+/\+Users/pvelesko/local/\+HIPxx/src/backend/\+Open\+CL/CHIPBackend\+Open\+CL.\+cc\end{DoxyCompactItemize}

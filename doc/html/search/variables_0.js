@@ -1,4 +1,4 @@
-var searchData =
-  [
-    ['backend_0', ['Backend', ['../_h_i_pxx_driver_8cc.html#adcb47f0bb55a7fcf46adcd39142c1178', 1, 'Backend():&#160;CHIPDriver.cc'], ['../_h_i_pxx_driver_8hh.html#adcb47f0bb55a7fcf46adcd39142c1178', 1, 'Backend():&#160;CHIPDriver.cc']]]
-  ];
+var searchData=
+[
+  ['allocationtracker_0',['AllocationTracker',['../class_c_h_i_p_backend.html#a666504e278e70bd6c522a0f11fd2659f',1,'CHIPBackend']]]
+];

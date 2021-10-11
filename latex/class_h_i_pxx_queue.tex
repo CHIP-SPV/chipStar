@@ -1,0 +1,468 @@
+\hypertarget{class_h_i_pxx_queue}{}\doxysection{HIPxx\+Queue Class Reference}
+\label{class_h_i_pxx_queue}\index{HIPxxQueue@{HIPxxQueue}}
+
+
+Queue class for submitting kernels to for execution.  
+
+
+
+
+{\ttfamily \#include $<$HIPxx\+Backend.\+hh$>$}
+
+Inheritance diagram for HIPxx\+Queue\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{class_h_i_pxx_queue}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_h_i_pxx_queue_a43fa5eedc9f76647179683e8e612f0a9}{HIPxx\+Queue}} (\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$hipxx\+\_\+dev)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{class_h_i_pxx_queue_a23845b69894fdff7ffd1079278cb93f1}{HIPxx\+Queue}} (\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$hipxx\+\_\+dev, unsigned int flags)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{class_h_i_pxx_queue_a8ff7cb49a41887a89795ddb911dbc5a1}{HIPxx\+Queue}} (\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$hipxx\+\_\+dev, unsigned int flags, int priority)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_a9387bdf53c5f79d3c238cf92ebb69e05}\label{class_h_i_pxx_queue_a9387bdf53c5f79d3c238cf92ebb69e05}} 
+\mbox{\hyperlink{class_h_i_pxx_queue_a9387bdf53c5f79d3c238cf92ebb69e05}{$\sim$\+HIPxx\+Queue}} ()
+\begin{DoxyCompactList}\small\item\em Destroy the \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. \end{DoxyCompactList}\item 
+virtual hip\+Error\+\_\+t \mbox{\hyperlink{class_h_i_pxx_queue_aedbb09bb4b83c7e039c688c9cac0d3f3}{mem\+Copy}} (void $\ast$dst, const void $\ast$src, size\+\_\+t size)
+\begin{DoxyCompactList}\small\item\em Blocking memory copy. \end{DoxyCompactList}\item 
+virtual hip\+Error\+\_\+t \mbox{\hyperlink{class_h_i_pxx_queue_ae4f6b06e86e60e8c1bc5a147fb0cb5db}{mem\+Copy\+Async}} (void $\ast$dst, const void $\ast$src, size\+\_\+t size)
+\begin{DoxyCompactList}\small\item\em Non-\/blocking memory copy. \end{DoxyCompactList}\item 
+virtual void \mbox{\hyperlink{class_h_i_pxx_queue_a3c29538d85709c8c99f54abdfd443a48}{mem\+Fill}} (void $\ast$dst, size\+\_\+t size, const void $\ast$pattern, size\+\_\+t pattern\+\_\+size)
+\begin{DoxyCompactList}\small\item\em Blocking memset. \end{DoxyCompactList}\item 
+virtual void \mbox{\hyperlink{class_h_i_pxx_queue_a3a7e5c04d2260820b75c52b106b8c814}{mem\+Fill\+Async}} (void $\ast$dst, size\+\_\+t size, const void $\ast$pattern, size\+\_\+t pattern\+\_\+size)
+\begin{DoxyCompactList}\small\item\em Non-\/blocking mem set. \end{DoxyCompactList}\item 
+virtual hip\+Error\+\_\+t \mbox{\hyperlink{class_h_i_pxx_queue_a2423598ed45990b5a5e346c4ba3fba7f}{launch}} (\mbox{\hyperlink{class_h_i_pxx_exec_item}{HIPxx\+Exec\+Item}} $\ast$exec\+\_\+item)
+\begin{DoxyCompactList}\small\item\em Submit a \mbox{\hyperlink{class_h_i_pxx_exec_item}{HIPxx\+Exec\+Item}} to this queue for execution. \mbox{\hyperlink{class_h_i_pxx_exec_item}{HIPxx\+Exec\+Item}} needs to be complete -\/ contain the kernel and arguments. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$ \mbox{\hyperlink{class_h_i_pxx_queue_aabaf2178f97cdf6e690bf76ed0734813}{get\+Device}} ()
+\begin{DoxyCompactList}\small\item\em Get the Device obj. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_a79151eeeda3970ede3901bf9c89d96b3}\label{class_h_i_pxx_queue_a79151eeeda3970ede3901bf9c89d96b3}} 
+virtual void \mbox{\hyperlink{class_h_i_pxx_queue_a79151eeeda3970ede3901bf9c89d96b3}{finish}} ()
+\begin{DoxyCompactList}\small\item\em Wait for this queue to finish. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{class_h_i_pxx_queue_a782014f529df2615f37997c5f7b7da99}{query}} ()
+\begin{DoxyCompactList}\small\item\em Check if the queue is still actively executing. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{class_h_i_pxx_queue_a9447373e7ef4f09d326b00b274c140e4}{get\+Priority\+Range}} (int lower\+\_\+or\+\_\+upper)
+\begin{DoxyCompactList}\small\item\em Get the Priority Range object defining the bounds for hip\+Stream\+Create\+With\+Priority. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{class_h_i_pxx_queue_aad85d2c5bcf92e17884ac3d6e2992473}{enqueue\+Barrier\+For\+Event}} (\mbox{\hyperlink{class_h_i_pxx_event}{HIPxx\+Event}} $\ast$e)
+\begin{DoxyCompactList}\small\item\em Insert an event into this queue. \end{DoxyCompactList}\item 
+unsigned int \mbox{\hyperlink{class_h_i_pxx_queue_a61ae4d845833bfb819ee054a5a3cfd4d}{get\+Flags}} ()
+\begin{DoxyCompactList}\small\item\em Get the Flags object with which this queue was created. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{class_h_i_pxx_queue_a7ca4a754456d189298242e383cd8106d}{get\+Priority}} ()
+\begin{DoxyCompactList}\small\item\em Get the Priority object with which this queue was created. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{class_h_i_pxx_queue_a2edc0139aabf984164d1f06f6da17c74}{add\+Callback}} (hip\+Stream\+Callback\+\_\+t callback, void $\ast$user\+Data)
+\begin{DoxyCompactList}\small\item\em Add a callback funciton to be called on the host after the specified stream is done. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{class_h_i_pxx_queue_a5a415ad5e523449301aa3bb103cf584d}{mem\+Prefetch}} (const void $\ast$ptr, size\+\_\+t count)
+\begin{DoxyCompactList}\small\item\em Insert a memory prefetch. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{class_h_i_pxx_queue_a37145f9e8e2c50acbd27f83a70620160}{launch\+Host\+Func}} (const void $\ast$host\+Function, dim3 num\+Blocks, dim3 dim\+Blocks, void $\ast$$\ast$args, size\+\_\+t shared\+Mem\+Bytes)
+\begin{DoxyCompactList}\small\item\em Launch a kernel on this queue given a host pointer and arguments. \end{DoxyCompactList}\item 
+hip\+Error\+\_\+t \mbox{\hyperlink{class_h_i_pxx_queue_af9fd4cc4ce04819dcefc6dbfab4a2c6c}{launch\+With\+Kernel\+Params}} (dim3 grid, dim3 block, unsigned int shared\+Mem\+Bytes, void $\ast$$\ast$args, \mbox{\hyperlink{class_h_i_pxx_kernel}{HIPxx\+Kernel}} $\ast$kernel)
+\item 
+hip\+Error\+\_\+t \mbox{\hyperlink{class_h_i_pxx_queue_ab19b1bbdb5d295b716860372e2ddb960}{launch\+With\+Extra\+Params}} (dim3 grid, dim3 block, unsigned int shared\+Mem\+Bytes, void $\ast$$\ast$extra, \mbox{\hyperlink{class_h_i_pxx_kernel}{HIPxx\+Kernel}} $\ast$kernel)
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_a0dfa9e411d34d5d0d060ff05c8ebed01}\label{class_h_i_pxx_queue_a0dfa9e411d34d5d0d060ff05c8ebed01}} 
+std\+::mutex {\bfseries mtx}
+\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_aa5be68452fa39ae42d76d86e9f0cce3f}\label{class_h_i_pxx_queue_aa5be68452fa39ae42d76d86e9f0cce3f}} 
+int {\bfseries priority}
+\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_a07fc513dc41cd7f8378e3db35f53083d}\label{class_h_i_pxx_queue_a07fc513dc41cd7f8378e3db35f53083d}} 
+unsigned int {\bfseries flags}
+\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_a0e35fbf85ab95ab8d55c1903cec40e25}\label{class_h_i_pxx_queue_a0e35fbf85ab95ab8d55c1903cec40e25}} 
+\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$ \mbox{\hyperlink{class_h_i_pxx_queue_a0e35fbf85ab95ab8d55c1903cec40e25}{hipxx\+\_\+device}}
+\begin{DoxyCompactList}\small\item\em Device on which this queue will execute. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_h_i_pxx_queue_aec8ae5810f601612038244e5ad5bf3b1}\label{class_h_i_pxx_queue_aec8ae5810f601612038244e5ad5bf3b1}} 
+\mbox{\hyperlink{class_h_i_pxx_context}{HIPxx\+Context}} $\ast$ \mbox{\hyperlink{class_h_i_pxx_queue_aec8ae5810f601612038244e5ad5bf3b1}{hipxx\+\_\+context}}
+\begin{DoxyCompactList}\small\item\em Context to which device belongs to. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Queue class for submitting kernels to for execution. 
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a43fa5eedc9f76647179683e8e612f0a9}\label{class_h_i_pxx_queue_a43fa5eedc9f76647179683e8e612f0a9}} 
+\index{HIPxxQueue@{HIPxxQueue}!HIPxxQueue@{HIPxxQueue}}
+\index{HIPxxQueue@{HIPxxQueue}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{HIPxxQueue()}{HIPxxQueue()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily HIPxx\+Queue\+::\+HIPxx\+Queue (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$}]{hipxx\+\_\+dev }\end{DoxyParamCaption})}
+
+
+
+Construct a new \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em hipxx\+\_\+dev} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a23845b69894fdff7ffd1079278cb93f1}\label{class_h_i_pxx_queue_a23845b69894fdff7ffd1079278cb93f1}} 
+\index{HIPxxQueue@{HIPxxQueue}!HIPxxQueue@{HIPxxQueue}}
+\index{HIPxxQueue@{HIPxxQueue}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{HIPxxQueue()}{HIPxxQueue()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily HIPxx\+Queue\+::\+HIPxx\+Queue (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$}]{hipxx\+\_\+dev,  }\item[{unsigned int}]{flags }\end{DoxyParamCaption})}
+
+
+
+Construct a new \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em hipxx\+\_\+dev} & \\
+\hline
+{\em flags} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a8ff7cb49a41887a89795ddb911dbc5a1}\label{class_h_i_pxx_queue_a8ff7cb49a41887a89795ddb911dbc5a1}} 
+\index{HIPxxQueue@{HIPxxQueue}!HIPxxQueue@{HIPxxQueue}}
+\index{HIPxxQueue@{HIPxxQueue}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{HIPxxQueue()}{HIPxxQueue()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily HIPxx\+Queue\+::\+HIPxx\+Queue (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$}]{hipxx\+\_\+dev,  }\item[{unsigned int}]{flags,  }\item[{int}]{priority }\end{DoxyParamCaption})}
+
+
+
+Construct a new \mbox{\hyperlink{class_h_i_pxx_queue}{HIPxx\+Queue}} object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em hipxx\+\_\+dev} & \\
+\hline
+{\em flags} & \\
+\hline
+{\em priority} & \\
+\hline
+\end{DoxyParams}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a2edc0139aabf984164d1f06f6da17c74}\label{class_h_i_pxx_queue_a2edc0139aabf984164d1f06f6da17c74}} 
+\index{HIPxxQueue@{HIPxxQueue}!addCallback@{addCallback}}
+\index{addCallback@{addCallback}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{addCallback()}{addCallback()}}
+{\footnotesize\ttfamily bool HIPxx\+Queue\+::add\+Callback (\begin{DoxyParamCaption}\item[{hip\+Stream\+Callback\+\_\+t}]{callback,  }\item[{void $\ast$}]{user\+Data }\end{DoxyParamCaption})}
+
+
+
+Add a callback funciton to be called on the host after the specified stream is done. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em callback} & function pointer for a ballback function \\
+\hline
+{\em user\+Data} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_aad85d2c5bcf92e17884ac3d6e2992473}\label{class_h_i_pxx_queue_aad85d2c5bcf92e17884ac3d6e2992473}} 
+\index{HIPxxQueue@{HIPxxQueue}!enqueueBarrierForEvent@{enqueueBarrierForEvent}}
+\index{enqueueBarrierForEvent@{enqueueBarrierForEvent}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{enqueueBarrierForEvent()}{enqueueBarrierForEvent()}}
+{\footnotesize\ttfamily bool HIPxx\+Queue\+::enqueue\+Barrier\+For\+Event (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_h_i_pxx_event}{HIPxx\+Event}} $\ast$}]{e }\end{DoxyParamCaption})}
+
+
+
+Insert an event into this queue. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em e} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_aabaf2178f97cdf6e690bf76ed0734813}\label{class_h_i_pxx_queue_aabaf2178f97cdf6e690bf76ed0734813}} 
+\index{HIPxxQueue@{HIPxxQueue}!getDevice@{getDevice}}
+\index{getDevice@{getDevice}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{getDevice()}{getDevice()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_h_i_pxx_device}{HIPxx\+Device}} $\ast$ HIPxx\+Queue\+::get\+Device (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Get the Device obj. 
+
+\begin{DoxyReturn}{Returns}
+HIPxx\+Device$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a61ae4d845833bfb819ee054a5a3cfd4d}\label{class_h_i_pxx_queue_a61ae4d845833bfb819ee054a5a3cfd4d}} 
+\index{HIPxxQueue@{HIPxxQueue}!getFlags@{getFlags}}
+\index{getFlags@{getFlags}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{getFlags()}{getFlags()}}
+{\footnotesize\ttfamily unsigned int HIPxx\+Queue\+::get\+Flags (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Get the Flags object with which this queue was created. 
+
+\begin{DoxyReturn}{Returns}
+unsigned int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a7ca4a754456d189298242e383cd8106d}\label{class_h_i_pxx_queue_a7ca4a754456d189298242e383cd8106d}} 
+\index{HIPxxQueue@{HIPxxQueue}!getPriority@{getPriority}}
+\index{getPriority@{getPriority}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{getPriority()}{getPriority()}}
+{\footnotesize\ttfamily int HIPxx\+Queue\+::get\+Priority (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Get the Priority object with which this queue was created. 
+
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a9447373e7ef4f09d326b00b274c140e4}\label{class_h_i_pxx_queue_a9447373e7ef4f09d326b00b274c140e4}} 
+\index{HIPxxQueue@{HIPxxQueue}!getPriorityRange@{getPriorityRange}}
+\index{getPriorityRange@{getPriorityRange}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{getPriorityRange()}{getPriorityRange()}}
+{\footnotesize\ttfamily int HIPxx\+Queue\+::get\+Priority\+Range (\begin{DoxyParamCaption}\item[{int}]{lower\+\_\+or\+\_\+upper }\end{DoxyParamCaption})}
+
+
+
+Get the Priority Range object defining the bounds for hip\+Stream\+Create\+With\+Priority. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em lower\+\_\+or\+\_\+upper} & 0 to get lower bound, 1 to get upper bound \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int bound 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a2423598ed45990b5a5e346c4ba3fba7f}\label{class_h_i_pxx_queue_a2423598ed45990b5a5e346c4ba3fba7f}} 
+\index{HIPxxQueue@{HIPxxQueue}!launch@{launch}}
+\index{launch@{launch}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{launch()}{launch()}}
+{\footnotesize\ttfamily virtual hip\+Error\+\_\+t HIPxx\+Queue\+::launch (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_h_i_pxx_exec_item}{HIPxx\+Exec\+Item}} $\ast$}]{exec\+\_\+item }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Submit a \mbox{\hyperlink{class_h_i_pxx_exec_item}{HIPxx\+Exec\+Item}} to this queue for execution. \mbox{\hyperlink{class_h_i_pxx_exec_item}{HIPxx\+Exec\+Item}} needs to be complete -\/ contain the kernel and arguments. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em exec\+\_\+item} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+
+
+Reimplemented in \mbox{\hyperlink{class_h_i_pxx_queue_open_c_l_ac9fcdb0ab268d705582fbe203a1efcd2}{HIPxx\+Queue\+Open\+CL}}, and \mbox{\hyperlink{class_h_i_pxx_queue_level0_a9d2930ec21ed01b3bce126c0aca162d6}{HIPxx\+Queue\+Level0}}.
+
+\mbox{\Hypertarget{class_h_i_pxx_queue_a37145f9e8e2c50acbd27f83a70620160}\label{class_h_i_pxx_queue_a37145f9e8e2c50acbd27f83a70620160}} 
+\index{HIPxxQueue@{HIPxxQueue}!launchHostFunc@{launchHostFunc}}
+\index{launchHostFunc@{launchHostFunc}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{launchHostFunc()}{launchHostFunc()}}
+{\footnotesize\ttfamily bool HIPxx\+Queue\+::launch\+Host\+Func (\begin{DoxyParamCaption}\item[{const void $\ast$}]{host\+Function,  }\item[{dim3}]{num\+Blocks,  }\item[{dim3}]{dim\+Blocks,  }\item[{void $\ast$$\ast$}]{args,  }\item[{size\+\_\+t}]{shared\+Mem\+Bytes }\end{DoxyParamCaption})}
+
+
+
+Launch a kernel on this queue given a host pointer and arguments. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em host\+Function} & \\
+\hline
+{\em num\+Blocks} & \\
+\hline
+{\em dim\+Blocks} & \\
+\hline
+{\em args} & \\
+\hline
+{\em shared\+Mem\+Bytes} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_ab19b1bbdb5d295b716860372e2ddb960}\label{class_h_i_pxx_queue_ab19b1bbdb5d295b716860372e2ddb960}} 
+\index{HIPxxQueue@{HIPxxQueue}!launchWithExtraParams@{launchWithExtraParams}}
+\index{launchWithExtraParams@{launchWithExtraParams}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{launchWithExtraParams()}{launchWithExtraParams()}}
+{\footnotesize\ttfamily hip\+Error\+\_\+t HIPxx\+Queue\+::launch\+With\+Extra\+Params (\begin{DoxyParamCaption}\item[{dim3}]{grid,  }\item[{dim3}]{block,  }\item[{unsigned int}]{shared\+Mem\+Bytes,  }\item[{void $\ast$$\ast$}]{extra,  }\item[{\mbox{\hyperlink{class_h_i_pxx_kernel}{HIPxx\+Kernel}} $\ast$}]{kernel }\end{DoxyParamCaption})}
+
+
+\begin{DoxyParams}{Parameters}
+{\em grid} & \\
+\hline
+{\em block} & \\
+\hline
+{\em shared\+Mem\+Bytes} & \\
+\hline
+{\em extra} & \\
+\hline
+{\em kernel} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_af9fd4cc4ce04819dcefc6dbfab4a2c6c}\label{class_h_i_pxx_queue_af9fd4cc4ce04819dcefc6dbfab4a2c6c}} 
+\index{HIPxxQueue@{HIPxxQueue}!launchWithKernelParams@{launchWithKernelParams}}
+\index{launchWithKernelParams@{launchWithKernelParams}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{launchWithKernelParams()}{launchWithKernelParams()}}
+{\footnotesize\ttfamily hip\+Error\+\_\+t HIPxx\+Queue\+::launch\+With\+Kernel\+Params (\begin{DoxyParamCaption}\item[{dim3}]{grid,  }\item[{dim3}]{block,  }\item[{unsigned int}]{shared\+Mem\+Bytes,  }\item[{void $\ast$$\ast$}]{args,  }\item[{\mbox{\hyperlink{class_h_i_pxx_kernel}{HIPxx\+Kernel}} $\ast$}]{kernel }\end{DoxyParamCaption})}
+
+
+\begin{DoxyParams}{Parameters}
+{\em grid} & \\
+\hline
+{\em block} & \\
+\hline
+{\em shared\+Mem\+Bytes} & \\
+\hline
+{\em args} & \\
+\hline
+{\em kernel} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_aedbb09bb4b83c7e039c688c9cac0d3f3}\label{class_h_i_pxx_queue_aedbb09bb4b83c7e039c688c9cac0d3f3}} 
+\index{HIPxxQueue@{HIPxxQueue}!memCopy@{memCopy}}
+\index{memCopy@{memCopy}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{memCopy()}{memCopy()}}
+{\footnotesize\ttfamily virtual hip\+Error\+\_\+t HIPxx\+Queue\+::mem\+Copy (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{const void $\ast$}]{src,  }\item[{size\+\_\+t}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Blocking memory copy. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dst} & Destination \\
+\hline
+{\em src} & Source \\
+\hline
+{\em size} & Transfer size \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+
+
+Reimplemented in \mbox{\hyperlink{class_h_i_pxx_queue_open_c_l_a60796ad6a3ff66710e42bbe37d87b51a}{HIPxx\+Queue\+Open\+CL}}, and \mbox{\hyperlink{class_h_i_pxx_queue_level0_a5d88fd896a77dc0ff47eb7caf38994b0}{HIPxx\+Queue\+Level0}}.
+
+\mbox{\Hypertarget{class_h_i_pxx_queue_ae4f6b06e86e60e8c1bc5a147fb0cb5db}\label{class_h_i_pxx_queue_ae4f6b06e86e60e8c1bc5a147fb0cb5db}} 
+\index{HIPxxQueue@{HIPxxQueue}!memCopyAsync@{memCopyAsync}}
+\index{memCopyAsync@{memCopyAsync}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{memCopyAsync()}{memCopyAsync()}}
+{\footnotesize\ttfamily virtual hip\+Error\+\_\+t HIPxx\+Queue\+::mem\+Copy\+Async (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{const void $\ast$}]{src,  }\item[{size\+\_\+t}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Non-\/blocking memory copy. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dst} & Destination \\
+\hline
+{\em src} & Source \\
+\hline
+{\em size} & Transfer size \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a3c29538d85709c8c99f54abdfd443a48}\label{class_h_i_pxx_queue_a3c29538d85709c8c99f54abdfd443a48}} 
+\index{HIPxxQueue@{HIPxxQueue}!memFill@{memFill}}
+\index{memFill@{memFill}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{memFill()}{memFill()}}
+{\footnotesize\ttfamily virtual void HIPxx\+Queue\+::mem\+Fill (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{size\+\_\+t}]{size,  }\item[{const void $\ast$}]{pattern,  }\item[{size\+\_\+t}]{pattern\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Blocking memset. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dst} & \\
+\hline
+{\em size} & \\
+\hline
+{\em pattern} & \\
+\hline
+{\em pattern\+\_\+size} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a3a7e5c04d2260820b75c52b106b8c814}\label{class_h_i_pxx_queue_a3a7e5c04d2260820b75c52b106b8c814}} 
+\index{HIPxxQueue@{HIPxxQueue}!memFillAsync@{memFillAsync}}
+\index{memFillAsync@{memFillAsync}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{memFillAsync()}{memFillAsync()}}
+{\footnotesize\ttfamily virtual void HIPxx\+Queue\+::mem\+Fill\+Async (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{size\+\_\+t}]{size,  }\item[{const void $\ast$}]{pattern,  }\item[{size\+\_\+t}]{pattern\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Non-\/blocking mem set. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dst} & \\
+\hline
+{\em size} & \\
+\hline
+{\em pattern} & \\
+\hline
+{\em pattern\+\_\+size} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a5a415ad5e523449301aa3bb103cf584d}\label{class_h_i_pxx_queue_a5a415ad5e523449301aa3bb103cf584d}} 
+\index{HIPxxQueue@{HIPxxQueue}!memPrefetch@{memPrefetch}}
+\index{memPrefetch@{memPrefetch}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{memPrefetch()}{memPrefetch()}}
+{\footnotesize\ttfamily bool HIPxx\+Queue\+::mem\+Prefetch (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr,  }\item[{size\+\_\+t}]{count }\end{DoxyParamCaption})}
+
+
+
+Insert a memory prefetch. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ptr} & \\
+\hline
+{\em count} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+\mbox{\Hypertarget{class_h_i_pxx_queue_a782014f529df2615f37997c5f7b7da99}\label{class_h_i_pxx_queue_a782014f529df2615f37997c5f7b7da99}} 
+\index{HIPxxQueue@{HIPxxQueue}!query@{query}}
+\index{query@{query}!HIPxxQueue@{HIPxxQueue}}
+\doxysubsubsection{\texorpdfstring{query()}{query()}}
+{\footnotesize\ttfamily bool HIPxx\+Queue\+::query (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Check if the queue is still actively executing. 
+
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+src/\mbox{\hyperlink{_h_i_pxx_backend_8hh}{HIPxx\+Backend.\+hh}}\item 
+src/HIPxx\+Backend.\+cc\end{DoxyCompactItemize}

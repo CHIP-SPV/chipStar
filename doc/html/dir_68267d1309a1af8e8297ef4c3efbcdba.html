@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.2"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>CHIP: /Users/pvelesko/local/CHIP/src Directory Reference</title>
+<title>CHIP-SPV: /Users/pvelesko/local/HIPxx/src Directory Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -21,7 +21,7 @@
  <tbody>
  <tr style="height: 56px;">
   <td id="projectalign" style="padding-left: 0.5em;">
-   <div id="projectname">CHIP<span id="projectnumber">&#160;0.0.1</span>
+   <div id="projectname">CHIP-SPV<span id="projectnumber">&#160;0.0.1</span>
    </div>
    <div id="projectbrief">Multiple backend interface for HIP</div>
   </td>
@@ -76,17 +76,14 @@ Directories</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="files" name="files"></a>
 Files</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_h_i_pxx_backend_8hh.html">CHIPBackend.hh</a> <a href="_h_i_pxx_backend_8hh_source.html">[code]</a></td></tr>
-<tr class="memdesc:_h_i_pxx_backend_8hh"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="class_h_i_pxx_backend.html" title="Primary object to interact with the backend.">CHIPBackend</a> class definition. CHIP backends are to inherit from this base class and override desired virtual functions. Overrides for this class are expected to be minimal with primary overrides being done on lower-level classes such as <a class="el" href="class_h_i_pxx_context.html" title="Context class Contexts contain execution queues and are created on top of a single or multiple device...">CHIPContext</a> consturctors, etc. <br /></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_c_h_i_p_backend_8hh.html">CHIPBackend.hh</a> <a href="_c_h_i_p_backend_8hh_source.html">[code]</a></td></tr>
+<tr class="memdesc:_c_h_i_p_backend_8hh"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="class_c_h_i_p_backend.html" title="Primary object to interact with the backend.">CHIPBackend</a> class definition. CHIP backends are to inherit from this base class and override desired virtual functions. Overrides for this class are expected to be minimal with primary overrides being done on lower-level classes such as <a class="el" href="class_c_h_i_p_context.html" title="Context class Contexts contain execution queues and are created on top of a single or multiple device...">CHIPContext</a> consturctors, etc. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_h_i_pxx_bindings_8hh.html">CHIPBindings.hh</a> <a href="_h_i_pxx_bindings_8hh_source.html">[code]</a></td></tr>
-<tr class="memdesc:_h_i_pxx_bindings_8hh"><td class="mdescLeft">&#160;</td><td class="mdescRight">Implementations of the HIP API functions using the CHIP interface providing basic functionality such hipMemcpy, host and device function registration, hipLaunchByPtr, etc. These functions operate on base CHIP class pointers allowing for backend selection at runtime and backend-specific implementations are done by inheriting from base CHIP classes and overriding virtual member functions. <br /></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_c_h_i_p_driver_8cc.html">CHIPDriver.cc</a></td></tr>
+<tr class="memdesc:_c_h_i_p_driver_8cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Definitions of extern declared functions and objects in <a class="el" href="_c_h_i_p_driver_8hh.html" title="Header defining global CHIP classes and functions such as CHIPBackend type pointer Backend which gets...">CHIPDriver.hh</a> Initializing the CHIP runtime with backend selection through CHIP_BE environment variable. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_h_i_pxx_driver_8cc.html">CHIPDriver.cc</a></td></tr>
-<tr class="memdesc:_h_i_pxx_driver_8cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Definitions of extern declared functions and objects in <a class="el" href="_h_i_pxx_driver_8hh.html" title="Header defining global CHIP classes and functions such as CHIPBackend type pointer Backend which ge...">CHIPDriver.hh</a> Initializing the CHIP runtime with backend selection through HIPXX_BE environment variable. <br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_h_i_pxx_driver_8hh.html">CHIPDriver.hh</a> <a href="_h_i_pxx_driver_8hh_source.html">[code]</a></td></tr>
-<tr class="memdesc:_h_i_pxx_driver_8hh"><td class="mdescLeft">&#160;</td><td class="mdescRight">Header defining global CHIP classes and functions such as <a class="el" href="class_h_i_pxx_backend.html" title="Primary object to interact with the backend.">CHIPBackend</a> type pointer Backend which gets initialized at the start of execution. <br /></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">file &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_c_h_i_p_driver_8hh.html">CHIPDriver.hh</a> <a href="_c_h_i_p_driver_8hh_source.html">[code]</a></td></tr>
+<tr class="memdesc:_c_h_i_p_driver_8hh"><td class="mdescLeft">&#160;</td><td class="mdescRight">Header defining global CHIP classes and functions such as <a class="el" href="class_c_h_i_p_backend.html" title="Primary object to interact with the backend.">CHIPBackend</a> type pointer Backend which gets initialized at the start of execution. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->

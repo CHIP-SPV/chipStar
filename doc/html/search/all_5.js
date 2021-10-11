@@ -1,16 +1,12 @@
-var searchData =
-  [
-    ['hipxxbackend_0', ['CHIPBackend', ['../class_h_i_pxx_backend.html', 1, '']]],
-    ['hipxxbackend_2ehh_1', ['CHIPBackend.hh', ['../_h_i_pxx_backend_8hh.html', 1, '']]],
-    ['hipxxbackendopencl_2', ['CHIPBackendOpenCL', ['../class_h_i_pxx_backend_open_c_l.html', 1, '']]],
-    ['hipxxbindings_2ehh_3', ['CHIPBindings.hh', ['../_h_i_pxx_bindings_8hh.html', 1, '']]],
-    ['hipxxcontext_4', ['CHIPContext', ['../class_h_i_pxx_context.html', 1, '']]],
-    ['hipxxdevice_5', ['CHIPDevice', ['../class_h_i_pxx_device.html', 1, 'CHIPDevice'], ['../class_h_i_pxx_device.html#a236785a8836a10e0c1d52dde1d8ae94c', 1, 'CHIPDevice::CHIPDevice()']]],
-    ['hipxxdriver_2ecc_6', ['CHIPDriver.cc', ['../_h_i_pxx_driver_8cc.html', 1, '']]],
-    ['hipxxdriver_2ehh_7', ['CHIPDriver.hh', ['../_h_i_pxx_driver_8hh.html', 1, '']]],
-    ['hipxxexecitem_8', ['CHIPExecItem', ['../class_h_i_pxx_exec_item.html', 1, '']]],
-    ['hipxxkernel_9', ['CHIPKernel', ['../class_h_i_pxx_kernel.html', 1, '']]],
-    ['hipxxqueue_10', ['CHIPQueue', ['../class_h_i_pxx_queue.html', 1, '']]],
-    ['hostfunctionname_11', ['HostFunctionName', ['../class_h_i_pxx_kernel.html#af46f6049f71637cbe541449a83305509', 1, 'CHIPKernel']]],
-    ['hostfunctionpointer_12', ['HostFunctionPointer', ['../class_h_i_pxx_kernel.html#a10833675ad0c3280fd07a903f37f3824', 1, 'CHIPKernel']]]
-  ];
+var searchData=
+[
+  ['finddevicematchingprops_0',['findDeviceMatchingProps',['../class_c_h_i_p_backend.html#ae49a2aba857eebeb7ca7ecdb63f5826d',1,'CHIPBackend']]],
+  ['findkernelbyhostptr_1',['findKernelByHostPtr',['../class_c_h_i_p_device.html#a79ebc10bb0b3ee3f208a6bd4742d16ca',1,'CHIPDevice']]],
+  ['findpointerinfo_2',['findPointerInfo',['../class_c_h_i_p_context.html#aad24b4b21e4b87cb2a3ab8bcba3f373e',1,'CHIPContext']]],
+  ['findqueue_3',['findQueue',['../class_c_h_i_p_context.html#a99c99574c4bd42209058f51ed2b0c909',1,'CHIPContext']]],
+  ['finish_4',['finish',['../class_c_h_i_p_queue.html#a7b4d58bc6b0d35eada59ce1a0239da9b',1,'CHIPQueue::finish()'],['../class_c_h_i_p_queue_open_c_l.html#a0421bc2ada82f32a8aebf81eddbce9a1',1,'CHIPQueueOpenCL::finish()']]],
+  ['finishall_5',['finishAll',['../class_c_h_i_p_context.html#a31d79308f3a70a9293923835122da23c',1,'CHIPContext']]],
+  ['flags_6',['flags',['../class_c_h_i_p_event.html#acd8262b4e41f0c5d87ba2fac14c44bce',1,'CHIPEvent']]],
+  ['free_7',['free',['../class_c_h_i_p_context.html#a65074e4320308218e6af6ab97413da5c',1,'CHIPContext']]],
+  ['free_5f_8',['free_',['../class_c_h_i_p_context.html#aff2c9209a0ff52dd241188065a1f489a',1,'CHIPContext::free_()'],['../class_c_h_i_p_context_open_c_l.html#ab7de78a5e94d0bff220962cebd07596b',1,'CHIPContextOpenCL::free_()'],['../class_c_h_i_p_context_level0.html#ae5555db19af1935c578b5f9ab8ffe1af',1,'CHIPContextLevel0::free_()']]]
+];

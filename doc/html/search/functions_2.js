@@ -1,4 +1,4 @@
-var searchData =
-  [
-    ['get_5fdefault_5fcontext_0', ['get_default_context', ['../class_h_i_pxx_device.html#a16ebf7b5f3caa1c26a49803af79ce72d', 1, 'CHIPDevice']]]
-  ];
+var searchData=
+[
+  ['enqueuebarrierforevent_0',['enqueueBarrierForEvent',['../class_c_h_i_p_queue.html#a10888a9a6d7b27c2313814ba44698c1e',1,'CHIPQueue']]]
+];

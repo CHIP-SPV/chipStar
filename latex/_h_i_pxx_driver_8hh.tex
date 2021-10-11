@@ -1,0 +1,60 @@
+\hypertarget{_h_i_pxx_driver_8hh}{}\doxysection{src/\+HIPxx\+Driver.hh File Reference}
+\label{_h_i_pxx_driver_8hh}\index{src/HIPxxDriver.hh@{src/HIPxxDriver.hh}}
+
+
+Header defining global HIPxx classes and functions such as \mbox{\hyperlink{class_h_i_pxx_backend}{HIPxx\+Backend}} type pointer Backend which gets initialized at the start of execution.  
+
+
+{\ttfamily \#include $<$iostream$>$}\newline
+{\ttfamily \#include $<$mutex$>$}\newline
+{\ttfamily \#include \char`\"{}HIPxx\+Backend.\+hh\char`\"{}}\newline
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_ac378dcfa4e257eb31e0de1111ed5cf4f}\label{_h_i_pxx_driver_8hh_ac378dcfa4e257eb31e0de1111ed5cf4f}} 
+void \mbox{\hyperlink{_h_i_pxx_driver_8hh_ac378dcfa4e257eb31e0de1111ed5cf4f}{HIPxx\+Initialize}} (std\+::string BE=\char`\"{}\char`\"{})
+\begin{DoxyCompactList}\small\item\em Singleton backend initialization function outer wrapper. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_ab38c146f6c2edc1092ad9030c1edb5b2}\label{_h_i_pxx_driver_8hh_ab38c146f6c2edc1092ad9030c1edb5b2}} 
+void \mbox{\hyperlink{_h_i_pxx_driver_8hh_ab38c146f6c2edc1092ad9030c1edb5b2}{HIPxx\+Uninitialize}} ()
+\begin{DoxyCompactList}\small\item\em Singleton backend initialization function outer wrapper. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_adc2bfd3009ee3a54e5a9780cddb10180}\label{_h_i_pxx_driver_8hh_adc2bfd3009ee3a54e5a9780cddb10180}} 
+void \mbox{\hyperlink{_h_i_pxx_driver_8hh_adc2bfd3009ee3a54e5a9780cddb10180}{HIPxx\+Initialize\+Call\+Once}} (std\+::string BE=\char`\"{}\char`\"{})
+\begin{DoxyCompactList}\small\item\em Singleton backend initialization function called via std\+::call\+\_\+once. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_aba74b7de2edf68bc92b9d62ea3f91149}\label{_h_i_pxx_driver_8hh_aba74b7de2edf68bc92b9d62ea3f91149}} 
+void \mbox{\hyperlink{_h_i_pxx_driver_8hh_aba74b7de2edf68bc92b9d62ea3f91149}{HIPxx\+Uninitialize\+Call\+Once}} ()
+\begin{DoxyCompactList}\small\item\em Singleton backend uninitialization function called via std\+::call\+\_\+once. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_a308b8315b599297a01b4c89166e3cc09}\label{_h_i_pxx_driver_8hh_a308b8315b599297a01b4c89166e3cc09}} 
+std\+::string {\bfseries read\+\_\+env\+\_\+var} (std\+::string ENV\+\_\+\+VAR)
+\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_a7f61dcc5788698f435a6811472b6f6a3}\label{_h_i_pxx_driver_8hh_a7f61dcc5788698f435a6811472b6f6a3}} 
+std\+::string {\bfseries read\+\_\+backend\+\_\+selection} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_adcb47f0bb55a7fcf46adcd39142c1178}\label{_h_i_pxx_driver_8hh_adcb47f0bb55a7fcf46adcd39142c1178}} 
+\mbox{\hyperlink{class_h_i_pxx_backend}{HIPxx\+Backend}} $\ast$ \mbox{\hyperlink{_h_i_pxx_driver_8hh_adcb47f0bb55a7fcf46adcd39142c1178}{Backend}}
+\begin{DoxyCompactList}\small\item\em Global Backend pointer through which backend-\/specific operations are performed. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_a27fe04307130a8043d19828381435ebb}\label{_h_i_pxx_driver_8hh_a27fe04307130a8043d19828381435ebb}} 
+std\+::once\+\_\+flag \mbox{\hyperlink{_h_i_pxx_driver_8hh_a27fe04307130a8043d19828381435ebb}{initialized}}
+\begin{DoxyCompactList}\small\item\em Singleton backend initialization flag. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{_h_i_pxx_driver_8hh_ab7c8044ac3e7fa4ff3949fb38fa92bef}\label{_h_i_pxx_driver_8hh_ab7c8044ac3e7fa4ff3949fb38fa92bef}} 
+std\+::once\+\_\+flag {\bfseries uninitialized}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Header defining global HIPxx classes and functions such as \mbox{\hyperlink{class_h_i_pxx_backend}{HIPxx\+Backend}} type pointer Backend which gets initialized at the start of execution. 
+
+\begin{DoxyAuthor}{Author}
+Paulius Velesko (\href{mailto:pvelesko@gmail.com}{\texttt{ pvelesko@gmail.\+com}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2021-\/08-\/19
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+Copyright (c) 2021 
+\end{DoxyCopyright}

@@ -1,0 +1,321 @@
+\hypertarget{_c_h_i_p_backend_open_c_l_8hh_source}{}\doxysection{CHIPBackend\+Open\+CL.\+hh}
+\label{_c_h_i_p_backend_open_c_l_8hh_source}\index{/Users/pvelesko/local/HIPxx/src/backend/OpenCL/CHIPBackendOpenCL.hh@{/Users/pvelesko/local/HIPxx/src/backend/OpenCL/CHIPBackendOpenCL.hh}}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{1 }
+\DoxyCodeLine{12 \textcolor{preprocessor}{\#ifndef CHIP\_BACKEND\_OPENCL\_H}}
+\DoxyCodeLine{13 \textcolor{preprocessor}{\#define CHIP\_BACKEND\_OPENCL\_H}}
+\DoxyCodeLine{14 }
+\DoxyCodeLine{15 \textcolor{preprocessor}{\#define CL\_TARGET\_OPENCL\_VERSION 210}}
+\DoxyCodeLine{16 \textcolor{preprocessor}{\#define CL\_MINIMUM\_OPENCL\_VERSION 200}}
+\DoxyCodeLine{17 \textcolor{preprocessor}{\#define CL\_HPP\_TARGET\_OPENCL\_VERSION 210}}
+\DoxyCodeLine{18 \textcolor{preprocessor}{\#define CL\_HPP\_MINIMUM\_OPENCL\_VERSION 200}}
+\DoxyCodeLine{19 }
+\DoxyCodeLine{20 \textcolor{preprocessor}{\#include <CL/cl\_ext\_intel.h>}}
+\DoxyCodeLine{21 }
+\DoxyCodeLine{22 \textcolor{preprocessor}{\#include <CL/opencl.hpp>}}
+\DoxyCodeLine{23 }
+\DoxyCodeLine{24 \textcolor{preprocessor}{\#include "{}../../CHIPBackend.hh"{}}}
+\DoxyCodeLine{25 \textcolor{preprocessor}{\#include "{}exceptions.hh"{}}}
+\DoxyCodeLine{26 \textcolor{preprocessor}{\#include "{}spirv.hh"{}}}
+\DoxyCodeLine{27 }
+\DoxyCodeLine{28 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContextOpenCL}};}
+\DoxyCodeLine{29 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_device_open_c_l}{CHIPDeviceOpenCL}};}
+\DoxyCodeLine{30 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_exec_item_open_c_l}{CHIPExecItemOpenCL}};}
+\DoxyCodeLine{31 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_kernel_open_c_l}{CHIPKernelOpenCL}};}
+\DoxyCodeLine{32 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}};}
+\DoxyCodeLine{33 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_event_open_c_l}{CHIPEventOpenCL}};}
+\DoxyCodeLine{34 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_backend_open_c_l}{CHIPBackendOpenCL}};}
+\DoxyCodeLine{35 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_module_open_c_l}{CHIPModuleOpenCL}};}
+\DoxyCodeLine{36 }
+\DoxyCodeLine{37 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_module_open_c_l}{CHIPModuleOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_module}{CHIPModule}} \{}
+\DoxyCodeLine{38  \textcolor{keyword}{protected}:}
+\DoxyCodeLine{39   cl::Program program;}
+\DoxyCodeLine{40 }
+\DoxyCodeLine{41  \textcolor{keyword}{public}:}
+\DoxyCodeLine{42   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_module_open_c_l_a01ab6cdabbb9fcf5eda5d842f1a17150}{compile}}(\mbox{\hyperlink{class_c_h_i_p_device}{CHIPDevice}} *chip\_dev) \textcolor{keyword}{override};}
+\DoxyCodeLine{43   cl::Program \&get() \{ \textcolor{keywordflow}{return} program; \}}
+\DoxyCodeLine{44 \};}
+\DoxyCodeLine{45 }
+\DoxyCodeLine{46 \textcolor{keyword}{class }\mbox{\hyperlink{class_s_v_memory_region}{SVMemoryRegion}} \{}
+\DoxyCodeLine{47   \textcolor{comment}{// ContextMutex should be enough}}
+\DoxyCodeLine{48 }
+\DoxyCodeLine{49   std::map<void *, size\_t> SvmAllocations;}
+\DoxyCodeLine{50   cl::Context Context;}
+\DoxyCodeLine{51 }
+\DoxyCodeLine{52  \textcolor{keyword}{public}:}
+\DoxyCodeLine{53   \textcolor{keywordtype}{void} init(cl::Context \&C) \{ Context = C; \}}
+\DoxyCodeLine{54   \mbox{\hyperlink{class_s_v_memory_region}{SVMemoryRegion}} \&operator=(\mbox{\hyperlink{class_s_v_memory_region}{SVMemoryRegion}} \&\&rhs) \{}
+\DoxyCodeLine{55     SvmAllocations = std::move(rhs.SvmAllocations);}
+\DoxyCodeLine{56     Context = std::move(rhs.Context);}
+\DoxyCodeLine{57     \textcolor{keywordflow}{return} *\textcolor{keyword}{this};}
+\DoxyCodeLine{58   \}}
+\DoxyCodeLine{59 }
+\DoxyCodeLine{60   \textcolor{keywordtype}{void} *allocate(cl::Context ctx, \textcolor{keywordtype}{size\_t} size);}
+\DoxyCodeLine{61   \textcolor{keywordtype}{bool} free(\textcolor{keywordtype}{void} *p, \textcolor{keywordtype}{size\_t} *size);}
+\DoxyCodeLine{62   \textcolor{keywordtype}{bool} hasPointer(\textcolor{keyword}{const} \textcolor{keywordtype}{void} *p);}
+\DoxyCodeLine{63   \textcolor{keywordtype}{bool} pointerSize(\textcolor{keywordtype}{void} *ptr, \textcolor{keywordtype}{size\_t} *size);}
+\DoxyCodeLine{64   \textcolor{keywordtype}{bool} pointerInfo(\textcolor{keywordtype}{void} *ptr, \textcolor{keywordtype}{void} **pbase, \textcolor{keywordtype}{size\_t} *psize);}
+\DoxyCodeLine{65   \textcolor{keywordtype}{int} memCopy(\textcolor{keywordtype}{void} *dst, \textcolor{keyword}{const} \textcolor{keywordtype}{void} *src, \textcolor{keywordtype}{size\_t} size, cl::CommandQueue \&queue);}
+\DoxyCodeLine{66   \textcolor{keywordtype}{int} memFill(\textcolor{keywordtype}{void} *dst, \textcolor{keywordtype}{size\_t} size, \textcolor{keyword}{const} \textcolor{keywordtype}{void} *pattern, \textcolor{keywordtype}{size\_t} patt\_size,}
+\DoxyCodeLine{67               cl::CommandQueue \&queue);}
+\DoxyCodeLine{68   \textcolor{keywordtype}{void} clear();}
+\DoxyCodeLine{69 \};}
+\DoxyCodeLine{70 }
+\DoxyCodeLine{71 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContextOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_context}{CHIPContext}} \{}
+\DoxyCodeLine{72  \textcolor{keyword}{public}:}
+\DoxyCodeLine{73   \mbox{\hyperlink{class_s_v_memory_region}{SVMemoryRegion}} svm\_memory;}
+\DoxyCodeLine{74   cl::Context *cl\_ctx;}
+\DoxyCodeLine{75   \mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContextOpenCL}}(cl::Context *ctx\_in);}
+\DoxyCodeLine{76 }
+\DoxyCodeLine{77   \textcolor{keywordtype}{void} *\mbox{\hyperlink{class_c_h_i_p_context_open_c_l_a96df9d9e97324f90df1729ae8079ac95}{allocate\_}}(\textcolor{keywordtype}{size\_t} size, \textcolor{keywordtype}{size\_t} alignment,}
+\DoxyCodeLine{78                   CHIPMemoryType mem\_type) \textcolor{keyword}{override};}
+\DoxyCodeLine{79 }
+\DoxyCodeLine{80   \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_context_open_c_l_ab7de78a5e94d0bff220962cebd07596b}{free\_}}(\textcolor{keywordtype}{void} *ptr)\textcolor{keyword}{ override}\{\};}
+\DoxyCodeLine{81   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_context_open_c_l_ad0c20ea340fac85c33d3ac63e0e4ac9b}{memCopy}}(\textcolor{keywordtype}{void} *dst, \textcolor{keyword}{const} \textcolor{keywordtype}{void} *src, \textcolor{keywordtype}{size\_t} size,}
+\DoxyCodeLine{82                              hipStream\_t stream) \textcolor{keyword}{override};}
+\DoxyCodeLine{83   cl::Context *get() \{ \textcolor{keywordflow}{return} cl\_ctx; \}}
+\DoxyCodeLine{84 \};}
+\DoxyCodeLine{85 }
+\DoxyCodeLine{86 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_device_open_c_l}{CHIPDeviceOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_device}{CHIPDevice}} \{}
+\DoxyCodeLine{87  \textcolor{keyword}{public}:}
+\DoxyCodeLine{88   cl::Device *cl\_dev;}
+\DoxyCodeLine{89   cl::Context *cl\_ctx;}
+\DoxyCodeLine{90   \mbox{\hyperlink{class_c_h_i_p_device_open_c_l}{CHIPDeviceOpenCL}}(\mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContextOpenCL}} *chip\_ctx, cl::Device *dev\_in, \textcolor{keywordtype}{int} idx);}
+\DoxyCodeLine{91 }
+\DoxyCodeLine{92   cl::Device *get() \{ \textcolor{keywordflow}{return} cl\_dev; \}}
+\DoxyCodeLine{93 }
+\DoxyCodeLine{94   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_device_open_c_l_af4a2ab7d0d56063710d875ab2505755f}{populateDeviceProperties}}() \textcolor{keyword}{override};}
+\DoxyCodeLine{95   \textcolor{keyword}{virtual} std::string \mbox{\hyperlink{class_c_h_i_p_device_open_c_l_a5fa748efe4b61972f968275d78a17893}{getName}}() \textcolor{keyword}{override};}
+\DoxyCodeLine{96 }
+\DoxyCodeLine{97   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_device_open_c_l_acaeee9322c45dbe16d711e30a99758b7}{reset}}() \textcolor{keyword}{override};}
+\DoxyCodeLine{98 \};}
+\DoxyCodeLine{99 }
+\DoxyCodeLine{100 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}} \{}
+\DoxyCodeLine{101  \textcolor{keyword}{protected}:}
+\DoxyCodeLine{102   \textcolor{comment}{// Any reason to make these private/protected?}}
+\DoxyCodeLine{103   cl::Context *cl\_ctx;}
+\DoxyCodeLine{104   cl::Device *cl\_dev;}
+\DoxyCodeLine{105   cl::CommandQueue *cl\_q;}
+\DoxyCodeLine{106 }
+\DoxyCodeLine{107  \textcolor{keyword}{public}:}
+\DoxyCodeLine{108   \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}}() = \textcolor{keyword}{delete};  \textcolor{comment}{// delete default constructor}}
+\DoxyCodeLine{109   \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}}(\textcolor{keyword}{const} \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}} \&) = \textcolor{keyword}{delete};}
+\DoxyCodeLine{110   \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}}(\mbox{\hyperlink{class_c_h_i_p_device}{CHIPDevice}} *\mbox{\hyperlink{class_c_h_i_p_queue_a931f2895578dffb8c1f2434ba12c5754}{chip\_device}});}
+\DoxyCodeLine{111   \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{\string~CHIPQueueOpenCL}}();}
+\DoxyCodeLine{112 }
+\DoxyCodeLine{113   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l_a825b6a9ab7bcde9a9479e5cd0c68e517}{launch}}(\mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExecItem}} *exec\_item) \textcolor{keyword}{override};}
+\DoxyCodeLine{114   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l_a0421bc2ada82f32a8aebf81eddbce9a1}{finish}}() \textcolor{keyword}{override};}
+\DoxyCodeLine{115 }
+\DoxyCodeLine{116   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l_aca3e19319400c9f130af1bf600b26da3}{memCopy}}(\textcolor{keywordtype}{void} *dst, \textcolor{keyword}{const} \textcolor{keywordtype}{void} *src, \textcolor{keywordtype}{size\_t} size) \textcolor{keyword}{override};}
+\DoxyCodeLine{117   cl::CommandQueue *get() \{ \textcolor{keywordflow}{return} cl\_q; \}}
+\DoxyCodeLine{118 \};}
+\DoxyCodeLine{119 }
+\DoxyCodeLine{120 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_kernel_open_c_l}{CHIPKernelOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_kernel}{CHIPKernel}} \{}
+\DoxyCodeLine{121  \textcolor{keyword}{private}:}
+\DoxyCodeLine{122   std::string name;}
+\DoxyCodeLine{123   \textcolor{keywordtype}{size\_t} TotalArgSize;}
+\DoxyCodeLine{124   \mbox{\hyperlink{struct_o_c_l_func_info}{OCLFuncInfo}} *func\_info;}
+\DoxyCodeLine{125   cl::Kernel ocl\_kernel;}
+\DoxyCodeLine{126 }
+\DoxyCodeLine{127  \textcolor{keyword}{public}:}
+\DoxyCodeLine{128   \mbox{\hyperlink{class_c_h_i_p_kernel_open_c_l}{CHIPKernelOpenCL}}(\textcolor{keyword}{const} cl::Kernel \&\&cl\_kernel,}
+\DoxyCodeLine{129                    OpenCLFunctionInfoMap \&func\_info\_map) \{}
+\DoxyCodeLine{130     ocl\_kernel = cl\_kernel;}
+\DoxyCodeLine{131 }
+\DoxyCodeLine{132     \textcolor{keywordtype}{int} err = 0;}
+\DoxyCodeLine{133     name = ocl\_kernel.getInfo<CL\_KERNEL\_FUNCTION\_NAME>(\&err);}
+\DoxyCodeLine{134     \textcolor{keywordflow}{if} (err != CL\_SUCCESS) \{}
+\DoxyCodeLine{135       logError(\textcolor{stringliteral}{"{}clGetKernelInfo(CL\_KERNEL\_FUNCTION\_NAME) failed: \{\}\(\backslash\)n"{}}, err);}
+\DoxyCodeLine{136     \}}
+\DoxyCodeLine{137 }
+\DoxyCodeLine{138     \textcolor{keyword}{auto} it = func\_info\_map.find(name);}
+\DoxyCodeLine{139     assert(it != func\_info\_map.end());}
+\DoxyCodeLine{140     func\_info = it-\/>second;}
+\DoxyCodeLine{141 }
+\DoxyCodeLine{142     \textcolor{comment}{// TODO attributes}}
+\DoxyCodeLine{143     cl\_uint NumArgs = ocl\_kernel.getInfo<CL\_KERNEL\_NUM\_ARGS>(\&err);}
+\DoxyCodeLine{144     \textcolor{keywordflow}{if} (err != CL\_SUCCESS) \{}
+\DoxyCodeLine{145       logError(\textcolor{stringliteral}{"{}clGetKernelInfo(CL\_KERNEL\_NUM\_ARGS) failed: \{\}\(\backslash\)n"{}}, err);}
+\DoxyCodeLine{146     \}}
+\DoxyCodeLine{147 }
+\DoxyCodeLine{148     assert(func\_info-\/>ArgTypeInfo.size() == NumArgs);}
+\DoxyCodeLine{149 }
+\DoxyCodeLine{150     \textcolor{keywordflow}{if} (NumArgs > 0) \{}
+\DoxyCodeLine{151       logDebug(\textcolor{stringliteral}{"{}Kernel \{\} numArgs: \{\} \(\backslash\)n"{}}, name, NumArgs);}
+\DoxyCodeLine{152       logDebug(\textcolor{stringliteral}{"{}  RET\_TYPE: \{\} \{\} \{\}\(\backslash\)n"{}}, func\_info-\/>retTypeInfo.size,}
+\DoxyCodeLine{153                (\textcolor{keywordtype}{unsigned})func\_info-\/>retTypeInfo.space,}
+\DoxyCodeLine{154                (\textcolor{keywordtype}{unsigned})func\_info-\/>retTypeInfo.type);}
+\DoxyCodeLine{155       \textcolor{keywordflow}{for} (\textcolor{keyword}{auto} \&argty : func\_info-\/>ArgTypeInfo) \{}
+\DoxyCodeLine{156         logDebug(\textcolor{stringliteral}{"{}  ARG: SIZE \{\} SPACE \{\} TYPE \{\}\(\backslash\)n"{}}, argty.size,}
+\DoxyCodeLine{157                  (\textcolor{keywordtype}{unsigned})argty.space, (\textcolor{keywordtype}{unsigned})argty.type);}
+\DoxyCodeLine{158         TotalArgSize += argty.size;}
+\DoxyCodeLine{159       \}}
+\DoxyCodeLine{160     \}}
+\DoxyCodeLine{161   \}}
+\DoxyCodeLine{162 }
+\DoxyCodeLine{163   \mbox{\hyperlink{struct_o_c_l_func_info}{OCLFuncInfo}} *get\_func\_info()\textcolor{keyword}{ const }\{ \textcolor{keywordflow}{return} func\_info; \}}
+\DoxyCodeLine{164   std::string get\_name() \{ \textcolor{keywordflow}{return} name; \}}
+\DoxyCodeLine{165   cl::Kernel get()\textcolor{keyword}{ const }\{ \textcolor{keywordflow}{return} ocl\_kernel; \}}
+\DoxyCodeLine{166   \textcolor{keywordtype}{size\_t} getTotalArgSize()\textcolor{keyword}{ const }\{ \textcolor{keywordflow}{return} TotalArgSize; \};}
+\DoxyCodeLine{167 \};}
+\DoxyCodeLine{168 }
+\DoxyCodeLine{169 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_exec_item_open_c_l}{CHIPExecItemOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExecItem}} \{}
+\DoxyCodeLine{170  \textcolor{keyword}{private}:}
+\DoxyCodeLine{171   cl::Kernel *cl\_kernel;}
+\DoxyCodeLine{172 }
+\DoxyCodeLine{173  \textcolor{keyword}{public}:}
+\DoxyCodeLine{174   \mbox{\hyperlink{struct_o_c_l_func_info}{OCLFuncInfo}} FuncInfo;}
+\DoxyCodeLine{175   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_exec_item_open_c_l_a0dfdbe2360d5106f4288b9e4711ba93b}{launch}}(\mbox{\hyperlink{class_c_h_i_p_kernel}{CHIPKernel}} *chip\_kernel) \textcolor{keyword}{override};}
+\DoxyCodeLine{176   \textcolor{keywordtype}{int} setup\_all\_args(\mbox{\hyperlink{class_c_h_i_p_kernel_open_c_l}{CHIPKernelOpenCL}} *kernel);}
+\DoxyCodeLine{177   cl::Kernel *get() \{ \textcolor{keywordflow}{return} cl\_kernel; \}}
+\DoxyCodeLine{178 \};}
+\DoxyCodeLine{179 }
+\DoxyCodeLine{180 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_backend_open_c_l}{CHIPBackendOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_backend}{CHIPBackend}} \{}
+\DoxyCodeLine{181  \textcolor{keyword}{public}:}
+\DoxyCodeLine{182   \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_backend_open_c_l_ab829c228e2382ddbb057e242ec4d5c6e}{initialize}}(std::string CHIPPlatformStr, std::string CHIPDeviceTypeStr,}
+\DoxyCodeLine{183                   std::string CHIPDeviceStr)\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{184     logDebug(\textcolor{stringliteral}{"{}CHIPBackendOpenCL Initialize"{}});}
+\DoxyCodeLine{185     std::vector<cl::Platform> Platforms;}
+\DoxyCodeLine{186     cl\_int err = cl::Platform::get(\&Platforms);}
+\DoxyCodeLine{187     \textcolor{keywordflow}{if} (err != CL\_SUCCESS) \{}
+\DoxyCodeLine{188       logCritical(\textcolor{stringliteral}{"{}Failed to get OpenCL platforms! \{\}"{}}, err);}
+\DoxyCodeLine{189       std::abort();}
+\DoxyCodeLine{190     \}}
+\DoxyCodeLine{191     std::cout << \textcolor{stringliteral}{"{}\(\backslash\)nFound "{}} << Platforms.size() << \textcolor{stringliteral}{"{} OpenCL platforms:\(\backslash\)n"{}};}
+\DoxyCodeLine{192     \textcolor{keywordflow}{for} (\textcolor{keywordtype}{int} i = 0; i < Platforms.size(); i++) \{}
+\DoxyCodeLine{193       std::cout << i << \textcolor{stringliteral}{"{}. "{}} << Platforms[i].getInfo<CL\_PLATFORM\_NAME>()}
+\DoxyCodeLine{194                 << \textcolor{stringliteral}{"{}\(\backslash\)n"{}};}
+\DoxyCodeLine{195     \}}
+\DoxyCodeLine{196 }
+\DoxyCodeLine{197     std::vector<cl::Device> enabled\_devices;}
+\DoxyCodeLine{198     std::vector<cl::Device> Devices;}
+\DoxyCodeLine{199     \textcolor{keywordtype}{int} selected\_platform;}
+\DoxyCodeLine{200     \textcolor{keywordtype}{int} selected\_device;}
+\DoxyCodeLine{201     cl\_bitfield selected\_dev\_type = 0;}
+\DoxyCodeLine{202 }
+\DoxyCodeLine{203     \textcolor{keywordflow}{try} \{}
+\DoxyCodeLine{204       \textcolor{keywordflow}{if} (!CHIPDeviceStr.compare(\textcolor{stringliteral}{"{}all"{}})) \{  \textcolor{comment}{// Use all devices that match type}}
+\DoxyCodeLine{205         selected\_device = -\/1;}
+\DoxyCodeLine{206       \} \textcolor{keywordflow}{else} \{}
+\DoxyCodeLine{207         selected\_device = std::stoi(CHIPDeviceStr);}
+\DoxyCodeLine{208       \}}
+\DoxyCodeLine{209 }
+\DoxyCodeLine{210       \textcolor{comment}{// Platform index in range?}}
+\DoxyCodeLine{211       selected\_platform = std::stoi(CHIPPlatformStr);}
+\DoxyCodeLine{212       \textcolor{keywordflow}{if} ((selected\_platform < 0) || (selected\_platform >= Platforms.size()))}
+\DoxyCodeLine{213         \textcolor{keywordflow}{throw} \mbox{\hyperlink{class_invalid_platform_or_device_number}{InvalidPlatformOrDeviceNumber}}(}
+\DoxyCodeLine{214             \textcolor{stringliteral}{"{}CHIP\_PLATFORM: platform number out of range"{}});}
+\DoxyCodeLine{215       std::cout << \textcolor{stringliteral}{"{}Selected Platform: "{}} << selected\_platform << \textcolor{stringliteral}{"{}. "{}}}
+\DoxyCodeLine{216                 << Platforms[selected\_platform].getInfo<CL\_PLATFORM\_NAME>()}
+\DoxyCodeLine{217                 << \textcolor{stringliteral}{"{}\(\backslash\)n"{}};}
+\DoxyCodeLine{218 }
+\DoxyCodeLine{219       \textcolor{comment}{// Device  index in range?}}
+\DoxyCodeLine{220       err =  \textcolor{comment}{// Get All devices and print}}
+\DoxyCodeLine{221           Platforms[selected\_platform].getDevices(CL\_DEVICE\_TYPE\_ALL, \&Devices);}
+\DoxyCodeLine{222       \textcolor{keywordflow}{for} (\textcolor{keywordtype}{int} i = 0; i < Devices.size(); i++) \{}
+\DoxyCodeLine{223         std::cout << i << \textcolor{stringliteral}{"{}. "{}} << Devices[i].getInfo<CL\_DEVICE\_NAME>() << \textcolor{stringliteral}{"{}\(\backslash\)n"{}};}
+\DoxyCodeLine{224       \}}
+\DoxyCodeLine{225       \textcolor{keywordflow}{if} (selected\_device >= Devices.size())}
+\DoxyCodeLine{226         \textcolor{keywordflow}{throw} \mbox{\hyperlink{class_invalid_platform_or_device_number}{InvalidPlatformOrDeviceNumber}}(}
+\DoxyCodeLine{227             \textcolor{stringliteral}{"{}CHIP\_DEVICE: device number out of range"{}});}
+\DoxyCodeLine{228       \textcolor{keywordflow}{if} (selected\_device == -\/1) \{  \textcolor{comment}{// All devices enabled}}
+\DoxyCodeLine{229         enabled\_devices = Devices;}
+\DoxyCodeLine{230         logDebug(\textcolor{stringliteral}{"{}All Devices enabled\(\backslash\)n"{}}, \textcolor{stringliteral}{"{}"{}});}
+\DoxyCodeLine{231       \} \textcolor{keywordflow}{else} \{}
+\DoxyCodeLine{232         enabled\_devices.push\_back(Devices[selected\_device]);}
+\DoxyCodeLine{233         std::cout << \textcolor{stringliteral}{"{}\(\backslash\)nEnabled Devices:\(\backslash\)n"{}};}
+\DoxyCodeLine{234         std::cout << selected\_device << \textcolor{stringliteral}{"{}. "{}}}
+\DoxyCodeLine{235                   << enabled\_devices[0].getInfo<CL\_DEVICE\_NAME>() << \textcolor{stringliteral}{"{}\(\backslash\)n"{}};}
+\DoxyCodeLine{236       \}}
+\DoxyCodeLine{237 }
+\DoxyCodeLine{238       \textcolor{keywordflow}{if} (err != CL\_SUCCESS)}
+\DoxyCodeLine{239         \textcolor{keywordflow}{throw} \mbox{\hyperlink{class_invalid_platform_or_device_number}{InvalidPlatformOrDeviceNumber}}(}
+\DoxyCodeLine{240             \textcolor{stringliteral}{"{}CHIP\_DEVICE: can't get devices for platform"{}});}
+\DoxyCodeLine{241 }
+\DoxyCodeLine{242       std::transform(CHIPDeviceTypeStr.begin(), CHIPDeviceTypeStr.end(),}
+\DoxyCodeLine{243                      CHIPDeviceTypeStr.begin(), ::tolower);}
+\DoxyCodeLine{244       \textcolor{keywordflow}{if} (CHIPDeviceTypeStr == \textcolor{stringliteral}{"{}all"{}})}
+\DoxyCodeLine{245         selected\_dev\_type = CL\_DEVICE\_TYPE\_ALL;}
+\DoxyCodeLine{246       \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (CHIPDeviceTypeStr == \textcolor{stringliteral}{"{}cpu"{}})}
+\DoxyCodeLine{247         selected\_dev\_type = CL\_DEVICE\_TYPE\_CPU;}
+\DoxyCodeLine{248       \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (CHIPDeviceTypeStr == \textcolor{stringliteral}{"{}gpu"{}})}
+\DoxyCodeLine{249         selected\_dev\_type = CL\_DEVICE\_TYPE\_GPU;}
+\DoxyCodeLine{250       \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (CHIPDeviceTypeStr == \textcolor{stringliteral}{"{}default"{}})}
+\DoxyCodeLine{251         selected\_dev\_type = CL\_DEVICE\_TYPE\_DEFAULT;}
+\DoxyCodeLine{252       \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (CHIPDeviceTypeStr == \textcolor{stringliteral}{"{}accel"{}})}
+\DoxyCodeLine{253         selected\_dev\_type = CL\_DEVICE\_TYPE\_ACCELERATOR;}
+\DoxyCodeLine{254       \textcolor{keywordflow}{else}}
+\DoxyCodeLine{255         \textcolor{keywordflow}{throw} \mbox{\hyperlink{class_invalid_device_type}{InvalidDeviceType}}(}
+\DoxyCodeLine{256             \textcolor{stringliteral}{"{}Unknown value provided for CHIP\_DEVICE\_TYPE\(\backslash\)n"{}});}
+\DoxyCodeLine{257       std::cout << \textcolor{stringliteral}{"{}Using Devices of type "{}} << CHIPDeviceTypeStr << \textcolor{stringliteral}{"{}\(\backslash\)n"{}};}
+\DoxyCodeLine{258 }
+\DoxyCodeLine{259     \} \textcolor{keywordflow}{catch} (\textcolor{keyword}{const} \mbox{\hyperlink{class_invalid_device_type}{InvalidDeviceType}} \&e) \{}
+\DoxyCodeLine{260       logCritical(\textcolor{stringliteral}{"{}\{\}\(\backslash\)n"{}}, e.what());}
+\DoxyCodeLine{261       \textcolor{keywordflow}{return};}
+\DoxyCodeLine{262     \} \textcolor{keywordflow}{catch} (\textcolor{keyword}{const} \mbox{\hyperlink{class_invalid_platform_or_device_number}{InvalidPlatformOrDeviceNumber}} \&e) \{}
+\DoxyCodeLine{263       logCritical(\textcolor{stringliteral}{"{}\{\}\(\backslash\)n"{}}, e.what());}
+\DoxyCodeLine{264       \textcolor{keywordflow}{return};}
+\DoxyCodeLine{265     \} \textcolor{keywordflow}{catch} (\textcolor{keyword}{const} std::invalid\_argument \&e) \{}
+\DoxyCodeLine{266       logCritical(}
+\DoxyCodeLine{267           \textcolor{stringliteral}{"{}Could not convert CHIP\_PLATFORM or CHIP\_DEVICES to a number"{}});}
+\DoxyCodeLine{268       \textcolor{keywordflow}{return};}
+\DoxyCodeLine{269     \} \textcolor{keywordflow}{catch} (\textcolor{keyword}{const} std::out\_of\_range \&e) \{}
+\DoxyCodeLine{270       logCritical(\textcolor{stringliteral}{"{}CHIP\_PLATFORM or CHIP\_DEVICES is out of range"{}}, \textcolor{stringliteral}{"{}"{}});}
+\DoxyCodeLine{271       \textcolor{keywordflow}{return};}
+\DoxyCodeLine{272     \}}
+\DoxyCodeLine{273 }
+\DoxyCodeLine{274     std::vector<cl::Device> spirv\_enabled\_devices;}
+\DoxyCodeLine{275     \textcolor{keywordflow}{for} (cl::Device dev : enabled\_devices) \{}
+\DoxyCodeLine{276       std::string ver = dev.getInfo<CL\_DEVICE\_IL\_VERSION>(\&err);}
+\DoxyCodeLine{277       \textcolor{keywordflow}{if} ((err == CL\_SUCCESS) \&\& (ver.rfind(\textcolor{stringliteral}{"{}SPIR-\/V\_1."{}}, 0) == 0)) \{}
+\DoxyCodeLine{278         spirv\_enabled\_devices.push\_back(dev);}
+\DoxyCodeLine{279       \}}
+\DoxyCodeLine{280     \}}
+\DoxyCodeLine{281 }
+\DoxyCodeLine{282     \textcolor{comment}{// TODO uncomment this once testing on SPIR-\/V Enabled OpenCL HW}}
+\DoxyCodeLine{283     \textcolor{comment}{// std::cout << "{}SPIR-\/V Enabled Devices: "{} << spirv\_enabled\_devices.size()}}
+\DoxyCodeLine{284     \textcolor{comment}{//          << "{}\(\backslash\)n"{};}}
+\DoxyCodeLine{285     \textcolor{comment}{// for (int i = 0; i < spirv\_enabled\_devices.size(); i++) \{}}
+\DoxyCodeLine{286     \textcolor{comment}{//  std::cout << i << "{}. "{}}}
+\DoxyCodeLine{287     \textcolor{comment}{//            << spirv\_enabled\_devices[i].getInfo<CL\_DEVICE\_NAME>() <<}}
+\DoxyCodeLine{288     \textcolor{comment}{//            "{}\(\backslash\)n"{};}}
+\DoxyCodeLine{289     \textcolor{comment}{//\}}}
+\DoxyCodeLine{290 }
+\DoxyCodeLine{291     \textcolor{comment}{// Create context which has devices}}
+\DoxyCodeLine{292     \textcolor{comment}{// Create queues that have devices each of which has an associated context}}
+\DoxyCodeLine{293     \textcolor{comment}{// TODO Change this to spirv\_enabled\_devices}}
+\DoxyCodeLine{294     cl::Context *ctx = \textcolor{keyword}{new} cl::Context(enabled\_devices);}
+\DoxyCodeLine{295     \mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContextOpenCL}} *chip\_context = \textcolor{keyword}{new} \mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContextOpenCL}}(ctx);}
+\DoxyCodeLine{296     \mbox{\hyperlink{_c_h_i_p_driver_8hh_a90f41d29e43faf484f0ea833bcf14627}{Backend}}-\/>\mbox{\hyperlink{class_c_h_i_p_backend_ab7f16be2cab912f686d365fd0b7cb82a}{addContext}}(chip\_context);}
+\DoxyCodeLine{297     \textcolor{keywordflow}{for} (\textcolor{keywordtype}{int} i = 0; i < enabled\_devices.size(); i++) \{}
+\DoxyCodeLine{298       cl::Device *dev = \textcolor{keyword}{new} cl::Device(enabled\_devices[i]);}
+\DoxyCodeLine{299       \mbox{\hyperlink{class_c_h_i_p_device_open_c_l}{CHIPDeviceOpenCL}} *chip\_dev = \textcolor{keyword}{new} \mbox{\hyperlink{class_c_h_i_p_device_open_c_l}{CHIPDeviceOpenCL}}(chip\_context, dev, i);}
+\DoxyCodeLine{300       logDebug(\textcolor{stringliteral}{"{}CHIPDeviceOpenCL \{\}"{}},}
+\DoxyCodeLine{301                chip\_dev-\/>cl\_dev-\/>getInfo<CL\_DEVICE\_NAME>());}
+\DoxyCodeLine{302       chip\_dev-\/>\mbox{\hyperlink{class_c_h_i_p_device_open_c_l_af4a2ab7d0d56063710d875ab2505755f}{populateDeviceProperties}}();}
+\DoxyCodeLine{303       \mbox{\hyperlink{_c_h_i_p_driver_8hh_a90f41d29e43faf484f0ea833bcf14627}{Backend}}-\/>\mbox{\hyperlink{class_c_h_i_p_backend_a1d9cc1f762558b74bb4f4ef8bf880f7f}{addDevice}}(chip\_dev);}
+\DoxyCodeLine{304       \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}} *queue = \textcolor{keyword}{new} \mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueueOpenCL}}(chip\_dev);}
+\DoxyCodeLine{305       \mbox{\hyperlink{_c_h_i_p_driver_8hh_a90f41d29e43faf484f0ea833bcf14627}{Backend}}-\/>\mbox{\hyperlink{class_c_h_i_p_backend_a33b79f3321109309ca68f7c2e9a05b75}{addQueue}}(queue);}
+\DoxyCodeLine{306     \}}
+\DoxyCodeLine{307     std::cout << \textcolor{stringliteral}{"{}OpenCL Context Initialized.\(\backslash\)n"{}};}
+\DoxyCodeLine{308   \};}
+\DoxyCodeLine{309 }
+\DoxyCodeLine{310   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} initialize()\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{311     std::string empty;}
+\DoxyCodeLine{312     initialize(empty, empty, empty);}
+\DoxyCodeLine{313   \}}
+\DoxyCodeLine{314   \textcolor{keywordtype}{void} uninitialize()\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{315     logTrace(\textcolor{stringliteral}{"{}CHIPBackendOpenCL uninitializing"{}});}
+\DoxyCodeLine{316     logWarn(\textcolor{stringliteral}{"{}CHIPBackendOpenCL-\/>uninitialize() not implemented"{}});}
+\DoxyCodeLine{317   \}}
+\DoxyCodeLine{318 \};}
+\DoxyCodeLine{319 }
+\DoxyCodeLine{320 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_event_open_c_l}{CHIPEventOpenCL}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}} \{}
+\DoxyCodeLine{321  \textcolor{keyword}{protected}:}
+\DoxyCodeLine{322   cl::Event *cl\_event;}
+\DoxyCodeLine{323 \};}
+\DoxyCodeLine{324 }
+\DoxyCodeLine{325 \textcolor{preprocessor}{\#endif}}
+
+\end{DoxyCode}

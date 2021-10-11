@@ -1,5 +1,41 @@
-var searchData =
-  [
-    ['backend_0', ['Backend', ['../_h_i_pxx_driver_8cc.html#adcb47f0bb55a7fcf46adcd39142c1178', 1, 'Backend():&#160;CHIPDriver.cc'], ['../_h_i_pxx_driver_8hh.html#adcb47f0bb55a7fcf46adcd39142c1178', 1, 'Backend():&#160;CHIPDriver.cc']]],
-    ['backend_2ehh_1', ['Backend.hh', ['../_open_c_l_2_backend_8hh.html', 1, '']]]
-  ];
+var searchData=
+[
+  ['chip_5fcontext_0',['chip_context',['../class_c_h_i_p_queue.html#adf51de007fa09b5ff2b1a9fb4ebe3341',1,'CHIPQueue::chip_context()'],['../class_c_h_i_p_event.html#a4321ad3fc8ba63180a803557a5d9c270',1,'CHIPEvent::chip_context()']]],
+  ['chip_5fdevice_1',['chip_device',['../class_c_h_i_p_queue.html#a931f2895578dffb8c1f2434ba12c5754',1,'CHIPQueue']]],
+  ['chip_5fmodules_2',['chip_modules',['../class_c_h_i_p_device.html#a51ee6a67de68d89f75855c43a2c1bc74',1,'CHIPDevice']]],
+  ['chipallocationtracker_3',['CHIPAllocationTracker',['../class_c_h_i_p_allocation_tracker.html',1,'']]],
+  ['chipbackend_4',['CHIPBackend',['../class_c_h_i_p_backend.html#ac09e581fd509911be5e741fe9a40a337',1,'CHIPBackend::CHIPBackend()'],['../class_c_h_i_p_backend.html',1,'CHIPBackend']]],
+  ['chipbackend_2ehh_5',['CHIPBackend.hh',['../_c_h_i_p_backend_8hh.html',1,'']]],
+  ['chipbackendlevel0_6',['CHIPBackendLevel0',['../class_c_h_i_p_backend_level0.html',1,'']]],
+  ['chipbackendopencl_7',['CHIPBackendOpenCL',['../class_c_h_i_p_backend_open_c_l.html',1,'']]],
+  ['chipcontext_8',['CHIPContext',['../class_c_h_i_p_context.html#a271cd26573639cba0f3952c1a864b2b0',1,'CHIPContext::CHIPContext()'],['../class_c_h_i_p_context.html',1,'CHIPContext']]],
+  ['chipcontextlevel0_9',['CHIPContextLevel0',['../class_c_h_i_p_context_level0.html',1,'']]],
+  ['chipcontextopencl_10',['CHIPContextOpenCL',['../class_c_h_i_p_context_open_c_l.html',1,'']]],
+  ['chipdevice_11',['CHIPDevice',['../class_c_h_i_p_device.html#a4922603bb72ecad2e9deeffd034b0993',1,'CHIPDevice::CHIPDevice()'],['../class_c_h_i_p_device.html',1,'CHIPDevice']]],
+  ['chipdevicelevel0_12',['CHIPDeviceLevel0',['../class_c_h_i_p_device_level0.html',1,'']]],
+  ['chipdeviceopencl_13',['CHIPDeviceOpenCL',['../class_c_h_i_p_device_open_c_l.html',1,'']]],
+  ['chipdevicevar_14',['CHIPDeviceVar',['../class_c_h_i_p_device_var.html',1,'']]],
+  ['chipdriver_2ecc_15',['CHIPDriver.cc',['../_c_h_i_p_driver_8cc.html',1,'']]],
+  ['chipdriver_2ehh_16',['CHIPDriver.hh',['../_c_h_i_p_driver_8hh.html',1,'']]],
+  ['chipevent_17',['CHIPEvent',['../class_c_h_i_p_event.html#a52ed87a3aaf412f87a5875a60520d905',1,'CHIPEvent::CHIPEvent(CHIPContext *ctx_, CHIPEventType flags_=CHIPEventType::Default)'],['../class_c_h_i_p_event.html#a68534577cfebbd2c089e8af0a494263c',1,'CHIPEvent::CHIPEvent()=default'],['../class_c_h_i_p_event.html',1,'CHIPEvent']]],
+  ['chipeventopencl_18',['CHIPEventOpenCL',['../class_c_h_i_p_event_open_c_l.html',1,'']]],
+  ['chipexecitem_19',['CHIPExecItem',['../class_c_h_i_p_exec_item.html#a24fc5df28634179d20a9286b846215e7',1,'CHIPExecItem::CHIPExecItem()'],['../class_c_h_i_p_exec_item.html',1,'CHIPExecItem'],['../class_c_h_i_p_exec_item.html#ad240eeebfcca8d53597798e3399971f8',1,'CHIPExecItem::CHIPExecItem()']]],
+  ['chipexecitemopencl_20',['CHIPExecItemOpenCL',['../class_c_h_i_p_exec_item_open_c_l.html',1,'']]],
+  ['chipinitialize_21',['CHIPInitialize',['../_c_h_i_p_driver_8cc.html#afadecf4269477412eb147d73042de242',1,'CHIPInitialize(std::string BE):&#160;CHIPDriver.cc'],['../_c_h_i_p_driver_8hh.html#a3cff58225abf577aba3989f33fc4b136',1,'CHIPInitialize(std::string BE=&quot;&quot;):&#160;CHIPDriver.cc']]],
+  ['chipinitializecallonce_22',['CHIPInitializeCallOnce',['../_c_h_i_p_driver_8cc.html#af9f04ec6b0c73d2a6401fd3655a13249',1,'CHIPInitializeCallOnce(std::string BE):&#160;CHIPDriver.cc'],['../_c_h_i_p_driver_8hh.html#a32e90614e4468abc87bec72fb574b5f9',1,'CHIPInitializeCallOnce(std::string BE=&quot;&quot;):&#160;CHIPDriver.cc']]],
+  ['chipkernel_23',['CHIPKernel',['../class_c_h_i_p_kernel.html',1,'CHIPKernel'],['../class_c_h_i_p_kernel.html#a097d99fa464626f26bfdc0e14254820f',1,'CHIPKernel::CHIPKernel()']]],
+  ['chipkernellevel0_24',['CHIPKernelLevel0',['../class_c_h_i_p_kernel_level0.html',1,'']]],
+  ['chipkernelopencl_25',['CHIPKernelOpenCL',['../class_c_h_i_p_kernel_open_c_l.html',1,'']]],
+  ['chipmodule_26',['CHIPModule',['../class_c_h_i_p_module.html',1,'CHIPModule'],['../class_c_h_i_p_module.html#a98f3a83908e7a9afe65edf6abdbd832c',1,'CHIPModule::CHIPModule()=default'],['../class_c_h_i_p_module.html#afbb4589f144683624e4f62e6804fcc24',1,'CHIPModule::CHIPModule(std::string *module_str)'],['../class_c_h_i_p_module.html#a369f778acbff3afe7aaf234f6d9c75ea',1,'CHIPModule::CHIPModule(std::string &amp;&amp;module_str)']]],
+  ['chipmoduleopencl_27',['CHIPModuleOpenCL',['../class_c_h_i_p_module_open_c_l.html',1,'']]],
+  ['chipqueue_28',['CHIPQueue',['../class_c_h_i_p_queue.html#a107a1f2180a444cd8164b8ccf31338e8',1,'CHIPQueue::CHIPQueue()'],['../class_c_h_i_p_queue.html',1,'CHIPQueue'],['../class_c_h_i_p_queue.html#ae298e327188182e819154c25633ca554',1,'CHIPQueue::CHIPQueue(CHIPDevice *chip_dev)'],['../class_c_h_i_p_queue.html#a48b4074f892a0c72abd6746afc5f28d1',1,'CHIPQueue::CHIPQueue(CHIPDevice *chip_dev, unsigned int flags, int priority)']]],
+  ['chipqueuelevel0_29',['CHIPQueueLevel0',['../class_c_h_i_p_queue_level0.html',1,'']]],
+  ['chipqueueopencl_30',['CHIPQueueOpenCL',['../class_c_h_i_p_queue_open_c_l.html',1,'']]],
+  ['chipuninitialize_31',['CHIPUninitialize',['../_c_h_i_p_driver_8hh.html#a5b31cbf21849a03fc84fd384ba45a0cf',1,'CHIPUninitialize():&#160;CHIPDriver.cc'],['../_c_h_i_p_driver_8cc.html#a5b31cbf21849a03fc84fd384ba45a0cf',1,'CHIPUninitialize():&#160;CHIPDriver.cc']]],
+  ['chipuninitializecallonce_32',['CHIPUninitializeCallOnce',['../_c_h_i_p_driver_8hh.html#a4968379477021105777fbbdfae3e3289',1,'CHIPUninitializeCallOnce():&#160;CHIPDriver.cc'],['../_c_h_i_p_driver_8cc.html#a4968379477021105777fbbdfae3e3289',1,'CHIPUninitializeCallOnce():&#160;CHIPDriver.cc']]],
+  ['compile_33',['compile',['../class_c_h_i_p_module_open_c_l.html#a01ab6cdabbb9fcf5eda5d842f1a17150',1,'CHIPModuleOpenCL::compile()'],['../class_c_h_i_p_module.html#a95a5aabb92f68116eb2eb2d24403d486',1,'CHIPModule::compile(CHIPDevice *chip_dev)']]],
+  ['compileonce_34',['compileOnce',['../class_c_h_i_p_module.html#aa9cef37d3934498397b8644af4619d57',1,'CHIPModule']]],
+  ['configurecall_35',['configureCall',['../class_c_h_i_p_backend.html#a9d802a4ed8ee1c36996ea05d346bdb1d',1,'CHIPBackend']]],
+  ['copydeviceproperties_36',['copyDeviceProperties',['../class_c_h_i_p_device.html#a375f7ce1038f3bfc9c3d98bc4ee18c6d',1,'CHIPDevice']]],
+  ['createimage_37',['createImage',['../class_c_h_i_p_context.html#a90a36c0230e9aa63e381c679433f63f3',1,'CHIPContext']]]
+];

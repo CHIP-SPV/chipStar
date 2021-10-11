@@ -1,0 +1,120 @@
+\hypertarget{class_c_h_i_p_context_level0}{}\doxysection{CHIPContext\+Level0 Class Reference}
+\label{class_c_h_i_p_context_level0}\index{CHIPContextLevel0@{CHIPContextLevel0}}
+Inheritance diagram for CHIPContext\+Level0\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{class_c_h_i_p_context_level0}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_aa1cc7f9b70bad5683de176d358f14aeb}\label{class_c_h_i_p_context_level0_aa1cc7f9b70bad5683de176d358f14aeb}} 
+ze\+\_\+command\+\_\+list\+\_\+handle\+\_\+t {\bfseries get\+\_\+cmd\+\_\+list} ()
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_aa5eb8d61a9a4c237f90e5d3ef695d6fc}\label{class_c_h_i_p_context_level0_aa5eb8d61a9a4c237f90e5d3ef695d6fc}} 
+{\bfseries CHIPContext\+Level0} (ze\+\_\+context\+\_\+handle\+\_\+t \&\&\+\_\+ze\+\_\+ctx)
+\item 
+void $\ast$ \mbox{\hyperlink{class_c_h_i_p_context_level0_a15b8f5766763255a7dbd0d770e430283}{allocate\+\_\+}} (size\+\_\+t size, size\+\_\+t alignment, CHIPMemory\+Type mem\+Ty) override
+\begin{DoxyCompactList}\small\item\em Allocate data. Pure virtual function -\/ to be overriden by each backend. This member function is the one that\textquotesingle{}s called by all the publically visible \mbox{\hyperlink{class_c_h_i_p_context_a1f405ec128310904efe82e680e417ead}{CHIPContext\+::allocate()}} variants. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{class_c_h_i_p_context_level0_ae5555db19af1935c578b5f9ab8ffe1af}{free\+\_\+}} (void $\ast$ptr) override
+\begin{DoxyCompactList}\small\item\em Free memory To be overriden by the backend. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_aec811ee5f28d053d39dcc709142fdabe}\label{class_c_h_i_p_context_level0_aec811ee5f28d053d39dcc709142fdabe}} 
+ze\+\_\+context\+\_\+handle\+\_\+t \& {\bfseries get} ()
+\item 
+virtual hip\+Error\+\_\+t \mbox{\hyperlink{class_c_h_i_p_context_level0_a6f4fdbfd88439837f44536b2df3dab19}{mem\+Copy}} (void $\ast$dst, const void $\ast$src, size\+\_\+t size, hip\+Stream\+\_\+t stream) override
+\begin{DoxyCompactList}\small\item\em Copy memory. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_a683c0fa64c40b5ea55367587ecd43706}\label{class_c_h_i_p_context_level0_a683c0fa64c40b5ea55367587ecd43706}} 
+ze\+\_\+command\+\_\+list\+\_\+handle\+\_\+t {\bfseries ze\+\_\+cmd\+\_\+list}
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_a15b8f5766763255a7dbd0d770e430283}\label{class_c_h_i_p_context_level0_a15b8f5766763255a7dbd0d770e430283}} 
+\index{CHIPContextLevel0@{CHIPContextLevel0}!allocate\_@{allocate\_}}
+\index{allocate\_@{allocate\_}!CHIPContextLevel0@{CHIPContextLevel0}}
+\doxysubsubsection{\texorpdfstring{allocate\_()}{allocate\_()}}
+{\footnotesize\ttfamily void $\ast$ CHIPContext\+Level0\+::allocate\+\_\+ (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{size,  }\item[{size\+\_\+t}]{alignment,  }\item[{CHIPMemory\+Type}]{mem\+\_\+type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Allocate data. Pure virtual function -\/ to be overriden by each backend. This member function is the one that\textquotesingle{}s called by all the publically visible \mbox{\hyperlink{class_c_h_i_p_context_a1f405ec128310904efe82e680e417ead}{CHIPContext\+::allocate()}} variants. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em size} & size of the allocation. \\
+\hline
+{\em alignment} & allocation alignment in bytes \\
+\hline
+{\em mem\+\_\+type} & type of the allocation\+: Host, Device, Shared \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+
+
+Implements \mbox{\hyperlink{class_c_h_i_p_context_a3ad920ded6df2e7a66396ed77ab442b2}{CHIPContext}}.
+
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_ae5555db19af1935c578b5f9ab8ffe1af}\label{class_c_h_i_p_context_level0_ae5555db19af1935c578b5f9ab8ffe1af}} 
+\index{CHIPContextLevel0@{CHIPContextLevel0}!free\_@{free\_}}
+\index{free\_@{free\_}!CHIPContextLevel0@{CHIPContextLevel0}}
+\doxysubsubsection{\texorpdfstring{free\_()}{free\_()}}
+{\footnotesize\ttfamily void CHIPContext\+Level0\+::free\+\_\+ (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Free memory To be overriden by the backend. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ptr} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+true 
+
+false 
+\end{DoxyReturn}
+
+
+Implements \mbox{\hyperlink{class_c_h_i_p_context_aff2c9209a0ff52dd241188065a1f489a}{CHIPContext}}.
+
+\mbox{\Hypertarget{class_c_h_i_p_context_level0_a6f4fdbfd88439837f44536b2df3dab19}\label{class_c_h_i_p_context_level0_a6f4fdbfd88439837f44536b2df3dab19}} 
+\index{CHIPContextLevel0@{CHIPContextLevel0}!memCopy@{memCopy}}
+\index{memCopy@{memCopy}!CHIPContextLevel0@{CHIPContextLevel0}}
+\doxysubsubsection{\texorpdfstring{memCopy()}{memCopy()}}
+{\footnotesize\ttfamily hip\+Error\+\_\+t CHIPContext\+Level0\+::mem\+Copy (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{const void $\ast$}]{src,  }\item[{size\+\_\+t}]{size,  }\item[{hip\+Stream\+\_\+t}]{stream }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Copy memory. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dst} & destination \\
+\hline
+{\em src} & source \\
+\hline
+{\em size} & size of the copy \\
+\hline
+{\em stream} & queue to which this copy should be submitted to \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+
+
+Implements \mbox{\hyperlink{class_c_h_i_p_context_aa2541d2c5d3f61cf96263a59a41554ea}{CHIPContext}}.
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/\+Users/pvelesko/local/\+HIPxx/src/backend/\+Level0/Level0\+Backend.\+hh\item 
+/\+Users/pvelesko/local/\+HIPxx/src/backend/\+Level0/Level0\+Backend.\+cc\end{DoxyCompactItemize}

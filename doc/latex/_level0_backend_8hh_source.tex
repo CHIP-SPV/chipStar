@@ -1,0 +1,326 @@
+\hypertarget{_level0_backend_8hh_source}{}\doxysection{Level0\+Backend.\+hh}
+\label{_level0_backend_8hh_source}\index{/Users/pvelesko/local/HIPxx/src/backend/Level0/Level0Backend.hh@{/Users/pvelesko/local/HIPxx/src/backend/Level0/Level0Backend.hh}}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{1 \textcolor{preprocessor}{\#ifndef CHIP\_BACKEND\_LEVEL0\_H}}
+\DoxyCodeLine{2 \textcolor{preprocessor}{\#define CHIP\_BACKEND\_LEVEL0\_H}}
+\DoxyCodeLine{3 }
+\DoxyCodeLine{4 \textcolor{preprocessor}{\#include "{}../src/common.hh"{}}}
+\DoxyCodeLine{5 \textcolor{preprocessor}{\#include "{}../../CHIPBackend.hh"{}}}
+\DoxyCodeLine{6 \textcolor{preprocessor}{\#include "{}../include/ze\_api.h"{}}}
+\DoxyCodeLine{7 \textcolor{keyword}{enum class} LZMemoryType : unsigned \{ Host = 0, Device = 1, Shared = 2 \};}
+\DoxyCodeLine{8 }
+\DoxyCodeLine{9 \textcolor{keyword}{const} \textcolor{keywordtype}{char}* lzResultToString(ze\_result\_t status);}
+\DoxyCodeLine{10 }
+\DoxyCodeLine{11 \textcolor{preprocessor}{\#define LZ\_LOG\_ERROR(msg, status)                                            \(\backslash\)}}
+\DoxyCodeLine{12 \textcolor{preprocessor}{  logError("{}\{\} (\{\}) in \{\}:\{\}:\{\}\(\backslash\)n"{}}, msg, lzResultToString(status), \_\_FILE\_\_, \(\backslash\)}
+\DoxyCodeLine{13            \_\_LINE\_\_, \_\_func\_\_)}
+\DoxyCodeLine{14 }
+\DoxyCodeLine{15 \textcolor{preprocessor}{\#define LZ\_PROCESS\_ERROR\_MSG(msg, status)                               \(\backslash\)}}
+\DoxyCodeLine{16 \textcolor{preprocessor}{  do \{                                                                  \(\backslash\)}}
+\DoxyCodeLine{17 \textcolor{preprocessor}{    if (status != ZE\_RESULT\_SUCCESS \&\& status != ZE\_RESULT\_NOT\_READY) \{ \(\backslash\)}}
+\DoxyCodeLine{18 \textcolor{preprocessor}{      LZ\_LOG\_ERROR(msg, status);                                        \(\backslash\)}}
+\DoxyCodeLine{19 \textcolor{preprocessor}{      throw status;                                                     \(\backslash\)}}
+\DoxyCodeLine{20 \textcolor{preprocessor}{    \}                                                                   \(\backslash\)}}
+\DoxyCodeLine{21 \textcolor{preprocessor}{  \} while (0)}}
+\DoxyCodeLine{22 }
+\DoxyCodeLine{23 \textcolor{preprocessor}{\#define LZ\_PROCESS\_ERROR(status) \(\backslash\)}}
+\DoxyCodeLine{24 \textcolor{preprocessor}{  LZ\_PROCESS\_ERROR\_MSG("{}Level Zero Error"{}}, status)}
+\DoxyCodeLine{25 }
+\DoxyCodeLine{26 \textcolor{preprocessor}{\#define LZ\_RETURN\_ERROR\_MSG(msg, status)                                \(\backslash\)}}
+\DoxyCodeLine{27 \textcolor{preprocessor}{  do \{                                                                  \(\backslash\)}}
+\DoxyCodeLine{28 \textcolor{preprocessor}{    if (status != ZE\_RESULT\_SUCCESS \&\& status != ZE\_RESULT\_NOT\_READY) \{ \(\backslash\)}}
+\DoxyCodeLine{29 \textcolor{preprocessor}{      LZ\_LOG\_ERROR(msg, status);                                        \(\backslash\)}}
+\DoxyCodeLine{30 \textcolor{preprocessor}{      return lzConvertResult(status);                                   \(\backslash\)}}
+\DoxyCodeLine{31 \textcolor{preprocessor}{    \}                                                                   \(\backslash\)}}
+\DoxyCodeLine{32 \textcolor{preprocessor}{  \} while (0)}}
+\DoxyCodeLine{33 }
+\DoxyCodeLine{34 \textcolor{preprocessor}{\#define HIP\_LOG\_ERROR(msg, status)                                          \(\backslash\)}}
+\DoxyCodeLine{35 \textcolor{preprocessor}{  logError("{}\{\} (\{\}) in \{\}:\{\}:\{\}\(\backslash\)n"{}}, msg, hipGetErrorName(status), \_\_FILE\_\_, \(\backslash\)}
+\DoxyCodeLine{36            \_\_LINE\_\_, \_\_func\_\_)}
+\DoxyCodeLine{37 }
+\DoxyCodeLine{38 \textcolor{preprocessor}{\#define HIP\_PROCESS\_ERROR\_MSG(msg, status)                    \(\backslash\)}}
+\DoxyCodeLine{39 \textcolor{preprocessor}{  do \{                                                        \(\backslash\)}}
+\DoxyCodeLine{40 \textcolor{preprocessor}{    if (status != hipSuccess \&\& status != hipErrorNotReady) \{ \(\backslash\)}}
+\DoxyCodeLine{41 \textcolor{preprocessor}{      HIP\_LOG\_ERROR(msg, status);                             \(\backslash\)}}
+\DoxyCodeLine{42 \textcolor{preprocessor}{      throw status;                                           \(\backslash\)}}
+\DoxyCodeLine{43 \textcolor{preprocessor}{    \}                                                         \(\backslash\)}}
+\DoxyCodeLine{44 \textcolor{preprocessor}{  \} while (0)}}
+\DoxyCodeLine{45 }
+\DoxyCodeLine{46 \textcolor{preprocessor}{\#define HIP\_PROCESS\_ERROR(status) HIP\_PROCESS\_ERROR\_MSG("{}HIP Error"{}}, status)}
+\DoxyCodeLine{47 }
+\DoxyCodeLine{48 \textcolor{preprocessor}{\#define HIP\_RETURN\_ERROR(status)                            \(\backslash\)}}
+\DoxyCodeLine{49 \textcolor{preprocessor}{  HIP\_RETURN\_ERROR\_MSG("{}HIP Error"{}}, status)                 \(\backslash\)}
+\DoxyCodeLine{50   if (status != hipSuccess \&\& status != hipErrorNotReady) \{ \(\backslash\)}
+\DoxyCodeLine{51     HIP\_LOG\_ERROR(msg, status);                             \(\backslash\)}
+\DoxyCodeLine{52     return status;                                          \(\backslash\)}
+\DoxyCodeLine{53   \}                                                         \(\backslash\)}
+\DoxyCodeLine{54   \}                                                         \(\backslash\)}
+\DoxyCodeLine{55   while (0)}
+\DoxyCodeLine{56 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_context_level0}{CHIPContextLevel0}};}
+\DoxyCodeLine{57 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}};}
+\DoxyCodeLine{58 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_kernel_level0}{CHIPKernelLevel0}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_kernel}{CHIPKernel}} \{}
+\DoxyCodeLine{59  \textcolor{keyword}{protected}:}
+\DoxyCodeLine{60   ze\_kernel\_handle\_t ze\_kernel;}
+\DoxyCodeLine{61 }
+\DoxyCodeLine{62  \textcolor{keyword}{public}:}
+\DoxyCodeLine{63   \mbox{\hyperlink{class_c_h_i_p_kernel_level0}{CHIPKernelLevel0}}()\{\};}
+\DoxyCodeLine{64   \mbox{\hyperlink{class_c_h_i_p_kernel_level0}{CHIPKernelLevel0}}(ze\_kernel\_handle\_t \_ze\_kernel, std::string \_funcName,}
+\DoxyCodeLine{65                    \textcolor{keyword}{const} \textcolor{keywordtype}{void}* \_host\_ptr) \{}
+\DoxyCodeLine{66     ze\_kernel = \_ze\_kernel;}
+\DoxyCodeLine{67     \mbox{\hyperlink{class_c_h_i_p_kernel_a50a2dca3383cb0a00e94d9c56596528b}{host\_f\_name}} = \_funcName;}
+\DoxyCodeLine{68     \mbox{\hyperlink{class_c_h_i_p_kernel_a2b268efc85942aa181a435aea93e121b}{host\_f\_ptr}} = \_host\_ptr;}
+\DoxyCodeLine{69     logTrace(\textcolor{stringliteral}{"{}CHIPKernelLevel0 constructor via ze\_kernel\_handle"{}});}
+\DoxyCodeLine{70   \}}
+\DoxyCodeLine{71 }
+\DoxyCodeLine{72   ze\_kernel\_handle\_t get() \{ \textcolor{keywordflow}{return} ze\_kernel; \}}
+\DoxyCodeLine{73 \};}
+\DoxyCodeLine{74 }
+\DoxyCodeLine{75 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_queue_level0}{CHIPQueueLevel0}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}} \{}
+\DoxyCodeLine{76  \textcolor{keyword}{protected}:}
+\DoxyCodeLine{77   ze\_command\_queue\_handle\_t ze\_q;}
+\DoxyCodeLine{78   ze\_context\_handle\_t ze\_ctx;}
+\DoxyCodeLine{79   ze\_device\_handle\_t ze\_dev;}
+\DoxyCodeLine{80 }
+\DoxyCodeLine{81  \textcolor{keyword}{public}:}
+\DoxyCodeLine{82   \mbox{\hyperlink{class_c_h_i_p_queue_level0}{CHIPQueueLevel0}}(\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}}* hixx\_dev\_);}
+\DoxyCodeLine{83 }
+\DoxyCodeLine{84   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_queue_level0_aebaaa63d16f0cb190595c34d61690df3}{launch}}(\mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExecItem}}* exec\_item)\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{85     logWarn(\textcolor{stringliteral}{"{}CHIPQueueLevel0.launch() not yet implemented"{}});}
+\DoxyCodeLine{86     \textcolor{keywordflow}{return} hipSuccess;}
+\DoxyCodeLine{87   \};}
+\DoxyCodeLine{88 }
+\DoxyCodeLine{89   ze\_command\_queue\_handle\_t get() \{ \textcolor{keywordflow}{return} ze\_q; \}}
+\DoxyCodeLine{90 }
+\DoxyCodeLine{91   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_queue_level0_a5a953fc9978aa7a76e69212c338b45d9}{memCopy}}(\textcolor{keywordtype}{void}* dst, \textcolor{keyword}{const} \textcolor{keywordtype}{void}* src, \textcolor{keywordtype}{size\_t} size) \textcolor{keyword}{override};}
+\DoxyCodeLine{92 \};}
+\DoxyCodeLine{93 }
+\DoxyCodeLine{94 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_device}{CHIPDevice}} \{}
+\DoxyCodeLine{95   ze\_device\_handle\_t ze\_dev;}
+\DoxyCodeLine{96   ze\_context\_handle\_t ze\_ctx;}
+\DoxyCodeLine{97 }
+\DoxyCodeLine{98  \textcolor{keyword}{public}:}
+\DoxyCodeLine{99   \mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}}(ze\_device\_handle\_t\&\& ze\_dev\_, ze\_context\_handle\_t ze\_ctx\_)}
+\DoxyCodeLine{100       : ze\_dev(ze\_dev\_), ze\_ctx(ze\_ctx\_) \{\}}
+\DoxyCodeLine{101   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_device_level0_abaf4099949c7c45c133d16feeb37956c}{populateDeviceProperties}}()\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{102     logWarn(}
+\DoxyCodeLine{103         \textcolor{stringliteral}{"{}CHIPDeviceLevel0.populate\_device\_properties not yet "{}}}
+\DoxyCodeLine{104         \textcolor{stringliteral}{"{}implemented"{}});}
+\DoxyCodeLine{105   \}}
+\DoxyCodeLine{106   \textcolor{keyword}{virtual} std::string \mbox{\hyperlink{class_c_h_i_p_device_level0_a9476b6ed30ddda6dba12c30dfc206157}{getName}}()\textcolor{keyword}{ override }\{ \textcolor{keywordflow}{return} device\_name; \}}
+\DoxyCodeLine{107   ze\_device\_handle\_t\& get() \{ \textcolor{keywordflow}{return} ze\_dev; \}}
+\DoxyCodeLine{108 }
+\DoxyCodeLine{109   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_device_level0_a082d942aa4d6c26114f00537f5fb7230}{reset}}() \textcolor{keyword}{override};}
+\DoxyCodeLine{110 \};}
+\DoxyCodeLine{111 }
+\DoxyCodeLine{112 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_context_level0}{CHIPContextLevel0}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_context}{CHIPContext}} \{}
+\DoxyCodeLine{113   ze\_context\_handle\_t ze\_ctx;}
+\DoxyCodeLine{114   OpenCLFunctionInfoMap FuncInfos;}
+\DoxyCodeLine{115 }
+\DoxyCodeLine{116  \textcolor{keyword}{public}:}
+\DoxyCodeLine{117   ze\_command\_list\_handle\_t ze\_cmd\_list;}
+\DoxyCodeLine{118   ze\_command\_list\_handle\_t get\_cmd\_list() \{ \textcolor{keywordflow}{return} ze\_cmd\_list; \}}
+\DoxyCodeLine{119   \mbox{\hyperlink{class_c_h_i_p_context_level0}{CHIPContextLevel0}}(ze\_context\_handle\_t\&\& \_ze\_ctx) : ze\_ctx(\_ze\_ctx) \{\}}
+\DoxyCodeLine{120 }
+\DoxyCodeLine{121   \textcolor{keywordtype}{void}* \mbox{\hyperlink{class_c_h_i_p_context_level0_a15b8f5766763255a7dbd0d770e430283}{allocate\_}}(\textcolor{keywordtype}{size\_t} size, \textcolor{keywordtype}{size\_t} alignment,}
+\DoxyCodeLine{122                   CHIPMemoryType memTy)\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{123     alignment = 0x1000;  \textcolor{comment}{// TODO Where/why}}
+\DoxyCodeLine{124     \textcolor{keywordtype}{void}* ptr = 0;}
+\DoxyCodeLine{125     \textcolor{keywordflow}{if} (memTy == CHIPMemoryType::Shared) \{}
+\DoxyCodeLine{126       ze\_device\_mem\_alloc\_desc\_t dmaDesc;}
+\DoxyCodeLine{127       dmaDesc.stype = ZE\_STRUCTURE\_TYPE\_DEVICE\_MEM\_ALLOC\_DESC;}
+\DoxyCodeLine{128       dmaDesc.pNext = NULL;}
+\DoxyCodeLine{129       dmaDesc.flags = 0;}
+\DoxyCodeLine{130       dmaDesc.ordinal = 0;}
+\DoxyCodeLine{131       ze\_host\_mem\_alloc\_desc\_t hmaDesc;}
+\DoxyCodeLine{132       hmaDesc.stype = ZE\_STRUCTURE\_TYPE\_HOST\_MEM\_ALLOC\_DESC;}
+\DoxyCodeLine{133       hmaDesc.pNext = NULL;}
+\DoxyCodeLine{134       hmaDesc.flags = 0;}
+\DoxyCodeLine{135 }
+\DoxyCodeLine{136       \textcolor{comment}{// TODO Check if devices support cross-\/device sharing?}}
+\DoxyCodeLine{137       ze\_device\_handle\_t ze\_dev = ((\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}}*)\mbox{\hyperlink{class_c_h_i_p_context_aa6de7c121936615b9020e9459fa260d6}{getDevices}}()[0])-\/>get();}
+\DoxyCodeLine{138       ze\_dev = \textcolor{keyword}{nullptr};  \textcolor{comment}{// Do not associate allocation}}
+\DoxyCodeLine{139 }
+\DoxyCodeLine{140       ze\_result\_t status = zeMemAllocShared(ze\_ctx, \&dmaDesc, \&hmaDesc, size,}
+\DoxyCodeLine{141                                             alignment, ze\_dev, \&ptr);}
+\DoxyCodeLine{142 }
+\DoxyCodeLine{143       \textcolor{comment}{// LZ\_PROCESS\_ERROR\_MSG(}}
+\DoxyCodeLine{144       \textcolor{comment}{//     "{}HipLZ could not allocate shared memory with error code:}}
+\DoxyCodeLine{145       \textcolor{comment}{//     "{}, status);}}
+\DoxyCodeLine{146       logDebug(\textcolor{stringliteral}{"{}LZ MEMORY ALLOCATE via calling zeMemAllocShared \{\} "{}}, status);}
+\DoxyCodeLine{147 }
+\DoxyCodeLine{148       \textcolor{keywordflow}{return} ptr;}
+\DoxyCodeLine{149     \} \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (memTy == CHIPMemoryType::Device) \{}
+\DoxyCodeLine{150       ze\_device\_mem\_alloc\_desc\_t dmaDesc;}
+\DoxyCodeLine{151       dmaDesc.stype = ZE\_STRUCTURE\_TYPE\_DEVICE\_MEM\_ALLOC\_DESC;}
+\DoxyCodeLine{152       dmaDesc.pNext = NULL;}
+\DoxyCodeLine{153       dmaDesc.flags = 0;}
+\DoxyCodeLine{154       dmaDesc.ordinal = 0;}
+\DoxyCodeLine{155 }
+\DoxyCodeLine{156       \textcolor{comment}{// TODO Select proper device}}
+\DoxyCodeLine{157       ze\_device\_handle\_t ze\_dev = ((\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}}*)\mbox{\hyperlink{class_c_h_i_p_context_aa6de7c121936615b9020e9459fa260d6}{getDevices}}()[0])-\/>get();}
+\DoxyCodeLine{158 }
+\DoxyCodeLine{159       ze\_result\_t status =}
+\DoxyCodeLine{160           zeMemAllocDevice(ze\_ctx, \&dmaDesc, size, alignment, ze\_dev, \&ptr);}
+\DoxyCodeLine{161       LZ\_PROCESS\_ERROR\_MSG(}
+\DoxyCodeLine{162           \textcolor{stringliteral}{"{}HipLZ could not allocate device memory with error code: "{}}, status);}
+\DoxyCodeLine{163       logDebug(\textcolor{stringliteral}{"{}LZ MEMORY ALLOCATE via calling zeMemAllocDevice \{\} "{}}, status);}
+\DoxyCodeLine{164 }
+\DoxyCodeLine{165       \textcolor{keywordflow}{return} ptr;}
+\DoxyCodeLine{166     \}}
+\DoxyCodeLine{167 }
+\DoxyCodeLine{168     \textcolor{comment}{// HIP\_PROCESS\_ERROR\_MSG("{}HipLZ could not recognize allocation}}
+\DoxyCodeLine{169     \textcolor{comment}{// options"{},}}
+\DoxyCodeLine{170     \textcolor{comment}{//                       hipErrorNotSupported);}}
+\DoxyCodeLine{171     \textcolor{keywordflow}{return} \textcolor{keyword}{nullptr};}
+\DoxyCodeLine{172   \}}
+\DoxyCodeLine{173 }
+\DoxyCodeLine{174   \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_context_level0_ae5555db19af1935c578b5f9ab8ffe1af}{free\_}}(\textcolor{keywordtype}{void}* ptr)\textcolor{keyword}{ override}\{\};  \textcolor{comment}{// TODO}}
+\DoxyCodeLine{175   ze\_context\_handle\_t\& get() \{ \textcolor{keywordflow}{return} ze\_ctx; \}}
+\DoxyCodeLine{176   \textcolor{keyword}{virtual} hipError\_t \mbox{\hyperlink{class_c_h_i_p_context_level0_a6f4fdbfd88439837f44536b2df3dab19}{memCopy}}(\textcolor{keywordtype}{void}* dst, \textcolor{keyword}{const} \textcolor{keywordtype}{void}* src, \textcolor{keywordtype}{size\_t} size,}
+\DoxyCodeLine{177                              hipStream\_t stream) \textcolor{keyword}{override};}
+\DoxyCodeLine{178 }
+\DoxyCodeLine{179   \textcolor{comment}{// virtual bool registerFunctionAsKernel(std::string* module\_str,}}
+\DoxyCodeLine{180   \textcolor{comment}{//                                       const void* HostFunctionPtr,}}
+\DoxyCodeLine{181   \textcolor{comment}{//                                       const char* FunctionName) override \{}}
+\DoxyCodeLine{182   \textcolor{comment}{//   logWarn(}}
+\DoxyCodeLine{183   \textcolor{comment}{//       "{}CHIPContextLevel0.register\_function\_as\_kernel not "{}}}
+\DoxyCodeLine{184   \textcolor{comment}{//       "{}implemented"{});}}
+\DoxyCodeLine{185   \textcolor{comment}{//   logDebug("{}CHIPContextLevel0.register\_function\_as\_kernel \{\} "{},}}
+\DoxyCodeLine{186   \textcolor{comment}{//            FunctionName);}}
+\DoxyCodeLine{187   \textcolor{comment}{//   uint8\_t* funcIL = (uint8\_t*)module\_str-\/>data();}}
+\DoxyCodeLine{188   \textcolor{comment}{//   size\_t ilSize = module\_str-\/>length();}}
+\DoxyCodeLine{189   \textcolor{comment}{//   std::string funcName = FunctionName;}}
+\DoxyCodeLine{190 }
+\DoxyCodeLine{191   \textcolor{comment}{//   // Parse the SPIR-\/V fat binary to retrieve kernel function}}
+\DoxyCodeLine{192   \textcolor{comment}{//   size\_t numWords = ilSize / 4;}}
+\DoxyCodeLine{193   \textcolor{comment}{//   int32\_t* binarydata = new int32\_t[numWords + 1];}}
+\DoxyCodeLine{194   \textcolor{comment}{//   std::memcpy(binarydata, funcIL, ilSize);}}
+\DoxyCodeLine{195   \textcolor{comment}{//   // Extract kernel function information}}
+\DoxyCodeLine{196   \textcolor{comment}{//   bool res = parseSPIR(binarydata, numWords, FuncInfos);}}
+\DoxyCodeLine{197   \textcolor{comment}{//   delete[] binarydata;}}
+\DoxyCodeLine{198   \textcolor{comment}{//   if (!res) \{}}
+\DoxyCodeLine{199   \textcolor{comment}{//     logError("{}SPIR-\/V parsing failed\(\backslash\)n"{});}}
+\DoxyCodeLine{200   \textcolor{comment}{//     return false;}}
+\DoxyCodeLine{201   \textcolor{comment}{//   \}}}
+\DoxyCodeLine{202 }
+\DoxyCodeLine{203   \textcolor{comment}{//   logDebug("{}LZ PARSE SPIR \{\} "{}, funcName);}}
+\DoxyCodeLine{204   \textcolor{comment}{//   ze\_module\_handle\_t ze\_module;}}
+\DoxyCodeLine{205   \textcolor{comment}{//   // Create module with global address aware}}
+\DoxyCodeLine{206   \textcolor{comment}{//   std::string compilerOptions =}}
+\DoxyCodeLine{207   \textcolor{comment}{//       "{} -\/cl-\/std=CL2.0 -\/cl-\/take-\/global-\/address -\/cl-\/match-\/sincospi"{};}}
+\DoxyCodeLine{208   \textcolor{comment}{//   ze\_module\_desc\_t moduleDesc = \{ZE\_STRUCTURE\_TYPE\_MODULE\_DESC,}}
+\DoxyCodeLine{209   \textcolor{comment}{//                                  nullptr,}}
+\DoxyCodeLine{210   \textcolor{comment}{//                                  ZE\_MODULE\_FORMAT\_IL\_SPIRV,}}
+\DoxyCodeLine{211   \textcolor{comment}{//                                  ilSize,}}
+\DoxyCodeLine{212   \textcolor{comment}{//                                  funcIL,}}
+\DoxyCodeLine{213   \textcolor{comment}{//                                  compilerOptions.c\_str(),}}
+\DoxyCodeLine{214   \textcolor{comment}{//                                  nullptr\};}}
+\DoxyCodeLine{215   \textcolor{comment}{//   for (CHIPDevice* chip\_dev : getDevices()) \{}}
+\DoxyCodeLine{216   \textcolor{comment}{//     ze\_device\_handle\_t ze\_dev = ((CHIPDeviceLevel0*)chip\_dev)-\/>get();}}
+\DoxyCodeLine{217   \textcolor{comment}{//     ze\_result\_t status =}}
+\DoxyCodeLine{218   \textcolor{comment}{//         zeModuleCreate(ze\_ctx, ze\_dev, \&moduleDesc, \&ze\_module, nullptr);}}
+\DoxyCodeLine{219   \textcolor{comment}{//     logDebug("{}LZ CREATE MODULE via calling zeModuleCreate \{\} "{}, status);}}
+\DoxyCodeLine{220 }
+\DoxyCodeLine{221   \textcolor{comment}{//     // Create kernel}}
+\DoxyCodeLine{222   \textcolor{comment}{//     ze\_kernel\_handle\_t ze\_kernel;}}
+\DoxyCodeLine{223   \textcolor{comment}{//     ze\_kernel\_desc\_t kernelDesc = \{ZE\_STRUCTURE\_TYPE\_KERNEL\_DESC, nullptr,}}
+\DoxyCodeLine{224   \textcolor{comment}{//                                    0,  // flags}}
+\DoxyCodeLine{225   \textcolor{comment}{//                                    funcName.c\_str()\};}}
+\DoxyCodeLine{226   \textcolor{comment}{//     status = zeKernelCreate(ze\_module, \&kernelDesc, \&ze\_kernel);}}
+\DoxyCodeLine{227 }
+\DoxyCodeLine{228   \textcolor{comment}{//     // LZ\_PROCESS\_ERROR\_MSG("{}HipLZ zeKernelCreate FAILED with return}}
+\DoxyCodeLine{229   \textcolor{comment}{//     // code "{}, status);}}
+\DoxyCodeLine{230 }
+\DoxyCodeLine{231   \textcolor{comment}{//     logDebug("{}LZ KERNEL CREATION via calling zeKernelCreate \{\} "{}, status);}}
+\DoxyCodeLine{232   \textcolor{comment}{//     CHIPKernelLevel0* chip\_ze\_kernel =}}
+\DoxyCodeLine{233   \textcolor{comment}{//         new CHIPKernelLevel0(ze\_kernel, FunctionName, HostFunctionPtr);}}
+\DoxyCodeLine{234 }
+\DoxyCodeLine{235   \textcolor{comment}{//     chip\_dev-\/>addKernel(chip\_ze\_kernel);}}
+\DoxyCodeLine{236   \textcolor{comment}{//   \}}}
+\DoxyCodeLine{237 }
+\DoxyCodeLine{238   \textcolor{comment}{//   return true;}}
+\DoxyCodeLine{239   \textcolor{comment}{// \}}}
+\DoxyCodeLine{240 \};  \textcolor{comment}{// CHIPContextLevel0}}
+\DoxyCodeLine{241 }
+\DoxyCodeLine{242 \textcolor{keyword}{class }\mbox{\hyperlink{class_c_h_i_p_backend_level0}{CHIPBackendLevel0}} : \textcolor{keyword}{public} \mbox{\hyperlink{class_c_h_i_p_backend}{CHIPBackend}} \{}
+\DoxyCodeLine{243  \textcolor{keyword}{public}:}
+\DoxyCodeLine{244   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} \mbox{\hyperlink{class_c_h_i_p_backend_level0_a9ca8b3d935593a3f9788dfd836e2ffa7}{initialize}}(std::string CHIPPlatformStr,}
+\DoxyCodeLine{245                           std::string CHIPDeviceTypeStr,}
+\DoxyCodeLine{246                           std::string CHIPDeviceStr)\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{247     logDebug(\textcolor{stringliteral}{"{}CHIPBackendLevel0 Initialize"{}});}
+\DoxyCodeLine{248     ze\_result\_t status;}
+\DoxyCodeLine{249     status = zeInit(0);}
+\DoxyCodeLine{250     logDebug(\textcolor{stringliteral}{"{}INITIALIZE LEVEL-\/0 (via calling zeInit) \{\}\(\backslash\)n"{}}, status);}
+\DoxyCodeLine{251 }
+\DoxyCodeLine{252     ze\_device\_type\_t ze\_device\_type;}
+\DoxyCodeLine{253     \textcolor{keywordflow}{if} (!CHIPDeviceTypeStr.compare(\textcolor{stringliteral}{"{}GPU"{}})) \{}
+\DoxyCodeLine{254       ze\_device\_type = ZE\_DEVICE\_TYPE\_GPU;}
+\DoxyCodeLine{255     \} \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (!CHIPDeviceTypeStr.compare(\textcolor{stringliteral}{"{}FPGA"{}})) \{}
+\DoxyCodeLine{256       ze\_device\_type = ZE\_DEVICE\_TYPE\_FPGA;}
+\DoxyCodeLine{257     \} \textcolor{keywordflow}{else} \{}
+\DoxyCodeLine{258       logCritical(\textcolor{stringliteral}{"{}CHIP\_DEVICE\_TYPE must be either GPU or FPGA"{}});}
+\DoxyCodeLine{259     \}}
+\DoxyCodeLine{260     \textcolor{keywordtype}{int} platform\_idx = std::atoi(CHIPPlatformStr.c\_str());}
+\DoxyCodeLine{261     std::vector<ze\_driver\_handle\_t> ze\_drivers;}
+\DoxyCodeLine{262     std::vector<ze\_device\_handle\_t> ze\_devices;}
+\DoxyCodeLine{263 }
+\DoxyCodeLine{264     \textcolor{comment}{// Get number of drivers}}
+\DoxyCodeLine{265     uint32\_t driverCount = 0, deviceCount = 0;}
+\DoxyCodeLine{266     status = zeDriverGet(\&driverCount, \textcolor{keyword}{nullptr});}
+\DoxyCodeLine{267     logDebug(\textcolor{stringliteral}{"{}Found Level0 Drivers: \{\}"{}}, driverCount);}
+\DoxyCodeLine{268     \textcolor{comment}{// Resize and fill ze\_driver vector with drivers}}
+\DoxyCodeLine{269     ze\_drivers.resize(driverCount);}
+\DoxyCodeLine{270     status = zeDriverGet(\&driverCount, ze\_drivers.data());}
+\DoxyCodeLine{271 }
+\DoxyCodeLine{272     \textcolor{comment}{// TODO Allow for multilpe platforms(drivers)}}
+\DoxyCodeLine{273     \textcolor{comment}{// TODO Check platform ID is not the same as OpenCL. You can have}}
+\DoxyCodeLine{274     \textcolor{comment}{// two OCL platforms but only one level0 driver}}
+\DoxyCodeLine{275     ze\_driver\_handle\_t ze\_driver = ze\_drivers[platform\_idx];}
+\DoxyCodeLine{276 }
+\DoxyCodeLine{277     assert(ze\_driver != \textcolor{keyword}{nullptr});}
+\DoxyCodeLine{278     \textcolor{comment}{// Load devices to device vector}}
+\DoxyCodeLine{279     zeDeviceGet(ze\_driver, \&deviceCount, \textcolor{keyword}{nullptr});}
+\DoxyCodeLine{280     ze\_devices.resize(deviceCount);}
+\DoxyCodeLine{281     zeDeviceGet(ze\_driver, \&deviceCount, ze\_devices.data());}
+\DoxyCodeLine{282 }
+\DoxyCodeLine{283     \textcolor{keyword}{const} ze\_context\_desc\_t ctxDesc = \{ZE\_STRUCTURE\_TYPE\_CONTEXT\_DESC, \textcolor{keyword}{nullptr},}
+\DoxyCodeLine{284                                        0\};}
+\DoxyCodeLine{285 }
+\DoxyCodeLine{286     ze\_context\_handle\_t ze\_ctx;}
+\DoxyCodeLine{287     zeContextCreateEx(ze\_driver, \&ctxDesc, deviceCount, ze\_devices.data(),}
+\DoxyCodeLine{288                       \&ze\_ctx);}
+\DoxyCodeLine{289     \mbox{\hyperlink{class_c_h_i_p_context_level0}{CHIPContextLevel0}}* chip\_l0\_ctx = \textcolor{keyword}{new} \mbox{\hyperlink{class_c_h_i_p_context_level0}{CHIPContextLevel0}}(std::move(ze\_ctx));}
+\DoxyCodeLine{290 }
+\DoxyCodeLine{291     \textcolor{comment}{// Filter in only devices of selected type and add them to the}}
+\DoxyCodeLine{292     \textcolor{comment}{// backend as derivates of CHIPDevice}}
+\DoxyCodeLine{293     \textcolor{keywordflow}{for} (\textcolor{keywordtype}{int} i = 0; i < deviceCount; i++) \{}
+\DoxyCodeLine{294       \textcolor{keyword}{auto} dev = ze\_devices[i];}
+\DoxyCodeLine{295       ze\_device\_properties\_t device\_properties;}
+\DoxyCodeLine{296       zeDeviceGetProperties(dev, \&device\_properties);}
+\DoxyCodeLine{297       \textcolor{keywordflow}{if} (ze\_device\_type == device\_properties.type) \{}
+\DoxyCodeLine{298         \mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}}* chip\_l0\_dev =}
+\DoxyCodeLine{299             \textcolor{keyword}{new} \mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDeviceLevel0}}(std::move(dev), ze\_ctx);}
+\DoxyCodeLine{300         \mbox{\hyperlink{_c_h_i_p_driver_8hh_a90f41d29e43faf484f0ea833bcf14627}{Backend}}-\/>\mbox{\hyperlink{class_c_h_i_p_backend_a1d9cc1f762558b74bb4f4ef8bf880f7f}{addDevice}}(chip\_l0\_dev);}
+\DoxyCodeLine{301         \textcolor{comment}{// TODO}}
+\DoxyCodeLine{302         \textcolor{keywordflow}{break};  \textcolor{comment}{// For now don't add more than one device}}
+\DoxyCodeLine{303       \}}
+\DoxyCodeLine{304     \}  \textcolor{comment}{// End adding CHIPDevices}}
+\DoxyCodeLine{305 }
+\DoxyCodeLine{306     \mbox{\hyperlink{_c_h_i_p_driver_8hh_a90f41d29e43faf484f0ea833bcf14627}{Backend}}-\/>\mbox{\hyperlink{class_c_h_i_p_backend_ab7f16be2cab912f686d365fd0b7cb82a}{addContext}}(chip\_l0\_ctx);}
+\DoxyCodeLine{307   \}}
+\DoxyCodeLine{308 }
+\DoxyCodeLine{309   \textcolor{keyword}{virtual} \textcolor{keywordtype}{void} initialize()\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{310     std::string empty;}
+\DoxyCodeLine{311     initialize(empty, empty, empty);}
+\DoxyCodeLine{312   \}}
+\DoxyCodeLine{313 }
+\DoxyCodeLine{314   \textcolor{keywordtype}{void} uninitialize()\textcolor{keyword}{ override }\{}
+\DoxyCodeLine{315     logTrace(\textcolor{stringliteral}{"{}CHIPBackendLevel0 uninitializing"{}});}
+\DoxyCodeLine{316     logWarn(\textcolor{stringliteral}{"{}CHIPBackendLevel0-\/>uninitialize() not implemented"{}});}
+\DoxyCodeLine{317   \}}
+\DoxyCodeLine{318 \};  \textcolor{comment}{// CHIPBackendLevel0}}
+\DoxyCodeLine{319 }
+\DoxyCodeLine{320 \textcolor{preprocessor}{\#endif}}
+
+\end{DoxyCode}

@@ -1,10 +1,32 @@
 \doxysection{Class List}
 Here are the classes, structs, unions and interfaces with brief descriptions\+:\begin{DoxyCompactList}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_backend}{CHIP\+Backend}} \\*Primary object to interact with the backend }{\pageref{class_h_i_pxx_backend}}{}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_backend_open_c_l}{CHIP\+Backend\+Open\+CL}} }{\pageref{class_h_i_pxx_backend_open_c_l}}{}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_context}{CHIP\+Context}} \\*Context class Contexts contain execution queues and are created on top of a single or multiple devices. Provides for creation of additional queues, events, and interaction with devices }{\pageref{class_h_i_pxx_context}}{}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_device}{CHIP\+Device}} \\*Compute device class }{\pageref{class_h_i_pxx_device}}{}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_exec_item}{CHIP\+Exec\+Item}} \\*\mbox{\hyperlink{class_h_i_pxx_kernel}{CHIP\+Kernel}} and argument container to be submitted to \mbox{\hyperlink{class_h_i_pxx_queue}{CHIP\+Queue}} }{\pageref{class_h_i_pxx_exec_item}}{}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_kernel}{CHIP\+Kernel}} \\*Contains information about the function on the host and device }{\pageref{class_h_i_pxx_kernel}}{}
-\item\contentsline{section}{\mbox{\hyperlink{class_h_i_pxx_queue}{CHIP\+Queue}} \\*Queue class for submitting kernels to for execution }{\pageref{class_h_i_pxx_queue}}{}
+\item\contentsline{section}{\mbox{\hyperlink{structallocation__info}{allocation\+\_\+info}} }{\pageref{structallocation__info}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_allocation_tracker}{CHIPAllocation\+Tracker}} \\*Class for keeping track of device allocations }{\pageref{class_c_h_i_p_allocation_tracker}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_backend}{CHIPBackend}} \\*Primary object to interact with the backend }{\pageref{class_c_h_i_p_backend}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_backend_level0}{CHIPBackend\+Level0}} }{\pageref{class_c_h_i_p_backend_level0}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_backend_open_c_l}{CHIPBackend\+Open\+CL}} }{\pageref{class_c_h_i_p_backend_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_context}{CHIPContext}} \\*Context class Contexts contain execution queues and are created on top of a single or multiple devices. Provides for creation of additional queues, events, and interaction with devices }{\pageref{class_c_h_i_p_context}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_context_level0}{CHIPContext\+Level0}} }{\pageref{class_c_h_i_p_context_level0}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_context_open_c_l}{CHIPContext\+Open\+CL}} }{\pageref{class_c_h_i_p_context_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_device}{CHIPDevice}} \\*Compute device class }{\pageref{class_c_h_i_p_device}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDevice\+Level0}} }{\pageref{class_c_h_i_p_device_level0}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_device_open_c_l}{CHIPDevice\+Open\+CL}} }{\pageref{class_c_h_i_p_device_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_device_var}{CHIPDevice\+Var}} }{\pageref{class_c_h_i_p_device_var}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_event}{CHIPEvent}} }{\pageref{class_c_h_i_p_event}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_event_open_c_l}{CHIPEvent\+Open\+CL}} }{\pageref{class_c_h_i_p_event_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} \\*Contains kernel arguments and a queue on which to execute. Prior to kernel launch, the arguments are setup via \mbox{\hyperlink{class_c_h_i_p_backend_a9d802a4ed8ee1c36996ea05d346bdb1d}{CHIPBackend\+::configure\+Call()}}. Because of this, we get the kernel last so the kernel so the \mbox{\hyperlink{class_c_h_i_p_exec_item_a9bc7d3cb9c57e4843db0dd3601f09da9}{launch()}} takes a kernel argument as opposed to queue receiving a \mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} containing the kernel and arguments }{\pageref{class_c_h_i_p_exec_item}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_exec_item_open_c_l}{CHIPExec\+Item\+Open\+CL}} }{\pageref{class_c_h_i_p_exec_item_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_kernel}{CHIPKernel}} \\*Contains information about the function on the host and device }{\pageref{class_c_h_i_p_kernel}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_kernel_level0}{CHIPKernel\+Level0}} }{\pageref{class_c_h_i_p_kernel_level0}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_kernel_open_c_l}{CHIPKernel\+Open\+CL}} }{\pageref{class_c_h_i_p_kernel_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_module}{CHIPModule}} \\*Module abstraction. Contains global variables and kernels. Can be extracted from Fat\+Binary or loaded at runtime. Open\+CL -\/ Cl\+Program Level Zero -\/ ze\+Module ROCclr -\/ amd\+::\+Program CUDA -\/ CUmodule }{\pageref{class_c_h_i_p_module}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_module_open_c_l}{CHIPModule\+Open\+CL}} }{\pageref{class_c_h_i_p_module_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_queue}{CHIPQueue}} \\*Queue class for submitting kernels to for execution }{\pageref{class_c_h_i_p_queue}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_queue_level0}{CHIPQueue\+Level0}} }{\pageref{class_c_h_i_p_queue_level0}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_c_h_i_p_queue_open_c_l}{CHIPQueue\+Open\+CL}} }{\pageref{class_c_h_i_p_queue_open_c_l}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_invalid_device_type}{Invalid\+Device\+Type}} }{\pageref{class_invalid_device_type}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_invalid_platform_or_device_number}{Invalid\+Platform\+Or\+Device\+Number}} }{\pageref{class_invalid_platform_or_device_number}}{}
+\item\contentsline{section}{\mbox{\hyperlink{struct_o_c_l_arg_type_info}{OCLArg\+Type\+Info}} }{\pageref{struct_o_c_l_arg_type_info}}{}
+\item\contentsline{section}{\mbox{\hyperlink{struct_o_c_l_func_info}{OCLFunc\+Info}} }{\pageref{struct_o_c_l_func_info}}{}
+\item\contentsline{section}{\mbox{\hyperlink{class_s_v_memory_region}{SVMemory\+Region}} }{\pageref{class_s_v_memory_region}}{}
 \end{DoxyCompactList}

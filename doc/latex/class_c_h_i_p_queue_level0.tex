@@ -1,0 +1,90 @@
+\hypertarget{class_c_h_i_p_queue_level0}{}\doxysection{CHIPQueue\+Level0 Class Reference}
+\label{class_c_h_i_p_queue_level0}\index{CHIPQueueLevel0@{CHIPQueueLevel0}}
+Inheritance diagram for CHIPQueue\+Level0\+:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{class_c_h_i_p_queue_level0}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_a6a71d3faa78c3ad2995b2d2d43acc55d}\label{class_c_h_i_p_queue_level0_a6a71d3faa78c3ad2995b2d2d43acc55d}} 
+{\bfseries CHIPQueue\+Level0} (\mbox{\hyperlink{class_c_h_i_p_device_level0}{CHIPDevice\+Level0}} $\ast$hixx\+\_\+dev\+\_\+)
+\item 
+virtual hip\+Error\+\_\+t \mbox{\hyperlink{class_c_h_i_p_queue_level0_aebaaa63d16f0cb190595c34d61690df3}{launch}} (\mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} $\ast$exec\+\_\+item) override
+\begin{DoxyCompactList}\small\item\em Submit a \mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} to this queue for execution. \mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} needs to be complete -\/ contain the kernel and arguments. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_aac03a6908f3c341126012bacc2a401eb}\label{class_c_h_i_p_queue_level0_aac03a6908f3c341126012bacc2a401eb}} 
+ze\+\_\+command\+\_\+queue\+\_\+handle\+\_\+t {\bfseries get} ()
+\item 
+virtual hip\+Error\+\_\+t \mbox{\hyperlink{class_c_h_i_p_queue_level0_a5a953fc9978aa7a76e69212c338b45d9}{mem\+Copy}} (void $\ast$dst, const void $\ast$src, size\+\_\+t size) override
+\begin{DoxyCompactList}\small\item\em Blocking memory copy. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_a3a597d797f2c4cf34bbf9b90f85c0b7c}\label{class_c_h_i_p_queue_level0_a3a597d797f2c4cf34bbf9b90f85c0b7c}} 
+ze\+\_\+command\+\_\+queue\+\_\+handle\+\_\+t {\bfseries ze\+\_\+q}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_ac809699c66a2211697fbc4467cd64dc1}\label{class_c_h_i_p_queue_level0_ac809699c66a2211697fbc4467cd64dc1}} 
+ze\+\_\+context\+\_\+handle\+\_\+t {\bfseries ze\+\_\+ctx}
+\item 
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_a1cda8aef89cebb84495af093f6cc85df}\label{class_c_h_i_p_queue_level0_a1cda8aef89cebb84495af093f6cc85df}} 
+ze\+\_\+device\+\_\+handle\+\_\+t {\bfseries ze\+\_\+dev}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_aebaaa63d16f0cb190595c34d61690df3}\label{class_c_h_i_p_queue_level0_aebaaa63d16f0cb190595c34d61690df3}} 
+\index{CHIPQueueLevel0@{CHIPQueueLevel0}!launch@{launch}}
+\index{launch@{launch}!CHIPQueueLevel0@{CHIPQueueLevel0}}
+\doxysubsubsection{\texorpdfstring{launch()}{launch()}}
+{\footnotesize\ttfamily virtual hip\+Error\+\_\+t CHIPQueue\+Level0\+::launch (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} $\ast$}]{exec\+\_\+item }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Submit a \mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} to this queue for execution. \mbox{\hyperlink{class_c_h_i_p_exec_item}{CHIPExec\+Item}} needs to be complete -\/ contain the kernel and arguments. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em exec\+\_\+item} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+
+
+Reimplemented from \mbox{\hyperlink{class_c_h_i_p_queue_ab647308242069e21491828b4fea2799c}{CHIPQueue}}.
+
+\mbox{\Hypertarget{class_c_h_i_p_queue_level0_a5a953fc9978aa7a76e69212c338b45d9}\label{class_c_h_i_p_queue_level0_a5a953fc9978aa7a76e69212c338b45d9}} 
+\index{CHIPQueueLevel0@{CHIPQueueLevel0}!memCopy@{memCopy}}
+\index{memCopy@{memCopy}!CHIPQueueLevel0@{CHIPQueueLevel0}}
+\doxysubsubsection{\texorpdfstring{memCopy()}{memCopy()}}
+{\footnotesize\ttfamily hip\+Error\+\_\+t CHIPQueue\+Level0\+::mem\+Copy (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{const void $\ast$}]{src,  }\item[{size\+\_\+t}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [override]}, {\ttfamily [virtual]}}
+
+
+
+Blocking memory copy. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dst} & Destination \\
+\hline
+{\em src} & Source \\
+\hline
+{\em size} & Transfer size \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+hip\+Error\+\_\+t 
+\end{DoxyReturn}
+
+
+Reimplemented from \mbox{\hyperlink{class_c_h_i_p_queue_a048fbad716d90dd1932f00da71e32f34}{CHIPQueue}}.
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/\+Users/pvelesko/local/\+HIPxx/src/backend/\+Level0/Level0\+Backend.\+hh\item 
+/\+Users/pvelesko/local/\+HIPxx/src/backend/\+Level0/Level0\+Backend.\+cc\end{DoxyCompactItemize}
