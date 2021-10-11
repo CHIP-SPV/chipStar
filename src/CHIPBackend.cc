@@ -42,12 +42,6 @@ void CHIPModule::compileOnce(CHIPDevice *chip_dev) {
   std::call_once(compiled, &CHIPModule::compile, this, chip_dev);
 }
 
-// void CHIPModule::compile(CHIPDevice *chip_dev) {
-//   logCritical(
-//       "CHIPModule::compile() base implementation should never be called");
-//   std::abort();
-// }
-
 CHIPKernel *CHIPModule::getKernel(std::string name) {
   auto kernel = std::find_if(
       chip_kernels.begin(), chip_kernels.end(),
