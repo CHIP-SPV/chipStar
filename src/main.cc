@@ -6,12 +6,12 @@
 void testf() { std::cout << "Test Function Executed\n"; }
 
 int main() {
-  std::cout << "Hello, World!\n";
-  CHIPInitialize();
+  // std::cout << "Hello, World!\n";
+  // CHIPInitialize();
 
-  hipDeviceProp_t prop;
-  hipGetDeviceProperties(&prop, 0);
+  // hipDeviceProp_t prop;
+  // hipGetDeviceProperties(&prop, 0);
 
-  CHIPExecItem ex;
-  Backend->submit(&ex);
+  // CHIPExecItem ex;
+  // Backend->submit(&ex);
 }

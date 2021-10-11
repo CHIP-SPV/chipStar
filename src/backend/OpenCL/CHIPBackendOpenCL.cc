@@ -52,6 +52,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
     CHIPKernelOpenCL *chip_kernel =
         new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), FuncInfos);
+    chip_kernels.push_back(chip_kernel);
   }
 }
 

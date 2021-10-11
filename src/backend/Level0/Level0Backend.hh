@@ -306,11 +306,6 @@ class CHIPBackendLevel0 : public CHIPBackend {
     Backend->addContext(chip_l0_ctx);
   }
 
-  virtual void initialize() override {
-    std::string empty;
-    initialize(empty, empty, empty);
-  }
-
   void uninitialize() override {
     logTrace("CHIPBackendLevel0 uninitializing");
     logWarn("CHIPBackendLevel0->uninitialize() not implemented");

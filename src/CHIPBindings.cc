@@ -1500,14 +1500,16 @@ hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {
   std::string content(memblock, size);
   delete[] memblock;
 
-  CHIPModule *chip_module = new CHIPModule(std::move(content));
-  RETURN(Backend->addModule(chip_module));
+  // CHIPModule *chip_module = new CHIPModule(std::move(content));
+  for (auto &dev : Backend->getDevices()) dev->addModule(&content);
+  RETURN(hipSuccess);
 }
 
 hipError_t hipModuleUnload(hipModule_t module) {
   CHIPInitialize();
 
-  RETURN(Backend->removeModule(module));
+  // RETURN(Backend->removeModule(module));
+  RETURN(hipSuccess);
 }
 
 hipError_t hipModuleGetFunction(hipFunction_t *function, hipModule_t module,

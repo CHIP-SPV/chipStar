@@ -38,11 +38,11 @@ void CHIPModule::compileOnce(CHIPDevice *chip_dev) {
   std::call_once(compiled, &CHIPModule::compile, this, chip_dev);
 }
 
-void CHIPModule::compile(CHIPDevice *chip_dev) {
-  logCritical(
-      "CHIPModule::compile() base implementation should never be called");
-  std::abort();
-}
+// void CHIPModule::compile(CHIPDevice *chip_dev) {
+//   logCritical(
+//       "CHIPModule::compile() base implementation should never be called");
+//   std::abort();
+// }
 
 CHIPKernel *CHIPModule::getKernel(std::string name) {
   auto kernel = std::find_if(
@@ -58,6 +58,8 @@ CHIPKernel *CHIPModule::getKernel(std::string name) {
 }
 
 CHIPKernel *CHIPModule::getKernel(const void *host_f_ptr) {
+  for (auto &kernel : chip_kernels)
+    logTrace("chip kernel: {} {}", kernel->getHostPtr(), kernel->getName());
   auto kernel = std::find_if(
       chip_kernels.begin(), chip_kernels.end(),
       [host_f_ptr](CHIPKernel *k) { return k->getHostPtr() == host_f_ptr; });
@@ -433,8 +435,9 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
   if (chip_module_found != host_f_ptr_to_chipmodule_map.end()) {
     chip_module = chip_module_found->second;
   } else {
-    chip_module =
-        new CHIPModule(module_str);  // Create a new module for this source
+    // chip_module =
+    //     new CHIPModule(module_str);  // Create a new module for this source
+    chip_module = addModule(module_str);
     chip_module->compileOnce(this);  // Compile it
     host_f_ptr_to_chipmodule_map[module_str] = chip_module;
     // TODO Place it in the Backend cache
@@ -449,10 +452,11 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
   }
 
   kernel->setHostPtr(host_f_ptr);
-  assert(kernel->getDevPtr() != nullptr);
+  // assert(kernel->getDevPtr() != nullptr);
 
   chip_kernels.push_back(kernel);
-  logDebug("Device {}: successfully registered function as kernel.", getName());
+  logDebug("Device {}: successfully registered function {} as kernel {}",
+           getName(), host_f_name, kernel->getName().c_str());
   return;
 }
 
@@ -488,7 +492,7 @@ bool CHIPDevice::hasPCIBusId(int, int, int) {}
 
 bool CHIPDevice::releaseMemReservation(unsigned long) {}
 
-CHIPQueue *CHIPDevice::getActiveQueue() {}
+CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
 // CHIPContext
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
@@ -592,9 +596,12 @@ CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
 CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
 CHIPBackend::~CHIPBackend(){};
 
-void CHIPBackend::initialize(std::string platform_str,
-                             std::string device_type_str,
-                             std::string device_ids_str){};
+void CHIPBackend::initialize_(std::string platform_str,
+                              std::string device_type_str,
+                              std::string device_ids_str) {
+  initialize(platform_str, device_type_str, device_ids_str);
+  setActiveDevice(chip_devices[0]);
+}
 
 void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {
   auto I = std::find(chip_devices.begin(), chip_devices.end(), chip_dev);
@@ -816,8 +823,11 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(
   }
 }
 
-hipError_t CHIPBackend::removeModule(CHIPModule *chip_module){};
-hipError_t CHIPBackend::addModule(CHIPModule *) {}
+// hipError_t CHIPBackend::removeModule(CHIPModule *chip_module){};
+// CHIPModule *CHIPBackend::addModule(std::string *module_str) {
+//   for (auto &ctx : chip_contexts)
+//     for (auto &dev : ctx->getDevices()) dev->addModule(modules_str);
+//}
 // CHIPQueue
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *chip_device_, unsigned int flags_,

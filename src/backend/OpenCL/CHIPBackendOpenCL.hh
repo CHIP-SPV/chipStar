@@ -39,6 +39,7 @@ class CHIPModuleOpenCL : public CHIPModule {
   cl::Program program;
 
  public:
+  CHIPModuleOpenCL(std::string *module_str) : CHIPModule(module_str){};
   virtual void compile(CHIPDevice *chip_dev) override;
   cl::Program &get() { return program; }
 };
@@ -95,6 +96,12 @@ class CHIPDeviceOpenCL : public CHIPDevice {
   virtual std::string getName() override;
 
   virtual void reset() override;
+
+  virtual CHIPModuleOpenCL *addModule(std::string *module_str) override {
+    CHIPModuleOpenCL *mod = new CHIPModuleOpenCL(module_str);
+    chip_modules.push_back(mod);
+    return mod;
+  }
 };
 
 class CHIPQueueOpenCL : public CHIPQueue {
@@ -131,6 +138,7 @@ class CHIPKernelOpenCL : public CHIPKernel {
 
     int err = 0;
     name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
+    setName(name);
     if (err != CL_SUCCESS) {
       logError("clGetKernelInfo(CL_KERNEL_FUNCTION_NAME) failed: {}\n", err);
     }
@@ -307,10 +315,6 @@ class CHIPBackendOpenCL : public CHIPBackend {
     std::cout << "OpenCL Context Initialized.\n";
   };
 
-  virtual void initialize() override {
-    std::string empty;
-    initialize(empty, empty, empty);
-  }
   void uninitialize() override {
     logTrace("CHIPBackendOpenCL uninitializing");
     logWarn("CHIPBackendOpenCL->uninitialize() not implemented");

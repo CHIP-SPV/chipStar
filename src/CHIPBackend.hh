@@ -235,7 +235,7 @@ class CHIPModule {
    * function pointers.
    *
    */
-  virtual void compile(CHIPDevice* chip_dev);
+  virtual void compile(CHIPDevice* chip_dev) = 0;
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
@@ -714,6 +714,8 @@ class CHIPDevice {
    */
   void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
                                 const char* host_f_name);
+
+  virtual CHIPModule* addModule(std::string* module_str){};
 };
 
 /**
@@ -992,14 +994,18 @@ class CHIPBackend {
    * @param device_type_str
    * @param device_ids_str
    */
-  virtual void initialize(std::string platform_str, std::string device_type_str,
-                          std::string device_ids_str);
+  void initialize_(std::string platform_str, std::string device_type_str,
+                   std::string device_ids_str);
 
   /**
-   * @brief
+   * @brief Initialize this backend with given environment flags
    *
+   * @param platform_str
+   * @param device_type_str
+   * @param device_ids_str
    */
-  virtual void initialize() = 0;
+  virtual void initialize(std::string platform_str, std::string device_type_str,
+                          std::string device_ids_str) = 0;
 
   /**
    * @brief
@@ -1132,14 +1138,14 @@ class CHIPBackend {
    * @param chip_module pointer to CHIPModule object
    * @return hipError_t
    */
-  hipError_t addModule(CHIPModule* chip_module);
+  // CHIPModule* addModule(std::string* module_src);
   /**
    * @brief Remove this module from every device
    *
    * @param chip_module pointer to the module which is to be removed
    * @return hipError_t
    */
-  hipError_t removeModule(CHIPModule* chip_module);
+  // hipError_t removeModule(CHIPModule* chip_module);
 };
 
 /**
