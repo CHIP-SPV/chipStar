@@ -421,16 +421,6 @@ size_t CHIPDevice::getGlobalMemSize() {
   return hip_device_props.totalGlobalMem;
 }
 
-void setCacheConfig(hipFuncCache_t) {}
-
-hipFuncCache_t getCacheConfig() {}
-
-void setSharedMemConfig(hipSharedMemConfig config) {}
-
-hipSharedMemConfig getSharedMemConfig() {}
-
-void setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
-
 void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
                                           const void *host_f_ptr,
                                           const char *host_f_name) {
