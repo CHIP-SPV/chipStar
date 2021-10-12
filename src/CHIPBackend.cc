@@ -58,8 +58,31 @@ float CHIPEvent::getElapsedTime(CHIPEvent *other){};
 
 // CHIPModule
 //*************************************************************************************
-CHIPModule::CHIPModule(std::string *module_str) { src = *module_str; }
-CHIPModule::CHIPModule(std::string &&module_str) { src = module_str; }
+void CHIPModule::consumeSPIRV() {
+  uint8_t *funcIL = (uint8_t *)src.data();
+  size_t ilSize = src.length();
+
+  // Parse the SPIR-V fat binary to retrieve kernel function
+  size_t numWords = ilSize / 4;
+  binary_data = new int32_t[numWords + 1];
+  std::memcpy(binary_data, funcIL, ilSize);
+  // Extract kernel function information
+  bool res = parseSPIR(binary_data, numWords, func_infos);
+  delete[] binary_data;
+  if (!res) {
+    logError("SPIR-V parsing failed\n");
+    std::abort();
+  }
+}
+
+CHIPModule::CHIPModule(std::string *module_str) {
+  src = *module_str;
+  consumeSPIRV();
+}
+CHIPModule::CHIPModule(std::string &&module_str) {
+  src = module_str;
+  consumeSPIRV();
+}
 CHIPModule::~CHIPModule() {}
 
 void CHIPModule::addKernel(CHIPKernel *kernel) {

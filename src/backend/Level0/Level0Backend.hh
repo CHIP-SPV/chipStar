@@ -117,58 +117,6 @@ class CHIPContextLevel0 : public CHIPContext {
   //   logWarn(
   //       "CHIPContextLevel0.register_function_as_kernel not "
   //       "implemented");
-  //   logDebug("CHIPContextLevel0.register_function_as_kernel {} ",
-  //            FunctionName);
-  //   uint8_t* funcIL = (uint8_t*)module_str->data();
-  //   size_t ilSize = module_str->length();
-  //   std::string funcName = FunctionName;
-
-  //   // Parse the SPIR-V fat binary to retrieve kernel function
-  //   size_t numWords = ilSize / 4;
-  //   int32_t* binarydata = new int32_t[numWords + 1];
-  //   std::memcpy(binarydata, funcIL, ilSize);
-  //   // Extract kernel function information
-  //   bool res = parseSPIR(binarydata, numWords, FuncInfos);
-  //   delete[] binarydata;
-  //   if (!res) {
-  //     logError("SPIR-V parsing failed\n");
-  //     return false;
-  //   }
-
-  //   logDebug("LZ PARSE SPIR {} ", funcName);
-  //   ze_module_handle_t ze_module;
-  //   // Create module with global address aware
-  //   std::string compilerOptions =
-  //       " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi";
-  //   ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
-  //                                  nullptr,
-  //                                  ZE_MODULE_FORMAT_IL_SPIRV,
-  //                                  ilSize,
-  //                                  funcIL,
-  //                                  compilerOptions.c_str(),
-  //                                  nullptr};
-  //   for (CHIPDevice* chip_dev : getDevices()) {
-  //     ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)chip_dev)->get();
-  //     ze_result_t status =
-  //         zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
-  //     logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
-
-  //     // Create kernel
-  //     ze_kernel_handle_t ze_kernel;
-  //     ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
-  //                                    0,  // flags
-  //                                    funcName.c_str()};
-  //     status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
-
-  //     // LZ_PROCESS_ERROR_MSG("HipLZ zeKernelCreate FAILED with return
-  //     // code ", status);
-
-  //     logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
-  //     CHIPKernelLevel0* chip_ze_kernel =
-  //         new CHIPKernelLevel0(ze_kernel, FunctionName, HostFunctionPtr);
-
-  //     chip_dev->addKernel(chip_ze_kernel);
-  //   }
 
   //   return true;
   // }
@@ -176,10 +124,7 @@ class CHIPContextLevel0 : public CHIPContext {
 class CHIPModuleLevel0 : public CHIPModule {
  public:
   CHIPModuleLevel0(std::string* module_str) : CHIPModule(module_str) {}
-  virtual void compile(CHIPDevice* chip_dev) override {
-    logTrace("CHIPModuleLevel0.compile()");
-    std::abort();
-  };
+  virtual void compile(CHIPDevice* chip_dev) override;
 };
 
 class CHIPDeviceLevel0 : public CHIPDevice {

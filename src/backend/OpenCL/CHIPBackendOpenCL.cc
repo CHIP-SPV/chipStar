@@ -4,21 +4,9 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   CHIPDeviceOpenCL *chip_dev_ocl = (CHIPDeviceOpenCL *)chip_dev_;
   CHIPContextOpenCL *chip_ctx_ocl =
       (CHIPContextOpenCL *)(chip_dev_ocl->getContext());
-  OpenCLFunctionInfoMap FuncInfos;
-
-  std::string binary = src;
-  size_t numWords = binary.size() / 4;
-  int32_t *bindata = new int32_t[numWords + 1];
-  std::memcpy(bindata, binary.data(), binary.size());
-  bool res = parseSPIR(bindata, numWords, FuncInfos);
-  delete[] bindata;
-  if (!res) {
-    logError("SPIR-V parsing failed\n");
-    std::abort();
-  }
 
   int err;
-  std::vector<char> binary_vec(binary.begin(), binary.end());
+  std::vector<char> binary_vec(src.begin(), src.end());
   auto Program = cl::Program(*(chip_ctx_ocl->get()), binary_vec, false, &err);
   if (err != CL_SUCCESS) {
     logError("CreateProgramWithIL Failed: {}\n", err);
@@ -51,7 +39,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
     CHIPKernelOpenCL *chip_kernel =
-        new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), FuncInfos);
+        new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), func_infos);
     chip_kernels.push_back(chip_kernel);
   }
 }

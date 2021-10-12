@@ -312,3 +312,69 @@ const char* lzResultToString(ze_result_t status) {
       return "Unknown Error Code";
   }
 }
+
+// CHIPKernelLevelZero
+// ***********************************************************************
+
+void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
+  logTrace("CHIPModuleLevel0.compile()");
+
+  uint8_t* funcIL = (uint8_t*)src.data();
+  size_t ilSize = src.length();
+
+  // Parse the SPIR-V fat binary to retrieve kernel function
+  size_t numWords = ilSize / 4;
+  int32_t* binarydata = new int32_t[numWords + 1];
+  std::memcpy(binarydata, funcIL, ilSize);
+  // Extract kernel function information
+  bool res = parseSPIR(binarydata, numWords, func_infos);
+  delete[] binarydata;
+  if (!res) {
+    logError("SPIR-V parsing failed\n");
+    std::abort();
+  }
+
+  ze_module_handle_t ze_module;
+  // Create module with global address aware
+  std::string compilerOptions =
+      " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi";
+  ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
+                                 nullptr,
+                                 ZE_MODULE_FORMAT_IL_SPIRV,
+                                 ilSize,
+                                 funcIL,
+                                 compilerOptions.c_str(),
+                                 nullptr};
+
+  CHIPDeviceLevel0* chip_dev_lz = (CHIPDeviceLevel0*)chip_dev;
+  CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)(chip_dev->getContext());
+
+  ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)chip_dev)->get();
+  ze_context_handle_t ze_ctx = chip_ctx_lz->get();
+
+  ze_result_t status =
+      zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
+  logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
+
+  uint32_t kernel_count = 0;
+  zeModuleGetKernelNames(ze_module, &kernel_count, nullptr);
+  logDebug("Found {} kernels in this module.", kernel_count);
+
+  const char* kernel_names[kernel_count];
+  zeModuleGetKernelNames(ze_module, &kernel_count, kernel_names);
+  for (auto& kernel : kernel_names) logDebug("Kernel {}", kernel);
+
+  for (int i = 0; i < kernel_count; i++) {
+    std::string host_f_name(kernel_names[i]);
+    // Create kernel
+    ze_kernel_handle_t ze_kernel;
+    ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
+                                   0,  // flags
+                                   host_f_name.c_str()};
+    status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
+    logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
+    CHIPKernelLevel0* chip_ze_kernel =
+        new CHIPKernelLevel0(ze_kernel, host_f_name, nullptr);
+    addKernel(chip_ze_kernel);
+  }
+};

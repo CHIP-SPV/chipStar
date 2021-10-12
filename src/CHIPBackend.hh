@@ -222,6 +222,9 @@ class CHIPModule {
   // Kernel JIT compilation can be lazy
   std::once_flag compiled;
 
+  int32_t* binary_data;
+  OpenCLFunctionInfoMap func_infos;
+
   /**
    * @brief hidden default constuctor. Only derived type constructor should be
    * called.
@@ -311,6 +314,12 @@ class CHIPModule {
    * @return CHIPKernel*
    */
   CHIPKernel* getKernel(const void* host_f_ptr);
+
+  /**
+   * @brief consume SPIRV and fill in OCLFuncINFO
+   *
+   */
+  void consumeSPIRV();
 };
 
 /**
