@@ -134,11 +134,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
  public:
   CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_, CHIPContextLevel0* chip_ctx_);
 
-  virtual void populateDeviceProperties_() override {
-    logWarn(
-        "CHIPDeviceLevel0.populate_device_properties not yet "
-        "implemented");
-  }
+  virtual void populateDeviceProperties_() override;
   virtual std::string getName() override { return device_name; }
   ze_device_handle_t& get() { return ze_dev; }
 

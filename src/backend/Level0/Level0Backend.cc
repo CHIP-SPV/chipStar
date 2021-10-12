@@ -59,6 +59,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
     if (ze_device_type == device_properties.type) {
       CHIPDeviceLevel0* chip_l0_dev =
           new CHIPDeviceLevel0(std::move(dev), chip_l0_ctx);
+      chip_l0_dev->populateDeviceProperties();
       chip_l0_ctx->addDevice(chip_l0_dev);
 
       CHIPQueueLevel0* q = new CHIPQueueLevel0(chip_l0_dev);
@@ -149,6 +150,134 @@ CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_,
 void CHIPDeviceLevel0::reset() {
   logCritical("CHIPDeviceLevel0::reset() not yet implemented");
   std::abort();
+}
+
+void CHIPDeviceLevel0::populateDeviceProperties_() {
+  ze_result_t status = ZE_RESULT_SUCCESS;
+
+  // Initialize members used as input for zeDeviceGet*Properties() calls.
+  ze_device_properties_t device_props;
+  device_props.pNext = nullptr;
+  ze_device_memory_properties_t device_mem_props;
+  device_mem_props.pNext = nullptr;
+  ze_device_compute_properties_t device_compute_props;
+  device_compute_props.pNext = nullptr;
+  ze_device_cache_properties_t device_cache_props;
+  device_cache_props.pNext = nullptr;
+  ze_device_module_properties_t device_module_props;
+  device_module_props.pNext = nullptr;
+
+  // Query device properties
+  status = zeDeviceGetProperties(ze_dev, &device_props);
+  LZ_PROCESS_ERROR_MSG("HipLZ zeDeviceGetProperties Failed with return code ",
+                       status);
+
+  // Query device memory properties
+  uint32_t count = 1;
+  status = zeDeviceGetMemoryProperties(ze_dev, &count, &device_mem_props);
+
+  // Query device computation properties
+  status = zeDeviceGetComputeProperties(ze_dev, &device_compute_props);
+
+  // Query device cache properties
+  count = 1;
+  status = zeDeviceGetCacheProperties(ze_dev, &count, &device_cache_props);
+
+  // Query device module properties
+  status = zeDeviceGetModuleProperties(ze_dev, &device_module_props);
+
+  // Copy device name
+  if (255 < ZE_MAX_DEVICE_NAME) {
+    strncpy(hip_device_props.name, hip_device_props.name, 255);
+    hip_device_props.name[255] = 0;
+  } else {
+    strncpy(hip_device_props.name, hip_device_props.name, ZE_MAX_DEVICE_NAME);
+    hip_device_props.name[ZE_MAX_DEVICE_NAME - 1] = 0;
+  }
+
+  // Get total device memory
+  hip_device_props.totalGlobalMem = device_mem_props.totalSize;
+
+  hip_device_props.sharedMemPerBlock =
+      device_compute_props.maxSharedLocalMemory;
+  //??? Dev.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>(&err);
+
+  hip_device_props.maxThreadsPerBlock = device_compute_props.maxTotalGroupSize;
+  //??? Dev.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>(&err);
+
+  hip_device_props.maxThreadsDim[0] = device_compute_props.maxGroupSizeX;
+  hip_device_props.maxThreadsDim[1] = device_compute_props.maxGroupSizeY;
+  hip_device_props.maxThreadsDim[2] = device_compute_props.maxGroupSizeZ;
+
+  // Maximum configured clock frequency of the device in MHz.
+  hip_device_props.clockRate =
+      1000 * device_props.coreClockRate;  // deviceMemoryProps.maxClockRate;
+  // Dev.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>();
+
+  hip_device_props.multiProcessorCount =
+      device_props.numEUsPerSubslice *
+      device_props.numSlices;  // device_compute_props.maxTotalGroupSize;
+  //??? Dev.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+  hip_device_props.l2CacheSize = device_cache_props.cacheSize;
+  // Dev.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>();
+
+  // not actually correct
+  hip_device_props.totalConstMem = device_mem_props.totalSize;
+  // ??? Dev.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>();
+
+  // as per gen architecture doc
+  hip_device_props.regsPerBlock = 4096;
+
+  hip_device_props.warpSize =
+      device_compute_props
+          .subGroupSizes[device_compute_props.numSubGroupSizes - 1];
+
+  // Replicate from OpenCL implementation
+
+  // HIP and LZ uses int and uint32_t, respectively, for storing the
+  // group count. Clamp the group count to INT_MAX to avoid 2^31+ size
+  // being interpreted as negative number.
+  constexpr unsigned int_max = std::numeric_limits<int>::max();
+  hip_device_props.maxGridSize[0] =
+      std::min(device_compute_props.maxGroupCountX, int_max);
+  hip_device_props.maxGridSize[1] =
+      std::min(device_compute_props.maxGroupCountY, int_max);
+  hip_device_props.maxGridSize[2] =
+      std::min(device_compute_props.maxGroupCountZ, int_max);
+  hip_device_props.memoryClockRate = device_mem_props.maxClockRate;
+  hip_device_props.memoryBusWidth = device_mem_props.maxBusWidth;
+  hip_device_props.major = 2;
+  hip_device_props.minor = 0;
+
+  hip_device_props.maxThreadsPerMultiProcessor =
+      device_props.numEUsPerSubslice * device_props.numThreadsPerEU;  //  10;
+
+  hip_device_props.computeMode = hipComputeModeDefault;
+  hip_device_props.arch = {};
+
+  hip_device_props.arch.hasGlobalInt32Atomics = 1;
+  hip_device_props.arch.hasSharedInt32Atomics = 1;
+
+  hip_device_props.arch.hasGlobalInt64Atomics =
+      (device_module_props.flags & ZE_DEVICE_MODULE_FLAG_INT64_ATOMICS) ? 1 : 0;
+  hip_device_props.arch.hasSharedInt64Atomics =
+      (device_module_props.flags & ZE_DEVICE_MODULE_FLAG_INT64_ATOMICS) ? 1 : 0;
+
+  hip_device_props.arch.hasDoubles =
+      (device_module_props.flags & ZE_DEVICE_MODULE_FLAG_FP64) ? 1 : 0;
+
+  hip_device_props.clockInstructionRate = device_props.coreClockRate;
+  hip_device_props.concurrentKernels = 1;
+  hip_device_props.pciDomainID = 0;
+  hip_device_props.pciBusID = 0x10 + getDeviceId();
+  hip_device_props.pciDeviceID = 0x40 + getDeviceId();
+  hip_device_props.isMultiGpuBoard = 0;
+  hip_device_props.canMapHostMemory = 1;
+  hip_device_props.gcnArch = 0;
+  hip_device_props.integrated =
+      (device_props.flags & ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) ? 1 : 0;
+  hip_device_props.maxSharedMemoryPerMultiProcessor =
+      device_compute_props.maxSharedLocalMemory;
 }
 // CHIPQueueLevelZero
 // ***********************************************************************
