@@ -755,7 +755,7 @@ class CHIPDevice {
   void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
                                 const char* host_f_name);
 
-  virtual CHIPModule* addModule(std::string* module_str){};
+  virtual CHIPModule* addModule(std::string* module_str) = 0;
 };
 
 /**

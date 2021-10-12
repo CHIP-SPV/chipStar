@@ -53,8 +53,11 @@ const char* lzResultToString(ze_result_t status);
   }                                                         \
   }                                                         \
   while (0)
+// fw declares
 class CHIPContextLevel0;
 class CHIPDeviceLevel0;
+class CHIPModuleLevel0;
+
 class CHIPKernelLevel0 : public CHIPKernel {
  protected:
   ze_kernel_handle_t ze_kernel;
@@ -170,6 +173,14 @@ class CHIPContextLevel0 : public CHIPContext {
   //   return true;
   // }
 };  // CHIPContextLevel0
+class CHIPModuleLevel0 : public CHIPModule {
+ public:
+  CHIPModuleLevel0(std::string* module_str) : CHIPModule(module_str) {}
+  virtual void compile(CHIPDevice* chip_dev) override {
+    logTrace("CHIPModuleLevel0.compile()");
+    std::abort();
+  };
+};
 
 class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_handle_t ze_dev;
@@ -187,6 +198,11 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_handle_t& get() { return ze_dev; }
 
   virtual void reset() override;
+  virtual CHIPModuleLevel0* addModule(std::string* module_str) override {
+    CHIPModuleLevel0* mod = new CHIPModuleLevel0(module_str);
+    chip_modules.push_back(mod);
+    return mod;
+  }
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
