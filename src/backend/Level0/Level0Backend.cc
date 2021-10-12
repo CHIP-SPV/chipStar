@@ -1,6 +1,6 @@
 #include "Level0Backend.hh"
 
-// CHIPBackendLevelZero
+// CHIPBackendLevel0
 // ***********************************************************************
 void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
@@ -358,9 +358,39 @@ hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   return hipSuccess;
 }
 
+hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
+  exec_item->setupAllArgs();
+  CHIPContextLevel0* chip_ctx_ze = (CHIPContextLevel0*)chip_context;
+
+  ze_command_list_handle_t cmd_list = chip_ctx_ze->ze_cmd_list;
+  CHIPKernelLevel0* chip_kernel = (CHIPKernelLevel0*)exec_item->getKernel();
+  ze_kernel_handle_t kernel_ze = chip_kernel->get();
+  logTrace("Launching Kernel {}", chip_kernel->getName());
+
+  auto x = exec_item->getGrid().x;
+  auto y = exec_item->getGrid().y;
+  auto z = exec_item->getGrid().z;
+  ze_group_count_t launchArgs = {x, y, z};
+  zeCommandListAppendLaunchKernel(cmd_list, kernel_ze, &launchArgs, nullptr, 0,
+                                  nullptr);
+}
+
 // CHIPKernelLevelZero
 // ***********************************************************************
 
+CHIPKernelLevel0::CHIPKernelLevel0() {}
+
+CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ze_kernel_,
+                                   std::string host_f_name_,
+                                   OCLFuncInfo func_info_) {
+  ze_kernel = ze_kernel_;
+  host_f_name = host_f_name_;
+  func_info = func_info_;
+  logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
+}
+
+// Other
+// ***********************************************************************
 const char* lzResultToString(ze_result_t status) {
   switch (status) {
     case ZE_RESULT_SUCCESS:
@@ -442,7 +472,7 @@ const char* lzResultToString(ze_result_t status) {
   }
 }
 
-// CHIPKernelLevelZero
+// CHIPModuleLevel0
 // ***********************************************************************
 
 void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
@@ -502,8 +532,131 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
                                    host_f_name.c_str()};
     status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
     logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
-    CHIPKernelLevel0* chip_ze_kernel =
-        new CHIPKernelLevel0(ze_kernel, host_f_name, nullptr);
+    CHIPKernelLevel0* chip_ze_kernel = new CHIPKernelLevel0(
+        ze_kernel, host_f_name, *(func_infos[host_f_name]));
     addKernel(chip_ze_kernel);
   }
-};
+}
+
+void CHIPExecItem::setupAllArgs() {
+  CHIPKernelLevel0* chip_kernel_lz = (CHIPKernelLevel0*)chip_kernel;
+
+  OCLFuncInfo FuncInfo = chip_kernel->getFuncInfo();
+
+  size_t NumLocals = 0;
+  int LastArgIdx = -1;
+
+  for (size_t i = 0; i < FuncInfo.ArgTypeInfo.size(); ++i) {
+    if (FuncInfo.ArgTypeInfo[i].space == OCLSpace::Local) {
+      ++NumLocals;
+    }
+  }
+  // there can only be one dynamic shared mem variable, per cuda spec
+  assert(NumLocals <= 1);
+
+  // Argument processing for the new HIP launch API.
+  if (ArgsPointer) {
+    for (size_t i = 0; i < FuncInfo.ArgTypeInfo.size(); ++i) {
+      OCLArgTypeInfo& ai = FuncInfo.ArgTypeInfo[i];
+      logDebug("setArg {} size {}\n", i, ai.size);
+      ze_result_t status = zeKernelSetArgumentValue(chip_kernel_lz->get(), i,
+                                                    ai.size, ArgsPointer[i]);
+      if (status != ZE_RESULT_SUCCESS) {
+        logDebug("zeKernelSetArgumentValue failed with error {}\n", status);
+        std::abort();
+      }
+      logDebug("LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+               status);
+    }
+  } else {
+    // Argument processing for the old HIP launch API.
+    if ((offset_sizes.size() + NumLocals) != FuncInfo.ArgTypeInfo.size()) {
+      logError("Some arguments are still unset\n");
+      std::abort();
+    }
+
+    if (offset_sizes.size() == 0) return;
+
+    std::sort(offset_sizes.begin(), offset_sizes.end());
+    if ((std::get<0>(offset_sizes[0]) != 0) ||
+        (std::get<1>(offset_sizes[0]) == 0)) {
+      logError("Invalid offset/size\n");
+      std::abort();
+    }
+
+    // check args are set
+    if (offset_sizes.size() > 1) {
+      for (size_t i = 1; i < offset_sizes.size(); ++i) {
+        if ((std::get<0>(offset_sizes[i]) == 0) ||
+            (std::get<1>(offset_sizes[i]) == 0) ||
+            ((std::get<0>(offset_sizes[i - 1]) +
+              std::get<1>(offset_sizes[i - 1])) >
+             std::get<0>(offset_sizes[i]))) {
+          logError("Invalid offset/size\n");
+          std::abort();
+        }
+      }
+    }
+
+    const unsigned char* start = arg_data.data();
+    void* p;
+    int err;
+    for (size_t i = 0; i < offset_sizes.size(); ++i) {
+      OCLArgTypeInfo& ai = FuncInfo.ArgTypeInfo[i];
+      logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
+               i, std::get<0>(offset_sizes[i]), std::get<1>(offset_sizes[i]),
+               (unsigned)ai.type, (unsigned)ai.space, ai.size);
+
+      if (ai.type == OCLType::Pointer) {
+        // TODO: sync with ExecItem's solution
+        assert(ai.size == sizeof(void*));
+        assert(std::get<1>(offset_sizes[i]) == ai.size);
+        size_t size = std::get<1>(offset_sizes[i]);
+        size_t offs = std::get<0>(offset_sizes[i]);
+        const void* value = (void*)(start + offs);
+        logDebug("setArg SVM {} to {}\n", i, p);
+        ze_result_t status =
+            zeKernelSetArgumentValue(chip_kernel_lz->get(), i, size, value);
+
+        if (status != ZE_RESULT_SUCCESS) {
+          logDebug("zeKernelSetArgumentValue failed with error {}\n", err);
+          std::abort();
+        }
+
+        logDebug(
+            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+            status);
+      } else {
+        size_t size = std::get<1>(offset_sizes[i]);
+        size_t offs = std::get<0>(offset_sizes[i]);
+        const void* value = (void*)(start + offs);
+        logDebug("setArg {} size {} offs {}\n", i, size, offs);
+        ze_result_t status =
+            zeKernelSetArgumentValue(chip_kernel_lz->get(), i, size, value);
+
+        if (status != ZE_RESULT_SUCCESS) {
+          logDebug("zeKernelSetArgumentValue failed with error {}\n", err);
+          std::abort();
+        }
+
+        logDebug(
+            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+            status);
+      }
+    }
+  }
+
+  // Setup the kernel argument's value related to dynamically sized share
+  // memory
+  if (NumLocals == 1) {
+    ze_result_t status = zeKernelSetArgumentValue(
+        chip_kernel_lz->get(), FuncInfo.ArgTypeInfo.size() - 1, shared_mem,
+        nullptr);
+    logDebug(
+        "LZ set dynamically sized share memory related argument via calling "
+        "zeKernelSetArgumentValue {} ",
+        status);
+  }
+
+  return;
+}

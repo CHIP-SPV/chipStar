@@ -143,6 +143,8 @@ std::string CHIPKernel::getName() { return host_f_name; }
 const void *CHIPKernel::getHostPtr() { return host_f_ptr; }
 const void *CHIPKernel::getDevPtr() { return dev_f_ptr; }
 
+OCLFuncInfo CHIPKernel::getFuncInfo() { return func_info; }
+
 void CHIPKernel::setName(std::string host_f_name_) {
   host_f_name = host_f_name_;
 }
@@ -160,6 +162,8 @@ CHIPExecItem::CHIPExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
       shared_mem(shared_mem_),
       chip_queue(chip_queue_){};
 CHIPExecItem::~CHIPExecItem(){};
+
+std::vector<uint8_t> CHIPExecItem::getArgData() { return arg_data; }
 
 void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
   if ((offset + size) > arg_data.size()) arg_data.resize(offset + size + 1024);
@@ -206,6 +210,7 @@ CHIPDevice::CHIPDevice() {
 CHIPDevice::~CHIPDevice(){};
 
 std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return chip_kernels; };
+std::vector<CHIPModule *> &CHIPDevice::getModules() { return chip_modules; };
 
 void CHIPDevice::populateDeviceProperties() {
   populateDeviceProperties_();

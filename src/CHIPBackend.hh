@@ -340,6 +340,8 @@ class CHIPKernel {
   /// Pointer to the device function
   const void* dev_f_ptr;
 
+  OCLFuncInfo func_info;
+
  public:
   ~CHIPKernel();
 
@@ -349,6 +351,13 @@ class CHIPKernel {
    * @return std::string
    */
   std::string getName();
+
+  /**
+   * @brief Get the Func Info object
+   *
+   * @return OCLFuncInfo&
+   */
+  OCLFuncInfo getFuncInfo();
   /**
    * @brief Get the associated host pointer to a host function
    *
@@ -393,6 +402,7 @@ class CHIPKernel {
 class CHIPExecItem {
  protected:
   size_t shared_mem;
+  // Structures for old HIP launch API.
   std::vector<uint8_t> arg_data;
   std::vector<std::tuple<size_t, size_t>> offset_sizes;
 
@@ -402,6 +412,9 @@ class CHIPExecItem {
   CHIPQueue* stream;
   CHIPKernel* chip_kernel;
   CHIPQueue* chip_queue;
+
+  // Structures for new HIP launch API.
+  void** ArgsPointer = nullptr;
 
  public:
   /**
@@ -440,6 +453,8 @@ class CHIPExecItem {
    */
   CHIPQueue* getQueue();
 
+  std::vector<uint8_t> getArgData();
+
   /**
    * @brief Get the Grid object
    *
@@ -463,6 +478,8 @@ class CHIPExecItem {
    * @param offset
    */
   void setArg(const void* arg, size_t size, size_t offset);
+
+  void setupAllArgs();
 
   /**
    * @brief Submit a kernel to the associated queue for execution.
@@ -551,6 +568,13 @@ class CHIPDevice {
    * @return std::vector<CHIPKernel*>&
    */
   std::vector<CHIPKernel*>& getKernels();
+
+  /**
+   * @brief Get the Modules object
+   *
+   * @return std::vector<CHIPModule*>&
+   */
+  std::vector<CHIPModule*>& getModules();
 
   /**
    * @brief Use a backend to populate device properties such as memory

@@ -4,7 +4,6 @@
 #include "../src/common.hh"
 #include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
-enum class LZMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 
 const char* lzResultToString(ze_result_t status);
 
@@ -63,14 +62,9 @@ class CHIPKernelLevel0 : public CHIPKernel {
   ze_kernel_handle_t ze_kernel;
 
  public:
-  CHIPKernelLevel0(){};
+  CHIPKernelLevel0();
   CHIPKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
-                   const void* _host_ptr) {
-    ze_kernel = _ze_kernel;
-    host_f_name = _funcName;
-    host_f_ptr = _host_ptr;
-    logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
-  }
+                   OCLFuncInfo func_info_);
 
   ze_kernel_handle_t get() { return ze_kernel; }
 };
@@ -84,10 +78,7 @@ class CHIPQueueLevel0 : public CHIPQueue {
  public:
   CHIPQueueLevel0(CHIPDeviceLevel0* hixx_dev_);
 
-  virtual hipError_t launch(CHIPExecItem* exec_item) override {
-    logWarn("CHIPQueueLevel0.launch() not yet implemented");
-    return hipSuccess;
-  };
+  virtual hipError_t launch(CHIPExecItem* exec_item) override;
 
   ze_command_queue_handle_t get() { return ze_q; }
 
@@ -110,17 +101,8 @@ class CHIPContextLevel0 : public CHIPContext {
   ze_context_handle_t& get() { return ze_ctx; }
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
                              hipStream_t stream) override;
-
-  // virtual bool registerFunctionAsKernel(std::string* module_str,
-  //                                       const void* HostFunctionPtr,
-  //                                       const char* FunctionName) override {
-  //   logWarn(
-  //       "CHIPContextLevel0.register_function_as_kernel not "
-  //       "implemented");
-
-  //   return true;
-  // }
 };  // CHIPContextLevel0
+
 class CHIPModuleLevel0 : public CHIPModule {
  public:
   CHIPModuleLevel0(std::string* module_str) : CHIPModule(module_str) {}
