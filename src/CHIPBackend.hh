@@ -522,7 +522,14 @@ class CHIPDevice {
    * @brief Construct a new CHIPDevice object
    *
    */
+  CHIPDevice(CHIPContext* ctx_);
+
+  /**
+   * @brief Construct a new CHIPDevice object
+   *
+   */
   CHIPDevice();
+
   /**
    * @brief Destroy the CHIPDevice object
    *

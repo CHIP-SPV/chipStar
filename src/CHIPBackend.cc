@@ -174,6 +174,8 @@ dim3 CHIPExecItem::getGrid() { return grid_dim; }
 CHIPKernel *CHIPExecItem::getKernel() { return chip_kernel; }
 // CHIPDevice
 //*************************************************************************************
+CHIPDevice::CHIPDevice(CHIPContext *ctx_) : ctx(ctx_) {}
+
 CHIPDevice::CHIPDevice() {
   logDebug("Device {} is {}: name \"{}\" \n", idx, (void *)this,
            hip_device_props.name);
