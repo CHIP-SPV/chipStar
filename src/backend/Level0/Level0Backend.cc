@@ -59,6 +59,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
     if (ze_device_type == device_properties.type) {
       CHIPDeviceLevel0* chip_l0_dev =
           new CHIPDeviceLevel0(std::move(dev), chip_l0_ctx);
+      chip_l0_ctx->addDevice(chip_l0_dev);
 
       CHIPQueueLevel0* q = new CHIPQueueLevel0(chip_l0_dev);
       chip_l0_dev->addQueue(q);
