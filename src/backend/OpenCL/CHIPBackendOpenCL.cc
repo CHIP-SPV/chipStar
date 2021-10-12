@@ -374,6 +374,12 @@ hipError_t CHIPQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
   return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
 }
 
+hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
+                                         size_t size) {
+  logCritical("CHIPQueueOpenCL::memCopyAsync");
+  std::abort();
+}
+
 void CHIPQueueOpenCL::finish() {
   logCritical("CHIPQueueOpenCL::finish() not yet implemented");
   std::abort();

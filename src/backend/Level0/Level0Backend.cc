@@ -70,28 +70,38 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
   }  // End adding CHIPDevices
 }
 
-// CHIPContextLevelZero
-// ***********************************************************************
-hipError_t CHIPContextLevel0::memCopy(void* dst, const void* src, size_t size,
-                                      hipStream_t stream) {
-  logTrace("CHIPContextLevel0.memCopy");
-  // Stream halding done in Bindings.
-  // if (stream == nullptr) {
-  //   return getDefaultQueue()->memCopy(dst, src, size);
-  // } else {
-  //   logCritical("Queue lookup not yet implemented");
-  //   std::abort();
-  // }
+hipError_t CHIPQueueLevel0::memCopyAsync(void* dst, const void* src,
+                                         size_t size) {}
 
-  CHIPQueueLevel0* chip_q = (CHIPQueueLevel0*)stream;
-  ze_result_t status = zeCommandQueueSynchronize(chip_q->get(), UINT64_MAX);
-  if (status != ZE_RESULT_SUCCESS) {
-    logCritical("Failed to memcopy");
-    std::abort();
-  }
+hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
+  logTrace("CHIPContextLevel0.memCopy");
+  auto chip_ctx_ze = (CHIPContextLevel0*)chip_context;
+  auto cmd_list = chip_ctx_ze->ze_cmd_list;
+
+  ze_result_t status = zeCommandListAppendMemoryCopy(cmd_list, dst, src, size,
+                                                     nullptr, 0, nullptr);
+
+  logTrace("closing command list");
+  zeCommandListClose(cmd_list);
+  logTrace("submitting command list to command queue");
+  zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
+  logTrace("sync");
+  zeCommandQueueSynchronize(ze_q, UINT32_MAX);
+  logTrace("reset");
+  zeCommandListReset(cmd_list);
+
+  //     ze_result_t status = zeCommandQueueSynchronize(chip_q->get(),
+  //     UINT64_MAX);
+  // if (status != ZE_RESULT_SUCCESS) {
+  //   logCritical("Failed to memcopy");
+  //   std::abort();
+  //}
 
   return hipSuccess;
 }
+// CHIPContextLevelZero
+// ***********************************************************************
+
 void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
                                    CHIPMemoryType memTy) {
   alignment = 0x1000;  // TODO Where/why
@@ -347,16 +357,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
 
   chip_context->addQueue(this);
 }
-hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
-  // ze_event_handle_t hSignalEvent =
-  // GetSignalEvent(ze_q)->GetEventHandler();
-  ze_command_list_handle_t ze_cmd_list =
-      ((CHIPContextLevel0*)chip_context)->ze_cmd_list;
-  assert(ze_cmd_list != nullptr);
-  ze_result_t status = zeCommandListAppendMemoryCopy(ze_cmd_list, dst, src,
-                                                     size, nullptr, 0, NULL);
-  return hipSuccess;
-}
 
 hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   exec_item->setupAllArgs();
@@ -373,6 +373,15 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   ze_group_count_t launchArgs = {x, y, z};
   zeCommandListAppendLaunchKernel(cmd_list, kernel_ze, &launchArgs, nullptr, 0,
                                   nullptr);
+
+  logTrace("closing command list");
+  zeCommandListClose(cmd_list);
+  logTrace("submitting command list to command queue");
+  zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
+  logTrace("sync");
+  zeCommandQueueSynchronize(ze_q, UINT32_MAX);
+  logTrace("reset");
+  zeCommandListReset(cmd_list);
 }
 
 // CHIPKernelLevelZero

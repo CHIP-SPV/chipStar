@@ -934,7 +934,7 @@ class CHIPContext {
    * @return hipError_t
    */
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream) = 0;
+                             hipStream_t stream){};
 
   /**
    * @brief Finish all the queues in this context
@@ -1271,7 +1271,7 @@ class CHIPQueue {
    * @return hipError_t
    */
 
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size);
+  virtual hipError_t memCopy(void* dst, const void* src, size_t size) = 0;
   /**
    * @brief Non-blocking memory copy
    *
@@ -1280,7 +1280,7 @@ class CHIPQueue {
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual hipError_t memCopyAsync(void* dst, const void* src, size_t size);
+  virtual hipError_t memCopyAsync(void* dst, const void* src, size_t size) = 0;
 
   /**
    * @brief Blocking memset

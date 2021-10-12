@@ -909,8 +909,8 @@ CHIPDevice *CHIPQueue::getDevice() {
 
 unsigned int CHIPQueue::getFlags() {}
 hipError_t CHIPQueue::launch(CHIPExecItem *) {}
-hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
-hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
+// hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
+// hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
 
 hipError_t CHIPQueue::launchWithKernelParams(dim3 grid, dim3 block,
                                              unsigned int sharedMemBytes,

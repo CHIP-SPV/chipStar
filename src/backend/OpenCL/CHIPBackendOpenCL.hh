@@ -121,6 +121,8 @@ class CHIPQueueOpenCL : public CHIPQueue {
   virtual void finish() override;
 
   virtual hipError_t memCopy(void *dst, const void *src, size_t size) override;
+  virtual hipError_t memCopyAsync(void *dst, const void *src,
+                                  size_t size) override;
   cl::CommandQueue *get() { return cl_q; }
 };
 

@@ -83,6 +83,8 @@ class CHIPQueueLevel0 : public CHIPQueue {
   ze_command_queue_handle_t get() { return ze_q; }
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) override;
+  virtual hipError_t memCopyAsync(void* dst, const void* src,
+                                  size_t size) override;
 };
 
 class CHIPContextLevel0 : public CHIPContext {
@@ -99,8 +101,7 @@ class CHIPContextLevel0 : public CHIPContext {
 
   void free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream) override;
+
 };  // CHIPContextLevel0
 
 class CHIPModuleLevel0 : public CHIPModule {
