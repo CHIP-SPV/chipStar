@@ -71,7 +71,9 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
 }
 
 hipError_t CHIPQueueLevel0::memCopyAsync(void* dst, const void* src,
-                                         size_t size) {}
+                                         size_t size) {
+  UNIMPLEMENTED();
+}
 
 hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   logTrace("CHIPContextLevel0.memCopy");
@@ -366,6 +368,10 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   CHIPKernelLevel0* chip_kernel = (CHIPKernelLevel0*)exec_item->getKernel();
   ze_kernel_handle_t kernel_ze = chip_kernel->get();
   logTrace("Launching Kernel {}", chip_kernel->getName());
+
+  ze_result_t status =
+      zeKernelSetGroupSize(kernel_ze, exec_item->getBlock().x,
+                           exec_item->getBlock().y, exec_item->getBlock().z);
 
   auto x = exec_item->getGrid().x;
   auto y = exec_item->getGrid().y;

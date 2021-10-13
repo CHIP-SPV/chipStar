@@ -1,6 +1,10 @@
 #ifndef TEMP_H
 #define TEMP_H
 
+#define UNIMPLEMENTED()                                          \
+  logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
+  std::abort();
+
 #define RETURN(x)                  \
   do {                             \
     hipError_t err = (x);          \

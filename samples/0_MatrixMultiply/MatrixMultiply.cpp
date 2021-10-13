@@ -292,10 +292,11 @@ int main() {
       float diff = std::fabs(gpu - cpu);
       if (diff > std::max(std::fabs(cpu), std::fabs(gpu)) * eps) {
         errors++;
-        std::cout << "E[" << i << "][" << j << "]: M1 "
-                  << Matrix1[i * WIDTH + j] << " M2 " << Matrix1[i * WIDTH + j]
-                  << " CPU: " << cpu << " GPU: " << gpu << " ERROR: " << diff
-                  << "\n";
+        if (errors < 10)
+          std::cout << "E[" << i << "][" << j << "]: M1 "
+                    << Matrix1[i * WIDTH + j] << " M2 "
+                    << Matrix1[i * WIDTH + j] << " CPU: " << cpu
+                    << " GPU: " << gpu << " ERROR: " << diff << "\n";
       }
     }
   }
