@@ -182,7 +182,6 @@ class CHIPExecItemOpenCL : public CHIPExecItem {
 
  public:
   OCLFuncInfo FuncInfo;
-  virtual hipError_t launch(CHIPKernel *chip_kernel) override;
   int setup_all_args(CHIPKernelOpenCL *kernel);
   cl::Kernel *get() { return cl_kernel; }
 };

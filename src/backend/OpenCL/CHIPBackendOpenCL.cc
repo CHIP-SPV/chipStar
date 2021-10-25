@@ -214,12 +214,6 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
   return err;
 }
 
-hipError_t CHIPExecItemOpenCL::launch(CHIPKernel *chip_kernel) {
-  logTrace("CHIPExecItemOpenCL->launch()");
-  return hipSuccess;
-  // return (hipError_t)(ocl_q->launch(Kernel, this) == hipSuccess);
-}
-
 int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
   OCLFuncInfo *FuncInfo = kernel->get_func_info();
   size_t NumLocals = 0;

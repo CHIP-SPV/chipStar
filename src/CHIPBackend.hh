@@ -482,15 +482,6 @@ class CHIPExecItem {
   void setupAllArgs();
 
   /**
-   * @brief Submit a kernel to the associated queue for execution.
-   * chip_queue must be set prior to this call.
-   *
-   * @param Kernel kernel which is to be launched
-   * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
-   */
-  virtual hipError_t launch(CHIPKernel* Kernel);
-
-  /**
    * @brief Launch a kernel associated with a host function pointer.
    * Looks up the CHIPKernel associated with this pointer and calls launch()
    *
@@ -625,14 +616,14 @@ class CHIPDevice {
    *
    * @return std::vector<CHIPQueue*>
    */
-  std::vector<CHIPQueue*> getQueues();  // TODO CHIP
+  std::vector<CHIPQueue*> getQueues();
   /**
    * @brief HIP API allows for setting the active device, not the active queue
    * so active device's active queue is always it's 0th/default/primary queue
    *
    * @return CHIPQueue*
    */
-  CHIPQueue* getActiveQueue();  // TODO CHIP
+  CHIPQueue* getActiveQueue();
   /**
    * @brief Remove a queue from this device's queue vector
    *
@@ -640,7 +631,7 @@ class CHIPDevice {
    * @return true
    * @return false
    */
-  bool removeQueue(CHIPQueue* q);  // TODO CHIP
+  bool removeQueue(CHIPQueue* q);
 
   /**
    * @brief Get the integer ID of this device as it appears in the Backend's
@@ -654,7 +645,7 @@ class CHIPDevice {
    *
    * @return std::string
    */
-  virtual std::string getName() = 0;
+  virtual std::string getName();  // TODO make not virtual
 
   /**
    * @brief Destroy all allocations and reset all state on the current device in

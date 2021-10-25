@@ -174,11 +174,6 @@ void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
   offset_sizes.push_back(std::make_tuple(offset, size));
 }
 
-hipError_t CHIPExecItem::launch(CHIPKernel *Kernel) {
-  logWarn("Calling CHIPExecItem.launch() base launch which does nothing");
-  return hipSuccess;
-};
-
 hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   if (chip_queue == nullptr) {
     logCritical(
@@ -193,7 +188,6 @@ hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
            chip_kernel->getName());
 
   return (chip_queue->launch(this));
-  // return launch(chip_kernel);
 }
 
 dim3 CHIPExecItem::getBlock() { return block_dim; }
@@ -206,11 +200,18 @@ CHIPDevice::CHIPDevice(CHIPContext *ctx_) : ctx(ctx_) {}
 CHIPDevice::CHIPDevice() {
   logDebug("Device {} is {}: name \"{}\" \n", idx, (void *)this,
            hip_device_props.name);
-};
-CHIPDevice::~CHIPDevice(){};
+}
+CHIPDevice::~CHIPDevice() {}
 
-std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return chip_kernels; };
-std::vector<CHIPModule *> &CHIPDevice::getModules() { return chip_modules; };
+std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return chip_kernels; }
+std::vector<CHIPModule *> &CHIPDevice::getModules() { return chip_modules; }
+
+std::string CHIPDevice::getName() {
+  // check if populateDeviceProperties was called previously
+  if (allocation_tracker == nullptr) populateDeviceProperties();
+
+  return std::string(hip_device_props.name);
+}
 
 void CHIPDevice::populateDeviceProperties() {
   populateDeviceProperties_();
@@ -520,6 +521,8 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
   return;
 }
 
+std::vector<CHIPQueue *> CHIPDevice::getQueues() { return chip_queues; }
+
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *peer, int flags,
                                      bool canAccessPeer) {}
 
@@ -533,11 +536,24 @@ hipFuncCache_t CHIPDevice::getCacheConfig() {}
 
 hipSharedMemConfig CHIPDevice::getSharedMemConfig() {}
 
-bool CHIPDevice::removeQueue(CHIPQueue *q) {}
+bool CHIPDevice::removeQueue(CHIPQueue *q) {
+  auto found_q = std::find(chip_queues.begin(), chip_queues.end(), q);
+  if (found_q == chip_queues.end()) {
+    logError(
+        "Tried to remove a queue for a device but the queue was not found in "
+        "device queue list");
+    return false;
+  }
+
+  chip_queues.erase(found_q);
+  return true;
+}
 
 void CHIPDevice::setSharedMemConfig(hipSharedMemConfig config) {}
 
-size_t CHIPDevice::getUsedGlobalMem() {}
+size_t CHIPDevice::getUsedGlobalMem() {
+  return allocation_tracker->total_mem_used;
+}
 
 bool CHIPDevice::hasPCIBusId(int, int, int) {}
 
