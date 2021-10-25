@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <hip/driver_types.h>
+
 #if defined(__clang__) && defined(__HIP__)
 
 #define __host__ __attribute__((host))
@@ -152,18 +154,7 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 #define hipTextureType2DLayered 0xF2
 #define hipTextureTypeCubemapLayered 0xFC
 
-/**
- * Memory type (for pointer attributes)
- */
-typedef enum hipMemoryType {
-  hipMemoryTypeHost,    ///< Memory is physically located on host
-  hipMemoryTypeDevice,  ///< Memory is physically located on device. (see
-                        ///< deviceId for specific device)
-  hipMemoryTypeArray,   ///< Array memory, physically located on device. (see
-                        ///< deviceId for specific device)
-  hipMemoryTypeUnified  ///< Not used currently
-} hipMemoryType;
-
+// TODO save as hip_runtime_api.h but guarded by ifdefs
 typedef struct hipFuncAttributes {
   int binaryVersion;
   int cacheModeCA;
@@ -176,27 +167,6 @@ typedef struct hipFuncAttributes {
   int ptxVersion;
   size_t sharedSizeBytes;
 } hipFuncAttributes;
-
-typedef void *hipDeviceptr_t;
-typedef enum hipChannelFormatKind {
-  hipChannelFormatKindSigned = 0,
-  hipChannelFormatKindUnsigned = 1,
-  hipChannelFormatKindFloat = 2,
-  hipChannelFormatKindNone = 3
-} hipChannelFormatKind;
-
-typedef struct hipChannelFormatDesc {
-  int x;
-  int y;
-  int z;
-  int w;
-  enum hipChannelFormatKind f;
-} hipChannelFormatDesc;
-
-typedef struct hipResourceDesc {
-  int resType;
-  void *res;
-} hipResourceDesc;
 
 typedef struct hipTextureDesc {
   int addressMode[2];
