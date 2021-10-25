@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef HIPLZ_HIP_RUNTIME_H
+#ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
 #error Include this file after including hip/hip_runtime.h
 #endif
 
