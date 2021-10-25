@@ -1,17 +1,16 @@
-#include <iostream>
+// #include <iostream>
 
-#include "CHIPBackend.hh"
-#include "CHIPDriver.hh"
-#include "include/hip/hip.hh"
-void testf() { std::cout << "Test Function Executed\n"; }
+// #include "CHIPBackend.hh"
+// #include "CHIPDriver.hh"
+// void testf() { std::cout << "Test Function Executed\n"; }
 
-int main() {
-  // std::cout << "Hello, World!\n";
-  // CHIPInitialize();
+// int main() {
+//   // std::cout << "Hello, World!\n";
+//   // CHIPInitialize();
 
-  // hipDeviceProp_t prop;
-  // hipGetDeviceProperties(&prop, 0);
+//   // hipDeviceProp_t prop;
+//   // hipGetDeviceProperties(&prop, 0);
 
-  // CHIPExecItem ex;
-  // Backend->submit(&ex);
-}
+//   // CHIPExecItem ex;
+//   // Backend->submit(&ex);
+// }
