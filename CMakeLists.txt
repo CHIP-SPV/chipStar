@@ -9,9 +9,7 @@ if (ABORT_IF_NOT_IMPLEMENTED)
   add_compile_options(-DCHIP_ABORT_ON_UNIMPL)
 endif()
 
-
-
-project(CHIP
+project(CHIP-SPV
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
@@ -21,9 +19,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "/opt/chip" CACHE PATH "Install path prefix" FORCE)
+  set(CMAKE_INSTALL_PREFIX "/opt/CHIP-SPV" CACHE PATH "Install path prefix" FORCE)
 endif()
-message(STATUS "CHIP will be installed to: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
 
  if(UNIX AND ((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")))
