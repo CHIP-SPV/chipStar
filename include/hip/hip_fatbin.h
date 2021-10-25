@@ -22,11 +22,8 @@ THE SOFTWARE.
 #ifndef HIP_SRC_HIP_FATBIN_H
 #define HIP_SRC_HIP_FATBIN_H
 
-// #include "hip/hip_runtime.h"
-// #include "hip_hcc_internal.h"
-
 // hip-clang fatbin format
-constexpr unsigned __hipFatMAGIC2 = 0x48495046; // "HIPF"
+constexpr unsigned __hipFatMAGIC2 = 0x48495046;  // "HIPF"
 
 #define CLANG_OFFLOAD_BUNDLER_MAGIC "__CLANG_OFFLOAD_BUNDLE__"
 #define AMDGCN_AMDHSA_TRIPLE "hip-amdgcn-amd-amdhsa"
@@ -45,14 +42,14 @@ struct __ClangOffloadBundleHeader {
 };
 
 struct __CudaFatBinaryWrapper {
-  unsigned int                magic;
-  unsigned int                version;
+  unsigned int magic;
+  unsigned int version;
   __ClangOffloadBundleHeader* binary;
-  void*                       unused;
+  void* unused;
 };
 
 const void* __hipExtractCodeObjectFromFatBinary(const void* data,
-    const char* agent_name);
+                                                const char* agent_name);
 void __hipDumpCodeObject(const std::string& image);
 
-#endif // HIP_SRC_HIP_FATBIN_H
+#endif  // HIP_SRC_HIP_FATBIN_H
