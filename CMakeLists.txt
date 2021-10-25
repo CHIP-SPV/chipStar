@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 cmake_policy(VERSION 3.4)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # For building on top of HIP-COMMON
-add_compile_options(-D__HIP_PLATFORM_AMD__)
+add_definitions(-D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
 
 option(ABORT_IF_NOT_IMPLEMENTED OFF)
 option(LAZY_JIT OFF)
 option(CACHE_KERNELS OFF)
 
 if (ABORT_IF_NOT_IMPLEMENTED)
-  add_compile_options(-DCHIP_ABORT_ON_UNIMPL)
+  add_definitions(-DCHIP_ABORT_ON_UNIMPL)
 endif()
 
 project(CHIP-SPV
@@ -74,6 +76,7 @@ include_directories(src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 find_package(Threads REQUIRED)
 set(CHIP_SRC 
     src/spirv.cc 
+    src/spirv_hiprtc.cc 
     src/CHIPDriver.cc 
     src/CHIPBackend.cc 
     src/logging.cc
