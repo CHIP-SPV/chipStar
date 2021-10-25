@@ -1,0 +1,86 @@
+/*
+Copyright (c) 2021 - 2021 Advanced Micro Devices, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
+#include <hip/hiprtc.h>
+#include "macros.hh"
+#include "logging.hh"
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+#include <stdlib.h>
+
+#if !defined(_WIN32)
+#pragma GCC visibility push(default)
+#endif
+
+const char* hiprtcGetErrorString(hiprtcResult result) { UNIMPLEMENTED(); }
+
+hiprtcResult hiprtcVersion(int* major, int* minor) { UNIMPLEMENTED(); }
+
+hiprtcResult hiprtcAddNameExpression(hiprtcProgram prog,
+                                     const char* name_expression) {
+  UNIMPLEMENTED();
+}
+
+hiprtcResult hiprtcCompileProgram(hiprtcProgram prog, int numOptions,
+                                  const char** options) {
+  UNIMPLEMENTED();
+}
+
+hiprtcResult hiprtcCreateProgram(hiprtcProgram* prog, const char* src,
+                                 const char* name, int numHeaders,
+                                 const char** headers,
+                                 const char** includeNames) {
+  UNIMPLEMENTED();
+}
+
+hiprtcResult hiprtcDestroyProgram(hiprtcProgram* prog) { UNIMPLEMENTED(); }
+
+hiprtcResult hiprtcGetLoweredName(hiprtcProgram prog,
+                                  const char* name_expression,
+                                  const char** lowered_name) {
+  UNIMPLEMENTED();
+}
+
+hiprtcResult hiprtcGetProgramLog(hiprtcProgram prog, char* log) {
+  UNIMPLEMENTED();
+}
+
+hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram prog, size_t* logSizeRet) {
+  UNIMPLEMENTED();
+}
+
+hiprtcResult hiprtcGetCode(hiprtcProgram prog, char* code) { UNIMPLEMENTED(); }
+
+hiprtcResult hiprtcGetCodeSize(hiprtcProgram prog, size_t* codeSizeRet) {
+  UNIMPLEMENTED();
+}
+
+#if !defined(_WIN32)
+#pragma GCC visibility pop
+#endif
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
