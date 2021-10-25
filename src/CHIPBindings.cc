@@ -21,7 +21,7 @@
 #include "CHIPBackend.hh"
 #include "CHIPDriver.hh"
 #include "hip/hip_fatbin.h"
-#include "hip/hip.hh"
+#include "hip/hip_runtime_api.h"
 #include "macros.hh"
 
 #define SPIR_TRIPLE "hip-spir64-unknown-unknown"
@@ -402,10 +402,10 @@ const char *hipGetErrorName(hipError_t hip_error) {
       return "hipErrorInvalidSymbol";
     case hipErrorMissingConfiguration:
       return "hipErrorMissingConfiguration";
-    case hipErrorMemoryAllocation:
-      return "hipErrorMemoryAllocation";
-    case hipErrorInitializationError:
-      return "hipErrorInitializationError";
+    // case hipErrorMemoryAllocation:
+    //   return "hipErrorMemoryAllocation";
+    // case hipErrorInitializationError:
+    //   return "hipErrorInitializationError";
     case hipErrorLaunchFailure:
       return "hipErrorLaunchFailure";
     case hipErrorPriorLaunchFailure:
@@ -428,8 +428,8 @@ const char *hipGetErrorName(hipError_t hip_error) {
       return "hipErrorInvalidMemcpyDirection";
     case hipErrorUnknown:
       return "hipErrorUnknown";
-    case hipErrorInvalidResourceHandle:
-      return "hipErrorInvalidResourceHandle";
+    // case hipErrorInvalidResourceHandle:
+    //   return "hipErrorInvalidResourceHandle";
     case hipErrorNotReady:
       return "hipErrorNotReady";
     case hipErrorNoDevice:
@@ -925,24 +925,25 @@ hipError_t hipArrayCreate(hipArray **array,
                           const HIP_ARRAY_DESCRIPTOR *pAllocateArray) {
   CHIPInitialize();
 
-  ERROR_IF((pAllocateArray->width == 0), hipErrorInvalidValue);
+  ERROR_IF((pAllocateArray->Width == 0), hipErrorInvalidValue);
 
   *array = new hipArray;
   ERROR_IF((*array == nullptr), hipErrorOutOfMemory);
 
-  array[0]->drvDesc = *pAllocateArray;
-  array[0]->width = pAllocateArray->width;
-  array[0]->height = pAllocateArray->height;
+  // TODO no longer there
+  // array[0]->drvDesc = *pAllocateArray;
+  array[0]->width = pAllocateArray->Width;
+  array[0]->height = pAllocateArray->Height;
   array[0]->isDrv = true;
   array[0]->textureType = hipTextureType2D;
   void **ptr = &array[0]->data;
 
-  size_t size = pAllocateArray->width;
-  if (pAllocateArray->height > 0) {
-    size = size * pAllocateArray->height;
+  size_t size = pAllocateArray->Width;
+  if (pAllocateArray->Height > 0) {
+    size = size * pAllocateArray->Height;
   }
   size_t allocSize = 0;
-  switch (pAllocateArray->format) {
+  switch (pAllocateArray->Format) {
     case HIP_AD_FORMAT_UNSIGNED_INT8:
       allocSize = size * sizeof(uint8_t);
       break;
@@ -1170,8 +1171,8 @@ hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value,
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *pCopy) {
   ERROR_IF((pCopy == nullptr), hipErrorInvalidValue);
 
-  return hipMemcpy2D(pCopy->dstArray->data, pCopy->widthInBytes, pCopy->srcHost,
-                     pCopy->srcPitch, pCopy->widthInBytes, pCopy->height,
+  return hipMemcpy2D(pCopy->dstArray->data, pCopy->WidthInBytes, pCopy->srcHost,
+                     pCopy->srcPitch, pCopy->WidthInBytes, pCopy->Height,
                      hipMemcpyDefault);
 }
 
@@ -1278,84 +1279,86 @@ hipError_t hipMemcpyHtoA(hipArray *dstArray, size_t dstOffset,
 
 hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *p) {
   CHIPInitialize();
+  // TODO: make this conversion
+  // const HIP_MEMCPY3D desc = hip::getDrvMemcpy3DDesc(*p);
+  // ERROR_IF((p == nullptr), hipErrorInvalidValue);
 
-  ERROR_IF((p == nullptr), hipErrorInvalidValue);
+  // size_t byteSize;
+  // size_t depth;
+  // size_t height;
+  // size_t widthInBytes;
+  // size_t srcPitch;
+  // size_t dstPitch;
+  // void *srcPtr;
+  // void *dstPtr;
+  // size_t ySize;
 
-  size_t byteSize;
-  size_t depth;
-  size_t height;
-  size_t widthInBytes;
-  size_t srcPitch;
-  size_t dstPitch;
-  void *srcPtr;
-  void *dstPtr;
-  size_t ySize;
+  // if (p->dstArray != nullptr) {
+  //   if (p->dstArray->isDrv == false) {
+  //     switch (p->dstArray->desc.f) {
+  //       case hipChannelFormatKindSigned:
+  //         byteSize = sizeof(int);
+  //         break;
+  //       case hipChannelFormatKindUnsigned:
+  //         byteSize = sizeof(unsigned int);
+  //         break;
+  //       case hipChannelFormatKindFloat:
+  //         byteSize = sizeof(float);
+  //         break;
+  //       case hipChannelFormatKindNone:
+  //         byteSize = sizeof(size_t);
+  //         break;
+  //     }
+  //     depth = p->extent.depth;
+  //     height = p->extent.height;
+  //     widthInBytes = p->extent.width * byteSize;
+  //     srcPitch = p->srcPtr.pitch;
+  //     srcPtr = p->srcPtr.ptr;
+  //     ySize = p->srcPtr.ysize;
+  //     dstPitch = p->dstArray->width * byteSize;
+  //     dstPtr = p->dstArray->data;
+  //   } else {
+  //     depth = p->Depth;
+  //     height = p->Height;
+  //     widthInBytes = p->WidthInBytes;
+  //     dstPitch = p->dstArray->width * 4;
+  //     srcPitch = p->srcPitch;
+  //     srcPtr = (void *)p->srcHost;
+  //     ySize = p->srcHeight;
+  //     dstPtr = p->dstArray->data;
+  //   }
+  // } else {
+  //   // Non array destination
+  //   depth = p->extent.depth;
+  //   height = p->extent.height;
+  //   widthInBytes = p->extent.width;
+  //   srcPitch = p->srcPtr.pitch;
+  //   srcPtr = p->srcPtr.ptr;
+  //   dstPtr = p->dstPtr.ptr;
+  //   ySize = p->srcPtr.ysize;
+  //   dstPitch = p->dstPtr.pitch;
+  // }
 
-  if (p->dstArray != nullptr) {
-    if (p->dstArray->isDrv == false) {
-      switch (p->dstArray->desc.f) {
-        case hipChannelFormatKindSigned:
-          byteSize = sizeof(int);
-          break;
-        case hipChannelFormatKindUnsigned:
-          byteSize = sizeof(unsigned int);
-          break;
-        case hipChannelFormatKindFloat:
-          byteSize = sizeof(float);
-          break;
-        case hipChannelFormatKindNone:
-          byteSize = sizeof(size_t);
-          break;
-      }
-      depth = p->extent.depth;
-      height = p->extent.height;
-      widthInBytes = p->extent.width * byteSize;
-      srcPitch = p->srcPtr.pitch;
-      srcPtr = p->srcPtr.ptr;
-      ySize = p->srcPtr.ysize;
-      dstPitch = p->dstArray->width * byteSize;
-      dstPtr = p->dstArray->data;
-    } else {
-      depth = p->Depth;
-      height = p->Height;
-      widthInBytes = p->WidthInBytes;
-      dstPitch = p->dstArray->width * 4;
-      srcPitch = p->srcPitch;
-      srcPtr = (void *)p->srcHost;
-      ySize = p->srcHeight;
-      dstPtr = p->dstArray->data;
-    }
-  } else {
-    // Non array destination
-    depth = p->extent.depth;
-    height = p->extent.height;
-    widthInBytes = p->extent.width;
-    srcPitch = p->srcPtr.pitch;
-    srcPtr = p->srcPtr.ptr;
-    dstPtr = p->dstPtr.ptr;
-    ySize = p->srcPtr.ysize;
-    dstPitch = p->dstPtr.pitch;
-  }
+  // if ((widthInBytes == dstPitch) && (widthInBytes == srcPitch)) {
+  //   return hipMemcpy((void *)dstPtr, (void *)srcPtr,
+  //                    widthInBytes * height * depth, p->kind);
+  // } else {
+  //   for (size_t i = 0; i < depth; i++) {
+  //     for (size_t j = 0; j < height; j++) {
+  //       unsigned char *src =
+  //           (unsigned char *)srcPtr + i * ySize * srcPitch + j * srcPitch;
+  //       unsigned char *dst =
+  //           (unsigned char *)dstPtr + i * height * dstPitch + j * dstPitch;
+  //       if (hipMemcpyAsync(dst, src, widthInBytes, p->kind,
+  //                          Backend->getActiveQueue()) != hipSuccess)
+  //         RETURN(hipErrorLaunchFailure);
+  //     }
+  //   }
 
-  if ((widthInBytes == dstPitch) && (widthInBytes == srcPitch)) {
-    return hipMemcpy((void *)dstPtr, (void *)srcPtr,
-                     widthInBytes * height * depth, p->kind);
-  } else {
-    for (size_t i = 0; i < depth; i++) {
-      for (size_t j = 0; j < height; j++) {
-        unsigned char *src =
-            (unsigned char *)srcPtr + i * ySize * srcPitch + j * srcPitch;
-        unsigned char *dst =
-            (unsigned char *)dstPtr + i * height * dstPitch + j * dstPitch;
-        if (hipMemcpyAsync(dst, src, widthInBytes, p->kind,
-                           Backend->getActiveQueue()) != hipSuccess)
-          RETURN(hipErrorLaunchFailure);
-      }
-    }
-
-    Backend->getActiveQueue()->finish();
-    RETURN(hipSuccess);
-  }
+  //   Backend->getActiveQueue()->finish();
+  //  RETURN(hipSuccess);
+  // }
+  RETURN(hipSuccess);
 }
 
 hipError_t hipFuncGetAttributes(hipFuncAttributes *attr, const void *func) {
@@ -1480,14 +1483,14 @@ hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
                                   hipResourceDesc *resDesc,
                                   hipTextureDesc *texDesc, void *opt) {
   CHIPInitialize();
-
-  hipTextureObject_t retObj =
-      Backend->getActiveContext()->createImage(resDesc, texDesc);
-  if (retObj != nullptr) {
-    *texObj = retObj;
-    RETURN(hipSuccess);
-  } else
-    RETURN(hipErrorLaunchFailure);
+  // TODO
+  // hipTextureObject_t retObj =
+  //     Backend->getActiveContext()->createImage(resDesc, texDesc);
+  // if (retObj != nullptr) {
+  //   *texObj = retObj;
+  //   RETURN(hipSuccess);
+  // } else
+  //   RETURN(hipErrorLaunchFailure);
 }
 
 hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {
