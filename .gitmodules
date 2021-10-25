@@ -1,0 +1,3 @@
+[submodule "HIP"]
+	path = HIP
+	url = git@github.com:ROCm-Developer-Tools/HIP.git

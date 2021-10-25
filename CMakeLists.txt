@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 cmake_policy(VERSION 3.4)
 
+# For building on top of HIP-COMMON
+add_compile_options(-D__HIP_PLATFORM_AMD__)
+
 option(ABORT_IF_NOT_IMPLEMENTED OFF)
 option(LAZY_JIT OFF)
 option(CACHE_KERNELS OFF)
@@ -66,7 +69,7 @@ enable_testing()
 
 add_compile_options(-Wno-format-extra-args)
 
-include_directories(src backend include . ${OpenCL_INCLUDE_DIR})
+include_directories(src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
 set(CHIP_SRC 
