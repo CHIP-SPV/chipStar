@@ -81,7 +81,7 @@ set(CHIP_SRC
     src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc
 )
-set(DRIVER_SRC src/main.cc)
+# set(DRIVER_SRC src/main.cc)
 
 # Level0 Runtime
 macro(find_library_dynamic libname)
@@ -109,9 +109,8 @@ message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
 add_library(CHIP SHARED ${CHIP_SRC})
 target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
-add_executable(driver ${DRIVER_SRC})
-
-target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
+# add_executable(driver ${DRIVER_SRC})
+#target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
