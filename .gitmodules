@@ -1,0 +1,3 @@
+[submodule "HIP"]
+	path = HIP
+	url = git@github.com:CHIP-SPV/HIP.git
