@@ -91,7 +91,8 @@ hipError_t hipDeviceGet(hipDevice_t *device, int ordinal) {
   ERROR_IF((device == nullptr), hipErrorInvalidDevice);
   ERROR_CHECK_DEVNUM(ordinal);
 
-  **device = Backend->getDevices()[ordinal];
+  //**device = Backend->getDevices()[ordinal];
+  *device = ordinal;
   RETURN(hipSuccess);
 }
 
@@ -99,10 +100,10 @@ hipError_t hipDeviceComputeCapability(int *major, int *minor,
                                       hipDevice_t device) {
   CHIPInitialize();
 
-  ERROR_CHECK_DEVHANDLE(*device);
+  ERROR_CHECK_DEVNUM(device);
 
   hipDeviceProp_t props;
-  (*device)->copyDeviceProperties(&props);
+  Backend->getDevices()[device]->copyDeviceProperties(&props);
 
   if (major) *major = props.major;
   if (minor) *minor = props.minor;
@@ -145,8 +146,8 @@ hipError_t hipDeviceGetLimit(size_t *pValue, enum hipLimit_t limit) {
 
 hipError_t hipDeviceGetName(char *name, int len, hipDevice_t device) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
-  std::string dev_name = (*device)->getName();
+  ERROR_CHECK_DEVNUM(device);
+  std::string dev_name = (Backend->getDevices()[device])->getName();
 
   size_t namelen = dev_name.size();
   namelen = (namelen < (size_t)len ? namelen : len - 1);
@@ -157,7 +158,7 @@ hipError_t hipDeviceGetName(char *name, int len, hipDevice_t device) {
 
 hipError_t hipDeviceTotalMem(size_t *bytes, hipDevice_t device) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
+  ERROR_CHECK_DEVNUM(device);
   // TODO why did this not throw error if passed in should I do this check: ?
   // if (bytes == nullptr) {
   //  logCritical(
@@ -165,7 +166,7 @@ hipError_t hipDeviceTotalMem(size_t *bytes, hipDevice_t device) {
   //  std::abort();
   //}
 
-  if (bytes) *bytes = (*device)->getGlobalMemSize();
+  if (bytes) *bytes = (Backend->getDevices()[device])->getGlobalMemSize();
   RETURN(hipSuccess);
 }
 
@@ -586,14 +587,14 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *pbase, size_t *psize,
 hipError_t hipDevicePrimaryCtxGetState(hipDevice_t device, unsigned int *flags,
                                        int *active) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
+  ERROR_CHECK_DEVNUM(device);
 
   ERROR_IF((flags == nullptr || active == nullptr), hipErrorInvalidValue);
 
   CHIPContext *currentCtx = Backend->getActiveContext();
 
   // Currently device only has 1 context
-  CHIPContext *primaryCtx = (*device)->getContext();
+  CHIPContext *primaryCtx = (Backend->getDevices()[device])->getContext();
 
   *active = (primaryCtx == currentCtx) ? 1 : 0;
   *flags = primaryCtx->getFlags();
@@ -603,30 +604,30 @@ hipError_t hipDevicePrimaryCtxGetState(hipDevice_t device, unsigned int *flags,
 
 hipError_t hipDevicePrimaryCtxRelease(hipDevice_t device) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
+  ERROR_CHECK_DEVNUM(device);
   RETURN(hipSuccess);
 }
 
 hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *pctx, hipDevice_t device) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
-  *pctx = (*device)->getContext()->retain();
+  ERROR_CHECK_DEVNUM(device);
+  *pctx = (Backend->getDevices()[device])->getContext()->retain();
   RETURN(hipSuccess);
 }
 
 hipError_t hipDevicePrimaryCtxReset(hipDevice_t device) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
-  (*device)->getContext()->reset();
+  ERROR_CHECK_DEVNUM(device);
+  (Backend->getDevices()[device])->getContext()->reset();
 
   RETURN(hipSuccess);
 }
 
 hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t device, unsigned int flags) {
   CHIPInitialize();
-  ERROR_CHECK_DEVHANDLE(*device);
+  ERROR_CHECK_DEVNUM(device);
 
-  (*device)->getContext()->setFlags(flags);
+  (Backend->getDevices()[device])->getContext()->setFlags(flags);
   RETURN(hipSuccess);
 }
 

@@ -3,9 +3,6 @@ cmake_policy(VERSION 3.4)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# For building on top of HIP-COMMON
-add_definitions(-D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
-
 option(ABORT_IF_NOT_IMPLEMENTED OFF)
 option(LAZY_JIT OFF)
 option(CACHE_KERNELS OFF)
@@ -112,6 +109,9 @@ find_library_dynamic(libintlc.so.5)
 message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
 add_library(CHIP SHARED ${CHIP_SRC})
+
+# For building on top of HIP-COMMON
+target_compile_definitions(CHIP PRIVATE -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
 target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
 # add_executable(driver ${DRIVER_SRC})
 #target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
@@ -119,7 +119,14 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
+set(HIP_PATH HIP)
+set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc --hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -I/soft/compilers/hipcl/20210907-experimental13-debug/include)
+enable_testing()
+add_subdirectory(HIP/tests/catch catch)
+
 add_executable(tests tests/TestCHIPDriver.cc tests/TestCHIPBackend.cc tests/TestCHIPBackendOpenCL.cc)
+target_compile_definitions(tests PRIVATE -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
+
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain CHIP ${Level0_LIBRARIES})
 # Add to LD_LIBRARY_PATH
-#clang++ -pthread -fPIE -O2 -g -std=c++11 `hipcl_config -C` -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP/build -lCHIP
+#pvelesko@jlselogin4:~/CHIP-SPV/samples/0_MatrixMultiply> /soft/compilers/clang-hipcl/13.0-experimental/bin/clang++  -pthread -fPIE -O2 -g -std=c++17  -I/home/pvelesko/CHIP-SPV/HIP/include  -I/home/pvelesko/CHIP-SPV/include -D__HIP_PLATFORM_SPIRV__=  -x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc --hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP-SPV/build -lCHIP -D__HIP_PLATFORM_CLANG__
