@@ -1,6 +1,8 @@
 #ifndef MACROS_HH
 #define MACROS_HH
 
+#include "logging.hh"
+
 #ifdef CHIP_ABORT_ON_UNIMPL
 #define UNIMPLEMENTED()                                                        \
   logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
