@@ -11,11 +11,20 @@ if (ABORT_IF_NOT_IMPLEMENTED)
   add_definitions(-DCHIP_ABORT_ON_UNIMPL)
 endif()
 
+#add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_ERROR)
+#define SPDLOG_LEVEL_TRACE 0
+#define SPDLOG_LEVEL_DEBUG 1
+#define SPDLOG_LEVEL_INFO 2
+#define SPDLOG_LEVEL_WARN 3
+#define SPDLOG_LEVEL_ERROR 4
+#define SPDLOG_LEVEL_CRITICAL 5
+#define SPDLOG_LEVEL_OFF 6
+
 project(CHIP-SPV
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
-set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare -Wno-return-type -Wno-c++20-extensions")
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare -Wno-return-type -Wno-c++20-extensions -Wno-unused-result")
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -76,11 +85,11 @@ set(CHIP_SRC
     src/spirv_hiprtc.cc 
     src/CHIPDriver.cc 
     src/CHIPBackend.cc 
-    src/logging.cc
     src/CHIPBindings.cc
     src/backend/Level0/Level0Backend.cc
     src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc
+    src/logging.cc
 )
 # set(DRIVER_SRC src/main.cc)
 
@@ -110,8 +119,13 @@ message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
 add_library(CHIP SHARED ${CHIP_SRC})
 
+
+set(HIPLZ_DIR "/home/pvelesko/HIPLZ")
+
 # For building on top of HIP-COMMON
-target_compile_definitions(CHIP PRIVATE -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
+target_compile_definitions(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
+target_compile_options(CHIP PUBLIC  -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm)
+
 target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
 # add_executable(driver ${DRIVER_SRC})
 #target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
@@ -120,13 +134,18 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 set(HIP_PATH HIP)
-set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc --hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -I/soft/compilers/hipcl/20210907-experimental13-debug/include)
+set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm )
 enable_testing()
 add_subdirectory(HIP/tests/catch catch)
 
 add_executable(tests tests/TestCHIPDriver.cc tests/TestCHIPBackend.cc tests/TestCHIPBackendOpenCL.cc)
 target_compile_definitions(tests PRIVATE -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
-
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain CHIP ${Level0_LIBRARIES})
+
+install(DIRECTORY include DESTINATION .)
+install(DIRECTORY lib DESTINATION .)
+install(FILES ${PROJECT_BINARY_DIR}/libCHIP.so DESTINATION lib)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION include USE_SOURCE_PERMISSIONS)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION include USE_SOURCE_PERMISSIONS)
 # Add to LD_LIBRARY_PATH
 #pvelesko@jlselogin4:~/CHIP-SPV/samples/0_MatrixMultiply> /soft/compilers/clang-hipcl/13.0-experimental/bin/clang++  -pthread -fPIE -O2 -g -std=c++17  -I/home/pvelesko/CHIP-SPV/HIP/include  -I/home/pvelesko/CHIP-SPV/include -D__HIP_PLATFORM_SPIRV__=  -x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc --hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP-SPV/build -lCHIP -D__HIP_PLATFORM_CLANG__
