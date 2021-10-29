@@ -1,3 +1,4 @@
 build/*
+install/*
 .vscode/*
 samples/0_MatrixMultiply/binary
