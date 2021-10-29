@@ -2,14 +2,15 @@
 #define MACROS_HH
 
 #include "logging.hh"
-
+#include "iostream"
 #ifdef CHIP_ABORT_ON_UNIMPL
-#define UNIMPLEMENTED()                                                        \
+#define UNIMPLEMENTED(x)                                                       \
   logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
   std::abort();
 #else
-#define UNIMPLEMENTED() \
-  logCritical("Called a function which is not implemented: {}", __FUNCTION__);
+#define UNIMPLEMENTED(x)                                                       \
+  logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
+  return (x);
 #endif
 
 #define RETURN(x)                  \
