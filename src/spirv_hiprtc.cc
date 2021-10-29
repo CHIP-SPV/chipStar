@@ -34,47 +34,55 @@ extern "C" {
 #pragma GCC visibility push(default)
 #endif
 
-const char* hiprtcGetErrorString(hiprtcResult result) { UNIMPLEMENTED(); }
+const char* hiprtcGetErrorString(hiprtcResult result) {
+  UNIMPLEMENTED(nullptr);
+}
 
-hiprtcResult hiprtcVersion(int* major, int* minor) { UNIMPLEMENTED(); }
+hiprtcResult hiprtcVersion(int* major, int* minor) {
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
+}
 
 hiprtcResult hiprtcAddNameExpression(hiprtcProgram prog,
                                      const char* name_expression) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcCompileProgram(hiprtcProgram prog, int numOptions,
                                   const char** options) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcCreateProgram(hiprtcProgram* prog, const char* src,
                                  const char* name, int numHeaders,
                                  const char** headers,
                                  const char** includeNames) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcDestroyProgram(hiprtcProgram* prog) { UNIMPLEMENTED(); }
+hiprtcResult hiprtcDestroyProgram(hiprtcProgram* prog) {
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
+}
 
 hiprtcResult hiprtcGetLoweredName(hiprtcProgram prog,
                                   const char* name_expression,
                                   const char** lowered_name) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcGetProgramLog(hiprtcProgram prog, char* log) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram prog, size_t* logSizeRet) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetCode(hiprtcProgram prog, char* code) { UNIMPLEMENTED(); }
+hiprtcResult hiprtcGetCode(hiprtcProgram prog, char* code) {
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
+}
 
 hiprtcResult hiprtcGetCodeSize(hiprtcProgram prog, size_t* codeSizeRet) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 #if !defined(_WIN32)
