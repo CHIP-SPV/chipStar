@@ -18,8 +18,14 @@ CHIPAllocationTracker::CHIPAllocationTracker(size_t global_mem_size_,
 }
 CHIPAllocationTracker::~CHIPAllocationTracker() {}
 
-allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {}
-allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {}
+allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {
+  auto found = host_to_dev.find(const_cast<void *>(host_ptr));
+  if (found == host_to_dev.end()) std::abort();
+  return getByDevPtr(found->second);
+}
+allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {
+  return &dev_to_allocation_info[const_cast<void *>(dev_ptr)];
+}
 
 bool CHIPAllocationTracker::reserveMem(size_t bytes) {
   std::lock_guard<std::mutex> Lock(mtx);
@@ -184,6 +190,9 @@ hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
 
   CHIPDevice *dev = chip_queue->getDevice();
   this->chip_kernel = dev->findKernelByHostPtr(hostPtr);
+  if (this->chip_kernel == nullptr) {
+    return hipErrorLaunchFailure;
+  }
   logTrace("Found kernel for host pointer {} : {}", hostPtr,
            chip_kernel->getName());
 
@@ -193,6 +202,7 @@ hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
 dim3 CHIPExecItem::getBlock() { return block_dim; }
 dim3 CHIPExecItem::getGrid() { return grid_dim; }
 CHIPKernel *CHIPExecItem::getKernel() { return chip_kernel; }
+size_t CHIPExecItem::getSharedMem() { return shared_mem; }
 // CHIPDevice
 //*************************************************************************************
 CHIPDevice::CHIPDevice(CHIPContext *ctx_) : ctx(ctx_) {}
@@ -239,7 +249,9 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
   if (found_kernel == chip_kernels.end()) {
     logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, idx,
                 device_name);
-    std::abort();  // Exception
+    // std::abort();  // Exception
+    // TODO
+    return nullptr;
   } else {
     logDebug("Found kernel {} with host pointer {}", (*found_kernel)->getName(),
              (*found_kernel)->getHostPtr());
@@ -503,7 +515,9 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
         "Device {}: tried to register host function <{}, {}> but failed to "
         "find kernel with matching name",
         getDeviceId(), host_f_ptr, host_f_name);
-    std::abort();
+    // std::abort();
+    // TODO
+    return;
   }
 
   kernel->setHostPtr(host_f_ptr);
@@ -895,6 +909,12 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(
   }
 }
 
+CHIPQueue *CHIPBackend::findQueue(CHIPQueue *q) {
+  auto q_found = std::find(chip_queues.begin(), chip_queues.end(), q);
+  if (q_found == chip_queues.end()) return nullptr;
+  return *q_found;
+}
+
 // hipError_t CHIPBackend::removeModule(CHIPModule *chip_module){};
 // CHIPModule *CHIPBackend::addModule(std::string *module_str) {
 //   for (auto &ctx : chip_contexts)
@@ -938,11 +958,15 @@ hipError_t CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
 
 int CHIPQueue::getPriorityRange(int lower_or_upper) {}
 int CHIPQueue::getPriority() {}
-void CHIPQueue::finish() {}
 bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {}
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
-                               size_t sharedMemBytes) {}
+                               size_t sharedMemBytes) {
+  dim3 dimGrid = {dimBlocks.x * numBlocks.x, dimBlocks.y * numBlocks.y,
+                  dimBlocks.z * numBlocks.z};
+  CHIPExecItem e(dimGrid, dimBlocks, sharedMemBytes, Backend->getActiveQueue());
+  e.launchByHostPtr(hostFunction);
+}
 bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) {}
 bool CHIPQueue::query() {}
 void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,

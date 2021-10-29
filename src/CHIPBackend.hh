@@ -472,6 +472,13 @@ class CHIPExecItem {
   dim3 getBlock();
 
   /**
+   * @brief Get the SharedMem
+   *
+   * @return size_t
+   */
+  size_t getSharedMem();
+
+  /**
    * @brief Setup a single argument.
    * gets called by hipSetupArgument calls to which are emitted by hip-clang.
    *
@@ -1199,6 +1206,14 @@ class CHIPBackend {
   CHIPDevice* findDeviceMatchingProps(const hipDeviceProp_t* props);
 
   /**
+   * @brief Find a given queue in this backend.
+   *
+   * @param q queue to find
+   * @return CHIPQueue* return queue or nullptr if not found
+   */
+  CHIPQueue* findQueue(CHIPQueue* q);
+
+  /**
    * @brief Add a CHIPModule to every initialized device
    *
    * @param chip_module pointer to CHIPModule object
@@ -1318,7 +1333,7 @@ class CHIPQueue {
    *
    */
 
-  virtual void finish();
+  virtual void finish() = 0;
   /**
    * @brief Check if the queue is still actively executing
    *

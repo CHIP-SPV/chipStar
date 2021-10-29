@@ -81,6 +81,7 @@ class CHIPQueueLevel0 : public CHIPQueue {
   virtual hipError_t launch(CHIPExecItem* exec_item) override;
 
   ze_command_queue_handle_t get() { return ze_q; }
+  virtual void finish() override;
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) override;
   virtual hipError_t memCopyAsync(void* dst, const void* src,

@@ -30,6 +30,92 @@ static unsigned binaries_loaded = 0;
 
 #define SVM_ALIGNMENT 128  // TODO Pass as CMAKE Define?
 
+hipError_t hipMemcpy2DFromArray(void *dst, size_t dpitch, hipArray_const_t src,
+                                size_t wOffset, size_t hOffset, size_t width,
+                                size_t height, hipMemcpyKind kind) {
+  UNIMPLEMENTED(hipErrorUnknown);
+}
+hipError_t hipMemsetD16Async(hipDeviceptr_t dest, unsigned short value,
+                             size_t count, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+}
+hipError_t hipMemcpy2DToArrayAsync(hipArray *dst, size_t wOffset,
+                                   size_t hOffset, const void *src,
+                                   size_t spitch, size_t width, size_t height,
+                                   hipMemcpyKind kind, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *p,
+                            hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+}
+hipError_t hipMemcpyWithStream(void *dst, const void *src, size_t sizeBytes,
+                               hipMemcpyKind kind, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemsetD16(hipDeviceptr_t dest, unsigned short value,
+                        size_t count) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemcpyPeer(void *dst, int dstDeviceId, const void *src,
+                         int srcDeviceId, size_t sizeBytes) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemRangeGetAttribute(void *data, size_t data_size,
+                                   hipMemRangeAttribute attribute,
+                                   const void *dev_ptr, size_t count) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemcpy2DFromArrayAsync(void *dst, size_t dpitch,
+                                     hipArray_const_t src, size_t wOffset,
+                                     size_t hOffset, size_t width,
+                                     size_t height, hipMemcpyKind kind,
+                                     hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMallocManaged(void **dev_ptr, size_t size, unsigned int flags) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMalloc3DArray(hipArray **array,
+                            const struct hipChannelFormatDesc *desc,
+                            struct hipExtent extent, unsigned int flags) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemsetD8Async(hipDeviceptr_t dest, unsigned char value,
+                            size_t count, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemcpyPeerAsync(void *dst, int dstDeviceId, const void *src,
+                              int srcDevice, size_t sizeBytes,
+                              hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+};
+hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *pCopy,
+                                 hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorUnknown);
+}
+hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim,
+                                      size_t sharedMem, hipStream_t stream) {
+  CHIPInitialize();
+
+  if (!stream) stream = Backend->getActiveQueue();
+  logTrace("__hipPushCallConfiguration()");
+  RETURN(Backend->configureCall(gridDim, blockDim, sharedMem, stream));
+}
+
+hipError_t __hipPopCallConfiguration(dim3 *gridDim, dim3 *blockDim,
+                                     size_t *sharedMem, hipStream_t *stream) {
+  CHIPInitialize();
+  if (!stream) *stream = Backend->getActiveQueue();
+
+  auto *ei = Backend->chip_execstack.top();
+  *gridDim = ei->getGrid();
+  *blockDim = ei->getBlock();
+  *sharedMem = ei->getSharedMem();
+  Backend->chip_execstack.pop();
+  return hipSuccess;
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
@@ -524,8 +610,12 @@ hipError_t hipStreamQuery(hipStream_t stream) {
 
 hipError_t hipStreamSynchronize(hipStream_t stream) {
   CHIPInitialize();
-  ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
-  stream->finish();
+  // ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
+  ERROR_IF((Backend->findQueue(stream) == nullptr),
+           hipErrorInvalidResourceHandle);
+  Backend->findQueue(stream)->finish();
+  // TODO
+  // stream->finish();
   RETURN(hipSuccess);
 }
 
@@ -1060,13 +1150,17 @@ hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
     memcpy(dst, src, sizeBytes);
     RETURN(hipSuccess);
   } else {
-    RETURN(stream->memCopyAsync(dst, src, sizeBytes));
+    // TODO
+    if (Backend->findQueue(stream) == nullptr) RETURN(hipErrorInvalidHandle);
+    RETURN(Backend->findQueue(stream)->memCopyAsync(dst, src, sizeBytes));
   }
 }
 
 hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
                      hipMemcpyKind kind) {
   CHIPInitialize();
+  // TODO
+  if (dst == nullptr || src == nullptr) return hipErrorIllegalAddress;
 
   if (kind == hipMemcpyHostToHost) {
     memcpy(dst, src, sizeBytes);
@@ -1171,7 +1265,7 @@ hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value,
 
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *pCopy) {
   ERROR_IF((pCopy == nullptr), hipErrorInvalidValue);
-
+  ERROR_IF((pCopy->dstArray == nullptr), hipErrorInvalidValue);
   return hipMemcpy2D(pCopy->dstArray->data, pCopy->WidthInBytes, pCopy->srcHost,
                      pCopy->srcPitch, pCopy->WidthInBytes, pCopy->Height,
                      hipMemcpyDefault);

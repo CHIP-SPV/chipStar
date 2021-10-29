@@ -72,7 +72,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
 
 hipError_t CHIPQueueLevel0::memCopyAsync(void* dst, const void* src,
                                          size_t size) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED(hipErrorUnknown);
 }
 
 hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
@@ -101,6 +101,8 @@ hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
 
   return hipSuccess;
 }
+
+void CHIPQueueLevel0::finish() { zeCommandQueueSynchronize(ze_q, UINT32_MAX); }
 // CHIPContextLevelZero
 // ***********************************************************************
 
@@ -147,6 +149,31 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
     LZ_PROCESS_ERROR_MSG(
         "HipLZ could not allocate device memory with error code: ", status);
     logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocDevice {} ", status);
+
+    return ptr;
+  } else if (memTy == CHIPMemoryType::Host) {
+    // TODO
+    ze_device_mem_alloc_desc_t dmaDesc;
+    dmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
+    dmaDesc.pNext = NULL;
+    dmaDesc.flags = 0;
+    dmaDesc.ordinal = 0;
+    ze_host_mem_alloc_desc_t hmaDesc;
+    hmaDesc.stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC;
+    hmaDesc.pNext = NULL;
+    hmaDesc.flags = 0;
+
+    // TODO Check if devices support cross-device sharing?
+    ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)getDevices()[0])->get();
+    ze_dev = nullptr;  // Do not associate allocation
+
+    ze_result_t status = zeMemAllocShared(ze_ctx, &dmaDesc, &hmaDesc, size,
+                                          alignment, ze_dev, &ptr);
+
+    // LZ_PROCESS_ERROR_MSG(
+    //     "HipLZ could not allocate shared memory with error code:
+    //     ", status);
+    logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
     return ptr;
   }
@@ -526,9 +553,19 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   ze_device_handle_t ze_dev = ((CHIPDeviceLevel0*)chip_dev)->get();
   ze_context_handle_t ze_ctx = chip_ctx_lz->get();
 
+  ze_module_build_log_handle_t log;
   ze_result_t status =
-      zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, nullptr);
-  logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ", status);
+      zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, &log);
+  logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ",
+           lzResultToString(status));
+  if (status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
+    size_t log_size;
+    zeModuleBuildLogGetString(log, &log_size, nullptr);
+    char log_str[log_size];
+    zeModuleBuildLogGetString(log, &log_size, log_str);
+    logCritical("Kernel failed to JIT: {}", std::string(log_str));
+    return;  // TODO
+  }
 
   uint32_t kernel_count = 0;
   zeModuleGetKernelNames(ze_module, &kernel_count, nullptr);
@@ -540,6 +577,9 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
 
   for (int i = 0; i < kernel_count; i++) {
     std::string host_f_name(kernel_names[i]);
+    auto found_func_info = func_infos.find(host_f_name);
+    if (found_func_info == func_infos.end()) continue;  // TODO
+    auto func_info = *(func_infos[host_f_name]);
     // Create kernel
     ze_kernel_handle_t ze_kernel;
     ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
@@ -547,8 +587,8 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
                                    host_f_name.c_str()};
     status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
     logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
-    CHIPKernelLevel0* chip_ze_kernel = new CHIPKernelLevel0(
-        ze_kernel, host_f_name, *(func_infos[host_f_name]));
+    CHIPKernelLevel0* chip_ze_kernel =
+        new CHIPKernelLevel0(ze_kernel, host_f_name, func_info);
     addKernel(chip_ze_kernel);
   }
 }
