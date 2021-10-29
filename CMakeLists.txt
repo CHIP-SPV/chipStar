@@ -91,7 +91,7 @@ set(CHIP_SRC
     src/backend/OpenCL/SVMemoryRegion.cc
     src/logging.cc
 )
-# set(DRIVER_SRC src/main.cc)
+set(DRIVER_SRC src/main.cc)
 
 # Level0 Runtime
 macro(find_library_dynamic libname)
@@ -127,8 +127,6 @@ target_compile_definitions(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM
 target_compile_options(CHIP PUBLIC  -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm)
 
 target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
-# add_executable(driver ${DRIVER_SRC})
-#target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
@@ -141,6 +139,11 @@ add_subdirectory(HIP/tests/catch catch)
 add_executable(tests tests/TestCHIPDriver.cc tests/TestCHIPBackend.cc tests/TestCHIPBackendOpenCL.cc)
 target_compile_definitions(tests PRIVATE -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain CHIP ${Level0_LIBRARIES})
+
+add_executable(driver ${DRIVER_SRC})
+target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
+target_include_directories(driver PRIVATE HIP/include)
+target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
 
 install(DIRECTORY include DESTINATION .)
 install(DIRECTORY lib DESTINATION .)
