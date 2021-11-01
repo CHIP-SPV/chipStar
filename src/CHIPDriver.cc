@@ -25,8 +25,11 @@ std::string read_env_var(std::string ENV_VAR) {
   if (ENV_VAR_IN == nullptr) {
     return std::string();
   }
+  std::string var = std::string(ENV_VAR_IN);
+  std::transform(var.begin(), var.end(), var.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
 
-  return std::string(ENV_VAR_IN);
+  return var;
 };
 
 std::string read_backend_selection();
