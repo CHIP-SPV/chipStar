@@ -1,78 +1,13 @@
 #include "CHIPBackendOpenCL.hh"
 
-void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
-  CHIPDeviceOpenCL *chip_dev_ocl = (CHIPDeviceOpenCL *)chip_dev_;
-  CHIPContextOpenCL *chip_ctx_ocl =
-      (CHIPContextOpenCL *)(chip_dev_ocl->getContext());
-
-  int err;
-  std::vector<char> binary_vec(src.begin(), src.end());
-  auto Program = cl::Program(*(chip_ctx_ocl->get()), binary_vec, false, &err);
-  if (err != CL_SUCCESS) {
-    logError("CreateProgramWithIL Failed: {}\n", err);
-    std::abort();
+#define CHIPERR_CHECK_LOG_AND_THROW_CL(status, errtype)       \
+  if (status != CL_SUCCESS) {                                 \
+    std::string msg_ = std::string(clResultToString(status)); \
+    CHIPERR_LOG_AND_THROW(msg_, errtype);                     \
   }
 
-  //   for (CHIPDevice *chip_dev : chip_devices) {
-  std::string name = chip_dev_ocl->getName();
-  int build_failed = Program.build("-x spir -cl-kernel-arg-info");
-
-  std::string log =
-      Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
-  if (err != CL_SUCCESS) {
-    logError("clGetProgramBuildInfo() Failed:{}\n", err);
-    std::abort();
-  }
-  logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
-           chip_dev_ocl->getDeviceId(), name, log);
-  if (build_failed != CL_SUCCESS) {
-    logError("clBuildProgram() Failed: {}\n", build_failed);
-    std::abort();
-  }
-
-  std::vector<cl::Kernel> kernels;
-  err = Program.createKernels(&kernels);
-  if (err != CL_SUCCESS) {
-    logError("clCreateKernels() Failed: {}\n", err);
-    std::abort();
-  }
-  logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
-  for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
-    CHIPKernelOpenCL *chip_kernel =
-        new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), func_infos);
-    chip_kernels.push_back(chip_kernel);
-  }
-}
-
-CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *ctx_in) {
-  logDebug("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
-  cl_ctx = ctx_in;
-}
-
-void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
-                                   CHIPMemoryType mem_type) {
-  void *retval;
-
-  retval = svm_memory.allocate(*cl_ctx, size);
-  return retval;
-}
-
-hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
-                                      hipStream_t stream) {
-  logWarn("CHIPContextOpenCL::memCopy not implemented");
-  // FIND_QUEUE_LOCKED(stream);
-  std::lock_guard<std::mutex> Lock(mtx);
-  CHIPQueue *Queue = findQueue(stream);
-  if (Queue == nullptr) return hipErrorInvalidResourceHandle;
-
-  if (svm_memory.hasPointer(dst) || svm_memory.hasPointer(src))
-    return Queue->memCopy(dst, src, size);
-  else
-    return hipErrorInvalidDevicePointer;
-}
-
-#include "CHIPBackendOpenCL.hh"
-
+// CHIPDeviceOpenCL
+// ************************************************************************
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx,
                                    cl::Device *dev_in, int idx) {
   logDebug(
@@ -181,13 +116,170 @@ void CHIPDeviceOpenCL::populateDeviceProperties_() {
   hip_device_props.maxSharedMemoryPerMultiProcessor = 0;
 }
 
-std::string CHIPDeviceOpenCL::getName() {
-  if (cl_dev == nullptr) {
-    logCritical("CHIPDeviceOpenCL.get_name() called on uninitialized ptr");
-    std::abort();
+void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
+// CHIPEventOpenCL
+// ************************************************************************
+// CHIPModuleOpenCL
+//*************************************************************************
+void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
+  CHIPDeviceOpenCL *chip_dev_ocl = (CHIPDeviceOpenCL *)chip_dev_;
+  CHIPContextOpenCL *chip_ctx_ocl =
+      (CHIPContextOpenCL *)(chip_dev_ocl->getContext());
+
+  int err;
+  std::vector<char> binary_vec(src.begin(), src.end());
+  auto Program = cl::Program(*(chip_ctx_ocl->get()), binary_vec, false, &err);
+  if (err != CL_SUCCESS)
+    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+
+  //   for (CHIPDevice *chip_dev : chip_devices) {
+  std::string name = chip_dev_ocl->getName();
+  int build_failed = Program.build("-x spir -cl-kernel-arg-info");
+
+  std::string log =
+      Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
+  if (err != CL_SUCCESS)
+    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+  logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
+           chip_dev_ocl->getDeviceId(), name, log);
+  if (build_failed != CL_SUCCESS)
+    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+
+  std::vector<cl::Kernel> kernels;
+  err = Program.createKernels(&kernels);
+  if (err != CL_SUCCESS)
+    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+  logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
+  for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
+    CHIPKernelOpenCL *chip_kernel =
+        new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), func_infos);
+    chip_kernels.push_back(chip_kernel);
   }
-  return std::string(cl_dev->getInfo<CL_DEVICE_NAME>());
 }
+
+// CHIPKernelOpenCL
+//*************************************************************************
+// CHIPExecItemOpenCL
+//*************************************************************************
+// CHIPContextOpenCL
+//*************************************************************************
+CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *ctx_in) {
+  logDebug("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
+  cl_ctx = ctx_in;
+}
+
+void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
+                                   CHIPMemoryType mem_type) {
+  void *retval;
+
+  retval = svm_memory.allocate(*cl_ctx, size);
+  return retval;
+}
+
+hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
+                                      hipStream_t stream) {
+  logWarn("CHIPContextOpenCL::memCopy not implemented");
+  // FIND_QUEUE_LOCKED(stream);
+  std::lock_guard<std::mutex> Lock(mtx);
+  CHIPQueue *Queue = findQueue(stream);
+  if (Queue == nullptr) return hipErrorInvalidResourceHandle;
+
+  if (svm_memory.hasPointer(dst) || svm_memory.hasPointer(src))
+    return Queue->memCopy(dst, src, size);
+  else
+    return hipErrorInvalidDevicePointer;
+}
+
+// CHIPQueueOpenCL
+//*************************************************************************
+hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
+  // std::lock_guard<std::mutex> Lock(mtx);
+  logTrace("CHIPQueueOpenCL->launch()");
+  CHIPExecItemOpenCL *chip_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
+  CHIPKernelOpenCL *kernel =
+      (CHIPKernelOpenCL *)chip_ocl_exec_item->getKernel();
+  assert(kernel != nullptr);
+  logTrace("Launching Kernel {}", kernel->get_name());
+
+  if (chip_ocl_exec_item->setup_all_args(kernel) != CL_SUCCESS) {
+    logError("Failed to set kernel arguments for launch! \n");
+    return hipErrorLaunchFailure;
+  }
+
+  dim3 GridDim = chip_ocl_exec_item->getGrid();
+  dim3 BlockDim = chip_ocl_exec_item->getBlock();
+
+  const cl::NDRange global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
+                           GridDim.z * BlockDim.z);
+  const cl::NDRange local(BlockDim.x, BlockDim.y, BlockDim.z);
+
+  cl::Event ev;
+  int err = cl_q->enqueueNDRangeKernel(kernel->get(), cl::NullRange, global,
+                                       local, nullptr, &ev);
+
+  if (err != CL_SUCCESS)
+    logError("clEnqueueNDRangeKernel() failed with: {}\n", err);
+  hipError_t retval = (err == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
+
+  // TODO
+  // cl_event LastEvent;
+  // if (retval == hipSuccess) {
+  //   if (LastEvent != nullptr) {
+  //     logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
+  //              (void *)ev.get());
+  //     clReleaseEvent(LastEvent);
+  //   } else
+  //     logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
+  //   LastEvent = ev.get();
+  //   clRetainEvent(LastEvent);
+  // }
+
+  // TODO remove this
+  // delete chip_ocl_exec_item;
+  return retval;
+}
+
+CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
+    : CHIPQueue(chip_device_) {
+  cl_ctx = ((CHIPContextOpenCL *)chip_context)->get();
+  cl_dev = ((CHIPDeviceOpenCL *)chip_device)->get();
+
+  cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
+}
+
+CHIPQueueOpenCL::~CHIPQueueOpenCL() {
+  delete cl_ctx;
+  delete cl_dev;
+}
+
+hipError_t CHIPQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logDebug("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
+  cl_event ev = nullptr;
+  auto LastEvent = ev;
+  int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
+                                    nullptr, &ev);
+  if (retval == CL_SUCCESS) {
+    // TODO
+    if (LastEvent != nullptr) {
+      logDebug("memCopy: LastEvent == {}, will be: {}", (void *)LastEvent,
+               (void *)ev);
+      clReleaseEvent(LastEvent);
+    } else
+      logDebug("memCopy: LastEvent == NULL, will be: {}\n", (void *)ev);
+    LastEvent = ev;
+  } else {
+    logError("clEnqueueSVMMemCopy() failed with error {}\n", retval);
+  }
+  return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
+}
+
+hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
+                                         size_t size) {
+  UNIMPLEMENTED(hipErrorUnknown);
+}
+
+void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
 
 static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
                         cl_kernel kernel) {
@@ -285,107 +377,279 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
 
   return setLocalSize(shared_mem, FuncInfo, kernel->get().get());
 }
-
-hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
-  // std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("CHIPQueueOpenCL->launch()");
-  CHIPExecItemOpenCL *chip_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
-  CHIPKernelOpenCL *kernel =
-      (CHIPKernelOpenCL *)chip_ocl_exec_item->getKernel();
-  assert(kernel != nullptr);
-  logTrace("Launching Kernel {}", kernel->get_name());
-
-  if (chip_ocl_exec_item->setup_all_args(kernel) != CL_SUCCESS) {
-    logError("Failed to set kernel arguments for launch! \n");
-    return hipErrorLaunchFailure;
-  }
-
-  dim3 GridDim = chip_ocl_exec_item->getGrid();
-  dim3 BlockDim = chip_ocl_exec_item->getBlock();
-
-  const cl::NDRange global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
-                           GridDim.z * BlockDim.z);
-  const cl::NDRange local(BlockDim.x, BlockDim.y, BlockDim.z);
-
-  cl::Event ev;
-  int err = cl_q->enqueueNDRangeKernel(kernel->get(), cl::NullRange, global,
-                                       local, nullptr, &ev);
-
+// CHIPBackendOpenCL
+//*************************************************************************
+void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
+                                    std::string CHIPDeviceTypeStr,
+                                    std::string CHIPDeviceStr) {
+  logDebug("CHIPBackendOpenCL Initialize");
+  std::vector<cl::Platform> Platforms;
+  cl_int err = cl::Platform::get(&Platforms);
   if (err != CL_SUCCESS)
-    logError("clEnqueueNDRangeKernel() failed with: {}\n", err);
-  hipError_t retval = (err == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
-
-  // TODO
-  // cl_event LastEvent;
-  // if (retval == hipSuccess) {
-  //   if (LastEvent != nullptr) {
-  //     logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
-  //              (void *)ev.get());
-  //     clReleaseEvent(LastEvent);
-  //   } else
-  //     logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
-  //   LastEvent = ev.get();
-  //   clRetainEvent(LastEvent);
-  // }
-
-  // TODO remove this
-  // delete chip_ocl_exec_item;
-  return retval;
-}
-
-CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
-    : CHIPQueue(chip_device_) {
-  cl_ctx = ((CHIPContextOpenCL *)chip_context)->get();
-  cl_dev = ((CHIPDeviceOpenCL *)chip_device)->get();
-
-  cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
-}
-
-CHIPQueueOpenCL::~CHIPQueueOpenCL() {
-  delete cl_ctx;
-  delete cl_dev;
-}
-
-hipError_t CHIPQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
-  std::lock_guard<std::mutex> Lock(mtx);
-  logDebug("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
-  cl_event ev = nullptr;
-  auto LastEvent = ev;
-  int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
-                                    nullptr, &ev);
-  if (retval == CL_SUCCESS) {
-    // TODO
-    if (LastEvent != nullptr) {
-      logDebug("memCopy: LastEvent == {}, will be: {}", (void *)LastEvent,
-               (void *)ev);
-      clReleaseEvent(LastEvent);
-    } else
-      logDebug("memCopy: LastEvent == NULL, will be: {}\n", (void *)ev);
-    LastEvent = ev;
-  } else {
-    logError("clEnqueueSVMMemCopy() failed with error {}\n", retval);
+    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+  std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
+  for (int i = 0; i < Platforms.size(); i++) {
+    std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
-  return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
-}
 
-hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
-                                         size_t size) {
-  logCritical("CHIPQueueOpenCL::memCopyAsync");
-  std::abort();
-}
+  std::vector<cl::Device> enabled_devices;
+  std::vector<cl::Device> Devices;
+  int selected_platform;
+  int selected_device;
+  cl_bitfield selected_dev_type = 0;
 
-void CHIPQueueOpenCL::finish() {
-  logCritical("CHIPQueueOpenCL::finish() not yet implemented");
-  std::abort();
-}
+  try {
+    if (!CHIPDeviceStr.compare("all")) {  // Use all devices that match type
+      selected_device = -1;
+    } else {
+      selected_device = std::stoi(CHIPDeviceStr);
+    }
 
-void CHIPDeviceOpenCL::reset() {
-  logCritical("CHIPDeviceOpenCL::reset() not yet implemented");
-  std::abort();
-}
+    // Platform index in range?
+    selected_platform = std::stoi(CHIPPlatformStr);
+    if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
+      throw InvalidPlatformOrDeviceNumber(
+          "CHIP_PLATFORM: platform number out of range");
+    std::cout << "Selected Platform: " << selected_platform << ". "
+              << Platforms[selected_platform].getInfo<CL_PLATFORM_NAME>()
+              << "\n";
 
-// CHIPQueueOpenCL(CHIPContextOpenCL *_ctx, CHIPDeviceOpenCL *_dev) {
-//   std::cout << "CHIPQueueOpenCL Initialized via context, device
-//   pointers\n"; cl_ctx = _ctx->cl_ctx; cl_dev = _dev->cl_dev; cl_q = new
-//   cl::CommandQueue(*cl_ctx, *cl_dev);
-// };
+    // Device  index in range?
+    err =  // Get All devices and print
+        Platforms[selected_platform].getDevices(CL_DEVICE_TYPE_ALL, &Devices);
+    for (int i = 0; i < Devices.size(); i++) {
+      std::cout << i << ". " << Devices[i].getInfo<CL_DEVICE_NAME>() << "\n";
+    }
+    if (selected_device >= Devices.size())
+      throw InvalidPlatformOrDeviceNumber(
+          "CHIP_DEVICE: device number out of range");
+    if (selected_device == -1) {  // All devices enabled
+      enabled_devices = Devices;
+      logDebug("All Devices enabled\n", "");
+    } else {
+      enabled_devices.push_back(Devices[selected_device]);
+      std::cout << "\nEnabled Devices:\n";
+      std::cout << selected_device << ". "
+                << enabled_devices[0].getInfo<CL_DEVICE_NAME>() << "\n";
+    }
+
+    if (err != CL_SUCCESS)
+      throw InvalidPlatformOrDeviceNumber(
+          "CHIP_DEVICE: can't get devices for platform");
+
+    std::transform(CHIPDeviceTypeStr.begin(), CHIPDeviceTypeStr.end(),
+                   CHIPDeviceTypeStr.begin(), ::tolower);
+    if (CHIPDeviceTypeStr == "all")
+      selected_dev_type = CL_DEVICE_TYPE_ALL;
+    else if (CHIPDeviceTypeStr == "cpu")
+      selected_dev_type = CL_DEVICE_TYPE_CPU;
+    else if (CHIPDeviceTypeStr == "gpu")
+      selected_dev_type = CL_DEVICE_TYPE_GPU;
+    else if (CHIPDeviceTypeStr == "default")
+      selected_dev_type = CL_DEVICE_TYPE_DEFAULT;
+    else if (CHIPDeviceTypeStr == "accel")
+      selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
+    else
+      throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
+    std::cout << "Using Devices of type " << CHIPDeviceTypeStr << "\n";
+
+  } catch (const InvalidDeviceType &e) {
+    logCritical("{}\n", e.what());
+    return;
+  } catch (const InvalidPlatformOrDeviceNumber &e) {
+    logCritical("{}\n", e.what());
+    return;
+  } catch (const std::invalid_argument &e) {
+    logCritical("Could not convert CHIP_PLATFORM or CHIP_DEVICES to a number");
+    return;
+  } catch (const std::out_of_range &e) {
+    logCritical("CHIP_PLATFORM or CHIP_DEVICES is out of range", "");
+    return;
+  }
+
+  std::vector<cl::Device> spirv_enabled_devices;
+  for (cl::Device dev : enabled_devices) {
+    std::string ver = dev.getInfo<CL_DEVICE_IL_VERSION>(&err);
+    if ((err == CL_SUCCESS) && (ver.rfind("SPIR-V_1.", 0) == 0)) {
+      spirv_enabled_devices.push_back(dev);
+    }
+  }
+
+  // TODO uncomment this once testing on SPIR-V Enabled OpenCL HW
+  // std::cout << "SPIR-V Enabled Devices: " << spirv_enabled_devices.size()
+  //          << "\n";
+  // for (int i = 0; i < spirv_enabled_devices.size(); i++) {
+  //  std::cout << i << ". "
+  //            << spirv_enabled_devices[i].getInfo<CL_DEVICE_NAME>() <<
+  //            "\n";
+  //}
+
+  // Create context which has devices
+  // Create queues that have devices each of which has an associated context
+  // TODO Change this to spirv_enabled_devices
+  cl::Context *ctx = new cl::Context(enabled_devices);
+  CHIPContextOpenCL *chip_context = new CHIPContextOpenCL(ctx);
+  Backend->addContext(chip_context);
+  for (int i = 0; i < enabled_devices.size(); i++) {
+    cl::Device *dev = new cl::Device(enabled_devices[i]);
+    CHIPDeviceOpenCL *chip_dev = new CHIPDeviceOpenCL(chip_context, dev, i);
+    logDebug("CHIPDeviceOpenCL {}",
+             chip_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
+    chip_dev->populateDeviceProperties();
+    Backend->addDevice(chip_dev);
+    CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(chip_dev);
+    chip_dev->addQueue(queue);
+    Backend->addQueue(queue);
+  }
+  std::cout << "OpenCL Context Initialized.\n";
+};
+
+void CHIPBackendOpenCL::uninitialize() { UNIMPLEMENTED(); }
+
+// Other
+//*************************************************************************
+
+std::string clResultToString(int status) {
+  switch (status) {
+    case CL_SUCCESS:
+      return "CL_SUCCESS";
+    case CL_DEVICE_NOT_FOUND:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_DEVICE_NOT_AVAILABLE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_COMPILER_NOT_AVAILABLE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_MEM_OBJECT_ALLOCATION_FAILURE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_OUT_OF_RESOURCES:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_OUT_OF_HOST_MEMORY:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_PROFILING_INFO_NOT_AVAILABLE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_MEM_COPY_OVERLAP:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_IMAGE_FORMAT_MISMATCH:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_IMAGE_FORMAT_NOT_SUPPORTED:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_BUILD_PROGRAM_FAILURE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_MAP_FAILURE:
+      return "CL_DEVICE_NOT_FOUND";
+#ifdef CL_VERSION_1_1
+    case CL_MISALIGNED_SUB_BUFFER_OFFSET:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST:
+      return "CL_DEVICE_NOT_FOUND";
+#endif
+#ifdef CL_VERSION_1_2
+    case CL_COMPILE_PROGRAM_FAILURE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_LINKER_NOT_AVAILABLE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_LINK_PROGRAM_FAILURE:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_DEVICE_PARTITION_FAILED:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_KERNEL_ARG_INFO_NOT_AVAILABLE:
+      return "CL_DEVICE_NOT_FOUND";
+#endif
+    case (CL_INVALID_VALUE):
+      return "CL_INVALID_VALUE";
+    case (CL_INVALID_DEVICE_TYPE):
+      return "CL_INVALID_DEVICE_TYPE";
+    case (CL_INVALID_PLATFORM):
+      return "CL_INVALID_PLATFORM";
+    case (CL_INVALID_DEVICE):
+      return "CL_INVALID_DEVICE";
+    case (CL_INVALID_CONTEXT):
+      return "CL_INVALID_CONTEXT";
+    case (CL_INVALID_QUEUE_PROPERTIES):
+      return "CL_INVALID_QUEUE_PROPERTIES";
+    case (CL_INVALID_COMMAND_QUEUE):
+      return "CL_INVALID_COMMAND_QUEUE";
+    case (CL_INVALID_HOST_PTR):
+      return "CL_INVALID_HOST_PTR";
+    case (CL_INVALID_MEM_OBJECT):
+      return "CL_INVALID_MEM_OBJECT";
+    case (CL_INVALID_IMAGE_FORMAT_DESCRIPTOR):
+      return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+    case (CL_INVALID_IMAGE_SIZE):
+      return "CL_INVALID_IMAGE_SIZE";
+    case (CL_INVALID_SAMPLER):
+      return "CL_INVALID_SAMPLER";
+    case (CL_INVALID_BINARY):
+      return "CL_INVALID_BINARY";
+    case (CL_INVALID_BUILD_OPTIONS):
+      return "CL_INVALID_BUILD_OPTIONS";
+    case (CL_INVALID_PROGRAM):
+      return "CL_INVALID_PROGRAM";
+    case (CL_INVALID_PROGRAM_EXECUTABLE):
+      return "CL_INVALID_PROGRAM_EXECUTABLE";
+    case (CL_INVALID_KERNEL_NAME):
+      return "CL_INVALID_KERNEL_NAME";
+    case (CL_INVALID_KERNEL_DEFINITION):
+      return "CL_INVALID_KERNEL_DEFINITION";
+    case (CL_INVALID_KERNEL):
+      return "CL_INVALID_KERNEL";
+    case (CL_INVALID_ARG_INDEX):
+      return "CL_INVALID_ARG_INDEX";
+    case (CL_INVALID_ARG_VALUE):
+      return "CL_INVALID_ARG_VALUE";
+    case (CL_INVALID_ARG_SIZE):
+      return "CL_INVALID_ARG_SIZE";
+    case (CL_INVALID_KERNEL_ARGS):
+      return "CL_INVALID_KERNEL_ARGS";
+    case (CL_INVALID_WORK_DIMENSION):
+      return "CL_INVALID_WORK_DIMENSION";
+    case (CL_INVALID_WORK_GROUP_SIZE):
+      return "CL_INVALID_WORK_GROUP_SIZE";
+    case (CL_INVALID_WORK_ITEM_SIZE):
+      return "CL_INVALID_WORK_ITEM_SIZE";
+    case (CL_INVALID_GLOBAL_OFFSET):
+      return "CL_INVALID_GLOBAL_OFFSET";
+    case (CL_INVALID_EVENT_WAIT_LIST):
+      return "CL_INVALID_EVENT_WAIT_LIST";
+    case (CL_INVALID_EVENT):
+      return "CL_INVALID_EVENT";
+    case (CL_INVALID_OPERATION):
+      return "CL_INVALID_OPERATION";
+    case (CL_INVALID_GL_OBJECT):
+      return "CL_INVALID_GL_OBJECT";
+    case (CL_INVALID_BUFFER_SIZE):
+      return "CL_INVALID_BUFFER_SIZE";
+    case (CL_INVALID_MIP_LEVEL):
+      return "CL_INVALID_MIP_LEVEL";
+    case (CL_INVALID_GLOBAL_WORK_SIZE):
+      return "CL_INVALID_GLOBAL_WORK_SIZE";
+#ifdef CL_VERSION_1_1
+    case (CL_INVALID_PROPERTY):
+      return "CL_INVALID_PROPERTY";
+#endif
+#ifdef CL_VERSION_1_2
+    case (CL_INVALID_IMAGE_DESCRIPTOR):
+      return "CL_INVALID_IMAGE_DESCRIPTOR";
+    case (CL_INVALID_COMPILER_OPTIONS):
+      return "CL_INVALID_COMPILER_OPTIONS";
+    case (CL_INVALID_LINKER_OPTIONS):
+      return "CL_INVALID_LINKER_OPTIONS";
+    case (CL_INVALID_DEVICE_PARTITION_COUNT):
+      return "CL_INVALID_DEVICE_PARTITION_COUNT";
+#endif
+#ifdef CL_VERSION_2_0
+    case (CL_INVALID_PIPE_SIZE):
+      return "CL_INVALID_PIPE_SIZE";
+    case (CL_INVALID_DEVICE_QUEUE):
+      return "CL_INVALID_DEVICE_QUEUE";
+#endif
+#ifdef CL_VERSION_2_2
+    case (CL_INVALID_SPEC_ID):
+      return "CL_INVALID_SPEC_ID";
+    case (CL_MAX_SIZE_RESTRICTION_EXCEEDED):
+      return "CL_MAX_SIZE_RESTRICTION_EXCEEDED";
+#endif
+    default:
+      return "CL_UNKNOWN_ERROR";
+  }
+}

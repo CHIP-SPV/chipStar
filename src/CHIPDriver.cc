@@ -77,8 +77,9 @@ void CHIPInitializeCallOnce(std::string BE) {
     logWarn("CHIP_BE was not set. Defaulting to OPENCL");
     Backend = new CHIPBackendOpenCL();
   } else {
-    logCritical("Invalid Backend Selection");
-    std::abort();
+    CHIPERR_LOG_AND_THROW(
+        "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
+        hipErrorInitializationError);
   }
   Backend->initialize(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
 }

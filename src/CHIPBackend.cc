@@ -20,7 +20,10 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {}
 
 allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {
   auto found = host_to_dev.find(const_cast<void *>(host_ptr));
-  if (found == host_to_dev.end()) std::abort();
+  if (found == host_to_dev.end()) {
+    CHIPERR_LOG_AND_THROW("Unable to find allocation info for host pointer",
+                          hipErrorInvalidSymbol);
+  }
   return getByDevPtr(found->second);
 }
 allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {
@@ -36,8 +39,8 @@ bool CHIPAllocationTracker::reserveMem(size_t bytes) {
              (total_mem_used >> 20));
     return true;
   } else {
-    logError("Can't allocate {} bytes of memory\n", bytes);
-    return false;
+    CHIPERR_LOG_AND_THROW("Failed to allocate memory",
+                          hipErrorMemoryAllocation);
   }
 }
 
@@ -65,8 +68,8 @@ float CHIPEvent::getElapsedTime(CHIPEvent *other){};
 // CHIPModule
 //*************************************************************************************
 void CHIPModule::consumeSPIRV() {
-  uint8_t *funcIL = (uint8_t *)src.data();
-  size_t ilSize = src.length();
+  funcIL = (uint8_t *)src.data();
+  ilSize = src.length();
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t numWords = ilSize / 4;
@@ -76,8 +79,7 @@ void CHIPModule::consumeSPIRV() {
   bool res = parseSPIR(binary_data, numWords, func_infos);
   delete[] binary_data;
   if (!res) {
-    logError("SPIR-V parsing failed\n");
-    std::abort();
+    CHIPERR_LOG_AND_THROW("SPIR-V parsing failed", hipErrorUnknown);
   }
 }
 
@@ -104,9 +106,8 @@ CHIPKernel *CHIPModule::getKernel(std::string name) {
       chip_kernels.begin(), chip_kernels.end(),
       [name](CHIPKernel *k) { return k->getName().compare(name) == 0; });
   if (kernel == chip_kernels.end()) {
-    logError("Failed to find kernel {} in module {}", name.c_str(),
-             (void *)this);
-    return nullptr;
+    std::string msg = "Failed to find kernel via kernel name: " + name;
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   return *kernel;
@@ -119,9 +120,8 @@ CHIPKernel *CHIPModule::getKernel(const void *host_f_ptr) {
       chip_kernels.begin(), chip_kernels.end(),
       [host_f_ptr](CHIPKernel *k) { return k->getHostPtr() == host_f_ptr; });
   if (kernel == chip_kernels.end()) {
-    logError("Failed to find kernel with host pointer {} in module {}",
-             host_f_ptr, (void *)this);
-    return nullptr;
+    std::string msg = "Failed to find kernel via host pointer";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   return *kernel;
@@ -134,9 +134,8 @@ CHIPDeviceVar *CHIPModule::getGlobalVar(std::string name) {
       chip_vars.begin(), chip_vars.end(),
       [name](CHIPDeviceVar *v) { return v->getName().compare(name) == 0; });
   if (var == chip_vars.end()) {
-    logError("Failed to find global variable {} in module {}", name,
-             (void *)this);
-    return nullptr;
+    std::string msg = "Failed to find global variable by name: " + name;
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   return *var;
@@ -182,10 +181,8 @@ void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
 
 hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   if (chip_queue == nullptr) {
-    logCritical(
-        "CHIPExecItem.launchByHostPtr() was called but queue pointer is "
-        "null");
-    return (hipErrorLaunchFailure);
+    std::string msg = "Tried to launch CHIPExecItem but its queue is null";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   CHIPDevice *dev = chip_queue->getDevice();
@@ -247,11 +244,9 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
                                    });
 
   if (found_kernel == chip_kernels.end()) {
-    logCritical("Failed to find kernel {} on device #{}:{}", hostPtr, idx,
-                device_name);
-    // std::abort();  // Exception
-    // TODO
-    return nullptr;
+    std::string msg =
+        "Tried to find kernel by host pointer but kernel was not found";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   } else {
     logDebug("Found kernel {} with host pointer {}", (*found_kernel)->getName(),
              (*found_kernel)->getHostPtr());
@@ -262,35 +257,6 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
 
 CHIPContext *CHIPDevice::getContext() { return ctx; }
 int CHIPDevice::getDeviceId() { return idx; }
-
-// TODO CHIP Design Choice - should this be even called that?
-// bool CHIPDevice::allocate(size_t bytes) {
-//   logTrace("CHIPDevice->reserve_mem()");
-//   std::lock_guard<std::mutex> Lock(mtx);
-//   if (bytes <= (hip_device_props.totalGlobalMem - total_used_mem)) {
-//     total_used_mem += bytes;
-//     if (total_used_mem > max_used_mem) max_used_mem = total_used_mem;
-//     logDebug("Currently used memory on dev {}: {} M\n", idx,
-//              (total_used_mem >> 20));
-//     return true;
-//   } else {
-//     logError(
-//         "Can't allocate {} bytes of memory on device # {}\n. "
-//         "GlobalMemSize:{} TotalUsedMem: {}",
-//         bytes, idx, hip_device_props.totalGlobalMem, total_used_mem);
-//     return false;
-//   }
-// }
-
-// bool CHIPDevice::free(size_t bytes) {
-//   std::lock_guard<std::mutex> Lock(mtx);
-//   if (total_used_mem >= bytes) {
-//     total_used_mem -= bytes;
-//     return true;
-//   } else {
-//     return false;
-//   }
-// }
 
 CHIPDeviceVar *CHIPDevice::getDynGlobalVar(const void *host_var_ptr) {
   auto found_dyn = host_var_ptr_to_chipdevicevar_dyn.find(host_var_ptr);
@@ -511,13 +477,10 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
   }
   CHIPKernel *kernel = chip_module->getKernel(std::string(host_f_name));
   if (!kernel) {
-    logCritical(
-        "Device {}: tried to register host function <{}, {}> but failed to "
-        "find kernel with matching name",
-        getDeviceId(), host_f_ptr, host_f_name);
-    // std::abort();
-    // TODO
-    return;
+    std::string msg = "Device " + getName() +
+                      " tried to register host function " + host_f_name +
+                      " but failed to find kernel with a matching name";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   kernel->setHostPtr(host_f_ptr);
@@ -553,10 +516,10 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {}
 bool CHIPDevice::removeQueue(CHIPQueue *q) {
   auto found_q = std::find(chip_queues.begin(), chip_queues.end(), q);
   if (found_q == chip_queues.end()) {
-    logError(
+    std::string msg =
         "Tried to remove a queue for a device but the queue was not found in "
-        "device queue list");
-    return false;
+        "device queue list";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorUnknown);
   }
 
   chip_queues.erase(found_q);
@@ -591,10 +554,8 @@ std::vector<CHIPDevice *> &CHIPContext::getDevices() {
 
 std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   if (chip_queues.size() == 0) {
-    logCritical(
-        "CHIPContext.get_queues() was called but no queues were added to "
-        "this context");
-    std::abort();
+    std::string msg = "No queus in this context";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorUnknown);
   }
   return chip_queues;
 }
@@ -683,8 +644,8 @@ void CHIPBackend::initialize(std::string platform_str,
                              std::string device_ids_str) {
   initialize_(platform_str, device_type_str, device_ids_str);
   if (chip_devices.size() == 0) {
-    logCritical("No CHIPDevices were initialized.");
-    std::abort();
+    std::string msg = "No CHIPDevices were initialized";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorInitializationError);
   }
   setActiveDevice(chip_devices[0]);
 }
@@ -692,10 +653,10 @@ void CHIPBackend::initialize(std::string platform_str,
 void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {
   auto I = std::find(chip_devices.begin(), chip_devices.end(), chip_dev);
   if (I == chip_devices.end()) {
-    logCritical(
+    std::string msg =
         "Tried to set active device with CHIPDevice pointer that is not in "
-        "CHIPBackend::chip_devices");
-    std::abort();
+        "CHIPBackend::chip_devices";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   };
   active_dev = chip_dev;
   active_ctx = chip_dev->getContext();
@@ -704,28 +665,25 @@ void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {
 std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return chip_queues; }
 CHIPQueue *CHIPBackend::getActiveQueue() {
   if (active_q == nullptr) {
-    logCritical(
-        "CHIPBackend.getActiveQueue() was called but no queues have "
-        "been initialized;\n");
-    std::abort();
+    std::string msg = "Active queue is null";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorUnknown);
   }
   return active_q;
 };
 
 CHIPContext *CHIPBackend::getActiveContext() {
   if (active_ctx == nullptr) {
-    logCritical(
-        "CHIPBackend.getActiveContext() was called but active_ctx is null");
-    std::abort();
+    std::string msg = "Active context is null";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
   return active_ctx;
 };
 
 CHIPDevice *CHIPBackend::getActiveDevice() {
   if (active_dev == nullptr) {
-    logCritical(
-        "CHIPBackend.getActiveDevice() was called but active_ctx is null");
-    std::abort();
+    CHIPERR_LOG_AND_THROW(
+        "CHIPBackend.getActiveDevice() was called but active_ctx is null",
+        hipErrorUnknown);
   }
   return active_dev;
 };
@@ -935,9 +893,8 @@ CHIPQueue::~CHIPQueue(){};
 
 CHIPDevice *CHIPQueue::getDevice() {
   if (chip_device == nullptr) {
-    logCritical(
-        "CHIPQueue.getDevice() was called but device is a null pointer");
-    std::abort();  // TODO Exception?
+    std::string msg = "chip_device is null";
+    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   return chip_device;

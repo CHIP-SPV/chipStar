@@ -23,6 +23,7 @@
 #include "hip/hip_fatbin.h"
 #include "hip/hip_runtime_api.h"
 #include "macros.hh"
+#include "CHIPException.hh"
 
 #define SPIR_TRIPLE "hip-spir64-unknown-unknown"
 
@@ -120,6 +121,7 @@ hipError_t __hipPopCallConfiguration(dim3 *gridDim, dim3 *blockDim,
 //*****************************************************************************
 //*****************************************************************************
 hipError_t hipGetDevice(int *deviceId) {
+  CHIP_TRY
   CHIPInitialize();
 
   ERROR_IF((deviceId == nullptr),
@@ -129,6 +131,7 @@ hipError_t hipGetDevice(int *deviceId) {
   *deviceId = dev->getDeviceId();
 
   RETURN(hipSuccess);
+  CHIP_CATCH
 }
 
 hipError_t hipGetDeviceCount(int *count) {
@@ -245,12 +248,11 @@ hipError_t hipDeviceGetName(char *name, int len, hipDevice_t device) {
 hipError_t hipDeviceTotalMem(size_t *bytes, hipDevice_t device) {
   CHIPInitialize();
   ERROR_CHECK_DEVNUM(device);
-  // TODO why did this not throw error if passed in should I do this check: ?
-  // if (bytes == nullptr) {
-  //  logCritical(
-  //      "hipDeviceTotalMem was passed a null pointer for returning size");
-  //  std::abort();
-  //}
+  if (bytes == nullptr) {
+    CHIPERR_LOG_AND_THROW(
+        "hipDeviceTotalMem was passed a null pointer for returning size",
+        hipErrorInvalidValue);
+  }
 
   if (bytes) *bytes = (Backend->getDevices()[device])->getGlobalMemSize();
   RETURN(hipSuccess);
@@ -320,14 +322,7 @@ hipError_t hipDeviceGetByPCIBusId(int *deviceId, const char *pciBusId) {
 
 hipError_t hipSetDeviceFlags(unsigned flags) {
   CHIPInitialize();
-
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipSetDeviceFlags not yet implemented");
-  std::abort();
-#else
-  logWarn("hipSetDeviceFlags does nothing");
-#endif
-
+  UNIMPLEMENTED(hipErrorUnknown);
   RETURN(hipSuccess);
 }
 
@@ -892,14 +887,7 @@ hipError_t hipMemAdvise(const void *ptr, size_t count, hipMemoryAdvise advice,
     RETURN(hipSuccess);
   }
 
-#ifdef CHIP_ABORT_ON_UNIMPL
-  // hipError_t retval = cont->memAdvise(ptr, count, advice);
-  // ERROR_IF(retval != hipSuccess, hipErrorInvalidDevice);
-  logCritical("hipMemAdvise not yet implemented");
-  std::abort();
-#else
-  logWarn("hipHostGetFlags always returns 0");
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
 
   RETURN(hipSuccess);
 }
@@ -910,13 +898,7 @@ hipError_t hipHostGetDevicePointer(void **devPtr, void *hstPtr,
 
   ERROR_IF(((hstPtr == nullptr) || (devPtr == nullptr)), hipErrorInvalidValue);
 
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipHostGetDevicePointer not yet implemented");
-  std::abort();
-#else
-  logWarn("hipHostGetDevicePointer returning devPtr as hostPtr");
-  *devPtr = hstPtr;
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
 
   RETURN(hipSuccess);
 }
@@ -924,13 +906,7 @@ hipError_t hipHostGetDevicePointer(void **devPtr, void *hstPtr,
 hipError_t hipHostGetFlags(unsigned int *flagsPtr, void *hostPtr) {
   CHIPInitialize();
 
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipHostGetFlags not yet implemented");
-  std::abort();
-#else
-  logWarn("hipHostGetFlags always returns 0");
-  *flagsPtr = 0;
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
 
   RETURN(hipSuccess);
 }
@@ -938,23 +914,13 @@ hipError_t hipHostGetFlags(unsigned int *flagsPtr, void *hostPtr) {
 hipError_t hipHostRegister(void *hostPtr, size_t sizeBytes,
                            unsigned int flags) {
   CHIPInitialize();
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipHostRegister not yet implemented");
-  std::abort();
-#else
-  logWarn("hipHostRegister does nothing");
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
   RETURN(hipSuccess);
 }
 
 hipError_t hipHostUnregister(void *hostPtr) {
   CHIPInitialize();
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipHostUnregister not yet implemented");
-  std::abort();
-#else
-  logWarn("hipHostUnregister does nothing");
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
   RETURN(hipSuccess);
 }
 
@@ -1134,6 +1100,7 @@ hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
                           hipMemcpyKind kind, hipStream_t stream) {
   CHIPInitialize();
   if (!stream) stream = Backend->getActiveQueue();
+  auto q = Backend->findQueue(stream);
 
   /*
   if ((kind == hipMemcpyDeviceToDevice) || (kind == hipMemcpyDeviceToHost)) {
@@ -1151,8 +1118,8 @@ hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
     RETURN(hipSuccess);
   } else {
     // TODO
-    if (Backend->findQueue(stream) == nullptr) RETURN(hipErrorInvalidHandle);
-    RETURN(Backend->findQueue(stream)->memCopyAsync(dst, src, sizeBytes));
+    // if (Backend->findQueue(stream) == nullptr) RETURN(hipErrorInvalidHandle);
+    RETURN(q->memCopyAsync(dst, src, sizeBytes));
   }
 }
 
@@ -1458,12 +1425,7 @@ hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *p) {
 
 hipError_t hipFuncGetAttributes(hipFuncAttributes *attr, const void *func) {
   CHIPInitialize();
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipFuncGetAttributes not yet implemented");
-  std::abort();
-#else
-  logWarn("hipFuncGetAttributes not yet implemented");
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
   RETURN(hipSuccess);
 }
 
@@ -1546,12 +1508,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol,
 }
 
 hipError_t hipModuleLoadData(hipModule_t *module, const void *image) {
-#ifdef CHIP_ABORT_ON_UNIMPL
-  logCritical("hipModuleLoadData not yet implemented");
-  std::abort();
-#else
-  logWarn("hipModuleLoadData not yet implemented");
-#endif
+  UNIMPLEMENTED(hipErrorUnknown);
   RETURN(hipSuccess);
 }
 
@@ -1686,24 +1643,24 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
   const __CudaFatBinaryWrapper *fbwrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(data);
   if (fbwrapper->magic != __hipFatMAGIC2 || fbwrapper->version != 1) {
-    logCritical("The given object is not hipFatBinary !\n");
-    std::abort();
+    CHIPERR_LOG_AND_THROW("The given object is not hipFatBinary",
+                          hipErrorInitializationError);
   }
 
   const __ClangOffloadBundleHeader *header = fbwrapper->binary;
   std::string magic(reinterpret_cast<const char *>(header),
                     sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
   if (magic.compare(CLANG_OFFLOAD_BUNDLER_MAGIC)) {
-    logCritical(
+    CHIPERR_LOG_AND_THROW(
         "The bundled binaries are not Clang bundled "
-        "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)\n");
-    std::abort();
+        "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)",
+        hipErrorInitializationError);
   }
 
   std::string *module = new std::string;
   if (!module) {
-    logCritical("Failed to allocate memory\n");
-    std::abort();
+    CHIPERR_LOG_AND_THROW("Failed to allocate memory",
+                          hipErrorInitializationError);
   }
 
   const __ClangOffloadBundleDesc *desc = &header->desc[0];
@@ -1726,8 +1683,8 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
   }
 
   if (!found) {
-    logDebug("Didn't find any suitable compiled binary!\n");
-    std::abort();
+    CHIPERR_LOG_AND_THROW("Didn't find any suitable compiled binary!",
+                          hipErrorInitializationError);
   }
 
   const char *string_data = reinterpret_cast<const char *>(

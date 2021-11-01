@@ -30,6 +30,7 @@
 #include "CHIPDriver.hh"
 #include "logging.hh"
 #include "macros.hh"
+#include "CHIPException.hh"
 
 enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 enum class CHIPEventType : unsigned {
@@ -214,6 +215,8 @@ class CHIPEvent {
  */
 class CHIPModule {
  protected:
+  uint8_t* funcIL;
+  size_t ilSize;
   std::mutex mtx;
   // Global variables
   std::vector<CHIPDeviceVar*> chip_vars;

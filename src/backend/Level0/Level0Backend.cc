@@ -1,5 +1,11 @@
 #include "Level0Backend.hh"
 
+#define CHIPERR_CHECK_LOG_AND_THROW_LZ(status, errtype)       \
+  if (status != ZE_RESULT_SUCCESS) {                          \
+    std::string msg_ = std::string(lzResultToString(status)); \
+    CHIPERR_LOG_AND_THROW(msg_, errtype);                     \
+  }
+
 // CHIPBackendLevel0
 // ***********************************************************************
 void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
@@ -8,15 +14,16 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
   logDebug("CHIPBackendLevel0 Initialize");
   ze_result_t status;
   status = zeInit(0);
-  logDebug("INITIALIZE LEVEL-0 (via calling zeInit) {}\n", status);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   ze_device_type_t ze_device_type;
-  if (!CHIPDeviceTypeStr.compare("GPU")) {
+  if (!CHIPDeviceTypeStr.compare("gpu")) {
     ze_device_type = ZE_DEVICE_TYPE_GPU;
-  } else if (!CHIPDeviceTypeStr.compare("FPGA")) {
+  } else if (!CHIPDeviceTypeStr.compare("fpga")) {
     ze_device_type = ZE_DEVICE_TYPE_FPGA;
   } else {
-    logCritical("CHIP_DEVICE_TYPE must be either GPU or FPGA");
+    CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE must be either gpu or fpga",
+                          hipErrorInitializationError);
   }
   int platform_idx = std::atoi(CHIPPlatformStr.c_str());
   std::vector<ze_driver_handle_t> ze_drivers;
@@ -80,24 +87,22 @@ hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   auto chip_ctx_ze = (CHIPContextLevel0*)chip_context;
   auto cmd_list = chip_ctx_ze->ze_cmd_list;
 
-  ze_result_t status = zeCommandListAppendMemoryCopy(cmd_list, dst, src, size,
-                                                     nullptr, 0, nullptr);
+  ze_result_t status;
+  status = zeCommandListAppendMemoryCopy(cmd_list, dst, src, size, nullptr, 0,
+                                         nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
-  logTrace("closing command list");
-  zeCommandListClose(cmd_list);
-  logTrace("submitting command list to command queue");
-  zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
-  logTrace("sync");
-  zeCommandQueueSynchronize(ze_q, UINT32_MAX);
-  logTrace("reset");
-  zeCommandListReset(cmd_list);
+  status = zeCommandListClose(cmd_list);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
-  //     ze_result_t status = zeCommandQueueSynchronize(chip_q->get(),
-  //     UINT64_MAX);
-  // if (status != ZE_RESULT_SUCCESS) {
-  //   logCritical("Failed to memcopy");
-  //   std::abort();
-  //}
+  status = zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
+
+  status = zeCommandQueueSynchronize(ze_q, UINT32_MAX);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
+
+  status = zeCommandListReset(cmd_list);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   return hipSuccess;
 }
@@ -127,10 +132,8 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
 
     ze_result_t status = zeMemAllocShared(ze_ctx, &dmaDesc, &hmaDesc, size,
                                           alignment, ze_dev, &ptr);
+    CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorMemoryAllocation);
 
-    // LZ_PROCESS_ERROR_MSG(
-    //     "HipLZ could not allocate shared memory with error code:
-    //     ", status);
     logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
     return ptr;
@@ -146,9 +149,7 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
 
     ze_result_t status =
         zeMemAllocDevice(ze_ctx, &dmaDesc, size, alignment, ze_dev, &ptr);
-    LZ_PROCESS_ERROR_MSG(
-        "HipLZ could not allocate device memory with error code: ", status);
-    logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocDevice {} ", status);
+    CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorMemoryAllocation);
 
     return ptr;
   } else if (memTy == CHIPMemoryType::Host) {
@@ -170,9 +171,7 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
     ze_result_t status = zeMemAllocShared(ze_ctx, &dmaDesc, &hmaDesc, size,
                                           alignment, ze_dev, &ptr);
 
-    // LZ_PROCESS_ERROR_MSG(
-    //     "HipLZ could not allocate shared memory with error code:
-    //     ", status);
+    CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorMemoryAllocation);
     logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
     return ptr;
@@ -186,10 +185,7 @@ CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_,
   assert(ctx != nullptr);
 }
 
-void CHIPDeviceLevel0::reset() {
-  logCritical("CHIPDeviceLevel0::reset() not yet implemented");
-  std::abort();
-}
+void CHIPDeviceLevel0::reset() { UNIMPLEMENTED(); }
 
 void CHIPDeviceLevel0::populateDeviceProperties_() {
   ze_result_t status = ZE_RESULT_SUCCESS;
@@ -208,22 +204,25 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
 
   // Query device properties
   status = zeDeviceGetProperties(ze_dev, &device_props);
-  LZ_PROCESS_ERROR_MSG("HipLZ zeDeviceGetProperties Failed with return code ",
-                       status);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   // Query device memory properties
   uint32_t count = 1;
   status = zeDeviceGetMemoryProperties(ze_dev, &count, &device_mem_props);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   // Query device computation properties
   status = zeDeviceGetComputeProperties(ze_dev, &device_compute_props);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   // Query device cache properties
   count = 1;
   status = zeDeviceGetCacheProperties(ze_dev, &count, &device_cache_props);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   // Query device module properties
   status = zeDeviceGetModuleProperties(ze_dev, &device_module_props);
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
 
   // Copy device name
   if (255 < ZE_MAX_DEVICE_NAME) {
@@ -373,17 +372,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
   // TODO more devices support
   ze_result_t status = zeCommandListCreate(ze_ctx, ze_dev, &clDesc,
                                            &(chip_context_lz->ze_cmd_list));
-  if (((CHIPContextLevel0*)chip_context)->get_cmd_list() == nullptr) {
-    logCritical("Failed to initialize ze_cmd_list");
-    std::abort();
-  }
-
-  // LZ_PROCESS_ERROR_MSG("HipLZ zeCommandListCreate FAILED with return code
-  // ",
-  //                      status);
-  logDebug("LZ COMMAND LIST CREATION via calling zeCommandListCreate {} ",
-           status);
-
+  CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorInitializationError);
   chip_context->addQueue(this);
 }
 
@@ -519,21 +508,7 @@ const char* lzResultToString(ze_result_t status) {
 
 void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   logTrace("CHIPModuleLevel0.compile()");
-
-  uint8_t* funcIL = (uint8_t*)src.data();
-  size_t ilSize = src.length();
-
-  // Parse the SPIR-V fat binary to retrieve kernel function
-  size_t numWords = ilSize / 4;
-  int32_t* binarydata = new int32_t[numWords + 1];
-  std::memcpy(binarydata, funcIL, ilSize);
-  // Extract kernel function information
-  bool res = parseSPIR(binarydata, numWords, func_infos);
-  delete[] binarydata;
-  if (!res) {
-    logError("SPIR-V parsing failed\n");
-    std::abort();
-  }
+  consumeSPIRV();
 
   ze_module_handle_t ze_module;
   // Create module with global address aware
@@ -563,8 +538,8 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
     zeModuleBuildLogGetString(log, &log_size, nullptr);
     char log_str[log_size];
     zeModuleBuildLogGetString(log, &log_size, log_str);
-    logCritical("Kernel failed to JIT: {}", std::string(log_str));
-    return;  // TODO
+    CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
+                          hipErrorUnknown);
   }
 
   uint32_t kernel_count = 0;
@@ -616,18 +591,15 @@ void CHIPExecItem::setupAllArgs() {
       logDebug("setArg {} size {}\n", i, ai.size);
       ze_result_t status = zeKernelSetArgumentValue(chip_kernel_lz->get(), i,
                                                     ai.size, ArgsPointer[i]);
-      if (status != ZE_RESULT_SUCCESS) {
-        logDebug("zeKernelSetArgumentValue failed with error {}\n", status);
-        std::abort();
-      }
+      CHIPERR_CHECK_LOG_AND_THROW_LZ(status, hipErrorLaunchFailure);
       logDebug("LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
                status);
     }
   } else {
     // Argument processing for the old HIP launch API.
     if ((offset_sizes.size() + NumLocals) != FuncInfo.ArgTypeInfo.size()) {
-      logError("Some arguments are still unset\n");
-      std::abort();
+      CHIPERR_LOG_AND_THROW("Some arguments are still unset",
+                            hipErrorLaunchFailure);
     }
 
     if (offset_sizes.size() == 0) return;
@@ -635,8 +607,7 @@ void CHIPExecItem::setupAllArgs() {
     std::sort(offset_sizes.begin(), offset_sizes.end());
     if ((std::get<0>(offset_sizes[0]) != 0) ||
         (std::get<1>(offset_sizes[0]) == 0)) {
-      logError("Invalid offset/size\n");
-      std::abort();
+      CHIPERR_LOG_AND_THROW("invalid offset/size", hipErrorLaunchFailure);
     }
 
     // check args are set
@@ -647,15 +618,13 @@ void CHIPExecItem::setupAllArgs() {
             ((std::get<0>(offset_sizes[i - 1]) +
               std::get<1>(offset_sizes[i - 1])) >
              std::get<0>(offset_sizes[i]))) {
-          logError("Invalid offset/size\n");
-          std::abort();
+          CHIPERR_LOG_AND_THROW("invalid offset/size", hipErrorLaunchFailure);
         }
       }
     }
 
     const unsigned char* start = arg_data.data();
     void* p;
-    int err;
     for (size_t i = 0; i < offset_sizes.size(); ++i) {
       OCLArgTypeInfo& ai = FuncInfo.ArgTypeInfo[i];
       logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
@@ -674,8 +643,9 @@ void CHIPExecItem::setupAllArgs() {
             zeKernelSetArgumentValue(chip_kernel_lz->get(), i, size, value);
 
         if (status != ZE_RESULT_SUCCESS) {
-          logDebug("zeKernelSetArgumentValue failed with error {}\n", err);
-          std::abort();
+          CHIPERR_LOG_AND_THROW("zeKernelSetArgumentValue failed: " +
+                                    std::string(lzResultToString(status)),
+                                hipErrorLaunchFailure);
         }
 
         logDebug(
@@ -690,8 +660,9 @@ void CHIPExecItem::setupAllArgs() {
             zeKernelSetArgumentValue(chip_kernel_lz->get(), i, size, value);
 
         if (status != ZE_RESULT_SUCCESS) {
-          logDebug("zeKernelSetArgumentValue failed with error {}\n", err);
-          std::abort();
+          CHIPERR_LOG_AND_THROW("zeKernelSetArgumentValue failed: " +
+                                    std::string(lzResultToString(status)),
+                                hipErrorLaunchFailure);
         }
 
         logDebug(

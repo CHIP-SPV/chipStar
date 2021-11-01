@@ -10,7 +10,7 @@
 #else
 #define UNIMPLEMENTED(x)                                                       \
   logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
-  return (x);
+  return x;
 #endif
 
 #define RETURN(x)                  \
