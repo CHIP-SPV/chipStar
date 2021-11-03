@@ -16,11 +16,10 @@ class CHIPError {
   std::string getErrStr() { return std::string(hipGetErrorName(err)); }
 };
 
-#define CHIPERR_LOG_AND_THROW(msg, errtype)                           \
-  CHIPError err(msg, errtype);                                        \
-  logError("{} ({}) in {}:{}:{}\n", err.getMsgStr(), err.getErrStr(), \
-           __FILE__, __LINE__, __func__);                             \
-  throw err;
+#define CHIPERR_LOG_AND_THROW(msg, errtype)                                    \
+  logError("{} ({}) in {}:{}:{}\n", CHIPError(msg, errtype).getMsgStr(),       \
+           CHIPError(msg, errtype).getErrStr(), __FILE__, __LINE__, __func__); \
+  throw CHIPError(msg, errtype);
 
 #define CHIPERR_CHECK_LOG_AND_THROW(status, success, errtype, ...) \
   if (status != success) {                                         \

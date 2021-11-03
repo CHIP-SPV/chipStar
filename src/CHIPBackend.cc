@@ -365,95 +365,98 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t attr) {
     case hipDeviceAttributeIsMultiGpuBoard:
       *pi = prop.isMultiGpuBoard;
       break;
-      // TODO - These are undefined
-      // case hipDeviceAttributeCooperativeLaunch:
-      //   *pi = prop.cooperativeLaunch;
-      //   break;
-      // case hipDeviceAttributeCooperativeMultiDeviceLaunch:
-      //   *pi = prop.cooperativeMultiDeviceLaunch;
-      //   break;
-      // case hipDeviceAttributeIntegrated:
-      //   *pi = prop.integrated;
-      //   break;
-      // case hipDeviceAttributeMaxTexture1DWidth:
-      //   *pi = prop.maxTexture1D;
-      //   break;
-      // case hipDeviceAttributeMaxTexture2DWidth:
-      //   *pi = prop.maxTexture2D[0];
-      //   break;
-      // case hipDeviceAttributeMaxTexture2DHeight:
-      //   *pi = prop.maxTexture2D[1];
-      //   break;
-      // case hipDeviceAttributeMaxTexture3DWidth:
-      //   *pi = prop.maxTexture3D[0];
-      //   break;
-      // case hipDeviceAttributeMaxTexture3DHeight:
-      //   *pi = prop.maxTexture3D[1];
-      //   break;
-      // case hipDeviceAttributeMaxTexture3DDepth:
-      //   *pi = prop.maxTexture3D[2];
-      //   break;
-      // case hipDeviceAttributeHdpMemFlushCntl:
-      //   *reinterpret_cast<unsigned int **>(pi) = prop.hdpMemFlushCntl;
-      //   break;
-      // case hipDeviceAttributeHdpRegFlushCntl:
-      //   *reinterpret_cast<unsigned int **>(pi) = prop.hdpRegFlushCntl;
-      //   break;
-      // case hipDeviceAttributeMaxPitch:
-      //   *pi = prop.memPitch;
-      //   break;
-      // case hipDeviceAttributeTextureAlignment:
-      //   *pi = prop.textureAlignment;
-      //   break;
-      // case hipDeviceAttributeTexturePitchAlignment:
-      //   *pi = prop.texturePitchAlignment;
-      //   break;
-      // case hipDeviceAttributeKernelExecTimeout:
-      //   *pi = prop.kernelExecTimeoutEnabled;
-      //   break;
-      // case hipDeviceAttributeCanMapHostMemory:
-      //   *pi = prop.canMapHostMemory;
-      //   break;
-      // case hipDeviceAttributeEccEnabled:
-      //   *pi = prop.ECCEnabled;
-      //   break;
-      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedFunc:
-      //   *pi = prop.cooperativeMultiDeviceUnmatchedFunc;
-      //   break;
-      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedGridDim:
-      //   *pi = prop.cooperativeMultiDeviceUnmatchedGridDim;
-      //   break;
-      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedBlockDim:
-      //   *pi = prop.cooperativeMultiDeviceUnmatchedBlockDim;
-      //   break;
-      // case hipDeviceAttributeCooperativeMultiDeviceUnmatchedSharedMem:
-      //   *pi = prop.cooperativeMultiDeviceUnmatchedSharedMem;
-      //   break;
-      // case hipDeviceAttributeAsicRevision:
-      //   *pi = prop.asicRevision;
-      //   break;
-      // case hipDeviceAttributeManagedMemory:
-      //   *pi = prop.managedMemory;
-      //   break;
-      // case hipDeviceAttributeDirectManagedMemAccessFromHost:
-      //   *pi = prop.directManagedMemAccessFromHost;
-      //   break;
-      // case hipDeviceAttributeConcurrentManagedAccess:
-      //   *pi = prop.concurrentManagedAccess;
-      //   break;
-      // case hipDeviceAttributePageableMemoryAccess:
-      //   *pi = prop.pageableMemoryAccess;
-      //   break;
-      // case hipDeviceAttributePageableMemoryAccessUsesHostPageTables:
-      //   *pi = prop.pageableMemoryAccessUsesHostPageTables;
-      //   break;
-      // case hipDeviceAttributeCanUseStreamWaitValue:
-      //   // hipStreamWaitValue64() and hipStreamWaitValue32() support
-      //   *pi = g_devices[device]->devices()[0]->info().aqlBarrierValue_;
+    case hipDeviceAttributeCooperativeLaunch:
+      *pi = prop.cooperativeLaunch;
+      break;
+    case hipDeviceAttributeCooperativeMultiDeviceLaunch:
+      *pi = prop.cooperativeMultiDeviceLaunch;
+      break;
+    case hipDeviceAttributeIntegrated:
+      *pi = prop.integrated;
+      break;
+    case hipDeviceAttributeMaxTexture1DWidth:
+      *pi = prop.maxTexture1D;
+      break;
+    case hipDeviceAttributeMaxTexture2DWidth:
+      *pi = prop.maxTexture2D[0];
+      break;
+    case hipDeviceAttributeMaxTexture2DHeight:
+      *pi = prop.maxTexture2D[1];
+      break;
+    case hipDeviceAttributeMaxTexture3DWidth:
+      *pi = prop.maxTexture3D[0];
+      break;
+    case hipDeviceAttributeMaxTexture3DHeight:
+      *pi = prop.maxTexture3D[1];
+      break;
+    case hipDeviceAttributeMaxTexture3DDepth:
+      *pi = prop.maxTexture3D[2];
+      break;
+    case hipDeviceAttributeHdpMemFlushCntl:
+      *reinterpret_cast<unsigned int **>(pi) = prop.hdpMemFlushCntl;
+      break;
+    case hipDeviceAttributeHdpRegFlushCntl:
+      *reinterpret_cast<unsigned int **>(pi) = prop.hdpRegFlushCntl;
+      break;
+    case hipDeviceAttributeMaxPitch:
+      *pi = prop.memPitch;
+      break;
+    case hipDeviceAttributeTextureAlignment:
+      *pi = prop.textureAlignment;
+      break;
+    case hipDeviceAttributeTexturePitchAlignment:
+      *pi = prop.texturePitchAlignment;
+      break;
+    case hipDeviceAttributeKernelExecTimeout:
+      *pi = prop.kernelExecTimeoutEnabled;
+      break;
+    case hipDeviceAttributeCanMapHostMemory:
+      *pi = prop.canMapHostMemory;
+      break;
+    case hipDeviceAttributeEccEnabled:
+      *pi = prop.ECCEnabled;
+      break;
+    case hipDeviceAttributeCooperativeMultiDeviceUnmatchedFunc:
+      *pi = prop.cooperativeMultiDeviceUnmatchedFunc;
+      break;
+    case hipDeviceAttributeCooperativeMultiDeviceUnmatchedGridDim:
+      *pi = prop.cooperativeMultiDeviceUnmatchedGridDim;
+      break;
+    case hipDeviceAttributeCooperativeMultiDeviceUnmatchedBlockDim:
+      *pi = prop.cooperativeMultiDeviceUnmatchedBlockDim;
+      break;
+    case hipDeviceAttributeCooperativeMultiDeviceUnmatchedSharedMem:
+      *pi = prop.cooperativeMultiDeviceUnmatchedSharedMem;
+      break;
+    case hipDeviceAttributeAsicRevision:
+      *pi = prop.asicRevision;
+      break;
+    case hipDeviceAttributeManagedMemory:
+      *pi = prop.managedMemory;
+      break;
+    case hipDeviceAttributeDirectManagedMemAccessFromHost:
+      *pi = prop.directManagedMemAccessFromHost;
+      break;
+    case hipDeviceAttributeConcurrentManagedAccess:
+      *pi = prop.concurrentManagedAccess;
+      break;
+    case hipDeviceAttributePageableMemoryAccess:
+      *pi = prop.pageableMemoryAccess;
+      break;
+    case hipDeviceAttributePageableMemoryAccessUsesHostPageTables:
+      *pi = prop.pageableMemoryAccessUsesHostPageTables;
+      break;
+    case hipDeviceAttributeCanUseStreamWaitValue:
+      // hipStreamWaitValue64() and hipStreamWaitValue32() support
+      //*pi = g_devices[device]->devices()[0]->info().aqlBarrierValue_;
+      CHIPERR_LOG_AND_THROW(
+          "CHIPDevice::getAttr(hipDeviceAttributeCanUseStreamWaitValue path "
+          "unimplemented",
+          hipErrorTbd);
       break;
     default:
-      // HIP_RETURN(hipErrorInvalidValue);
-      return -1;
+      CHIPERR_LOG_AND_THROW("CHIPDevice::getAttr asked for an unkown attribute",
+                            hipErrorInvalidValue);
   }
   return *pi;
 }
