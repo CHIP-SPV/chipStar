@@ -114,14 +114,13 @@ hipError_t __hipPopCallConfiguration(dim3 *gridDim, dim3 *blockDim,
   *blockDim = ei->getBlock();
   *sharedMem = ei->getSharedMem();
   Backend->chip_execstack.pop();
-  return hipSuccess;
+  RETURN(hipSuccess);
 }
 
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
 hipError_t hipGetDevice(int *deviceId) {
-  CHIP_TRY
   CHIPInitialize();
 
   ERROR_IF((deviceId == nullptr),
@@ -131,7 +130,6 @@ hipError_t hipGetDevice(int *deviceId) {
   *deviceId = dev->getDeviceId();
 
   RETURN(hipSuccess);
-  CHIP_CATCH
 }
 
 hipError_t hipGetDeviceCount(int *count) {
@@ -542,11 +540,11 @@ const char *hipGetErrorString(hipError_t hipError) {
 }
 
 hipError_t hipStreamCreate(hipStream_t *stream) {
-  return hipStreamCreateWithFlags(stream, 0);
+  RETURN(hipStreamCreateWithFlags(stream, 0));
 }
 
 hipError_t hipStreamCreateWithFlags(hipStream_t *stream, unsigned int flags) {
-  return hipStreamCreateWithPriority(stream, flags, 0);
+  RETURN(hipStreamCreateWithPriority(stream, flags, 0));
 }
 
 hipError_t hipStreamCreateWithPriority(hipStream_t *stream, unsigned int flags,
@@ -717,7 +715,7 @@ hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t device, unsigned int flags) {
 }
 
 hipError_t hipEventCreate(hipEvent_t *event) {
-  return hipEventCreateWithFlags(event, 0);
+  RETURN(hipEventCreateWithFlags(event, 0));
 }
 
 hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
@@ -803,7 +801,7 @@ hipError_t hipMalloc(void **ptr, size_t size) {
   ERROR_IF((retval == nullptr), hipErrorMemoryAllocation);
 
   *ptr = retval;
-  return hipSuccess;
+  RETURN(hipSuccess);
 }
 
 hipError_t hipMallocManaged(void **ptr, size_t size) {
@@ -825,7 +823,7 @@ hipError_t hipMallocManaged(void **ptr, size_t size) {
 
 DEPRECATED("use hipHostMalloc instead")
 hipError_t hipMallocHost(void **ptr, size_t size) {
-  return hipMalloc(ptr, size);
+  RETURN(hipMalloc(ptr, size));
 }
 
 hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
@@ -841,7 +839,7 @@ hipError_t hipHostMalloc(void **ptr, size_t size, unsigned int flags) {
 
 DEPRECATED("use hipHostMalloc instead")
 hipError_t hipHostAlloc(void **ptr, size_t size, unsigned int flags) {
-  return hipMalloc(ptr, size);
+  RETURN(hipMalloc(ptr, size));
 }
 
 hipError_t hipFree(void *ptr) {
@@ -857,7 +855,7 @@ hipError_t hipHostFree(void *ptr) {
 }
 
 DEPRECATED("use hipHostFree instead")
-hipError_t hipFreeHost(void *ptr) { return hipHostFree(ptr); }
+hipError_t hipFreeHost(void *ptr) { RETURN(hipHostFree(ptr)); }
 
 hipError_t hipMemPrefetchAsync(const void *ptr, size_t count, int dstDevId,
                                hipStream_t stream) {
@@ -944,7 +942,7 @@ hipError_t hipMallocPitch(void **ptr, size_t *pitch, size_t width,
                           size_t height) {
   CHIPInitialize();
 
-  return hipMallocPitch3D(ptr, pitch, width, height, 0);
+  RETURN(hipMallocPitch3D(ptr, pitch, width, height, 0));
 }
 
 hipError_t hipMallocArray(hipArray **array, const hipChannelFormatDesc *desc,
@@ -1091,7 +1089,7 @@ hipError_t hipMemPtrGetInfo(void *ptr, size_t *size) {
   allocation_info *info =
       Backend->getActiveDevice()->allocation_tracker->getByDevPtr(ptr);
   // allocation_info *info = Backend->AllocationTracker.getByDevPtr(ptr);
-  if (!info) return hipErrorInvalidDevicePointer;
+  if (!info) RETURN(hipErrorInvalidDevicePointer);
   *size = info->size;
   RETURN(hipSuccess);
 }
@@ -1127,7 +1125,7 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
                      hipMemcpyKind kind) {
   CHIPInitialize();
   // TODO
-  if (dst == nullptr || src == nullptr) return hipErrorIllegalAddress;
+  if (dst == nullptr || src == nullptr) RETURN(hipErrorIllegalAddress);
 
   if (kind == hipMemcpyHostToHost) {
     memcpy(dst, src, sizeBytes);
@@ -1139,30 +1137,30 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
 
 hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t dst, hipDeviceptr_t src,
                               size_t sizeBytes, hipStream_t stream) {
-  return hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyDeviceToDevice, stream);
+  RETURN(hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyDeviceToDevice, stream));
 }
 
 hipError_t hipMemcpyDtoD(hipDeviceptr_t dst, hipDeviceptr_t src,
                          size_t sizeBytes) {
-  return hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToDevice);
+  RETURN(hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToDevice));
 }
 
 hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t dst, void *src, size_t sizeBytes,
                               hipStream_t stream) {
-  return hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyHostToDevice, stream);
+  RETURN(hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyHostToDevice, stream));
 }
 
 hipError_t hipMemcpyHtoD(hipDeviceptr_t dst, void *src, size_t sizeBytes) {
-  return hipMemcpy(dst, src, sizeBytes, hipMemcpyHostToDevice);
+  RETURN(hipMemcpy(dst, src, sizeBytes, hipMemcpyHostToDevice));
 }
 
 hipError_t hipMemcpyDtoHAsync(void *dst, hipDeviceptr_t src, size_t sizeBytes,
                               hipStream_t stream) {
-  return hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyDeviceToHost, stream);
+  RETURN(hipMemcpyAsync(dst, src, sizeBytes, hipMemcpyDeviceToHost, stream));
 }
 
 hipError_t hipMemcpyDtoH(void *dst, hipDeviceptr_t src, size_t sizeBytes) {
-  return hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToHost);
+  RETURN(hipMemcpy(dst, src, sizeBytes, hipMemcpyDeviceToHost));
 }
 
 hipError_t hipMemsetD32Async(hipDeviceptr_t dst, int value, size_t count,
@@ -1184,25 +1182,25 @@ hipError_t hipMemsetD32(hipDeviceptr_t dst, int value, size_t count) {
 hipError_t hipMemset2DAsync(void *dst, size_t pitch, int value, size_t width,
                             size_t height, hipStream_t stream) {
   size_t sizeBytes = pitch * height;
-  return hipMemsetAsync(dst, value, sizeBytes, stream);
+  RETURN(hipMemsetAsync(dst, value, sizeBytes, stream));
 }
 
 hipError_t hipMemset2D(void *dst, size_t pitch, int value, size_t width,
                        size_t height) {
   size_t sizeBytes = pitch * height;
-  return hipMemset(dst, value, sizeBytes);
+  RETURN(hipMemset(dst, value, sizeBytes));
 }
 
 hipError_t hipMemset3DAsync(hipPitchedPtr pitchedDevPtr, int value,
                             hipExtent extent, hipStream_t stream) {
   size_t sizeBytes = pitchedDevPtr.pitch * extent.height * extent.depth;
-  return hipMemsetAsync(pitchedDevPtr.ptr, value, sizeBytes, stream);
+  RETURN(hipMemsetAsync(pitchedDevPtr.ptr, value, sizeBytes, stream));
 }
 
 hipError_t hipMemset3D(hipPitchedPtr pitchedDevPtr, int value,
                        hipExtent extent) {
   size_t sizeBytes = pitchedDevPtr.pitch * extent.height * extent.depth;
-  return hipMemset(pitchedDevPtr.ptr, value, sizeBytes);
+  RETURN(hipMemset(pitchedDevPtr.ptr, value, sizeBytes));
 }
 
 hipError_t hipMemsetAsync(void *dst, int value, size_t sizeBytes,
@@ -1227,7 +1225,7 @@ hipError_t hipMemset(void *dst, int value, size_t sizeBytes) {
 
 hipError_t hipMemsetD8(hipDeviceptr_t dest, unsigned char value,
                        size_t sizeBytes) {
-  return hipMemset(dest, value, sizeBytes);
+  RETURN(hipMemset(dest, value, sizeBytes));
 }
 
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *pCopy) {
@@ -1317,14 +1315,14 @@ hipError_t hipMemcpy2DToArray(hipArray *dst, size_t wOffset, size_t hOffset,
 hipError_t hipMemcpyToArray(hipArray *dst, size_t wOffset, size_t hOffset,
                             const void *src, size_t count, hipMemcpyKind kind) {
   void *dst_p = (unsigned char *)dst->data + wOffset;
-  return hipMemcpy(dst_p, src, count, kind);
+  RETURN(hipMemcpy(dst_p, src, count, kind));
 }
 
 hipError_t hipMemcpyFromArray(void *dst, hipArray_const_t srcArray,
                               size_t wOffset, size_t hOffset, size_t count,
                               hipMemcpyKind kind) {
   void *src_p = (unsigned char *)srcArray->data + wOffset;
-  return hipMemcpy(dst, src_p, count, kind);
+  RETURN(hipMemcpy(dst, src_p, count, kind));
 }
 
 hipError_t hipMemcpyAtoH(void *dst, hipArray *srcArray, size_t srcOffset,
@@ -1515,7 +1513,7 @@ hipError_t hipModuleLoadData(hipModule_t *module, const void *image) {
 hipError_t hipModuleLoadDataEx(hipModule_t *module, const void *image,
                                unsigned int numOptions, hipJitOption *options,
                                void **optionValues) {
-  return hipModuleLoadData(module, image);
+  RETURN(hipModuleLoadData(module, image));
 }
 
 hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
@@ -1534,7 +1532,8 @@ hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
 hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
                                   hipResourceDesc *resDesc,
                                   hipTextureDesc *texDesc, void *opt) {
-  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorTbd);
+  // CHIPInitialize();
   // TODO
   // hipTextureObject_t retObj =
   //     Backend->getActiveContext()->createImage(resDesc, texDesc);
@@ -1564,12 +1563,7 @@ hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {
   RETURN(hipSuccess);
 }
 
-hipError_t hipModuleUnload(hipModule_t module) {
-  CHIPInitialize();
-
-  // RETURN(Backend->removeModule(module));
-  RETURN(hipSuccess);
-}
+hipError_t hipModuleUnload(hipModule_t module) { UNIMPLEMENTED(hipErrorTbd); }
 
 hipError_t hipModuleGetFunction(hipFunction_t *function, hipModule_t module,
                                 const char *kname) {
@@ -1735,9 +1729,10 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
 
 hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   logTrace("hipSetupArgument");
+
   CHIPInitialize();
   RETURN(Backend->setArg(arg, size, offset));
-  return hipSuccess;
+  RETURN(hipSuccess);
 }
 
 #endif
