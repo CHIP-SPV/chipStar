@@ -25,7 +25,7 @@
 #include "exceptions.hh"
 #include "spirv.hh"
 
-std::string clResultToString(int err);
+std::string resultToString(int status);
 
 class CHIPContextOpenCL;
 class CHIPDeviceOpenCL;
@@ -136,40 +136,7 @@ class CHIPKernelOpenCL : public CHIPKernel {
 
  public:
   CHIPKernelOpenCL(const cl::Kernel &&cl_kernel,
-                   OpenCLFunctionInfoMap &func_info_map) {
-    ocl_kernel = cl_kernel;
-
-    int err = 0;
-    name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
-    setName(name);
-    if (err != CL_SUCCESS) {
-      logError("clGetKernelInfo(CL_KERNEL_FUNCTION_NAME) failed: {}\n", err);
-    }
-
-    auto it = func_info_map.find(name);
-    assert(it != func_info_map.end());
-    func_info = it->second;
-
-    // TODO attributes
-    cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
-    if (err != CL_SUCCESS) {
-      logError("clGetKernelInfo(CL_KERNEL_NUM_ARGS) failed: {}\n", err);
-    }
-
-    assert(func_info->ArgTypeInfo.size() == NumArgs);
-
-    if (NumArgs > 0) {
-      logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
-      logDebug("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
-               (unsigned)func_info->retTypeInfo.space,
-               (unsigned)func_info->retTypeInfo.type);
-      for (auto &argty : func_info->ArgTypeInfo) {
-        logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
-                 (unsigned)argty.space, (unsigned)argty.type);
-        TotalArgSize += argty.size;
-      }
-    }
-  }
+                   OpenCLFunctionInfoMap &func_info_map);
 
   OCLFuncInfo *get_func_info() const { return func_info; }
   std::string get_name() { return name; }

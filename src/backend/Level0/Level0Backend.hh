@@ -5,7 +5,7 @@
 #include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
 
-const char* lzResultToString(ze_result_t status);
+std::string resultToString(ze_result_t status);
 
 #define LZ_LOG_ERROR(msg, status)                                            \
   logError("{} ({}) in {}:{}:{}\n", msg, lzResultToString(status), __FILE__, \

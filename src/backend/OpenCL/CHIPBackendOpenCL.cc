@@ -1,11 +1,5 @@
 #include "CHIPBackendOpenCL.hh"
 
-#define CHIPERR_CHECK_LOG_AND_THROW_CL(status, errtype)       \
-  if (status != CL_SUCCESS) {                                 \
-    std::string msg_ = std::string(clResultToString(status)); \
-    CHIPERR_LOG_AND_THROW(msg_, errtype);                     \
-  }
-
 // CHIPDeviceOpenCL
 // ************************************************************************
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx,
@@ -130,7 +124,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   std::vector<char> binary_vec(src.begin(), src.end());
   auto Program = cl::Program(*(chip_ctx_ocl->get()), binary_vec, false, &err);
   if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
   //   for (CHIPDevice *chip_dev : chip_devices) {
   std::string name = chip_dev_ocl->getName();
@@ -139,16 +133,16 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   std::string log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
   if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
   logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
            chip_dev_ocl->getDeviceId(), name, log);
   if (build_failed != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
   std::vector<cl::Kernel> kernels;
   err = Program.createKernels(&kernels);
   if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
   logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
     CHIPKernelOpenCL *chip_kernel =
@@ -159,6 +153,37 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
 
 // CHIPKernelOpenCL
 //*************************************************************************
+CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel,
+                                   OpenCLFunctionInfoMap &func_info_map) {
+  ocl_kernel = cl_kernel;
+
+  int err = 0;
+  name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
+  setName(name);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
+
+  auto it = func_info_map.find(name);
+  assert(it != func_info_map.end());
+  func_info = it->second;
+
+  // TODO attributes
+  cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
+
+  assert(func_info->ArgTypeInfo.size() == NumArgs);
+
+  if (NumArgs > 0) {
+    logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
+    logDebug("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
+             (unsigned)func_info->retTypeInfo.space,
+             (unsigned)func_info->retTypeInfo.type);
+    for (auto &argty : func_info->ArgTypeInfo) {
+      logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
+               (unsigned)argty.space, (unsigned)argty.type);
+      TotalArgSize += argty.size;
+    }
+  }
+}
 // CHIPExecItemOpenCL
 //*************************************************************************
 // CHIPContextOpenCL
@@ -201,10 +226,7 @@ hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
   assert(kernel != nullptr);
   logTrace("Launching Kernel {}", kernel->get_name());
 
-  if (chip_ocl_exec_item->setup_all_args(kernel) != CL_SUCCESS) {
-    logError("Failed to set kernel arguments for launch! \n");
-    return hipErrorLaunchFailure;
-  }
+  chip_ocl_exec_item->setup_all_args(kernel);
 
   dim3 GridDim = chip_ocl_exec_item->getGrid();
   dim3 BlockDim = chip_ocl_exec_item->getBlock();
@@ -217,9 +239,8 @@ hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
   int err = cl_q->enqueueNDRangeKernel(kernel->get(), cl::NullRange, global,
                                        local, nullptr, &ev);
 
-  if (err != CL_SUCCESS)
-    logError("clEnqueueNDRangeKernel() failed with: {}\n", err);
-  hipError_t retval = (err == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
+  hipError_t retval = hipSuccess;
 
   // TODO
   // cl_event LastEvent;
@@ -259,19 +280,16 @@ hipError_t CHIPQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
   auto LastEvent = ev;
   int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
                                     nullptr, &ev);
-  if (retval == CL_SUCCESS) {
-    // TODO
-    if (LastEvent != nullptr) {
-      logDebug("memCopy: LastEvent == {}, will be: {}", (void *)LastEvent,
-               (void *)ev);
-      clReleaseEvent(LastEvent);
-    } else
-      logDebug("memCopy: LastEvent == NULL, will be: {}\n", (void *)ev);
-    LastEvent = ev;
+  CHIPERR_CHECK_LOG_AND_THROW(retval, CL_SUCCESS, hipErrorRuntimeMemory);
+  if (LastEvent != nullptr) {
+    logDebug("memCopy: LastEvent == {}, will be: {}", (void *)LastEvent,
+             (void *)ev);
+    clReleaseEvent(LastEvent);
   } else {
-    logError("clEnqueueSVMMemCopy() failed with error {}\n", retval);
+    logDebug("memCopy: LastEvent == NULL, will be: {}\n", (void *)ev);
+    LastEvent = ev;
   }
-  return (retval == CL_SUCCESS) ? hipSuccess : hipErrorLaunchFailure;
+  return hipSuccess;
 }
 
 hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
@@ -297,9 +315,9 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
           "because the kernel doesn't use any local memory.\n");
     } else {
       err = ::clSetKernelArg(kernel, LastArgIdx, shared, nullptr);
-      if (err != CL_SUCCESS) {
-        logError("clSetKernelArg() failed to set dynamic local size!\n");
-      }
+      CHIPERR_CHECK_LOG_AND_THROW(
+          err, CL_SUCCESS, hipErrorTbd,
+          "clSetKernelArg() failed to set dynamic local size");
     }
   }
 
@@ -316,8 +334,7 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
   assert(NumLocals <= 1);
 
   if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
-    logError("Some arguments are still unset\n");
-    return CL_INVALID_VALUE;
+    CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
   }
 
   if (offset_sizes.size() == 0) return CL_SUCCESS;
@@ -325,8 +342,7 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
   std::sort(offset_sizes.begin(), offset_sizes.end());
   if ((std::get<0>(offset_sizes[0]) != 0) ||
       (std::get<1>(offset_sizes[0]) == 0)) {
-    logError("Invalid offset/size\n");
-    return CL_INVALID_VALUE;
+    CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
   }
 
   // check args are set
@@ -336,8 +352,7 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
           (std::get<1>(offset_sizes[i]) == 0) ||
           ((std::get<0>(offset_sizes[i - 1]) +
             std::get<1>(offset_sizes[i - 1])) > std::get<0>(offset_sizes[i]))) {
-        logError("Invalid offset/size\n");
-        return CL_INVALID_VALUE;
+        CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
       }
     }
   }
@@ -386,7 +401,7 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
   std::vector<cl::Platform> Platforms;
   cl_int err = cl::Platform::get(&Platforms);
   if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW_CL(err, hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
   std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
   for (int i = 0; i < Platforms.size(); i++) {
     std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
@@ -509,7 +524,7 @@ void CHIPBackendOpenCL::uninitialize() { UNIMPLEMENTED(); }
 // Other
 //*************************************************************************
 
-std::string clResultToString(int status) {
+std::string resultToString(int status) {
   switch (status) {
     case CL_SUCCESS:
       return "CL_SUCCESS";

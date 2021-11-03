@@ -22,9 +22,12 @@ class CHIPError {
            __FILE__, __LINE__, __func__);                             \
   throw err;
 
-#define CHIPERR_CHECK_LOG_AND_THROW(status, msg, errtype)   \
-  if (status != hipSuccess && status != hipErrorNotReady) { \
-    CHIPERR_LOG_AND_THROW(msg, errtype);                    \
+#define CHIPERR_CHECK_LOG_AND_THROW(status, success, errtype, ...) \
+  if (status != success) {                                         \
+    std::string error_msg = std::string(resultToString(status));   \
+    std::string custom_msg = std::string(__VA_ARGS__);             \
+    std::string msg_ = error_msg + " " + custom_msg;               \
+    CHIPERR_LOG_AND_THROW(msg_, errtype);                          \
   }
 
 #define CHIP_TRY try {

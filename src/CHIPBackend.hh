@@ -32,6 +32,9 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+template <class T>
+std::string resultToString(T err);
+
 enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 enum class CHIPEventType : unsigned {
   Default = hipEventDefault,
