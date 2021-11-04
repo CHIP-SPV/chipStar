@@ -561,12 +561,7 @@ bool CHIPDevice::hasPCIBusId(int, int, int) { UNIMPLEMENTED(true); }
 CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
 // CHIPContext
 //*************************************************************************************
-CHIPContext::CHIPContext() {
-  // TODO Should this check the lowest available memory for all devices in this
-  // context?
-  allocation_tracker = new CHIPAllocationTracker(
-      std::numeric_limits<size_t>::max(), "CHIPContext Allocation Tracker");
-}
+CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 void CHIPContext::addDevice(CHIPDevice *dev) {
   logTrace("CHIPContext.add_device() {}", dev->getName());
@@ -642,10 +637,14 @@ unsigned int CHIPContext::getFlags() { UNIMPLEMENTED(0); }
 void CHIPContext::setFlags(unsigned int flags) { UNIMPLEMENTED(); }
 
 void CHIPContext::reset() {
-  delete allocation_tracker;
-  // TODO Implement this as a function?
-  allocation_tracker = new CHIPAllocationTracker(
-      std::numeric_limits<size_t>::max(), "CHIPContext Allocation Tracker");
+  logDebug("Resetting CHIPContext: deleting allocations");
+  // Free all allocations in this context
+  for (auto &ptr : allocated_ptrs) free_(ptr);
+  // Free all the memory reservations on each device
+  for (auto &dev : chip_devices)
+    dev->allocation_tracker->releaseMemReservation(
+        dev->allocation_tracker->total_mem_used);
+  allocated_ptrs.clear();
 
   // TODO Is all the state reset?
 }

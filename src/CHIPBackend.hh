@@ -815,7 +815,7 @@ class CHIPContext {
   std::vector<CHIPDevice*> chip_devices;
   std::vector<CHIPQueue*> chip_queues;
   std::mutex mtx;
-  CHIPAllocationTracker* allocation_tracker;
+  std::vector<void*> allocated_ptrs;
 
  public:
   /**
