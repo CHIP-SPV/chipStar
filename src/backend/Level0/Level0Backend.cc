@@ -65,7 +65,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
       chip_l0_ctx->addDevice(chip_l0_dev);
 
       CHIPQueueLevel0* q = new CHIPQueueLevel0(chip_l0_dev);
-      chip_l0_dev->addQueue(q);
+      // chip_l0_dev->addQueue(q);
       Backend->addDevice(chip_l0_dev);
       break;  // For now don't add more than one device
     }
@@ -325,6 +325,11 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
   hip_device_props.maxSharedMemoryPerMultiProcessor =
       device_compute_props.maxSharedLocalMemory;
 }
+
+void CHIPDeviceLevel0::addQueue(unsigned int flags, int priority) {
+  chip_queues.push_back(new CHIPQueueLevel0(this));
+}
+
 // CHIPQueueLevelZero
 // ***********************************************************************
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
@@ -383,6 +388,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   chip_context->addQueue(this);
+  chip_device->addQueue(this);
 }
 
 hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {

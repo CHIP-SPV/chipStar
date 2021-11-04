@@ -620,11 +620,7 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *stream, unsigned int flags,
   CHIPDevice *dev = Backend->getActiveDevice();
   ERROR_IF((dev == nullptr), hipErrorInvalidDevice);
 
-  // TODO Backend->addQueue()
-  // CHIPQueue *new_queue = new CHIPQueue(dev, flags, priority);
-  // dev->addQueue(new_queue);
-
-  //*stream = new_queue;
+  dev->addQueue(flags, priority);
 
   if (stream)
     RETURN(hipSuccess);

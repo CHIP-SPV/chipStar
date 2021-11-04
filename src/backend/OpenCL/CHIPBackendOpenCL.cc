@@ -157,6 +157,10 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   }
 }
 
+void CHIPDeviceOpenCL::addQueue(unsigned int flags, int priority) {
+  chip_queues.push_back(new CHIPQueueOpenCL(this));
+}
+
 // CHIPKernelOpenCL
 //*************************************************************************
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
@@ -265,6 +269,8 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
   cl_dev = ((CHIPDeviceOpenCL *)chip_device)->get();
 
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
+
+  chip_device_->addQueue(this);
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
@@ -510,9 +516,9 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
     logDebug("CHIPDeviceOpenCL {}",
              chip_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
     chip_dev->populateDeviceProperties();
-    Backend->addDevice(chip_dev);
+    // Backend->addDevice(chip_dev);
     CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(chip_dev);
-    chip_dev->addQueue(queue);
+    // chip_dev->addQueue(queue);
     Backend->addQueue(queue);
   }
   std::cout << "OpenCL Context Initialized.\n";

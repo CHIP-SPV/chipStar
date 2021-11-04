@@ -103,6 +103,8 @@ class CHIPDeviceOpenCL : public CHIPDevice {
     chip_modules.push_back(mod);
     return mod;
   }
+
+  virtual void addQueue(unsigned int flags, int priority) override;
 };
 
 class CHIPQueueOpenCL : public CHIPQueue {
