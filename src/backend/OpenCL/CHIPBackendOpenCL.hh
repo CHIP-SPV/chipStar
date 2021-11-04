@@ -135,8 +135,8 @@ class CHIPKernelOpenCL : public CHIPKernel {
   cl::Kernel ocl_kernel;
 
  public:
-  CHIPKernelOpenCL(const cl::Kernel &&cl_kernel,
-                   OpenCLFunctionInfoMap &func_info_map);
+  CHIPKernelOpenCL(const cl::Kernel &&cl_kernel, std::string host_f_name_,
+                   OCLFuncInfo func_info_);
 
   OCLFuncInfo *get_func_info() const { return func_info; }
   std::string get_name() { return name; }

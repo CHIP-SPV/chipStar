@@ -418,14 +418,11 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
 // CHIPKernelLevelZero
 // ***********************************************************************
 
-CHIPKernelLevel0::CHIPKernelLevel0() {}
-
 CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ze_kernel_,
                                    std::string host_f_name_,
-                                   OCLFuncInfo func_info_) {
+                                   OCLFuncInfo func_info_)
+    : CHIPKernel(host_f_name_, func_info_) {
   ze_kernel = ze_kernel_;
-  host_f_name = host_f_name_;
-  func_info = func_info_;
   logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
 }
 
@@ -562,7 +559,9 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   for (int i = 0; i < kernel_count; i++) {
     std::string host_f_name(kernel_names[i]);
     auto found_func_info = func_infos.find(host_f_name);
-    if (found_func_info == func_infos.end()) continue;  // TODO
+    if (found_func_info == func_infos.end())
+      CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+                            hipErrorInitializationError);
     auto func_info = *(func_infos[host_f_name]);
     // Create kernel
     ze_kernel_handle_t ze_kernel;

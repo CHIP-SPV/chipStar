@@ -2,17 +2,14 @@
 
 // CHIPDeviceOpenCL
 // ************************************************************************
-CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx,
-                                   cl::Device *dev_in, int idx) {
+CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx_,
+                                   cl::Device *dev_in_, int idx_)
+    : CHIPDevice(chip_ctx_), cl_dev(dev_in_), cl_ctx(chip_ctx_->get()) {
   logDebug(
       "CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
       "pointer");
-  cl_dev = dev_in;
-  cl_ctx = chip_ctx->cl_ctx;
-  idx = idx;
 
-  chip_ctx->addDevice(this);
-  ctx = chip_ctx;
+  chip_ctx_->addDevice(this);
 }
 
 void CHIPDeviceOpenCL::populateDeviceProperties_() {
@@ -145,30 +142,32 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
     CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
   logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
+    auto kernel = kernels[kernel_idx];
+    std::string host_f_name = kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError,
+                                "Failed to fetch OpenCL kernel name");
+    auto found_func_info = func_infos.find(host_f_name);
+    if (found_func_info == func_infos.end())
+      CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+                            hipErrorInitializationError);
+    auto func_info = *(func_infos[host_f_name]);
     CHIPKernelOpenCL *chip_kernel =
-        new CHIPKernelOpenCL(std::move(kernels[kernel_idx]), func_infos);
+        new CHIPKernelOpenCL(std::move(kernel), host_f_name, func_info);
     chip_kernels.push_back(chip_kernel);
   }
 }
 
 // CHIPKernelOpenCL
 //*************************************************************************
-CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel,
-                                   OpenCLFunctionInfoMap &func_info_map) {
-  ocl_kernel = cl_kernel;
-
+CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
+                                   std::string host_f_name_,
+                                   OCLFuncInfo func_info_)
+    : CHIPKernel(host_f_name_, func_info_), ocl_kernel(cl_kernel_) {
   int err = 0;
-  name = ocl_kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
-  setName(name);
-  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
-
-  auto it = func_info_map.find(name);
-  assert(it != func_info_map.end());
-  func_info = it->second;
-
   // TODO attributes
   cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
-  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
+                              "Failed to get num args for kernel");
 
   assert(func_info->ArgTypeInfo.size() == NumArgs);
 

@@ -3,7 +3,8 @@
 // CHIPDeviceVar
 // ************************************************************************
 CHIPDeviceVar::CHIPDeviceVar(std::string host_var_name_, void *dev_ptr_,
-                             size_t size) {}
+                             size_t size_)
+    : host_var_name(host_var_name_), dev_ptr(dev_ptr_), size(size_) {}
 CHIPDeviceVar::~CHIPDeviceVar() {}
 size_t CHIPDeviceVar::getSize() { return size; }
 std::string CHIPDeviceVar::getName() { return host_var_name; }
@@ -16,7 +17,10 @@ CHIPAllocationTracker::CHIPAllocationTracker(size_t global_mem_size_,
     : global_mem_size(global_mem_size_), total_mem_used(0), max_mem_used(0) {
   name = name_;
 }
-CHIPAllocationTracker::~CHIPAllocationTracker() {}
+CHIPAllocationTracker::~CHIPAllocationTracker() {
+  // TODO free up all the pointers in ptr_set
+  UNIMPLEMENTED();
+}
 
 allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {
   auto found = host_to_dev.find(const_cast<void *>(host_ptr));
@@ -54,16 +58,21 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long bytes) {
   return false;
 }
 
+void CHIPAllocationTracker::recordAllocation(void *ptr) {
+  ptr_set.insert(ptr);
+  return;
+}
+
 // CHIPEvent
 // ************************************************************************
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
     : status(EVENT_STATUS_INIT), flags(event_type_), chip_context(ctx_in) {}
 CHIPEvent::~CHIPEvent() {}
 
-bool CHIPEvent::recordStream(CHIPQueue *chip_queue_){};
-bool CHIPEvent::wait(){};
-bool CHIPEvent::isFinished(){};
-float CHIPEvent::getElapsedTime(CHIPEvent *other){};
+bool CHIPEvent::recordStream(CHIPQueue *chip_queue_) { UNIMPLEMENTED(true); };
+bool CHIPEvent::wait() { UNIMPLEMENTED(true); };
+bool CHIPEvent::isFinished() { UNIMPLEMENTED(true); };
+float CHIPEvent::getElapsedTime(CHIPEvent *other) { UNIMPLEMENTED(true); };
 
 // CHIPModule
 //*************************************************************************************
@@ -143,6 +152,8 @@ CHIPDeviceVar *CHIPModule::getGlobalVar(std::string name) {
 
 // CHIPKernel
 //*************************************************************************************
+CHIPKernel::CHIPKernel(std::string host_f_name_, OCLFuncInfo func_info_)
+    : host_f_name(host_f_name_), func_info(func_info_) {}
 CHIPKernel::~CHIPKernel(){};
 std::string CHIPKernel::getName() { return host_f_name; }
 const void *CHIPKernel::getHostPtr() { return host_f_ptr; }
@@ -504,17 +515,25 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
 std::vector<CHIPQueue *> CHIPDevice::getQueues() { return chip_queues; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *peer, int flags,
-                                     bool canAccessPeer) {}
+                                     bool canAccessPeer) {
+  UNIMPLEMENTED(hipSuccess);
+}
 
-int CHIPDevice::getPeerAccess(CHIPDevice *peerDevice) {}
+int CHIPDevice::getPeerAccess(CHIPDevice *peerDevice) { UNIMPLEMENTED(0); }
 
-void CHIPDevice::setCacheConfig(hipFuncCache_t cfg) {}
+void CHIPDevice::setCacheConfig(hipFuncCache_t cfg) { UNIMPLEMENTED(); }
 
-void CHIPDevice::setFuncCacheConfig(const void *func, hipFuncCache_t config) {}
+void CHIPDevice::setFuncCacheConfig(const void *func, hipFuncCache_t config) {
+  UNIMPLEMENTED();
+}
 
-hipFuncCache_t CHIPDevice::getCacheConfig() {}
+hipFuncCache_t CHIPDevice::getCacheConfig() {
+  UNIMPLEMENTED(hipFuncCachePreferNone);
+}
 
-hipSharedMemConfig CHIPDevice::getSharedMemConfig() {}
+hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
+  UNIMPLEMENTED(hipSharedMemBankSizeDefault);
+}
 
 bool CHIPDevice::removeQueue(CHIPQueue *q) {
   auto found_q = std::find(chip_queues.begin(), chip_queues.end(), q);
@@ -529,24 +548,29 @@ bool CHIPDevice::removeQueue(CHIPQueue *q) {
   return true;
 }
 
-void CHIPDevice::setSharedMemConfig(hipSharedMemConfig config) {}
+void CHIPDevice::setSharedMemConfig(hipSharedMemConfig config) {
+  UNIMPLEMENTED();
+}
 
 size_t CHIPDevice::getUsedGlobalMem() {
   return allocation_tracker->total_mem_used;
 }
 
-bool CHIPDevice::hasPCIBusId(int, int, int) {}
+bool CHIPDevice::hasPCIBusId(int, int, int) { UNIMPLEMENTED(true); }
 
 CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
 // CHIPContext
 //*************************************************************************************
-CHIPContext::CHIPContext() {}
+CHIPContext::CHIPContext() {
+  // TODO Should this check the lowest available memory for all devices in this
+  // context?
+  allocation_tracker = new CHIPAllocationTracker(
+      std::numeric_limits<size_t>::max(), "CHIPContext Allocation Tracker");
+}
 CHIPContext::~CHIPContext() {}
-bool CHIPContext::addDevice(CHIPDevice *dev) {
+void CHIPContext::addDevice(CHIPDevice *dev) {
   logTrace("CHIPContext.add_device() {}", dev->getName());
   chip_devices.push_back(dev);
-  // TODO check for success
-  return true;
 }
 
 std::vector<CHIPDevice *> &CHIPContext::getDevices() {
@@ -613,13 +637,20 @@ hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
   return hipSuccess;
 }
 
-unsigned int CHIPContext::getFlags() {}
+unsigned int CHIPContext::getFlags() { UNIMPLEMENTED(0); }
 
-void CHIPContext::setFlags(unsigned int flags) {}
+void CHIPContext::setFlags(unsigned int flags) { UNIMPLEMENTED(); }
 
-void CHIPContext::reset() {}
+void CHIPContext::reset() {
+  delete allocation_tracker;
+  // TODO Implement this as a function?
+  allocation_tracker = new CHIPAllocationTracker(
+      std::numeric_limits<size_t>::max(), "CHIPContext Allocation Tracker");
 
-CHIPContext *CHIPContext::retain() {}
+  // TODO Is all the state reset?
+}
+
+CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 
 hipError_t CHIPContext::free(void *ptr) {
   CHIPDevice *chip_dev = Backend->getActiveDevice();
@@ -631,10 +662,14 @@ hipError_t CHIPContext::free(void *ptr) {
   return hipSuccess;
 }
 
-void CHIPContext::recordEvent(CHIPQueue *q, CHIPEvent *event) {}
+void CHIPContext::recordEvent(CHIPQueue *q, CHIPEvent *event) {
+  UNIMPLEMENTED();
+}
 
 CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
-                                      hipTextureDesc *texDesc) {}
+                                      hipTextureDesc *texDesc) {
+  UNIMPLEMENTED(nullptr);
+}
 
 // CHIPBackend
 //*************************************************************************************
@@ -903,22 +938,28 @@ CHIPDevice *CHIPQueue::getDevice() {
   return chip_device;
 }
 
-unsigned int CHIPQueue::getFlags() {}
-hipError_t CHIPQueue::launch(CHIPExecItem *) {}
+unsigned int CHIPQueue::getFlags() { UNIMPLEMENTED(0); }
+hipError_t CHIPQueue::launch(CHIPExecItem *) { UNIMPLEMENTED(hipSuccess); }
 // hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
 // hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
 
 hipError_t CHIPQueue::launchWithKernelParams(dim3 grid, dim3 block,
                                              unsigned int sharedMemBytes,
-                                             void **args, CHIPKernel *kernel) {}
+                                             void **args, CHIPKernel *kernel) {
+  UNIMPLEMENTED(hipSuccess);
+}
 
 hipError_t CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
                                             unsigned int sharedMemBytes,
-                                            void **extra, CHIPKernel *kernel) {}
+                                            void **extra, CHIPKernel *kernel) {
+  UNIMPLEMENTED(hipSuccess);
+}
 
-int CHIPQueue::getPriorityRange(int lower_or_upper) {}
-int CHIPQueue::getPriority() {}
-bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {}
+int CHIPQueue::getPriorityRange(int lower_or_upper) { UNIMPLEMENTED(0); }
+int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
+bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
+  UNIMPLEMENTED(true);
+}
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
                                size_t sharedMemBytes) {
@@ -927,11 +968,17 @@ bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
   CHIPExecItem e(dimGrid, dimBlocks, sharedMemBytes, Backend->getActiveQueue());
   e.launchByHostPtr(hostFunction);
 }
-bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) {}
-bool CHIPQueue::query() {}
+bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) { UNIMPLEMENTED(true); }
+bool CHIPQueue::query() { UNIMPLEMENTED(true); }
 void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
-                        size_t pattern_size) {}
+                        size_t pattern_size) {
+  UNIMPLEMENTED();
+}
 void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
-                             size_t pattern_size) {}
+                             size_t pattern_size) {
+  UNIMPLEMENTED();
+}
 
-bool CHIPQueue::memPrefetch(const void *ptr, size_t count) {}
+bool CHIPQueue::memPrefetch(const void *ptr, size_t count) {
+  UNIMPLEMENTED(true);
+}

@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <set>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -58,6 +59,7 @@ class CHIPAllocationTracker {
   std::unordered_map<void*, void*> host_to_dev;
   std::unordered_map<void*, void*> dev_to_host;
   std::string name;
+  std::set<void*> ptr_set;
 
   std::unordered_map<void*, allocation_info> dev_to_allocation_info;
 
@@ -102,7 +104,6 @@ class CHIPAllocationTracker {
    * @brief Reserve memory for an allocation.
    * This method is run prior to allocations to keep track of how much memory is
    * available on the device
-   * TODO: Move to AllocationTracker
    *
    * @param bytes
    * @return true Reservation successful
@@ -112,13 +113,19 @@ class CHIPAllocationTracker {
 
   /**
    * @brief Release some of the reserved memory. Called by free()
-   * TODO: Move to AllocationTracker
    *
    * @param bytes
    * @return true
    * @return false
    */
   bool releaseMemReservation(size_t bytes);
+
+  /**
+   * @brief Record the pointer received from CHIPContext::allocate_()
+   *
+   * @param dev_ptr
+   */
+  void recordAllocation(void* dev_ptr);
 };
 
 class CHIPDeviceVar {
@@ -340,7 +347,7 @@ class CHIPKernel {
    * called.
    *
    */
-  CHIPKernel() = default;
+  CHIPKernel(std::string host_f_name_, OCLFuncInfo func_info_);
   /// Name of the function
   std::string host_f_name;
   /// Pointer to the host function
@@ -660,7 +667,7 @@ class CHIPDevice {
    *
    * @return std::string
    */
-  virtual std::string getName();  // TODO make not virtual
+  std::string getName();
 
   /**
    * @brief Destroy all allocations and reset all state on the current device in
@@ -808,6 +815,7 @@ class CHIPContext {
   std::vector<CHIPDevice*> chip_devices;
   std::vector<CHIPQueue*> chip_queues;
   std::mutex mtx;
+  CHIPAllocationTracker* allocation_tracker;
 
  public:
   /**
@@ -828,7 +836,7 @@ class CHIPContext {
    * @return true if device was added successfully
    * @return false upon failure
    */
-  bool addDevice(CHIPDevice* dev);
+  void addDevice(CHIPDevice* dev);
   /**
    * @brief Add a queue to this context
    *
