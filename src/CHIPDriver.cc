@@ -67,10 +67,10 @@ void CHIPInitializeCallOnce(std::string BE) {
   }
 
   // TODO Check configuration for what backends are configured
-  if (!CHIP_BE.compare("OPENCL")) {
+  if (!CHIP_BE.compare("opencl")) {
     logTrace("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
-  } else if (!CHIP_BE.compare("LEVEL0")) {
+  } else if (!CHIP_BE.compare("level0")) {
     logTrace("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
   } else if (!CHIP_BE.compare("")) {
