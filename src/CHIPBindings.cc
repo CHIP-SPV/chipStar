@@ -241,18 +241,24 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *prop, int deviceId) {
 }
 
 hipError_t hipDeviceGetLimit(size_t *pValue, enum hipLimit_t limit) {
-  CHIP_TRY
-  CHIPInitialize();
-  ERROR_IF((pValue == nullptr), hipErrorInvalidValue);
-  switch (limit) {
-    case hipLimitMallocHeapSize:
-      *pValue = 0;  // TODO Get this from properties
-      break;
-    default:
-      RETURN(hipErrorUnsupportedLimit);
-  }
-  RETURN(hipSuccess);
-  CHIP_CATCH
+  UNIMPLEMENTED(hipSuccess);
+  //  CHIP_TRY
+  //  CHIPInitialize();
+  //  ERROR_IF((pValue == nullptr), hipErrorInvalidValue);
+  //  switch (limit) {
+  //    case hipLimitMallocHeapSize:
+  //      *pValue = 0;  // TODO Get this from properties
+  //      /* zeinfo reports this as
+  //      Maximum memory allocation size 4294959104
+  //      */
+  //      break;
+  //    case hipLimitPrintfFifoSize:
+  //      break;
+  //    default:
+  //      RETURN(hipErrorUnsupportedLimit);
+  //  }
+  //  RETURN(hipSuccess);
+  //  CHIP_CATCH
 }
 
 hipError_t hipDeviceGetName(char *name, int len, hipDevice_t device) {

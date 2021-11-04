@@ -623,6 +623,7 @@ class CHIPDevice {
    * was created with
    */
   CHIPContext* getContext();
+
   /**
    * @brief Construct an additional queue for this device
    *
@@ -631,8 +632,14 @@ class CHIPDevice {
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  void addQueue(CHIPQueue* chip_queue_);
+  void addQueue(unsigned int flags, int priority);
 
+  /**
+   * @brief Add a queue to this device
+   *
+   * @param chip_queue_  CHIPQueue to be added
+   */
+  void addQueue(CHIPQueue* chip_queue_);
   /**
    * @brief Get the Queues object
    *
@@ -984,7 +991,6 @@ class CHIPContext {
 
   /**
    * @brief Reset this context.
-   * TODO: what does it mean to reset a context?
    *
    */
   void reset();
@@ -1355,7 +1361,7 @@ class CHIPQueue {
    * @return false
    */
 
-  bool query();  // TODO CHIP
+  bool query();  // TODO Depends on Events
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority
@@ -1422,7 +1428,7 @@ class CHIPQueue {
    * @return false
    */
   bool launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
-                      void** args, size_t sharedMemBytes);  // TODO CHIP
+                      void** args, size_t sharedMemBytes);
 
   /**
    * @brief
