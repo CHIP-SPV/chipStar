@@ -5,11 +5,11 @@
 #include "iostream"
 #ifdef CHIP_ABORT_ON_UNIMPL
 #define UNIMPLEMENTED(x)                                                       \
-  logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
+  logCritical("{}: Called a function which is not implemented", __FUNCTION__); \
   std::abort();
 #else
-#define UNIMPLEMENTED(x)                                                       \
-  logCritical("Called a function which is not implemented: {}", __FUNCTION__); \
+#define UNIMPLEMENTED(x)                                                   \
+  logWarn("{}: Called a function which is not implemented", __FUNCTION__); \
   return x;
 #endif
 
