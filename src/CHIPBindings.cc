@@ -1818,6 +1818,9 @@ hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
   CHIP_CATCH
 }
 extern "C" void **__hipRegisterFatBinary(const void *data) {
+  CHIP_TRY
+  CHIPInitialize();
+
   logTrace("__hipRegisterFatBinary");
 
   const __CudaFatBinaryWrapper *fbwrapper =
@@ -1879,11 +1882,12 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
   ++binaries_loaded;
 
   return (void **)module;
+  CHIP_CATCH_NO_RETURN
 }
 
 extern "C" void __hipUnregisterFatBinary(void *data) {
-  CHIPInitialize();
   CHIP_TRY
+  CHIPInitialize();
   std::string *module = reinterpret_cast<std::string *>(data);
 
   logDebug("Unregister module: {} \n", (void *)module);
@@ -1897,7 +1901,7 @@ extern "C" void __hipUnregisterFatBinary(void *data) {
   }
 
   delete module;
-  CHIP_CATCH
+  CHIP_CATCH_NO_RETURN
 }
 
 extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
@@ -1915,7 +1919,7 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
 
   logDebug("RegisterFunction on {} devices", Backend->getNumDevices());
   Backend->registerFunctionAsKernel(module_str, hostFunction, deviceName);
-  CHIP_CATCH
+  CHIP_CATCH_NO_RETURN
 }
 
 hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
