@@ -561,13 +561,17 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   const char* kernel_names[kernel_count];
   zeModuleGetKernelNames(ze_module, &kernel_count, kernel_names);
   for (auto& kernel : kernel_names) logDebug("Kernel {}", kernel);
-
   for (int i = 0; i < kernel_count; i++) {
-    std::string host_f_name(kernel_names[i]);
-    auto found_func_info = func_infos.find(host_f_name);
-    if (found_func_info == func_infos.end())
+    std::string host_f_name = kernel_names[i];
+    logDebug("Registering kernel {}", host_f_name);
+    for (auto f_info : func_infos) {
+      std::cout << f_info.first << " " << f_info.second << "\n";
+    }
+    int found_func_info = func_infos.count(host_f_name);
+    if (found_func_info == 0) {
       CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
                             hipErrorInitializationError);
+    }
     auto func_info = *(func_infos[host_f_name]);
     // Create kernel
     ze_kernel_handle_t ze_kernel;
