@@ -17,8 +17,8 @@ class CHIPError {
 };
 
 #define CHIPERR_LOG_AND_THROW(msg, errtype)                                    \
-  logError("{} ({}) in {}:{}:{}\n", CHIPError(msg, errtype).getMsgStr(),       \
-           CHIPError(msg, errtype).getErrStr(), __FILE__, __LINE__, __func__); \
+  logError("{} ({}) in {}:{}:{}\n", CHIPError(msg, errtype).getErrStr(),       \
+           CHIPError(msg, errtype).getMsgStr(), __FILE__, __LINE__, __func__); \
   throw CHIPError(msg, errtype);
 
 #define CHIPERR_CHECK_LOG_AND_THROW(status, success, errtype, ...) \
@@ -34,6 +34,12 @@ class CHIPError {
   }                               \
   catch (CHIPError _status) {     \
     RETURN(_status.toHIPError()); \
+  }
+
+#define CHIP_CATCH_NO_RETURN                         \
+  }                                                  \
+  catch (CHIPError _status) {                        \
+    logError(hipGetErrorName(_status.toHIPError())); \
   }
 
 #endif  // ifdef guard
