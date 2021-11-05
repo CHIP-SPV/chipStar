@@ -6,6 +6,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(ABORT_IF_NOT_IMPLEMENTED OFF)
 option(LAZY_JIT OFF)
 option(CACHE_KERNELS OFF)
+option(VERBOSE "Verbose compilation" OFF)
+
+if(VERBOSE)
+  set(CMAKE_VERBOSE_MAKEFILE ON)
+  add_compile_options("-v")
+endif()
 
 if (ABORT_IF_NOT_IMPLEMENTED)
   add_definitions(-DCHIP_ABORT_ON_UNIMPL)
@@ -145,10 +151,29 @@ target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
 target_include_directories(driver PRIVATE HIP/include)
 target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
 
-install(DIRECTORY include DESTINATION .)
-install(DIRECTORY lib DESTINATION .)
+add_subdirectory(./samples samples)
+
+
+
+install(TARGETS CHIP
+        EXPORT CHIPTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
 install(FILES ${PROJECT_BINARY_DIR}/libCHIP.so DESTINATION lib)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION include USE_SOURCE_PERMISSIONS)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION include USE_SOURCE_PERMISSIONS)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS)
+
+install(EXPORT CHIPTargets
+        FILE CHIPTargets.cmake
+        NAMESPACE CHIP::
+        DESTINATION  cmake/CHIP)
+
+
 # Add to LD_LIBRARY_PATH
-#pvelesko@jlselogin4:~/CHIP-SPV/samples/0_MatrixMultiply> /soft/compilers/clang-hipcl/13.0-experimental/bin/clang++  -pthread -fPIE -O2 -g -std=c++17  -I/home/pvelesko/CHIP-SPV/HIP/include  -I/home/pvelesko/CHIP-SPV/include -D__HIP_PLATFORM_SPIRV__=  -x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc --hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -o binary MatrixMultiply.cpp  -Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP-SPV/build -lCHIP -D__HIP_PLATFORM_CLANG__
+#pvelesko@jlselogin4:~/CHIP-SPV/samples/0_MatrixMultiply> /soft/compilers/clang-hipcl/13.0-experimental/bin/clang++  -pthread -fPIE -O2 -g -std=c++17  
+#-I/home/pvelesko/CHIP-SPV/HIP/include  -I/home/pvelesko/CHIP-SPV/include -D__HIP_PLATFORM_SPIRV__=  
+#-x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc 
+#--hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -o binary MatrixMultiply.cpp  
+#-Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP-SPV/build -lCHIP -D__HIP_PLATFORM_CLANG__

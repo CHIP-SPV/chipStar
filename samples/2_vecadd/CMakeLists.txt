@@ -1,3 +1,3 @@
 # VecAdd
 
-add_hiplz_test(VecAdd VecAdd PASSED VecAdd.cpp)
+add_chip_test(VecAdd VecAdd PASSED VecAdd.cpp)

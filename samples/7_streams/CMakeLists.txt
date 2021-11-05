@@ -1,3 +1,3 @@
 # stream
 
-add_hiplz_test(stream stream PASSED stream.cpp)
+add_chip_test(stream stream PASSED stream.cpp)

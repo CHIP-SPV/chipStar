@@ -1,3 +1,3 @@
 # hiptest
 
-add_hiplz_test(hiptest hiptest PASSED hiptest.cc)
+add_chip_test(hiptest hiptest PASSED hiptest.cc)

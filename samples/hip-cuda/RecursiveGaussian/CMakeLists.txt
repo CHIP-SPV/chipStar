@@ -1,6 +1,6 @@
 # RecursiveGaussian
 
-add_hiplz_test(RecursiveGaussian RecursiveGaussian Passed RecursiveGaussian.cpp
+add_chip_test(RecursiveGaussian RecursiveGaussian Passed RecursiveGaussian.cpp
     -q -e -t -i 32)
 
 set(DEST_IMAGE "${CMAKE_CURRENT_BINARY_DIR}/RecursiveGaussian_Input.bmp")

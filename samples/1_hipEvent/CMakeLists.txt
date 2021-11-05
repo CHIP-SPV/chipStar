@@ -1,3 +1,3 @@
 # hipEvent
 
-add_hiplz_test(hipEvent hipEvent PASSED hipEvent.cpp)
+add_chip_test(hipEvent hipEvent PASSED hipEvent.cpp)
