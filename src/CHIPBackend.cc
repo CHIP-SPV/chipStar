@@ -198,12 +198,6 @@ hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
 
   CHIPDevice *dev = chip_queue->getDevice();
   this->chip_kernel = dev->findKernelByHostPtr(hostPtr);
-  if (this->chip_kernel == nullptr) {
-    return hipErrorLaunchFailure;
-  }
-  logTrace("Found kernel for host pointer {} : {}", hostPtr,
-           chip_kernel->getName());
-
   return (chip_queue->launch(this));
 }
 
