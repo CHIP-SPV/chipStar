@@ -225,14 +225,12 @@ std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return chip_kernels; }
 std::vector<CHIPModule *> &CHIPDevice::getModules() { return chip_modules; }
 
 std::string CHIPDevice::getName() {
-  // check if populateDeviceProperties was called previously
-  if (allocation_tracker == nullptr) populateDeviceProperties();
-
+  populateDeviceProperties();
   return std::string(hip_device_props.name);
 }
 
 void CHIPDevice::populateDeviceProperties() {
-  populateDeviceProperties_();
+  std::call_once(propsPopulated, &CHIPDevice::populateDeviceProperties_, this);
   allocation_tracker = new CHIPAllocationTracker(
       hip_device_props.totalGlobalMem, hip_device_props.name);
 }

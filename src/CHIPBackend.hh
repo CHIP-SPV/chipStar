@@ -524,6 +524,7 @@ class CHIPDevice {
   CHIPContext* ctx;
   std::vector<CHIPQueue*> chip_queues;
   int active_queue_id = 0;
+  std::once_flag propsPopulated;
 
   hipDeviceAttribute_t attrs;
   hipDeviceProp_t hip_device_props;
