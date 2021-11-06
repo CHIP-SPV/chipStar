@@ -125,8 +125,14 @@ message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
 add_library(CHIP SHARED ${CHIP_SRC})
 
+message("\n\nClang Version: ${CMAKE_CXX_COMPILER_VERSION}")
+if (${CMAKE_CXX_COMPILER_VERSION} EQUAL 8.0.1)
+  set(HIPLZ_DIR "/soft/compilers/hipcl/20210506")
+else()
+  set(HIPLZ_DIR "/home/pvelesko/HIPLZ")
+endif()
 
-set(HIPLZ_DIR "/home/pvelesko/HIPLZ")
+message("Using HIPLZ_DIR=${HIPLZ_DIR}" )
 
 # For building on top of HIP-COMMON
 target_compile_definitions(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
