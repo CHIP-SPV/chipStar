@@ -516,7 +516,7 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
     logDebug("CHIPDeviceOpenCL {}",
              chip_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
     chip_dev->populateDeviceProperties();
-    // Backend->addDevice(chip_dev);
+    Backend->addDevice(chip_dev);
     CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(chip_dev);
     // chip_dev->addQueue(queue);
     Backend->addQueue(queue);
