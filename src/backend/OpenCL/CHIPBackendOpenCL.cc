@@ -113,6 +113,9 @@ void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
 // CHIPModuleOpenCL
 //*************************************************************************
 void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
+  // TODO make compile_ which calls consumeSPIRV()
+  logTrace("CHIPModuleOpenCL::compile()");
+  consumeSPIRV();
   CHIPDeviceOpenCL *chip_dev_ocl = (CHIPDeviceOpenCL *)chip_dev_;
   CHIPContextOpenCL *chip_ctx_ocl =
       (CHIPContextOpenCL *)(chip_dev_ocl->getContext());
@@ -120,40 +123,39 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   int err;
   std::vector<char> binary_vec(src.begin(), src.end());
   auto Program = cl::Program(*(chip_ctx_ocl->get()), binary_vec, false, &err);
-  if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
   //   for (CHIPDevice *chip_dev : chip_devices) {
   std::string name = chip_dev_ocl->getName();
-  int build_failed = Program.build("-x spir -cl-kernel-arg-info");
+  err = Program.build("-x spir -cl-kernel-arg-info");
 
   std::string log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
-  if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+
   logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
            chip_dev_ocl->getDeviceId(), name, log);
-  if (build_failed != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
   std::vector<cl::Kernel> kernels;
   err = Program.createKernels(&kernels);
-  if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+
   logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
     auto kernel = kernels[kernel_idx];
     std::string host_f_name = kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
     CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError,
                                 "Failed to fetch OpenCL kernel name");
-    auto found_func_info = func_infos.find(host_f_name);
-    if (found_func_info == func_infos.end())
+    int found_func_info = func_infos.count(host_f_name);
+    if (found_func_info == 0) {
       CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
                             hipErrorInitializationError);
+    }
     auto func_info = *(func_infos[host_f_name]);
     CHIPKernelOpenCL *chip_kernel =
         new CHIPKernelOpenCL(std::move(kernel), host_f_name, func_info);
-    chip_kernels.push_back(chip_kernel);
+    addKernel(chip_kernel);
   }
 }
 
@@ -166,21 +168,21 @@ void CHIPDeviceOpenCL::addQueue(unsigned int flags, int priority) {
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
                                    std::string host_f_name_,
                                    OCLFuncInfo func_info_)
-    : CHIPKernel(host_f_name_, func_info_), ocl_kernel(cl_kernel_) {
+    : CHIPKernel(host_f_name_, func_info_) /*, ocl_kernel(cl_kernel_)*/ {
+  ocl_kernel = cl_kernel_;
   int err = 0;
   // TODO attributes
   cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                               "Failed to get num args for kernel");
-
-  assert(func_info->ArgTypeInfo.size() == NumArgs);
+  assert(func_info.ArgTypeInfo.size() == NumArgs);
 
   if (NumArgs > 0) {
     logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
-    logDebug("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
-             (unsigned)func_info->retTypeInfo.space,
-             (unsigned)func_info->retTypeInfo.type);
-    for (auto &argty : func_info->ArgTypeInfo) {
+    logDebug("  RET_TYPE: {} {} {}\n", func_info.retTypeInfo.size,
+             (unsigned)func_info.retTypeInfo.space,
+             (unsigned)func_info.retTypeInfo.type);
+    for (auto &argty : func_info.ArgTypeInfo) {
       logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
                (unsigned)argty.space, (unsigned)argty.type);
       TotalArgSize += argty.size;
@@ -304,15 +306,14 @@ hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
 
 void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
 
-static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
-                        cl_kernel kernel) {
+static int setLocalSize(size_t shared, OCLFuncInfo FuncInfo, cl_kernel kernel) {
   logWarn("setLocalSize");
   int err = CL_SUCCESS;
 
   if (shared > 0) {
     logDebug("setLocalMemSize to {}\n", shared);
-    size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
-    if (FuncInfo->ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
+    size_t LastArgIdx = FuncInfo.ArgTypeInfo.size() - 1;
+    if (FuncInfo.ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
       // this can happen if for example the llvm optimizes away
       // the dynamic local variable
       logWarn(
@@ -330,15 +331,15 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
 }
 
 int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
-  OCLFuncInfo *FuncInfo = kernel->get_func_info();
+  OCLFuncInfo FuncInfo = kernel->get_func_info();
   size_t NumLocals = 0;
-  for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].space == OCLSpace::Local) ++NumLocals;
+  for (size_t i = 0; i < FuncInfo.ArgTypeInfo.size(); ++i) {
+    if (FuncInfo.ArgTypeInfo[i].space == OCLSpace::Local) ++NumLocals;
   }
   // there can only be one dynamic shared mem variable, per cuda spec
   assert(NumLocals <= 1);
 
-  if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
+  if ((offset_sizes.size() + NumLocals) != FuncInfo.ArgTypeInfo.size()) {
     CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
   }
 
@@ -366,7 +367,7 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
   void *p;
   int err;
   for (cl_uint i = 0; i < offset_sizes.size(); ++i) {
-    OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
+    OCLArgTypeInfo &ai = FuncInfo.ArgTypeInfo[i];
     logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n", i,
              std::get<0>(offset_sizes[i]), std::get<1>(offset_sizes[i]),
              (unsigned)ai.type, (unsigned)ai.space, ai.size);
@@ -378,20 +379,15 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
       p = *(void **)(start + std::get<0>(offset_sizes[i]));
       logDebug("setArg SVM {} to {}\n", i, p);
       err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, p);
-      if (err != CL_SUCCESS) {
-        logDebug("clSetKernelArgSVMPointer failed with error {}\n", err);
-        return err;
-      }
-    } else {
+      CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
+                                  "clSetKernelArgSVMPointer failed");
       size_t size = std::get<1>(offset_sizes[i]);
       size_t offs = std::get<0>(offset_sizes[i]);
       void *value = (void *)(start + offs);
       logDebug("setArg {} size {} offs {}\n", i, size, offs);
       err = ::clSetKernelArg(kernel->get().get(), i, size, value);
-      if (err != CL_SUCCESS) {
-        logDebug("clSetKernelArg failed with error {}\n", err);
-        return err;
-      }
+      CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
+                                  "clSetKernelArg failed");
     }
   }
 
@@ -405,8 +401,7 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
   logDebug("CHIPBackendOpenCL Initialize");
   std::vector<cl::Platform> Platforms;
   cl_int err = cl::Platform::get(&Platforms);
-  if (err != CL_SUCCESS)
-    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
   std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
   for (int i = 0; i < Platforms.size(); i++) {
     std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
@@ -452,10 +447,8 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
       std::cout << selected_device << ". "
                 << enabled_devices[0].getInfo<CL_DEVICE_NAME>() << "\n";
     }
-
-    if (err != CL_SUCCESS)
-      throw InvalidPlatformOrDeviceNumber(
-          "CHIP_DEVICE: can't get devices for platform");
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
+                                "can't get devices for platform");
 
     std::transform(CHIPDeviceTypeStr.begin(), CHIPDeviceTypeStr.end(),
                    CHIPDeviceTypeStr.begin(), ::tolower);
