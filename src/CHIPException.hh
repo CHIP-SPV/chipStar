@@ -15,6 +15,7 @@ class CHIPError {
   std::string getMsgStr() { return msg.c_str(); }
   std::string getErrStr() { return std::string(hipGetErrorName(err)); }
 };
+
 #define CHIPERR_LOG_AND_THROW(msg, errtype)                                \
   do {                                                                     \
     logError("{} ({}) in {}:{}:{}\n", CHIPError(msg, errtype).getErrStr(), \
