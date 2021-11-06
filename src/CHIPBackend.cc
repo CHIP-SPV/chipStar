@@ -215,7 +215,13 @@ CHIPDevice::CHIPDevice() {
 }
 CHIPDevice::~CHIPDevice() {}
 
-std::vector<CHIPKernel *> &CHIPDevice::getKernels() { return chip_kernels; }
+std::vector<CHIPKernel *> CHIPDevice::getKernels() {
+  std::vector<CHIPKernel *> kernels;
+  for (auto &module : chip_modules) {
+    for (CHIPKernel *kernel : module->getKernels()) kernels.push_back(kernel);
+  }
+  return kernels;
+}
 std::vector<CHIPModule *> &CHIPDevice::getModules() { return chip_modules; }
 
 std::string CHIPDevice::getName() {
@@ -236,6 +242,10 @@ void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
 CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
   logTrace("CHIPDevice::findKernelByHostPtr({})", hostPtr);
   std::vector<CHIPKernel *> chip_kernels = getKernels();
+  if (chip_kernels.size() == 0) {
+    CHIPERR_LOG_AND_THROW("chip_kernels is empty for this device",
+                          hipErrorLaunchFailure);
+  }
   logDebug("Listing Kernels for device {}", getName());
   for (auto &kernel : chip_kernels) {
     logDebug("Kernel name: {} host_f_ptr: {}", kernel->getName(),
@@ -492,7 +502,6 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
 
   kernel->setHostPtr(host_f_ptr);
 
-  chip_kernels.push_back(kernel);
   logDebug("Device {}: successfully registered function {} as kernel {}",
            getName(), host_f_name, kernel->getName().c_str());
   return;

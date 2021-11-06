@@ -520,7 +520,6 @@ class CHIPDevice {
  protected:
   std::string device_name;
   std::mutex mtx;
-  std::vector<CHIPKernel*> chip_kernels;
   CHIPContext* ctx;
   std::vector<CHIPQueue*> chip_queues;
   int active_queue_id = 0;
@@ -581,7 +580,7 @@ class CHIPDevice {
    *
    * @return std::vector<CHIPKernel*>&
    */
-  std::vector<CHIPKernel*>& getKernels();
+  std::vector<CHIPKernel*> getKernels();
 
   /**
    * @brief Get the Modules object
