@@ -1,5 +1,5 @@
 
-include(/home/pvelesko/CHIP-SPV/install/cmake/CHIP/CHIPTargets.cmake)
+#include(/home/pvelesko/CHIP-SPV/install/cmake/CHIP/CHIPTargets.cmake)
 option(SAVE_TEMPS "Save temporary compilation products" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 
@@ -21,7 +21,7 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
 
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
     
-    target_link_libraries("${EXEC_NAME}" CHIP::CHIP)
+    target_link_libraries("${EXEC_NAME}" CHIP)
 
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
