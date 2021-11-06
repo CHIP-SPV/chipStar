@@ -236,9 +236,10 @@ void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
 CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
   logTrace("CHIPDevice::findKernelByHostPtr({})", hostPtr);
   std::vector<CHIPKernel *> chip_kernels = getKernels();
-  logDebug("Listing Kernels for device {}", device_name);
+  logDebug("Listing Kernels for device {}", getName());
   for (auto &kernel : chip_kernels) {
-    logDebug("{}", kernel->getName());
+    logDebug("Kernel name: {} host_f_ptr: {}", kernel->getName(),
+             kernel->getHostPtr());
   }
 
   auto found_kernel = std::find_if(chip_kernels.begin(), chip_kernels.end(),
