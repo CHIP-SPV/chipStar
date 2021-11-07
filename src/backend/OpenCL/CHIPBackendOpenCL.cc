@@ -152,7 +152,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
       CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
                             hipErrorInitializationError);
     }
-    auto func_info = *(func_infos[host_f_name]);
+    auto func_info = func_infos[host_f_name];
     CHIPKernelOpenCL *chip_kernel =
         new CHIPKernelOpenCL(std::move(kernel), host_f_name, func_info);
     addKernel(chip_kernel);
@@ -167,7 +167,7 @@ void CHIPDeviceOpenCL::addQueue(unsigned int flags, int priority) {
 //*************************************************************************
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
                                    std::string host_f_name_,
-                                   OCLFuncInfo func_info_)
+                                   OCLFuncInfo *func_info_)
     : CHIPKernel(host_f_name_, func_info_) /*, ocl_kernel(cl_kernel_)*/ {
   ocl_kernel = cl_kernel_;
   int err = 0;
@@ -175,14 +175,14 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
   cl_uint NumArgs = ocl_kernel.getInfo<CL_KERNEL_NUM_ARGS>(&err);
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                               "Failed to get num args for kernel");
-  assert(func_info.ArgTypeInfo.size() == NumArgs);
+  assert(func_info->ArgTypeInfo.size() == NumArgs);
 
   if (NumArgs > 0) {
     logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
-    logDebug("  RET_TYPE: {} {} {}\n", func_info.retTypeInfo.size,
-             (unsigned)func_info.retTypeInfo.space,
-             (unsigned)func_info.retTypeInfo.type);
-    for (auto &argty : func_info.ArgTypeInfo) {
+    logDebug("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
+             (unsigned)func_info->retTypeInfo.space,
+             (unsigned)func_info->retTypeInfo.type);
+    for (auto &argty : func_info->ArgTypeInfo) {
       logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
                (unsigned)argty.space, (unsigned)argty.type);
       TotalArgSize += argty.size;
@@ -306,14 +306,15 @@ hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
 
 void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
 
-static int setLocalSize(size_t shared, OCLFuncInfo FuncInfo, cl_kernel kernel) {
+static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
+                        cl_kernel kernel) {
   logWarn("setLocalSize");
   int err = CL_SUCCESS;
 
   if (shared > 0) {
     logDebug("setLocalMemSize to {}\n", shared);
-    size_t LastArgIdx = FuncInfo.ArgTypeInfo.size() - 1;
-    if (FuncInfo.ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
+    size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
+    if (FuncInfo->ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
       // this can happen if for example the llvm optimizes away
       // the dynamic local variable
       logWarn(
@@ -331,15 +332,15 @@ static int setLocalSize(size_t shared, OCLFuncInfo FuncInfo, cl_kernel kernel) {
 }
 
 int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
-  OCLFuncInfo FuncInfo = kernel->get_func_info();
+  OCLFuncInfo *FuncInfo = kernel->get_func_info();
   size_t NumLocals = 0;
-  for (size_t i = 0; i < FuncInfo.ArgTypeInfo.size(); ++i) {
-    if (FuncInfo.ArgTypeInfo[i].space == OCLSpace::Local) ++NumLocals;
+  for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
+    if (FuncInfo->ArgTypeInfo[i].space == OCLSpace::Local) ++NumLocals;
   }
   // there can only be one dynamic shared mem variable, per cuda spec
   assert(NumLocals <= 1);
 
-  if ((offset_sizes.size() + NumLocals) != FuncInfo.ArgTypeInfo.size()) {
+  if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
     CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
   }
 
@@ -367,7 +368,7 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
   void *p;
   int err;
   for (cl_uint i = 0; i < offset_sizes.size(); ++i) {
-    OCLArgTypeInfo &ai = FuncInfo.ArgTypeInfo[i];
+    OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
     logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n", i,
              std::get<0>(offset_sizes[i]), std::get<1>(offset_sizes[i]),
              (unsigned)ai.type, (unsigned)ai.space, ai.size);
@@ -381,6 +382,7 @@ int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
       err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, p);
       CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                   "clSetKernelArgSVMPointer failed");
+    } else {
       size_t size = std::get<1>(offset_sizes[i]);
       size_t offs = std::get<0>(offset_sizes[i]);
       void *value = (void *)(start + offs);

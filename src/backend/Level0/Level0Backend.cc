@@ -426,7 +426,7 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
 
 CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ze_kernel_,
                                    std::string host_f_name_,
-                                   OCLFuncInfo func_info_)
+                                   OCLFuncInfo* func_info_)
     : CHIPKernel(host_f_name_, func_info_) {
   ze_kernel = ze_kernel_;
   logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
@@ -572,7 +572,7 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
       CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
                             hipErrorInitializationError);
     }
-    auto func_info = *(func_infos[host_f_name]);
+    auto func_info = func_infos[host_f_name];
     // Create kernel
     ze_kernel_handle_t ze_kernel;
     ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
@@ -589,13 +589,13 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
 void CHIPExecItem::setupAllArgs() {
   CHIPKernelLevel0* chip_kernel_lz = (CHIPKernelLevel0*)chip_kernel;
 
-  OCLFuncInfo FuncInfo = chip_kernel->getFuncInfo();
+  OCLFuncInfo* FuncInfo = chip_kernel->getFuncInfo();
 
   size_t NumLocals = 0;
   int LastArgIdx = -1;
 
-  for (size_t i = 0; i < FuncInfo.ArgTypeInfo.size(); ++i) {
-    if (FuncInfo.ArgTypeInfo[i].space == OCLSpace::Local) {
+  for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
+    if (FuncInfo->ArgTypeInfo[i].space == OCLSpace::Local) {
       ++NumLocals;
     }
   }
@@ -604,8 +604,8 @@ void CHIPExecItem::setupAllArgs() {
 
   // Argument processing for the new HIP launch API.
   if (ArgsPointer) {
-    for (size_t i = 0; i < FuncInfo.ArgTypeInfo.size(); ++i) {
-      OCLArgTypeInfo& ai = FuncInfo.ArgTypeInfo[i];
+    for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
+      OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
       logDebug("setArg {} size {}\n", i, ai.size);
       ze_result_t status = zeKernelSetArgumentValue(chip_kernel_lz->get(), i,
                                                     ai.size, ArgsPointer[i]);
@@ -616,7 +616,7 @@ void CHIPExecItem::setupAllArgs() {
     }
   } else {
     // Argument processing for the old HIP launch API.
-    if ((offset_sizes.size() + NumLocals) != FuncInfo.ArgTypeInfo.size()) {
+    if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
       CHIPERR_LOG_AND_THROW("Some arguments are still unset",
                             hipErrorLaunchFailure);
     }
@@ -645,7 +645,7 @@ void CHIPExecItem::setupAllArgs() {
     const unsigned char* start = arg_data.data();
     void* p;
     for (size_t i = 0; i < offset_sizes.size(); ++i) {
-      OCLArgTypeInfo& ai = FuncInfo.ArgTypeInfo[i];
+      OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
       logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
                i, std::get<0>(offset_sizes[i]), std::get<1>(offset_sizes[i]),
                (unsigned)ai.type, (unsigned)ai.space, ai.size);
@@ -695,7 +695,7 @@ void CHIPExecItem::setupAllArgs() {
   // memory
   if (NumLocals == 1) {
     ze_result_t status = zeKernelSetArgumentValue(
-        chip_kernel_lz->get(), FuncInfo.ArgTypeInfo.size() - 1, shared_mem,
+        chip_kernel_lz->get(), FuncInfo->ArgTypeInfo.size() - 1, shared_mem,
         nullptr);
     logDebug(
         "LZ set dynamically sized share memory related argument via calling "

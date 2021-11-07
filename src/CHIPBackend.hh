@@ -347,7 +347,7 @@ class CHIPKernel {
    * called.
    *
    */
-  CHIPKernel(std::string host_f_name_, OCLFuncInfo func_info_);
+  CHIPKernel(std::string host_f_name_, OCLFuncInfo* func_info_);
   /// Name of the function
   std::string host_f_name;
   /// Pointer to the host function
@@ -355,7 +355,7 @@ class CHIPKernel {
   /// Pointer to the device function
   const void* dev_f_ptr;
 
-  OCLFuncInfo func_info;
+  OCLFuncInfo* func_info;
 
  public:
   ~CHIPKernel();
@@ -372,7 +372,7 @@ class CHIPKernel {
    *
    * @return OCLFuncInfo&
    */
-  OCLFuncInfo getFuncInfo();
+  OCLFuncInfo* getFuncInfo();
   /**
    * @brief Get the associated host pointer to a host function
    *

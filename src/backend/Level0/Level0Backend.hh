@@ -64,7 +64,7 @@ class CHIPKernelLevel0 : public CHIPKernel {
  public:
   CHIPKernelLevel0();
   CHIPKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
-                   OCLFuncInfo func_info_);
+                   OCLFuncInfo* func_info_);
 
   ze_kernel_handle_t get() { return ze_kernel; }
 };

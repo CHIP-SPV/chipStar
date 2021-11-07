@@ -152,14 +152,14 @@ CHIPDeviceVar *CHIPModule::getGlobalVar(std::string name) {
 
 // CHIPKernel
 //*************************************************************************************
-CHIPKernel::CHIPKernel(std::string host_f_name_, OCLFuncInfo func_info_)
+CHIPKernel::CHIPKernel(std::string host_f_name_, OCLFuncInfo *func_info_)
     : host_f_name(host_f_name_), func_info(func_info_) {}
 CHIPKernel::~CHIPKernel(){};
 std::string CHIPKernel::getName() { return host_f_name; }
 const void *CHIPKernel::getHostPtr() { return host_f_ptr; }
 const void *CHIPKernel::getDevPtr() { return dev_f_ptr; }
 
-OCLFuncInfo CHIPKernel::getFuncInfo() { return func_info; }
+OCLFuncInfo *CHIPKernel::getFuncInfo() { return func_info; }
 
 void CHIPKernel::setName(std::string host_f_name_) {
   host_f_name = host_f_name_;
