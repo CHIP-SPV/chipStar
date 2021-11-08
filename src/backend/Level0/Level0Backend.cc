@@ -408,17 +408,34 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   auto y = exec_item->getGrid().y;
   auto z = exec_item->getGrid().z;
   ze_group_count_t launchArgs = {x, y, z};
-  zeCommandListAppendLaunchKernel(cmd_list, kernel_ze, &launchArgs, nullptr, 0,
-                                  nullptr);
+  status = zeCommandListAppendLaunchKernel(cmd_list, kernel_ze, &launchArgs,
+                                           nullptr, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  // logTrace("closing command list");
+  // zeCommandListClose(cmd_list);
+  // logTrace("submitting command list to command queue");
+  // zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
+  // logTrace("sync");
+  // zeCommandQueueSynchronize(ze_q, UINT32_MAX);
+  // logTrace("reset");
+  // zeCommandListReset(cmd_list);
 
-  logTrace("closing command list");
-  zeCommandListClose(cmd_list);
-  logTrace("submitting command list to command queue");
-  zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
-  logTrace("sync");
-  zeCommandQueueSynchronize(ze_q, UINT32_MAX);
-  logTrace("reset");
-  zeCommandListReset(cmd_list);
+  status = zeCommandListClose(cmd_list);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
+  status = zeCommandQueueExecuteCommandLists(ze_q, 1, &cmd_list, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
+  status = zeCommandQueueSynchronize(ze_q, UINT32_MAX);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
+  status = zeCommandListReset(cmd_list);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
 }
 
 // CHIPKernelLevelZero
@@ -521,11 +538,12 @@ std::string resultToString(ze_result_t status) {
 void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   logTrace("CHIPModuleLevel0.compile()");
   consumeSPIRV();
+  ze_result_t status;
 
   ze_module_handle_t ze_module;
   // Create module with global address aware
   std::string compilerOptions =
-      " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi";
+      " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi ";
   ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
                                  nullptr,
                                  ZE_MODULE_FORMAT_IL_SPIRV,
@@ -541,25 +559,31 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   ze_context_handle_t ze_ctx = chip_ctx_lz->get();
 
   ze_module_build_log_handle_t log;
-  ze_result_t status =
-      zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, &log);
+  status = zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, &log);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ",
            resultToString(status));
+  size_t log_size;
+  status = zeModuleBuildLogGetString(log, &log_size, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  char log_str[log_size];
+  status = zeModuleBuildLogGetString(log, &log_size, log_str);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  logDebug("ZE Build Log: {}", std::string(log_str).c_str());
+  std::cout << log_str << std::endl;
   if (status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
-    size_t log_size;
-    zeModuleBuildLogGetString(log, &log_size, nullptr);
-    char log_str[log_size];
-    zeModuleBuildLogGetString(log, &log_size, log_str);
     CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
                           hipErrorUnknown);
   }
 
   uint32_t kernel_count = 0;
-  zeModuleGetKernelNames(ze_module, &kernel_count, nullptr);
+  status = zeModuleGetKernelNames(ze_module, &kernel_count, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logDebug("Found {} kernels in this module.", kernel_count);
 
   const char* kernel_names[kernel_count];
-  zeModuleGetKernelNames(ze_module, &kernel_count, kernel_names);
+  status = zeModuleGetKernelNames(ze_module, &kernel_count, kernel_names);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   for (auto& kernel : kernel_names) logDebug("Kernel {}", kernel);
   for (int i = 0; i < kernel_count; i++) {
     std::string host_f_name = kernel_names[i];
@@ -579,6 +603,7 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
                                    0,  // flags
                                    host_f_name.c_str()};
     status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
     CHIPKernelLevel0* chip_ze_kernel =
         new CHIPKernelLevel0(ze_kernel, host_f_name, func_info);
@@ -604,6 +629,7 @@ void CHIPExecItem::setupAllArgs() {
 
   // Argument processing for the new HIP launch API.
   if (ArgsPointer) {
+    logDebug("Setting up arguments NEW HIP API");
     for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
       logDebug("setArg {} size {}\n", i, ai.size);
@@ -615,6 +641,7 @@ void CHIPExecItem::setupAllArgs() {
                status);
     }
   } else {
+    logDebug("Setting up arguments OLD HIP API");
     // Argument processing for the old HIP launch API.
     if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
       CHIPERR_LOG_AND_THROW("Some arguments are still unset",

@@ -151,7 +151,7 @@ class CHIPExecItemOpenCL : public CHIPExecItem {
 
  public:
   OCLFuncInfo FuncInfo;
-  int setup_all_args(CHIPKernelOpenCL *kernel);
+  int setupAllArgs(CHIPKernelOpenCL *kernel);
   cl::Kernel *get() { return cl_kernel; }
 };
 
