@@ -501,6 +501,20 @@ class CHIPExecItem {
    */
   void setArg(const void* arg, size_t size, size_t offset);
 
+  /**
+   * @brief Set the Arg Pointer object for launching kernels via new HIP API
+   *
+   * @param args args pointer
+   */
+  void setArgPointer(void** args) { ArgsPointer = args; }
+
+  /**
+   * @brief Sets up the kernel arguments via backend API calls.
+   * Called after all the arugments are setup either via hipSetupArg() (old HIP
+   * kernel launch API)
+   * Or after hipLaunchKernel (new HIP kernel launch API)
+   *
+   */
   void setupAllArgs();
 
   /**

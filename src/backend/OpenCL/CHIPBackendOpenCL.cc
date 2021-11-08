@@ -231,7 +231,7 @@ hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
   assert(kernel != nullptr);
   logTrace("Launching Kernel {}", kernel->get_name());
 
-  chip_ocl_exec_item->setup_all_args(kernel);
+  chip_ocl_exec_item->setupAllArgs(kernel);
 
   dim3 GridDim = chip_ocl_exec_item->getGrid();
   dim3 BlockDim = chip_ocl_exec_item->getBlock();
@@ -331,7 +331,7 @@ static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
   return err;
 }
 
-int CHIPExecItemOpenCL::setup_all_args(CHIPKernelOpenCL *kernel) {
+int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
   OCLFuncInfo *FuncInfo = kernel->get_func_info();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
