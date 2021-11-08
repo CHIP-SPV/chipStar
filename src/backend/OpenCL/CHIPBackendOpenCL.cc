@@ -339,7 +339,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
   }
   // there can only be one dynamic shared mem variable, per cuda spec
   assert(NumLocals <= 1);
-  int err;
+  int err = 0;
 
   if (ArgsPointer) {
     logDebug("Setting up arguments NEW HIP API");
@@ -348,8 +348,9 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
       if (ai.type == OCLType::Pointer) {
         logDebug("clSetKernelArgSVMPointer {} to {}\n", i, ArgsPointer[i]);
         assert(ai.size == sizeof(void *));
-        err =
-            ::clSetKernelArgSVMPointer(kernel->get().get(), i, ArgsPointer[i]);
+        const void *argval = *(void **)ArgsPointer[i];
+        err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, argval);
+
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else {
