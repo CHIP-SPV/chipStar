@@ -612,7 +612,7 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
 }
 
 void CHIPExecItem::setupAllArgs() {
-  CHIPKernelLevel0* chip_kernel_lz = (CHIPKernelLevel0*)chip_kernel;
+  CHIPKernelLevel0* kernel = (CHIPKernelLevel0*)chip_kernel;
 
   OCLFuncInfo* FuncInfo = chip_kernel->getFuncInfo();
 
@@ -629,23 +629,65 @@ void CHIPExecItem::setupAllArgs() {
 
   // Argument processing for the new HIP launch API.
   if (ArgsPointer) {
-    logDebug("Setting up arguments NEW HIP API");
-    for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
+    for (size_t i = 0, argIdx = 0; i < FuncInfo->ArgTypeInfo.size();
+         ++i, ++argIdx) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
-      logDebug("setArg {} size {}\n", i, ai.size);
-      ze_result_t status = zeKernelSetArgumentValue(chip_kernel_lz->get(), i,
-                                                    ai.size, ArgsPointer[i]);
-      CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
-                                  hipErrorLaunchFailure);
-      logDebug("LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
-               status);
+
+      // std::cout << "KERNEL ARG SETUP - arg type:  " << (int)ai.type << " and
+      // size " << ai.size
+      //           << " ArgPointer " << (unsigned long)(ArgsPointer[i]) << " and
+      //           "
+      //           << sizeof(intptr_t) << std::endl;
+
+      if (ai.type == OCLType::Image) {
+        // // This is the case for Image type, but the actual pointer is for
+        // // HipTextureObject
+        // LZTextureObject* texObj =
+        //     (LZTextureObject*)(*((unsigned long*)(ArgsPointer[1])));
+
+        // // Set image part
+        // logDebug("setImageArg {} size {}\n", argIdx, ai.size);
+        // ze_result_t status = zeKernelSetArgumentValue(
+        //     kernel->GetKernelHandle(), argIdx, ai.size, &(texObj->image));
+        // if (status != ZE_RESULT_SUCCESS) {
+        //   logDebug("zeKernelSetArgumentValue failed with error {}\n",
+        //   status); return CL_INVALID_VALUE;
+        // }
+        // logDebug(
+        //     "LZ SET IMAGE ARGUMENT VALUE via calling zeKernelSetArgumentValue
+        //     "
+        //     "{} ",
+        //     status);
+
+        // // Set sampler part
+        // argIdx++;
+
+        // logDebug("setImageArg {} size {}\n", argIdx, ai.size);
+        // status = zeKernelSetArgumentValue(kernel->GetKernelHandle(), argIdx,
+        //                                   ai.size, &(texObj->sampler));
+        // if (status != ZE_RESULT_SUCCESS) {
+        //   logDebug("zeKernelSetArgumentValue failed with error {}\n",
+        //   status); return CL_INVALID_VALUE;
+        // }
+        // logDebug(
+        //     "LZ SET SAMPLER ARGUMENT VALUE via calling "
+        //     "zeKernelSetArgumentValue {} ",
+        //     status);
+      } else {
+        logDebug("setArg {} size {}\n", argIdx, ai.size);
+        ze_result_t status = zeKernelSetArgumentValue(kernel->get(), argIdx,
+                                                      ai.size, ArgsPointer[i]);
+        CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                                    "zeKernelSetArgumentValue failed");
+        logDebug(
+            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+            status);
+      }
     }
   } else {
-    logDebug("Setting up arguments OLD HIP API");
     // Argument processing for the old HIP launch API.
     if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
-      CHIPERR_LOG_AND_THROW("Some arguments are still unset",
-                            hipErrorLaunchFailure);
+      CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
     }
 
     if (offset_sizes.size() == 0) return;
@@ -653,7 +695,7 @@ void CHIPExecItem::setupAllArgs() {
     std::sort(offset_sizes.begin(), offset_sizes.end());
     if ((std::get<0>(offset_sizes[0]) != 0) ||
         (std::get<1>(offset_sizes[0]) == 0)) {
-      CHIPERR_LOG_AND_THROW("invalid offset/size", hipErrorLaunchFailure);
+      CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
     }
 
     // check args are set
@@ -664,13 +706,14 @@ void CHIPExecItem::setupAllArgs() {
             ((std::get<0>(offset_sizes[i - 1]) +
               std::get<1>(offset_sizes[i - 1])) >
              std::get<0>(offset_sizes[i]))) {
-          CHIPERR_LOG_AND_THROW("invalid offset/size", hipErrorLaunchFailure);
+          CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
         }
       }
     }
 
     const unsigned char* start = arg_data.data();
     void* p;
+    int err;
     for (size_t i = 0; i < offset_sizes.size(); ++i) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
       logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
@@ -686,13 +729,10 @@ void CHIPExecItem::setupAllArgs() {
         const void* value = (void*)(start + offs);
         logDebug("setArg SVM {} to {}\n", i, p);
         ze_result_t status =
-            zeKernelSetArgumentValue(chip_kernel_lz->get(), i, size, value);
+            zeKernelSetArgumentValue(kernel->get(), i, size, value);
 
-        if (status != ZE_RESULT_SUCCESS) {
-          CHIPERR_LOG_AND_THROW("zeKernelSetArgumentValue failed: " +
-                                    std::string(resultToString(status)),
-                                hipErrorLaunchFailure);
-        }
+        CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                                    "zeKernelSetArgumentValue failed");
 
         logDebug(
             "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
@@ -703,13 +743,10 @@ void CHIPExecItem::setupAllArgs() {
         const void* value = (void*)(start + offs);
         logDebug("setArg {} size {} offs {}\n", i, size, offs);
         ze_result_t status =
-            zeKernelSetArgumentValue(chip_kernel_lz->get(), i, size, value);
+            zeKernelSetArgumentValue(kernel->get(), i, size, value);
 
-        if (status != ZE_RESULT_SUCCESS) {
-          CHIPERR_LOG_AND_THROW("zeKernelSetArgumentValue failed: " +
-                                    std::string(resultToString(status)),
-                                hipErrorLaunchFailure);
-        }
+        CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                                    "zeKernelSetArgumentValue failed");
 
         logDebug(
             "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
@@ -718,12 +755,10 @@ void CHIPExecItem::setupAllArgs() {
     }
   }
 
-  // Setup the kernel argument's value related to dynamically sized share
-  // memory
+  // Setup the kernel argument's value related to dynamically sized share memory
   if (NumLocals == 1) {
     ze_result_t status = zeKernelSetArgumentValue(
-        chip_kernel_lz->get(), FuncInfo->ArgTypeInfo.size() - 1, shared_mem,
-        nullptr);
+        kernel->get(), FuncInfo->ArgTypeInfo.size() - 1, shared_mem, nullptr);
     logDebug(
         "LZ set dynamically sized share memory related argument via calling "
         "zeKernelSetArgumentValue {} ",
