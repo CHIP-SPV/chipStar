@@ -343,10 +343,11 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
 
   if (ArgsPointer) {
     logDebug("Setting up arguments NEW HIP API");
-    for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
+    for (cl_uint i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
       OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
       if (ai.type == OCLType::Pointer) {
-        logDebug("clSetKernelArgSVMPointer {} size {}\n", i, ai.size);
+        logDebug("clSetKernelArgSVMPointer {} to {}\n", i, ArgsPointer[i]);
+        assert(ai.size == sizeof(void *));
         err =
             ::clSetKernelArgSVMPointer(kernel->get().get(), i, ArgsPointer[i]);
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
