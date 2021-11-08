@@ -967,6 +967,7 @@ bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
   dim3 dimGrid = {dimBlocks.x * numBlocks.x, dimBlocks.y * numBlocks.y,
                   dimBlocks.z * numBlocks.z};
   CHIPExecItem e(dimGrid, dimBlocks, sharedMemBytes, Backend->getActiveQueue());
+  e.setArgPointer(args);
   e.launchByHostPtr(hostFunction);
 }
 bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) { UNIMPLEMENTED(true); }
