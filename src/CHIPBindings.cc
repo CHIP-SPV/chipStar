@@ -104,18 +104,21 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim,
   logTrace("__hipPushCallConfiguration()");
   RETURN(Backend->configureCall(gridDim, blockDim, sharedMem, stream));
   CHIP_CATCH
+  RETURN(hipSuccess);
 }
 
 hipError_t __hipPopCallConfiguration(dim3 *gridDim, dim3 *blockDim,
                                      size_t *sharedMem, hipStream_t *stream) {
+  logTrace("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
-  if (!stream) *stream = Backend->getActiveQueue();
+  // if (!stream) *stream = Backend->getActiveQueue();
 
   auto *ei = Backend->chip_execstack.top();
   *gridDim = ei->getGrid();
   *blockDim = ei->getBlock();
   *sharedMem = ei->getSharedMem();
+  *stream = ei->getQueue();
   Backend->chip_execstack.pop();
   RETURN(hipSuccess);
   CHIP_CATCH

@@ -9,7 +9,7 @@ option(CACHE_KERNELS OFF)
 option(VERBOSE "Verbose compilation" OFF)
 
 if(VERBOSE)
-  set(CMAKE_VERBOSE_MAKEFILE ON)
+  set(CMAKE_VERBOSE_MAKEFILE OFF)
   add_compile_options("-v")
 endif()
 
@@ -30,7 +30,7 @@ project(CHIP-SPV
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
-set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare -Wno-return-type -Wno-c++20-extensions -Wno-unused-result")
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare -Wno-return-type -Wno-c++20-extensions -Wno-unused-result  -fno-hip-new-launch-api ")
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -129,7 +129,7 @@ message("\n\nClang Version: ${CMAKE_CXX_COMPILER_VERSION}")
 if (${CMAKE_CXX_COMPILER_VERSION} EQUAL 8.0.1)
   set(HIPLZ_DIR "/soft/compilers/hipcl/20210506")
 else()
-  set(HIPLZ_DIR "/home/pvelesko/HIPLZ")
+  set(HIPLZ_DIR "/home/pvelesko/install/HIPLZ")
 endif()
 
 message("Using HIPLZ_DIR=${HIPLZ_DIR}" )

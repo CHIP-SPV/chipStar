@@ -191,6 +191,7 @@ void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
 }
 
 hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
+  logTrace("launchByHostPtr");
   if (chip_queue == nullptr) {
     std::string msg = "Tried to launch CHIPExecItem but its queue is null";
     CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
@@ -205,6 +206,7 @@ dim3 CHIPExecItem::getBlock() { return block_dim; }
 dim3 CHIPExecItem::getGrid() { return grid_dim; }
 CHIPKernel *CHIPExecItem::getKernel() { return chip_kernel; }
 size_t CHIPExecItem::getSharedMem() { return shared_mem; }
+CHIPQueue *CHIPExecItem::getQueue() { return chip_queue; }
 // CHIPDevice
 //*************************************************************************************
 CHIPDevice::CHIPDevice(CHIPContext *ctx_) : ctx(ctx_) {}
@@ -964,8 +966,6 @@ bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
                                size_t sharedMemBytes) {
-  dim3 dimGrid = {dimBlocks.x * numBlocks.x, dimBlocks.y * numBlocks.y,
-                  dimBlocks.z * numBlocks.z};
   CHIPExecItem e(numBlocks, dimBlocks, sharedMemBytes,
                  Backend->getActiveQueue());
   e.setArgPointer(args);

@@ -392,7 +392,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
 }
 
 hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
-  exec_item->setupAllArgs();
   CHIPContextLevel0* chip_ctx_ze = (CHIPContextLevel0*)chip_context;
 
   ze_command_list_handle_t cmd_list = chip_ctx_ze->ze_cmd_list;
@@ -404,6 +403,7 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
       zeKernelSetGroupSize(kernel_ze, exec_item->getBlock().x,
                            exec_item->getBlock().y, exec_item->getBlock().z);
 
+  exec_item->setupAllArgs();
   auto x = exec_item->getGrid().x;
   auto y = exec_item->getGrid().y;
   auto z = exec_item->getGrid().z;
