@@ -123,7 +123,7 @@ find_library_dynamic(libintlc.so.5)
 
 message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
 
-add_library(CHIP SHARED ${CHIP_SRC})
+add_library(CHIP STATIC ${CHIP_SRC})
 
 message("\n\nClang Version: ${CMAKE_CXX_COMPILER_VERSION}")
 if (${CMAKE_CXX_COMPILER_VERSION} EQUAL 8.0.1)
@@ -133,18 +133,19 @@ else()
 endif()
 
 message("Using HIPLZ_DIR=${HIPLZ_DIR}" )
+set(HIP_PATH HIP)
+set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm  )
 
 # For building on top of HIP-COMMON
-target_compile_definitions(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
-target_compile_options(CHIP PUBLIC  -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm)
+target_compile_definitions(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__ )
+target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR})
 
 target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-set(HIP_PATH HIP)
-set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm )
+
 enable_testing()
 add_subdirectory(HIP/tests/catch catch)
 
