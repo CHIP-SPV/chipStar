@@ -436,6 +436,7 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   status = zeCommandListReset(cmd_list);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+  return hipSuccess;
 }
 
 // CHIPKernelLevelZero

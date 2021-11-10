@@ -970,6 +970,7 @@ bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                  Backend->getActiveQueue());
   e.setArgPointer(args);
   e.launchByHostPtr(hostFunction);
+  return true;
 }
 bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) { UNIMPLEMENTED(true); }
 bool CHIPQueue::query() { UNIMPLEMENTED(true); }
