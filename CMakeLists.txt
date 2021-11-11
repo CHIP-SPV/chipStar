@@ -1,15 +1,29 @@
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 cmake_policy(VERSION 3.4)
 
+project(CHIP-SPV
+        VERSION 0.1.0
+        DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
+        LANGUAGES C CXX)
+
+option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" OFF)
+option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
+option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
+option(VERBOSE "Verbose compilation" OFF)
+set(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
+
+# Find kernellib.bc and HIP SPIRV LLVM passes
+if("${HIP_SPIRV_DIR}" STREQUAL "")
+  message(FATAL_ERROR "You must set pass -DHIP_SPIRV_DIR=... ")
+endif()
+message("\n\nUsing HIP_SPIRV_DIR=${HIP_SPIRV_DIR}\n\n")
+set(HIP_PLATFORM spirv)
+set(HIP_COMPILER clang)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(ABORT_IF_NOT_IMPLEMENTED OFF)
-option(LAZY_JIT OFF)
-option(CACHE_KERNELS OFF)
-option(VERBOSE "Verbose compilation" OFF)
-
 if(VERBOSE)
-  set(CMAKE_VERBOSE_MAKEFILE OFF)
+  set(CMAKE_VERBOSE_MAKEFILE ON)
   add_compile_options("-v")
 endif()
 
@@ -26,12 +40,10 @@ endif()
 #define SPDLOG_LEVEL_CRITICAL 5
 #define SPDLOG_LEVEL_OFF 6
 
-project(CHIP-SPV
-        VERSION 0.1.0
-        DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
-        LANGUAGES C CXX)
-set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result  ")
+
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result ")
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -49,37 +61,65 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
    message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
-# Find OpenCL
-if(NOT DEFINED OpenCL_LIBRARY_PATH)
-  message(STATUS "-DOpenCL_LIBRARY_PATH was not used, checking LD_LIBRARY_PATH for OpenCL")
-  find_library(OpenCL_LIBRARY 
-    NAMES OpenCL 
+# Find library in LD_LIBRARY_PATH
+macro(find_library_dynamic libname)
+  message(STATUS "\nSearching for ${libname}")
+  find_library(${libname}_LIBRARY
+    NAMES ${libname}
     PATHS ENV LD_LIBRARY_PATH
-    NOCACHE)
-  if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
-    message(FATAL_ERROR "OpenCL library not found in LD_LIBRARY_PATH")
+  )
+  if(${${libname}_LIBRARY} STREQUAL ${libname}_LIBRARY-NOTFOUND)
+    message(FATAL_ERROR "${libname} library not found in LD_LIBRARY_PATH")
   else()
-    message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
+    message(STATUS "Found: ${${libname}_LIBRARY}\n")
+    list(APPEND CHIP-SPV_LIBRARIES ${${libname}_LIBRARY})
   endif()
-else()
-  message(STATUS "-DOpenCL_LIBRARY_PATH was set. Looking for OpenCL.so")
-  find_library(OpenCL_LIBRARY 
-    NAMES OpenCL 
-    PATHS ${OpenCL_LIBRARY_PATH}
-    NOCACHE)
-  if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
-    message(FATAL_ERROR "OpenCL library not found in OpenCL_LIBRARY_PATH")
-  else()
-    message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
-  endif()
+endmacro()
+
+if (NOT DEFINED OpenCL_LIBRARY)
+  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
+  find_library_dynamic(OpenCL)
 endif()
+
+
+# Find OpenCL
+# if(NOT DEFINED OpenCL_LIBRARY_PATH)
+#   message(STATUS "-DOpenCL_LIBRARY_PATH was not used, checking LD_LIBRARY_PATH for OpenCL")
+#   find_library(OpenCL_LIBRARY 
+#     NAMES OpenCL 
+#     PATHS ENV LD_LIBRARY_PATH
+#     NOCACHE)
+#   if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
+#     message(FATAL_ERROR "OpenCL library not found in LD_LIBRARY_PATH")
+#   else()
+#     message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
+#   endif()
+# else()
+#   message(STATUS "-DOpenCL_LIBRARY_PATH was set. Looking for OpenCL.so")
+#   find_library(OpenCL_LIBRARY 
+#     NAMES OpenCL 
+#     PATHS ${OpenCL_LIBRARY_PATH}
+#     NOCACHE)
+#   if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
+#     message(FATAL_ERROR "OpenCL library not found in OpenCL_LIBRARY_PATH")
+#   else()
+#     message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
+#   endif()
+# endif()
 
 # TODO : Check OpenCL version
 
 # Setup Testing
-find_package(Catch2 REQUIRED)
-include(CTest)
-enable_testing()
+# find_package(Catch2 QUIET)
+# if(NOT Catch2_FOUND)
+#   message(STATUS "Catch2 was not found in default locations nor in Catch2_DIR. Using git submodule")
+#   add_subdirectory(Catch2)
+#   set(Catch2_DIR Catch2)
+# endif()
+# get_filename_component(Catch2_DIR_ABSOLUTE ${Catch2_DIR} ABSOLUTE)
+# message(STATUS "\n\nUsing Catch2 found at: ${Catch2_DIR_ABSOLUTE}\n\n")
+# include(CTest)
+# enable_testing()
 
 add_compile_options(-Wno-format-extra-args)
 
@@ -99,48 +139,27 @@ set(CHIP_SRC
 )
 set(DRIVER_SRC src/main.cc)
 
-# Level0 Runtime
-macro(find_library_dynamic libname)
-  message(STATUS "\nSearching for ${libname}")
-  find_library(${libname}_LIBRARY
-    NAMES ${libname}
-    PATHS ENV LD_LIBRARY_PATH
-  )
-  if(${${libname}_LIBRARY} STREQUAL ${libname}_LIBRARY-NOTFOUND)
-    message(FATAL_ERROR "${libname} library not found in LD_LIBRARY_PATH")
-  else()
-    message(STATUS "Found: ${${libname}_LIBRARY}\n")
-    list(APPEND Level0_LIBRARIES ${${libname}_LIBRARY})
-  endif()
-endmacro()
 
-find_library_dynamic(libpi_level_zero.so)
+
+# find_library_dynamic(libpi_level_zero.so)
 find_library_dynamic(libze_loader.so.1)
-find_library_dynamic(libsvml.so)
-find_library_dynamic(libirng.so)
-find_library_dynamic(libimf.so)
-find_library_dynamic(libintlc.so.5)
+# find_library_dynamic(libsvml.so)
+# find_library_dynamic(libirng.so)
+# find_library_dynamic(libimf.so)
+# find_library_dynamic(libintlc.so.5)
 
-message(STATUS "Level0_LIBRARIES=${Level0_LIBRARIES}")
+message(STATUS "\n\nCHIP-SPV_LIBRARIES=${CHIP-SPV_LIBRARIES}\n\n")
 
+# TODO small : read cmake configuration
 add_library(CHIP STATIC ${CHIP_SRC})
 
-message("\n\nClang Version: ${CMAKE_CXX_COMPILER_VERSION}")
-if (${CMAKE_CXX_COMPILER_VERSION} EQUAL 8.0.1)
-  set(HIPLZ_DIR "/soft/compilers/hipcl/20210506")
-else()
-  set(HIPLZ_DIR "/home/pvelesko/install/HIPLZ")
-endif()
-
-message("Using HIPLZ_DIR=${HIPLZ_DIR}" )
 set(HIP_PATH HIP)
-set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIPLZ_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIPLZ_DIR}/lib/llvm  )
+set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIP_SPIRV_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm  )
 
 # For building on top of HIP-COMMON
-target_compile_definitions(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__ )
 target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR})
 
-target_link_libraries(CHIP ${OpenCL_LIBRARY} ${Level0_LIBRARIES})
+target_link_libraries(CHIP ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES})
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
@@ -151,12 +170,12 @@ add_subdirectory(HIP/tests/catch catch)
 
 add_executable(tests tests/TestCHIPDriver.cc tests/TestCHIPBackend.cc tests/TestCHIPBackendOpenCL.cc)
 target_compile_definitions(tests PRIVATE -D__HIP_PLATFORM_SPIRV__ -D__HIP_PLATFORM_CLANG__)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain CHIP ${Level0_LIBRARIES})
+target_link_libraries(tests PRIVATE CHIP ${CHIP-SPV_LIBRARIES})
 
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
 target_include_directories(driver PRIVATE HIP/include)
-target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${Level0_LIBRARIES})
+target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${CHIP-SPV_LIBRARIES})
 
 add_subdirectory(./samples samples)
 
