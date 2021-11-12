@@ -1,3 +1,9 @@
+# temporary
+add_compile_options(-Wno-format-extra-args)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result ")
+# end temporary
+
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 cmake_policy(VERSION 3.4)
 
@@ -10,6 +16,7 @@ option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented i
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
+option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" OFF)
 set(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
 # Find kernellib.bc and HIP SPIRV LLVM passes
@@ -19,8 +26,6 @@ endif()
 message("\n\nUsing HIP_SPIRV_DIR=${HIP_SPIRV_DIR}\n\n")
 set(HIP_PLATFORM spirv)
 set(HIP_COMPILER clang)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -41,7 +46,6 @@ endif()
 #define SPDLOG_LEVEL_OFF 6
 
 
-set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result ")
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -81,48 +85,6 @@ if (NOT DEFINED OpenCL_LIBRARY)
   find_library_dynamic(OpenCL)
 endif()
 
-
-# Find OpenCL
-# if(NOT DEFINED OpenCL_LIBRARY_PATH)
-#   message(STATUS "-DOpenCL_LIBRARY_PATH was not used, checking LD_LIBRARY_PATH for OpenCL")
-#   find_library(OpenCL_LIBRARY 
-#     NAMES OpenCL 
-#     PATHS ENV LD_LIBRARY_PATH
-#     NOCACHE)
-#   if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
-#     message(FATAL_ERROR "OpenCL library not found in LD_LIBRARY_PATH")
-#   else()
-#     message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
-#   endif()
-# else()
-#   message(STATUS "-DOpenCL_LIBRARY_PATH was set. Looking for OpenCL.so")
-#   find_library(OpenCL_LIBRARY 
-#     NAMES OpenCL 
-#     PATHS ${OpenCL_LIBRARY_PATH}
-#     NOCACHE)
-#   if(${OpenCL_LIBRARY} STREQUAL OpenCL_LIBRARY-NOTFOUND)
-#     message(FATAL_ERROR "OpenCL library not found in OpenCL_LIBRARY_PATH")
-#   else()
-#     message(STATUS "OpenCL Found: ${OpenCL_LIBRARY}")
-#   endif()
-# endif()
-
-# TODO : Check OpenCL version
-
-# Setup Testing
-# find_package(Catch2 QUIET)
-# if(NOT Catch2_FOUND)
-#   message(STATUS "Catch2 was not found in default locations nor in Catch2_DIR. Using git submodule")
-#   add_subdirectory(Catch2)
-#   set(Catch2_DIR Catch2)
-# endif()
-# get_filename_component(Catch2_DIR_ABSOLUTE ${Catch2_DIR} ABSOLUTE)
-# message(STATUS "\n\nUsing Catch2 found at: ${Catch2_DIR_ABSOLUTE}\n\n")
-# include(CTest)
-# enable_testing()
-
-add_compile_options(-Wno-format-extra-args)
-
 include_directories(src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
@@ -139,19 +101,19 @@ set(CHIP_SRC
 )
 set(DRIVER_SRC src/main.cc)
 
-
-
-# find_library_dynamic(libpi_level_zero.so)
 find_library_dynamic(libze_loader.so.1)
-# find_library_dynamic(libsvml.so)
-# find_library_dynamic(libirng.so)
-# find_library_dynamic(libimf.so)
-# find_library_dynamic(libintlc.so.5)
-
 message(STATUS "\n\nCHIP-SPV_LIBRARIES=${CHIP-SPV_LIBRARIES}\n\n")
 
 # TODO small : read cmake configuration
-add_library(CHIP STATIC ${CHIP_SRC})
+if (BUILD_SHARED_LIBS)
+  message(STATUS "Buiding CHIP-SPV as a shared library")
+  add_library(CHIP SHARED ${CHIP_SRC})
+else()
+  message(STATUS "Buiding CHIP-SPV as a shared library")
+  add_library(CHIP STATIC ${CHIP_SRC})
+endif()
+get_target_property(CHIP_LIB_NAME CHIP LIBRARY_OUTPUT_NAME)
+
 
 set(HIP_PATH HIP)
 set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIP_SPIRV_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm  )
@@ -179,15 +141,13 @@ target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LI
 
 add_subdirectory(./samples samples)
 
-
-
 install(TARGETS CHIP
         EXPORT CHIPTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(FILES ${PROJECT_BINARY_DIR}/libCHIP.so DESTINATION lib)
+install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS)
 
@@ -195,11 +155,3 @@ install(EXPORT CHIPTargets
         FILE CHIPTargets.cmake
         NAMESPACE CHIP::
         DESTINATION  cmake/CHIP)
-
-
-# Add to LD_LIBRARY_PATH
-#pvelesko@jlselogin4:~/CHIP-SPV/samples/0_MatrixMultiply> /soft/compilers/clang-hipcl/13.0-experimental/bin/clang++  -pthread -fPIE -O2 -g -std=c++17  
-#-I/home/pvelesko/CHIP-SPV/HIP/include  -I/home/pvelesko/CHIP-SPV/include -D__HIP_PLATFORM_SPIRV__=  
-#-x hip --hip-device-lib-path=/soft/compilers/hipcl/20210907-experimental13-debug/share  --hip-device-lib=kernellib.bc 
-#--hip-llvm-pass-path=/soft/compilers/hipcl/20210907-experimental13-debug/lib/llvm  -o binary MatrixMultiply.cpp  
-#-Wl,-rpath,${hipcl_install_prefix}/lib -L${hipcl_install_prefix}/lib -L/home/pvelesko/CHIP-SPV/build -lCHIP -D__HIP_PLATFORM_CLANG__
