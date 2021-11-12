@@ -8,21 +8,19 @@ This project is a result of [HIPCL](https://github.com/cpc/hipcl) and [HIPLZ](ht
 * Cmake > 3.4.3
 * Clang with SPIR-V patches: [hipcl-clang](https://github.com/cpc/hipcl-clang)
 * For Level Zero Backend
-  * [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/overview.html)
+  * [Intel Compute Runtime](https://github.com/intel/compute-runtime)
 * For OpenCL Backend
   * An OpenCL implementation with (at least partial) 2.x support; HIPCL requires Shared Virtual Memory and clCreateProgramWithIL() support
 
 ## Building
 
 ````bash
-source ${ONEAPI_INSTALL_DIR}/setvars.sh
-
+# export PATH=${PATH_TO_CLANG_SPIRV}:$PATH
 cd CHIP-SPV
 mkdir build
 cd build
 
 cmake ../ \
   -DCMAKE_CXX_COMPILER=clang++ \
-  -DCMAKE_
-
+  -DHIP_SPIRV_DIR=/home/pvelesko/install/HIPLZ
 ```
