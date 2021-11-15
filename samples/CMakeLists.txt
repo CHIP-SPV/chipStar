@@ -125,7 +125,7 @@ set(SAMPLES
     #hipmath
     #hiptest
     #bit_extract
-    #hcc_dialects
+    hcc_dialects
     #fp16
     0_MatrixTranspose
     0_MatrixMultiply
