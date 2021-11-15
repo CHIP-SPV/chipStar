@@ -124,7 +124,7 @@ endfunction()
 set(SAMPLES
     #hipmath
     #hiptest
-    #bit_extract
+    bit_extract
     hcc_dialects
     #fp16
     0_MatrixTranspose
