@@ -123,7 +123,7 @@ endfunction()
 
 set(SAMPLES
     #hipmath
-    #hiptest
+    hiptest
     bit_extract
     hcc_dialects
     #fp16
