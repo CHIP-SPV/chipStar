@@ -140,7 +140,7 @@ set(SAMPLES
     10_memcpy3D
     11_device
     #hipInfo
-    #hipSymbol
+    #hipSymbol # undefined reference to `__hipRegisterVar
     #hipDeviceLink
     #sycl_hip_interop
     #hip_sycl_interop
