@@ -127,19 +127,19 @@ set(SAMPLES
     #bit_extract
     #hcc_dialects
     #fp16
-    #0_MatrixTranspose
+    0_MatrixTranspose
     0_MatrixMultiply
-    #1_hipEvent
-    #2_vecadd
-    #3_shared_memory
-    #4_shfl
-    #5_2dshfl
-    #6_dynamic_shared
+    1_hipEvent
+    2_vecadd
+    3_shared_memory
+    4_shfl
+    5_2dshfl
+    6_dynamic_shared
+    7_streams
+    9_unroll
+    10_memcpy3D
+    11_device
     #hipInfo
-    #7_streams
-    #9_unroll
-    #10_memcpy3D
-    #11_device
     #hipSymbol
     #hipDeviceLink
     #sycl_hip_interop
