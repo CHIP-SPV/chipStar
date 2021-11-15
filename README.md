@@ -5,6 +5,7 @@ This project is a result of [HIPCL](https://github.com/cpc/hipcl) and [HIPLZ](ht
 
 ## Prerequisites
 
+* Compiled HIPLZ required for LLVM passes (temporary)
 * Cmake > 3.4.3
 * Clang with SPIR-V patches: [hipcl-clang](https://github.com/cpc/hipcl-clang)
 * For Level Zero Backend
@@ -18,6 +19,7 @@ This project is a result of [HIPCL](https://github.com/cpc/hipcl) and [HIPLZ](ht
 # export PATH=${PATH_TO_CLANG_SPIRV}:$PATH
 cd CHIP-SPV
 mkdir build
+
 cd build
 
 cmake ../ \
