@@ -7,51 +7,6 @@
 
 std::string resultToString(ze_result_t status);
 
-#define LZ_LOG_ERROR(msg, status)                                            \
-  logError("{} ({}) in {}:{}:{}\n", msg, lzResultToString(status), __FILE__, \
-           __LINE__, __func__)
-
-#define LZ_PROCESS_ERROR_MSG(msg, status)                               \
-  do {                                                                  \
-    if (status != ZE_RESULT_SUCCESS && status != ZE_RESULT_NOT_READY) { \
-      LZ_LOG_ERROR(msg, status);                                        \
-      throw status;                                                     \
-    }                                                                   \
-  } while (0)
-
-#define LZ_PROCESS_ERROR(status) \
-  LZ_PROCESS_ERROR_MSG("Level Zero Error", status)
-
-#define LZ_RETURN_ERROR_MSG(msg, status)                                \
-  do {                                                                  \
-    if (status != ZE_RESULT_SUCCESS && status != ZE_RESULT_NOT_READY) { \
-      LZ_LOG_ERROR(msg, status);                                        \
-      return lzConvertResult(status);                                   \
-    }                                                                   \
-  } while (0)
-
-#define HIP_LOG_ERROR(msg, status)                                          \
-  logError("{} ({}) in {}:{}:{}\n", msg, hipGetErrorName(status), __FILE__, \
-           __LINE__, __func__)
-
-#define HIP_PROCESS_ERROR_MSG(msg, status)                    \
-  do {                                                        \
-    if (status != hipSuccess && status != hipErrorNotReady) { \
-      HIP_LOG_ERROR(msg, status);                             \
-      throw status;                                           \
-    }                                                         \
-  } while (0)
-
-#define HIP_PROCESS_ERROR(status) HIP_PROCESS_ERROR_MSG("HIP Error", status)
-
-#define HIP_RETURN_ERROR(status)                            \
-  HIP_RETURN_ERROR_MSG("HIP Error", status)                 \
-  if (status != hipSuccess && status != hipErrorNotReady) { \
-    HIP_LOG_ERROR(msg, status);                             \
-    return status;                                          \
-  }                                                         \
-  }                                                         \
-  while (0)
 // fw declares
 class CHIPContextLevel0;
 class CHIPDeviceLevel0;
