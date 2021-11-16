@@ -1030,6 +1030,12 @@ class CHIPContext {
    */
   void recordEvent(CHIPQueue* q, CHIPEvent* event);
 
+  /**
+   * @brief Create a Event object
+   *
+   * @param flags
+   * @return CHIPEvent*
+   */
   virtual CHIPEvent* createEvent(unsigned flags);
 
   /**
