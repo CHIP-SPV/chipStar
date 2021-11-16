@@ -817,6 +817,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
   *event = Backend->getActiveContext()->createEvent(flags);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

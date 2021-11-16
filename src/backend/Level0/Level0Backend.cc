@@ -181,6 +181,11 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
   }
   CHIPERR_LOG_AND_THROW("Failed to allocate memory", hipErrorMemoryAllocation);
 }
+
+CHIPEvent* CHIPContextLevel0::createEvent(unsigned flags) {
+  CHIPEventType event_type = CHIPEventType::Default;
+  return new CHIPEventLevel0(this, event_type);
+};
 // CHIPDeviceLevelZero
 // ***********************************************************************
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_,

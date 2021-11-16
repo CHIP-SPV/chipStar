@@ -102,6 +102,7 @@ class CHIPContextLevel0 : public CHIPContext {
 
   void free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
+  virtual CHIPEvent* createEvent(unsigned flags) override;
 
 };  // CHIPContextLevel0
 
