@@ -1886,6 +1886,7 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
 
   return (void **)module;
   CHIP_CATCH_NO_RETURN
+  return nullptr;
 }
 
 extern "C" void __hipUnregisterFatBinary(void *data) {

@@ -179,6 +179,7 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
 
     return ptr;
   }
+  CHIPERR_LOG_AND_THROW("Failed to allocate memory", hipErrorMemoryAllocation);
 }
 // CHIPDeviceLevelZero
 // ***********************************************************************

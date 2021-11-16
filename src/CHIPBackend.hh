@@ -972,7 +972,9 @@ class CHIPContext {
    * @return hipError_t
    */
   virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream){};
+                             hipStream_t stream) {
+    UNIMPLEMENTED(hipSuccess);
+  };
 
   /**
    * @brief Finish all the queues in this context

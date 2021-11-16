@@ -906,6 +906,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(
       maxMatchedCount = std::max(matchedCount, maxMatchedCount);
     }
   }
+  return matched_device;
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *q) {
