@@ -1028,6 +1028,8 @@ class CHIPContext {
    */
   void recordEvent(CHIPQueue* q, CHIPEvent* event);
 
+  virtual CHIPEvent* createEvent(unsigned flags);
+
   /**
    * @brief Create a Image objct
    *

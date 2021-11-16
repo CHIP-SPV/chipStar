@@ -814,16 +814,9 @@ hipError_t hipEventCreate(hipEvent_t *event) {
 hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
   CHIP_TRY
   CHIPInitialize();
-
   ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
-  CHIPEvent *event_ptr =
-      new CHIPEvent(Backend->getActiveContext(), (CHIPEventType)flags);
-  if (event_ptr) {
-    *event = event_ptr;
-    RETURN(hipSuccess);
-  } else
-    RETURN(hipErrorOutOfMemory);
+  *event = Backend->getActiveContext()->createEvent(flags);
   CHIP_CATCH
 }
 

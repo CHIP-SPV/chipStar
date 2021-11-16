@@ -143,4 +143,43 @@ class CHIPBackendLevel0 : public CHIPBackend {
   }
 };  // CHIPBackendLevel0
 
+class CHIPEventLevel0 : public CHIPEvent {
+ private:
+  // The handler of HipLZ event_pool and event
+  ze_event_handle_t event;
+  ze_event_pool_handle_t event_pool;
+
+  // The timestamp value
+  uint64_t timestamp;
+
+ public:
+  CHIPEventLevel0(CHIPContextLevel0* chip_ctx_, CHIPEventType event_type_)
+      : CHIPEvent((CHIPContext*)(chip_ctx_), event_type_) {
+    CHIPContextLevel0* ze_ctx = (CHIPContextLevel0*)chip_context;
+    ze_event_pool_desc_t eventPoolDesc = {
+        ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
+        ZE_EVENT_POOL_FLAG_HOST_VISIBLE,  // event in pool are visible to Host
+        1                                 // count
+    };
+
+    ze_result_t status = zeEventPoolCreate(ze_ctx->get(), &eventPoolDesc, 0,
+                                           nullptr, &event_pool);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                                "Level Zero event pool creation fail! ");
+
+    ze_event_desc_t eventDesc = {
+        ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr,
+        0,                         // index
+        ZE_EVENT_SCOPE_FLAG_HOST,  // ensure memory/cache coherency required on
+                                   // signal
+        ZE_EVENT_SCOPE_FLAG_HOST   // ensure memory coherency across device and
+                                   // Host after event completes
+    };
+
+    status = zeEventCreate(event_pool, &eventDesc, &event);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                                "Level Zero event creation fail! ");
+  }
+};
+
 #endif

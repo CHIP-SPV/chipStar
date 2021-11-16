@@ -674,6 +674,10 @@ CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
   UNIMPLEMENTED(nullptr);
 }
 
+CHIPEvent *createEvent(unsigned flags) {
+  UNIMPLEMENTED(nullptr);
+}  // TODO make pure virtual
+
 // CHIPBackend
 //*************************************************************************************
 
