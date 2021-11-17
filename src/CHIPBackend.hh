@@ -151,7 +151,7 @@ class CHIPDevice;
 
 class CHIPEvent {
  protected:
-  std::mutex mutex;
+  std::mutex mtx;
   event_status_e status;
   /**
    * @brief event bahavior modifier -  valid values are hipEventDefault,

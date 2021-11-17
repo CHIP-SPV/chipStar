@@ -201,8 +201,7 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
   ze_result_t status = ZE_RESULT_SUCCESS;
 
   // Initialize members used as input for zeDeviceGet*Properties() calls.
-  ze_device_properties_t device_props;
-  device_props.pNext = nullptr;
+  ze_device_props.pNext = nullptr;
   ze_device_memory_properties_t device_mem_props;
   device_mem_props.pNext = nullptr;
   ze_device_compute_properties_t device_compute_props;
@@ -213,7 +212,7 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
   device_module_props.pNext = nullptr;
 
   // Query device properties
-  status = zeDeviceGetProperties(ze_dev, &device_props);
+  status = zeDeviceGetProperties(ze_dev, &ze_device_props);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
@@ -264,12 +263,12 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
 
   // Maximum configured clock frequency of the device in MHz.
   hip_device_props.clockRate =
-      1000 * device_props.coreClockRate;  // deviceMemoryProps.maxClockRate;
+      1000 * ze_device_props.coreClockRate;  // deviceMemoryProps.maxClockRate;
   // Dev.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>();
 
   hip_device_props.multiProcessorCount =
-      device_props.numEUsPerSubslice *
-      device_props.numSlices;  // device_compute_props.maxTotalGroupSize;
+      ze_device_props.numEUsPerSubslice *
+      ze_device_props.numSlices;  // device_compute_props.maxTotalGroupSize;
   //??? Dev.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
   hip_device_props.l2CacheSize = device_cache_props.cacheSize;
   // Dev.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>();
@@ -303,7 +302,8 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
   hip_device_props.minor = 0;
 
   hip_device_props.maxThreadsPerMultiProcessor =
-      device_props.numEUsPerSubslice * device_props.numThreadsPerEU;  //  10;
+      ze_device_props.numEUsPerSubslice *
+      ze_device_props.numThreadsPerEU;  //  10;
 
   hip_device_props.computeMode = hipComputeModeDefault;
   hip_device_props.arch = {};
@@ -319,7 +319,7 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
   hip_device_props.arch.hasDoubles =
       (device_module_props.flags & ZE_DEVICE_MODULE_FLAG_FP64) ? 1 : 0;
 
-  hip_device_props.clockInstructionRate = device_props.coreClockRate;
+  hip_device_props.clockInstructionRate = ze_device_props.coreClockRate;
   hip_device_props.concurrentKernels = 1;
   hip_device_props.pciDomainID = 0;
   hip_device_props.pciBusID = 0x10 + getDeviceId();
@@ -328,7 +328,7 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
   hip_device_props.canMapHostMemory = 1;
   hip_device_props.gcnArch = 0;
   hip_device_props.integrated =
-      (device_props.flags & ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) ? 1 : 0;
+      (ze_device_props.flags & ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) ? 1 : 0;
   hip_device_props.maxSharedMemoryPerMultiProcessor =
       device_compute_props.maxSharedLocalMemory;
 }

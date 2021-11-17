@@ -82,6 +82,9 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_handle_t ze_dev;
   ze_context_handle_t ze_ctx;
 
+  // The handle of device properties
+  ze_device_properties_t ze_device_props;
+
  public:
   CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_, CHIPContextLevel0* chip_ctx_);
 
@@ -96,6 +99,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   }
 
   virtual void addQueue(unsigned int flags, int priority) override;
+  ze_device_properties_t* getDeviceProps() { return &(this->ze_device_props); };
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
@@ -151,7 +155,7 @@ class CHIPEventLevel0 : public CHIPEvent {
   }
 
   void recordStream(CHIPQueue* chip_queue_) override {
-    // std::lock_guard<std::mutex> Lock(mtx);
+    std::lock_guard<std::mutex> Lock(mtx);
     ze_result_t status;
     if (event_status == EVENT_STATUS_RECORDED) {
       ze_result_t status = zeEventHostReset(event);
@@ -181,6 +185,78 @@ class CHIPEventLevel0 : public CHIPEvent {
 
     event_status = EVENT_STATUS_RECORDING;
     return;
+  }
+
+  bool isFinished() const { return (event_status == EVENT_STATUS_RECORDED); }
+  bool isRecordingOrRecorded() const {
+    return (event_status >= EVENT_STATUS_RECORDING);
+  }
+
+  bool updateFinishStatus() {
+    std::lock_guard<std::mutex> Lock(mtx);
+    if (event_status != EVENT_STATUS_RECORDING) return false;
+
+    ze_result_t status = zeEventQueryStatus(event);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    if (status == ZE_RESULT_SUCCESS) event_status = EVENT_STATUS_RECORDED;
+
+    return true;
+  }
+
+  uint64_t getFinishTime() {
+    std::lock_guard<std::mutex> Lock(mtx);
+
+    return timestamp;
+  }
+
+  float getElapsedTime(CHIPEvent* other_) override {
+    CHIPEventLevel0* other = (CHIPEventLevel0*)other_;
+    // std::lock_guard<std::mutex> Lock(ContextMutex);
+
+    if (!this->isRecordingOrRecorded() || !other->isRecordingOrRecorded())
+      return hipErrorInvalidResourceHandle;
+
+    this->updateFinishStatus();
+    other->updateFinishStatus();
+    if (!this->isFinished() || !other->isFinished()) return hipErrorNotReady;
+
+    uint64_t Started = this->getFinishTime();
+    uint64_t Finished = other->getFinishTime();
+    if (Started > Finished) std::swap(Started, Finished);
+
+    CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_context;
+    CHIPDeviceLevel0* chip_dev_lz =
+        (CHIPDeviceLevel0*)chip_ctx_lz->getDevices()[0];
+
+    auto props = chip_dev_lz->getDeviceProps();
+
+    uint64_t timerResolution = props->timerResolution;
+    uint32_t timestampValidBits = props->timestampValidBits;
+
+    logDebug(
+        "EventElapsedTime: Started {} Finished {} timerResolution {} "
+        "timestampValidBits {}\n",
+        Started, Finished, timerResolution, timestampValidBits);
+
+    Started = (Started & (((uint64_t)1 << timestampValidBits) - 1));
+    Finished = (Finished & (((uint64_t)1 << timestampValidBits) - 1));
+    if (Started > Finished)
+      Finished = Finished + ((uint64_t)1 << timestampValidBits) - Started;
+    Started *= timerResolution;
+    Finished *= timerResolution;
+
+    logDebug("EventElapsedTime: STARTED  {} FINISHED {} \n", Started, Finished);
+
+    // apparently fails for Intel NEO, god knows why
+    // assert(Finished >= Started);
+    uint64_t Elapsed;
+#define NANOSECS 1000000000
+    uint64_t MS = (Elapsed / NANOSECS) * 1000;
+    uint64_t NS = Elapsed % NANOSECS;
+    float FractInMS = ((float)NS) / 1000000.0f;
+    auto ms = (float)MS + FractInMS;
+
+    return ms;
   }
 };
 
