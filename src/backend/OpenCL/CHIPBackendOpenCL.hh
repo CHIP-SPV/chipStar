@@ -168,6 +168,12 @@ class CHIPBackendOpenCL : public CHIPBackend {
 class CHIPEventOpenCL : public CHIPEvent {
  protected:
   cl::Event *cl_event;
+
+ public:
+  void recordStream(CHIPQueue *chip_queue_) override { UNIMPLEMENTED(); };
+  bool wait() override { UNIMPLEMENTED(true); };
+  bool isFinished() override { UNIMPLEMENTED(true); };
+  float getElapsedTime(CHIPEvent *other) override { UNIMPLEMENTED(true); };
 };
 
 #endif

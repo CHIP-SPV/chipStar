@@ -190,21 +190,21 @@ class CHIPEvent {
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue* chip_queue_);
+  virtual void recordStream(CHIPQueue* chip_queue_) = 0;
   /**
    * @brief Wait for this event to complete
    *
    * @return true
    * @return false
    */
-  virtual bool wait();
+  virtual bool wait() = 0;
   /**
    * @brief Query the event to see if it completed
    *
    * @return true
    * @return false
    */
-  virtual bool isFinished();
+  virtual bool isFinished() = 0;
   /**
    * @brief Calculate absolute difference between completion timestamps of this
    * event and other
@@ -212,7 +212,7 @@ class CHIPEvent {
    * @param other
    * @return float
    */
-  virtual float getElapsedTime(CHIPEvent* other);
+  virtual float getElapsedTime(CHIPEvent* other) = 0;
 };
 
 /**

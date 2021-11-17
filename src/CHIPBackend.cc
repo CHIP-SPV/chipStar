@@ -69,11 +69,6 @@ CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
     : status(EVENT_STATUS_INIT), flags(event_type_), chip_context(ctx_in) {}
 CHIPEvent::~CHIPEvent() {}
 
-void CHIPEvent::recordStream(CHIPQueue *chip_queue_) { UNIMPLEMENTED(); };
-bool CHIPEvent::wait() { UNIMPLEMENTED(true); };
-bool CHIPEvent::isFinished() { UNIMPLEMENTED(true); };
-float CHIPEvent::getElapsedTime(CHIPEvent *other) { UNIMPLEMENTED(true); };
-
 // CHIPModule
 //*************************************************************************************
 void CHIPModule::consumeSPIRV() {

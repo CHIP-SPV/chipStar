@@ -187,7 +187,8 @@ class CHIPEventLevel0 : public CHIPEvent {
     return;
   }
 
-  bool isFinished() const { return (event_status == EVENT_STATUS_RECORDED); }
+  bool wait() override{UNIMPLEMENTED(true)};
+  bool isFinished() override { return (event_status == EVENT_STATUS_RECORDED); }
   bool isRecordingOrRecorded() const {
     return (event_status >= EVENT_STATUS_RECORDING);
   }
