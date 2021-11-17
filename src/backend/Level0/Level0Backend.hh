@@ -185,7 +185,17 @@ class CHIPEventLevel0 : public CHIPEvent {
     return;
   }
 
-  bool wait() override{UNIMPLEMENTED(true)};
+  bool wait() override {
+    std::lock_guard<std::mutex> Lock(mtx);
+    if (event_status != EVENT_STATUS_RECORDING) return false;
+
+    ze_result_t status = zeEventHostSynchronize(event, UINT64_MAX);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    event_status = EVENT_STATUS_RECORDED;
+    return true;
+  }
+
   bool isFinished() override { return (event_status == EVENT_STATUS_RECORDED); }
   bool isRecordingOrRecorded() const {
     return (event_status >= EVENT_STATUS_RECORDING);
