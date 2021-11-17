@@ -123,8 +123,6 @@ class CHIPEventLevel0 : public CHIPEvent {
   // The timestamp value
   uint64_t timestamp;
 
-  event_status_e event_status;
-
  public:
   CHIPEventLevel0(CHIPContextLevel0* chip_ctx_, CHIPEventType event_type_)
       : CHIPEvent((CHIPContext*)(chip_ctx_), event_type_) {
