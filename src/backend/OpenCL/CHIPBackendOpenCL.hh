@@ -84,6 +84,8 @@ class CHIPContextOpenCL : public CHIPContext {
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
   cl::Context *get() { return cl_ctx; }
+  virtual CHIPEvent *createEvent(unsigned flags) override{
+      UNIMPLEMENTED(nullptr)};  // TODO
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
@@ -166,6 +168,12 @@ class CHIPBackendOpenCL : public CHIPBackend {
 class CHIPEventOpenCL : public CHIPEvent {
  protected:
   cl::Event *cl_event;
+
+ public:
+  void recordStream(CHIPQueue *chip_queue_) override { UNIMPLEMENTED(); };
+  bool wait() override { UNIMPLEMENTED(true); };
+  bool isFinished() override { UNIMPLEMENTED(true); };
+  float getElapsedTime(CHIPEvent *other) override { UNIMPLEMENTED(true); };
 };
 
 #endif

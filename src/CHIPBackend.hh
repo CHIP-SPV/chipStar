@@ -151,8 +151,8 @@ class CHIPDevice;
 
 class CHIPEvent {
  protected:
-  std::mutex mutex;
-  event_status_e status;
+  std::mutex mtx;
+  event_status_e event_status;
   /**
    * @brief event bahavior modifier -  valid values are hipEventDefault,
    * hipEventBlockingSync, hipEventDisableTiming, hipEventInterprocess
@@ -190,21 +190,21 @@ class CHIPEvent {
    * @return true
    * @return false
    */
-  virtual bool recordStream(CHIPQueue* chip_queue_);
+  virtual void recordStream(CHIPQueue* chip_queue_) = 0;
   /**
    * @brief Wait for this event to complete
    *
    * @return true
    * @return false
    */
-  virtual bool wait();
+  virtual bool wait() = 0;
   /**
    * @brief Query the event to see if it completed
    *
    * @return true
    * @return false
    */
-  virtual bool isFinished();
+  virtual bool isFinished() = 0;
   /**
    * @brief Calculate absolute difference between completion timestamps of this
    * event and other
@@ -212,7 +212,7 @@ class CHIPEvent {
    * @param other
    * @return float
    */
-  virtual float getElapsedTime(CHIPEvent* other);
+  virtual float getElapsedTime(CHIPEvent* other) = 0;
 };
 
 /**
@@ -1036,7 +1036,7 @@ class CHIPContext {
    * @param flags
    * @return CHIPEvent*
    */
-  virtual CHIPEvent* createEvent(unsigned flags);
+  virtual CHIPEvent* createEvent(unsigned flags) = 0;
 
   /**
    * @brief Create a Image objct

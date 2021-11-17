@@ -824,18 +824,11 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
 hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   CHIP_TRY
   CHIPInitialize();
-  // ERROR_IF((stream == nullptr), hipErrorInvalidValue);
   if (!stream) stream = Backend->getActiveQueue();
-  ERROR_IF((event == nullptr), hipErrorInvalidValue);
+  // TODO: Why does this check fail for OpenCL but not for Level0
+  // ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
-  // TODO Make recordEvent return hip error
-  // if (Backend->getActiveContext()->recordEvent(stream, event)) {
-  //  RETURN(hipSuccess);
-  //} else {
-  //  RETURN(hipErrorLaunchFailure);
-  //}
-
-  Backend->getActiveContext()->recordEvent(stream, event);
+  event->recordStream(stream);
   RETURN(hipSuccess);
   CHIP_CATCH
 }

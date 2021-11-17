@@ -66,13 +66,8 @@ void CHIPAllocationTracker::recordAllocation(void *ptr) {
 // CHIPEvent
 // ************************************************************************
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
-    : status(EVENT_STATUS_INIT), flags(event_type_), chip_context(ctx_in) {}
+    : event_status(EVENT_STATUS_INIT), flags(event_type_), chip_context(ctx_in) {}
 CHIPEvent::~CHIPEvent() {}
-
-bool CHIPEvent::recordStream(CHIPQueue *chip_queue_) { UNIMPLEMENTED(true); };
-bool CHIPEvent::wait() { UNIMPLEMENTED(true); };
-bool CHIPEvent::isFinished() { UNIMPLEMENTED(true); };
-float CHIPEvent::getElapsedTime(CHIPEvent *other) { UNIMPLEMENTED(true); };
 
 // CHIPModule
 //*************************************************************************************
