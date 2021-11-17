@@ -184,7 +184,7 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
 }
 
 CHIPEvent* CHIPContextLevel0::createEvent(unsigned flags) {
-  CHIPEventType event_type = CHIPEventType::Default;
+  CHIPEventType event_type{flags};
   return new CHIPEventLevel0(this, event_type);
 };
 // CHIPDeviceLevelZero
