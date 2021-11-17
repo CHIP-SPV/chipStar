@@ -190,7 +190,7 @@ class CHIPEvent {
    * @return true
    * @return false
    */
-  virtual bool recordStream(CHIPQueue* chip_queue_);
+  virtual void recordStream(CHIPQueue* chip_queue_);
   /**
    * @brief Wait for this event to complete
    *
@@ -1036,7 +1036,7 @@ class CHIPContext {
    * @param flags
    * @return CHIPEvent*
    */
-  virtual CHIPEvent* createEvent(unsigned flags);
+  virtual CHIPEvent* createEvent(unsigned flags) = 0;
 
   /**
    * @brief Create a Image objct

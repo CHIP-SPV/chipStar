@@ -11,6 +11,7 @@ std::string resultToString(ze_result_t status);
 class CHIPContextLevel0;
 class CHIPDeviceLevel0;
 class CHIPModuleLevel0;
+class LZCommandList;
 
 class CHIPKernelLevel0 : public CHIPKernel {
  protected:
@@ -26,16 +27,22 @@ class CHIPKernelLevel0 : public CHIPKernel {
 
 class CHIPQueueLevel0 : public CHIPQueue {
  protected:
-  ze_command_queue_handle_t ze_q;
   ze_context_handle_t ze_ctx;
   ze_device_handle_t ze_dev;
 
+  // Immediate command list is being used. Command queue is implicit
+  ze_command_list_handle_t ze_cmd_list;
+
+  // Immediate command lists do not support syncronization via
+  // zeCommandQueueSynchronize
+  ze_event_pool_handle_t event_pool;
+  ze_event_handle_t finish_event;
+
  public:
-  CHIPQueueLevel0(CHIPDeviceLevel0* hixx_dev_);
+  CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_);
 
   virtual hipError_t launch(CHIPExecItem* exec_item) override;
 
-  ze_command_queue_handle_t get() { return ze_q; }
   virtual void finish() override;
 
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) override;
@@ -48,8 +55,6 @@ class CHIPContextLevel0 : public CHIPContext {
   OpenCLFunctionInfoMap FuncInfos;
 
  public:
-  ze_command_list_handle_t ze_cmd_list;
-  ze_command_list_handle_t get_cmd_list() { return ze_cmd_list; }
   CHIPContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx) {}
   CHIPContextLevel0(ze_context_handle_t _ze_ctx) : ze_ctx(_ze_ctx) {}
 
@@ -135,6 +140,28 @@ class CHIPEventLevel0 : public CHIPEvent {
     status = zeEventCreate(event_pool, &eventDesc, &event);
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                 "Level Zero event creation fail! ");
+  }
+
+  void recordStream(CHIPQueue* chip_queue_) override {
+    //   // std::lock_guard<std::mutex> Lock(mtx);
+
+    //   if (status == EVENT_STATUS_RECORDED) {
+    //     ze_result_t status = zeEventHostReset(event);
+    //     CHIPERR_CHECK_LOG_AND_THROW(
+    //         status, ZE_RESULT_SUCCESS, hipErrorTbd,
+    //         "HipLZ zeEventHostReset FAILED with return code ");
+    //   }
+
+    //   if (chip_queue_ == nullptr)
+    //     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
+
+    //   CHIPQueueLevel0* q = (CHIPQueueLevel0*)chip_queue_;
+
+    //   q->getDefaultCmdList()->ExecuteWriteGlobalTimeStampAsync(&timestamp,
+    //   this);
+    //   status = EVENT_STATUS_RECORDING;
+    // }
+    // return;
   }
 };
 

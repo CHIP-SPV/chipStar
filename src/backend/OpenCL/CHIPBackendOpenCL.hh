@@ -84,6 +84,8 @@ class CHIPContextOpenCL : public CHIPContext {
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
   cl::Context *get() { return cl_ctx; }
+  virtual CHIPEvent *createEvent(unsigned flags) override{
+      UNIMPLEMENTED(nullptr)};  // TODO
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
