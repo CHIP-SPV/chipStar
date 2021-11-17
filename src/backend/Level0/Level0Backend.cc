@@ -409,6 +409,14 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
   status = zeEventCreate(event_pool, &ev_desc, &finish_event);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "HipLZ zeEventCreate FAILED with return code");
+
+  // Initialize the shared memory buffer
+  // TODO This does not record the buffer allocation in device allocation
+  // tracker
+  shared_buf = chip_context_lz->allocate_(32, 8, CHIPMemoryType::Shared);
+
+  // Initialize the uint64_t part as 0
+  *(uint64_t*)this->shared_buf = 0;
 }
 
 hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {

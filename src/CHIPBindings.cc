@@ -828,7 +828,7 @@ hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
   // TODO: Why does this check fail for OpenCL but not for Level0
   // ERROR_IF((event == nullptr), hipErrorInvalidValue);
 
-  Backend->getActiveContext()->recordEvent(stream, event);
+  event->recordStream(stream);
   RETURN(hipSuccess);
   CHIP_CATCH
 }

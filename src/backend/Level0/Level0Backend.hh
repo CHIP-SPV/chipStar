@@ -38,6 +38,9 @@ class CHIPQueueLevel0 : public CHIPQueue {
   ze_event_pool_handle_t event_pool;
   ze_event_handle_t finish_event;
 
+  // The shared memory buffer
+  void* shared_buf;
+
  public:
   CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_);
 
@@ -48,6 +51,9 @@ class CHIPQueueLevel0 : public CHIPQueue {
   virtual hipError_t memCopy(void* dst, const void* src, size_t size) override;
   virtual hipError_t memCopyAsync(void* dst, const void* src,
                                   size_t size) override;
+
+  ze_command_list_handle_t getCmdList() { return ze_cmd_list; };
+  void* getSharedBufffer() { return shared_buf; };
 };
 
 class CHIPContextLevel0 : public CHIPContext {
@@ -113,6 +119,8 @@ class CHIPEventLevel0 : public CHIPEvent {
   // The timestamp value
   uint64_t timestamp;
 
+  event_status_e event_status;
+
  public:
   CHIPEventLevel0(CHIPContextLevel0* chip_ctx_, CHIPEventType event_type_)
       : CHIPEvent((CHIPContext*)(chip_ctx_), event_type_) {
@@ -143,25 +151,36 @@ class CHIPEventLevel0 : public CHIPEvent {
   }
 
   void recordStream(CHIPQueue* chip_queue_) override {
-    //   // std::lock_guard<std::mutex> Lock(mtx);
+    // std::lock_guard<std::mutex> Lock(mtx);
+    ze_result_t status;
+    if (event_status == EVENT_STATUS_RECORDED) {
+      ze_result_t status = zeEventHostReset(event);
+      CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    }
 
-    //   if (status == EVENT_STATUS_RECORDED) {
-    //     ze_result_t status = zeEventHostReset(event);
-    //     CHIPERR_CHECK_LOG_AND_THROW(
-    //         status, ZE_RESULT_SUCCESS, hipErrorTbd,
-    //         "HipLZ zeEventHostReset FAILED with return code ");
-    //   }
+    if (chip_queue_ == nullptr)
+      CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
 
-    //   if (chip_queue_ == nullptr)
-    //     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
+    CHIPQueueLevel0* q = (CHIPQueueLevel0*)chip_queue_;
 
-    //   CHIPQueueLevel0* q = (CHIPQueueLevel0*)chip_queue_;
+    status = zeCommandListAppendBarrier(q->getCmdList(), nullptr, 0, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-    //   q->getDefaultCmdList()->ExecuteWriteGlobalTimeStampAsync(&timestamp,
-    //   this);
-    //   status = EVENT_STATUS_RECORDING;
-    // }
-    // return;
+    status = zeCommandListAppendWriteGlobalTimestamp(
+        q->getCmdList(), (uint64_t*)(q->getSharedBufffer()), nullptr, 0,
+        nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    status = zeCommandListAppendBarrier(q->getCmdList(), nullptr, 0, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    status = zeCommandListAppendMemoryCopy(q->getCmdList(), &timestamp,
+                                           q->getSharedBufffer(),
+                                           sizeof(uint64_t), event, 0, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    event_status = EVENT_STATUS_RECORDING;
+    return;
   }
 };
 
