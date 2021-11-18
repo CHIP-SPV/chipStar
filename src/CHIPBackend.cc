@@ -661,10 +661,6 @@ hipError_t CHIPContext::free(void *ptr) {
   return hipSuccess;
 }
 
-void CHIPContext::recordEvent(CHIPQueue *q, CHIPEvent *event) {
-  UNIMPLEMENTED();
-}
-
 CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
                                       hipTextureDesc *texDesc) {
   UNIMPLEMENTED(nullptr);

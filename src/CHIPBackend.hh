@@ -1025,14 +1025,6 @@ class CHIPContext {
   CHIPContext* retain();
 
   /**
-   * @brief Record an event in a given queue
-   *
-   * @param q queue into which to insert the event
-   * @param event event to be inserted
-   */
-  void recordEvent(CHIPQueue* q, CHIPEvent* event);
-
-  /**
    * @brief Create a Event object
    *
    * @param flags
