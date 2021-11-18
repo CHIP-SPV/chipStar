@@ -108,10 +108,7 @@ class CHIPBackendLevel0 : public CHIPBackend {
                            std::string CHIPDeviceTypeStr,
                            std::string CHIPDeviceStr) override;
 
-  void uninitialize() override {
-    logTrace("CHIPBackendLevel0 uninitializing");
-    logWarn("CHIPBackendLevel0->uninitialize() not implemented");
-  }
+  void uninitialize() override { UNIMPLEMENTED(); }
 };  // CHIPBackendLevel0
 
 class CHIPEventLevel0 : public CHIPEvent {
