@@ -19,7 +19,7 @@ void logTrace(const char *fmt, const Args &...args) {
   spdlog::trace(fmt, std::forward<const Args>(args)...);
 }
 #else
-#define logDebug(...) void(0)
+#define logTrace(...) void(0)
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
