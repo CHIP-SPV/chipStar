@@ -66,8 +66,9 @@ void CHIPAllocationTracker::recordAllocation(void *ptr) {
 // CHIPEvent
 // ************************************************************************
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
-    : event_status(EVENT_STATUS_INIT), flags(event_type_), chip_context(ctx_in) {}
-CHIPEvent::~CHIPEvent() {}
+    : event_status(EVENT_STATUS_INIT),
+      flags(event_type_),
+      chip_context(ctx_in) {}
 
 // CHIPModule
 //*************************************************************************************

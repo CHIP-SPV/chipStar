@@ -182,7 +182,7 @@ class CHIPEvent {
    * @brief Destroy the CHIPEvent object
    *
    */
-  ~CHIPEvent();
+  virtual ~CHIPEvent() = default;
   /**
    * @brief Enqueue this event in a given CHIPQueue
    *
