@@ -129,6 +129,22 @@ class CHIPQueueOpenCL : public CHIPQueue {
   virtual hipError_t memCopyAsync(void *dst, const void *src,
                                   size_t size) override;
   cl::CommandQueue *get() { return cl_q; }
+
+  virtual void memFillAsync(void *dst, size_t size, const void *pattern,
+                            size_t pattern_size) override;
+
+  virtual void memCopy2DAsync(void *dst, size_t dpitch, const void *src,
+                              size_t spitch, size_t width,
+                              size_t height) override;
+
+  virtual void memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
+                              const void *src, size_t spitch, size_t sspitch,
+                              size_t width, size_t height,
+                              size_t depth) override;
+
+  // Memory copy to texture object, i.e. image
+  virtual void memCopyToTexture(CHIPTexture *texObj, void *src,
+                                hipStream_t stream) override;
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {

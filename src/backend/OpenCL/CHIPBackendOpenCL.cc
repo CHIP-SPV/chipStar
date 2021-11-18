@@ -306,6 +306,30 @@ hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
 
 void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
 
+void CHIPQueueOpenCL::memFillAsync(void *dst, size_t size, const void *pattern,
+                                   size_t pattern_size) {
+  UNIMPLEMENTED();
+};
+
+void CHIPQueueOpenCL::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
+                                     size_t spitch, size_t width,
+                                     size_t height) {
+  UNIMPLEMENTED();
+};
+
+void CHIPQueueOpenCL::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
+                                     const void *src, size_t spitch,
+                                     size_t sspitch, size_t width,
+                                     size_t height, size_t depth) {
+  UNIMPLEMENTED();
+};
+
+// Memory copy to texture object, i.e. image
+void CHIPQueueOpenCL::memCopyToTexture(CHIPTexture *texObj, void *src,
+                                       hipStream_t stream) {
+  UNIMPLEMENTED();
+};
+
 static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
                         cl_kernel kernel) {
   logWarn("setLocalSize");

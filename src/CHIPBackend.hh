@@ -1320,7 +1320,9 @@ class CHIPQueue {
    * @return hipError_t
    */
 
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size) = 0;
+  virtual hipError_t memCopy(
+      void* dst, const void* src,
+      size_t size) = 0;  // Implement using Async with wait?
   /**
    * @brief Non-blocking memory copy
    *
@@ -1351,8 +1353,27 @@ class CHIPQueue {
    * @param pattern_size
    */
   virtual void memFillAsync(void* dst, size_t size, const void* pattern,
-                            size_t pattern_size);
+                            size_t pattern_size) = 0;
 
+  // The memory copy 2D support
+  virtual void memCopy2D(void* dst, size_t dpitch, const void* src,
+                         size_t spitch, size_t width, size_t height);
+
+  virtual void memCopy2DAsync(void* dst, size_t dpitch, const void* src,
+                              size_t spitch, size_t width, size_t height) = 0;
+
+  // The memory copy 3D support
+  virtual void memCopy3D(void* dst, size_t dpitch, size_t dspitch,
+                         const void* src, size_t spitch, size_t sspitch,
+                         size_t width, size_t height, size_t depth);
+
+  virtual void memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
+                              const void* src, size_t spitch, size_t sspitch,
+                              size_t width, size_t height, size_t depth) = 0;
+
+  // Memory copy to texture object, i.e. image
+  virtual void memCopyToTexture(CHIPTexture* texObj, void* src,
+                                hipStream_t stream) = 0;
   /**
    * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
    * needs to be complete - contain the kernel and arguments

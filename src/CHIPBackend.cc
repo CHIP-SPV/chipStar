@@ -973,13 +973,28 @@ bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) { UNIMPLEMENTED(true); }
 bool CHIPQueue::query() { UNIMPLEMENTED(true); }
 void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
                         size_t pattern_size) {
-  UNIMPLEMENTED();
+  memFill(dst, size, pattern, pattern_size);
+  finish();
 }
 void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
                              size_t pattern_size) {
-  UNIMPLEMENTED();
+  UNIMPLEMENTED();  // TODO remove this
 }
 
 bool CHIPQueue::memPrefetch(const void *ptr, size_t count) {
-  UNIMPLEMENTED(true);
+  UNIMPLEMENTED(true);  // TODO remove this
+}
+
+void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
+                          size_t spitch, size_t width, size_t height) {
+  memCopy2DAsync(dst, dpitch, src, spitch, width, height);
+  finish();
+}
+
+void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
+                          const void *src, size_t spitch, size_t sspitch,
+                          size_t width, size_t height, size_t depth) {
+  memCopy3DAsync(dst, dpitch, dspitch, src, spitch, sspitch, width, height,
+                 depth);
+  finish();
 }

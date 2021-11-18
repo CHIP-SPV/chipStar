@@ -442,6 +442,30 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   return hipSuccess;
 }
 
+void CHIPQueueLevel0::memFillAsync(void* dst, size_t size, const void* pattern,
+                                   size_t pattern_size) {
+  UNIMPLEMENTED();
+};
+
+void CHIPQueueLevel0::memCopy2DAsync(void* dst, size_t dpitch, const void* src,
+                                     size_t spitch, size_t width,
+                                     size_t height) {
+  UNIMPLEMENTED();
+};
+
+void CHIPQueueLevel0::memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
+                                     const void* src, size_t spitch,
+                                     size_t sspitch, size_t width,
+                                     size_t height, size_t depth) {
+  UNIMPLEMENTED();
+};
+
+// Memory copy to texture object, i.e. image
+void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src,
+                                       hipStream_t stream) {
+  UNIMPLEMENTED();
+};
+
 // CHIPKernelLevelZero
 // ***********************************************************************
 
