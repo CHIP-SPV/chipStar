@@ -444,20 +444,41 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
 
 void CHIPQueueLevel0::memFillAsync(void* dst, size_t size, const void* pattern,
                                    size_t pattern_size) {
-  UNIMPLEMENTED();
+  ze_result_t status = zeCommandListAppendMemoryFill(
+      ze_cmd_list, dst, pattern, pattern_size, size, nullptr, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 };
 
 void CHIPQueueLevel0::memCopy2DAsync(void* dst, size_t dpitch, const void* src,
                                      size_t spitch, size_t width,
                                      size_t height) {
-  UNIMPLEMENTED();
+  memCopy3DAsync(dst, dpitch, 0, src, spitch, 0, width, height, 0);
+  return;
 };
 
 void CHIPQueueLevel0::memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
                                      const void* src, size_t spitch,
                                      size_t sspitch, size_t width,
                                      size_t height, size_t depth) {
-  UNIMPLEMENTED();
+  ze_copy_region_t dstRegion;
+  dstRegion.originX = 0;
+  dstRegion.originY = 0;
+  dstRegion.originZ = 0;
+  dstRegion.width = width;
+  dstRegion.height = height;
+  dstRegion.depth = depth;
+  ze_copy_region_t srcRegion;
+  srcRegion.originX = 0;
+  srcRegion.originY = 0;
+  srcRegion.originZ = 0;
+  srcRegion.width = width;
+  srcRegion.height = height;
+  srcRegion.depth = depth;
+  ze_result_t status = zeCommandListAppendMemoryCopyRegion(
+      ze_cmd_list, dst, &dstRegion, dpitch, dspitch, src, &srcRegion, spitch,
+      sspitch, nullptr, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  return;
 };
 
 // Memory copy to texture object, i.e. image
