@@ -484,7 +484,11 @@ void CHIPQueueLevel0::memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
 // Memory copy to texture object, i.e. image
 void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src,
                                        hipStream_t stream) {
-  UNIMPLEMENTED();
+  ze_image_handle_t imageHandle = (ze_image_handle_t)texObj->image;
+  ze_result_t status = zeCommandListAppendImageCopyFromMemory(
+      ze_cmd_list, imageHandle, src, 0, 0, 0, 0);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  return;
 };
 
 // CHIPKernelLevelZero
