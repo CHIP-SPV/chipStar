@@ -33,6 +33,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+class CHIPTexture {};
+
 template <class T>
 std::string resultToString(T err);
 

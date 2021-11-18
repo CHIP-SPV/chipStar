@@ -56,6 +56,25 @@ class CHIPQueueLevel0 : public CHIPQueue {
   void* getSharedBufffer() { return shared_buf; };
 };
 
+class LZImage : public CHIPTexture {
+ protected:
+  // Image handle
+  ze_image_handle_t hImage;
+
+  // The reference to HipLZ context
+  CHIPContextLevel0* lzContext;
+
+ public:
+  LZImage(CHIPContextLevel0* lzContext, hipResourceDesc* resDesc,
+          hipTextureDesc* texDesc);
+
+  // Get the image handle
+  ze_image_handle_t GetImageHandle() { return this->hImage; };
+
+  // Update data to image
+  bool upload(hipStream_t stream, void* srcptr);
+};
+
 class CHIPContextLevel0 : public CHIPContext {
   ze_context_handle_t ze_ctx;
   OpenCLFunctionInfoMap FuncInfos;
@@ -69,6 +88,18 @@ class CHIPContextLevel0 : public CHIPContext {
   void free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
   virtual CHIPEvent* createEvent(unsigned flags) override;
+
+  // Create Level-0 image object
+  LZImage* createImage(hipResourceDesc* resDesc,
+                       hipTextureDesc* texDesc) override;
+
+  // Create HIP texture object
+  virtual hipTextureObject_t createTextureObject(
+      const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
+      const struct hipResourceViewDesc* pResViewDesc);
+
+  // Destroy HIP texture object
+  virtual bool destroyTextureObject(hipTextureObject_t textureObject);
 
 };  // CHIPContextLevel0
 
@@ -264,6 +295,45 @@ class CHIPEventLevel0 : public CHIPEvent {
 
     return ms;
   }
+};
+
+// The struct that accomodate the L0/Hip texture object's content
+class LZTextureObject {
+ public:
+  intptr_t image;
+  intptr_t sampler;
+
+  LZTextureObject(){};
+
+  // The factory function for creating the LZ texture object
+  static LZTextureObject* CreateTextureObject(
+      CHIPContextLevel0* lzCtx, const hipResourceDesc* pResDesc,
+      const hipTextureDesc* pTexDesc,
+      const struct hipResourceViewDesc* pResViewDesc);
+
+  // Destroy the HIP texture object
+  static bool DestroyTextureObject(LZTextureObject* texObj);
+
+ protected:
+  // The factory function for create the LZ image object
+  static bool CreateImage(CHIPContextLevel0* lzCtx,
+                          const hipResourceDesc* pResDesc,
+                          const hipTextureDesc* pTexDesc,
+                          const struct hipResourceViewDesc* pResViewDesc,
+                          ze_image_handle_t* handle);
+
+  // Destroy the LZ image object
+  static bool DestroyImage(ze_image_handle_t handle);
+
+  // The factory function for create the LZ sampler object
+  static bool CreateSampler(CHIPContextLevel0* lzCtx,
+                            const hipResourceDesc* pResDesc,
+                            const hipTextureDesc* pTexDesc,
+                            const struct hipResourceViewDesc* pResViewDesc,
+                            ze_sampler_handle_t* handle);
+
+  // Destroy the LZ sampler object
+  static bool DestroySampler(ze_sampler_handle_t handle);
 };
 
 #endif
