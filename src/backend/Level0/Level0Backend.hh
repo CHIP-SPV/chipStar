@@ -414,8 +414,12 @@ class CHIPTextureLevel0 : public CHIPTexture {
   }
 
   // Destroy the LZ sampler object
-  static bool DestroySampler(ze_sampler_handle_t handle) {
-    UNIMPLEMENTED(true);
+  static bool DestroySampler(ze_sampler_handle_t handle) {  // TODO return void
+    // Destroy LZ samler
+    ze_result_t status = zeSamplerDestroy(handle);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    return true;
   }
 };
 
