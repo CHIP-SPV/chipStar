@@ -661,11 +661,6 @@ hipError_t CHIPContext::free(void *ptr) {
   return hipSuccess;
 }
 
-CHIPTexture *CHIPContext::createImage(hipResourceDesc *resDesc,
-                                      hipTextureDesc *texDesc) {
-  UNIMPLEMENTED(nullptr);
-}
-
 CHIPEvent *createEvent(unsigned flags) {
   UNIMPLEMENTED(nullptr);
 }  // TODO make pure virtual

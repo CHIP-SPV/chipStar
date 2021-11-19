@@ -107,6 +107,10 @@ class CHIPDeviceOpenCL : public CHIPDevice {
   }
 
   virtual void addQueue(unsigned int flags, int priority) override;
+  virtual CHIPTexture *createTexture(hipResourceDesc *resDesc,
+                                     hipTextureDesc *texDesc) override {
+    UNIMPLEMENTED(nullptr);
+  };
 };
 
 class CHIPQueueOpenCL : public CHIPQueue {

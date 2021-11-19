@@ -37,6 +37,10 @@ class CHIPTexture {
  public:
   intptr_t image;
   intptr_t sampler;
+
+  hipTextureObject_t tex_obj;
+
+  hipTextureObject_t get() { return tex_obj; }
 };
 
 template <class T>
@@ -832,6 +836,16 @@ class CHIPDevice {
                                 const char* host_f_name);
 
   virtual CHIPModule* addModule(std::string* module_str) = 0;
+
+  /**
+   * @brief Create a Image objct
+   *
+   * @param resDesc
+   * @param texDesc
+   * @return CHIPTexture*
+   */
+  virtual CHIPTexture* createTexture(hipResourceDesc* resDesc,
+                                   hipTextureDesc* texDesc) = 0;
 };
 
 /**
@@ -1035,16 +1049,6 @@ class CHIPContext {
    * @return CHIPEvent*
    */
   virtual CHIPEvent* createEvent(unsigned flags) = 0;
-
-  /**
-   * @brief Create a Image objct
-   *
-   * @param resDesc
-   * @param texDesc
-   * @return CHIPTexture*
-   */
-  virtual CHIPTexture* createImage(hipResourceDesc* resDesc,
-                                   hipTextureDesc* texDesc);
 };
 
 /**

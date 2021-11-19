@@ -1699,16 +1699,17 @@ hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
 hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
                                   hipResourceDesc *resDesc,
                                   hipTextureDesc *texDesc, void *opt) {
-  UNIMPLEMENTED(hipErrorTbd);
-  // CHIPInitialize();
-  // TODO
-  // hipTextureObject_t retObj =
-  //     Backend->getActiveContext()->createImage(resDesc, texDesc);
-  // if (retObj != nullptr) {
-  //   *texObj = retObj;
-  //   RETURN(hipSuccess);
-  // } else
-  //   RETURN(hipErrorLaunchFailure);
+  CHIP_TRY
+  CHIPInitialize();
+  CHIPTexture *chip_texture =
+      Backend->getActiveDevice()->createTexture(resDesc, texDesc);
+  hipTextureObject_t retObj = chip_texture->get();
+  if (retObj != nullptr) {
+    *texObj = retObj;
+    RETURN(hipSuccess);
+  } else
+    RETURN(hipErrorLaunchFailure);
+  CHIP_CATCH
 }
 
 hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {

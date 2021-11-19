@@ -72,25 +72,6 @@ class CHIPQueueLevel0 : public CHIPQueue {
                                 hipStream_t stream) override;
 };
 
-class LZImage : public CHIPTexture {
- protected:
-  // Image handle
-  ze_image_handle_t hImage;
-
-  // The reference to HipLZ context
-  CHIPContextLevel0* lzContext;
-
- public:
-  LZImage(CHIPContextLevel0* lzContext, hipResourceDesc* resDesc,
-          hipTextureDesc* texDesc);
-
-  // Get the image handle
-  ze_image_handle_t GetImageHandle() { return this->hImage; };
-
-  // Update data to image
-  bool upload(hipStream_t stream, void* srcptr);
-};
-
 class CHIPContextLevel0 : public CHIPContext {
   ze_context_handle_t ze_ctx;
   OpenCLFunctionInfoMap FuncInfos;
@@ -104,18 +85,6 @@ class CHIPContextLevel0 : public CHIPContext {
   void free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
   virtual CHIPEvent* createEvent(unsigned flags) override;
-
-  // Create Level-0 image object
-  LZImage* createImage(hipResourceDesc* resDesc,
-                       hipTextureDesc* texDesc) override;
-
-  // Create HIP texture object
-  virtual hipTextureObject_t createTextureObject(
-      const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
-      const struct hipResourceViewDesc* pResViewDesc);
-
-  // Destroy HIP texture object
-  virtual bool destroyTextureObject(hipTextureObject_t textureObject);
 
 };  // CHIPContextLevel0
 
@@ -147,6 +116,10 @@ class CHIPDeviceLevel0 : public CHIPDevice {
 
   virtual void addQueue(unsigned int flags, int priority) override;
   ze_device_properties_t* getDeviceProps() { return &(this->ze_device_props); };
+  virtual CHIPTexture* createTexture(hipResourceDesc* resDesc,
+                                     hipTextureDesc* texDesc) override {
+    UNIMPLEMENTED(nullptr);
+  }
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
@@ -314,7 +287,7 @@ class CHIPEventLevel0 : public CHIPEvent {
 };
 
 // The struct that accomodate the L0/Hip texture object's content
-class LZTextureObject {
+class LZTextureObject : public CHIPTexture {
  public:
   intptr_t image;
   intptr_t sampler;
@@ -323,12 +296,16 @@ class LZTextureObject {
 
   // The factory function for creating the LZ texture object
   static LZTextureObject* CreateTextureObject(
-      CHIPContextLevel0* lzCtx, const hipResourceDesc* pResDesc,
+      CHIPQueueLevel0* queue, const hipResourceDesc* pResDesc,
       const hipTextureDesc* pTexDesc,
-      const struct hipResourceViewDesc* pResViewDesc);
+      const struct hipResourceViewDesc* pResViewDesc) {
+    UNIMPLEMENTED(nullptr);
+  };
 
   // Destroy the HIP texture object
-  static bool DestroyTextureObject(LZTextureObject* texObj);
+  static bool DestroyTextureObject(LZTextureObject* texObj) {
+    UNIMPLEMENTED(true);
+  }
 
  protected:
   // The factory function for create the LZ image object
@@ -336,20 +313,26 @@ class LZTextureObject {
                           const hipResourceDesc* pResDesc,
                           const hipTextureDesc* pTexDesc,
                           const struct hipResourceViewDesc* pResViewDesc,
-                          ze_image_handle_t* handle);
+                          ze_image_handle_t* handle) {
+    UNIMPLEMENTED(true);
+  }
 
   // Destroy the LZ image object
-  static bool DestroyImage(ze_image_handle_t handle);
+  static bool DestroyImage(ze_image_handle_t handle) { UNIMPLEMENTED(true); }
 
   // The factory function for create the LZ sampler object
   static bool CreateSampler(CHIPContextLevel0* lzCtx,
                             const hipResourceDesc* pResDesc,
                             const hipTextureDesc* pTexDesc,
                             const struct hipResourceViewDesc* pResViewDesc,
-                            ze_sampler_handle_t* handle);
+                            ze_sampler_handle_t* handle) {
+    UNIMPLEMENTED(true);
+  }
 
   // Destroy the LZ sampler object
-  static bool DestroySampler(ze_sampler_handle_t handle);
+  static bool DestroySampler(ze_sampler_handle_t handle) {
+    UNIMPLEMENTED(true);
+  }
 };
 
 #endif
