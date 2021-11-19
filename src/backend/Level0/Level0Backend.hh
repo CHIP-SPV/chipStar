@@ -308,7 +308,63 @@ class CHIPTextureLevel0 : public CHIPTexture {
       CHIPDeviceLevel0* chip_dev, const hipResourceDesc* pResDesc,
       const hipTextureDesc* pTexDesc,
       const struct hipResourceViewDesc* pResViewDesc) {
-    UNIMPLEMENTED(nullptr);
+    if (pResDesc->resType != hipResourceTypeArray) {
+      CHIPERR_LOG_AND_THROW("HipLZ only support hipArray as image storage",
+                            hipErrorTbd);
+    }
+
+    hipArray* hipArr = pResDesc->res.array.array;
+    hipChannelFormatDesc channelDesc = hipArr->desc;
+
+    ze_image_format_layout_t format_layout = ZE_IMAGE_FORMAT_LAYOUT_32;
+    if (channelDesc.x == 8) {
+      format_layout = ZE_IMAGE_FORMAT_LAYOUT_8;
+    } else if (channelDesc.x == 16) {
+      format_layout = ZE_IMAGE_FORMAT_LAYOUT_16;
+    } else if (channelDesc.x == 32) {
+      format_layout = ZE_IMAGE_FORMAT_LAYOUT_32;
+    } else {
+      CHIPERR_LOG_AND_THROW("hipChannelFormatDesc value is out of the scope",
+                            hipErrorTbd);
+    }
+
+    ze_image_format_type_t format_type = ZE_IMAGE_FORMAT_TYPE_FLOAT;
+    if (channelDesc.f == hipChannelFormatKindSigned) {
+      format_type = ZE_IMAGE_FORMAT_TYPE_SINT;
+    } else if (channelDesc.f == hipChannelFormatKindUnsigned) {
+      format_type = ZE_IMAGE_FORMAT_TYPE_UINT;
+    } else if (channelDesc.f == hipChannelFormatKindFloat) {
+      format_type = ZE_IMAGE_FORMAT_TYPE_FLOAT;
+    } else if (channelDesc.f == hipChannelFormatKindNone) {
+      format_type = ZE_IMAGE_FORMAT_TYPE_FORCE_UINT32;
+    } else {
+      CHIPERR_LOG_AND_THROW("hipChannelFormatDesc value is out of the scope",
+                            hipErrorTbd);
+    }
+
+    ze_image_format_t format = {format_layout,
+                                format_type,
+                                ZE_IMAGE_FORMAT_SWIZZLE_R,
+                                ZE_IMAGE_FORMAT_SWIZZLE_0,
+                                ZE_IMAGE_FORMAT_SWIZZLE_0,
+                                ZE_IMAGE_FORMAT_SWIZZLE_1};
+
+    ze_image_type_t image_type = ZE_IMAGE_TYPE_2D;
+
+    ze_image_desc_t imageDesc = {ZE_STRUCTURE_TYPE_IMAGE_DESC, nullptr,
+                                 0,  // read-only
+                                 image_type, format,
+                                 // 128, 128, 0, 0, 0
+                                 hipArr->width, hipArr->height, 0, 0, 0};
+
+    // Create LZ image handle
+    CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_dev->getContext();
+    ze_image_handle_t* image = new ze_image_handle_t();
+    ze_result_t status =
+        zeImageCreate(chip_ctx_lz->get(), chip_dev->get(), &imageDesc, image);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    return image;
   }
 
   // Destroy the LZ image object
