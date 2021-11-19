@@ -375,7 +375,42 @@ class CHIPTextureLevel0 : public CHIPTexture {
       CHIPDeviceLevel0* chip_dev, const hipResourceDesc* pResDesc,
       const hipTextureDesc* pTexDesc,
       const struct hipResourceViewDesc* pResViewDesc) {
-    UNIMPLEMENTED(nullptr);
+    // Identify the address mode
+    ze_sampler_address_mode_t addressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
+    if (pTexDesc->addressMode[0] == hipAddressModeWrap)
+      addressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
+    else if (pTexDesc->addressMode[0] == hipAddressModeClamp)
+      addressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP;
+    else if (pTexDesc->addressMode[0] == hipAddressModeMirror)
+      addressMode = ZE_SAMPLER_ADDRESS_MODE_MIRROR;
+    else if (pTexDesc->addressMode[0] == hipAddressModeBorder)
+      addressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+
+    // Identify the filter mode
+    ze_sampler_filter_mode_t filterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
+    if (pTexDesc->filterMode == hipFilterModePoint)
+      filterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
+    else if (pTexDesc->filterMode == hipFilterModeLinear)
+      filterMode = ZE_SAMPLER_FILTER_MODE_LINEAR;
+
+    // Identify the normalization
+    ze_bool_t isNormalized = 0;
+    if (pTexDesc->normalizedCoords == 0)
+      isNormalized = 0;
+    else
+      isNormalized = 1;
+
+    ze_sampler_desc_t samplerDesc = {ZE_STRUCTURE_TYPE_SAMPLER_DESC, nullptr,
+                                     addressMode, filterMode, isNormalized};
+
+    // Create LZ samler handle
+    CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_dev->getContext();
+    ze_sampler_handle_t* sampler = new ze_sampler_handle_t();
+    ze_result_t status = zeSamplerCreate(chip_ctx_lz->get(), chip_dev->get(),
+                                         &samplerDesc, sampler);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    return sampler;
   }
 
   // Destroy the LZ sampler object
