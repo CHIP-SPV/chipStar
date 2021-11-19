@@ -111,6 +111,10 @@ class CHIPDeviceOpenCL : public CHIPDevice {
       const hipResourceDesc *pResDesc, const hipTextureDesc *pTexDesc,
       const struct hipResourceViewDesc *pResViewDesc) override {
     UNIMPLEMENTED(nullptr);
+  }
+
+  virtual void destroyTexture(hipTextureObject_t textureObject) override {
+    UNIMPLEMENTED();
   };
 };
 

@@ -118,6 +118,8 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   virtual CHIPTexture* createTexture(
       const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
       const struct hipResourceViewDesc* pResViewDesc) override;
+
+  virtual void destroyTexture(hipTextureObject_t textureObject) override{};
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {

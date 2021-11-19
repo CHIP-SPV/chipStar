@@ -1713,6 +1713,15 @@ hipError_t hipCreateTextureObject(
   CHIP_CATCH
 }
 
+hipError_t hipDestroyTextureObject(hipTextureObject_t textureObject) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  Backend->getActiveDevice()->destroyTexture(textureObject);
+  RETURN(hipSuccess);
+  CHIP_CATCH
+}
+
 hipError_t hipModuleLoad(hipModule_t *module, const char *fname) {
   CHIP_TRY
   CHIPInitialize();

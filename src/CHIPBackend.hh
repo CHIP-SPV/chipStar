@@ -842,16 +842,11 @@ class CHIPDevice {
 
   virtual CHIPModule* addModule(std::string* module_str) = 0;
 
-  /**
-   * @brief Create a Image objct
-   *
-   * @param resDesc
-   * @param texDesc
-   * @return CHIPTexture*
-   */
   virtual CHIPTexture* createTexture(
       const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
       const struct hipResourceViewDesc* pResViewDesc) = 0;
+
+  virtual void destroyTexture(hipTextureObject_t textureObject) = 0;
 };
 
 /**
