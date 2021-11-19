@@ -368,7 +368,13 @@ class CHIPTextureLevel0 : public CHIPTexture {
   }
 
   // Destroy the LZ image object
-  static bool DestroyImage(ze_image_handle_t handle) { UNIMPLEMENTED(true); }
+  static bool DestroyImage(ze_image_handle_t handle) {
+    // Destroy LZ image handle
+    ze_result_t status = zeImageDestroy(handle);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    return true;
+  }
 
   // The factory function for create the LZ sampler object
   static ze_sampler_handle_t* createSampler(
