@@ -1696,16 +1696,17 @@ hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
   CHIP_CATCH
 }
 
-hipError_t hipCreateTextureObject(hipTextureObject_t *texObj,
-                                  hipResourceDesc *resDesc,
-                                  hipTextureDesc *texDesc, void *opt) {
+hipError_t hipCreateTextureObject(
+    hipTextureObject_t *pTexObject, const hipResourceDesc *pResDesc,
+    const hipTextureDesc *pTexDesc,
+    const struct hipResourceViewDesc *pResViewDesc) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPTexture *chip_texture =
-      Backend->getActiveDevice()->createTexture(resDesc, texDesc);
+  CHIPTexture *chip_texture = Backend->getActiveDevice()->createTexture(
+      pResDesc, pTexDesc, pResViewDesc);
   hipTextureObject_t retObj = chip_texture->get();
   if (retObj != nullptr) {
-    *texObj = retObj;
+    *pTexObject = retObj;
     RETURN(hipSuccess);
   } else
     RETURN(hipErrorLaunchFailure);

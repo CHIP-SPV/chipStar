@@ -337,12 +337,34 @@ void CHIPDeviceLevel0::addQueue(unsigned int flags, int priority) {
   chip_queues.push_back(new CHIPQueueLevel0(this));
 }
 
+CHIPTexture* CHIPDeviceLevel0::createTexture(
+    const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
+    const struct hipResourceViewDesc* pResViewDesc) {
+  ze_image_handle_t imageHandle;
+  ze_sampler_handle_t samplerHandle;
+  auto image =
+      CHIPTextureLevel0::createImage(this, pResDesc, pTexDesc, pResViewDesc);
+  auto sampler =
+      CHIPTextureLevel0::createSampler(this, pResDesc, pTexDesc, pResViewDesc);
+
+  CHIPTextureLevel0* chip_texture =
+      new CHIPTextureLevel0((intptr_t)image, (intptr_t)sampler);
+
+  auto q = (CHIPQueueLevel0*)getActiveQueue();
+  // Check if need to copy data in
+  if (pResDesc->res.array.array != nullptr) {
+    hipArray* hipArr = pResDesc->res.array.array;
+    q->memCopyToTexture(chip_texture, (unsigned char*)hipArr->data);
+  }
+
+  return chip_texture;
+}
+
 // CHIPQueueLevelZero
 // ***********************************************************************
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
     : CHIPQueue(chip_dev_) {
   ze_result_t status;
-  // CHIPContextLevel0* chip_context_lz = (CHIPContextLevel0*)chip_context;
   auto chip_dev_lz = chip_dev_;
   auto ctx = chip_dev_lz->getContext();
   auto chip_context_lz = (CHIPContextLevel0*)ctx;
@@ -482,8 +504,7 @@ void CHIPQueueLevel0::memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
 };
 
 // Memory copy to texture object, i.e. image
-void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src,
-                                       hipStream_t stream) {
+void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src) {
   ze_image_handle_t imageHandle = (ze_image_handle_t)texObj->image;
   ze_result_t status = zeCommandListAppendImageCopyFromMemory(
       ze_cmd_list, imageHandle, src, 0, 0, 0, 0);
@@ -686,28 +707,32 @@ void CHIPExecItem::setupAllArgs() {
          ++i, ++argIdx) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
 
-      // std::cout << "KERNEL ARG SETUP - arg type:  " << (int)ai.type << " and
-      // size " << ai.size
-      //           << " ArgPointer " << (unsigned long)(ArgsPointer[i]) << " and
+      // std::cout << "KERNEL ARG SETUP - arg type:  " << (int)ai.type <<
+      // " and size " << ai.size
+      //           << " ArgPointer " << (unsigned long)(ArgsPointer[i]) <<
+      //           " and
       //           "
       //           << sizeof(intptr_t) << std::endl;
 
       if (ai.type == OCLType::Image) {
-        // // This is the case for Image type, but the actual pointer is for
+        // // This is the case for Image type, but the actual pointer is
+        // for
         // // HipTextureObject
-        // LZTextureObject* texObj =
-        //     (LZTextureObject*)(*((unsigned long*)(ArgsPointer[1])));
+        // CHIPTextureLevel0* texObj =
+        //     (CHIPTextureLevel0*)(*((unsigned long*)(ArgsPointer[1])));
 
         // // Set image part
         // logDebug("setImageArg {} size {}\n", argIdx, ai.size);
         // ze_result_t status = zeKernelSetArgumentValue(
-        //     kernel->GetKernelHandle(), argIdx, ai.size, &(texObj->image));
+        //     kernel->GetKernelHandle(), argIdx, ai.size,
+        //     &(texObj->image));
         // if (status != ZE_RESULT_SUCCESS) {
         //   logDebug("zeKernelSetArgumentValue failed with error {}\n",
         //   status); return CL_INVALID_VALUE;
         // }
         // logDebug(
-        //     "LZ SET IMAGE ARGUMENT VALUE via calling zeKernelSetArgumentValue
+        //     "LZ SET IMAGE ARGUMENT VALUE via calling
+        //     zeKernelSetArgumentValue
         //     "
         //     "{} ",
         //     status);
@@ -716,7 +741,8 @@ void CHIPExecItem::setupAllArgs() {
         // argIdx++;
 
         // logDebug("setImageArg {} size {}\n", argIdx, ai.size);
-        // status = zeKernelSetArgumentValue(kernel->GetKernelHandle(), argIdx,
+        // status = zeKernelSetArgumentValue(kernel->GetKernelHandle(),
+        // argIdx,
         //                                   ai.size, &(texObj->sampler));
         // if (status != ZE_RESULT_SUCCESS) {
         //   logDebug("zeKernelSetArgumentValue failed with error {}\n",
@@ -733,7 +759,8 @@ void CHIPExecItem::setupAllArgs() {
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
         logDebug(
-            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
+            "{} ",
             status);
       }
     }
@@ -788,7 +815,8 @@ void CHIPExecItem::setupAllArgs() {
                                     "zeKernelSetArgumentValue failed");
 
         logDebug(
-            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
+            "{} ",
             status);
       } else {
         size_t size = std::get<1>(offset_sizes[i]);
@@ -802,18 +830,21 @@ void CHIPExecItem::setupAllArgs() {
                                     "zeKernelSetArgumentValue failed");
 
         logDebug(
-            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue {} ",
+            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
+            "{} ",
             status);
       }
     }
   }
 
-  // Setup the kernel argument's value related to dynamically sized share memory
+  // Setup the kernel argument's value related to dynamically sized share
+  // memory
   if (NumLocals == 1) {
     ze_result_t status = zeKernelSetArgumentValue(
         kernel->get(), FuncInfo->ArgTypeInfo.size() - 1, shared_mem, nullptr);
     logDebug(
-        "LZ set dynamically sized share memory related argument via calling "
+        "LZ set dynamically sized share memory related argument via "
+        "calling "
         "zeKernelSetArgumentValue {} ",
         status);
   }

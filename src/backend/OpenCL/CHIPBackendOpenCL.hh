@@ -107,8 +107,9 @@ class CHIPDeviceOpenCL : public CHIPDevice {
   }
 
   virtual void addQueue(unsigned int flags, int priority) override;
-  virtual CHIPTexture *createTexture(hipResourceDesc *resDesc,
-                                     hipTextureDesc *texDesc) override {
+  virtual CHIPTexture *createTexture(
+      const hipResourceDesc *pResDesc, const hipTextureDesc *pTexDesc,
+      const struct hipResourceViewDesc *pResViewDesc) override {
     UNIMPLEMENTED(nullptr);
   };
 };
@@ -147,8 +148,7 @@ class CHIPQueueOpenCL : public CHIPQueue {
                               size_t depth) override;
 
   // Memory copy to texture object, i.e. image
-  virtual void memCopyToTexture(CHIPTexture *texObj, void *src,
-                                hipStream_t stream) override;
+  virtual void memCopyToTexture(CHIPTexture *texObj, void *src) override;
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {

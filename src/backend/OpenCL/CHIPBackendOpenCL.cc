@@ -325,8 +325,7 @@ void CHIPQueueOpenCL::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
 };
 
 // Memory copy to texture object, i.e. image
-void CHIPQueueOpenCL::memCopyToTexture(CHIPTexture *texObj, void *src,
-                                       hipStream_t stream) {
+void CHIPQueueOpenCL::memCopyToTexture(CHIPTexture *texObj, void *src) {
   UNIMPLEMENTED();
 };
 

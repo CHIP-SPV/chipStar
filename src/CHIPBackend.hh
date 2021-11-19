@@ -34,12 +34,17 @@
 #include "CHIPException.hh"
 
 class CHIPTexture {
+ protected:
+  // delete default constructor since texture needs both image and sampler
+  CHIPTexture() = delete;
+
+  CHIPTexture(intptr_t image_, intptr_t sampler_)
+      : image(image_), sampler(sampler_) {}
+
  public:
   intptr_t image;
   intptr_t sampler;
-
   hipTextureObject_t tex_obj;
-
   hipTextureObject_t get() { return tex_obj; }
 };
 
@@ -844,8 +849,9 @@ class CHIPDevice {
    * @param texDesc
    * @return CHIPTexture*
    */
-  virtual CHIPTexture* createTexture(hipResourceDesc* resDesc,
-                                   hipTextureDesc* texDesc) = 0;
+  virtual CHIPTexture* createTexture(
+      const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
+      const struct hipResourceViewDesc* pResViewDesc) = 0;
 };
 
 /**
@@ -1380,8 +1386,7 @@ class CHIPQueue {
                               size_t width, size_t height, size_t depth) = 0;
 
   // Memory copy to texture object, i.e. image
-  virtual void memCopyToTexture(CHIPTexture* texObj, void* src,
-                                hipStream_t stream) = 0;
+  virtual void memCopyToTexture(CHIPTexture* texObj, void* src) = 0;
   /**
    * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
    * needs to be complete - contain the kernel and arguments
