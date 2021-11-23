@@ -149,8 +149,9 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
                                 "Failed to fetch OpenCL kernel name");
     int found_func_info = func_infos.count(host_f_name);
     if (found_func_info == 0) {
-      CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
-                            hipErrorInitializationError);
+      continue;  // TODO
+      // CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+      //                      hipErrorInitializationError);
     }
     auto func_info = func_infos[host_f_name];
     CHIPKernelOpenCL *chip_kernel =

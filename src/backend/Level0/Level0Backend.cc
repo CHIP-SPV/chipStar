@@ -663,8 +663,11 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
     logDebug("Registering kernel {}", host_f_name);
     int found_func_info = func_infos.count(host_f_name);
     if (found_func_info == 0) {
-      CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
-                            hipErrorInitializationError);
+      // TODO: __syncthreads() gets turned into Intel_Symbol_Table_Void_Program
+      // This is a call to OCML so it shouldn't be turned into a CHIPKernel
+      continue;
+      // CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+      //                      hipErrorInitializationError);
     }
     auto func_info = func_infos[host_f_name];
     // Create kernel
