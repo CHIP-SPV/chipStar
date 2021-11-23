@@ -1,11 +1,11 @@
 # Build LLVM-PASSES 
 set(LLVM_DIR "" CACHE PATH "Path to LLVM Instal with SPIR-V patches")
 if(LLVM_DIR STREQUAL "") 
-  message(FATAL_ERROR "LLVM_DIR must be set")
+  message(STATUS "LLVM_DIR is not set. Setting LLVM_DIR to compiler bin directory.")
+  get_filename_component(LLVM_DIR "${CMAKE_CXX_COMPILER}../" DIRECTORY)
 endif()
 
 message(STATUS "Using Clang: ${CMAKE_CXX_COMPILER}")
-get_filename_component(LLVM_DIR "${CMAKE_CXX_COMPILER}../" DIRECTORY)
 get_filename_component(CLANG_BIN_PATH "${CMAKE_CXX_COMPILER}" DIRECTORY)
 message(STATUS "Using LLVM Install: ${LLVM_DIR}")
 

@@ -21,7 +21,6 @@ option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program start
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" OFF)
 #option_str(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
-option_str(LLVM_DIR "Path to LLVM Install")
 
 # Find kernellib.bc and HIP SPIRV LLVM passes
 #if("${HIP_SPIRV_DIR}" STREQUAL "")
