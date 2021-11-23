@@ -12,19 +12,22 @@ project(CHIP-SPV
         VERSION 0.1.0
         DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
         LANGUAGES C CXX)
+include(cmake/chip_spv_cmake_macros.cmake)
 
+# Cmake options that can be passed in by the user
 option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" OFF)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" OFF)
-set(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
+#option_str(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
 # Find kernellib.bc and HIP SPIRV LLVM passes
-if("${HIP_SPIRV_DIR}" STREQUAL "")
-  message(FATAL_ERROR "You must set pass -DHIP_SPIRV_DIR=... ")
-endif()
-message("\n\nUsing HIP_SPIRV_DIR=${HIP_SPIRV_DIR}\n\n")
+#if("${HIP_SPIRV_DIR}" STREQUAL "")
+#  message(FATAL_ERROR "You must set pass -DHIP_SPIRV_DIR=... ")
+#endif()
+#message("\n\nUsing HIP_SPIRV_DIR=${HIP_SPIRV_DIR}\n\n")
+
 set(HIP_PLATFORM spirv)
 set(HIP_COMPILER clang)
 
@@ -49,29 +52,14 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
-
- if(UNIX AND ((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")))
+# Compiler CHECK
+ if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
      message(FATAL_ERROR "this project requires clang >= 8.0")
    endif()
  else()
    message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()
-
-# Find library in LD_LIBRARY_PATH
-macro(find_library_dynamic libname)
-  message(STATUS "\nSearching for ${libname}")
-  find_library(${libname}_LIBRARY
-    NAMES ${libname}
-    PATHS ENV LD_LIBRARY_PATH
-  )
-  if(${${libname}_LIBRARY} STREQUAL ${libname}_LIBRARY-NOTFOUND)
-    message(FATAL_ERROR "${libname} library not found in LD_LIBRARY_PATH")
-  else()
-    message(STATUS "Found: ${${libname}_LIBRARY}\n")
-    list(APPEND CHIP-SPV_LIBRARIES ${${libname}_LIBRARY})
-  endif()
-endmacro()
 
 if (NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
@@ -128,6 +116,9 @@ target_include_directories(driver PRIVATE HIP/include)
 target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${CHIP-SPV_LIBRARIES})
 
 add_subdirectory(./samples samples)
+
+include(./cmake/FindLLVM.cmake)
+add_subdirectory(./llvm_passes)
 
 install(TARGETS CHIP
         EXPORT CHIPTargets
