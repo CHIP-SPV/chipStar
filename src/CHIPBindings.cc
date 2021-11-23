@@ -1716,8 +1716,9 @@ hipError_t hipCreateTextureObject(
 hipError_t hipDestroyTextureObject(hipTextureObject_t textureObject) {
   CHIP_TRY
   CHIPInitialize();
-
-  Backend->getActiveDevice()->destroyTexture(textureObject);
+  // TODO CRITCAL look into the define for hipTextureObject_t
+  CHIPTexture *chip_texture = (CHIPTexture *)&textureObject;
+  Backend->getActiveDevice()->destroyTexture(chip_texture);
   RETURN(hipSuccess);
   CHIP_CATCH
 }

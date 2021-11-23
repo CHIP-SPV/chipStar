@@ -113,7 +113,7 @@ class CHIPDeviceOpenCL : public CHIPDevice {
     UNIMPLEMENTED(nullptr);
   }
 
-  virtual void destroyTexture(hipTextureObject_t textureObject) override {
+  virtual void destroyTexture(CHIPTexture *textureObject) override {
     UNIMPLEMENTED();
   };
 };

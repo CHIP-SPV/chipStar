@@ -846,7 +846,7 @@ class CHIPDevice {
       const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
       const struct hipResourceViewDesc* pResViewDesc) = 0;
 
-  virtual void destroyTexture(hipTextureObject_t textureObject) = 0;
+  virtual void destroyTexture(CHIPTexture* textureObject) = 0;
 };
 
 /**
