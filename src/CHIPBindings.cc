@@ -1227,8 +1227,8 @@ hipError_t hipMemcpyAsync(void *dst, const void *src, size_t sizeBytes,
                           hipMemcpyKind kind, hipStream_t stream) {
   CHIP_TRY
   CHIPInitialize();
-  if (!stream) stream = Backend->getActiveQueue();
   auto q = Backend->findQueue(stream);
+  if (!q) q = Backend->getActiveQueue();
 
   /*
   if ((kind == hipMemcpyDeviceToDevice) || (kind == hipMemcpyDeviceToHost)) {
@@ -1717,6 +1717,8 @@ hipError_t hipDestroyTextureObject(hipTextureObject_t textureObject) {
   CHIP_TRY
   CHIPInitialize();
   // TODO CRITCAL look into the define for hipTextureObject_t
+  if (textureObject == nullptr)
+    CHIPERR_LOG_AND_THROW("hipTextureObject_t is null", hipErrorTbd);
   CHIPTexture *chip_texture = (CHIPTexture *)&textureObject;
   Backend->getActiveDevice()->destroyTexture(chip_texture);
   RETURN(hipSuccess);

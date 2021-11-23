@@ -968,7 +968,7 @@ bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) { UNIMPLEMENTED(true); }
 bool CHIPQueue::query() { UNIMPLEMENTED(true); }
 void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
                         size_t pattern_size) {
-  memFill(dst, size, pattern, pattern_size);
+  memFillAsync(dst, size, pattern, pattern_size);
   finish();
 }
 void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,

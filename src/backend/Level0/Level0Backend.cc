@@ -644,7 +644,6 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   status = zeModuleBuildLogGetString(log, &log_size, log_str);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logDebug("ZE Build Log: {}", std::string(log_str).c_str());
-  std::cout << log_str << std::endl;
   if (status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
     CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
                           hipErrorUnknown);
@@ -662,9 +661,6 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   for (int i = 0; i < kernel_count; i++) {
     std::string host_f_name = kernel_names[i];
     logDebug("Registering kernel {}", host_f_name);
-    for (auto f_info : func_infos) {
-      std::cout << f_info.first << " " << f_info.second << "\n";
-    }
     int found_func_info = func_infos.count(host_f_name);
     if (found_func_info == 0) {
       CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
@@ -715,6 +711,7 @@ void CHIPExecItem::setupAllArgs() {
       //           << sizeof(intptr_t) << std::endl;
 
       if (ai.type == OCLType::Image) {
+        UNIMPLEMENTED()
         // // This is the case for Image type, but the actual pointer is
         // for
         // // HipTextureObject
@@ -856,12 +853,17 @@ ze_image_handle_t* CHIPTextureLevel0::createImage(
     CHIPDeviceLevel0* chip_dev, const hipResourceDesc* pResDesc,
     const hipTextureDesc* pTexDesc,
     const struct hipResourceViewDesc* pResViewDesc) {
+  if (!pResDesc)
+    CHIPERR_LOG_AND_THROW("Resource descriptor is null", hipErrorTbd);
   if (pResDesc->resType != hipResourceTypeArray) {
     CHIPERR_LOG_AND_THROW("HipLZ only support hipArray as image storage",
                           hipErrorTbd);
   }
 
   hipArray* hipArr = pResDesc->res.array.array;
+  if (!hipArr)
+    CHIPERR_LOG_AND_THROW("hipResourceViewDesc result array is null",
+                          hipErrorTbd);
   hipChannelFormatDesc channelDesc = hipArr->desc;
 
   ze_image_format_layout_t format_layout = ZE_IMAGE_FORMAT_LAYOUT_32;
