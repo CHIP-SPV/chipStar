@@ -703,62 +703,29 @@ void CHIPExecItem::setupAllArgs() {
          ++i, ++argIdx) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
 
-      // std::cout << "KERNEL ARG SETUP - arg type:  " << (int)ai.type <<
-      // " and size " << ai.size
-      //           << " ArgPointer " << (unsigned long)(ArgsPointer[i]) <<
-      //           " and
-      //           "
-      //           << sizeof(intptr_t) << std::endl;
-
       if (ai.type == OCLType::Image) {
-        UNIMPLEMENTED()
-        // // This is the case for Image type, but the actual pointer is
-        // for
-        // // HipTextureObject
-        // CHIPTextureLevel0* texObj =
-        //     (CHIPTextureLevel0*)(*((unsigned long*)(ArgsPointer[1])));
+        CHIPTextureLevel0* texObj =
+            (CHIPTextureLevel0*)(*((unsigned long*)(ArgsPointer[1])));
 
-        // // Set image part
-        // logDebug("setImageArg {} size {}\n", argIdx, ai.size);
-        // ze_result_t status = zeKernelSetArgumentValue(
-        //     kernel->GetKernelHandle(), argIdx, ai.size,
-        //     &(texObj->image));
-        // if (status != ZE_RESULT_SUCCESS) {
-        //   logDebug("zeKernelSetArgumentValue failed with error {}\n",
-        //   status); return CL_INVALID_VALUE;
-        // }
-        // logDebug(
-        //     "LZ SET IMAGE ARGUMENT VALUE via calling
-        //     zeKernelSetArgumentValue
-        //     "
-        //     "{} ",
-        //     status);
+        // Set image part
+        logDebug("setImageArg {} size {}\n", argIdx, ai.size);
+        ze_result_t status = zeKernelSetArgumentValue(
+            kernel->get(), argIdx, ai.size, &(texObj->image));
+        CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-        // // Set sampler part
-        // argIdx++;
+        // Set sampler part
+        argIdx++;
 
-        // logDebug("setImageArg {} size {}\n", argIdx, ai.size);
-        // status = zeKernelSetArgumentValue(kernel->GetKernelHandle(),
-        // argIdx,
-        //                                   ai.size, &(texObj->sampler));
-        // if (status != ZE_RESULT_SUCCESS) {
-        //   logDebug("zeKernelSetArgumentValue failed with error {}\n",
-        //   status); return CL_INVALID_VALUE;
-        // }
-        // logDebug(
-        //     "LZ SET SAMPLER ARGUMENT VALUE via calling "
-        //     "zeKernelSetArgumentValue {} ",
-        //     status);
+        logDebug("setImageArg {} size {}\n", argIdx, ai.size);
+        status = zeKernelSetArgumentValue(kernel->get(), argIdx, ai.size,
+                                          &(texObj->sampler));
+        CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
       } else {
         logDebug("setArg {} size {}\n", argIdx, ai.size);
         ze_result_t status = zeKernelSetArgumentValue(kernel->get(), argIdx,
                                                       ai.size, ArgsPointer[i]);
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
-        logDebug(
-            "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
-            "{} ",
-            status);
       }
     }
   } else {
