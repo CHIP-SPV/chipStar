@@ -32,15 +32,15 @@ add_library(LLVMHipDynMem MODULE HipDynMem.cpp)
 add_library(LLVMHipStripCompilerUsed MODULE HipStripCompilerUsed.cpp)
 add_library(LLVMHipTexture MODULE HipTexture.cpp)
 install(TARGETS LLVMHipDynMem LLVMHipStripCompilerUsed LLVMHipTexture
-        LIBRARY DESTINATION "${LLVM_DIR}"
-        ARCHIVE DESTINATION "${LLVM_DIR}"
+        LIBRARY DESTINATION lib/llvm
+        ARCHIVE DESTINATION lib/llvm
         )
 
 if(DEFINED LLVM_VERSION_MAJOR AND "${LLVM_VERSION_MAJOR}" VERSION_GREATER 9)
   add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
   install(TARGETS LLVMHipDefrost
-          LIBRARY DESTINATION "${LLVM_DIR}"
-          ARCHIVE DESTINATION "${LLVM_DIR}"
+          LIBRARY DESTINATION lib/llvm
+          ARCHIVE DESTINATION lib/llvm
           )
 endif()
 
@@ -49,7 +49,7 @@ if(DEFINED LLVM_VERSION_MAJOR AND "${LLVM_VERSION_MAJOR}" VERSION_GREATER 10)
               HipDynMem.cpp HipStripCompilerUsed.cpp HipTexture.cpp HipDefrost.cpp)
 
   install(TARGETS LLVMHipPasses
-          LIBRARY DESTINATION "${LLVM_DIR}"
-          ARCHIVE DESTINATION "${LLVM_DIR}"
+          LIBRARY DESTINATION lib/llvm
+          ARCHIVE DESTINATION lib/llvm
           )
 endif()

@@ -89,12 +89,12 @@ message(STATUS "\n\nCHIP-SPV_LIBRARIES=${CHIP-SPV_LIBRARIES}\n\n")
 if (BUILD_SHARED_LIBS)
   message(STATUS "Buiding CHIP-SPV as a shared library")
   add_library(CHIP SHARED ${CHIP_SRC})
+  set(CHIP_LIB_NAME "libCHIP.so")
 else()
   message(STATUS "Buiding CHIP-SPV as a shared library")
   add_library(CHIP STATIC ${CHIP_SRC})
+  set(CHIP_LIB_NAME "libCHIP.a")
 endif()
-get_target_property(CHIP_LIB_NAME CHIP LIBRARY_OUTPUT_NAME)
-
 
 set(HIP_PATH HIP)
 set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIP_SPIRV_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm  )
@@ -117,8 +117,9 @@ target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LI
 
 add_subdirectory(./samples samples)
 
-include(./cmake/FindLLVM.cmake)
-add_subdirectory(./llvm_passes)
+include(cmake/FindLLVM.cmake)
+add_subdirectory(llvm_passes)
+add_subdirectory(bitcode)
 
 install(TARGETS CHIP
         EXPORT CHIPTargets
