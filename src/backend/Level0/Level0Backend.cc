@@ -84,6 +84,7 @@ hipError_t CHIPQueueLevel0::memCopyAsync(void* dst, const void* src,
   return hipSuccess;
 }
 
+// TODO remove this since it's implemented the same way in CHIP-SPV
 hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
   logTrace("CHIPQueueLevel0::memCopy");
   hipError_t res = memCopyAsync(dst, src, size);

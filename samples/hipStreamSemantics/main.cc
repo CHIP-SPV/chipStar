@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 
 #define CHECK(cmd)                                                            \
   {                                                                           \
@@ -15,20 +16,16 @@
     }                                                                         \
   }
 
-#define LEN 512
-#define SIZE LEN << 4
-
-#define SINCOS_N 32
-
-#define ATOM_ADD 8192
-#define ATOM_ADD_S "8192"
-#define MIN_VAL 1923
-#define MIN_VAL_S "1923"
+__global__ void addOne(int *__restrict A) {
+  const uint i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+  A[i] = A[i] + 1;
+}
 
 int main() {
-  float *Ind, *Inh;
-  float *Buf1Outd, *Buf1Outh;
-  float *Buf2Outd, *Buf2Outh;
+  int numBlocks = 5120000;
+  int dimBlocks = 32;
+  const size_t NUM = numBlocks * dimBlocks;
+  int *A_h, *A_d, *Ref;
 
   static int device = 0;
   CHECK(hipSetDevice(device));
@@ -36,29 +33,35 @@ int main() {
   CHECK(hipGetDeviceProperties(&props, device /*deviceID*/));
   printf("info: running on device %s\n", props.name);
 
-  Inh = (float *)malloc(SIZE);
-  CHECK(Inh == 0 ? hipErrorMemoryAllocation : hipSuccess);
-  Buf1Outh = (float *)malloc(SIZE);
-  CHECK(Buf1Outh == 0 ? hipErrorMemoryAllocation : hipSuccess);
-  Buf2Outh = (float *)malloc(SIZE);
-  CHECK(Buf2Outh == 0 ? hipErrorMemoryAllocation : hipSuccess);
-
-  hipMalloc((void **)&Ind, SIZE);
-  hipMalloc((void **)&Buf1Outd, SIZE);
-  hipMalloc((void **)&Buf2Outd, SIZE);
-
+  A_h = (int *)calloc(NUM, sizeof(int));
+  CHECK(hipMalloc((void **)&A_d, NUM * sizeof(int)));
   printf("info: copy Host2Device\n");
-  CHECK(hipMemcpy(Ind, Inh, SIZE, hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(A_d, A_d, NUM * sizeof(int), hipMemcpyHostToDevice));
 
-  hipLaunchKernelGGL(floatMath, dim3(1, 1, 1), dim3(1, 1, 1), 0, 0, Ind,
-                     Buf1Outd, Buf2Outd);
+  hipStream_t q;
+  uint32_t flags = hipStreamNonBlocking;
+  CHECK(hipStreamCreateWithFlags(&q, flags));
 
-  printf("info: copy Device2Host\n");
-  CHECK(hipMemcpy(Inh, Ind, SIZE, hipMemcpyDeviceToHost));
+  size_t sharedMem = 0;
+  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
+                     A_d);
+  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
+                     A_d);
+  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
+                     A_d);
+  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
+                     A_d);
+  hipMemcpy(A_h, A_d, NUM * sizeof(int), hipMemcpyDeviceToHost);
 
-  printf("info: copy Device2Host\n");
-  CHECK(hipMemcpy(Buf1Outh, Buf1Outd, SIZE, hipMemcpyDeviceToHost));
+  bool pass = true;
+  int num_errors = 0;
+  for (int i = 0; i < NUM; i++) {
+    if (A_h[i] != 4) {
+      pass = false;
+      num_errors++;
+    }
+  }
 
-  printf("info: copy Device2Host\n");
-  CHECK(hipMemcpy(Buf2Outh, Buf2Outd, SIZE, hipMemcpyDeviceToHost));
+  std::cout << "Num Errors: " << num_errors << std::endl;
+  std::cout << (pass ? "PASS" : "FAIL") << std::endl;
 }
