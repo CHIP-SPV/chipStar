@@ -1293,6 +1293,10 @@ class CHIPQueue {
   CHIPContext* chip_context;
 
  public:
+  /** Keep track of what was the last event submitted to this queue. Required
+   * for enforcing proper queue syncronization as per HIP/CUDA API. */
+  CHIPEvent* LastEvent;
+
   /**
    * @brief Construct a new CHIPQueue object
    *
