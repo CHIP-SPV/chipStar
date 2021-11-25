@@ -669,7 +669,13 @@ CHIPEvent *createEvent(unsigned flags) {
 //*************************************************************************************
 
 CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
-CHIPBackend::~CHIPBackend(){};
+CHIPBackend::~CHIPBackend() {
+  logDebug("CHIPBackend Destructor. Deleting all pointers.");
+  chip_execstack.empty();
+  for (auto &ctx : chip_contexts) delete ctx;
+  for (auto &q : chip_queues) delete q;
+  for (auto &mod : modules_str) delete mod;
+}
 
 void CHIPBackend::initialize(std::string platform_str,
                              std::string device_type_str,
@@ -759,7 +765,10 @@ void CHIPBackend::unregisterModuleStr(std::string *mod_str) {
 hipError_t CHIPBackend::configureCall(dim3 grid, dim3 block, size_t shared,
                                       hipStream_t q) {
   std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("CHIPBackend->configureCall()");
+  logTrace(
+      "CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
+      "shared={}, q={}",
+      grid.x, grid.y, grid.z, block.x, block.y, block.z, shared, (void *)q);
   if (q == nullptr) q = getActiveQueue();
   CHIPExecItem *ex = new CHIPExecItem(grid, block, shared, q);
   chip_execstack.push(ex);

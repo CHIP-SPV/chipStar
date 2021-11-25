@@ -31,7 +31,7 @@
 #include <random>
 
 #include <hip/hip_runtime.h>
-#include <hip/hip_fp16.h>
+//#include <hip/hip_fp16.h>
 
 #include "fp16_conversion.hpp"
 
@@ -75,19 +75,17 @@ __global__ void haxpy(half a, const half *x, half *y) {
 __global__ void haxpy_v2(half a, const half *x, half *y, const int n) {
   int cout = n >> 1;
   int i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-  if (i < cout ) {
-    const half2 *vx = (const half2*)(x) + i;
+  if (i < cout) {
+    const half2 *vx = (const half2 *)(x) + i;
     const half2 va = {a, a};
-    half2* vy = (half2*)(y) + i;
+    half2 *vy = (half2 *)(y) + i;
     *vy = *vx * va;
   }
 }
 
-
 #define SEED 923874103841
 
 int main(void) {
-
   const int n = 33554432;
   const int blockSize = 128;
   const int nBlocks = n / blockSize;
@@ -117,7 +115,8 @@ int main(void) {
   checkCuda(hipMemcpy(y, d_y, n * sizeof(half), hipMemcpyDeviceToHost));
   check(x, y, n);
 
-  hipLaunchKernelGGL(haxpy_v2, dim3(nBlocks), dim3(blockSize), 0, 0, a, d_x, d_y, n);
+  hipLaunchKernelGGL(haxpy_v2, dim3(nBlocks), dim3(blockSize), 0, 0, a, d_x,
+                     d_y, n);
   checkCuda(hipGetLastError());
   checkCuda(hipMemcpy(y, d_y, n * sizeof(half), hipMemcpyDeviceToHost));
   check(x, y, n);

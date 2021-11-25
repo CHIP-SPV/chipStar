@@ -25,6 +25,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+#include "backend/backends.hh"
+
 #define SPIR_TRIPLE "hip-spir64-unknown-unknown"
 
 static unsigned binaries_loaded = 0;
@@ -1935,6 +1937,33 @@ hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   RETURN(Backend->setArg(arg, size, offset));
   RETURN(hipSuccess);
   CHIP_CATCH
+}
+
+extern "C" hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr,
+                                         void *ctxPtr, void *queuePtr) {
+  logDebug("hipInitFromOutside");
+  auto modules = std::move(Backend->getDevices()[0]->getModules());
+  delete Backend;
+  logDebug("deleting Backend object.");
+  Backend = new CHIPBackendLevel0();
+
+  ze_context_handle_t ctx = (ze_context_handle_t)ctxPtr;
+  CHIPContextLevel0 *chip_ctx = new CHIPContextLevel0(ctx);
+  Backend->addContext(chip_ctx);
+
+  ze_device_handle_t dev = (ze_device_handle_t)devicePtr;
+  CHIPDeviceLevel0 *chip_dev = new CHIPDeviceLevel0(&dev, chip_ctx);
+  chip_dev->chip_modules = modules;
+  Backend->chip_contexts[0]->getDevices().push_back(chip_dev);
+  Backend->addDevice(chip_dev);
+
+  // ze_command_queue_handle_t q = (ze_command_queue_handle_t)queuePtr;
+  // CHIPQueueLevel0* chip_queue = CHIPQueueLevel0(q)
+  CHIPQueueLevel0 *chip_queue = new CHIPQueueLevel0(chip_dev);
+  Backend->addQueue(chip_queue);
+  Backend->setActiveDevice(chip_dev);
+
+  RETURN(hipSuccess);
 }
 
 #endif

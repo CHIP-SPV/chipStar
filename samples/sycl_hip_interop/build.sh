@@ -13,7 +13,7 @@ module use /home/jyoung/gpfs_share/compilers/modulefiles/oneapi/2020.2.0.2997/
 module load mkl compiler
 
 # Set the HIPLZ_INSTALL_PREFIX as HipLZ installation since the dynamic shared library that encapsulates HIP matrix muplication was pre-built and installed at ${HIPLZ_INSTALL_PREFIX}/lib
-clang++ sycl_hiplz_interop.cpp -o sycl_hiplz_interop.exe -fsycl  -lze_loader -L${HIPLZ_INSTALL_PREFIX}/lib -lSyCL2HipLZMM -lhiplz
+clang++ sycl_hiplz_interop.cpp -o sycl_hiplz_interop.exe -fsycl  -lze_loader ./libhipMatrixMul.a
 
 # Run the built test
 export LD_LIBRARY_PATH=${HIPLZ_INSTALL_PREFIX}/lib:${LD_LIBRARY_PATH}

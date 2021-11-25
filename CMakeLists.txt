@@ -2,7 +2,7 @@
 set(CMAKE_WARN_DEPRECATED OFF)
 add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result ")
+set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result -Wno-delete-abstract-non-virtual-dtor")
 # end temporary
 
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)

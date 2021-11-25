@@ -190,6 +190,11 @@ CHIPEvent* CHIPContextLevel0::createEvent(unsigned flags) {
 };
 // CHIPDeviceLevelZero
 // ***********************************************************************
+CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t* ze_dev_,
+                                   CHIPContextLevel0* chip_ctx_)
+    : CHIPDevice(chip_ctx_), ze_dev(*ze_dev_), ze_ctx(chip_ctx_->get()) {
+  assert(ctx != nullptr);
+}
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_,
                                    CHIPContextLevel0* chip_ctx_)
     : CHIPDevice(chip_ctx_), ze_dev(ze_dev_), ze_ctx(chip_ctx_->get()) {

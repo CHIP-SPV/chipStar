@@ -1,6 +1,6 @@
 # Test symbol access
 
-add_hiplz_binary_device_link(
+add_chip_binary(
 	hipTestDeviceLink
 	hipDeviceLink.cpp
 	hipDeviceLinkRead.cpp

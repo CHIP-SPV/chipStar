@@ -52,6 +52,16 @@ void read_env_vars(std::string& CHIPPlatformStr, std::string& CHIPDeviceTypeStr,
   std::cout << "\n";
 };
 
+// void CHIPInitializeCallOnce(void* driverPtr, void* devicePtr, void* ctxPtr,
+//                             void* queuePtr) {
+//   ze_context_handle_t ctx = (ze_context_handle_t)ctxPtr;
+//   CHIPContextLevel0* chip_ctx = new CHIPContextLevel0(ctx);
+//   Backend->chip_contexts.push_back(chip_ctx);
+
+//   ze_device_handle_t dev = (ze_device_handle_t)devicePtr;
+//   CHIPDeviceLevel0* chip_dev = new CHIPDeviceLevel0(&dev, chip_ctx);
+// }
+
 void CHIPInitializeCallOnce(std::string BE) {
   std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr;
   read_env_vars(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);

@@ -37,52 +37,42 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
 endfunction()
 
 
-# # ARGN = sources
-# function(add_hiplz_binary EXEC_NAME)
+# ARGN = sources
+function(add_chip_binary EXEC_NAME)
 
-#     set(SOURCES ${ARGN})
-#     set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
+    set(SOURCES ${ARGN})
+    set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
 
-#     add_executable("${EXEC_NAME}" ${SOURCES})
+    add_executable("${EXEC_NAME}" ${SOURCES})
 
-#     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
+    set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-#     target_link_libraries("${EXEC_NAME}" CHIP-SPV)
+    target_link_libraries("${EXEC_NAME}" CHIP)
 
-#     install(TARGETS "${EXEC_NAME}"
-#             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
+    install(TARGETS "${EXEC_NAME}"
+            RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
-# endfunction()
+endfunction()
 
-# # ARGN = sources
-# function(add_hiplz_binary_device_link EXEC_NAME)
-#     set(SOURCES ${ARGN})
-#     set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
+function(add_chip_library EXEC_NAME)
 
-#     add_executable("${EXEC_NAME}" ${SOURCES})
+    set(SOURCES ${ARGN})
+    set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
 
-#     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
+    add_library("${EXEC_NAME}" STATIC ${SOURCES})
 
-#     target_link_libraries("${EXEC_NAME}" "${SANITIZER_LIBS}" "hiplz" "OpenCL" "ze_loader")
+    set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-#     target_compile_options("${EXEC_NAME}" PRIVATE "-fgpu-rdc")
+    target_link_libraries("${EXEC_NAME}" CHIP)
 
-#     target_link_options("${EXEC_NAME}" PRIVATE
-#         "-fgpu-rdc"
-#         "--hip-link"
-#         "$<INSTALL_INTERFACE:--hip-llvm-pass-path=${HIPLZ_LLVM_DIR}>"
-#         "$<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>"
-#         "$<INSTALL_INTERFACE:--hip-device-lib-path=${HIPLZ_DATA_DIR}>"
-#         "$<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}>"
-#         "--hip-device-lib=kernellib.bc")
+    install(TARGETS "${EXEC_NAME}"
+            RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
-#     install(TARGETS "${EXEC_NAME}"
-#             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
+endfunction()
 
-# endfunction()
 
 # # ARGN = sources
-# function(add_hiplz_binary_lib LIB_NAME)
+# function(add_chip_binary_lib LIB_NAME)
 #     set(SOURCES ${ARGN})
 #     set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
 
@@ -126,7 +116,7 @@ set(SAMPLES
     hiptest
     bit_extract
     hcc_dialects
-    #fp16
+    fp16
     0_MatrixTranspose
     0_MatrixMultiply
     1_hipEvent
@@ -140,10 +130,10 @@ set(SAMPLES
     10_memcpy3D
     11_device
     hipStreamSemantics
-    #hipInfo
-    #hipSymbol # undefined reference to `__hipRegisterVar
-    #hipDeviceLink
-    #sycl_hip_interop
+    hipInfo
+    # hipSymbol # undefined reference to `__hipRegisterVar hipGetSymbolAddress
+    #hipDeviceLink # __hip_register_globals 
+    sycl_hip_interop
     #hip_sycl_interop
 )
 
