@@ -43,7 +43,6 @@ class CHIPQueueLevel0 : public CHIPQueue {
   void* shared_buf;
 
  public:
-  // CHIPQueueLevel0(* chip_dev_);
   CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_);
 
   virtual hipError_t launch(CHIPExecItem* exec_item) override;
