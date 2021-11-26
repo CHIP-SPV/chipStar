@@ -132,7 +132,6 @@ set(SAMPLES
     # hipSymbol # undefined reference to `__hipRegisterVar hipGetSymbolAddress
     #hipDeviceLink # __hip_register_globals 
     sycl_hip_interop
-    #hip_sycl_interop
 )
 
 foreach (SAMPLE ${SAMPLES})
