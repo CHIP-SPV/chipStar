@@ -34,6 +34,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
  */
 
+#ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
+#define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
+
 #include <algorithm>
 #include <limits>
 
@@ -1444,5 +1447,7 @@ EXPORT OVLD float __shfl_down(float var, unsigned int delta);
 EXPORT int __all(int predicate);
 EXPORT int __any(int predicate);
 EXPORT uint64_t __ballot(int predicate);
+
+#endif
 
 #endif
