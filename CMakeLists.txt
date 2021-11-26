@@ -30,15 +30,9 @@ set(CHIP_SPV_COMPILE_FLAGS "" )
 set(CHIP_SPV_DEFINITIONS "" )
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
-  #add_definitions(-DENFORCE_QUEUE_SYNC)
   set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DENFORCE_QUEUE_SYNC")
 endif()
 
-# Find kernellib.bc and HIP SPIRV LLVM passes
-#if("${HIP_SPIRV_DIR}" STREQUAL "")
-#  message(FATAL_ERROR "You must set pass -DHIP_SPIRV_DIR=... ")
-#endif()
-#message("\n\nUsing HIP_SPIRV_DIR=${HIP_SPIRV_DIR}\n\n")
 
 set(HIP_PLATFORM spirv)
 set(HIP_COMPILER clang)
@@ -49,11 +43,9 @@ if(VERBOSE)
 endif()
 
 if (ABORT_IF_NOT_IMPLEMENTED)
-  #add_definitions(-DCHIP_ABORT_ON_UNIMPL)
   set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DCHIP_ABORT_ON_UNIMPL")
 endif()
 
-#add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE")
 
 
@@ -81,7 +73,6 @@ if (NOT DEFINED OpenCL_LIBRARY)
   find_library_dynamic(OpenCL)
 endif()
 
-#include_directories(src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 set(CHIP_SPV_INCLUDE_FLAGS ${CHIP_SPV_INCLUDE_FLAGS} src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
@@ -101,7 +92,6 @@ set(DRIVER_SRC src/main.cc)
 find_library_dynamic(libze_loader.so.1)
 message(STATUS "\n\nCHIP-SPV_LIBRARIES=${CHIP-SPV_LIBRARIES}\n\n")
 
-# TODO small : read cmake configuration
 if (BUILD_SHARED_LIBS)
   message(STATUS "Buiding CHIP-SPV as a shared library")
   add_library(CHIP SHARED ${CHIP_SRC})
@@ -117,17 +107,6 @@ set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu 
 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR} ${CHIP_SPV_COMPILE_FLAGS})
-
-# target_compile_options(CHIP INTERFACE
-#         "$<INSTALL_INTERFACE:--hip-device-lib-path=${HIPLZ_DATA_DIR}>"
-#         "$<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}>"
-#         "--hip-device-lib=kernellib.bc")
-
-# # for LLVM passes
-# target_compile_options(CHIP INTERFACE
-#         "$<INSTALL_INTERFACE:--hip-llvm-pass-path=${HIPLZ_LLVM_DIR}>"
-#         "$<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>")
-
 
 target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS})
 target_include_directories(CHIP
@@ -154,7 +133,6 @@ add_subdirectory(HIP/tests/catch catch)
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
 target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${CHIP-SPV_LIBRARIES})
-#target_include_directories(driver PUBLIC CHIP::CHIP)
 
 
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)

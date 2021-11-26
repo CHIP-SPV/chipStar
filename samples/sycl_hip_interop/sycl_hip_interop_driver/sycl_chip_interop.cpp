@@ -5,7 +5,7 @@
 #include <CL/sycl/stl.hpp>
 #include "CL/sycl/backend/level_zero.hpp"
 
-#include "sycl_hiplz_interop.h"
+#include "sycl_chip_interop.h"
 
 #include <vector>
 #include <iostream>

@@ -1,5 +1,5 @@
-#ifndef __SYCL_HIPLZ_INTEROP_H__
-#define __SYCL_HIPLZ_INTEROP_H__
+#ifndef __sycl_chip_interop_H__
+#define __sycl_chip_interop_H__
 
 extern "C" {
 // Initialize HipLZ via providing native runtime information

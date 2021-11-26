@@ -9,7 +9,7 @@
 // hip header file
 #include "hip/hip_runtime.h"
 
-#include "sycl_hiplz_interop.h"
+#include "sycl_chip_interop.h"
 
 #define MM_SHARED
 
