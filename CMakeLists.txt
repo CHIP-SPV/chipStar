@@ -3,6 +3,7 @@ set(CMAKE_WARN_DEPRECATED OFF)
 add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result -Wno-delete-abstract-non-virtual-dtor")
+set(CHIP_DIR_ ${CMAKE_CURRENT_SOURCE_DIR})
 # end temporary
 
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
@@ -23,8 +24,14 @@ option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" OFF)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 #option_str(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
+set(CHIP_SPV_INCLUDE_FLAGS "" )
+set(CHIP_SPV_LINK_FLAGS "" )
+set(CHIP_SPV_COMPILE_FLAGS "" )
+set(CHIP_SPV_DEFINITIONS "" )
+
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
-  add_definitions(-DENFORCE_QUEUE_SYNC)
+  #add_definitions(-DENFORCE_QUEUE_SYNC)
+  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DENFORCE_QUEUE_SYNC")
 endif()
 
 # Find kernellib.bc and HIP SPIRV LLVM passes
@@ -42,10 +49,13 @@ if(VERBOSE)
 endif()
 
 if (ABORT_IF_NOT_IMPLEMENTED)
-  add_definitions(-DCHIP_ABORT_ON_UNIMPL)
+  #add_definitions(-DCHIP_ABORT_ON_UNIMPL)
+  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DCHIP_ABORT_ON_UNIMPL")
 endif()
 
-add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+#add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE")
+
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -71,7 +81,8 @@ if (NOT DEFINED OpenCL_LIBRARY)
   find_library_dynamic(OpenCL)
 endif()
 
-include_directories(src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
+#include_directories(src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
+set(CHIP_SPV_INCLUDE_FLAGS ${CHIP_SPV_INCLUDE_FLAGS} src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
 set(CHIP_SRC 
@@ -105,9 +116,34 @@ set(HIP_PATH HIP)
 set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIP_SPIRV_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm  )
 
 # For building on top of HIP-COMMON
-target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR})
+target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR} ${CHIP_SPV_COMPILE_FLAGS})
 
-target_link_libraries(CHIP ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES})
+# target_compile_options(CHIP INTERFACE
+#         "$<INSTALL_INTERFACE:--hip-device-lib-path=${HIPLZ_DATA_DIR}>"
+#         "$<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}>"
+#         "--hip-device-lib=kernellib.bc")
+
+# # for LLVM passes
+# target_compile_options(CHIP INTERFACE
+#         "$<INSTALL_INTERFACE:--hip-llvm-pass-path=${HIPLZ_LLVM_DIR}>"
+#         "$<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>")
+
+
+target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS})
+target_include_directories(CHIP
+    PUBLIC
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+        "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include;${CMAKE_SOURCE_DIR}/include>"
+    PRIVATE
+        "${CMAKE_SOURCE_DIR}"
+        "${CMAKE_SOURCE_DIR}/src"
+        "${CMAKE_SOURCE_DIR}/include"
+        "${CMAKE_SOURCE_DIR}/HIP/include"
+        "${OpenCL_INCLUDE_DIR}"
+)
+
+
+
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
@@ -117,14 +153,18 @@ add_subdirectory(HIP/tests/catch catch)
 
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
-target_include_directories(driver PRIVATE HIP/include)
 target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${CHIP-SPV_LIBRARIES})
+#target_include_directories(driver PUBLIC CHIP::CHIP)
 
+
+set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
 
 include(cmake/FindLLVM.cmake)
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
+
+add_dependencies(CHIP kernellib_bc)
 
 install(TARGETS CHIP
         EXPORT CHIPTargets
