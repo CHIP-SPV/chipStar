@@ -66,9 +66,6 @@ function(add_chip_library EXEC_NAME)
     target_link_libraries("${EXEC_NAME}" CHIP)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_DIR_}/HIP/include ${CHIP_DIR_}/include)
 
-    install(TARGETS "${EXEC_NAME}"
-            RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
-
 endfunction()
 
 
