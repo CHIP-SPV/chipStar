@@ -1985,4 +1985,45 @@ hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *handle, hipEvent_t event) {
   UNIMPLEMENTED(hipSuccess);
 }
 
+hipError_t hipModuleOccupancyMaxPotentialBlockSize(int *gridSize,
+                                                   int *blockSize,
+                                                   hipFunction_t f,
+                                                   size_t dynSharedMemPerBlk,
+                                                   int blockSizeLimit);
+
+hipError_t hipModuleOccupancyMaxPotentialBlockSizeWithFlags(
+    int *gridSize, int *blockSize, hipFunction_t f, size_t dynSharedMemPerBlk,
+    int blockSizeLimit, unsigned int flags) {
+  UNIMPLEMENTED(hipSuccess);
+}
+
+hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessor(
+    int *numBlocks, hipFunction_t f, int blockSize,
+    size_t dynSharedMemPerBlkA) {
+  UNIMPLEMENTED(hipSuccess);
+}
+
+hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
+    int *numBlocks, hipFunction_t f, int blockSize, size_t dynSharedMemPerBlk,
+    unsigned int flags) {
+  UNIMPLEMENTED(hipSuccess);
+}
+
+hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessor(
+    int *numBlocks, const void *f, int blockSize, size_t dynSharedMemPerBlk) {
+  UNIMPLEMENTED(hipSuccess);
+}
+
+hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
+    int *numBlocks, const void *f, int blockSize, size_t dynSharedMemPerBlk,
+    unsigned int flags) {
+  UNIMPLEMENTED(hipSuccess);
+}
+
+hipError_t hipOccupancyMaxPotentialBlockSize(int *gridSize, int *blockSize,
+                                             const void *f,
+                                             size_t dynSharedMemPerBlk,
+                                             int blockSizeLimit) {
+  UNIMPLEMENTED(hipSuccess);
+}
 #endif
