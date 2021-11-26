@@ -129,7 +129,7 @@ set(SAMPLES
     11_device
     hipStreamSemantics
     hipInfo
-    # hipSymbol # undefined reference to `__hipRegisterVar hipGetSymbolAddress
+    hipSymbol # undefined reference to `__hipRegisterVar hipGetSymbolAddress
     #hipDeviceLink # __hip_register_globals 
     sycl_hip_interop
 )

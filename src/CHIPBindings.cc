@@ -1966,4 +1966,15 @@ extern "C" hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr,
   RETURN(hipSuccess);
 }
 
+extern "C" void __hipRegisterVar(
+    void **data,  // std::vector<hipModule_t> *modules,
+    char *hostVar, char *deviceVar, const char *deviceName, int ext, int size,
+    int constant, int global) {
+  UNIMPLEMENTED();
+}
+
+hipError_t hipGetSymbolAddress(void **devPtr, const void *symbol) {
+  UNIMPLEMENTED(hipSuccess);
+};
+
 #endif
