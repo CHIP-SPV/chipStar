@@ -2026,4 +2026,6 @@ hipError_t hipOccupancyMaxPotentialBlockSize(int *gridSize, int *blockSize,
                                              int blockSizeLimit) {
   UNIMPLEMENTED(hipSuccess);
 }
+
+hipError_t hipGetDeviceFlags(unsigned int *flags) { UNIMPLEMENTED(hipSuccess); }
 #endif

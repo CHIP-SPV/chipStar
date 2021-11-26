@@ -1450,4 +1450,6 @@ EXPORT uint64_t __ballot(int predicate);
 
 #endif
 
+#include <hip/spirv_hip_runtime.h>
+
 #endif
