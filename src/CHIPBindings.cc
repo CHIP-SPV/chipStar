@@ -1975,6 +1975,14 @@ extern "C" void __hipRegisterVar(
 
 hipError_t hipGetSymbolAddress(void **devPtr, const void *symbol) {
   UNIMPLEMENTED(hipSuccess);
-};
+}
+
+hipError_t hipIpcOpenEventHandle(hipEvent_t *event,
+                                 hipIpcEventHandle_t handle) {
+  UNIMPLEMENTED(hipSuccess);
+}
+hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *handle, hipEvent_t event) {
+  UNIMPLEMENTED(hipSuccess);
+}
 
 #endif
