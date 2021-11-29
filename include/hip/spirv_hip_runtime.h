@@ -16,6 +16,7 @@
 #include <hip/spirv_hip_vector_types.h>
 
 #include <hip/spirv_hip_fp16.h>
+#include <hip/spirv_hip_ldg.h>
 
 // Feature tests:
 #if (defined(__HCC_ACCELERATOR__) && (__HCC_ACCELERATOR__ != 0)) || \

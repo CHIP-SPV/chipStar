@@ -62,6 +62,37 @@ THE SOFTWARE.
 #define INT_MAX 2147483647
 #endif
 
+__device__ inline unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
+                                               unsigned int shift) {
+  // uint32_t mask_shift = shift & 31;
+  // return mask_shift == 0 ? hi
+  //                        : __builtin_amdgcn_alignbit(hi, lo, 32 -
+  //                        mask_shift);
+  return 1;
+}
+
+__device__ inline unsigned int __funnelshift_lc(unsigned int lo,
+                                                unsigned int hi,
+                                                unsigned int shift) {
+  // uint32_t min_shift = shift >= 32 ? 32 : shift;
+  // return min_shift == 0 ? hi
+  //                       : __builtin_amdgcn_alignbit(hi, lo, 32 - min_shift);
+  return 1;
+}
+
+__device__ inline unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
+                                               unsigned int shift) {
+  // return __builtin_amdgcn_alignbit(hi, lo, shift);
+  return 1;
+}
+
+__device__ inline unsigned int __funnelshift_rc(unsigned int lo,
+                                                unsigned int hi,
+                                                unsigned int shift) {
+  // return shift >= 32 ? hi : __builtin_amdgcn_alignbit(hi, lo, shift);
+  return 1;
+}
+
 #if defined(__HIP_DEVICE_COMPILE__)
 typedef _Float16 api_half;
 typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
@@ -684,6 +715,18 @@ extern "C" {
 NON_OVLD void GEN_NAME(local_barrier)();
 }
 EXPORT void __syncthreads() { GEN_NAME(local_barrier)(); }
+EXPORT int __syncthreads_and(int predicate) {
+  GEN_NAME(local_barrier)();
+  return 1;
+}
+EXPORT int __syncthreads_or(int predicate) {
+  GEN_NAME(local_barrier)();
+  return 1;
+}
+EXPORT int __syncthreads_count(int predicate) {
+  GEN_NAME(local_barrier)();
+  return 1;
+}
 
 extern "C" {
 NON_OVLD void GEN_NAME(local_fence)();
@@ -735,6 +778,9 @@ EXPORT float __powf(float x, float y);
 EXPORT float __saturatef(float x);
 EXPORT void __sincosf(float x, float *sptr, float *cptr);
 EXPORT void __syncthreads();
+EXPORT int __syncthreads_and(int predicate);
+EXPORT int __syncthreads_or(int predicate);
+EXPORT int __syncthreads_count(int predicate);
 EXPORT void __threadfence_block();
 EXPORT void __threadfence_system();
 EXPORT void __threadfence();
