@@ -1,4 +1,4 @@
 add_subdirectory(onemkl_gemm_wrapper)
+
 add_chip_binary(hip_sycl_interop hip_sycl_interop.cpp)
-target_include_directories(hip_sycl_interop PRIVATE onemkl_gemm_wrapper)
 target_link_libraries(hip_sycl_interop onemkl_gemm_wrapper)

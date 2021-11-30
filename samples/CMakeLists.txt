@@ -92,6 +92,7 @@ set(SAMPLES
     hipDeviceLink
     sycl_hip_interop
     hip_sycl_interop
+    hip_sycl_interop_no_buffers
 )
 
 foreach (SAMPLE ${SAMPLES})

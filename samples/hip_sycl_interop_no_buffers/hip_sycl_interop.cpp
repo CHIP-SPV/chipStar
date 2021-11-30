@@ -23,7 +23,7 @@ void VerifyResult(float *c_A, float *c_B) {
         std::cout << "fail - The result is incorrect for element: [" << i
                   << ", " << j << "], expected: " << c_A[i * WIDTH + j]
                   << " , but got: " << c_B[i * WIDTH + j] << std::endl;
-
+        //	exit(1);
         MismatchFound = true;
       }
     }
@@ -40,12 +40,29 @@ int main() {
   float *B = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C_serial = (float *)malloc(WIDTH * WIDTH * sizeof(float));
-  int m, n, k;
-  m = n = k = WIDTH;
+
+  float *d_A, *d_B, *d_C;
+  // matrix data sizes
+  int m = WIDTH;
+  int n = WIDTH;
+  int k = WIDTH;
   int ldA, ldB, ldC;
   ldA = ldB = ldC = WIDTH;
   float alpha = 1.0;
   float beta = 0.0;
+
+  // Create HipLZ stream
+  hipStream_t stream = nullptr;
+  hipStreamCreate(&stream);
+
+  unsigned long nativeHandlers[4];
+  int numItems = 0;
+  hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
+
+  // allocate memory
+  hipMalloc(&d_A, WIDTH * WIDTH * sizeof(float));
+  hipMalloc(&d_B, WIDTH * WIDTH * sizeof(float));
+  hipMalloc(&d_C, WIDTH * WIDTH * sizeof(float));
 
   // initialize data on the host
   // prepare matrix data with ROW-major style
@@ -56,7 +73,7 @@ int main() {
   for (size_t i = 0; i < WIDTH; i++)
     for (size_t j = 0; j < WIDTH; j++) B[i * WIDTH + j] = i * WIDTH + j;
 
-  // get CPU result for verification
+  // get CPU result
   // Resultant matrix: C_serial = A*B
   for (size_t i = 0; i < WIDTH; i++) {
     for (size_t j = 0; j < WIDTH; j++) {
@@ -67,28 +84,16 @@ int main() {
     }
   }
 
-#define CHECK(err)                                      \
-  do {                                                  \
-    if (err != hipSuccess) {                            \
-      std::cout << hipGetErrorString(err) << std::endl; \
-      std::abort();                                     \
-    }                                                   \
-  } while (0);
+  // copy A and B to the device
+  hipMemcpy(d_A, A, WIDTH * WIDTH * sizeof(float), hipMemcpyHostToDevice);
+  hipMemcpy(d_B, B, WIDTH * WIDTH * sizeof(float), hipMemcpyHostToDevice);
 
-  hipStream_t stream = nullptr;
-  hipError_t error;
-  error = hipStreamCreate(&stream);
-  CHECK(error);
+  // Invoke oneMKL GEMM
+  oneMKLGemmTest(nativeHandlers, d_A, d_B, d_C, WIDTH, WIDTH, WIDTH, ldA, ldB,
+                 ldC, alpha, beta);
 
-  assert(stream != nullptr);
-
-  unsigned long nativeHandlers[4];
-  int numItems = 0;
-  error = hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
-  CHECK(error);
-
-  // Invoke oneMKL GEEM
-  oneMKLGemmTest(nativeHandlers, A, B, C, m, m, k, ldA, ldB, ldC, alpha, beta);
+  // copy back C
+  hipMemcpy(C, d_C, WIDTH * WIDTH * sizeof(float), hipMemcpyDeviceToHost);
 
   // check results
   std::cout << "Verify results between OneMKL & Serial: ";
