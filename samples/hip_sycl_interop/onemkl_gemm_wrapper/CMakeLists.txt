@@ -1,0 +1,7 @@
+set(CMAKE_CXX_COMPILER icpx)
+set(CMAKE_CXX_FLAGS "-Wno-deprecated-declarations")
+set(CMAKE_VERBOSE_MAKEFILE ON)
+set(POSITION_INDEPENDENT_CODE ON)
+add_library(onemkl_gemm_wrapper SHARED ./onemkl_gemm_wrapper.cpp)
+target_compile_options(onemkl_gemm_wrapper PRIVATE -DMKL_ILP64 -fsycl)
+target_link_libraries(onemkl_gemm_wrapper -fsycl -lze_loader -lmkl_sycl -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core)

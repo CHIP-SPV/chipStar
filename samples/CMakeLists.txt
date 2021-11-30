@@ -132,6 +132,7 @@ set(SAMPLES
     hipSymbol
     hipDeviceLink
     sycl_hip_interop
+    hip_sycl_interop
 )
 
 foreach (SAMPLE ${SAMPLES})
