@@ -160,8 +160,10 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   }
 }
 
-void CHIPDeviceOpenCL::addQueue(unsigned int flags, int priority) {
-  chip_queues.push_back(new CHIPQueueOpenCL(this));
+CHIPQueue *CHIPDeviceOpenCL::addQueue(unsigned int flags, int priority) {
+  CHIPQueueOpenCL *new_q = new CHIPQueueOpenCL(this);
+  chip_queues.push_back(new_q);
+  return new_q;
 }
 
 // CHIPKernelOpenCL

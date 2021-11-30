@@ -32,7 +32,16 @@ class CHIPQueueLevel0 : public CHIPQueue {
   ze_device_handle_t ze_dev;
 
   // Immediate command list is being used. Command queue is implicit
-  ze_command_list_handle_t ze_cmd_list;
+  ze_command_list_handle_t ze_cmd_list_imm;
+
+  /**
+   * @brief Command queue handle
+   * CHIP-SPV Uses the immediate command list for all its operations. However,
+   * if you wish to call SYCL from HIP using the Level Zero backend then you
+   * need pointers to the command queue as well. This is that command queue.
+   * Current implementation does nothing with it.
+   */
+  ze_command_queue_handle_t ze_cmd_q;
 
   // Immediate command lists do not support syncronization via
   // zeCommandQueueSynchronize
@@ -53,7 +62,8 @@ class CHIPQueueLevel0 : public CHIPQueue {
   virtual hipError_t memCopyAsync(void* dst, const void* src,
                                   size_t size) override;
 
-  ze_command_list_handle_t getCmdList() { return ze_cmd_list; };
+  ze_command_list_handle_t getCmdList() { return ze_cmd_list_imm; }
+  ze_command_queue_handle_t getCmdQueue() { return ze_cmd_q; }
   void* getSharedBufffer() { return shared_buf; };
 
   virtual void memFillAsync(void* dst, size_t size, const void* pattern,
@@ -171,7 +181,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
     return mod;
   }
 
-  virtual void addQueue(unsigned int flags, int priority) override;
+  virtual CHIPQueue* addQueue(unsigned int flags, int priority) override;
   ze_device_properties_t* getDeviceProps() { return &(this->ze_device_props); };
   virtual CHIPTexture* createTexture(
       const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,

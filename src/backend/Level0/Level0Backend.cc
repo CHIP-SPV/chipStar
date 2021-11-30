@@ -77,8 +77,8 @@ hipError_t CHIPQueueLevel0::memCopyAsync(void* dst, const void* src,
   logTrace("CHIPQueueLevel0::memCopyAsync");
 
   ze_result_t status;
-  status = zeCommandListAppendMemoryCopy(ze_cmd_list, dst, src, size, nullptr,
-                                         0, nullptr);
+  status = zeCommandListAppendMemoryCopy(ze_cmd_list_imm, dst, src, size,
+                                         nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   return hipSuccess;
@@ -95,7 +95,7 @@ hipError_t CHIPQueueLevel0::memCopy(void* dst, const void* src, size_t size) {
 void CHIPQueueLevel0::finish() {
   // The finish event that denotes the finish of current command list items
   auto status =
-      zeCommandListAppendBarrier(ze_cmd_list, finish_event, 0, nullptr);
+      zeCommandListAppendBarrier(ze_cmd_list_imm, finish_event, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(
       status, ZE_RESULT_SUCCESS, hipErrorTbd,
       "zeCommandListAppendBarrier FAILED with return code");
@@ -338,8 +338,10 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
       device_compute_props.maxSharedLocalMemory;
 }
 
-void CHIPDeviceLevel0::addQueue(unsigned int flags, int priority) {
-  chip_queues.push_back(new CHIPQueueLevel0(this));
+CHIPQueue* CHIPDeviceLevel0::addQueue(unsigned int flags, int priority) {
+  CHIPQueueLevel0* new_q = new CHIPQueueLevel0(this);
+  chip_queues.push_back(new_q);
+  return new_q;
 }
 
 CHIPTexture* CHIPDeviceLevel0::createTexture(
@@ -411,9 +413,14 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
       ZE_COMMAND_QUEUE_MODE_DEFAULT,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-  // Create an immediate command list
+  // Create a default command queue (in case need to pass it outside of
+  status = zeCommandQueueCreate(ze_ctx, ze_dev, &commandQueueDesc, &ze_cmd_q);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
+  // CHIP-SPV) Create an immediate command list
   status = zeCommandListCreateImmediate(ze_ctx, ze_dev, &commandQueueDesc,
-                                        &ze_cmd_list);
+                                        &ze_cmd_list_imm);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   chip_context->addQueue(this);
@@ -462,8 +469,8 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
   auto y = exec_item->getGrid().y;
   auto z = exec_item->getGrid().z;
   ze_group_count_t launchArgs = {x, y, z};
-  status = zeCommandListAppendLaunchKernel(ze_cmd_list, kernel_ze, &launchArgs,
-                                           nullptr, 0, nullptr);
+  status = zeCommandListAppendLaunchKernel(ze_cmd_list_imm, kernel_ze,
+                                           &launchArgs, nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   return hipSuccess;
@@ -472,7 +479,7 @@ hipError_t CHIPQueueLevel0::launch(CHIPExecItem* exec_item) {
 void CHIPQueueLevel0::memFillAsync(void* dst, size_t size, const void* pattern,
                                    size_t pattern_size) {
   ze_result_t status = zeCommandListAppendMemoryFill(
-      ze_cmd_list, dst, pattern, pattern_size, size, nullptr, 0, nullptr);
+      ze_cmd_list_imm, dst, pattern, pattern_size, size, nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 };
 
@@ -502,8 +509,8 @@ void CHIPQueueLevel0::memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
   srcRegion.height = height;
   srcRegion.depth = depth;
   ze_result_t status = zeCommandListAppendMemoryCopyRegion(
-      ze_cmd_list, dst, &dstRegion, dpitch, dspitch, src, &srcRegion, spitch,
-      sspitch, nullptr, 0, nullptr);
+      ze_cmd_list_imm, dst, &dstRegion, dpitch, dspitch, src, &srcRegion,
+      spitch, sspitch, nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   return;
 };
@@ -512,7 +519,7 @@ void CHIPQueueLevel0::memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
 void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src) {
   ze_image_handle_t imageHandle = (ze_image_handle_t)texObj->image;
   ze_result_t status = zeCommandListAppendImageCopyFromMemory(
-      ze_cmd_list, imageHandle, src, 0, 0, 0, 0);
+      ze_cmd_list_imm, imageHandle, src, 0, 0, 0, 0);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   return;
 };
@@ -522,8 +529,7 @@ void CHIPQueueLevel0::getBackendHandles(unsigned long* nativeInfo, int* size) {
   *size = 4;
 
   // Get queue handler
-  // nativeInfo[3] = (unsigned long)this->get();
-  nativeInfo[3] = (unsigned long)0xDEADBEEF;  // TODO
+  nativeInfo[3] = (unsigned long)ze_cmd_q;
 
   // Get context handler
   CHIPContextLevel0* ctx = (CHIPContextLevel0*)chip_context;

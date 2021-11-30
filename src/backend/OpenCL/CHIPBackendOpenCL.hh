@@ -106,7 +106,7 @@ class CHIPDeviceOpenCL : public CHIPDevice {
     return mod;
   }
 
-  virtual void addQueue(unsigned int flags, int priority) override;
+  virtual CHIPQueue *addQueue(unsigned int flags, int priority) override;
   virtual CHIPTexture *createTexture(
       const hipResourceDesc *pResDesc, const hipTextureDesc *pTexDesc,
       const struct hipResourceViewDesc *pResViewDesc) override {

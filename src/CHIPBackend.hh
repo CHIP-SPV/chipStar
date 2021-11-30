@@ -661,7 +661,7 @@ class CHIPDevice {
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual void addQueue(
+  virtual CHIPQueue* addQueue(
       unsigned int flags,
       int priority) = 0;  // TODO how do I instantiate a CHIPQueue derived type
                           // in a generic way?

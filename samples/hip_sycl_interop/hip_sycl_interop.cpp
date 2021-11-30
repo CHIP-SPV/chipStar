@@ -67,12 +67,25 @@ int main() {
     }
   }
 
+#define CHECK(err)                                      \
+  do {                                                  \
+    if (err != hipSuccess) {                            \
+      std::cout << hipGetErrorString(err) << std::endl; \
+      std::abort();                                     \
+    }                                                   \
+  } while (0);
+
   hipStream_t stream = nullptr;
-  hipStreamCreate(&stream);
+  hipError_t error;
+  error = hipStreamCreate(&stream);
+  CHECK(error);
+
+  assert(stream != nullptr);
 
   unsigned long nativeHandlers[4];
   int numItems = 0;
-  hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
+  error = hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
+  CHECK(error);
 
   // Invoke oneMKL GEEM
   oneMKLGemmTest(nativeHandlers, A.data(), B.data(), C.data(), m, m, k, ldA,
