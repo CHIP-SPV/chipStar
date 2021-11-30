@@ -56,7 +56,7 @@ __global__ void gpuMatrixMul(const float* __restrict A,
 
 /*****************************************************************************/
 
-// int hiplzInit(void* driverPtr, void* deviePtr, void* contextPtr, void*
+// int hipInit(void* driverPtr, void* deviePtr, void* contextPtr, void*
 // queuePtr) {
 //   hipError_t err = hipInitFromOutside(driverPtr, deviePtr, contextPtr,
 //   queuePtr); ERR_CHECK;

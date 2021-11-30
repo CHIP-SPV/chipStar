@@ -70,15 +70,21 @@ class CHIPQueueLevel0 : public CHIPQueue {
 
   // Memory copy to texture object, i.e. image
   virtual void memCopyToTexture(CHIPTexture* texObj, void* src) override;
+
+  virtual void getBackendHandles(unsigned long* nativeInfo, int* size) override;
 };
 
 class CHIPContextLevel0 : public CHIPContext {
-  ze_context_handle_t ze_ctx;
   OpenCLFunctionInfoMap FuncInfos;
 
  public:
-  CHIPContextLevel0(ze_context_handle_t&& _ze_ctx) : ze_ctx(_ze_ctx) {}
-  CHIPContextLevel0(ze_context_handle_t _ze_ctx) : ze_ctx(_ze_ctx) {}
+  ze_context_handle_t ze_ctx;
+  ze_driver_handle_t ze_driver;
+  CHIPContextLevel0(ze_driver_handle_t ze_driver_,
+                    ze_context_handle_t&& _ze_ctx)
+      : ze_driver(ze_driver_), ze_ctx(_ze_ctx) {}
+  CHIPContextLevel0(ze_driver_handle_t ze_driver_, ze_context_handle_t _ze_ctx)
+      : ze_driver(ze_driver_), ze_ctx(_ze_ctx) {}
 
   void* allocate_(size_t size, size_t alignment, CHIPMemoryType memTy) override;
 
@@ -198,7 +204,7 @@ class CHIPBackendLevel0 : public CHIPBackend {
 
 class CHIPEventLevel0 : public CHIPEvent {
  private:
-  // The handler of HipLZ event_pool and event
+  // The handler of event_pool and event
   ze_event_handle_t event;
   ze_event_pool_handle_t event_pool;
 

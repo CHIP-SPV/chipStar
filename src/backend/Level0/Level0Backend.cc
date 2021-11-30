@@ -49,7 +49,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
   ze_context_handle_t ze_ctx;
   zeContextCreateEx(ze_driver, &ctxDesc, deviceCount, ze_devices.data(),
                     &ze_ctx);
-  CHIPContextLevel0* chip_l0_ctx = new CHIPContextLevel0(ze_ctx);
+  CHIPContextLevel0* chip_l0_ctx = new CHIPContextLevel0(ze_driver, ze_ctx);
   Backend->addContext(chip_l0_ctx);
 
   // Filter in only devices of selected type and add them to the
@@ -98,16 +98,15 @@ void CHIPQueueLevel0::finish() {
       zeCommandListAppendBarrier(ze_cmd_list, finish_event, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(
       status, ZE_RESULT_SUCCESS, hipErrorTbd,
-      "HipLZ zeCommandListAppendBarrier FAILED with return code");
+      "zeCommandListAppendBarrier FAILED with return code");
 
   status = zeEventHostSynchronize(finish_event, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW(
-      status, ZE_RESULT_SUCCESS, hipErrorTbd,
-      "HipLZ zeEventHostSynchronize FAILED with return code");
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                              "zeEventHostSynchronize FAILED with return code");
 
   status = zeEventHostReset(finish_event);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "HipLZ zeEventHostReset FAILED with return code");
+                              "zeEventHostReset FAILED with return code");
   return;
 }
 // CHIPContextLevelZero
@@ -432,11 +431,11 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
   status = zeEventPoolCreate(ze_ctx, &ep_desc, 1, &ze_dev, &event_pool);
 
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "HipLZ zeEventPoolCreate FAILED");
+                              "zeEventPoolCreate FAILED");
 
   status = zeEventCreate(event_pool, &ev_desc, &finish_event);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "HipLZ zeEventCreate FAILED with return code");
+                              "zeEventCreate FAILED with return code");
 
   // Initialize the shared memory buffer
   // TODO This does not record the buffer allocation in device allocation
@@ -517,6 +516,25 @@ void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src) {
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
   return;
 };
+
+void CHIPQueueLevel0::getBackendHandles(unsigned long* nativeInfo, int* size) {
+  *size = 4;
+
+  // Get queue handler
+  // nativeInfo[3] = (unsigned long)this->get();
+  nativeInfo[3] = (unsigned long)0xDEADBEEF;  // TODO
+
+  // Get context handler
+  CHIPContextLevel0* ctx = (CHIPContextLevel0*)chip_context;
+  nativeInfo[2] = (unsigned long)ctx->get();
+
+  // Get device handler
+  CHIPDeviceLevel0* dev = (CHIPDeviceLevel0*)chip_device;
+  nativeInfo[1] = (unsigned long)dev->get();
+
+  // Get driver handler
+  nativeInfo[0] = (unsigned long)ctx->ze_driver;
+}
 
 // CHIPKernelLevelZero
 // ***********************************************************************
@@ -832,7 +850,7 @@ ze_image_handle_t* CHIPTextureLevel0::createImage(
   if (!pResDesc)
     CHIPERR_LOG_AND_THROW("Resource descriptor is null", hipErrorTbd);
   if (pResDesc->resType != hipResourceTypeArray) {
-    CHIPERR_LOG_AND_THROW("HipLZ only support hipArray as image storage",
+    CHIPERR_LOG_AND_THROW("only support hipArray as image storage",
                           hipErrorTbd);
   }
 

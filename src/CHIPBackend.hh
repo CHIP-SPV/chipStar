@@ -1511,6 +1511,8 @@ class CHIPQueue {
   hipError_t launchWithExtraParams(dim3 grid, dim3 block,
                                    unsigned int sharedMemBytes, void** extra,
                                    CHIPKernel* kernel);
+
+  virtual void getBackendHandles(unsigned long* nativeInfo, int* size) = 0;
 };
 
 #endif

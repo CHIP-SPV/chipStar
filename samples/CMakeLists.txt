@@ -68,47 +68,6 @@ function(add_chip_library EXEC_NAME)
 
 endfunction()
 
-
-# # ARGN = sources
-# function(add_chip_binary_lib LIB_NAME)
-#     set(SOURCES ${ARGN})
-#     set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
-
-#     add_library("${LIB_NAME}" SHARED ${SOURCES})
-
-#     set_target_properties("${LIB_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
-
-#     target_compile_options("hiplz" PRIVATE "-fPIC")
-
-#     target_link_options("hiplz" PRIVATE "-shared")
-
-#     target_link_libraries("${LIB_NAME}" "${SANITIZER_LIBS}" "hiplz" "OpenCL" "ze_loader")
-
-#     install(TARGETS "${LIB_NAME}"
-#             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
-# endfunction()
-
-# # ARGN = sources
-# function(add_hiplz_sycl_test EXEC_NAME)
-#     set(SOURCES ${ARGN})
-#     set_source_files_properties(${SOURCE} PROPERTIES LANGUAGE CXX)
-
-#     add_library( onemkl_gemm_wrapper SHARED IMPORTED )
-#     set_target_properties( onemkl_gemm_wrapper PROPERTIES IMPORTED_LOCATION "${HIPLZ_SYCL_TEST_LIB}" )
-    
-#     add_executable("${EXEC_NAME}" ${SOURCES})
-
-#     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
-
-#     target_link_libraries("${EXEC_NAME}" "${SANITIZER_LIBS}" "hiplz" "OpenCL" "ze_loader" "onemkl_gemm_wrapper")
-
-#     target_link_options("${EXEC_NAME}" PRIVATE "${HIPLZ_SYCL_TEST_LIB}")
-     
-#     install(TARGETS "${EXEC_NAME}"
-#             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
-
-# endfunction()
-
 set(SAMPLES
     hipmath
     hiptest

@@ -66,7 +66,8 @@ int main() {
   sycl::platform Plt = Dev.get_platform();
 
   if (Devs.size() >= 1) {
-    // Initialize HipLZ via providing native runtime information
+    // Initialize CHIP-SPV Level-Zero Backend via providing native runtime
+    // information
     hipInitFromOutside(
         Plt.template get_native<sycl::backend::level_zero>(),
         Devs[0].template get_native<sycl::backend::level_zero>(),
@@ -74,10 +75,10 @@ int main() {
         myQueue.template get_native<sycl::backend::level_zero>());
 
 #ifdef USM
-    // Run GEMM test via HipLZ and USM data transfer
+    // Run GEMM test via CHIP-SPV Level-Zero Backend and USM data transfer
     hipMatrixMultiplicationUSMTest(A, B, C, WIDTH, WIDTH);
 #else
-    // Run GEMM test via HipLZ
+    // Run GEMM test via CHIP-SPV Level-Zero Backend
     hipMatrixMultiplicationTest(A, B, C, WIDTH, WIDTH);
 #endif
   }

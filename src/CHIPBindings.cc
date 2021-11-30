@@ -172,7 +172,6 @@ hipError_t hipDeviceSynchronize(void) {
 
   CHIPContext *ctx = Backend->getActiveContext();
   ERROR_IF((ctx == nullptr), hipErrorInvalidDevice);
-  // Synchronize among HipLZ queues
   ctx->finishAll();
 
   RETURN(hipSuccess);
@@ -1939,6 +1938,7 @@ hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
   CHIP_CATCH
 }
 
+// TODO make generic with size and pointer
 extern "C" hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr,
                                          void *ctxPtr, void *queuePtr) {
   logDebug("hipInitFromOutside");
@@ -1948,7 +1948,8 @@ extern "C" hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr,
   Backend = new CHIPBackendLevel0();
 
   ze_context_handle_t ctx = (ze_context_handle_t)ctxPtr;
-  CHIPContextLevel0 *chip_ctx = new CHIPContextLevel0(ctx);
+  ze_driver_handle_t driver = (ze_driver_handle_t)driverPtr;
+  CHIPContextLevel0 *chip_ctx = new CHIPContextLevel0(driver, ctx);
   Backend->addContext(chip_ctx);
 
   ze_device_handle_t dev = (ze_device_handle_t)devicePtr;
@@ -2028,4 +2029,15 @@ hipError_t hipOccupancyMaxPotentialBlockSize(int *gridSize, int *blockSize,
 }
 
 hipError_t hipGetDeviceFlags(unsigned int *flags) { UNIMPLEMENTED(hipSuccess); }
+
+/**
+ * Query the hip stream related native informtions
+ */
+hipError_t hipStreamGetBackendHandles(hipStream_t stream,
+                                      unsigned long *nativeInfo, int *size) {
+  ERROR_IF((stream == nullptr), hipErrorInvalidValue);
+  stream->getBackendHandles(nativeInfo, size);
+
+  return hipSuccess;
+}
 #endif

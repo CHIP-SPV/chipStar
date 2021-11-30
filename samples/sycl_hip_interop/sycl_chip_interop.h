@@ -2,15 +2,16 @@
 #define __sycl_chip_interop_H__
 
 extern "C" {
-// Initialize HipLZ via providing native runtime information
+// Initialize CHIP-SPV Level-Zero Backend via providing native runtime
+// information
 int hipInitFromOutside(void* driverPtr, void* deviePtr, void* contextPtr,
                        void* queueptr);
 
-// Run GEMM test via HipLZ via USM data transfer
+// Run GEMM test via CHIP-SPV Level-Zero Backend via USM data transfer
 int hipMatrixMultiplicationUSMTest(const float* A, const float* B, float* C,
                                    int M, int N);
 
-// Run GEMM test via HipLZ
+// Run GEMM test via CHIP-SPV Level-Zero Backend
 int hipMatrixMultiplicationTest(const float* A, const float* B, float* C, int M,
                                 int N);
 }

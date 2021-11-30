@@ -153,6 +153,9 @@ class CHIPQueueOpenCL : public CHIPQueue {
 
   // Memory copy to texture object, i.e. image
   virtual void memCopyToTexture(CHIPTexture *texObj, void *src) override;
+
+  virtual void getBackendHandles(unsigned long *nativeInfo,
+                                 int *size) override {}  // TODO
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {
