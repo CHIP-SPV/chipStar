@@ -2035,6 +2035,7 @@ hipError_t hipGetDeviceFlags(unsigned int *flags) { UNIMPLEMENTED(hipSuccess); }
  */
 hipError_t hipStreamGetBackendHandles(hipStream_t stream,
                                       unsigned long *nativeInfo, int *size) {
+  logTrace("hipStreamGetBackendHandles");
   ERROR_IF((stream == nullptr), hipErrorInvalidValue);
   stream->getBackendHandles(nativeInfo, size);
 

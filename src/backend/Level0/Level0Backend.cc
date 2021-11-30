@@ -518,6 +518,7 @@ void CHIPQueueLevel0::memCopyToTexture(CHIPTexture* texObj, void* src) {
 };
 
 void CHIPQueueLevel0::getBackendHandles(unsigned long* nativeInfo, int* size) {
+  logTrace("CHIPQueueLevel0::getBackendHandles");
   *size = 4;
 
   // Get queue handler
