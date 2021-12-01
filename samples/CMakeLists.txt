@@ -90,10 +90,18 @@ set(SAMPLES
     hipInfo
     hipSymbol
     hipDeviceLink
+)
+
+# Add samples that depend on Intel's oneAPI compiler - if available.
+find_program(ICPX_EXECUTABLE NAMES icpx)
+if (ICPX_EXECUTABLE)
+  list(APPEND SAMPLES
     sycl_hip_interop
     hip_sycl_interop
-    hip_sycl_interop_no_buffers
-)
+    hip_sycl_interop_no_buffers)
+else()
+  message(STATUS "icpx is not found: Not building SYCL interop samples.")
+endif()
 
 foreach (SAMPLE ${SAMPLES})
   add_subdirectory(${SAMPLE})

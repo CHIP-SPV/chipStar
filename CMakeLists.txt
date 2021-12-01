@@ -133,7 +133,7 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-
+enable_testing()
 add_subdirectory(HIP/tests/catch catch)
 
 add_executable(driver ${DRIVER_SRC})
