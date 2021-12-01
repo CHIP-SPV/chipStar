@@ -246,7 +246,7 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
   }
   logDebug("Listing Kernels for device {}", getName());
   for (auto &kernel : chip_kernels) {
-    logDebug("Kernel name: {} host_f_ptr: {}", kernel->getName(),
+    logTrace("Kernel name: {} host_f_ptr: {}", kernel->getName(),
              kernel->getHostPtr());
   }
 
@@ -303,106 +303,106 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t attr) {
 
   switch (attr) {
     case hipDeviceAttributeMaxThreadsPerBlock:
-      *pi = prop.maxThreadsPerBlock;
+      return prop.maxThreadsPerBlock;
       break;
     case hipDeviceAttributeMaxBlockDimX:
-      *pi = prop.maxThreadsDim[0];
+      return prop.maxThreadsDim[0];
       break;
     case hipDeviceAttributeMaxBlockDimY:
-      *pi = prop.maxThreadsDim[1];
+      return prop.maxThreadsDim[1];
       break;
     case hipDeviceAttributeMaxBlockDimZ:
-      *pi = prop.maxThreadsDim[2];
+      return prop.maxThreadsDim[2];
       break;
     case hipDeviceAttributeMaxGridDimX:
-      *pi = prop.maxGridSize[0];
+      return prop.maxGridSize[0];
       break;
     case hipDeviceAttributeMaxGridDimY:
-      *pi = prop.maxGridSize[1];
+      return prop.maxGridSize[1];
       break;
     case hipDeviceAttributeMaxGridDimZ:
-      *pi = prop.maxGridSize[2];
+      return prop.maxGridSize[2];
       break;
     case hipDeviceAttributeMaxSharedMemoryPerBlock:
-      *pi = prop.sharedMemPerBlock;
+      return prop.sharedMemPerBlock;
       break;
     case hipDeviceAttributeTotalConstantMemory:
-      *pi = prop.totalConstMem;
+      return prop.totalConstMem;
       break;
     case hipDeviceAttributeWarpSize:
-      *pi = prop.warpSize;
+      return prop.warpSize;
       break;
     case hipDeviceAttributeMaxRegistersPerBlock:
-      *pi = prop.regsPerBlock;
+      return prop.regsPerBlock;
       break;
     case hipDeviceAttributeClockRate:
-      *pi = prop.clockRate;
+      return prop.clockRate;
       break;
     case hipDeviceAttributeMemoryClockRate:
-      *pi = prop.memoryClockRate;
+      return prop.memoryClockRate;
       break;
     case hipDeviceAttributeMemoryBusWidth:
-      *pi = prop.memoryBusWidth;
+      return prop.memoryBusWidth;
       break;
     case hipDeviceAttributeMultiprocessorCount:
-      *pi = prop.multiProcessorCount;
+      return prop.multiProcessorCount;
       break;
     case hipDeviceAttributeComputeMode:
-      *pi = prop.computeMode;
+      return prop.computeMode;
       break;
     case hipDeviceAttributeL2CacheSize:
-      *pi = prop.l2CacheSize;
+      return prop.l2CacheSize;
       break;
     case hipDeviceAttributeMaxThreadsPerMultiProcessor:
-      *pi = prop.maxThreadsPerMultiProcessor;
+      return prop.maxThreadsPerMultiProcessor;
       break;
     case hipDeviceAttributeComputeCapabilityMajor:
-      *pi = prop.major;
+      return prop.major;
       break;
     case hipDeviceAttributeComputeCapabilityMinor:
-      *pi = prop.minor;
+      return prop.minor;
       break;
     case hipDeviceAttributePciBusId:
-      *pi = prop.pciBusID;
+      return prop.pciBusID;
       break;
     case hipDeviceAttributeConcurrentKernels:
-      *pi = prop.concurrentKernels;
+      return prop.concurrentKernels;
       break;
     case hipDeviceAttributePciDeviceId:
-      *pi = prop.pciDeviceID;
+      return prop.pciDeviceID;
       break;
     case hipDeviceAttributeMaxSharedMemoryPerMultiprocessor:
-      *pi = prop.maxSharedMemoryPerMultiProcessor;
+      return prop.maxSharedMemoryPerMultiProcessor;
       break;
     case hipDeviceAttributeIsMultiGpuBoard:
-      *pi = prop.isMultiGpuBoard;
+      return prop.isMultiGpuBoard;
       break;
     case hipDeviceAttributeCooperativeLaunch:
-      *pi = prop.cooperativeLaunch;
+      return prop.cooperativeLaunch;
       break;
     case hipDeviceAttributeCooperativeMultiDeviceLaunch:
-      *pi = prop.cooperativeMultiDeviceLaunch;
+      return prop.cooperativeMultiDeviceLaunch;
       break;
     case hipDeviceAttributeIntegrated:
-      *pi = prop.integrated;
+      return prop.integrated;
       break;
     case hipDeviceAttributeMaxTexture1DWidth:
-      *pi = prop.maxTexture1D;
+      return prop.maxTexture1D;
       break;
     case hipDeviceAttributeMaxTexture2DWidth:
-      *pi = prop.maxTexture2D[0];
+      return prop.maxTexture2D[0];
       break;
     case hipDeviceAttributeMaxTexture2DHeight:
-      *pi = prop.maxTexture2D[1];
+      return prop.maxTexture2D[1];
       break;
     case hipDeviceAttributeMaxTexture3DWidth:
-      *pi = prop.maxTexture3D[0];
+      return prop.maxTexture3D[0];
       break;
     case hipDeviceAttributeMaxTexture3DHeight:
-      *pi = prop.maxTexture3D[1];
+      return prop.maxTexture3D[1];
       break;
     case hipDeviceAttributeMaxTexture3DDepth:
-      *pi = prop.maxTexture3D[2];
+      return prop.maxTexture3D[2];
       break;
     case hipDeviceAttributeHdpMemFlushCntl:
       *reinterpret_cast<unsigned int **>(pi) = prop.hdpMemFlushCntl;
@@ -411,56 +411,56 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t attr) {
       *reinterpret_cast<unsigned int **>(pi) = prop.hdpRegFlushCntl;
       break;
     case hipDeviceAttributeMaxPitch:
-      *pi = prop.memPitch;
+      return prop.memPitch;
       break;
     case hipDeviceAttributeTextureAlignment:
-      *pi = prop.textureAlignment;
+      return prop.textureAlignment;
       break;
     case hipDeviceAttributeTexturePitchAlignment:
-      *pi = prop.texturePitchAlignment;
+      return prop.texturePitchAlignment;
       break;
     case hipDeviceAttributeKernelExecTimeout:
-      *pi = prop.kernelExecTimeoutEnabled;
+      return prop.kernelExecTimeoutEnabled;
       break;
     case hipDeviceAttributeCanMapHostMemory:
-      *pi = prop.canMapHostMemory;
+      return prop.canMapHostMemory;
       break;
     case hipDeviceAttributeEccEnabled:
-      *pi = prop.ECCEnabled;
+      return prop.ECCEnabled;
       break;
     case hipDeviceAttributeCooperativeMultiDeviceUnmatchedFunc:
-      *pi = prop.cooperativeMultiDeviceUnmatchedFunc;
+      return prop.cooperativeMultiDeviceUnmatchedFunc;
       break;
     case hipDeviceAttributeCooperativeMultiDeviceUnmatchedGridDim:
-      *pi = prop.cooperativeMultiDeviceUnmatchedGridDim;
+      return prop.cooperativeMultiDeviceUnmatchedGridDim;
       break;
     case hipDeviceAttributeCooperativeMultiDeviceUnmatchedBlockDim:
-      *pi = prop.cooperativeMultiDeviceUnmatchedBlockDim;
+      return prop.cooperativeMultiDeviceUnmatchedBlockDim;
       break;
     case hipDeviceAttributeCooperativeMultiDeviceUnmatchedSharedMem:
-      *pi = prop.cooperativeMultiDeviceUnmatchedSharedMem;
+      return prop.cooperativeMultiDeviceUnmatchedSharedMem;
       break;
     case hipDeviceAttributeAsicRevision:
-      *pi = prop.asicRevision;
+      return prop.asicRevision;
       break;
     case hipDeviceAttributeManagedMemory:
-      *pi = prop.managedMemory;
+      return prop.managedMemory;
       break;
     case hipDeviceAttributeDirectManagedMemAccessFromHost:
-      *pi = prop.directManagedMemAccessFromHost;
+      return prop.directManagedMemAccessFromHost;
       break;
     case hipDeviceAttributeConcurrentManagedAccess:
-      *pi = prop.concurrentManagedAccess;
+      return prop.concurrentManagedAccess;
       break;
     case hipDeviceAttributePageableMemoryAccess:
-      *pi = prop.pageableMemoryAccess;
+      return prop.pageableMemoryAccess;
       break;
     case hipDeviceAttributePageableMemoryAccessUsesHostPageTables:
-      *pi = prop.pageableMemoryAccessUsesHostPageTables;
+      return prop.pageableMemoryAccessUsesHostPageTables;
       break;
     case hipDeviceAttributeCanUseStreamWaitValue:
       // hipStreamWaitValue64() and hipStreamWaitValue32() support
-      //*pi = g_devices[device]->devices()[0]->info().aqlBarrierValue_;
+      // return g_devices[device]->devices()[0]->info().aqlBarrierValue_;
       CHIPERR_LOG_AND_THROW(
           "CHIPDevice::getAttr(hipDeviceAttributeCanUseStreamWaitValue path "
           "unimplemented",
@@ -470,7 +470,7 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t attr) {
       CHIPERR_LOG_AND_THROW("CHIPDevice::getAttr asked for an unkown attribute",
                             hipErrorInvalidValue);
   }
-  return *pi;
+  return -1;
 }
 
 size_t CHIPDevice::getGlobalMemSize() {
