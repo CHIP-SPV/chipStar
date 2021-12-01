@@ -2,7 +2,9 @@
 set(CMAKE_WARN_DEPRECATED OFF)
 add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_FLAGS "-Wno-duplicate-decl-specifier -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result -Wno-delete-abstract-non-virtual-dtor")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
+-Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
+-Wno-delete-abstract-non-virtual-dtor")
 set(CHIP_DIR_ ${CMAKE_CURRENT_SOURCE_DIR})
 # end temporary
 
