@@ -26,6 +26,7 @@
 #include "CHIPException.hh"
 
 #include "backend/backends.hh"
+#include "hip_conversions.hh"
 
 #define SPIR_TRIPLE "hip-spir64-unknown-unknown"
 
@@ -1483,85 +1484,86 @@ hipError_t hipMemcpyHtoA(hipArray *dstArray, size_t dstOffset,
 hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *p) {
   CHIP_TRY
   CHIPInitialize();
+  ERROR_IF((p == nullptr), hipErrorInvalidValue);
   // TODO: make this conversion
-  // const HIP_MEMCPY3D desc = hip::getDrvMemcpy3DDesc(*p);
-  // ERROR_IF((p == nullptr), hipErrorInvalidValue);
+  const HIP_MEMCPY3D pDrv_i = getDrvMemcpy3DDesc(*p);
+  const HIP_MEMCPY3D *pDrv = &pDrv_i;
 
-  // size_t byteSize;
-  // size_t depth;
-  // size_t height;
-  // size_t widthInBytes;
-  // size_t srcPitch;
-  // size_t dstPitch;
-  // void *srcPtr;
-  // void *dstPtr;
-  // size_t ySize;
+  size_t byteSize;
+  size_t depth;
+  size_t height;
+  size_t widthInBytes;
+  size_t srcPitch;
+  size_t dstPitch;
+  void *srcPtr;
+  void *dstPtr;
+  size_t ySize;
 
-  // if (p->dstArray != nullptr) {
-  //   if (p->dstArray->isDrv == false) {
-  //     switch (p->dstArray->desc.f) {
-  //       case hipChannelFormatKindSigned:
-  //         byteSize = sizeof(int);
-  //         break;
-  //       case hipChannelFormatKindUnsigned:
-  //         byteSize = sizeof(unsigned int);
-  //         break;
-  //       case hipChannelFormatKindFloat:
-  //         byteSize = sizeof(float);
-  //         break;
-  //       case hipChannelFormatKindNone:
-  //         byteSize = sizeof(size_t);
-  //         break;
-  //     }
-  //     depth = p->extent.depth;
-  //     height = p->extent.height;
-  //     widthInBytes = p->extent.width * byteSize;
-  //     srcPitch = p->srcPtr.pitch;
-  //     srcPtr = p->srcPtr.ptr;
-  //     ySize = p->srcPtr.ysize;
-  //     dstPitch = p->dstArray->width * byteSize;
-  //     dstPtr = p->dstArray->data;
-  //   } else {
-  //     depth = p->Depth;
-  //     height = p->Height;
-  //     widthInBytes = p->WidthInBytes;
-  //     dstPitch = p->dstArray->width * 4;
-  //     srcPitch = p->srcPitch;
-  //     srcPtr = (void *)p->srcHost;
-  //     ySize = p->srcHeight;
-  //     dstPtr = p->dstArray->data;
-  //   }
-  // } else {
-  //   // Non array destination
-  //   depth = p->extent.depth;
-  //   height = p->extent.height;
-  //   widthInBytes = p->extent.width;
-  //   srcPitch = p->srcPtr.pitch;
-  //   srcPtr = p->srcPtr.ptr;
-  //   dstPtr = p->dstPtr.ptr;
-  //   ySize = p->srcPtr.ysize;
-  //   dstPitch = p->dstPtr.pitch;
-  // }
+  if (p->dstArray != nullptr) {
+    if (p->dstArray->isDrv == false) {
+      switch (p->dstArray->desc.f) {
+        case hipChannelFormatKindSigned:
+          byteSize = sizeof(int);
+          break;
+        case hipChannelFormatKindUnsigned:
+          byteSize = sizeof(unsigned int);
+          break;
+        case hipChannelFormatKindFloat:
+          byteSize = sizeof(float);
+          break;
+        case hipChannelFormatKindNone:
+          byteSize = sizeof(size_t);
+          break;
+      }
+      depth = p->extent.depth;
+      height = p->extent.height;
+      widthInBytes = p->extent.width * byteSize;
+      srcPitch = p->srcPtr.pitch;
+      srcPtr = p->srcPtr.ptr;
+      ySize = p->srcPtr.ysize;
+      dstPitch = p->dstArray->width * byteSize;
+      dstPtr = p->dstArray->data;
+    } else {
+      depth = pDrv->Depth;
+      height = pDrv->Height;
+      widthInBytes = pDrv->WidthInBytes;
+      dstPitch = pDrv->dstArray->width * 4;
+      srcPitch = pDrv->srcPitch;
+      srcPtr = (void *)pDrv->srcHost;
+      ySize = pDrv->srcHeight;
+      dstPtr = pDrv->dstArray->data;
+    }
+  } else {
+    // Non array destination
+    depth = p->extent.depth;
+    height = p->extent.height;
+    widthInBytes = p->extent.width;
+    srcPitch = p->srcPtr.pitch;
+    srcPtr = p->srcPtr.ptr;
+    dstPtr = p->dstPtr.ptr;
+    ySize = p->srcPtr.ysize;
+    dstPitch = p->dstPtr.pitch;
+  }
 
-  // if ((widthInBytes == dstPitch) && (widthInBytes == srcPitch)) {
-  //   return hipMemcpy((void *)dstPtr, (void *)srcPtr,
-  //                    widthInBytes * height * depth, p->kind);
-  // } else {
-  //   for (size_t i = 0; i < depth; i++) {
-  //     for (size_t j = 0; j < height; j++) {
-  //       unsigned char *src =
-  //           (unsigned char *)srcPtr + i * ySize * srcPitch + j * srcPitch;
-  //       unsigned char *dst =
-  //           (unsigned char *)dstPtr + i * height * dstPitch + j * dstPitch;
-  //       if (hipMemcpyAsync(dst, src, widthInBytes, p->kind,
-  //                          Backend->getActiveQueue()) != hipSuccess)
-  //         RETURN(hipErrorLaunchFailure);
-  //     }
-  //   }
+  if ((widthInBytes == dstPitch) && (widthInBytes == srcPitch)) {
+    return hipMemcpy((void *)dstPtr, (void *)srcPtr,
+                     widthInBytes * height * depth, p->kind);
+  } else {
+    for (size_t i = 0; i < depth; i++) {
+      for (size_t j = 0; j < height; j++) {
+        unsigned char *src =
+            (unsigned char *)srcPtr + i * ySize * srcPitch + j * srcPitch;
+        unsigned char *dst =
+            (unsigned char *)dstPtr + i * height * dstPitch + j * dstPitch;
+        if (hipMemcpyAsync(dst, src, widthInBytes, p->kind,
+                           Backend->getActiveQueue()) != hipSuccess)
+          RETURN(hipErrorLaunchFailure);
+      }
+    }
 
-  //   Backend->getActiveQueue()->finish();
-  //  RETURN(hipSuccess);
-  // }
+    Backend->getActiveQueue()->finish();
+    RETURN(hipSuccess);
+  }
   RETURN(hipSuccess);
   CHIP_CATCH
 }
