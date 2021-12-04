@@ -190,6 +190,22 @@ class CHIPBackendOpenCL : public CHIPBackend {
                    std::string CHIPDeviceStr) override;
 
   void uninitialize() override;
+
+  virtual CHIPTexture *createCHIPTexture() override {
+    return new CHIPTextureOpenCL();
+  };
+  virtual CHIPQueue *createCHIPQueue() override {
+    return new CHIPQueueOpenCL();
+  };
+  virtual CHIPDevice *createCHIPDevice() override {
+    return new CHIPDeviceOpenCL();
+  };
+  virtual CHIPContext *createCHIPContext() override {
+    return new CHIPContextOpenCL();
+  };
+  virtual CHIPEvent *createCHIPEvent() override {
+    return new CHIPEventOpenCL();
+  };
 };
 
 class CHIPEventOpenCL : public CHIPEvent {
