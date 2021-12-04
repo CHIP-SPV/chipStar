@@ -976,7 +976,14 @@ hipError_t CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
 int CHIPQueue::getPriorityRange(int lower_or_upper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
-  UNIMPLEMENTED(true);
+  CHIPCallbackData *cb = createCallbackObj(callback, userData, this);
+
+  // Setup events on the GPU side
+  cb->setup();
+  callback_stack.push(cb);
+
+  // Setup event handling on the CPU side
+  if (!event_monitor) event_monitor = createEventMonitor();
 }
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,

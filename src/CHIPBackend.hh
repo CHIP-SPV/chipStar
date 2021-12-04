@@ -33,6 +33,73 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+class CHIPCallbackData {
+ public:
+  CHIPQueue* chip_queue;
+  CHIPEvent* gpu_ready;
+  CHIPEvent* cpu_callback_complete;
+  CHIPEvent* gpu_ack;
+
+  hipError_t status;
+  void* callback_args;
+  hipStreamCallback_t callback_f;
+
+  CHIPCallbackData(hipStreamCallback_t callback_f_, void* callback_args_,
+                   CHIPQueue* chip_queue_)
+      : callback_f(callback_f_),
+        callback_args(callback_args_),
+        chip_queue(chip_queue_) {}
+
+  /**
+   * @brief enqueue the events on the GPU.
+   * TODO: This can be implemented at the CHIP level
+   *
+   */
+  virtual void setup() { UNIMPLEMENTED(); }
+
+  virtual void execute() { UNIMPLEMENTED(); }
+};
+
+class CHIPEventMonitor {
+  typedef void* (*THREADFUNCPTR)(void*);
+
+ protected:
+  // The thread ID for monitor thread
+  pthread_t thread;
+
+  CHIPQueue* chip_queue;
+
+ public:
+  /**
+   * @brief Pop the callback stack and execute
+   * @param data user
+   */
+  virtual void monitor() {
+    CHIPCallbackData* cb;
+    while (chip_queue->getCallback(cb)) {
+      cb->gpu_ready->hostSync();
+      cb->execute();
+      cb->cpu_callback_complete->hostSignal();
+      cb->gpu_ack->hostSync();
+      delete cb;
+    }
+
+    // no more callback events left, free up the thread
+    delete this;
+  }
+
+  CHIPEventMonitor(CHIPQueue* chip_queue_, void* data) {
+    pthread_create(&(this->thread), 0,
+                   (THREADFUNCPTR)&CHIPEventMonitor::monitor);
+  }
+
+  /**
+   * @brief wait until event completes
+   *
+   */
+  void wait();
+};
+
 class CHIPTexture {
  protected:
   // delete default constructor since texture needs both image and sampler
@@ -228,6 +295,12 @@ class CHIPEvent {
    * @return float
    */
   virtual float getElapsedTime(CHIPEvent* other) = 0;
+
+  /**
+   * @brief Toggle this event from the host.
+   *
+   */
+  virtual void hostSignal() = 0;
 };
 
 /**
@@ -1292,6 +1365,10 @@ class CHIPQueue {
   /// Context to which device belongs to
   CHIPContext* chip_context;
 
+  CHIPEventMonitor* event_monitor;
+  std::mutex callback_stack_mtx;
+  std::stack<CHIPCallbackData*> callback_stack;
+
  public:
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
@@ -1513,6 +1590,49 @@ class CHIPQueue {
                                    CHIPKernel* kernel);
 
   virtual void getBackendHandles(unsigned long* nativeInfo, int* size) = 0;
+
+  /**
+   * @brief Create a Callback Obj object
+   * Each backend must implement this function which calls a derived
+   * CHIPCallbackData constructor
+   * @return CHIPCallbackData* pointer to newly allocated CHIPCallbackData
+   * object.
+   */
+  virtual CHIPCallbackData* createCallbackObj(hipStreamCallback_t callback,
+                                              void* userData,
+                                              CHIPQueue* chip_queue_) {
+    UNIMPLEMENTED(nullptr);
+  };
+
+  /**
+   * @brief Create a Event Monitor object
+   * Each backend needs to implement CHIPEventMonitor derived class with an
+   * overridden monitor() function
+   * @return CHIPEventMonitor* pointer to derived type
+   */
+  virtual CHIPEventMonitor* createEventMonitor() { UNIMPLEMENTED(nullptr); }
+
+  /**
+   * @brief Get the Callback object
+
+   * @param callback_data pointer to callback object
+   * @return true callback object available
+   * @return false callback object not available
+   */
+  bool getCallback(CHIPCallbackData* callback_data) {
+    bool res = false;
+    {
+      std::lock_guard<std::mutex> Lock(callback_stack_mtx);
+      if (!this->callback_stack.empty()) {
+        callback_data = callback_stack.top();
+        callback_stack.pop();
+
+        res = true;
+      }
+    }
+
+    return res;
+  }
 };
 
 #endif

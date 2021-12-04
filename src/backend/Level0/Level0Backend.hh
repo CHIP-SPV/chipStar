@@ -14,6 +14,27 @@ class CHIPModuleLevel0;
 class CHIPTextureLevel0;
 class LZCommandList;
 
+class CHIPCallbackDataLevel0 : public CHIPCallbackData {
+  ze_event_pool_handle_t ze_event_pool;
+
+ public:
+  virtual void setup() override {
+    chip_queue = (CHIPQueueLevel0*)chip_queue;
+
+    ze_event_desc_t ev_desc = {};
+    ev_desc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
+    ev_desc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
+    ev_desc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+
+    //  status = zeEventCreate(Data.eventPool, &ev_desc, &(Data.waitEvent));
+    //  status = zeCommandListAppendBarrier(list, Data.waitEvent, 0, NULL);
+  }
+};
+class CHIPEventMonitorLevel0 : public CHIPEventMonitor {
+ public:
+  virtual void monitor() override {}
+};
+
 class CHIPKernelLevel0 : public CHIPKernel {
  protected:
   ze_kernel_handle_t ze_kernel;
