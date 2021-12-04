@@ -31,6 +31,10 @@ allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {
   return getByDevPtr(found->second);
 }
 allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {
+  auto ptr = const_cast<void *>(dev_ptr);
+  auto c = dev_to_allocation_info.count(ptr);
+  if (c == 0) CHIPERR_LOG_AND_THROW("pointer not found on device", hipErrorTbd);
+
   return &dev_to_allocation_info[const_cast<void *>(dev_ptr)];
 }
 
@@ -712,7 +716,7 @@ CHIPQueue *CHIPBackend::getActiveQueue() {
 CHIPContext *CHIPBackend::getActiveContext() {
   if (active_ctx == nullptr) {
     std::string msg = "Active context is null";
-    CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
+    CHIPERR_LOG_AND_THROW(msg, hipErrorUnknown);
   }
   return active_ctx;
 };
@@ -910,8 +914,18 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *q) {
+  if (q == nullptr) {
+    logTrace(
+        "CHIPBackend::findQueue() was given a nullptr. Returning default "
+        "queue");
+    return Backend->getActiveQueue();
+  }
   auto q_found = std::find(chip_queues.begin(), chip_queues.end(), q);
-  if (q_found == chip_queues.end()) return nullptr;
+  if (q_found == chip_queues.end())
+    CHIPERR_LOG_AND_THROW(
+        "CHIPBackend::findQueue() was given a non-nullptr queue but this queue "
+        "was not found among the backend queues.",
+        hipErrorTbd);
   return *q_found;
 }
 

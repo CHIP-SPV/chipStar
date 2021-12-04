@@ -47,4 +47,19 @@ class CHIPError {
     logError(hipGetErrorName(_status.toHIPError())); \
   }
 
+inline void checkIfNullptr(int numargs, ...) {
+  va_list ap;
+
+  va_start(ap, numargs);
+  while (numargs--)
+    if (va_arg(ap, const void*) == nullptr)
+      CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
+  va_end(ap);
+
+  return;
+}
+
+#define NUMARGS(...) (sizeof((const void*[]){__VA_ARGS__}) / sizeof(void*))
+#define NULLCHECK(...) checkIfNullptr(NUMARGS(__VA_ARGS__), __VA_ARGS__);
+
 #endif  // ifdef guard
