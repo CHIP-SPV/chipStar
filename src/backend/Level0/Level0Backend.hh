@@ -231,6 +231,23 @@ class CHIPBackendLevel0 : public CHIPBackend {
                            std::string CHIPDeviceStr) override;
 
   void uninitialize() override { UNIMPLEMENTED(); }
+
+  virtual CHIPTexture* createCHIPTexture() override {
+    return new CHIPTextureLevel0();
+  };
+  virtual CHIPQueue* createCHIPQueue() override {
+    return new CHIPQueueLevel0();
+  };
+  virtual CHIPDevice* createCHIPDevice() override {
+    return new CHIPDeviceLevel0();
+  };
+  virtual CHIPContext* createCHIPContext() override {
+    return new CHIPContextLevel0();
+  };
+  virtual CHIPEvent* createCHIPEvent() override {
+    return new CHIPEventLevel0();
+  };
+
 };  // CHIPBackendLevel0
 
 class CHIPEventLevel0 : public CHIPEvent {

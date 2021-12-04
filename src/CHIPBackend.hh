@@ -1350,6 +1350,14 @@ class CHIPBackend {
    * @return hipError_t
    */
   // hipError_t removeModule(CHIPModule* chip_module);
+
+  /************Factories***************/
+
+  virtual CHIPTexture* createCHIPTexture() = 0;
+  virtual CHIPQueue* createCHIPQueue() = 0;
+  virtual CHIPDevice* createCHIPDevice() = 0;
+  virtual CHIPContext* createCHIPContext() = 0;
+  virtual CHIPEvent* createCHIPEvent() = 0;
 };
 
 /**
