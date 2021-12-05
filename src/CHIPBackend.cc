@@ -947,8 +947,9 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *q) {
         "queue");
     return Backend->getActiveQueue();
   }
-  auto q_found = std::find(chip_queues.begin(), chip_queues.end(), q);
-  if (q_found == chip_queues.end())
+  auto queues = Backend->getActiveDevice()->getQueues();
+  auto q_found = std::find(queues.begin(), queues.end(), q);
+  if (q_found == queues.end())
     CHIPERR_LOG_AND_THROW(
         "CHIPBackend::findQueue() was given a non-nullptr queue but this queue "
         "was not found among the backend queues.",
