@@ -1,5 +1,32 @@
 #include "CHIPBackend.hh"
 #include <utility>
+
+CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t callback_f_,
+                                   void *callback_args_, CHIPQueue *chip_queue_)
+    : callback_f(callback_f_),
+      callback_args(callback_args_),
+      chip_queue(chip_queue_) {
+  CHIPContext *ctx = chip_queue_->getContext();
+  gpu_ready = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
+  cpu_callback_complete = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
+  gpu_ack = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
+}
+
+void *CHIPEventMonitor::monitor(void *data_) {
+  CHIPCallbackData *cb;
+  while (chip_queue->getCallback(cb)) {
+    cb->gpu_ready->wait();
+    cb->execute();
+    cb->cpu_callback_complete->hostSignal();
+    cb->gpu_ack->wait();
+    delete cb;
+  }
+
+  // no more callback events left, free up the thread
+  delete this;
+  return nullptr;
+}
+
 // CHIPDeviceVar
 // ************************************************************************
 CHIPDeviceVar::CHIPDeviceVar(std::string host_var_name_, void *dev_ptr_,
@@ -978,12 +1005,11 @@ int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
   CHIPCallbackData *cb = createCallbackObj(callback, userData, this);
 
-  // Setup events on the GPU side
-  cb->setup();
   callback_stack.push(cb);
 
   // Setup event handling on the CPU side
   if (!event_monitor) event_monitor = createEventMonitor();
+  return true;
 }
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,

@@ -12,27 +12,28 @@ class CHIPContextLevel0;
 class CHIPDeviceLevel0;
 class CHIPModuleLevel0;
 class CHIPTextureLevel0;
+class CHIPEventLevel0;
 class LZCommandList;
 
-class CHIPCallbackDataLevel0 : public CHIPCallbackData {
-  ze_event_pool_handle_t ze_event_pool;
+// class CHIPCallbackDataLevel0 : public CHIPCallbackData {
+//   ze_event_pool_handle_t ze_event_pool;
 
- public:
-  virtual void setup() override {
-    chip_queue = (CHIPQueueLevel0*)chip_queue;
+//  public:
+//   virtual void setup() override {
+//     chip_queue = (CHIPQueueLevel0*)chip_queue;
 
-    ze_event_desc_t ev_desc = {};
-    ev_desc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
-    ev_desc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
-    ev_desc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+//     ze_event_desc_t ev_desc = {};
+//     ev_desc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
+//     ev_desc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
+//     ev_desc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
 
-    //  status = zeEventCreate(Data.eventPool, &ev_desc, &(Data.waitEvent));
-    //  status = zeCommandListAppendBarrier(list, Data.waitEvent, 0, NULL);
-  }
-};
+//     //  status = zeEventCreate(Data.eventPool, &ev_desc, &(Data.waitEvent));
+//     //  status = zeCommandListAppendBarrier(list, Data.waitEvent, 0, NULL);
+//   }
+// };
 class CHIPEventMonitorLevel0 : public CHIPEventMonitor {
  public:
-  virtual void monitor() override {}
+  virtual void* monitor(void* data_) override { UNIMPLEMENTED(nullptr); }
 };
 
 class CHIPKernelLevel0 : public CHIPKernel {
@@ -224,32 +225,6 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   }
 };
 
-class CHIPBackendLevel0 : public CHIPBackend {
- public:
-  virtual void initialize_(std::string CHIPPlatformStr,
-                           std::string CHIPDeviceTypeStr,
-                           std::string CHIPDeviceStr) override;
-
-  void uninitialize() override { UNIMPLEMENTED(); }
-
-  virtual CHIPTexture* createCHIPTexture() override {
-    return new CHIPTextureLevel0();
-  };
-  virtual CHIPQueue* createCHIPQueue() override {
-    return new CHIPQueueLevel0();
-  };
-  virtual CHIPDevice* createCHIPDevice() override {
-    return new CHIPDeviceLevel0();
-  };
-  virtual CHIPContext* createCHIPContext() override {
-    return new CHIPContextLevel0();
-  };
-  virtual CHIPEvent* createCHIPEvent() override {
-    return new CHIPEventLevel0();
-  };
-
-};  // CHIPBackendLevel0
-
 class CHIPEventLevel0 : public CHIPEvent {
  private:
   // The handler of event_pool and event
@@ -403,6 +378,38 @@ class CHIPEventLevel0 : public CHIPEvent {
 
     return ms;
   }
+
+  virtual void hostSignal() override { UNIMPLEMENTED(); }
 };
+
+class CHIPBackendLevel0 : public CHIPBackend {
+ public:
+  virtual void initialize_(std::string CHIPPlatformStr,
+                           std::string CHIPDeviceTypeStr,
+                           std::string CHIPDeviceStr) override;
+
+  void uninitialize() override { UNIMPLEMENTED(); }
+
+  virtual CHIPTexture* createCHIPTexture(intptr_t image_,
+                                         intptr_t sampler_) override {
+    return new CHIPTextureLevel0(image_, sampler_);
+  }
+  virtual CHIPQueue* createCHIPQueue(CHIPDevice* chip_dev) override {
+    CHIPDeviceLevel0* chip_dev_lz = (CHIPDeviceLevel0*)chip_dev;
+    return new CHIPQueueLevel0(chip_dev_lz);
+  }
+  // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) override {
+  //   CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)ctx_;
+  //   return new CHIPDeviceLevel0(chip_ctx_lz);
+  // };
+  // virtual CHIPContext* createCHIPContext() override {
+  //   return new CHIPContextLevel0();
+  // };
+  virtual CHIPEvent* createCHIPEvent(CHIPContext* chip_ctx_,
+                                     CHIPEventType event_type_) override {
+    return new CHIPEventLevel0((CHIPContextLevel0*)chip_ctx_, event_type_);
+  }
+
+};  // CHIPBackendLevel0
 
 #endif

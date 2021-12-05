@@ -191,21 +191,29 @@ class CHIPBackendOpenCL : public CHIPBackend {
 
   void uninitialize() override;
 
-  virtual CHIPTexture *createCHIPTexture() override {
-    return new CHIPTextureOpenCL();
-  };
-  virtual CHIPQueue *createCHIPQueue() override {
-    return new CHIPQueueOpenCL();
-  };
-  virtual CHIPDevice *createCHIPDevice() override {
-    return new CHIPDeviceOpenCL();
-  };
-  virtual CHIPContext *createCHIPContext() override {
-    return new CHIPContextOpenCL();
-  };
-  virtual CHIPEvent *createCHIPEvent() override {
-    return new CHIPEventOpenCL();
-  };
+  virtual CHIPTexture *createCHIPTexture(intptr_t image_,
+                                         intptr_t sampler_) override {
+    UNIMPLEMENTED(nullptr);
+    // return new CHIPTextureOpenCL();
+  }
+
+  virtual CHIPQueue *createCHIPQueue(CHIPDevice *chip_dev) override {
+    UNIMPLEMENTED(nullptr);
+    // return new CHIPQueueOpenCL();
+  }
+
+  // virtual CHIPDevice *createCHIPDevice() override {
+  //   return new CHIPDeviceOpenCL();
+  // }
+
+  // virtual CHIPContext *createCHIPContext() override {
+  //   return new CHIPContextOpenCL();
+  // }
+
+  virtual CHIPEvent *createCHIPEvent(CHIPContext *chip_ctx_,
+                                     CHIPEventType event_type_) override {
+    UNIMPLEMENTED(nullptr);
+  }
 };
 
 class CHIPEventOpenCL : public CHIPEvent {

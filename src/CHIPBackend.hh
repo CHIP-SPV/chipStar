@@ -33,6 +33,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+class CHIPEventMonitor;
+
 class CHIPCallbackData {
  public:
   CHIPQueue* chip_queue;
@@ -45,21 +47,12 @@ class CHIPCallbackData {
   hipStreamCallback_t callback_f;
 
   CHIPCallbackData(hipStreamCallback_t callback_f_, void* callback_args_,
-                   CHIPQueue* chip_queue_)
-      : callback_f(callback_f_),
-        callback_args(callback_args_),
-        chip_queue(chip_queue_) {}
+                   CHIPQueue* chip_queue_);
 
-  /**
-   * @brief enqueue the events on the GPU.
-   * TODO: This can be implemented at the CHIP level
-   *
-   */
-  virtual void setup() { UNIMPLEMENTED(); }
-
-  virtual void execute() { UNIMPLEMENTED(); }
+  void execute() { callback_f(chip_queue, status, callback_args); }
 };
 
+void* monitor_wrapper(CHIPEventMonitor* event_monitor_);
 class CHIPEventMonitor {
   typedef void* (*THREADFUNCPTR)(void*);
 
@@ -74,23 +67,10 @@ class CHIPEventMonitor {
    * @brief Pop the callback stack and execute
    * @param data user
    */
-  virtual void monitor() {
-    CHIPCallbackData* cb;
-    while (chip_queue->getCallback(cb)) {
-      cb->gpu_ready->hostSync();
-      cb->execute();
-      cb->cpu_callback_complete->hostSignal();
-      cb->gpu_ack->hostSync();
-      delete cb;
-    }
-
-    // no more callback events left, free up the thread
-    delete this;
-  }
+  virtual void* monitor(void* data) = 0;
 
   CHIPEventMonitor(CHIPQueue* chip_queue_, void* data) {
-    pthread_create(&(this->thread), 0,
-                   (THREADFUNCPTR)&CHIPEventMonitor::monitor);
+    pthread_create(&thread, 0, (THREADFUNCPTR)&monitor_wrapper, nullptr);
   }
 
   /**
@@ -99,6 +79,10 @@ class CHIPEventMonitor {
    */
   void wait();
 };
+
+inline void* monitor_wrapper(CHIPEventMonitor* event_monitor_) {
+  return event_monitor_->monitor(nullptr);
+}
 
 class CHIPTexture {
  protected:
@@ -1353,11 +1337,13 @@ class CHIPBackend {
 
   /************Factories***************/
 
-  virtual CHIPTexture* createCHIPTexture() = 0;
-  virtual CHIPQueue* createCHIPQueue() = 0;
-  virtual CHIPDevice* createCHIPDevice() = 0;
-  virtual CHIPContext* createCHIPContext() = 0;
-  virtual CHIPEvent* createCHIPEvent() = 0;
+  virtual CHIPTexture* createCHIPTexture(intptr_t image_,
+                                         intptr_t sampler_) = 0;
+  virtual CHIPQueue* createCHIPQueue(CHIPDevice* chip_dev) = 0;
+  // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
+  // virtual CHIPContext* createCHIPContext() = 0;
+  virtual CHIPEvent* createCHIPEvent(CHIPContext* chip_ctx_,
+                                     CHIPEventType event_type_) = 0;
 };
 
 /**
@@ -1641,6 +1627,8 @@ class CHIPQueue {
 
     return res;
   }
+
+  CHIPContext* getContext() { return chip_context; }
 };
 
 #endif
