@@ -1,9 +1,9 @@
 #ifndef CHIP_BACKEND_LEVEL0_H
 #define CHIP_BACKEND_LEVEL0_H
 
-#include "../src/common.hh"
 #include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
+#include "../src/common.hh"
 
 std::string resultToString(ze_result_t status);
 
@@ -13,27 +13,23 @@ class CHIPDeviceLevel0;
 class CHIPModuleLevel0;
 class CHIPTextureLevel0;
 class CHIPEventLevel0;
+class CHIPQueueLevel0;
 class LZCommandList;
 
-// class CHIPCallbackDataLevel0 : public CHIPCallbackData {
-//   ze_event_pool_handle_t ze_event_pool;
+class CHIPCallbackDataLevel0 : public CHIPCallbackData {
+ private:
+  ze_event_pool_handle_t ze_event_pool;
 
-//  public:
-//   virtual void setup() override {
-//     chip_queue = (CHIPQueueLevel0*)chip_queue;
+ public:
+  CHIPCallbackDataLevel0(hipStreamCallback_t callback_f_, void* callback_args_,
+                         CHIPQueue* chip_queue_);
+  virtual void setup() override;
+};
 
-//     ze_event_desc_t ev_desc = {};
-//     ev_desc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
-//     ev_desc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
-//     ev_desc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
-
-//     //  status = zeEventCreate(Data.eventPool, &ev_desc, &(Data.waitEvent));
-//     //  status = zeCommandListAppendBarrier(list, Data.waitEvent, 0, NULL);
-//   }
-// };
 class CHIPEventMonitorLevel0 : public CHIPEventMonitor {
  public:
-  virtual void* monitor(void* data_) override { UNIMPLEMENTED(nullptr); }
+  CHIPEventMonitorLevel0(CHIPQueueLevel0* chip_queue_, void* data);
+  virtual void* monitor(void* data_) override;
 };
 
 class CHIPKernelLevel0 : public CHIPKernel {
@@ -408,6 +404,17 @@ class CHIPBackendLevel0 : public CHIPBackend {
   virtual CHIPEvent* createCHIPEvent(CHIPContext* chip_ctx_,
                                      CHIPEventType event_type_) override {
     return new CHIPEventLevel0((CHIPContextLevel0*)chip_ctx_, event_type_);
+  }
+
+  virtual CHIPCallbackData* createCallbackData(
+      hipStreamCallback_t callback, void* userData,
+      CHIPQueue* chip_queue_) override {
+    return new CHIPCallbackDataLevel0(callback, userData, chip_queue_);
+  }
+
+  virtual CHIPEventMonitor* createEventMonitor(CHIPQueue* chip_queue_,
+                                               void* data) override {
+    return new CHIPEventMonitorLevel0((CHIPQueueLevel0*)chip_queue_, data);
   }
 
 };  // CHIPBackendLevel0

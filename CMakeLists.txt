@@ -75,7 +75,11 @@ endif()
 
 set(CHIP_SPV_INCLUDE_FLAGS ${CHIP_SPV_INCLUDE_FLAGS} src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
+set(PTHREAD_LIBRARY Threads::Threads)
+
 set(CHIP_SRC 
     src/spirv.cc 
     src/spirv_hiprtc.cc 
@@ -108,7 +112,7 @@ set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR} ${CHIP_SPV_COMPILE_FLAGS})
 
-target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS})
+target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
 target_include_directories(CHIP
     PUBLIC
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"

@@ -1,4 +1,21 @@
 #include "CHIPBackendOpenCL.hh"
+// CHIPCallbackDataLevel0
+// ************************************************************************
+
+CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t callback_f_,
+                                               void *callback_args_,
+                                               CHIPQueue *chip_queue_)
+    : CHIPCallbackData(callback_f_, callback_args_, chip_queue_) {}
+
+void CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL::setup() {}
+
+// CHIPEventMonitorOpenCL
+// ************************************************************************
+CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL(CHIPQueueOpenCL *chip_queue_,
+                                               void *data)
+    : CHIPEventMonitor(chip_queue_, data){};
+
+void *CHIPEventMonitorOpenCL::monitor(void *data_) { UNIMPLEMENTED(nullptr); }
 
 // CHIPDeviceOpenCL
 // ************************************************************************

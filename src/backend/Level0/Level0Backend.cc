@@ -1,4 +1,25 @@
 #include "Level0Backend.hh"
+// CHIPCallbackDataLevel0
+// ***********************************************************************
+CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t callback_f_,
+                                               void* callback_args_,
+                                               CHIPQueue* chip_queue_)
+    : CHIPCallbackData(callback_f_, callback_args_, chip_queue_) {}
+
+void CHIPCallbackDataLevel0::setup() {
+  // create a pool
+  // create events from pool
+  // assign events to parent events
+  UNIMPLEMENTED();
+}
+
+// CHIPEventMonitorLevel0
+// ***********************************************************************
+CHIPEventMonitorLevel0::CHIPEventMonitorLevel0(CHIPQueueLevel0* chip_queue_,
+                                               void* data)
+    : CHIPEventMonitor(chip_queue_, data){};
+
+void* CHIPEventMonitorLevel0::monitor(void* data_) { UNIMPLEMENTED(nullptr); }
 
 // CHIPBackendLevel0
 // ***********************************************************************

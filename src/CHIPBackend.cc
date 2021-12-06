@@ -1,4 +1,5 @@
 #include "CHIPBackend.hh"
+
 #include <utility>
 
 CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t callback_f_,
@@ -6,7 +7,11 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t callback_f_,
     : callback_f(callback_f_),
       callback_args(callback_args_),
       chip_queue(chip_queue_) {
-  CHIPContext *ctx = chip_queue_->getContext();
+  setup();
+}
+
+void CHIPCallbackData::setup() {
+  CHIPContext *ctx = chip_queue->getContext();
   gpu_ready = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
   cpu_callback_complete = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
   gpu_ack = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
@@ -1004,12 +1009,13 @@ hipError_t CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
 int CHIPQueue::getPriorityRange(int lower_or_upper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
-  CHIPCallbackData *cb = createCallbackObj(callback, userData, this);
+  CHIPCallbackData *cb = Backend->createCallbackData(callback, userData, this);
 
   callback_stack.push(cb);
 
   // Setup event handling on the CPU side
-  if (!event_monitor) event_monitor = createEventMonitor();
+  if (!event_monitor)
+    event_monitor = Backend->createEventMonitor(this, userData);
   return true;
 }
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,

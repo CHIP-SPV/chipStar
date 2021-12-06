@@ -36,6 +36,20 @@ class CHIPEventOpenCL;
 class CHIPBackendOpenCL;
 class CHIPModuleOpenCL;
 
+class CHIPCallbackDataOpenCL : public CHIPCallbackData {
+ private:
+ public:
+  CHIPCallbackDataOpenCL(hipStreamCallback_t callback_f_, void *callback_args_,
+                         CHIPQueue *chip_queue_);
+  virtual void setup() override;
+};
+
+class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
+ public:
+  CHIPEventMonitorOpenCL(CHIPQueueOpenCL *chip_queue_, void *data);
+  virtual void *monitor(void *data_) override;
+};
+
 class CHIPModuleOpenCL : public CHIPModule {
  protected:
   cl::Program program;
@@ -213,6 +227,17 @@ class CHIPBackendOpenCL : public CHIPBackend {
   virtual CHIPEvent *createCHIPEvent(CHIPContext *chip_ctx_,
                                      CHIPEventType event_type_) override {
     UNIMPLEMENTED(nullptr);
+  }
+
+  virtual CHIPCallbackData *createCallbackData(
+      hipStreamCallback_t callback, void *userData,
+      CHIPQueue *chip_queue_) override {
+    UNIMPLEMENTED(nullptr);
+  }
+
+  virtual CHIPEventMonitor *createEventMonitor(CHIPQueue *chip_queue_,
+                                               void *data) override {
+    return new CHIPEventMonitorOpenCL((CHIPQueueOpenCL *)chip_queue_, data);
   }
 };
 
