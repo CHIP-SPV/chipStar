@@ -15,13 +15,22 @@ void CHIPCallbackData::setup() {
   gpu_ready = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
   cpu_callback_complete = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
   gpu_ack = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
+
+  chip_queue->enqueueBarrier(gpu_ready, nullptr);
+
+  std::vector<CHIPEvent *> evs = {cpu_callback_complete};
+  chip_queue->enqueueBarrier(nullptr, &evs);
+
+  chip_queue->enqueueSignal(gpu_ack);
 }
 
-void *CHIPEventMonitor::monitor(void *data_) {
+void CHIPEventMonitor::monitor() {
+  logTrace("CHIPEventMonitor::monitor()");
+  std::lock_guard<std::mutex> Lock(mtx);
   CHIPCallbackData *cb;
-  while (chip_queue->getCallback(cb)) {
+  while (Backend->getCallback(&cb)) {
     cb->gpu_ready->wait();
-    cb->execute();
+    cb->execute(hipSuccess);
     cb->cpu_callback_complete->hostSignal();
     cb->gpu_ack->wait();
     delete cb;
@@ -29,7 +38,7 @@ void *CHIPEventMonitor::monitor(void *data_) {
 
   // no more callback events left, free up the thread
   delete this;
-  return nullptr;
+  pthread_yield();
 }
 
 // CHIPDeviceVar
@@ -102,7 +111,7 @@ void CHIPAllocationTracker::recordAllocation(void *ptr) {
 // CHIPEvent
 // ************************************************************************
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
-    : event_status(EVENT_STATUS_INIT),
+    : event_status(EVENT_STATUS_RECORDING),
       flags(event_type_),
       chip_context(ctx_in) {}
 
@@ -1011,11 +1020,10 @@ int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
   CHIPCallbackData *cb = Backend->createCallbackData(callback, userData, this);
 
-  callback_stack.push(cb);
+  Backend->callback_stack.push(cb);
 
   // Setup event handling on the CPU side
-  if (!event_monitor)
-    event_monitor = Backend->createEventMonitor(this, userData);
+  if (!event_monitor) event_monitor = Backend->createEventMonitor();
   return true;
 }
 bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
@@ -1027,7 +1035,6 @@ bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
   e.launchByHostPtr(hostFunction);
   return true;
 }
-bool CHIPQueue::enqueueBarrierForEvent(CHIPEvent *e) { UNIMPLEMENTED(true); }
 bool CHIPQueue::query() { UNIMPLEMENTED(true); }
 void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
                         size_t pattern_size) {

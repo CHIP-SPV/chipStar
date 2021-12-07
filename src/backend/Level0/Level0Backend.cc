@@ -1,4 +1,37 @@
 #include "Level0Backend.hh"
+
+void CHIPQueueLevel0::enqueueSignal(CHIPEvent* eventToSignal) {
+  auto ev = (CHIPEventLevel0*)eventToSignal;
+  auto status = zeCommandListAppendSignalEvent(getCmdList(), ev->get());
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+}
+
+void CHIPQueueLevel0::enqueueBarrier(CHIPEvent* eventToSignal,
+                                     std::vector<CHIPEvent*>* eventsToWaitFor) {
+  size_t numEventsToWaitFor = 0;
+  if (eventsToWaitFor) numEventsToWaitFor = eventsToWaitFor->size();
+
+  ze_event_handle_t* event_handles = nullptr;
+  ze_event_handle_t signal_event_handle = nullptr;
+
+  if (eventToSignal)
+    signal_event_handle = ((CHIPEventLevel0*)(eventToSignal))->get();
+
+  if (numEventsToWaitFor > 0) {
+    event_handles = new ze_event_handle_t[numEventsToWaitFor];
+    for (int i = 0; i < numEventsToWaitFor; i++) {
+      CHIPEventLevel0* chip_event_lz = (CHIPEventLevel0*)(*eventsToWaitFor)[i];
+      event_handles[i] = chip_event_lz->get();
+    }
+  }  // done gather event handles to wait on
+
+  auto status = zeCommandListAppendBarrier(getCmdList(), signal_event_handle,
+                                           numEventsToWaitFor, event_handles);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  if (event_handles) delete event_handles;
+}
+
 // CHIPCallbackDataLevel0
 // ***********************************************************************
 CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t callback_f_,
@@ -15,11 +48,14 @@ void CHIPCallbackDataLevel0::setup() {
 
 // CHIPEventMonitorLevel0
 // ***********************************************************************
-CHIPEventMonitorLevel0::CHIPEventMonitorLevel0(CHIPQueueLevel0* chip_queue_,
-                                               void* data)
-    : CHIPEventMonitor(chip_queue_, data){};
+CHIPEventMonitorLevel0::CHIPEventMonitorLevel0() : CHIPEventMonitor() {
+  logDebug("CHIPEventMonitorLevel0::CHIPEventMonitorLevel0()");
+};
 
-void* CHIPEventMonitorLevel0::monitor(void* data_) { UNIMPLEMENTED(nullptr); }
+void CHIPEventMonitorLevel0::monitor() {
+  logDebug("CHIPEventMonitorLevel0::monitor()");
+  CHIPEventMonitor::monitor();
+}
 
 // CHIPBackendLevel0
 // ***********************************************************************

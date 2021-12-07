@@ -55,11 +55,14 @@ class CHIPCallbackData {
    */
   virtual void setup();
 
-  void execute() { callback_f(chip_queue, status, callback_args); }
+  void execute(hipError_t resultFromDependency) {
+    callback_f(chip_queue, resultFromDependency, callback_args);
+  }
 };
 
-void* monitor_wrapper(CHIPEventMonitor* event_monitor_);
+void* monitor_wrapper(void* event_monitor_);
 class CHIPEventMonitor {
+  std::mutex mtx;
   typedef void* (*THREADFUNCPTR)(void*);
 
  protected:
@@ -71,12 +74,14 @@ class CHIPEventMonitor {
  public:
   /**
    * @brief Pop the callback stack and execute
-   * @param data user
    */
-  virtual void* monitor(void* data) = 0;
+  virtual void monitor();
 
-  CHIPEventMonitor(CHIPQueue* chip_queue_, void* data) {
-    pthread_create(&thread, 0, (THREADFUNCPTR)&monitor_wrapper, nullptr);
+  CHIPEventMonitor() {
+    logDebug("CHIPEventMonitor::CHIPEventMonitor()");
+    auto res = pthread_create(&thread, 0, (THREADFUNCPTR)&monitor_wrapper,
+                              (void*)this);
+    logDebug("Thread Created with ID : {}", thread);
   }
 
   /**
@@ -86,8 +91,10 @@ class CHIPEventMonitor {
   void wait();
 };
 
-inline void* monitor_wrapper(CHIPEventMonitor* event_monitor_) {
-  return event_monitor_->monitor(nullptr);
+inline void* monitor_wrapper(void* event_monitor_) {
+  CHIPEventMonitor* event_monitor = (CHIPEventMonitor*)event_monitor_;
+  event_monitor->monitor();
+  return nullptr;
 }
 
 class CHIPTexture {
@@ -291,6 +298,8 @@ class CHIPEvent {
    *
    */
   virtual void hostSignal() = 0;
+
+  virtual void barrier(CHIPQueue* chip_queue_) = 0;
 };
 
 /**
@@ -1134,6 +1143,8 @@ class CHIPBackend {
   CHIPQueue* active_q;
 
  public:
+  std::mutex callback_stack_mtx;
+  std::stack<CHIPCallbackData*> callback_stack;
   /**
    * @brief Keep track of pointers allocated on the device. Used to get info
    * about allocaitons based on device poitner in case that findPointerInfo() is
@@ -1362,8 +1373,29 @@ class CHIPBackend {
                                                void* userData,
                                                CHIPQueue* chip_queue_) = 0;
 
-  virtual CHIPEventMonitor* createEventMonitor(CHIPQueue* chip_queue_,
-                                               void* data) = 0;
+  virtual CHIPEventMonitor* createEventMonitor() = 0;
+
+  /**
+ * @brief Get the Callback object
+
+ * @param callback_data pointer to callback object
+ * @return true callback object available
+ * @return false callback object not available
+ */
+  bool getCallback(CHIPCallbackData** callback_data) {
+    bool res = false;
+    {
+      std::lock_guard<std::mutex> Lock(callback_stack_mtx);
+      if (this->callback_stack.size()) {
+        *callback_data = callback_stack.top();
+        callback_stack.pop();
+
+        res = true;
+      }
+    }
+
+    return res;
+  }
 };
 
 /**
@@ -1379,9 +1411,7 @@ class CHIPQueue {
   /// Context to which device belongs to
   CHIPContext* chip_context;
 
-  CHIPEventMonitor* event_monitor;
-  std::mutex callback_stack_mtx;
-  std::stack<CHIPCallbackData*> callback_stack;
+  CHIPEventMonitor* event_monitor = nullptr;
 
  public:
   /** Keep track of what was the last event submitted to this queue. Required
@@ -1524,7 +1554,10 @@ class CHIPQueue {
    * @return false
    */
 
-  bool enqueueBarrierForEvent(CHIPEvent* e);  // TODO CHIP
+  virtual void enqueueBarrier(CHIPEvent* eventToSignal,
+                              std::vector<CHIPEvent*>* eventsToWaitFor) = 0;
+
+  virtual void enqueueSignal(CHIPEvent* eventToSignal) = 0;
   /**
    * @brief Get the Flags object with which this queue was created.
    *
@@ -1604,28 +1637,6 @@ class CHIPQueue {
                                    CHIPKernel* kernel);
 
   virtual void getBackendHandles(unsigned long* nativeInfo, int* size) = 0;
-
-  /**
-   * @brief Get the Callback object
-
-   * @param callback_data pointer to callback object
-   * @return true callback object available
-   * @return false callback object not available
-   */
-  bool getCallback(CHIPCallbackData* callback_data) {
-    bool res = false;
-    {
-      std::lock_guard<std::mutex> Lock(callback_stack_mtx);
-      if (!this->callback_stack.empty()) {
-        callback_data = callback_stack.top();
-        callback_stack.pop();
-
-        res = true;
-      }
-    }
-
-    return res;
-  }
 
   CHIPContext* getContext() { return chip_context; }
 };

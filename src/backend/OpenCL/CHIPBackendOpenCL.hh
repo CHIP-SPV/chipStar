@@ -46,8 +46,8 @@ class CHIPCallbackDataOpenCL : public CHIPCallbackData {
 
 class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
  public:
-  CHIPEventMonitorOpenCL(CHIPQueueOpenCL *chip_queue_, void *data);
-  virtual void *monitor(void *data_) override;
+  CHIPEventMonitorOpenCL();
+  // virtual void monitor() override;
 };
 
 class CHIPModuleOpenCL : public CHIPModule {
@@ -170,6 +170,16 @@ class CHIPQueueOpenCL : public CHIPQueue {
 
   virtual void getBackendHandles(unsigned long *nativeInfo,
                                  int *size) override {}  // TODO
+
+  virtual void enqueueBarrier(
+      CHIPEvent *eventToSignal,
+      std::vector<CHIPEvent *> *eventsToWaitFor) override {
+    UNIMPLEMENTED();
+  }
+
+  virtual void enqueueSignal(CHIPEvent *eventToSignal) override {
+    UNIMPLEMENTED();
+  }
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {
@@ -235,9 +245,8 @@ class CHIPBackendOpenCL : public CHIPBackend {
     UNIMPLEMENTED(nullptr);
   }
 
-  virtual CHIPEventMonitor *createEventMonitor(CHIPQueue *chip_queue_,
-                                               void *data) override {
-    return new CHIPEventMonitorOpenCL((CHIPQueueOpenCL *)chip_queue_, data);
+  virtual CHIPEventMonitor *createEventMonitor() override {
+    return new CHIPEventMonitorOpenCL();
   }
 };
 
@@ -250,6 +259,8 @@ class CHIPEventOpenCL : public CHIPEvent {
   bool wait() override { UNIMPLEMENTED(true); };
   bool isFinished() override { UNIMPLEMENTED(true); };
   float getElapsedTime(CHIPEvent *other) override { UNIMPLEMENTED(true); };
+
+  virtual void barrier(CHIPQueue *chip_queue_) override { UNIMPLEMENTED(); }
 };
 
 #endif

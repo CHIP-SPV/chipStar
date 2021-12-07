@@ -11,11 +11,9 @@ void CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL::setup() {}
 
 // CHIPEventMonitorOpenCL
 // ************************************************************************
-CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL(CHIPQueueOpenCL *chip_queue_,
-                                               void *data)
-    : CHIPEventMonitor(chip_queue_, data){};
+CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL() : CHIPEventMonitor(){};
 
-void *CHIPEventMonitorOpenCL::monitor(void *data_) { UNIMPLEMENTED(nullptr); }
+// void CHIPEventMonitorOpenCL::monitor() { UNIMPLEMENTED(); }
 
 // CHIPDeviceOpenCL
 // ************************************************************************
