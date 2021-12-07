@@ -73,6 +73,7 @@ allocation_info *CHIPAllocationTracker::getByHostPtr(const void *host_ptr) {
 }
 allocation_info *CHIPAllocationTracker::getByDevPtr(const void *dev_ptr) {
   auto ptr = const_cast<void *>(dev_ptr);
+  logDebug("dev_to_allocation_info size: {}", dev_to_allocation_info.size());
   auto c = dev_to_allocation_info.count(ptr);
   if (c == 0) CHIPERR_LOG_AND_THROW("pointer not found on device", hipErrorTbd);
 
@@ -103,8 +104,11 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long bytes) {
   return false;
 }
 
-void CHIPAllocationTracker::recordAllocation(void *ptr) {
-  ptr_set.insert(ptr);
+void CHIPAllocationTracker::recordAllocation(void *dev_ptr, size_t size_) {
+  allocation_info alloc_info{dev_ptr, size_};
+  dev_to_allocation_info[dev_ptr] = alloc_info;
+  logDebug("CHIPAllocationTracker::recordAllocation size: {}",
+           dev_to_allocation_info.size());
   return;
 }
 
@@ -274,8 +278,9 @@ std::string CHIPDevice::getName() {
 
 void CHIPDevice::populateDeviceProperties() {
   std::call_once(propsPopulated, &CHIPDevice::populateDeviceProperties_, this);
-  allocation_tracker = new CHIPAllocationTracker(
-      hip_device_props.totalGlobalMem, hip_device_props.name);
+  if (!allocation_tracker)
+    allocation_tracker = new CHIPAllocationTracker(
+        hip_device_props.totalGlobalMem, hip_device_props.name);
 }
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
   logTrace("CHIPDevice->copy_device_properties()");
@@ -653,17 +658,19 @@ void *CHIPContext::allocate(size_t size, CHIPMemoryType mem_type) {
 void *CHIPContext::allocate(size_t size, size_t alignment,
                             CHIPMemoryType mem_type) {
   std::lock_guard<std::mutex> Lock(mtx);
-  void *retval;
+  void *allocated_ptr;
 
   CHIPDevice *chip_dev = Backend->getActiveDevice();
   assert(chip_dev->getContext() == this);
 
   if (!chip_dev->allocation_tracker->reserveMem(size)) return nullptr;
-  retval = allocate_(size, alignment, mem_type);
-  if (retval == nullptr)
+  allocated_ptr = allocate_(size, alignment, mem_type);
+  if (allocated_ptr == nullptr)
     chip_dev->allocation_tracker->releaseMemReservation(size);
 
-  return retval;
+  chip_dev->allocation_tracker->recordAllocation(allocated_ptr, size);
+
+  return allocated_ptr;
 }
 
 hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,

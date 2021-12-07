@@ -204,7 +204,7 @@ class CHIPAllocationTracker {
    *
    * @param dev_ptr
    */
-  void recordAllocation(void* dev_ptr);
+  void recordAllocation(void* dev_ptr, size_t size_);
 };
 
 class CHIPDeviceVar {
