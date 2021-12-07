@@ -95,7 +95,7 @@ set(CHIP_SRC
 )
 set(DRIVER_SRC src/main.cc)
 
-find_library_dynamic(libze_loader.so.1)
+find_library_dynamic(ze_loader)
 message(STATUS "\n\nCHIP-SPV_LIBRARIES=${CHIP-SPV_LIBRARIES}\n\n")
 
 if (BUILD_SHARED_LIBS)
@@ -109,12 +109,20 @@ else()
 endif()
 
 set(HIP_PATH HIP)
-set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIP_SPIRV_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm  )
+set(OFFLOAD_ARCH_STR
+  -D__HIP_PLATFORM_SPIRV__=
+  -x hip --target=x86_64-linux-gnu
+  $<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}>
+  $<INSTALL_INTERFACE:--hip-device-lib-path=${CMAKE_INSTALL_PREFIX}/share>
+  --hip-device-lib=kernellib.bc
+  $<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>
+  $<INSTALL_INTERFACE:--hip-llvm-pass-path=${CMAKE_INSTALL_PREFIX}/lib/llvm>)
 
 # For building on top of HIP-COMMON
-target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR} ${CHIP_SPV_COMPILE_FLAGS})
+target_compile_options(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__= ${CHIP_SPV_COMPILE_FLAGS})
 
-target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
+target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${ze_loader_LIBRARY}
+  ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
 target_include_directories(CHIP
     PUBLIC
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
@@ -139,6 +147,7 @@ add_subdirectory(HIP/tests/catch catch)
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
 target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${CHIP-SPV_LIBRARIES})
+add_dependencies(driver LLVMHipPasses)
 
 
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)

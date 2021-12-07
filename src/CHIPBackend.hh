@@ -24,7 +24,6 @@
 #include <stack>
 
 #include "spirv.hh"
-#include "hip/hip_runtime.h"
 #include "hip/hip_runtime_api.h"
 #include "hip/spirv_hip.hh"
 
