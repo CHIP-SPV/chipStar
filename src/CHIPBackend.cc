@@ -684,9 +684,9 @@ hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *pbase, size_t *psize,
   return hipSuccess;
 }
 
-unsigned int CHIPContext::getFlags() { UNIMPLEMENTED(0); }
+unsigned int CHIPContext::getFlags() { return flags; }
 
-void CHIPContext::setFlags(unsigned int flags) { UNIMPLEMENTED(); }
+void CHIPContext::setFlags(unsigned int flags_) { flags = flags_; }
 
 void CHIPContext::reset() {
   logDebug("Resetting CHIPContext: deleting allocations");
@@ -712,10 +712,6 @@ hipError_t CHIPContext::free(void *ptr) {
   free_(ptr);
   return hipSuccess;
 }
-
-CHIPEvent *createEvent(unsigned flags) {
-  UNIMPLEMENTED(nullptr);
-}  // TODO make pure virtual
 
 // CHIPBackend
 //*************************************************************************************
@@ -1005,8 +1001,7 @@ CHIPDevice *CHIPQueue::getDevice() {
   return chip_device;
 }
 
-unsigned int CHIPQueue::getFlags() { UNIMPLEMENTED(0); }
-hipError_t CHIPQueue::launch(CHIPExecItem *) { UNIMPLEMENTED(hipSuccess); }
+unsigned int CHIPQueue::getFlags() { return flags; }
 // hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
 // hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
 
@@ -1047,10 +1042,6 @@ void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
                         size_t pattern_size) {
   memFillAsync(dst, size, pattern, pattern_size);
   finish();
-}
-void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
-                             size_t pattern_size) {
-  UNIMPLEMENTED();  // TODO remove this
 }
 
 bool CHIPQueue::memPrefetch(const void *ptr, size_t count) {

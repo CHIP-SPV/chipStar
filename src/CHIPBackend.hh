@@ -934,6 +934,8 @@ class CHIPContext {
   std::mutex mtx;
   std::vector<void*> allocated_ptrs;
 
+  unsigned int flags;
+
  public:
   /**
    * @brief Construct a new CHIPContext object
@@ -1514,7 +1516,7 @@ class CHIPQueue {
    * @param exec_item
    * @return hipError_t
    */
-  virtual hipError_t launch(CHIPExecItem* exec_item);
+  virtual hipError_t launch(CHIPExecItem* exec_item) = 0;
 
   /**
    * @brief Get the Device obj
