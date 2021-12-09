@@ -655,7 +655,7 @@ class CHIPDevice {
       host_var_ptr_to_chipdevicevar_dyn;
 
   int idx;
-  CHIPAllocationTracker* allocation_tracker;
+  CHIPAllocationTracker* allocation_tracker = nullptr;
 
   /**
    * @brief Construct a new CHIPDevice object

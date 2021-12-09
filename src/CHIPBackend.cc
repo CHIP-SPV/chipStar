@@ -663,6 +663,7 @@ void *CHIPContext::allocate(size_t size, size_t alignment,
   CHIPDevice *chip_dev = Backend->getActiveDevice();
   assert(chip_dev->getContext() == this);
 
+  assert(chip_dev->allocation_tracker && "AllocationTracker was not created!");
   if (!chip_dev->allocation_tracker->reserveMem(size)) return nullptr;
   allocated_ptr = allocate_(size, alignment, mem_type);
   if (allocated_ptr == nullptr)
