@@ -11,12 +11,37 @@ project is a result of [HIPCL](https://github.com/cpc/hipcl) and
 
 * Cmake >= 3.18.0
 * Clang with SPIR-V patches: [hipcl-clang](https://github.com/parmance/llvm-project)
+* SPIRV-LLVM-Translator: [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime)
 * For OpenCL Backend
   * An OpenCL implementation with (at least partial) 2.x support;
     HIPCL requires Shared Virtual Memory and clCreateProgramWithIL()
     support
+
+## Downloading and Building Clang
+
+Downloading:
+
+```bash
+git clone git@github.com:parmance/llvm-project.git -b hip2spirv-v5
+cd llvm-project/llvm/projects
+git clone git@github.com:KhronosGroup/SPIRV-LLVM-Translator.git
+cd SPIRV-LLVM-Translator
+git checkout 8679b960f46a5095e4230e1e350cef035f6f6b9e
+```
+
+Building:
+
+```bash
+cd llvm-project
+mkdir build
+cd build
+cmake .. -DLLVM_ENABLE_PROJECTS="clang" \
+  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_DIR}
+make
+make install
+```
 
 ## Downloading Sources
 
@@ -29,7 +54,7 @@ git submodule update --init --recursive
 ## Building
 
 ```bash
-# export PATH=${PATH_TO_CLANG_SPIRV}:$PATH
+# export PATH=${LLVM_INSTALL_DIR}/bin:$PATH
 mkdir build
 cd build
 
