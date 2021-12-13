@@ -100,11 +100,9 @@ static void emitGlobalVarBindShadowKernel(Module &M, GlobalVariable *GVar,
 // current insertion point.
 static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
                              IRBuilder<> &Builder, Const2InstMapT &InsnCache) {
-  if (InsnCache.count(C))
-    return InsnCache[C];
+  if (InsnCache.count(C)) return InsnCache[C];
 
-  if (isa<ConstantData>(C))
-    return C;
+  if (isa<ConstantData>(C)) return C;
 
   if (auto *GVar = dyn_cast<GlobalVariable>(C)) {
     if (GVarMap.count(GVar)) {
@@ -119,7 +117,7 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
   }
 
   if (auto *CE = dyn_cast<ConstantExpr>(C)) {
-    SmallVector<Value*, 4> Ops; // Collect potentially expanded operands.
+    SmallVector<Value *, 4> Ops;  // Collect potentially expanded operands.
     bool AnyOpExpanded = false;
     for (Value *Op : CE->operand_values()) {
       Value *V =
@@ -128,13 +126,11 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
       AnyOpExpanded |= !isa<Constant>(V);
     }
 
-    if (!AnyOpExpanded)
-      return CE;
+    if (!AnyOpExpanded) return CE;
 
     auto *AsInsn = Builder.Insert(CE->getAsInstruction());
     // Replace constant operands with expanded ones.
-    for (auto &U : AsInsn->operands())
-      U.set(Ops[U.getOperandNo()]);
+    for (auto &U : AsInsn->operands()) U.set(Ops[U.getOperandNo()]);
     InsnCache[CE] = AsInsn;
     return AsInsn;
   }
@@ -175,17 +171,15 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
 }
 
 static bool shouldLower(const GlobalVariable &GVar) {
-  if (!GVar.hasName())
-    return false;
+  if (!GVar.hasName()) return false;
 
   if (GVar.getName().startswith(ChipVarPrefix))
-    return false; // Already lowered.
+    return false;  // Already lowered.
 
   // Only objects in cross-workgroup address space are considered. LLVM IR
   // straight out from the HIP-Clang does not have objects in constant address
   // space so we don't look for them.
-  if (GVar.getAddressSpace() != SpirvCrossWorkGroupAS)
-    return false;
+  if (GVar.getAddressSpace() != SpirvCrossWorkGroupAS) return false;
 
   // Catch globals with unexpected attributes.
   assert(!GVar.isThreadLocal());
@@ -200,8 +194,7 @@ static void findInstructionUsesImpl(Use &U, std::vector<Use *> &Uses) {
     return;
   }
   if (isa<Constant>(U.getUser())) {
-    for (auto &U : U.getUser()->uses())
-      findInstructionUsesImpl(U, Uses);
+    for (auto &U : U.getUser()->uses()) findInstructionUsesImpl(U, Uses);
     return;
   }
 
@@ -213,16 +206,15 @@ static void findInstructionUsesImpl(Use &U, std::vector<Use *> &Uses) {
 // Return list of non-constant leaf use edges whose users are instructions.
 static std::vector<Use *> findInstructionUses(GlobalVariable *GVar) {
   std::vector<Use *> Uses;
-  for (auto &U : GVar->uses())
-    findInstructionUsesImpl(U, Uses);
+  for (auto &U : GVar->uses()) findInstructionUsesImpl(U, Uses);
   return Uses;
 }
 
 static void replaceGlobalVariableUses(GVarMapT &GVarMap) {
-  std::map<Function*, Const2InstMapT> Fn2InsnCache;
-  std::map<Function*, std::unique_ptr<IRBuilder<>>> Fn2Builder;
+  std::map<Function *, Const2InstMapT> Fn2InsnCache;
+  std::map<Function *, std::unique_ptr<IRBuilder<>>> Fn2Builder;
 
-  auto getBuilder = [&Fn2Builder](Function *F) -> IRBuilder<>& {
+  auto getBuilder = [&Fn2Builder](Function *F) -> IRBuilder<> & {
     auto &BuilderPtr = Fn2Builder[F];
     if (!BuilderPtr) {
       auto &E = F->getEntryBlock();
@@ -230,8 +222,7 @@ static void replaceGlobalVariableUses(GVarMapT &GVarMap) {
       // Put insertion point after allocas. SPIRV-LLVM translator panics (or at
       // least used to) if all allocas are not put in the entry block as the
       // first instructions.
-      while (isa<AllocaInst>(*InsPt))
-        InsPt = std::next(InsPt);
+      while (isa<AllocaInst>(*InsPt)) InsPt = std::next(InsPt);
       BuilderPtr = std::make_unique<IRBuilder<>>(&E, InsPt);
     }
     return *BuilderPtr;
@@ -286,8 +277,7 @@ static GlobalVariable *emitIndirectGlobalVariable(Module &M,
   // Transfer debug info.
   SmallVector<DIGlobalVariableExpression *, 1> DIExprs;
   GVar->getDebugInfo(DIExprs);
-  for (auto *DI : DIExprs)
-    NewGVar->addDebugInfo(DI);
+  for (auto *DI : DIExprs) NewGVar->addDebugInfo(DI);
 
   return NewGVar;
 }
@@ -304,8 +294,7 @@ static GVarMapT emitIndirectGlobalVariables(Module &M) {
 
 static bool lowerGlobalVariables(Module &M) {
   GVarMapT GVarMap = emitIndirectGlobalVariables(M);
-  if (GVarMap.empty())
-    return false;
+  if (GVarMap.empty()) return false;
 
   for (auto kv : GVarMap) {
     emitGlobalVarInfoShadowKernel(M, kv.second, kv.first);
@@ -319,7 +308,7 @@ static bool lowerGlobalVariables(Module &M) {
 
   return true;
 }
-} // namespace
+}  // namespace
 
 PreservedAnalyses HipGlobalVariablesPass::run(Module &M,
                                               ModuleAnalysisManager &AM) {

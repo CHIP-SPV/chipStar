@@ -1314,7 +1314,7 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes,
     RETURN(hipSuccess);
   } else
     Backend->getActiveDevice()->initializeDeviceVariables();
-    RETURN(Backend->getActiveQueue()->memCopy(dst, src, sizeBytes));
+  RETURN(Backend->getActiveQueue()->memCopy(dst, src, sizeBytes));
 
   CHIP_CATCH
 }
@@ -2084,19 +2084,19 @@ extern "C" hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr,
   RETURN(hipSuccess);
 }
 
-extern "C" void
-__hipRegisterVar(void **Data,
-                 void *Var,        // The shadow variable in host code
-                 char *HostName,   // Variable name in host code
-                 char *DeviceName, // Variable name in device code
-                 int Ext,          // Whether this variable is external
-                 int Size,         // Size of the variable
-                 int Constant,     // Whether this variable is constant
-                 int Global        // Unknown, always 0
+extern "C" void __hipRegisterVar(
+    void **Data,
+    void *Var,         // The shadow variable in host code
+    char *HostName,    // Variable name in host code
+    char *DeviceName,  // Variable name in device code
+    int Ext,           // Whether this variable is external
+    int Size,          // Size of the variable
+    int Constant,      // Whether this variable is constant
+    int Global         // Unknown, always 0
 ) {
-  assert(Ext == 0);    // Device code should be fully linked so no
-                       // external variables.
-  assert(Global == 0); // HIP-Clang fixes this to zero.
+  assert(Ext == 0);     // Device code should be fully linked so no
+                        // external variables.
+  assert(Global == 0);  // HIP-Clang fixes this to zero.
   assert(std::string(HostName) == std::string(DeviceName));
 
   CHIP_TRY
