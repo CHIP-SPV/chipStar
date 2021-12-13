@@ -226,18 +226,35 @@ class CHIPAllocationTracker {
 };
 
 class CHIPDeviceVar {
- private:
-  std::string host_var_name;
-  void* dev_ptr;
-  size_t size;
+private:
+  std::string Name;    /// Device side variable name.
+   /// Address to variable's storage. Note that the address is a
+   /// pointer given by CHIPContext::allocate.
+  void *DevAddr = nullptr;
+  size_t Size = 0;
+  /// The alignment requirement of the variable.
+  // NOTE: The alignment infromation is not carried in __hipRegisterVar() calls
+  // It have to be queried via shadow kernels.
+  size_t Alignment = 0;
+  /// Tells if the variable has an initializer. NOTE: Variables are
+  /// initialized via a shadow kernel.
+  bool HasInitializer = false;
 
- public:
-  CHIPDeviceVar(std::string host_var_name_, void* dev_ptr_, size_t size);
+public:
+  CHIPDeviceVar(std::string Name, size_t Size);
   ~CHIPDeviceVar();
 
-  void* getDevAddr();
-  std::string getName();
-  size_t getSize();
+  void *getDevAddr() const { return DevAddr; }
+  void setDevAddr(void *Addr) { DevAddr = Addr; }
+  std::string getName() const { return Name; }
+  size_t getSize() const {return Size; }
+  size_t getAlignment() const { return Alignment; }
+  void setAlignment(size_t TheAlignment) {
+    assert(Alignment && "Invalid alignment");
+    Alignment = TheAlignment;
+  }
+  bool hasInitializer() const { return HasInitializer; }
+  void markHasInitializer(bool State = true) { HasInitializer = State; }
 };
 
 // fw declares
@@ -375,6 +392,17 @@ class CHIPEvent {
  * CUDA - CUmodule
  */
 class CHIPModule {
+
+  /// Flag for the allocation state of the device variables. True if
+  /// all variables have space allocated for this module for the
+  /// device this module is attached to. False implies that
+  /// DeviceVariablesAllocated false.
+  bool DeviceVariablesAllocated = false;
+  /// Flag for the initialization state of the device variables. True
+  /// if all variables are initialized for this module for the device
+  /// this module is attached to.
+  bool DeviceVariablesInitialized = false;
+
  protected:
   uint8_t* funcIL;
   size_t ilSize;
@@ -459,16 +487,6 @@ class CHIPModule {
   virtual CHIPDeviceVar* getGlobalVar(const char* var_name_);
 
   /**
-   * @brief parse this module for variable matching a given name, create
-   * a CHIPDeviceVar for it and add it to this modules device var list
-   *
-   * @param var_name_ name of the variable to register
-   * @return true a variable matching the given name was found and registered
-   * @return false no variable was found matching this name
-   */
-  virtual bool registerVar(const char* var_name_) = 0;
-
-  /**
    * @brief Get the Kernel object
    *
    * @param name name of the corresponding host function
@@ -496,6 +514,23 @@ class CHIPModule {
    *
    */
   void consumeSPIRV();
+
+  /**
+   * @brief Record a device variable
+   *
+   * Takes ownership of the variable.
+   */
+  void addDeviceVariable(CHIPDeviceVar* dev_var) {
+    chip_vars.push_back(dev_var);
+  }
+
+  std::vector<CHIPDeviceVar *> &getDeviceVariables() { return chip_vars; }
+
+  hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
+                                           CHIPQueue *Queue);
+  void initializeDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
+  void invalidateDeviceVariablesNoLock();
+  void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 };
 
 /**
@@ -665,7 +700,8 @@ class CHIPExecItem {
   /**
    * @brief Set the Arg Pointer object for launching kernels via new HIP API
    *
-   * @param args args pointer
+   * @param args Pointer to a array of pointers, each pointing to an
+   *             individual argument.
    */
   void setArgPointer(void** args) { ArgsPointer = args; }
 
@@ -679,13 +715,20 @@ class CHIPExecItem {
   void setupAllArgs();
 
   /**
-   * @brief Launch a kernel associated with a host function pointer.
+   * @brief Launch a kernel associated with a host-side shadow function pointer.
    * Looks up the CHIPKernel associated with this pointer and calls launch()
    *
    * @param hostPtr pointer to the host function
    * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
    */
   CHIPEvent* launchByHostPtr(const void* hostPtr);
+
+  /**
+   * @brief Launch a kernel.
+
+   * @param hostPtr The kernel.
+   */
+  CHIPEvent* launchByDevicePtr(CHIPKernel *K);
 };
 
 /**
@@ -706,12 +749,13 @@ class CHIPDevice {
   size_t TotalUsedMem;
   size_t MaxUsedMem;
 
- public:
-  /// chip_modules in parsed representation
-  std::vector<CHIPModule*> chip_modules;
+  /// Maps host-side shadow variables to the corresponding device variables.
+  std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup;
 
-  /// Map host pointer-to-module to pointer-to-CHIPModule
-  std::unordered_map<std::string*, CHIPModule*> module_str_to_chip_map;
+public:
+  /// Registered modules and a mapping from module binary blob pointers
+  /// to the associated CHIPModule.
+  std::unordered_map<const std::string*, CHIPModule*> ChipModules;
 
   int idx;
 
@@ -747,7 +791,7 @@ class CHIPDevice {
    *
    * @return std::vector<CHIPModule*>&
    */
-  std::vector<CHIPModule*>& getModules();
+  std::unordered_map<const std::string*, CHIPModule*>& getModules();
 
   /**
    * @brief Use a backend to populate device properties such as memory
@@ -938,28 +982,28 @@ class CHIPDevice {
   /**
    * @brief Get the global variable that came from a FatBinary module
    *
-   * @param var_name host pointer to the variable
+   * @param var host pointer to the variable
    * @return CHIPDeviceVar*
    */
-  virtual CHIPDeviceVar* getDynGlobalVar(const char* var_name_) {
+  CHIPDeviceVar* getDynGlobalVar(const void* var) {
     UNIMPLEMENTED(nullptr);
   }
 
   /**
    * @brief Get the global variable that came from a FatBinary module
    *
-   * @param var_name name of the global variable
+   * @param var Pointer to host side shadow variable.
    * @return CHIPDeviceVar*
    */
-  virtual CHIPDeviceVar* getStatGlobalVar(const char* var_name_);
+  CHIPDeviceVar* getStatGlobalVar(const void* var);
 
   /**
    * @brief Get the global variable
    *
-   * @param var_name name of the global variable
+   * @param var Pointer to host side shadow variable.
    * @return CHIPDeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar* getGlobalVar(const char* var_name_);
+  CHIPDeviceVar* getGlobalVar(const void* Var);
 
   /**
    * @brief Take the module source, compile the kernels and associate the host
@@ -972,6 +1016,9 @@ class CHIPDevice {
   void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
                                 const char* host_f_name);
 
+  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
+                              const char *Name, size_t Size);
+
   virtual CHIPModule* addModule(std::string* module_str) = 0;
 
   virtual CHIPTexture* createTexture(
@@ -979,6 +1026,11 @@ class CHIPDevice {
       const struct hipResourceViewDesc* pResViewDesc) = 0;
 
   virtual void destroyTexture(CHIPTexture* textureObject) = 0;
+
+  hipError_t allocateDeviceVariables();
+  void initializeDeviceVariables();
+  void invalidateDeviceVariables();
+  void deallocateDeviceVariables();
 };
 
 /**
@@ -1186,7 +1238,7 @@ class CHIPContext {
 class CHIPBackend {
  protected:
   /**
-   * @brief chip_modules stored in binary representation.
+   * @brief ChipModules stored in binary representation.
    * During compilation each translation unit is parsed for functions that are
    * marked for execution on the device. These functions are then compiled to
    * device code and stored in binary representation.
@@ -1398,6 +1450,9 @@ class CHIPBackend {
   virtual bool registerFunctionAsKernel(std::string* module_str,
                                         const void* host_f_ptr,
                                         const char* host_f_name);
+
+  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
+                              const char *Name, size_t Size);
 
   /**
    * @brief Return a device which meets or exceeds the requirements

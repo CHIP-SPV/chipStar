@@ -191,8 +191,6 @@ class CHIPModuleLevel0 : public CHIPModule {
    * @return ze_module_handle_t
    */
   ze_module_handle_t get() { return ze_module; }
-
-  virtual bool registerVar(const char* var_name_) override;
 };
 
 // The struct that accomodate the L0/Hip texture object's content
@@ -263,7 +261,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   virtual CHIPModuleLevel0* addModule(std::string* module_str) override {
     logDebug("CHIPModuleLevel0::addModule()");
     CHIPModuleLevel0* mod = new CHIPModuleLevel0(module_str);
-    chip_modules.push_back(mod);
+    ChipModules.insert(std::make_pair(module_str, mod));
     return mod;
   }
 
