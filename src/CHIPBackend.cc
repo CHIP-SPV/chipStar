@@ -2,6 +2,50 @@
 
 #include <utility>
 
+/// Queue a kernel for retrieving information about the device variable.
+static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
+                        dim3 GridDim = dim3(1), dim3 BlockDim = dim3(1),
+                        size_t SharedMemSize = 0) {
+  assert(Q);
+  assert(K);
+  // FIXME: Should construct backend specific exec item or make the exec
+  //        item a backend agnostic class.
+  CHIPExecItem EI(GridDim, BlockDim, SharedMemSize, Q);
+  EI.setArgPointer(Args);
+  EI.launchByDevicePtr(K);
+}
+
+/// Queue a shadow kernel for binding a device variable (a pointer) to
+/// the give n allocation.
+static void queueVariableInfoShadowKernel(CHIPQueue *Q, CHIPModule *M,
+                                          const CHIPDeviceVar *Var,
+                                          void *InfoBuffer) {
+  assert(M && Var && InfoBuffer);
+  auto *K = M->getKernel(std::string(ChipVarInfoPrefix) + Var->getName());
+  assert(K && "Module is missing a shadow kernel?");
+  void *Args[] = {&InfoBuffer};
+  queueKernel(Q, K, Args);
+}
+
+static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
+                                          const CHIPDeviceVar *Var) {
+  assert(M && Var);
+  auto *DevPtr = Var->getDevAddr();
+  assert(DevPtr && "Space has not be allocated for a variable.");
+  auto *K = M->getKernel(std::string(ChipVarBindPrefix) + Var->getName());
+  assert(K && "Module is missing a shadow kernel?");
+  void *Args[] = {&DevPtr};
+  queueKernel(Q, K, Args);
+}
+
+static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
+                                          const CHIPDeviceVar *Var) {
+  assert(M && Var);
+  auto *K = M->getKernel(std::string(ChipVarInitPrefix) + Var->getName());
+  assert(K && "Module is missing a shadow kernel?");
+  queueKernel(Q, K);
+}
+
 CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t callback_f_,
                                    void *callback_args_, CHIPQueue *chip_queue_)
     : callback_f(callback_f_),
@@ -42,13 +86,10 @@ void CHIPEventMonitor::monitor() {
 
 // CHIPDeviceVar
 // ************************************************************************
-CHIPDeviceVar::CHIPDeviceVar(std::string host_var_name_, void *dev_ptr_,
-                             size_t size_)
-    : host_var_name(host_var_name_), dev_ptr(dev_ptr_), size(size_) {}
-CHIPDeviceVar::~CHIPDeviceVar() {}
-size_t CHIPDeviceVar::getSize() { return size; }
-std::string CHIPDeviceVar::getName() { return host_var_name; }
-void *CHIPDeviceVar::getDevAddr() { return dev_ptr; }
+CHIPDeviceVar::CHIPDeviceVar(std::string TheName, size_t TheSize)
+    : Name(TheName), Size(TheSize) {}
+
+CHIPDeviceVar::~CHIPDeviceVar() { assert(!DevAddr && "Memory leak?"); }
 
 // CHIPAllocationTracker
 // ************************************************************************
@@ -206,6 +247,98 @@ CHIPDeviceVar *CHIPModule::getGlobalVar(const char *var_name_) {
   return *var;
 }
 
+hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
+                                                     CHIPQueue *Queue) {
+  // Mark as allocated if the module does not have any variables.
+  DeviceVariablesAllocated |= chip_vars.empty();
+
+  if (DeviceVariablesAllocated)
+    return hipSuccess;
+
+  logTrace("Allocate storage for device variables in module: {}", (void *)this);
+
+  // TODO: catch any exception and abort as it's probably an unrecoverable
+  //       condition?
+
+  size_t VarInfoBufSize = sizeof(CHIPVarInfo) * chip_vars.size();
+  auto *Ctx = Device->getContext();
+  CHIPVarInfo *VarInfoBufD =
+      (CHIPVarInfo *)Ctx->allocate(VarInfoBufSize, CHIPMemoryType::Shared);
+  assert(VarInfoBufD && "Could not allocate space for a shadow kernel.");
+  auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(chip_vars.size());
+
+  // Gather information for storage allocation.
+  std::vector<std::pair<CHIPDeviceVar*, CHIPVarInfo*>> VarInfos;
+  for (auto *Var : chip_vars) {
+    auto I = VarInfos.size();
+    queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
+    VarInfos.push_back(std::make_pair(Var, &VarInfoBufH[I]));
+  }
+  Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
+  Queue->finish();
+
+  // Allocate storage for the device variables.
+  for (auto &VarInfo : VarInfos) {
+    size_t Size = (*VarInfo.second)[0];
+    size_t Alignment = (*VarInfo.second)[1];
+    size_t HasInitializer = (*VarInfo.second)[2];
+    assert(Size && "Unexpected zero sized device variable.");
+    assert(Alignment && "Unexpected alignment requirement.");
+
+    auto *Var = VarInfo.first;
+    Var->setDevAddr(Ctx->allocate(Size, Alignment, CHIPMemoryType::Shared));
+    Var->markHasInitializer(HasInitializer);
+    // Sanity check for object sizes reported by the shadow kernels vs
+    // __hipRegisterVar.
+    assert(Var->getSize() == Size && "Object size discrepancy!");
+    queueVariableBindShadowKernel(Queue, this, Var);
+  }
+  Queue->finish();
+  DeviceVariablesAllocated = true;
+
+  return hipSuccess;
+}
+
+void CHIPModule::initializeDeviceVariablesNoLock(CHIPDevice *Device,
+                                                 CHIPQueue *Queue) {
+  allocateDeviceVariablesNoLock(Device, Queue);
+
+  // Mark initialized if the module does not have any device variables.
+  DeviceVariablesInitialized |= chip_vars.empty();
+
+  if (DeviceVariablesInitialized) {
+    // Can't be initialized if no storage is not allocated.
+    assert(DeviceVariablesAllocated && "Should have storage.");
+    return;
+  }
+
+  logTrace("Initialize device variables in module: {}", (void *)this);
+
+  bool QueuedKernels = false;
+  for (auto *Var : chip_vars) {
+    if (!Var->hasInitializer())
+      continue;
+    queueVariableInitShadowKernel(Queue, this, Var);
+    QueuedKernels = true;
+  }
+  if (QueuedKernels)
+    Queue->finish();
+  DeviceVariablesInitialized = true;
+}
+
+void CHIPModule::invalidateDeviceVariablesNoLock() {
+  DeviceVariablesInitialized = false;
+}
+
+void CHIPModule::deallocateDeviceVariablesNoLock(CHIPDevice *Device) {
+  invalidateDeviceVariablesNoLock();
+  for (auto *Var : chip_vars) {
+    Device->getContext()->free(Var->getDevAddr());
+    Var->setDevAddr(nullptr);
+  }
+  DeviceVariablesAllocated = false;
+}
+
 // CHIPKernel
 //*************************************************************************************
 CHIPKernel::CHIPKernel(std::string host_f_name_, OCLFuncInfo *func_info_)
@@ -246,16 +379,20 @@ void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
   offset_sizes.push_back(std::make_tuple(offset, size));
 }
 
-CHIPEvent *CHIPExecItem::launchByHostPtr(const void *hostPtr) {
-  logDebug("launchByHostPtr");
+CHIPEvent *CHIPExecItem::launchByDevicePtr(CHIPKernel *K) {
+  this->chip_kernel = K;
+  return chip_queue->launch(this);
+}
+
+CHIPEvent * CHIPExecItem::launchByHostPtr(const void *hostPtr) {
+  logTrace("launchByHostPtr");
   if (chip_queue == nullptr) {
     std::string msg = "Tried to launch CHIPExecItem but its queue is null";
     CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
   CHIPDevice *dev = chip_queue->getDevice();
-  this->chip_kernel = dev->findKernelByHostPtr(hostPtr);
-  return (chip_queue->launchImpl(this));
+  return launchByDevicePtr(dev->findKernelByHostPtr(hostPtr));
 }
 
 dim3 CHIPExecItem::getBlock() { return block_dim; }
@@ -275,12 +412,18 @@ CHIPDevice::~CHIPDevice() {}
 
 std::vector<CHIPKernel *> CHIPDevice::getKernels() {
   std::vector<CHIPKernel *> kernels;
-  for (auto &module : chip_modules) {
-    for (CHIPKernel *kernel : module->getKernels()) kernels.push_back(kernel);
+  for (auto module_it : ChipModules) {
+    auto *module = module_it.second;
+    for (CHIPKernel *kernel : module->getKernels())
+      kernels.push_back(kernel);
   }
   return kernels;
 }
-std::vector<CHIPModule *> &CHIPDevice::getModules() { return chip_modules; }
+
+std::unordered_map<const std::string *, CHIPModule *> &
+CHIPDevice::getModules() {
+  return ChipModules;
+}
 
 std::string CHIPDevice::getName() {
   populateDeviceProperties();
@@ -331,22 +474,21 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
 CHIPContext *CHIPDevice::getContext() { return ctx; }
 int CHIPDevice::getDeviceId() { return idx; }
 
-CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const char *var_name_) {
-  logDebug("CHIPDeviceVar::getStatGlobalVar({})", var_name_);
-  CHIPDeviceVar *found_var = nullptr;
-  for (auto mod : chip_modules) {
-    found_var = mod->getGlobalVar(var_name_);
-    if (found_var) return found_var;
+CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *HostPtr) {
+  if (DeviceVarLookup.count(HostPtr)) {
+    auto *Var = DeviceVarLookup[HostPtr];
+    assert(Var->getDevAddr() && "Missing device pointer.");
+    return Var;
   }
   return nullptr;
 }
 
-CHIPDeviceVar *CHIPDevice::getGlobalVar(const char *var_name_) {
-  auto found_dyn = getDynGlobalVar(var_name_);
-  if (found_dyn) return found_dyn;
+CHIPDeviceVar *CHIPDevice::getGlobalVar(const void *HostPtr) {
+  if (auto *Found = getDynGlobalVar(HostPtr))
+    return Found;
 
-  auto found_stat = getStatGlobalVar(var_name_);
-  if (found_stat) return found_stat;
+  if (auto *Found = getStatGlobalVar(HostPtr))
+    return Found;
 
   return nullptr;
 }
@@ -535,17 +677,15 @@ size_t CHIPDevice::getGlobalMemSize() {
 void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
                                           const void *host_f_ptr,
                                           const char *host_f_name) {
-  CHIPModule *chip_module;
-  auto found = module_str_to_chip_map.count(module_str);
-  if (found) {
-    chip_module = module_str_to_chip_map[module_str];
+  CHIPModule *module = nullptr;
+  if (ChipModules.count(module_str)) {
+    module = ChipModules[module_str];
   } else {
-    chip_module = addModule(module_str);
-    chip_module->compileOnce(this);  // Compile it
-    module_str_to_chip_map[module_str] = chip_module;
-    // TODO Place it in the Backend cache
+    module = addModule(module_str);
+    module->compileOnce(this);
   }
-  CHIPKernel *kernel = chip_module->getKernel(std::string(host_f_name));
+
+  CHIPKernel *kernel = module->getKernel(std::string(host_f_name));
   if (!kernel) {
     std::string msg = "Device " + getName() +
                       " tried to register host function " + host_f_name +
@@ -558,6 +698,17 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
   logDebug("Device {}: successfully registered function {} as kernel {}",
            getName(), host_f_name, kernel->getName().c_str());
   return;
+}
+
+void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
+                                        const void *HostPtr, const char *Name,
+                                        size_t Size) {
+  auto *Var = new CHIPDeviceVar(Name, Size);
+  auto ModuleIter = ChipModules.find(ModuleStr);
+  assert(ModuleIter != ChipModules.end() && "Module was not registered!");
+  auto *Module = ModuleIter->second;
+  Module->addDeviceVariable(Var);
+  DeviceVarLookup.insert(std::make_pair(HostPtr, Var));
 }
 
 void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
@@ -619,6 +770,40 @@ size_t CHIPDevice::getUsedGlobalMem() {
 bool CHIPDevice::hasPCIBusId(int, int, int) { UNIMPLEMENTED(true); }
 
 CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
+
+hipError_t CHIPDevice::allocateDeviceVariables() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logTrace("Allocate storage for device variables.");
+  for (auto I : ChipModules) {
+    auto Status =
+        I.second->allocateDeviceVariablesNoLock(this, getActiveQueue());
+    if (Status != hipSuccess)
+      return Status;
+  }
+  return hipSuccess;
+}
+
+void CHIPDevice::initializeDeviceVariables() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logTrace("Initialize device variables.");
+  for (auto it : ChipModules)
+    it.second->initializeDeviceVariablesNoLock(this, getActiveQueue());
+}
+
+void CHIPDevice::invalidateDeviceVariables() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logTrace("invalidate device variables.");
+  for (auto it : ChipModules)
+    it.second->invalidateDeviceVariablesNoLock();
+}
+
+void CHIPDevice::deallocateDeviceVariables() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logTrace("Deallocate storage for device variables.");
+  for (auto it : ChipModules)
+    it.second->deallocateDeviceVariablesNoLock(this);
+}
+
 // CHIPContext
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
@@ -907,6 +1092,15 @@ bool CHIPBackend::registerFunctionAsKernel(std::string *module_str,
       dev->registerFunctionAsKernel(module_str, host_f_ptr, host_f_name);
   return true;
 }
+
+void CHIPBackend::registerDeviceVariable(std::string *ModuleStr,
+                                         const void *HostPtr, const char *Name,
+                                         size_t Size) {
+  for (auto *Ctx : chip_contexts)
+    for (auto *Dev : Ctx->getDevices())
+      Dev->registerDeviceVariable(ModuleStr, HostPtr, Name, Size);
+}
+
 
 CHIPDevice *CHIPBackend::findDeviceMatchingProps(
     const hipDeviceProp_t *properties) {
