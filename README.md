@@ -3,8 +3,11 @@
 CHIP-SPV is a HIP implementation that abstracts HIP API, providing a
 set of base classes that can be derived from to implement an
 additional, SPIR-V capable backend on which to execute HIP
-calls. Currently CHIP-SPV OpenCL and Level Zero as backends.  This
-project is a result of [HIPCL](https://github.com/cpc/hipcl) and
+calls.
+
+Currently CHIP-SPV supports OpenCL and Level Zero as backend alternatives.
+
+This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 [HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
 
 ## Prerequisites
@@ -34,7 +37,7 @@ git checkout 8679b960f46a5095e4230e1e350cef035f6f6b9e
 Building:
 
 ```bash
-cd llvm-project
+cd llvm-project/llvm
 mkdir build
 cd build
 cmake .. -DLLVM_ENABLE_PROJECTS="clang" \
@@ -59,6 +62,7 @@ mkdir build
 cd build
 
 cmake .. -DCMAKE_CXX_COMPILER=clang++
+make
 ```
 
 ## Testing
