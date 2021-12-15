@@ -13,12 +13,12 @@ cmake_policy(VERSION 3.4)
 
 project(CHIP-SPV
         VERSION 0.1.0
-        DESCRIPTION "HIP implementation over any backend that supports SPIR-V"
+        DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
         LANGUAGES C CXX)
 include(cmake/chip_spv_cmake_macros.cmake)
 
 # Cmake options that can be passed in by the user
-option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" OFF)
+option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" ON)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
