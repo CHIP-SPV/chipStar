@@ -4,6 +4,7 @@
 #include "HipDynMem.h"
 #include "HipTexture.h"
 #include "HipStripCompilerUsed.h"
+#include "HipPrintf.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -23,7 +24,7 @@ llvmGetPassPluginInfo() {
                     FPM.addPass(HipDynMemExternReplaceNewPass());
                     FPM.addPass(HipTextureExternReplaceNewPass());
                     FPM.addPass(
-                        createModuleToFunctionPassAdaptor(HipDefrostPass()));
+                      createModuleToFunctionPassAdaptor(HipPrintfToOpenCLPrintfPass()));
                     return true;
                   }
                   return false;
