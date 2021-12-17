@@ -135,6 +135,13 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 
 #endif  // defined(__clang__) && defined(__HIP__)
 
+/* FIXME: after the prototype works, move to proper headers. */
+
+extern "C" __device__ int printf(const char *fmt, ...)
+  __attribute__((format(printf, 1, 2)));
+
+/* /FIXME */
+
 /*************************************************************************************************/
 
 #include "hip_to_chip.hh"
