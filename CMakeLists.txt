@@ -22,7 +22,13 @@ option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program start
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" OFF)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
-#option_str(HIP_SPIRV_DIR "" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
+set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
+
+# If custom HIP_SPIRV_DIR is given, check that kernellib.bc exists
+if(NOT "${HIP_SPIRV_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}" 
+   AND NOT EXISTS "${HIP_SPIRV_DIR}/share/kernellib.bc" )
+    message(FATAL_ERROR "Custom HIP_SPIRV_DIR=${HIP_SPIRV_DIR} was provided H that does not contain <HIP_SPIRV_DIR>/share/kernellib.bc")
+endif()
 
 set(CHIP_SPV_INCLUDE_FLAGS "" )
 set(CHIP_SPV_LINK_FLAGS "" )
@@ -75,8 +81,8 @@ endif()
 
 set(CHIP_SPV_INCLUDE_FLAGS ${CHIP_SPV_INCLUDE_FLAGS} src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+# set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+# set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 set(PTHREAD_LIBRARY Threads::Threads)
 
@@ -107,7 +113,14 @@ else()
 endif()
 
 set(HIP_PATH HIP)
-set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${HIP_SPIRV_DIR}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm  )
+set(HIP_DEVICE_LIB 
+"$<INSTALL_INTERFACE:--hip-device-lib-path=${HIP_SPIRV_DIR}/share>"
+"$<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_CURRENT_BINARY_DIR}>")
+set(HIP_LLVM_PASS_DIR
+"$<INSTALL_INTERFACE:--hip-llvm-pass-path=${HIP_SPIRV_DIR}/lib/llvm>"
+"$<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_CURRENT_BINARY_DIR}/llvm_passes>")
+
+set(OFFLOAD_ARCH_STR -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu ${HIP_DEVICE_LIB} --hip-device-lib=kernellib.bc ${HIP_LLVM_PASS_DIR})
 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC ${OFFLOAD_ARCH_STR} ${CHIP_SPV_COMPILE_FLAGS})
@@ -131,6 +144,9 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
+include(cmake/FindLLVM.cmake)
+add_subdirectory(llvm_passes)
+add_subdirectory(bitcode)
 
 add_subdirectory(HIP/tests/catch catch)
 
@@ -142,9 +158,6 @@ target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LI
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
 
-include(cmake/FindLLVM.cmake)
-add_subdirectory(llvm_passes)
-add_subdirectory(bitcode)
 
 add_dependencies(CHIP kernellib_bc)
 
