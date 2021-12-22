@@ -68,11 +68,15 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
+  bool any_device_type = false;
   ze_device_type_t ze_device_type;
   if (!CHIPDeviceTypeStr.compare("gpu")) {
     ze_device_type = ZE_DEVICE_TYPE_GPU;
   } else if (!CHIPDeviceTypeStr.compare("fpga")) {
     ze_device_type = ZE_DEVICE_TYPE_FPGA;
+  } else if (!CHIPDeviceTypeStr.compare("default")) {
+    // For 'default' pick all devices of any type.
+    any_device_type = true;
   } else {
     CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE must be either gpu or fpga",
                           hipErrorInitializationError);
@@ -115,7 +119,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
     auto dev = ze_devices[i];
     ze_device_properties_t device_properties;
     zeDeviceGetProperties(dev, &device_properties);
-    if (ze_device_type == device_properties.type) {
+    if (any_device_type || ze_device_type == device_properties.type) {
       CHIPDeviceLevel0* chip_l0_dev =
           new CHIPDeviceLevel0(std::move(dev), chip_l0_ctx);
       chip_l0_dev->populateDeviceProperties();

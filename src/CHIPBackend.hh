@@ -24,7 +24,6 @@
 #include <stack>
 
 #include "spirv.hh"
-#include "hip/hip_runtime.h"
 #include "hip/hip_runtime_api.h"
 #include "hip/spirv_hip.hh"
 
@@ -656,7 +655,7 @@ class CHIPDevice {
       host_var_ptr_to_chipdevicevar_dyn;
 
   int idx;
-  CHIPAllocationTracker* allocation_tracker;
+  CHIPAllocationTracker* allocation_tracker = nullptr;
 
   /**
    * @brief Construct a new CHIPDevice object

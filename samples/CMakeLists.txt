@@ -19,8 +19,9 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
 
     add_executable("${EXEC_NAME}" ${SOURCE})
 
+    target_compile_options("${EXEC_NAME}" PRIVATE ${OFFLOAD_ARCH_STR})
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
-    
+
     target_link_libraries("${EXEC_NAME}" CHIP)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_DIR_}/HIP/include ${CHIP_DIR_}/include)
     install(TARGETS "${EXEC_NAME}"
@@ -45,6 +46,7 @@ function(add_chip_binary EXEC_NAME)
 
     add_executable("${EXEC_NAME}" ${SOURCES})
 
+    target_compile_options("${EXEC_NAME}" PRIVATE ${OFFLOAD_ARCH_STR})
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_DIR_}/HIP/include ${CHIP_DIR_}/include)
     target_link_libraries("${EXEC_NAME}" CHIP)
@@ -61,6 +63,7 @@ function(add_chip_library EXEC_NAME)
 
     add_library("${EXEC_NAME}" STATIC ${SOURCES})
 
+    target_compile_options("${EXEC_NAME}" PRIVATE ${OFFLOAD_ARCH_STR})
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
     target_link_libraries("${EXEC_NAME}" CHIP)
@@ -90,10 +93,18 @@ set(SAMPLES
     hipInfo
     hipSymbol
     hipDeviceLink
+)
+
+# Add samples that depend on Intel's oneAPI compiler - if available.
+find_program(ICPX_EXECUTABLE NAMES icpx)
+if (ICPX_EXECUTABLE)
+  list(APPEND SAMPLES
     sycl_hip_interop
     hip_sycl_interop
-    hip_sycl_interop_no_buffers
-)
+    hip_sycl_interop_no_buffers)
+else()
+  message(STATUS "icpx is not found: Not building SYCL interop samples.")
+endif()
 
 foreach (SAMPLE ${SAMPLES})
   add_subdirectory(${SAMPLE})
