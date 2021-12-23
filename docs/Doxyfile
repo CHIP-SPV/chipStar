@@ -871,21 +871,7 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = ../src \
-                         ../src/CHIPDriver.cc \
-                         ../src/CHIPBindings.cc \
-                         ../src/CHIPBackend.hh \
-                         ../src/CHIPBackend.cc \
-                         ../src/macros.hh \
-                         ../src/logging.hh \
-                         ../src/common.hh \
-                         ../src/backend/backends.hh \
-                         ../src/backend/OpenCL/SVMemoryRegion.cc \
-                         ../src/backend/OpenCL/CHIPBackendOpenCL.hh \
-                         ../src/backend/OpenCL/CHIPBackendOpenCL.cc \
-                         ../src/backend/OpenCL/exceptions.hh \
-                         ../src/backend/Level0/Level0Backend.hh \
-                         ../src/backend/Level0/Level0Backend.cc
+INPUT                  = ../src ../README.md
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -1083,7 +1069,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE =
+USE_MDFILE_AS_MAINPAGE = README.md
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
