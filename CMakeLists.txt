@@ -151,8 +151,9 @@ include(cmake/FindLLVM.cmake)
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-enable_testing()
 add_subdirectory(HIP/tests/catch catch)
+set_target_properties(UnitTests PROPERTIES EXCLUDE_FROM_ALL OFF)
+enable_testing()
 
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
