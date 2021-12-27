@@ -725,21 +725,24 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   ze_context_handle_t ze_ctx = chip_ctx_lz->get();
 
   ze_module_build_log_handle_t log;
-  status = zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, &log);
-  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ",
-           resultToString(status));
-  size_t log_size;
-  status = zeModuleBuildLogGetString(log, &log_size, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  char log_str[log_size];
-  status = zeModuleBuildLogGetString(log, &log_size, log_str);
-  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  logDebug("ZE Build Log: {}", std::string(log_str).c_str());
-  if (status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
-    CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
-                          hipErrorUnknown);
+  auto build_status =
+      zeModuleCreate(ze_ctx, ze_dev, &moduleDesc, &ze_module, &log);
+  if (build_status != ZE_RESULT_SUCCESS) {
+    size_t log_size;
+    status = zeModuleBuildLogGetString(log, &log_size, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    char log_str[log_size];
+    status = zeModuleBuildLogGetString(log, &log_size, log_str);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    logDebug("ZE Build Log: {}", std::string(log_str).c_str());
   }
+  CHIPERR_CHECK_LOG_AND_THROW(build_status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ",
+           resultToString(build_status));
+  // if (status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
+  //  CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
+  //                        hipErrorUnknown);
+  //}
 
   uint32_t kernel_count = 0;
   status = zeModuleGetKernelNames(ze_module, &kernel_count, nullptr);
