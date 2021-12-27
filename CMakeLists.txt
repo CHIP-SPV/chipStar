@@ -115,14 +115,17 @@ else()
 endif()
 
 set(HIP_PATH HIP)
-set(OFFLOAD_ARCH_STR
-  -D__HIP_PLATFORM_SPIRV__=
-  -x hip --target=x86_64-linux-gnu
+set(HIP_LINK_LINE
   $<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}>
   $<INSTALL_INTERFACE:--hip-device-lib-path=${CMAKE_INSTALL_PREFIX}/share>
   --hip-device-lib=kernellib.bc
   $<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>
-  $<INSTALL_INTERFACE:--hip-llvm-pass-path=${CMAKE_INSTALL_PREFIX}/lib/llvm>)
+  $<INSTALL_INTERFACE:--hip-llvm-pass-path=${CMAKE_INSTALL_PREFIX}/lib/llvm>
+)
+set(OFFLOAD_ARCH_STR
+    -D__HIP_PLATFORM_SPIRV__=
+    -x hip --target=x86_64-linux-gnu
+    ${HIP_LINK_LINE})
 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__= ${CHIP_SPV_COMPILE_FLAGS})
@@ -151,9 +154,6 @@ include(cmake/FindLLVM.cmake)
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-enable_testing()
-add_subdirectory(HIP/tests/catch catch)
-
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
 target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LIBARY} ${CHIP-SPV_LIBRARIES})
@@ -164,7 +164,13 @@ set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
 
 
+add_dependencies(LLVMHipPasses kernellib_bc)
+add_dependencies(samples kernellib_bc)
 add_dependencies(CHIP kernellib_bc)
+
+add_subdirectory(HIP/tests/catch catch)
+enable_testing()
+add_dependencies(UnitTests CHIP)
 
 install(TARGETS CHIP
         EXPORT CHIPTargets

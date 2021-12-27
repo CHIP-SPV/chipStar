@@ -106,6 +106,7 @@ else()
   message(STATUS "icpx is not found: Not building SYCL interop samples.")
 endif()
 
+add_custom_target(samples DEPENDS ${SAMPLES})
 foreach (SAMPLE ${SAMPLES})
   add_subdirectory(${SAMPLE})
 endforeach()
