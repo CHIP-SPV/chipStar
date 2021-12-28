@@ -65,6 +65,13 @@ cmake .. -DCMAKE_CXX_COMPILER=clang++
 make
 ```
 
+## Building & Running Unit Tests
+
+```bash
+make UnitTests -j
+ctest --timeout 120 # currently some tests might hang
+```
+
 ## Testing
 
 Run tests on the default backend:
