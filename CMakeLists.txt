@@ -160,6 +160,11 @@ target_link_libraries(driver -stdlib=libstdc++ CHIP Threads::Threads ${OpenCL_LI
 add_dependencies(driver LLVMHipPasses)
 
 
+enable_testing()
+add_subdirectory(HIP/tests/catch catch)
+add_dependencies(UnitTests CHIP)
+
+
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
 
@@ -167,10 +172,6 @@ add_subdirectory(./samples samples)
 add_dependencies(LLVMHipPasses kernellib_bc)
 add_dependencies(samples kernellib_bc)
 add_dependencies(CHIP kernellib_bc)
-
-add_subdirectory(HIP/tests/catch catch)
-enable_testing()
-add_dependencies(UnitTests CHIP)
 
 install(TARGETS CHIP
         EXPORT CHIPTargets
