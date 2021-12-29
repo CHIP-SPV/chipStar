@@ -33,6 +33,15 @@ static unsigned binaries_loaded = 0;
 
 #define SVM_ALIGNMENT 128  // TODO Pass as CMAKE Define?
 
+hipError_t hipIpcOpenMemHandle(void **devPtr, hipIpcMemHandle_t handle,
+                               unsigned int flags) {
+  UNIMPLEMENTED(hipErrorTbd);
+}
+hipError_t hipIpcCloseMemHandle(void *devPtr) { UNIMPLEMENTED(hipErrorTbd); }
+hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *handle, void *devPtr) {
+  UNIMPLEMENTED(hipErrorTbd);
+}
+
 hipError_t hipMemcpy2DFromArray(void *dst, size_t dpitch, hipArray_const_t src,
                                 size_t wOffset, size_t hOffset, size_t width,
                                 size_t height, hipMemcpyKind kind) {
