@@ -58,6 +58,10 @@ class CHIPModuleOpenCL : public CHIPModule {
   CHIPModuleOpenCL(std::string *module_str) : CHIPModule(module_str){};
   virtual void compile(CHIPDevice *chip_dev) override;
   cl::Program &get() { return program; }
+
+  virtual bool registerVar(const char *var_name_) override {
+    UNIMPLEMENTED(false);
+  }
 };
 
 class SVMemoryRegion {

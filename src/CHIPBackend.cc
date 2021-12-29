@@ -183,12 +183,14 @@ CHIPKernel *CHIPModule::getKernel(const void *host_f_ptr) {
 
 std::vector<CHIPKernel *> &CHIPModule::getKernels() { return chip_kernels; }
 
-CHIPDeviceVar *CHIPModule::getGlobalVar(std::string name) {
-  auto var = std::find_if(
-      chip_vars.begin(), chip_vars.end(),
-      [name](CHIPDeviceVar *v) { return v->getName().compare(name) == 0; });
+CHIPDeviceVar *CHIPModule::getGlobalVar(const char *var_name_) {
+  auto var = std::find_if(chip_vars.begin(), chip_vars.end(),
+                          [var_name_](CHIPDeviceVar *v) {
+                            return v->getName().compare(var_name_) == 0;
+                          });
   if (var == chip_vars.end()) {
-    std::string msg = "Failed to find global variable by name: " + name;
+    std::string msg =
+        "Failed to find global variable by name: " + std::string(var_name_);
     CHIPERR_LOG_AND_THROW(msg, hipErrorLaunchFailure);
   }
 
@@ -320,27 +322,21 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
 CHIPContext *CHIPDevice::getContext() { return ctx; }
 int CHIPDevice::getDeviceId() { return idx; }
 
-CHIPDeviceVar *CHIPDevice::getDynGlobalVar(const void *host_var_ptr) {
-  auto found_dyn = host_var_ptr_to_chipdevicevar_dyn.find(host_var_ptr);
-  if (found_dyn != host_var_ptr_to_chipdevicevar_dyn.end())
-    return found_dyn->second;
-
+CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const char *var_name_) {
+  logDebug("CHIPDeviceVar::getStatGlobalVar({})", var_name_);
+  CHIPDeviceVar *found_var = nullptr;
+  for (auto mod : chip_modules) {
+    found_var = mod->getGlobalVar(var_name_);
+    if (found_var) return found_var;
+  }
   return nullptr;
 }
 
-CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *host_var_ptr) {
-  auto found_stat = host_var_ptr_to_chipdevicevar_stat.find(host_var_ptr);
-  if (found_stat != host_var_ptr_to_chipdevicevar_stat.end())
-    return found_stat->second;
-
-  return nullptr;
-}
-
-CHIPDeviceVar *CHIPDevice::getGlobalVar(const void *host_var_ptr) {
-  auto found_dyn = getDynGlobalVar(host_var_ptr);
+CHIPDeviceVar *CHIPDevice::getGlobalVar(const char *var_name_) {
+  auto found_dyn = getDynGlobalVar(var_name_);
   if (found_dyn) return found_dyn;
 
-  auto found_stat = getStatGlobalVar(host_var_ptr);
+  auto found_stat = getStatGlobalVar(var_name_);
   if (found_stat) return found_stat;
 
   return nullptr;
@@ -531,13 +527,13 @@ void CHIPDevice::registerFunctionAsKernel(std::string *module_str,
                                           const void *host_f_ptr,
                                           const char *host_f_name) {
   CHIPModule *chip_module;
-  auto chip_module_found = host_f_ptr_to_chipmodule_map.find(host_f_ptr);
-  if (chip_module_found != host_f_ptr_to_chipmodule_map.end()) {
-    chip_module = chip_module_found->second;
+  auto found = module_str_to_chip_map.count(module_str);
+  if (found) {
+    chip_module = module_str_to_chip_map[module_str];
   } else {
     chip_module = addModule(module_str);
     chip_module->compileOnce(this);  // Compile it
-    host_f_ptr_to_chipmodule_map[module_str] = chip_module;
+    module_str_to_chip_map[module_str] = chip_module;
     // TODO Place it in the Backend cache
   }
   CHIPKernel *kernel = chip_module->getKernel(std::string(host_f_name));

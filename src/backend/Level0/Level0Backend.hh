@@ -129,9 +129,25 @@ class CHIPContextLevel0 : public CHIPContext {
 };  // CHIPContextLevel0
 
 class CHIPModuleLevel0 : public CHIPModule {
+  ze_module_handle_t ze_module;
+
  public:
   CHIPModuleLevel0(std::string* module_str) : CHIPModule(module_str) {}
+  /**
+   * @brief Compile this module.
+   * Extracts kernels, sets the ze_module
+   *
+   * @param chip_dev device for which to compile this module for
+   */
   virtual void compile(CHIPDevice* chip_dev) override;
+  /**
+   * @brief return the raw module handle
+   *
+   * @return ze_module_handle_t
+   */
+  ze_module_handle_t get() { return ze_module; }
+
+  virtual bool registerVar(const char* var_name_) override;
 };
 
 // The struct that accomodate the L0/Hip texture object's content
@@ -200,6 +216,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
 
   virtual void reset() override;
   virtual CHIPModuleLevel0* addModule(std::string* module_str) override {
+    logDebug("CHIPModuleLevel0::addModule()");
     CHIPModuleLevel0* mod = new CHIPModuleLevel0(module_str);
     chip_modules.push_back(mod);
     return mod;

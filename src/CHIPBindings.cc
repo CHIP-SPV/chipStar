@@ -1681,11 +1681,11 @@ hipError_t hipGetSymbolSize(size_t *size, const void *symbol) {
   CHIPInitialize();
   NULLCHECK(size, symbol);
 
-  CHIPDeviceVar *var = Backend->getActiveDevice()->getGlobalVar(symbol);
+  CHIPDeviceVar *var =
+      Backend->getActiveDevice()->getGlobalVar((const char *)symbol);
   ERROR_IF(!var, hipErrorInvalidSymbol);
 
   *size = var->getSize();
-
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1715,13 +1715,13 @@ hipError_t hipMemcpyToSymbolAsync(const void *symbol, const void *src,
   NULLCHECK(symbol, src);
   stream = Backend->findQueue(stream);
 
-  void *symPtr = NULL;
   size_t symSize = 0;
-  CHIPDeviceVar *var = Backend->getActiveDevice()->getGlobalVar(symbol);
+  CHIPDeviceVar *var =
+      Backend->getActiveDevice()->getGlobalVar((const char *)symbol);
   ERROR_IF(!var, hipErrorInvalidSymbol);
 
-  RETURN(hipMemcpyAsync((void *)((intptr_t)symPtr + offset), src, sizeBytes,
-                        kind, stream));
+  RETURN(hipMemcpyAsync((void *)((intptr_t)var->getDevAddr() + offset), src,
+                        sizeBytes, kind, stream));
   CHIP_CATCH
 }
 
@@ -1748,14 +1748,13 @@ hipError_t hipMemcpyFromSymbolAsync(void *dst, const void *symbol,
   NULLCHECK(dst, symbol);
   stream = Backend->findQueue(stream);
 
-  void *symPtr;
   size_t symSize;
 
-  CHIPDeviceVar *var = stream->getDevice()->getGlobalVar(symbol);
+  CHIPDeviceVar *var = stream->getDevice()->getGlobalVar((const char *)symbol);
   ERROR_IF(!var, hipErrorInvalidSymbol);
 
-  RETURN(hipMemcpyAsync(dst, (void *)((intptr_t)symPtr + offset), sizeBytes,
-                        kind, stream));
+  RETURN(hipMemcpyAsync(dst, (void *)((intptr_t)var->getDevAddr() + offset),
+                        sizeBytes, kind, stream));
   CHIP_CATCH
 }
 
@@ -2080,14 +2079,54 @@ extern "C" hipError_t hipInitFromOutside(void *driverPtr, void *devicePtr,
 }
 
 extern "C" void __hipRegisterVar(
-    void **data,  // std::vector<hipModule_t> *modules,
-    char *hostVar, char *deviceVar, const char *deviceName, int ext, int size,
-    int constant, int global) {
-  UNIMPLEMENTED();
+    void **data,      // std::vector<hipModule_t> *modules,
+    char *hostVar,    // Variable name in host code
+    char *deviceVar,  // Variable name in host code
+    const char *deviceName,
+    int ext,       // Whether this variable is external
+    int size,      // Size of the variable
+    int constant,  // Whether this variable is constant
+    int global     // Unknown, always 0
+) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  logDebug("__hipRegisterVar()");
+  logDebug("hostVar: {}", hostVar);
+  logDebug("deviceVar: {}", deviceVar);
+  logDebug("deviceName: {}", deviceName);
+  logDebug("constant: {}", constant);
+  logDebug("external: {}", ext);
+  int registrations = 0;
+  for (int dev_idx = 0; dev_idx < Backend->getDevices().size(); dev_idx++) {
+    CHIPDevice *dev = Backend->getDevices()[dev_idx];
+    for (int mod_idx = 0; mod_idx < dev->getModules().size(); mod_idx++) {
+      CHIPModule *mod = dev->getModules()[mod_idx];
+      if (mod->registerVar(deviceVar)) {
+        logDebug("Registered var {} on device# {} module# {}", deviceVar,
+                 dev_idx, mod_idx);
+        registrations++;
+      }
+    }
+  }
+  if (!registrations)
+    CHIPERR_LOG_AND_THROW("failed to register variable", hipErrorInvalidSymbol);
+  logDebug("variable registered {} times.\n\n", registrations);
+  CHIP_CATCH_NO_RETURN
 }
 
 hipError_t hipGetSymbolAddress(void **devPtr, const void *symbol) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(devPtr, symbol);
+
+  CHIPDeviceVar *var =
+      Backend->getActiveDevice()->getGlobalVar((const char *)symbol);
+  ERROR_IF(!var, hipErrorInvalidSymbol);
+
+  *devPtr = var->getDevAddr();
+  RETURN(hipSuccess);
+  CHIP_CATCH
 }
 
 hipError_t hipIpcOpenEventHandle(hipEvent_t *event,

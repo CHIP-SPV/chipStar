@@ -391,7 +391,17 @@ class CHIPModule {
    * @param name global variable name
    * @return CHIPDeviceVar*
    */
-  CHIPDeviceVar* getGlobalVar(std::string name);
+  virtual CHIPDeviceVar* getGlobalVar(const char* var_name_);
+
+  /**
+   * @brief parse this module for variable matching a given name, create
+   * a CHIPDeviceVar for it and add it to this modules device var list
+   *
+   * @param var_name_ name of the variable to register
+   * @return true a variable matching the given name was found and registered
+   * @return false no variable was found matching this name
+   */
+  virtual bool registerVar(const char* var_name_) = 0;
 
   /**
    * @brief Get the Kernel object
@@ -632,29 +642,14 @@ class CHIPDevice {
   size_t MaxUsedMem;
 
  public:
-  /// chip_modules in binary representation
-  std::vector<std::string*> modules_str;
   /// chip_modules in parsed representation
   std::vector<CHIPModule*> chip_modules;
 
-  /// Map host pointer to module in binary representation
-  std::unordered_map<const void*, std::string*> host_f_ptr_to_module_str_map;
-  /// Map host pointer to module in parsed representation
-  std::unordered_map<const void*, CHIPModule*> host_f_ptr_to_chipmodule_map;
-  /// Map host pointer to a function name
-  std::unordered_map<const void*, std::string> host_f_ptr_to_host_f_name_map;
-  /// Map host pointer to CHIPKernel
-  std::unordered_map<const void*, CHIPKernel*> host_ptr_to_chipkernel_map;
-  /// Map host variable address to device pointer and size for statically loaded
-  /// global vars
-  std::unordered_map<const void*, CHIPDeviceVar*>
-      host_var_ptr_to_chipdevicevar_stat;
-  /// Map host variable address to device pointer and size for dynamically
-  /// loaded global vars
-  std::unordered_map<const void*, CHIPDeviceVar*>
-      host_var_ptr_to_chipdevicevar_dyn;
+  /// Map host pointer-to-module to pointer-to-CHIPModule
+  std::unordered_map<std::string*, CHIPModule*> module_str_to_chip_map;
 
   int idx;
+
   CHIPAllocationTracker* allocation_tracker = nullptr;
 
   /**
@@ -879,26 +874,28 @@ class CHIPDevice {
   /**
    * @brief Get the global variable that came from a FatBinary module
    *
-   * @param host_var_ptr host pointer to the variable
+   * @param var_name host pointer to the variable
    * @return CHIPDeviceVar*
    */
-  CHIPDeviceVar* getDynGlobalVar(const void* host_var_ptr);
+  virtual CHIPDeviceVar* getDynGlobalVar(const char* var_name_) {
+    UNIMPLEMENTED(nullptr);
+  }
 
   /**
-   * @brief Get the global variable that from from a module loaded at runtime
+   * @brief Get the global variable that came from a FatBinary module
    *
-   * @param host_var_ptr host pointer to the variable
+   * @param var_name name of the global variable
    * @return CHIPDeviceVar*
    */
-  CHIPDeviceVar* getStatGlobalVar(const void* host_var_ptr);
+  virtual CHIPDeviceVar* getStatGlobalVar(const char* var_name_);
 
   /**
    * @brief Get the global variable
    *
-   * @param host_var_ptr host pointer to the variable
+   * @param var_name name of the global variable
    * @return CHIPDeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar* getGlobalVar(const void* host_var_ptr);
+  CHIPDeviceVar* getGlobalVar(const char* var_name_);
 
   /**
    * @brief Take the module source, compile the kernels and associate the host
