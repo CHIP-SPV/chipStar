@@ -700,13 +700,27 @@ std::string resultToString(ze_result_t status) {
 
 // CHIPModuleLevel0
 // ***********************************************************************
+bool CHIPModuleLevel0::registerVar(const char* var_name_) {
+  logDebug("CHIPModuleLevel0::registerVar()");
+  size_t var_size = 0;
+  void* dptr;
+  ze_result_t status =
+      zeModuleGetGlobalPointer(ze_module, var_name_, &var_size, &dptr);
+  if (status == ZE_RESULT_ERROR_INVALID_GLOBAL_NAME) return false;
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorInvalidSymbol);
+  logDebug("Found symbol with name {} of size {} devPtr {}", var_name_,
+           var_size, dptr);
 
+  std::string name = std::string(var_name_);
+  CHIPDeviceVar* var = new CHIPDeviceVar(name, dptr, var_size);
+  chip_vars.push_back(var);
+  return true;
+};
 void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   logTrace("CHIPModuleLevel0.compile()");
   consumeSPIRV();
   ze_result_t status;
 
-  ze_module_handle_t ze_module;
   // Create module with global address aware
   std::string compilerOptions =
       " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi ";
