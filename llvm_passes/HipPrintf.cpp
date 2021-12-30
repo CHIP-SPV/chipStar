@@ -59,27 +59,12 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
       cast<GetElementPtrInst>(FmtStrOpr)->getPointerOperand()) :
     cast<GlobalVariable>(FmtStrOpr);
 
-  Constant *FmtStrData = OrigFmtStr->getInitializer();
+  ConstantDataSequential *FmtStrData =
+    cast<ConstantDataSequential>(OrigFmtStr->getInitializer());
 
-  NumberOfFormatSpecs = 0;
-  int I = 0;
-  while (Constant *Chr = FmtStrData->getAggregateElement(I)) {
-    char C = cast<ConstantInt>(Chr)->getZExtValue();
-
-    char NextC = 0;
-    if (Constant *NextChr = FmtStrData->getAggregateElement(I + 1))
-      NextC = cast<ConstantInt>(NextChr)->getZExtValue();
-
-    if (C == '%') {
-      if (NextC == '%') {
-        I += 2;
-      } else {
-        ++NumberOfFormatSpecs;
-        ++I;
-      }
-    } else
-      ++I;
-  }
+  NumberOfFormatSpecs =
+    FmtStrData->getAsString().count("%") -
+    FmtStrData->getAsString().count("%%");
 
   GlobalVariable *NewFmtStr = new GlobalVariable(
       *M, OrigFmtStr->getValueType(), true, OrigFmtStr->getLinkage(),
