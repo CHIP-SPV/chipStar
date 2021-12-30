@@ -53,12 +53,13 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
   Type *Int8Ty = IntegerType::get(M->getContext(), 8);
   ConstantExpr *CE = cast<ConstantExpr>(HipFmtStrArg);
 
-  // TODO: The FmtStrArg could be pointed to without a constant expr GEP,
-  // handle that case.
-  assert(CE && CE->isGEPWithNoNotionalOverIndexing());
+  Value *FmtStrOpr = CE->getOperand(0);
 
-  GetElementPtrInst *GEP = cast<GetElementPtrInst>(CE->getOperand(0));
-  GlobalVariable *OrigFmtStr = cast<GlobalVariable>(GEP->getPointerOperand());
+  GlobalVariable *OrigFmtStr =
+    isa<GetElementPtrInst>(FmtStrOpr) ?
+    cast<GlobalVariable>(
+      cast<GetElementPtrInst>(FmtStrOpr)->getPointerOperand()) :
+    cast<GlobalVariable>(FmtStrOpr);
 
   Constant *FmtStrData = OrigFmtStr->getInitializer();
 
