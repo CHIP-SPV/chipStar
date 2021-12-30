@@ -82,7 +82,7 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
   std::array<Constant*, 2> Indices = {Zero, Zero};
 
   Constant *NewCE =
-    llvm::ConstantExpr::getGetElementPtr(nullptr, NewFmtStr, Indices);
+    llvm::ConstantExpr::getGetElementPtr(Int8Ty, NewFmtStr, Indices);
   return NewCE;
 }
 
