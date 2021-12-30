@@ -52,14 +52,13 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
 
   Type *Int8Ty = IntegerType::get(M->getContext(), 8);
   ConstantExpr *CE = cast<ConstantExpr>(HipFmtStrArg);
-  assert(CE->isGEPWithNoNotionalOverIndexing());
 
-  // TODO: Cannot we really get access to the ptr operand in a simpler way
-  // without a new object to delete? Perhaps use the cexpr operand replace API?
-  GetElementPtrInst *GEP =
-    cast<GetElementPtrInst>(CE->getAsInstruction());
-  GlobalVariable *OrigFmtStr =
-    cast<GlobalVariable>(GEP->getPointerOperand());
+  // TODO: The FmtStrArg could be pointed to without a constant expr GEP,
+  // handle that case.
+  assert(CE && CE->isGEPWithNoNotionalOverIndexing());
+
+  GetElementPtrInst *GEP = cast<GetElementPtrInst>(CE->getOperand(0));
+  GlobalVariable *OrigFmtStr = cast<GlobalVariable>(GEP->getPointerOperand());
 
   Constant *FmtStrData = OrigFmtStr->getInitializer();
 
@@ -89,8 +88,6 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
       (GlobalVariable *)nullptr, OrigFmtStr->getThreadLocalMode(),
       SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
   NewFmtStr->copyAttributesFrom(OrigFmtStr);
-
-  delete GEP;
 
   PointerType *OCLPrintfFmtArgT =
     PointerType::get(Int8Ty, SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
