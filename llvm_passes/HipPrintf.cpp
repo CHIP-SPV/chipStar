@@ -18,8 +18,6 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 
-#include <iostream>
-
 using namespace llvm;
 
 class HipPrintfToOpenCLPrintfLegacyPass : public ModulePass {
