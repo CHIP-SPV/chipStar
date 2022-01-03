@@ -59,6 +59,10 @@ void CHIPEventMonitorLevel0::monitor() {
 
 // CHIPBackendLevel0
 // ***********************************************************************
+std::string CHIPBackendLevel0::get_default_jit_flags() {
+  return std::string(
+      "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
+}
 void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
                                     std::string CHIPDeviceStr) {
@@ -722,8 +726,10 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   ze_result_t status;
 
   // Create module with global address aware
-  std::string compilerOptions =
-      " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi ";
+  // TODO:
+  // Passing a random string to CHIP_JIT_FLAGS results in kernel compiling
+  // successfully for Level Zero whereas it fails to JIT on OpenCL backend
+  std::string compilerOptions = Backend->get_jit_flags();
   ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
                                  nullptr,
                                  ZE_MODULE_FORMAT_IL_SPIRV,
