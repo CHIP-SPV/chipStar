@@ -712,7 +712,16 @@ hipError_t CHIPContext::free(void *ptr) {
 
 // CHIPBackend
 //*************************************************************************************
-
+std::string CHIPBackend::get_jit_flags() {
+  std::string flags;
+  if (custom_jit_flags.compare("") != 0) {
+    flags = custom_jit_flags;
+  } else {
+    flags = get_default_jit_flags();
+  }
+  logDebug("JIT compiler flags: {}", flags);
+  return flags;
+}
 CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
@@ -726,6 +735,7 @@ void CHIPBackend::initialize(std::string platform_str,
                              std::string device_type_str,
                              std::string device_ids_str) {
   initialize_(platform_str, device_type_str, device_ids_str);
+  custom_jit_flags = read_env_var("CHIP_JIT_FLAGS", false);
   if (chip_devices.size() == 0) {
     std::string msg = "No CHIPDevices were initialized";
     CHIPERR_LOG_AND_THROW(msg, hipErrorInitializationError);

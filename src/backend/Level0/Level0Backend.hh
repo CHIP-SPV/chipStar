@@ -422,6 +422,8 @@ class CHIPBackendLevel0 : public CHIPBackend {
                            std::string CHIPDeviceTypeStr,
                            std::string CHIPDeviceStr) override;
 
+  virtual std::string get_default_jit_flags() override;
+
   void uninitialize() override { UNIMPLEMENTED(); }
 
   virtual CHIPTexture* createCHIPTexture(intptr_t image_,
