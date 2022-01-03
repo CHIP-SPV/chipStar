@@ -1158,6 +1158,28 @@ class CHIPBackend {
   std::vector<CHIPQueue*> chip_queues;
   std::vector<CHIPDevice*> chip_devices;
 
+  /**
+   * @brief User defined compiler options to pass to the JIT compiler
+   *
+   */
+  std::string custom_jit_flags;
+
+  /**
+   * @brief Get the default compiler flags for the JIT compiler
+   *
+   * @return std::string flags to pass to JIT compiler
+   */
+  virtual std::string get_default_jit_flags() = 0;
+
+  /**
+   * @brief Get the jit options object
+   * return CHIP_JIT_FLAGS if it is set, otherwise return default options as
+   * defined by CHIPBackend<implementation>::get_default_jit_flags()
+   *
+   * @return std::string flags to pass to JIT compiler
+   */
+  std::string get_jit_flags();
+
   // TODO
   // key for caching compiled modules. To get a cached compiled module on a
   // particular device you must make sure that you have a module which matches
