@@ -25,6 +25,8 @@ llvmGetPassPluginInfo() {
                     FPM.addPass(HipTextureExternReplaceNewPass());
                     FPM.addPass(
                       createModuleToFunctionPassAdaptor(HipPrintfToOpenCLPrintfPass()));
+                    FPM.addPass(
+                      createModuleToFunctionPassAdaptor(HipDefrostPass()));
                     return true;
                   }
                   return false;

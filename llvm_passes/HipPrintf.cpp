@@ -18,8 +18,6 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 
-#include <iostream>
-
 using namespace llvm;
 
 class HipPrintfToOpenCLPrintfLegacyPass : public ModulePass {
@@ -52,36 +50,21 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
 
   Type *Int8Ty = IntegerType::get(M->getContext(), 8);
   ConstantExpr *CE = cast<ConstantExpr>(HipFmtStrArg);
-  assert(CE->isGEPWithNoNotionalOverIndexing());
 
-  // TODO: Cannot we really get access to the ptr operand in a simpler way
-  // without a new object to delete? Perhaps use the cexpr operand replace API?
-  GetElementPtrInst *GEP =
-    cast<GetElementPtrInst>(CE->getAsInstruction());
+  Value *FmtStrOpr = CE->getOperand(0);
+
   GlobalVariable *OrigFmtStr =
-    cast<GlobalVariable>(GEP->getPointerOperand());
+    isa<GetElementPtrInst>(FmtStrOpr) ?
+    cast<GlobalVariable>(
+      cast<GetElementPtrInst>(FmtStrOpr)->getPointerOperand()) :
+    cast<GlobalVariable>(FmtStrOpr);
 
-  Constant *FmtStrData = OrigFmtStr->getInitializer();
+  ConstantDataSequential *FmtStrData =
+    cast<ConstantDataSequential>(OrigFmtStr->getInitializer());
 
-  NumberOfFormatSpecs = 0;
-  int I = 0;
-  while (Constant *Chr = FmtStrData->getAggregateElement(I)) {
-    char C = cast<ConstantInt>(Chr)->getZExtValue();
-
-    char NextC = 0;
-    if (Constant *NextChr = FmtStrData->getAggregateElement(I + 1))
-      NextC = cast<ConstantInt>(NextChr)->getZExtValue();
-
-    if (C == '%') {
-      if (NextC == '%') {
-        I += 2;
-      } else {
-        ++NumberOfFormatSpecs;
-        ++I;
-      }
-    } else
-      ++I;
-  }
+  NumberOfFormatSpecs =
+    FmtStrData->getAsString().count("%") -
+    FmtStrData->getAsString().count("%%");
 
   GlobalVariable *NewFmtStr = new GlobalVariable(
       *M, OrigFmtStr->getValueType(), true, OrigFmtStr->getLinkage(),
@@ -89,8 +72,6 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
       (GlobalVariable *)nullptr, OrigFmtStr->getThreadLocalMode(),
       SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
   NewFmtStr->copyAttributesFrom(OrigFmtStr);
-
-  delete GEP;
 
   PointerType *OCLPrintfFmtArgT =
     PointerType::get(Int8Ty, SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
@@ -101,7 +82,7 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
   std::array<Constant*, 2> Indices = {Zero, Zero};
 
   Constant *NewCE =
-    llvm::ConstantExpr::getGetElementPtr(nullptr, NewFmtStr, Indices);
+    llvm::ConstantExpr::getGetElementPtr(Int8Ty, NewFmtStr, Indices);
   return NewCE;
 }
 
