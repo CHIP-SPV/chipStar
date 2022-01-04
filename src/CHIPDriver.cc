@@ -20,14 +20,16 @@ std::once_flag initialized;
 std::once_flag uninitialized;
 CHIPBackend* Backend;
 
-std::string read_env_var(std::string ENV_VAR) {
+std::string read_env_var(std::string ENV_VAR, bool lower = true) {
+  logDebug("Reading {} from env", ENV_VAR);
   const char* ENV_VAR_IN = std::getenv(ENV_VAR.c_str());
   if (ENV_VAR_IN == nullptr) {
     return std::string();
   }
   std::string var = std::string(ENV_VAR_IN);
-  std::transform(var.begin(), var.end(), var.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+  if (lower)
+    std::transform(var.begin(), var.end(), var.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
 
   return var;
 };
@@ -54,6 +56,9 @@ void CHIPInitializeCallOnce(std::string BE) {
   std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr;
   read_env_vars(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
   logDebug("CHIPDriver Initialize");
+
+  // Read JIT options from the env
+
   // Get the current Backend Env Var
 
   // If no BE is passed to init explicitly, read env var

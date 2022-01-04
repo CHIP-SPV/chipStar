@@ -59,6 +59,12 @@ void CHIPEventMonitorLevel0::monitor() {
 
 // CHIPBackendLevel0
 // ***********************************************************************
+
+std::string CHIPBackendLevel0::getDefaultJitFlags() {
+  return std::string(
+      "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
+}
+
 void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
                                     std::string CHIPDeviceStr) {
@@ -722,8 +728,7 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   ze_result_t status;
 
   // Create module with global address aware
-  std::string compilerOptions =
-      " -cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi ";
+  std::string compilerOptions = Backend->getJitFlags();
   ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
                                  nullptr,
                                  ZE_MODULE_FORMAT_IL_SPIRV,
