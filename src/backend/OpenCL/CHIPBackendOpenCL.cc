@@ -288,7 +288,10 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
   cl_ctx = ((CHIPContextOpenCL *)chip_context)->get();
   cl_dev = ((CHIPDeviceOpenCL *)chip_device)->get();
 
-  cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev);
+  cl_int status;
+  cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev, CL_QUEUE_PROFILING_ENABLE,
+                              &status);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorInitializationError);
 
   chip_device_->addQueue(this);
 }
