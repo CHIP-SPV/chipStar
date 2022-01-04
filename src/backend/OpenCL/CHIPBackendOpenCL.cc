@@ -142,7 +142,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
 
   //   for (CHIPDevice *chip_dev : chip_devices) {
   std::string name = chip_dev_ocl->getName();
-  err = Program.build("-x spir -cl-kernel-arg-info");
+  err = Program.build(Backend->getJitFlags().c_str());
 
   std::string log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
@@ -466,6 +466,11 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
 }
 // CHIPBackendOpenCL
 //*************************************************************************
+
+std::string CHIPBackendOpenCL::getDefaultJitFlags() {
+  return std::string("-x spir -cl-kernel-arg-info");
+}
+
 void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
                                     std::string CHIPDeviceStr) {

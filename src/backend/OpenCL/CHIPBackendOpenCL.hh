@@ -219,6 +219,8 @@ class CHIPBackendOpenCL : public CHIPBackend {
 
   void uninitialize() override;
 
+  virtual std::string getDefaultJitFlags() override;
+
   virtual CHIPTexture *createCHIPTexture(intptr_t image_,
                                          intptr_t sampler_) override {
     UNIMPLEMENTED(nullptr);
