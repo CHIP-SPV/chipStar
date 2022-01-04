@@ -597,44 +597,44 @@ std::string resultToString(int status) {
     case CL_DEVICE_NOT_FOUND:
       return "CL_DEVICE_NOT_FOUND";
     case CL_DEVICE_NOT_AVAILABLE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_DEVICE_NOT_AVAILABLE";
     case CL_COMPILER_NOT_AVAILABLE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_COMPILER_NOT_AVAILABLE";
     case CL_MEM_OBJECT_ALLOCATION_FAILURE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
     case CL_OUT_OF_RESOURCES:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_OUT_OF_RESOURCES";
     case CL_OUT_OF_HOST_MEMORY:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_OUT_OF_HOST_MEMORY";
     case CL_PROFILING_INFO_NOT_AVAILABLE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_PROFILING_INFO_NOT_AVAILABLE";
     case CL_MEM_COPY_OVERLAP:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_MEM_COPY_OVERLAP";
     case CL_IMAGE_FORMAT_MISMATCH:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_IMAGE_FORMAT_MISMATCH";
     case CL_IMAGE_FORMAT_NOT_SUPPORTED:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
     case CL_BUILD_PROGRAM_FAILURE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_BUILD_PROGRAM_FAILURE";
     case CL_MAP_FAILURE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_MAP_FAILURE";
 #ifdef CL_VERSION_1_1
     case CL_MISALIGNED_SUB_BUFFER_OFFSET:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
     case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
 #endif
 #ifdef CL_VERSION_1_2
     case CL_COMPILE_PROGRAM_FAILURE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_COMPILE_PROGRAM_FAILURE";
     case CL_LINKER_NOT_AVAILABLE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_LINKER_NOT_AVAILABLE";
     case CL_LINK_PROGRAM_FAILURE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_LINK_PROGRAM_FAILURE";
     case CL_DEVICE_PARTITION_FAILED:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_DEVICE_PARTITION_FAILED";
     case CL_KERNEL_ARG_INFO_NOT_AVAILABLE:
-      return "CL_DEVICE_NOT_FOUND";
+      return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
 #endif
     case (CL_INVALID_VALUE):
       return "CL_INVALID_VALUE";
