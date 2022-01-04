@@ -73,17 +73,15 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
       SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
   NewFmtStr->copyAttributesFrom(OrigFmtStr);
 
-  PointerType *OCLPrintfFmtArgT =
-    PointerType::get(Int8Ty, SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
-
   IntegerType *Int64Ty = Type::getInt64Ty(M->getContext());
   ConstantInt *Zero = ConstantInt::get(Int64Ty, 0);
-
   std::array<Constant*, 2> Indices = {Zero, Zero};
 
-  Constant *NewCE =
-    llvm::ConstantExpr::getGetElementPtr(Int8Ty, NewFmtStr, Indices);
-  return NewCE;
+  PointerType *PtrTy =
+    cast<PointerType>(NewFmtStr->getType()->getScalarType());
+
+  return llvm::ConstantExpr::getGetElementPtr(
+    PtrTy->getElementType(), NewFmtStr, Indices);
 }
 
 
