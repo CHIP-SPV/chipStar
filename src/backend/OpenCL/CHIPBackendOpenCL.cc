@@ -203,17 +203,6 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
    * Q1_MemCopyEvent_0.refcount 1->0
    * clEvent==Q1_MemCopyEvent_1, refcount 1->2
    */
-
-  // Kind of funky since cl::Event is a cpp wrapper for C interface of OpenCL
-  // cl::Event *e = last_chip_event->get();
-  // ev = new cl::Event(e->get(), true);
-  // clRetainEvent(get());
-
-  // int refc2 = getRefCount();
-  // logDebug("Refc: {} cl_event {}", refc2, (void *)get());
-
-  // assert(refc2 >= 2);
-  // assert(refc2 == (refc1 + 1));
 }
 
 bool CHIPEventOpenCL::wait() {
