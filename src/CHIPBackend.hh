@@ -1401,7 +1401,6 @@ class CHIPBackend {
  */
 class CHIPQueue {
  protected:
-  std::mutex mtx;
   int priority;
   unsigned int flags;
   /// Device on which this queue will execute
@@ -1412,6 +1411,9 @@ class CHIPQueue {
   CHIPEventMonitor* event_monitor = nullptr;
 
  public:
+  // I want others to be able to lock this queue?
+  std::mutex mtx;
+
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent* LastEvent;
