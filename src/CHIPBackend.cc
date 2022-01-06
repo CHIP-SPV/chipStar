@@ -640,13 +640,12 @@ void CHIPContext::syncQueues(CHIPQueue *target_queue) {
    */
   if (target_queue == default_queue) {
     for (auto &q : blocking_queues) events_to_wait_on.push_back(q->LastEvent);
-    signal = target_queue->enqueueBarrier(&events_to_wait_on);
-    target_queue->LastEvent = signal;  // TODO: replace with updateLastEvent()
+    signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);
+    target_queue->LastEvent = signal;  // TODO: replace with
   } else {  // blocking stream must wait until default stream is done
     events_to_wait_on.push_back(default_queue->LastEvent);
-    signal = target_queue->enqueueBarrier(&events_to_wait_on);
-    // target_queue->LastEvent = signal;  // TODO: replace with
-    // updateLastEvent()
+    signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);
+    target_queue->LastEvent = signal;  // TODO: replace with
   }
 }
 
