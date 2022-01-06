@@ -149,38 +149,43 @@ class CHIPQueueOpenCL : public CHIPQueue {
   CHIPQueueOpenCL(CHIPDevice *chip_device);
   ~CHIPQueueOpenCL();
 
-  virtual hipError_t launch(CHIPExecItem *exec_item) override;
+  virtual CHIPEvent *launchImpl(CHIPExecItem *exec_item) override;
   virtual void finish() override;
 
-  virtual hipError_t memCopy(void *dst, const void *src, size_t size) override;
-  virtual hipError_t memCopyAsync(void *dst, const void *src,
-                                  size_t size) override;
+  virtual CHIPEvent *memCopyAsyncImpl(void *dst, const void *src,
+                                      size_t size) override;
   cl::CommandQueue *get() { return cl_q; }
 
-  virtual void memFillAsync(void *dst, size_t size, const void *pattern,
-                            size_t pattern_size) override;
+  virtual CHIPEvent *memFillAsyncImpl(void *dst, size_t size,
+                                      const void *pattern,
+                                      size_t pattern_size) override;
 
-  virtual void memCopy2DAsync(void *dst, size_t dpitch, const void *src,
-                              size_t spitch, size_t width,
-                              size_t height) override;
+  virtual CHIPEvent *memCopy2DAsyncImpl(void *dst, size_t dpitch,
+                                        const void *src, size_t spitch,
+                                        size_t width, size_t height) override;
 
-  virtual void memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
-                              const void *src, size_t spitch, size_t sspitch,
-                              size_t width, size_t height,
-                              size_t depth) override;
+  virtual CHIPEvent *memCopy3DAsyncImpl(void *dst, size_t dpitch,
+                                        size_t dspitch, const void *src,
+                                        size_t spitch, size_t sspitch,
+                                        size_t width, size_t height,
+                                        size_t depth) override;
 
   // Memory copy to texture object, i.e. image
-  virtual void memCopyToTexture(CHIPTexture *texObj, void *src) override;
+  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *texObj,
+                                          void *src) override;
 
   virtual void getBackendHandles(unsigned long *nativeInfo,
                                  int *size) override {}  // TODO
 
-  virtual CHIPEvent *enqueueBarrier(
+  virtual CHIPEvent *enqueueBarrierImpl(
       std::vector<CHIPEvent *> *eventsToWaitFor) override {
     UNIMPLEMENTED(nullptr);
   }
 
-  virtual CHIPEvent *enqueueMarker_() override { UNIMPLEMENTED(nullptr); }
+  virtual CHIPEvent *enqueueMarkerImpl() override { UNIMPLEMENTED(nullptr); }
+  virtual CHIPEvent *memPrefetchImpl(const void *ptr, size_t count) override {
+    UNIMPLEMENTED(nullptr);
+  }
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {

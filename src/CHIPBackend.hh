@@ -625,7 +625,7 @@ class CHIPExecItem {
    * @param hostPtr pointer to the host function
    * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
    */
-  hipError_t launchByHostPtr(const void* hostPtr);
+  CHIPEvent* launchByHostPtr(const void* hostPtr);
 };
 
 /**
@@ -1487,10 +1487,9 @@ class CHIPQueue {
    * @param size Transfer size
    * @return hipError_t
    */
+  virtual CHIPEvent* memCopyImpl(void* dst, const void* src, size_t size);
+  hipError_t memCopy(void* dst, const void* src, size_t size);
 
-  virtual hipError_t memCopy(
-      void* dst, const void* src,
-      size_t size) = 0;  // Implement using Async with wait?
   /**
    * @brief Non-blocking memory copy
    *
@@ -1499,7 +1498,9 @@ class CHIPQueue {
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual hipError_t memCopyAsync(void* dst, const void* src, size_t size) = 0;
+  virtual CHIPEvent* memCopyAsyncImpl(void* dst, const void* src,
+                                      size_t size) = 0;
+  hipError_t memCopyAsync(void* dst, const void* src, size_t size);
 
   /**
    * @brief Blocking memset
@@ -1509,6 +1510,8 @@ class CHIPQueue {
    * @param pattern
    * @param pattern_size
    */
+  virtual CHIPEvent* memFillImpl(void* dst, size_t size, const void* pattern,
+                                 size_t pattern_size);
   virtual void memFill(void* dst, size_t size, const void* pattern,
                        size_t pattern_size);
 
@@ -1520,27 +1523,46 @@ class CHIPQueue {
    * @param pattern
    * @param pattern_size
    */
+  virtual CHIPEvent* memFillAsyncImpl(void* dst, size_t size,
+                                      const void* pattern,
+                                      size_t pattern_size) = 0;
   virtual void memFillAsync(void* dst, size_t size, const void* pattern,
-                            size_t pattern_size) = 0;
+                            size_t pattern_size);
 
   // The memory copy 2D support
+  virtual CHIPEvent* memCopy2DImpl(void* dst, size_t dpitch, const void* src,
+                                   size_t spitch, size_t width, size_t height);
   virtual void memCopy2D(void* dst, size_t dpitch, const void* src,
                          size_t spitch, size_t width, size_t height);
 
+  virtual CHIPEvent* memCopy2DAsyncImpl(void* dst, size_t dpitch,
+                                        const void* src, size_t spitch,
+                                        size_t width, size_t height) = 0;
   virtual void memCopy2DAsync(void* dst, size_t dpitch, const void* src,
-                              size_t spitch, size_t width, size_t height) = 0;
+                              size_t spitch, size_t width, size_t height);
 
   // The memory copy 3D support
+  virtual CHIPEvent* memCopy3DImpl(void* dst, size_t dpitch, size_t dspitch,
+                                   const void* src, size_t spitch,
+                                   size_t sspitch, size_t width, size_t height,
+                                   size_t depth);
   virtual void memCopy3D(void* dst, size_t dpitch, size_t dspitch,
                          const void* src, size_t spitch, size_t sspitch,
                          size_t width, size_t height, size_t depth);
 
+  virtual CHIPEvent* memCopy3DAsyncImpl(void* dst, size_t dpitch,
+                                        size_t dspitch, const void* src,
+                                        size_t spitch, size_t sspitch,
+                                        size_t width, size_t height,
+                                        size_t depth) = 0;
   virtual void memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
                               const void* src, size_t spitch, size_t sspitch,
-                              size_t width, size_t height, size_t depth) = 0;
+                              size_t width, size_t height, size_t depth);
 
   // Memory copy to texture object, i.e. image
-  virtual void memCopyToTexture(CHIPTexture* texObj, void* src) = 0;
+  virtual CHIPEvent* memCopyToTextureImpl(CHIPTexture* texObj, void* src) = 0;
+  virtual void memCopyToTexture(CHIPTexture* texObj, void* src);
+
   /**
    * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
    * needs to be complete - contain the kernel and arguments
@@ -1548,7 +1570,8 @@ class CHIPQueue {
    * @param exec_item
    * @return hipError_t
    */
-  virtual hipError_t launch(CHIPExecItem* exec_item) = 0;
+  virtual CHIPEvent* launchImpl(CHIPExecItem* exec_item) = 0;
+  virtual CHIPEvent* launch(CHIPExecItem* exec_item);
 
   /**
    * @brief Get the Device obj
@@ -1587,18 +1610,13 @@ class CHIPQueue {
    * @return true
    * @return false
    */
-
-  virtual CHIPEvent* enqueueBarrier(
+  virtual CHIPEvent* enqueueBarrierImpl(
       std::vector<CHIPEvent*>* eventsToWaitFor) = 0;
+  virtual CHIPEvent* enqueueBarrier(std::vector<CHIPEvent*>* eventsToWaitFor);
 
-  CHIPEvent* enqueueMarker() {
-    chip_context->syncQueues(this);
-    auto ev = enqueueMarker_();
-    updateLastEvent(ev);
-    return ev;
-  }
+  virtual CHIPEvent* enqueueMarkerImpl() = 0;
+  CHIPEvent* enqueueMarker();
 
-  virtual CHIPEvent* enqueueMarker_() = 0;
   /**
    * @brief Get the Flags object with which this queue was created.
    *
@@ -1633,7 +1651,8 @@ class CHIPQueue {
    * @return false
    */
 
-  bool memPrefetch(const void* ptr, size_t count);
+  virtual CHIPEvent* memPrefetchImpl(const void* ptr, size_t count) = 0;
+  void memPrefetch(const void* ptr, size_t count);
 
   /**
    * @brief Launch a kernel on this queue given a host pointer and arguments
@@ -1643,10 +1662,8 @@ class CHIPQueue {
    * @param dimBlocks
    * @param args
    * @param sharedMemBytes
-   * @return true
-   * @return false
    */
-  bool launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
+  void launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
                       void** args, size_t sharedMemBytes);
 
   /**
@@ -1659,9 +1676,9 @@ class CHIPQueue {
    * @param kernel
    * @return hipError_t
    */
-  hipError_t launchWithKernelParams(dim3 grid, dim3 block,
-                                    unsigned int sharedMemBytes, void** args,
-                                    CHIPKernel* kernel);
+  virtual void launchWithKernelParams(dim3 grid, dim3 block,
+                                      unsigned int sharedMemBytes, void** args,
+                                      CHIPKernel* kernel);
 
   /**
    * @brief
@@ -1673,9 +1690,9 @@ class CHIPQueue {
    * @param kernel
    * @return hipError_t
    */
-  hipError_t launchWithExtraParams(dim3 grid, dim3 block,
-                                   unsigned int sharedMemBytes, void** extra,
-                                   CHIPKernel* kernel);
+  virtual void launchWithExtraParams(dim3 grid, dim3 block,
+                                     unsigned int sharedMemBytes, void** extra,
+                                     CHIPKernel* kernel);
 
   virtual void getBackendHandles(unsigned long* nativeInfo, int* size) = 0;
 

@@ -237,7 +237,7 @@ void CHIPExecItem::setArg(const void *arg, size_t size, size_t offset) {
   offset_sizes.push_back(std::make_tuple(offset, size));
 }
 
-hipError_t CHIPExecItem::launchByHostPtr(const void *hostPtr) {
+CHIPEvent *CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   logTrace("launchByHostPtr");
   if (chip_queue == nullptr) {
     std::string msg = "Tried to launch CHIPExecItem but its queue is null";
@@ -560,7 +560,7 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
 
 CHIPQueue *CHIPDevice::addQueue(unsigned int flags, int priority) {
   auto q = addQueue_(flags, priority);
-  q->LastEvent = q->enqueueMarker_();
+  q->LastEvent = q->enqueueMarkerImpl();
   return q;
 }
 
@@ -645,7 +645,8 @@ void CHIPContext::syncQueues(CHIPQueue *target_queue) {
   } else {  // blocking stream must wait until default stream is done
     events_to_wait_on.push_back(default_queue->LastEvent);
     signal = target_queue->enqueueBarrier(&events_to_wait_on);
-    target_queue->LastEvent = signal;  // TODO: replace with updateLastEvent()
+    // target_queue->LastEvent = signal;  // TODO: replace with
+    // updateLastEvent()
   }
 }
 
@@ -794,7 +795,7 @@ void CHIPBackend::initialize(std::string platform_str,
    * which require LastEvent to be initialized.
    *
    */
-  getActiveQueue()->LastEvent = getActiveQueue()->enqueueMarker_();
+  getActiveQueue()->LastEvent = getActiveQueue()->enqueueMarkerImpl();
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {
@@ -1054,6 +1055,144 @@ CHIPQueue::CHIPQueue(CHIPDevice *chip_device_)
     : CHIPQueue(chip_device_, 0, 0){};
 CHIPQueue::~CHIPQueue(){};
 
+///////// Enqueue Operations //////////
+CHIPEvent *CHIPQueue::memCopyImpl(void *dst, const void *src, size_t size) {
+  auto ev = memCopyAsyncImpl(dst, src, size);
+  finish();
+  return ev;
+}
+hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {
+  chip_context->syncQueues(this);
+  auto ev = memCopyImpl(dst, src, size);
+  updateLastEvent(ev);
+  return hipSuccess;
+}
+hipError_t CHIPQueue::memCopyAsync(void *dst, const void *src, size_t size) {
+  chip_context->syncQueues(this);
+  auto ev = memCopyAsyncImpl(dst, src, size);
+  updateLastEvent(ev);
+  return hipSuccess;
+}
+void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
+                        size_t pattern_size) {
+  chip_context->syncQueues(this);
+  auto ev = memFillImpl(dst, size, pattern, pattern_size);
+  updateLastEvent(ev);
+}
+CHIPEvent *CHIPQueue::memFillImpl(void *dst, size_t size, const void *pattern,
+                                  size_t pattern_size) {
+  auto ev = memFillAsyncImpl(dst, size, pattern, pattern_size);
+  finish();
+  return ev;
+}
+void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
+                             size_t pattern_size) {
+  chip_context->syncQueues(this);
+  auto ev = memFillAsyncImpl(dst, size, pattern, pattern_size);
+  updateLastEvent(ev);
+}
+void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
+                          size_t spitch, size_t width, size_t height) {
+  chip_context->syncQueues(this);
+  auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  finish();
+  updateLastEvent(ev);
+}
+CHIPEvent *CHIPQueue::memCopy2DImpl(void *dst, size_t dpitch, const void *src,
+                                    size_t spitch, size_t width,
+                                    size_t height) {
+  chip_context->syncQueues(this);
+  auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  finish();
+  return ev;
+}
+void CHIPQueue::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
+                               size_t spitch, size_t width, size_t height) {
+  chip_context->syncQueues(this);
+  auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  updateLastEvent(ev);
+}
+void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
+                          const void *src, size_t spitch, size_t sspitch,
+                          size_t width, size_t height, size_t depth) {
+  chip_context->syncQueues(this);
+  auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
+                               width, height, depth);
+  finish();
+  updateLastEvent(ev);
+}
+CHIPEvent *CHIPQueue::memCopy3DImpl(void *dst, size_t dpitch, size_t dspitch,
+                                    const void *src, size_t spitch,
+                                    size_t sspitch, size_t width, size_t height,
+                                    size_t depth) {
+  chip_context->syncQueues(this);
+  auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
+                               width, height, depth);
+  finish();
+  return ev;
+}
+void CHIPQueue::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
+                               const void *src, size_t spitch, size_t sspitch,
+                               size_t width, size_t height, size_t depth) {
+  chip_context->syncQueues(this);
+  auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
+                               width, height, depth);
+  updateLastEvent(ev);
+}
+void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
+  chip_context->syncQueues(this);
+  auto ev = memCopyToTextureImpl(texObj, src);
+  updateLastEvent(ev);
+}
+CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
+  chip_context->syncQueues(this);
+  auto ev = launchImpl(exec_item);
+  updateLastEvent(ev);
+  return ev;
+}
+CHIPEvent *CHIPQueue::enqueueBarrier(
+    std::vector<CHIPEvent *> *eventsToWaitFor) {
+  auto ev = enqueueBarrierImpl(eventsToWaitFor);
+  updateLastEvent(ev);
+  return ev;
+}
+CHIPEvent *CHIPQueue::enqueueMarker() {
+  chip_context->syncQueues(this);
+  auto ev = enqueueMarkerImpl();
+  updateLastEvent(ev);
+  return ev;
+}
+
+void CHIPQueue::memPrefetch(const void *ptr, size_t count) {
+  chip_context->syncQueues(this);
+  auto ev = memPrefetchImpl(ptr, count);
+  updateLastEvent(ev);
+}
+
+void CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
+                               dim3 dimBlocks, void **args,
+                               size_t sharedMemBytes) {
+  CHIPExecItem e(numBlocks, dimBlocks, sharedMemBytes,
+                 Backend->getActiveQueue());
+  e.setArgPointer(args);
+  auto ev = e.launchByHostPtr(hostFunction);
+  updateLastEvent(ev);
+}
+
+void CHIPQueue::launchWithKernelParams(dim3 grid, dim3 block,
+                                       unsigned int sharedMemBytes, void **args,
+                                       CHIPKernel *kernel) {
+  UNIMPLEMENTED();
+}
+
+void CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
+                                      unsigned int sharedMemBytes, void **extra,
+                                      CHIPKernel *kernel) {
+  UNIMPLEMENTED();
+}
+
+///////// End Enqueue Operations //////////
+
 CHIPDevice *CHIPQueue::getDevice() {
   if (chip_device == nullptr) {
     std::string msg = "chip_device is null";
@@ -1067,18 +1206,6 @@ unsigned int CHIPQueue::getFlags() { return flags; }
 // hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
 // hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
 
-hipError_t CHIPQueue::launchWithKernelParams(dim3 grid, dim3 block,
-                                             unsigned int sharedMemBytes,
-                                             void **args, CHIPKernel *kernel) {
-  UNIMPLEMENTED(hipSuccess);
-}
-
-hipError_t CHIPQueue::launchWithExtraParams(dim3 grid, dim3 block,
-                                            unsigned int sharedMemBytes,
-                                            void **extra, CHIPKernel *kernel) {
-  UNIMPLEMENTED(hipSuccess);
-}
-
 int CHIPQueue::getPriorityRange(int lower_or_upper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
@@ -1090,36 +1217,5 @@ bool CHIPQueue::addCallback(hipStreamCallback_t callback, void *userData) {
   if (!event_monitor) event_monitor = Backend->createEventMonitor();
   return true;
 }
-bool CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
-                               dim3 dimBlocks, void **args,
-                               size_t sharedMemBytes) {
-  CHIPExecItem e(numBlocks, dimBlocks, sharedMemBytes,
-                 Backend->getActiveQueue());
-  e.setArgPointer(args);
-  e.launchByHostPtr(hostFunction);
-  return true;
-}
+
 bool CHIPQueue::query() { UNIMPLEMENTED(true); }
-void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
-                        size_t pattern_size) {
-  memFillAsync(dst, size, pattern, pattern_size);
-  finish();
-}
-
-bool CHIPQueue::memPrefetch(const void *ptr, size_t count) {
-  UNIMPLEMENTED(true);  // TODO remove this
-}
-
-void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
-                          size_t spitch, size_t width, size_t height) {
-  memCopy2DAsync(dst, dpitch, src, spitch, width, height);
-  finish();
-}
-
-void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
-                          const void *src, size_t spitch, size_t sspitch,
-                          size_t width, size_t height, size_t depth) {
-  memCopy3DAsync(dst, dpitch, dspitch, src, spitch, sspitch, width, height,
-                 depth);
-  finish();
-}

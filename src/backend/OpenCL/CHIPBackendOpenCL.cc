@@ -240,7 +240,7 @@ hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
 
 // CHIPQueueOpenCL
 //*************************************************************************
-hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
+CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *exec_item) {
   // std::lock_guard<std::mutex> Lock(mtx);
   logTrace("CHIPQueueOpenCL->launch()");
   CHIPExecItemOpenCL *chip_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
@@ -263,24 +263,8 @@ hipError_t CHIPQueueOpenCL::launch(CHIPExecItem *exec_item) {
                                        local, nullptr, &ev);
 
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
-  hipError_t retval = hipSuccess;
 
-  // TODO
-  // cl_event LastEvent;
-  // if (retval == hipSuccess) {
-  //   if (LastEvent != nullptr) {
-  //     logDebug("Launch: LastEvent == {}, will be: {}", (void *)LastEvent,
-  //              (void *)ev.get());
-  //     clReleaseEvent(LastEvent);
-  //   } else
-  //     logDebug("launch: LastEvent == NULL, will be: {}\n", (void *)ev.get());
-  //   LastEvent = ev.get();
-  //   clRetainEvent(LastEvent);
-  // }
-
-  // TODO remove this
-  // delete chip_ocl_exec_item;
-  return retval;
+  return nullptr;  // todo
 }
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
@@ -301,53 +285,43 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   delete cl_dev;
 }
 
-hipError_t CHIPQueueOpenCL::memCopy(void *dst, const void *src, size_t size) {
+CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
+                                             size_t size) {
   std::lock_guard<std::mutex> Lock(mtx);
   logDebug("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
   cl_event ev = nullptr;
-  auto LastEvent = ev;
   int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
                                     nullptr, &ev);
   CHIPERR_CHECK_LOG_AND_THROW(retval, CL_SUCCESS, hipErrorRuntimeMemory);
-  if (LastEvent != nullptr) {
-    logDebug("memCopy: LastEvent == {}, will be: {}", (void *)LastEvent,
-             (void *)ev);
-    clReleaseEvent(LastEvent);
-  } else {
-    logDebug("memCopy: LastEvent == NULL, will be: {}\n", (void *)ev);
-    LastEvent = ev;
-  }
-  return hipSuccess;
-}
-
-hipError_t CHIPQueueOpenCL::memCopyAsync(void *dst, const void *src,
-                                         size_t size) {
-  UNIMPLEMENTED(hipErrorUnknown);
+  return nullptr;  // todo
 }
 
 void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
 
-void CHIPQueueOpenCL::memFillAsync(void *dst, size_t size, const void *pattern,
-                                   size_t pattern_size) {
-  UNIMPLEMENTED();
+CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
+                                             const void *pattern,
+                                             size_t pattern_size) {
+  UNIMPLEMENTED(nullptr);
 };
 
-void CHIPQueueOpenCL::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
-                                     size_t spitch, size_t width,
-                                     size_t height) {
-  UNIMPLEMENTED();
+CHIPEvent *CHIPQueueOpenCL::memCopy2DAsyncImpl(void *dst, size_t dpitch,
+                                               const void *src, size_t spitch,
+                                               size_t width, size_t height) {
+  UNIMPLEMENTED(nullptr);
 };
 
-void CHIPQueueOpenCL::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
-                                     const void *src, size_t spitch,
-                                     size_t sspitch, size_t width,
-                                     size_t height, size_t depth) {
-  UNIMPLEMENTED();
+CHIPEvent *CHIPQueueOpenCL::memCopy3DAsyncImpl(void *dst, size_t dpitch,
+                                               size_t dspitch, const void *src,
+                                               size_t spitch, size_t sspitch,
+                                               size_t width, size_t height,
+                                               size_t depth) {
+  UNIMPLEMENTED(nullptr);
 };
 
 // Memory copy to texture object, i.e. image
-void CHIPQueueOpenCL::memCopyToTexture(CHIPTexture *texObj, void *src) {
-  UNIMPLEMENTED();
+CHIPEvent *CHIPQueueOpenCL::memCopyToTextureImpl(CHIPTexture *texObj,
+                                                 void *src) {
+  UNIMPLEMENTED(nullptr);
 };
 
 static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
