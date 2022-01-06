@@ -16,12 +16,12 @@ void CHIPCallbackData::setup() {
   cpu_callback_complete = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
   gpu_ack = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
 
-  chip_queue->enqueueBarrier(gpu_ready, nullptr);
+  auto gpu_ready = chip_queue->enqueueBarrier(nullptr);
 
   std::vector<CHIPEvent *> evs = {cpu_callback_complete};
-  chip_queue->enqueueBarrier(nullptr, &evs);
+  chip_queue->enqueueBarrier(&evs);
 
-  chip_queue->enqueueSignal(gpu_ack);
+  CHIPEvent *gpu_ack = chip_queue->enqueueMarker();
 }
 
 void CHIPEventMonitor::monitor() {
@@ -115,7 +115,7 @@ void CHIPAllocationTracker::recordAllocation(void *dev_ptr, size_t size_) {
 // CHIPEvent
 // ************************************************************************
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
-    : event_status(EVENT_STATUS_RECORDING),
+    : event_status(EVENT_STATUS_INIT),
       flags(event_type_),
       chip_context(ctx_in) {}
 
@@ -558,6 +558,12 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
   return;
 }
 
+CHIPQueue *CHIPDevice::addQueue(unsigned int flags, int priority) {
+  auto q = addQueue_(flags, priority);
+  q->LastEvent = q->enqueueMarker_();
+  return q;
+}
+
 std::vector<CHIPQueue *> CHIPDevice::getQueues() { return chip_queues; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *peer, int flags,
@@ -609,6 +615,40 @@ CHIPQueue *CHIPDevice::getActiveQueue() { return chip_queues[0]; }
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
+
+void CHIPContext::syncQueues(CHIPQueue *target_queue) {
+  logDebug("CHIPContext::syncQueues()");
+  std::vector<CHIPQueue *> queues = getQueues();
+  std::vector<CHIPQueue *> blocking_queues;
+
+  // Default queue gets created add init - always 0th in queue list
+  CHIPQueue *default_queue = queues[0];
+  queues.erase(queues.begin());
+
+  for (auto &q : queues)
+    if (q->getQueueType() == CHIPQueueType::Default)
+      blocking_queues.push_back(q);
+  logDebug("Num blocking queues: {}", blocking_queues.size());
+
+  // default stream waits on all non-blocking streams to complete
+  std::vector<CHIPEvent *> events_to_wait_on;
+  CHIPEvent *signal;
+  /**
+   * TODO:
+   * CHIPQueue->LastEvent must be initialized to marker event upon queue
+   * construction
+   */
+  if (target_queue == default_queue) {
+    for (auto &q : blocking_queues) events_to_wait_on.push_back(q->LastEvent);
+    signal = target_queue->enqueueBarrier(&events_to_wait_on);
+    target_queue->LastEvent = signal;  // TODO: replace with updateLastEvent()
+  } else {  // blocking stream must wait until default stream is done
+    events_to_wait_on.push_back(default_queue->LastEvent);
+    signal = target_queue->enqueueBarrier(&events_to_wait_on);
+    target_queue->LastEvent = signal;  // TODO: replace with updateLastEvent()
+  }
+}
+
 void CHIPContext::addDevice(CHIPDevice *dev) {
   logTrace("CHIPContext.add_device() {}", dev->getName());
   chip_devices.push_back(dev);
@@ -743,6 +783,18 @@ void CHIPBackend::initialize(std::string platform_str,
     CHIPERR_LOG_AND_THROW(msg, hipErrorInitializationError);
   }
   setActiveDevice(chip_devices[0]);
+
+  /**
+   * queues should always have lastEvent. Can't do this in the constuctor
+   * because enqueueMarker is virtual and calling overriden virtual methods from
+   * constructors is undefined behavior.
+   *
+   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
+   * one (enqueueMarker) because the wrapped method enforces queue semantics
+   * which require LastEvent to be initialized.
+   *
+   */
+  getActiveQueue()->LastEvent = getActiveQueue()->enqueueMarker_();
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {
@@ -994,6 +1046,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *chip_device_, unsigned int flags_,
                      int priority_)
     : chip_device(chip_device_), flags(flags_), priority(priority_) {
   chip_context = chip_device_->getContext();
+  queue_type = CHIPQueueType{flags_};
 };
 CHIPQueue::CHIPQueue(CHIPDevice *chip_device_, unsigned int flags_)
     : CHIPQueue(chip_device_, flags_, 0){};

@@ -124,7 +124,7 @@ class CHIPDeviceOpenCL : public CHIPDevice {
     return mod;
   }
 
-  virtual CHIPQueue *addQueue(unsigned int flags, int priority) override;
+  virtual CHIPQueue *addQueue_(unsigned int flags, int priority) override;
   virtual CHIPTexture *createTexture(
       const hipResourceDesc *pResDesc, const hipTextureDesc *pTexDesc,
       const struct hipResourceViewDesc *pResViewDesc) override {
@@ -175,15 +175,12 @@ class CHIPQueueOpenCL : public CHIPQueue {
   virtual void getBackendHandles(unsigned long *nativeInfo,
                                  int *size) override {}  // TODO
 
-  virtual void enqueueBarrier(
-      CHIPEvent *eventToSignal,
+  virtual CHIPEvent *enqueueBarrier(
       std::vector<CHIPEvent *> *eventsToWaitFor) override {
-    UNIMPLEMENTED();
+    UNIMPLEMENTED(nullptr);
   }
 
-  virtual void enqueueSignal(CHIPEvent *eventToSignal) override {
-    UNIMPLEMENTED();
-  }
+  virtual CHIPEvent *enqueueMarker_() override { UNIMPLEMENTED(nullptr); }
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {
