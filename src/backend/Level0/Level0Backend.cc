@@ -389,8 +389,8 @@ void CHIPQueueLevel0::getBackendHandles(unsigned long* nativeInfo, int* size) {
 }
 
 CHIPEventLevel0* CHIPQueueLevel0::enqueueMarkerImpl() {
-  CHIPEventLevel0* marker_event = new CHIPEventLevel0(
-      (CHIPContextLevel0*)chip_context, CHIPEventType::Default);
+  CHIPEventLevel0* marker_event =
+      new CHIPEventLevel0((CHIPContextLevel0*)chip_context);
   auto status =
       zeCommandListAppendSignalEvent(getCmdList(), marker_event->get());
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -399,8 +399,8 @@ CHIPEventLevel0* CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEventLevel0* CHIPQueueLevel0::enqueueBarrierImpl(
     std::vector<CHIPEvent*>* eventsToWaitFor) {
-  CHIPEventLevel0* eventToSignal = new CHIPEventLevel0(
-      (CHIPContextLevel0*)chip_context, CHIPEventType::Default);
+  CHIPEventLevel0* eventToSignal =
+      new CHIPEventLevel0((CHIPContextLevel0*)chip_context);
   size_t numEventsToWaitFor = 0;
   if (eventsToWaitFor) numEventsToWaitFor = eventsToWaitFor->size();
 

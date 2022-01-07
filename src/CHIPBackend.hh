@@ -236,6 +236,9 @@ class CHIPEvent {
  protected:
   std::mutex mtx;
   event_status_e event_status;
+
+  // reference count
+  size_t refc;
   /**
    * @brief event bahavior modifier -  valid values are hipEventDefault,
    * hipEventBlockingSync, hipEventDisableTiming, hipEventInterprocess
@@ -256,6 +259,8 @@ class CHIPEvent {
   CHIPEvent() = default;
 
  public:
+  // Optionally provide a field for origin of this event
+  std::string msg;
   /**
    * @brief CHIPEvent constructor. Must always be created with some context.
    *
@@ -1422,8 +1427,9 @@ class CHIPBackend {
   virtual CHIPQueue* createCHIPQueue(CHIPDevice* chip_dev) = 0;
   // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
   // virtual CHIPContext* createCHIPContext() = 0;
-  virtual CHIPEvent* createCHIPEvent(CHIPContext* chip_ctx_,
-                                     CHIPEventType event_type_) = 0;
+  virtual CHIPEvent* createCHIPEvent(
+      CHIPContext* chip_ctx_,
+      CHIPEventType event_type_ = CHIPEventType::Default) = 0;
 
   /**
    * @brief Create a Callback Obj object

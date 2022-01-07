@@ -12,9 +12,9 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t callback_f_,
 
 void CHIPCallbackData::setup() {
   CHIPContext *ctx = chip_queue->getContext();
-  gpu_ready = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
-  cpu_callback_complete = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
-  gpu_ack = Backend->createCHIPEvent(ctx, CHIPEventType::Default);
+  gpu_ready = Backend->createCHIPEvent(ctx);
+  cpu_callback_complete = Backend->createCHIPEvent(ctx);
+  gpu_ack = Backend->createCHIPEvent(ctx);
 
   auto gpu_ready = chip_queue->enqueueBarrier(nullptr);
 
