@@ -34,6 +34,11 @@
 
 class CHIPEventMonitor;
 
+enum class CHIPQueueType : unsigned int {
+  Blocking = hipStreamDefault,
+  NonBlocking = hipStreamNonBlocking
+};
+
 class CHIPCallbackData {
  public:
   CHIPQueue* chip_queue;
@@ -764,10 +769,9 @@ class CHIPDevice {
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue* addQueue(
-      unsigned int flags,
-      int priority) = 0;  // TODO how do I instantiate a CHIPQueue derived type
-                          // in a generic way?
+  virtual CHIPQueue* addQueue_(unsigned int flags, int priority) = 0;
+
+  CHIPQueue* addQueue(unsigned int flags, int priority);
 
   /**
    * @brief Add a queue to this device
@@ -980,6 +984,8 @@ class CHIPContext {
    *
    */
   ~CHIPContext();
+
+  virtual void syncQueues(CHIPQueue* target_queue);
 
   /**
    * @brief Add a device to this context
@@ -1462,6 +1468,7 @@ class CHIPQueue {
  protected:
   int priority;
   unsigned int flags;
+  CHIPQueueType queue_type;
   /// Device on which this queue will execute
   CHIPDevice* chip_device;
   /// Context to which device belongs to
@@ -1503,6 +1510,13 @@ class CHIPQueue {
    *
    */
   ~CHIPQueue();
+
+  CHIPQueueType getQueueType() { return queue_type; }
+  void updateLastEvent(CHIPEvent* ev) {
+    logDebug("CHIPQueue::updateLastEvent()");
+    if (LastEvent != nullptr) delete LastEvent;
+    LastEvent = ev;
+  }
 
   /**
    * @brief Blocking memory copy
@@ -1613,10 +1627,17 @@ class CHIPQueue {
    * @return false
    */
 
-  virtual void enqueueBarrier(CHIPEvent* eventToSignal,
-                              std::vector<CHIPEvent*>* eventsToWaitFor) = 0;
+  virtual CHIPEvent* enqueueBarrier(
+      std::vector<CHIPEvent*>* eventsToWaitFor) = 0;
 
-  virtual void enqueueSignal(CHIPEvent* eventToSignal) = 0;
+  CHIPEvent* enqueueMarker() {
+    chip_context->syncQueues(this);
+    auto ev = enqueueMarker_();
+    updateLastEvent(ev);
+    return ev;
+  }
+
+  virtual CHIPEvent* enqueueMarker_() = 0;
   /**
    * @brief Get the Flags object with which this queue was created.
    *

@@ -365,7 +365,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   }
 }
 
-CHIPQueue *CHIPDeviceOpenCL::addQueue(unsigned int flags, int priority) {
+CHIPQueue *CHIPDeviceOpenCL::addQueue_(unsigned int flags, int priority) {
   CHIPQueueOpenCL *new_q = new CHIPQueueOpenCL(this);
   chip_queues.push_back(new_q);
   return new_q;

@@ -101,10 +101,9 @@ class CHIPQueueLevel0 : public CHIPQueue {
 
   virtual void getBackendHandles(unsigned long* nativeInfo, int* size) override;
 
-  virtual void enqueueSignal(CHIPEvent* eventToSignal) override;
+  virtual CHIPEvent* enqueueMarker_() override;
 
-  virtual void enqueueBarrier(
-      CHIPEvent* eventToSignal,
+  virtual CHIPEvent* enqueueBarrier(
       std::vector<CHIPEvent*>* eventsToWaitFor) override;
 };  // end CHIPQueueLevel0
 
@@ -222,7 +221,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
     return mod;
   }
 
-  virtual CHIPQueue* addQueue(unsigned int flags, int priority) override;
+  virtual CHIPQueue* addQueue_(unsigned int flags, int priority) override;
   ze_device_properties_t* getDeviceProps() { return &(this->ze_device_props); };
   virtual CHIPTexture* createTexture(
       const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,

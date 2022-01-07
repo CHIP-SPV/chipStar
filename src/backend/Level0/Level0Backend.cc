@@ -1,13 +1,18 @@
 #include "Level0Backend.hh"
 
-void CHIPQueueLevel0::enqueueSignal(CHIPEvent* eventToSignal) {
-  auto ev = (CHIPEventLevel0*)eventToSignal;
-  auto status = zeCommandListAppendSignalEvent(getCmdList(), ev->get());
+CHIPEvent* CHIPQueueLevel0::enqueueMarker_() {
+  CHIPEventLevel0* marker_event = new CHIPEventLevel0(
+      (CHIPContextLevel0*)chip_context, CHIPEventType::Default);
+  auto status =
+      zeCommandListAppendSignalEvent(getCmdList(), marker_event->get());
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  return marker_event;
 }
 
-void CHIPQueueLevel0::enqueueBarrier(CHIPEvent* eventToSignal,
-                                     std::vector<CHIPEvent*>* eventsToWaitFor) {
+CHIPEvent* CHIPQueueLevel0::enqueueBarrier(
+    std::vector<CHIPEvent*>* eventsToWaitFor) {
+  CHIPEventLevel0* eventToSignal = new CHIPEventLevel0(
+      (CHIPContextLevel0*)chip_context, CHIPEventType::Default);
   size_t numEventsToWaitFor = 0;
   if (eventsToWaitFor) numEventsToWaitFor = eventsToWaitFor->size();
 
@@ -30,6 +35,7 @@ void CHIPQueueLevel0::enqueueBarrier(CHIPEvent* eventToSignal,
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   if (event_handles) delete event_handles;
+  return eventToSignal;
 }
 
 // CHIPCallbackDataLevel0
@@ -405,7 +411,7 @@ void CHIPDeviceLevel0::populateDeviceProperties_() {
       device_compute_props.maxSharedLocalMemory;
 }
 
-CHIPQueue* CHIPDeviceLevel0::addQueue(unsigned int flags, int priority) {
+CHIPQueue* CHIPDeviceLevel0::addQueue_(unsigned int flags, int priority) {
   CHIPQueueLevel0* new_q = new CHIPQueueLevel0(this);
   chip_queues.push_back(new_q);
   return new_q;
