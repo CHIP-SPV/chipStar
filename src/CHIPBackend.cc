@@ -626,7 +626,7 @@ void CHIPContext::syncQueues(CHIPQueue *target_queue) {
   queues.erase(queues.begin());
 
   for (auto &q : queues)
-    if (q->getQueueType() == CHIPQueueType::Default)
+    if (q->getQueueType() == CHIPQueueType::Blocking)
       blocking_queues.push_back(q);
   logDebug("Num blocking queues: {}", blocking_queues.size());
 
