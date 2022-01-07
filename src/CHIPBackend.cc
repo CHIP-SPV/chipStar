@@ -626,18 +626,14 @@ void CHIPContext::syncQueues(CHIPQueue *target_queue) {
   queues.erase(queues.begin());
 
   for (auto &q : queues)
-    if (q->getQueueType() == CHIPQueueType::Default)
+    if (q->getQueueType() == CHIPQueueType::Blocking)
       blocking_queues.push_back(q);
   logDebug("Num blocking queues: {}", blocking_queues.size());
 
-  // default stream waits on all non-blocking streams to complete
+  // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> events_to_wait_on;
   CHIPEvent *signal;
-  /**
-   * TODO:
-   * CHIPQueue->LastEvent must be initialized to marker event upon queue
-   * construction
-   */
+
   if (target_queue == default_queue) {
     for (auto &q : blocking_queues) events_to_wait_on.push_back(q->LastEvent);
     signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);

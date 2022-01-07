@@ -35,7 +35,7 @@
 class CHIPEventMonitor;
 
 enum class CHIPQueueType : unsigned int {
-  Default = hipStreamDefault,
+  Blocking = hipStreamDefault,
   NonBlocking = hipStreamNonBlocking
 };
 
