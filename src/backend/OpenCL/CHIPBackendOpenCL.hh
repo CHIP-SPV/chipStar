@@ -102,8 +102,7 @@ class CHIPContextOpenCL : public CHIPContext {
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
   cl::Context *get() { return cl_ctx; }
-  virtual CHIPEvent *createEvent(unsigned flags) override{
-      UNIMPLEMENTED(nullptr)};  // TODO
+  virtual CHIPEvent *createEvent(unsigned flags) override;
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
@@ -144,10 +143,13 @@ class CHIPQueueOpenCL : public CHIPQueue {
   cl::CommandQueue *cl_q;
 
  public:
+  CHIPEventOpenCL *LastEvent;
   CHIPQueueOpenCL() = delete;  // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
   CHIPQueueOpenCL(CHIPDevice *chip_device);
   ~CHIPQueueOpenCL();
+
+  void updateLastEvent(cl_event e_);
 
   virtual hipError_t launch(CHIPExecItem *exec_item) override;
   virtual void finish() override;
@@ -228,8 +230,8 @@ class CHIPBackendOpenCL : public CHIPBackend {
   }
 
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *chip_dev) override {
-    UNIMPLEMENTED(nullptr);
-    // return new CHIPQueueOpenCL();
+    CHIPDeviceOpenCL *chip_dev_cl = (CHIPDeviceOpenCL *)chip_dev;
+    return new CHIPQueueOpenCL(chip_dev_cl);
   }
 
   // virtual CHIPDevice *createCHIPDevice() override {
@@ -241,9 +243,7 @@ class CHIPBackendOpenCL : public CHIPBackend {
   // }
 
   virtual CHIPEvent *createCHIPEvent(CHIPContext *chip_ctx_,
-                                     CHIPEventType event_type_) override {
-    UNIMPLEMENTED(nullptr);
-  }
+                                     CHIPEventType event_type_) override;
 
   virtual CHIPCallbackData *createCallbackData(
       hipStreamCallback_t callback, void *userData,
@@ -257,16 +257,49 @@ class CHIPBackendOpenCL : public CHIPBackend {
 };
 
 class CHIPEventOpenCL : public CHIPEvent {
- protected:
-  cl::Event *cl_event;
+ public:
+  cl_event ev;
 
  public:
-  void recordStream(CHIPQueue *chip_queue_) override { UNIMPLEMENTED(); };
-  bool wait() override { UNIMPLEMENTED(true); };
-  bool isFinished() override { UNIMPLEMENTED(true); };
-  float getElapsedTime(CHIPEvent *other) override { UNIMPLEMENTED(true); };
+  CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_, cl_event ev_,
+                  CHIPEventType event_type_ = CHIPEventType::Default)
+      : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(ev_) {}
 
-  virtual void barrier(CHIPQueue *chip_queue_) override { UNIMPLEMENTED(); }
+  CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_,
+                  CHIPEventType event_type_ = CHIPEventType::Default)
+      : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(nullptr) {}
+
+  void recordStream(CHIPQueue *chip_queue_) override;
+  bool wait() override;
+  float getElapsedTime(CHIPEvent *other) override;
+
+  virtual void barrier(CHIPQueue *chip_queue_) override;
+
+  virtual void hostSignal() override;
+
+  virtual bool updateFinishStatus() override;
+
+  cl_event get() { return ev; }
+
+  uint64_t getFinishTime() {
+    std::lock_guard<std::mutex> Lock(mtx);
+    int status;
+    uint64_t ret;
+    status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(ret),
+                                     &ret, NULL);
+
+    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
+                                "Failed to query event for profiling info.");
+    return ret;
+  }
+
+  int getRefCount() {
+    cl_uint refc;
+    int status =
+        ::clGetEventInfo(this->get(), CL_EVENT_REFERENCE_COUNT, 4, &refc, NULL);
+    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+    return refc;
+  }
 };
 
 #endif

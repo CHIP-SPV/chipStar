@@ -323,16 +323,10 @@ class CHIPEventLevel0 : public CHIPEvent {
     ze_result_t status = zeEventHostSynchronize(event, UINT64_MAX);
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-    event_status = EVENT_STATUS_RECORDED;
     return true;
   }
 
-  bool isFinished() override { return (event_status == EVENT_STATUS_RECORDED); }
-  bool isRecordingOrRecorded() const {
-    return (event_status >= EVENT_STATUS_RECORDING);
-  }
-
-  bool updateFinishStatus() {
+  virtual bool updateFinishStatus() override {
     std::lock_guard<std::mutex> Lock(mtx);
     if (event_status != EVENT_STATUS_RECORDING) return false;
 
@@ -354,11 +348,14 @@ class CHIPEventLevel0 : public CHIPEvent {
     // std::lock_guard<std::mutex> Lock(ContextMutex);
 
     if (!this->isRecordingOrRecorded() || !other->isRecordingOrRecorded())
-      return hipErrorInvalidResourceHandle;
+      CHIPERR_LOG_AND_THROW("one of the events isn't/hasn't recorded",
+                            hipErrorTbd);
 
     this->updateFinishStatus();
     other->updateFinishStatus();
-    if (!this->isFinished() || !other->isFinished()) return hipErrorNotReady;
+    if (!this->isFinished() || !other->isFinished())
+      CHIPERR_LOG_AND_THROW("one of the events hasn't finished",
+                            hipErrorNotReady);
 
     uint64_t Started = this->getFinishTime();
     uint64_t Finished = other->getFinishTime();

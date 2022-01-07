@@ -261,6 +261,49 @@ class CHIPEvent {
    *
    */
   virtual ~CHIPEvent() = default;
+
+  /**
+   * @brief Get the Context object
+   *
+   * @return CHIPContext* pointer to context on which this event was created
+   */
+  CHIPContext* getContext() { return chip_context; }
+
+  /**
+   * @brief Query the state of this event and update it's status
+   * Each backend must override this method with implementation specific calls
+   * e.x. clGetEventInfo()
+   *
+   * @return true event was in recording state, state might have changed
+   * @return false event was not in recording state
+   */
+  virtual bool updateFinishStatus() = 0;
+
+  /**
+   * @brief Check if this event is recording or already recorded
+   *
+   * @return true event is recording/recorded
+   * @return false event is in init or invalid state
+   */
+  bool isRecordingOrRecorded() {
+    return event_status >= EVENT_STATUS_RECORDING;
+  }
+
+  /**
+   * @brief check if this event is done recording
+   *
+   * @return true recoded
+   * @return false not recorded
+   */
+  bool isFinished() { return (event_status == EVENT_STATUS_RECORDED); }
+
+  /**
+   * @brief Get the Event Status object
+   *
+   * @return event_status_e current event status
+   */
+  event_status_e getEventStatus() { return event_status; }
+
   /**
    * @brief Enqueue this event in a given CHIPQueue
    *
@@ -276,13 +319,7 @@ class CHIPEvent {
    * @return false
    */
   virtual bool wait() = 0;
-  /**
-   * @brief Query the event to see if it completed
-   *
-   * @return true
-   * @return false
-   */
-  virtual bool isFinished() = 0;
+
   /**
    * @brief Calculate absolute difference between completion timestamps of this
    * event and other
@@ -1423,7 +1460,6 @@ class CHIPBackend {
  */
 class CHIPQueue {
  protected:
-  std::mutex mtx;
   int priority;
   unsigned int flags;
   /// Device on which this queue will execute
@@ -1434,6 +1470,9 @@ class CHIPQueue {
   CHIPEventMonitor* event_monitor = nullptr;
 
  public:
+  // I want others to be able to lock this queue?
+  std::mutex mtx;
+
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent* LastEvent;
