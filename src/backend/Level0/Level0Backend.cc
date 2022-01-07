@@ -197,6 +197,11 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ze_kernel_,
 
 // CHIPQueueLevelZero
 // ***********************************************************************
+
+CHIPEventLevel0* CHIPQueueLevel0::getLastEvent() {
+  return (CHIPEventLevel0*)LastEvent;
+}
+
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
     : CHIPQueue(chip_dev_) {
   ze_result_t status;

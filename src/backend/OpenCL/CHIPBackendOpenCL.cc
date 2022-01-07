@@ -125,6 +125,181 @@ void CHIPDeviceOpenCL::populateDeviceProperties_() {
 void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
 // CHIPEventOpenCL
 // ************************************************************************
+
+CHIPEvent *CHIPContextOpenCL::createEvent(unsigned flags) {
+  CHIPEventType event_type{flags};
+  return new CHIPEventOpenCL(this, event_type);
+}
+
+CHIPEvent *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *chip_ctx_,
+                                              CHIPEventType event_type_) {
+  return new CHIPEventOpenCL((CHIPContextOpenCL *)chip_ctx_, event_type_);
+}
+
+void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
+  logDebug("CHIPEventOpenCL::recordStream()");
+  /**
+   * each CHIPQueue keeps track of the status of the last enqueue command. This
+   * is done by creating a CHIPEvent and associating it with the newly submitted
+   * command. Each CHIPQueue has a LastEvent field.
+   *
+   * Recording is done by taking ownership of the target queues' LastEvent,
+   * incrementing that event's refcount.
+   */
+  std::lock_guard<std::mutex> Lock(mtx);
+  auto chip_queue = (CHIPQueueOpenCL *)chip_queue_;
+  auto last_chip_event = (CHIPEventOpenCL *)chip_queue->LastEvent;
+
+  // If this event was used previously, clear it
+  // can be >1 because recordEvent can be called >1 on the same event
+  if (ev != nullptr) {
+    logDebug("removing old event {}, refc: {}\n", (void *)ev, getRefCount());
+
+    clReleaseEvent(ev);
+  }
+
+  // if no previous event, create a marker event - we always need 2 events to
+  // measure differences
+  assert(chip_queue->getLastEvent() != nullptr);
+
+  // Take over target queues event
+  this->ev = chip_queue->getLastEvent()->get();
+  clRetainEvent(this->ev);
+  int refc1 = getRefCount();
+  logDebug("Refc: {} cl_event {}", refc1, (void *)get());
+
+  event_status = EVENT_STATUS_RECORDING;
+
+  /**
+   * There's nothing preventing you from calling hipRecordStream multiple times
+   * in a row on the same event. In such case, after the first call, this events
+   * clEvent field is no longer null and the event's refcount has been
+   * incremented.
+   *
+   * From HIP API: If hipEventRecord() has been previously called on this
+   * event, then this call will overwrite any existing state in event.
+   *
+   * hipEventCreate(myEvent); < clEvent is nullptr
+   * hipMemCopy(..., Q1)
+   * Q1.LastEvent = Q1_MemCopyEvent_0.refcount = 1
+   *
+   * hipStreamRecord(myEvent, Q1);
+   * clEvent== Q1_MemCopyEvent_0, refcount 1->2
+   *
+   * hipMemCopy(..., Q1)
+   * Q1.LastEvent = Q1_MemCopyEvent_1.refcount = 1
+   * Q1_MemCopyEvent_0.refcount 2->1
+   *
+   * hipStreamRecord(myEvent, Q1);
+   * Q1_MemCopyEvent_0.refcount 1->0
+   * clEvent==Q1_MemCopyEvent_1, refcount 1->2
+   */
+}
+
+bool CHIPEventOpenCL::wait() {
+  logDebug("CHIPEventOpenCL::wait()");
+  std::lock_guard<std::mutex> Lock(mtx);
+  if (event_status != EVENT_STATUS_RECORDING) {
+    logWarn("Called wait() on an event that isn't active.");
+    return false;
+  }
+
+  auto status = clWaitForEvents(1, &ev);
+
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+  return true;
+}
+
+bool CHIPEventOpenCL::updateFinishStatus() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logDebug("CHIPEventOpenCL::updateFinishStatus()");
+  if (event_status != EVENT_STATUS_RECORDING) return false;
+
+  int updated_status;
+  auto status = clGetEventInfo(ev, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                               sizeof(int), &event_status, NULL);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+
+  if (updated_status <= CL_COMPLETE) event_status = EVENT_STATUS_RECORDED;
+
+  return true;
+}
+
+float CHIPEventOpenCL::getElapsedTime(CHIPEvent *other_) {
+  // Why do I need to lock the context mutex?
+  // Can I lock the mutex of this and the other event?
+  // std::lock_guard<std::mutex> Lock(mtx);
+
+  CHIPEventOpenCL *other = (CHIPEventOpenCL *)other_;
+
+  if (this->getContext() != other->getContext())
+    CHIPERR_LOG_AND_THROW(
+        "Attempted to get elapsed time between two events that are not part of "
+        "the same context",
+        hipErrorTbd);
+
+  this->updateFinishStatus();
+  other->updateFinishStatus();
+
+  if (!this->isRecordingOrRecorded() || !other->isRecordingOrRecorded())
+    CHIPERR_LOG_AND_THROW("one of the events isn't/hasn't recorded",
+                          hipErrorTbd);
+
+  if (!this->isFinished() || !other->isFinished())
+    CHIPERR_LOG_AND_THROW("one of the events hasn't finished",
+                          hipErrorNotReady);
+
+  uint64_t Started = this->getFinishTime();
+  uint64_t Finished = other->getFinishTime();
+
+  logDebug("EventElapsedTime: STARTED {} / {} FINISHED {} / {} \n",
+           (void *)this, Started, (void *)other, Finished);
+
+  // apparently fails for Intel NEO, god knows why
+  // assert(Finished >= Started);
+  uint64_t Elapsed;
+  const uint64_t NANOSECS = 1000000000;
+  if (Finished < Started) {
+    logWarn("Finished < Started\n");
+    Elapsed = Started - Finished;
+  } else
+    Elapsed = Finished - Started;
+  uint64_t MS = (Elapsed / NANOSECS) * 1000;
+  uint64_t NS = Elapsed % NANOSECS;
+  float FractInMS = ((float)NS) / 1000000.0f;
+  return (float)MS + FractInMS;
+}
+
+void CHIPEventOpenCL::barrier(CHIPQueue *chip_queue_) {
+  // Makes all future work submitted to stream wait on this event
+  logDebug("CHIPEventOpenCL::barrier()");
+  CHIPQueueOpenCL *chip_queue = (CHIPQueueOpenCL *)chip_queue_;
+  std::lock_guard<std::mutex> Lock(chip_queue->mtx);
+
+  /**
+   * Do I need to do this?
+    if (this->getEventStatus() == EVENT_STATUS_INIT)
+      CHIPERR_LOG_AND_THROW("Attempted to wait on an event that's not active",
+                            hipErrorTbd);
+   */
+
+  // Insert a barrier into the target queue such that the target queue will
+  // execute all previously submitted commands until it hits this barrier
+  cl::vector<cl::Event> events_to_wait_on = {cl::Event(ev)};
+  cl::Event barrier;
+  auto status = chip_queue->get()->enqueueBarrierWithWaitList(
+      &events_to_wait_on, &barrier);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
+                              "failed to enqueue barrier");
+
+  // wrap the barrier event in CHIPEvent
+  CHIPEventOpenCL *chip_barrier_event = new CHIPEventOpenCL(
+      (CHIPContextOpenCL *)(chip_queue->getContext()), barrier.get());
+
+  chip_queue->updateLastEvent(chip_barrier_event);
+}
+
+void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 // CHIPModuleOpenCL
 //*************************************************************************
 void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
@@ -240,6 +415,42 @@ hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
 
 // CHIPQueueOpenCL
 //*************************************************************************
+
+void CHIPQueueOpenCL::updateLastEvent(CHIPEvent *new_event) {
+  logDebug("CHIPQueueOpenCL::updateLastEvent()");
+  CHIPEventOpenCL *new_chip_event = (CHIPEventOpenCL *)new_event;
+
+  auto *LastEventCHIPOpenCL = (CHIPEventOpenCL *)LastEvent;
+
+  if (LastEventCHIPOpenCL) {
+    logDebug("updateLastEvent: LastEvent == {}, will be: {}",
+             (void *)LastEventCHIPOpenCL->get(), (void *)new_chip_event->get());
+    clReleaseEvent(LastEventCHIPOpenCL->get());
+  } else {
+    logDebug("updateLastEvent: LastEvent == NULL, will be: {}\n",
+             (void *)new_chip_event);
+  }
+  LastEvent = new_chip_event;
+}
+
+CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
+  cl::Event MarkerEvent;
+  auto status = this->get()->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+  CHIPEventOpenCL *CHIPMarkerEvent =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, MarkerEvent.get());
+
+  clRetainEvent(MarkerEvent.get());
+  // this->updateLastEvent(CHIPMarkerEvent);
+  // CHIPEventOpenCL *e = (CHIPEventOpenCL *)(this->LastEvent);
+  logDebug("Target queue LastEvent.refc {}", CHIPMarkerEvent->getRefCount());
+  return CHIPMarkerEvent;
+}
+
+CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
+  return (CHIPEventOpenCL *)LastEvent;
+}
+
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *exec_item) {
   // std::lock_guard<std::mutex> Lock(mtx);
   logTrace("CHIPQueueOpenCL->launch()");
@@ -263,8 +474,13 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *exec_item) {
                                        local, nullptr, &ev);
 
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd);
+  hipError_t retval = hipSuccess;
 
-  return nullptr;  // todo
+  CHIPEventOpenCL *e =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, ev.get());
+  clRetainEvent(ev.get());
+  // updateLastEvent(e);
+  return e;
 }
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
@@ -293,7 +509,10 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
   int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
                                     nullptr, &ev);
   CHIPERR_CHECK_LOG_AND_THROW(retval, CL_SUCCESS, hipErrorRuntimeMemory);
-  return nullptr;  // todo
+  CHIPEventOpenCL *e =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, ev);
+  // updateLastEvent(e);
+  return e;
 }
 
 void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
@@ -562,6 +781,7 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
     Backend->addDevice(chip_dev);
     CHIPQueueOpenCL *queue = new CHIPQueueOpenCL(chip_dev);
     // chip_dev->addQueue(queue);
+    chip_context->addQueue(queue);
     Backend->addQueue(queue);
   }
   std::cout << "OpenCL Context Initialized.\n";

@@ -33,12 +33,7 @@ class CHIPEventLevel0 : public CHIPEvent {
 
   virtual bool wait() override;
 
-  bool isFinished() override { return (event_status == EVENT_STATUS_RECORDED); }
-  bool isRecordingOrRecorded() const {
-    return (event_status >= EVENT_STATUS_RECORDING);
-  }
-
-  bool updateFinishStatus();
+  bool updateFinishStatus() override;
 
   uint64_t getFinishTime() {
     std::lock_guard<std::mutex> Lock(mtx);
@@ -108,6 +103,8 @@ class CHIPQueueLevel0 : public CHIPQueue {
 
  public:
   CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_);
+
+  virtual CHIPEventLevel0* getLastEvent() override;
 
   virtual CHIPEvent* launchImpl(CHIPExecItem* exec_item) override;
 
