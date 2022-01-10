@@ -117,7 +117,8 @@ void CHIPAllocationTracker::recordAllocation(void *dev_ptr, size_t size_) {
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
     : event_status(EVENT_STATUS_INIT),
       flags(event_type_),
-      chip_context(ctx_in) {}
+      chip_context(ctx_in),
+      refc(new size_t(1)) {}
 
 // CHIPModule
 //*************************************************************************************
@@ -246,7 +247,7 @@ CHIPEvent *CHIPExecItem::launchByHostPtr(const void *hostPtr) {
 
   CHIPDevice *dev = chip_queue->getDevice();
   this->chip_kernel = dev->findKernelByHostPtr(hostPtr);
-  return (chip_queue->launch(this));
+  return (chip_queue->launchImpl(this));
 }
 
 dim3 CHIPExecItem::getBlock() { return block_dim; }
@@ -560,7 +561,6 @@ void CHIPDevice::addQueue(CHIPQueue *chip_queue_) {
 
 CHIPQueue *CHIPDevice::addQueue(unsigned int flags, int priority) {
   auto q = addQueue_(flags, priority);
-  q->LastEvent = q->enqueueMarkerImpl();
   return q;
 }
 
@@ -634,15 +634,16 @@ void CHIPContext::syncQueues(CHIPQueue *target_queue) {
   std::vector<CHIPEvent *> events_to_wait_on;
   CHIPEvent *signal;
 
-  if (target_queue == default_queue) {
-    for (auto &q : blocking_queues) events_to_wait_on.push_back(q->LastEvent);
-    signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);
-    target_queue->LastEvent = signal;  // TODO: replace with
-  } else {  // blocking stream must wait until default stream is done
-    events_to_wait_on.push_back(default_queue->LastEvent);
-    signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);
-    target_queue->LastEvent = signal;  // TODO: replace with
-  }
+  // if (target_queue == default_queue) {
+  //   for (auto &q : blocking_queues)
+  //     events_to_wait_on.push_back(q->getLastEvent());
+  //   signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);
+  //   target_queue->LastEvent = signal;  // TODO: replace with
+  // } else {  // blocking stream must wait until default stream is done
+  //   events_to_wait_on.push_back(default_queue->LastEvent);
+  //   signal = target_queue->enqueueBarrierImpl(&events_to_wait_on);
+  //   target_queue->LastEvent = signal;  // TODO: replace with
+  // }
 }
 
 void CHIPContext::addDevice(CHIPDevice *dev) {
@@ -790,7 +791,7 @@ void CHIPBackend::initialize(std::string platform_str,
    * which require LastEvent to be initialized.
    *
    */
-  getActiveQueue()->LastEvent = getActiveQueue()->enqueueMarkerImpl();
+  getActiveQueue()->setLastEvent(getActiveQueue()->enqueueMarkerImpl());
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {
@@ -1061,6 +1062,7 @@ hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopyImpl(dst, src, size);
+  ev->msg = "memCopy";
   updateLastEvent(ev);
   return hipSuccess;
 }
@@ -1166,6 +1168,7 @@ CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
   chip_context->syncQueues(this);
 #endif
   auto ev = launchImpl(exec_item);
+  ev->msg = "launch";
   updateLastEvent(ev);
   return ev;
 }
@@ -1199,6 +1202,7 @@ void CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                  Backend->getActiveQueue());
   e.setArgPointer(args);
   auto ev = e.launchByHostPtr(hostFunction);
+  ev->msg = "launchHostFunc";
   updateLastEvent(ev);
 }
 

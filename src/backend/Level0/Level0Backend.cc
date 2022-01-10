@@ -2,6 +2,21 @@
 
 // CHIPEventLevel0
 // ***********************************************************************
+
+CHIPEventLevel0::~CHIPEventLevel0() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logDebug("CHIPEventLevel0::~CHIPEventLevel0() refc: {}->{}", *refc,
+           *refc - 1);
+  decreaseRefCount();
+  if (*refc == 0) deinit();
+}
+void CHIPEventLevel0::deinit() {
+  zeEventDestroy(event);
+  zeEventPoolDestroy(event_pool);
+  event = nullptr;
+  event_pool = nullptr;
+}
+
 CHIPEventLevel0::CHIPEventLevel0(
     CHIPContextLevel0* chip_ctx_,
     CHIPEventType event_type_ = CHIPEventType::Default)

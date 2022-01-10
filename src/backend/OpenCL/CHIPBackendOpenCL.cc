@@ -126,6 +126,32 @@ void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
 // CHIPEventOpenCL
 // ************************************************************************
 
+CHIPEventOpenCL::~CHIPEventOpenCL() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  logDebug("CHIPEventOpenCL::~CHIPEventOpenCL() refc: {}->{}", *refc,
+           *refc - 1);
+  decreaseRefCount();
+  if (*refc == 0) deinit();
+}
+void CHIPEventOpenCL::decreaseRefCount() {
+  logDebug("CHIPEventOpenCL::decreaseRefCount() msg={}", msg.c_str());
+  auto r = getRefCount();
+  logDebug("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *refc, *refc - 1, *r,
+           *r - 1);
+  (*refc)--;
+  clReleaseEvent(ev);
+}
+void CHIPEventOpenCL::increaseRefCount() {
+  logDebug("CHIPEventOpenCL::increaseRefCount() msg={}", msg.c_str());
+  auto r = getRefCount();
+  logDebug("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *refc, *refc + 1, *r,
+           *r + 1);
+  (*refc)++;
+  clRetainEvent(ev);
+}
+
+void CHIPEventOpenCL::deinit() { ev = nullptr; }
+
 CHIPEvent *CHIPContextOpenCL::createEvent(unsigned flags) {
   CHIPEventType event_type{flags};
   return new CHIPEventOpenCL(this, event_type);
@@ -148,14 +174,14 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
    */
   std::lock_guard<std::mutex> Lock(mtx);
   auto chip_queue = (CHIPQueueOpenCL *)chip_queue_;
-  auto last_chip_event = (CHIPEventOpenCL *)chip_queue->LastEvent;
+  auto last_chip_event = (CHIPEventOpenCL *)chip_queue->getLastEvent();
 
   // If this event was used previously, clear it
   // can be >1 because recordEvent can be called >1 on the same event
+  bool fresh_event = true;
   if (ev != nullptr) {
-    logDebug("removing old event {}, refc: {}\n", (void *)ev, getRefCount());
-
-    clReleaseEvent(ev);
+    fresh_event = false;
+    decreaseRefCount();
   }
 
   // if no previous event, create a marker event - we always need 2 events to
@@ -164,9 +190,9 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
 
   // Take over target queues event
   this->ev = chip_queue->getLastEvent()->get();
-  clRetainEvent(this->ev);
-  int refc1 = getRefCount();
-  logDebug("Refc: {} cl_event {}", refc1, (void *)get());
+  this->refc = chip_queue->getLastEvent()->getRefCount();
+  this->msg = chip_queue->getLastEvent()->msg;
+  // if (fresh_event) assert(this->refc  3);
 
   event_status = EVENT_STATUS_RECORDING;
 
@@ -417,20 +443,25 @@ hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
 //*************************************************************************
 
 void CHIPQueueOpenCL::updateLastEvent(CHIPEvent *new_event) {
+  logDebug("");
   logDebug("CHIPQueueOpenCL::updateLastEvent()");
   CHIPEventOpenCL *new_chip_event = (CHIPEventOpenCL *)new_event;
 
   auto *LastEventCHIPOpenCL = (CHIPEventOpenCL *)LastEvent;
 
   if (LastEventCHIPOpenCL) {
-    logDebug("updateLastEvent: LastEvent == {}, will be: {}",
-             (void *)LastEventCHIPOpenCL->get(), (void *)new_chip_event->get());
-    clReleaseEvent(LastEventCHIPOpenCL->get());
+    logDebug("updateLastEvent: LastEvent == {}({}), will be: {}({})",
+             (void *)LastEventCHIPOpenCL->peek(), LastEventCHIPOpenCL->msg,
+             (void *)new_chip_event->peek(), new_chip_event->msg);
+
+    delete LastEvent;
   } else {
     logDebug("updateLastEvent: LastEvent == NULL, will be: {}\n",
              (void *)new_chip_event);
   }
-  LastEvent = new_chip_event;
+
+  new_chip_event->increaseRefCount();
+  this->LastEvent = new_chip_event;
 }
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
@@ -439,11 +470,7 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
   CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
   CHIPEventOpenCL *CHIPMarkerEvent =
       new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, MarkerEvent.get());
-
-  clRetainEvent(MarkerEvent.get());
-  // this->updateLastEvent(CHIPMarkerEvent);
-  // CHIPEventOpenCL *e = (CHIPEventOpenCL *)(this->LastEvent);
-  logDebug("Target queue LastEvent.refc {}", CHIPMarkerEvent->getRefCount());
+  CHIPMarkerEvent->msg = "marker";
   return CHIPMarkerEvent;
 }
 
@@ -478,7 +505,7 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *exec_item) {
 
   CHIPEventOpenCL *e =
       new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, ev.get());
-  clRetainEvent(ev.get());
+  // clRetainEvent(ev.get());
   // updateLastEvent(e);
   return e;
 }

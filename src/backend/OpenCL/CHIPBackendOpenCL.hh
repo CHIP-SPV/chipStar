@@ -59,12 +59,17 @@ class CHIPEventOpenCL : public CHIPEvent {
                   CHIPEventType event_type_ = CHIPEventType::Default)
       : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(ev_) {
     event_status = EVENT_STATUS_RECORDING;
+    clRetainEvent(ev);
   }
 
   CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_,
                   CHIPEventType event_type_ = CHIPEventType::Default)
       : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(nullptr) {}
 
+  virtual ~CHIPEventOpenCL() override;
+  virtual void deinit() override;
+  virtual void decreaseRefCount() override;
+  virtual void increaseRefCount() override;
   void recordStream(CHIPQueue *chip_queue_) override;
   bool wait() override;
   float getElapsedTime(CHIPEvent *other) override;
@@ -75,7 +80,11 @@ class CHIPEventOpenCL : public CHIPEvent {
 
   virtual bool updateFinishStatus() override;
 
-  cl_event get() { return ev; }
+  cl_event peek() { return ev; }
+  cl_event get() {
+    increaseRefCount();
+    return ev;
+  }
 
   uint64_t getFinishTime() {
     std::lock_guard<std::mutex> Lock(mtx);
@@ -89,11 +98,14 @@ class CHIPEventOpenCL : public CHIPEvent {
     return ret;
   }
 
-  int getRefCount() {
-    cl_uint refc;
-    int status =
-        ::clGetEventInfo(this->get(), CL_EVENT_REFERENCE_COUNT, 4, &refc, NULL);
+  size_t *getRefCount() {
+    cl_uint refcount;
+    int status = ::clGetEventInfo(this->peek(), CL_EVENT_REFERENCE_COUNT, 4,
+                                  &refcount, NULL);
     CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+    // logDebug("CHIPEventOpenCL::getRefCount() CHIP refc: {} OCL refc: {}",
+    // refc,
+    //         refcount);
     return refc;
   }
 };

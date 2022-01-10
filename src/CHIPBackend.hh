@@ -238,7 +238,7 @@ class CHIPEvent {
   event_status_e event_status;
 
   // reference count
-  size_t refc;
+  size_t* refc;
   /**
    * @brief event bahavior modifier -  valid values are hipEventDefault,
    * hipEventBlockingSync, hipEventDisableTiming, hipEventInterprocess
@@ -258,7 +258,18 @@ class CHIPEvent {
    */
   CHIPEvent() = default;
 
+  virtual void deinit() = 0;
+
  public:
+  virtual void decreaseRefCount() {
+    logTrace("CHIPEvent::decreaseRefCount()");
+    (*refc)--;
+  }
+  virtual void increaseRefCount() {
+    logTrace("CHIPEvent::increaseRefCount()");
+    (*refc)++;
+  }
+  virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   std::string msg;
   /**
@@ -266,12 +277,6 @@ class CHIPEvent {
    *
    */
   CHIPEvent(CHIPContext* ctx_, CHIPEventType flags_ = CHIPEventType::Default);
-  /**
-   * @brief Destroy the CHIPEvent object
-   *
-   */
-  virtual ~CHIPEvent() = default;
-
   /**
    * @brief Get the Context object
    *
@@ -1482,15 +1487,19 @@ class CHIPQueue {
 
   CHIPEventMonitor* event_monitor = nullptr;
 
- public:
-  // I want others to be able to lock this queue?
-  std::mutex mtx;
-
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent* LastEvent;
 
-  virtual CHIPEvent* getLastEvent() = 0;
+ public:
+  // I want others to be able to lock this queue?
+  std::mutex mtx;
+
+  virtual const CHIPEvent* getLastEvent() = 0;
+  void setLastEvent(CHIPEvent* ev) {
+    ev->increaseRefCount();
+    LastEvent = ev;
+  }
 
   /**
    * @brief Construct a new CHIPQueue object

@@ -27,8 +27,15 @@ class CHIPEventLevel0 : public CHIPEvent {
 
  public:
   CHIPEventLevel0(CHIPContextLevel0* chip_ctx_, CHIPEventType event_type_);
+  virtual ~CHIPEventLevel0() override;
 
-  ze_event_handle_t& get() { return event; }
+  virtual void deinit() override;
+  ze_event_handle_t& get() {
+    refc++;
+    return event;
+  }
+  ze_event_handle_t& peek() { return event; }
+
   void recordStream(CHIPQueue* chip_queue_) override;
 
   virtual bool wait() override;
