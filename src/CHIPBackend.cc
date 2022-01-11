@@ -114,6 +114,15 @@ void CHIPAllocationTracker::recordAllocation(void *dev_ptr, size_t size_) {
 
 // CHIPEvent
 // ************************************************************************
+
+void CHIPEvent::recordStream(CHIPQueue *chip_queue) {
+  logDebug("CHIPEvent::recordStream()");
+  std::lock_guard<std::mutex> Lock(mtx);
+  assert(chip_queue->getLastEvent() != nullptr);
+  this->takeOver(chip_queue->getLastEvent());
+  event_status = EVENT_STATUS_RECORDING;
+}
+
 CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
     : event_status(EVENT_STATUS_INIT),
       flags(event_type_),

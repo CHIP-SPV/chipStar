@@ -18,6 +18,7 @@ class LZCommandList;
 
 class CHIPEventLevel0 : public CHIPEvent {
  private:
+  friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t event;
   ze_event_pool_handle_t event_pool;
@@ -30,22 +31,20 @@ class CHIPEventLevel0 : public CHIPEvent {
   virtual ~CHIPEventLevel0() override;
 
   virtual void deinit() override;
-  ze_event_handle_t& get() {
-    refc++;
-    return event;
-  }
-  ze_event_handle_t& peek() { return event; }
-
-  void recordStream(CHIPQueue* chip_queue_) override;
+  // void recordStream(CHIPQueue* chip_queue_) override;
 
   virtual bool wait() override;
 
   bool updateFinishStatus() override;
 
-  uint64_t getFinishTime() {
-    std::lock_guard<std::mutex> Lock(mtx);
+  virtual void takeOver(CHIPEvent* other) override;
 
-    return timestamp;
+  ze_kernel_timestamp_result_t getFinishTime() {
+    std::lock_guard<std::mutex> Lock(mtx);
+    ze_kernel_timestamp_result_t res{};
+    auto status = zeEventQueryKernelTimestamp(event, &res);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    return res;
   }
 
   virtual float getElapsedTime(CHIPEvent* other_) override;
@@ -53,6 +52,11 @@ class CHIPEventLevel0 : public CHIPEvent {
   virtual void hostSignal() override;
 
   virtual void barrier(CHIPQueue* chip_queue_) override;
+  ze_event_handle_t peek() { return event; }
+  ze_event_handle_t get() {
+    increaseRefCount();
+    return event;
+  }
 };
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {
@@ -144,9 +148,9 @@ class CHIPQueueLevel0 : public CHIPQueue {
 
   virtual void getBackendHandles(unsigned long* nativeInfo, int* size) override;
 
-  virtual CHIPEventLevel0* enqueueMarkerImpl() override;
+  virtual CHIPEvent* enqueueMarkerImpl() override;
 
-  virtual CHIPEventLevel0* enqueueBarrierImpl(
+  virtual CHIPEvent* enqueueBarrierImpl(
       std::vector<CHIPEvent*>* eventsToWaitFor) override;
 
   virtual CHIPEvent* memPrefetchImpl(const void* ptr, size_t count) override {

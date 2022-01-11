@@ -162,65 +162,76 @@ CHIPEvent *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *chip_ctx_,
   return new CHIPEventOpenCL((CHIPContextOpenCL *)chip_ctx_, event_type_);
 }
 
-void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
-  logDebug("CHIPEventOpenCL::recordStream()");
-  /**
-   * each CHIPQueue keeps track of the status of the last enqueue command. This
-   * is done by creating a CHIPEvent and associating it with the newly submitted
-   * command. Each CHIPQueue has a LastEvent field.
-   *
-   * Recording is done by taking ownership of the target queues' LastEvent,
-   * incrementing that event's refcount.
-   */
-  std::lock_guard<std::mutex> Lock(mtx);
-  auto chip_queue = (CHIPQueueOpenCL *)chip_queue_;
-  auto last_chip_event = (CHIPEventOpenCL *)chip_queue->getLastEvent();
-
-  // If this event was used previously, clear it
-  // can be >1 because recordEvent can be called >1 on the same event
-  bool fresh_event = true;
-  if (ev != nullptr) {
-    fresh_event = false;
-    decreaseRefCount();
-  }
-
-  // if no previous event, create a marker event - we always need 2 events to
-  // measure differences
-  assert(chip_queue->getLastEvent() != nullptr);
-
-  // Take over target queues event
-  this->ev = chip_queue->getLastEvent()->get();
-  this->refc = chip_queue->getLastEvent()->getRefCount();
-  this->msg = chip_queue->getLastEvent()->msg;
-  // if (fresh_event) assert(this->refc  3);
-
-  event_status = EVENT_STATUS_RECORDING;
-
-  /**
-   * There's nothing preventing you from calling hipRecordStream multiple times
-   * in a row on the same event. In such case, after the first call, this events
-   * clEvent field is no longer null and the event's refcount has been
-   * incremented.
-   *
-   * From HIP API: If hipEventRecord() has been previously called on this
-   * event, then this call will overwrite any existing state in event.
-   *
-   * hipEventCreate(myEvent); < clEvent is nullptr
-   * hipMemCopy(..., Q1)
-   * Q1.LastEvent = Q1_MemCopyEvent_0.refcount = 1
-   *
-   * hipStreamRecord(myEvent, Q1);
-   * clEvent== Q1_MemCopyEvent_0, refcount 1->2
-   *
-   * hipMemCopy(..., Q1)
-   * Q1.LastEvent = Q1_MemCopyEvent_1.refcount = 1
-   * Q1_MemCopyEvent_0.refcount 2->1
-   *
-   * hipStreamRecord(myEvent, Q1);
-   * Q1_MemCopyEvent_0.refcount 1->0
-   * clEvent==Q1_MemCopyEvent_1, refcount 1->2
-   */
+void CHIPEventOpenCL::takeOver(CHIPEvent *other_) {
+  if (*refc > 1) decreaseRefCount();
+  CHIPEventOpenCL *other = (CHIPEventOpenCL *)other_;
+  this->ev = other->get();  // increases refcount
+  this->refc = other->getRefCount();
+  this->msg = other->msg;
 }
+// void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
+//   logDebug("CHIPEventOpenCL::recordStream()");
+//   /**
+//    * each CHIPQueue keeps track of the status of the last enqueue command.
+//    This
+//    * is done by creating a CHIPEvent and associating it with the newly
+//    submitted
+//    * command. Each CHIPQueue has a LastEvent field.
+//    *
+//    * Recording is done by taking ownership of the target queues' LastEvent,
+//    * incrementing that event's refcount.
+//    */
+//   std::lock_guard<std::mutex> Lock(mtx);
+//   auto chip_queue = (CHIPQueueOpenCL *)chip_queue_;
+//   auto last_chip_event = (CHIPEventOpenCL *)chip_queue->getLastEvent();
+
+//   // If this event was used previously, clear it
+//   // can be >1 because recordEvent can be called >1 on the same event
+//   bool fresh_event = true;
+//   if (ev != nullptr) {
+//     fresh_event = false;
+//     decreaseRefCount();
+//   }
+
+//   // if no previous event, create a marker event - we always need 2 events to
+//   // measure differences
+//   assert(chip_queue->getLastEvent() != nullptr);
+
+//   // Take over target queues event
+//   this->ev = chip_queue->getLastEvent()->get();
+//   this->refc = chip_queue->getLastEvent()->getRefCount();
+//   this->msg = chip_queue->getLastEvent()->msg;
+//   // if (fresh_event) assert(this->refc  3);
+
+//   event_status = EVENT_STATUS_RECORDING;
+
+//   /**
+//    * There's nothing preventing you from calling hipRecordStream multiple
+//    times
+//    * in a row on the same event. In such case, after the first call, this
+//    events
+//    * clEvent field is no longer null and the event's refcount has been
+//    * incremented.
+//    *
+//    * From HIP API: If hipEventRecord() has been previously called on this
+//    * event, then this call will overwrite any existing state in event.
+//    *
+//    * hipEventCreate(myEvent); < clEvent is nullptr
+//    * hipMemCopy(..., Q1)
+//    * Q1.LastEvent = Q1_MemCopyEvent_0.refcount = 1
+//    *
+//    * hipStreamRecord(myEvent, Q1);
+//    * clEvent== Q1_MemCopyEvent_0, refcount 1->2
+//    *
+//    * hipMemCopy(..., Q1)
+//    * Q1.LastEvent = Q1_MemCopyEvent_1.refcount = 1
+//    * Q1_MemCopyEvent_0.refcount 2->1
+//    *
+//    * hipStreamRecord(myEvent, Q1);
+//    * Q1_MemCopyEvent_0.refcount 1->0
+//    * clEvent==Q1_MemCopyEvent_1, refcount 1->2
+//    */
+// }
 
 bool CHIPEventOpenCL::wait() {
   logDebug("CHIPEventOpenCL::wait()");

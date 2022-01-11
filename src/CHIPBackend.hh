@@ -261,12 +261,15 @@ class CHIPEvent {
   virtual void deinit() = 0;
 
  public:
+  virtual void takeOver(CHIPEvent* other){};
   virtual void decreaseRefCount() {
-    logTrace("CHIPEvent::decreaseRefCount()");
+    logTrace("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
+             *refc - 1);
     (*refc)--;
   }
   virtual void increaseRefCount() {
-    logTrace("CHIPEvent::increaseRefCount()");
+    logTrace("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
+             *refc + 1);
     (*refc)++;
   }
   virtual ~CHIPEvent() = default;
@@ -326,7 +329,7 @@ class CHIPEvent {
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue* chip_queue_) = 0;
+  virtual void recordStream(CHIPQueue* chip_queue_);
   /**
    * @brief Wait for this event to complete
    *
@@ -1495,7 +1498,7 @@ class CHIPQueue {
   // I want others to be able to lock this queue?
   std::mutex mtx;
 
-  virtual const CHIPEvent* getLastEvent() = 0;
+  virtual CHIPEvent* getLastEvent() = 0;
   void setLastEvent(CHIPEvent* ev) {
     ev->increaseRefCount();
     LastEvent = ev;
@@ -1532,6 +1535,7 @@ class CHIPQueue {
   virtual void updateLastEvent(CHIPEvent* ev) {
     logDebug("CHIPQueue::updateLastEvent()");
     if (LastEvent != nullptr) delete LastEvent;
+    ev->increaseRefCount();
     LastEvent = ev;
   }
 

@@ -53,6 +53,7 @@ class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
 class CHIPEventOpenCL : public CHIPEvent {
  public:
   cl_event ev;
+  friend class CHIPEventOpenCL;
 
  public:
   CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_, cl_event ev_,
@@ -67,10 +68,11 @@ class CHIPEventOpenCL : public CHIPEvent {
       : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(nullptr) {}
 
   virtual ~CHIPEventOpenCL() override;
+  virtual void takeOver(CHIPEvent *other_) override;
   virtual void deinit() override;
   virtual void decreaseRefCount() override;
   virtual void increaseRefCount() override;
-  void recordStream(CHIPQueue *chip_queue_) override;
+  // void recordStream(CHIPQueue *chip_queue_) override;
   bool wait() override;
   float getElapsedTime(CHIPEvent *other) override;
 
