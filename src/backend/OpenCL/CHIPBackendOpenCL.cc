@@ -530,7 +530,17 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *chip_device_)
   cl_q = new cl::CommandQueue(*cl_ctx, *cl_dev, CL_QUEUE_PROFILING_ENABLE,
                               &status);
   CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorInitializationError);
-
+  /**
+   * queues should always have lastEvent. Can't do this in the constuctor
+   * because enqueueMarker is virtual and calling overriden virtual methods from
+   * constructors is undefined behavior.
+   *
+   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
+   * one (enqueueMarker) because the wrapped method enforces queue semantics
+   * which require LastEvent to be initialized.
+   *
+   */
+  setLastEvent(enqueueMarkerImpl());
   chip_device_->addQueue(this);
 }
 

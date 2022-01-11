@@ -981,12 +981,12 @@ class CHIPContext {
  protected:
   std::vector<CHIPDevice*> chip_devices;
   std::vector<CHIPQueue*> chip_queues;
-  std::mutex mtx;
   std::vector<void*> allocated_ptrs;
 
   unsigned int flags;
 
  public:
+  std::mutex mtx;
   /**
    * @brief Construct a new CHIPContext object
    *

@@ -789,18 +789,6 @@ void CHIPBackend::initialize(std::string platform_str,
     CHIPERR_LOG_AND_THROW(msg, hipErrorInitializationError);
   }
   setActiveDevice(chip_devices[0]);
-
-  /**
-   * queues should always have lastEvent. Can't do this in the constuctor
-   * because enqueueMarker is virtual and calling overriden virtual methods from
-   * constructors is undefined behavior.
-   *
-   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
-   * one (enqueueMarker) because the wrapped method enforces queue semantics
-   * which require LastEvent to be initialized.
-   *
-   */
-  getActiveQueue()->setLastEvent(getActiveQueue()->enqueueMarkerImpl());
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *chip_dev) {

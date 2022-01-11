@@ -309,6 +309,17 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
 
   // Initialize the uint64_t part as 0
   *(uint64_t*)this->shared_buf = 0;
+  /**
+   * queues should always have lastEvent. Can't do this in the constuctor
+   * because enqueueMarker is virtual and calling overriden virtual methods from
+   * constructors is undefined behavior.
+   *
+   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
+   * one (enqueueMarker) because the wrapped method enforces queue semantics
+   * which require LastEvent to be initialized.
+   *
+   */
+  setLastEvent(enqueueMarkerImpl());
 }
 
 CHIPEvent* CHIPQueueLevel0::launchImpl(CHIPExecItem* exec_item) {
