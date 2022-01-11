@@ -558,7 +558,12 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
   return e;
 }
 
-void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
+void CHIPQueueOpenCL::finish() {
+  assert(cl_q);
+  int err = cl_q->finish();
+  assert(err == CL_SUCCESS);
+  (void)err;
+}
 
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
                                              const void *pattern,
