@@ -7,13 +7,18 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t callback_f_,
                                                CHIPQueue *chip_queue_)
     : CHIPCallbackData(callback_f_, callback_args_, chip_queue_) {}
 
-void CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL::setup() {}
+void CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL::setup() {
+  UNIMPLEMENTED();
+}
 
 // CHIPEventMonitorOpenCL
 // ************************************************************************
 CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL() : CHIPEventMonitor(){};
 
-// void CHIPEventMonitorOpenCL::monitor() { UNIMPLEMENTED(); }
+void CHIPEventMonitorOpenCL::monitor() {
+  logDebug("CHIPEventMonitorOpenCL::monitor()");
+  CHIPEventMonitor::monitor();
+}
 
 // CHIPDeviceOpenCL
 // ************************************************************************

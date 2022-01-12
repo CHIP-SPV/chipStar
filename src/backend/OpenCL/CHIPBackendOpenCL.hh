@@ -47,7 +47,7 @@ class CHIPCallbackDataOpenCL : public CHIPCallbackData {
 class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
  public:
   CHIPEventMonitorOpenCL();
-  // virtual void monitor() override;
+  virtual void monitor() override;
 };
 
 class CHIPEventOpenCL : public CHIPEvent {

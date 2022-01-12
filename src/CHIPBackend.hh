@@ -71,7 +71,7 @@ class CHIPEventMonitor {
 
  protected:
   // The thread ID for monitor thread
-  pthread_t thread;
+  pthread_t thread = 0;
 
   CHIPQueue* chip_queue;
 
@@ -1461,15 +1461,15 @@ class CHIPBackend {
  * @return false callback object not available
  */
   bool getCallback(CHIPCallbackData** callback_data) {
+    std::lock_guard<std::mutex> Lock(mtx);
     bool res = false;
-    {
-      std::lock_guard<std::mutex> Lock(callback_stack_mtx);
-      if (this->callback_stack.size()) {
-        *callback_data = callback_stack.top();
-        callback_stack.pop();
+    logDebug("Elements in callback stack: {}", callback_stack.size());
+    if (this->callback_stack.size()) {
+      *callback_data = callback_stack.top();
+      if (*callback_data == nullptr) return res;
+      callback_stack.pop();
 
-        res = true;
-      }
+      res = true;
     }
 
     return res;
