@@ -23,8 +23,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0* chip_ctx_,
   CHIPContextLevel0* ze_ctx = (CHIPContextLevel0*)chip_context;
 
   unsigned int pool_flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-  if (!flags.isDisableTiming())
-    pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+  // if (!flags.isDisableTiming())
+  //   pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
 
   ze_event_pool_desc_t eventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
@@ -60,39 +60,40 @@ void CHIPEventLevel0::takeOver(CHIPEvent* other_) {
   this->msg = other->msg;
   this->refc = other->refc;
 }
-// void CHIPEventLevel0::recordStream(CHIPQueue* chip_queue_) {
-//   std::lock_guard<std::mutex> Lock(mtx);
-//   ze_result_t status;
-//   if (event_status == EVENT_STATUS_RECORDED) {
-//     ze_result_t status = zeEventHostReset(event);
-//     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-//   }
 
-//   if (chip_queue_ == nullptr)
-//     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
+// Must use this for now - Level Zero hangs when events are host visible +
+// kernel timings are enabled
+void CHIPEventLevel0::recordStream(CHIPQueue* chip_queue_) {
+  std::lock_guard<std::mutex> Lock(mtx);
+  ze_result_t status;
+  if (event_status == EVENT_STATUS_RECORDED) {
+    ze_result_t status = zeEventHostReset(event);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  }
 
-//   CHIPQueueLevel0* q = (CHIPQueueLevel0*)chip_queue_;
+  if (chip_queue_ == nullptr)
+    CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
 
-//   status = zeCommandListAppendBarrier(q->getCmdList(), nullptr, 0, nullptr);
-//   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPQueueLevel0* q = (CHIPQueueLevel0*)chip_queue_;
 
-//   status = zeCommandListAppendWriteGlobalTimestamp(
-//       q->getCmdList(), (uint64_t*)(q->getSharedBufffer()), nullptr, 0,
-//       nullptr);
-//   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  status = zeCommandListAppendBarrier(q->getCmdList(), nullptr, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-//   status = zeCommandListAppendBarrier(q->getCmdList(), nullptr, 0, nullptr);
-//   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  status = zeCommandListAppendWriteGlobalTimestamp(
+      q->getCmdList(), (uint64_t*)(q->getSharedBufffer()), nullptr, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-//   status = zeCommandListAppendMemoryCopy(q->getCmdList(), &timestamp,
-//                                          q->getSharedBufffer(),
-//                                          sizeof(uint64_t), event, 0,
-//                                          nullptr);
-//   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  status = zeCommandListAppendBarrier(q->getCmdList(), nullptr, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-//   event_status = EVENT_STATUS_RECORDING;
-//   return;
-// }
+  status = zeCommandListAppendMemoryCopy(q->getCmdList(), &timestamp,
+                                         q->getSharedBufffer(),
+                                         sizeof(uint64_t), event, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  event_status = EVENT_STATUS_RECORDING;
+  return;
+}
 
 bool CHIPEventLevel0::wait() {
   std::lock_guard<std::mutex> Lock(mtx);
@@ -116,12 +117,47 @@ bool CHIPEventLevel0::updateFinishStatus() {
   return true;
 }
 
+/** This Doesn't work right now due to Level Zero Backend hanging?
+  unsinged long CHIPEventLevel0::getFinishTime() {
+    std::lock_guard<std::mutex> Lock(mtx);
+    ze_kernel_timestamp_result_t res{};
+    auto status = zeEventQueryKernelTimestamp(event, &res);
+    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_context;
+    CHIPDeviceLevel0* chip_dev_lz =
+        (CHIPDeviceLevel0*)chip_ctx_lz->getDevices()[0];
+
+    auto props = chip_dev_lz->getDeviceProps();
+
+    uint64_t timerResolution = props->timerResolution;
+    uint32_t timestampValidBits = props->timestampValidBits;
+
+    return res.context.kernelEnd * timerResolution;
+  }
+  */
+
+unsigned long CHIPEventLevel0::getFinishTime() {
+  std::lock_guard<std::mutex> Lock(mtx);
+  CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_context;
+  CHIPDeviceLevel0* chip_dev_lz =
+      (CHIPDeviceLevel0*)chip_ctx_lz->getDevices()[0];
+  auto props = chip_dev_lz->getDeviceProps();
+
+  uint64_t timerResolution = props->timerResolution;
+  uint32_t timestampValidBits = props->timestampValidBits;
+
+  uint32_t t = (timestamp & (((uint64_t)1 << timestampValidBits) - 1));
+  t = t * timerResolution;
+
+  return t;
+}
+
 float CHIPEventLevel0::getElapsedTime(CHIPEvent* other_) {
   /**
    * Modified HIPLZ Implementation
    * https://github.com/intel/pti-gpu/blob/master/chapters/device_activity_tracing/LevelZero.md
    */
-  //
   logDebug("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0* other = (CHIPEventLevel0*)other_;
   // std::lock_guard<std::mutex> Lock(ContextMutex);
@@ -133,25 +169,16 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent* other_) {
   other->updateFinishStatus();
   if (!this->isFinished() || !other->isFinished()) return hipErrorNotReady;
 
-  ze_kernel_timestamp_result_t Started = this->getFinishTime();
-  ze_kernel_timestamp_result_t Finished = other->getFinishTime();
-  if (Started.global.kernelEnd > Finished.global.kernelEnd) {
+  unsigned long Started = this->getFinishTime();
+  unsigned long Finished = other->getFinishTime();
+
+  if (Started > Finished) {
     logWarn("End < Start ... Swapping events");
     std::swap(Started, Finished);
   }
 
-  CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_context;
-  CHIPDeviceLevel0* chip_dev_lz =
-      (CHIPDeviceLevel0*)chip_ctx_lz->getDevices()[0];
-
-  auto props = chip_dev_lz->getDeviceProps();
-
-  uint64_t timerResolution = props->timerResolution;
-  uint32_t timestampValidBits = props->timestampValidBits;
-
   // TODO should this be context or global? Probably context
-  uint64_t Elapsed = (Finished.context.kernelEnd - Started.context.kernelEnd) *
-                     timerResolution;
+  uint64_t Elapsed = Finished - Started;
 
 #define NANOSECS 1000000000
   uint64_t MS = (Elapsed / NANOSECS) * 1000;
@@ -442,8 +469,8 @@ CHIPEvent* CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEvent* CHIPQueueLevel0::enqueueBarrierImpl(
     std::vector<CHIPEvent*>* eventsToWaitFor) {
-  CHIPEventLevel0* eventToSignal = new CHIPEventLevel0(
-      (CHIPContextLevel0*)chip_context, CHIPEventFlags(hipEventDisableTiming));
+  CHIPEventLevel0* eventToSignal =
+      new CHIPEventLevel0((CHIPContextLevel0*)chip_context);
   eventToSignal->msg = "barrier";
   size_t numEventsToWaitFor = 0;
   if (eventsToWaitFor) numEventsToWaitFor = eventsToWaitFor->size();

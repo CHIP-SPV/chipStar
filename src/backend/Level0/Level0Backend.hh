@@ -32,7 +32,7 @@ class CHIPEventLevel0 : public CHIPEvent {
   virtual ~CHIPEventLevel0() override;
 
   virtual void deinit() override;
-  // void recordStream(CHIPQueue* chip_queue_) override;
+  void recordStream(CHIPQueue* chip_queue_) override;
 
   virtual bool wait() override;
 
@@ -40,13 +40,7 @@ class CHIPEventLevel0 : public CHIPEvent {
 
   virtual void takeOver(CHIPEvent* other) override;
 
-  ze_kernel_timestamp_result_t getFinishTime() {
-    std::lock_guard<std::mutex> Lock(mtx);
-    ze_kernel_timestamp_result_t res{};
-    auto status = zeEventQueryKernelTimestamp(event, &res);
-    CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    return res;
-  }
+  unsigned long getFinishTime();
 
   virtual float getElapsedTime(CHIPEvent* other_) override;
 
