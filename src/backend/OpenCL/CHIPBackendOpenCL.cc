@@ -711,6 +711,23 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
                                     std::string CHIPDeviceStr) {
   logDebug("CHIPBackendOpenCL Initialize");
+
+  // transform device type string into CL
+  cl_bitfield selected_dev_type = 0;
+  if (CHIPDeviceTypeStr == "all")
+    selected_dev_type = CL_DEVICE_TYPE_ALL;
+  else if (CHIPDeviceTypeStr == "cpu")
+    selected_dev_type = CL_DEVICE_TYPE_CPU;
+  else if (CHIPDeviceTypeStr == "gpu")
+    selected_dev_type = CL_DEVICE_TYPE_GPU;
+  else if (CHIPDeviceTypeStr == "default")
+    selected_dev_type = CL_DEVICE_TYPE_DEFAULT;
+  else if (CHIPDeviceTypeStr == "accel")
+    selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
+  else
+    throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
+  std::cout << "Using Devices of type " << CHIPDeviceTypeStr << "\n";
+
   std::vector<cl::Platform> Platforms;
   cl_int err = cl::Platform::get(&Platforms);
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
@@ -719,104 +736,30 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
     std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
 
-  std::vector<cl::Device> enabled_devices;
+  std::cout << "OpenCL Devices of type " << CHIPDeviceTypeStr
+            << " with SPIR-V_1 support:\n";
   std::vector<cl::Device> Devices;
-  int selected_platform;
-  int selected_device;
-  cl_bitfield selected_dev_type = 0;
-
-  try {
-    if (!CHIPDeviceStr.compare("all")) {  // Use all devices that match type
-      selected_device = -1;
-    } else {
-      selected_device = std::stoi(CHIPDeviceStr);
-    }
-
-    // Platform index in range?
-    selected_platform = std::stoi(CHIPPlatformStr);
-    if ((selected_platform < 0) || (selected_platform >= Platforms.size()))
-      throw InvalidPlatformOrDeviceNumber(
-          "CHIP_PLATFORM: platform number out of range");
-    std::cout << "Selected Platform: " << selected_platform << ". "
-              << Platforms[selected_platform].getInfo<CL_PLATFORM_NAME>()
-              << "\n";
-
-    // Device  index in range?
-    err =  // Get All devices and print
-        Platforms[selected_platform].getDevices(CL_DEVICE_TYPE_ALL, &Devices);
-    for (int i = 0; i < Devices.size(); i++) {
-      std::cout << i << ". " << Devices[i].getInfo<CL_DEVICE_NAME>() << "\n";
-    }
-    if (selected_device >= Devices.size())
-      throw InvalidPlatformOrDeviceNumber(
-          "CHIP_DEVICE: device number out of range");
-    if (selected_device == -1) {  // All devices enabled
-      enabled_devices = Devices;
-      logDebug("All Devices enabled\n", "");
-    } else {
-      enabled_devices.push_back(Devices[selected_device]);
-      std::cout << "\nEnabled Devices:\n";
-      std::cout << selected_device << ". "
-                << enabled_devices[0].getInfo<CL_DEVICE_NAME>() << "\n";
-    }
-    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
-                                "can't get devices for platform");
-
-    std::transform(CHIPDeviceTypeStr.begin(), CHIPDeviceTypeStr.end(),
-                   CHIPDeviceTypeStr.begin(), ::tolower);
-    if (CHIPDeviceTypeStr == "all")
-      selected_dev_type = CL_DEVICE_TYPE_ALL;
-    else if (CHIPDeviceTypeStr == "cpu")
-      selected_dev_type = CL_DEVICE_TYPE_CPU;
-    else if (CHIPDeviceTypeStr == "gpu")
-      selected_dev_type = CL_DEVICE_TYPE_GPU;
-    else if (CHIPDeviceTypeStr == "default")
-      selected_dev_type = CL_DEVICE_TYPE_DEFAULT;
-    else if (CHIPDeviceTypeStr == "accel")
-      selected_dev_type = CL_DEVICE_TYPE_ACCELERATOR;
-    else
-      throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
-    std::cout << "Using Devices of type " << CHIPDeviceTypeStr << "\n";
-
-  } catch (const InvalidDeviceType &e) {
-    logCritical("{}\n", e.what());
-    return;
-  } catch (const InvalidPlatformOrDeviceNumber &e) {
-    logCritical("{}\n", e.what());
-    return;
-  } catch (const std::invalid_argument &e) {
-    logCritical("Could not convert CHIP_PLATFORM or CHIP_DEVICES to a number");
-    return;
-  } catch (const std::out_of_range &e) {
-    logCritical("CHIP_PLATFORM or CHIP_DEVICES is out of range", "");
-    return;
-  }
-
-  std::vector<cl::Device> spirv_enabled_devices;
-  for (cl::Device dev : enabled_devices) {
-    std::string ver = dev.getInfo<CL_DEVICE_IL_VERSION>(&err);
-    if ((err == CL_SUCCESS) && (ver.rfind("SPIR-V_1.", 0) == 0)) {
-      spirv_enabled_devices.push_back(dev);
+  for (auto plat : Platforms) {
+    std::vector<cl::Device> dev;
+    err = plat.getDevices(selected_dev_type, &dev);
+    CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
+    for (auto d : dev) {
+      std::string ver = d.getInfo<CL_DEVICE_IL_VERSION>(&err);
+      if ((err == CL_SUCCESS) && (ver.rfind("SPIR-V_1.", 0) == 0)) {
+        std::cout << d.getInfo<CL_DEVICE_NAME>() << "\n";
+        Devices.push_back(d);
+      }
     }
   }
-
-  // TODO uncomment this once testing on SPIR-V Enabled OpenCL HW
-  // std::cout << "SPIR-V Enabled Devices: " << spirv_enabled_devices.size()
-  //          << "\n";
-  // for (int i = 0; i < spirv_enabled_devices.size(); i++) {
-  //  std::cout << i << ". "
-  //            << spirv_enabled_devices[i].getInfo<CL_DEVICE_NAME>() <<
-  //            "\n";
-  //}
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
   // TODO Change this to spirv_enabled_devices
-  cl::Context *ctx = new cl::Context(enabled_devices);
+  cl::Context *ctx = new cl::Context(Devices);
   CHIPContextOpenCL *chip_context = new CHIPContextOpenCL(ctx);
   Backend->addContext(chip_context);
-  for (int i = 0; i < enabled_devices.size(); i++) {
-    cl::Device *dev = new cl::Device(enabled_devices[i]);
+  for (int i = 0; i < Devices.size(); i++) {
+    cl::Device *dev = new cl::Device(Devices[i]);
     CHIPDeviceOpenCL *chip_dev = new CHIPDeviceOpenCL(chip_context, dev, i);
     logDebug("CHIPDeviceOpenCL {}",
              chip_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
