@@ -152,14 +152,9 @@ void CHIPEventOpenCL::increaseRefCount() {
 
 void CHIPEventOpenCL::deinit() { ev = nullptr; }
 
-CHIPEvent *CHIPContextOpenCL::createEvent(unsigned flags) {
-  CHIPEventType event_type{flags};
-  return new CHIPEventOpenCL(this, event_type);
-}
-
-CHIPEvent *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *chip_ctx_,
-                                              CHIPEventType event_type_) {
-  return new CHIPEventOpenCL((CHIPContextOpenCL *)chip_ctx_, event_type_);
+CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *chip_ctx_,
+                                                    CHIPEventFlags flags_) {
+  return new CHIPEventOpenCL((CHIPContextOpenCL *)chip_ctx_, flags_);
 }
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *other_) {

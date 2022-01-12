@@ -17,18 +17,19 @@ void CHIPEventLevel0::deinit() {
   event_pool = nullptr;
 }
 
-CHIPEventLevel0::CHIPEventLevel0(
-    CHIPContextLevel0* chip_ctx_,
-    CHIPEventType event_type_ = CHIPEventType::Default)
-    : CHIPEvent((CHIPContext*)(chip_ctx_), event_type_) {
+CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0* chip_ctx_,
+                                 CHIPEventFlags flags_)
+    : CHIPEvent((CHIPContext*)(chip_ctx_), flags_) {
   CHIPContextLevel0* ze_ctx = (CHIPContextLevel0*)chip_context;
+
+  unsigned int pool_flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
+  if (!flags.isDisableTiming())
+    pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
 
   ze_event_pool_desc_t eventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
-      ZE_EVENT_POOL_FLAG_HOST_VISIBLE |
-          ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP,  // event in pool are visible to
-                                                // Host
-      1                                         // count
+      pool_flags,  // event in pool are visible to host
+      1            // count
   };
 
   ze_result_t status =
@@ -441,8 +442,8 @@ CHIPEvent* CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEvent* CHIPQueueLevel0::enqueueBarrierImpl(
     std::vector<CHIPEvent*>* eventsToWaitFor) {
-  CHIPEventLevel0* eventToSignal =
-      new CHIPEventLevel0((CHIPContextLevel0*)chip_context);
+  CHIPEventLevel0* eventToSignal = new CHIPEventLevel0(
+      (CHIPContextLevel0*)chip_context, CHIPEventFlags(hipEventDisableTiming));
   eventToSignal->msg = "barrier";
   size_t numEventsToWaitFor = 0;
   if (eventsToWaitFor) numEventsToWaitFor = eventsToWaitFor->size();
@@ -660,10 +661,6 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
   CHIPERR_LOG_AND_THROW("Failed to allocate memory", hipErrorMemoryAllocation);
 }
 
-CHIPEvent* CHIPContextLevel0::createEvent(unsigned flags) {
-  CHIPEventType event_type{flags};
-  return new CHIPEventLevel0(this, event_type);
-};
 // CHIPDeviceLevelZero
 // ***********************************************************************
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t* ze_dev_,

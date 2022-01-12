@@ -12,9 +12,12 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t callback_f_,
 
 void CHIPCallbackData::setup() {
   CHIPContext *ctx = chip_queue->getContext();
-  gpu_ready = Backend->createCHIPEvent(ctx);
-  cpu_callback_complete = Backend->createCHIPEvent(ctx);
-  gpu_ack = Backend->createCHIPEvent(ctx);
+  gpu_ready =
+      Backend->createCHIPEvent(ctx, CHIPEventFlags(hipEventDisableTiming));
+  cpu_callback_complete =
+      Backend->createCHIPEvent(ctx, CHIPEventFlags(hipEventDisableTiming));
+  gpu_ack =
+      Backend->createCHIPEvent(ctx, CHIPEventFlags(hipEventDisableTiming));
 
   auto gpu_ready = chip_queue->enqueueBarrier(nullptr);
 
@@ -123,13 +126,13 @@ void CHIPEvent::recordStream(CHIPQueue *chip_queue) {
   event_status = EVENT_STATUS_RECORDING;
 }
 
-CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventType event_type_)
+CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventFlags flags_)
     : event_status(EVENT_STATUS_INIT),
-      flags(event_type_),
+      flags(flags_),
       chip_context(ctx_in),
       refc(new size_t(1)) {}
 
-// CHIPModule
+// CHIPModuleflags_
 //*************************************************************************************
 void CHIPModule::consumeSPIRV() {
   funcIL = (uint8_t *)src.data();

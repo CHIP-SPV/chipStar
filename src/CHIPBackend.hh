@@ -120,11 +120,25 @@ template <class T>
 std::string resultToString(T err);
 
 enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
-enum class CHIPEventType : unsigned {
-  Default = hipEventDefault,
-  BlockingSync = hipEventBlockingSync,
-  DisableTiming = hipEventDisableTiming,
-  Interprocess = hipEventInterprocess
+class CHIPEventFlags {
+  bool Default;
+  bool BlockingSync;
+  bool DisableTiming;
+  bool Interprocess;
+
+ public:
+  CHIPEventFlags(unsigned flags) {
+    if (flags & hipEventDefault) Default = true;
+    if (flags & hipEventBlockingSync) BlockingSync = true;
+    if (flags & hipEventDisableTiming) DisableTiming = true;
+    if (flags & hipEventInterprocess) Interprocess = true;
+  }
+  CHIPEventFlags() { CHIPEventFlags(hipEventDefault); }
+
+  bool isDefault() { return Default; };
+  bool isBlockingSync() { return BlockingSync; };
+  bool isDisableTiming() { return DisableTiming; };
+  bool isInterprocess() { return Interprocess; };
 };
 
 struct allocation_info {
@@ -236,15 +250,11 @@ class CHIPEvent {
  protected:
   std::mutex mtx;
   event_status_e event_status;
+  CHIPEventFlags flags;
 
   // reference count
   size_t* refc;
-  /**
-   * @brief event bahavior modifier -  valid values are hipEventDefault,
-   * hipEventBlockingSync, hipEventDisableTiming, hipEventInterprocess
-   *
-   */
-  CHIPEventType flags;
+
   /**
    * @brief Events are always created with a context
    *
@@ -279,7 +289,7 @@ class CHIPEvent {
    * @brief CHIPEvent constructor. Must always be created with some context.
    *
    */
-  CHIPEvent(CHIPContext* ctx_, CHIPEventType flags_ = CHIPEventType::Default);
+  CHIPEvent(CHIPContext* ctx_, CHIPEventFlags flags_ = CHIPEventFlags());
   /**
    * @brief Get the Context object
    *
@@ -1168,14 +1178,6 @@ class CHIPContext {
    * @return CHIPContext*
    */
   CHIPContext* retain();
-
-  /**
-   * @brief Create a Event object
-   *
-   * @param flags
-   * @return CHIPEvent*
-   */
-  virtual CHIPEvent* createEvent(unsigned flags) = 0;
 };
 
 /**
@@ -1436,8 +1438,7 @@ class CHIPBackend {
   // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
   // virtual CHIPContext* createCHIPContext() = 0;
   virtual CHIPEvent* createCHIPEvent(
-      CHIPContext* chip_ctx_,
-      CHIPEventType event_type_ = CHIPEventType::Default) = 0;
+      CHIPContext* chip_ctx_, CHIPEventFlags flags_ = CHIPEventFlags()) = 0;
 
   /**
    * @brief Create a Callback Obj object

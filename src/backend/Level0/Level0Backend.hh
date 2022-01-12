@@ -27,7 +27,8 @@ class CHIPEventLevel0 : public CHIPEvent {
   uint64_t timestamp;
 
  public:
-  CHIPEventLevel0(CHIPContextLevel0* chip_ctx_, CHIPEventType event_type_);
+  CHIPEventLevel0(CHIPContextLevel0* chip_ctx_,
+                  CHIPEventFlags flags_ = CHIPEventFlags());
   virtual ~CHIPEventLevel0() override;
 
   virtual void deinit() override;
@@ -175,7 +176,6 @@ class CHIPContextLevel0 : public CHIPContext {
 
   void free_(void* ptr) override{};  // TODO
   ze_context_handle_t& get() { return ze_ctx; }
-  virtual CHIPEvent* createEvent(unsigned flags) override;
 
 };  // CHIPContextLevel0
 
@@ -317,12 +317,14 @@ class CHIPBackendLevel0 : public CHIPBackend {
   //   CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)ctx_;
   //   return new CHIPDeviceLevel0(chip_ctx_lz);
   // };
-  // virtual CHIPContext* createCHIPContext() override {
+  // virtual CHIPContext* createCHIPContext() overricreateCHIPEventde {
   //   return new CHIPContextLevel0();
   // };
-  virtual CHIPEvent* createCHIPEvent(CHIPContext* chip_ctx_,
-                                     CHIPEventType event_type_) override {
-    return new CHIPEventLevel0((CHIPContextLevel0*)chip_ctx_, event_type_);
+  virtual CHIPEventLevel0* createCHIPEvent(
+      CHIPContext* chip_ctx_,
+      CHIPEventFlags flags_ = CHIPEventFlags()) override {
+    auto ev = new CHIPEventLevel0((CHIPContextLevel0*)chip_ctx_, flags_);
+    return ev;
   }
 
   virtual CHIPCallbackData* createCallbackData(

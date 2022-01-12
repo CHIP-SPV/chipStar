@@ -57,15 +57,15 @@ class CHIPEventOpenCL : public CHIPEvent {
 
  public:
   CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_, cl_event ev_,
-                  CHIPEventType event_type_ = CHIPEventType::Default)
-      : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(ev_) {
+                  CHIPEventFlags flags = CHIPEventFlags())
+      : CHIPEvent((CHIPContext *)(chip_ctx_), flags), ev(ev_) {
     event_status = EVENT_STATUS_RECORDING;
     clRetainEvent(ev);
   }
 
   CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_,
-                  CHIPEventType event_type_ = CHIPEventType::Default)
-      : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(nullptr) {}
+                  CHIPEventFlags flags = CHIPEventFlags())
+      : CHIPEvent((CHIPContext *)(chip_ctx_), flags), ev(nullptr) {}
 
   virtual ~CHIPEventOpenCL() override;
   virtual void takeOver(CHIPEvent *other_) override;
@@ -164,7 +164,6 @@ class CHIPContextOpenCL : public CHIPContext {
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
   cl::Context *get() { return cl_ctx; }
-  virtual CHIPEvent *createEvent(unsigned flags) override;
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
@@ -307,8 +306,8 @@ class CHIPBackendOpenCL : public CHIPBackend {
   //   return new CHIPContextOpenCL();
   // }
 
-  virtual CHIPEvent *createCHIPEvent(CHIPContext *chip_ctx_,
-                                     CHIPEventType event_type_) override;
+  virtual CHIPEventOpenCL *createCHIPEvent(
+      CHIPContext *chip_ctx_, CHIPEventFlags flags = CHIPEventFlags()) override;
 
   virtual CHIPCallbackData *createCallbackData(
       hipStreamCallback_t callback, void *userData,
