@@ -862,7 +862,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *event, unsigned flags) {
   CHIPInitialize();
   NULLCHECK(event);
 
-  *event = Backend->getActiveContext()->createEvent(flags);
+  *event = Backend->createCHIPEvent(Backend->getActiveContext(), flags);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1019,7 +1019,7 @@ hipError_t hipMemPrefetchAsync(const void *ptr, size_t count, int dstDevId,
   if (stream != nullptr)
     ERROR_IF(stream->getDevice() != dev, hipErrorInvalidDevice);
 
-  bool retval = stream->memPrefetch(ptr, count);  // TODO Error Check
+  stream->memPrefetch(ptr, count);
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1788,10 +1788,7 @@ hipError_t hipLaunchKernel(const void *hostFunction, dim3 gridDim,
   NULLCHECK(hostFunction, args);
   stream = Backend->findQueue(stream);
 
-  if (!stream->launchHostFunc(hostFunction, gridDim, blockDim, args,
-                              sharedMem)) {
-    RETURN(hipErrorLaunchFailure);
-  }
+  stream->launchHostFunc(hostFunction, gridDim, blockDim, args, sharedMem);
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1899,11 +1896,11 @@ hipError_t hipModuleLaunchKernel(hipFunction_t k, unsigned int gridDimX,
   dim3 block(blockDimX, blockDimY, blockDimZ);
 
   if (kernelParams)
-    RETURN(stream->launchWithKernelParams(grid, block, sharedMemBytes,
-                                          kernelParams, k));
+    stream->launchWithKernelParams(grid, block, sharedMemBytes, kernelParams,
+                                   k);
   else
-    RETURN(
-        stream->launchWithExtraParams(grid, block, sharedMemBytes, extra, k));
+    stream->launchWithExtraParams(grid, block, sharedMemBytes, extra, k);
+  return hipSuccess;
   CHIP_CATCH
 }
 
@@ -1920,7 +1917,8 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
   CHIPExecItem *exec_item = Backend->chip_execstack.top();
   Backend->chip_execstack.pop();
 
-  RETURN(exec_item->launchByHostPtr(hostFunction));
+  exec_item->launchByHostPtr(hostFunction);
+  return hipSuccess;
   CHIP_CATCH
 }
 

@@ -50,6 +50,68 @@ class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
   // virtual void monitor() override;
 };
 
+class CHIPEventOpenCL : public CHIPEvent {
+ public:
+  cl_event ev;
+  friend class CHIPEventOpenCL;
+
+ public:
+  CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_, cl_event ev_,
+                  CHIPEventFlags flags = CHIPEventFlags())
+      : CHIPEvent((CHIPContext *)(chip_ctx_), flags), ev(ev_) {
+    event_status = EVENT_STATUS_RECORDING;
+    clRetainEvent(ev);
+  }
+
+  CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_,
+                  CHIPEventFlags flags = CHIPEventFlags())
+      : CHIPEvent((CHIPContext *)(chip_ctx_), flags), ev(nullptr) {}
+
+  virtual ~CHIPEventOpenCL() override;
+  virtual void takeOver(CHIPEvent *other_) override;
+  virtual void deinit() override;
+  virtual void decreaseRefCount() override;
+  virtual void increaseRefCount() override;
+  // void recordStream(CHIPQueue *chip_queue_) override;
+  bool wait() override;
+  float getElapsedTime(CHIPEvent *other) override;
+
+  virtual void barrier(CHIPQueue *chip_queue_) override;
+
+  virtual void hostSignal() override;
+
+  virtual bool updateFinishStatus() override;
+
+  cl_event peek() { return ev; }
+  cl_event get() {
+    increaseRefCount();
+    return ev;
+  }
+
+  uint64_t getFinishTime() {
+    std::lock_guard<std::mutex> Lock(mtx);
+    int status;
+    uint64_t ret;
+    status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(ret),
+                                     &ret, NULL);
+
+    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
+                                "Failed to query event for profiling info.");
+    return ret;
+  }
+
+  size_t *getRefCount() {
+    cl_uint refcount;
+    int status = ::clGetEventInfo(this->peek(), CL_EVENT_REFERENCE_COUNT, 4,
+                                  &refcount, NULL);
+    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+    // logDebug("CHIPEventOpenCL::getRefCount() CHIP refc: {} OCL refc: {}",
+    // refc,
+    //         refcount);
+    return refc;
+  }
+};
+
 class CHIPModuleOpenCL : public CHIPModule {
  protected:
   cl::Program program;
@@ -102,7 +164,6 @@ class CHIPContextOpenCL : public CHIPContext {
   virtual hipError_t memCopy(void *dst, const void *src, size_t size,
                              hipStream_t stream) override;
   cl::Context *get() { return cl_ctx; }
-  virtual CHIPEvent *createEvent(unsigned flags) override;
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
@@ -143,46 +204,52 @@ class CHIPQueueOpenCL : public CHIPQueue {
   cl::CommandQueue *cl_q;
 
  public:
-  CHIPEventOpenCL *LastEvent;
   CHIPQueueOpenCL() = delete;  // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
   CHIPQueueOpenCL(CHIPDevice *chip_device);
   ~CHIPQueueOpenCL();
 
-  void updateLastEvent(cl_event e_);
+  virtual void updateLastEvent(CHIPEvent *ev) override;
 
-  virtual hipError_t launch(CHIPExecItem *exec_item) override;
+  virtual CHIPEventOpenCL *getLastEvent() override;
+
+  virtual CHIPEvent *launchImpl(CHIPExecItem *exec_item) override;
   virtual void finish() override;
 
-  virtual hipError_t memCopy(void *dst, const void *src, size_t size) override;
-  virtual hipError_t memCopyAsync(void *dst, const void *src,
-                                  size_t size) override;
+  virtual CHIPEvent *memCopyAsyncImpl(void *dst, const void *src,
+                                      size_t size) override;
   cl::CommandQueue *get() { return cl_q; }
 
-  virtual void memFillAsync(void *dst, size_t size, const void *pattern,
-                            size_t pattern_size) override;
+  virtual CHIPEvent *memFillAsyncImpl(void *dst, size_t size,
+                                      const void *pattern,
+                                      size_t pattern_size) override;
 
-  virtual void memCopy2DAsync(void *dst, size_t dpitch, const void *src,
-                              size_t spitch, size_t width,
-                              size_t height) override;
+  virtual CHIPEvent *memCopy2DAsyncImpl(void *dst, size_t dpitch,
+                                        const void *src, size_t spitch,
+                                        size_t width, size_t height) override;
 
-  virtual void memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
-                              const void *src, size_t spitch, size_t sspitch,
-                              size_t width, size_t height,
-                              size_t depth) override;
+  virtual CHIPEvent *memCopy3DAsyncImpl(void *dst, size_t dpitch,
+                                        size_t dspitch, const void *src,
+                                        size_t spitch, size_t sspitch,
+                                        size_t width, size_t height,
+                                        size_t depth) override;
 
   // Memory copy to texture object, i.e. image
-  virtual void memCopyToTexture(CHIPTexture *texObj, void *src) override;
+  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *texObj,
+                                          void *src) override;
 
   virtual void getBackendHandles(unsigned long *nativeInfo,
                                  int *size) override {}  // TODO
 
-  virtual CHIPEvent *enqueueBarrier(
+  virtual CHIPEvent *enqueueBarrierImpl(
       std::vector<CHIPEvent *> *eventsToWaitFor) override {
     UNIMPLEMENTED(nullptr);
   }
 
-  virtual CHIPEvent *enqueueMarker_() override { UNIMPLEMENTED(nullptr); }
+  virtual CHIPEvent *enqueueMarkerImpl() override;
+  virtual CHIPEvent *memPrefetchImpl(const void *ptr, size_t count) override {
+    UNIMPLEMENTED(nullptr);
+  }
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {
@@ -239,8 +306,8 @@ class CHIPBackendOpenCL : public CHIPBackend {
   //   return new CHIPContextOpenCL();
   // }
 
-  virtual CHIPEvent *createCHIPEvent(CHIPContext *chip_ctx_,
-                                     CHIPEventType event_type_) override;
+  virtual CHIPEventOpenCL *createCHIPEvent(
+      CHIPContext *chip_ctx_, CHIPEventFlags flags = CHIPEventFlags()) override;
 
   virtual CHIPCallbackData *createCallbackData(
       hipStreamCallback_t callback, void *userData,
@@ -250,52 +317,6 @@ class CHIPBackendOpenCL : public CHIPBackend {
 
   virtual CHIPEventMonitor *createEventMonitor() override {
     return new CHIPEventMonitorOpenCL();
-  }
-};
-
-class CHIPEventOpenCL : public CHIPEvent {
- public:
-  cl_event ev;
-
- public:
-  CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_, cl_event ev_,
-                  CHIPEventType event_type_ = CHIPEventType::Default)
-      : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(ev_) {}
-
-  CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_,
-                  CHIPEventType event_type_ = CHIPEventType::Default)
-      : CHIPEvent((CHIPContext *)(chip_ctx_), event_type_), ev(nullptr) {}
-
-  void recordStream(CHIPQueue *chip_queue_) override;
-  bool wait() override;
-  float getElapsedTime(CHIPEvent *other) override;
-
-  virtual void barrier(CHIPQueue *chip_queue_) override;
-
-  virtual void hostSignal() override;
-
-  virtual bool updateFinishStatus() override;
-
-  cl_event get() { return ev; }
-
-  uint64_t getFinishTime() {
-    std::lock_guard<std::mutex> Lock(mtx);
-    int status;
-    uint64_t ret;
-    status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(ret),
-                                     &ret, NULL);
-
-    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
-                                "Failed to query event for profiling info.");
-    return ret;
-  }
-
-  int getRefCount() {
-    cl_uint refc;
-    int status =
-        ::clGetEventInfo(this->get(), CL_EVENT_REFERENCE_COUNT, 4, &refc, NULL);
-    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
-    return refc;
   }
 };
 
