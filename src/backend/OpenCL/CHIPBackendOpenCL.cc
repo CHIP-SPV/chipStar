@@ -249,7 +249,7 @@ bool CHIPEventOpenCL::updateFinishStatus() {
 
   int updated_status;
   auto status = clGetEventInfo(ev, CL_EVENT_COMMAND_EXECUTION_STATUS,
-                               sizeof(int), &event_status, NULL);
+                               sizeof(int), &updated_status, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
 
   if (updated_status <= CL_COMPLETE) event_status = EVENT_STATUS_RECORDED;
@@ -558,7 +558,7 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
   return e;
 }
 
-void CHIPQueueOpenCL::finish() { UNIMPLEMENTED(); }
+void CHIPQueueOpenCL::finish() { cl_q->finish(); }
 
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
                                              const void *pattern,
