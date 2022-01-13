@@ -559,7 +559,6 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
   CHIPERR_CHECK_LOG_AND_THROW(retval, CL_SUCCESS, hipErrorRuntimeMemory);
   CHIPEventOpenCL *e =
       new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, ev);
-  // updateLastEvent(e);
   return e;
 }
 
@@ -568,7 +567,16 @@ void CHIPQueueOpenCL::finish() { cl_q->finish(); }
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
                                              const void *pattern,
                                              size_t pattern_size) {
-  UNIMPLEMENTED(nullptr);
+  std::lock_guard<std::mutex> Lock(mtx);
+
+  logDebug("clSVMmemfill {} / {} B\n", dst, size);
+  cl_event ev = nullptr;
+  int retval = ::clEnqueueSVMMemFill(cl_q->get(), dst, pattern, pattern_size,
+                                     size, 0, nullptr, &ev);
+  CHIPERR_CHECK_LOG_AND_THROW(retval, CL_SUCCESS, hipErrorRuntimeMemory);
+  CHIPEventOpenCL *e =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, ev);
+  return e;
 };
 
 CHIPEvent *CHIPQueueOpenCL::memCopy2DAsyncImpl(void *dst, size_t dpitch,
