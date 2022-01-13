@@ -630,7 +630,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
     logDebug("Setting up arguments NEW HIP API");
     for (cl_uint i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
       OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
-      if (ai.type == OCLType::Pointer && ArgsPointer[i] != nullptr) {
+      if (ai.type == OCLType::Pointer && ai.space != OCLSpace::Local) {
         logDebug("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, ai.size,
                  ArgsPointer[i]);
         assert(ai.size == sizeof(void *));
