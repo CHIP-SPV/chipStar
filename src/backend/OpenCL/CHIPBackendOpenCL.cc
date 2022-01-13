@@ -451,23 +451,26 @@ hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
 void CHIPQueueOpenCL::updateLastEvent(CHIPEvent *new_event) {
   logDebug("");
   logDebug("CHIPQueueOpenCL::updateLastEvent()");
-  CHIPEventOpenCL *new_chip_event = (CHIPEventOpenCL *)new_event;
-
+  auto *NewEvent = (CHIPEventOpenCL *)new_event;
   auto *LastEventCHIPOpenCL = (CHIPEventOpenCL *)LastEvent;
+
+  if (LastEventCHIPOpenCL == NewEvent)
+    return;
 
   if (LastEventCHIPOpenCL) {
     logDebug("updateLastEvent: LastEvent == {}({}), will be: {}({})",
              (void *)LastEventCHIPOpenCL->peek(), LastEventCHIPOpenCL->msg,
-             (void *)new_chip_event->peek(), new_chip_event->msg);
+             (void *)NewEvent->peek(), NewEvent->msg);
 
-    delete LastEvent;
+    assert(LastEventCHIPOpenCL != NewEvent);
+    delete LastEventCHIPOpenCL;
   } else {
     logDebug("updateLastEvent: LastEvent == NULL, will be: {}\n",
-             (void *)new_chip_event);
+             (void *)NewEvent);
   }
 
-  new_chip_event->increaseRefCount();
-  this->LastEvent = new_chip_event;
+  NewEvent->increaseRefCount();
+  this->LastEvent = NewEvent;
 }
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
