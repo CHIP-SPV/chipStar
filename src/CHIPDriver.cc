@@ -42,7 +42,7 @@ void read_env_vars(std::string& CHIPPlatformStr, std::string& CHIPDeviceTypeStr,
   if (CHIPPlatformStr.size() == 0) CHIPPlatformStr = "0";
 
   CHIPDeviceTypeStr = read_env_var("CHIP_DEVICE_TYPE");
-  if (CHIPDeviceTypeStr.size() == 0) CHIPDeviceTypeStr = "default";
+  if (CHIPDeviceTypeStr.size() == 0) CHIPDeviceTypeStr = "gpu";
 
   CHIPDeviceStr = read_env_var("CHIP_DEVICE");
   if (CHIPDeviceStr.size() == 0) CHIPDeviceStr = "0";

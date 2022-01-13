@@ -26,7 +26,6 @@ void CHIPCallbackData::setup() {
 
 void CHIPEventMonitor::monitor() {
   logTrace("CHIPEventMonitor::monitor()");
-  std::lock_guard<std::mutex> Lock(mtx);
   CHIPCallbackData *cb;
   while (Backend->getCallback(&cb)) {
     cb->gpu_ready->wait();

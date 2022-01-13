@@ -47,7 +47,7 @@ class CHIPCallbackDataOpenCL : public CHIPCallbackData {
 class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
  public:
   CHIPEventMonitorOpenCL();
-  // virtual void monitor() override;
+  virtual void monitor() override;
 };
 
 class CHIPEventOpenCL : public CHIPEvent {
@@ -59,7 +59,6 @@ class CHIPEventOpenCL : public CHIPEvent {
   CHIPEventOpenCL(CHIPContextOpenCL *chip_ctx_, cl_event ev_,
                   CHIPEventFlags flags = CHIPEventFlags())
       : CHIPEvent((CHIPContext *)(chip_ctx_), flags), ev(ev_) {
-    event_status = EVENT_STATUS_RECORDING;
     clRetainEvent(ev);
   }
 
@@ -95,8 +94,14 @@ class CHIPEventOpenCL : public CHIPEvent {
     status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(ret),
                                      &ret, NULL);
 
-    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
-                                "Failed to query event for profiling info.");
+    if (status != CL_SUCCESS) {
+      int updated_status;
+      auto status = clGetEventInfo(ev, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                                   sizeof(int), &event_status, NULL);
+      CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+    }
+    // CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
+    //                             "Failed to query event for profiling info.");
     return ret;
   }
 
