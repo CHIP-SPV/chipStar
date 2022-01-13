@@ -562,7 +562,10 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
   return e;
 }
 
-void CHIPQueueOpenCL::finish() { cl_q->finish(); }
+void CHIPQueueOpenCL::finish() {
+  auto status = cl_q->finish();
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+}
 
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
                                              const void *pattern,
