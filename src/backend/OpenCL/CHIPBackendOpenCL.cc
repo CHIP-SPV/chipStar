@@ -630,8 +630,9 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
     logDebug("Setting up arguments NEW HIP API");
     for (cl_uint i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
       OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
-      if (ai.type == OCLType::Pointer) {
-        logDebug("clSetKernelArgSVMPointer {} to {}\n", i, ArgsPointer[i]);
+      if (ai.type == OCLType::Pointer && ArgsPointer[i] != nullptr) {
+        logDebug("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, ai.size,
+                 ArgsPointer[i]);
         assert(ai.size == sizeof(void *));
         const void *argval = *(void **)ArgsPointer[i];
         err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, argval);
@@ -639,7 +640,8 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else {
-        logDebug("clSetKernelArg {} size {}\n", i, ai.size);
+        logDebug("clSetKernelArg {} SIZE {} to {}\n", i, ai.size,
+                 ArgsPointer[i]);
         err = ::clSetKernelArg(kernel->get().get(), i, ai.size, ArgsPointer[i]);
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");

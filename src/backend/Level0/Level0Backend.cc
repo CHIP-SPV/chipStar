@@ -1085,7 +1085,8 @@ void CHIPExecItem::setupAllArgs() {
                                           &(texObj->sampler));
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
       } else {
-        logDebug("setArg {} size {}\n", argIdx, ai.size);
+        logDebug("setArg {} size {} addr {}\n", argIdx, ai.size,
+                 ArgsPointer[i]);
         ze_result_t status = zeKernelSetArgumentValue(kernel->get(), argIdx,
                                                       ai.size, ArgsPointer[i]);
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
