@@ -2,6 +2,14 @@
 
 ## Current UnitTest Status - Level Zero
 
+Environment:
+
+```bash
+ZE_AFFINITY_MASK=0.0
+CsrDispatchMode=1
+EnableFlushTaskSubmission=
+```
+
 ````bash
 64% tests passed, 133 tests failed out of 369
 
