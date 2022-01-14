@@ -113,7 +113,7 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *pCopy,
 
 hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim,
                                       size_t sharedMem, hipStream_t stream) {
-  logTrace("__hipPushCallConfiguration()");
+  logDebug("__hipPushCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
   stream = Backend->findQueue(stream);
@@ -125,7 +125,7 @@ hipError_t __hipPushCallConfiguration(dim3 gridDim, dim3 blockDim,
 
 hipError_t __hipPopCallConfiguration(dim3 *gridDim, dim3 *blockDim,
                                      size_t *sharedMem, hipStream_t *stream) {
-  logTrace("__hipPopCallConfiguration()");
+  logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
 
@@ -1913,7 +1913,7 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
   CHIPInitialize();
   NULLCHECK(hostFunction);
 
-  logTrace("hipLaunchByPtr");
+  logDebug("hipLaunchByPtr");
   CHIPExecItem *exec_item = Backend->chip_execstack.top();
   Backend->chip_execstack.pop();
 
@@ -1927,7 +1927,7 @@ hipError_t hipConfigureCall(dim3 gridDim, dim3 blockDim, size_t sharedMem,
   CHIP_TRY
   CHIPInitialize();
   stream = Backend->findQueue(stream);
-  logTrace("hipConfigureCall()");
+  logDebug("hipConfigureCall()");
   RETURN(Backend->configureCall(gridDim, blockDim, sharedMem, stream));
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1936,7 +1936,7 @@ extern "C" void **__hipRegisterFatBinary(const void *data) {
   CHIP_TRY
   CHIPInitialize();
 
-  logTrace("__hipRegisterFatBinary");
+  logDebug("__hipRegisterFatBinary");
 
   const __CudaFatBinaryWrapper *fbwrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(data);
@@ -2038,7 +2038,7 @@ extern "C" void __hipRegisterFunction(void **data, const void *hostFunction,
 }
 
 hipError_t hipSetupArgument(const void *arg, size_t size, size_t offset) {
-  logTrace("hipSetupArgument");
+  logDebug("hipSetupArgument");
 
   CHIP_TRY
   CHIPInitialize();
@@ -2186,7 +2186,7 @@ hipError_t hipGetDeviceFlags(unsigned int *flags) {
  */
 hipError_t hipStreamGetBackendHandles(hipStream_t stream,
                                       unsigned long *nativeInfo, int *size) {
-  logTrace("hipStreamGetBackendHandles");
+  logDebug("hipStreamGetBackendHandles");
   ERROR_IF((stream == nullptr), hipErrorInvalidValue);
   stream->getBackendHandles(nativeInfo, size);
 

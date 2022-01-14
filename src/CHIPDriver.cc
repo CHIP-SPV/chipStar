@@ -71,10 +71,10 @@ void CHIPInitializeCallOnce(std::string BE) {
 
   // TODO Check configuration for what backends are configured
   if (!CHIP_BE.compare("opencl")) {
-    logTrace("CHIPBE=OPENCL... Initializing OpenCL Backend");
+    logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
   } else if (!CHIP_BE.compare("level0")) {
-    logTrace("CHIPBE=LEVEL0... Initializing Level0 Backend");
+    logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
   } else if (!CHIP_BE.compare("")) {
     logWarn("CHIP_BE was not set. Defaulting to OPENCL");
@@ -92,7 +92,7 @@ extern void CHIPInitialize(std::string BE) {
 };
 
 void CHIPUninitializeCallOnce() {
-  logTrace("Uninitializing CHIP...");
+  logDebug("Uninitializing CHIP...");
   Backend->uninitialize();
 }
 

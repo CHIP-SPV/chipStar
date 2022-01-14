@@ -5,7 +5,7 @@
 
 CHIPEventLevel0::~CHIPEventLevel0() {
   std::lock_guard<std::mutex> Lock(mtx);
-  logDebug("CHIPEventLevel0::~CHIPEventLevel0() refc: {}->{}", *refc,
+  logTrace("CHIPEventLevel0::~CHIPEventLevel0() refc: {}->{}", *refc,
            *refc - 1);
   decreaseRefCount();
   if (*refc == 0) deinit();
@@ -158,7 +158,7 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent* other_) {
    * Modified HIPLZ Implementation
    * https://github.com/intel/pti-gpu/blob/master/chapters/device_activity_tracing/LevelZero.md
    */
-  logDebug("CHIPEventLevel0::getElapsedTime()");
+  logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0* other = (CHIPEventLevel0*)other_;
   // std::lock_guard<std::mutex> Lock(ContextMutex);
 
@@ -227,11 +227,11 @@ void CHIPCallbackDataLevel0::setup() {
 // ***********************************************************************
 
 CHIPEventMonitorLevel0::CHIPEventMonitorLevel0() : CHIPEventMonitor() {
-  logDebug("CHIPEventMonitorLevel0::CHIPEventMonitorLevel0()");
+  logTrace("CHIPEventMonitorLevel0::CHIPEventMonitorLevel0()");
 };
 
 void CHIPEventMonitorLevel0::monitor() {
-  logDebug("CHIPEventMonitorLevel0::monitor()");
+  logTrace("CHIPEventMonitorLevel0::monitor()");
   CHIPEventMonitor::monitor();
 }
 // End CHIPEventMonitorLevel0
@@ -272,7 +272,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
   // Discover all command queue groups
   uint32_t cmdqueueGroupCount = 0;
   zeDeviceGetCommandQueueGroupProperties(ze_dev, &cmdqueueGroupCount, nullptr);
-  logDebug("CommandGroups found: {}", cmdqueueGroupCount);
+  logTrace("CommandGroups found: {}", cmdqueueGroupCount);
 
   ze_command_queue_group_properties_t* cmdqueueGroupProperties =
       (ze_command_queue_group_properties_t*)malloc(
@@ -286,7 +286,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_)
     if (cmdqueueGroupProperties[i].flags &
         ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
       computeQueueGroupOrdinal = i;
-      logDebug("Found compute command group");
+      logTrace("Found compute command group");
       break;
     }
   }
@@ -543,7 +543,7 @@ std::string CHIPBackendLevel0::getDefaultJitFlags() {
 void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
                                     std::string CHIPDeviceStr) {
-  logDebug("CHIPBackendLevel0 Initialize");
+  logTrace("CHIPBackendLevel0 Initialize");
   ze_result_t status;
   status = zeInit(0);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
@@ -569,7 +569,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
   // Get number of drivers
   uint32_t driverCount = 0, deviceCount = 0;
   status = zeDriverGet(&driverCount, nullptr);
-  logDebug("Found Level0 Drivers: {}", driverCount);
+  logTrace("Found Level0 Drivers: {}", driverCount);
   // Resize and fill ze_driver vector with drivers
   ze_drivers.resize(driverCount);
   status = zeDriverGet(&driverCount, ze_drivers.data());
@@ -641,7 +641,7 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
 
-    logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
+    logTrace("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
     return ptr;
   } else if (memTy == CHIPMemoryType::Device) {
@@ -681,7 +681,7 @@ void* CHIPContextLevel0::allocate_(size_t size, size_t alignment,
 
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-    logDebug("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
+    logTrace("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", status);
 
     return ptr;
   }
@@ -954,14 +954,14 @@ std::string resultToString(ze_result_t status) {
 // CHIPModuleLevel0
 // ***********************************************************************
 bool CHIPModuleLevel0::registerVar(const char* var_name_) {
-  logDebug("CHIPModuleLevel0::registerVar()");
+  logTrace("CHIPModuleLevel0::registerVar()");
   size_t var_size = 0;
   void* dptr;
   ze_result_t status =
       zeModuleGetGlobalPointer(ze_module, var_name_, &var_size, &dptr);
   if (status == ZE_RESULT_ERROR_INVALID_GLOBAL_NAME) return false;
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorInvalidSymbol);
-  logDebug("Found symbol with name {} of size {} devPtr {}", var_name_,
+  logTrace("Found symbol with name {} of size {} devPtr {}", var_name_,
            var_size, dptr);
 
   std::string name = std::string(var_name_);
@@ -1000,10 +1000,10 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
     char log_str[log_size];
     status = zeModuleBuildLogGetString(log, &log_size, log_str);
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    logDebug("ZE Build Log: {}", std::string(log_str).c_str());
+    logTrace("ZE Build Log: {}", std::string(log_str).c_str());
   }
   CHIPERR_CHECK_LOG_AND_THROW(build_status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  logDebug("LZ CREATE MODULE via calling zeModuleCreate {} ",
+  logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
            resultToString(build_status));
   // if (status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
   //  CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
@@ -1013,15 +1013,15 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   uint32_t kernel_count = 0;
   status = zeModuleGetKernelNames(ze_module, &kernel_count, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  logDebug("Found {} kernels in this module.", kernel_count);
+  logTrace("Found {} kernels in this module.", kernel_count);
 
   const char* kernel_names[kernel_count];
   status = zeModuleGetKernelNames(ze_module, &kernel_count, kernel_names);
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  for (auto& kernel : kernel_names) logDebug("Kernel {}", kernel);
+  for (auto& kernel : kernel_names) logTrace("Kernel {}", kernel);
   for (int i = 0; i < kernel_count; i++) {
     std::string host_f_name = kernel_names[i];
-    logDebug("Registering kernel {}", host_f_name);
+    logTrace("Registering kernel {}", host_f_name);
     int found_func_info = func_infos.count(host_f_name);
     if (found_func_info == 0) {
       // TODO: __syncthreads() gets turned into Intel_Symbol_Table_Void_Program
@@ -1038,7 +1038,7 @@ void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
                                    host_f_name.c_str()};
     status = zeKernelCreate(ze_module, &kernelDesc, &ze_kernel);
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    logDebug("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
+    logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", status);
     CHIPKernelLevel0* chip_ze_kernel =
         new CHIPKernelLevel0(ze_kernel, host_f_name, func_info);
     addKernel(chip_ze_kernel);
@@ -1072,7 +1072,7 @@ void CHIPExecItem::setupAllArgs() {
             (CHIPTextureLevel0*)(*((unsigned long*)(ArgsPointer[1])));
 
         // Set image part
-        logDebug("setImageArg {} size {}\n", argIdx, ai.size);
+        logTrace("setImageArg {} size {}\n", argIdx, ai.size);
         ze_result_t status = zeKernelSetArgumentValue(
             kernel->get(), argIdx, ai.size, &(texObj->image));
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -1080,12 +1080,12 @@ void CHIPExecItem::setupAllArgs() {
         // Set sampler part
         argIdx++;
 
-        logDebug("setImageArg {} size {}\n", argIdx, ai.size);
+        logTrace("setImageArg {} size {}\n", argIdx, ai.size);
         status = zeKernelSetArgumentValue(kernel->get(), argIdx, ai.size,
                                           &(texObj->sampler));
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
       } else {
-        logDebug("setArg {} size {} addr {}\n", argIdx, ai.size,
+        logTrace("setArg {} size {} addr {}\n", argIdx, ai.size,
                  ArgsPointer[i]);
         ze_result_t status = zeKernelSetArgumentValue(kernel->get(), argIdx,
                                                       ai.size, ArgsPointer[i]);
@@ -1125,7 +1125,7 @@ void CHIPExecItem::setupAllArgs() {
     int err;
     for (size_t i = 0; i < offset_sizes.size(); ++i) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
-      logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
+      logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
                i, std::get<0>(offset_sizes[i]), std::get<1>(offset_sizes[i]),
                (unsigned)ai.type, (unsigned)ai.space, ai.size);
 
@@ -1136,14 +1136,14 @@ void CHIPExecItem::setupAllArgs() {
         size_t size = std::get<1>(offset_sizes[i]);
         size_t offs = std::get<0>(offset_sizes[i]);
         const void* value = (void*)(start + offs);
-        logDebug("setArg SVM {} to {}\n", i, p);
+        logTrace("setArg SVM {} to {}\n", i, p);
         ze_result_t status =
             zeKernelSetArgumentValue(kernel->get(), i, size, value);
 
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
 
-        logDebug(
+        logTrace(
             "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
             "{} ",
             status);
@@ -1151,14 +1151,14 @@ void CHIPExecItem::setupAllArgs() {
         size_t size = std::get<1>(offset_sizes[i]);
         size_t offs = std::get<0>(offset_sizes[i]);
         const void* value = (void*)(start + offs);
-        logDebug("setArg {} size {} offs {}\n", i, size, offs);
+        logTrace("setArg {} size {} offs {}\n", i, size, offs);
         ze_result_t status =
             zeKernelSetArgumentValue(kernel->get(), i, size, value);
 
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
 
-        logDebug(
+        logTrace(
             "LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
             "{} ",
             status);
@@ -1171,7 +1171,7 @@ void CHIPExecItem::setupAllArgs() {
   if (NumLocals == 1) {
     ze_result_t status = zeKernelSetArgumentValue(
         kernel->get(), FuncInfo->ArgTypeInfo.size() - 1, shared_mem, nullptr);
-    logDebug(
+    logTrace(
         "LZ set dynamically sized share memory related argument via "
         "calling "
         "zeKernelSetArgumentValue {} ",

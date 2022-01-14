@@ -273,12 +273,12 @@ class CHIPEvent {
  public:
   virtual void takeOver(CHIPEvent* other){};
   virtual void decreaseRefCount() {
-    logTrace("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
+    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
              *refc - 1);
     (*refc)--;
   }
   virtual void increaseRefCount() {
-    logTrace("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
+    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
              *refc + 1);
     (*refc)++;
   }
