@@ -119,7 +119,7 @@ class CHIPEventOpenCL : public CHIPEvent {
     int status = ::clGetEventInfo(this->peek(), CL_EVENT_REFERENCE_COUNT, 4,
                                   &refcount, NULL);
     CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
-    // logDebug("CHIPEventOpenCL::getRefCount() CHIP refc: {} OCL refc: {}",
+    // logTrace("CHIPEventOpenCL::getRefCount() CHIP refc: {} OCL refc: {}",
     // refc,
     //         refcount);
     return refc;

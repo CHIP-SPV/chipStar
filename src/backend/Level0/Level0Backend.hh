@@ -261,7 +261,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
 
   virtual void reset() override;
   virtual CHIPModuleLevel0* addModule(std::string* module_str) override {
-    logDebug("CHIPModuleLevel0::addModule()");
+    logTrace("CHIPModuleLevel0::addModule()");
     CHIPModuleLevel0* mod = new CHIPModuleLevel0(module_str);
     chip_modules.push_back(mod);
     return mod;

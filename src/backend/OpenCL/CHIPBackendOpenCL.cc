@@ -7,7 +7,7 @@
 CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL() : CHIPEventMonitor(){};
 
 void CHIPEventMonitorOpenCL::monitor() {
-  logDebug("CHIPEventMonitorOpenCL::monitor()");
+  logTrace("CHIPEventMonitorOpenCL::monitor()");
   CHIPEventMonitor::monitor();
 }
 
@@ -16,7 +16,7 @@ void CHIPEventMonitorOpenCL::monitor() {
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *chip_ctx_,
                                    cl::Device *dev_in_, int idx_)
     : CHIPDevice(chip_ctx_), cl_dev(dev_in_), cl_ctx(chip_ctx_->get()) {
-  logDebug(
+  logTrace(
       "CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
       "pointer");
 
@@ -124,23 +124,23 @@ void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
   std::lock_guard<std::mutex> Lock(mtx);
-  logDebug("CHIPEventOpenCL::~CHIPEventOpenCL() refc: {}->{}", *refc,
+  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() refc: {}->{}", *refc,
            *refc - 1);
   decreaseRefCount();
   if (*refc == 0) deinit();
 }
 void CHIPEventOpenCL::decreaseRefCount() {
-  logDebug("CHIPEventOpenCL::decreaseRefCount() msg={}", msg.c_str());
+  logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", msg.c_str());
   auto r = getRefCount();
-  logDebug("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *refc, *refc - 1, *r,
+  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *refc, *refc - 1, *r,
            *r - 1);
   (*refc)--;
   clReleaseEvent(ev);
 }
 void CHIPEventOpenCL::increaseRefCount() {
-  logDebug("CHIPEventOpenCL::increaseRefCount() msg={}", msg.c_str());
+  logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", msg.c_str());
   auto r = getRefCount();
-  logDebug("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *refc, *refc + 1, *r,
+  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *refc, *refc + 1, *r,
            *r + 1);
   (*refc)++;
   clRetainEvent(ev);
@@ -161,7 +161,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *other_) {
   this->msg = other->msg;
 }
 // void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
-//   logDebug("CHIPEventOpenCL::recordStream()");
+//   logTrace("CHIPEventOpenCL::recordStream()");
 //   /**
 //    * each CHIPQueue keeps track of the status of the last enqueue command.
 //    This
@@ -225,7 +225,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *other_) {
 // }
 
 bool CHIPEventOpenCL::wait() {
-  logDebug("CHIPEventOpenCL::wait()");
+  logTrace("CHIPEventOpenCL::wait()");
   std::lock_guard<std::mutex> Lock(mtx);
   if (event_status != EVENT_STATUS_RECORDING) {
     logWarn("Called wait() on an event that isn't active.");
@@ -240,7 +240,7 @@ bool CHIPEventOpenCL::wait() {
 
 bool CHIPEventOpenCL::updateFinishStatus() {
   std::lock_guard<std::mutex> Lock(mtx);
-  logDebug("CHIPEventOpenCL::updateFinishStatus()");
+  logTrace("CHIPEventOpenCL::updateFinishStatus()");
   if (event_status != EVENT_STATUS_RECORDING) return false;
 
   int updated_status;
@@ -280,7 +280,7 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *other_) {
   uint64_t Started = this->getFinishTime();
   uint64_t Finished = other->getFinishTime();
 
-  logDebug("EventElapsedTime: STARTED {} / {} FINISHED {} / {} \n",
+  logTrace("EventElapsedTime: STARTED {} / {} FINISHED {} / {} \n",
            (void *)this, Started, (void *)other, Finished);
 
   // apparently fails for Intel NEO, god knows why
@@ -300,7 +300,7 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *other_) {
 
 void CHIPEventOpenCL::barrier(CHIPQueue *chip_queue_) {
   // Makes all future work submitted to stream wait on this event
-  logDebug("CHIPEventOpenCL::barrier()");
+  logTrace("CHIPEventOpenCL::barrier()");
   CHIPQueueOpenCL *chip_queue = (CHIPQueueOpenCL *)chip_queue_;
   std::lock_guard<std::mutex> Lock(chip_queue->mtx);
 
@@ -351,7 +351,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*chip_dev_ocl->cl_dev, &err);
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
-  logDebug("Program BUILD LOG for device #{}:{}:\n{}\n",
+  logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
            chip_dev_ocl->getDeviceId(), name, log);
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
@@ -359,7 +359,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *chip_dev_) {
   err = Program.createKernels(&kernels);
   CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorInitializationError);
 
-  logDebug("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
+  logTrace("Kernels in CHIPModuleOpenCL: {} \n", kernels.size());
   for (int kernel_idx = 0; kernel_idx < kernels.size(); kernel_idx++) {
     auto kernel = kernels[kernel_idx];
     std::string host_f_name = kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&err);
@@ -399,12 +399,12 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
   assert(func_info->ArgTypeInfo.size() == NumArgs);
 
   if (NumArgs > 0) {
-    logDebug("Kernel {} numArgs: {} \n", name, NumArgs);
-    logDebug("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
+    logTrace("Kernel {} numArgs: {} \n", name, NumArgs);
+    logTrace("  RET_TYPE: {} {} {}\n", func_info->retTypeInfo.size,
              (unsigned)func_info->retTypeInfo.space,
              (unsigned)func_info->retTypeInfo.type);
     for (auto &argty : func_info->ArgTypeInfo) {
-      logDebug("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
+      logTrace("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
                (unsigned)argty.space, (unsigned)argty.type);
       TotalArgSize += argty.size;
     }
@@ -415,7 +415,7 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&cl_kernel_,
 // CHIPContextOpenCL
 //*************************************************************************
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *ctx_in) {
-  logDebug("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
+  logTrace("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
   cl_ctx = ctx_in;
 }
 
@@ -429,8 +429,7 @@ void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
 
 hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
                                       hipStream_t stream) {
-  logWarn("CHIPContextOpenCL::memCopy not implemented");
-  // FIND_QUEUE_LOCKED(stream);
+  logTrace("CHIPContextOpenCL::memCopy()");
   std::lock_guard<std::mutex> Lock(mtx);
   CHIPQueue *Queue = findQueue(stream);
   if (Queue == nullptr) return hipErrorInvalidResourceHandle;
@@ -463,7 +462,7 @@ bool CHIPQueueOpenCL::addCallback(hipStreamCallback_t callback,
                                   void *userData) {
   std::lock_guard<std::mutex> Lock(mtx);
 
-  logDebug("CHIPQueueOpenCL::addCallback()");
+  logTrace("CHIPQueueOpenCL::addCallback()");
   auto ev = getLastEvent();
   if (ev == nullptr) {
     callback(this, hipSuccess, userData);
@@ -560,7 +559,7 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
                                              size_t size) {
   std::lock_guard<std::mutex> Lock(mtx);
-  logDebug("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
+  logTrace("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
   cl_event ev = nullptr;
   int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
                                     nullptr, &ev);
@@ -580,7 +579,7 @@ CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
                                              size_t pattern_size) {
   std::lock_guard<std::mutex> Lock(mtx);
 
-  logDebug("clSVMmemfill {} / {} B\n", dst, size);
+  logTrace("clSVMmemfill {} / {} B\n", dst, size);
   cl_event ev = nullptr;
   int retval = ::clEnqueueSVMMemFill(cl_q->get(), dst, pattern, pattern_size,
                                      size, 0, nullptr, &ev);
@@ -612,11 +611,11 @@ CHIPEvent *CHIPQueueOpenCL::memCopyToTextureImpl(CHIPTexture *texObj,
 
 static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
                         cl_kernel kernel) {
-  logWarn("setLocalSize");
+  logTrace("setLocalSize");
   int err = CL_SUCCESS;
 
   if (shared > 0) {
-    logDebug("setLocalMemSize to {}\n", shared);
+    logTrace("setLocalMemSize to {}\n", shared);
     size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
     if (FuncInfo->ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
       // this can happen if for example the llvm optimizes away
@@ -646,11 +645,11 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
   int err = 0;
 
   if (ArgsPointer) {
-    logDebug("Setting up arguments NEW HIP API");
+    logTrace("Setting up arguments NEW HIP API");
     for (cl_uint i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
       OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
       if (ai.type == OCLType::Pointer && ai.space != OCLSpace::Local) {
-        logDebug("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, ai.size,
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, ai.size,
                  ArgsPointer[i]);
         assert(ai.size == sizeof(void *));
         const void *argval = *(void **)ArgsPointer[i];
@@ -659,7 +658,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else {
-        logDebug("clSetKernelArg {} SIZE {} to {}\n", i, ai.size,
+        logTrace("clSetKernelArg {} SIZE {} to {}\n", i, ai.size,
                  ArgsPointer[i]);
         err = ::clSetKernelArg(kernel->get().get(), i, ai.size, ArgsPointer[i]);
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
@@ -667,7 +666,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
       }
     }
   } else {
-    logDebug("Setting up arguments OLD HIP API");
+    logTrace("Setting up arguments OLD HIP API");
 
     if ((offset_sizes.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
       CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
@@ -699,7 +698,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
     int err;
     for (cl_uint i = 0; i < offset_sizes.size(); ++i) {
       OCLArgTypeInfo &ai = FuncInfo->ArgTypeInfo[i];
-      logDebug("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
+      logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
                i, std::get<0>(offset_sizes[i]), std::get<1>(offset_sizes[i]),
                (unsigned)ai.type, (unsigned)ai.space, ai.size);
 
@@ -708,7 +707,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
         assert(ai.size == sizeof(void *));
         assert(std::get<1>(offset_sizes[i]) == ai.size);
         p = *(void **)(start + std::get<0>(offset_sizes[i]));
-        logDebug("setArg SVM {} to {}\n", i, p);
+        logTrace("setArg SVM {} to {}\n", i, p);
         err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, p);
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
@@ -716,7 +715,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *kernel) {
         size_t size = std::get<1>(offset_sizes[i]);
         size_t offs = std::get<0>(offset_sizes[i]);
         void *value = (void *)(start + offs);
-        logDebug("setArg {} size {} offs {}\n", i, size, offs);
+        logTrace("setArg {} size {} offs {}\n", i, size, offs);
         err = ::clSetKernelArg(kernel->get().get(), i, size, value);
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
@@ -736,7 +735,7 @@ std::string CHIPBackendOpenCL::getDefaultJitFlags() {
 void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
                                     std::string CHIPDeviceTypeStr,
                                     std::string CHIPDeviceStr) {
-  logDebug("CHIPBackendOpenCL Initialize");
+  logTrace("CHIPBackendOpenCL Initialize");
 
   // transform device type string into CL
   cl_bitfield selected_dev_type = 0;
@@ -787,7 +786,7 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
   for (int i = 0; i < Devices.size(); i++) {
     cl::Device *dev = new cl::Device(Devices[i]);
     CHIPDeviceOpenCL *chip_dev = new CHIPDeviceOpenCL(chip_context, dev, i);
-    logDebug("CHIPDeviceOpenCL {}",
+    logTrace("CHIPDeviceOpenCL {}",
              chip_dev->cl_dev->getInfo<CL_DEVICE_NAME>());
     chip_dev->populateDeviceProperties();
     Backend->addDevice(chip_dev);
