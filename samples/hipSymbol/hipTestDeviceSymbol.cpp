@@ -39,7 +39,7 @@ __global__ void Assign(int* Out) {
     globalOut[tid] = globalIn[tid];
 }
 
-__device__ /*__constant__*/ int globalConst[NUM];
+__device__ __constant__ int globalConst[NUM];
 
 __global__ void checkAddress(int* addr, bool* out) {
     *out = ((intptr_t)globalConst == (intptr_t)addr);
