@@ -1067,6 +1067,7 @@ hipError_t CHIPQueue::memCopyAsync(void *dst, const void *src, size_t size) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopyAsyncImpl(dst, src, size);
+  ev->msg = "memCopyAsync";
   updateLastEvent(ev);
   return hipSuccess;
 }
@@ -1076,6 +1077,7 @@ void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
   chip_context->syncQueues(this);
 #endif
   auto ev = memFillImpl(dst, size, pattern, pattern_size);
+  ev->msg = "memFill";
   updateLastEvent(ev);
 }
 CHIPEvent *CHIPQueue::memFillImpl(void *dst, size_t size, const void *pattern,
@@ -1090,6 +1092,7 @@ void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
   chip_context->syncQueues(this);
 #endif
   auto ev = memFillAsyncImpl(dst, size, pattern, pattern_size);
+  ev->msg = "memFillAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
@@ -1098,6 +1101,7 @@ void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  ev->msg = "memCopy2D";
   finish();
   updateLastEvent(ev);
 }
@@ -1117,6 +1121,7 @@ void CHIPQueue::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  ev->msg = "memCopy2DAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
@@ -1127,6 +1132,7 @@ void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
 #endif
   auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
                                width, height, depth);
+  ev->msg = "memCopy3D";
   finish();
   updateLastEvent(ev);
 }
@@ -1150,6 +1156,7 @@ void CHIPQueue::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
 #endif
   auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
                                width, height, depth);
+  ev->msg = "memCopy3DAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
@@ -1157,6 +1164,7 @@ void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopyToTextureImpl(texObj, src);
+  ev->msg = "memCopyToTexture";
   updateLastEvent(ev);
 }
 CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
@@ -1171,6 +1179,7 @@ CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
 CHIPEvent *CHIPQueue::enqueueBarrier(
     std::vector<CHIPEvent *> *eventsToWaitFor) {
   auto ev = enqueueBarrierImpl(eventsToWaitFor);
+  ev->msg = "enqueueBarrier";
   updateLastEvent(ev);
   return ev;
 }
@@ -1179,6 +1188,7 @@ CHIPEvent *CHIPQueue::enqueueMarker() {
   chip_context->syncQueues(this);
 #endif
   auto ev = enqueueMarkerImpl();
+  ev->msg = "enqueueMarker";
   updateLastEvent(ev);
   return ev;
 }
@@ -1188,6 +1198,7 @@ void CHIPQueue::memPrefetch(const void *ptr, size_t count) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memPrefetchImpl(ptr, count);
+  ev->msg = "memPrefetch";
   updateLastEvent(ev);
 }
 
