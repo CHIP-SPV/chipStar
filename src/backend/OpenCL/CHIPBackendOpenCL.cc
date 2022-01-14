@@ -2,15 +2,6 @@
 // CHIPCallbackDataLevel0
 // ************************************************************************
 
-CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t callback_f_,
-                                               void *callback_args_,
-                                               CHIPQueue *chip_queue_)
-    : CHIPCallbackData(callback_f_, callback_args_, chip_queue_) {}
-
-void CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL::setup() {
-  UNIMPLEMENTED();
-}
-
 // CHIPEventMonitorOpenCL
 // ************************************************************************
 CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL() : CHIPEventMonitor(){};
@@ -452,31 +443,45 @@ hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
 
 // CHIPQueueOpenCL
 //*************************************************************************
+struct hipStreamCallbackData {
+  hipStream_t Stream;
+  hipError_t Status;
+  void *UserData;
+  hipStreamCallback_t Callback;
+};
 
-void CHIPQueueOpenCL::updateLastEvent(CHIPEvent *new_event) {
-  logDebug("");
-  logDebug("CHIPQueueOpenCL::updateLastEvent()");
-  auto *NewEvent = (CHIPEventOpenCL *)new_event;
-  auto *LastEventCHIPOpenCL = (CHIPEventOpenCL *)LastEvent;
+void CL_CALLBACK pfn_notify(cl_event event, cl_int command_exec_status,
+                            void *user_data) {
+  hipStreamCallbackData *cbo = (hipStreamCallbackData *)(user_data);
+  if (cbo == nullptr) return;
+  if (cbo->Callback == nullptr) return;
+  cbo->Callback(cbo->Stream, cbo->Status, cbo->UserData);
+  delete cbo;
+}
 
-  if (LastEventCHIPOpenCL == NewEvent)
-    return;
+bool CHIPQueueOpenCL::addCallback(hipStreamCallback_t callback,
+                                  void *userData) {
+  std::lock_guard<std::mutex> Lock(mtx);
 
-  if (LastEventCHIPOpenCL) {
-    logDebug("updateLastEvent: LastEvent == {}({}), will be: {}({})",
-             (void *)LastEventCHIPOpenCL->peek(), LastEventCHIPOpenCL->msg,
-             (void *)NewEvent->peek(), NewEvent->msg);
-
-    assert(LastEventCHIPOpenCL != NewEvent);
-    delete LastEventCHIPOpenCL;
-  } else {
-    logDebug("updateLastEvent: LastEvent == NULL, will be: {}\n",
-             (void *)NewEvent);
+  logDebug("CHIPQueueOpenCL::addCallback()");
+  auto ev = getLastEvent();
+  if (ev == nullptr) {
+    callback(this, hipSuccess, userData);
+    return true;
   }
 
-  NewEvent->increaseRefCount();
-  this->LastEvent = NewEvent;
-}
+  hipStreamCallbackData *cb =
+      new hipStreamCallbackData{this, hipSuccess, userData, callback};
+
+  auto status = clSetEventCallback(ev->peek(), CL_COMPLETE, pfn_notify, cb);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+
+  // enqueue barrier with no dependencies (all further enqueues will wait for
+  // this one to finish)
+
+  enqueueBarrier(nullptr);
+  return true;
+};
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
   cl::Event MarkerEvent;

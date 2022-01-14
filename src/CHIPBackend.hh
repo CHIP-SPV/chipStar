@@ -1535,8 +1535,7 @@ class CHIPQueue {
   CHIPQueueType getQueueType() { return queue_type; }
   virtual void updateLastEvent(CHIPEvent* ev) {
     assert(ev);
-    if (ev == LastEvent)
-      return;
+    if (ev == LastEvent) return;
     logDebug("CHIPQueue::updateLastEvent()");
     if (LastEvent != nullptr) delete LastEvent;
     ev->increaseRefCount();
@@ -1705,7 +1704,7 @@ class CHIPQueue {
    * @return false
    */
 
-  bool addCallback(hipStreamCallback_t callback, void* userData);
+  virtual bool addCallback(hipStreamCallback_t callback, void* userData);
   /**
    * @brief Insert a memory prefetch
    *

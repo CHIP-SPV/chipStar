@@ -36,12 +36,21 @@ class CHIPEventOpenCL;
 class CHIPBackendOpenCL;
 class CHIPModuleOpenCL;
 
-class CHIPCallbackDataOpenCL : public CHIPCallbackData {
+class CHIPCallbackDataOpenCL {
  private:
  public:
+  CHIPQueueOpenCL *chip_queue;
+  void *callback_args;
+  hipStreamCallback_t callback_f;
+  hipError_t status;
+
   CHIPCallbackDataOpenCL(hipStreamCallback_t callback_f_, void *callback_args_,
-                         CHIPQueue *chip_queue_);
-  virtual void setup() override;
+                         CHIPQueue *chip_queue_)
+      : chip_queue((CHIPQueueOpenCL *)chip_queue_) {
+    if (callback_args_ != nullptr) callback_args = callback_args_;
+    if (callback_f_ == nullptr) CHIPERR_LOG_AND_THROW("", hipErrorTbd);
+    callback_f = callback_f_;
+  };
 };
 
 class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
@@ -214,11 +223,11 @@ class CHIPQueueOpenCL : public CHIPQueue {
   CHIPQueueOpenCL(CHIPDevice *chip_device);
   ~CHIPQueueOpenCL();
 
-  virtual void updateLastEvent(CHIPEvent *ev) override;
-
   virtual CHIPEventOpenCL *getLastEvent() override;
 
   virtual CHIPEvent *launchImpl(CHIPExecItem *exec_item) override;
+  virtual bool addCallback(hipStreamCallback_t callback,
+                           void *userData) override;
   virtual void finish() override;
 
   virtual CHIPEvent *memCopyAsyncImpl(void *dst, const void *src,
@@ -248,7 +257,25 @@ class CHIPQueueOpenCL : public CHIPQueue {
 
   virtual CHIPEvent *enqueueBarrierImpl(
       std::vector<CHIPEvent *> *eventsToWaitFor) override {
-    UNIMPLEMENTED(nullptr);
+    //    cl::Event MarkerEvent;
+    //    int status = cl_q->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
+    //    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+
+    cl::vector<cl::Event> Events = {};
+    if (eventsToWaitFor)
+      for (auto e : *eventsToWaitFor) {
+        auto ee = (CHIPEventOpenCL *)e;
+        Events.push_back(cl::Event(ee->peek()));
+      }
+
+    cl::Event barrier;
+    auto status = cl_q->enqueueBarrierWithWaitList(&Events, &barrier);
+    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+
+    CHIPEventOpenCL *NewEvent =
+        new CHIPEventOpenCL((CHIPContextOpenCL *)chip_context, barrier.get());
+
+    return NewEvent;
   }
 
   virtual CHIPEvent *enqueueMarkerImpl() override;
