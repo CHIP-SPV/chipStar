@@ -8,7 +8,7 @@ void *SVMemoryRegion::allocate(cl::Context ctx, size_t size) {
     logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, size);
     SvmAllocations.emplace(Ptr, size);
   } else
-    logError("clSVMAlloc of {} bytes failed\n", size);
+    CHIPERR_LOG_AND_THROW("clSVMAlloc failed", hipErrorMemoryAllocation);
   return Ptr;
 }
 
@@ -21,10 +21,8 @@ bool SVMemoryRegion::free(void *p, size_t *size) {
     SvmAllocations.erase(I);
     ::clSVMFree(Context(), Ptr);
     return true;
-  } else {
-    logError("clSVMFree on unknown memory: {}\n", p);
-    return false;
-  }
+  } else
+    CHIPERR_LOG_AND_THROW("clSVMFree failure", hipErrorRuntimeMemory);
 }
 
 bool SVMemoryRegion::hasPointer(const void *p) {

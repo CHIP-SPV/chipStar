@@ -1882,15 +1882,13 @@ hipError_t hipModuleLaunchKernel(hipFunction_t k, unsigned int gridDimX,
   CHIPInitialize();
   stream = Backend->findQueue(stream);
 
-  if (sharedMemBytes > 0) {
-    logCritical("Dynamic shared memory not yet implemented");
-    RETURN(hipErrorLaunchFailure);
-  }
+  if (sharedMemBytes > 0)
+    CHIPERR_LOG_AND_THROW("Dynamic shared memory not yet implemented",
+                          hipErrorLaunchFailure);
 
-  if (kernelParams == nullptr && extra == nullptr) {
-    logError("either kernelParams or extra is required!\n");
-    RETURN(hipErrorLaunchFailure);
-  }
+  if (kernelParams == nullptr && extra == nullptr)
+    CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",
+                          hipErrorLaunchFailure);
 
   dim3 grid(gridDimX, gridDimY, gridDimZ);
   dim3 block(blockDimX, blockDimY, blockDimZ);
