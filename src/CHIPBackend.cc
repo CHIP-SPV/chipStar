@@ -69,7 +69,7 @@ void CHIPCallbackData::setup() {
 }
 
 void CHIPEventMonitor::monitor() {
-  logTrace("CHIPEventMonitor::monitor()");
+  logDebug("CHIPEventMonitor::monitor()");
   CHIPCallbackData *cb;
   while (Backend->getCallback(&cb)) {
     cb->gpu_ready->wait();
@@ -219,7 +219,7 @@ CHIPKernel *CHIPModule::getKernel(std::string name) {
 
 CHIPKernel *CHIPModule::getKernel(const void *host_f_ptr) {
   for (auto &kernel : chip_kernels)
-    logTrace("chip kernel: {} {}", kernel->getHostPtr(), kernel->getName());
+    logDebug("chip kernel: {} {}", kernel->getHostPtr(), kernel->getName());
   auto kernel = std::find_if(
       chip_kernels.begin(), chip_kernels.end(),
       [host_f_ptr](CHIPKernel *k) { return k->getHostPtr() == host_f_ptr; });
@@ -252,8 +252,7 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
   // Mark as allocated if the module does not have any variables.
   DeviceVariablesAllocated |= chip_vars.empty();
 
-  if (DeviceVariablesAllocated)
-    return hipSuccess;
+  if (DeviceVariablesAllocated) return hipSuccess;
 
   logTrace("Allocate storage for device variables in module: {}", (void *)this);
 
@@ -268,7 +267,7 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
   auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(chip_vars.size());
 
   // Gather information for storage allocation.
-  std::vector<std::pair<CHIPDeviceVar*, CHIPVarInfo*>> VarInfos;
+  std::vector<std::pair<CHIPDeviceVar *, CHIPVarInfo *>> VarInfos;
   for (auto *Var : chip_vars) {
     auto I = VarInfos.size();
     queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
@@ -316,13 +315,11 @@ void CHIPModule::initializeDeviceVariablesNoLock(CHIPDevice *Device,
 
   bool QueuedKernels = false;
   for (auto *Var : chip_vars) {
-    if (!Var->hasInitializer())
-      continue;
+    if (!Var->hasInitializer()) continue;
     queueVariableInitShadowKernel(Queue, this, Var);
     QueuedKernels = true;
   }
-  if (QueuedKernels)
-    Queue->finish();
+  if (QueuedKernels) Queue->finish();
   DeviceVariablesInitialized = true;
 }
 
@@ -384,7 +381,7 @@ CHIPEvent *CHIPExecItem::launchByDevicePtr(CHIPKernel *K) {
   return chip_queue->launch(this);
 }
 
-CHIPEvent * CHIPExecItem::launchByHostPtr(const void *hostPtr) {
+CHIPEvent *CHIPExecItem::launchByHostPtr(const void *hostPtr) {
   logTrace("launchByHostPtr");
   if (chip_queue == nullptr) {
     std::string msg = "Tried to launch CHIPExecItem but its queue is null";
@@ -414,14 +411,13 @@ std::vector<CHIPKernel *> CHIPDevice::getKernels() {
   std::vector<CHIPKernel *> kernels;
   for (auto module_it : ChipModules) {
     auto *module = module_it.second;
-    for (CHIPKernel *kernel : module->getKernels())
-      kernels.push_back(kernel);
+    for (CHIPKernel *kernel : module->getKernels()) kernels.push_back(kernel);
   }
   return kernels;
 }
 
-std::unordered_map<const std::string *, CHIPModule *> &
-CHIPDevice::getModules() {
+std::unordered_map<const std::string *, CHIPModule *>
+    &CHIPDevice::getModules() {
   return ChipModules;
 }
 
@@ -437,12 +433,12 @@ void CHIPDevice::populateDeviceProperties() {
         hip_device_props.totalGlobalMem, hip_device_props.name);
 }
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *prop) {
-  logTrace("CHIPDevice->copy_device_properties()");
+  logDebug("CHIPDevice->copy_device_properties()");
   if (prop) std::memcpy(prop, &this->hip_device_props, sizeof(hipDeviceProp_t));
 }
 
 CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
-  logTrace("CHIPDevice::findKernelByHostPtr({})", hostPtr);
+  logDebug("CHIPDevice::findKernelByHostPtr({})", hostPtr);
   std::vector<CHIPKernel *> chip_kernels = getKernels();
   if (chip_kernels.size() == 0) {
     CHIPERR_LOG_AND_THROW("chip_kernels is empty for this device",
@@ -450,7 +446,7 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *hostPtr) {
   }
   logDebug("Listing Kernels for device {}", getName());
   for (auto &kernel : chip_kernels) {
-    logTrace("Kernel name: {} host_f_ptr: {}", kernel->getName(),
+    logDebug("Kernel name: {} host_f_ptr: {}", kernel->getName(),
              kernel->getHostPtr());
   }
 
@@ -484,11 +480,9 @@ CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *HostPtr) {
 }
 
 CHIPDeviceVar *CHIPDevice::getGlobalVar(const void *HostPtr) {
-  if (auto *Found = getDynGlobalVar(HostPtr))
-    return Found;
+  if (auto *Found = getDynGlobalVar(HostPtr)) return Found;
 
-  if (auto *Found = getStatGlobalVar(HostPtr))
-    return Found;
+  if (auto *Found = getStatGlobalVar(HostPtr)) return Found;
 
   return nullptr;
 }
@@ -777,8 +771,7 @@ hipError_t CHIPDevice::allocateDeviceVariables() {
   for (auto I : ChipModules) {
     auto Status =
         I.second->allocateDeviceVariablesNoLock(this, getActiveQueue());
-    if (Status != hipSuccess)
-      return Status;
+    if (Status != hipSuccess) return Status;
   }
   return hipSuccess;
 }
@@ -793,15 +786,13 @@ void CHIPDevice::initializeDeviceVariables() {
 void CHIPDevice::invalidateDeviceVariables() {
   std::lock_guard<std::mutex> Lock(mtx);
   logTrace("invalidate device variables.");
-  for (auto it : ChipModules)
-    it.second->invalidateDeviceVariablesNoLock();
+  for (auto it : ChipModules) it.second->invalidateDeviceVariablesNoLock();
 }
 
 void CHIPDevice::deallocateDeviceVariables() {
   std::lock_guard<std::mutex> Lock(mtx);
   logTrace("Deallocate storage for device variables.");
-  for (auto it : ChipModules)
-    it.second->deallocateDeviceVariablesNoLock(this);
+  for (auto it : ChipModules) it.second->deallocateDeviceVariablesNoLock(this);
 }
 
 // CHIPContext
@@ -840,7 +831,7 @@ void CHIPContext::syncQueues(CHIPQueue *target_queue) {
 }
 
 void CHIPContext::addDevice(CHIPDevice *dev) {
-  logTrace("CHIPContext.add_device() {}", dev->getName());
+  logDebug("CHIPContext.add_device() {}", dev->getName());
   chip_devices.push_back(dev);
 }
 
@@ -858,7 +849,7 @@ std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   return chip_queues;
 }
 void CHIPContext::addQueue(CHIPQueue *q) {
-  logTrace("CHIPContext.add_queue()");
+  logDebug("CHIPContext.add_queue()");
   chip_queues.push_back(q);
 }
 hipStream_t CHIPContext::findQueue(hipStream_t stream) {
@@ -1026,18 +1017,18 @@ void CHIPBackend::addQueue(CHIPQueue *q_in) {
   chip_queues.push_back(q_in);
 }
 void CHIPBackend::addDevice(CHIPDevice *dev_in) {
-  logTrace("CHIPDevice.add_device() {}", dev_in->getName());
+  logDebug("CHIPDevice.add_device() {}", dev_in->getName());
   chip_devices.push_back(dev_in);
 }
 
 void CHIPBackend::registerModuleStr(std::string *mod_str) {
-  logTrace("CHIPBackend->register_module()");
+  logDebug("CHIPBackend->register_module()");
   std::lock_guard<std::mutex> Lock(mtx);
   getModulesStr().push_back(mod_str);
 }
 
 void CHIPBackend::unregisterModuleStr(std::string *mod_str) {
-  logTrace("CHIPBackend->unregister_module()");
+  logDebug("CHIPBackend->unregister_module()");
   auto found_mod = std::find(modules_str.begin(), modules_str.end(), mod_str);
   if (found_mod != modules_str.end()) {
     getModulesStr().erase(found_mod);
@@ -1052,7 +1043,7 @@ void CHIPBackend::unregisterModuleStr(std::string *mod_str) {
 hipError_t CHIPBackend::configureCall(dim3 grid, dim3 block, size_t shared,
                                       hipStream_t q) {
   std::lock_guard<std::mutex> Lock(mtx);
-  logTrace(
+  logDebug(
       "CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
       "shared={}, q={}",
       grid.x, grid.y, grid.z, block.x, block.y, block.z, shared, (void *)q);
@@ -1064,7 +1055,7 @@ hipError_t CHIPBackend::configureCall(dim3 grid, dim3 block, size_t shared,
 }
 
 hipError_t CHIPBackend::setArg(const void *arg, size_t size, size_t offset) {
-  logTrace("CHIPBackend->set_arg()");
+  logDebug("CHIPBackend->set_arg()");
   std::lock_guard<std::mutex> Lock(mtx);
   CHIPExecItem *ex = chip_execstack.top();
   ex->setArg(arg, size, offset);
@@ -1086,7 +1077,7 @@ hipError_t CHIPBackend::setArg(const void *arg, size_t size, size_t offset) {
 bool CHIPBackend::registerFunctionAsKernel(std::string *module_str,
                                            const void *host_f_ptr,
                                            const char *host_f_name) {
-  logTrace("CHIPBackend.registerFunctionAsKernel()");
+  logDebug("CHIPBackend.registerFunctionAsKernel()");
   for (auto &ctx : chip_contexts)
     for (auto &dev : ctx->getDevices())
       dev->registerFunctionAsKernel(module_str, host_f_ptr, host_f_name);
@@ -1100,7 +1091,6 @@ void CHIPBackend::registerDeviceVariable(std::string *ModuleStr,
     for (auto *Dev : Ctx->getDevices())
       Dev->registerDeviceVariable(ModuleStr, HostPtr, Name, Size);
 }
-
 
 CHIPDevice *CHIPBackend::findDeviceMatchingProps(
     const hipDeviceProp_t *properties) {
@@ -1207,7 +1197,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *q) {
   if (q == nullptr) {
-    logTrace(
+    logDebug(
         "CHIPBackend::findQueue() was given a nullptr. Returning default "
         "queue");
     return Backend->getActiveQueue();
@@ -1261,6 +1251,7 @@ hipError_t CHIPQueue::memCopyAsync(void *dst, const void *src, size_t size) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopyAsyncImpl(dst, src, size);
+  ev->msg = "memCopyAsync";
   updateLastEvent(ev);
   return hipSuccess;
 }
@@ -1270,6 +1261,7 @@ void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
   chip_context->syncQueues(this);
 #endif
   auto ev = memFillImpl(dst, size, pattern, pattern_size);
+  ev->msg = "memFill";
   updateLastEvent(ev);
 }
 CHIPEvent *CHIPQueue::memFillImpl(void *dst, size_t size, const void *pattern,
@@ -1284,6 +1276,7 @@ void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
   chip_context->syncQueues(this);
 #endif
   auto ev = memFillAsyncImpl(dst, size, pattern, pattern_size);
+  ev->msg = "memFillAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
@@ -1292,6 +1285,7 @@ void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  ev->msg = "memCopy2D";
   finish();
   updateLastEvent(ev);
 }
@@ -1311,6 +1305,7 @@ void CHIPQueue::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopy2DAsyncImpl(dst, dpitch, src, spitch, width, height);
+  ev->msg = "memCopy2DAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
@@ -1321,6 +1316,7 @@ void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
 #endif
   auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
                                width, height, depth);
+  ev->msg = "memCopy3D";
   finish();
   updateLastEvent(ev);
 }
@@ -1344,6 +1340,7 @@ void CHIPQueue::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
 #endif
   auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
                                width, height, depth);
+  ev->msg = "memCopy3DAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
@@ -1351,6 +1348,7 @@ void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memCopyToTextureImpl(texObj, src);
+  ev->msg = "memCopyToTexture";
   updateLastEvent(ev);
 }
 CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
@@ -1365,6 +1363,7 @@ CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
 CHIPEvent *CHIPQueue::enqueueBarrier(
     std::vector<CHIPEvent *> *eventsToWaitFor) {
   auto ev = enqueueBarrierImpl(eventsToWaitFor);
+  ev->msg = "enqueueBarrier";
   updateLastEvent(ev);
   return ev;
 }
@@ -1373,6 +1372,7 @@ CHIPEvent *CHIPQueue::enqueueMarker() {
   chip_context->syncQueues(this);
 #endif
   auto ev = enqueueMarkerImpl();
+  ev->msg = "enqueueMarker";
   updateLastEvent(ev);
   return ev;
 }
@@ -1382,6 +1382,7 @@ void CHIPQueue::memPrefetch(const void *ptr, size_t count) {
   chip_context->syncQueues(this);
 #endif
   auto ev = memPrefetchImpl(ptr, count);
+  ev->msg = "memPrefetch";
   updateLastEvent(ev);
 }
 

@@ -290,12 +290,12 @@ class CHIPEvent {
  public:
   virtual void takeOver(CHIPEvent* other){};
   virtual void decreaseRefCount() {
-    logTrace("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
+    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
              *refc - 1);
     (*refc)--;
   }
   virtual void increaseRefCount() {
-    logTrace("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
+    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
              *refc + 1);
     (*refc)++;
   }
@@ -1590,8 +1590,7 @@ class CHIPQueue {
   CHIPQueueType getQueueType() { return queue_type; }
   virtual void updateLastEvent(CHIPEvent* ev) {
     assert(ev);
-    if (ev == LastEvent)
-      return;
+    if (ev == LastEvent) return;
     logDebug("CHIPQueue::updateLastEvent()");
     if (LastEvent != nullptr) delete LastEvent;
     ev->increaseRefCount();
@@ -1760,7 +1759,7 @@ class CHIPQueue {
    * @return false
    */
 
-  bool addCallback(hipStreamCallback_t callback, void* userData);
+  virtual bool addCallback(hipStreamCallback_t callback, void* userData);
   /**
    * @brief Insert a memory prefetch
    *

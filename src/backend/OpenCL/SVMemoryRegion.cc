@@ -5,10 +5,10 @@
 void *SVMemoryRegion::allocate(cl::Context ctx, size_t size) {
   void *Ptr = ::clSVMAlloc(ctx.get(), CL_MEM_READ_WRITE, size, SVM_ALIGNMENT);
   if (Ptr) {
-    logDebug("clSVMAlloc allocated: {} / {}\n", Ptr, size);
+    logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, size);
     SvmAllocations.emplace(Ptr, size);
   } else
-    logError("clSVMAlloc of {} bytes failed\n", size);
+    CHIPERR_LOG_AND_THROW("clSVMAlloc failed", hipErrorMemoryAllocation);
   return Ptr;
 }
 
@@ -17,23 +17,21 @@ bool SVMemoryRegion::free(void *p, size_t *size) {
   if (I != SvmAllocations.end()) {
     void *Ptr = I->first;
     *size = I->second;
-    logDebug("clSVMFree on: {}\n", Ptr);
+    logTrace("clSVMFree on: {}\n", Ptr);
     SvmAllocations.erase(I);
     ::clSVMFree(Context(), Ptr);
     return true;
-  } else {
-    logError("clSVMFree on unknown memory: {}\n", p);
-    return false;
-  }
+  } else
+    CHIPERR_LOG_AND_THROW("clSVMFree failure", hipErrorRuntimeMemory);
 }
 
 bool SVMemoryRegion::hasPointer(const void *p) {
-  logDebug("hasPointer on: {}\n", p);
+  logTrace("hasPointer on: {}\n", p);
   return (SvmAllocations.find((void *)p) != SvmAllocations.end());
 }
 
 bool SVMemoryRegion::pointerSize(void *ptr, size_t *size) {
-  logDebug("pointerSize on: {}\n", ptr);
+  logTrace("pointerSize on: {}\n", ptr);
   auto I = SvmAllocations.find(ptr);
   if (I != SvmAllocations.end()) {
     *size = I->second;
@@ -44,7 +42,7 @@ bool SVMemoryRegion::pointerSize(void *ptr, size_t *size) {
 }
 
 bool SVMemoryRegion::pointerInfo(void *ptr, void **pbase, size_t *psize) {
-  logDebug("pointerInfo on: {}\n", ptr);
+  logTrace("pointerInfo on: {}\n", ptr);
   for (auto I : SvmAllocations) {
     if ((I.first <= ptr) && (ptr < ((const char *)I.first + I.second))) {
       if (pbase) *pbase = I.first;
