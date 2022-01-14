@@ -429,8 +429,7 @@ void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
 
 hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
                                       hipStream_t stream) {
-  logWarn("CHIPContextOpenCL::memCopy not implemented");
-  // FIND_QUEUE_LOCKED(stream);
+  logTrace("CHIPContextOpenCL::memCopy()");
   std::lock_guard<std::mutex> Lock(mtx);
   CHIPQueue *Queue = findQueue(stream);
   if (Queue == nullptr) return hipErrorInvalidResourceHandle;
@@ -612,7 +611,7 @@ CHIPEvent *CHIPQueueOpenCL::memCopyToTextureImpl(CHIPTexture *texObj,
 
 static int setLocalSize(size_t shared, OCLFuncInfo *FuncInfo,
                         cl_kernel kernel) {
-  logWarn("setLocalSize");
+  logTrace("setLocalSize");
   int err = CL_SUCCESS;
 
   if (shared > 0) {
