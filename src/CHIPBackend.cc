@@ -167,7 +167,9 @@ CHIPEvent::CHIPEvent(CHIPContext *ctx_in, CHIPEventFlags flags_)
     : event_status(EVENT_STATUS_INIT),
       flags(flags_),
       chip_context(ctx_in),
-      refc(new size_t(1)) {}
+      refc(new size_t(1)) {
+  ctx_in->events.push_back(this);
+}
 
 // CHIPModuleflags_
 //*************************************************************************************

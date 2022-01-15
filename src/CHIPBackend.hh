@@ -226,11 +226,11 @@ class CHIPAllocationTracker {
 };
 
 class CHIPDeviceVar {
-private:
-  std::string Name;    /// Device side variable name.
-   /// Address to variable's storage. Note that the address is a
-   /// pointer given by CHIPContext::allocate.
-  void *DevAddr = nullptr;
+ private:
+  std::string Name;  /// Device side variable name.
+                     /// Address to variable's storage. Note that the address is
+                     /// a pointer given by CHIPContext::allocate.
+  void* DevAddr = nullptr;
   size_t Size = 0;
   /// The alignment requirement of the variable.
   // NOTE: The alignment infromation is not carried in __hipRegisterVar() calls
@@ -240,14 +240,14 @@ private:
   /// initialized via a shadow kernel.
   bool HasInitializer = false;
 
-public:
+ public:
   CHIPDeviceVar(std::string Name, size_t Size);
   ~CHIPDeviceVar();
 
-  void *getDevAddr() const { return DevAddr; }
-  void setDevAddr(void *Addr) { DevAddr = Addr; }
+  void* getDevAddr() const { return DevAddr; }
+  void setDevAddr(void* Addr) { DevAddr = Addr; }
   std::string getName() const { return Name; }
-  size_t getSize() const {return Size; }
+  size_t getSize() const { return Size; }
   size_t getAlignment() const { return Alignment; }
   void setAlignment(size_t TheAlignment) {
     assert(Alignment && "Invalid alignment");
@@ -285,14 +285,14 @@ class CHIPEvent {
    */
   CHIPEvent() = default;
 
-  virtual void deinit() = 0;
-
  public:
+  size_t getCHIPRefc() { return *refc; }
   virtual void takeOver(CHIPEvent* other){};
   virtual void decreaseRefCount() {
     logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
              *refc - 1);
     (*refc)--;
+    // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount() {
     logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
@@ -349,6 +349,19 @@ class CHIPEvent {
    */
   event_status_e getEventStatus() { return event_status; }
 
+  std::string getEventStatusStr() {
+    switch (event_status) {
+      case EVENT_STATUS_INIT:
+        return "EVENT_STATUS_INIT";
+      case EVENT_STATUS_RECORDING:
+        return "EVENT_STATUS_RECORDING";
+      case EVENT_STATUS_RECORDED:
+        return "EVENT_STATUS_RECORDED";
+      default:
+        return "INVALID_EVENT_STATUS";
+    };
+  }
+
   /**
    * @brief Enqueue this event in a given CHIPQueue
    *
@@ -392,7 +405,6 @@ class CHIPEvent {
  * CUDA - CUmodule
  */
 class CHIPModule {
-
   /// Flag for the allocation state of the device variables. True if
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that
@@ -524,13 +536,13 @@ class CHIPModule {
     chip_vars.push_back(dev_var);
   }
 
-  std::vector<CHIPDeviceVar *> &getDeviceVariables() { return chip_vars; }
+  std::vector<CHIPDeviceVar*>& getDeviceVariables() { return chip_vars; }
 
-  hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
-                                           CHIPQueue *Queue);
-  void initializeDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
+  hipError_t allocateDeviceVariablesNoLock(CHIPDevice* Device,
+                                           CHIPQueue* Queue);
+  void initializeDeviceVariablesNoLock(CHIPDevice* Device, CHIPQueue* Queue);
   void invalidateDeviceVariablesNoLock();
-  void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
+  void deallocateDeviceVariablesNoLock(CHIPDevice* Device);
 };
 
 /**
@@ -728,7 +740,7 @@ class CHIPExecItem {
 
    * @param hostPtr The kernel.
    */
-  CHIPEvent* launchByDevicePtr(CHIPKernel *K);
+  CHIPEvent* launchByDevicePtr(CHIPKernel* K);
 };
 
 /**
@@ -750,9 +762,9 @@ class CHIPDevice {
   size_t MaxUsedMem;
 
   /// Maps host-side shadow variables to the corresponding device variables.
-  std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup;
+  std::unordered_map<const void*, CHIPDeviceVar*> DeviceVarLookup;
 
-public:
+ public:
   /// Registered modules and a mapping from module binary blob pointers
   /// to the associated CHIPModule.
   std::unordered_map<const std::string*, CHIPModule*> ChipModules;
@@ -985,9 +997,7 @@ public:
    * @param var host pointer to the variable
    * @return CHIPDeviceVar*
    */
-  CHIPDeviceVar* getDynGlobalVar(const void* var) {
-    UNIMPLEMENTED(nullptr);
-  }
+  CHIPDeviceVar* getDynGlobalVar(const void* var) { UNIMPLEMENTED(nullptr); }
 
   /**
    * @brief Get the global variable that came from a FatBinary module
@@ -1016,8 +1026,8 @@ public:
   void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
                                 const char* host_f_name);
 
-  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
-                              const char *Name, size_t Size);
+  void registerDeviceVariable(std::string* ModuleStr, const void* HostPtr,
+                              const char* Name, size_t Size);
 
   virtual CHIPModule* addModule(std::string* module_str) = 0;
 
@@ -1048,6 +1058,7 @@ class CHIPContext {
   unsigned int flags;
 
  public:
+  std::vector<CHIPEvent*> events;
   std::mutex mtx;
   /**
    * @brief Construct a new CHIPContext object
@@ -1451,8 +1462,8 @@ class CHIPBackend {
                                         const void* host_f_ptr,
                                         const char* host_f_name);
 
-  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
-                              const char *Name, size_t Size);
+  void registerDeviceVariable(std::string* ModuleStr, const void* HostPtr,
+                              const char* Name, size_t Size);
 
   /**
    * @brief Return a device which meets or exceeds the requirements
@@ -1592,7 +1603,7 @@ class CHIPQueue {
     assert(ev);
     if (ev == LastEvent) return;
     logDebug("CHIPQueue::updateLastEvent()");
-    if (LastEvent != nullptr) delete LastEvent;
+    if (LastEvent != nullptr) LastEvent->decreaseRefCount();
     ev->increaseRefCount();
     LastEvent = ev;
   }

@@ -4,13 +4,6 @@
 // ***********************************************************************
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("CHIPEventLevel0::~CHIPEventLevel0() refc: {}->{}", *refc,
-           *refc - 1);
-  decreaseRefCount();
-  if (*refc == 0) deinit();
-}
-void CHIPEventLevel0::deinit() {
   zeEventDestroy(event);
   zeEventPoolDestroy(event_pool);
   event = nullptr;
@@ -609,6 +602,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
       CHIPQueueLevel0* q = new CHIPQueueLevel0(chip_l0_dev);
       // chip_l0_dev->addQueue(q);
       Backend->addDevice(chip_l0_dev);
+      Backend->addQueue(q);
       break;  // For now don't add more than one device
     }
   }  // End adding CHIPDevices

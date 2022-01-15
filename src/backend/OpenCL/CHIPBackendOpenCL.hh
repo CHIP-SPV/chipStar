@@ -77,7 +77,6 @@ class CHIPEventOpenCL : public CHIPEvent {
 
   virtual ~CHIPEventOpenCL() override;
   virtual void takeOver(CHIPEvent *other_) override;
-  virtual void deinit() override;
   virtual void decreaseRefCount() override;
   virtual void increaseRefCount() override;
   // void recordStream(CHIPQueue *chip_queue_) override;
