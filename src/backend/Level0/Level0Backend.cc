@@ -149,7 +149,6 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent* other_) {
    */
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0* other = (CHIPEventLevel0*)other_;
-  // std::lock_guard<std::mutex> Lock(ContextMutex);
 
   if (!this->isRecordingOrRecorded() || !other->isRecordingOrRecorded())
     return hipErrorInvalidResourceHandle;
@@ -184,14 +183,6 @@ void CHIPEventLevel0::hostSignal() {
   CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   event_status = EVENT_STATUS_RECORDED;
-}
-
-void CHIPEventLevel0::barrier(CHIPQueue* chip_queue_) {
-  CHIPQueueLevel0* chip_queue = (CHIPQueueLevel0*)chip_queue_;
-  ze_result_t status =
-      zeCommandListAppendBarrier(chip_queue->getCmdList(), nullptr, 1, &event);
-
-  event_status = EVENT_STATUS_RECORDING;
 }
 
 // End CHIPEventLevel0

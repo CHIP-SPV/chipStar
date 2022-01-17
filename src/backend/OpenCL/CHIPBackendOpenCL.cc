@@ -291,35 +291,6 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *other_) {
   return (float)MS + FractInMS;
 }
 
-void CHIPEventOpenCL::barrier(CHIPQueue *chip_queue_) {
-  // Makes all future work submitted to stream wait on this event
-  logTrace("CHIPEventOpenCL::barrier()");
-  CHIPQueueOpenCL *chip_queue = (CHIPQueueOpenCL *)chip_queue_;
-  std::lock_guard<std::mutex> Lock(chip_queue->mtx);
-
-  /**
-   * Do I need to do this?
-    if (this->getEventStatus() == EVENT_STATUS_INIT)
-      CHIPERR_LOG_AND_THROW("Attempted to wait on an event that's not active",
-                            hipErrorTbd);
-   */
-
-  // Insert a barrier into the target queue such that the target queue will
-  // execute all previously submitted commands until it hits this barrier
-  cl::vector<cl::Event> events_to_wait_on = {cl::Event(ev)};
-  cl::Event barrier;
-  auto status = chip_queue->get()->enqueueBarrierWithWaitList(
-      &events_to_wait_on, &barrier);
-  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
-                              "failed to enqueue barrier");
-
-  // wrap the barrier event in CHIPEvent
-  CHIPEventOpenCL *chip_barrier_event = new CHIPEventOpenCL(
-      (CHIPContextOpenCL *)(chip_queue->getContext()), barrier.get());
-
-  chip_queue->updateLastEvent(chip_barrier_event);
-}
-
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 // CHIPModuleOpenCL
 //*************************************************************************

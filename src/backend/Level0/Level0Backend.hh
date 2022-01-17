@@ -45,7 +45,6 @@ class CHIPEventLevel0 : public CHIPEvent {
 
   virtual void hostSignal() override;
 
-  virtual void barrier(CHIPQueue* chip_queue_) override;
   ze_event_handle_t peek() { return event; }
   ze_event_handle_t get() {
     increaseRefCount();
