@@ -11,9 +11,9 @@ EnableFlushTaskSubmission=1
 ```
 
 ````bash
-63% tests passed, 135 tests failed out of 367
+63% tests passed, 134 tests failed out of 367
 
-Total Test time (real) = 1667.70 sec
+Total Test time (real) = 1628.14 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -69,8 +69,9 @@ The following tests FAILED:
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
 	178 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
-	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Timeout)
+	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (SEGFAULT)
 	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Timeout)
+	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Timeout)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
@@ -83,7 +84,6 @@ The following tests FAILED:
 	221 - Unit_hipMemcpy_NullCheck (Failed)
 	222 - Unit_hipMemcpy_HalfMemCopy (Failed)
 	223 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
-	224 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
 	227 - Unit_hipHostMalloc_NonCoherent (SEGFAULT)
 	228 - Unit_hipHostMalloc_Coherent (SEGFAULT)
 	229 - Unit_hipHostMalloc_Default (SEGFAULT)
@@ -113,14 +113,13 @@ The following tests FAILED:
 	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
 	261 - Unit_hipMemset2D_BasicFunctional (Failed)
+	262 - Unit_hipMemset2DAsync_BasicFunctional (Failed)
 	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
 	264 - Unit_hipMemset2DAsync_WithKernel (Failed)
 	265 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
 	266 - Unit_hipHostMalloc_ArgValidation (SEGFAULT)
 	271 - Unit_hipMemset3D_MemsetWithExtent (Failed)
 	272 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
-	275 - Unit_hipMemset3D_SeekSetSlice (Failed)
-	276 - Unit_hipMemset3DAsync_SeekSetSlice (Failed)
 	277 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
 	278 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
 	279 - Unit_hipMemset3D_Negative (Failed)
@@ -156,9 +155,9 @@ The following tests FAILED:
 ## Current UnitTest Status - OpenCL
 
 ````bash
-62% tests passed, 139 tests failed out of 367
+62% tests passed, 140 tests failed out of 367
 
-Total Test time (real) = 1744.11 sec
+Total Test time (real) = 1665.49 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -216,7 +215,7 @@ The following tests FAILED:
 	171 - Unit_hipMemcpyAtoH_Basic - char (Failed)
 	172 - Unit_hipMemcpyAtoH_Basic - int (Failed)
 	173 - Unit_hipMemcpyAtoH_Basic - float (Failed)
-	174 - Unit_hipMemcpyAtoH_Negative (Failed)
+	174 - Unit_hipMemcpyAtoH_Negative (Subprocess aborted)
 	175 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
@@ -228,6 +227,7 @@ The following tests FAILED:
 	189 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	190 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	191 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
+	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
