@@ -96,8 +96,7 @@ class CHIPEventOpenCL : public CHIPEvent {
   }
 
   uint64_t getFinishTime() {
-    std::lock_guard<std::mutex> Lock(mtx);
-    int status;
+        int status;
     uint64_t ret;
     status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(ret),
                                      &ret, NULL);

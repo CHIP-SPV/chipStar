@@ -57,7 +57,6 @@ void CHIPEventLevel0::takeOver(CHIPEvent* other_) {
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
 void CHIPEventLevel0::recordStream(CHIPQueue* chip_queue_) {
-  std::lock_guard<std::mutex> Lock(mtx);
   ze_result_t status;
   if (event_status == EVENT_STATUS_RECORDED) {
     ze_result_t status = zeEventHostReset(event);
@@ -89,7 +88,6 @@ void CHIPEventLevel0::recordStream(CHIPQueue* chip_queue_) {
 }
 
 bool CHIPEventLevel0::wait() {
-  std::lock_guard<std::mutex> Lock(mtx);
   if (event_status != EVENT_STATUS_RECORDING) return false;
 
   ze_result_t status = zeEventHostSynchronize(event, UINT64_MAX);
@@ -100,7 +98,6 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus() {
-  std::lock_guard<std::mutex> Lock(mtx);
   if (event_status != EVENT_STATUS_RECORDING) return false;
 
   ze_result_t status = zeEventQueryStatus(event);
@@ -112,7 +109,7 @@ bool CHIPEventLevel0::updateFinishStatus() {
 
 /** This Doesn't work right now due to Level Zero Backend hanging?
   unsinged long CHIPEventLevel0::getFinishTime() {
-    std::lock_guard<std::mutex> Lock(mtx);
+
     ze_kernel_timestamp_result_t res{};
     auto status = zeEventQueryKernelTimestamp(event, &res);
     CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -131,7 +128,6 @@ bool CHIPEventLevel0::updateFinishStatus() {
   */
 
 unsigned long CHIPEventLevel0::getFinishTime() {
-  std::lock_guard<std::mutex> Lock(mtx);
   CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_context;
   CHIPDeviceLevel0* chip_dev_lz =
       (CHIPDeviceLevel0*)chip_ctx_lz->getDevices()[0];

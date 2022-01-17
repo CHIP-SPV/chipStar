@@ -719,7 +719,9 @@ hipError_t hipStreamWaitEvent(hipStream_t stream, hipEvent_t event,
   ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((event == nullptr), hipErrorInvalidResourceHandle);
 
-  event->barrier(stream);
+  std::vector<CHIPEvent *> EventsToWaitOn = {event};
+  stream->enqueueBarrier(&EventsToWaitOn);
+  // event->barrier(stream);
   // if (stream->enqueueBarrier(event))
   // RETURN(hipSuccess);
   // else

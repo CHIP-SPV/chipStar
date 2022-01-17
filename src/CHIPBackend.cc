@@ -1240,6 +1240,7 @@ CHIPEvent *CHIPQueue::memCopyImpl(void *dst, const void *src, size_t size) {
   return ev;
 }
 hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1249,6 +1250,7 @@ hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {
   return hipSuccess;
 }
 hipError_t CHIPQueue::memCopyAsync(void *dst, const void *src, size_t size) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1259,6 +1261,7 @@ hipError_t CHIPQueue::memCopyAsync(void *dst, const void *src, size_t size) {
 }
 void CHIPQueue::memFill(void *dst, size_t size, const void *pattern,
                         size_t pattern_size) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1274,6 +1277,7 @@ CHIPEvent *CHIPQueue::memFillImpl(void *dst, size_t size, const void *pattern,
 }
 void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
                              size_t pattern_size) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1283,6 +1287,7 @@ void CHIPQueue::memFillAsync(void *dst, size_t size, const void *pattern,
 }
 void CHIPQueue::memCopy2D(void *dst, size_t dpitch, const void *src,
                           size_t spitch, size_t width, size_t height) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1303,6 +1308,7 @@ CHIPEvent *CHIPQueue::memCopy2DImpl(void *dst, size_t dpitch, const void *src,
 }
 void CHIPQueue::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
                                size_t spitch, size_t width, size_t height) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1313,6 +1319,7 @@ void CHIPQueue::memCopy2DAsync(void *dst, size_t dpitch, const void *src,
 void CHIPQueue::memCopy3D(void *dst, size_t dpitch, size_t dspitch,
                           const void *src, size_t spitch, size_t sspitch,
                           size_t width, size_t height, size_t depth) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1342,10 +1349,12 @@ void CHIPQueue::memCopy3DAsync(void *dst, size_t dpitch, size_t dspitch,
 #endif
   auto ev = memCopy3DAsyncImpl(dst, dpitch, dspitch, src, spitch, sspitch,
                                width, height, depth);
+  std::lock_guard<std::mutex> Lock(mtx);
   ev->msg = "memCopy3DAsync";
   updateLastEvent(ev);
 }
 void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1354,6 +1363,7 @@ void CHIPQueue::memCopyToTexture(CHIPTexture *texObj, void *src) {
   updateLastEvent(ev);
 }
 CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
+  // std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1364,12 +1374,14 @@ CHIPEvent *CHIPQueue::launch(CHIPExecItem *exec_item) {
 }
 CHIPEvent *CHIPQueue::enqueueBarrier(
     std::vector<CHIPEvent *> *eventsToWaitFor) {
+  std::lock_guard<std::mutex> Lock(mtx);
   auto ev = enqueueBarrierImpl(eventsToWaitFor);
   ev->msg = "enqueueBarrier";
   updateLastEvent(ev);
   return ev;
 }
 CHIPEvent *CHIPQueue::enqueueMarker() {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1380,6 +1392,7 @@ CHIPEvent *CHIPQueue::enqueueMarker() {
 }
 
 void CHIPQueue::memPrefetch(const void *ptr, size_t count) {
+  std::lock_guard<std::mutex> Lock(mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1391,6 +1404,7 @@ void CHIPQueue::memPrefetch(const void *ptr, size_t count) {
 void CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
                                size_t sharedMemBytes) {
+  std::lock_guard<std::mutex> Lock(mtx);
   CHIPExecItem e(numBlocks, dimBlocks, sharedMemBytes,
                  Backend->getActiveQueue());
   e.setArgPointer(args);

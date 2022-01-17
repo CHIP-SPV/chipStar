@@ -166,7 +166,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *other_) {
 //    * Recording is done by taking ownership of the target queues' LastEvent,
 //    * incrementing that event's refcount.
 //    */
-//   std::lock_guard<std::mutex> Lock(mtx);
+//
 //   auto chip_queue = (CHIPQueueOpenCL *)chip_queue_;
 //   auto last_chip_event = (CHIPEventOpenCL *)chip_queue->getLastEvent();
 
@@ -220,7 +220,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *other_) {
 
 bool CHIPEventOpenCL::wait() {
   logTrace("CHIPEventOpenCL::wait()");
-  std::lock_guard<std::mutex> Lock(mtx);
+
   if (event_status != EVENT_STATUS_RECORDING) {
     logWarn("Called wait() on an event that isn't active.");
     return false;
@@ -233,7 +233,6 @@ bool CHIPEventOpenCL::wait() {
 }
 
 bool CHIPEventOpenCL::updateFinishStatus() {
-  std::lock_guard<std::mutex> Lock(mtx);
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
   if (event_status != EVENT_STATUS_RECORDING) return false;
 
@@ -250,7 +249,7 @@ bool CHIPEventOpenCL::updateFinishStatus() {
 float CHIPEventOpenCL::getElapsedTime(CHIPEvent *other_) {
   // Why do I need to lock the context mutex?
   // Can I lock the mutex of this and the other event?
-  // std::lock_guard<std::mutex> Lock(mtx);
+  //
 
   CHIPEventOpenCL *other = (CHIPEventOpenCL *)other_;
 
@@ -424,7 +423,7 @@ void *CHIPContextOpenCL::allocate_(size_t size, size_t alignment,
 hipError_t CHIPContextOpenCL::memCopy(void *dst, const void *src, size_t size,
                                       hipStream_t stream) {
   logTrace("CHIPContextOpenCL::memCopy()");
-  std::lock_guard<std::mutex> Lock(mtx);
+
   CHIPQueue *Queue = findQueue(stream);
   if (Queue == nullptr) return hipErrorInvalidResourceHandle;
 
@@ -454,8 +453,6 @@ void CL_CALLBACK pfn_notify(cl_event event, cl_int command_exec_status,
 
 bool CHIPQueueOpenCL::addCallback(hipStreamCallback_t callback,
                                   void *userData) {
-  std::lock_guard<std::mutex> Lock(mtx);
-
   logTrace("CHIPQueueOpenCL::addCallback()");
   auto ev = getLastEvent();
   if (ev == nullptr) {
@@ -491,7 +488,7 @@ CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
 }
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *exec_item) {
-  // std::lock_guard<std::mutex> Lock(mtx);
+  //
   logTrace("CHIPQueueOpenCL->launch()");
   CHIPExecItemOpenCL *chip_ocl_exec_item = (CHIPExecItemOpenCL *)exec_item;
   CHIPKernelOpenCL *kernel =
@@ -552,7 +549,6 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *dst, const void *src,
                                              size_t size) {
-  std::lock_guard<std::mutex> Lock(mtx);
   logTrace("clSVMmemcpy {} -> {} / {} B\n", src, dst, size);
   cl_event ev = nullptr;
   int retval = ::clEnqueueSVMMemcpy(cl_q->get(), CL_FALSE, dst, src, size, 0,
@@ -571,8 +567,6 @@ void CHIPQueueOpenCL::finish() {
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *dst, size_t size,
                                              const void *pattern,
                                              size_t pattern_size) {
-  std::lock_guard<std::mutex> Lock(mtx);
-
   logTrace("clSVMmemfill {} / {} B\n", dst, size);
   cl_event ev = nullptr;
   int retval = ::clEnqueueSVMMemFill(cl_q->get(), dst, pattern, pattern_size,
