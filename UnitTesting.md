@@ -11,9 +11,9 @@ EnableFlushTaskSubmission=1
 ```
 
 ````bash
-62% tests passed, 140 tests failed out of 367
+63% tests passed, 135 tests failed out of 367
 
-Total Test time (real) = 1725.82 sec
+Total Test time (real) = 1754.78 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -41,7 +41,7 @@ The following tests FAILED:
 	 53 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	 56 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
 	 65 - Unit_hipMultiStream_multimeDevice (Timeout)
-	 66 - Unit_hipStreamAddCallback_MultipleThreads (SEGFAULT)
+	 66 - Unit_hipStreamAddCallback_MultipleThreads (Timeout)
 	 70 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	 81 - Unit_hipMemcpy2DToArray_Basic (Failed)
 	 82 - Unit_hipMemcpy2DToArray_ExtentValidation (Failed)
@@ -72,9 +72,7 @@ The following tests FAILED:
 	192 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int (Timeout)
 	193 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float (Timeout)
 	194 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (Timeout)
-	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Timeout)
-	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Timeout)
-	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Timeout)
+	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
@@ -87,10 +85,6 @@ The following tests FAILED:
 	221 - Unit_hipMemcpy_NullCheck (Failed)
 	222 - Unit_hipMemcpy_HalfMemCopy (Failed)
 	223 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
-	224 - Unit_hipMemcpy_MultiThread-AllAPIs (Timeout)
-	227 - Unit_hipHostMalloc_NonCoherent (SEGFAULT)
-	228 - Unit_hipHostMalloc_Coherent (SEGFAULT)
-	229 - Unit_hipHostMalloc_Default (SEGFAULT)
 	230 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
 	231 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	232 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
@@ -114,12 +108,11 @@ The following tests FAILED:
 	252 - Unit_hipMemsetAsync_InvalidPtrTests (Failed)
 	253 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	254 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
-	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (SEGFAULT)
+	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
-	261 - Unit_hipMemset2D_BasicFunctional (Failed)
 	262 - Unit_hipMemset2DAsync_BasicFunctional (Failed)
 	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
-	264 - Unit_hipMemset2DAsync_WithKernel (Failed)
+	264 - Unit_hipMemset2DAsync_WithKernel (SEGFAULT)
 	265 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
 	266 - Unit_hipHostMalloc_ArgValidation (SEGFAULT)
 	271 - Unit_hipMemset3D_MemsetWithExtent (Failed)
@@ -130,7 +123,7 @@ The following tests FAILED:
 	278 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
 	279 - Unit_hipMemset3D_Negative (Failed)
 	280 - Unit_hipMemset3DAsync_Negative (Failed)
-	283 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
+	283 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	291 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	293 - Unit_hipMallocManaged_Basic (Failed)
 	300 - Unit_ballot (Failed)
@@ -156,6 +149,8 @@ The following tests FAILED:
 	332 - Unit_hipMalloc_ChildConcurrencyMultiGpu (Subprocess aborted)
 	346 - 2d_shuffle (Failed)
 	351 - unroll (Failed)
+	364 - sycl_chip_interop (SEGFAULT)
+	365 - sycl_chip_interop_usm (SEGFAULT)
 ````
 
 ## Current UnitTest Status - OpenCL
@@ -163,7 +158,7 @@ The following tests FAILED:
 ````bash
 62% tests passed, 141 tests failed out of 367
 
-Total Test time (real) = 1631.13 sec
+Total Test time (real) = 1726.66 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -175,7 +170,7 @@ The following tests FAILED:
 	 17 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
 	 20 - Unit_hipDeviceGetPCIBusId_Check_PciBusID_WithAttr (Failed)
 	 21 - Unit_hipDeviceGetPCIBusId_NegTst (Failed)
-	 24 - Unit_hipDeviceSynchronize_Functional (Timeout)
+	 24 - Unit_hipDeviceSynchronize_Functional (Failed)
 	 33 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	 35 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	 36 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
@@ -221,7 +216,7 @@ The following tests FAILED:
 	171 - Unit_hipMemcpyAtoH_Basic - char (Failed)
 	172 - Unit_hipMemcpyAtoH_Basic - int (Failed)
 	173 - Unit_hipMemcpyAtoH_Basic - float (Failed)
-	174 - Unit_hipMemcpyAtoH_Negative (Subprocess aborted)
+	174 - Unit_hipMemcpyAtoH_Negative (Failed)
 	175 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
@@ -233,8 +228,8 @@ The following tests FAILED:
 	189 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	190 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	191 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
-	193 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float (Subprocess aborted)
 	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
+	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
@@ -277,7 +272,7 @@ The following tests FAILED:
 	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
 	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
-	265 - Unit_hipMemset2DAsync_MultiThread (Subprocess aborted)
+	265 - Unit_hipMemset2DAsync_MultiThread (Timeout)
 	266 - Unit_hipHostMalloc_ArgValidation (Failed)
 	268 - Unit_hipMalloc_LoopRegressionAllocFreeCycles (Timeout)
 	270 - Unit_hipMalloc_Multithreaded_MultiGPU (Timeout)
