@@ -719,7 +719,9 @@ hipError_t hipStreamWaitEvent(hipStream_t stream, hipEvent_t event,
   ERROR_IF((stream == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((event == nullptr), hipErrorInvalidResourceHandle);
 
-  event->barrier(stream);
+  std::vector<CHIPEvent *> EventsToWaitOn = {event};
+  stream->enqueueBarrier(&EventsToWaitOn);
+  // event->barrier(stream);
   // if (stream->enqueueBarrier(event))
   // RETURN(hipSuccess);
   // else
@@ -1920,7 +1922,7 @@ hipError_t hipLaunchByPtr(const void *hostFunction) {
   CHIPInitialize();
   NULLCHECK(hostFunction);
 
-  logDebug("hipLaunchByPtr");
+  logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->initializeDeviceVariables();
   CHIPExecItem *exec_item = Backend->chip_execstack.top();
   Backend->chip_execstack.pop();

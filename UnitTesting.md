@@ -11,9 +11,9 @@ EnableFlushTaskSubmission=1
 ```
 
 ````bash
-62% tests passed, 139 tests failed out of 370
+64% tests passed, 135 tests failed out of 370
 
-Total Test time (real) = 1734.30 sec
+Total Test time (real) = 1693.82 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -72,8 +72,8 @@ The following tests FAILED:
 	192 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int (Timeout)
 	193 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float (Timeout)
 	194 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (Timeout)
-	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (SEGFAULT)
+	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
+	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
@@ -86,7 +86,6 @@ The following tests FAILED:
 	221 - Unit_hipMemcpy_NullCheck (Failed)
 	222 - Unit_hipMemcpy_HalfMemCopy (Failed)
 	223 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
-	224 - Unit_hipMemcpy_MultiThread-AllAPIs (Timeout)
 	227 - Unit_hipHostMalloc_NonCoherent (SEGFAULT)
 	228 - Unit_hipHostMalloc_Coherent (SEGFAULT)
 	229 - Unit_hipHostMalloc_Default (SEGFAULT)
@@ -113,18 +112,15 @@ The following tests FAILED:
 	252 - Unit_hipMemsetAsync_InvalidPtrTests (Failed)
 	253 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	254 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
-	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (SEGFAULT)
+	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
 	261 - Unit_hipMemset2D_BasicFunctional (Failed)
-	262 - Unit_hipMemset2DAsync_BasicFunctional (Failed)
 	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
 	264 - Unit_hipMemset2DAsync_WithKernel (Failed)
 	265 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
 	266 - Unit_hipHostMalloc_ArgValidation (SEGFAULT)
 	271 - Unit_hipMemset3D_MemsetWithExtent (Failed)
 	272 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
-	275 - Unit_hipMemset3D_SeekSetSlice (Failed)
-	276 - Unit_hipMemset3DAsync_SeekSetSlice (Failed)
 	277 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
 	278 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
 	279 - Unit_hipMemset3D_Negative (Failed)
@@ -162,7 +158,7 @@ The following tests FAILED:
 ````bash
 62% tests passed, 142 tests failed out of 370
 
-Total Test time (real) = 1719.47 sec
+Total Test time (real) = 1718.12 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -220,7 +216,7 @@ The following tests FAILED:
 	171 - Unit_hipMemcpyAtoH_Basic - char (Failed)
 	172 - Unit_hipMemcpyAtoH_Basic - int (Failed)
 	173 - Unit_hipMemcpyAtoH_Basic - float (Failed)
-	174 - Unit_hipMemcpyAtoH_Negative (Failed)
+	174 - Unit_hipMemcpyAtoH_Negative (Subprocess aborted)
 	175 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
@@ -232,8 +228,8 @@ The following tests FAILED:
 	189 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	190 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	191 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
+	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
 	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
-	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
@@ -276,7 +272,7 @@ The following tests FAILED:
 	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
 	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
-	265 - Unit_hipMemset2DAsync_MultiThread (Subprocess aborted)
+	265 - Unit_hipMemset2DAsync_MultiThread (Timeout)
 	266 - Unit_hipHostMalloc_ArgValidation (Failed)
 	268 - Unit_hipMalloc_LoopRegressionAllocFreeCycles (Timeout)
 	270 - Unit_hipMalloc_Multithreaded_MultiGPU (Timeout)

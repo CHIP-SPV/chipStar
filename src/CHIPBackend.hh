@@ -392,8 +392,6 @@ class CHIPEvent {
    *
    */
   virtual void hostSignal() = 0;
-
-  virtual void barrier(CHIPQueue* chip_queue_) = 0;
 };
 
 /**

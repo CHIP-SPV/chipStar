@@ -83,8 +83,6 @@ class CHIPEventOpenCL : public CHIPEvent {
   bool wait() override;
   float getElapsedTime(CHIPEvent *other) override;
 
-  virtual void barrier(CHIPQueue *chip_queue_) override;
-
   virtual void hostSignal() override;
 
   virtual bool updateFinishStatus() override;
@@ -96,7 +94,6 @@ class CHIPEventOpenCL : public CHIPEvent {
   }
 
   uint64_t getFinishTime() {
-    std::lock_guard<std::mutex> Lock(mtx);
     int status;
     uint64_t ret;
     status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(ret),
