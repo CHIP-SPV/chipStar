@@ -37,6 +37,19 @@ add_custom_command( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc"
         VERBATIM)
 set(DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc")
 
+# Support function(s) for printf().
+add_custom_command( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
+                    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
+        COMMAND "${CMAKE_CXX_COMPILER}"
+        "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
+        -O2 -x cl -cl-std=CL2.0
+        --target=spir64-unknown-unknown -emit-llvm
+        -o "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
+        -c "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
+        COMMENT "Building printf_support.bc"
+        VERBATIM)
+list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc")
+
 #add_custom_command( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc"
 #                    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mathlib.bc"
 #                    COMMAND "${CMAKE_COMMAND}" -E copy

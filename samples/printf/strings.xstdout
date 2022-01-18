@@ -1,0 +1,5 @@
+## no_args
+Hello
+## literal_str_arg
+Hello strings.
+PASSED!
