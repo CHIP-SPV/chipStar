@@ -1404,9 +1404,7 @@ void CHIPQueue::memPrefetch(const void *ptr, size_t count) {
 void CHIPQueue::launchHostFunc(const void *hostFunction, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
                                size_t sharedMemBytes) {
-  std::lock_guard<std::mutex> Lock(mtx);
-  CHIPExecItem e(numBlocks, dimBlocks, sharedMemBytes,
-                 Backend->getActiveQueue());
+  CHIPExecItem e(numBlocks, dimBlocks, sharedMemBytes, this);
   e.setArgPointer(args);
   auto ev = e.launchByHostPtr(hostFunction);
   ev->msg = "launchHostFunc";
