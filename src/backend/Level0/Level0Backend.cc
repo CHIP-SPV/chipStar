@@ -4,13 +4,6 @@
 // ***********************************************************************
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("CHIPEventLevel0::~CHIPEventLevel0() refc: {}->{}", *refc,
-           *refc - 1);
-  decreaseRefCount();
-  if (*refc == 0) deinit();
-}
-void CHIPEventLevel0::deinit() {
   zeEventDestroy(event);
   zeEventPoolDestroy(event_pool);
   event = nullptr;
@@ -609,6 +602,7 @@ void CHIPBackendLevel0::initialize_(std::string CHIPPlatformStr,
       CHIPQueueLevel0* q = new CHIPQueueLevel0(chip_l0_dev);
       // chip_l0_dev->addQueue(q);
       Backend->addDevice(chip_l0_dev);
+      Backend->addQueue(q);
       break;  // For now don't add more than one device
     }
   }  // End adding CHIPDevices
@@ -953,22 +947,6 @@ std::string resultToString(ze_result_t status) {
 
 // CHIPModuleLevel0
 // ***********************************************************************
-bool CHIPModuleLevel0::registerVar(const char* var_name_) {
-  logTrace("CHIPModuleLevel0::registerVar()");
-  size_t var_size = 0;
-  void* dptr;
-  ze_result_t status =
-      zeModuleGetGlobalPointer(ze_module, var_name_, &var_size, &dptr);
-  if (status == ZE_RESULT_ERROR_INVALID_GLOBAL_NAME) return false;
-  CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorInvalidSymbol);
-  logTrace("Found symbol with name {} of size {} devPtr {}", var_name_,
-           var_size, dptr);
-
-  std::string name = std::string(var_name_);
-  CHIPDeviceVar* var = new CHIPDeviceVar(name, dptr, var_size);
-  chip_vars.push_back(var);
-  return true;
-};
 void CHIPModuleLevel0::compile(CHIPDevice* chip_dev) {
   logTrace("CHIPModuleLevel0.compile()");
   consumeSPIRV();

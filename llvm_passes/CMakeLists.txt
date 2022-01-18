@@ -46,7 +46,7 @@ endif()
 
 if(DEFINED LLVM_VERSION_MAJOR AND "${LLVM_VERSION_MAJOR}" VERSION_GREATER 10)
   add_library(LLVMHipPasses MODULE HipPasses.cpp
-    HipDynMem.cpp HipStripCompilerUsed.cpp HipTexture.cpp HipDefrost.cpp HipPrintf.cpp)
+    HipDynMem.cpp HipStripCompilerUsed.cpp HipTexture.cpp HipDefrost.cpp HipPrintf.cpp HipGlobalVariables.cpp)
 
   install(TARGETS LLVMHipPasses
           LIBRARY DESTINATION lib/llvm

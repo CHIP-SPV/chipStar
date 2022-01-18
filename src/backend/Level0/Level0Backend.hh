@@ -31,7 +31,6 @@ class CHIPEventLevel0 : public CHIPEvent {
                   CHIPEventFlags flags_ = CHIPEventFlags());
   virtual ~CHIPEventLevel0() override;
 
-  virtual void deinit() override;
   void recordStream(CHIPQueue* chip_queue_) override;
 
   virtual bool wait() override;
@@ -191,8 +190,6 @@ class CHIPModuleLevel0 : public CHIPModule {
    * @return ze_module_handle_t
    */
   ze_module_handle_t get() { return ze_module; }
-
-  virtual bool registerVar(const char* var_name_) override;
 };
 
 // The struct that accomodate the L0/Hip texture object's content
@@ -263,7 +260,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   virtual CHIPModuleLevel0* addModule(std::string* module_str) override {
     logTrace("CHIPModuleLevel0::addModule()");
     CHIPModuleLevel0* mod = new CHIPModuleLevel0(module_str);
-    chip_modules.push_back(mod);
+    ChipModules.insert(std::make_pair(module_str, mod));
     return mod;
   }
 
@@ -297,7 +294,18 @@ class CHIPBackendLevel0 : public CHIPBackend {
 
   virtual std::string getDefaultJitFlags() override;
 
-  void uninitialize() override { UNIMPLEMENTED(); }
+  void uninitialize() override {
+    logDebug("");
+    logDebug("CHIPBackendLevel0::uninitialize()");
+    for (auto q : Backend->getQueues()) {
+      CHIPContext* ctx = q->getContext();
+      logDebug("Remaining {} events that haven't been collected:",
+               ctx->events.size());
+      for (auto e : ctx->events)
+        logDebug("{} status= {} refc={}", e->msg, e->getEventStatusStr(),
+                 e->getCHIPRefc());
+    }
+  }
 
   virtual CHIPTexture* createCHIPTexture(intptr_t image_,
                                          intptr_t sampler_) override {
@@ -305,7 +313,9 @@ class CHIPBackendLevel0 : public CHIPBackend {
   }
   virtual CHIPQueue* createCHIPQueue(CHIPDevice* chip_dev) override {
     CHIPDeviceLevel0* chip_dev_lz = (CHIPDeviceLevel0*)chip_dev;
-    return new CHIPQueueLevel0(chip_dev_lz);
+    auto q = new CHIPQueueLevel0(chip_dev_lz);
+    Backend->addQueue(q);
+    return q;
   }
   // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) override {
   //   CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)ctx_;

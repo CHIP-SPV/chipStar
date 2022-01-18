@@ -39,7 +39,7 @@
 #define uint uint32_t
 
 #define HIP_KERNEL_NAME(...) __VA_ARGS__
-#define HIP_SYMBOL(X) #X
+#define HIP_SYMBOL(X) X
 
 #define HIP_DYNAMIC_SHARED(type, var) __shared__ type var[4294967295];
 

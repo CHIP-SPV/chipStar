@@ -122,13 +122,7 @@ void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
 // CHIPEventOpenCL
 // ************************************************************************
 
-CHIPEventOpenCL::~CHIPEventOpenCL() {
-  std::lock_guard<std::mutex> Lock(mtx);
-  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() refc: {}->{}", *refc,
-           *refc - 1);
-  decreaseRefCount();
-  if (*refc == 0) deinit();
-}
+CHIPEventOpenCL::~CHIPEventOpenCL() { ev = nullptr; }
 void CHIPEventOpenCL::decreaseRefCount() {
   logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", msg.c_str());
   auto r = getRefCount();
@@ -136,6 +130,8 @@ void CHIPEventOpenCL::decreaseRefCount() {
            *r - 1);
   (*refc)--;
   clReleaseEvent(ev);
+  // Destructor to be called by event monitor once backend is done using it
+  // if (*refc == 1) delete this;
 }
 void CHIPEventOpenCL::increaseRefCount() {
   logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", msg.c_str());
@@ -145,8 +141,6 @@ void CHIPEventOpenCL::increaseRefCount() {
   (*refc)++;
   clRetainEvent(ev);
 }
-
-void CHIPEventOpenCL::deinit() { ev = nullptr; }
 
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *chip_ctx_,
                                                     CHIPEventFlags flags_) {
@@ -798,7 +792,18 @@ void CHIPBackendOpenCL::initialize_(std::string CHIPPlatformStr,
   std::cout << "OpenCL Context Initialized.\n";
 };
 
-void CHIPBackendOpenCL::uninitialize() { UNIMPLEMENTED(); }
+void CHIPBackendOpenCL::uninitialize() {
+  logDebug("");
+  logDebug("CHIPBackendOpenCL::uninitialize()");
+  for (auto q : Backend->getQueues()) {
+    CHIPContext *ctx = q->getContext();
+    logDebug("Remaining {} events that haven't been collected:",
+             ctx->events.size());
+    for (auto e : ctx->events)
+      logDebug("{} status= {} refc={}", e->msg, e->getEventStatusStr(),
+               e->getCHIPRefc());
+  }
+}
 
 // Other
 //*************************************************************************

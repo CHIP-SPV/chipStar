@@ -77,7 +77,6 @@ class CHIPEventOpenCL : public CHIPEvent {
 
   virtual ~CHIPEventOpenCL() override;
   virtual void takeOver(CHIPEvent *other_) override;
-  virtual void deinit() override;
   virtual void decreaseRefCount() override;
   virtual void increaseRefCount() override;
   // void recordStream(CHIPQueue *chip_queue_) override;
@@ -134,10 +133,6 @@ class CHIPModuleOpenCL : public CHIPModule {
   CHIPModuleOpenCL(std::string *module_str) : CHIPModule(module_str){};
   virtual void compile(CHIPDevice *chip_dev) override;
   cl::Program &get() { return program; }
-
-  virtual bool registerVar(const char *var_name_) override {
-    UNIMPLEMENTED(false);
-  }
 };
 
 class SVMemoryRegion {
@@ -194,7 +189,7 @@ class CHIPDeviceOpenCL : public CHIPDevice {
 
   virtual CHIPModuleOpenCL *addModule(std::string *module_str) override {
     CHIPModuleOpenCL *mod = new CHIPModuleOpenCL(module_str);
-    chip_modules.push_back(mod);
+    ChipModules.insert(std::make_pair(module_str, mod));
     return mod;
   }
 
