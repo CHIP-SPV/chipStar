@@ -20,9 +20,10 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: checkout
       - uses: actions/checkout@v2
 
-      # Run clang-tidy
-      - name: clang-tidy check
-      - uses: muxee/clang-tidy-action@0.0.1-rc1
+#       # Run clang-tidy
+#       - name: clang-tidy check
+#       - uses: muxee/clang-tidy-action@0.0.1-rc1
       
