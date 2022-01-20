@@ -1,7 +1,7 @@
 ---
 Checks:          'readability-identifier-naming'
 WarningsAsErrors: ''
-HeaderFilterRegex: ''
+HeaderFilterRegex: './src/.*'
 AnalyzeTemporaryDtors: false
 FormatStyle:     none
 User:            pvelesko
