@@ -15,7 +15,7 @@ const std::string OpenCL_STD{"OpenCL.std"};
 class SPIRVtype {
   size_t z;
 
- public:
+public:
   SPIRVtype(size_t s) : z(s) {}
   virtual ~SPIRVtype(){};
   size_t size() { return z; }
@@ -23,10 +23,10 @@ class SPIRVtype {
   virtual OCLSpace getAS() { return OCLSpace::Private; }
 };
 
-typedef std::map<int32_t, SPIRVtype *> SPIRTypeMap;
+typedef std::map<int32_t, SPIRVtype*> SPIRTypeMap;
 
 class SPIRVtypePOD : public SPIRVtype {
- public:
+public:
   SPIRVtypePOD(int32_t id, size_t size) : SPIRVtype(size) {}
   virtual ~SPIRVtypePOD(){};
   virtual OCLType ocltype() override { return OCLType::POD; }
@@ -35,28 +35,28 @@ class SPIRVtypePOD : public SPIRVtype {
 class SPIRVtypePointer : public SPIRVtype {
   OCLSpace ASpace;
 
- public:
+public:
   SPIRVtypePointer(int32_t id, int32_t stor_class, size_t pointerSize)
       : SPIRVtype(pointerSize) {
     switch (stor_class) {
-      case (int32_t)spv::StorageClass::CrossWorkgroup:
-        ASpace = OCLSpace::Global;
-        break;
+    case (int32_t)spv::StorageClass::CrossWorkgroup:
+      ASpace = OCLSpace::Global;
+      break;
 
-      case (int32_t)spv::StorageClass::Workgroup:
-        ASpace = OCLSpace::Local;
-        break;
+    case (int32_t)spv::StorageClass::Workgroup:
+      ASpace = OCLSpace::Local;
+      break;
 
-      case (int32_t)spv::StorageClass::UniformConstant:
-        ASpace = OCLSpace::Constant;
-        break;
+    case (int32_t)spv::StorageClass::UniformConstant:
+      ASpace = OCLSpace::Constant;
+      break;
 
-      case (int32_t)spv::StorageClass::Function:
-        assert(0 && "should have been handled elsewhere!");
-        break;
+    case (int32_t)spv::StorageClass::Function:
+      assert(0 && "should have been handled elsewhere!");
+      break;
 
-      default:
-        ASpace = OCLSpace::Unknown;
+    default:
+      ASpace = OCLSpace::Unknown;
     }
   }
   virtual ~SPIRVtypePointer(){};
@@ -71,28 +71,31 @@ class SPIRVinst {
   int32_t word2;
   int32_t word3;
   std::string extra;
-  int32_t *orig_stream;
+  int32_t* orig_stream;
 
- public:
-  SPIRVinst(int32_t *stream) {
+public:
+  SPIRVinst(int32_t* stream) {
     orig_stream = stream;
     int32_t word0 = stream[0];
     wordCount = (unsigned)word0 >> 16;
     opcode = (spv::Op)(word0 & 0xFFFF);
 
-    if (wordCount > 1) word1 = stream[1];
+    if (wordCount > 1)
+      word1 = stream[1];
 
-    if (wordCount > 2) word2 = stream[2];
+    if (wordCount > 2)
+      word2 = stream[2];
 
-    if (wordCount > 3) word3 = stream[3];
+    if (wordCount > 3)
+      word3 = stream[3];
 
     if (opcode == spv::Op::OpEntryPoint) {
-      const char *pp = (const char *)(stream + 3);
+      const char* pp = (const char*)(stream + 3);
       extra = pp;
     }
 
     if (opcode == spv::Op::OpExtInstImport) {
-      const char *pp = (const char *)(stream + 2);
+      const char* pp = (const char*)(stream + 2);
       extra = pp;
     }
   }
@@ -107,7 +110,8 @@ class SPIRVinst {
            (word2 == (int32_t)spv::MemoryModel::OpenCL);
   }
   size_t getPointerSize() const {
-    if (opcode != spv::Op::OpMemoryModel) return 0;
+    if (opcode != spv::Op::OpMemoryModel)
+      return 0;
     return (word1 == (int32_t)spv::AddressingModel::Physical64) ? 8 : 4;
   }
   bool isLangOpenCL() const {
@@ -121,7 +125,7 @@ class SPIRVinst {
            (word1 == (int32_t)spv::ExecutionModel::Kernel);
   }
   int32_t entryPointID() { return word2; }
-  std::string &&entryPointName() { return std::move(extra); }
+  std::string&& entryPointName() { return std::move(extra); }
 
   size_t size() const { return wordCount; }
   spv::Op getOpcode() const { return opcode; }
@@ -141,7 +145,7 @@ class SPIRVinst {
   bool isFunctionType() const { return (opcode == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (opcode == spv::Op::OpFunction); }
 
-  SPIRVtype *decodeType(SPIRTypeMap &typeMap, size_t pointerSize) {
+  SPIRVtype* decodeType(SPIRTypeMap& typeMap, size_t pointerSize) {
     if (opcode == spv::Op::OpTypeVoid) {
       return new SPIRVtypePOD(word1, 0);
     }
@@ -192,17 +196,17 @@ class SPIRVinst {
     return nullptr;
   }
 
-  OCLFuncInfo *decodeFunctionType(SPIRTypeMap &typeMap, size_t pointerSize) {
+  OCLFuncInfo* decodeFunctionType(SPIRTypeMap& typeMap, size_t pointerSize) {
     assert(opcode == spv::Op::OpTypeFunction);
 
-    OCLFuncInfo *fi = new OCLFuncInfo;
+    OCLFuncInfo* fi = new OCLFuncInfo;
 
     int32_t ret_id = word2;
     auto it = typeMap.find(ret_id);
     assert(it != typeMap.end());
-    fi->retTypeInfo.type = it->second->ocltype();
-    fi->retTypeInfo.size = it->second->size();
-    fi->retTypeInfo.space = it->second->getAS();
+    fi->RetTypeInfo.Type = it->second->ocltype();
+    fi->RetTypeInfo.Size = it->second->size();
+    fi->RetTypeInfo.Space = it->second->getAS();
 
     size_t n_args = wordCount - 3;
     if (n_args > 0) {
@@ -211,9 +215,9 @@ class SPIRVinst {
         int32_t type_id = orig_stream[i + 3];
         auto it = typeMap.find(type_id);
         assert(it != typeMap.end());
-        fi->ArgTypeInfo[i].type = it->second->ocltype();
-        fi->ArgTypeInfo[i].size = it->second->size();
-        fi->ArgTypeInfo[i].space = it->second->getAS();
+        fi->ArgTypeInfo[i].Type = it->second->ocltype();
+        fi->ArgTypeInfo[i].Size = it->second->size();
+        fi->ArgTypeInfo[i].Space = it->second->getAS();
       }
     }
 
@@ -234,7 +238,7 @@ class SPIRVmodule {
   bool headerOK;
   bool parseOK;
 
- public:
+public:
   ~SPIRVmodule() {
     for (auto I : typeMap) {
       delete I.second;
@@ -246,8 +250,8 @@ class SPIRVmodule {
            memModelCL && parseOK;
   }
 
-  bool parseSPIRV(int32_t *stream, size_t numWords) {
-    int32_t *p = stream;
+  bool parseSPIRV(int32_t* stream, size_t numWords) {
+    int32_t* p = stream;
 
     kernelCapab = false;
     extIntOpenCL = false;
@@ -256,10 +260,12 @@ class SPIRVmodule {
     memModelCL = false;
     parseOK = false;
 
-    if (*p != spv::MagicNumber) return false;
+    if (*p != spv::MagicNumber)
+      return false;
     ++p;
 
-    if ((*p != spv::Version10) && (*p != spv::Version11)) return false;
+    if ((*p != spv::Version10) && (*p != spv::Version11))
+      return false;
     ++p;
 
     // GENERATOR
@@ -270,7 +276,8 @@ class SPIRVmodule {
     ++p;
 
     // RESERVED
-    if (*p != 0) return false;
+    if (*p != 0)
+      return false;
     ++p;
 
     headerOK = true;
@@ -280,8 +287,9 @@ class SPIRVmodule {
     return valid();
   }
 
-  bool fillModuleInfo(OpenCLFunctionInfoMap &moduleMap) {
-    if (!valid()) return false;
+  bool fillModuleInfo(OpenCLFunctionInfoMap& moduleMap) {
+    if (!valid())
+      return false;
 
     for (auto i : entryPoints) {
       int32_t EntryPointID = i.first;
@@ -295,16 +303,18 @@ class SPIRVmodule {
     return true;
   }
 
- private:
-  bool parseInstructionStream(int32_t *stream, size_t numWords) {
-    int32_t *p = stream;
+private:
+  bool parseInstructionStream(int32_t* stream, size_t numWords) {
+    int32_t* p = stream;
     size_t pointerSize = 0;
     while (numWords > 0) {
       SPIRVinst inst(p);
 
-      if (inst.isKernelCapab()) kernelCapab = true;
+      if (inst.isKernelCapab())
+        kernelCapab = true;
 
-      if (inst.isExtIntOpenCL()) extIntOpenCL = true;
+      if (inst.isExtIntOpenCL())
+        extIntOpenCL = true;
 
       if (inst.isMemModelOpenCL()) {
         memModelCL = true;
@@ -312,7 +322,8 @@ class SPIRVmodule {
         assert(pointerSize > 0);
       }
 
-      if (inst.isLangOpenCL()) languageCL = true;
+      if (inst.isLangOpenCL())
+        languageCL = true;
 
       if (inst.isEntryPoint()) {
         entryPoints.emplace(
@@ -347,9 +358,10 @@ class SPIRVmodule {
   }
 };
 
-bool parseSPIR(int32_t *stream, size_t numWords,
-               OpenCLFunctionInfoMap &output) {
+bool parseSPIR(int32_t* stream, size_t numWords,
+               OpenCLFunctionInfoMap& output) {
   SPIRVmodule Mod;
-  if (!Mod.parseSPIRV(stream, numWords)) return false;
+  if (!Mod.parseSPIRV(stream, numWords))
+    return false;
   return Mod.fillModuleInfo(output);
 }

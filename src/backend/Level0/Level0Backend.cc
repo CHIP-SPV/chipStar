@@ -1025,7 +1025,7 @@ void CHIPExecItem::setupAllArgs() {
   int LastArgIdx = -1;
 
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].space == OCLSpace::Local) {
+    if (FuncInfo->ArgTypeInfo[i].Space == OCLSpace::Local) {
       ++NumLocals;
     }
   }
@@ -1038,28 +1038,28 @@ void CHIPExecItem::setupAllArgs() {
          ++i, ++argIdx) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
 
-      if (ai.type == OCLType::Image) {
+      if (ai.Type == OCLType::Image) {
         CHIPTextureLevel0* texObj =
             (CHIPTextureLevel0*)(*((unsigned long*)(ArgsPointer_[1])));
 
         // Set image part
-        logTrace("setImageArg {} size {}\n", argIdx, ai.size);
+        logTrace("setImageArg {} size {}\n", argIdx, ai.Size);
         ze_result_t status = zeKernelSetArgumentValue(
-            kernel->get(), argIdx, ai.size, &(texObj->Image));
+            kernel->get(), argIdx, ai.Size, &(texObj->Image));
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
         // Set sampler part
         argIdx++;
 
-        logTrace("setImageArg {} size {}\n", argIdx, ai.size);
-        status = zeKernelSetArgumentValue(kernel->get(), argIdx, ai.size,
+        logTrace("setImageArg {} size {}\n", argIdx, ai.Size);
+        status = zeKernelSetArgumentValue(kernel->get(), argIdx, ai.Size,
                                           &(texObj->Sampler));
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd);
       } else {
-        logTrace("setArg {} size {} addr {}\n", argIdx, ai.size,
+        logTrace("setArg {} size {} addr {}\n", argIdx, ai.Size,
                  ArgsPointer_[i]);
         ze_result_t status = zeKernelSetArgumentValue(kernel->get(), argIdx,
-                                                      ai.size, ArgsPointer_[i]);
+                                                      ai.Size, ArgsPointer_[i]);
         CHIPERR_CHECK_LOG_AND_THROW(status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
       }
@@ -1099,12 +1099,12 @@ void CHIPExecItem::setupAllArgs() {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
       logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
                i, std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
-               (unsigned)ai.type, (unsigned)ai.space, ai.size);
+               (unsigned)ai.Type, (unsigned)ai.Space, ai.Size);
 
-      if (ai.type == OCLType::Pointer) {
+      if (ai.Type == OCLType::Pointer) {
         // TODO: sync with ExecItem's solution
-        assert(ai.size == sizeof(void*));
-        assert(std::get<1>(OffsetSizes_[i]) == ai.size);
+        assert(ai.Size == sizeof(void*));
+        assert(std::get<1>(OffsetSizes_[i]) == ai.Size);
         size_t size = std::get<1>(OffsetSizes_[i]);
         size_t offs = std::get<0>(OffsetSizes_[i]);
         const void* value = (void*)(start + offs);

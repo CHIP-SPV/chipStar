@@ -366,13 +366,13 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel&& cl_kernel_,
 
   if (NumArgs > 0) {
     logTrace("Kernel {} numArgs: {} \n", name, NumArgs);
-    logTrace("  RET_TYPE: {} {} {}\n", FuncInfo_->retTypeInfo.size,
-             (unsigned)FuncInfo_->retTypeInfo.space,
-             (unsigned)FuncInfo_->retTypeInfo.type);
+    logTrace("  RET_TYPE: {} {} {}\n", FuncInfo_->RetTypeInfo.Size,
+             (unsigned)FuncInfo_->RetTypeInfo.Space,
+             (unsigned)FuncInfo_->RetTypeInfo.Type);
     for (auto& argty : FuncInfo_->ArgTypeInfo) {
-      logTrace("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.size,
-               (unsigned)argty.space, (unsigned)argty.type);
-      TotalArgSize += argty.size;
+      logTrace("  ARG: SIZE {} SPACE {} TYPE {}\n", argty.Size,
+               (unsigned)argty.Space, (unsigned)argty.Type);
+      TotalArgSize += argty.Size;
     }
   }
 }
@@ -580,7 +580,7 @@ static int setLocalSize(size_t shared, OCLFuncInfo* FuncInfo,
   if (shared > 0) {
     logTrace("setLocalMemSize to {}\n", shared);
     size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
-    if (FuncInfo->ArgTypeInfo[LastArgIdx].space != OCLSpace::Local) {
+    if (FuncInfo->ArgTypeInfo[LastArgIdx].Space != OCLSpace::Local) {
       // this can happen if for example the llvm optimizes away
       // the dynamic local variable
       logWarn("Can't set the dynamic local size, "
@@ -600,7 +600,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL* kernel) {
   OCLFuncInfo* FuncInfo = kernel->get_func_info();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].space == OCLSpace::Local)
+    if (FuncInfo->ArgTypeInfo[i].Space == OCLSpace::Local)
       ++NumLocals;
   }
   // there can only be one dynamic shared mem variable, per cuda spec
@@ -611,20 +611,20 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL* kernel) {
     logTrace("Setting up arguments NEW HIP API");
     for (cl_uint i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
-      if (ai.type == OCLType::Pointer && ai.space != OCLSpace::Local) {
-        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, ai.size,
+      if (ai.Type == OCLType::Pointer && ai.Space != OCLSpace::Local) {
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, ai.Size,
                  ArgsPointer_[i]);
-        assert(ai.size == sizeof(void*));
+        assert(ai.Size == sizeof(void*));
         const void* argval = *(void**)ArgsPointer_[i];
         err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, argval);
 
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else {
-        logTrace("clSetKernelArg {} SIZE {} to {}\n", i, ai.size,
+        logTrace("clSetKernelArg {} SIZE {} to {}\n", i, ai.Size,
                  ArgsPointer_[i]);
         err =
-            ::clSetKernelArg(kernel->get().get(), i, ai.size, ArgsPointer_[i]);
+            ::clSetKernelArg(kernel->get().get(), i, ai.Size, ArgsPointer_[i]);
         CHIPERR_CHECK_LOG_AND_THROW(err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
       }
@@ -665,12 +665,12 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL* kernel) {
       OCLArgTypeInfo& ai = FuncInfo->ArgTypeInfo[i];
       logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
                i, std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
-               (unsigned)ai.type, (unsigned)ai.space, ai.size);
+               (unsigned)ai.Type, (unsigned)ai.Space, ai.Size);
 
-      if (ai.type == OCLType::Pointer) {
+      if (ai.Type == OCLType::Pointer) {
         // TODO other than global AS ?
-        assert(ai.size == sizeof(void*));
-        assert(std::get<1>(OffsetSizes_[i]) == ai.size);
+        assert(ai.Size == sizeof(void*));
+        assert(std::get<1>(OffsetSizes_[i]) == ai.Size);
         p = *(void**)(start + std::get<0>(OffsetSizes_[i]));
         logTrace("setArg SVM {} to {}\n", i, p);
         err = ::clSetKernelArgSVMPointer(kernel->get().get(), i, p);

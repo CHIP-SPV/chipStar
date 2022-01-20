@@ -17,21 +17,22 @@ enum class OCLSpace : unsigned {
 };
 
 struct OCLArgTypeInfo {
-  OCLType type;
-  OCLSpace space;
-  size_t size;
+  OCLType Type;
+  OCLSpace Space;
+  size_t Size;
 };
 
 struct OCLFuncInfo {
   std::vector<OCLArgTypeInfo> ArgTypeInfo;
-  OCLArgTypeInfo retTypeInfo;
+  OCLArgTypeInfo RetTypeInfo;
 };
 
-typedef std::map<int32_t, OCLFuncInfo *> OCLFuncInfoMap;
+typedef std::map<int32_t, OCLFuncInfo*> OCLFuncInfoMap;
 
-typedef std::map<std::string, OCLFuncInfo *> OpenCLFunctionInfoMap;
+typedef std::map<std::string, OCLFuncInfo*> OpenCLFunctionInfoMap;
 
-bool parseSPIR(int32_t *stream, size_t numWords, OpenCLFunctionInfoMap &output);
+bool parseSPIR(int32_t* Stream, size_t NumWords,
+               OpenCLFunctionInfoMap& FuncInfoMap);
 
 /// A prefix given to lowered global scope device variables.
 constexpr char ChipVarPrefix[] = "__chip_var_";
