@@ -23,7 +23,7 @@ CheckOptions:
   - key: readability-identifier-naming.LocalVariableCase
     value: CamelCase 
   - key: readability-identifier-naming.LocalVariableIgnoredRegexp
-    value: [i,j,k]{1}
+    value: "[i,j,k]{1}"
   - key: readability-identifier-naming.MethodCase
     value: camelBack
   - key: readability-identifier-naming.ParameterCase 
