@@ -20,6 +20,10 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.VariableCase
     value: CamelCase
+  - key: readability-identifier-naming.LocalVariableCase
+    value: CamelCase 
+  - key: readability-identifier-naming.LocalVariableIgnoredRegexp
+    value: "\w{1,2}" 
   - key: readability-identifier-naming.MethodCase
     value: camelBack
   - key: readability-identifier-naming.ParameterCase 
