@@ -28,14 +28,14 @@ extern CHIPBackend* Backend;
  * @brief
  * Singleton backend initialization flag
  */
-extern std::once_flag initialized;
-extern std::once_flag uninitialized;
+extern std::once_flag Initialized;
+extern std::once_flag Uninitialized;
 
 /**
  * @brief
  * Singleton backend initialization function outer wrapper
  */
-extern void CHIPInitialize(std::string BE = "");
+extern void CHIPInitialize(std::string BackendStr = "");
 
 /**
  * @brief
@@ -47,7 +47,7 @@ extern void CHIPUninitialize();
  * @brief
  * Singleton backend initialization function called via std::call_once
  */
-void CHIPInitializeCallOnce(std::string BE = "");
+void CHIPInitializeCallOnce(std::string BackendStr = "");
 
 /**
  * @brief
@@ -55,7 +55,7 @@ void CHIPInitializeCallOnce(std::string BE = "");
  */
 void CHIPUninitializeCallOnce();
 
-std::string read_env_var(std::string ENV_VAR, bool lower);
+std::string read_env_var(std::string EnvVar, bool Lower);
 std::string read_backend_selection();
 
 #endif

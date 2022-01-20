@@ -16,8 +16,8 @@
 
 #include "backend/backends.hh"
 
-std::once_flag initialized;
-std::once_flag uninitialized;
+std::once_flag Initialized;
+std::once_flag Uninitialized;
 CHIPBackend* Backend;
 
 std::string read_env_var(std::string ENV_VAR, bool lower = true) {
@@ -39,13 +39,16 @@ std::string read_backend_selection();
 void read_env_vars(std::string& CHIPPlatformStr, std::string& CHIPDeviceTypeStr,
                    std::string& CHIPDeviceStr) {
   CHIPPlatformStr = read_env_var("CHIP_PLATFORM");
-  if (CHIPPlatformStr.size() == 0) CHIPPlatformStr = "0";
+  if (CHIPPlatformStr.size() == 0)
+    CHIPPlatformStr = "0";
 
   CHIPDeviceTypeStr = read_env_var("CHIP_DEVICE_TYPE");
-  if (CHIPDeviceTypeStr.size() == 0) CHIPDeviceTypeStr = "gpu";
+  if (CHIPDeviceTypeStr.size() == 0)
+    CHIPDeviceTypeStr = "gpu";
 
   CHIPDeviceStr = read_env_var("CHIP_DEVICE");
-  if (CHIPDeviceStr.size() == 0) CHIPDeviceStr = "0";
+  if (CHIPDeviceStr.size() == 0)
+    CHIPDeviceStr = "0";
 
   logDebug("CHIP_PLATFORM={}", CHIPPlatformStr.c_str());
   logDebug("CHIP_DEVICE_TYPE={}", CHIPDeviceTypeStr.c_str());
@@ -88,7 +91,7 @@ void CHIPInitializeCallOnce(std::string BE) {
 }
 
 extern void CHIPInitialize(std::string BE) {
-  std::call_once(initialized, &CHIPInitializeCallOnce, BE);
+  std::call_once(Initialized, &CHIPInitializeCallOnce, BE);
 };
 
 void CHIPUninitializeCallOnce() {
@@ -97,5 +100,5 @@ void CHIPUninitializeCallOnce() {
 }
 
 extern void CHIPUninitialize() {
-  std::call_once(uninitialized, &CHIPUninitializeCallOnce);
+  std::call_once(Uninitialized, &CHIPUninitializeCallOnce);
 }
