@@ -1,18 +1,31 @@
-name: Lint Code Base
+# Workflow syntax:
+# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+name: cpp-linter
 
 on:
+  push:
+    paths-ignore: "docs/**"
   pull_request:
-    branches: [ main ]
+    paths-ignore: "docs/**"
+
 jobs:
-  run-lint:
+  cpp-linter:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - uses: shenxianpeng/cpp-linter-action@master
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          version: 12
+          files-changed-only: true
+          extensions: 'cc,hh'
 
-      - name: clang-tidy check
-        uses: muxee/clang-tidy-action@0.0.1-rc1
-#         env:
-#           VALIDATE_ALL_CODEBASE: false
-#           DEFAULT_BRANCH: main
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fail fast?!
+        if: steps.linter.outputs.checks-failed > 0
+        run: |
+          echo "Some files failed the linting checks!"
+        # for actual deployment
+        # run: exit 1
