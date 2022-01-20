@@ -13,60 +13,60 @@ extern void setupSpdlog();
 extern void _setupSpdlog();
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_TRACE
-template <typename... Args>
-void logTrace(const char *fmt, const Args &...args) {
+template <typename... TypeArgs>
+void logTrace(const char* Fmt, const TypeArgs&... Args) {
   setupSpdlog();
-  spdlog::trace(fmt, std::forward<const Args>(args)...);
+  spdlog::trace(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logTrace(...) void(0)
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
-template <typename... Args>
-void logDebug(const char *fmt, const Args &...args) {
+template <typename... TypeArgs>
+void logDebug(const char* Fmt, const TypeArgs&... Args) {
   setupSpdlog();
-  spdlog::debug(fmt, std::forward<const Args>(args)...);
+  spdlog::debug(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logDebug(...) void(0)
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
-template <typename... Args>
-void logInfo(const char *fmt, const Args &...args) {
+template <typename... TypeArgs>
+void logInfo(const char* Fmt, const TypeArgs&... Args) {
   setupSpdlog();
-  spdlog::info(fmt, std::forward<const Args>(args)...);
+  spdlog::info(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logInfo(...) void(0)
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_WARN
-template <typename... Args>
-void logWarn(const char *fmt, const Args &...args) {
+template <typename... TypeArgs>
+void logWarn(const char* Fmt, const TypeArgs&... Args) {
   setupSpdlog();
-  spdlog::warn(fmt, std::forward<const Args>(args)...);
+  spdlog::warn(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logWarn(...) void(0)
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_ERROR
-template <typename... Args>
-void logError(const char *fmt, const Args &...args) {
+template <typename... TypeArgs>
+void logError(const char* Fmt, const TypeArgs&... Args) {
   setupSpdlog();
-  spdlog::error(fmt, std::forward<const Args>(args)...);
+  spdlog::error(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logError(...) void(0)
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_CRITICAL
-template <typename... Args>
-void logCritical(const char *fmt, const Args &...args) {
+template <typename... TypeArgs>
+void logCritical(const char* Fmt, const TypeArgs&... Args) {
   setupSpdlog();
-  spdlog::critical(fmt, std::forward<const Args>(args)...);
+  spdlog::critical(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logCritical(...) void(0)
