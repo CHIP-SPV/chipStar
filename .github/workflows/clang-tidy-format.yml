@@ -24,10 +24,7 @@ jobs:
           lines-changed-only: true
           extensions: 'cc,hh'
           tidy-checks: 'readability-identifier-naming'
-
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
-        run: |
-          echo "Some files failed the linting checks!"
-        # for actual deployment
-        # run: exit 1
+        run: exit 1
+
