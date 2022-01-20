@@ -21,6 +21,7 @@ jobs:
           style: file
           version: 12
           files-changed-only: true
+          lines-changed-only: true
           extensions: 'cc,hh'
           tidy-checks: 'readability-identifier-naming'
 
