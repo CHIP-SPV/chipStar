@@ -12,7 +12,11 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.PrivateMemberSuffix
     value: _
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: _
   - key: readability-identifier-naming.PrivateMemberCase
+    value: CamelCase
+  - key: readability-identifier-naming.ProtectedMemberCase
     value: CamelCase
   - key: readability-identifier-naming.VariableCase
     value: CamelCase
