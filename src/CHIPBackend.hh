@@ -1053,7 +1053,7 @@ class CHIPContext {
 protected:
   std::vector<CHIPDevice*> ChipDevices_;
   std::vector<CHIPQueue*> ChipQueues_;
-  std::vector<void*> AloocatedPtrs_;
+  std::vector<void*> AllocatedPtrs_;
 
   unsigned int Flags_;
 
