@@ -1,3 +1,13 @@
+/**
+ * @file CHIPException.hh
+ * @author Paulius Velesko (pvelesko@gmail.com)
+ * @brief Header defining CHIP Exceptions
+ * @version 0.1
+ * @date 2021-08-19
+ *
+ * @copyright Copyright (c) 2021
+ *
+ */
 #ifndef CHIP_EXCEPTION_HH
 #define CHIP_EXCEPTION_HH
 
