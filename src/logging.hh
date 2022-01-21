@@ -14,7 +14,7 @@ extern void _setupSpdlog();
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_TRACE
 template <typename... TypeArgs>
-void logTrace(const char* Fmt, const TypeArgs&... Args) {
+void logTrace(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
   spdlog::trace(Fmt, std::forward<const TypeArgs>(Args)...);
 }
@@ -24,7 +24,7 @@ void logTrace(const char* Fmt, const TypeArgs&... Args) {
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
 template <typename... TypeArgs>
-void logDebug(const char* Fmt, const TypeArgs&... Args) {
+void logDebug(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
   spdlog::debug(Fmt, std::forward<const TypeArgs>(Args)...);
 }
@@ -34,7 +34,7 @@ void logDebug(const char* Fmt, const TypeArgs&... Args) {
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
 template <typename... TypeArgs>
-void logInfo(const char* Fmt, const TypeArgs&... Args) {
+void logInfo(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
   spdlog::info(Fmt, std::forward<const TypeArgs>(Args)...);
 }
@@ -44,7 +44,7 @@ void logInfo(const char* Fmt, const TypeArgs&... Args) {
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_WARN
 template <typename... TypeArgs>
-void logWarn(const char* Fmt, const TypeArgs&... Args) {
+void logWarn(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
   spdlog::warn(Fmt, std::forward<const TypeArgs>(Args)...);
 }
@@ -54,7 +54,7 @@ void logWarn(const char* Fmt, const TypeArgs&... Args) {
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_ERROR
 template <typename... TypeArgs>
-void logError(const char* Fmt, const TypeArgs&... Args) {
+void logError(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
   spdlog::error(Fmt, std::forward<const TypeArgs>(Args)...);
 }
@@ -64,7 +64,7 @@ void logError(const char* Fmt, const TypeArgs&... Args) {
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_CRITICAL
 template <typename... TypeArgs>
-void logCritical(const char* Fmt, const TypeArgs&... Args) {
+void logCritical(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
   spdlog::critical(Fmt, std::forward<const TypeArgs>(Args)...);
 }

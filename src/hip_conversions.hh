@@ -264,11 +264,11 @@ inline hipChannelFormatDesc getChannelFormatDesc(int NumChannels,
   return {};
 }
 
-inline unsigned int getNumChannels(const hipChannelFormatDesc& Desc) {
+inline unsigned int getNumChannels(const hipChannelFormatDesc &Desc) {
   return ((Desc.x != 0) + (Desc.y != 0) + (Desc.z != 0) + (Desc.w != 0));
 }
 
-inline hipArray_Format getArrayFormat(const hipChannelFormatDesc& Desc) {
+inline hipArray_Format getArrayFormat(const hipChannelFormatDesc &Desc) {
   switch (Desc.f) {
   case hipChannelFormatKindUnsigned:
     switch (Desc.x) {
@@ -386,7 +386,7 @@ inline hipArray_Format getArrayFormat(const hipResourceViewFormat HipFormat) {
 }
 
 inline hipResourceViewFormat
-getResourceViewFormat(const hipChannelFormatDesc& Desc) {
+getResourceViewFormat(const hipChannelFormatDesc &Desc) {
   switch (Desc.f) {
   case hipChannelFormatKindUnsigned:
     switch (getNumChannels(Desc)) {
@@ -481,7 +481,7 @@ getResourceViewFormat(const hipChannelFormatDesc& Desc) {
   return {};
 }
 
-inline hipTextureDesc getTextureDesc(const textureReference* TexRef) {
+inline hipTextureDesc getTextureDesc(const textureReference *TexRef) {
   hipTextureDesc TexDesc = {};
   std::memcpy(TexDesc.addressMode, TexRef->addressMode,
               sizeof(TexDesc.addressMode));
@@ -551,7 +551,7 @@ getMemoryType(const hipMemcpyKind kind) {
   return {};
 }
 
-inline HIP_MEMCPY3D getDrvMemcpy3DDesc(const hip_Memcpy2D& Desc2D) {
+inline HIP_MEMCPY3D getDrvMemcpy3DDesc(const hip_Memcpy2D &Desc2D) {
   HIP_MEMCPY3D Desc3D = {};
 
   Desc3D.srcXInBytes = Desc2D.srcXInBytes;
@@ -583,7 +583,7 @@ inline HIP_MEMCPY3D getDrvMemcpy3DDesc(const hip_Memcpy2D& Desc2D) {
   return Desc3D;
 }
 
-inline HIP_MEMCPY3D getDrvMemcpy3DDesc(const hipMemcpy3DParms& Desc) {
+inline HIP_MEMCPY3D getDrvMemcpy3DDesc(const hipMemcpy3DParms &Desc) {
   HIP_MEMCPY3D DescDrv = {};
 
   DescDrv.WidthInBytes = Desc.extent.width;
@@ -653,7 +653,7 @@ inline HIPresourcetype getResourceType(const hipResourceType ResType) {
   return static_cast<HIPresourcetype>(ResType);
 }
 
-inline hipResourceDesc getResourceDesc(const HIP_RESOURCE_DESC& ResDesc) {
+inline hipResourceDesc getResourceDesc(const HIP_RESOURCE_DESC &ResDesc) {
   hipResourceDesc Desc;
 
   Desc.resType = getResourceType(ResDesc.resType);
@@ -685,7 +685,7 @@ inline hipResourceDesc getResourceDesc(const HIP_RESOURCE_DESC& ResDesc) {
   return Desc;
 }
 
-inline HIP_RESOURCE_DESC getResourceDesc(const hipResourceDesc& ResDesc) {
+inline HIP_RESOURCE_DESC getResourceDesc(const hipResourceDesc &ResDesc) {
   HIP_RESOURCE_DESC Desc;
 
   Desc.resType = getResourceType(ResDesc.resType);
@@ -785,7 +785,7 @@ inline unsigned int getNormalizedCoords(const int NormalizedCoords) {
   }
 }
 
-inline hipTextureDesc getTextureDesc(const HIP_TEXTURE_DESC& TexDesc) {
+inline hipTextureDesc getTextureDesc(const HIP_TEXTURE_DESC &TexDesc) {
   hipTextureDesc Desc;
 
   Desc.addressMode[0] = getAddressMode(TexDesc.addressMode[0]);
@@ -805,7 +805,7 @@ inline hipTextureDesc getTextureDesc(const HIP_TEXTURE_DESC& TexDesc) {
   return Desc;
 }
 
-inline HIP_TEXTURE_DESC getTextureDesc(const hipTextureDesc& TexDesc) {
+inline HIP_TEXTURE_DESC getTextureDesc(const hipTextureDesc &TexDesc) {
   HIP_TEXTURE_DESC Desc;
 
   Desc.addressMode[0] = getAddressMode(TexDesc.addressMode[0]);
@@ -839,7 +839,7 @@ getResourceViewFormat(const hipResourceViewFormat Format) {
 }
 
 inline hipResourceViewDesc
-getResourceViewDesc(const HIP_RESOURCE_VIEW_DESC& ResViewDesc) {
+getResourceViewDesc(const HIP_RESOURCE_VIEW_DESC &ResViewDesc) {
   hipResourceViewDesc Desc;
 
   Desc.format = getResourceViewFormat(ResViewDesc.format);
@@ -855,7 +855,7 @@ getResourceViewDesc(const HIP_RESOURCE_VIEW_DESC& ResViewDesc) {
 }
 
 inline HIP_RESOURCE_VIEW_DESC
-getResourceViewDesc(const hipResourceViewDesc& ResViewDesc) {
+getResourceViewDesc(const hipResourceViewDesc &ResViewDesc) {
   HIP_RESOURCE_VIEW_DESC Desc;
 
   Desc.format = getResourceViewFormat(ResViewDesc.format);
@@ -870,6 +870,6 @@ getResourceViewDesc(const hipResourceViewDesc& ResViewDesc) {
   return Desc;
 }
 
-inline size_t getElementSize(const hipChannelFormatDesc& desc) {
+inline size_t getElementSize(const hipChannelFormatDesc &desc) {
   return (desc.x / 8) * getNumChannels(desc);
 }

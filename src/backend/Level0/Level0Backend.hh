@@ -27,21 +27,21 @@ private:
   uint64_t timestamp;
 
 public:
-  CHIPEventLevel0(CHIPContextLevel0* chip_ctx_,
+  CHIPEventLevel0(CHIPContextLevel0 *chip_ctx_,
                   CHIPEventFlags flags_ = CHIPEventFlags());
   virtual ~CHIPEventLevel0() override;
 
-  void recordStream(CHIPQueue* chip_queue_) override;
+  void recordStream(CHIPQueue *chip_queue_) override;
 
   virtual bool wait() override;
 
   bool updateFinishStatus() override;
 
-  virtual void takeOver(CHIPEvent* other) override;
+  virtual void takeOver(CHIPEvent *other) override;
 
   unsigned long getFinishTime();
 
-  virtual float getElapsedTime(CHIPEvent* other_) override;
+  virtual float getElapsedTime(CHIPEvent *other_) override;
 
   virtual void hostSignal() override;
 
@@ -57,8 +57,8 @@ private:
   ze_event_pool_handle_t ze_event_pool;
 
 public:
-  CHIPCallbackDataLevel0(hipStreamCallback_t callback_f_, void* callback_args_,
-                         CHIPQueue* chip_queue_);
+  CHIPCallbackDataLevel0(hipStreamCallback_t callback_f_, void *callback_args_,
+                         CHIPQueue *chip_queue_);
   virtual void setup() override;
 };
 
@@ -75,7 +75,7 @@ protected:
 public:
   CHIPKernelLevel0();
   CHIPKernelLevel0(ze_kernel_handle_t _ze_kernel, std::string _funcName,
-                   OCLFuncInfo* func_info_);
+                   OCLFuncInfo *func_info_);
 
   ze_kernel_handle_t get() { return ze_kernel; }
 };
@@ -103,50 +103,50 @@ protected:
   ze_event_handle_t finish_event;
 
   // The shared memory buffer
-  void* shared_buf;
+  void *shared_buf;
 
 public:
-  CHIPQueueLevel0(CHIPDeviceLevel0* chip_dev_);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *chip_dev_);
 
-  virtual CHIPEventLevel0* getLastEvent() override;
+  virtual CHIPEventLevel0 *getLastEvent() override;
 
-  virtual CHIPEvent* launchImpl(CHIPExecItem* exec_item) override;
+  virtual CHIPEvent *launchImpl(CHIPExecItem *exec_item) override;
 
   virtual void finish() override;
 
-  virtual CHIPEvent* memCopyAsyncImpl(void* dst, const void* src,
+  virtual CHIPEvent *memCopyAsyncImpl(void *dst, const void *src,
                                       size_t size) override;
 
   ze_command_list_handle_t getCmdList() { return ze_cmd_list_imm; }
   ze_command_queue_handle_t getCmdQueue() { return ze_cmd_q; }
-  void* getSharedBufffer() { return shared_buf; };
+  void *getSharedBufffer() { return shared_buf; };
 
-  virtual CHIPEvent* memFillAsyncImpl(void* dst, size_t size,
-                                      const void* pattern,
+  virtual CHIPEvent *memFillAsyncImpl(void *dst, size_t size,
+                                      const void *pattern,
                                       size_t pattern_size) override;
 
-  virtual CHIPEvent* memCopy2DAsyncImpl(void* dst, size_t dpitch,
-                                        const void* src, size_t spitch,
+  virtual CHIPEvent *memCopy2DAsyncImpl(void *dst, size_t dpitch,
+                                        const void *src, size_t spitch,
                                         size_t width, size_t height) override;
 
-  virtual CHIPEvent* memCopy3DAsyncImpl(void* dst, size_t dpitch,
-                                        size_t dspitch, const void* src,
+  virtual CHIPEvent *memCopy3DAsyncImpl(void *dst, size_t dpitch,
+                                        size_t dspitch, const void *src,
                                         size_t spitch, size_t sspitch,
                                         size_t width, size_t height,
                                         size_t depth) override;
 
   // Memory copy to texture object, i.e. image
-  virtual CHIPEvent* memCopyToTextureImpl(CHIPTexture* texObj,
-                                          void* src) override;
+  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *texObj,
+                                          void *src) override;
 
-  virtual void getBackendHandles(unsigned long* nativeInfo, int* size) override;
+  virtual void getBackendHandles(unsigned long *nativeInfo, int *size) override;
 
-  virtual CHIPEvent* enqueueMarkerImpl() override;
+  virtual CHIPEvent *enqueueMarkerImpl() override;
 
-  virtual CHIPEvent*
-  enqueueBarrierImpl(std::vector<CHIPEvent*>* eventsToWaitFor) override;
+  virtual CHIPEvent *
+  enqueueBarrierImpl(std::vector<CHIPEvent *> *eventsToWaitFor) override;
 
-  virtual CHIPEvent* memPrefetchImpl(const void* ptr, size_t count) override {
+  virtual CHIPEvent *memPrefetchImpl(const void *ptr, size_t count) override {
     UNIMPLEMENTED(nullptr);
   }
 
@@ -159,16 +159,16 @@ public:
   ze_context_handle_t ze_ctx;
   ze_driver_handle_t ze_driver;
   CHIPContextLevel0(ze_driver_handle_t ze_driver_,
-                    ze_context_handle_t&& _ze_ctx)
+                    ze_context_handle_t &&_ze_ctx)
       : ze_driver(ze_driver_), ze_ctx(_ze_ctx) {}
   CHIPContextLevel0(ze_driver_handle_t ze_driver_, ze_context_handle_t _ze_ctx)
       : ze_driver(ze_driver_), ze_ctx(_ze_ctx) {}
 
-  void* allocateImpl(size_t size, size_t alignment,
+  void *allocateImpl(size_t size, size_t alignment,
                      CHIPMemoryType memTy) override;
 
-  void freeImpl(void* ptr) override{}; // TODO
-  ze_context_handle_t& get() { return ze_ctx; }
+  void freeImpl(void *ptr) override{}; // TODO
+  ze_context_handle_t &get() { return ze_ctx; }
 
 }; // CHIPContextLevel0
 
@@ -176,14 +176,14 @@ class CHIPModuleLevel0 : public CHIPModule {
   ze_module_handle_t ze_module;
 
 public:
-  CHIPModuleLevel0(std::string* module_str) : CHIPModule(module_str) {}
+  CHIPModuleLevel0(std::string *module_str) : CHIPModule(module_str) {}
   /**
    * @brief Compile this module.
    * Extracts kernels, sets the ze_module
    *
    * @param chip_dev device for which to compile this module for
    */
-  virtual void compile(CHIPDevice* chip_dev) override;
+  virtual void compile(CHIPDevice *chip_dev) override;
   /**
    * @brief return the raw module handle
    *
@@ -199,23 +199,23 @@ public:
       : CHIPTexture(image_, sampler_){};
 
   // The factory function for creating the LZ texture object
-  static CHIPTextureLevel0*
-  CreateTextureObject(CHIPQueueLevel0* queue, const hipResourceDesc* pResDesc,
-                      const hipTextureDesc* pTexDesc,
-                      const struct hipResourceViewDesc* pResViewDesc) {
+  static CHIPTextureLevel0 *
+  CreateTextureObject(CHIPQueueLevel0 *queue, const hipResourceDesc *pResDesc,
+                      const hipTextureDesc *pTexDesc,
+                      const struct hipResourceViewDesc *pResViewDesc) {
     UNIMPLEMENTED(nullptr);
   };
 
   // Destroy the HIP texture object
-  static bool DestroyTextureObject(CHIPTextureLevel0* texObj) {
+  static bool DestroyTextureObject(CHIPTextureLevel0 *texObj) {
     UNIMPLEMENTED(true);
   }
 
   // The factory function for create the LZ image object
-  static ze_image_handle_t*
-  createImage(CHIPDeviceLevel0* chip_dev, const hipResourceDesc* pResDesc,
-              const hipTextureDesc* pTexDesc,
-              const struct hipResourceViewDesc* pResViewDesc);
+  static ze_image_handle_t *
+  createImage(CHIPDeviceLevel0 *chip_dev, const hipResourceDesc *pResDesc,
+              const hipTextureDesc *pTexDesc,
+              const struct hipResourceViewDesc *pResViewDesc);
 
   // Destroy the LZ image object
   static bool DestroyImage(ze_image_handle_t handle) {
@@ -227,10 +227,10 @@ public:
   }
 
   // The factory function for create the LZ sampler object
-  static ze_sampler_handle_t*
-  createSampler(CHIPDeviceLevel0* chip_dev, const hipResourceDesc* pResDesc,
-                const hipTextureDesc* pTexDesc,
-                const struct hipResourceViewDesc* pResViewDesc);
+  static ze_sampler_handle_t *
+  createSampler(CHIPDeviceLevel0 *chip_dev, const hipResourceDesc *pResDesc,
+                const hipTextureDesc *pTexDesc,
+                const struct hipResourceViewDesc *pResViewDesc);
 
   // Destroy the LZ sampler object
   static bool DestroySampler(ze_sampler_handle_t handle) { // TODO return void
@@ -250,27 +250,27 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_properties_t ze_device_props;
 
 public:
-  CHIPDeviceLevel0(ze_device_handle_t* ze_dev_, CHIPContextLevel0* chip_ctx_);
-  CHIPDeviceLevel0(ze_device_handle_t&& ze_dev_, CHIPContextLevel0* chip_ctx_);
+  CHIPDeviceLevel0(ze_device_handle_t *ze_dev_, CHIPContextLevel0 *chip_ctx_);
+  CHIPDeviceLevel0(ze_device_handle_t &&ze_dev_, CHIPContextLevel0 *chip_ctx_);
 
   virtual void populateDevicePropertiesImpl() override;
-  ze_device_handle_t& get() { return ze_dev; }
+  ze_device_handle_t &get() { return ze_dev; }
 
   virtual void reset() override;
-  virtual CHIPModuleLevel0* addModule(std::string* module_str) override {
+  virtual CHIPModuleLevel0 *addModule(std::string *module_str) override {
     logTrace("CHIPModuleLevel0::addModule()");
-    CHIPModuleLevel0* mod = new CHIPModuleLevel0(module_str);
+    CHIPModuleLevel0 *mod = new CHIPModuleLevel0(module_str);
     ChipModules.insert(std::make_pair(module_str, mod));
     return mod;
   }
 
-  virtual CHIPQueue* addQueueImpl(unsigned int flags, int priority) override;
-  ze_device_properties_t* getDeviceProps() { return &(this->ze_device_props); };
-  virtual CHIPTexture*
-  createTexture(const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
-                const struct hipResourceViewDesc* pResViewDesc) override;
+  virtual CHIPQueue *addQueueImpl(unsigned int flags, int priority) override;
+  ze_device_properties_t *getDeviceProps() { return &(this->ze_device_props); };
+  virtual CHIPTexture *
+  createTexture(const hipResourceDesc *pResDesc, const hipTextureDesc *pTexDesc,
+                const struct hipResourceViewDesc *pResViewDesc) override;
 
-  virtual void destroyTexture(CHIPTexture* textureObject) override {
+  virtual void destroyTexture(CHIPTexture *textureObject) override {
     if (textureObject == nullptr)
       CHIPERR_LOG_AND_THROW("textureObject is nullptr", hipErrorTbd);
 
@@ -298,7 +298,7 @@ public:
     logDebug("");
     logDebug("CHIPBackendLevel0::uninitialize()");
     for (auto q : Backend->getQueues()) {
-      CHIPContext* ctx = q->getContext();
+      CHIPContext *ctx = q->getContext();
       logDebug("Remaining {} events that haven't been collected:",
                ctx->Events.size());
       for (auto e : ctx->Events)
@@ -307,12 +307,12 @@ public:
     }
   }
 
-  virtual CHIPTexture* createCHIPTexture(intptr_t image_,
+  virtual CHIPTexture *createCHIPTexture(intptr_t image_,
                                          intptr_t sampler_) override {
     return new CHIPTextureLevel0(image_, sampler_);
   }
-  virtual CHIPQueue* createCHIPQueue(CHIPDevice* chip_dev) override {
-    CHIPDeviceLevel0* chip_dev_lz = (CHIPDeviceLevel0*)chip_dev;
+  virtual CHIPQueue *createCHIPQueue(CHIPDevice *chip_dev) override {
+    CHIPDeviceLevel0 *chip_dev_lz = (CHIPDeviceLevel0 *)chip_dev;
     auto q = new CHIPQueueLevel0(chip_dev_lz);
     Backend->addQueue(q);
     return q;
@@ -324,20 +324,20 @@ public:
   // virtual CHIPContext* createCHIPContext() overricreateCHIPEventde {
   //   return new CHIPContextLevel0();
   // };
-  virtual CHIPEventLevel0*
-  createCHIPEvent(CHIPContext* chip_ctx_,
+  virtual CHIPEventLevel0 *
+  createCHIPEvent(CHIPContext *chip_ctx_,
                   CHIPEventFlags flags_ = CHIPEventFlags()) override {
-    auto ev = new CHIPEventLevel0((CHIPContextLevel0*)chip_ctx_, flags_);
+    auto ev = new CHIPEventLevel0((CHIPContextLevel0 *)chip_ctx_, flags_);
     return ev;
   }
 
-  virtual CHIPCallbackData*
-  createCallbackData(hipStreamCallback_t callback, void* userData,
-                     CHIPQueue* chip_queue_) override {
+  virtual CHIPCallbackData *
+  createCallbackData(hipStreamCallback_t callback, void *userData,
+                     CHIPQueue *chip_queue_) override {
     return new CHIPCallbackDataLevel0(callback, userData, chip_queue_);
   }
 
-  virtual CHIPEventMonitor* createEventMonitor() override {
+  virtual CHIPEventMonitor *createEventMonitor() override {
     return new CHIPEventMonitorLevel0();
   }
 

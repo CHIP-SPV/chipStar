@@ -13,7 +13,7 @@ void _setupSpdlog() {
 
   spdlog::level::level_enum SpdLogLevel;
 
-  const char* LogLevel = getenv("CHIP_LOGLEVEL");
+  const char *LogLevel = getenv("CHIP_LOGLEVEL");
   if (LogLevel) {
     // std::cout << "CHIP_LOGLEVEL=" << loglevel << "\n";
     std::string Level(LogLevel);

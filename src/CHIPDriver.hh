@@ -22,7 +22,7 @@
  * Global Backend pointer through which backend-specific operations are
  * performed
  */
-extern CHIPBackend* Backend;
+extern CHIPBackend *Backend;
 
 /**
  * @brief

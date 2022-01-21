@@ -63,14 +63,14 @@ inline void checkIfNullptr(int NumArgs, ...) {
 
   va_start(VaArgList, NumArgs);
   while (NumArgs--)
-    if (va_arg(VaArgList, const void*) == nullptr)
+    if (va_arg(VaArgList, const void *) == nullptr)
       CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
   va_end(VaArgList);
 
   return;
 }
 
-#define NUMARGS(...) (sizeof((const void*[]){__VA_ARGS__}) / sizeof(void*))
+#define NUMARGS(...) (sizeof((const void *[]){__VA_ARGS__}) / sizeof(void *))
 #define NULLCHECK(...) checkIfNullptr(NUMARGS(__VA_ARGS__), __VA_ARGS__);
 
 #endif // ifdef guard

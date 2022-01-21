@@ -27,12 +27,12 @@ struct OCLFuncInfo {
   OCLArgTypeInfo RetTypeInfo;
 };
 
-typedef std::map<int32_t, OCLFuncInfo*> OCLFuncInfoMap;
+typedef std::map<int32_t, OCLFuncInfo *> OCLFuncInfoMap;
 
-typedef std::map<std::string, OCLFuncInfo*> OpenCLFunctionInfoMap;
+typedef std::map<std::string, OCLFuncInfo *> OpenCLFunctionInfoMap;
 
-bool parseSPIR(int32_t* Stream, size_t NumWords,
-               OpenCLFunctionInfoMap& FuncInfoMap);
+bool parseSPIR(int32_t *Stream, size_t NumWords,
+               OpenCLFunctionInfoMap &FuncInfoMap);
 
 /// A prefix given to lowered global scope device variables.
 constexpr char ChipVarPrefix[] = "__chip_var_";

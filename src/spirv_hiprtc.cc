@@ -34,54 +34,54 @@ extern "C" {
 #pragma GCC visibility push(default)
 #endif
 
-const char* hiprtcGetErrorString(hiprtcResult Result) {
+const char *hiprtcGetErrorString(hiprtcResult Result) {
   UNIMPLEMENTED(nullptr);
 }
 
-hiprtcResult hiprtcVersion(int* Major, int* Minor) {
+hiprtcResult hiprtcVersion(int *Major, int *Minor) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
-                                     const char* NameExpression) {
+                                     const char *NameExpression) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
-                                  const char** Options) {
+                                  const char **Options) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcCreateProgram(hiprtcProgram* Prog, const char* Src,
-                                 const char* Name, int NumHeaders,
-                                 const char** Headers,
-                                 const char** IncludeNames) {
+hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
+                                 const char *Name, int NumHeaders,
+                                 const char **Headers,
+                                 const char **IncludeNames) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcDestroyProgram(hiprtcProgram* Prog) {
+hiprtcResult hiprtcDestroyProgram(hiprtcProgram *Prog) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
 hiprtcResult hiprtcGetLoweredName(hiprtcProgram Prog,
-                                  const char* NameExpression,
-                                  const char** LoweredName) {
+                                  const char *NameExpression,
+                                  const char **LoweredName) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetProgramLog(hiprtcProgram Prog, char* Log) {
+hiprtcResult hiprtcGetProgramLog(hiprtcProgram Prog, char *Log) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram Prog, size_t* LogSizeRet) {
+hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram Prog, size_t *LogSizeRet) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetCode(hiprtcProgram Prog, char* Code) {
+hiprtcResult hiprtcGetCode(hiprtcProgram Prog, char *Code) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetCodeSize(hiprtcProgram Prog, size_t* CodeSizeRet) {
+hiprtcResult hiprtcGetCodeSize(hiprtcProgram Prog, size_t *CodeSizeRet) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 

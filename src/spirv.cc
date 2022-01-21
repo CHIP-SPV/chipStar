@@ -23,7 +23,7 @@ public:
   virtual OCLSpace getAS() { return OCLSpace::Private; }
 };
 
-typedef std::map<int32_t, SPIRVtype*> SPIRTypeMap;
+typedef std::map<int32_t, SPIRVtype *> SPIRTypeMap;
 
 class SPIRVtypePOD : public SPIRVtype {
 public:
@@ -71,10 +71,10 @@ class SPIRVinst {
   int32_t Word2_;
   int32_t Word3_;
   std::string Extra_;
-  int32_t* OrigStream_;
+  int32_t *OrigStream_;
 
 public:
-  SPIRVinst(int32_t* Stream) {
+  SPIRVinst(int32_t *Stream) {
     OrigStream_ = Stream;
     int32_t Word0 = Stream[0];
     WordCount_ = (unsigned)Word0 >> 16;
@@ -90,12 +90,12 @@ public:
       Word3_ = Stream[3];
 
     if (Opcode_ == spv::Op::OpEntryPoint) {
-      const char* Pp = (const char*)(Stream + 3);
+      const char *Pp = (const char *)(Stream + 3);
       Extra_ = Pp;
     }
 
     if (Opcode_ == spv::Op::OpExtInstImport) {
-      const char* Pp = (const char*)(Stream + 2);
+      const char *Pp = (const char *)(Stream + 2);
       Extra_ = Pp;
     }
   }
@@ -125,7 +125,7 @@ public:
            (Word1_ == (int32_t)spv::ExecutionModel::Kernel);
   }
   int32_t entryPointID() { return Word2_; }
-  std::string&& entryPointName() { return std::move(Extra_); }
+  std::string &&entryPointName() { return std::move(Extra_); }
 
   size_t size() const { return WordCount_; }
   spv::Op getOpcode() const { return Opcode_; }
@@ -145,7 +145,7 @@ public:
   bool isFunctionType() const { return (Opcode_ == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (Opcode_ == spv::Op::OpFunction); }
 
-  SPIRVtype* decodeType(SPIRTypeMap& TypeMap, size_t PointerSize) {
+  SPIRVtype *decodeType(SPIRTypeMap &TypeMap, size_t PointerSize) {
     if (Opcode_ == spv::Op::OpTypeVoid) {
       return new SPIRVtypePOD(Word1_, 0);
     }
@@ -196,10 +196,10 @@ public:
     return nullptr;
   }
 
-  OCLFuncInfo* decodeFunctionType(SPIRTypeMap& TypeMap, size_t PointerSize) {
+  OCLFuncInfo *decodeFunctionType(SPIRTypeMap &TypeMap, size_t PointerSize) {
     assert(Opcode_ == spv::Op::OpTypeFunction);
 
-    OCLFuncInfo* Fi = new OCLFuncInfo;
+    OCLFuncInfo *Fi = new OCLFuncInfo;
 
     int32_t RetId = Word2_;
     auto It = TypeMap.find(RetId);
@@ -250,8 +250,8 @@ public:
            MemModelCL_ && ParseOK_;
   }
 
-  bool parseSPIRV(int32_t* Stream, size_t NumWords) {
-    int32_t* StreamIntPtr = Stream;
+  bool parseSPIRV(int32_t *Stream, size_t NumWords) {
+    int32_t *StreamIntPtr = Stream;
 
     KernelCapab_ = false;
     ExtIntOpenCL_ = false;
@@ -287,7 +287,7 @@ public:
     return valid();
   }
 
-  bool fillModuleInfo(OpenCLFunctionInfoMap& ModuleMap) {
+  bool fillModuleInfo(OpenCLFunctionInfoMap &ModuleMap) {
     if (!valid())
       return false;
 
@@ -304,8 +304,8 @@ public:
   }
 
 private:
-  bool parseInstructionStream(int32_t* Stream, size_t NumWords) {
-    int32_t* StreamIntPtr = Stream;
+  bool parseInstructionStream(int32_t *Stream, size_t NumWords) {
+    int32_t *StreamIntPtr = Stream;
     size_t PointerSize = 0;
     while (NumWords > 0) {
       SPIRVinst Inst(StreamIntPtr);
@@ -359,8 +359,8 @@ private:
   }
 };
 
-bool parseSPIR(int32_t* Stream, size_t NumWords,
-               OpenCLFunctionInfoMap& Output) {
+bool parseSPIR(int32_t *Stream, size_t NumWords,
+               OpenCLFunctionInfoMap &Output) {
   SPIRVmodule Mod;
   if (!Mod.parseSPIRV(Stream, NumWords))
     return false;

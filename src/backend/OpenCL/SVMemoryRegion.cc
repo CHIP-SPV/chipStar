@@ -45,8 +45,10 @@ bool SVMemoryRegion::pointerInfo(void *ptr, void **pbase, size_t *psize) {
   logTrace("pointerInfo on: {}\n", ptr);
   for (auto I : SvmAllocations) {
     if ((I.first <= ptr) && (ptr < ((const char *)I.first + I.second))) {
-      if (pbase) *pbase = I.first;
-      if (psize) *psize = I.second;
+      if (pbase)
+        *pbase = I.first;
+      if (psize)
+        *psize = I.second;
       return true;
     }
   }

@@ -18,11 +18,11 @@
 
 std::once_flag Initialized;
 std::once_flag Uninitialized;
-CHIPBackend* Backend;
+CHIPBackend *Backend;
 
 std::string read_env_var(std::string EnvVar, bool Lower = true) {
   logDebug("Reading {} from env", EnvVar);
-  const char* EnvVarIn = std::getenv(EnvVar.c_str());
+  const char *EnvVarIn = std::getenv(EnvVar.c_str());
   if (EnvVarIn == nullptr) {
     return std::string();
   }
@@ -36,8 +36,8 @@ std::string read_env_var(std::string EnvVar, bool Lower = true) {
 
 std::string read_backend_selection();
 
-void read_env_vars(std::string& CHIPPlatformStr, std::string& CHIPDeviceTypeStr,
-                   std::string& CHIPDeviceStr) {
+void read_env_vars(std::string &CHIPPlatformStr, std::string &CHIPDeviceTypeStr,
+                   std::string &CHIPDeviceStr) {
   CHIPPlatformStr = read_env_var("CHIP_PLATFORM");
   if (CHIPPlatformStr.size() == 0)
     CHIPPlatformStr = "0";
