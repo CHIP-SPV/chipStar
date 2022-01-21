@@ -2,21 +2,21 @@
 
 #define SVM_ALIGNMENT 128
 
-void *SVMemoryRegion::allocate(cl::Context ctx, size_t size) {
-  void *Ptr = ::clSVMAlloc(ctx.get(), CL_MEM_READ_WRITE, size, SVM_ALIGNMENT);
+void *SVMemoryRegion::allocate(cl::Context Ctx, size_t Size) {
+  void *Ptr = ::clSVMAlloc(Ctx.get(), CL_MEM_READ_WRITE, Size, SVM_ALIGNMENT);
   if (Ptr) {
-    logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, size);
-    SvmAllocations.emplace(Ptr, size);
+    logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
+    SvmAllocations.emplace(Ptr, Size);
   } else
     CHIPERR_LOG_AND_THROW("clSVMAlloc failed", hipErrorMemoryAllocation);
   return Ptr;
 }
 
-bool SVMemoryRegion::free(void *p, size_t *size) {
-  auto I = SvmAllocations.find(p);
+bool SVMemoryRegion::free(void *Ptr, size_t *Size) {
+  auto I = SvmAllocations.find(Ptr);
   if (I != SvmAllocations.end()) {
     void *Ptr = I->first;
-    *size = I->second;
+    *Size = I->second;
     logTrace("clSVMFree on: {}\n", Ptr);
     SvmAllocations.erase(I);
     ::clSVMFree(Context(), Ptr);
@@ -25,30 +25,30 @@ bool SVMemoryRegion::free(void *p, size_t *size) {
     CHIPERR_LOG_AND_THROW("clSVMFree failure", hipErrorRuntimeMemory);
 }
 
-bool SVMemoryRegion::hasPointer(const void *p) {
-  logTrace("hasPointer on: {}\n", p);
-  return (SvmAllocations.find((void *)p) != SvmAllocations.end());
+bool SVMemoryRegion::hasPointer(const void *Ptr) {
+  logTrace("hasPointer on: {}\n", Ptr);
+  return (SvmAllocations.find((void *)Ptr) != SvmAllocations.end());
 }
 
-bool SVMemoryRegion::pointerSize(void *ptr, size_t *size) {
-  logTrace("pointerSize on: {}\n", ptr);
-  auto I = SvmAllocations.find(ptr);
+bool SVMemoryRegion::pointerSize(void *Ptr, size_t *Size) {
+  logTrace("pointerSize on: {}\n", Ptr);
+  auto I = SvmAllocations.find(Ptr);
   if (I != SvmAllocations.end()) {
-    *size = I->second;
+    *Size = I->second;
     return true;
   } else {
     return false;
   }
 }
 
-bool SVMemoryRegion::pointerInfo(void *ptr, void **pbase, size_t *psize) {
-  logTrace("pointerInfo on: {}\n", ptr);
+bool SVMemoryRegion::pointerInfo(void *Ptr, void **Base, size_t *Size) {
+  logTrace("pointerInfo on: {}\n", Ptr);
   for (auto I : SvmAllocations) {
-    if ((I.first <= ptr) && (ptr < ((const char *)I.first + I.second))) {
-      if (pbase)
-        *pbase = I.first;
-      if (psize)
-        *psize = I.second;
+    if ((I.first <= Ptr) && (Ptr < ((const char *)I.first + I.second))) {
+      if (Base)
+        *Base = I.first;
+      if (Size)
+        *Size = I.second;
       return true;
     }
   }
