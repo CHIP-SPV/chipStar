@@ -12,8 +12,8 @@
 #define CHIP_EXCEPTION_HH
 
 #include "hip/hip_runtime_api.h"
-#include <string>
 #include "logging.hh"
+#include <string>
 class CHIPError {
   std::string Msg_;
   hipError_t Err_;
