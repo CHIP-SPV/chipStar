@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Install clang
+        run: sudo apt install clang-11 --install-suggests
       - uses: shenxianpeng/cpp-linter-action@master
         id: linter
         env:
