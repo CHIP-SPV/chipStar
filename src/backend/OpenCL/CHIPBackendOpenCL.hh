@@ -98,7 +98,7 @@ public:
   void init(cl::Context &C) { Context_ = C; }
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
   void *allocate(cl::Context Ctx, size_t Size);
-  bool free(void *p, size_t *Size);
+  bool free(void *P, size_t *Size);
   bool hasPointer(const void *Ptr);
   bool pointerSize(void *Ptr, size_t *Size);
   bool pointerInfo(void *Ptr, void **Base, size_t *Size);
@@ -157,51 +157,51 @@ public:
   virtual bool addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
   virtual void finish() override;
-  virtual CHIPEvent *memCopyAsyncImpl(void *dst, const void *src,
+  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
   cl::CommandQueue *get();
-  virtual CHIPEvent *memFillAsyncImpl(void *dst, size_t Size,
-                                      const void *pattern,
-                                      size_t pattern_size) override;
-  virtual CHIPEvent *memCopy2DAsyncImpl(void *dst, size_t dpitch,
-                                        const void *src, size_t spitch,
-                                        size_t width, size_t height) override;
-  virtual CHIPEvent *memCopy3DAsyncImpl(void *dst, size_t dpitch,
-                                        size_t dspitch, const void *src,
-                                        size_t spitch, size_t sspitch,
-                                        size_t width, size_t height,
-                                        size_t depth) override;
-  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *texObj,
-                                          void *src) override;
-  virtual void getBackendHandles(unsigned long *nativeInfo, int *Size) override;
+  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
+                                      const void *Pattern,
+                                      size_t PatternSize) override;
+  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
+                                        const void *Src, size_t Spitch,
+                                        size_t Width, size_t Height) override;
+  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
+                                        size_t Dspitch, const void *Src,
+                                        size_t Spitch, size_t Sspitch,
+                                        size_t Width, size_t Height,
+                                        size_t Depth) override;
+  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *TexObj,
+                                          void *Src) override;
+  virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) override;
   virtual CHIPEvent *
-  enqueueBarrierImpl(std::vector<CHIPEvent *> *eventsToWaitFor) override;
+  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
   virtual CHIPEvent *enqueueMarkerImpl() override;
-  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t count) override;
+  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) override;
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {
 private:
-  std::string name;
-  size_t TotalArgSize;
-  cl::Kernel ocl_kernel;
+  std::string Name_;
+  size_t TotalArgSize_;
+  cl::Kernel OclKernel_;
 
 public:
-  CHIPKernelOpenCL(const cl::Kernel &&cl_kernel, std::string host_f_name_,
-                   OCLFuncInfo *func_info_);
-  OCLFuncInfo *get_func_info() const;
-  std::string get_name();
+  CHIPKernelOpenCL(const cl::Kernel &&ClKernel, std::string HostFName,
+                   OCLFuncInfo *FuncInfo);
+  OCLFuncInfo *getFuncInfo() const;
+  std::string getName();
   cl::Kernel get() const;
   size_t getTotalArgSize() const;
 };
 
 class CHIPExecItemOpenCL : public CHIPExecItem {
 private:
-  cl::Kernel *cl_kernel;
+  cl::Kernel *ClKernel_;
 
 public:
   OCLFuncInfo FuncInfo;
-  int setupAllArgs(CHIPKernelOpenCL *kernel);
+  int setupAllArgs(CHIPKernelOpenCL *Kernel);
   cl::Kernel *get();
 };
 
@@ -212,15 +212,15 @@ public:
                       std::string CHIPDeviceStr) override;
   void uninitialize() override;
   virtual std::string getDefaultJitFlags() override;
-  virtual CHIPTexture *createCHIPTexture(intptr_t image_,
-                                         intptr_t sampler_) override;
-  virtual CHIPQueue *createCHIPQueue(CHIPDevice *chip_dev) override;
+  virtual CHIPTexture *createCHIPTexture(intptr_t Image,
+                                         intptr_t Sampler) override;
+  virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual CHIPEventOpenCL *
-  createCHIPEvent(CHIPContext *chip_ctx_,
-                  CHIPEventFlags flags = CHIPEventFlags()) override;
-  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t callback,
-                                               void *userData,
-                                               CHIPQueue *chip_queue_) override;
+  createCHIPEvent(CHIPContext *ChipCtx,
+                  CHIPEventFlags Flags = CHIPEventFlags()) override;
+  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
+                                               void *UserData,
+                                               CHIPQueue *ChipQueue) override;
   virtual CHIPEventMonitor *createEventMonitor() override;
 };
 
