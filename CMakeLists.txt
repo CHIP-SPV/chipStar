@@ -96,7 +96,7 @@ set(CHIP_SRC
     src/CHIPDriver.cc 
     src/CHIPBackend.cc 
     src/CHIPBindings.cc
-    src/backend/Level0/Level0Backend.cc
+    src/backend/Level0/CHIPBackendLevel0.cc
     src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc
     src/logging.cc

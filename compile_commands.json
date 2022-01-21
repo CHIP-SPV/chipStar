@@ -26,8 +26,8 @@
   },
   {
     "directory": "CHIP-SPV",
-    "command": "/soft/compilers/clang-hipcl/13.0-experimental-v5-rel/bin/clang++ -DCHIP_EXPORTS -ICHIP-SPV/HIP/include -ICHIP-SPV/include -ICHIP-SPV -ICHIP-SPV/src  -Wno-duplicate-decl-specifier -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result -Wno-delete-abstract-non-virtual-dtor -fPIC -Wno-format-extra-args -D__HIP_PLATFORM_SPIRV__= -pthread -std=c++17 -o CMakeFiles/CHIP.dir/src/backend/Level0/Level0Backend.cc.o -c CHIP-SPV/src/backend/Level0/Level0Backend.cc",
-    "file": "CHIP-SPV/src/backend/Level0/Level0Backend.cc"
+    "command": "/soft/compilers/clang-hipcl/13.0-experimental-v5-rel/bin/clang++ -DCHIP_EXPORTS -ICHIP-SPV/HIP/include -ICHIP-SPV/include -ICHIP-SPV -ICHIP-SPV/src  -Wno-duplicate-decl-specifier -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result -Wno-delete-abstract-non-virtual-dtor -fPIC -Wno-format-extra-args -D__HIP_PLATFORM_SPIRV__= -pthread -std=c++17 -o CMakeFiles/CHIP.dir/src/backend/Level0/CHIPBackendLevel0.cc.o -c CHIP-SPV/src/backend/Level0/CHIPBackendLevel0.cc",
+    "file": "CHIP-SPV/src/backend/Level0/CHIPBackendLevel0.cc"
   },
   {
     "directory": "CHIP-SPV",
