@@ -1021,14 +1021,14 @@ hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
+  Stream = Backend->findQueue(Stream);
 
   ERROR_CHECK_DEVNUM(DstDevId);
   CHIPDevice *Dev = Backend->getDevices()[DstDevId];
 
   // Check if given Stream belongs to the requested device
-  if (Stream != nullptr)
-    ERROR_IF(Stream->getDevice() != Dev, hipErrorInvalidDevice);
-  Stream->memPrefetch(Ptr, Count); // TODO NEXT
+  ERROR_IF(Stream->getDevice() != Dev, hipErrorInvalidDevice);
+  Stream->memPrefetch(Ptr, Count);
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1691,8 +1691,8 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
   CHIPInitialize();
   NULLCHECK(Dptr, Bytes, Hmod, Name);
 
-  CHIPDeviceVar *var = Hmod->getGlobalVar(Name);
-  // TODO NEXT fix return val
+  CHIPDeviceVar *Var = Hmod->getGlobalVar(Name);
+  *Dptr = Var->getDevAddr();
 
   RETURN(hipSuccess);
   CHIP_CATCH

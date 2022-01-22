@@ -481,20 +481,6 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
   return Retval;
 }
 
-hipError_t CHIPContextOpenCL::memCopy(void *Dst, const void *Src, size_t Size,
-                                      hipStream_t Stream) {
-  logTrace("CHIPContextOpenCL::memCopy()");
-
-  CHIPQueue *Queue = findQueue(Stream);
-  if (Queue == nullptr)
-    return hipErrorInvalidResourceHandle;
-
-  if (SvmMemory.hasPointer(Dst) || SvmMemory.hasPointer(Src))
-    return Queue->memCopy(Dst, Src, Size);
-  else
-    return hipErrorInvalidDevicePointer;
-}
-
 // CHIPQueueOpenCL
 //*************************************************************************
 struct HipStreamCallbackData {

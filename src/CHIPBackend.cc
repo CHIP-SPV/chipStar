@@ -1446,9 +1446,6 @@ CHIPDevice *CHIPQueue::getDevice() {
 }
 
 unsigned int CHIPQueue::getFlags() { return Flags_; }
-// hipError_t CHIPQueue::memCopy(void *dst, const void *src, size_t size) {}
-// hipError_t CHIPQueue::memCopyAsync(void *, void const *, unsigned long) {}
-
 int CHIPQueue::getPriorityRange(int LowerOrUpper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {

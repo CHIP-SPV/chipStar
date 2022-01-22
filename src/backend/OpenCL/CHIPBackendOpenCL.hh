@@ -118,8 +118,6 @@ public:
                      CHIPMemoryType MemType) override;
 
   virtual void freeImpl(void *Ptr) override;
-  virtual hipError_t memCopy(void *Dst, const void *Src, size_t Size,
-                             hipStream_t Stream) override;
   cl::Context *get();
 };
 

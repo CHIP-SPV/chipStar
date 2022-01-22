@@ -1183,20 +1183,6 @@ public:
   virtual void freeImpl(void *Ptr) = 0;
 
   /**
-   * @brief Copy memory
-   *
-   * @param dst destination
-   * @param src source
-   * @param size size of the copy
-   * @param stream queue to which this copy should be submitted to
-   * @return hipError_t
-   */
-  virtual hipError_t memCopy(void *Dst, const void *Src, size_t Size,
-                             hipStream_t Stream) {
-    UNIMPLEMENTED(hipSuccess); // TODO NEXT: remove this
-  };
-
-  /**
    * @brief Finish all the queues in this context
    *
    */
