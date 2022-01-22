@@ -1,0 +1,34 @@
+---
+Checks:          'readability-identifier-naming'
+WarningsAsErrors: ''
+HeaderFilterRegex: './src/.*'
+AnalyzeTemporaryDtors: false
+FormatStyle:     none
+User:            pvelesko
+CheckOptions:
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.MemberCase
+    value: CamelCase
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: _
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: _
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: CamelCase
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: CamelCase
+  - key: readability-identifier-naming.VariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.LocalVariableCase
+    value: CamelCase 
+  - key: readability-identifier-naming.LocalVariableIgnoredRegexp
+    value: "[i,j,k]{1}"
+  - key: readability-identifier-naming.MethodCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterCase 
+    value: CamelCase
+
+
+...
+

@@ -16,43 +16,46 @@
 
 #include "backend/backends.hh"
 
-std::once_flag initialized;
-std::once_flag uninitialized;
-CHIPBackend* Backend;
+std::once_flag Initialized;
+std::once_flag Uninitialized;
+CHIPBackend *Backend;
 
-std::string read_env_var(std::string ENV_VAR, bool lower = true) {
-  logDebug("Reading {} from env", ENV_VAR);
-  const char* ENV_VAR_IN = std::getenv(ENV_VAR.c_str());
-  if (ENV_VAR_IN == nullptr) {
+std::string read_env_var(std::string EnvVar, bool Lower = true) {
+  logDebug("Reading {} from env", EnvVar);
+  const char *EnvVarIn = std::getenv(EnvVar.c_str());
+  if (EnvVarIn == nullptr) {
     return std::string();
   }
-  std::string var = std::string(ENV_VAR_IN);
-  if (lower)
-    std::transform(var.begin(), var.end(), var.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
+  std::string Var = std::string(EnvVarIn);
+  if (Lower)
+    std::transform(Var.begin(), Var.end(), Var.begin(),
+                   [](unsigned char Ch) { return std::tolower(Ch); });
 
-  return var;
+  return Var;
 };
 
 std::string read_backend_selection();
 
-void read_env_vars(std::string& CHIPPlatformStr, std::string& CHIPDeviceTypeStr,
-                   std::string& CHIPDeviceStr) {
+void read_env_vars(std::string &CHIPPlatformStr, std::string &CHIPDeviceTypeStr,
+                   std::string &CHIPDeviceStr) {
   CHIPPlatformStr = read_env_var("CHIP_PLATFORM");
-  if (CHIPPlatformStr.size() == 0) CHIPPlatformStr = "0";
+  if (CHIPPlatformStr.size() == 0)
+    CHIPPlatformStr = "0";
 
   CHIPDeviceTypeStr = read_env_var("CHIP_DEVICE_TYPE");
-  if (CHIPDeviceTypeStr.size() == 0) CHIPDeviceTypeStr = "gpu";
+  if (CHIPDeviceTypeStr.size() == 0)
+    CHIPDeviceTypeStr = "gpu";
 
   CHIPDeviceStr = read_env_var("CHIP_DEVICE");
-  if (CHIPDeviceStr.size() == 0) CHIPDeviceStr = "0";
+  if (CHIPDeviceStr.size() == 0)
+    CHIPDeviceStr = "0";
 
   logDebug("CHIP_PLATFORM={}", CHIPPlatformStr.c_str());
   logDebug("CHIP_DEVICE_TYPE={}", CHIPDeviceTypeStr.c_str());
   logDebug("CHIP_DEVICE={}", CHIPDeviceStr.c_str());
 };
 
-void CHIPInitializeCallOnce(std::string BE) {
+void CHIPInitializeCallOnce(std::string BackendStr) {
   std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr;
   read_env_vars(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
   logDebug("CHIPDriver Initialize");
@@ -62,21 +65,21 @@ void CHIPInitializeCallOnce(std::string BE) {
   // Get the current Backend Env Var
 
   // If no BE is passed to init explicitly, read env var
-  std::string CHIP_BE;
-  if (BE.size() == 0) {
-    CHIP_BE = read_env_var("CHIP_BE");
+  std::string ChipBe;
+  if (BackendStr.size() == 0) {
+    ChipBe = read_env_var("CHIP_BE");
   } else {
-    CHIP_BE = BE;
+    ChipBe = BackendStr;
   }
 
   // TODO Check configuration for what backends are configured
-  if (!CHIP_BE.compare("opencl")) {
+  if (!ChipBe.compare("opencl")) {
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
-  } else if (!CHIP_BE.compare("level0")) {
+  } else if (!ChipBe.compare("level0")) {
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
-  } else if (!CHIP_BE.compare("")) {
+  } else if (!ChipBe.compare("")) {
     logWarn("CHIP_BE was not set. Defaulting to OPENCL");
     Backend = new CHIPBackendOpenCL();
   } else {
@@ -88,7 +91,7 @@ void CHIPInitializeCallOnce(std::string BE) {
 }
 
 extern void CHIPInitialize(std::string BE) {
-  std::call_once(initialized, &CHIPInitializeCallOnce, BE);
+  std::call_once(Initialized, &CHIPInitializeCallOnce, BE);
 };
 
 void CHIPUninitializeCallOnce() {
@@ -97,5 +100,5 @@ void CHIPUninitializeCallOnce() {
 }
 
 extern void CHIPUninitialize() {
-  std::call_once(uninitialized, &CHIPUninitializeCallOnce);
+  std::call_once(Uninitialized, &CHIPUninitializeCallOnce);
 }

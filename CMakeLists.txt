@@ -8,6 +8,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 set(CHIP_DIR_ ${CMAKE_CURRENT_SOURCE_DIR})
 # end temporary
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 cmake_policy(VERSION 3.4)
 
@@ -94,7 +96,7 @@ set(CHIP_SRC
     src/CHIPDriver.cc 
     src/CHIPBackend.cc 
     src/CHIPBindings.cc
-    src/backend/Level0/Level0Backend.cc
+    src/backend/Level0/CHIPBackendLevel0.cc
     src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc
     src/logging.cc

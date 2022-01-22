@@ -938,36 +938,36 @@ enum class Op : unsigned {
 
 // Overload operator| for mask bit combining
 
-inline ImageOperandsMask operator|(ImageOperandsMask a, ImageOperandsMask b) {
-  return ImageOperandsMask(unsigned(a) | unsigned(b));
+inline ImageOperandsMask operator|(ImageOperandsMask A, ImageOperandsMask B) {
+  return ImageOperandsMask(unsigned(A) | unsigned(B));
 }
-inline FPFastMathModeMask operator|(FPFastMathModeMask a,
-                                    FPFastMathModeMask b) {
-  return FPFastMathModeMask(unsigned(a) | unsigned(b));
+inline FPFastMathModeMask operator|(FPFastMathModeMask A,
+                                    FPFastMathModeMask B) {
+  return FPFastMathModeMask(unsigned(A) | unsigned(B));
 }
-inline SelectionControlMask operator|(SelectionControlMask a,
-                                      SelectionControlMask b) {
-  return SelectionControlMask(unsigned(a) | unsigned(b));
+inline SelectionControlMask operator|(SelectionControlMask A,
+                                      SelectionControlMask B) {
+  return SelectionControlMask(unsigned(A) | unsigned(B));
 }
-inline LoopControlMask operator|(LoopControlMask a, LoopControlMask b) {
-  return LoopControlMask(unsigned(a) | unsigned(b));
+inline LoopControlMask operator|(LoopControlMask A, LoopControlMask B) {
+  return LoopControlMask(unsigned(A) | unsigned(B));
 }
-inline FunctionControlMask operator|(FunctionControlMask a,
-                                     FunctionControlMask b) {
-  return FunctionControlMask(unsigned(a) | unsigned(b));
+inline FunctionControlMask operator|(FunctionControlMask A,
+                                     FunctionControlMask B) {
+  return FunctionControlMask(unsigned(A) | unsigned(B));
 }
-inline MemorySemanticsMask operator|(MemorySemanticsMask a,
-                                     MemorySemanticsMask b) {
-  return MemorySemanticsMask(unsigned(a) | unsigned(b));
+inline MemorySemanticsMask operator|(MemorySemanticsMask A,
+                                     MemorySemanticsMask B) {
+  return MemorySemanticsMask(unsigned(A) | unsigned(B));
 }
-inline MemoryAccessMask operator|(MemoryAccessMask a, MemoryAccessMask b) {
-  return MemoryAccessMask(unsigned(a) | unsigned(b));
+inline MemoryAccessMask operator|(MemoryAccessMask A, MemoryAccessMask B) {
+  return MemoryAccessMask(unsigned(A) | unsigned(B));
 }
-inline KernelProfilingInfoMask operator|(KernelProfilingInfoMask a,
-                                         KernelProfilingInfoMask b) {
-  return KernelProfilingInfoMask(unsigned(a) | unsigned(b));
+inline KernelProfilingInfoMask operator|(KernelProfilingInfoMask A,
+                                         KernelProfilingInfoMask B) {
+  return KernelProfilingInfoMask(unsigned(A) | unsigned(B));
 }
 
-}  // end namespace spv
+} // end namespace spv
 
-#endif  // #ifndef spirv_HPP
+#endif // #ifndef spirv_HPP

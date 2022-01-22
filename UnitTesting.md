@@ -11,9 +11,9 @@ EnableFlushTaskSubmission=1
 ```
 
 ````bash
-64% tests passed, 135 tests failed out of 370
+63% tests passed, 137 tests failed out of 370
 
-Total Test time (real) = 1693.82 sec
+Total Test time (real) = 1737.49 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -72,7 +72,7 @@ The following tests FAILED:
 	192 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int (Timeout)
 	193 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float (Timeout)
 	194 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (Timeout)
-	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
+	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
 	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
@@ -115,12 +115,14 @@ The following tests FAILED:
 	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
 	261 - Unit_hipMemset2D_BasicFunctional (Failed)
+	262 - Unit_hipMemset2DAsync_BasicFunctional (Failed)
 	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
-	264 - Unit_hipMemset2DAsync_WithKernel (Failed)
 	265 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
 	266 - Unit_hipHostMalloc_ArgValidation (SEGFAULT)
 	271 - Unit_hipMemset3D_MemsetWithExtent (Failed)
 	272 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
+	275 - Unit_hipMemset3D_SeekSetSlice (Failed)
+	276 - Unit_hipMemset3DAsync_SeekSetSlice (Failed)
 	277 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
 	278 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
 	279 - Unit_hipMemset3D_Negative (Failed)
@@ -156,9 +158,9 @@ The following tests FAILED:
 ## Current UnitTest Status - OpenCL
 
 ````bash
-62% tests passed, 142 tests failed out of 370
+62% tests passed, 140 tests failed out of 370
 
-Total Test time (real) = 1718.12 sec
+Total Test time (real) = 1718.49 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -228,8 +230,6 @@ The following tests FAILED:
 	189 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	190 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	191 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
-	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)

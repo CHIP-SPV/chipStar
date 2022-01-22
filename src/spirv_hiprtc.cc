@@ -34,54 +34,54 @@ extern "C" {
 #pragma GCC visibility push(default)
 #endif
 
-const char* hiprtcGetErrorString(hiprtcResult result) {
+const char *hiprtcGetErrorString(hiprtcResult Result) {
   UNIMPLEMENTED(nullptr);
 }
 
-hiprtcResult hiprtcVersion(int* major, int* minor) {
+hiprtcResult hiprtcVersion(int *Major, int *Minor) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcAddNameExpression(hiprtcProgram prog,
-                                     const char* name_expression) {
+hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
+                                     const char *NameExpression) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcCompileProgram(hiprtcProgram prog, int numOptions,
-                                  const char** options) {
+hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
+                                  const char **Options) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcCreateProgram(hiprtcProgram* prog, const char* src,
-                                 const char* name, int numHeaders,
-                                 const char** headers,
-                                 const char** includeNames) {
+hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
+                                 const char *Name, int NumHeaders,
+                                 const char **Headers,
+                                 const char **IncludeNames) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcDestroyProgram(hiprtcProgram* prog) {
+hiprtcResult hiprtcDestroyProgram(hiprtcProgram *Prog) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetLoweredName(hiprtcProgram prog,
-                                  const char* name_expression,
-                                  const char** lowered_name) {
+hiprtcResult hiprtcGetLoweredName(hiprtcProgram Prog,
+                                  const char *NameExpression,
+                                  const char **LoweredName) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetProgramLog(hiprtcProgram prog, char* log) {
+hiprtcResult hiprtcGetProgramLog(hiprtcProgram Prog, char *Log) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram prog, size_t* logSizeRet) {
+hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram Prog, size_t *LogSizeRet) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetCode(hiprtcProgram prog, char* code) {
+hiprtcResult hiprtcGetCode(hiprtcProgram Prog, char *Code) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 
-hiprtcResult hiprtcGetCodeSize(hiprtcProgram prog, size_t* codeSizeRet) {
+hiprtcResult hiprtcGetCodeSize(hiprtcProgram Prog, size_t *CodeSizeRet) {
   UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
 }
 

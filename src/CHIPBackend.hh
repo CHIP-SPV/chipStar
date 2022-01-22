@@ -40,18 +40,18 @@ enum class CHIPQueueType : unsigned int {
 };
 
 class CHIPCallbackData {
- public:
-  CHIPQueue* chip_queue;
-  CHIPEvent* gpu_ready;
-  CHIPEvent* cpu_callback_complete;
-  CHIPEvent* gpu_ack;
+public:
+  CHIPQueue *ChipQueue;
+  CHIPEvent *GpuReady;
+  CHIPEvent *CpuCallbackComplete;
+  CHIPEvent *GpuAck;
 
-  hipError_t status;
-  void* callback_args;
-  hipStreamCallback_t callback_f;
+  hipError_t Status;
+  void *CallbackArgs;
+  hipStreamCallback_t CallbackF;
 
-  CHIPCallbackData(hipStreamCallback_t callback_f_, void* callback_args_,
-                   CHIPQueue* chip_queue_);
+  CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
+                   CHIPQueue *ChipQueue);
 
   /**
    * @brief
@@ -59,23 +59,23 @@ class CHIPCallbackData {
    */
   virtual void setup();
 
-  void execute(hipError_t resultFromDependency) {
-    callback_f(chip_queue, resultFromDependency, callback_args);
+  void execute(hipError_t ResultFromDependency) {
+    CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
   }
 };
 
-void* monitor_wrapper(void* event_monitor_);
+void *monitor_wrapper(void *EventMonitor);
 class CHIPEventMonitor {
-  std::mutex mtx;
-  typedef void* (*THREADFUNCPTR)(void*);
+  std::mutex Mtx_;
+  typedef void *(*THREADFUNCPTR)(void *);
 
- protected:
+protected:
   // The thread ID for monitor thread
-  pthread_t thread = 0;
+  pthread_t Thread_ = 0;
 
-  CHIPQueue* chip_queue;
+  CHIPQueue *ChipQueue_;
 
- public:
+public:
   /**
    * @brief Pop the callback stack and execute
    */
@@ -83,9 +83,11 @@ class CHIPEventMonitor {
 
   CHIPEventMonitor() {
     logDebug("CHIPEventMonitor::CHIPEventMonitor()");
-    auto res = pthread_create(&thread, 0, (THREADFUNCPTR)&monitor_wrapper,
-                              (void*)this);
-    logDebug("Thread Created with ID : {}", thread);
+    auto Res = pthread_create(&Thread_, 0, (THREADFUNCPTR)&monitor_wrapper,
+                              (void *)this);
+    if (Res)
+      CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
+    logDebug("Thread Created with ID : {}", Thread_);
   }
 
   /**
@@ -95,55 +97,58 @@ class CHIPEventMonitor {
   void wait();
 };
 
-inline void* monitor_wrapper(void* event_monitor_) {
-  CHIPEventMonitor* event_monitor = (CHIPEventMonitor*)event_monitor_;
-  event_monitor->monitor();
+inline void *monitor_wrapper(void *EventMonitor) {
+  CHIPEventMonitor *EMonitor = (CHIPEventMonitor *)EventMonitor;
+  EMonitor->monitor();
   return nullptr;
 }
 
 class CHIPTexture {
- protected:
+protected:
   // delete default constructor since texture needs both image and sampler
   CHIPTexture() = delete;
 
-  CHIPTexture(intptr_t image_, intptr_t sampler_)
-      : image(image_), sampler(sampler_) {}
+  CHIPTexture(intptr_t Image, intptr_t Sampler)
+      : Image(Image), Sampler(Sampler) {}
 
- public:
-  intptr_t image;
-  intptr_t sampler;
-  hipTextureObject_t tex_obj;
-  hipTextureObject_t get() { return tex_obj; }
+public:
+  intptr_t Image;
+  intptr_t Sampler;
+  hipTextureObject_t TexObj;
+  hipTextureObject_t get() { return TexObj; }
 };
 
-template <class T>
-std::string resultToString(T err);
+template <class T> std::string resultToString(T Err);
 
 enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 class CHIPEventFlags {
-  bool Default;
-  bool BlockingSync;
-  bool DisableTiming;
-  bool Interprocess;
+  bool Default_;
+  bool BlockingSync_;
+  bool DisableTiming_;
+  bool Interprocess_;
 
- public:
-  CHIPEventFlags(unsigned flags) {
-    if (flags & hipEventDefault) Default = true;
-    if (flags & hipEventBlockingSync) BlockingSync = true;
-    if (flags & hipEventDisableTiming) DisableTiming = true;
-    if (flags & hipEventInterprocess) Interprocess = true;
+public:
+  CHIPEventFlags(unsigned Flags) {
+    if (Flags & hipEventDefault)
+      Default_ = true;
+    if (Flags & hipEventBlockingSync)
+      BlockingSync_ = true;
+    if (Flags & hipEventDisableTiming)
+      DisableTiming_ = true;
+    if (Flags & hipEventInterprocess)
+      Interprocess_ = true;
   }
   CHIPEventFlags() { CHIPEventFlags(hipEventDefault); }
 
-  bool isDefault() { return Default; };
-  bool isBlockingSync() { return BlockingSync; };
-  bool isDisableTiming() { return DisableTiming; };
-  bool isInterprocess() { return Interprocess; };
+  bool isDefault() { return Default_; };
+  bool isBlockingSync() { return BlockingSync_; };
+  bool isDisableTiming() { return DisableTiming_; };
+  bool isInterprocess() { return Interprocess_; };
 };
 
-struct allocation_info {
-  void* base_ptr;
-  size_t size;
+struct AllocationInfo {
+  void *BasePtr;
+  size_t Size;
 };
 
 /**
@@ -151,25 +156,25 @@ struct allocation_info {
  *
  */
 class CHIPAllocationTracker {
- private:
-  std::mutex mtx;
-  std::unordered_map<void*, void*> host_to_dev;
-  std::unordered_map<void*, void*> dev_to_host;
-  std::string name;
-  std::set<void*> ptr_set;
+private:
+  std::mutex Mtx_;
+  std::unordered_map<void *, void *> HostToDev_;
+  std::unordered_map<void *, void *> DevToHost_;
+  std::string Name_;
+  std::set<void *> PtrSet_;
 
-  std::unordered_map<void*, allocation_info> dev_to_allocation_info;
+  std::unordered_map<void *, AllocationInfo> DevToAllocInfo_;
 
- public:
-  size_t global_mem_size, total_mem_used, max_mem_used;
+public:
+  size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
   /**
    * @brief Construct a new CHIPAllocationTracker object
    *
-   * @param global_mem_size_ Total available global memory on the device
-   * @param name_ name for this allocation tracker for logging. Normally device
+   * @param GlobalMemSize Total available global memory on the device
+   * @param Name name for this allocation tracker for logging. Normally device
    * name
    */
-  CHIPAllocationTracker(size_t global_mem_size_, std::string name_);
+  CHIPAllocationTracker(size_t GlobalMemSize, std::string Name);
 
   /**
    * @brief Destroy the CHIPAllocationTracker object
@@ -189,13 +194,13 @@ class CHIPAllocationTracker {
    *
    * @return allocation_info contains the base pointer and allocation size;
    */
-  allocation_info* getByHostPtr(const void*);
+  AllocationInfo *getByHostPtr(const void *);
   /**
    * @brief Get allocation_info based on device pointer
    *
    * @return allocation_info contains the base pointer and allocation size;
    */
-  allocation_info* getByDevPtr(const void*);
+  AllocationInfo *getByDevPtr(const void *);
 
   /**
    * @brief Reserve memory for an allocation.
@@ -206,7 +211,7 @@ class CHIPAllocationTracker {
    * @return true Reservation successful
    * @return false Not enough available memory for reservation of this size.
    */
-  bool reserveMem(size_t bytes);
+  bool reserveMem(size_t Bytes);
 
   /**
    * @brief Release some of the reserved memory. Called by free()
@@ -215,46 +220,46 @@ class CHIPAllocationTracker {
    * @return true
    * @return false
    */
-  bool releaseMemReservation(size_t bytes);
+  bool releaseMemReservation(size_t Bytes);
 
   /**
    * @brief Record the pointer received from CHIPContext::allocate_()
    *
    * @param dev_ptr
    */
-  void recordAllocation(void* dev_ptr, size_t size_);
+  void recordAllocation(void *DevPtr, size_t Size);
 };
 
 class CHIPDeviceVar {
- private:
-  std::string Name;  /// Device side variable name.
+private:
+  std::string Name_; /// Device side variable name.
                      /// Address to variable's storage. Note that the address is
                      /// a pointer given by CHIPContext::allocate.
-  void* DevAddr = nullptr;
-  size_t Size = 0;
+  void *DevAddr_ = nullptr;
+  size_t Size_ = 0;
   /// The alignment requirement of the variable.
   // NOTE: The alignment infromation is not carried in __hipRegisterVar() calls
   // It have to be queried via shadow kernels.
-  size_t Alignment = 0;
+  size_t Alignment_ = 0;
   /// Tells if the variable has an initializer. NOTE: Variables are
   /// initialized via a shadow kernel.
-  bool HasInitializer = false;
+  bool HasInitializer_ = false;
 
- public:
+public:
   CHIPDeviceVar(std::string Name, size_t Size);
   ~CHIPDeviceVar();
 
-  void* getDevAddr() const { return DevAddr; }
-  void setDevAddr(void* Addr) { DevAddr = Addr; }
-  std::string getName() const { return Name; }
-  size_t getSize() const { return Size; }
-  size_t getAlignment() const { return Alignment; }
+  void *getDevAddr() const { return DevAddr_; }
+  void setDevAddr(void *Addr) { DevAddr_ = Addr; }
+  std::string getName() const { return Name_; }
+  size_t getSize() const { return Size_; }
+  size_t getAlignment() const { return Alignment_; }
   void setAlignment(size_t TheAlignment) {
-    assert(Alignment && "Invalid alignment");
-    Alignment = TheAlignment;
+    assert(Alignment_ && "Invalid alignment");
+    Alignment_ = TheAlignment;
   }
-  bool hasInitializer() const { return HasInitializer; }
-  void markHasInitializer(bool State = true) { HasInitializer = State; }
+  bool hasInitializer() const { return HasInitializer_; }
+  void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
 // fw declares
@@ -264,19 +269,19 @@ class CHIPContext;
 class CHIPDevice;
 
 class CHIPEvent {
- protected:
-  std::mutex mtx;
-  event_status_e event_status;
-  CHIPEventFlags flags;
+protected:
+  std::mutex Mtx_;
+  event_status_e EventStatus_;
+  CHIPEventFlags Flags_;
 
   // reference count
-  size_t* refc;
+  size_t *Refc_;
 
   /**
    * @brief Events are always created with a context
    *
    */
-  CHIPContext* chip_context;
+  CHIPContext *ChipContext_;
 
   /**
    * @brief hidden default constructor for CHIPEvent. Only derived class
@@ -285,34 +290,34 @@ class CHIPEvent {
    */
   CHIPEvent() = default;
 
- public:
-  size_t getCHIPRefc() { return *refc; }
-  virtual void takeOver(CHIPEvent* other){};
+public:
+  std::string Msg;
+  size_t getCHIPRefc() { return *Refc_; }
+  virtual void takeOver(CHIPEvent *Other){};
   virtual void decreaseRefCount() {
-    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
-             *refc - 1);
-    (*refc)--;
+    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
+             *Refc_, *Refc_ - 1);
+    (*Refc_)--;
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount() {
-    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", msg.c_str(), *refc,
-             *refc + 1);
-    (*refc)++;
+    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
+             *Refc_, *Refc_ + 1);
+    (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
-  std::string msg;
   /**
    * @brief CHIPEvent constructor. Must always be created with some context.
    *
    */
-  CHIPEvent(CHIPContext* ctx_, CHIPEventFlags flags_ = CHIPEventFlags());
+  CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags = CHIPEventFlags());
   /**
    * @brief Get the Context object
    *
    * @return CHIPContext* pointer to context on which this event was created
    */
-  CHIPContext* getContext() { return chip_context; }
+  CHIPContext *getContext() { return ChipContext_; }
 
   /**
    * @brief Query the state of this event and update it's status
@@ -331,7 +336,7 @@ class CHIPEvent {
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
-    return event_status >= EVENT_STATUS_RECORDING;
+    return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
   /**
@@ -340,25 +345,25 @@ class CHIPEvent {
    * @return true recoded
    * @return false not recorded
    */
-  bool isFinished() { return (event_status == EVENT_STATUS_RECORDED); }
+  bool isFinished() { return (EventStatus_ == EVENT_STATUS_RECORDED); }
 
   /**
    * @brief Get the Event Status object
    *
    * @return event_status_e current event status
    */
-  event_status_e getEventStatus() { return event_status; }
+  event_status_e getEventStatus() { return EventStatus_; }
 
   std::string getEventStatusStr() {
-    switch (event_status) {
-      case EVENT_STATUS_INIT:
-        return "EVENT_STATUS_INIT";
-      case EVENT_STATUS_RECORDING:
-        return "EVENT_STATUS_RECORDING";
-      case EVENT_STATUS_RECORDED:
-        return "EVENT_STATUS_RECORDED";
-      default:
-        return "INVALID_EVENT_STATUS";
+    switch (EventStatus_) {
+    case EVENT_STATUS_INIT:
+      return "EVENT_STATUS_INIT";
+    case EVENT_STATUS_RECORDING:
+      return "EVENT_STATUS_RECORDING";
+    case EVENT_STATUS_RECORDED:
+      return "EVENT_STATUS_RECORDED";
+    default:
+      return "INVALID_EVENT_STATUS";
     };
   }
 
@@ -369,7 +374,7 @@ class CHIPEvent {
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue* chip_queue_);
+  virtual void recordStream(CHIPQueue *ChipQueue);
   /**
    * @brief Wait for this event to complete
    *
@@ -385,7 +390,7 @@ class CHIPEvent {
    * @param other
    * @return float
    */
-  virtual float getElapsedTime(CHIPEvent* other) = 0;
+  virtual float getElapsedTime(CHIPEvent *Other) = 0;
 
   /**
    * @brief Toggle this event from the host.
@@ -407,27 +412,27 @@ class CHIPModule {
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that
   /// DeviceVariablesAllocated false.
-  bool DeviceVariablesAllocated = false;
+  bool DeviceVariablesAllocated_ = false;
   /// Flag for the initialization state of the device variables. True
   /// if all variables are initialized for this module for the device
   /// this module is attached to.
-  bool DeviceVariablesInitialized = false;
+  bool DeviceVariablesInitialized_ = false;
 
- protected:
-  uint8_t* funcIL;
-  size_t ilSize;
-  std::mutex mtx;
+protected:
+  uint8_t *FuncIL_;
+  size_t IlSize_;
+  std::mutex Mtx_;
   // Global variables
-  std::vector<CHIPDeviceVar*> chip_vars;
+  std::vector<CHIPDeviceVar *> ChipVars_;
   // Kernels
-  std::vector<CHIPKernel*> chip_kernels;
+  std::vector<CHIPKernel *> ChipKernels_;
   /// Binary representation extracted from FatBinary
-  std::string src;
+  std::string Src_;
   // Kernel JIT compilation can be lazy
-  std::once_flag compiled;
+  std::once_flag Compiled_;
 
-  int32_t* binary_data;
-  OpenCLFunctionInfoMap func_infos;
+  int32_t *BinaryData_;
+  OpenCLFunctionInfoMap FuncInfos_;
 
   /**
    * @brief hidden default constuctor. Only derived type constructor should be
@@ -436,7 +441,7 @@ class CHIPModule {
    */
   CHIPModule() = default;
 
- public:
+public:
   /**
    * @brief Destroy the CHIPModule object
    *
@@ -450,13 +455,13 @@ class CHIPModule {
    *
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
-  CHIPModule(std::string* module_str);
+  CHIPModule(std::string *ModuleStr);
   /**
    * @brief Construct a new CHIPModule object using move semantics
    *
    * @param module_str string from which to move resources
    */
-  CHIPModule(std::string&& module_str);
+  CHIPModule(std::string &&ModuleStr);
 
   /**
    * @brief Add a CHIPKernel to this module.
@@ -467,14 +472,14 @@ class CHIPModule {
    *
    * @param kernel CHIPKernel to be added to this module.
    */
-  void addKernel(CHIPKernel* kernel);
+  void addKernel(CHIPKernel *Kernel);
 
   /**
    * @brief Wrapper around compile() called via std::call_once
    *
    * @param chip_dev device for which to compile the kernels
    */
-  void compileOnce(CHIPDevice* chip_dev);
+  void compileOnce(CHIPDevice *ChipDev);
   /**
    * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
    * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
@@ -486,7 +491,7 @@ class CHIPModule {
    * function pointers.
    *
    */
-  virtual void compile(CHIPDevice* chip_dev) = 0;
+  virtual void compile(CHIPDevice *ChipDev) = 0;
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
@@ -494,7 +499,7 @@ class CHIPModule {
    * @param name global variable name
    * @return CHIPDeviceVar*
    */
-  virtual CHIPDeviceVar* getGlobalVar(const char* var_name_);
+  virtual CHIPDeviceVar *getGlobalVar(const char *VarName);
 
   /**
    * @brief Get the Kernel object
@@ -502,14 +507,14 @@ class CHIPModule {
    * @param name name of the corresponding host function
    * @return CHIPKernel*
    */
-  CHIPKernel* getKernel(std::string name);
+  CHIPKernel *getKernel(std::string Name);
 
   /**
    * @brief Get the Kernels object
    *
    * @return std::vector<CHIPKernel*>&
    */
-  std::vector<CHIPKernel*>& getKernels();
+  std::vector<CHIPKernel *> &getKernels();
 
   /**
    * @brief Get the Kernel object
@@ -517,7 +522,7 @@ class CHIPModule {
    * @param host_f_ptr host-side function pointer
    * @return CHIPKernel*
    */
-  CHIPKernel* getKernel(const void* host_f_ptr);
+  CHIPKernel *getKernel(const void *HostFPtr);
 
   /**
    * @brief consume SPIRV and fill in OCLFuncINFO
@@ -530,40 +535,38 @@ class CHIPModule {
    *
    * Takes ownership of the variable.
    */
-  void addDeviceVariable(CHIPDeviceVar* dev_var) {
-    chip_vars.push_back(dev_var);
-  }
+  void addDeviceVariable(CHIPDeviceVar *DevVar) { ChipVars_.push_back(DevVar); }
 
-  std::vector<CHIPDeviceVar*>& getDeviceVariables() { return chip_vars; }
+  std::vector<CHIPDeviceVar *> &getDeviceVariables() { return ChipVars_; }
 
-  hipError_t allocateDeviceVariablesNoLock(CHIPDevice* Device,
-                                           CHIPQueue* Queue);
-  void initializeDeviceVariablesNoLock(CHIPDevice* Device, CHIPQueue* Queue);
+  hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
+                                           CHIPQueue *Queue);
+  void initializeDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
   void invalidateDeviceVariablesNoLock();
-  void deallocateDeviceVariablesNoLock(CHIPDevice* Device);
+  void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 };
 
 /**
  * @brief Contains information about the function on the host and device
  */
 class CHIPKernel {
- protected:
+protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be
    * called.
    *
    */
-  CHIPKernel(std::string host_f_name_, OCLFuncInfo* func_info_);
+  CHIPKernel(std::string HostFName, OCLFuncInfo *FuncInfo);
   /// Name of the function
-  std::string host_f_name;
+  std::string HostFName_;
   /// Pointer to the host function
-  const void* host_f_ptr;
+  const void *HostFPtr_;
   /// Pointer to the device function
-  const void* dev_f_ptr;
+  const void *DevFPtr_;
 
-  OCLFuncInfo* func_info;
+  OCLFuncInfo *FuncInfo_;
 
- public:
+public:
   ~CHIPKernel();
 
   /**
@@ -578,38 +581,38 @@ class CHIPKernel {
    *
    * @return OCLFuncInfo&
    */
-  OCLFuncInfo* getFuncInfo();
+  OCLFuncInfo *getFuncInfo();
   /**
    * @brief Get the associated host pointer to a host function
    *
    * @return const void*
    */
-  const void* getHostPtr();
+  const void *getHostPtr();
   /**
    * @brief Get the associated funciton pointer on the device
    *
    * @return const void*
    */
-  const void* getDevPtr();
+  const void *getDevPtr();
 
   /**
    * @brief Get the Name object
    *
    * @return std::string
    */
-  void setName(std::string host_f_name_);
+  void setName(std::string HostFName);
   /**
    * @brief Get the associated host pointer to a host function
    *
    * @return const void*
    */
-  void setHostPtr(const void* host_f_ptr_);
+  void setHostPtr(const void *HostFPtr);
   /**
    * @brief Get the associated funciton pointer on the device
    *
    * @return const void*
    */
-  void setDevPtr(const void* hev_f_ptr_);
+  void setDevPtr(const void *DevFPtr);
 };
 
 /**
@@ -621,23 +624,22 @@ class CHIPKernel {
  *
  */
 class CHIPExecItem {
- protected:
-  size_t shared_mem;
+protected:
+  size_t SharedMem_;
   // Structures for old HIP launch API.
-  std::vector<uint8_t> arg_data;
-  std::vector<std::tuple<size_t, size_t>> offset_sizes;
+  std::vector<uint8_t> ArgData_;
+  std::vector<std::tuple<size_t, size_t>> OffsetSizes_;
 
-  dim3 grid_dim;
-  dim3 block_dim;
+  dim3 GridDim_;
+  dim3 BlockDim_;
 
-  CHIPQueue* stream;
-  CHIPKernel* chip_kernel;
-  CHIPQueue* chip_queue;
+  CHIPKernel *ChipKernel_;
+  CHIPQueue *ChipQueue_;
 
   // Structures for new HIP launch API.
-  void** ArgsPointer = nullptr;
+  void **ArgsPointer_ = nullptr;
 
- public:
+public:
   /**
    * @brief Deleted default constructor
    * Doesn't make sense for CHIPExecItem to exist without arguments
@@ -652,8 +654,8 @@ class CHIPExecItem {
    * @param shared_mem_
    * @param chip_queue_
    */
-  CHIPExecItem(dim3 grid_dim_, dim3 block_dim_, size_t shared_mem_,
-               hipStream_t chip_queue_);
+  CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue);
 
   /**
    * @brief Destroy the CHIPExecItem object
@@ -666,13 +668,13 @@ class CHIPExecItem {
    *
    * @return CHIPKernel* Kernel to be executed
    */
-  CHIPKernel* getKernel();
+  CHIPKernel *getKernel();
   /**
    * @brief Get the Queue object
    *
    * @return CHIPQueue*
    */
-  CHIPQueue* getQueue();
+  CHIPQueue *getQueue();
 
   std::vector<uint8_t> getArgData();
 
@@ -705,7 +707,7 @@ class CHIPExecItem {
    * @param size
    * @param offset
    */
-  void setArg(const void* arg, size_t size, size_t offset);
+  void setArg(const void *Arg, size_t Size, size_t Offset);
 
   /**
    * @brief Set the Arg Pointer object for launching kernels via new HIP API
@@ -713,7 +715,7 @@ class CHIPExecItem {
    * @param args Pointer to a array of pointers, each pointing to an
    *             individual argument.
    */
-  void setArgPointer(void** args) { ArgsPointer = args; }
+  void setArgPointer(void **Args) { ArgsPointer_ = Args; }
 
   /**
    * @brief Sets up the kernel arguments via backend API calls.
@@ -731,51 +733,51 @@ class CHIPExecItem {
    * @param hostPtr pointer to the host function
    * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
    */
-  CHIPEvent* launchByHostPtr(const void* hostPtr);
+  CHIPEvent *launchByHostPtr(const void *HostPtr);
 
   /**
    * @brief Launch a kernel.
 
    * @param hostPtr The kernel.
    */
-  CHIPEvent* launchByDevicePtr(CHIPKernel* K);
+  CHIPEvent *launchByDevicePtr(CHIPKernel *K);
 };
 
 /**
  * @brief Compute device class
  */
 class CHIPDevice {
- protected:
-  std::string device_name;
-  std::mutex mtx;
-  CHIPContext* ctx;
-  std::vector<CHIPQueue*> chip_queues;
-  int active_queue_id = 0;
-  std::once_flag propsPopulated;
+protected:
+  std::string DeviceName_;
+  std::mutex Mtx_;
+  CHIPContext *Ctx_;
+  std::vector<CHIPQueue *> ChipQueues_;
+  int ActiveQueueId_ = 0;
+  std::once_flag PropsPopulated_;
 
-  hipDeviceAttribute_t attrs;
-  hipDeviceProp_t hip_device_props;
+  hipDeviceAttribute_t Attrs_;
+  hipDeviceProp_t HipDeviceProps_;
 
-  size_t TotalUsedMem;
-  size_t MaxUsedMem;
+  size_t TotalUsedMem_;
+  size_t MaxUsedMem_;
 
   /// Maps host-side shadow variables to the corresponding device variables.
-  std::unordered_map<const void*, CHIPDeviceVar*> DeviceVarLookup;
+  std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
 
- public:
+public:
   /// Registered modules and a mapping from module binary blob pointers
   /// to the associated CHIPModule.
-  std::unordered_map<const std::string*, CHIPModule*> ChipModules;
+  std::unordered_map<const std::string *, CHIPModule *> ChipModules;
 
-  int idx;
+  int Idx;
 
-  CHIPAllocationTracker* allocation_tracker = nullptr;
+  CHIPAllocationTracker *AllocationTracker = nullptr;
 
   /**
    * @brief Construct a new CHIPDevice object
    *
    */
-  CHIPDevice(CHIPContext* ctx_);
+  CHIPDevice(CHIPContext *Ctx);
 
   /**
    * @brief Construct a new CHIPDevice object
@@ -794,14 +796,14 @@ class CHIPDevice {
    *
    * @return std::vector<CHIPKernel*>&
    */
-  std::vector<CHIPKernel*> getKernels();
+  std::vector<CHIPKernel *> getKernels();
 
   /**
    * @brief Get the Modules object
    *
    * @return std::vector<CHIPModule*>&
    */
-  std::unordered_map<const std::string*, CHIPModule*>& getModules();
+  std::unordered_map<const std::string *, CHIPModule *> &getModules();
 
   /**
    * @brief Use a backend to populate device properties such as memory
@@ -813,14 +815,14 @@ class CHIPDevice {
    * @brief Use a backend to populate device properties such as memory
    * available, frequencies, etc.
    */
-  virtual void populateDeviceProperties_() = 0;
+  virtual void populateDevicePropertiesImpl() = 0;
 
   /**
    * @brief Query the device for properties
    *
    * @param prop
    */
-  void copyDeviceProperties(hipDeviceProp_t* prop);
+  void copyDeviceProperties(hipDeviceProp_t *Prop);
 
   /**
    * @brief Use the host function pointer to retrieve the kernel
@@ -828,7 +830,7 @@ class CHIPDevice {
    * @param hostPtr
    * @return CHIPKernel* CHIPKernel associated with this host pointer
    */
-  CHIPKernel* findKernelByHostPtr(const void* hostPtr);
+  CHIPKernel *findKernelByHostPtr(const void *HostPtr);
 
   /**
    * @brief Get the context object
@@ -836,7 +838,7 @@ class CHIPDevice {
    * @return CHIPContext* pointer to the CHIPContext object this CHIPDevice
    * was created with
    */
-  CHIPContext* getContext();
+  CHIPContext *getContext();
 
   /**
    * @brief Construct an additional queue for this device
@@ -846,29 +848,29 @@ class CHIPDevice {
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue* addQueue_(unsigned int flags, int priority) = 0;
+  virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
 
-  CHIPQueue* addQueue(unsigned int flags, int priority);
+  CHIPQueue *addQueue(unsigned int Flags, int Priority);
 
   /**
    * @brief Add a queue to this device
    *
    * @param chip_queue_  CHIPQueue to be added
    */
-  void addQueue(CHIPQueue* chip_queue_);
+  void addQueue(CHIPQueue *ChipQueue);
   /**
    * @brief Get the Queues object
    *
    * @return std::vector<CHIPQueue*>
    */
-  std::vector<CHIPQueue*> getQueues();
+  std::vector<CHIPQueue *> getQueues();
   /**
    * @brief HIP API allows for setting the active device, not the active queue
    * so active device's active queue is always it's 0th/default/primary queue
    *
    * @return CHIPQueue*
    */
-  CHIPQueue* getActiveQueue();
+  CHIPQueue *getActiveQueue();
   /**
    * @brief Remove a queue from this device's queue vector
    *
@@ -876,7 +878,7 @@ class CHIPDevice {
    * @return true
    * @return false
    */
-  bool removeQueue(CHIPQueue* q);
+  bool removeQueue(CHIPQueue *ChipQueue);
 
   /**
    * @brief Get the integer ID of this device as it appears in the Backend's
@@ -906,7 +908,7 @@ class CHIPDevice {
    * @param attr attribute to query
    * @return int attribute value. In case invalid query returns -1;
    */
-  int getAttr(hipDeviceAttribute_t attr);
+  int getAttr(hipDeviceAttribute_t Attr);
 
   /**
    * @brief Get the total global memory available for this device.
@@ -920,7 +922,7 @@ class CHIPDevice {
    *
    * @param cfg configuration
    */
-  virtual void setCacheConfig(hipFuncCache_t cfg);
+  virtual void setCacheConfig(hipFuncCache_t Cfg);
 
   /**
    * @brief Get the cache configuration for this device
@@ -934,7 +936,7 @@ class CHIPDevice {
    *
    * @param config
    */
-  virtual void setSharedMemConfig(hipSharedMemConfig config);
+  virtual void setSharedMemConfig(hipSharedMemConfig Cfg);
 
   /**
    * @brief Get the shared memory configuration for this device
@@ -950,7 +952,7 @@ class CHIPDevice {
    * @param func
    * @param config
    */
-  virtual void setFuncCacheConfig(const void* func, hipFuncCache_t config);
+  virtual void setFuncCacheConfig(const void *Func, hipFuncCache_t Cfg);
 
   /**
    * @brief Check if the current device has same PCI bus ID as the one given by
@@ -962,7 +964,7 @@ class CHIPDevice {
    * @return true
    * @return false
    */
-  bool hasPCIBusId(int pciDomainID, int pciBusID, int pciDeviceID);
+  bool hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID);
 
   /**
    * @brief Get peer-accesability between this and another device
@@ -970,7 +972,7 @@ class CHIPDevice {
    * @param peerDevice
    * @return int
    */
-  int getPeerAccess(CHIPDevice* peerDevice);
+  int getPeerAccess(CHIPDevice *PeerDevice);
 
   /**
    * @brief Set access between this and another device
@@ -980,7 +982,7 @@ class CHIPDevice {
    * @param canAccessPeer
    * @return hipError_t
    */
-  hipError_t setPeerAccess(CHIPDevice* peer, int flags, bool canAccessPeer);
+  hipError_t setPeerAccess(CHIPDevice *Peer, int Flags, bool CanAccessPeer);
 
   /**
    * @brief Get the total used global memory
@@ -995,7 +997,7 @@ class CHIPDevice {
    * @param var host pointer to the variable
    * @return CHIPDeviceVar*
    */
-  CHIPDeviceVar* getDynGlobalVar(const void* var) { UNIMPLEMENTED(nullptr); }
+  CHIPDeviceVar *getDynGlobalVar(const void *Var) { UNIMPLEMENTED(nullptr); }
 
   /**
    * @brief Get the global variable that came from a FatBinary module
@@ -1003,7 +1005,7 @@ class CHIPDevice {
    * @param var Pointer to host side shadow variable.
    * @return CHIPDeviceVar*
    */
-  CHIPDeviceVar* getStatGlobalVar(const void* var);
+  CHIPDeviceVar *getStatGlobalVar(const void *Var);
 
   /**
    * @brief Get the global variable
@@ -1011,7 +1013,7 @@ class CHIPDevice {
    * @param var Pointer to host side shadow variable.
    * @return CHIPDeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar* getGlobalVar(const void* Var);
+  CHIPDeviceVar *getGlobalVar(const void *Var);
 
   /**
    * @brief Take the module source, compile the kernels and associate the host
@@ -1021,19 +1023,19 @@ class CHIPDevice {
    * @param host_f_ptr host function pointer
    * @param host_f_name host function name
    */
-  void registerFunctionAsKernel(std::string* module_str, const void* host_f_ptr,
-                                const char* host_f_name);
+  void registerFunctionAsKernel(std::string *ModuleStr, const void *HostFPtr,
+                                const char *HostFName);
 
-  void registerDeviceVariable(std::string* ModuleStr, const void* HostPtr,
-                              const char* Name, size_t Size);
+  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
+                              const char *Name, size_t Size);
 
-  virtual CHIPModule* addModule(std::string* module_str) = 0;
+  virtual CHIPModule *addModule(std::string *ModuleStr) = 0;
 
-  virtual CHIPTexture* createTexture(
-      const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc,
-      const struct hipResourceViewDesc* pResViewDesc) = 0;
+  virtual CHIPTexture *
+  createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
+                const struct hipResourceViewDesc *ResViewDesc) = 0;
 
-  virtual void destroyTexture(CHIPTexture* textureObject) = 0;
+  virtual void destroyTexture(CHIPTexture *TextureObject) = 0;
 
   hipError_t allocateDeviceVariables();
   void initializeDeviceVariables();
@@ -1048,16 +1050,16 @@ class CHIPDevice {
  * interaction with devices.
  */
 class CHIPContext {
- protected:
-  std::vector<CHIPDevice*> chip_devices;
-  std::vector<CHIPQueue*> chip_queues;
-  std::vector<void*> allocated_ptrs;
+protected:
+  std::vector<CHIPDevice *> ChipDevices_;
+  std::vector<CHIPQueue *> ChipQueues_;
+  std::vector<void *> AllocatedPtrs_;
 
-  unsigned int flags;
+  unsigned int Flags_;
 
- public:
-  std::vector<CHIPEvent*> events;
-  std::mutex mtx;
+public:
+  std::vector<CHIPEvent *> Events;
+  std::mutex Mtx;
   /**
    * @brief Construct a new CHIPContext object
    *
@@ -1069,7 +1071,7 @@ class CHIPContext {
    */
   ~CHIPContext();
 
-  virtual void syncQueues(CHIPQueue* target_queue);
+  virtual void syncQueues(CHIPQueue *TargetQueue);
 
   /**
    * @brief Add a device to this context
@@ -1078,27 +1080,27 @@ class CHIPContext {
    * @return true if device was added successfully
    * @return false upon failure
    */
-  void addDevice(CHIPDevice* dev);
+  void addDevice(CHIPDevice *Dev);
   /**
    * @brief Add a queue to this context
    *
    * @param q CHIPQueue to be added
    */
-  void addQueue(CHIPQueue* q);
+  void addQueue(CHIPQueue *ChipQueue);
 
   /**
    * @brief Get this context's CHIPDevices
    *
    * @return std::vector<CHIPDevice*>&
    */
-  std::vector<CHIPDevice*>& getDevices();
+  std::vector<CHIPDevice *> &getDevices();
 
   /**
    * @brief Get the this contexts CHIPQueues
    *
    * @return std::vector<CHIPQueue*>&
    */
-  std::vector<CHIPQueue*>& getQueues();
+  std::vector<CHIPQueue *> &getQueues();
 
   /**
    * @brief Find a queue. If a null pointer is passed, return the Active Queue
@@ -1108,7 +1110,7 @@ class CHIPContext {
    * @param stream CHIPQueue to find
    * @return hipStream_t
    */
-  hipStream_t findQueue(hipStream_t stream);
+  hipStream_t findQueue(hipStream_t Stream);
 
   /**
    * @brief Allocate data.
@@ -1120,7 +1122,7 @@ class CHIPContext {
    * @param size size of the allocation
    * @return void* pointer to allocated memory
    */
-  void* allocate(size_t size);
+  void *allocate(size_t Size);
 
   /**
    * @brief Allocate data.
@@ -1132,7 +1134,7 @@ class CHIPContext {
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void* allocate(size_t size, CHIPMemoryType mem_type);
+  void *allocate(size_t Size, CHIPMemoryType MemType);
 
   /**
    * @brief Allocate data.
@@ -1145,7 +1147,7 @@ class CHIPContext {
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void* allocate(size_t size, size_t alignment, CHIPMemoryType mem_type);
+  void *allocate(size_t Size, size_t Alignment, CHIPMemoryType MemType);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
@@ -1157,8 +1159,8 @@ class CHIPContext {
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void*
    */
-  virtual void* allocate_(size_t size, size_t alignment,
-                          CHIPMemoryType mem_type) = 0;
+  virtual void *allocateImpl(size_t Size, size_t Alignment,
+                             CHIPMemoryType MemType) = 0;
 
   /**
    * @brief Free memory
@@ -1168,7 +1170,7 @@ class CHIPContext {
    * @return true Success
    * @return false Failure
    */
-  hipError_t free(void* ptr);
+  hipError_t free(void *Ptr);
 
   /**
    * @brief Free memory
@@ -1178,7 +1180,7 @@ class CHIPContext {
    * @return true
    * @return false
    */
-  virtual void free_(void* ptr) = 0;
+  virtual void freeImpl(void *Ptr) = 0;
 
   /**
    * @brief Copy memory
@@ -1189,9 +1191,9 @@ class CHIPContext {
    * @param stream queue to which this copy should be submitted to
    * @return hipError_t
    */
-  virtual hipError_t memCopy(void* dst, const void* src, size_t size,
-                             hipStream_t stream) {
-    UNIMPLEMENTED(hipSuccess);
+  virtual hipError_t memCopy(void *Dst, const void *Src, size_t Size,
+                             hipStream_t Stream) {
+    UNIMPLEMENTED(hipSuccess); // TODO NEXT: remove this
   };
 
   /**
@@ -1209,8 +1211,8 @@ class CHIPContext {
    * @param dptr device pointer
    * @return hipError_t
    */
-  virtual hipError_t findPointerInfo(hipDeviceptr_t* pbase, size_t* psize,
-                                     hipDeviceptr_t dptr);
+  virtual hipError_t findPointerInfo(hipDeviceptr_t *Base, size_t *Size,
+                                     hipDeviceptr_t Ptr);
 
   /**
    * @brief Get the flags set on this context
@@ -1224,7 +1226,7 @@ class CHIPContext {
    *
    * @param flags flags to set on this context
    */
-  void setFlags(unsigned int flags);
+  void setFlags(unsigned int Flags);
 
   /**
    * @brief Reset this context.
@@ -1238,30 +1240,30 @@ class CHIPContext {
    *
    * @return CHIPContext*
    */
-  CHIPContext* retain();
+  CHIPContext *retain();
 };
 
 /**
  * @brief Primary object to interact with the backend
  */
 class CHIPBackend {
- protected:
+protected:
   /**
    * @brief ChipModules stored in binary representation.
    * During compilation each translation unit is parsed for functions that are
    * marked for execution on the device. These functions are then compiled to
    * device code and stored in binary representation.
    *  */
-  std::vector<std::string*> modules_str;
-  std::mutex mtx;
+  std::vector<std::string *> ModulesStr_;
+  std::mutex Mtx_;
 
-  CHIPContext* active_ctx;
-  CHIPDevice* active_dev;
-  CHIPQueue* active_q;
+  CHIPContext *ActiveCtx_;
+  CHIPDevice *ActiveDev_;
+  CHIPQueue *ActiveQ_;
 
- public:
-  std::mutex callback_stack_mtx;
-  std::stack<CHIPCallbackData*> callback_stack;
+public:
+  std::mutex CallbackStackMtx;
+  std::stack<CHIPCallbackData *> CallbackStack;
   /**
    * @brief Keep track of pointers allocated on the device. Used to get info
    * about allocaitons based on device poitner in case that findPointerInfo() is
@@ -1269,19 +1271,18 @@ class CHIPBackend {
    *
    */
   // Adds -std=c++17 requirement
-  inline static thread_local hipError_t tls_last_error = hipSuccess;
-  inline static thread_local CHIPContext* tls_active_ctx;
+  inline static thread_local hipError_t TlsLastError = hipSuccess;
 
-  std::stack<CHIPExecItem*> chip_execstack;
-  std::vector<CHIPContext*> chip_contexts;
-  std::vector<CHIPQueue*> chip_queues;
-  std::vector<CHIPDevice*> chip_devices;
+  std::stack<CHIPExecItem *> ChipExecStack;
+  std::vector<CHIPContext *> ChipContexts;
+  std::vector<CHIPQueue *> ChipQueues;
+  std::vector<CHIPDevice *> ChipDevices;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
    *
    */
-  std::string custom_jit_flags;
+  std::string CustomJitFlags;
 
   /**
    * @brief Get the default compiler flags for the JIT compiler
@@ -1329,8 +1330,8 @@ class CHIPBackend {
    * @param device_type_str
    * @param device_ids_str
    */
-  void initialize(std::string platform_str, std::string device_type_str,
-                  std::string device_ids_str);
+  void initialize(std::string PlatformStr, std::string DeviceTypeStr,
+                  std::string DeviceIdStr);
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1339,9 +1340,9 @@ class CHIPBackend {
    * @param device_type_str
    * @param device_ids_str
    */
-  virtual void initialize_(std::string platform_str,
-                           std::string device_type_str,
-                           std::string device_ids_str) = 0;
+  virtual void initializeImpl(std::string PlatformStr,
+                              std::string DeviceTypeStr,
+                              std::string DeviceIdStr) = 0;
 
   /**
    * @brief
@@ -1354,36 +1355,36 @@ class CHIPBackend {
    *
    * @return std::vector<CHIPQueue*>&
    */
-  std::vector<CHIPQueue*>& getQueues();
+  std::vector<CHIPQueue *> &getQueues();
   /**
    * @brief Get the Active Queue object
    *
    * @return CHIPQueue*
    */
-  CHIPQueue* getActiveQueue();
+  CHIPQueue *getActiveQueue();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
    *
    * @return CHIPContext*
    */
-  CHIPContext* getActiveContext();
+  CHIPContext *getActiveContext();
   /**
    * @brief Get the Active Device object. Returns the device of the active
    * queue.
    *
    * @return CHIPDevice*
    */
-  CHIPDevice* getActiveDevice();
+  CHIPDevice *getActiveDevice();
   /**
    * @brief Set the active device. Sets the active queue to this device's
    * first/default/primary queue.
    *
    * @param chip_dev
    */
-  void setActiveDevice(CHIPDevice* chip_dev);
+  void setActiveDevice(CHIPDevice *ChipDevice);
 
-  std::vector<CHIPDevice*>& getDevices();
+  std::vector<CHIPDevice *> &getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1395,37 +1396,37 @@ class CHIPBackend {
    *
    * @return std::vector<std::string*>&
    */
-  std::vector<std::string*>& getModulesStr();
+  std::vector<std::string *> &getModulesStr();
   /**
    * @brief Add a context to this backend.
    *
    * @param ctx_in
    */
-  void addContext(CHIPContext* ctx_in);
+  void addContext(CHIPContext *ChipContext);
   /**
    * @brief Add a context to this backend.
    *
    * @param q_in
    */
-  void addQueue(CHIPQueue* q_in);
+  void addQueue(CHIPQueue *ChipQueue);
   /**
    * @brief  Add a device to this backend.
    *
    * @param dev_in
    */
-  void addDevice(CHIPDevice* dev_in);
+  void addDevice(CHIPDevice *ChipDevice);
   /**
    * @brief
    *
    * @param mod_str
    */
-  void registerModuleStr(std::string* mod_str);
+  void registerModuleStr(std::string *ModuleStr);
   /**
    * @brief
    *
    * @param mod_str
    */
-  void unregisterModuleStr(std::string* mod_str);
+  void unregisterModuleStr(std::string *ModuleStr);
   /**
    * @brief Configure an upcoming kernel call
    *
@@ -1435,7 +1436,8 @@ class CHIPBackend {
    * @param q
    * @return hipError_t
    */
-  hipError_t configureCall(dim3 grid, dim3 block, size_t shared, hipStream_t q);
+  hipError_t configureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
+                           hipStream_t ChipQueue);
   /**
    * @brief Set the Arg object
    *
@@ -1444,7 +1446,7 @@ class CHIPBackend {
    * @param offset
    * @return hipError_t
    */
-  hipError_t setArg(const void* arg, size_t size, size_t offset);
+  hipError_t setArg(const void *Arg, size_t Size, size_t Offset);
 
   /**
    * @brief Register this function as a kernel for all devices initialized
@@ -1456,12 +1458,12 @@ class CHIPBackend {
    * @return true
    * @return false
    */
-  virtual bool registerFunctionAsKernel(std::string* module_str,
-                                        const void* host_f_ptr,
-                                        const char* host_f_name);
+  virtual bool registerFunctionAsKernel(std::string *ModuleStr,
+                                        const void *HostFPtr,
+                                        const char *HostFName);
 
-  void registerDeviceVariable(std::string* ModuleStr, const void* HostPtr,
-                              const char* Name, size_t Size);
+  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
+                              const char *Name, size_t Size);
 
   /**
    * @brief Return a device which meets or exceeds the requirements
@@ -1469,7 +1471,7 @@ class CHIPBackend {
    * @param props
    * @return CHIPDevice*
    */
-  CHIPDevice* findDeviceMatchingProps(const hipDeviceProp_t* props);
+  CHIPDevice *findDeviceMatchingProps(const hipDeviceProp_t *Props);
 
   /**
    * @brief Find a given queue in this backend.
@@ -1477,7 +1479,7 @@ class CHIPBackend {
    * @param q queue to find
    * @return CHIPQueue* return queue or nullptr if not found
    */
-  CHIPQueue* findQueue(CHIPQueue* q);
+  CHIPQueue *findQueue(CHIPQueue *ChipQueue);
 
   /**
    * @brief Add a CHIPModule to every initialized device
@@ -1496,13 +1498,13 @@ class CHIPBackend {
 
   /************Factories***************/
 
-  virtual CHIPTexture* createCHIPTexture(intptr_t image_,
-                                         intptr_t sampler_) = 0;
-  virtual CHIPQueue* createCHIPQueue(CHIPDevice* chip_dev) = 0;
+  virtual CHIPTexture *createCHIPTexture(intptr_t Image, intptr_t Sampler) = 0;
+  virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
   // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
   // virtual CHIPContext* createCHIPContext() = 0;
-  virtual CHIPEvent* createCHIPEvent(
-      CHIPContext* chip_ctx_, CHIPEventFlags flags_ = CHIPEventFlags()) = 0;
+  virtual CHIPEvent *
+  createCHIPEvent(CHIPContext *ChipCtx,
+                  CHIPEventFlags Flags = CHIPEventFlags()) = 0;
 
   /**
    * @brief Create a Callback Obj object
@@ -1511,11 +1513,11 @@ class CHIPBackend {
    * @return CHIPCallbackData* pointer to newly allocated CHIPCallbackData
    * object.
    */
-  virtual CHIPCallbackData* createCallbackData(hipStreamCallback_t callback,
-                                               void* userData,
-                                               CHIPQueue* chip_queue_) = 0;
+  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
+                                               void *UserData,
+                                               CHIPQueue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor* createEventMonitor() = 0;
+  virtual CHIPEventMonitor *createEventMonitor() = 0;
 
   /**
  * @brief Get the Callback object
@@ -1524,19 +1526,20 @@ class CHIPBackend {
  * @return true callback object available
  * @return false callback object not available
  */
-  bool getCallback(CHIPCallbackData** callback_data) {
-    std::lock_guard<std::mutex> Lock(mtx);
-    bool res = false;
-    logDebug("Elements in callback stack: {}", callback_stack.size());
-    if (this->callback_stack.size()) {
-      *callback_data = callback_stack.top();
-      if (*callback_data == nullptr) return res;
-      callback_stack.pop();
+  bool getCallback(CHIPCallbackData **CallbackData) {
+    std::lock_guard<std::mutex> Lock(Mtx_);
+    bool Res = false;
+    logDebug("Elements in callback stack: {}", CallbackStack.size());
+    if (this->CallbackStack.size()) {
+      *CallbackData = CallbackStack.top();
+      if (*CallbackData == nullptr)
+        return Res;
+      CallbackStack.pop();
 
-      res = true;
+      Res = true;
     }
 
-    return res;
+    return Res;
   }
 };
 
@@ -1544,29 +1547,29 @@ class CHIPBackend {
  * @brief Queue class for submitting kernels to for execution
  */
 class CHIPQueue {
- protected:
-  int priority;
-  unsigned int flags;
-  CHIPQueueType queue_type;
+protected:
+  int Priority_;
+  unsigned int Flags_;
+  CHIPQueueType QueueType_;
   /// Device on which this queue will execute
-  CHIPDevice* chip_device;
+  CHIPDevice *ChipDevice_;
   /// Context to which device belongs to
-  CHIPContext* chip_context;
+  CHIPContext *ChipContext_;
 
-  CHIPEventMonitor* event_monitor = nullptr;
+  CHIPEventMonitor *EventMonitor_ = nullptr;
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  CHIPEvent* LastEvent;
+  CHIPEvent *LastEvent_;
 
- public:
+public:
   // I want others to be able to lock this queue?
-  std::mutex mtx;
+  std::mutex Mtx;
 
-  virtual CHIPEvent* getLastEvent() = 0;
-  void setLastEvent(CHIPEvent* ev) {
-    ev->increaseRefCount();
-    LastEvent = ev;
+  virtual CHIPEvent *getLastEvent() = 0;
+  void setLastEvent(CHIPEvent *ChipEv) {
+    ChipEv->increaseRefCount();
+    LastEvent_ = ChipEv;
   }
 
   /**
@@ -1574,14 +1577,14 @@ class CHIPQueue {
    *
    * @param chip_dev
    */
-  CHIPQueue(CHIPDevice* chip_dev);
+  CHIPQueue(CHIPDevice *ChipDev);
   /**
    * @brief Construct a new CHIPQueue object
    *
    * @param chip_dev
    * @param flags
    */
-  CHIPQueue(CHIPDevice* chip_dev, unsigned int flags);
+  CHIPQueue(CHIPDevice *ChipDev, unsigned int Flags);
   /**
    * @brief Construct a new CHIPQueue object
    *
@@ -1589,21 +1592,23 @@ class CHIPQueue {
    * @param flags
    * @param priority
    */
-  CHIPQueue(CHIPDevice* chip_dev, unsigned int flags, int priority);
+  CHIPQueue(CHIPDevice *ChipDev, unsigned int Flags, int Priority);
   /**
    * @brief Destroy the CHIPQueue object
    *
    */
   ~CHIPQueue();
 
-  CHIPQueueType getQueueType() { return queue_type; }
-  virtual void updateLastEvent(CHIPEvent* ev) {
-    assert(ev);
-    if (ev == LastEvent) return;
+  CHIPQueueType getQueueType() { return QueueType_; }
+  virtual void updateLastEvent(CHIPEvent *ChipEv) {
+    assert(ChipEv);
+    if (ChipEv == LastEvent_)
+      return;
     logDebug("CHIPQueue::updateLastEvent()");
-    if (LastEvent != nullptr) LastEvent->decreaseRefCount();
-    ev->increaseRefCount();
-    LastEvent = ev;
+    if (LastEvent_ != nullptr)
+      LastEvent_->decreaseRefCount();
+    ChipEv->increaseRefCount();
+    LastEvent_ = ChipEv;
   }
 
   /**
@@ -1614,8 +1619,8 @@ class CHIPQueue {
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual CHIPEvent* memCopyImpl(void* dst, const void* src, size_t size);
-  hipError_t memCopy(void* dst, const void* src, size_t size);
+  virtual CHIPEvent *memCopyImpl(void *Dst, const void *Src, size_t Size);
+  hipError_t memCopy(void *Dst, const void *Src, size_t Size);
 
   /**
    * @brief Non-blocking memory copy
@@ -1625,9 +1630,9 @@ class CHIPQueue {
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual CHIPEvent* memCopyAsyncImpl(void* dst, const void* src,
-                                      size_t size) = 0;
-  hipError_t memCopyAsync(void* dst, const void* src, size_t size);
+  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
+                                      size_t Size) = 0;
+  hipError_t memCopyAsync(void *Dst, const void *Src, size_t Size);
 
   /**
    * @brief Blocking memset
@@ -1637,10 +1642,10 @@ class CHIPQueue {
    * @param pattern
    * @param pattern_size
    */
-  virtual CHIPEvent* memFillImpl(void* dst, size_t size, const void* pattern,
-                                 size_t pattern_size);
-  virtual void memFill(void* dst, size_t size, const void* pattern,
-                       size_t pattern_size);
+  virtual CHIPEvent *memFillImpl(void *Dst, size_t Size, const void *Pattern,
+                                 size_t PatternSize);
+  virtual void memFill(void *Dst, size_t Size, const void *Pattern,
+                       size_t PatternSize);
 
   /**
    * @brief Non-blocking mem set
@@ -1650,45 +1655,45 @@ class CHIPQueue {
    * @param pattern
    * @param pattern_size
    */
-  virtual CHIPEvent* memFillAsyncImpl(void* dst, size_t size,
-                                      const void* pattern,
-                                      size_t pattern_size) = 0;
-  virtual void memFillAsync(void* dst, size_t size, const void* pattern,
-                            size_t pattern_size);
+  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
+                                      const void *Pattern,
+                                      size_t PatternSize) = 0;
+  virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
+                            size_t PatternSize);
 
   // The memory copy 2D support
-  virtual CHIPEvent* memCopy2DImpl(void* dst, size_t dpitch, const void* src,
-                                   size_t spitch, size_t width, size_t height);
-  virtual void memCopy2D(void* dst, size_t dpitch, const void* src,
-                         size_t spitch, size_t width, size_t height);
+  virtual CHIPEvent *memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
+                                   size_t Pitch, size_t Width, size_t Height);
+  virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
+                         size_t SPitch, size_t Width, size_t Height);
 
-  virtual CHIPEvent* memCopy2DAsyncImpl(void* dst, size_t dpitch,
-                                        const void* src, size_t spitch,
-                                        size_t width, size_t height) = 0;
-  virtual void memCopy2DAsync(void* dst, size_t dpitch, const void* src,
-                              size_t spitch, size_t width, size_t height);
+  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t DPitch,
+                                        const void *Src, size_t SPitch,
+                                        size_t Width, size_t Height) = 0;
+  virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
+                              size_t SPitch, size_t Width, size_t Height);
 
   // The memory copy 3D support
-  virtual CHIPEvent* memCopy3DImpl(void* dst, size_t dpitch, size_t dspitch,
-                                   const void* src, size_t spitch,
-                                   size_t sspitch, size_t width, size_t height,
-                                   size_t depth);
-  virtual void memCopy3D(void* dst, size_t dpitch, size_t dspitch,
-                         const void* src, size_t spitch, size_t sspitch,
-                         size_t width, size_t height, size_t depth);
+  virtual CHIPEvent *memCopy3DImpl(void *Dst, size_t DPitch, size_t DSPitch,
+                                   const void *Src, size_t Spitch,
+                                   size_t SSPitch, size_t Width, size_t Height,
+                                   size_t Depth);
+  virtual void memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
+                         const void *Src, size_t SPitch, size_t SSPitch,
+                         size_t Width, size_t Height, size_t Depth);
 
-  virtual CHIPEvent* memCopy3DAsyncImpl(void* dst, size_t dpitch,
-                                        size_t dspitch, const void* src,
-                                        size_t spitch, size_t sspitch,
-                                        size_t width, size_t height,
-                                        size_t depth) = 0;
-  virtual void memCopy3DAsync(void* dst, size_t dpitch, size_t dspitch,
-                              const void* src, size_t spitch, size_t sspitch,
-                              size_t width, size_t height, size_t depth);
+  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t DPitch,
+                                        size_t DSPitch, const void *Src,
+                                        size_t SPitch, size_t SSPitch,
+                                        size_t Width, size_t Height,
+                                        size_t Depth) = 0;
+  virtual void memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
+                              const void *Src, size_t SPitch, size_t SSPitch,
+                              size_t Width, size_t Height, size_t Depth);
 
   // Memory copy to texture object, i.e. image
-  virtual CHIPEvent* memCopyToTextureImpl(CHIPTexture* texObj, void* src) = 0;
-  virtual void memCopyToTexture(CHIPTexture* texObj, void* src);
+  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *TexObj, void *Src) = 0;
+  virtual void memCopyToTexture(CHIPTexture *TexObj, void *Src);
 
   /**
    * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
@@ -1697,8 +1702,8 @@ class CHIPQueue {
    * @param exec_item
    * @return hipError_t
    */
-  virtual CHIPEvent* launchImpl(CHIPExecItem* exec_item) = 0;
-  virtual CHIPEvent* launch(CHIPExecItem* exec_item);
+  virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) = 0;
+  virtual CHIPEvent *launch(CHIPExecItem *ExecItem);
 
   /**
    * @brief Get the Device obj
@@ -1706,7 +1711,7 @@ class CHIPQueue {
    * @return CHIPDevice*
    */
 
-  CHIPDevice* getDevice();
+  CHIPDevice *getDevice();
   /**
    * @brief Wait for this queue to finish.
    *
@@ -1720,7 +1725,7 @@ class CHIPQueue {
    * @return false
    */
 
-  bool query();  // TODO Depends on Events
+  bool query(); // TODO Depends on Events
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority
@@ -1729,7 +1734,7 @@ class CHIPQueue {
    * @return int bound
    */
 
-  int getPriorityRange(int lower_or_upper);  // TODO CHIP
+  int getPriorityRange(int LowerOrUpper); // TODO CHIP
   /**
    * @brief Insert an event into this queue
    *
@@ -1737,12 +1742,12 @@ class CHIPQueue {
    * @return true
    * @return false
    */
-  virtual CHIPEvent* enqueueBarrierImpl(
-      std::vector<CHIPEvent*>* eventsToWaitFor) = 0;
-  virtual CHIPEvent* enqueueBarrier(std::vector<CHIPEvent*>* eventsToWaitFor);
+  virtual CHIPEvent *
+  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) = 0;
+  virtual CHIPEvent *enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor);
 
-  virtual CHIPEvent* enqueueMarkerImpl() = 0;
-  CHIPEvent* enqueueMarker();
+  virtual CHIPEvent *enqueueMarkerImpl() = 0;
+  CHIPEvent *enqueueMarker();
 
   /**
    * @brief Get the Flags object with which this queue was created.
@@ -1750,14 +1755,14 @@ class CHIPQueue {
    * @return unsigned int
    */
 
-  unsigned int getFlags();  // TODO CHIP
+  unsigned int getFlags(); // TODO CHIP
   /**
    * @brief Get the Priority object with which this queue was created.
    *
    * @return int
    */
 
-  int getPriority();  // TODO CHIP
+  int getPriority(); // TODO CHIP
   /**
    * @brief Add a callback funciton to be called on the host after the specified
    * stream is done
@@ -1768,7 +1773,7 @@ class CHIPQueue {
    * @return false
    */
 
-  virtual bool addCallback(hipStreamCallback_t callback, void* userData);
+  virtual bool addCallback(hipStreamCallback_t Callback, void *UserData);
   /**
    * @brief Insert a memory prefetch
    *
@@ -1778,8 +1783,8 @@ class CHIPQueue {
    * @return false
    */
 
-  virtual CHIPEvent* memPrefetchImpl(const void* ptr, size_t count) = 0;
-  void memPrefetch(const void* ptr, size_t count);
+  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) = 0;
+  void memPrefetch(const void *Ptr, size_t Count);
 
   /**
    * @brief Launch a kernel on this queue given a host pointer and arguments
@@ -1790,8 +1795,8 @@ class CHIPQueue {
    * @param args
    * @param sharedMemBytes
    */
-  void launchHostFunc(const void* hostFunction, dim3 numBlocks, dim3 dimBlocks,
-                      void** args, size_t sharedMemBytes);
+  void launchHostFunc(const void *HostFunction, dim3 NumBlocks, dim3 DimBlocks,
+                      void **Args, size_t SharedMemBytes);
 
   /**
    * @brief
@@ -1803,9 +1808,9 @@ class CHIPQueue {
    * @param kernel
    * @return hipError_t
    */
-  virtual void launchWithKernelParams(dim3 grid, dim3 block,
-                                      unsigned int sharedMemBytes, void** args,
-                                      CHIPKernel* kernel);
+  virtual void launchWithKernelParams(dim3 Grid, dim3 Block,
+                                      unsigned int SharedMemBytes, void **Args,
+                                      CHIPKernel *Kernel);
 
   /**
    * @brief
@@ -1817,13 +1822,13 @@ class CHIPQueue {
    * @param kernel
    * @return hipError_t
    */
-  virtual void launchWithExtraParams(dim3 grid, dim3 block,
-                                     unsigned int sharedMemBytes, void** extra,
-                                     CHIPKernel* kernel);
+  virtual void launchWithExtraParams(dim3 Grid, dim3 Block,
+                                     unsigned int SharedMemBytes, void **Extra,
+                                     CHIPKernel *Kernel);
 
-  virtual void getBackendHandles(unsigned long* nativeInfo, int* size) = 0;
+  virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) = 0;
 
-  CHIPContext* getContext() { return chip_context; }
+  CHIPContext *getContext() { return ChipContext_; }
 };
 
 #endif
