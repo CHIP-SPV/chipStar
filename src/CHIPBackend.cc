@@ -48,23 +48,7 @@ static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
 
 CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t CallbackF,
                                    void *CallbackArgs, CHIPQueue *ChipQueue)
-    : CallbackF(CallbackF), CallbackArgs(CallbackArgs), ChipQueue(ChipQueue) {
-  setup();
-}
-
-void CHIPCallbackData::setup() {
-  CHIPContext *Ctx = ChipQueue->getContext();
-  GpuReady = Backend->createCHIPEvent(Ctx);
-  CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
-  GpuAck = Backend->createCHIPEvent(Ctx);
-
-  GpuReady = ChipQueue->enqueueBarrier(nullptr);
-
-  std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
-  ChipQueue->enqueueBarrier(&ChipEvs);
-
-  GpuAck = ChipQueue->enqueueMarker();
-}
+    : CallbackF(CallbackF), CallbackArgs(CallbackArgs), ChipQueue(ChipQueue) {}
 
 void CHIPEventMonitor::monitor() {
   logDebug("CHIPEventMonitor::monitor()");

@@ -57,7 +57,7 @@ public:
    * @brief
    *
    */
-  virtual void setup();
+  virtual void setup() = 0;
 
   void execute(hipError_t ResultFromDependency) {
     CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);

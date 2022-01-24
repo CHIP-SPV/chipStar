@@ -207,10 +207,17 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {}
 
 void CHIPCallbackDataLevel0::setup() {
-  // create a pool
-  // create events from pool
-  // assign events to parent events
-  UNIMPLEMENTED();
+  CHIPContext *Ctx = ChipQueue->getContext();
+  GpuReady = Backend->createCHIPEvent(Ctx);
+  CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
+  GpuAck = Backend->createCHIPEvent(Ctx);
+
+  GpuReady = ChipQueue->enqueueBarrier(nullptr);
+
+  std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
+  ChipQueue->enqueueBarrier(&ChipEvs);
+
+  GpuAck = ChipQueue->enqueueMarker();
 }
 // End CHIPCallbackDataLevel0
 
