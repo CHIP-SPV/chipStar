@@ -88,8 +88,7 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
 AllocationInfo *CHIPAllocationTracker::getByHostPtr(const void *HostPtr) {
   auto Found = HostToDev_.find(const_cast<void *>(HostPtr));
   if (Found == HostToDev_.end()) {
-    CHIPERR_LOG_AND_THROW("Unable to find allocation info for host pointer",
-                          hipErrorInvalidSymbol);
+    return nullptr;
   }
   return getByDevPtr(Found->second);
 }
@@ -98,7 +97,7 @@ AllocationInfo *CHIPAllocationTracker::getByDevPtr(const void *DevPtr) {
   logDebug("dev_to_allocation_info size: {}", DevToAllocInfo_.size());
   auto Count = DevToAllocInfo_.count(Ptr);
   if (Count == 0)
-    CHIPERR_LOG_AND_THROW("pointer not found on device", hipErrorTbd);
+    return nullptr;
 
   return &DevToAllocInfo_[const_cast<void *>(DevPtr)];
 }
