@@ -73,4 +73,9 @@ inline void checkIfNullptr(int NumArgs, ...) {
 #define NUMARGS(...) (sizeof((const void *[]){__VA_ARGS__}) / sizeof(void *))
 #define NULLCHECK(...) checkIfNullptr(NUMARGS(__VA_ARGS__), __VA_ARGS__);
 
+#define CHECK(X)                                                               \
+  if (X == nullptr) {                                                          \
+    CHIPERR_LOG_AND_THROW("Nullarg", hipErrorInvalidHandle);                   \
+  }
+
 #endif // ifdef guard

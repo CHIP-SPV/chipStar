@@ -1287,25 +1287,28 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
                           hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst, Src);
+  NULLCHECK(Dst);
+  CHECK(Src);
   Stream = Backend->findQueue(Stream);
 
-  /*
-  if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyDeviceToHost)) {
-    if (!cont->hasPointer(Src))
-      RETURN(hipErrorInvalidDevicePointer);
-  }
+  // Stream->getDevice()->initializeDeviceVariables();
+  // auto TargetDevAllocTracker = Stream->getDevice()->AllocationTracker;
+  // auto ActiveDevAllocTracker = Backend->getActiveDevice()->AllocationTracker;
 
-  if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyHostToDevice)) {
-    if (!cont->hasPointer(Dst))
-      RETURN(hipErrorInvalidDevicePointer);
-  }*/
+  // if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyDeviceToHost)) {
+  //   if (!TargetDevAllocTracker->getByHostPtr(Src))
+  //     RETURN(hipErrorInvalidDevicePointer);
+  // }
+
+  // if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyHostToDevice)) {
+  //   if (!ActiveDevAllocTracker->getByHostPtr(Dst))
+  //     RETURN(hipErrorInvalidDevicePointer);
+  // }
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
     RETURN(hipSuccess);
   } else {
-    Stream->getDevice()->initializeDeviceVariables();
     RETURN(Stream->memCopyAsync(Dst, Src, SizeBytes));
   }
 
@@ -1316,7 +1319,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst, Src);
+  NULLCHECK(Dst);
+  CHECK(Src);
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
