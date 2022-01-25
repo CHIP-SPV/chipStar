@@ -327,11 +327,15 @@ public:
   }
 
   virtual CHIPEventMonitor *createCallbackEventMonitor() override {
-    return new CHIPCallbackEventMonitorLevel0();
+    auto Evm = new CHIPCallbackEventMonitorLevel0();
+    Evm->start();
+    return Evm;
   }
 
   virtual CHIPEventMonitor *createStaleEventMonitor() override {
-    return new CHIPStaleEventMonitorLevel0();
+    auto Evm = new CHIPStaleEventMonitorLevel0();
+    Evm->start();
+    return Evm;
   }
 
 }; // CHIPBackendLevel0

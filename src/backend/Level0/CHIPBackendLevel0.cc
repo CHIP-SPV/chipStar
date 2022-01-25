@@ -245,12 +245,11 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     CallbackData->CpuCallbackComplete->hostSignal();
     CallbackData->GpuAck->wait();
     delete CallbackData;
-    pthread_yield();
   }
 
   // no more callback events left, free up the thread
-  // delete this;
-  // pthread_yield();
+  delete this;
+  pthread_yield();
 }
 
 void CHIPStaleEventMonitorLevel0::monitor() {
@@ -660,7 +659,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   } // End adding CHIPDevices
 
   StaleEventMonitor_ = new CHIPStaleEventMonitorLevel0();
-  StaleEventMonitor_->start();
 }
 
 // CHIPContextLevelZero
