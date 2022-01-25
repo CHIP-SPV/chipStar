@@ -1323,7 +1323,7 @@ public:
    * @brief
    *
    */
-  virtual void uninitialize() = 0;
+  virtual void uninitialize();
 
   /**
    * @brief Get the Queues object

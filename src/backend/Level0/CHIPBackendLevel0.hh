@@ -297,19 +297,6 @@ public:
 
   virtual std::string getDefaultJitFlags() override;
 
-  void uninitialize() override {
-    logDebug("");
-    logDebug("CHIPBackendLevel0::uninitialize()");
-    for (auto Q : Backend->getQueues()) {
-      CHIPContext *Ctx = Q->getContext();
-      logDebug("Remaining {} events that haven't been collected:",
-               Ctx->Events.size());
-      for (auto E : Ctx->Events)
-        logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-                 E->getCHIPRefc());
-    }
-  }
-
   virtual CHIPTexture *createCHIPTexture(intptr_t Image,
                                          intptr_t Sampler) override {
     return new CHIPTextureLevel0(Image, Sampler);

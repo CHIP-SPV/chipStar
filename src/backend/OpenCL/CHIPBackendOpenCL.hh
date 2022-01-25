@@ -208,7 +208,6 @@ public:
   void initializeImpl(std::string CHIPPlatformStr,
                       std::string CHIPDeviceTypeStr,
                       std::string CHIPDeviceStr) override;
-  void uninitialize() override;
   virtual std::string getDefaultJitFlags() override;
   virtual CHIPTexture *createCHIPTexture(intptr_t Image,
                                          intptr_t Sampler) override;

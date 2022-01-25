@@ -899,19 +899,6 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   std::cout << "OpenCL Context Initialized.\n";
 };
 
-void CHIPBackendOpenCL::uninitialize() {
-  logDebug("");
-  logDebug("CHIPBackendOpenCL::uninitialize()");
-  for (auto Q : Backend->getQueues()) {
-    CHIPContext *Ctx = Q->getContext();
-    logDebug("Remaining {} events that haven't been collected:",
-             Ctx->Events.size());
-    for (auto E : Ctx->Events)
-      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-               E->getCHIPRefc());
-  }
-}
-
 // Other
 //*************************************************************************
 

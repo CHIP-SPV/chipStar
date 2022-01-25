@@ -149,7 +149,8 @@ void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
       Refc_(new size_t(1)) {
-  Ctx->Events.push_back(this);
+  std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
+  Backend->Events.push_back(this);
 }
 
 // CHIPModuleflags_
@@ -929,6 +930,15 @@ hipError_t CHIPContext::free(void *Ptr) {
 
 // CHIPBackend
 //*************************************************************************************
+
+void CHIPBackend::uninitialize() {
+  logDebug("CHIPBackend::uninitialize()");
+  logDebug("Remaining {} events that haven't been collected:",
+           Backend->Events.size());
+  for (auto E : Backend->Events)
+    logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+             E->getCHIPRefc());
+}
 
 std::string CHIPBackend::getJitFlags() {
   std::string Flags;
