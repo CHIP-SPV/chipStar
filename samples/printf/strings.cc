@@ -48,6 +48,15 @@ __global__ void literal_str_arg(int *out) {
   out[tid] += printf(" %s\n", "strings.");
 }
 
+__global__ void var_str_arg(int *out) {
+  uint tid = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
+  const char *hello = "HELLO\n";
+  const char *strings = "STRiNGS\n";
+  printf("## global_str_arg\n");
+  out[tid] = printf("%s", hello);
+  out[tid] += printf(" %s\n", strings);
+}
+
 int main(int argc, char *argv[]) {
   uint num_threads = 1;
   uint failures = 0;
@@ -78,5 +87,15 @@ int main(int argc, char *argv[]) {
 #endif
   }
 
+  hipLaunchKernelGGL(var_str_arg, dim3(1), dim3(1), 0, 0, retval);
+  hipStreamSynchronize(0);
+
+  for (uint ii = 0; ii != num_threads; ++ii) {
+#ifdef __HIP_PLATFORM_AMD__
+    CHECK(retval[ii], 0);
+#else
+    CHECK(retval[ii], 2);
+#endif
+  }
   printf((failures == 0) ? "PASSED!\n" : "FAILED!\n");
 }
