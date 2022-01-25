@@ -64,44 +64,30 @@ public:
   }
 };
 
-void *monitor_wrapper(void *EventMonitor);
 class CHIPEventMonitor {
-  std::mutex Mtx_;
   typedef void *(*THREADFUNCPTR)(void *);
 
 protected:
-  // The thread ID for monitor thread
-  pthread_t Thread_ = 0;
-
-  CHIPQueue *ChipQueue_;
+  CHIPEventMonitor() = default;
+  virtual ~CHIPEventMonitor() = default;
+  pthread_t Thread_;
 
 public:
-  /**
-   * @brief Pop the callback stack and execute
-   */
-  virtual void monitor();
+  void join() { pthread_join(Thread_, nullptr); }
+  static void *monitorWrapper(void *Arg) {
+    auto Monitor = (CHIPEventMonitor *)Arg;
+    Monitor->monitor();
+    return 0;
+  }
+  virtual void monitor() = 0;
 
-  CHIPEventMonitor() {
-    logDebug("CHIPEventMonitor::CHIPEventMonitor()");
-    auto Res = pthread_create(&Thread_, 0, (THREADFUNCPTR)&monitor_wrapper,
-                              (void *)this);
+  void start() {
+    auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
     logDebug("Thread Created with ID : {}", Thread_);
   }
-
-  /**
-   * @brief wait until event completes
-   *
-   */
-  void wait();
 };
-
-inline void *monitor_wrapper(void *EventMonitor) {
-  CHIPEventMonitor *EMonitor = (CHIPEventMonitor *)EventMonitor;
-  EMonitor->monitor();
-  return nullptr;
-}
 
 class CHIPTexture {
 protected:
@@ -1249,6 +1235,9 @@ protected:
 
 public:
   std::mutex CallbackStackMtx;
+  std::vector<CHIPEvent *> Events;
+  std::mutex EventsMtx;
+
   std::stack<CHIPCallbackData *> CallbackStack;
   /**
    * @brief Keep track of pointers allocated on the device. Used to get info
@@ -1503,7 +1492,8 @@ public:
                                                void *UserData,
                                                CHIPQueue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor *createEventMonitor() = 0;
+  virtual CHIPEventMonitor *createCallbackEventMonitor() = 0;
+  virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
 
   /**
  * @brief Get the Callback object

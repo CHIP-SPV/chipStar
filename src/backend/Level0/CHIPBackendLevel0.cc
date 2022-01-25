@@ -53,6 +53,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
   // Take over target queues Event_
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
+  std::lock_guard<std::mutex> LockThis(this->Mtx);
+  std::lock_guard<std::mutex> LockOther(Other->Mtx);
   if (*Refc_ > 1)
     decreaseRefCount();
   this->Event_ = Other->get(); // increases refcount
@@ -65,7 +67,9 @@ void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
 // kernel timings are enabled
 void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   ze_result_t Status;
+
   if (EventStatus_ == EVENT_STATUS_RECORDED) {
+    logTrace("{}: EVENT_STATUS_RECORDED ... Resetting event.");
     ze_result_t Status = zeEventHostReset(Event_);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
@@ -92,6 +96,10 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   EventStatus_ = EVENT_STATUS_RECORDING;
+  if (Msg == "") {
+    Msg = "recordStream";
+    increaseRefCount();
+  }
   return;
 }
 
@@ -109,12 +117,14 @@ bool CHIPEventLevel0::wait() {
 bool CHIPEventLevel0::updateFinishStatus() {
   if (EventStatus_ != EVENT_STATUS_RECORDING)
     return false;
+  auto EventStatusOld = EventStatus_;
 
   ze_result_t Status = zeEventQueryStatus(Event_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   if (Status == ZE_RESULT_SUCCESS)
     EventStatus_ = EVENT_STATUS_RECORDED;
 
+  logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
+           EventStatusOld, EventStatus_);
   return true;
 }
 
@@ -204,7 +214,20 @@ void CHIPEventLevel0::hostSignal() {
 CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
-    : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {}
+    : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
+
+  CHIPContext *Ctx = ChipQueue->getContext();
+  // GpuReady = Backend->createCHIPEvent(Ctx);
+  CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
+  // GpuAck = Backend->createCHIPEvent(Ctx);
+
+  GpuReady = ChipQueue->enqueueBarrier(nullptr);
+
+  std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
+  ChipQueue->enqueueBarrier(&ChipEvs);
+
+  GpuAck = ChipQueue->enqueueMarker();
+}
 
 void CHIPCallbackDataLevel0::setup() {
   CHIPContext *Ctx = ChipQueue->getContext();
@@ -224,13 +247,48 @@ void CHIPCallbackDataLevel0::setup() {
 // CHIPEventMonitorLevel0
 // ***********************************************************************
 
-CHIPEventMonitorLevel0::CHIPEventMonitorLevel0() : CHIPEventMonitor() {
-  logTrace("CHIPEventMonitorLevel0::CHIPEventMonitorLevel0()");
-};
-
-void CHIPEventMonitorLevel0::monitor() {
+void CHIPCallbackEventMonitorLevel0::monitor() {
+  std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
   logTrace("CHIPEventMonitorLevel0::monitor()");
-  CHIPEventMonitor::monitor();
+  CHIPCallbackData *CallbackData;
+  while (Backend->getCallback(&CallbackData)) {
+    CallbackData->GpuReady->wait();
+    CallbackData->execute(hipSuccess);
+    CallbackData->CpuCallbackComplete->hostSignal();
+    CallbackData->GpuAck->wait();
+    delete CallbackData;
+    pthread_yield();
+  }
+
+  // no more callback events left, free up the thread
+  // delete this;
+  // pthread_yield();
+}
+
+void CHIPStaleEventMonitorLevel0::monitor() {
+  logTrace("CHIPEventMonitorLevel0::monitor()");
+  CHIPCallbackData *CallbackData;
+
+  while (true)
+    for (int i = 0; i < Backend->Events.size(); i++) {
+      CHIPEvent *ChipEvent = Backend->Events[i];
+      std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+      std::lock_guard<std::mutex> CurrentEventLock(Backend->Events[i]->Mtx);
+
+      assert(ChipEvent);
+      auto E = (CHIPEventLevel0 *)ChipEvent;
+
+      if (E->Msg.compare("UserEvent") != 0)
+        if (E->getCHIPRefc() == 1) { // only do this check for non UserEvents
+          logDebug("HAHAHAHA {}", E->Msg.c_str());
+          E->updateFinishStatus(); // only check if refcount is 1
+          if (E->getEventStatus() != EVENT_STATUS_RECORDING) {
+            Backend->Events.erase(Backend->Events.begin() + i);
+            delete E;
+          }
+        }
+      pthread_yield();
+    }
 }
 // End CHIPEventMonitorLevel0
 
@@ -613,6 +671,9 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       break; // For now don't add more than one device
     }
   } // End adding CHIPDevices
+
+  StaleEventMonitor_ = new CHIPStaleEventMonitorLevel0();
+  StaleEventMonitor_->start();
 }
 
 // CHIPContextLevelZero

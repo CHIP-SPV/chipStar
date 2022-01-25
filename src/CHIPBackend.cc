@@ -1439,7 +1439,7 @@ bool CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
 
   // Setup event handling on the CPU side
   if (!EventMonitor_)
-    EventMonitor_ = Backend->createEventMonitor();
+    EventMonitor_ = Backend->createCallbackEventMonitor();
   return true;
 }
 

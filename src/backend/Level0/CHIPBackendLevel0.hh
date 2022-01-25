@@ -59,9 +59,15 @@ public:
   virtual void setup() override;
 };
 
-class CHIPEventMonitorLevel0 : public CHIPEventMonitor {
+class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  CHIPEventMonitorLevel0();
+  ~CHIPCallbackEventMonitorLevel0() { join(); };
+  virtual void monitor() override;
+};
+
+class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
+public:
+  ~CHIPStaleEventMonitorLevel0() { join(); };
   virtual void monitor() override;
 };
 
@@ -282,6 +288,8 @@ public:
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
+  CHIPStaleEventMonitorLevel0 *StaleEventMonitor_;
+
 public:
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
@@ -332,8 +340,12 @@ public:
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 
-  virtual CHIPEventMonitor *createEventMonitor() override {
-    return new CHIPEventMonitorLevel0();
+  virtual CHIPEventMonitor *createCallbackEventMonitor() override {
+    return new CHIPCallbackEventMonitorLevel0();
+  }
+
+  virtual CHIPEventMonitor *createStaleEventMonitor() override {
+    return new CHIPStaleEventMonitorLevel0();
   }
 
 }; // CHIPBackendLevel0

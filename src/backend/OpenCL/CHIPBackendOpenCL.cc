@@ -821,8 +821,12 @@ CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
   UNIMPLEMENTED(nullptr);
 }
 
-CHIPEventMonitor *CHIPBackendOpenCL::createEventMonitor() {
+CHIPEventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor() {
   return new CHIPEventMonitorOpenCL();
+}
+
+CHIPEventMonitor *CHIPBackendOpenCL::createStaleEventMonitor() {
+  UNIMPLEMENTED(nullptr);
 }
 
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {
