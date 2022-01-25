@@ -270,7 +270,6 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
-  std::mutex Mtx_;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
 
@@ -291,6 +290,7 @@ protected:
   CHIPEvent() = default;
 
 public:
+  std::mutex Mtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void takeOver(CHIPEvent *Other){};
