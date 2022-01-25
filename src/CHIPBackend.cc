@@ -1373,7 +1373,6 @@ CHIPEvent *CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #endif
   auto ChipEvent = launchImpl(ExecItem);
   ChipEvent->Msg = "launch";
-  updateLastEvent(ChipEvent);
   return ChipEvent;
 }
 CHIPEvent *

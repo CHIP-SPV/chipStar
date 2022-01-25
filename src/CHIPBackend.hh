@@ -53,12 +53,6 @@ public:
   CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
                    CHIPQueue *ChipQueue);
 
-  /**
-   * @brief
-   *
-   */
-  virtual void setup() = 0;
-
   void execute(hipError_t ResultFromDependency) {
     CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
   }
@@ -1577,6 +1571,8 @@ public:
 
   CHIPQueueType getQueueType() { return QueueType_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
+    std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
+    std::lock_guard<std::mutex> LockNew(ChipEv->Mtx);
     assert(ChipEv);
     if (ChipEv == LastEvent_)
       return;

@@ -117,14 +117,15 @@ bool CHIPEventLevel0::wait() {
 bool CHIPEventLevel0::updateFinishStatus() {
   if (EventStatus_ != EVENT_STATUS_RECORDING)
     return false;
-  auto EventStatusOld = EventStatus_;
+  auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
   if (Status == ZE_RESULT_SUCCESS)
     EventStatus_ = EVENT_STATUS_RECORDED;
 
+  auto EventStatusNew = getEventStatusStr();
   logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
-           EventStatusOld, EventStatus_);
+           EventStatusOld, EventStatusNew);
   return true;
 }
 
@@ -229,19 +230,6 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   GpuAck = ChipQueue->enqueueMarker();
 }
 
-void CHIPCallbackDataLevel0::setup() {
-  CHIPContext *Ctx = ChipQueue->getContext();
-  GpuReady = Backend->createCHIPEvent(Ctx);
-  CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
-  GpuAck = Backend->createCHIPEvent(Ctx);
-
-  GpuReady = ChipQueue->enqueueBarrier(nullptr);
-
-  std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
-  ChipQueue->enqueueBarrier(&ChipEvs);
-
-  GpuAck = ChipQueue->enqueueMarker();
-}
 // End CHIPCallbackDataLevel0
 
 // CHIPEventMonitorLevel0
@@ -280,9 +268,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
       if (E->Msg.compare("UserEvent") != 0)
         if (E->getCHIPRefc() == 1) { // only do this check for non UserEvents
-          logDebug("HAHAHAHA {}", E->Msg.c_str());
-          E->updateFinishStatus(); // only check if refcount is 1
-          if (E->getEventStatus() != EVENT_STATUS_RECORDING) {
+          E->updateFinishStatus();   // only check if refcount is 1
+          if (E->getEventStatus() == EVENT_STATUS_RECORDED) {
             Backend->Events.erase(Backend->Events.begin() + i);
             delete E;
           }

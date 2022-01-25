@@ -56,7 +56,6 @@ private:
 public:
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
-  virtual void setup() override;
 };
 
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
