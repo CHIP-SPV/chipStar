@@ -897,7 +897,9 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  delete Event;
+  // instead of destroying directly, decrement refc to 1 and  let
+  // StaleEventMonitor destroy this event
+  Event->decreaseRefCount();
   RETURN(hipSuccess);
 
   CHIP_CATCH

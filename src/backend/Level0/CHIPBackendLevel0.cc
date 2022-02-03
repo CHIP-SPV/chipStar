@@ -98,7 +98,6 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   EventStatus_ = EVENT_STATUS_RECORDING;
   if (Msg == "") {
     Msg = "recordStream";
-    increaseRefCount();
   }
   return;
 }

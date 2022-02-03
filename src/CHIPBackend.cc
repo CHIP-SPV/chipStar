@@ -930,6 +930,8 @@ hipError_t CHIPContext::free(void *Ptr) {
 
 void CHIPBackend::uninitialize() {
   logDebug("CHIPBackend::uninitialize()");
+  // Give a chance for StaleEventMonitor to cleanup
+  pthread_yield();
   logDebug("Remaining {} events that haven't been collected:",
            Backend->Events.size());
   for (auto E : Backend->Events)
