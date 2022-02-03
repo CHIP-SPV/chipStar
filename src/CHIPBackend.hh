@@ -21,6 +21,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <queue>
 #include <stack>
 
 #include "spirv.hh"
@@ -73,7 +74,7 @@ public:
     Monitor->monitor();
     return 0;
   }
-  virtual void monitor() = 0;
+  virtual void monitor(){};
 
   void start() {
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
@@ -1232,7 +1233,7 @@ public:
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
 
-  std::stack<CHIPCallbackData *> CallbackStack;
+  std::queue<CHIPCallbackData *> CallbackStack;
   /**
    * @brief Keep track of pointers allocated on the device. Used to get info
    * about allocaitons based on device poitner in case that findPointerInfo() is
@@ -1497,19 +1498,21 @@ public:
  * @return false callback object not available
  */
   bool getCallback(CHIPCallbackData **CallbackData) {
-    std::lock_guard<std::mutex> Lock(Mtx_);
-    bool Res = false;
-    logDebug("Elements in callback stack: {}", CallbackStack.size());
-    if (this->CallbackStack.size()) {
-      *CallbackData = CallbackStack.top();
-      if (*CallbackData == nullptr)
-        return Res;
-      CallbackStack.pop();
+    // std::lock_guard<std::mutex> Lock(Mtx_);
 
-      Res = true;
-    }
+    // bool Res = false;
+    // logDebug("Elements in callback stack: {}", CallbackStack.size());
+    // if (this->CallbackStack.size()) {
+    //   *CallbackData = CallbackStack.at(CallbackStack.begin());
+    //   if (*CallbackData == nullptr)
+    //     return Res;
+    //   CallbackStack.();
 
-    return Res;
+    //   Res = true;
+    // }
+
+    // return Res;
+    return false;
   }
 };
 

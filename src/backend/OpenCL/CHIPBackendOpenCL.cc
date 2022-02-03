@@ -823,7 +823,9 @@ CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
 }
 
 CHIPEventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor() {
-  return new CHIPEventMonitorOpenCL();
+  auto Evm = new CHIPEventMonitorOpenCL();
+  Evm->start();
+  return Evm;
 }
 
 CHIPEventMonitor *CHIPBackendOpenCL::createStaleEventMonitor() {

@@ -103,8 +103,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
 }
 
 bool CHIPEventLevel0::wait() {
-  if (EventStatus_ != EVENT_STATUS_RECORDING)
-    return false;
+  logTrace("CHIPEventLevel0::wait() msg={}", Msg);
 
   ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -114,9 +113,6 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus() {
-  // If not recording then  zeEventQueryStatus segfaults?
-  // if (EventStatus_ != EVENT_STATUS_RECORDING)
-  //   return false;
   auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
@@ -217,13 +213,14 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
-
+  std::lock_guard<std::mutex> Lock(Mtx);
   CHIPContext *Ctx = ChipQueue->getContext();
   // GpuReady = Backend->createCHIPEvent(Ctx);
   CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
   // GpuAck = Backend->createCHIPEvent(Ctx);
 
   GpuReady = ChipQueue->enqueueBarrier(nullptr);
+  GpuReady->updateFinishStatus();
 
   std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
   ChipQueue->enqueueBarrier(&ChipEvs);
@@ -239,13 +236,24 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 void CHIPCallbackEventMonitorLevel0::monitor() {
   std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
   logTrace("CHIPEventMonitorLevel0::monitor()");
-  CHIPCallbackData *CallbackData;
-  while (Backend->getCallback(&CallbackData)) {
-    CallbackData->GpuReady->wait();
+  while (Backend->CallbackStack.size()) {
+    // CallbackData->GpuReady->wait();
+    CHIPCallbackData *CallbackData = Backend->CallbackStack.front();
+    Backend->CallbackStack.pop();
+
+    // Update Status
+    CallbackData->GpuReady->updateFinishStatus();
+    if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+      // if not ready, push to the back
+      Backend->CallbackStack.push(CallbackData);
+      continue;
+    }
+
     CallbackData->execute(hipSuccess);
     CallbackData->CpuCallbackComplete->hostSignal();
     CallbackData->GpuAck->wait();
     delete CallbackData;
+    pthread_yield();
   }
 
   // no more callback events left, free up the thread
@@ -569,6 +577,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 
 void CHIPQueueLevel0::finish() {
   // The finish Event_ that denotes the finish of current command list items
+  pthread_yield();
   auto Status =
       zeCommandListAppendBarrier(ZeCmdListImm_, FinishEvent_, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(
@@ -670,8 +679,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     }
   } // End adding CHIPDevices
 
-  StaleEventMonitor_ =
-      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  // StaleEventMonitor_ =
+  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero

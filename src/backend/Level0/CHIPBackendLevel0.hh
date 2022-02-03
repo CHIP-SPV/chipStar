@@ -54,6 +54,7 @@ private:
   ze_event_pool_handle_t ZeEventPool_;
 
 public:
+  std::mutex Mtx;
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
 };

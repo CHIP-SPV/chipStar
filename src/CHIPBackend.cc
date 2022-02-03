@@ -50,21 +50,23 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t CallbackF,
                                    void *CallbackArgs, CHIPQueue *ChipQueue)
     : CallbackF(CallbackF), CallbackArgs(CallbackArgs), ChipQueue(ChipQueue) {}
 
-void CHIPEventMonitor::monitor() {
-  logDebug("CHIPEventMonitor::monitor()");
-  CHIPCallbackData *CallbackData;
-  while (Backend->getCallback(&CallbackData)) {
-    CallbackData->GpuReady->wait();
-    CallbackData->execute(hipSuccess);
-    CallbackData->CpuCallbackComplete->hostSignal();
-    CallbackData->GpuAck->wait();
-    delete CallbackData;
-  }
+// void CHIPEventMonitor::monitor() {
+//   logDebug("CHIPEventMonitor::monitor()");
+//   CHIPCallbackData *CallbackData;
+//   while (Backend->getCallback(&CallbackData)) {
+//     CallbackData->GpuReady->updateFinishStatus();
+//     if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED)
+//       continue;
+//     CallbackData->execute(hipSuccess);
+//     CallbackData->CpuCallbackComplete->hostSignal();
+//     CallbackData->GpuAck->wait();
+//     delete CallbackData;
+//   }
 
-  // no more callback events left, free up the thread
-  delete this;
-  pthread_yield();
-}
+//   // no more callback events left, free up the thread
+//   delete this;
+//   pthread_yield();
+// }
 
 // CHIPDeviceVar
 // ************************************************************************
@@ -1440,6 +1442,7 @@ unsigned int CHIPQueue::getFlags() { return Flags_; }
 int CHIPQueue::getPriorityRange(int LowerOrUpper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
+  std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
   CHIPCallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);
 
