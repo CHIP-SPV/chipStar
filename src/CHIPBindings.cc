@@ -873,7 +873,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags);
+  *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
   RETURN(hipSuccess);
 
   CHIP_CATCH

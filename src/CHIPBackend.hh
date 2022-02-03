@@ -1471,9 +1471,9 @@ public:
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
   // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
   // virtual CHIPContext* createCHIPContext() = 0;
-  virtual CHIPEvent *
-  createCHIPEvent(CHIPContext *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags()) = 0;
+  virtual CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx,
+                                     CHIPEventFlags Flags = CHIPEventFlags(),
+                                     bool UserEvent = false) = 0;
 
   /**
    * @brief Create a Callback Obj object

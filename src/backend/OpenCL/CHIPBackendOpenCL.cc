@@ -214,7 +214,8 @@ void CHIPEventOpenCL::increaseRefCount() {
 }
 
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
-                                                    CHIPEventFlags Flags) {
+                                                    CHIPEventFlags Flags,
+                                                    bool UserEvent) {
   return new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
 }
 

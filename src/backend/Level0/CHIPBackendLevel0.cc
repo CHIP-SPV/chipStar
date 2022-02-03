@@ -115,8 +115,9 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus() {
-  if (EventStatus_ != EVENT_STATUS_RECORDING)
-    return false;
+  // If not recording then  zeEventQueryStatus segfaults?
+  // if (EventStatus_ != EVENT_STATUS_RECORDING)
+  //   return false;
   auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
@@ -124,8 +125,9 @@ bool CHIPEventLevel0::updateFinishStatus() {
     EventStatus_ = EVENT_STATUS_RECORDED;
 
   auto EventStatusNew = getEventStatusStr();
-  logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
-           EventStatusOld, EventStatusNew);
+  if (EventStatusNew != EventStatusOld)
+    logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
+             EventStatusOld, EventStatusNew);
   return true;
 }
 
@@ -254,9 +256,8 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
 
 void CHIPStaleEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
-  CHIPCallbackData *CallbackData;
-
-  while (true)
+  while (true) {
+    std::vector<CHIPEvent *> EventsToDelete;
     for (int i = 0; i < Backend->Events.size(); i++) {
       CHIPEvent *ChipEvent = Backend->Events[i];
       std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
@@ -269,12 +270,24 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         if (E->getCHIPRefc() == 1) { // only do this check for non UserEvents
           E->updateFinishStatus();   // only check if refcount is 1
           if (E->getEventStatus() == EVENT_STATUS_RECORDED) {
-            Backend->Events.erase(Backend->Events.begin() + i);
-            delete E;
+            EventsToDelete.push_back(E);
           }
         }
-      pthread_yield();
+    } // done collecting events to delete
+
+    for (int i = 0; i < EventsToDelete.size(); i++) {
+      auto E = EventsToDelete[i];
+      auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), E);
+      if (Found == Backend->Events.end())
+        CHIPERR_LOG_AND_THROW(
+            "StaleEventMonitor is trying to destroy an event which is already "
+            "removed from backend event list",
+            hipErrorTbd);
+      Backend->Events.erase(Found);
+      delete E;
     }
+    pthread_yield();
+  } // endless loop
 }
 // End CHIPEventMonitorLevel0
 

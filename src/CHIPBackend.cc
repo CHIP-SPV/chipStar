@@ -148,10 +148,7 @@ void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
-      Refc_(new size_t(1)) {
-  std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
-  Backend->Events.push_back(this);
-}
+      Refc_(new size_t(1)) {}
 
 // CHIPModuleflags_
 //*************************************************************************************

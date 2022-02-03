@@ -314,9 +314,18 @@ public:
   //   return new CHIPContextLevel0();
   // };
   virtual CHIPEventLevel0 *
-  createCHIPEvent(CHIPContext *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags()) override {
+  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false) override {
     auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+
+    if (UserEvent)
+      Ev->increaseRefCount();
+
+    // Need to add this here because otherwise, this event will be added to the
+    // Event list prior to completing initialization
+    std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
+    Backend->Events.push_back(Ev);
+
     return Ev;
   }
 

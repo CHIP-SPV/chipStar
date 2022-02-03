@@ -213,8 +213,8 @@ public:
                                          intptr_t Sampler) override;
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual CHIPEventOpenCL *
-  createCHIPEvent(CHIPContext *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags()) override;
+  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false) override;
   virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQueue) override;
