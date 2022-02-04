@@ -90,6 +90,7 @@ set(SAMPLES
     10_memcpy3D
     11_device
     hipStreamSemantics
+    hipMultiThreadAddCallback
     hipInfo
     hipSymbol
     hip-cuda

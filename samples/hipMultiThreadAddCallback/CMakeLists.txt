@@ -1,0 +1,2 @@
+
+add_chip_test(hipMultiThreadAddCallback hipMultiThreadAddCallback PASSED main.cc)
