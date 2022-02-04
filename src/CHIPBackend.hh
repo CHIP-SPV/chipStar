@@ -279,14 +279,14 @@ public:
   size_t getCHIPRefc() { return *Refc_; }
   virtual void takeOver(CHIPEvent *Other){};
   virtual void decreaseRefCount() {
-    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
-             *Refc_, *Refc_ - 1);
+    // logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
+    //          *Refc_, *Refc_ - 1);
     (*Refc_)--;
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount() {
-    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
-             *Refc_, *Refc_ + 1);
+    // logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
+    //          *Refc_, *Refc_ + 1);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
@@ -1593,7 +1593,7 @@ public:
     assert(ChipEv);
     if (ChipEv == LastEvent_)
       return;
-    logDebug("CHIPQueue::updateLastEvent()");
+    // logDebug("CHIPQueue::updateLastEvent()");
     if (LastEvent_ != nullptr)
       LastEvent_->decreaseRefCount();
     ChipEv->increaseRefCount();
