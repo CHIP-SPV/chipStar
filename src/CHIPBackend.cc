@@ -932,8 +932,19 @@ hipError_t CHIPContext::free(void *Ptr) {
 
 void CHIPBackend::uninitialize() {
   logDebug("CHIPBackend::uninitialize()");
+  {
+    std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
+    for (auto q : Backend->getQueues()) {
+      auto Ev = q->getLastEvent();
+      std::lock_guard<std::mutex> Lock(Ev->Mtx);
+      if (Ev->getCHIPRefc() == 2)
+        Ev->decreaseRefCount();
+    }
+  }
   // Give a chance for StaleEventMonitor to cleanup
   pthread_yield();
+  sleep(1); // TODO Is there a better way to do this?
+
   logDebug("Remaining {} events that haven't been collected:",
            Backend->Events.size());
   for (auto E : Backend->Events)
@@ -1246,6 +1257,7 @@ CHIPEvent *CHIPQueue::memCopyImpl(void *Dst, const void *Src, size_t Size) {
 }
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1256,6 +1268,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
 }
 hipError_t CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1267,6 +1280,7 @@ hipError_t CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
                         size_t PatternSize) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1283,6 +1297,7 @@ CHIPEvent *CHIPQueue::memFillImpl(void *Dst, size_t Size, const void *Pattern,
 void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                              size_t PatternSize) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1293,6 +1308,7 @@ void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
 void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                           size_t SPitch, size_t Width, size_t Height) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1304,9 +1320,7 @@ void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
 CHIPEvent *CHIPQueue::memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
                                     size_t SPitch, size_t Width,
                                     size_t Height) {
-#ifdef ENFORCE_QUEUE_SYNC
-  chip_context->syncQueues(this);
-#endif
+
   auto ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
   finish();
   return ChipEvent;
@@ -1314,6 +1328,7 @@ CHIPEvent *CHIPQueue::memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
 void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                                size_t SPitch, size_t Width, size_t Height) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1325,6 +1340,7 @@ void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                           const void *Src, size_t SPitch, size_t SSPitch,
                           size_t Width, size_t Height, size_t Depth) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1349,17 +1365,19 @@ CHIPEvent *CHIPQueue::memCopy3DImpl(void *Dst, size_t DPitch, size_t DSPitch,
 void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                const void *Src, size_t SPitch, size_t SSPitch,
                                size_t Width, size_t Height, size_t Depth) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
   auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
-  std::lock_guard<std::mutex> Lock(Mtx);
   ChipEvent->Msg = "memCopy3DAsync";
   updateLastEvent(ChipEvent);
 }
 void CHIPQueue::memCopyToTexture(CHIPTexture *TexObj, void *Src) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1368,7 +1386,9 @@ void CHIPQueue::memCopyToTexture(CHIPTexture *TexObj, void *Src) {
   updateLastEvent(ChipEvent);
 }
 CHIPEvent *CHIPQueue::launch(CHIPExecItem *ExecItem) {
-  // std::lock_guard<std::mutex> Lock(mtx);
+  // TODO
+  // std::lock_guard<std::mutex> Lock(Mtx);
+  // std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1397,6 +1417,7 @@ CHIPEvent *CHIPQueue::enqueueMarker() {
 
 void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
@@ -1408,6 +1429,8 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
 void CHIPQueue::launchHostFunc(const void *HostFunction, dim3 NumBlocks,
                                dim3 DimBlocks, void **Args,
                                size_t SharedMemBytes) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
   CHIPExecItem ExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExecItem.setArgPointer(Args);
   auto ChipEvent = ExecItem.launchByHostPtr(HostFunction);

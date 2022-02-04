@@ -10,8 +10,10 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  zeEventDestroy(Event_);
-  zeEventPoolDestroy(EventPool_);
+  if (Event_)
+    zeEventDestroy(Event_);
+  if (EventPool_) // Previous event could have deleted this evet
+    zeEventPoolDestroy(EventPool_);
   Event_ = nullptr;
   EventPool_ = nullptr;
 }
@@ -214,18 +216,23 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEventList(Backend->EventsMtx);
   CHIPContext *Ctx = ChipQueue->getContext();
-  // GpuReady = Backend->createCHIPEvent(Ctx);
+
   CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
-  // GpuAck = Backend->createCHIPEvent(Ctx);
+  CpuCallbackComplete->Msg = "CpuCallbackComplete";
+  CpuCallbackComplete->increaseRefCount();
 
   GpuReady = ChipQueue->enqueueBarrier(nullptr);
-  GpuReady->updateFinishStatus();
+  GpuReady->Msg = "GpuReady";
+  GpuReady->increaseRefCount();
 
   std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
   ChipQueue->enqueueBarrier(&ChipEvs);
 
   GpuAck = ChipQueue->enqueueMarker();
+  GpuAck->Msg = "GpuAck";
+  GpuAck->increaseRefCount();
 }
 
 // End CHIPCallbackDataLevel0
@@ -237,8 +244,10 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
   std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (Backend->CallbackStack.size()) {
+    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
     // CallbackData->GpuReady->wait();
-    CHIPCallbackData *CallbackData = Backend->CallbackStack.front();
+    CHIPCallbackDataLevel0 *CallbackData =
+        (CHIPCallbackDataLevel0 *)Backend->CallbackStack.front();
     Backend->CallbackStack.pop();
 
     // Update Status
@@ -265,9 +274,10 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
     std::vector<CHIPEvent *> EventsToDelete;
+    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
     for (int i = 0; i < Backend->Events.size(); i++) {
       CHIPEvent *ChipEvent = Backend->Events[i];
-      std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+
       std::lock_guard<std::mutex> CurrentEventLock(Backend->Events[i]->Mtx);
 
       assert(ChipEvent);
@@ -408,12 +418,14 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
    * which require LastEvent to be initialized.
    *
    */
-  setLastEvent(enqueueMarkerImpl());
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  auto Ev = enqueueMarker();
+  Ev->Msg = "InitialMarker";
 }
 
 CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "launch";
 
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
@@ -441,7 +453,7 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
                                              const void *Pattern,
                                              size_t PatternSize) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memFill";
   ze_result_t Status = zeCommandListAppendMemoryFill(
       ZeCmdListImm_, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
@@ -461,7 +473,7 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
                                                size_t Width, size_t Height,
                                                size_t Depth) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memCopy3DAsync";
 
   ze_copy_region_t DstRegion;
@@ -489,7 +501,7 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
 CHIPEvent *CHIPQueueLevel0::memCopyToTextureImpl(CHIPTexture *TexObj,
                                                  void *Src) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memCopyToTexture";
 
   ze_image_handle_t ImageHandle = (ze_image_handle_t)TexObj->Image;
@@ -520,7 +532,8 @@ void CHIPQueueLevel0::getBackendHandles(unsigned long *NativeInfo, int *Size) {
 
 CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
   CHIPEventLevel0 *MarkerEvent =
-      new CHIPEventLevel0((CHIPContextLevel0 *)ChipContext_);
+      (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
+
   MarkerEvent->Msg = "marker";
   auto Status =
       zeCommandListAppendSignalEvent(getCmdList(), MarkerEvent->peek());
@@ -530,8 +543,9 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEvent *
 CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
+  // Create an event, refc=2, add it to EventList
   CHIPEventLevel0 *EventToSignal =
-      new CHIPEventLevel0((CHIPContextLevel0 *)ChipContext_);
+      (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
   EventToSignal->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
   if (EventsToWaitFor)
@@ -564,7 +578,8 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
+
   Ev->Msg = "memCopy";
 
   ze_result_t Status;
@@ -679,8 +694,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     }
   } // End adding CHIPDevices
 
-  // StaleEventMonitor_ =
-  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  StaleEventMonitor_ =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero

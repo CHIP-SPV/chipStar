@@ -41,6 +41,9 @@ enum class CHIPQueueType : unsigned int {
 };
 
 class CHIPCallbackData {
+protected:
+  virtual ~CHIPCallbackData() = default;
+
 public:
   CHIPQueue *ChipQueue;
   CHIPEvent *GpuReady;
@@ -1470,8 +1473,16 @@ public:
 
   virtual CHIPTexture *createCHIPTexture(intptr_t Image, intptr_t Sampler) = 0;
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
-  // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
-  // virtual CHIPContext* createCHIPContext() = 0;
+
+  /**
+   * @brief Create an Event, adding it to the Backend Event list.
+   *
+   * @param ChipCtx Context in which to create the event in
+   * @param Flags Events falgs
+   * @param UserEvent Is this a user event? If so, increase refcount to 2 to
+   * prevent it from being garbage collected.
+   * @return CHIPEvent* Event
+   */
   virtual CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx,
                                      CHIPEventFlags Flags = CHIPEventFlags(),
                                      bool UserEvent = false) = 0;
@@ -1533,7 +1544,7 @@ protected:
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  CHIPEvent *LastEvent_;
+  CHIPEvent *LastEvent_ = nullptr;
 
 public:
   // I want others to be able to lock this queue?
@@ -1541,6 +1552,7 @@ public:
 
   virtual CHIPEvent *getLastEvent() = 0;
   void setLastEvent(CHIPEvent *ChipEv) {
+    std::lock_guard<std::mutex> Lock(ChipEv->Mtx);
     ChipEv->increaseRefCount();
     LastEvent_ = ChipEv;
   }
@@ -1574,7 +1586,9 @@ public:
 
   CHIPQueueType getQueueType() { return QueueType_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
-    std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
+    if (LastEvent_ != nullptr)
+      std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
+
     std::lock_guard<std::mutex> LockNew(ChipEv->Mtx);
     assert(ChipEv);
     if (ChipEv == LastEvent_)

@@ -51,12 +51,18 @@ public:
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {
 private:
-  ze_event_pool_handle_t ZeEventPool_;
+  // ze_event_pool_handle_t ZeEventPool_;
 
 public:
   std::mutex Mtx;
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
+
+  virtual ~CHIPCallbackDataLevel0() override {
+    GpuReady->decreaseRefCount();
+    CpuCallbackComplete->decreaseRefCount();
+    GpuAck->decreaseRefCount();
+  }
 };
 
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
@@ -307,25 +313,19 @@ public:
     Backend->addQueue(Q);
     return Q;
   }
-  // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) override {
-  //   CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)ctx_;
-  //   return new CHIPDeviceLevel0(chip_ctx_lz);
-  // };
-  // virtual CHIPContext* createCHIPContext() overricreateCHIPEventde {
-  //   return new CHIPContextLevel0();
-  // };
+
   virtual CHIPEventLevel0 *
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override {
     auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
 
+    // User Events start with refc=2
     if (UserEvent)
       Ev->increaseRefCount();
 
-    // Need to add this here because otherwise, this event will be added to the
-    // Event list prior to completing initialization
-    std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
-    Backend->Events.push_back(Ev);
+    // User Events do got get garbage collected
+    if (!UserEvent)
+      Backend->Events.push_back(Ev);
 
     return Ev;
   }

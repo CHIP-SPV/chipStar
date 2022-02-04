@@ -656,6 +656,7 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
 
   CHIPDevice *Dev = Backend->getActiveDevice();
   CHIPQueue *ChipQueue = Dev->addQueue(Flags, Priority);
+  Backend->addQueue(ChipQueue);
   *Stream = ChipQueue;
   RETURN(hipSuccess);
 
