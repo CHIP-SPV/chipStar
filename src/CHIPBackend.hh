@@ -71,6 +71,8 @@ protected:
   pthread_t Thread_;
 
 public:
+  volatile bool Stop = false;
+
   void join() { pthread_join(Thread_, nullptr); }
   static void *monitorWrapper(void *Arg) {
     auto Monitor = (CHIPEventMonitor *)Arg;

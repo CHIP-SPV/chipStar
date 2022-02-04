@@ -241,13 +241,24 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
-  std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
   logTrace("CHIPEventMonitorLevel0::monitor()");
-  while (Backend->CallbackStack.size()) {
-    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
-    // CallbackData->GpuReady->wait();
+  while (true) {
+    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
+    if (Backend->CallbackStack.size() == 0) {
+      pthread_yield();
+      continue;
+    }
+
+    // get the callback item
     CHIPCallbackDataLevel0 *CallbackData =
         (CHIPCallbackDataLevel0 *)Backend->CallbackStack.front();
+
+    // Lock the item and members
+    std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
+    std::lock_guard<std::mutex> Lock1(CallbackData->GpuReady->Mtx);
+    std::lock_guard<std::mutex> Lock2(CallbackData->CpuCallbackComplete->Mtx);
+    std::lock_guard<std::mutex> Lock3(CallbackData->GpuAck->Mtx);
+
     Backend->CallbackStack.pop();
 
     // Update Status
@@ -261,13 +272,10 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     CallbackData->execute(hipSuccess);
     CallbackData->CpuCallbackComplete->hostSignal();
     CallbackData->GpuAck->wait();
+
     delete CallbackData;
     pthread_yield();
   }
-
-  // no more callback events left, free up the thread
-  delete this;
-  pthread_yield();
 }
 
 void CHIPStaleEventMonitorLevel0::monitor() {
@@ -593,19 +601,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 void CHIPQueueLevel0::finish() {
   // The finish Event_ that denotes the finish of current command list items
   pthread_yield();
-  auto Status =
-      zeCommandListAppendBarrier(ZeCmdListImm_, FinishEvent_, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(
-      Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-      "zeCommandListAppendBarrier FAILED with return code");
-
-  Status = zeEventHostSynchronize(FinishEvent_, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeEventHostSynchronize FAILED with return code");
-
-  Status = zeEventHostReset(FinishEvent_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeEventHostReset FAILED with return code");
+  getLastEvent()->wait();
   return;
 }
 

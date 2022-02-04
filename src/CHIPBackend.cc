@@ -1465,15 +1465,21 @@ unsigned int CHIPQueue::getFlags() { return Flags_; }
 int CHIPQueue::getPriorityRange(int LowerOrUpper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
 bool CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
-  std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
   CHIPCallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);
 
-  Backend->CallbackStack.push(Callbackdata);
+  {
+    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
+    Backend->CallbackStack.push(Callbackdata);
+  }
 
   // Setup event handling on the CPU side
-  if (!EventMonitor_)
-    EventMonitor_ = Backend->createCallbackEventMonitor();
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    if (!EventMonitor_)
+      EventMonitor_ = Backend->createCallbackEventMonitor();
+  }
+
   return true;
 }
 
