@@ -48,12 +48,40 @@
 
 #define HIP_DYNAMIC_SHARED_ATTRIBUTE
 
+__attribute__((weak)) __device__ int32_t __chipspv_abort_called;
+
+inline void handleAbortRequest() {
+  int32_t DeviceRequestedAbort;
+  // If the flag is not found, we have removed in HipAbort to denote abort is
+  // not called in the module. This is used for avoiding kernel launches to read
+  // the value to minimize overheads when abort is not used.
+  hipError_t Err =
+      hipMemcpyFromSymbol(&DeviceRequestedAbort,
+                          HIP_SYMBOL(__chipspv_abort_called), sizeof(int32_t));
+  if (Err != hipErrorInvalidSymbol && DeviceRequestedAbort) {
+    // Disable host-side abort behavior for making the unit testing of abort
+    // cases easier.
+    if (getenv("CHIP_HOST_IGNORES_DEVICE_ABORT") == nullptr) {
+      abort();
+    } else {
+      // Just act like nothing happened. Reset the flag so we let there be more
+      // aborts.
+      DeviceRequestedAbort = 0;
+      hipMemcpyToSymbol(HIP_SYMBOL(__chipspv_abort_called),
+                        &DeviceRequestedAbort, sizeof(int32_t), 0,
+                        hipMemcpyHostToDevice);
+      printf("[ABORT IGNORED]\n");
+    }
+  }
+}
+
 typedef int hipLaunchParm;
 #define hipLaunchKernelGGLInternal(kernelName, numBlocks, numThreads,          \
                                    memPerBlock, streamId, ...)                 \
   do {                                                                         \
     kernelName<<<(numBlocks), (numThreads), (memPerBlock), (streamId)>>>(      \
         __VA_ARGS__);                                                          \
+    handleAbortRequest();                                                      \
   } while (0)
 
 #define hipLaunchKernelGGL(kernelName, ...)                                    \
@@ -138,12 +166,11 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 
 #endif // defined(__clang__) && defined(__HIP__)
 
-/* FIXME: after the prototype works, move to proper headers. */
+/* FIXME: Is this the best place for these declarations? */
 
 extern "C" __device__ int printf(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
-
-/* /FIXME */
+extern "C" __device__ void abort();
 
 /*************************************************************************************************/
 

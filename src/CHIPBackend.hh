@@ -645,6 +645,14 @@ public:
   CHIPKernel *getKernel(std::string Name);
 
   /**
+   * @brief Checks if the module has a kernel with the given name.
+   *
+   * @param name the name of the kernel
+   * @return true in case the kernels is found
+   */
+  bool hasKernel(std::string Name) const;
+
+  /**
    * @brief Get the Kernels object
    *
    * @return std::vector<CHIPKernel*>&

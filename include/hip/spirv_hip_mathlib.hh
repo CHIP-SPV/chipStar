@@ -873,15 +873,6 @@ NON_OVLD void GEN_NAME(global_fence)();
 }
 EXPORT void __threadfence() { GEN_NAME(global_fence)(); }
 
-EXPORT void abort() {
-  volatile union {
-    int *p;
-    size_t s;
-    float f;
-  } v = {.s = 0};
-  *(v.p) = 1 / (int)(v.f);
-}
-
 EXPORT clock_t clock() { return 0; }
 
 EXPORT unsigned long long clock64() { return 0; }
@@ -914,7 +905,6 @@ EXPORT int __syncthreads_count(int predicate);
 EXPORT void __threadfence_block();
 EXPORT void __threadfence_system();
 EXPORT void __threadfence();
-EXPORT void abort();
 EXPORT clock_t clock();
 EXPORT unsigned long long clock64();
 EXPORT void *memset(void *ptr, int value, size_t size);
