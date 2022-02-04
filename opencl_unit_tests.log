@@ -1,6 +1,6 @@
-62% tests passed, 141 tests failed out of 370
+63% tests passed, 139 tests failed out of 371
 
-Total Test time (real) = 1654.88 sec
+Total Test time (real) = 2034.95 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -58,11 +58,11 @@ The following tests FAILED:
 	171 - Unit_hipMemcpyAtoH_Basic - char (Failed)
 	172 - Unit_hipMemcpyAtoH_Basic - int (Failed)
 	173 - Unit_hipMemcpyAtoH_Basic - float (Failed)
-	174 - Unit_hipMemcpyAtoH_Negative (Failed)
+	174 - Unit_hipMemcpyAtoH_Negative (SEGFAULT)
 	175 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
-	178 - Unit_hipMemcpyHtoA_Negative (Failed)
+	178 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
 	185 - Unit_hipMemcpyAsync_KernelLaunch - int (Failed)
 	186 - Unit_hipMemcpyAsync_KernelLaunch - float (Failed)
 	187 - Unit_hipMemcpyAsync_KernelLaunch - double (Failed)
@@ -70,14 +70,13 @@ The following tests FAILED:
 	189 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	190 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	191 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
-	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
 	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
-	207 - Unit_hipMemcpy_MultiThreadWithSerializatised: can't read 2: No such file or directory
-on (Subprocess aborted)
+	207 - Unit_hipMemcpy_MultiThreadWithSerialization (Subprocess aborted)
 	211 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
-	212 - Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
+	212 - sed: can't read 2: No such file or directory
+Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	213 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)
 	214 - Unit_hipMemcpyWithStream_TestkindHtoH (Failed)
 	217 - Unit_hipMemcpyWithStream_TestkindDefault (Failed)
@@ -137,11 +136,10 @@ on (Subprocess aborted)
 	310 - Unit_threadfence_system (Timeout)
 	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Failed)
 	330 - Unit_hipIpcMemAccess_Semaphores (Timeout)
-	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (Timeout)
 	346 - 2d_shuffle (Failed)
 	351 - unroll (Failed)
-	355 - hipTestDeviceSymbol (Subprocess aborted)
-	367 - sycl_chip_interop (SEGFAULT)
-	368 - sycl_chip_interop_usm (SEGFAULT)
-	369 - hip_sycl_interop (Subprocess aborted)
-	370 - hip_sycl_interop_no_buffers (Subprocess aborted)
+	356 - hipTestDeviceSymbol (Subprocess aborted)
+	368 - sycl_chip_interop (SEGFAULT)
+	369 - sycl_chip_interop_usm (SEGFAULT)
+	370 - hip_sycl_interop (Subprocess aborted)
+	371 - hip_sycl_interop_no_buffers (Subprocess aborted)
