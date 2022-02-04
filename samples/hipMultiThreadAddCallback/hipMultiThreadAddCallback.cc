@@ -25,13 +25,14 @@ multiple Threads.
 
 //#include <hip_test_common.hh>
 #include <atomic>
+#include <iostream>
 #include "hip/hip_runtime.h"
 
 #define HIPCHECK(x) assert(x == hipSuccess)
 #define HIP_CHECK(x) assert(x == hipSuccess)
 
 static constexpr size_t N = 4096;
-static constexpr int numThreads = 4;
+static constexpr int numThreads = 1000;
 static std::atomic<int> Cb_count{0}, Data_mismatch{0};
 static hipStream_t mystream;
 static float *A1_h, *C1_h;
@@ -107,6 +108,7 @@ void Thread2_func() {
  multiple Threads.
  */
 int main() {
+  std::cout << "START\n";
   float *A_d, *C_d;
   size_t Nbytes = (N) * sizeof(float);
   constexpr float Phi = 1.618f;
@@ -147,6 +149,7 @@ int main() {
 
   // Wait until all the threads finish their execution
   for (int i = 0; i < numThreads; i++) {
+    std::cout << "Joining Tid#" << i << "\n";
     T[i].join();
   }
 
@@ -164,4 +167,5 @@ int main() {
   assert(Cb_count.load() == numThreads);
   assert(Data_mismatch.load() == 0);
   delete[] T;
+  std::cout << "PASSED\n";
 }
