@@ -1,754 +1,9 @@
-Test project /home/pvelesko/CHIP-SPV/build
-        Start   1: Unit_hipCreateTextureObject_ArgValidation
-  1/370 Test   #1: Unit_hipCreateTextureObject_ArgValidation .................................***Failed    6.17 sec
-        Start   2: Unit_hipCreateTextureObject_LinearResource
-  2/370 Test   #2: Unit_hipCreateTextureObject_LinearResource ................................   Passed    4.33 sec
-        Start   3: Unit_hipCreateTextureObject_Pitch2DResource
-  3/370 Test   #3: Unit_hipCreateTextureObject_Pitch2DResource ...............................   Passed    4.33 sec
-        Start   4: Unit_hipCreateTextureObject_ArrayResource
-  4/370 Test   #4: Unit_hipCreateTextureObject_ArrayResource .................................   Passed    4.35 sec
-        Start   5: Unit_hipCreateTextureObject_MmArrayResource
-  5/370 Test   #5: Unit_hipCreateTextureObject_MmArrayResource ...............................   Passed    4.36 sec
-        Start   6: Unit_printf_flags
-  6/370 Test   #6: Unit_printf_flags .........................................................***Failed    4.56 sec
-        Start   7: Unit_printf_specifier
-  7/370 Test   #7: Unit_printf_specifier .....................................................***Failed    4.50 sec
-        Start   8: Unit_hiprtc_saxpy
-  8/370 Test   #8: Unit_hiprtc_saxpy .........................................................***Failed    4.33 sec
-        Start   9: Unit_hipChooseDevice_ValidateDevId
-  9/370 Test   #9: Unit_hipChooseDevice_ValidateDevId ........................................   Passed    4.34 sec
-        Start  10: Unit_hipDeviceComputeCapability_NegTst
- 10/370 Test  #10: Unit_hipDeviceComputeCapability_NegTst ....................................   Passed    4.32 sec
-        Start  11: Unit_hipDeviceComputeCapability_ValidateVersion
- 11/370 Test  #11: Unit_hipDeviceComputeCapability_ValidateVersion ...........................   Passed    4.34 sec
-        Start  12: Unit_hipDeviceGetByPCIBusId_Functional
- 12/370 Test  #12: Unit_hipDeviceGetByPCIBusId_Functional ....................................***Failed    4.35 sec
-        Start  13: Unit_hipDeviceGetByPCIBusId_NegativeNullChk
- 13/370 Test  #13: Unit_hipDeviceGetByPCIBusId_NegativeNullChk ...............................   Passed    4.34 sec
-        Start  14: Unit_hipDeviceGetByPCIBusId_NegativeInputString
- 14/370 Test  #14: Unit_hipDeviceGetByPCIBusId_NegativeInputString ...........................   Passed    4.35 sec
-        Start  15: Unit_hipDeviceGetByPCIBusId_WrongBusID
- 15/370 Test  #15: Unit_hipDeviceGetByPCIBusId_WrongBusID ....................................***Failed    4.36 sec
-        Start  16: Unit_hipDeviceGetLimit_NegTst
- 16/370 Test  #16: Unit_hipDeviceGetLimit_NegTst .............................................   Passed    4.34 sec
-        Start  17: Unit_hipDeviceGetLimit_CheckValidityOfOutputVal
- 17/370 Test  #17: Unit_hipDeviceGetLimit_CheckValidityOfOutputVal ...........................***Failed    4.37 sec
-        Start  18: Unit_hipDeviceGetName-NegTst
- 18/370 Test  #18: Unit_hipDeviceGetName-NegTst ..............................................   Passed    4.39 sec
-        Start  19: Unit_hipDeviceGetName-CheckPropName
- 19/370 Test  #19: Unit_hipDeviceGetName-CheckPropName .......................................   Passed    4.33 sec
-        Start  20: Unit_hipDeviceGetPCIBusId_Check_PciBusID_WithAttr
- 20/370 Test  #20: Unit_hipDeviceGetPCIBusId_Check_PciBusID_WithAttr .........................***Failed    4.35 sec
-        Start  21: Unit_hipDeviceGetPCIBusId_NegTst
- 21/370 Test  #21: Unit_hipDeviceGetPCIBusId_NegTst ..........................................***Failed    4.33 sec
-        Start  22: Unit_hipDeviceGetCacheConfig_NegTst
- 22/370 Test  #22: Unit_hipDeviceGetCacheConfig_NegTst .......................................   Passed    4.34 sec
-        Start  23: Unit_hipDeviceGetCacheConfig_FuncTst
- 23/370 Test  #23: Unit_hipDeviceGetCacheConfig_FuncTst ......................................   Passed    4.32 sec
-        Start  24: Unit_hipDeviceSynchronize_Functional
- 24/370 Test  #24: Unit_hipDeviceSynchronize_Functional ......................................***Timeout  30.03 sec
-        Start  25: Unit_hipDeviceTotalMem_NegTst
- 25/370 Test  #25: Unit_hipDeviceTotalMem_NegTst .............................................   Passed    4.35 sec
-        Start  26: Unit_hipDeviceTotalMem_ValidateTotalMem
- 26/370 Test  #26: Unit_hipDeviceTotalMem_ValidateTotalMem ...................................   Passed    4.36 sec
-        Start  27: Unit_hipGetDeviceAttribute_CheckAttrValues
- 27/370 Test  #27: Unit_hipGetDeviceAttribute_CheckAttrValues ................................   Passed    4.43 sec
-        Start  28: Unit_hipDeviceGetAttribute_NegTst
- 28/370 Test  #28: Unit_hipDeviceGetAttribute_NegTst .........................................   Passed    4.40 sec
-        Start  29: Unit_hipGetDeviceCount_NegTst
- 29/370 Test  #29: Unit_hipGetDeviceCount_NegTst .............................................   Passed    4.37 sec
-        Start  30: Unit_hipGetDeviceProperties_NegTst
- 30/370 Test  #30: Unit_hipGetDeviceProperties_NegTst ........................................   Passed    4.34 sec
-        Start  31: Unit_hipRuntimeGetVersion_NegAndValTst
- 31/370 Test  #31: Unit_hipRuntimeGetVersion_NegAndValTst ....................................   Passed    4.33 sec
-        Start  32: Unit_hipGetDeviceFlags_NegTst
- 32/370 Test  #32: Unit_hipGetDeviceFlags_NegTst .............................................   Passed    4.33 sec
-        Start  33: Unit_hipGetDeviceFlags_FuncTst
- 33/370 Test  #33: Unit_hipGetDeviceFlags_FuncTst ............................................***Failed    4.33 sec
-        Start  34: Unit_hipSetDevice_BasicSetGet
- 34/370 Test  #34: Unit_hipSetDevice_BasicSetGet .............................................   Passed    4.35 sec
-        Start  35: Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative
- 35/370 Test  #35: Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative ................***Failed    4.33 sec
-        Start  36: Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation
- 36/370 Test  #36: Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation .........***Failed    4.34 sec
-        Start  37: Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_templateInvocation
- 37/370 Test  #37: Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_templateInvocation ......***Failed    4.34 sec
-        Start  38: Unit_hipOccupancyMaxPotentialBlockSize_Negative
- 38/370 Test  #38: Unit_hipOccupancyMaxPotentialBlockSize_Negative ...........................   Passed    4.33 sec
-        Start  39: Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation
- 39/370 Test  #39: Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation ....................***Failed    4.33 sec
-        Start  40: Unit_hipOccupancyMaxPotentialBlockSize_templateInvocation
- 40/370 Test  #40: Unit_hipOccupancyMaxPotentialBlockSize_templateInvocation .................***Failed    4.33 sec
-        Start  41: Unit_hipEventCreate_NullCheck
- 41/370 Test  #41: Unit_hipEventCreate_NullCheck .............................................***Failed    4.33 sec
-        Start  42: Unit_hipEventSynchronize_NullCheck
- 42/370 Test  #42: Unit_hipEventSynchronize_NullCheck ........................................   Passed    4.35 sec
-        Start  43: Unit_hipEventQuery_NullCheck
- 43/370 Test  #43: Unit_hipEventQuery_NullCheck ..............................................   Passed    4.33 sec
-        Start  44: Unit_hipEventDestroy_NullCheck
- 44/370 Test  #44: Unit_hipEventDestroy_NullCheck ............................................   Passed    4.34 sec
-        Start  45: Unit_hipEvent
- 45/370 Test  #45: Unit_hipEvent .............................................................***Failed    4.47 sec
-        Start  46: Unit_hipEventElapsedTime_NullCheck
- 46/370 Test  #46: Unit_hipEventElapsedTime_NullCheck ........................................***Failed    4.35 sec
-        Start  47: Unit_hipEventElapsedTime_DisableTiming
- 47/370 Test  #47: Unit_hipEventElapsedTime_DisableTiming ....................................***Failed    4.39 sec
-        Start  48: Unit_hipEventElapsedTime_DifferentDevices
- 48/370 Test  #48: Unit_hipEventElapsedTime_DifferentDevices .................................   Passed    4.34 sec
-        Start  49: Unit_hipEventElapsedTime
- 49/370 Test  #49: Unit_hipEventElapsedTime ..................................................***Exception: SegFault  4.34 sec
-        Start  50: Unit_hipEventRecord
- 50/370 Test  #50: Unit_hipEventRecord .......................................................   Passed    4.42 sec
-        Start  51: Unit_hipEventIpc
- 51/370 Test  #51: Unit_hipEventIpc ..........................................................***Failed    4.40 sec
-        Start  52: Unit_hipStreamCreate_default
- 52/370 Test  #52: Unit_hipStreamCreate_default ..............................................   Passed    4.34 sec
-        Start  53: Unit_hipStreamCreateWithFlags_Negative
- 53/370 Test  #53: Unit_hipStreamCreateWithFlags_Negative ....................................***Failed    4.36 sec
-        Start  54: Unit_hipStreamCreateWithFlags
- 54/370 Test  #54: Unit_hipStreamCreateWithFlags .............................................   Passed    4.34 sec
-        Start  55: Unit_hipStreamCreateWithPriority
- 55/370 Test  #55: Unit_hipStreamCreateWithPriority ..........................................   Passed    4.36 sec
-        Start  56: Unit_hipStreamGetFlags_BasicFunctionalities
- 56/370 Test  #56: Unit_hipStreamGetFlags_BasicFunctionalities ...............................***Failed    4.37 sec
-        Start  57: Unit_hipStreamGetFlags_Negative
- 57/370 Test  #57: Unit_hipStreamGetFlags_Negative ...........................................   Passed    4.36 sec
-        Start  58: Unit_hipStreamGetPriority_Negative
- 58/370 Test  #58: Unit_hipStreamGetPriority_Negative ........................................   Passed    4.41 sec
-        Start  59: Unit_hipStreamGetPriority_default
- 59/370 Test  #59: Unit_hipStreamGetPriority_default .........................................   Passed    4.35 sec
-        Start  60: Unit_hipStreamGetPriority_high
- 60/370 Test  #60: Unit_hipStreamGetPriority_high ............................................   Passed    4.34 sec
-        Start  61: Unit_hipStreamGetPriority_higher
- 61/370 Test  #61: Unit_hipStreamGetPriority_higher ..........................................   Passed    4.33 sec
-        Start  62: Unit_hipStreamGetPriority_low
- 62/370 Test  #62: Unit_hipStreamGetPriority_low .............................................   Passed    4.35 sec
-        Start  63: Unit_hipStreamGetPriority_lower
- 63/370 Test  #63: Unit_hipStreamGetPriority_lower ...........................................   Passed    4.33 sec
-        Start  64: Unit_hipMultiStream_sameDevice
- 64/370 Test  #64: Unit_hipMultiStream_sameDevice ............................................   Passed   16.01 sec
-        Start  65: Unit_hipMultiStream_multimeDevice
- 65/370 Test  #65: Unit_hipMultiStream_multimeDevice .........................................***Timeout  30.03 sec
-        Start  66: Unit_hipStreamAddCallback_MultipleThreads
- 66/370 Test  #66: Unit_hipStreamAddCallback_MultipleThreads .................................***Exception: SegFault  4.37 sec
-        Start  67: Unit_hipStreamAddCallback_ParamTst
- 67/370 Test  #67: Unit_hipStreamAddCallback_ParamTst ........................................   Passed    4.57 sec
-        Start  68: Unit_hipStreamAddCallback_WithDefaultStream
- 68/370 Test  #68: Unit_hipStreamAddCallback_WithDefaultStream ...............................   Passed    4.47 sec
-        Start  69: Unit_hipStreamAddCallback_WithCreatedStream
- 69/370 Test  #69: Unit_hipStreamAddCallback_WithCreatedStream ...............................   Passed    4.45 sec
-        Start  70: Unit_hipStreamCreateWithFlags_ArgValidation
- 70/370 Test  #70: Unit_hipStreamCreateWithFlags_ArgValidation ...............................***Failed    4.37 sec
-        Start  71: Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities
- 71/370 Test  #71: Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities ...............   Passed    4.35 sec
-        Start  72: Unit_hipStreamCreateWithPriority_MulthreadDefaultflag
- 72/370 Test  #72: Unit_hipStreamCreateWithPriority_MulthreadDefaultflag .....................   Passed    4.38 sec
-        Start  73: Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag
- 73/370 Test  #73: Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag .................   Passed    4.38 sec
-        Start  74: Unit_hipStreamCreateWithPriority_NegTst
- 74/370 Test  #74: Unit_hipStreamCreateWithPriority_NegTst ...................................   Passed    4.35 sec
-        Start  75: Unit_hipStreamCreateWithPriority_ValidateWithEvents
- 75/370 Test  #75: Unit_hipStreamCreateWithPriority_ValidateWithEvents .......................   Passed    4.38 sec
-        Start  76: Unit_hipStreamCreate_MultistreamBasicFunctionalities
- 76/370 Test  #76: Unit_hipStreamCreate_MultistreamBasicFunctionalities ......................   Passed   16.13 sec
-        Start  77: Unit_hipMemset_4bytes
- 77/370 Test  #77: Unit_hipMemset_4bytes .....................................................   Passed    4.38 sec
-        Start  78: Unit_hipMemset_4bytes_hostMem
- 78/370 Test  #78: Unit_hipMemset_4bytes_hostMem .............................................   Passed    4.37 sec
-        Start  79: Unit_hipHostMalloc_4bytes
- 79/370 Test  #79: Unit_hipHostMalloc_4bytes .................................................   Passed    4.36 sec
-        Start  80: Unit_hipMalloc_4bytes
- 80/370 Test  #80: Unit_hipMalloc_4bytes .....................................................   Passed    4.35 sec
-        Start  81: Unit_hipMemcpy2DToArray_Basic
- 81/370 Test  #81: Unit_hipMemcpy2DToArray_Basic .............................................***Failed    4.37 sec
-        Start  82: Unit_hipMemcpy2DToArray_ExtentValidation
- 82/370 Test  #82: Unit_hipMemcpy2DToArray_ExtentValidation ..................................***Failed    4.41 sec
-        Start  83: Unit_hipMemcpy2DToArray_PinnedMemSameGPU
- 83/370 Test  #83: Unit_hipMemcpy2DToArray_PinnedMemSameGPU ..................................***Failed    4.37 sec
-        Start  84: Unit_hipMemcpy2DToArray_multiDevicePinnedMemPeerGpu
- 84/370 Test  #84: Unit_hipMemcpy2DToArray_multiDevicePinnedMemPeerGpu .......................   Passed    4.41 sec
-        Start  85: Unit_hipMemcpy2DToArray_multiDeviceDeviceContextChange
- 85/370 Test  #85: Unit_hipMemcpy2DToArray_multiDeviceDeviceContextChange ....................   Passed    4.40 sec
-        Start  86: Unit_hipMemcpy2DToArray_Negative
- 86/370 Test  #86: Unit_hipMemcpy2DToArray_Negative ..........................................   Passed    4.41 sec
-        Start  87: Unit_hipMemcpy2DToArrayAsync_Basic
- 87/370 Test  #87: Unit_hipMemcpy2DToArrayAsync_Basic ........................................***Failed    4.41 sec
-        Start  88: Unit_hipMemcpy2DToArrayAsync_ExtentValidation
- 88/370 Test  #88: Unit_hipMemcpy2DToArrayAsync_ExtentValidation .............................***Failed    4.40 sec
-        Start  89: Unit_hipMemcpy2DToArrayAsync_PinnedHostMemSameGpu
- 89/370 Test  #89: Unit_hipMemcpy2DToArrayAsync_PinnedHostMemSameGpu .........................***Failed    4.40 sec
-        Start  90: Unit_hipMemcpy2DToArrayAsync_multiDevicePinnedHostMem
- 90/370 Test  #90: Unit_hipMemcpy2DToArrayAsync_multiDevicePinnedHostMem .....................   Passed    4.39 sec
-        Start  91: Unit_hipMemcpy2DToArrayAsync_multiDeviceDeviceContextChange
- 91/370 Test  #91: Unit_hipMemcpy2DToArrayAsync_multiDeviceDeviceContextChange ...............   Passed    4.42 sec
-        Start  92: Unit_hipMemcpy2DToArrayAsync_Negative
- 92/370 Test  #92: Unit_hipMemcpy2DToArrayAsync_Negative .....................................   Passed    4.40 sec
-        Start  93: Unit_hipMemcpyPeer_Negative
- 93/370 Test  #93: Unit_hipMemcpyPeer_Negative ...............................................   Passed    4.40 sec
-        Start  94: Unit_hipMemcpyPeer_Basic
- 94/370 Test  #94: Unit_hipMemcpyPeer_Basic ..................................................   Passed    4.41 sec
-        Start  95: Unit_hipMemcpyPeerAsync_Negative
- 95/370 Test  #95: Unit_hipMemcpyPeerAsync_Negative ..........................................   Passed    4.38 sec
-        Start  96: Unit_hipMemcpyPeerAsync_Basic
- 96/370 Test  #96: Unit_hipMemcpyPeerAsync_Basic .............................................   Passed    4.39 sec
-        Start  97: Unit_hipMemcpyPeerAsync_StreamOnDiffDevice
- 97/370 Test  #97: Unit_hipMemcpyPeerAsync_StreamOnDiffDevice ................................   Passed    4.36 sec
-        Start  98: Unit_hipMemcpy3D_Basic - int
- 98/370 Test  #98: Unit_hipMemcpy3D_Basic - int ..............................................   Passed    4.36 sec
-        Start  99: Unit_hipMemcpy3D_Basic - unsigned int
- 99/370 Test  #99: Unit_hipMemcpy3D_Basic - unsigned int .....................................   Passed    4.37 sec
-        Start 100: Unit_hipMemcpy3D_Basic - float
-100/370 Test #100: Unit_hipMemcpy3D_Basic - float ............................................   Passed    4.35 sec
-        Start 101: Unit_hipMemcpy3D_ExtentValidation
-101/370 Test #101: Unit_hipMemcpy3D_ExtentValidation .........................................***Failed    4.37 sec
-        Start 102: Unit_hipMemcpy3D_multiDevice-Negative
-102/370 Test #102: Unit_hipMemcpy3D_multiDevice-Negative .....................................   Passed    4.37 sec
-        Start 103: Unit_hipMemcpy3D_multiDevice-OnPeerDevice
-103/370 Test #103: Unit_hipMemcpy3D_multiDevice-OnPeerDevice .................................   Passed    4.36 sec
-        Start 104: Unit_hipMemcpy3DAsync_Basic - int
-104/370 Test #104: Unit_hipMemcpy3DAsync_Basic - int .........................................   Passed    4.39 sec
-        Start 105: Unit_hipMemcpy3DAsync_Basic - unsigned int
-105/370 Test #105: Unit_hipMemcpy3DAsync_Basic - unsigned int ................................   Passed    4.39 sec
-        Start 106: Unit_hipMemcpy3DAsync_Basic - float
-106/370 Test #106: Unit_hipMemcpy3DAsync_Basic - float .......................................   Passed    4.40 sec
-        Start 107: Unit_hipMemcpy3DAsync_ExtentValidation
-107/370 Test #107: Unit_hipMemcpy3DAsync_ExtentValidation ....................................***Failed    4.42 sec
-        Start 108: Unit_hipMemcpy3DAsync_multiDevice-Negative
-108/370 Test #108: Unit_hipMemcpy3DAsync_multiDevice-Negative ................................   Passed    4.43 sec
-        Start 109: Unit_hipMemcpy3DAsync_multiDevice-D2D
-109/370 Test #109: Unit_hipMemcpy3DAsync_multiDevice-D2D .....................................   Passed    4.41 sec
-        Start 110: Unit_hipMemcpy3DAsync_multiDevice-DiffStream
-110/370 Test #110: Unit_hipMemcpy3DAsync_multiDevice-DiffStream ..............................   Passed    4.39 sec
-        Start 111: Unit_hipMemcpyParam2D_multiDevice-D2D - char
-111/370 Test #111: Unit_hipMemcpyParam2D_multiDevice-D2D - char ..............................   Passed    4.39 sec
-        Start 112: Unit_hipMemcpyParam2D_multiDevice-D2D - float
-112/370 Test #112: Unit_hipMemcpyParam2D_multiDevice-D2D - float .............................   Passed    4.37 sec
-        Start 113: Unit_hipMemcpyParam2D_multiDevice-D2D - int
-113/370 Test #113: Unit_hipMemcpyParam2D_multiDevice-D2D - int ...............................   Passed    4.41 sec
-        Start 114: Unit_hipMemcpyParam2D_multiDevice-D2D - double
-114/370 Test #114: Unit_hipMemcpyParam2D_multiDevice-D2D - double ............................   Passed    4.38 sec
-        Start 115: Unit_hipMemcpyParam2D_multiDevice-D2D - long double
-115/370 Test #115: Unit_hipMemcpyParam2D_multiDevice-D2D - long double .......................   Passed    4.37 sec
-        Start 116: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - char
-116/370 Test #116: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - char ..........................   Passed    4.38 sec
-        Start 117: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - float
-117/370 Test #117: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - float .........................   Passed    4.39 sec
-        Start 118: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - int
-118/370 Test #118: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - int ...........................   Passed    4.43 sec
-        Start 119: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - double
-119/370 Test #119: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - double ........................   Passed    4.41 sec
-        Start 120: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - long double
-120/370 Test #120: Unit_hipMemcpyParam2D_multiDevice-H2D-D2H - long double ...................   Passed    4.39 sec
-        Start 121: Unit_hipMemcpyParam2D_ExtentValidation
-121/370 Test #121: Unit_hipMemcpyParam2D_ExtentValidation ....................................***Failed    4.41 sec
-        Start 122: Unit_hipMemcpyParam2D_Negative
-122/370 Test #122: Unit_hipMemcpyParam2D_Negative ............................................***Failed    4.42 sec
-        Start 123: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - char
-123/370 Test #123: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - char ..........   Passed    4.35 sec
-        Start 124: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - float
-124/370 Test #124: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - float .........   Passed    4.32 sec
-        Start 125: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - int
-125/370 Test #125: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - int ...........   Passed    4.33 sec
-        Start 126: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - double
-126/370 Test #126: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - double ........   Passed    4.31 sec
-        Start 127: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - long double
-127/370 Test #127: Unit_hipMemcpyParam2DAsync_multiDevice-StreamOnDiffDevice - long double ...   Passed    4.33 sec
-        Start 128: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - char
-128/370 Test #128: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - char .........................   Passed    4.33 sec
-        Start 129: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - int
-129/370 Test #129: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - int ..........................   Passed    4.41 sec
-        Start 130: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - float
-130/370 Test #130: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - float ........................   Passed    4.40 sec
-        Start 131: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - double
-131/370 Test #131: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - double .......................   Passed    4.34 sec
-        Start 132: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - long double
-132/370 Test #132: Unit_hipMemcpyParam2DAsync_multiDevice-D2D - long double ..................   Passed    4.34 sec
-        Start 133: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - char
-133/370 Test #133: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - char .....................   Passed    4.36 sec
-        Start 134: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - int
-134/370 Test #134: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - int ......................   Passed    4.34 sec
-        Start 135: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - float
-135/370 Test #135: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - float ....................   Passed    4.34 sec
-        Start 136: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - double
-136/370 Test #136: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - double ...................   Passed    4.34 sec
-        Start 137: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - long double
-137/370 Test #137: Unit_hipMemcpyParam2DAsync_multiDevice-H2D-D2H - long double ..............   Passed    4.34 sec
-        Start 138: Unit_hipMemcpyParam2DAsync_ExtentValidation
-138/370 Test #138: Unit_hipMemcpyParam2DAsync_ExtentValidation ...............................***Failed    4.43 sec
-        Start 139: Unit_hipMemcpyParam2DAsync_Negative
-139/370 Test #139: Unit_hipMemcpyParam2DAsync_Negative .......................................   Passed    4.35 sec
-        Start 140: Unit_hipMemcpy2D_H2D-D2D-D2H - int
-140/370 Test #140: Unit_hipMemcpy2D_H2D-D2D-D2H - int ........................................   Passed    4.38 sec
-        Start 141: Unit_hipMemcpy2D_H2D-D2D-D2H - float
-141/370 Test #141: Unit_hipMemcpy2D_H2D-D2D-D2H - float ......................................   Passed    4.36 sec
-        Start 142: Unit_hipMemcpy2D_H2D-D2D-D2H - double
-142/370 Test #142: Unit_hipMemcpy2D_H2D-D2D-D2H - double .....................................   Passed    4.37 sec
-        Start 143: Unit_hipMemcpy2D_multiDevice-D2D - int
-143/370 Test #143: Unit_hipMemcpy2D_multiDevice-D2D - int ....................................   Passed    4.34 sec
-        Start 144: Unit_hipMemcpy2D_multiDevice-D2D - float
-144/370 Test #144: Unit_hipMemcpy2D_multiDevice-D2D - float ..................................   Passed    4.36 sec
-        Start 145: Unit_hipMemcpy2D_multiDevice-D2D - double
-145/370 Test #145: Unit_hipMemcpy2D_multiDevice-D2D - double .................................   Passed    4.34 sec
-        Start 146: Unit_hipMemcpy2D_SizeCheck
-146/370 Test #146: Unit_hipMemcpy2D_SizeCheck ................................................***Failed    4.35 sec
-        Start 147: Unit_hipMemcpy2D_Negative
-147/370 Test #147: Unit_hipMemcpy2D_Negative .................................................***Failed    4.35 sec
-        Start 148: Unit_hipMemcpy2DAsync_Host&PinnedMem - int
-148/370 Test #148: Unit_hipMemcpy2DAsync_Host&PinnedMem - int ................................   Passed    4.35 sec
-        Start 149: Unit_hipMemcpy2DAsync_Host&PinnedMem - float
-149/370 Test #149: Unit_hipMemcpy2DAsync_Host&PinnedMem - float ..............................   Passed    4.51 sec
-        Start 150: Unit_hipMemcpy2DAsync_Host&PinnedMem - double
-150/370 Test #150: Unit_hipMemcpy2DAsync_Host&PinnedMem - double .............................   Passed    4.43 sec
-        Start 151: Unit_hipMemcpy2DAsync_multiDevice-Host&PinnedMem - int
-151/370 Test #151: Unit_hipMemcpy2DAsync_multiDevice-Host&PinnedMem - int ....................   Passed    4.36 sec
-        Start 152: Unit_hipMemcpy2DAsync_multiDevice-Host&PinnedMem - float
-152/370 Test #152: Unit_hipMemcpy2DAsync_multiDevice-Host&PinnedMem - float ..................   Passed    4.33 sec
-        Start 153: Unit_hipMemcpy2DAsync_multiDevice-Host&PinnedMem - double
-153/370 Test #153: Unit_hipMemcpy2DAsync_multiDevice-Host&PinnedMem - double .................   Passed    4.35 sec
-        Start 154: Unit_hipMemcpy2DAsync_multiDevice-StreamOnDiffDevice - int
-154/370 Test #154: Unit_hipMemcpy2DAsync_multiDevice-StreamOnDiffDevice - int ................   Passed    4.33 sec
-        Start 155: Unit_hipMemcpy2DAsync_multiDevice-StreamOnDiffDevice - float
-155/370 Test #155: Unit_hipMemcpy2DAsync_multiDevice-StreamOnDiffDevice - float ..............   Passed    4.35 sec
-        Start 156: Unit_hipMemcpy2DAsync_multiDevice-StreamOnDiffDevice - double
-156/370 Test #156: Unit_hipMemcpy2DAsync_multiDevice-StreamOnDiffDevice - double .............   Passed    4.32 sec
-        Start 157: Unit_hipMemcpy2DAsync_SizeCheck
-157/370 Test #157: Unit_hipMemcpy2DAsync_SizeCheck ...........................................***Failed    4.37 sec
-        Start 158: Unit_hipMemcpy2DAsync_Negative
-158/370 Test #158: Unit_hipMemcpy2DAsync_Negative ............................................***Failed    4.36 sec
-        Start 159: Unit_hipMemcpy2DFromArray_Basic
-159/370 Test #159: Unit_hipMemcpy2DFromArray_Basic ...........................................***Failed    4.34 sec
-        Start 160: Unit_hipMemcpy2DFromArray_ExtentValidation
-160/370 Test #160: Unit_hipMemcpy2DFromArray_ExtentValidation ................................***Failed    4.35 sec
-        Start 161: Unit_hipMemcpy2DFromArray_PinnedMemSameGPU
-161/370 Test #161: Unit_hipMemcpy2DFromArray_PinnedMemSameGPU ................................***Failed    4.40 sec
-        Start 162: Unit_hipMemcpy2DFromArray_multiDevicePinnedMemPeerGpu
-162/370 Test #162: Unit_hipMemcpy2DFromArray_multiDevicePinnedMemPeerGpu .....................   Passed    4.34 sec
-        Start 163: Unit_hipMemcpy2DFromArray_multiDeviceContextChange
-163/370 Test #163: Unit_hipMemcpy2DFromArray_multiDeviceContextChange ........................   Passed    4.38 sec
-        Start 164: Unit_hipMemcpy2DFromArray_Negative
-164/370 Test #164: Unit_hipMemcpy2DFromArray_Negative ........................................   Passed    4.41 sec
-        Start 165: Unit_hipMemcpy2DFromArrayAsync_Basic
-165/370 Test #165: Unit_hipMemcpy2DFromArrayAsync_Basic ......................................***Failed    4.41 sec
-        Start 166: Unit_hipMemcpy2DFromArrayAsync_ExtentValidation
-166/370 Test #166: Unit_hipMemcpy2DFromArrayAsync_ExtentValidation ...........................***Failed    4.35 sec
-        Start 167: Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu
-167/370 Test #167: Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu .......................***Failed    4.34 sec
-        Start 168: Unit_hipMemcpy2DFromArrayAsync_multiDevicePinnedHostMem
-168/370 Test #168: Unit_hipMemcpy2DFromArrayAsync_multiDevicePinnedHostMem ...................   Passed    4.38 sec
-        Start 169: Unit_hipMemcpy2DFromArrayAsync_multiDeviceContextChange
-169/370 Test #169: Unit_hipMemcpy2DFromArrayAsync_multiDeviceContextChange ...................   Passed    4.35 sec
-        Start 170: Unit_hipMemcpy2DFromArrayAsync_Negative
-170/370 Test #170: Unit_hipMemcpy2DFromArrayAsync_Negative ...................................   Passed    4.34 sec
-        Start 171: Unit_hipMemcpyAtoH_Basic - char
-171/370 Test #171: Unit_hipMemcpyAtoH_Basic - char ...........................................   Passed    4.39 sec
-        Start 172: Unit_hipMemcpyAtoH_Basic - int
-172/370 Test #172: Unit_hipMemcpyAtoH_Basic - int ............................................   Passed    4.35 sec
-        Start 173: Unit_hipMemcpyAtoH_Basic - float
-173/370 Test #173: Unit_hipMemcpyAtoH_Basic - float ..........................................   Passed    4.34 sec
-        Start 174: Unit_hipMemcpyAtoH_Negative
-174/370 Test #174: Unit_hipMemcpyAtoH_Negative ...............................................***Exception: SegFault  4.35 sec
-        Start 175: Unit_hipMemcpyHtoA_Basic - char
-175/370 Test #175: Unit_hipMemcpyHtoA_Basic - char ...........................................***Failed    4.38 sec
-        Start 176: Unit_hipMemcpyHtoA_Basic - int
-176/370 Test #176: Unit_hipMemcpyHtoA_Basic - int ............................................***Failed    4.34 sec
-        Start 177: Unit_hipMemcpyHtoA_Basic - float
-177/370 Test #177: Unit_hipMemcpyHtoA_Basic - float ..........................................***Failed    4.36 sec
-        Start 178: Unit_hipMemcpyHtoA_Negative
-178/370 Test #178: Unit_hipMemcpyHtoA_Negative ...............................................***Exception: SegFault  4.39 sec
-        Start 179: Unit_hipMemcpyDtoD_Basic - int
-179/370 Test #179: Unit_hipMemcpyDtoD_Basic - int ............................................   Passed    4.37 sec
-        Start 180: Unit_hipMemcpyDtoD_Basic - float
-180/370 Test #180: Unit_hipMemcpyDtoD_Basic - float ..........................................   Passed    4.33 sec
-        Start 181: Unit_hipMemcpyDtoD_Basic - double
-181/370 Test #181: Unit_hipMemcpyDtoD_Basic - double .........................................   Passed    4.32 sec
-        Start 182: Unit_hipMemcpyDtoDAsync_Basic - int
-182/370 Test #182: Unit_hipMemcpyDtoDAsync_Basic - int .......................................   Passed    4.39 sec
-        Start 183: Unit_hipMemcpyDtoDAsync_Basic - float
-183/370 Test #183: Unit_hipMemcpyDtoDAsync_Basic - float .....................................   Passed    4.39 sec
-        Start 184: Unit_hipMemcpyDtoDAsync_Basic - double
-184/370 Test #184: Unit_hipMemcpyDtoDAsync_Basic - double ....................................   Passed    4.31 sec
-        Start 185: Unit_hipMemcpyAsync_KernelLaunch - int
-185/370 Test #185: Unit_hipMemcpyAsync_KernelLaunch - int ....................................   Passed    4.48 sec
-        Start 186: Unit_hipMemcpyAsync_KernelLaunch - float
-186/370 Test #186: Unit_hipMemcpyAsync_KernelLaunch - float ..................................   Passed    4.50 sec
-        Start 187: Unit_hipMemcpyAsync_KernelLaunch - double
-187/370 Test #187: Unit_hipMemcpyAsync_KernelLaunch - double .................................   Passed    4.57 sec
-        Start 188: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - char
-188/370 Test #188: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - char ...........................   Passed    4.39 sec
-        Start 189: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int
-189/370 Test #189: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int ............................   Passed    4.53 sec
-        Start 190: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float
-190/370 Test #190: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float ..........................   Passed    4.71 sec
-        Start 191: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double
-191/370 Test #191: Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double .........................   Passed    5.32 sec
-        Start 192: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int
-192/370 Test #192: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int .......................***Timeout  30.02 sec
-        Start 193: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float
-193/370 Test #193: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float .....................***Timeout  30.02 sec
-        Start 194: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double
-194/370 Test #194: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double ....................***Timeout  30.03 sec
-        Start 195: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int
-195/370 Test #195: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int ............Subprocess aborted***Exception:   4.36 sec
-        Start 196: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float
-196/370 Test #196: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float ..........Subprocess aborted***Exception:   4.36 sec
-        Start 197: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double
-197/370 Test #197: Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double .........Subprocess aborted***Exception:   4.35 sec
-        Start 198: Unit_hipMemcpyAsync_PinnedRegMemWithKernelLaunch - int
-198/370 Test #198: Unit_hipMemcpyAsync_PinnedRegMemWithKernelLaunch - int ....................   Passed    4.33 sec
-        Start 199: Unit_hipMemcpyAsync_PinnedRegMemWithKernelLaunch - float
-199/370 Test #199: Unit_hipMemcpyAsync_PinnedRegMemWithKernelLaunch - float ..................   Passed    4.33 sec
-        Start 200: Unit_hipMemcpyAsync_PinnedRegMemWithKernelLaunch - double
-200/370 Test #200: Unit_hipMemcpyAsync_PinnedRegMemWithKernelLaunch - double .................   Passed    4.40 sec
-        Start 201: Unit_hipMemcpy_KernelLaunch - int
-201/370 Test #201: Unit_hipMemcpy_KernelLaunch - int .........................................   Passed    4.97 sec
-        Start 202: Unit_hipMemcpy_KernelLaunch - float
-202/370 Test #202: Unit_hipMemcpy_KernelLaunch - float .......................................   Passed    5.02 sec
-        Start 203: Unit_hipMemcpy_KernelLaunch - double
-203/370 Test #203: Unit_hipMemcpy_KernelLaunch - double ......................................   Passed    5.34 sec
-        Start 204: Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int
-204/370 Test #204: Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int .................................***Failed    5.03 sec
-        Start 205: Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float
-205/370 Test #205: Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float ...............................***Failed    5.93 sec
-        Start 206: Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double
-206/370 Test #206: Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double ..............................***Failed    8.07 sec
-        Start 207: Unit_hipMemcpy_MultiThreadWithSerialization
-207/370 Test #207: Unit_hipMemcpy_MultiThreadWithSerialization ...............................   Passed    7.21 sec
-        Start 208: Unit_hipMemcpy_PinnedRegMemWithKernelLaunch - int
-208/370 Test #208: Unit_hipMemcpy_PinnedRegMemWithKernelLaunch - int .........................   Passed    4.35 sec
-        Start 209: Unit_hipMemcpy_PinnedRegMemWithKernelLaunch - float
-209/370 Test #209: Unit_hipMemcpy_PinnedRegMemWithKernelLaunch - float .......................   Passed    4.35 sec
-        Start 210: Unit_hipMemcpy_PinnedRegMemWithKernelLaunch - double
-210/370 Test #210: Unit_hipMemcpy_PinnedRegMemWithKernelLaunch - double ......................   Passed    4.39 sec
-        Start 211: Unit_hipMemcpyWithStream_TestWithOneStream
-211/370 Test #211: Unit_hipMemcpyWithStream_TestWithOneStream ................................***Failed    4.38 sec
-        Start 212: Unit_hipMemcpyWithStream_TestwithTwoStream
-212/370 Test #212: Unit_hipMemcpyWithStream_TestwithTwoStream ................................***Failed    4.43 sec
-        Start 213: Unit_hipMemcpyWithStream_TestkindDtoH
-213/370 Test #213: Unit_hipMemcpyWithStream_TestkindDtoH .....................................***Failed    4.37 sec
-        Start 214: Unit_hipMemcpyWithStream_TestkindHtoH
-214/370 Test #214: Unit_hipMemcpyWithStream_TestkindHtoH .....................................***Failed    4.39 sec
-        Start 215: Unit_hipMemcpyWithStream_TestkindDtoD
-215/370 Test #215: Unit_hipMemcpyWithStream_TestkindDtoD .....................................   Passed    4.34 sec
-        Start 216: Unit_hipMemcpyWithStream_TestOnMultiGPUwithOneStream
-216/370 Test #216: Unit_hipMemcpyWithStream_TestOnMultiGPUwithOneStream ......................   Passed    4.35 sec
-        Start 217: Unit_hipMemcpyWithStream_TestkindDefault
-217/370 Test #217: Unit_hipMemcpyWithStream_TestkindDefault ..................................***Failed    4.36 sec
-        Start 218: Unit_hipMemcpyWithStream_TestkindDefaultForDtoD
-218/370 Test #218: Unit_hipMemcpyWithStream_TestkindDefaultForDtoD ...........................   Passed    4.33 sec
-        Start 219: Unit_hipMemcpyWithStream_TestDtoDonSameDevice
-219/370 Test #219: Unit_hipMemcpyWithStream_TestDtoDonSameDevice .............................***Failed    4.38 sec
-        Start 220: Unit_hipMemcpy_Negative
-220/370 Test #220: Unit_hipMemcpy_Negative ...................................................   Passed    4.56 sec
-        Start 221: Unit_hipMemcpy_NullCheck
-221/370 Test #221: Unit_hipMemcpy_NullCheck ..................................................***Failed    4.84 sec
-        Start 222: Unit_hipMemcpy_HalfMemCopy
-222/370 Test #222: Unit_hipMemcpy_HalfMemCopy ................................................***Failed    4.85 sec
-        Start 223: Unit_hipMemcpyWithStream_MultiThread
-223/370 Test #223: Unit_hipMemcpyWithStream_MultiThread ......................................Subprocess aborted***Exception:   4.38 sec
-        Start 224: Unit_hipMemcpy_MultiThread-AllAPIs
-224/370 Test #224: Unit_hipMemcpy_MultiThread-AllAPIs ........................................   Passed    4.38 sec
-        Start 225: Unit_hipHostMalloc_Basic
-225/370 Test #225: Unit_hipHostMalloc_Basic ..................................................   Passed    4.37 sec
-        Start 226: Unit_hipHostMalloc_Negative
-226/370 Test #226: Unit_hipHostMalloc_Negative ...............................................   Passed    4.38 sec
-        Start 227: Unit_hipHostMalloc_NonCoherent
-227/370 Test #227: Unit_hipHostMalloc_NonCoherent ............................................***Exception: SegFault  4.36 sec
-        Start 228: Unit_hipHostMalloc_Coherent
-228/370 Test #228: Unit_hipHostMalloc_Coherent ...............................................***Exception: SegFault  4.38 sec
-        Start 229: Unit_hipHostMalloc_Default
-229/370 Test #229: Unit_hipHostMalloc_Default ................................................***Exception: SegFault  4.35 sec
-        Start 230: Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int
-230/370 Test #230: Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int ................***Failed    4.34 sec
-        Start 231: Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float
-231/370 Test #231: Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float ..............***Failed    4.38 sec
-        Start 232: Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double
-232/370 Test #232: Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double .............***Failed    4.35 sec
-        Start 233: Unit_hipHostRegister_Memcpy - int
-233/370 Test #233: Unit_hipHostRegister_Memcpy - int .........................................***Failed    4.37 sec
-        Start 234: Unit_hipHostRegister_Memcpy - float
-234/370 Test #234: Unit_hipHostRegister_Memcpy - float .......................................***Failed    4.35 sec
-        Start 235: Unit_hipHostRegister_Memcpy - double
-235/370 Test #235: Unit_hipHostRegister_Memcpy - double ......................................***Failed    4.35 sec
-        Start 236: Unit_hipHostGetFlags_Basic - int
-236/370 Test #236: Unit_hipHostGetFlags_Basic - int ..........................................***Failed    4.35 sec
-        Start 237: Unit_hipHostGetFlags_Basic - float
-237/370 Test #237: Unit_hipHostGetFlags_Basic - float ........................................***Failed    4.35 sec
-        Start 238: Unit_hipHostGetFlags_Basic - double
-238/370 Test #238: Unit_hipHostGetFlags_Basic - double .......................................***Failed    4.35 sec
-        Start 239: Unit_hipHostMalloc_CoherentAccess
-239/370 Test #239: Unit_hipHostMalloc_CoherentAccess .........................................***Timeout  30.02 sec
-        Start 240: Unit_hipMallocManaged_MultiChunkSingleDevice
-240/370 Test #240: Unit_hipMallocManaged_MultiChunkSingleDevice ..............................***Failed    4.43 sec
-        Start 241: Unit_hipMallocManaged_MultiChunkMultiDevice
-241/370 Test #241: Unit_hipMallocManaged_MultiChunkMultiDevice ...............................***Failed    4.38 sec
-        Start 242: Unit_hipMallocManaged_OverSubscription
-242/370 Test #242: Unit_hipMallocManaged_OverSubscription ....................................   Passed    4.36 sec
-        Start 243: Unit_hipMallocManaged_Negative
-243/370 Test #243: Unit_hipMallocManaged_Negative ............................................***Failed    4.36 sec
-        Start 244: Unit_hipMallocManaged_TwoPointers - int
-244/370 Test #244: Unit_hipMallocManaged_TwoPointers - int ...................................***Failed    4.36 sec
-        Start 245: Unit_hipMallocManaged_TwoPointers - float
-245/370 Test #245: Unit_hipMallocManaged_TwoPointers - float .................................***Failed    4.34 sec
-        Start 246: Unit_hipMallocManaged_TwoPointers - double
-246/370 Test #246: Unit_hipMallocManaged_TwoPointers - double ................................***Failed    4.36 sec
-        Start 247: Unit_hipMallocManaged_DeviceContextChange - unsigned char
-247/370 Test #247: Unit_hipMallocManaged_DeviceContextChange - unsigned char .................***Failed    4.36 sec
-        Start 248: Unit_hipMallocManaged_DeviceContextChange - int
-248/370 Test #248: Unit_hipMallocManaged_DeviceContextChange - int ...........................***Failed    4.35 sec
-        Start 249: Unit_hipMallocManaged_DeviceContextChange - float
-249/370 Test #249: Unit_hipMallocManaged_DeviceContextChange - float .........................***Failed    4.36 sec
-        Start 250: Unit_hipMallocManaged_DeviceContextChange - double
-250/370 Test #250: Unit_hipMallocManaged_DeviceContextChange - double ........................***Failed    4.37 sec
-        Start 251: Unit_hipMemset_InvalidPtrTests
-251/370 Test #251: Unit_hipMemset_InvalidPtrTests ............................................   Passed    4.35 sec
-        Start 252: Unit_hipMemsetAsync_InvalidPtrTests
-252/370 Test #252: Unit_hipMemsetAsync_InvalidPtrTests .......................................***Failed    4.35 sec
-        Start 253: Unit_hipMemset_SetMemoryWithOffset
-253/370 Test #253: Unit_hipMemset_SetMemoryWithOffset ........................................***Failed    9.14 sec
-        Start 254: Unit_hipMemsetAsync_SetMemoryWithOffset
-254/370 Test #254: Unit_hipMemsetAsync_SetMemoryWithOffset ...................................***Failed    9.37 sec
-        Start 255: Unit_hipMemset_SmallBufferSizes
-255/370 Test #255: Unit_hipMemset_SmallBufferSizes ...........................................   Passed    4.36 sec
-        Start 256: Unit_hipMemset_2AsyncOperations
-256/370 Test #256: Unit_hipMemset_2AsyncOperations ...........................................   Passed    4.37 sec
-        Start 257: Unit_hipMemsetAsync_QueueJobsMultithreaded
-257/370 Test #257: Unit_hipMemsetAsync_QueueJobsMultithreaded ................................Subprocess aborted***Exception:   4.87 sec
-        Start 258: Unit_hipMemsetAsync_VerifyExecutionWithKernel
-258/370 Test #258: Unit_hipMemsetAsync_VerifyExecutionWithKernel .............................***Failed    4.40 sec
-        Start 259: Unit_hipMemset3D_BasicFunctional
-259/370 Test #259: Unit_hipMemset3D_BasicFunctional ..........................................   Passed    4.34 sec
-        Start 260: Unit_hipMemset3DAsync_BasicFunctional
-260/370 Test #260: Unit_hipMemset3DAsync_BasicFunctional .....................................   Passed    4.34 sec
-        Start 261: Unit_hipMemset2D_BasicFunctional
-261/370 Test #261: Unit_hipMemset2D_BasicFunctional ..........................................   Passed    4.37 sec
-        Start 262: Unit_hipMemset2DAsync_BasicFunctional
-262/370 Test #262: Unit_hipMemset2DAsync_BasicFunctional .....................................***Failed    4.36 sec
-        Start 263: Unit_hipMemset2D_UniqueWidthHeight
-263/370 Test #263: Unit_hipMemset2D_UniqueWidthHeight ........................................***Failed    4.39 sec
-        Start 264: Unit_hipMemset2DAsync_WithKernel
-264/370 Test #264: Unit_hipMemset2DAsync_WithKernel ..........................................***Failed    6.90 sec
-        Start 265: Unit_hipMemset2DAsync_MultiThread
-265/370 Test #265: Unit_hipMemset2DAsync_MultiThread .........................................***Exception: SegFault 10.73 sec
-        Start 266: Unit_hipHostMalloc_ArgValidation
-266/370 Test #266: Unit_hipHostMalloc_ArgValidation ..........................................***Exception: SegFault  4.39 sec
-        Start 267: Unit_hipMalloc_ArgumentValidation
-267/370 Test #267: Unit_hipMalloc_ArgumentValidation .........................................   Passed    4.38 sec
-        Start 268: Unit_hipMalloc_LoopRegressionAllocFreeCycles
-268/370 Test #268: Unit_hipMalloc_LoopRegressionAllocFreeCycles ..............................   Passed   26.31 sec
-        Start 269: Unit_hipMalloc_AllocateAndPoolBuffers
-269/370 Test #269: Unit_hipMalloc_AllocateAndPoolBuffers .....................................   Passed    6.62 sec
-        Start 270: Unit_hipMalloc_Multithreaded_MultiGPU
-270/370 Test #270: Unit_hipMalloc_Multithreaded_MultiGPU .....................................   Passed   26.50 sec
-        Start 271: Unit_hipMemset3D_MemsetWithExtent
-271/370 Test #271: Unit_hipMemset3D_MemsetWithExtent .........................................***Failed    4.66 sec
-        Start 272: Unit_hipMemset3DAsync_MemsetWithExtent
-272/370 Test #272: Unit_hipMemset3DAsync_MemsetWithExtent ....................................***Failed    4.66 sec
-        Start 273: Unit_hipMemset3D_MemsetMaxValue
-273/370 Test #273: Unit_hipMemset3D_MemsetMaxValue ...........................................   Passed    4.39 sec
-        Start 274: Unit_hipMemset3DAsync_MemsetMaxValue
-274/370 Test #274: Unit_hipMemset3DAsync_MemsetMaxValue ......................................   Passed    4.39 sec
-        Start 275: Unit_hipMemset3D_SeekSetSlice
-275/370 Test #275: Unit_hipMemset3D_SeekSetSlice .............................................***Failed    4.47 sec
-        Start 276: Unit_hipMemset3DAsync_SeekSetSlice
-276/370 Test #276: Unit_hipMemset3DAsync_SeekSetSlice ........................................   Passed    4.50 sec
-        Start 277: Unit_hipMemset3D_SeekSetArrayPortion
-277/370 Test #277: Unit_hipMemset3D_SeekSetArrayPortion ......................................***Failed    4.49 sec
-        Start 278: Unit_hipMemset3DAsync_SeekSetArrayPortion
-278/370 Test #278: Unit_hipMemset3DAsync_SeekSetArrayPortion .................................***Failed    4.46 sec
-        Start 279: Unit_hipMemset3D_Negative
-279/370 Test #279: Unit_hipMemset3D_Negative .................................................***Failed    4.34 sec
-        Start 280: Unit_hipMemset3DAsync_Negative
-280/370 Test #280: Unit_hipMemset3DAsync_Negative ............................................***Failed    4.38 sec
-        Start 281: Unit_hipMemset3D_RegressInLoop
-281/370 Test #281: Unit_hipMemset3D_RegressInLoop ............................................   Passed    4.33 sec
-        Start 282: Unit_hipMemset3DAsync_RegressInLoop
-282/370 Test #282: Unit_hipMemset3DAsync_RegressInLoop .......................................   Passed    4.48 sec
-        Start 283: Unit_hipMemset3DAsync_ConcurrencyMthread
-283/370 Test #283: Unit_hipMemset3DAsync_ConcurrencyMthread ..................................***Exception: SegFault  4.35 sec
-        Start 284: Unit_hipMallocManaged_FlgParam
-284/370 Test #284: Unit_hipMallocManaged_FlgParam ............................................   Passed    4.34 sec
-        Start 285: Unit_hipMallocManaged_AccessMultiStream
-285/370 Test #285: Unit_hipMallocManaged_AccessMultiStream ...................................   Passed    4.37 sec
-        Start 286: Unit_hipMallocManaged_ExtremeSizes
-286/370 Test #286: Unit_hipMallocManaged_ExtremeSizes ........................................   Passed    4.35 sec
-        Start 287: Unit_hipMemPrefetchAsyncOneToAll
-287/370 Test #287: Unit_hipMemPrefetchAsyncOneToAll ..........................................   Passed    4.35 sec
-        Start 288: Unit_hipMemPrefetchAsyncAdviseFlgTst
-288/370 Test #288: Unit_hipMemPrefetchAsyncAdviseFlgTst ......................................   Passed    4.36 sec
-        Start 289: Unit_hipMemPrefetchAsyncAccsdByTst
-289/370 Test #289: Unit_hipMemPrefetchAsyncAccsdByTst ........................................   Passed    4.37 sec
-        Start 290: Unit_hipMemPrefetchAsyncNegativeTst
-290/370 Test #290: Unit_hipMemPrefetchAsyncNegativeTst .......................................   Passed    4.39 sec
-        Start 291: Unit_hipMemPrefetchAsync_NonPageSz
-291/370 Test #291: Unit_hipMemPrefetchAsync_NonPageSz ........................................***Failed    4.34 sec
-        Start 292: Unit_hipMemAdvise_MmapMem
-292/370 Test #292: Unit_hipMemAdvise_MmapMem .................................................   Passed    4.34 sec
-        Start 293: Unit_hipMallocManaged_Basic
-293/370 Test #293: Unit_hipMallocManaged_Basic ...............................................***Failed    4.33 sec
-        Start 294: Unit_hipMallocManaged_Advanced
-294/370 Test #294: Unit_hipMallocManaged_Advanced ............................................   Passed    4.36 sec
-        Start 295: Unit_hipMallocManaged_KrnlWth2MemTypes
-295/370 Test #295: Unit_hipMallocManaged_KrnlWth2MemTypes ....................................   Passed    4.33 sec
-        Start 296: Unit_hipMallocManaged_MultiKrnlHmmAccess
-296/370 Test #296: Unit_hipMallocManaged_MultiKrnlHmmAccess ..................................   Passed    4.35 sec
-        Start 297: Unit_hipMallocManaged_MultiSize
-297/370 Test #297: Unit_hipMallocManaged_MultiSize ...........................................   Passed    4.36 sec
-        Start 298: Unit_deviceFunctions_CompileTest
-298/370 Test #298: Unit_deviceFunctions_CompileTest ..........................................   Passed    4.34 sec
-        Start 299: Unit_AnyAll_CompileTest
-299/370 Test #299: Unit_AnyAll_CompileTest ...................................................   Passed    4.42 sec
-        Start 300: Unit_ballot
-300/370 Test #300: Unit_ballot ...............................................................***Failed    4.37 sec
-        Start 301: Unit_clz
-301/370 Test #301: Unit_clz ..................................................................   Passed    4.37 sec
-        Start 302: Unit_ffs
-302/370 Test #302: Unit_ffs ..................................................................   Passed    4.34 sec
-        Start 303: Unit_funnelshift
-303/370 Test #303: Unit_funnelshift ..........................................................***Failed    4.37 sec
-        Start 304: Unit_brev
-304/370 Test #304: Unit_brev .................................................................   Passed    4.40 sec
-        Start 305: Unit_popc
-305/370 Test #305: Unit_popc .................................................................   Passed    4.41 sec
-        Start 306: Unit_ldg
-306/370 Test #306: Unit_ldg ..................................................................   Passed    4.42 sec
-        Start 307: Unit_syncthreads_and
-307/370 Test #307: Unit_syncthreads_and ......................................................***Failed    4.34 sec
-        Start 308: Unit_syncthreads_count
-308/370 Test #308: Unit_syncthreads_count ....................................................***Failed    4.36 sec
-        Start 309: Unit_syncthreads_or
-309/370 Test #309: Unit_syncthreads_or .......................................................***Failed    4.35 sec
-        Start 310: Unit_threadfence_system
-310/370 Test #310: Unit_threadfence_system ...................................................***Timeout  30.03 sec
-        Start 311: ABM_AddKernel_MultiTypeMultiSize - int
-311/370 Test #311: ABM_AddKernel_MultiTypeMultiSize - int ....................................   Passed    0.47 sec
-        Start 312: ABM_AddKernel_MultiTypeMultiSize - long
-312/370 Test #312: ABM_AddKernel_MultiTypeMultiSize - long ...................................   Passed    0.15 sec
-        Start 313: ABM_AddKernel_MultiTypeMultiSize - float
-313/370 Test #313: ABM_AddKernel_MultiTypeMultiSize - float ..................................   Passed    0.15 sec
-        Start 314: ABM_AddKernel_MultiTypeMultiSize - long long
-314/370 Test #314: ABM_AddKernel_MultiTypeMultiSize - long long ..............................   Passed    0.14 sec
-        Start 315: ABM_AddKernel_MultiTypeMultiSize - double
-315/370 Test #315: ABM_AddKernel_MultiTypeMultiSize - double .................................   Passed    0.14 sec
-        Start 316: ChildMalloc
-316/370 Test #316: ChildMalloc ...............................................................Subprocess aborted***Exception:   0.17 sec
-        Start 317: Unit_hipDeviceGet_MaskedDevices
-317/370 Test #317: Unit_hipDeviceGet_MaskedDevices ...........................................Subprocess aborted***Exception:   0.14 sec
-        Start 318: Unit_hipDeviceGetPCIBusId_MaskedDevices
-318/370 Test #318: Unit_hipDeviceGetPCIBusId_MaskedDevices ...................................Subprocess aborted***Exception:   0.14 sec
-        Start 319: Unit_hipDeviceGetPCIBusId_CheckPciBusIDWithLspci
-319/370 Test #319: Unit_hipDeviceGetPCIBusId_CheckPciBusIDWithLspci ..........................   Passed    0.15 sec
-        Start 320: Unit_hipDeviceTotalMem_MaskedDevices
-320/370 Test #320: Unit_hipDeviceTotalMem_MaskedDevices ......................................Subprocess aborted***Exception:   0.14 sec
-        Start 321: Unit_hipDeviceGetAttribute_MaskedDevices
-321/370 Test #321: Unit_hipDeviceGetAttribute_MaskedDevices ..................................Subprocess aborted***Exception:   0.14 sec
-        Start 322: Unit_hipGetDeviceCount_MaskedDevices
-322/370 Test #322: Unit_hipGetDeviceCount_MaskedDevices ......................................   Passed    0.15 sec
-        Start 323: Unit_hipGetDeviceProperties_MaskedDevices
-323/370 Test #323: Unit_hipGetDeviceProperties_MaskedDevices .................................Subprocess aborted***Exception:   0.14 sec
-        Start 324: Unit_hipSetDevice_InvalidVisibleDeviceList
-324/370 Test #324: Unit_hipSetDevice_InvalidVisibleDeviceList ................................Subprocess aborted***Exception:   0.15 sec
-        Start 325: Unit_hipSetDevice_ValidVisibleDeviceList
-325/370 Test #325: Unit_hipSetDevice_ValidVisibleDeviceList ..................................Subprocess aborted***Exception:   0.15 sec
-        Start 326: Unit_hipSetDevice_SubsetOfAvailableDevices
-326/370 Test #326: Unit_hipSetDevice_SubsetOfAvailableDevices ................................Subprocess aborted***Exception:   0.14 sec
-        Start 327: Unit_hipSetDevice_MinRvdMaxHvdDevicesList
-327/370 Test #327: Unit_hipSetDevice_MinRvdMaxHvdDevicesList .................................Subprocess aborted***Exception:   0.14 sec
-        Start 328: Unit_hipSetDevice_MaxRvdMinHvdDevicesList
-328/370 Test #328: Unit_hipSetDevice_MaxRvdMinHvdDevicesList .................................Subprocess aborted***Exception:   0.14 sec
-        Start 329: Unit_hipSetDevice_RvdCvdDevicesList
-329/370 Test #329: Unit_hipSetDevice_RvdCvdDevicesList .......................................Subprocess aborted***Exception:   0.14 sec
-        Start 330: Unit_hipIpcMemAccess_Semaphores
-330/370 Test #330: Unit_hipIpcMemAccess_Semaphores ...........................................***Timeout  30.03 sec
-        Start 331: Unit_hipMalloc_ChildConcurrencyDefaultGpu
-331/370 Test #331: Unit_hipMalloc_ChildConcurrencyDefaultGpu .................................Subprocess aborted***Exception:   0.18 sec
-        Start 332: Unit_hipMalloc_ChildConcurrencyMultiGpu
-332/370 Test #332: Unit_hipMalloc_ChildConcurrencyMultiGpu ...................................Subprocess aborted***Exception:   0.15 sec
-        Start 333: hipmath
-333/370 Test #333: hipmath ...................................................................   Passed    0.22 sec
-        Start 334: hiptest
-334/370 Test #334: hiptest ...................................................................   Passed    0.14 sec
-        Start 335: bit_extract
-335/370 Test #335: bit_extract ...............................................................   Passed    0.14 sec
-        Start 336: vadd_hip
-336/370 Test #336: vadd_hip ..................................................................   Passed    0.14 sec
-        Start 337: fp16
-337/370 Test #337: fp16 ......................................................................   Passed    4.36 sec
-        Start 338: MatrixTranspose
-338/370 Test #338: MatrixTranspose ...........................................................   Passed    0.17 sec
-        Start 339: MatrixMultiply
-339/370 Test #339: MatrixMultiply ............................................................   Passed    3.79 sec
-        Start 340: hipEvent
-340/370 Test #340: hipEvent ..................................................................   Passed    0.17 sec
-        Start 341: VecAdd
-341/370 Test #341: VecAdd ....................................................................   Passed    0.25 sec
-        Start 342: sharedMemory
-342/370 Test #342: sharedMemory ..............................................................   Passed    0.14 sec
-        Start 343: shuffle
-343/370 Test #343: shuffle ...................................................................   Passed    0.14 sec
-        Start 344: broadcast
-344/370 Test #344: broadcast .................................................................   Passed    0.13 sec
-        Start 345: broadcast2
-345/370 Test #345: broadcast2 ................................................................   Passed    0.13 sec
-        Start 346: 2d_shuffle
-346/370 Test #346: 2d_shuffle ................................................................***Failed  Required regular expression not found. Regex=[PASSED
-]  0.14 sec
-        Start 347: dynamic_shared
-347/370 Test #347: dynamic_shared ............................................................   Passed    0.14 sec
-        Start 348: hipDynamicShared
-348/370 Test #348: hipDynamicShared ..........................................................   Passed    0.16 sec
-        Start 349: hipDynamicShared2
-349/370 Test #349: hipDynamicShared2 .........................................................   Passed    0.14 sec
-        Start 350: stream
-350/370 Test #350: stream ....................................................................   Passed    0.15 sec
-        Start 351: unroll
-351/370 Test #351: unroll ....................................................................***Failed  Required regular expression not found. Regex=[PASSED
-]  0.14 sec
-        Start 352: memcpy3D
-352/370 Test #352: memcpy3D ..................................................................   Passed    0.15 sec
-        Start 353: deviceManagement
-353/370 Test #353: deviceManagement ..........................................................   Passed    0.14 sec
-        Start 354: hipStreamSemantics
-354/370 Test #354: hipStreamSemantics ........................................................   Passed    0.62 sec
-        Start 355: hipTestDeviceSymbol
-355/370 Test #355: hipTestDeviceSymbol .......................................................   Passed    0.49 sec
-        Start 356: hipConstantTestDeviceSymbol
-356/370 Test #356: hipConstantTestDeviceSymbol ...............................................   Passed    0.14 sec
-        Start 357: BinomialOption
-357/370 Test #357: BinomialOption ............................................................   Passed    1.05 sec
-        Start 358: BitonicSort
-358/370 Test #358: BitonicSort ...............................................................   Passed    0.67 sec
-        Start 359: DCT
-359/370 Test #359: DCT .......................................................................   Passed    0.81 sec
-        Start 360: dwtHaar1D
-360/370 Test #360: dwtHaar1D .................................................................   Passed    0.23 sec
-        Start 361: FastWalshTransform
-361/370 Test #361: FastWalshTransform ........................................................   Passed    0.23 sec
-        Start 362: FloydWarshall
-362/370 Test #362: FloydWarshall .............................................................   Passed    2.14 sec
-        Start 363: Histogram
-363/370 Test #363: Histogram .................................................................   Passed    0.19 sec
-        Start 364: RecursiveGaussian
-364/370 Test #364: RecursiveGaussian .........................................................   Passed    0.40 sec
-        Start 365: SimpleConvolution
-365/370 Test #365: SimpleConvolution .........................................................   Passed    0.57 sec
-        Start 366: hipTestDeviceLink
-366/370 Test #366: hipTestDeviceLink .........................................................   Passed    0.32 sec
-        Start 367: sycl_chip_interop
-367/370 Test #367: sycl_chip_interop .........................................................   Passed    0.33 sec
-        Start 368: sycl_chip_interop_usm
-368/370 Test #368: sycl_chip_interop_usm .....................................................   Passed    0.15 sec
-        Start 369: hip_sycl_interop
-369/370 Test #369: hip_sycl_interop ..........................................................   Passed   21.85 sec
-        Start 370: hip_sycl_interop_no_buffers
-370/370 Test #370: hip_sycl_interop_no_buffers ...............................................   Passed    0.90 sec
+67% tests passed, 122 tests failed out of 371
 
-63% tests passed, 137 tests failed out of 370
-
-Total Test time (real) = 1718.64 sec
+Total Test time (real) = 2367.29 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
-	  6 - Unit_printf_flags (Failed)
 	  7 - Unit_printf_specifier (Failed)
 	  8 - Unit_hiprtc_saxpy (Failed)
 	 12 - Unit_hipDeviceGetByPCIBusId_Functional (Failed)
@@ -767,12 +22,10 @@ The following tests FAILED:
 	 45 - Unit_hipEvent (Failed)
 	 46 - Unit_hipEventElapsedTime_NullCheck (Failed)
 	 47 - Unit_hipEventElapsedTime_DisableTiming (Failed)
-	 49 - Unit_hipEventElapsedTime (SEGFAULT)
 	 51 - Unit_hipEventIpc (Failed)
 	 53 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	 56 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
 	 65 - Unit_hipMultiStream_multimeDevice (Timeout)
-	 66 - Unit_hipStreamAddCallback_MultipleThreads (SEGFAULT)
 	 70 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	 81 - Unit_hipMemcpy2DToArray_Basic (Failed)
 	 82 - Unit_hipMemcpy2DToArray_ExtentValidation (Failed)
@@ -785,9 +38,9 @@ The following tests FAILED:
 	121 - Unit_hipMemcpyParam2D_ExtentValidation (Failed)
 	122 - Unit_hipMemcpyParam2D_Negative (Failed)
 	138 - Unit_hipMemcpyParam2DAsync_ExtentValidation (Failed)
-	146 - Unit_hipMemcpy2D_SizeCheck (Failed)
+	146 - Unit_hipMemcpy2D_SizeCheck (Subprocess aborted)
 	147 - Unit_hipMemcpy2D_Negative (Failed)
-	157 - Unit_hipMemcpy2DAsync_SizeCheck (Failed)
+	157 - Unit_hipMemcpy2DAsync_SizeCheck (Subprocess aborted)
 	158 - Unit_hipMemcpy2DAsync_Negative (Failed)
 	159 - Unit_hipMemcpy2DFromArray_Basic (Failed)
 	160 - Unit_hipMemcpy2DFromArray_ExtentValidation (Failed)
@@ -799,28 +52,15 @@ The following tests FAILED:
 	175 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
-	178 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
-	192 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int (Timeout)
-	193 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float (Timeout)
-	194 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (Timeout)
-	195 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	196 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
-	197 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
-	204 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int (Failed)
-	205 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float (Failed)
-	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
+	178 - Unit_hipMemcpyHtoA_Negative (Subprocess aborted)
 	211 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
 	212 - Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	213 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)
 	214 - Unit_hipMemcpyWithStream_TestkindHtoH (Failed)
 	217 - Unit_hipMemcpyWithStream_TestkindDefault (Failed)
 	219 - Unit_hipMemcpyWithStream_TestDtoDonSameDevice (Failed)
-	221 - Unit_hipMemcpy_NullCheck (Failed)
-	222 - Unit_hipMemcpy_HalfMemCopy (Failed)
+	221 - Unit_hipMemcpy_NullCheck (Subprocess aborted)
 	223 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
-	227 - Unit_hipHostMalloc_NonCoherent (SEGFAULT)
-	228 - Unit_hipHostMalloc_Coherent (SEGFAULT)
-	229 - Unit_hipHostMalloc_Default (SEGFAULT)
 	230 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
 	231 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	232 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
@@ -834,31 +74,30 @@ The following tests FAILED:
 	240 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
 	241 - Unit_hipMallocManaged_MultiChunkMultiDevice (Failed)
 	243 - Unit_hipMallocManaged_Negative (Failed)
-	244 - Unit_hipMallocManaged_TwoPointers - int (Failed)
+	244 - Unsed: can't read 2: No such file or directory
+it_hipMallocManaged_TwoPointers - int (Failed)
 	245 - Unit_hipMallocManaged_TwoPointers - float (Failed)
 	246 - Unit_hipMallocManaged_TwoPointers - double (Failed)
 	247 - Unit_hipMallocManaged_DeviceContextChange - unsigned char (Failed)
 	248 - Unit_hipMallocManaged_DeviceContextChange - int (Failed)
 	249 - Unit_hipMallocManaged_DeviceContextChange - float (Failed)
 	250 - Unit_hipMallocManaged_DeviceContextChange - double (Failed)
-	252 - Unit_hipMemsetAsync_InvalidPtrTests (Failed)
+	251 - Unit_hipMemset_InvalidPtrTests (SEGFAULT)
+	252 - Unit_hipMemsetAsync_InvalidPtrTests (SEGFAULT)
 	253 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	254 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	257 - Unit_hipMemsetAsync_QueueJobsMultithreaded (Subprocess aborted)
 	258 - Unit_hipMemsetAsync_VerifyExecutionWithKernel (Failed)
-	262 - Unit_hipMemset2DAsync_BasicFunctional (Failed)
-	263 - Unit_hipMemset2D_UniqueWidthHeight (Failed)
-	264 - Unit_hipMemset2DAsync_WithKernel (Failed)
-	265 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
+	263 - Unit_hipMemset2D_UniqueWidthHeight (SEGFAULT)
+	265 - Unit_hipMemset2DAsync_MultiThread (Timeout)
 	266 - Unit_hipHostMalloc_ArgValidation (SEGFAULT)
-	271 - Unit_hipMemset3D_MemsetWithExtent (Failed)
-	272 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
-	275 - Unit_hipMemset3D_SeekSetSlice (Failed)
+	271 - Unit_hipMemset3D_MemsetWithExtent (SEGFAULT)
+	272 - Unit_hipMemset3DAsync_MemsetWithExtent (SEGFAULT)
 	277 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
 	278 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
-	279 - Unit_hipMemset3D_Negative (Failed)
-	280 - Unit_hipMemset3DAsync_Negative (Failed)
-	283 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
+	279 - Unit_hipMemset3D_Negative (SEGFAULT)
+	280 - Unit_hipMemset3DAsync_Negative (SEGFAULT)
+	283 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	291 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	293 - Unit_hipMallocManaged_Basic (Failed)
 	300 - Unit_ballot (Failed)
@@ -867,20 +106,23 @@ The following tests FAILED:
 	308 - Unit_syncthreads_count (Failed)
 	309 - Unit_syncthreads_or (Failed)
 	310 - Unit_threadfence_system (Timeout)
-	316 - ChildMalloc (Subprocess aborted)
-	317 - Unit_hipDeviceGet_MaskedDevices (Subprocess aborted)
+	316 - ChildMalloc (Timeout)
+	317 - Unit_hipDeviceGet_MaskedDevices (Timeout)
 	318 - Unit_hipDeviceGetPCIBusId_MaskedDevices (Subprocess aborted)
-	320 - Unit_hipDeviceTotalMem_MaskedDevices (Subprocess aborted)
-	321 - Unit_hipDeviceGetAttribute_MaskedDevices (Subprocess aborted)
-	323 - Unit_hipGetDeviceProperties_MaskedDevices (Subprocess aborted)
-	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Subprocess aborted)
-	325 - Unit_hipSetDevice_ValidVisibleDeviceList (Subprocess aborted)
-	326 - Unit_hipSetDevice_SubsetOfAvailableDevices (Subprocess aborted)
-	327 - Unit_hipSetDevice_MinRvdMaxHvdDevicesList (Subprocess aborted)
-	328 - Unit_hipSetDevice_MaxRvdMinHvdDevicesList (Subprocess aborted)
-	329 - Unit_hipSetDevice_RvdCvdDevicesList (Subprocess aborted)
+	320 - Unit_hipDeviceTotalMem_MaskedDevices (Timeout)
+	321 - Unit_hipDeviceGetAttribute_MaskedDevices (Timeout)
+	323 - Unit_hipGetDeviceProperties_MaskedDevices (Timeout)
+	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Timeout)
+	325 - Unit_hipSetDevice_ValidVisibleDeviceList (Timeout)
+	326 - Unit_hipSetDevice_SubsetOfAvailableDevices (Timeout)
+	327 - Unit_hipSetDevice_MinRvdMaxHvdDevicesList (Timeout)
+	328 - Unit_hipSetDevice_MaxRvdMinHvdDevicesList (Timeout)
+	329 - Unit_hipSetDevice_RvdCvdDevicesList (Timeout)
 	330 - Unit_hipIpcMemAccess_Semaphores (Timeout)
-	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (Subprocess aborted)
-	332 - Unit_hipMalloc_ChildConcurrencyMultiGpu (Subprocess aborted)
+	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (Timeout)
+	332 - Unit_hipMalloc_ChildConcurrencyMultiGpu (Timeout)
 	346 - 2d_shuffle (Failed)
 	351 - unroll (Failed)
+	367 - hipTestDeviceLink (SEGFAULT)
+	368 - sycl_chip_interop (Subprocess aborted)
+	369 - sycl_chip_interop_usm (Subprocess aborted)

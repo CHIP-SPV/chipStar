@@ -214,7 +214,8 @@ void CHIPEventOpenCL::increaseRefCount() {
 }
 
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
-                                                    CHIPEventFlags Flags) {
+                                                    CHIPEventFlags Flags,
+                                                    bool UserEvent) {
   return new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
 }
 
@@ -479,20 +480,6 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
 
   Retval = SvmMemory.allocate(*ClContext, Size);
   return Retval;
-}
-
-hipError_t CHIPContextOpenCL::memCopy(void *Dst, const void *Src, size_t Size,
-                                      hipStream_t Stream) {
-  logTrace("CHIPContextOpenCL::memCopy()");
-
-  CHIPQueue *Queue = findQueue(Stream);
-  if (Queue == nullptr)
-    return hipErrorInvalidResourceHandle;
-
-  if (SvmMemory.hasPointer(Dst) || SvmMemory.hasPointer(Src))
-    return Queue->memCopy(Dst, Src, Size);
-  else
-    return hipErrorInvalidDevicePointer;
 }
 
 // CHIPQueueOpenCL
@@ -835,8 +822,14 @@ CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
   UNIMPLEMENTED(nullptr);
 }
 
-CHIPEventMonitor *CHIPBackendOpenCL::createEventMonitor() {
-  return new CHIPEventMonitorOpenCL();
+CHIPEventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor() {
+  auto Evm = new CHIPEventMonitorOpenCL();
+  Evm->start();
+  return Evm;
+}
+
+CHIPEventMonitor *CHIPBackendOpenCL::createStaleEventMonitor() {
+  UNIMPLEMENTED(nullptr);
 }
 
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {
@@ -908,19 +901,6 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   }
   std::cout << "OpenCL Context Initialized.\n";
 };
-
-void CHIPBackendOpenCL::uninitialize() {
-  logDebug("");
-  logDebug("CHIPBackendOpenCL::uninitialize()");
-  for (auto Q : Backend->getQueues()) {
-    CHIPContext *Ctx = Q->getContext();
-    logDebug("Remaining {} events that haven't been collected:",
-             Ctx->Events.size());
-    for (auto E : Ctx->Events)
-      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-               E->getCHIPRefc());
-  }
-}
 
 // Other
 //*************************************************************************

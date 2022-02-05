@@ -118,8 +118,6 @@ public:
                      CHIPMemoryType MemType) override;
 
   virtual void freeImpl(void *Ptr) override;
-  virtual hipError_t memCopy(void *Dst, const void *Src, size_t Size,
-                             hipStream_t Stream) override;
   cl::Context *get();
 };
 
@@ -210,18 +208,18 @@ public:
   void initializeImpl(std::string CHIPPlatformStr,
                       std::string CHIPDeviceTypeStr,
                       std::string CHIPDeviceStr) override;
-  void uninitialize() override;
   virtual std::string getDefaultJitFlags() override;
   virtual CHIPTexture *createCHIPTexture(intptr_t Image,
                                          intptr_t Sampler) override;
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual CHIPEventOpenCL *
-  createCHIPEvent(CHIPContext *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags()) override;
+  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false) override;
   virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQueue) override;
-  virtual CHIPEventMonitor *createEventMonitor() override;
+  virtual CHIPEventMonitor *createCallbackEventMonitor() override;
+  virtual CHIPEventMonitor *createStaleEventMonitor() override;
 };
 
 #endif

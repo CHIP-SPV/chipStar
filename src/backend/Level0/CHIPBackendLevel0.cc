@@ -10,8 +10,10 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  zeEventDestroy(Event_);
-  zeEventPoolDestroy(EventPool_);
+  if (Event_)
+    zeEventDestroy(Event_);
+  if (EventPool_) // Previous event could have deleted this evet
+    zeEventPoolDestroy(EventPool_);
   Event_ = nullptr;
   EventPool_ = nullptr;
 }
@@ -53,6 +55,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
   // Take over target queues Event_
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
+  std::lock_guard<std::mutex> LockThis(this->Mtx);
+  std::lock_guard<std::mutex> LockOther(Other->Mtx);
   if (*Refc_ > 1)
     decreaseRefCount();
   this->Event_ = Other->get(); // increases refcount
@@ -65,7 +69,9 @@ void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
 // kernel timings are enabled
 void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   ze_result_t Status;
+
   if (EventStatus_ == EVENT_STATUS_RECORDED) {
+    logTrace("{}: EVENT_STATUS_RECORDED ... Resetting event.");
     ze_result_t Status = zeEventHostReset(Event_);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
@@ -92,12 +98,14 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   EventStatus_ = EVENT_STATUS_RECORDING;
+  if (Msg == "") {
+    Msg = "recordStream";
+  }
   return;
 }
 
 bool CHIPEventLevel0::wait() {
-  if (EventStatus_ != EVENT_STATUS_RECORDING)
-    return false;
+  logTrace("CHIPEventLevel0::wait() msg={}", Msg);
 
   ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -107,14 +115,16 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus() {
-  if (EventStatus_ != EVENT_STATUS_RECORDING)
-    return false;
+  auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   if (Status == ZE_RESULT_SUCCESS)
     EventStatus_ = EVENT_STATUS_RECORDED;
 
+  auto EventStatusNew = getEventStatusStr();
+  if (EventStatusNew != EventStatusOld)
+    logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
+             EventStatusOld, EventStatusNew);
   return true;
 }
 
@@ -204,26 +214,105 @@ void CHIPEventLevel0::hostSignal() {
 CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
-    : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {}
+    : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEventList(Backend->EventsMtx);
+  CHIPContext *Ctx = ChipQueue->getContext();
 
-void CHIPCallbackDataLevel0::setup() {
-  // create a pool
-  // create events from pool
-  // assign events to parent events
-  UNIMPLEMENTED();
+  CpuCallbackComplete = Backend->createCHIPEvent(Ctx);
+  CpuCallbackComplete->Msg = "CpuCallbackComplete";
+  CpuCallbackComplete->increaseRefCount();
+
+  GpuReady = ChipQueue->enqueueBarrier(nullptr);
+  GpuReady->Msg = "GpuReady";
+  GpuReady->increaseRefCount();
+
+  std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
+  ChipQueue->enqueueBarrier(&ChipEvs);
+
+  GpuAck = ChipQueue->enqueueMarker();
+  GpuAck->Msg = "GpuAck";
+  GpuAck->increaseRefCount();
 }
+
 // End CHIPCallbackDataLevel0
 
 // CHIPEventMonitorLevel0
 // ***********************************************************************
 
-CHIPEventMonitorLevel0::CHIPEventMonitorLevel0() : CHIPEventMonitor() {
-  logTrace("CHIPEventMonitorLevel0::CHIPEventMonitorLevel0()");
-};
-
-void CHIPEventMonitorLevel0::monitor() {
+void CHIPCallbackEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
-  CHIPEventMonitor::monitor();
+  while (true) {
+    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
+    if (Backend->CallbackStack.size() == 0) {
+      pthread_yield();
+      continue;
+    }
+
+    // get the callback item
+    CHIPCallbackDataLevel0 *CallbackData =
+        (CHIPCallbackDataLevel0 *)Backend->CallbackStack.front();
+
+    // Lock the item and members
+    std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
+    std::lock_guard<std::mutex> Lock1(CallbackData->GpuReady->Mtx);
+    std::lock_guard<std::mutex> Lock2(CallbackData->CpuCallbackComplete->Mtx);
+    std::lock_guard<std::mutex> Lock3(CallbackData->GpuAck->Mtx);
+
+    Backend->CallbackStack.pop();
+
+    // Update Status
+    CallbackData->GpuReady->updateFinishStatus();
+    if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+      // if not ready, push to the back
+      Backend->CallbackStack.push(CallbackData);
+      continue;
+    }
+
+    CallbackData->execute(hipSuccess);
+    CallbackData->CpuCallbackComplete->hostSignal();
+    CallbackData->GpuAck->wait();
+
+    delete CallbackData;
+    pthread_yield();
+  }
+}
+
+void CHIPStaleEventMonitorLevel0::monitor() {
+  logTrace("CHIPEventMonitorLevel0::monitor()");
+  while (true) {
+    std::vector<CHIPEvent *> EventsToDelete;
+    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+    for (int i = 0; i < Backend->Events.size(); i++) {
+      CHIPEvent *ChipEvent = Backend->Events[i];
+
+      std::lock_guard<std::mutex> CurrentEventLock(Backend->Events[i]->Mtx);
+
+      assert(ChipEvent);
+      auto E = (CHIPEventLevel0 *)ChipEvent;
+
+      if (E->Msg.compare("UserEvent") != 0)
+        if (E->getCHIPRefc() == 1) { // only do this check for non UserEvents
+          E->updateFinishStatus();   // only check if refcount is 1
+          if (E->getEventStatus() == EVENT_STATUS_RECORDED) {
+            EventsToDelete.push_back(E);
+          }
+        }
+    } // done collecting events to delete
+
+    for (int i = 0; i < EventsToDelete.size(); i++) {
+      auto E = EventsToDelete[i];
+      auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), E);
+      if (Found == Backend->Events.end())
+        CHIPERR_LOG_AND_THROW(
+            "StaleEventMonitor is trying to destroy an event which is already "
+            "removed from backend event list",
+            hipErrorTbd);
+      Backend->Events.erase(Found);
+      delete E;
+    }
+    pthread_yield();
+  } // endless loop
 }
 // End CHIPEventMonitorLevel0
 
@@ -337,12 +426,14 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
    * which require LastEvent to be initialized.
    *
    */
-  setLastEvent(enqueueMarkerImpl());
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  auto Ev = enqueueMarker();
+  Ev->Msg = "InitialMarker";
 }
 
 CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "launch";
 
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
@@ -370,7 +461,7 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
                                              const void *Pattern,
                                              size_t PatternSize) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memFill";
   ze_result_t Status = zeCommandListAppendMemoryFill(
       ZeCmdListImm_, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
@@ -390,7 +481,7 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
                                                size_t Width, size_t Height,
                                                size_t Depth) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memCopy3DAsync";
 
   ze_copy_region_t DstRegion;
@@ -418,7 +509,7 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
 CHIPEvent *CHIPQueueLevel0::memCopyToTextureImpl(CHIPTexture *TexObj,
                                                  void *Src) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memCopyToTexture";
 
   ze_image_handle_t ImageHandle = (ze_image_handle_t)TexObj->Image;
@@ -449,7 +540,8 @@ void CHIPQueueLevel0::getBackendHandles(unsigned long *NativeInfo, int *Size) {
 
 CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
   CHIPEventLevel0 *MarkerEvent =
-      new CHIPEventLevel0((CHIPContextLevel0 *)ChipContext_);
+      (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
+
   MarkerEvent->Msg = "marker";
   auto Status =
       zeCommandListAppendSignalEvent(getCmdList(), MarkerEvent->peek());
@@ -459,8 +551,9 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEvent *
 CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
+  // Create an event, refc=2, add it to EventList
   CHIPEventLevel0 *EventToSignal =
-      new CHIPEventLevel0((CHIPContextLevel0 *)ChipContext_);
+      (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
   EventToSignal->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
   if (EventsToWaitFor)
@@ -493,7 +586,8 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  CHIPEventLevel0 *Ev = new CHIPEventLevel0(ChipCtxZe);
+  CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
+
   Ev->Msg = "memCopy";
 
   ze_result_t Status;
@@ -506,19 +600,8 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 
 void CHIPQueueLevel0::finish() {
   // The finish Event_ that denotes the finish of current command list items
-  auto Status =
-      zeCommandListAppendBarrier(ZeCmdListImm_, FinishEvent_, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(
-      Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-      "zeCommandListAppendBarrier FAILED with return code");
-
-  Status = zeEventHostSynchronize(FinishEvent_, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeEventHostSynchronize FAILED with return code");
-
-  Status = zeEventHostReset(FinishEvent_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeEventHostReset FAILED with return code");
+  pthread_yield();
+  getLastEvent()->wait();
   return;
 }
 
@@ -599,13 +682,16 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       ChipL0Dev->populateDeviceProperties();
       ChipL0Ctx->addDevice(ChipL0Dev);
 
-      CHIPQueueLevel0 *Q = new CHIPQueueLevel0(ChipL0Dev);
-      // chip_l0_dev->addQueue(q);
+      auto Q = ChipL0Dev->addQueue(0, 0);
+
       Backend->addDevice(ChipL0Dev);
       Backend->addQueue(Q);
       break; // For now don't add more than one device
     }
   } // End adding CHIPDevices
+
+  StaleEventMonitor_ =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero

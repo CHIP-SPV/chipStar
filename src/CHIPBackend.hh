@@ -21,6 +21,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <queue>
 #include <stack>
 
 #include "spirv.hh"
@@ -40,6 +41,9 @@ enum class CHIPQueueType : unsigned int {
 };
 
 class CHIPCallbackData {
+protected:
+  virtual ~CHIPCallbackData() = default;
+
 public:
   CHIPQueue *ChipQueue;
   CHIPEvent *GpuReady;
@@ -53,55 +57,37 @@ public:
   CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
                    CHIPQueue *ChipQueue);
 
-  /**
-   * @brief
-   *
-   */
-  virtual void setup();
-
   void execute(hipError_t ResultFromDependency) {
     CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
   }
 };
 
-void *monitor_wrapper(void *EventMonitor);
 class CHIPEventMonitor {
-  std::mutex Mtx_;
   typedef void *(*THREADFUNCPTR)(void *);
 
 protected:
-  // The thread ID for monitor thread
-  pthread_t Thread_ = 0;
-
-  CHIPQueue *ChipQueue_;
+  CHIPEventMonitor() = default;
+  virtual ~CHIPEventMonitor() = default;
+  pthread_t Thread_;
 
 public:
-  /**
-   * @brief Pop the callback stack and execute
-   */
-  virtual void monitor();
+  volatile bool Stop = false;
 
-  CHIPEventMonitor() {
-    logDebug("CHIPEventMonitor::CHIPEventMonitor()");
-    auto Res = pthread_create(&Thread_, 0, (THREADFUNCPTR)&monitor_wrapper,
-                              (void *)this);
+  void join() { pthread_join(Thread_, nullptr); }
+  static void *monitorWrapper(void *Arg) {
+    auto Monitor = (CHIPEventMonitor *)Arg;
+    Monitor->monitor();
+    return 0;
+  }
+  virtual void monitor(){};
+
+  void start() {
+    auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
     logDebug("Thread Created with ID : {}", Thread_);
   }
-
-  /**
-   * @brief wait until event completes
-   *
-   */
-  void wait();
 };
-
-inline void *monitor_wrapper(void *EventMonitor) {
-  CHIPEventMonitor *EMonitor = (CHIPEventMonitor *)EventMonitor;
-  EMonitor->monitor();
-  return nullptr;
-}
 
 class CHIPTexture {
 protected:
@@ -270,7 +256,6 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
-  std::mutex Mtx_;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
 
@@ -291,18 +276,19 @@ protected:
   CHIPEvent() = default;
 
 public:
+  std::mutex Mtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void takeOver(CHIPEvent *Other){};
   virtual void decreaseRefCount() {
-    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
-             *Refc_, *Refc_ - 1);
+    // logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
+    //          *Refc_, *Refc_ - 1);
     (*Refc_)--;
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount() {
-    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
-             *Refc_, *Refc_ + 1);
+    // logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
+    //          *Refc_, *Refc_ + 1);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
@@ -1183,20 +1169,6 @@ public:
   virtual void freeImpl(void *Ptr) = 0;
 
   /**
-   * @brief Copy memory
-   *
-   * @param dst destination
-   * @param src source
-   * @param size size of the copy
-   * @param stream queue to which this copy should be submitted to
-   * @return hipError_t
-   */
-  virtual hipError_t memCopy(void *Dst, const void *Src, size_t Size,
-                             hipStream_t Stream) {
-    UNIMPLEMENTED(hipSuccess); // TODO NEXT: remove this
-  };
-
-  /**
    * @brief Finish all the queues in this context
    *
    */
@@ -1263,7 +1235,10 @@ protected:
 
 public:
   std::mutex CallbackStackMtx;
-  std::stack<CHIPCallbackData *> CallbackStack;
+  std::vector<CHIPEvent *> Events;
+  std::mutex EventsMtx;
+
+  std::queue<CHIPCallbackData *> CallbackStack;
   /**
    * @brief Keep track of pointers allocated on the device. Used to get info
    * about allocaitons based on device poitner in case that findPointerInfo() is
@@ -1348,7 +1323,7 @@ public:
    * @brief
    *
    */
-  virtual void uninitialize() = 0;
+  virtual void uninitialize();
 
   /**
    * @brief Get the Queues object
@@ -1500,11 +1475,19 @@ public:
 
   virtual CHIPTexture *createCHIPTexture(intptr_t Image, intptr_t Sampler) = 0;
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
-  // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) = 0;
-  // virtual CHIPContext* createCHIPContext() = 0;
-  virtual CHIPEvent *
-  createCHIPEvent(CHIPContext *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags()) = 0;
+
+  /**
+   * @brief Create an Event, adding it to the Backend Event list.
+   *
+   * @param ChipCtx Context in which to create the event in
+   * @param Flags Events falgs
+   * @param UserEvent Is this a user event? If so, increase refcount to 2 to
+   * prevent it from being garbage collected.
+   * @return CHIPEvent* Event
+   */
+  virtual CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx,
+                                     CHIPEventFlags Flags = CHIPEventFlags(),
+                                     bool UserEvent = false) = 0;
 
   /**
    * @brief Create a Callback Obj object
@@ -1517,7 +1500,8 @@ public:
                                                void *UserData,
                                                CHIPQueue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor *createEventMonitor() = 0;
+  virtual CHIPEventMonitor *createCallbackEventMonitor() = 0;
+  virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
 
   /**
  * @brief Get the Callback object
@@ -1527,19 +1511,21 @@ public:
  * @return false callback object not available
  */
   bool getCallback(CHIPCallbackData **CallbackData) {
-    std::lock_guard<std::mutex> Lock(Mtx_);
-    bool Res = false;
-    logDebug("Elements in callback stack: {}", CallbackStack.size());
-    if (this->CallbackStack.size()) {
-      *CallbackData = CallbackStack.top();
-      if (*CallbackData == nullptr)
-        return Res;
-      CallbackStack.pop();
+    // std::lock_guard<std::mutex> Lock(Mtx_);
 
-      Res = true;
-    }
+    // bool Res = false;
+    // logDebug("Elements in callback stack: {}", CallbackStack.size());
+    // if (this->CallbackStack.size()) {
+    //   *CallbackData = CallbackStack.at(CallbackStack.begin());
+    //   if (*CallbackData == nullptr)
+    //     return Res;
+    //   CallbackStack.();
 
-    return Res;
+    //   Res = true;
+    // }
+
+    // return Res;
+    return false;
   }
 };
 
@@ -1560,7 +1546,7 @@ protected:
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  CHIPEvent *LastEvent_;
+  CHIPEvent *LastEvent_ = nullptr;
 
 public:
   // I want others to be able to lock this queue?
@@ -1568,6 +1554,7 @@ public:
 
   virtual CHIPEvent *getLastEvent() = 0;
   void setLastEvent(CHIPEvent *ChipEv) {
+    std::lock_guard<std::mutex> Lock(ChipEv->Mtx);
     ChipEv->increaseRefCount();
     LastEvent_ = ChipEv;
   }
@@ -1601,10 +1588,14 @@ public:
 
   CHIPQueueType getQueueType() { return QueueType_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
+    if (LastEvent_ != nullptr)
+      std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
+
+    std::lock_guard<std::mutex> LockNew(ChipEv->Mtx);
     assert(ChipEv);
     if (ChipEv == LastEvent_)
       return;
-    logDebug("CHIPQueue::updateLastEvent()");
+    // logDebug("CHIPQueue::updateLastEvent()");
     if (LastEvent_ != nullptr)
       LastEvent_->decreaseRefCount();
     ChipEv->increaseRefCount();

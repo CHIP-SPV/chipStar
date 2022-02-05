@@ -51,17 +51,29 @@ public:
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {
 private:
-  ze_event_pool_handle_t ZeEventPool_;
+  // ze_event_pool_handle_t ZeEventPool_;
 
 public:
+  std::mutex Mtx;
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
-  virtual void setup() override;
+
+  virtual ~CHIPCallbackDataLevel0() override {
+    GpuReady->decreaseRefCount();
+    CpuCallbackComplete->decreaseRefCount();
+    GpuAck->decreaseRefCount();
+  }
 };
 
-class CHIPEventMonitorLevel0 : public CHIPEventMonitor {
+class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  CHIPEventMonitorLevel0();
+  ~CHIPCallbackEventMonitorLevel0() { join(); };
+  virtual void monitor() override;
+};
+
+class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
+public:
+  ~CHIPStaleEventMonitorLevel0() { join(); };
   virtual void monitor() override;
 };
 
@@ -282,25 +294,14 @@ public:
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
+  CHIPStaleEventMonitorLevel0 *StaleEventMonitor_;
+
 public:
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;
 
   virtual std::string getDefaultJitFlags() override;
-
-  void uninitialize() override {
-    logDebug("");
-    logDebug("CHIPBackendLevel0::uninitialize()");
-    for (auto Q : Backend->getQueues()) {
-      CHIPContext *Ctx = Q->getContext();
-      logDebug("Remaining {} events that haven't been collected:",
-               Ctx->Events.size());
-      for (auto E : Ctx->Events)
-        logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-                 E->getCHIPRefc());
-    }
-  }
 
   virtual CHIPTexture *createCHIPTexture(intptr_t Image,
                                          intptr_t Sampler) override {
@@ -312,17 +313,20 @@ public:
     Backend->addQueue(Q);
     return Q;
   }
-  // virtual CHIPDevice* createCHIPDevice(CHIPContext* ctx_) override {
-  //   CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)ctx_;
-  //   return new CHIPDeviceLevel0(chip_ctx_lz);
-  // };
-  // virtual CHIPContext* createCHIPContext() overricreateCHIPEventde {
-  //   return new CHIPContextLevel0();
-  // };
+
   virtual CHIPEventLevel0 *
-  createCHIPEvent(CHIPContext *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags()) override {
+  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false) override {
     auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+
+    // User Events start with refc=2
+    if (UserEvent)
+      Ev->increaseRefCount();
+
+    // User Events do got get garbage collected
+    if (!UserEvent)
+      Backend->Events.push_back(Ev);
+
     return Ev;
   }
 
@@ -332,8 +336,16 @@ public:
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 
-  virtual CHIPEventMonitor *createEventMonitor() override {
-    return new CHIPEventMonitorLevel0();
+  virtual CHIPEventMonitor *createCallbackEventMonitor() override {
+    auto Evm = new CHIPCallbackEventMonitorLevel0();
+    Evm->start();
+    return Evm;
+  }
+
+  virtual CHIPEventMonitor *createStaleEventMonitor() override {
+    auto Evm = new CHIPStaleEventMonitorLevel0();
+    Evm->start();
+    return Evm;
   }
 
 }; // CHIPBackendLevel0
