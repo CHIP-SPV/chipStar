@@ -958,7 +958,12 @@ std::string CHIPBackend::getJitFlags() {
 CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  ChipExecStack.empty();
+  while (!ChipExecStack.empty())
+    ChipExecStack.pop();
+  while (!CallbackStack.empty())
+    CallbackStack.pop();
+
+  Events.clear();
   for (auto &Ctx : ChipContexts)
     delete Ctx;
   for (auto &Q : ChipQueues)

@@ -2097,7 +2097,11 @@ extern "C" hipError_t hipInitFromOutside(void *DriverPtr, void *DevicePtr,
                                          void *ContexPtr, void *QueuePtr) {
   logDebug("hipInitFromOutside");
   auto Modules = std::move(Backend->getDevices()[0]->getModules());
-  delete Backend;
+  {
+    std::lock_guard<std::mutex> LockCallbacks(Backend->CallbackStackMtx);
+    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+    delete Backend;
+  }
   logDebug("deleting Backend object.");
   Backend = new CHIPBackendLevel0();
 
