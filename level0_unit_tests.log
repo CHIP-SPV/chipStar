@@ -1,6 +1,6 @@
-67% tests passed, 122 tests failed out of 371
+68% tests passed, 119 tests failed out of 371
 
-Total Test time (real) = 2367.29 sec
+Total Test time (real) = 2312.87 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -52,7 +52,7 @@ The following tests FAILED:
 	175 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
-	178 - Unit_hipMemcpyHtoA_Negative (Subprocess aborted)
+	178 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
 	211 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
 	212 - Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	213 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)
@@ -74,8 +74,8 @@ The following tests FAILED:
 	240 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
 	241 - Unit_hipMallocManaged_MultiChunkMultiDevice (Failed)
 	243 - Unit_hipMallocManaged_Negative (Failed)
-	244 - Unsed: can't read 2: No such file or directory
-it_hipMallocManaged_TwoPointers - int (Failed)
+	244 - Unit_hipMallsed: can't read 2: No such file or directory
+ocManaged_TwoPointers - int (Failed)
 	245 - Unit_hipMallocManaged_TwoPointers - float (Failed)
 	246 - Unit_hipMallocManaged_TwoPointers - double (Failed)
 	247 - Unit_hipMallocManaged_DeviceContextChange - unsigned char (Failed)
@@ -108,21 +108,18 @@ it_hipMallocManaged_TwoPointers - int (Failed)
 	310 - Unit_threadfence_system (Timeout)
 	316 - ChildMalloc (Timeout)
 	317 - Unit_hipDeviceGet_MaskedDevices (Timeout)
-	318 - Unit_hipDeviceGetPCIBusId_MaskedDevices (Subprocess aborted)
-	320 - Unit_hipDeviceTotalMem_MaskedDevices (Timeout)
-	321 - Unit_hipDeviceGetAttribute_MaskedDevices (Timeout)
+	318 - Unit_hipDeviceGetPCIBusId_MaskedDevices (Timeout)
+	320 - Unit_hipDeviceTotalMem_MaskedDevices (SEGFAULT)
+	321 - Unit_hipDeviceGetAttribute_MaskedDevices (SEGFAULT)
 	323 - Unit_hipGetDeviceProperties_MaskedDevices (Timeout)
 	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Timeout)
 	325 - Unit_hipSetDevice_ValidVisibleDeviceList (Timeout)
 	326 - Unit_hipSetDevice_SubsetOfAvailableDevices (Timeout)
 	327 - Unit_hipSetDevice_MinRvdMaxHvdDevicesList (Timeout)
 	328 - Unit_hipSetDevice_MaxRvdMinHvdDevicesList (Timeout)
-	329 - Unit_hipSetDevice_RvdCvdDevicesList (Timeout)
+	329 - Unit_hipSetDevice_RvdCvdDevicesList (SEGFAULT)
 	330 - Unit_hipIpcMemAccess_Semaphores (Timeout)
 	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (Timeout)
 	332 - Unit_hipMalloc_ChildConcurrencyMultiGpu (Timeout)
 	346 - 2d_shuffle (Failed)
 	351 - unroll (Failed)
-	367 - hipTestDeviceLink (SEGFAULT)
-	368 - sycl_chip_interop (Subprocess aborted)
-	369 - sycl_chip_interop_usm (Subprocess aborted)
