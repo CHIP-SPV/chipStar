@@ -1,6 +1,6 @@
-63% tests passed, 139 tests failed out of 371
+62% tests passed, 141 tests failed out of 371
 
-Total Test time (real) = 2034.95 sec
+Total Test time (real) = 2046.40 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -136,7 +136,9 @@ Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	310 - Unit_threadfence_system (Timeout)
 	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Failed)
 	330 - Unit_hipIpcMemAccess_Semaphores (Timeout)
+	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (SEGFAULT)
 	346 - 2d_shuffle (Failed)
+	350 - stream (Failed)
 	351 - unroll (Failed)
 	356 - hipTestDeviceSymbol (Subprocess aborted)
 	368 - sycl_chip_interop (SEGFAULT)

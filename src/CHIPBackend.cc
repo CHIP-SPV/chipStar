@@ -12,7 +12,15 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
   //        item a backend agnostic class.
   CHIPExecItem EI(GridDim, BlockDim, SharedMemSize, Q);
   EI.setArgPointer(Args);
-  EI.launchByDevicePtr(K);
+  EI.setKernel(K);
+
+  auto ChipQueue = EI.getQueue();
+  if (!ChipQueue)
+    CHIPERR_LOG_AND_THROW(
+        "Tried to launch kernel for an ExecItem which has a null queue",
+        hipErrorTbd);
+
+  ChipQueue->launch(&EI);
 }
 
 /// Queue a shadow kernel for binding a device variable (a pointer) to
@@ -357,22 +365,6 @@ void CHIPExecItem::setArg(const void *Arg, size_t Size, size_t Offset) {
   logDebug("CHIPExecItem.setArg() on {} size {} offset {}\n", (void *)this,
            Size, Offset);
   OffsetSizes_.push_back(std::make_tuple(Offset, Size));
-}
-
-CHIPEvent *CHIPExecItem::launchByDevicePtr(CHIPKernel *K) {
-  this->ChipKernel_ = K;
-  return ChipQueue_->launch(this);
-}
-
-CHIPEvent *CHIPExecItem::launchByHostPtr(const void *HostPtr) {
-  logTrace("launchByHostPtr");
-  if (ChipQueue_ == nullptr) {
-    std::string Msg = "Tried to launch CHIPExecItem but its queue is null";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
-  }
-
-  CHIPDevice *ChipDev = ChipQueue_->getDevice();
-  return launchByDevicePtr(ChipDev->findKernelByHostPtr(HostPtr));
 }
 
 dim3 CHIPExecItem::getBlock() { return BlockDim_; }
@@ -966,7 +958,12 @@ std::string CHIPBackend::getJitFlags() {
 CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  ChipExecStack.empty();
+  while (!ChipExecStack.empty())
+    ChipExecStack.pop();
+  while (!CallbackStack.empty())
+    CallbackStack.pop();
+
+  Events.clear();
   for (auto &Ctx : ChipContexts)
     delete Ctx;
   for (auto &Q : ChipQueues)
@@ -1385,16 +1382,15 @@ void CHIPQueue::memCopyToTexture(CHIPTexture *TexObj, void *Src) {
   ChipEvent->Msg = "memCopyToTexture";
   updateLastEvent(ChipEvent);
 }
-CHIPEvent *CHIPQueue::launch(CHIPExecItem *ExecItem) {
-  // TODO
-  // std::lock_guard<std::mutex> Lock(Mtx);
-  // std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+void CHIPQueue::launch(CHIPExecItem *ExecItem) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   chip_context->syncQueues(this);
 #endif
   auto ChipEvent = launchImpl(ExecItem);
   ChipEvent->Msg = "launch";
-  return ChipEvent;
+  updateLastEvent(ChipEvent);
 }
 CHIPEvent *
 CHIPQueue::enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor) {
@@ -1429,13 +1425,14 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
 void CHIPQueue::launchHostFunc(const void *HostFunction, dim3 NumBlocks,
                                dim3 DimBlocks, void **Args,
                                size_t SharedMemBytes) {
-  std::lock_guard<std::mutex> Lock(Mtx);
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
   CHIPExecItem ExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
+
+  CHIPDevice *ChipDev = getDevice();
+  CHIPKernel *ChipKernel = ChipDev->findKernelByHostPtr(HostFunction);
+
   ExecItem.setArgPointer(Args);
-  auto ChipEvent = ExecItem.launchByHostPtr(HostFunction);
-  ChipEvent->Msg = "launchHostFunc";
-  updateLastEvent(ChipEvent);
+  ExecItem.setKernel(ChipKernel);
+  launch(&ExecItem);
 }
 
 void CHIPQueue::launchWithKernelParams(dim3 Grid, dim3 Block,
