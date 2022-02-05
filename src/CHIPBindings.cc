@@ -1816,6 +1816,7 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
                            hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+  logDebug("hipLaunchKernel()");
   NULLCHECK(HostFunction, Args);
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->initializeDeviceVariables();
@@ -1952,7 +1953,17 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   CHIPExecItem *ExecItem = Backend->ChipExecStack.top();
   Backend->ChipExecStack.pop();
 
-  ExecItem->launchByHostPtr(HostFunction);
+  auto ChipQueue = ExecItem->getQueue();
+  if (!ChipQueue) {
+    std::string Msg = "Tried to launch CHIPExecItem but its queue is null";
+    CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
+  }
+
+  auto ChipDev = ChipQueue->getDevice();
+  auto ChipKernel = ChipDev->findKernelByHostPtr(HostFunction);
+  ExecItem->setKernel(ChipKernel);
+
+  ChipQueue->launch(ExecItem);
   return hipSuccess;
   CHIP_CATCH
 }

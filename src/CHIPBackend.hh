@@ -712,21 +712,7 @@ public:
    */
   void setupAllArgs();
 
-  /**
-   * @brief Launch a kernel associated with a host-side shadow function pointer.
-   * Looks up the CHIPKernel associated with this pointer and calls launch()
-   *
-   * @param hostPtr pointer to the host function
-   * @return hipError_t possible values: hipSuccess, hipErrorLaunchFailure
-   */
-  CHIPEvent *launchByHostPtr(const void *HostPtr);
-
-  /**
-   * @brief Launch a kernel.
-
-   * @param hostPtr The kernel.
-   */
-  CHIPEvent *launchByDevicePtr(CHIPKernel *K);
+  void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
 };
 
 /**
@@ -1694,7 +1680,7 @@ public:
    * @return hipError_t
    */
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) = 0;
-  virtual CHIPEvent *launch(CHIPExecItem *ExecItem);
+  virtual void launch(CHIPExecItem *ExecItem);
 
   /**
    * @brief Get the Device obj
