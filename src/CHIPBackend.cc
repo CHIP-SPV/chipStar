@@ -784,9 +784,6 @@ CHIPContext::~CHIPContext() {}
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   logDebug("CHIPContext::syncQueues()");
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
-  for (auto Q : Queues)
-    Q->finish();
-  return;
   std::vector<CHIPQueue *> QueuesBlocking;
 
   // // Default queue gets created add init - always 0th in queue list
@@ -801,21 +798,16 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
 
-  // if (TargetQueue == DefaultQueue) {
-  //   for (auto &q : QueuesBlocking)
-  //     q->finish();
-  //   //   EventsToWaitOn.push_back(q->getLastEvent());
-  //   // auto E = DefaultQueue->enqueueBarrierImpl(&EventsToWaitOn);
-  //   // TargetQueue->setLastEvent(E);
-  // } else { // blocking stream must wait until default stream is done
-  //   DefaultQueue->finish();
-  //   for (auto &q : QueuesBlocking)
-  //     q->finish();
-
-  //   // EventsToWaitOn.push_back(DefaultQueue->getLastEvent());
-  //   // auto E = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
-  //   // TargetQueue->setLastEvent(E);
-  // }
+  if (TargetQueue == DefaultQueue) {
+    for (auto &q : QueuesBlocking)
+      EventsToWaitOn.push_back(q->getLastEvent());
+    auto E = DefaultQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    TargetQueue->setLastEvent(E);
+  } else { // blocking stream must wait until default stream is done
+    EventsToWaitOn.push_back(DefaultQueue->getLastEvent());
+    auto E = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    TargetQueue->setLastEvent(E);
+  }
 }
 
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
