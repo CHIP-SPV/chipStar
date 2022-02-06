@@ -1,6 +1,6 @@
-62% tests passed, 142 tests failed out of 371
+63% tests passed, 139 tests failed out of 371
 
-Total Test time (real) = 2075.19 sec
+Total Test time (real) = 2057.40 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -26,10 +26,8 @@ The following tests FAILED:
 	 51 - Unit_hipEventIpc (Failed)
 	 53 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	 56 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
-	 64 - Unit_hipMultiStream_sameDevice (Failed)
 	 65 - Unit_hipMultiStream_multimeDevice (Timeout)
 	 70 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
-	 76 - Unit_hipStreamCreate_MultistreamBasicFunctionalities (Failed)
 	 81 - Unit_hipMemcpy2DToArray_Basic (Failed)
 	 82 - Unit_hipMemcpy2DToArray_ExtentValidation (Failed)
 	 83 - Unit_hipMemcpy2DToArray_PinnedMemSameGPU (Failed)
@@ -41,7 +39,6 @@ The following tests FAILED:
 	121 - Unit_hipMemcpyParam2D_ExtentValidation (Failed)
 	122 - Unit_hipMemcpyParam2D_Negative (Failed)
 	138 - Unit_hipMemcpyParam2DAsync_ExtentValidation (Failed)
-	139 - Unit_hipMemcpyParam2DAsync_Negative (Failed)
 	140 - Unit_hipMemcpy2D_H2D-D2D-D2H - int (Failed)
 	141 - Unit_hipMemcpy2D_H2D-D2D-D2H - float (Failed)
 	142 - Unit_hipMemcpy2D_H2D-D2D-D2H - double (Failed)
@@ -66,6 +63,9 @@ The following tests FAILED:
 	176 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	177 - Unit_hipMemcpyHtoA_Basic - float (Failed)
 	178 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
+	185 - Unit_hipMemcpyAsync_KernelLaunch - int (Failed)
+	186 - Unit_hipMemcpyAsync_KernelLaunch - float (Failed)
+	187 - Unit_hipMemcpyAsync_KernelLaunch - double (Failed)
 	188 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - char (Failed)
 	189 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	190 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
@@ -75,17 +75,14 @@ The following tests FAILED:
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
 	207 - Unit_hipMemcpy_MultiThreadWithSerialization (Subprocess aborted)
 	211 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
-	212 - Used: can't read 2: No such file or directory
-nit_hipMemcpyWithStream_TestwithTwoStream (Failed)
+	212 -sed: can't read 2: No such file or directory
+ Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	213 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)
 	214 - Unit_hipMemcpyWithStream_TestkindHtoH (Failed)
 	217 - Unit_hipMemcpyWithStream_TestkindDefault (Failed)
 	219 - Unit_hipMemcpyWithStream_TestDtoDonSameDevice (Failed)
-	220 - Unit_hipMemcpy_Negative (SEGFAULT)
-	221 - Unit_hipMemcpy_NullCheck (Failed)
 	222 - Unit_hipMemcpy_HalfMemCopy (Failed)
 	223 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
-	224 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
 	225 - Unit_hipHostMalloc_Basic (Failed)
 	227 - Unit_hipHostMalloc_NonCoherent (Failed)
 	228 - Unit_hipHostMalloc_Coherent (Failed)
