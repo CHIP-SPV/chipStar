@@ -20,7 +20,7 @@ project(CHIP-SPV
 include(cmake/chip_spv_cmake_macros.cmake)
 
 # Cmake options that can be passed in by the user
-option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" ON)
+option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" OFF)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
@@ -40,7 +40,7 @@ set(CHIP_SPV_COMPILE_FLAGS "" )
 set(CHIP_SPV_DEFINITIONS "" )
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
-  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DENFORCE_QUEUE_SYNC")
+  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} ENFORCE_QUEUE_SYNC")
 endif()
 
 
@@ -52,11 +52,11 @@ if(VERBOSE)
   add_compile_options("-v")
 endif()
 
-if (ABORT_IF_NOT_IMPLEMENTED)
-  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DCHIP_ABORT_ON_UNIMPL")
-endif()
+# if (ABORT_IF_NOT_IMPLEMENTED)
+#   set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} CHIP_ABORT_ON_UNIMPL")
+# endif()
 
-set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE")
+# set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE")
 
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
@@ -131,6 +131,7 @@ set(OFFLOAD_ARCH_STR
 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__= ${CHIP_SPV_COMPILE_FLAGS})
+target_compile_definitions(CHIP PUBLIC ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${ze_loader_LIBRARY}
   ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
