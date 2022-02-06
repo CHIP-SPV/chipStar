@@ -1,6 +1,6 @@
-62% tests passed, 141 tests failed out of 371
+63% tests passed, 139 tests failed out of 371
 
-Total Test time (real) = 2046.40 sec
+Total Test time (real) = 2057.40 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -12,7 +12,7 @@ The following tests FAILED:
 	 17 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
 	 20 - Unit_hipDeviceGetPCIBusId_Check_PciBusID_WithAttr (Failed)
 	 21 - Unit_hipDeviceGetPCIBusId_NegTst (Failed)
-	 24 - Unit_hipDeviceSynchronize_Functional (Failed)
+	 24 - Unit_hipDeviceSynchronize_Functional (Timeout)
 	 33 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	 35 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	 36 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
@@ -75,8 +75,8 @@ The following tests FAILED:
 	206 - Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double (Failed)
 	207 - Unit_hipMemcpy_MultiThreadWithSerialization (Subprocess aborted)
 	211 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
-	212 - sed: can't read 2: No such file or directory
-Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
+	212 -sed: can't read 2: No such file or directory
+ Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	213 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)
 	214 - Unit_hipMemcpyWithStream_TestkindHtoH (Failed)
 	217 - Unit_hipMemcpyWithStream_TestkindDefault (Failed)
@@ -136,9 +136,7 @@ Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	310 - Unit_threadfence_system (Timeout)
 	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Failed)
 	330 - Unit_hipIpcMemAccess_Semaphores (Timeout)
-	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (SEGFAULT)
 	346 - 2d_shuffle (Failed)
-	350 - stream (Failed)
 	351 - unroll (Failed)
 	356 - hipTestDeviceSymbol (Subprocess aborted)
 	368 - sycl_chip_interop (SEGFAULT)

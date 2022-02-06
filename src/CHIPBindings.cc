@@ -179,8 +179,8 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  CHIPContext *Ctx = Backend->getActiveContext();
-  Ctx->finishAll();
+  for (auto Q : Backend->getQueues())
+    Q->finish();
 
   RETURN(hipSuccess);
   CHIP_CATCH

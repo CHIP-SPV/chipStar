@@ -1,6 +1,6 @@
 68% tests passed, 119 tests failed out of 371
 
-Total Test time (real) = 2312.87 sec
+Total Test time (real) = 2337.94 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -107,17 +107,17 @@ ocManaged_TwoPointers - int (Failed)
 	309 - Unit_syncthreads_or (Failed)
 	310 - Unit_threadfence_system (Timeout)
 	316 - ChildMalloc (Timeout)
-	317 - Unit_hipDeviceGet_MaskedDevices (Timeout)
+	317 - Unit_hipDeviceGet_MaskedDevices (SEGFAULT)
 	318 - Unit_hipDeviceGetPCIBusId_MaskedDevices (Timeout)
-	320 - Unit_hipDeviceTotalMem_MaskedDevices (SEGFAULT)
-	321 - Unit_hipDeviceGetAttribute_MaskedDevices (SEGFAULT)
-	323 - Unit_hipGetDeviceProperties_MaskedDevices (Timeout)
+	320 - Unit_hipDeviceTotalMem_MaskedDevices (Timeout)
+	321 - Unit_hipDeviceGetAttribute_MaskedDevices (Timeout)
+	323 - Unit_hipGetDeviceProperties_MaskedDevices (SEGFAULT)
 	324 - Unit_hipSetDevice_InvalidVisibleDeviceList (Timeout)
 	325 - Unit_hipSetDevice_ValidVisibleDeviceList (Timeout)
 	326 - Unit_hipSetDevice_SubsetOfAvailableDevices (Timeout)
 	327 - Unit_hipSetDevice_MinRvdMaxHvdDevicesList (Timeout)
 	328 - Unit_hipSetDevice_MaxRvdMinHvdDevicesList (Timeout)
-	329 - Unit_hipSetDevice_RvdCvdDevicesList (SEGFAULT)
+	329 - Unit_hipSetDevice_RvdCvdDevicesList (Timeout)
 	330 - Unit_hipIpcMemAccess_Semaphores (Timeout)
 	331 - Unit_hipMalloc_ChildConcurrencyDefaultGpu (Timeout)
 	332 - Unit_hipMalloc_ChildConcurrencyMultiGpu (Timeout)

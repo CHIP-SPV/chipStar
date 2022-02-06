@@ -20,12 +20,12 @@ project(CHIP-SPV
 include(cmake/chip_spv_cmake_macros.cmake)
 
 # Cmake options that can be passed in by the user
-option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" ON)
+option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" OFF)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
-option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
+option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" OFF)
 set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
 # If custom HIP_SPIRV_DIR is given, check that kernellib.bc exists
@@ -37,10 +37,9 @@ endif()
 set(CHIP_SPV_INCLUDE_FLAGS "" )
 set(CHIP_SPV_LINK_FLAGS "" )
 set(CHIP_SPV_COMPILE_FLAGS "" )
-set(CHIP_SPV_DEFINITIONS "" )
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
-  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DENFORCE_QUEUE_SYNC")
+  list(APPEND CHIP_SPV_DEFINITIONS ENFORCE_QUEUE_SYNC)
 endif()
 
 
@@ -53,10 +52,10 @@ if(VERBOSE)
 endif()
 
 if (ABORT_IF_NOT_IMPLEMENTED)
-  set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DCHIP_ABORT_ON_UNIMPL")
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ABORT_ON_UNIMPL)
 endif()
 
-set(CHIP_SPV_DEFINITIONS "${CHIP_SPV_DEFINITIONS} -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE")
+list(APPEND CHIP_SPV_DEFINITIONS DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
@@ -131,6 +130,7 @@ set(OFFLOAD_ARCH_STR
 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__= ${CHIP_SPV_COMPILE_FLAGS})
+target_compile_definitions(CHIP PUBLIC ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${ze_loader_LIBRARY}
   ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
