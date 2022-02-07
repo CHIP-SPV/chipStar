@@ -1,6 +1,6 @@
-68% tests passed, 119 tests failed out of 371
+68% tests passed, 118 tests failed out of 371
 
-Total Test time (real) = 2337.94 sec
+Total Test time (real) = 6793.68 sec
 
 The following tests FAILED:
 	  1 - Unit_hipCreateTextureObject_ArgValidation (Failed)
@@ -11,7 +11,7 @@ The following tests FAILED:
 	 17 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
 	 20 - Unit_hipDeviceGetPCIBusId_Check_PciBusID_WithAttr (Failed)
 	 21 - Unit_hipDeviceGetPCIBusId_NegTst (Failed)
-	 24 - Unit_hipDeviceSynchronize_Functional (Timeout)
+	 24 - Unit_hipDeviceSynchronize_Functional (Failed)
 	 33 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	 35 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	 36 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
@@ -25,7 +25,6 @@ The following tests FAILED:
 	 51 - Unit_hipEventIpc (Failed)
 	 53 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	 56 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
-	 65 - Unit_hipMultiStream_multimeDevice (Timeout)
 	 70 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	 81 - Unit_hipMemcpy2DToArray_Basic (Failed)
 	 82 - Unit_hipMemcpy2DToArray_ExtentValidation (Failed)
@@ -74,8 +73,7 @@ The following tests FAILED:
 	240 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
 	241 - Unit_hipMallocManaged_MultiChunkMultiDevice (Failed)
 	243 - Unit_hipMallocManaged_Negative (Failed)
-	244 - Unit_hipMallsed: can't read 2: No such file or directory
-ocManaged_TwoPointers - int (Failed)
+	244 - Unit_hipMallocManaged_TwoPointers - int (Failed)
 	245 - Unit_hipMallocManaged_TwoPointers - float (Failed)
 	246 - Unit_hipMallocManaged_TwoPointers - double (Failed)
 	247 - Unit_hipMallocManaged_DeviceContextChange - unsigned char (Failed)

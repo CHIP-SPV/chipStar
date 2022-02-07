@@ -25,7 +25,7 @@ option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead 
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
-option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" OFF)
+option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
 # If custom HIP_SPIRV_DIR is given, check that kernellib.bc exists
