@@ -33,6 +33,11 @@ static unsigned NumBinariesLoaded = 0;
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
+hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
+                                   const void *ptr) {
+  UNIMPLEMENTED(hipErrorTbd);
+}
+
 hipError_t hipIpcOpenMemHandle(void **DevPtr, hipIpcMemHandle_t Handle,
                                unsigned int Flags) {
   UNIMPLEMENTED(hipErrorTbd);
