@@ -281,6 +281,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
 void CHIPStaleEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
+    sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
     std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
     for (int i = 0; i < Backend->Events.size(); i++) {
