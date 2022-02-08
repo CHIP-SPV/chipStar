@@ -243,11 +243,11 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 void CHIPCallbackEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
-    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
     if (Backend->CallbackStack.size() == 0) {
       pthread_yield();
       continue;
     }
+    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
 
     // get the callback item
     CHIPCallbackDataLevel0 *CallbackData =
@@ -281,6 +281,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
 void CHIPStaleEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
+    sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
     std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
     for (int i = 0; i < Backend->Events.size(); i++) {
@@ -756,8 +757,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     // ze_device_handle_t ZeDev = ((CHIPDeviceLevel0 *)getDevices()[0])->get();
     ze_device_handle_t ZeDev = nullptr; // Do not associate allocation
 
-    ze_result_t Status = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size,
-                                          Alignment, ZeDev, &Ptr);
+    ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
 
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
