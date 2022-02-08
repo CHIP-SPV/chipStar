@@ -243,11 +243,11 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 void CHIPCallbackEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
-    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
     if (Backend->CallbackStack.size() == 0) {
       pthread_yield();
       continue;
     }
+    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
 
     // get the callback item
     CHIPCallbackDataLevel0 *CallbackData =
