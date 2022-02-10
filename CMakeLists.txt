@@ -10,8 +10,8 @@ set(CHIP_DIR_ ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
-cmake_policy(VERSION 3.4)
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+cmake_policy(VERSION 3.16)
 
 project(CHIP-SPV
         VERSION 0.1.0
