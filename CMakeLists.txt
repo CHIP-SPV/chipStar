@@ -10,8 +10,7 @@ set(CHIP_DIR_ ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
-cmake_policy(VERSION 3.4)
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
 project(CHIP-SPV
         VERSION 0.1.0
@@ -80,6 +79,16 @@ endif()
 if (NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library_dynamic(OpenCL)
+endif()
+
+
+# Compiler CHECK
+if((CMAKE_C_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_C_COMPILER_ID MATCHES "IntelLLVM"))
+if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
+   message(FATAL_ERROR "this project requires clang >= 8.0")
+ endif()
+else()
+ message(FATAL_ERROR "this project must be compiled with clang. CMAKE_C_COMPILER_ID = ${CMAKE_C_COMPILER_ID}")
 endif()
 
 set(CHIP_SPV_INCLUDE_FLAGS ${CHIP_SPV_INCLUDE_FLAGS} src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
@@ -175,10 +184,13 @@ add_dependencies(LLVMHipPasses kernellib_bc)
 add_dependencies(samples kernellib_bc)
 add_dependencies(CHIP kernellib_bc)
 
+set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+set(CHIP_CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
+
 install(TARGETS CHIP
         EXPORT CHIPTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        LIBRARY DESTINATION ${CHIP_CMAKE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
