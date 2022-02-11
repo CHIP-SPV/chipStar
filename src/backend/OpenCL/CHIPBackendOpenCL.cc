@@ -397,13 +397,14 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
   std::string Log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
+  logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
+           ChipDevOcl->getDeviceId(), Name, Log);
   CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,
                               hipErrorInitializationError);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
            ChipDevOcl->getDeviceId(), Name, Log);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   std::vector<cl::Kernel> Kernels;
   Err = Program.createKernels(&Kernels);
