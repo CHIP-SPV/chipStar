@@ -393,9 +393,12 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   //   for (CHIPDevice *chip_dev : chip_devices) {
   std::string Name = ChipDevOcl->getName();
   Err = Program.build(Backend->getJitFlags().c_str());
+  auto ErrBuild = Err;
 
   std::string Log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
+  CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,
+                              hipErrorInitializationError);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
