@@ -1,6 +1,6 @@
 61% tests passed, 139 tests failed out of 360
 
-Total Test time (real) = 782.47 sec
+Total Test time (real) = 452.79 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -99,7 +99,7 @@ The following tests FAILED:
 	211 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	219 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	221 - Unit_hipMallocManaged_Basic (Failed)
-	226 - Unit_deviceFunctions_CompileTest (Timeout)
+	226 - Unit_deviceFunctions_CompileTest (Failed)
 	227 - Unit_AnyAll_CompileTest (NUMERICAL)
 	228 - Unit_ballot (NUMERICAL)
 	231 - Unit_funnelshift (Failed)
@@ -138,7 +138,7 @@ The following tests FAILED:
 	335 - 2d_shuffle (Failed)
 	340 - unroll (Failed)
 	345 - hipTestDeviceSymbol (Subprocess aborted)
-	357 - sycl_chip_interop (Not Run)
-	358 - sycl_chip_interop_usm (Not Run)
+	357 - sycl_chip_interop (SEGFAULT)
+	358 - sycl_chip_interop_usm (SEGFAULT)
 	359 - hip_sycl_interop (Subprocess aborted)
 	360 - hip_sycl_interop_no_buffers (Subprocess aborted)
