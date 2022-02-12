@@ -90,9 +90,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
                                      hipStream_t Stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
 };
-hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
+
 hipError_t hipMalloc3DArray(hipArray **Array,
                             const struct hipChannelFormatDesc *Desc,
                             struct hipExtent Extent, unsigned int Flags) {
@@ -964,14 +962,17 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
 
   CHIP_CATCH
 }
-
-hipError_t hipMallocManaged(void **Ptr, size_t Size) {
+hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Ptr);
+  NULLCHECK(DevPtr);
+
+  if (Size < 0)
+    CHIPERR_LOG_AND_THROW("Negative Allocation size",
+                          hipErrorInvalidResourceHandle);
 
   if (Size == 0) {
-    *Ptr = nullptr;
+    *DevPtr = nullptr;
     RETURN(hipSuccess);
   }
 
@@ -979,10 +980,14 @@ hipError_t hipMallocManaged(void **Ptr, size_t Size) {
       Backend->getActiveContext()->allocate(Size, CHIPMemoryType::Shared);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
-  *Ptr = RetVal;
+  *DevPtr = RetVal;
   RETURN(hipSuccess);
 
   CHIP_CATCH
+};
+
+hipError_t hipMallocManaged(void **DevPtr, size_t Size) {
+  return hipMallocManaged(DevPtr, Size, 0);
 }
 
 DEPRECATED("use hipHostMalloc instead")
