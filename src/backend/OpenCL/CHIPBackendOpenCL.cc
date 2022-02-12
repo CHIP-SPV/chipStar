@@ -662,16 +662,17 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 CHIPEvent *
 CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  //    cl::Event MarkerEvent;
-  //    int status = cl_q->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
-  //    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+  cl::Event MarkerEvent;
+  int status = ClQueue_->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
 
   cl::vector<cl::Event> Events = {};
-  if (EventsToWaitFor)
-    for (auto E : *EventsToWaitFor) {
-      auto Ee = (CHIPEventOpenCL *)E;
-      Events.push_back(cl::Event(Ee->peek()));
-    }
+  // if (EventsToWaitFor)
+  //   for (auto E : *EventsToWaitFor) {
+  //     auto Ee = (CHIPEventOpenCL *)E;
+  //     Events.push_back(cl::Event(Ee->peek()));
+  //   }
+  Events.push_back(MarkerEvent);
 
   cl::Event Barrier;
   auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
