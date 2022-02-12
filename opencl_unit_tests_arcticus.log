@@ -1,6 +1,6 @@
-61% tests passed, 139 tests failed out of 360
+62% tests passed, 137 tests failed out of 360
 
-Total Test time (real) = 452.79 sec
+Total Test time (real) = 445.19 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -33,7 +33,6 @@ The following tests FAILED:
 	 95 - Unit_hipMemcpyAtoH_Basic - char (Failed)
 	 96 - Unit_hipMemcpyAtoH_Basic - int (Failed)
 	 97 - Unit_hipMemcpyAtoH_Basic - float (Failed)
-	 98 - Unit_hipMemcpyAtoH_Negative (SEGFAULT)
 	 99 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	100 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	101 - Unit_hipMemcpyHtoA_Basic - float (Failed)
@@ -97,8 +96,7 @@ The following tests FAILED:
 	207 - Unit_hipMemset3D_Negative (Failed)
 	208 - Unit_hipMemset3DAsync_Negative (Failed)
 	211 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
-	219 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	221 - Unit_hipMallocManaged_Basic (Failed)
+	219 - Unit_hipMemPrefetchAsync_NonPageSz (SEGFAULT)
 	226 - Unit_deviceFunctions_CompileTest (Failed)
 	227 - Unit_AnyAll_CompileTest (NUMERICAL)
 	228 - Unit_ballot (NUMERICAL)

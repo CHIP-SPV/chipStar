@@ -1,6 +1,6 @@
-70% tests passed, 109 tests failed out of 360
+71% tests passed, 106 tests failed out of 360
 
-Total Test time (real) = 477.38 sec
+Total Test time (real) = 774.18 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -24,11 +24,11 @@ The following tests FAILED:
 	 89 - Unit_hipMemcpy2DFromArrayAsync_Basic (Failed)
 	 90 - Unit_hipMemcpy2DFromArrayAsync_ExtentValidation (Failed)
 	 91 - Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu (Failed)
-	 98 - Unit_hipMemcpyAtoH_Negative (SEGFAULT)
 	 99 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	100 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	101 - Unit_hipMemcpyHtoA_Basic - float (Failed)
 	102 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
+	120 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Timeout)
 	135 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
 	136 - Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	137 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)
@@ -50,16 +50,14 @@ The following tests FAILED:
 	165 - Unit_hipHostGetFlags_Basic - int (Failed)
 	166 - Unit_hipHostGetFlags_Basic - float (Failed)
 	167 - Unit_hipHostGetFlags_Basic - double (Failed)
-	168 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
-	169 - Unit_hipMallocManaged_MultiChunkMultiDevice (Failed)
 	171 - Unit_hipMallocManaged_Negative (Failed)
-	172 - Unit_hipMallocManaged_TwoPointers - int (Failed)
-	173 - Unit_hipMallocManaged_TwoPointers - float (Failed)
-	174 - Unit_hipMallocManaged_TwoPointers - double (Failed)
-	175 - Unit_hipMallocManaged_DeviceContextChange - unsigned char (Failed)
-	176 - Unit_hipMallocManaged_DeviceContextChange - int (Failed)
-	177 - Unit_hipMallocManaged_DeviceContextChange - float (Failed)
-	178 - Unit_hipMallocManaged_DeviceContextChange - double (Failed)
+	172 - Unit_hipMallocManaged_TwoPointers - int (SEGFAULT)
+	173 - Unit_hipMallocManaged_TwoPointers - float (SEGFAULT)
+	174 - Unit_hipMallocManaged_TwoPointers - double (SEGFAULT)
+	175 - Unit_hipMallocManaged_DeviceContextChange - unsigned char (SEGFAULT)
+	176 - Unit_hipMallocManaged_DeviceContextChange - int (SEGFAULT)
+	177 - Unit_hipMallocManaged_DeviceContextChange - float (SEGFAULT)
+	178 - Unit_hipMallocManaged_DeviceContextChange - double (SEGFAULT)
 	180 - Unit_hipMemsetAsync_InvalidPtrTests (Failed)
 	181 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	182 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
@@ -75,8 +73,7 @@ The following tests FAILED:
 	207 - Unit_hipMemset3D_Negative (Failed)
 	208 - Unit_hipMemset3DAsync_Negative (Failed)
 	211 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
-	219 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	221 - Unit_hipMallocManaged_Basic (Failed)
+	219 - Unit_hipMemPrefetchAsync_NonPageSz (SEGFAULT)
 	226 - Unit_deviceFunctions_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
