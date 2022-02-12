@@ -1,6 +1,6 @@
-71% tests passed, 106 tests failed out of 360
+71% tests passed, 105 tests failed out of 360
 
-Total Test time (real) = 774.18 sec
+Total Test time (real) = 478.28 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -28,7 +28,6 @@ The following tests FAILED:
 	100 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	101 - Unit_hipMemcpyHtoA_Basic - float (Failed)
 	102 - Unit_hipMemcpyHtoA_Negative (SEGFAULT)
-	120 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Timeout)
 	135 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
 	136 - Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
 	137 - Unit_hipMemcpyWithStream_TestkindDtoH (Failed)

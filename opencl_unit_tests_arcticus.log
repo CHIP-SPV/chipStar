@@ -1,6 +1,6 @@
-62% tests passed, 137 tests failed out of 360
+63% tests passed, 135 tests failed out of 360
 
-Total Test time (real) = 445.19 sec
+Total Test time (real) = 486.71 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -51,10 +51,8 @@ The following tests FAILED:
 	138 - Unit_hipMemcpyWithStream_TestkindHtoH (Failed)
 	141 - Unit_hipMemcpyWithStream_TestkindDefault (Failed)
 	143 - Unit_hipMemcpyWithStream_TestDtoDonSameDevice (Failed)
-	145 - Unit_hipMemcpy_NullCheck (Failed)
 	146 - Unit_hipMemcpy_HalfMemCopy (Failed)
 	147 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
-	148 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
 	149 - Unit_hipHostMalloc_Basic (Failed)
 	151 - Unit_hipHostMalloc_NonCoherent (Failed)
 	152 - Unit_hipHostMalloc_Coherent (Failed)
@@ -106,9 +104,9 @@ The following tests FAILED:
 	237 - Unit_syncthreads_or (Failed)
 	239 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	242 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
-	250 - Unit_hipMultiStream_sameDevice (Failed)
+	254 - Unit_hipStreamAddCallback_WithDefaultStream (Failed)
+	255 - Unit_hipStreamAddCallback_WithCreatedStream (Failed)
 	256 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
-	262 - Unit_hipStreamCreate_MultistreamBasicFunctionalities (Failed)
 	263 - Unit_hipEventCreate_NullCheck (Failed)
 	267 - Unit_hipEvent (Failed)
 	268 - Unit_hipEventElapsedTime_NullCheck (Failed)
