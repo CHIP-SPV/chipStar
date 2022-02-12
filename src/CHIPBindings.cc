@@ -1580,6 +1580,13 @@ hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, SrcArray);
+  if (SrcOffset > Count)
+    CHIPERR_LOG_AND_THROW("Offset larger than count", hipErrorTbd);
+
+  auto Info = Backend->getActiveDevice()->AllocationTracker->getByDevPtr(
+      SrcArray->data);
+  if (Info->Size < Count)
+    CHIPERR_LOG_AND_THROW("MemCopy larger than allocated size", hipErrorTbd);
 
   return hipMemcpy((char *)Dst, (char *)SrcArray->data + SrcOffset, Count,
                    hipMemcpyDeviceToHost);
