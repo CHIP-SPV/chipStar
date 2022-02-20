@@ -49,6 +49,8 @@ public:
 #define CHIP_CATCH                                                             \
   }                                                                            \
   catch (CHIPError _status) {                                                  \
+    logError("Caught Error: {}", _status.getErrStr());                         \
+    Backend->TlsLastError = _status.toHIPError();                              \
     RETURN(_status.toHIPError());                                              \
   }
 

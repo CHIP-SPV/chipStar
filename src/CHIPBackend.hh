@@ -1232,7 +1232,7 @@ public:
    *
    */
   // Adds -std=c++17 requirement
-  inline static thread_local hipError_t TlsLastError = hipSuccess;
+  inline static thread_local hipError_t TlsLastError;
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;

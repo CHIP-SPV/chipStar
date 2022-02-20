@@ -393,14 +393,18 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   //   for (CHIPDevice *chip_dev : chip_devices) {
   std::string Name = ChipDevOcl->getName();
   Err = Program.build(Backend->getJitFlags().c_str());
+  auto ErrBuild = Err;
 
   std::string Log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
+  logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
+           ChipDevOcl->getDeviceId(), Name, Log);
+  CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,
+                              hipErrorInitializationError);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
            ChipDevOcl->getDeviceId(), Name, Log);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   std::vector<cl::Kernel> Kernels;
   Err = Program.createKernels(&Kernels);
@@ -658,16 +662,17 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 CHIPEvent *
 CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  //    cl::Event MarkerEvent;
-  //    int status = cl_q->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
-  //    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+  cl::Event MarkerEvent;
+  int status = ClQueue_->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
+  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
 
   cl::vector<cl::Event> Events = {};
-  if (EventsToWaitFor)
-    for (auto E : *EventsToWaitFor) {
-      auto Ee = (CHIPEventOpenCL *)E;
-      Events.push_back(cl::Event(Ee->peek()));
-    }
+  // if (EventsToWaitFor)
+  //   for (auto E : *EventsToWaitFor) {
+  //     auto Ee = (CHIPEventOpenCL *)E;
+  //     Events.push_back(cl::Event(Ee->peek()));
+  //   }
+  Events.push_back(MarkerEvent);
 
   cl::Event Barrier;
   auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);

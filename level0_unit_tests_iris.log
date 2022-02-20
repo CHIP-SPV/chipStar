@@ -1,6 +1,6 @@
-64% tests passed, 130 tests failed out of 360
+64% tests passed, 129 tests failed out of 360
 
-Total Test time (real) = 478.10 sec
+Total Test time (real) = 550.62 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -31,9 +31,9 @@ The following tests FAILED:
 	102 - Unit_hipMemcpyHtoA_Negative (Failed)
 	116 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int (Subprocess aborted)
 	117 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float (Subprocess aborted)
-	118 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (SEGFAULT)
-	119 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	120 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
+	118 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (Subprocess aborted)
+	119 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (SEGFAULT)
+	120 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (SEGFAULT)
 	121 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	135 - Unit_hipMemcpyWithStream_TestWithOneStream (Failed)
 	136 - Unit_hipMemcpyWithStream_TestwithTwoStream (Failed)
@@ -90,6 +90,7 @@ The following tests FAILED:
 	219 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	221 - Unit_hipMallocManaged_Basic (Failed)
 	224 - Unit_hipMallocManaged_MultiKrnlHmmAccess (Failed)
+	226 - Unit_deviceFunctions_CompileTest (Failed)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
@@ -131,5 +132,3 @@ The following tests FAILED:
 	321 - ABMTests_NOT_BUILT-b12d07c (Not Run)
 	335 - 2d_shuffle (Failed)
 	340 - unroll (Failed)
-	357 - sycl_chip_interop (Not Run)
-	358 - sycl_chip_interop_usm (Not Run)

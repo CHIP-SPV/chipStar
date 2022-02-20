@@ -1260,6 +1260,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   auto ChipEvent = memCopyImpl(Dst, Src, Size);
   ChipEvent->Msg = "memCopy";
   updateLastEvent(ChipEvent);
+  this->finish();
   return hipSuccess;
 }
 hipError_t CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
