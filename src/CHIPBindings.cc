@@ -967,6 +967,17 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIPInitialize();
   NULLCHECK(DevPtr);
 
+  auto FlagsParsed = CHIPManagedMemFlags{Flags};
+  switch (FlagsParsed) {
+  case CHIPManagedMemFlags::AttachGlobal:
+    break;
+  case CHIPManagedMemFlags::AttachHost:
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW("Invalid value passed for hipMallocManaged flags",
+                          hipErrorInvalidValue);
+  }
+
   if (Size < 0)
     CHIPERR_LOG_AND_THROW("Negative Allocation size",
                           hipErrorInvalidResourceHandle);
@@ -976,8 +987,8 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
     RETURN(hipSuccess);
   }
 
-  void *RetVal =
-      Backend->getActiveContext()->allocate(Size, CHIPMemoryType::Shared);
+  void *RetVal = Backend->getActiveDevice()->getContext()->allocate(
+      Size, CHIPMemoryType::Shared);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *DevPtr = RetVal;
@@ -985,10 +996,6 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
 
   CHIP_CATCH
 };
-
-hipError_t hipMallocManaged(void **DevPtr, size_t Size) {
-  return hipMallocManaged(DevPtr, Size, 0);
-}
 
 DEPRECATED("use hipHostMalloc instead")
 hipError_t hipMallocHost(void **Ptr, size_t Size) {

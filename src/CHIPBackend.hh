@@ -40,6 +40,11 @@ enum class CHIPQueueType : unsigned int {
   NonBlocking = hipStreamNonBlocking
 };
 
+enum class CHIPManagedMemFlags : unsigned int {
+  AttachHost = hipMemAttachHost,
+  AttachGlobal = hipMemAttachGlobal
+};
+
 class CHIPCallbackData {
 protected:
   virtual ~CHIPCallbackData() = default;
