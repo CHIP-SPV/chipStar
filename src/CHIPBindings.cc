@@ -262,24 +262,24 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *Prop, int DeviceId) {
 }
 
 hipError_t hipDeviceGetLimit(size_t *PValue, enum hipLimit_t Limit) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-  //  CHIP_TRY
-  //  CHIPInitialize();
-  //  ERROR_IF((pValue == nullptr), hipErrorInvalidValue);
-  //  switch (limit) {
-  //    case hipLimitMallocHeapSize:
-  //      *pValue = 0;  // TODO Get this from properties
-  //      /* zeinfo reports this as
-  //      Maximum memory allocation Size 4294959104
-  //      */
-  //      break;
-  //    case hipLimitPrintfFifoSize:
-  //      break;
-  //    default:
-  //      RETURN(hipErrorUnsupportedLimit);
-  //  }
-  //  RETURN(hipSuccess);
-  //  CHIP_CATCH
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PValue);
+
+  auto Device = Backend->getActiveDevice();
+  switch (Limit) {
+  case hipLimitMallocHeapSize:
+    *PValue = Device->getMaxMallocSize();
+    break;
+  case hipLimitPrintfFifoSize:
+    UNIMPLEMENTED(hipErrorNotSupported);
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW("Invalid Limit value", hipErrorInvalidHandle);
+  }
+
+  RETURN(hipSuccess);
+  CHIP_CATCH
 }
 
 hipError_t hipDeviceGetName(char *Name, int Len, hipDevice_t Device) {
@@ -372,12 +372,14 @@ hipError_t hipDeviceGetPCIBusId(char *PciBusId, int Len, int DeviceId) {
   CHIPInitialize();
   NULLCHECK(PciBusId);
   ERROR_CHECK_DEVNUM(DeviceId);
+  if (Len < 1)
+    RETURN(hipErrorInvalidResourceHandle);
 
   CHIPDevice *Dev = Backend->getDevices()[DeviceId];
 
   hipDeviceProp_t Prop;
   Dev->copyDeviceProperties(&Prop);
-  snprintf(PciBusId, Len, "%04x:%04x:%04x", Prop.pciDomainID, Prop.pciBusID,
+  snprintf(PciBusId, Len, "%04x:%02x:%02x", Prop.pciDomainID, Prop.pciBusID,
            Prop.pciDeviceID);
   RETURN(hipSuccess);
 
@@ -1876,7 +1878,7 @@ hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
   CHIPInitialize();
   // TODO CRITCAL look into the define for hipTextureObject_t
   if (TextureObject == nullptr)
-    CHIPERR_LOG_AND_THROW("hipTextureObject_t is null", hipErrorTbd);
+    RETURN(hipSuccess);
   CHIPTexture *ChipTexture = (CHIPTexture *)&TextureObject;
   Backend->getActiveDevice()->destroyTexture(ChipTexture);
   RETURN(hipSuccess);
