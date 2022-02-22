@@ -1,6 +1,6 @@
-63% tests passed, 135 tests failed out of 360
+64% tests passed, 128 tests failed out of 360
 
-Total Test time (real) = 486.71 sec
+Total Test time (real) = 489.91 sec
 
 The following tests FAILED:
 	  5 - Unit_hipMemcpy2DToArray_Basic (Failed)
@@ -30,9 +30,6 @@ The following tests FAILED:
 	 89 - Unit_hipMemcpy2DFromArrayAsync_Basic (Failed)
 	 90 - Unit_hipMemcpy2DFromArrayAsync_ExtentValidation (Failed)
 	 91 - Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu (Failed)
-	 95 - Unit_hipMemcpyAtoH_Basic - char (Failed)
-	 96 - Unit_hipMemcpyAtoH_Basic - int (Failed)
-	 97 - Unit_hipMemcpyAtoH_Basic - float (Failed)
 	 99 - Unit_hipMemcpyHtoA_Basic - char (Failed)
 	100 - Unit_hipMemcpyHtoA_Basic - int (Failed)
 	101 - Unit_hipMemcpyHtoA_Basic - float (Failed)
@@ -72,7 +69,6 @@ The following tests FAILED:
 	167 - Unit_hipHostGetFlags_Basic - double (Failed)
 	168 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
 	169 - Unit_hipMallocManaged_MultiChunkMultiDevice (Failed)
-	171 - Unit_hipMallocManaged_Negative (Failed)
 	172 - Unit_hipMallocManaged_TwoPointers - int (Failed)
 	173 - Unit_hipMallocManaged_TwoPointers - float (Failed)
 	174 - Unit_hipMallocManaged_TwoPointers - double (Failed)
@@ -117,18 +113,15 @@ The following tests FAILED:
 	276 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_templateInvocation (Failed)
 	278 - Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation (Failed)
 	279 - Unit_hipOccupancyMaxPotentialBlockSize_templateInvocation (Failed)
-	283 - Unit_hipDeviceGetByPCIBusId_Functional (Failed)
-	286 - Unit_hipDeviceGetByPCIBusId_WrongBusID (Failed)
+	280 - Unit_hipChooseDevice_ValidateDevId (Failed)
 	288 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
-	291 - Unit_hipDeviceGetPCIBusId_Check_PciBusID_WithAttr (Failed)
-	292 - Unit_hipDeviceGetPCIBusId_NegTst (Failed)
 	295 - Unit_hipDeviceSynchronize_Functional (Failed)
 	298 - Unit_hipGetDeviceAttribute_CheckAttrValues (Failed)
 	305 - Unit_hipGetDeviceFlags_FuncTst (Failed)
+	306 - Unit_hipSetDevice_BasicSetGet (Failed)
 	307 - Unit_hiprtc_saxpy (Failed)
 	308 - Unit_printf_flags (Failed)
 	309 - Unit_printf_specifier (Failed)
-	310 - Unit_hipCreateTextureObject_ArgValidation (Failed)
 	320 - UnitTests_NOT_BUILT-b12d07c (Not Run)
 	321 - ABMTests_NOT_BUILT-b12d07c (Not Run)
 	335 - 2d_shuffle (Failed)
