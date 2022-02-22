@@ -28,9 +28,10 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
   //   pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
 
   ze_event_pool_desc_t EventPoolDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
-      PoolFlags, // Event_ in pool are visible to host
-      1          // count
+      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
+      nullptr,                           // pNext
+      PoolFlags,                         // Flags
+      1                                  // count
   };
 
   ze_result_t Status =
@@ -39,12 +40,13 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                               "Level Zero Event_ pool creation fail! ");
 
   ze_event_desc_t EventDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr,
-      0,                        // index
-      ZE_EVENT_SCOPE_FLAG_HOST, // ensure memory/cache coherency required on
-                                // signal
-      ZE_EVENT_SCOPE_FLAG_HOST  // ensure memory coherency across device and
-                                // Host after Event_ completes
+      ZE_STRUCTURE_TYPE_EVENT_DESC, // stype
+      nullptr,                      // pNext
+      0,                            // index
+      ZE_EVENT_SCOPE_FLAG_HOST,     // ensure memory/cache coherency required on
+                                    // signal
+      ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
+                                    // Host after Event_ completes
   };
 
   Status = zeEventCreate(EventPool_, &EventDesc, &Event_);
@@ -357,6 +359,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
   ze_command_queue_group_properties_t *CmdqueueGroupProperties =
       (ze_command_queue_group_properties_t *)malloc(
           CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
+  for (int i = 0; i < CmdqueueGroupCount; i++) {
+    CmdqueueGroupProperties[i] = {
+        ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, // stype
+        nullptr,                                          // pNext
+        0,                                                // flags
+        0, // maxMemoryFillPatternSize
+        0  // numQueues
+    };
+  }
   zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
                                          CmdqueueGroupProperties);
 
@@ -393,15 +404,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
   ChipDevice_->addQueue(this);
 
   // Initialize the internal Event_ pool and finish Event_
-  ze_event_pool_desc_t EpDesc = {};
-  EpDesc.stype = ZE_STRUCTURE_TYPE_EVENT_POOL_DESC;
-  EpDesc.count = 1;
-  EpDesc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-  ze_event_desc_t EvDesc = {};
-  EvDesc.stype = ZE_STRUCTURE_TYPE_EVENT_DESC;
-  EvDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
-  EvDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
-  Status = zeEventPoolCreate(ZeCtx_, &EpDesc, 1, &ZeDev_, &EventPool_);
+  ze_event_pool_desc_t EpDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
+                                 ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                 1 /* Count */};
+
+  ze_event_desc_t EvDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr,
+                            0, /* Index */
+                            ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
+  uint32_t NumDevices = 1;
+  Status = zeEventPoolCreate(ZeCtx_, &EpDesc, NumDevices, &ZeDev_, &EventPool_);
 
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "zeEventPoolCreate FAILED");
@@ -675,7 +686,10 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   // backend as derivates of CHIPDevice
   for (int i = 0; i < DeviceCount; i++) {
     auto Dev = ZeDevices[i];
-    ze_device_properties_t DeviceProperties;
+    ze_device_properties_t DeviceProperties{};
+    DeviceProperties.pNext = nullptr;
+    DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+
     zeDeviceGetProperties(Dev, &DeviceProperties);
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev =
@@ -788,14 +802,19 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
   // Initialize members used as input for zeDeviceGet*Properties() calls.
   ZeDeviceProps_.pNext = nullptr;
+  ZeDeviceProps_.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
   ze_device_memory_properties_t DeviceMemProps;
+  DeviceMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_MEMORY_PROPERTIES;
   DeviceMemProps.pNext = nullptr;
   ze_device_compute_properties_t DeviceComputeProps;
   DeviceComputeProps.pNext = nullptr;
+  DeviceMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES;
   ze_device_cache_properties_t DeviceCacheProps;
   DeviceCacheProps.pNext = nullptr;
+  DeviceMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES;
   ze_device_module_properties_t DeviceModuleProps;
   DeviceModuleProps.pNext = nullptr;
+  DeviceModuleProps.stype = ZE_STRUCTURE_TYPE_DEVICE_MODULE_PROPERTIES;
 
   // Query device properties
   Status = zeDeviceGetProperties(ZeDev_, &ZeDeviceProps_);
