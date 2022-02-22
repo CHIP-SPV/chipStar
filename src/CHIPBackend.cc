@@ -739,7 +739,14 @@ size_t CHIPDevice::getUsedGlobalMem() {
   return AllocationTracker->TotalMemSize;
 }
 
-bool CHIPDevice::hasPCIBusId(int, int, int) { UNIMPLEMENTED(true); }
+bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
+  populateDeviceProperties();
+  auto T1 = this->HipDeviceProps_.pciBusID == PciBusID;
+  auto T2 = this->HipDeviceProps_.pciDomainID == PciDomainID;
+  auto T3 = this->HipDeviceProps_.pciDeviceID == PciDeviceID;
+
+  return (T1 && T2 && T3);
+}
 
 CHIPQueue *CHIPDevice::getActiveQueue() { return ChipQueues_[0]; }
 

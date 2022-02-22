@@ -801,6 +801,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   Status = zeDeviceGetProperties(ZeDev_, &ZeDeviceProps_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+  this->MaxMallocSize_ = ZeDeviceProps_.maxMemAllocSize;
 
   // Query device memory properties
   uint32_t Count = 1;

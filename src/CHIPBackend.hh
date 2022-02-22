@@ -40,6 +40,11 @@ enum class CHIPQueueType : unsigned int {
   NonBlocking = hipStreamNonBlocking
 };
 
+enum class CHIPManagedMemFlags : unsigned int {
+  AttachHost = hipMemAttachHost,
+  AttachGlobal = hipMemAttachGlobal
+};
+
 class CHIPCallbackData {
 protected:
   virtual ~CHIPCallbackData() = default;
@@ -732,11 +737,17 @@ protected:
 
   size_t TotalUsedMem_;
   size_t MaxUsedMem_;
+  size_t MaxMallocSize_ = 0;
 
   /// Maps host-side shadow variables to the corresponding device variables.
   std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
 
 public:
+  size_t getMaxMallocSize() {
+    if (MaxMallocSize_ < 1)
+      CHIPERR_LOG_AND_THROW("MaxMallocSize was not set", hipErrorTbd);
+    return MaxMallocSize_;
+  }
   /// Registered modules and a mapping from module binary blob pointers
   /// to the associated CHIPModule.
   std::unordered_map<const std::string *, CHIPModule *> ChipModules;
