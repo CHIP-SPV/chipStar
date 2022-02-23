@@ -377,7 +377,7 @@ CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
 CHIPDevice::CHIPDevice(CHIPContext *Ctx) : Ctx_(Ctx) {}
 
 CHIPDevice::CHIPDevice() {
-  logDebug("Device {} is {}: name \"{}\" \n", Idx, (void *)this,
+  logDebug("Device {} is {}: name \"{}\" \n", Idx_, (void *)this,
            HipDeviceProps_.name);
 }
 CHIPDevice::~CHIPDevice() {}
@@ -446,7 +446,7 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *HostPtr) {
 }
 
 CHIPContext *CHIPDevice::getContext() { return Ctx_; }
-int CHIPDevice::getDeviceId() { return Idx; }
+int CHIPDevice::getDeviceId() { return Idx_; }
 
 CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *HostPtr) {
   if (DeviceVarLookup_.count(HostPtr)) {

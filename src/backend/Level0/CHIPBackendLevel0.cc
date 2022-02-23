@@ -693,7 +693,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     zeDeviceGetProperties(Dev, &DeviceProperties);
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev =
-          new CHIPDeviceLevel0(std::move(Dev), ChipL0Ctx);
+          new CHIPDeviceLevel0(std::move(Dev), ChipL0Ctx, i);
       ChipL0Dev->populateDeviceProperties();
       ChipL0Ctx->addDevice(ChipL0Dev);
 
@@ -785,14 +785,16 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 // CHIPDeviceLevelZero
 // ***********************************************************************
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t *ZeDev,
-                                   CHIPContextLevel0 *ChipCtx)
+                                   CHIPContextLevel0 *ChipCtx, int Idx)
     : CHIPDevice(ChipCtx), ZeDev_(*ZeDev), ZeCtx_(ChipCtx->get()) {
   assert(Ctx_ != nullptr);
+  Idx_ = Idx;
 }
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t &&ZeDev,
-                                   CHIPContextLevel0 *ChipCtx)
+                                   CHIPContextLevel0 *ChipCtx, int Idx)
     : CHIPDevice(ChipCtx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()) {
   assert(Ctx_ != nullptr);
+  Idx_ = Idx;
 }
 
 void CHIPDeviceLevel0::reset() { UNIMPLEMENTED(); }
@@ -925,7 +927,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.clockInstructionRate = ZeDeviceProps_.coreClockRate;
   HipDeviceProps_.concurrentKernels = 1;
   HipDeviceProps_.pciDomainID = 0;
-  HipDeviceProps_.pciBusID = 0x10 + getDeviceId();
+  HipDeviceProps_.pciBusID = 0x10;
   HipDeviceProps_.pciDeviceID = 0x40 + getDeviceId();
   HipDeviceProps_.isMultiGpuBoard = 0;
   HipDeviceProps_.canMapHostMemory = 1;

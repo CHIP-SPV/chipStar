@@ -137,7 +137,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.concurrentKernels = 1;
   HipDeviceProps_.pciDomainID = 0;
   HipDeviceProps_.pciBusID = 0x10;
-  HipDeviceProps_.pciDeviceID = 0x40 + Idx;
+  HipDeviceProps_.pciDeviceID = 0x40 + getDeviceId();
   HipDeviceProps_.isMultiGpuBoard = 0;
   HipDeviceProps_.canMapHostMemory = 1;
   HipDeviceProps_.gcnArch = 0;

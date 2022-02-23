@@ -2137,7 +2137,8 @@ extern "C" hipError_t hipInitFromOutside(void *DriverPtr, void *DevicePtr,
   Backend->addContext(ChipCtx);
 
   ze_device_handle_t Dev = (ze_device_handle_t)DevicePtr;
-  CHIPDeviceLevel0 *ChipDev = new CHIPDeviceLevel0(&Dev, ChipCtx);
+  auto Idx = 0; // All devices should have been deleted
+  CHIPDeviceLevel0 *ChipDev = new CHIPDeviceLevel0(&Dev, ChipCtx, Idx);
   ChipDev->ChipModules = Modules;
   Backend->ChipContexts[0]->getDevices().push_back(ChipDev);
   Backend->addDevice(ChipDev);

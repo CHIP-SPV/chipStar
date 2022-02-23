@@ -742,6 +742,8 @@ protected:
   /// Maps host-side shadow variables to the corresponding device variables.
   std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
 
+  int Idx_;
+
 public:
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
@@ -751,8 +753,6 @@ public:
   /// Registered modules and a mapping from module binary blob pointers
   /// to the associated CHIPModule.
   std::unordered_map<const std::string *, CHIPModule *> ChipModules;
-
-  int Idx;
 
   CHIPAllocationTracker *AllocationTracker = nullptr;
 
