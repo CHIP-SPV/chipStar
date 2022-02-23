@@ -338,8 +338,14 @@ CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
   return (CHIPEventLevel0 *)LastEvent_;
 }
 
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags)
+    : CHIPQueueLevel0(ChipDev, Flags, 0) {}
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
-    : CHIPQueue(ChipDev) {
+    : CHIPQueueLevel0(ChipDev, 0, 0) {}
+
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
+                                 int Priority)
+    : CHIPQueue(ChipDev, Flags, Priority) {
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();
@@ -939,7 +945,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 }
 
 CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
-  CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this);
+  CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
   ChipQueues_.push_back(NewQ);
   return NewQ;
 }

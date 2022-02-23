@@ -115,6 +115,8 @@ protected:
 
 public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
 
   virtual CHIPEventLevel0 *getLastEvent() override;
 

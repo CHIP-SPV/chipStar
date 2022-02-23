@@ -883,6 +883,17 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIPInitialize();
   NULLCHECK(Event);
 
+  switch (Flags) {
+  case hipEventBlockingSync:
+    break;
+  case hipEventDisableTiming:
+    break;
+  case hipEventInterprocess:
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW("Invalid flag value", hipErrorTbd);
+  }
+
   *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
   RETURN(hipSuccess);
 
