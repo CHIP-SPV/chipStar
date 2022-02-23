@@ -35,16 +35,18 @@ static unsigned NumBinariesLoaded = 0;
 
 hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
                                    const void *ptr) {
-  UNIMPLEMENTED(hipErrorTbd);
+  UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipIpcOpenMemHandle(void **DevPtr, hipIpcMemHandle_t Handle,
                                unsigned int Flags) {
-  UNIMPLEMENTED(hipErrorTbd);
+  UNIMPLEMENTED(hipErrorNotSupported);
 }
-hipError_t hipIpcCloseMemHandle(void *DevPtr) { UNIMPLEMENTED(hipErrorTbd); }
+hipError_t hipIpcCloseMemHandle(void *DevPtr) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
 hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
-  UNIMPLEMENTED(hipErrorTbd);
+  UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
@@ -363,7 +365,7 @@ hipError_t hipFuncSetCacheConfig(const void *Func, hipFuncCache_t Cfg) {
   CHIPInitialize();
   NULLCHECK(Func);
 
-  UNIMPLEMENTED(hipErrorTbd);
+  UNIMPLEMENTED(hipErrorNotSupported);
   // RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1916,7 +1918,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIPInitialize();
   NULLCHECK(Module);
 
-  UNIMPLEMENTED(hipErrorTbd);
+  UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 
