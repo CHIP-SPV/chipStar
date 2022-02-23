@@ -68,7 +68,9 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
 }
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
+  Stream->finish();
+  RETURN(Status);
 };
 hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
                         size_t Count) {
