@@ -256,9 +256,10 @@ static void eraseMappedGlobalVariables(GVarMapT &GVarMap) {
     if (OldGVar->hasNUses(0) ||
         // There might still be constantExpr users but no instructions should
         // depend on them.
-        findInstructionUses(OldGVar).size() == 0)
+        findInstructionUses(OldGVar).size() == 0) {
+      OldGVar->replaceAllUsesWith(PoisonValue::get(OldGVar->getType()));
       OldGVar->eraseFromParent();
-    else
+    } else
       // A non-instruction and non-constantExpr user?
       llvm_unreachable("Original variable still has uses!");
   }
