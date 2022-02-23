@@ -53,12 +53,7 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
                              size_t Count, hipStream_t Stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
-hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
-                                   size_t HOffset, const void *Src,
-                                   size_t SPitch, size_t Width, size_t Height,
-                                   hipMemcpyKind Kind, hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
+
 hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
                             hipStream_t Stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -872,16 +867,17 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  switch (Flags) {
-  case hipEventBlockingSync:
-    break;
-  case hipEventDisableTiming:
-    break;
-  case hipEventInterprocess:
-    break;
-  default:
-    CHIPERR_LOG_AND_THROW("Invalid flag value", hipErrorTbd);
-  }
+  if (Flags)
+    switch (Flags) {
+    case hipEventBlockingSync:
+      break;
+    case hipEventDisableTiming:
+      break;
+    case hipEventInterprocess:
+      break;
+    default:
+      CHIPERR_LOG_AND_THROW("Invalid flag value", hipErrorTbd);
+    }
 
   *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
   RETURN(hipSuccess);
@@ -1524,9 +1520,10 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
-                              const void *Src, size_t SPitch, size_t Width,
-                              size_t Height, hipMemcpyKind Kind) {
+hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
+                                   size_t HOffset, const void *Src,
+                                   size_t SPitch, size_t Width, size_t Height,
+                                   hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src)
@@ -1561,14 +1558,23 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
-    if (hipMemcpyAsync(DstP, SrcP, Width, Kind, Backend->getActiveQueue()) !=
-        hipSuccess)
+    if (hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
       RETURN(hipErrorLaunchFailure);
   }
 
-  Backend->getActiveQueue()->finish();
   RETURN(hipSuccess);
   CHIP_CATCH
+};
+
+hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
+                              const void *Src, size_t SPitch, size_t Width,
+                              size_t Height, hipMemcpyKind Kind) {
+  auto Stream = Backend->getActiveQueue();
+
+  auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
+                                     Height, Kind, Stream);
+  Stream->finish();
+  RETURN(Res);
 }
 
 hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
