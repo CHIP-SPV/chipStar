@@ -49,11 +49,6 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
-                                size_t WOffset, size_t HOffset, size_t Width,
-                                size_t Height, hipMemcpyKind Kind) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
 hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
                              size_t Count, hipStream_t Stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -87,13 +82,6 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
                                    const void *DevPtr, size_t Count) {
   UNIMPLEMENTED(hipErrorNotSupported);
 };
-hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
-                                     hipArray_const_t Src, size_t WOffset,
-                                     size_t HOffset, size_t Width,
-                                     size_t Height, hipMemcpyKind Kind,
-                                     hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
 
 hipError_t hipMalloc3DArray(hipArray **Array,
                             const struct hipChannelFormatDesc *Desc,
@@ -109,6 +97,7 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
                               hipStream_t Stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
 };
+
 hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
                                  hipStream_t Stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -1483,7 +1472,9 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
 }
 
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
-  NULLCHECK(PCopy, PCopy->dstArray);
+  NULLCHECK(PCopy,
+            PCopy->dstArray); // TODO remove the dstArray check since this can
+                              // be used as trasnfer to non array
   return hipMemcpy2D(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
                      PCopy->srcPitch, PCopy->WidthInBytes, PCopy->Height,
                      hipMemcpyDefault);
@@ -1576,6 +1567,62 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   }
 
   Backend->getActiveQueue()->finish();
+  RETURN(hipSuccess);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
+                                size_t WOffset, size_t HOffset, size_t Width,
+                                size_t Height, hipMemcpyKind Kind) {
+  auto Stream = Backend->getActiveQueue();
+
+  auto Res = hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset,
+                                       Width, Height, Kind, Stream);
+  Stream->finish();
+  RETURN(Res);
+}
+hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
+                                     hipArray_const_t Src, size_t WOffset,
+                                     size_t HOffset, size_t Width,
+                                     size_t Height, hipMemcpyKind Kind,
+                                     hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst, Src);
+
+  size_t ByteSize;
+  if (Src) {
+    switch (Src[0].desc.f) {
+    case hipChannelFormatKindSigned:
+      ByteSize = sizeof(int);
+      break;
+    case hipChannelFormatKindUnsigned:
+      ByteSize = sizeof(unsigned int);
+      break;
+    case hipChannelFormatKindFloat:
+      ByteSize = sizeof(float);
+      break;
+    case hipChannelFormatKindNone:
+      ByteSize = sizeof(size_t);
+      break;
+    }
+  } else {
+    RETURN(hipErrorUnknown);
+  }
+
+  if ((WOffset + Width > (Src->width * ByteSize)) || Width > DPitch) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  size_t DstW = DPitch;
+  size_t SrcW = (Src->width) * ByteSize;
+
+  for (size_t Offset = 0; Offset < Height; ++Offset) {
+    void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
+    void *DstP = ((unsigned char *)Dst + Offset * DstW);
+    hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream);
+  }
+
   RETURN(hipSuccess);
   CHIP_CATCH
 }
