@@ -2,13 +2,17 @@
 
 #include "HipDefrost.h"
 #include "HipDynMem.h"
-#include "HipTexture.h"
 #include "HipStripCompilerUsed.h"
 #include "HipPrintf.h"
 #include "HipGlobalVariables.h"
+#include "HipTextureLowering.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
+#include "llvm/Transforms/Scalar/SROA.h"
 
 
 using namespace llvm;
@@ -32,9 +36,21 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
 
   // Run a collection of passes run at device link time.
-  MPM.addPass(HipStripCompilerUsedPass());
   MPM.addPass(HipDynMemExternReplaceNewPass());
-  MPM.addPass(HipTextureExternReplaceNewPass());
+
+  // Prepare device code for texture function lowering which does not yet work
+  // on non-inlined code and local variables of hipTextureObject_t type.
+  MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
+  // Increase getInlineParams argument for more aggressive inlining.
+  MPM.addPass(ModuleInlinerWrapperPass(getInlineParams(1000)));
+#if LLVM_VERSION_MAJOR < 14
+  MPM.addPass(createModuleToFunctionPassAdaptor(SROA()));
+#else
+  MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass()));
+#endif
+
+  MPM.addPass(HipTextureLoweringPass());
+
   // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
   //
   //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
@@ -43,6 +59,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(createModuleToFunctionPassAdaptor(HipDefrostPass()));
   // This pass must appear after HipDynMemExternReplaceNewPass.
   MPM.addPass(HipGlobalVariablesPass());
+
+  // Remove dead code left over by HIP lowering passes and kept alive by
+  // llvm.compiler.used intrinsic variable.
+  MPM.addPass(HipStripCompilerUsedPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
+  MPM.addPass(GlobalDCEPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14
