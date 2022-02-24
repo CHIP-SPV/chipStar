@@ -867,17 +867,10 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  if (Flags)
-    switch (Flags) {
-    case hipEventBlockingSync:
-      break;
-    case hipEventDisableTiming:
-      break;
-    case hipEventInterprocess:
-      break;
-    default:
-      CHIPERR_LOG_AND_THROW("Invalid flag value", hipErrorTbd);
-    }
+  if (Flags > (hipEventDefault | hipEventBlockingSync | hipEventDisableTiming |
+               hipEventInterprocess))
+    CHIPERR_LOG_AND_THROW("Invalid hipEvent flag combination",
+                          hipErrorInvalidValue);
 
   *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
   RETURN(hipSuccess);
@@ -925,7 +918,14 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
 hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Ms, Start, Stop);
+  if (!Ms)
+    CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
+  NULLCHECK(Start, Stop);
+
+  if (Start->getFlags().isDisableTiming() || Stop->getFlags().isDisableTiming())
+    CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
+                          "Unable to return elasped time",
+                          hipErrorInvalidResourceHandle);
 
   *Ms = Start->getElapsedTime(Stop);
   RETURN(hipSuccess);
@@ -1520,6 +1520,17 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
   CHIP_CATCH
 }
 
+hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
+                              const void *Src, size_t SPitch, size_t Width,
+                              size_t Height, hipMemcpyKind Kind) {
+  auto Stream = Backend->getActiveQueue();
+
+  auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
+                                     Height, Kind, Stream);
+  Stream->finish();
+  RETURN(Res);
+}
+
 hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
                                    size_t HOffset, const void *Src,
                                    size_t SPitch, size_t Width, size_t Height,
@@ -1565,17 +1576,6 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
   RETURN(hipSuccess);
   CHIP_CATCH
 };
-
-hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
-                              const void *Src, size_t SPitch, size_t Width,
-                              size_t Height, hipMemcpyKind Kind) {
-  auto Stream = Backend->getActiveQueue();
-
-  auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
-                                     Height, Kind, Stream);
-  Stream->finish();
-  RETURN(Res);
-}
 
 hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
                                 size_t WOffset, size_t HOffset, size_t Width,

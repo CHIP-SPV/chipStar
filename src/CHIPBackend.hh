@@ -281,6 +281,7 @@ protected:
   CHIPEvent() = default;
 
 public:
+  CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
