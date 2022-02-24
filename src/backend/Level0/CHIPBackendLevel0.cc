@@ -393,7 +393,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       ComputeQueueGroupOrdinal,
       0, // index
       0, // flags
-      ZE_COMMAND_QUEUE_MODE_DEFAULT,
+      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
   // Create a default command queue (in case need to pass it outside of
@@ -470,6 +470,7 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   ze_group_count_t LaunchArgs = {X, Y, Z};
   Status = zeCommandListAppendLaunchKernel(ZeCmdListImm_, KernelZe, &LaunchArgs,
                                            Ev->peek(), 0, nullptr);
+  logTrace("Kernel submitted to the queue");
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   return Ev;
