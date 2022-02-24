@@ -1078,8 +1078,9 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
   CHIPInitialize();
   NULLCHECK(DevPtr, HostPtr);
 
-  // FIX: use a hostPtr-to-DevPtr map
-  *DevPtr = HostPtr;
+  auto Device = Backend->getActiveDevice();
+  auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
+  *DevPtr = AllocInfo->BasePtr;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1102,7 +1103,26 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   CHIPInitialize();
   NULLCHECK(HostPtr);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  if (Flags)
+    switch (Flags) {
+    case hipHostRegisterDefault:
+      break;
+    case hipHostRegisterMapped:
+      break;
+    case hipHostRegisterPortable:
+      break;
+    default:
+      CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flag passed",
+                            hipErrorInvalidValue);
+    }
+
+  void *DevPtr;
+  hipMalloc(&DevPtr, SizeBytes);
+
+  // Associate the pointer
+  auto Device = Backend->getActiveDevice();
+  Device->AllocationTracker->registerHostPointer(HostPtr, DevPtr);
+
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1113,7 +1133,10 @@ hipError_t hipHostUnregister(void *HostPtr) {
   CHIPInitialize();
   NULLCHECK(HostPtr);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto Device = Backend->getActiveDevice();
+  auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
+  hipFree(AllocInfo->BasePtr);
+  Device->AllocationTracker->unregsiterHostPointer(HostPtr);
   RETURN(hipSuccess);
 
   CHIP_CATCH

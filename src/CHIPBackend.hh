@@ -157,6 +157,23 @@ private:
   std::unordered_map<void *, AllocationInfo> DevToAllocInfo_;
 
 public:
+  /**
+   * @brief Associate a host pointer with a device pointer. @see hipHostRegister
+   *
+   * @param HostPtr
+   */
+  void registerHostPointer(void *HostPtr, void *DevPtr) {
+    HostToDev_[HostPtr] = DevPtr;
+  }
+
+  void unregsiterHostPointer(void *HostPtr) {
+    if (HostToDev_.count(HostPtr) == 0)
+      CHIPERR_LOG_AND_THROW("Tried to unregister a host variable which was not "
+                            "registered with this device",
+                            hipErrorTbd);
+    HostToDev_.erase(HostPtr);
+  }
+
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
   /**
    * @brief Construct a new CHIPAllocationTracker object
