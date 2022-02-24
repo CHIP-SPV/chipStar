@@ -169,8 +169,7 @@ public:
                                         size_t Spitch, size_t Sspitch,
                                         size_t Width, size_t Height,
                                         size_t Depth) override;
-  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *TexObj,
-                                          void *Src) override;
+
   virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) override;
   virtual CHIPEvent *
   enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
@@ -209,8 +208,6 @@ public:
                       std::string CHIPDeviceTypeStr,
                       std::string CHIPDeviceStr) override;
   virtual std::string getDefaultJitFlags() override;
-  virtual CHIPTexture *createCHIPTexture(intptr_t Image,
-                                         intptr_t Sampler) override;
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual CHIPEventOpenCL *
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),

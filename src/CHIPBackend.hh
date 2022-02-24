@@ -33,6 +33,103 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
+  unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
+  return ((TotalNumBits + 7u) / 8u); // Round upwards.
+}
+
+/// Describes a memory region to copy from/to.
+class CHIPRegionDesc {
+public:
+  static constexpr unsigned MaxNumDims = 3;
+  // Measured in bytes.
+  size_t ElementSize = 0;
+  // Measured in elements. [X, 0, 0] -> 1D, [X, Y, 0] -> 2D, [X, Y, Z] -> 3D.
+  size_t Size[MaxNumDims] = {0};
+  // Measured in elements.
+  size_t Offset[MaxNumDims] = {0, 0, 0};
+  // Row and slice pitch. Measured in bytes.
+  size_t Pitch[MaxNumDims - 1] = {1, 1};
+
+  std::string dumpAsString() const {
+    std::string Result =
+        "Size=(" + std::to_string(Size[0]) + ", " + std::to_string(Size[1]) +
+        ", " + std::to_string(Size[2]) + "), Offset=(" +
+        std::to_string(Offset[0]) + ", " + std::to_string(Offset[1]) + ", " +
+        std::to_string(Offset[2]) + "), Pitch=(" + std::to_string(Pitch[0]) +
+        "," + std::to_string(Pitch[1]) + ")";
+    return Result;
+  }
+
+  unsigned getNumDims() const {
+    unsigned Count = 0;
+    unsigned Idx = 0;
+    for (; Idx < MaxNumDims && Size[Idx]; Idx++)
+      Count++;
+#ifndef NDEBUG
+    // Check no non-zeroes after a zero (e.g. [X, 0, Z]).
+    for (; Idx < MaxNumDims; Idx++)
+      if (Size[Idx])
+        CHIPASSERT(false && "Invalid Size description.");
+#endif
+    return Count;
+  }
+
+  bool isPitched() const {
+    switch (getNumDims()) {
+    default:
+      CHIPASSERT(false && "Unexpected dimension count.");
+      return false;
+    case 1:
+      return false;
+    case 2:
+      return Pitch[0] > Size[0] * ElementSize;
+    case 3:
+      return Pitch[0] > Size[0] * ElementSize &&
+             Pitch[1] > Size[1] * Size[0] * ElementSize;
+    }
+  }
+
+  static CHIPRegionDesc get3DRegion(size_t TheWidth, size_t TheHeight,
+                                    size_t TheDepth,
+                                    size_t ElementByteSize = 1) {
+    CHIPRegionDesc Result;
+    Result.ElementSize = ElementByteSize;
+    Result.Size[0] = TheWidth;
+    Result.Size[1] = TheHeight;
+    Result.Size[2] = TheDepth;
+    Result.Pitch[0] = TheWidth * ElementByteSize;
+    Result.Pitch[1] = TheWidth * TheHeight * ElementByteSize;
+    return Result;
+  }
+
+  static CHIPRegionDesc get2DRegion(size_t TheWidth, size_t TheHeight,
+                                    size_t ElementByteSize = 1) {
+    return get3DRegion(TheWidth, TheHeight, 0, ElementByteSize);
+  }
+
+  static CHIPRegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
+                                    size_t ElementByteSize = 1) {
+    return get2DRegion(TheWidth, 0, ElementByteSize);
+  }
+
+  static CHIPRegionDesc from(const hipResourceDesc &ResDesc) {
+    switch (ResDesc.resType) {
+    default:
+      CHIPASSERT(false && "Unknown resource type");
+      return CHIPRegionDesc();
+    case hipResourceTypePitch2D: {
+      auto &Res = ResDesc.res.pitch2D;
+      auto R = get2DRegion(Res.width, Res.height, getChannelByteSize(Res.desc));
+      R.Pitch[0] = Res.pitchInBytes;
+      CHIPASSERT(Res.pitchInBytes >= Res.width * getChannelByteSize(Res.desc) &&
+                 "Invalid pitch.");
+      return R;
+    }
+    }
+  }
+};
+
 class CHIPEventMonitor;
 
 enum class CHIPQueueType : unsigned int {
@@ -95,18 +192,15 @@ public:
 };
 
 class CHIPTexture {
-protected:
-  // delete default constructor since texture needs both image and sampler
-  CHIPTexture() = delete;
-
-  CHIPTexture(intptr_t Image, intptr_t Sampler)
-      : Image(Image), Sampler(Sampler) {}
+  /// Resource description used to create this texture.
+  hipResourceDesc ResourceDesc;
 
 public:
-  intptr_t Image;
-  intptr_t Sampler;
-  hipTextureObject_t TexObj;
-  hipTextureObject_t get() { return TexObj; }
+  CHIPTexture() = delete;
+  CHIPTexture(const hipResourceDesc &ResDesc) : ResourceDesc(ResDesc) {}
+  virtual ~CHIPTexture() {}
+
+  const hipResourceDesc &getResourceDesc() const { return ResourceDesc; }
 };
 
 template <class T> std::string resultToString(T Err);
@@ -1509,7 +1603,6 @@ public:
 
   /************Factories***************/
 
-  virtual CHIPTexture *createCHIPTexture(intptr_t Image, intptr_t Sampler) = 0;
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
 
   /**
@@ -1717,10 +1810,6 @@ public:
   virtual void memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                               const void *Src, size_t SPitch, size_t SSPitch,
                               size_t Width, size_t Height, size_t Depth);
-
-  // Memory copy to texture object, i.e. image
-  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *TexObj, void *Src) = 0;
-  virtual void memCopyToTexture(CHIPTexture *TexObj, void *Src);
 
   /**
    * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem

@@ -1,5 +1,175 @@
 #include "CHIPBackendLevel0.hh"
 
+static ze_image_type_t getImageType(unsigned HipTextureID) {
+  switch (HipTextureID) {
+  default:
+  case hipTextureTypeCubemap:
+  case hipTextureTypeCubemapLayered:
+    break;
+  case hipTextureType1D:
+    return ZE_IMAGE_TYPE_1D;
+  case hipTextureType2D:
+    return ZE_IMAGE_TYPE_2D;
+  case hipTextureType3D:
+    return ZE_IMAGE_TYPE_3D;
+  case hipTextureType1DLayered:
+    return ZE_IMAGE_TYPE_1DARRAY;
+  case hipTextureType2DLayered:
+    return ZE_IMAGE_TYPE_2DARRAY;
+  }
+  CHIPASSERT(false && "Unknown or unsupported HIP texture type.");
+  return ZE_IMAGE_TYPE_2D;
+}
+
+#define LAYOUT_KEY(_X, _Y, _Z, _W) (_W << 24 | _Z << 16 | _Y << 8 | _X)
+
+#define LAYOUT_KEY_FROM_FORMAT_DESC(_DESC)                                     \
+  LAYOUT_KEY(_DESC.x, _DESC.y, _DESC.z, _DESC.w)
+
+#define DEF_LAYOUT_MAP(_X, _Y, _Z, _W, _LAYOUT)                                \
+  case LAYOUT_KEY(_X, _Y, _Z, _W):                                             \
+    Result.layout = _LAYOUT;                                                   \
+    break
+
+static ze_image_format_t getImageFormat(hipChannelFormatDesc FormatDesc,
+                                        bool NormalizedFloat) {
+  bool Supported = FormatDesc.f == hipChannelFormatKindUnsigned ||
+                   FormatDesc.f == hipChannelFormatKindSigned ||
+                   FormatDesc.f == hipChannelFormatKindFloat;
+  if (!Supported)
+    CHIPERR_LOG_AND_THROW("Unsupported channel description.", hipErrorTbd);
+
+  CHIPASSERT(FormatDesc.x < (1 << 8) && FormatDesc.y < (1 << 8) &&
+             FormatDesc.z < (1 << 8) && FormatDesc.w < (1 << 8) && "Overlap");
+
+  ze_image_format_t Result{};
+  switch (LAYOUT_KEY_FROM_FORMAT_DESC(FormatDesc)) {
+  default:
+    CHIPERR_LOG_AND_THROW("Unsupported channel description.", hipErrorTbd);
+    break;
+    DEF_LAYOUT_MAP(8, 0, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_8);
+    DEF_LAYOUT_MAP(8, 8, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_8_8);
+    DEF_LAYOUT_MAP(8, 8, 8, 8, ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8);
+    DEF_LAYOUT_MAP(16, 0, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_16);
+    DEF_LAYOUT_MAP(16, 16, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_16_16);
+    DEF_LAYOUT_MAP(16, 16, 16, 16, ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16);
+    DEF_LAYOUT_MAP(32, 0, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_32);
+    DEF_LAYOUT_MAP(32, 32, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_32_32);
+    DEF_LAYOUT_MAP(32, 32, 32, 32, ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32);
+  }
+
+  if (FormatDesc.x > 16 && (FormatDesc.f == hipChannelFormatKindUnsigned ||
+                            FormatDesc.f == hipChannelFormatKindSigned)) {
+    // "Note that this [cudaTextureReadMode] applies only to 8-bit and 16-bit
+    // integer formats. 32-bit integer format would not be promoted, regardless
+    // of whether or not this cudaTextureDesc::readMode is set
+    // cudaReadModeNormalizedFloat is specified."
+    // - CUDA 11.6.1/CUDA Runtime API.
+    NormalizedFloat = false;
+  }
+
+  switch (FormatDesc.f) {
+  default:
+    CHIPASSERT(false && "Unsupported/unimplemented format type.");
+    return Result;
+  case hipChannelFormatKindSigned:
+    Result.type = NormalizedFloat ? ZE_IMAGE_FORMAT_TYPE_SNORM
+                                  : ZE_IMAGE_FORMAT_TYPE_SINT;
+    break;
+  case hipChannelFormatKindUnsigned:
+    Result.type = NormalizedFloat ? ZE_IMAGE_FORMAT_TYPE_UNORM
+                                  : ZE_IMAGE_FORMAT_TYPE_UINT;
+    break;
+  case hipChannelFormatKindFloat:
+    Result.type = ZE_IMAGE_FORMAT_TYPE_FLOAT;
+    break;
+  }
+
+  // These fields are for swizzle descriptions.
+  Result.x = ZE_IMAGE_FORMAT_SWIZZLE_R;
+  Result.y = ZE_IMAGE_FORMAT_SWIZZLE_G;
+  Result.z = ZE_IMAGE_FORMAT_SWIZZLE_B;
+  Result.w = ZE_IMAGE_FORMAT_SWIZZLE_A;
+  return Result;
+}
+
+#undef LAYOUT_KEY
+#undef LAYOUT_KEY_FROM_FORMAT_DESC
+#undef DEF_LAYOUT_MAP
+
+static ze_image_desc_t getImageDescription(unsigned int TextureType,
+                                           hipChannelFormatDesc Format,
+                                           bool NormalizedFloat, size_t Width,
+                                           size_t Height = 0,
+                                           size_t Depth = 0) {
+  ze_image_desc_t Result{};
+  Result.stype = ZE_STRUCTURE_TYPE_IMAGE_DESC;
+  Result.pNext = nullptr;
+  Result.flags = 0; // Read-only
+  Result.type = getImageType(TextureType);
+  Result.format = getImageFormat(Format, NormalizedFloat);
+  Result.width = Width;
+  Result.height = Height;
+  Result.depth = Depth;       // L0 spec: Ignored for non-ZE_IMAGE_TYPE_3D;
+  Result.arraylevels = Depth; // L0 spec: Ignored for non-array types.
+  Result.miplevels = 0;
+  return Result;
+}
+
+static ze_sampler_handle_t
+createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
+              const hipTextureDesc *PTexDesc,
+              const struct hipResourceViewDesc *PResViewDesc) {
+  logTrace("CHIPTextureLevel0::createSampler");
+
+  // Identify the address mode
+  ze_sampler_address_mode_t AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
+  if (PResDesc->resType == hipResourceTypeLinear)
+    // "This [address mode] is ignored if cudaResourceDesc::resType is
+    // cudaResourceTypeLinear." - CUDA 11.6.1/CUDA Runtime API.
+    // Effectively out-of-bound references are undefined.
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
+  else if (PTexDesc->addressMode[0] == hipAddressModeWrap)
+    // FIXME: The mode should be repeat.
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
+  else if (PTexDesc->addressMode[0] == hipAddressModeClamp)
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP;
+  else if (PTexDesc->addressMode[0] == hipAddressModeMirror)
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_MIRROR;
+  else if (PTexDesc->addressMode[0] == hipAddressModeBorder)
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+
+  // Identify the filter mode
+  ze_sampler_filter_mode_t FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
+  if (PResDesc->resType == hipResourceTypeLinear)
+    // "This [filter mode] is ignored if cudaResourceDesc::resType is
+    // cudaResourceTypeLinear." - CUDA 11.6.1/CUDA Runtime API.
+    FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
+  else if (PTexDesc->filterMode == hipFilterModePoint)
+    FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
+  else if (PTexDesc->filterMode == hipFilterModeLinear)
+    FilterMode = ZE_SAMPLER_FILTER_MODE_LINEAR;
+
+  // Identify the normalization
+  ze_bool_t IsNormalized = 0;
+  if (PTexDesc->normalizedCoords == 0)
+    IsNormalized = 0;
+  else
+    IsNormalized = 1;
+
+  ze_sampler_desc_t SamplerDesc = {ZE_STRUCTURE_TYPE_SAMPLER_DESC, nullptr,
+                                   AddressMode, FilterMode, IsNormalized};
+
+  // Create LZ samler handle
+  CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipDev->getContext();
+  ze_sampler_handle_t Sampler{};
+  ze_result_t Status =
+      zeSamplerCreate(ChipCtxLz->get(), ChipDev->get(), &SamplerDesc, &Sampler);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  return Sampler;
+}
+
 // CHIPEventLevel0
 // ***********************************************************************
 
@@ -525,16 +695,40 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
 };
 
 // Memory copy to texture object, i.e. image
-CHIPEvent *CHIPQueueLevel0::memCopyToTextureImpl(CHIPTexture *TexObj,
-                                                 void *Src) {
+CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
+                                           const void *Src,
+                                           const CHIPRegionDesc &SrcRegion) {
+  logTrace("CHIPQueueLevel0::memCopyToImage");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
-  Ev->Msg = "memCopyToTexture";
+  Ev->Msg = "memCopyToImage";
 
-  ze_image_handle_t ImageHandle = (ze_image_handle_t)TexObj->Image;
-  ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-      ZeCmdListImm_, ImageHandle, Src, 0, Ev->peek(), 0, 0);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  if (!SrcRegion.isPitched()) {
+    ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
+        ZeCmdListImm_, Image, Src, 0, Ev->peek(), 0, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    return Ev;
+  }
+
+  // Copy image data row by row since level zero does not have pitched copy.
+  CHIPASSERT(SrcRegion.getNumDims() == 2 &&
+             "UNIMPLEMENTED: 3D pitched image copy.");
+  const char *SrcRow = (const char *)Src;
+  for (size_t Row = 0; Row < SrcRegion.Size[1]; Row++) {
+    bool LastRow = Row == SrcRegion.Size[1] - 1;
+    ze_image_region_t DstZeRegion{};
+    DstZeRegion.originX = 0;
+    DstZeRegion.originY = Row;
+    DstZeRegion.originZ = 0;
+    DstZeRegion.width = SrcRegion.Size[0];
+    DstZeRegion.height = 1;
+    DstZeRegion.depth = 1;
+    ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
+        ZeCmdListImm_, Image, SrcRow, &DstZeRegion,
+        LastRow ? Ev->peek() : nullptr, 0, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    SrcRow += SrcRegion.Pitch[0];
+  }
   return Ev;
 };
 
@@ -819,6 +1013,9 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   ze_device_module_properties_t DeviceModuleProps;
   DeviceModuleProps.pNext = nullptr;
   DeviceModuleProps.stype = ZE_STRUCTURE_TYPE_DEVICE_MODULE_PROPERTIES;
+  ze_device_image_properties_t DeviceImageProps;
+  DeviceImageProps.pNext = nullptr;
+  DeviceImageProps.stype = ZE_STRUCTURE_TYPE_DEVICE_IMAGE_PROPERTIES;
 
   // Query device properties
   Status = zeDeviceGetProperties(ZeDev_, &ZeDeviceProps_);
@@ -845,6 +1042,11 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
   // Query device module properties
   Status = zeDeviceGetModuleProperties(ZeDev_, &DeviceModuleProps);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
+  // Query device image properties
+  Status = zeDeviceGetImageProperties(ZeDev_, &DeviceImageProps);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
@@ -938,6 +1140,29 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
       (ZeDeviceProps_.flags & ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) ? 1 : 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
       DeviceComputeProps.maxSharedLocalMemory;
+
+  // Clamp texture dimensions to [0, INT_MAX] because the return value
+  // of hipDeviceGetAttribute() is int type.
+  auto ClampToInt = [](size_t Val) -> int {
+    auto MaxInt = std::numeric_limits<int>::max();
+    return std::min<int>(Val, MaxInt);
+  };
+  auto MaxDim0 = ClampToInt(DeviceImageProps.maxImageDims1D);
+  auto MaxDim1 = ClampToInt(DeviceImageProps.maxImageDims2D);
+  auto MaxDim2 = ClampToInt(DeviceImageProps.maxImageDims3D);
+
+  HipDeviceProps_.maxTexture1DLinear = MaxDim0;
+  HipDeviceProps_.maxTexture1D = MaxDim0;
+  HipDeviceProps_.maxTexture2D[0] = MaxDim0;
+  HipDeviceProps_.maxTexture2D[1] = MaxDim1;
+  HipDeviceProps_.maxTexture3D[0] = MaxDim0;
+  HipDeviceProps_.maxTexture3D[1] = MaxDim1;
+  HipDeviceProps_.maxTexture3D[2] = MaxDim2;
+
+  // Level0 does not have alignment requirements for images that
+  // clients should follow.
+  HipDeviceProps_.textureAlignment = 1;
+  HipDeviceProps_.texturePitchAlignment = 1;
 }
 
 CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
@@ -946,25 +1171,114 @@ CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
   return NewQ;
 }
 
+ze_image_handle_t CHIPDeviceLevel0::allocateImage(unsigned int TextureType,
+                                                  hipChannelFormatDesc Format,
+                                                  bool NormalizedFloat,
+                                                  size_t Width, size_t Height,
+                                                  size_t Depth) {
+  logTrace("CHIPContextLevel0::allocateImage()");
+  auto ImageDesc = getImageDescription(TextureType, Format, NormalizedFloat,
+                                       Width, Height, Depth);
+  ze_image_handle_t ImageHandle{};
+
+  ze_result_t Status = zeImageCreate(ZeCtx_, ZeDev_, &ImageDesc, &ImageHandle);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorMemoryAllocation);
+  return ImageHandle;
+}
+
 CHIPTexture *CHIPDeviceLevel0::createTexture(
     const hipResourceDesc *PResDesc, const hipTextureDesc *PTexDesc,
     const struct hipResourceViewDesc *PResViewDesc) {
-  auto Image =
-      CHIPTextureLevel0::createImage(this, PResDesc, PTexDesc, PResViewDesc);
-  auto Sampler =
-      CHIPTextureLevel0::createSampler(this, PResDesc, PTexDesc, PResViewDesc);
+  logTrace("CHIPDeviceLevel0::createTexture");
 
-  CHIPTextureLevel0 *ChipTexture =
-      new CHIPTextureLevel0((intptr_t)Image, (intptr_t)Sampler);
+  bool NormalizedFloat = PTexDesc->readMode == hipReadModeNormalizedFloat;
+  auto *Q = (CHIPQueueLevel0 *)getActiveQueue();
 
-  auto Q = (CHIPQueueLevel0 *)getActiveQueue();
-  // Check if need to copy data in
-  if (PResDesc->res.array.array != nullptr) {
-    hipArray *HipArr = PResDesc->res.array.array;
-    Q->memCopyToTexture(ChipTexture, (unsigned char *)HipArr->data);
+  ze_sampler_handle_t SamplerHandle =
+      createSampler(this, PResDesc, PTexDesc, PResViewDesc);
+
+  if (PResDesc->resType == hipResourceTypeArray) {
+    hipArray *Array = PResDesc->res.array.array;
+    // Checked in CHIPBindings already.
+    CHIPASSERT(Array->data && "Invalid hipArray.");
+    CHIPASSERT(!Array->isDrv && "Not supported/implemented yet.");
+    auto TexelByteSize = getChannelByteSize(Array->desc);
+    size_t Width = Array->width;
+    size_t Height = Array->height;
+    size_t Depth = Array->depth;
+
+    ze_image_handle_t ImageHandle = reinterpret_cast<ze_image_handle_t>(
+        allocateImage(Array->textureType, Array->desc, NormalizedFloat, Width,
+                      Height, Depth));
+
+    auto *Tex = new CHIPTextureLevel0(*PResDesc, ImageHandle, SamplerHandle);
+    logTrace("Created texture: {}", (void *)Tex);
+
+    CHIPRegionDesc SrcDesc;
+    // TODO: sink logic into CHIPRegionDesc::fromHipArray().
+    switch (Array->textureType) {
+    default:
+      CHIPASSERT(false && "Unkown texture type.");
+      return nullptr;
+    case hipTextureType1D:
+      SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
+      break;
+    case hipTextureType2D:
+      SrcDesc = CHIPRegionDesc::get2DRegion(Width, Height, TexelByteSize);
+      break;
+    case hipTextureType3D:
+      SrcDesc =
+          CHIPRegionDesc::get3DRegion(Width, Height, Depth, TexelByteSize);
+      break;
+    }
+    Q->memCopyToImage(ImageHandle, Array->data, SrcDesc);
+    Q->finish(); // Finish for safety.
+
+    return Tex;
   }
 
-  return ChipTexture;
+  if (PResDesc->resType == hipResourceTypeLinear) {
+    auto &Res = PResDesc->res.linear;
+    auto TexelByteSize = getChannelByteSize(Res.desc);
+    size_t Width = Res.sizeInBytes / TexelByteSize;
+
+    ze_image_handle_t ImageHandle = reinterpret_cast<ze_image_handle_t>(
+        allocateImage(hipTextureType1D, Res.desc, NormalizedFloat, Width));
+
+    auto *Tex = new CHIPTextureLevel0(*PResDesc, ImageHandle, SamplerHandle);
+    logTrace("Created texture: {}", (void *)Tex);
+
+    // Copy data to image.
+    auto SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
+    Q->memCopyToImage(ImageHandle, Res.devPtr, SrcDesc);
+    Q->finish(); // Finish for safety.
+
+    return Tex;
+  }
+
+  if (PResDesc->resType == hipResourceTypePitch2D) {
+    auto &Res = PResDesc->res.pitch2D;
+
+    CHIPASSERT(Res.pitchInBytes >= Res.width); // Checked in CHIPBindings.
+
+    ze_image_handle_t ImageHandle = reinterpret_cast<ze_image_handle_t>(
+        allocateImage(hipTextureType2D, Res.desc, NormalizedFloat, Res.width,
+                      Res.height));
+
+    auto *Tex = new CHIPTextureLevel0(*PResDesc, ImageHandle, SamplerHandle);
+    logTrace("Created texture: {}", (void *)Tex);
+
+    // Copy data to image.
+    auto SrcDesc = CHIPRegionDesc::from(*PResDesc);
+    Q->memCopyToImage(ImageHandle, Res.devPtr, SrcDesc);
+    Q->finish(); // Finish for safety.
+
+    return Tex;
+  }
+
+  CHIPASSERT(false && "Unsupported/unimplemented texture resource type.");
+  return nullptr;
 }
 
 // Other
@@ -1146,32 +1460,37 @@ void CHIPExecItem::setupAllArgs() {
 
   // Argument processing for the new HIP launch API.
   if (ArgsPointer_) {
-    for (size_t i = 0, ArgIdx = 0; i < FuncInfo->ArgTypeInfo.size();
-         ++i, ++ArgIdx) {
-      OCLArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[i];
+    for (size_t InArgIdx = 0, OutArgIdx = 0;
+         OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
+      OCLArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[OutArgIdx];
 
+      // Handle direct texture object passing. When we see an image
+      // type we know it's derived from a texture object argument
       if (ArgTypeInfo.Type == OCLType::Image) {
-        CHIPTextureLevel0 *TexObj =
-            (CHIPTextureLevel0 *)(*((unsigned long *)(ArgsPointer_[1])));
+        auto *TexObj = *(CHIPTextureLevel0 **)ArgsPointer_[InArgIdx];
 
-        // Set image part
-        logTrace("setImageArg {} size {}\n", ArgIdx, ArgTypeInfo.Size);
+        // Set image argument.
+        ze_image_handle_t ImageHandle = TexObj->getImage();
+        logTrace("setImageArg {} size {}\n", OutArgIdx,
+                 sizeof(ze_image_handle_t));
         ze_result_t Status = zeKernelSetArgumentValue(
-            Kernel->get(), ArgIdx, ArgTypeInfo.Size, &(TexObj->Image));
+            Kernel->get(), OutArgIdx, sizeof(ze_image_handle_t), &ImageHandle);
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-        // Set sampler part
-        ArgIdx++;
-
-        logTrace("setImageArg {} size {}\n", ArgIdx, ArgTypeInfo.Size);
-        Status = zeKernelSetArgumentValue(Kernel->get(), ArgIdx,
-                                          ArgTypeInfo.Size, &(TexObj->Sampler));
+        // Set sampler argument.
+        OutArgIdx++;
+        ze_sampler_handle_t SamplerHandle = TexObj->getSampler();
+        logTrace("setSamplerArg {} size {}\n", OutArgIdx,
+                 sizeof(ze_sampler_handle_t));
+        Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
+                                          sizeof(ze_sampler_handle_t),
+                                          &SamplerHandle);
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
       } else {
-        logTrace("setArg {} size {} addr {}\n", ArgIdx, ArgTypeInfo.Size,
-                 ArgsPointer_[i]);
+        logTrace("setArg {} size {} addr {}\n", OutArgIdx, ArgTypeInfo.Size,
+                 ArgsPointer_[InArgIdx]);
         ze_result_t Status = zeKernelSetArgumentValue(
-            Kernel->get(), ArgIdx, ArgTypeInfo.Size, ArgsPointer_[i]);
+            Kernel->get(), OutArgIdx, ArgTypeInfo.Size, ArgsPointer_[InArgIdx]);
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
       }
@@ -1211,6 +1530,10 @@ void CHIPExecItem::setupAllArgs() {
                i, std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
                (unsigned)ArgTypeInfo.Type, (unsigned)ArgTypeInfo.Space,
                ArgTypeInfo.Size);
+
+      CHIPASSERT(ArgTypeInfo.Type != OCLType::Image &&
+                 "UNIMPLEMENTED: texture object arguments for old HIP kernel "
+                 "launch API.");
 
       if (ArgTypeInfo.Type == OCLType::Pointer) {
         // TODO: sync with ExecItem's solution
@@ -1261,113 +1584,4 @@ void CHIPExecItem::setupAllArgs() {
   return;
 }
 
-ze_image_handle_t *
-CHIPTextureLevel0::createImage(CHIPDeviceLevel0 *ChipDev,
-                               const hipResourceDesc *PResDesc,
-                               const hipTextureDesc *PTexDesc,
-                               const struct hipResourceViewDesc *PResViewDesc) {
-  if (!PResDesc)
-    CHIPERR_LOG_AND_THROW("Resource descriptor is null", hipErrorTbd);
-  if (PResDesc->resType != hipResourceTypeArray) {
-    CHIPERR_LOG_AND_THROW("only support hipArray as image storage",
-                          hipErrorTbd);
-  }
 
-  hipArray *HipArr = PResDesc->res.array.array;
-  if (!HipArr)
-    CHIPERR_LOG_AND_THROW("hipResourceViewDesc result array is null",
-                          hipErrorTbd);
-  hipChannelFormatDesc ChannelDesc = HipArr->desc;
-
-  ze_image_format_layout_t FormatLayout = ZE_IMAGE_FORMAT_LAYOUT_32;
-  if (ChannelDesc.x == 8) {
-    FormatLayout = ZE_IMAGE_FORMAT_LAYOUT_8;
-  } else if (ChannelDesc.x == 16) {
-    FormatLayout = ZE_IMAGE_FORMAT_LAYOUT_16;
-  } else if (ChannelDesc.x == 32) {
-    FormatLayout = ZE_IMAGE_FORMAT_LAYOUT_32;
-  } else {
-    CHIPERR_LOG_AND_THROW("hipChannelFormatDesc value is out of the scope",
-                          hipErrorTbd);
-  }
-
-  ze_image_format_type_t FormatType = ZE_IMAGE_FORMAT_TYPE_FLOAT;
-  if (ChannelDesc.f == hipChannelFormatKindSigned) {
-    FormatType = ZE_IMAGE_FORMAT_TYPE_SINT;
-  } else if (ChannelDesc.f == hipChannelFormatKindUnsigned) {
-    FormatType = ZE_IMAGE_FORMAT_TYPE_UINT;
-  } else if (ChannelDesc.f == hipChannelFormatKindFloat) {
-    FormatType = ZE_IMAGE_FORMAT_TYPE_FLOAT;
-  } else if (ChannelDesc.f == hipChannelFormatKindNone) {
-    FormatType = ZE_IMAGE_FORMAT_TYPE_FORCE_UINT32;
-  } else {
-    CHIPERR_LOG_AND_THROW("hipChannelFormatDesc value is out of the scope",
-                          hipErrorTbd);
-  }
-
-  ze_image_format_t Format = {FormatLayout,
-                              FormatType,
-                              ZE_IMAGE_FORMAT_SWIZZLE_R,
-                              ZE_IMAGE_FORMAT_SWIZZLE_0,
-                              ZE_IMAGE_FORMAT_SWIZZLE_0,
-                              ZE_IMAGE_FORMAT_SWIZZLE_1};
-
-  ze_image_type_t ImageType = ZE_IMAGE_TYPE_2D;
-
-  ze_image_desc_t ImageDesc = {ZE_STRUCTURE_TYPE_IMAGE_DESC, nullptr,
-                               0, // read-only
-                               ImageType, Format,
-                               // 128, 128, 0, 0, 0
-                               HipArr->width, HipArr->height, 0, 0, 0};
-
-  // Create LZ image handle
-  CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipDev->getContext();
-  ze_image_handle_t *Image = new ze_image_handle_t();
-  ze_result_t Status =
-      zeImageCreate(ChipCtxLz->get(), ChipDev->get(), &ImageDesc, Image);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  return Image;
-}
-
-ze_sampler_handle_t *CHIPTextureLevel0::createSampler(
-    CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
-    const hipTextureDesc *PTexDesc,
-    const struct hipResourceViewDesc *PResViewDesc) {
-  // Identify the address mode
-  ze_sampler_address_mode_t AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
-  if (PTexDesc->addressMode[0] == hipAddressModeWrap)
-    AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
-  else if (PTexDesc->addressMode[0] == hipAddressModeClamp)
-    AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP;
-  else if (PTexDesc->addressMode[0] == hipAddressModeMirror)
-    AddressMode = ZE_SAMPLER_ADDRESS_MODE_MIRROR;
-  else if (PTexDesc->addressMode[0] == hipAddressModeBorder)
-    AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-
-  // Identify the filter mode
-  ze_sampler_filter_mode_t FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
-  if (PTexDesc->filterMode == hipFilterModePoint)
-    FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
-  else if (PTexDesc->filterMode == hipFilterModeLinear)
-    FilterMode = ZE_SAMPLER_FILTER_MODE_LINEAR;
-
-  // Identify the normalization
-  ze_bool_t IsNormalized = 0;
-  if (PTexDesc->normalizedCoords == 0)
-    IsNormalized = 0;
-  else
-    IsNormalized = 1;
-
-  ze_sampler_desc_t SamplerDesc = {ZE_STRUCTURE_TYPE_SAMPLER_DESC, nullptr,
-                                   AddressMode, FilterMode, IsNormalized};
-
-  // Create LZ samler handle
-  CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipDev->getContext();
-  ze_sampler_handle_t *Sampler = new ze_sampler_handle_t();
-  ze_result_t Status =
-      zeSamplerCreate(ChipCtxLz->get(), ChipDev->get(), &SamplerDesc, Sampler);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  return Sampler;
-}
