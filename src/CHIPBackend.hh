@@ -164,6 +164,14 @@ public:
    */
   void registerHostPointer(void *HostPtr, void *DevPtr) {
     HostToDev_[HostPtr] = DevPtr;
+    DevToHost_[DevPtr] = HostPtr;
+  }
+
+  void *getAssociatedHostPtr(void *DevPtr) {
+    if (!DevToHost_.count(DevPtr))
+      return nullptr;
+
+    return DevToHost_[DevPtr];
   }
 
   void unregsiterHostPointer(void *HostPtr) {
@@ -649,6 +657,8 @@ protected:
   void **ArgsPointer_ = nullptr;
 
 public:
+  size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
+  void **getArgsPointer() { return ArgsPointer_; }
   /**
    * @brief Deleted default constructor
    * Doesn't make sense for CHIPExecItem to exist without arguments
