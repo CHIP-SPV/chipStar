@@ -1080,7 +1080,13 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
-  *DevPtr = AllocInfo->BasePtr;
+  if (!AllocInfo) {
+    logWarn("host pointer was not mapped via hipHostRegister... Returning host "
+            "pointer as device pointer (in case host pointer was mapped "
+            "through hipMallocShared or hipMallocHost");
+    *DevPtr = HostPtr;
+  } else
+    *DevPtr = AllocInfo->BasePtr;
 
   RETURN(hipSuccess);
   CHIP_CATCH
