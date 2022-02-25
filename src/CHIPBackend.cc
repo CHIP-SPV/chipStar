@@ -1405,6 +1405,8 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   for (int i = 0; i < ExecItem->getNumArgs(); i++) {
 
     void **k = reinterpret_cast<void **>(Args[i]);
+    if (!k)
+      continue;
     void *DevPtr = reinterpret_cast<void *>(*k);
     void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
 
