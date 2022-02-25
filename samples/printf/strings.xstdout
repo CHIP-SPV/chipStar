@@ -2,8 +2,4 @@
 Hello
 ## literal_str_arg
 Hello strings.
-## global_str_arg
-HELLO
- STRiNGS
-
 PASSED!

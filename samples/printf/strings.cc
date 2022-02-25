@@ -48,6 +48,9 @@ __global__ void literal_str_arg(int *out) {
   out[tid] += printf(" %s\n", "strings.");
 }
 
+#ifdef GENERIC_STR_ARGS_SUPPORTED
+// This ends up being a generic str arg case as the strings are casted to
+// generic before passing to the printf arg list.
 __global__ void var_str_arg(int *out) {
   uint tid = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
   const char *hello = "HELLO\n";
@@ -56,6 +59,7 @@ __global__ void var_str_arg(int *out) {
   out[tid] = printf("%s", hello);
   out[tid] += printf(" %s\n", strings);
 }
+#endif
 
 int main(int argc, char *argv[]) {
   uint num_threads = 1;
@@ -87,6 +91,7 @@ int main(int argc, char *argv[]) {
 #endif
   }
 
+#if GENERIC_STR_ARGS_SUPPORTED
   hipLaunchKernelGGL(var_str_arg, dim3(1), dim3(1), 0, 0, retval);
   hipStreamSynchronize(0);
 
@@ -97,5 +102,6 @@ int main(int argc, char *argv[]) {
     CHECK(retval[ii], 2);
 #endif
   }
+#endif
   printf((failures == 0) ? "PASSED!\n" : "FAILED!\n");
 }

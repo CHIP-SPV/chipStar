@@ -144,7 +144,7 @@ getFormatStringPieces(Value *FmtStrArg, unsigned &NumberOfFormatSpecs) {
   size_t Pos = 0;
   while ((Pos = FmtStr.find("%s")) != std::string::npos &&
          // Without this we'd handle %%s wrongly.
-         (Pos > 1 && FmtStr[Pos - 1] != '%')) {
+         !(Pos > 0 && FmtStr[Pos - 1] == '%')) {
     std::string TokenBefore = FmtStr.substr(0, Pos);
     if (TokenBefore != "")
       FmtStrPieces.push_back(TokenBefore);
@@ -392,7 +392,6 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
   }
 
   SmallPtrSet<GlobalVariable *, 8> UnusedGlobals;
-
   return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
