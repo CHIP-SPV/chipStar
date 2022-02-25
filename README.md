@@ -68,7 +68,7 @@ make
 ## Building & Running Unit Tests
 
 ```bash
-make UnitTests -j
+make build_tests_standalone -j
 ctest --timeout 120 # currently some tests might hang
 ```
 
