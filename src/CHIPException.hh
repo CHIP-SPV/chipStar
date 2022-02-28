@@ -66,7 +66,7 @@ inline void checkIfNullptr(int NumArgs, ...) {
   va_start(VaArgList, NumArgs);
   while (NumArgs--)
     if (va_arg(VaArgList, const void *) == nullptr)
-      CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
+      CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidHandle);
   va_end(VaArgList);
 
   return;

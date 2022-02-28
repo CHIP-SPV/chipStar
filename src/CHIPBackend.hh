@@ -157,6 +157,31 @@ private:
   std::unordered_map<void *, AllocationInfo> DevToAllocInfo_;
 
 public:
+  /**
+   * @brief Associate a host pointer with a device pointer. @see hipHostRegister
+   *
+   * @param HostPtr
+   */
+  void registerHostPointer(void *HostPtr, void *DevPtr) {
+    HostToDev_[HostPtr] = DevPtr;
+    DevToHost_[DevPtr] = HostPtr;
+  }
+
+  void *getAssociatedHostPtr(void *DevPtr) {
+    if (!DevToHost_.count(DevPtr))
+      return nullptr;
+
+    return DevToHost_[DevPtr];
+  }
+
+  void unregsiterHostPointer(void *HostPtr) {
+    if (HostToDev_.count(HostPtr) == 0)
+      CHIPERR_LOG_AND_THROW("Tried to unregister a host variable which was not "
+                            "registered with this device",
+                            hipErrorTbd);
+    HostToDev_.erase(HostPtr);
+  }
+
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
   /**
    * @brief Construct a new CHIPAllocationTracker object
@@ -281,6 +306,7 @@ protected:
   CHIPEvent() = default;
 
 public:
+  CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
@@ -631,6 +657,8 @@ protected:
   void **ArgsPointer_ = nullptr;
 
 public:
+  size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
+  void **getArgsPointer() { return ArgsPointer_; }
   /**
    * @brief Deleted default constructor
    * Doesn't make sense for CHIPExecItem to exist without arguments
@@ -742,6 +770,8 @@ protected:
   /// Maps host-side shadow variables to the corresponding device variables.
   std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
 
+  int Idx_;
+
 public:
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
@@ -751,8 +781,6 @@ public:
   /// Registered modules and a mapping from module binary blob pointers
   /// to the associated CHIPModule.
   std::unordered_map<const std::string *, CHIPModule *> ChipModules;
-
-  int Idx;
 
   CHIPAllocationTracker *AllocationTracker = nullptr;
 

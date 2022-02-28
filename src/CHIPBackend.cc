@@ -377,7 +377,7 @@ CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
 CHIPDevice::CHIPDevice(CHIPContext *Ctx) : Ctx_(Ctx) {}
 
 CHIPDevice::CHIPDevice() {
-  logDebug("Device {} is {}: name \"{}\" \n", Idx, (void *)this,
+  logDebug("Device {} is {}: name \"{}\" \n", Idx_, (void *)this,
            HipDeviceProps_.name);
 }
 CHIPDevice::~CHIPDevice() {}
@@ -446,7 +446,7 @@ CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *HostPtr) {
 }
 
 CHIPContext *CHIPDevice::getContext() { return Ctx_; }
-int CHIPDevice::getDeviceId() { return Idx; }
+int CHIPDevice::getDeviceId() { return Idx_; }
 
 CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *HostPtr) {
   if (DeviceVarLookup_.count(HostPtr)) {
@@ -1397,6 +1397,29 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   auto ChipEvent = launchImpl(ExecItem);
   ChipEvent->Msg = "launch";
   updateLastEvent(ChipEvent);
+
+  size_t NumArgs = ExecItem->getKernel()->getFuncInfo()->ArgTypeInfo.size();
+
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto Args = ExecItem->getArgsPointer();
+  for (int i = 0; i < ExecItem->getNumArgs(); i++) {
+
+    void **k = reinterpret_cast<void **>(Args[i]);
+    if (!k)
+      continue;
+    void *DevPtr = reinterpret_cast<void *>(*k);
+    void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
+
+    if (HostPtr) {
+      auto AllocInfo = AllocTracker->getByDevPtr(DevPtr);
+      logDebug("A hipHostRegister argument was found. Appending a mem copy "
+               "back to the host {} -> {}",
+               DevPtr, HostPtr);
+      auto Ev = this->memCopyImpl(HostPtr, DevPtr, AllocInfo->Size);
+      Ev->Msg = "hipHostRegisterMemCpy";
+      updateLastEvent(Ev);
+    }
+  }
 }
 CHIPEvent *
 CHIPQueue::enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor) {

@@ -115,6 +115,8 @@ protected:
 
 public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
 
   virtual CHIPEventLevel0 *getLastEvent() override;
 
@@ -257,8 +259,10 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_properties_t ZeDeviceProps_;
 
 public:
-  CHIPDeviceLevel0(ze_device_handle_t *ZeDev, CHIPContextLevel0 *ChipCtx);
-  CHIPDeviceLevel0(ze_device_handle_t &&ZeDev, CHIPContextLevel0 *ChipCtx);
+  CHIPDeviceLevel0(ze_device_handle_t *ZeDev, CHIPContextLevel0 *ChipCtx,
+                   int Idx);
+  CHIPDeviceLevel0(ze_device_handle_t &&ZeDev, CHIPContextLevel0 *ChipCtx,
+                   int Idx);
 
   virtual void populateDevicePropertiesImpl() override;
   ze_device_handle_t &get() { return ZeDev_; }
