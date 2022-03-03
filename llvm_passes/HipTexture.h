@@ -26,6 +26,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <map>
 
 using namespace llvm;
 using namespace std;
@@ -409,9 +410,20 @@ protected:
   // prohibite code optimization are removed
   bool assignAttributes(Function* destF, Function* srcF) {
     AttributeList attrs = srcF->getAttributes();
-    attrs = attrs.removeAttribute(M.getContext(), AttributeList::FunctionIndex, Attribute::OptimizeNone);
-    attrs = attrs.removeAttribute(M.getContext(), AttributeList::FunctionIndex, Attribute::NoInline);
-    attrs = attrs.removeAttribute(M.getContext(), AttributeList::FunctionIndex, "frame-pointer");
+#if LLVM_VERSION_MAJOR < 14
+    attrs = attrs.removeAttribute(M.getContext(), AttributeList::FunctionIndex,
+                                  Attribute::OptimizeNone);
+    attrs = attrs.removeAttribute(M.getContext(), AttributeList::FunctionIndex,
+                                  Attribute::NoInline);
+    attrs = attrs.removeAttribute(M.getContext(), AttributeList::FunctionIndex,
+                                  "frame-pointer");
+#else
+    AttributeMask AttrMask;
+    AttrMask.addAttribute(Attribute::OptimizeNone);
+    AttrMask.addAttribute(Attribute::NoInline);
+    attrs = attrs.removeFnAttributes(M.getContext(), AttrMask);
+    attrs = attrs.removeFnAttribute(M.getContext(), "frame-pointer");
+#endif
 
     // Inherit the attributes from original function   
     destF->setAttributes(attrs);

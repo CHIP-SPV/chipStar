@@ -14,6 +14,10 @@ message(STATUS "LLVM CMake directory: ${LLVM_DIR}")
 
 find_package(LLVM REQUIRED CONFIG HINTS "${LLVM_DIR}" PATHS "${LLVM_DIR}" NO_DEFAULT_PATH)
 
+if(NOT DEFINED LLVM_VERSION)
+  message(FATAL "Could not determine LLVM version.")
+endif()
+
 ######################################
 
 add_definitions(${LLVM_DEFINITIONS})
@@ -36,7 +40,7 @@ install(TARGETS LLVMHipDynMem LLVMHipStripCompilerUsed LLVMHipTexture
         ARCHIVE DESTINATION lib/llvm
         )
 
-if(DEFINED LLVM_VERSION_MAJOR AND "${LLVM_VERSION_MAJOR}" VERSION_GREATER 9)
+if("${LLVM_VERSION}" VERSION_GREATER 9.0)
   add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
   install(TARGETS LLVMHipDefrost
           LIBRARY DESTINATION lib/llvm
@@ -44,12 +48,23 @@ if(DEFINED LLVM_VERSION_MAJOR AND "${LLVM_VERSION_MAJOR}" VERSION_GREATER 9)
           )
 endif()
 
-if(DEFINED LLVM_VERSION_MAJOR AND "${LLVM_VERSION_MAJOR}" VERSION_GREATER 10)
+if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 11.0)
   add_library(LLVMHipPasses MODULE HipPasses.cpp
-    HipDynMem.cpp HipStripCompilerUsed.cpp HipTexture.cpp HipDefrost.cpp HipPrintf.cpp HipGlobalVariables.cpp)
+    HipDynMem.cpp HipStripCompilerUsed.cpp HipTexture.cpp HipDefrost.cpp
+    HipPrintf.cpp HipGlobalVariables.cpp)
+
+  if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
+    set_target_properties(LLVMHipPasses PROPERTIES
+      # HIP-Clang 14+ automatically searches for libLLVMHipSpvPasses.so in
+      # <HIP-PATH>/lib where <HIP-PATH> is path given to --hip-path for
+      # HIP program compilation.
+      OUTPUT_NAME "LLVMHipSpvPasses"
+      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+  endif()
 
   install(TARGETS LLVMHipPasses
           LIBRARY DESTINATION lib/llvm
-          ARCHIVE DESTINATION lib/llvm
-          )
+          ARCHIVE DESTINATION lib/llvm)
+
 endif()

@@ -29,14 +29,20 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipGlobalVariablesPass());
 }
 
+#if LLVM_VERSION_MAJOR < 14
+#define PASS_ID "hip-link-time-passes"
+#else
+#define PASS_ID "hip-post-link-passes"
+#endif
+
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-passes",
-          LLVM_VERSION_STRING, [](PassBuilder &PB) {
+  return {LLVM_PLUGIN_API_VERSION, "hip-passes", LLVM_VERSION_STRING,
+          [](PassBuilder &PB) {
             PB.registerPipelineParsingCallback(
                 [](StringRef Name, ModulePassManager &MPM,
                    ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-link-time-passes") {
+                  if (Name == PASS_ID) {
                     addFullLinkTimePasses(MPM);
                     return true;
                   }
