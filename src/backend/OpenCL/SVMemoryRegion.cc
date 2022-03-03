@@ -8,8 +8,8 @@ SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
   return *this;
 }
 
-void *SVMemoryRegion::allocate(cl::Context Ctx, size_t Size) {
-  void *Ptr = ::clSVMAlloc(Ctx.get(), CL_MEM_READ_WRITE, Size, SVM_ALIGNMENT);
+void *SVMemoryRegion::allocate(size_t Size) {
+  void *Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, SVM_ALIGNMENT);
   if (Ptr) {
     logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
     SvmAllocations_.emplace(Ptr, Size);

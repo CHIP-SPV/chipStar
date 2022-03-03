@@ -472,19 +472,23 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 // CHIPContextOpenCL
 //*************************************************************************
 
-void CHIPContextOpenCL::freeImpl(void *Ptr) { UNIMPLEMENTED(); };
+void CHIPContextOpenCL::freeImpl(void *Ptr) {
+  size_t Ignored;
+  SvmMemory.free(Ptr, &Ignored);
+};
 
 cl::Context *CHIPContextOpenCL::get() { return ClContext; }
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
   logTrace("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
   ClContext = CtxIn;
+  SvmMemory.init(*CtxIn);
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       CHIPMemoryType MemType) {
   void *Retval;
 
-  Retval = SvmMemory.allocate(*ClContext, Size);
+  Retval = SvmMemory.allocate(Size);
   return Retval;
 }
 
