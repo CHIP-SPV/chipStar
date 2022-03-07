@@ -17,7 +17,13 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipStripCompilerUsedPass());
   MPM.addPass(HipDynMemExternReplaceNewPass());
   MPM.addPass(HipTextureExternReplaceNewPass());
+#if LLVM_VERSION_MAJOR < 14
+  // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
+  //
+  //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
+  //  failed.
   MPM.addPass(createModuleToFunctionPassAdaptor(HipPrintfToOpenCLPrintfPass()));
+#endif
   MPM.addPass(createModuleToFunctionPassAdaptor(HipDefrostPass()));
   // This pass must appear after HipDynMemExternReplaceNewPass.
   MPM.addPass(HipGlobalVariablesPass());
