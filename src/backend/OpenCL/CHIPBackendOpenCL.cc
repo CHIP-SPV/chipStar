@@ -7,6 +7,9 @@
 
 static cl_sampler createSampler(cl_context Ctx, const hipResourceDesc &ResDesc,
                                 const hipTextureDesc &TexDesc) {
+
+  bool IsNormalized = TexDesc.normalizedCoords != 0;
+
   // Identify the address mode
   cl_addressing_mode AddressMode = CL_ADDRESS_NONE;
   if (ResDesc.resType == hipResourceTypeLinear)
@@ -14,14 +17,20 @@ static cl_sampler createSampler(cl_context Ctx, const hipResourceDesc &ResDesc,
     // cudaResourceTypeLinear." - CUDA 11.6.1/CUDA Runtime API.
     // Effectively out-of-bound references are undefined.
     AddressMode = CL_ADDRESS_NONE;
-  else if (TexDesc.addressMode[0] == hipAddressModeWrap)
-    AddressMode = CL_ADDRESS_REPEAT;
   else if (TexDesc.addressMode[0] == hipAddressModeClamp)
     AddressMode = CL_ADDRESS_CLAMP_TO_EDGE;
-  else if (TexDesc.addressMode[0] == hipAddressModeMirror)
-    AddressMode = CL_ADDRESS_MIRRORED_REPEAT;
   else if (TexDesc.addressMode[0] == hipAddressModeBorder)
     AddressMode = CL_ADDRESS_CLAMP;
+  else if (!IsNormalized)
+    // "... if cudaTextureDesc::normalizedCoords is set to zero,
+    // cudaAddressModeWrap and cudaAddressModeMirror won't be
+    // supported and will be switched to cudaAddressModeClamp."
+    // - CUDA 11.6.1/CUDA Runtime API.
+    AddressMode = CL_ADDRESS_CLAMP_TO_EDGE;
+  else if (TexDesc.addressMode[0] == hipAddressModeWrap)
+    AddressMode = CL_ADDRESS_REPEAT;
+  else if (TexDesc.addressMode[0] == hipAddressModeMirror)
+    AddressMode = CL_ADDRESS_MIRRORED_REPEAT;
 
   // Identify the filter mode
   cl_filter_mode FilterMode = CL_FILTER_NEAREST;

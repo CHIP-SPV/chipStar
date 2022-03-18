@@ -123,6 +123,9 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
               const struct hipResourceViewDesc *PResViewDesc) {
   logTrace("CHIPTextureLevel0::createSampler");
 
+  // Identify the normalization
+  ze_bool_t IsNormalized = PTexDesc->normalizedCoords != 0;
+
   // Identify the address mode
   ze_sampler_address_mode_t AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
   if (PResDesc->resType == hipResourceTypeLinear)
@@ -130,15 +133,22 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
     // cudaResourceTypeLinear." - CUDA 11.6.1/CUDA Runtime API.
     // Effectively out-of-bound references are undefined.
     AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
-  else if (PTexDesc->addressMode[0] == hipAddressModeWrap)
-    // FIXME: The mode should be repeat.
-    AddressMode = ZE_SAMPLER_ADDRESS_MODE_NONE;
   else if (PTexDesc->addressMode[0] == hipAddressModeClamp)
     AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP;
-  else if (PTexDesc->addressMode[0] == hipAddressModeMirror)
-    AddressMode = ZE_SAMPLER_ADDRESS_MODE_MIRROR;
   else if (PTexDesc->addressMode[0] == hipAddressModeBorder)
     AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  else if (!IsNormalized)
+    // "... if cudaTextureDesc::normalizedCoords is set to zero,
+    // cudaAddressModeWrap and cudaAddressModeMirror won't be
+    // supported and will be switched to cudaAddressModeClamp."
+    // - CUDA 11.6.1/CUDA Runtime API.
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP;
+  else if (PTexDesc->addressMode[0] == hipAddressModeWrap)
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_REPEAT;
+  else if (PTexDesc->addressMode[0] == hipAddressModeMirror)
+    AddressMode = ZE_SAMPLER_ADDRESS_MODE_MIRROR;
+  else
+    CHIPASSERT(false && "Unknown address mode!");
 
   // Identify the filter mode
   ze_sampler_filter_mode_t FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
@@ -150,13 +160,8 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
     FilterMode = ZE_SAMPLER_FILTER_MODE_NEAREST;
   else if (PTexDesc->filterMode == hipFilterModeLinear)
     FilterMode = ZE_SAMPLER_FILTER_MODE_LINEAR;
-
-  // Identify the normalization
-  ze_bool_t IsNormalized = 0;
-  if (PTexDesc->normalizedCoords == 0)
-    IsNormalized = 0;
   else
-    IsNormalized = 1;
+    CHIPASSERT(false && "Unknown filter mode!");
 
   ze_sampler_desc_t SamplerDesc = {ZE_STRUCTURE_TYPE_SAMPLER_DESC, nullptr,
                                    AddressMode, FilterMode, IsNormalized};
