@@ -784,9 +784,14 @@ void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
 void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
                                         const void *HostPtr, const char *Name,
                                         size_t Size) {
-  auto ModuleIter = ChipModules.find(ModuleStr);
-  assert(ModuleIter != ChipModules.end() && "Module was not registered!");
-  auto *Module = ModuleIter->second;
+  if (!ChipModules.count(ModuleStr)) {
+    auto *NewModule = addModule(ModuleStr);
+    NewModule->compileOnce(this);
+  }
+  if (!ChipModules.count(ModuleStr))
+    CHIPERR_LOG_AND_THROW(
+        "Broken expectation: could not find a module by name,", hipErrorTbd);
+  CHIPModule *Module = ChipModules[ModuleStr];
 
   std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + Name;
   if (!Module->hasKernel(VarInfoKernelName)) {
@@ -796,9 +801,8 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
     // lack of the variable in the device module is used as a quick (and dirty)
     // way to not query for the global flag value after each kernel execution
     // (reading of which requires kernel launches).
-    logTrace(
-        "Device variable {} not found in the module -- removed as unusued?",
-        Name);
+    logTrace("Device variable {} not found in the module -- removed as unused?",
+             Name);
     return;
   }
 
