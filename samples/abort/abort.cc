@@ -81,5 +81,5 @@ int main(int argc, char *argv[]) {
   hipLaunchKernelGGL(abort_in_subfunction, dim3(1), dim3(1), 0, 0, RetVal);
   hipStreamSynchronize(0);
 
-  return EXIT_FAILURE;
+  return 0;
 }

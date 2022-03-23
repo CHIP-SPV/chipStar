@@ -72,6 +72,7 @@ function(add_chip_library EXEC_NAME)
 endfunction()
 
 set(SAMPLES
+    abort
     hipmath
     hiptest
     bit_extract
