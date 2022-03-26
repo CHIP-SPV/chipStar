@@ -1,4 +1,7 @@
 #include "CHIPBackendOpenCL.hh"
+
+#include <sstream>
+
 // CHIPCallbackDataLevel0
 // ************************************************************************
 
@@ -860,17 +863,20 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
   else
     throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
-  std::cout << "Using Devices of type " << CHIPDeviceTypeStr << "\n";
+  logDebug("Using Devices of type {}", CHIPDeviceTypeStr);
 
   std::vector<cl::Platform> Platforms;
   cl_int Err = cl::Platform::get(&Platforms);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
-  std::cout << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
+  std::stringstream StrStream;
+  StrStream << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
   for (int i = 0; i < Platforms.size(); i++) {
-    std::cout << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
+    StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
+  logDebug("{}", StrStream.str());
+  StrStream.str("");
 
-  std::cout << "OpenCL Devices of type " << CHIPDeviceTypeStr
+  StrStream << "OpenCL Devices of type " << CHIPDeviceTypeStr
             << " with SPIR-V_1 support:\n";
   std::vector<cl::Device> Devices;
   for (auto Plat : Platforms) {
@@ -880,11 +886,13 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     for (auto D : Dev) {
       std::string Ver = D.getInfo<CL_DEVICE_IL_VERSION>(&Err);
       if ((Err == CL_SUCCESS) && (Ver.rfind("SPIR-V_1.", 0) == 0)) {
-        std::cout << D.getInfo<CL_DEVICE_NAME>() << "\n";
+        std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
+        StrStream << DeviceName << "\n";
         Devices.push_back(D);
       }
     }
   }
+  logDebug("{}", StrStream.str());
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
@@ -904,7 +912,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     ChipContext->addQueue(Queue);
     Backend->addQueue(Queue);
   }
-  std::cout << "OpenCL Context Initialized.\n";
+  logDebug("OpenCL Context Initialized.");
 };
 
 // Other
