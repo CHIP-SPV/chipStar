@@ -179,10 +179,11 @@ add_dependencies(UnitTests CHIP)
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
 
-
-add_dependencies(LLVMHipPasses kernellib_bc)
-add_dependencies(samples kernellib_bc)
-add_dependencies(CHIP kernellib_bc)
+# Make CHIP depend on kernellib_bc and LLVMHipPasses for
+# convenience. The CHIP module itself does not depend on these but
+# HIP program compilation does.
+add_dependencies(CHIP kernellib_bc LLVMHipPasses)
+add_dependencies(samples CHIP)
 
 set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(CHIP_CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
