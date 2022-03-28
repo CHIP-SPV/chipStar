@@ -435,6 +435,8 @@ class CHIPModule {
   /// this module is attached to.
   bool DeviceVariablesInitialized_ = false;
 
+  OpenCLFunctionInfoMap FuncInfos_;
+
 protected:
   uint8_t *FuncIL_;
   size_t IlSize_;
@@ -449,7 +451,6 @@ protected:
   std::once_flag Compiled_;
 
   int32_t *BinaryData_;
-  OpenCLFunctionInfoMap FuncInfos_;
 
   /**
    * @brief hidden default constuctor. Only derived type constructor should be
@@ -561,6 +562,8 @@ public:
   void initializeDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
   void invalidateDeviceVariablesNoLock();
   void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
+
+  OCLFuncInfo *findFunctionInfo(const std::string &FName);
 };
 
 /**

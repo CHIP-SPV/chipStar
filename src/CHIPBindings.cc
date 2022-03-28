@@ -27,7 +27,7 @@
 #include "hip_conversions.hh"
 #include "macros.hh"
 
-#define SPIR_TRIPLE "hip-spir64-unknown-unknown"
+#define SPIR_BUNDLE_ID "hip-spir64-unknown-unknown"
 
 static unsigned NumBinariesLoaded = 0;
 
@@ -2136,16 +2136,23 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
        ++i, Desc = reinterpret_cast<const __ClangOffloadBundleDesc *>(
                 reinterpret_cast<uintptr_t>(&Desc->triple[0]) +
                 Desc->tripleSize)) {
-    std::string Triple{&Desc->triple[0], sizeof(SPIR_TRIPLE) - 1};
-    logDebug("Triple of bundle {} is: {}\n", i, Triple);
+    std::string EntryID{&Desc->triple[0], Desc->tripleSize};
+    logDebug("Bundle entry ID {} is: '{}'\n", i, EntryID);
 
-    if (Triple.compare(SPIR_TRIPLE) == 0) {
+    // SPIR-V bundle entry ID for HIP-Clang 14+. Additional components
+    // are ignored for now.
+    const std::string SPIRVBundleID = "hip-spirv64";
+    if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID) {
       Found = true;
       break;
-    } else {
-      logDebug("not a SPIR triple, ignoring\n");
-      continue;
     }
+
+    if (EntryID == SPIR_BUNDLE_ID) {
+      Found = true;
+      break;
+    }
+
+    logDebug("not a SPIR-V triple, ignoring\n");
   }
 
   if (!Found) {

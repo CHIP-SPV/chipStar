@@ -13,8 +13,10 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 ## Prerequisites
 
 * Cmake >= 3.18.0
-* Clang with SPIR-V patches: [hipcl-clang](https://github.com/parmance/llvm-project)
-* SPIRV-LLVM-Translator: [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
+* Clang >= 14.0
+* SPIRV-LLVM-Translator from a branch matching to the clang version:
+  (e.g. llvm\_release\_140 for Clang 14.0)
+  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime)
 * For OpenCL Backend
@@ -27,11 +29,9 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 Downloading:
 
 ```bash
-git clone git@github.com:parmance/llvm-project.git -b hip2spirv-v5
+git clone -b release/14.x https://github.com/llvm/llvm-project.git
 cd llvm-project/llvm/projects
-git clone git@github.com:KhronosGroup/SPIRV-LLVM-Translator.git
-cd SPIRV-LLVM-Translator
-git checkout 8679b960f46a5095e4230e1e350cef035f6f6b9e
+git clone -b llvm_release_140 https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
 ```
 
 Building:

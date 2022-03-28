@@ -17,20 +17,32 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipStripCompilerUsedPass());
   MPM.addPass(HipDynMemExternReplaceNewPass());
   MPM.addPass(HipTextureExternReplaceNewPass());
+#if LLVM_VERSION_MAJOR < 14
+  // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
+  //
+  //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
+  //  failed.
   MPM.addPass(createModuleToFunctionPassAdaptor(HipPrintfToOpenCLPrintfPass()));
+#endif
   MPM.addPass(createModuleToFunctionPassAdaptor(HipDefrostPass()));
   // This pass must appear after HipDynMemExternReplaceNewPass.
   MPM.addPass(HipGlobalVariablesPass());
 }
 
+#if LLVM_VERSION_MAJOR < 14
+#define PASS_ID "hip-link-time-passes"
+#else
+#define PASS_ID "hip-post-link-passes"
+#endif
+
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-passes",
-          LLVM_VERSION_STRING, [](PassBuilder &PB) {
+  return {LLVM_PLUGIN_API_VERSION, "hip-passes", LLVM_VERSION_STRING,
+          [](PassBuilder &PB) {
             PB.registerPipelineParsingCallback(
                 [](StringRef Name, ModulePassManager &MPM,
                    ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-link-time-passes") {
+                  if (Name == PASS_ID) {
                     addFullLinkTimePasses(MPM);
                     return true;
                   }

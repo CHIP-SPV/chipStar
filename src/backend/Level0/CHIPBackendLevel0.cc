@@ -1113,15 +1113,16 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
   for (int i = 0; i < KernelCount; i++) {
     std::string HostFName = KernelNames[i];
     logTrace("Registering kernel {}", HostFName);
-    int FoundFuncInfo = FuncInfos_.count(HostFName);
-    if (FoundFuncInfo == 0) {
+
+    auto *FuncInfo = findFunctionInfo(HostFName);
+    if (!FuncInfo) {
       // TODO: __syncthreads() gets turned into Intel_Symbol_Table_Void_Program
       // This is a call to OCML so it shouldn't be turned into a CHIPKernel
       continue;
       // CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
-    auto FuncInfo = FuncInfos_[HostFName];
+
     // Create kernel
     ze_kernel_handle_t ZeKernel;
     ze_kernel_desc_t KernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,

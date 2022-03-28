@@ -176,6 +176,11 @@ static bool shouldLower(const GlobalVariable &GVar) {
   if (GVar.getName().startswith(ChipVarPrefix))
     return false;  // Already lowered.
 
+  // String literals get an unnamed_addr attribute, we know by it to
+  // skip them.
+  if (GVar.hasAtLeastLocalUnnamedAddr())
+    return false;
+
   // Only objects in cross-workgroup address space are considered. LLVM IR
   // straight out from the HIP-Clang does not have objects in constant address
   // space so we don't look for them.

@@ -419,13 +419,12 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
     std::string HostFName = Kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&Err);
     CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError,
                                 "Failed to fetch OpenCL kernel name");
-    int FoundFuncInfo = FuncInfos_.count(HostFName);
-    if (FoundFuncInfo == 0) {
+    auto *FuncInfo = findFunctionInfo(HostFName);
+    if (!FuncInfo) {
       continue; // TODO
       // CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
-    auto FuncInfo = FuncInfos_[HostFName];
     CHIPKernelOpenCL *ChipKernel =
         new CHIPKernelOpenCL(std::move(Kernel), HostFName, FuncInfo);
     addKernel(ChipKernel);
