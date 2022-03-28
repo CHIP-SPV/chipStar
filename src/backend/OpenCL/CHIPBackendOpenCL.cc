@@ -472,10 +472,7 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 // CHIPContextOpenCL
 //*************************************************************************
 
-void CHIPContextOpenCL::freeImpl(void *Ptr) {
-  size_t Ignored;
-  SvmMemory.free(Ptr, &Ignored);
-};
+void CHIPContextOpenCL::freeImpl(void *Ptr) { SvmMemory.free(Ptr); }
 
 cl::Context *CHIPContextOpenCL::get() { return ClContext; }
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {

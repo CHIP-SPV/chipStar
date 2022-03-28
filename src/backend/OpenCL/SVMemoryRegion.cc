@@ -18,11 +18,10 @@ void *SVMemoryRegion::allocate(size_t Size) {
   return Ptr;
 }
 
-bool SVMemoryRegion::free(void *Ptr, size_t *Size) {
+bool SVMemoryRegion::free(void *Ptr) {
   auto I = SvmAllocations_.find(Ptr);
   if (I != SvmAllocations_.end()) {
     void *Ptr = I->first;
-    *Size = I->second;
     logTrace("clSVMFree on: {}\n", Ptr);
     SvmAllocations_.erase(I);
     ::clSVMFree(Context_(), Ptr);
