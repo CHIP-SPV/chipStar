@@ -1625,6 +1625,9 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
   CHIPInitialize();
   NULLCHECK(Dst, Src);
 
+  if (!Width || !Height)
+    RETURN(hipSuccess);
+
   size_t ByteSize;
   if (Src) {
     switch (Src[0].desc.f) {
