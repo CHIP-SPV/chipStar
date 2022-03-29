@@ -97,8 +97,8 @@ class SVMemoryRegion {
 public:
   void init(cl::Context &C) { Context_ = C; }
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
-  void *allocate(cl::Context Ctx, size_t Size);
-  bool free(void *P, size_t *Size);
+  void *allocate(size_t Size);
+  bool free(void *P);
   bool hasPointer(const void *Ptr);
   bool pointerSize(void *Ptr, size_t *Size);
   bool pointerInfo(void *Ptr, void **Base, size_t *Size);
