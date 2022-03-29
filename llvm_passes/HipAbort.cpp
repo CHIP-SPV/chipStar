@@ -53,7 +53,7 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
 
   // The abort calls are made to undefined abort decl thus should not get
   // inlined.
-  GlobalValue *AbortF = Mod.getNamedValue("abort");
+  GlobalValue *AbortF = Mod.getNamedValue("__chipspv_abort");
 
   if (AbortF == nullptr) {
     // Mark modules that do not call abort by just the global flag variable.
@@ -61,6 +61,8 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
     // variable.
     GlobalVariable *AbortFlag = Mod.getGlobalVariable(CHIPSPV_ABORT_FLAG_NAME);
     if (AbortFlag != nullptr) {
+      AbortFlag->replaceAllUsesWith(
+          Constant::getNullValue(AbortFlag->getType()));
       AbortFlag->eraseFromParent();
     }
     return PreservedAnalyses::all();
@@ -85,7 +87,7 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
           continue;
         CallInst *Call = cast<CallInst>(&I);
         CallsToHandle.insert(Call);
-        if (Call->getCalledFunction()->getName() == "abort")
+        if (Call->getCalledFunction()->getName() == "__chipspv_abort")
           AbortCallsToHandle.insert(Call);
       }
     }

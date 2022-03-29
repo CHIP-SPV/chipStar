@@ -425,7 +425,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       //                      hipErrorInitializationError);
     }
     CHIPKernelOpenCL *ChipKernel =
-        new CHIPKernelOpenCL(std::move(Kernel), HostFName, FuncInfo);
+        new CHIPKernelOpenCL(std::move(Kernel), HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
 }
@@ -445,8 +445,9 @@ cl::Kernel CHIPKernelOpenCL::get() const { return OclKernel_; }
 size_t CHIPKernelOpenCL::getTotalArgSize() const { return TotalArgSize_; };
 
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
-                                   std::string HostFName, OCLFuncInfo *FuncInfo)
-    : CHIPKernel(HostFName, FuncInfo) /*, ocl_kernel(cl_kernel_)*/ {
+                                   std::string HostFName, OCLFuncInfo *FuncInfo,
+                                   CHIPModuleOpenCL *Parent)
+    : CHIPKernel(HostFName, FuncInfo), Module(Parent) {
   OclKernel_ = ClKernel;
   int Err = 0;
   // TODO attributes

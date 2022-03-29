@@ -33,6 +33,44 @@ static unsigned NumBinariesLoaded = 0;
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
+// Handles device side abort() call by checking the abort flag global
+// variable used for signaling the request.
+static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
+  logTrace("handleAbortRequest()");
+  CHIPDeviceVar *Var = M.getGlobalVar("__chipspv_abort_called");
+
+  if (!Var)
+    // If the flag is not found, we have removed it in HipAbort pass
+    // to denote abort is not called by any kernel in the module. This
+    // is used for avoiding kernel launches to read the value to
+    // minimize overheads when abort is not used.
+    return;
+
+  int32_t AbortFlag = 0;
+  hipError_t Err = Q.memCopy(&AbortFlag, Var->getDevAddr(), sizeof(int32_t));
+  if (Err != hipSuccess)
+    // We know the abort flag exist so what went wrong on the copy?
+    CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
+
+  if (!AbortFlag)
+    return; // Abort was not called.
+
+  // Disable host-side abort behavior for making the unit testing of abort
+  // cases easier.
+  if (!getenv("CHIP_HOST_IGNORES_DEVICE_ABORT"))
+    abort();
+
+  // Just act like nothing happened. Reset the flag so we let there be more
+  // aborts.
+  AbortFlag = 0;
+  Err = Q.memCopy(Var->getDevAddr(), &AbortFlag, sizeof(int32_t));
+  if (Err != hipSuccess)
+    // Device->host copy succeeded. What went wrong with host->device copy?
+    CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
+
+  printf("[ABORT IGNORED]\n");
+}
+
 hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
                                    const void *ptr) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -2170,9 +2208,17 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   logDebug("hipLaunchKernel()");
   NULLCHECK(HostFunction, Args);
   Stream = Backend->findQueue(Stream);
-  Backend->getActiveDevice()->initializeDeviceVariables();
+  auto *Device = Backend->getActiveDevice();
+  Device->initializeDeviceVariables();
 
   Stream->launchHostFunc(HostFunction, GridDim, BlockDim, Args, SharedMem);
+
+  CHIPKernel *Kernel = Device->findKernelByHostPtr(HostFunction);
+  if (!Kernel)
+    // A kernel we just launched was not found?
+    CHIPERR_LOG_AND_THROW("Unexpected error: could not find a kernel.",
+                          hipErrorTbd);
+  handleAbortRequest(*Stream, *Kernel->getModule());
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2380,6 +2426,7 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
                                    Kernel);
   else
     Stream->launchWithExtraParams(Gird, Block, SharedMemBytes, Extra, Kernel);
+  handleAbortRequest(*Stream, *Kernel->getModule());
   return hipSuccess;
   CHIP_CATCH
 }
@@ -2409,6 +2456,8 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   ExecItem->setKernel(ChipKernel);
 
   ChipQueue->launch(ExecItem);
+  handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
+
   return hipSuccess;
   CHIP_CATCH
 }

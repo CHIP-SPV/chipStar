@@ -495,8 +495,9 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 ze_kernel_handle_t CHIPKernelLevel0::get() { return ZeKernel_; }
 
 CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
-                                   std::string HostFName, OCLFuncInfo *FuncInfo)
-    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel) {
+                                   std::string HostFName, OCLFuncInfo *FuncInfo,
+                                   CHIPModuleLevel0 *Parent)
+    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Module(Parent) {
   logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
 }
 // End CHIPKernelLevelZero
@@ -1455,7 +1456,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", Status);
     CHIPKernelLevel0 *ChipZeKernel =
-        new CHIPKernelLevel0(ZeKernel, HostFName, FuncInfo);
+        new CHIPKernelLevel0(ZeKernel, HostFName, FuncInfo, this);
     addKernel(ChipZeKernel);
   }
 }
