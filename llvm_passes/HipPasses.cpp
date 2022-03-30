@@ -12,7 +12,24 @@
 
 using namespace llvm;
 
+// A pass that removes noinline and optnone attributes from functions.
+class RemoveNoInlineOptNoneAttrsPass
+    : public PassInfoMixin<RemoveNoInlineOptNoneAttrsPass> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    for (auto &F : M) {
+      F.removeFnAttr(Attribute::NoInline);
+      F.removeFnAttr(Attribute::OptimizeNone);
+    }
+    return PreservedAnalyses::none();
+  }
+  static bool isRequired() { return true; }
+};
+
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  // Remove attributes that may prevent the device code from being optimized.
+  MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
+
   // Run a collection of passes run at device link time.
   MPM.addPass(HipStripCompilerUsedPass());
   MPM.addPass(HipDynMemExternReplaceNewPass());
