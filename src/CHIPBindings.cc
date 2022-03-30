@@ -1123,7 +1123,9 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     }
 
   void *DevPtr;
-  hipMalloc(&DevPtr, SizeBytes);
+  auto Err = hipMalloc(&DevPtr, SizeBytes);
+  if (Err != hipSuccess)
+    RETURN(Err);
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();
@@ -1141,9 +1143,9 @@ hipError_t hipHostUnregister(void *HostPtr) {
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
-  hipFree(AllocInfo->BasePtr);
+  auto Err = hipFree(AllocInfo->BasePtr);
   Device->AllocationTracker->unregsiterHostPointer(HostPtr);
-  RETURN(hipSuccess);
+  RETURN(Err);
 
   CHIP_CATCH
 }
@@ -1658,7 +1660,9 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
-    hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream);
+    auto Err = hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream);
+    if (Err != hipSuccess)
+      RETURN(Err);
   }
 
   RETURN(hipSuccess);

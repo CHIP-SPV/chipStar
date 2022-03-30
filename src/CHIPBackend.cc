@@ -54,9 +54,11 @@ static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
   queueKernel(Q, K);
 }
 
-CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t CallbackF,
-                                   void *CallbackArgs, CHIPQueue *ChipQueue)
-    : CallbackF(CallbackF), CallbackArgs(CallbackArgs), ChipQueue(ChipQueue) {}
+CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t TheCallbackF,
+                                   void *TheCallbackArgs,
+                                   CHIPQueue *TheChipQueue)
+    : ChipQueue(TheChipQueue), CallbackArgs(TheCallbackArgs),
+      CallbackF(TheCallbackF) {}
 
 // void CHIPEventMonitor::monitor() {
 //   logDebug("CHIPEventMonitor::monitor()");
@@ -157,8 +159,8 @@ void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
 }
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
-    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
-      Refc_(new size_t(1)) {}
+    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t(1)),
+      ChipContext_(Ctx) {}
 
 // CHIPModuleflags_
 //*************************************************************************************
@@ -296,7 +298,9 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
     queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
     VarInfos.push_back(std::make_pair(Var, &VarInfoBufH[I]));
   }
-  Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
+  auto Err =
+      Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
+  assert(Err == hipSuccess);
   Queue->finish();
 
   // Allocate storage for the device variables.
@@ -323,7 +327,8 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
 
 void CHIPModule::initializeDeviceVariablesNoLock(CHIPDevice *Device,
                                                  CHIPQueue *Queue) {
-  allocateDeviceVariablesNoLock(Device, Queue);
+  auto Err = allocateDeviceVariablesNoLock(Device, Queue);
+  (void)Err;
 
   // Mark initialized if the module does not have any device variables.
   DeviceVariablesInitialized_ |= ChipVars_.empty();
@@ -355,7 +360,8 @@ void CHIPModule::invalidateDeviceVariablesNoLock() {
 void CHIPModule::deallocateDeviceVariablesNoLock(CHIPDevice *Device) {
   invalidateDeviceVariablesNoLock();
   for (auto *Var : ChipVars_) {
-    Device->getContext()->free(Var->getDevAddr());
+    auto Err = Device->getContext()->free(Var->getDevAddr());
+    (void)Err;
     Var->setDevAddr(nullptr);
   }
   DeviceVariablesAllocated_ = false;
@@ -409,7 +415,7 @@ void CHIPKernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 //*************************************************************************************
 CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue)
-    : GridDim_(GridDim), BlockDim_(BlockDim), SharedMem_(SharedMem),
+    : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
       ChipQueue_(ChipQueue){};
 CHIPExecItem::~CHIPExecItem(){};
 
@@ -526,8 +532,7 @@ CHIPDeviceVar *CHIPDevice::getGlobalVar(const void *HostPtr) {
 }
 
 int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
-  int *Pi;
-  hipDeviceProp_t Prop = {0};
+  hipDeviceProp_t Prop = {};
   copyDeviceProperties(&Prop);
 
   switch (Attr) {
@@ -634,11 +639,9 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
     return Prop.maxTexture3D[2];
     break;
   case hipDeviceAttributeHdpMemFlushCntl:
-    *reinterpret_cast<unsigned int **>(Pi) = Prop.hdpMemFlushCntl;
-    break;
   case hipDeviceAttributeHdpRegFlushCntl:
-    *reinterpret_cast<unsigned int **>(Pi) = Prop.hdpRegFlushCntl;
-    break;
+    assert(false && "UNIMPLEMENTED");
+    return -1;
   case hipDeviceAttributeMaxPitch:
     return Prop.memPitch;
     break;
@@ -1179,7 +1182,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
   CHIPDevice *MatchedDevice = nullptr;
   int MaxMatchedCount = 0;
   for (auto &Dev : ChipDevices) {
-    hipDeviceProp_t CurrentProp = {0};
+    hipDeviceProp_t CurrentProp = {};
     Dev->copyDeviceProperties(&CurrentProp);
     int ValidPropCount = 0;
     int MatchedCount = 0;
@@ -1301,7 +1304,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 // CHIPQueue
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
-    : ChipDevice_(ChipDevice), Flags_(Flags), Priority_(Priority) {
+    : Priority_(Priority), Flags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
   QueueType_ = CHIPQueueType{Flags};
 };
@@ -1455,8 +1458,6 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   auto ChipEvent = launchImpl(ExecItem);
   ChipEvent->Msg = "launch";
   updateLastEvent(ChipEvent);
-
-  size_t NumArgs = ExecItem->getKernel()->getFuncInfo()->ArgTypeInfo.size();
 
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto Args = ExecItem->getArgsPointer();

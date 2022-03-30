@@ -1082,7 +1082,7 @@ public:
    * @brief Destroy the CHIPContext object
    *
    */
-  ~CHIPContext();
+  virtual ~CHIPContext();
 
   virtual void syncQueues(CHIPQueue *TargetQueue);
 
@@ -1323,7 +1323,7 @@ public:
    * @brief Destroy the CHIPBackend objectk
    *
    */
-  ~CHIPBackend();
+  virtual ~CHIPBackend();
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1611,7 +1611,7 @@ public:
    * @brief Destroy the CHIPQueue object
    *
    */
-  ~CHIPQueue();
+  virtual ~CHIPQueue();
 
   CHIPQueueType getQueueType() { return QueueType_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {

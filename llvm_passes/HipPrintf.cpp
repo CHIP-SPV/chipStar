@@ -48,7 +48,6 @@ Value* convertFormatString(Value *HipFmtStrArg, Instruction *Before,
 
   Module *M = Before->getParent()->getParent()->getParent();
 
-  Type *Int8Ty = IntegerType::get(M->getContext(), 8);
   ConstantExpr *CE = cast<ConstantExpr>(HipFmtStrArg);
 
   Value *FmtStrOpr = CE->getOperand(0);

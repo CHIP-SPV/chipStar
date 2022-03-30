@@ -775,9 +775,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     HmaDesc.flags = 0;
 
     // TODO Check if devices support cross-device sharing?
-    // ze_device_handle_t ZeDev = ((CHIPDeviceLevel0 *)getDevices()[0])->get();
-    ze_device_handle_t ZeDev = nullptr; // Do not associate allocation
-
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
 
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -954,8 +951,6 @@ CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
 CHIPTexture *CHIPDeviceLevel0::createTexture(
     const hipResourceDesc *PResDesc, const hipTextureDesc *PTexDesc,
     const struct hipResourceViewDesc *PResViewDesc) {
-  ze_image_handle_t ImageHandle;
-  ze_sampler_handle_t SamplerHandle;
   auto Image =
       CHIPTextureLevel0::createImage(this, PResDesc, PTexDesc, PResViewDesc);
   auto Sampler =
@@ -1074,7 +1069,6 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
                                  CompilerOptions.c_str(),
                                  nullptr};
 
-  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)(ChipDev->getContext());
 
   ze_device_handle_t ZeDev = ((CHIPDeviceLevel0 *)ChipDev)->get();
@@ -1143,7 +1137,6 @@ void CHIPExecItem::setupAllArgs() {
   OCLFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
 
   size_t NumLocals = 0;
-  int LastArgIdx = -1;
 
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
     if (FuncInfo->ArgTypeInfo[i].Space == OCLSpace::Local) {
@@ -1214,8 +1207,6 @@ void CHIPExecItem::setupAllArgs() {
     }
 
     const unsigned char *Start = ArgData_.data();
-    void *Ptr;
-    int Err;
     for (size_t i = 0; i < OffsetSizes_.size(); ++i) {
       OCLArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[i];
       logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
@@ -1230,7 +1221,7 @@ void CHIPExecItem::setupAllArgs() {
         size_t Size = std::get<1>(OffsetSizes_[i]);
         size_t Offset = std::get<0>(OffsetSizes_[i]);
         const void *Value = (void *)(Start + Offset);
-        logTrace("setArg SVM {} to {}\n", i, Ptr);
+        logTrace("setArg SVM {} to {}\n", i, (void *)Value);
         ze_result_t Status =
             zeKernelSetArgumentValue(Kernel->get(), i, Size, Value);
 
