@@ -438,7 +438,8 @@ size_t CHIPExecItem::getSharedMem() { return SharedMem_; }
 CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
 // CHIPDevice
 //*************************************************************************************
-CHIPDevice::CHIPDevice(CHIPContext *Ctx) : Ctx_(Ctx) {}
+CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
+    : Ctx_(Ctx), Idx_(DeviceIdx) {}
 
 CHIPDevice::CHIPDevice() {
   logDebug("Device {} is {}: name \"{}\" \n", Idx_, (void *)this,

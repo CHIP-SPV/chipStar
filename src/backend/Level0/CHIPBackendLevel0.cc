@@ -790,15 +790,13 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 // ***********************************************************************
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t *ZeDev,
                                    CHIPContextLevel0 *ChipCtx, int Idx)
-    : CHIPDevice(ChipCtx), ZeDev_(*ZeDev), ZeCtx_(ChipCtx->get()) {
+    : CHIPDevice(ChipCtx, Idx), ZeDev_(*ZeDev), ZeCtx_(ChipCtx->get()) {
   assert(Ctx_ != nullptr);
-  Idx_ = Idx;
 }
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t &&ZeDev,
                                    CHIPContextLevel0 *ChipCtx, int Idx)
-    : CHIPDevice(ChipCtx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()) {
+    : CHIPDevice(ChipCtx, Idx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()) {
   assert(Ctx_ != nullptr);
-  Idx_ = Idx;
 }
 
 void CHIPDeviceLevel0::reset() { UNIMPLEMENTED(); }

@@ -772,7 +772,7 @@ protected:
   /// Maps host-side shadow variables to the corresponding device variables.
   std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
 
-  int Idx_;
+  int Idx_ = -1; // Initialized with a value indicating unset ID.
 
 public:
   size_t getMaxMallocSize() {
@@ -790,7 +790,7 @@ public:
    * @brief Construct a new CHIPDevice object
    *
    */
-  CHIPDevice(CHIPContext *Ctx);
+  CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
 
   /**
    * @brief Construct a new CHIPDevice object

@@ -46,7 +46,7 @@ void CHIPDeviceOpenCL::destroyTexture(CHIPTexture *ChipTexture) {
 
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
                                    cl::Device *DevIn, int Idx)
-    : CHIPDevice(ChipCtx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
+    : CHIPDevice(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
 
