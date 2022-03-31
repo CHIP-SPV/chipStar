@@ -1459,13 +1459,17 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   ChipEvent->Msg = "launch";
   updateLastEvent(ChipEvent);
 
+  auto &ArgTyInfos = ExecItem->getKernel()->getFuncInfo()->ArgTypeInfo;
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto Args = ExecItem->getArgsPointer();
-  for (int i = 0; i < ExecItem->getNumArgs(); i++) {
-
-    void **k = reinterpret_cast<void **>(Args[i]);
-    if (!k)
+  unsigned InArgI = 0;
+  for (unsigned OutArgI = 0; OutArgI < ExecItem->getNumArgs(); OutArgI++) {
+    if (ArgTyInfos[OutArgI].Space == OCLSpace::Local)
+      // An argument inserted by HipDynMemExternReplaceNewPass hence
+      // there is no corresponding value in argument list.
       continue;
+    void **k = reinterpret_cast<void **>(Args[InArgI++]);
+    assert(k);
     void *DevPtr = reinterpret_cast<void *>(*k);
     void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
 
