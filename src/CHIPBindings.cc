@@ -1342,6 +1342,10 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
   CHIPInitialize();
   NULLCHECK(Dst);
   CHECK(Src);
+
+  if (SizeBytes == 0)
+    RETURN(hipSuccess);
+
   Stream = Backend->findQueue(Stream);
 
   // Stream->getDevice()->initializeDeviceVariables();
@@ -1374,6 +1378,9 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
   CHIPInitialize();
   NULLCHECK(Dst);
   CHECK(Src);
+
+  if (SizeBytes == 0)
+    RETURN(hipSuccess);
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
