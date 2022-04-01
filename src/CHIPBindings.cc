@@ -1124,8 +1124,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 
   void *DevPtr;
   auto Err = hipMalloc(&DevPtr, SizeBytes);
-  if (Err != hipSuccess)
-    RETURN(Err);
+  ERROR_IF(Err != hipSuccess, Err);
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();
@@ -1668,8 +1667,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
     auto Err = hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream);
-    if (Err != hipSuccess)
-      RETURN(Err);
+    ERROR_IF(Err != hipSuccess, Err);
   }
 
   RETURN(hipSuccess);

@@ -300,7 +300,9 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
   }
   auto Err =
       Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
+  // There is no reason the copy would not succeed.
   assert(Err == hipSuccess);
+  (void)Err;
   Queue->finish();
 
   // Allocate storage for the device variables.
@@ -641,8 +643,7 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
     break;
   case hipDeviceAttributeHdpMemFlushCntl:
   case hipDeviceAttributeHdpRegFlushCntl:
-    assert(false && "UNIMPLEMENTED");
-    return -1;
+    UNIMPLEMENTED(-1);
   case hipDeviceAttributeMaxPitch:
     return Prop.memPitch;
     break;
@@ -1470,7 +1471,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
       // there is no corresponding value in argument list.
       continue;
     void **k = reinterpret_cast<void **>(Args[InArgI++]);
-    assert(k);
+    assert(k); // Args list does not have nullpointers in it.
     void *DevPtr = reinterpret_cast<void *>(*k);
     void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
 
