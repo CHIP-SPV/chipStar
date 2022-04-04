@@ -1,8 +1,1 @@
-## conditional string
-inout\[0\] was 1 1
-## array of strings, selecting index 1
-I am a dynamic str arg B.
-
-## host defined string: Extremely dynamic printf str!
-## host defined string with skip: mely dynamic printf str!
-PASSED!
+## conditional string.*inout\[0\] was 1 1.*## array of strings, selecting index 1.*I am a dynamic str arg B.*## host defined string: Extremely dynamic printf str!.*## host defined string with skip: mely dynamic printf str!.*PASSED!
