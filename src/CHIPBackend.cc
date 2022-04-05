@@ -300,9 +300,9 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
   }
   auto Err =
       Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
-  // There is no reason the copy would not succeed.
-  assert(Err == hipSuccess);
-  (void)Err;
+  if (Err != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Internal error: Unexpected memcopy failure.",
+                          hipErrorTbd);
   Queue->finish();
 
   // Allocate storage for the device variables.
@@ -1471,7 +1471,11 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
       // there is no corresponding value in argument list.
       continue;
     void **k = reinterpret_cast<void **>(Args[InArgI++]);
-    assert(k); // Args list does not have nullpointers in it.
+    if (!k)
+      // HIP program provided (Clang generated) argument list should
+      // not have NULLs in it.
+      CHIPERR_LOG_AND_THROW(
+          "Unexcepted internal error: Argument list has NULLs.", hipErrorTbd);
     void *DevPtr = reinterpret_cast<void *>(*k);
     void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
 
