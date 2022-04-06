@@ -95,7 +95,32 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
 
 hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
                                  hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_TRY
+  CHIPInitialize();
+
+  if (PCopy->dstPitch == 0)
+    return hipSuccess;
+  if (PCopy->srcPitch == 0)
+    return hipSuccess;
+  if (PCopy->Height * PCopy->WidthInBytes == 0)
+    return hipSuccess;
+  if (PCopy->srcDevice == nullptr && PCopy->dstDevice == nullptr)
+    CHIPERR_LOG_AND_THROW("Source and Destination Device pointer is null",
+                          hipErrorTbd);
+
+  if (PCopy->dstDevice != nullptr && PCopy->srcDevice == nullptr)
+    CHIPERR_LOG_AND_THROW("Source Device pointer is null", hipErrorTbd);
+  if (PCopy->srcDevice != nullptr && PCopy->dstDevice == nullptr)
+    CHIPERR_LOG_AND_THROW("Source Device pointer is null", hipErrorTbd);
+
+  if ((PCopy->WidthInBytes > PCopy->dstPitch) ||
+      (PCopy->WidthInBytes > PCopy->srcPitch))
+    CHIPERR_LOG_AND_THROW("Width > src/dest pitches", hipErrorTbd);
+
+  return hipMemcpy2D(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
+                     PCopy->srcPitch, PCopy->WidthInBytes, PCopy->Height,
+                     hipMemcpyDefault);
+  CHIP_CATCH
 }
 
 //*****************************************************************************
@@ -1506,12 +1531,15 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
 }
 
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
-  NULLCHECK(PCopy,
-            PCopy->dstArray); // TODO remove the dstArray check since this can
-                              // be used as trasnfer to non array
-  return hipMemcpy2D(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
-                     PCopy->srcPitch, PCopy->WidthInBytes, PCopy->Height,
-                     hipMemcpyDefault);
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PCopy);
+
+  auto Err = hipMemcpyParam2DAsync(PCopy, Backend->getActiveQueue());
+
+  Backend->getActiveQueue()->finish();
+  RETURN(Err);
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
