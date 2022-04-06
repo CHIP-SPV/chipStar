@@ -1718,6 +1718,17 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   CHIPInitialize();
   NULLCHECK(SrcHost, DstArray);
 
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getByDevPtr(DstArray->data);
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("Destination device pointer not allocated on device",
+                          hipErrorTbd);
+  if (DstOffset > AllocInfo->Size)
+    CHIPERR_LOG_AND_THROW("Offset greater than allocation size", hipErrorTbd);
+  if (Count > AllocInfo->Size)
+    CHIPERR_LOG_AND_THROW("Copy size greater than allocation size",
+                          hipErrorTbd);
+
   return hipMemcpy((char *)DstArray->data + DstOffset, SrcHost, Count,
                    hipMemcpyHostToDevice);
 
