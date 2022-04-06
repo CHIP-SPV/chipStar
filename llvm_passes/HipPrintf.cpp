@@ -70,7 +70,7 @@
 // can print strings that are not moved to constant space
 // and no special functions is needed for their printout.
 // The SPIR-V implementations seen so far do not care about this.
-#define ASSUME_PRINTF_SUPPORTS_GLOBAL_STRING_ARGS 1
+#define ASSUME_PRINTF_SUPPORTS_GLOBAL_STRING_ARGS 0
 
 using namespace llvm;
 
@@ -302,9 +302,18 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
     SmallPtrSet<Instruction *, 8> EraseList;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        if (!isa<CallInst>(I) ||
-            (cast<CallInst>(I).getCalledFunction()->getName() !=
-             ORIG_PRINTF_FUNC_NAME))
+        auto *CI = dyn_cast<CallInst>(&I);
+        if (!CI)
+          continue;
+        auto *Callee = CI->getCalledFunction();
+        if (!Callee) {
+          // There is a call signature mismatch if getCalledFunction() returns
+          // nullptr.
+          auto *CalledOp = dyn_cast<ConstantExpr>(CI->getCalledOperand());
+          assert(CalledOp && CalledOp->getOpcode() == Instruction::BitCast);
+          Callee = cast<Function>(CalledOp->getOperand(0));
+        }
+        if (Callee->getName() != ORIG_PRINTF_FUNC_NAME)
           continue;
 
         CallInst &OrigCall = cast<CallInst>(I);
@@ -355,9 +364,6 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
               Args.push_back(OrigArg);
               CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
             } else {
-              assert("Support for printfs which require %s args in "
-                     "constant aspace is not implemented." &&
-                     false);
               Args.push_back(OrigArg);
               CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
             }

@@ -31,17 +31,8 @@ THE SOFTWARE.
 #include "hip/hip_runtime.h"
 #include "printf_tests_common.h"
 
-extern "C" __device__ void _cl_print_str(const char *s) {
-  unsigned pos = 0;
-  char c;
-  while ((c = s[pos]) != 0) {
-    printf("%c", c);
-    ++pos;
-  }
-}
-
 __global__ void conditional_string(int *io) {
-  _cl_print_str("## conditional string\n");
+  printf("## conditional string\n");
 
   const char *dyn_a = "inout[0] was 1";
   const char *dyn_b = "inout[0] was something else than 1, it was";
