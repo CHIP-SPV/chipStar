@@ -1520,6 +1520,16 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+
+  if (DPitch < 1)
+    CHIPERR_LOG_AND_THROW("DPitch <= 0", hipErrorInvalidValue);
+  if (SPitch < 1)
+    CHIPERR_LOG_AND_THROW("SPitch <= 0", hipErrorInvalidValue);
+  if (Width > DPitch)
+    CHIPERR_LOG_AND_THROW("Width > DPitch", hipErrorInvalidValue);
+  if (Height * Width == 0)
+    return hipSuccess;
+
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->initializeDeviceVariables();
 
