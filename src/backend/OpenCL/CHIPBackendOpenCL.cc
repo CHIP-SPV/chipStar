@@ -5,15 +5,15 @@
 // CHIPCallbackDataLevel0
 // ************************************************************************
 
-CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF,
-                                               void *CallbackArgs,
+CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
+                                               void *TheCallbackArgs,
                                                CHIPQueue *ChipQueue)
     : ChipQueue((CHIPQueueOpenCL *)ChipQueue) {
-  if (CallbackArgs != nullptr)
-    CallbackArgs = CallbackArgs;
-  if (CallbackF == nullptr)
+  if (TheCallbackArgs != nullptr)
+    CallbackArgs = TheCallbackArgs;
+  if (TheCallback == nullptr)
     CHIPERR_LOG_AND_THROW("", hipErrorTbd);
-  CallbackF = CallbackF;
+  CallbackF = TheCallback;
 }
 
 // CHIPEventMonitorOpenCL
@@ -46,7 +46,7 @@ void CHIPDeviceOpenCL::destroyTexture(CHIPTexture *ChipTexture) {
 
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
                                    cl::Device *DevIn, int Idx)
-    : CHIPDevice(ChipCtx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
+    : CHIPDevice(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
 
@@ -175,7 +175,6 @@ uint64_t CHIPEventOpenCL::getFinishTime() {
                                    sizeof(Ret), &Ret, NULL);
 
   if (Status != CL_SUCCESS) {
-    int UpdatedStatus;
     auto Status = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
                                  sizeof(int), &EventStatus_, NULL);
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -569,7 +568,6 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
                                            Local, nullptr, &Ev);
 
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  hipError_t Retval = hipSuccess;
 
   CHIPEventOpenCL *E =
       new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, Ev.get());

@@ -34,7 +34,6 @@ if(NOT "${HIP_SPIRV_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}"
     message(FATAL_ERROR "Custom HIP_SPIRV_DIR=${HIP_SPIRV_DIR} was provided H that does not contain <HIP_SPIRV_DIR>/share/kernellib.bc")
 endif()
 
-set(CHIP_SPV_INCLUDE_FLAGS "" )
 set(CHIP_SPV_LINK_FLAGS "" )
 set(CHIP_SPV_COMPILE_FLAGS "" )
 
@@ -49,6 +48,11 @@ set(HIP_COMPILER clang)
 if(VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
   add_compile_options("-v")
+endif()
+
+string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+  add_compile_options("-Wall")
 endif()
 
 if (ABORT_IF_NOT_IMPLEMENTED)
@@ -86,8 +90,6 @@ if((CMAKE_C_COMPILER_ID MATCHES "[Cc]lang") OR (CMAKE_C_COMPILER_ID MATCHES "Int
 else()
  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_C_COMPILER_ID = ${CMAKE_C_COMPILER_ID}")
 endif()
-
-set(CHIP_SPV_INCLUDE_FLAGS ${CHIP_SPV_INCLUDE_FLAGS} src backend include . HIP/include ${OpenCL_INCLUDE_DIR})
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -166,11 +168,11 @@ target_include_directories(CHIP
         "${CMAKE_SOURCE_DIR}"
         "${CMAKE_SOURCE_DIR}/src"
         "${CMAKE_SOURCE_DIR}/include"
-        "${CMAKE_SOURCE_DIR}/HIP/include"
-        "${OpenCL_INCLUDE_DIR}"
 )
 
-
+target_include_directories(CHIP SYSTEM PRIVATE
+  "${CMAKE_SOURCE_DIR}/HIP/include"
+  "${OpenCL_INCLUDE_DIR}")
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

@@ -113,15 +113,13 @@ template <class T> std::string resultToString(T Err);
 
 enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 class CHIPEventFlags {
-  bool Default_;
-  bool BlockingSync_;
-  bool DisableTiming_;
-  bool Interprocess_;
+  bool BlockingSync_ = false;
+  bool DisableTiming_ = false;
+  bool Interprocess_ = false;
 
 public:
+  CHIPEventFlags() = default;
   CHIPEventFlags(unsigned Flags) {
-    if (Flags & hipEventDefault)
-      Default_ = true;
     if (Flags & hipEventBlockingSync)
       BlockingSync_ = true;
     if (Flags & hipEventDisableTiming)
@@ -129,9 +127,10 @@ public:
     if (Flags & hipEventInterprocess)
       Interprocess_ = true;
   }
-  CHIPEventFlags() { CHIPEventFlags(hipEventDefault); }
 
-  bool isDefault() { return Default_; };
+  bool isDefault() {
+    return !BlockingSync_ && !DisableTiming_ && !Interprocess_;
+  };
   bool isBlockingSync() { return BlockingSync_; };
   bool isDisableTiming() { return DisableTiming_; };
   bool isInterprocess() { return Interprocess_; };
@@ -773,7 +772,7 @@ protected:
   /// Maps host-side shadow variables to the corresponding device variables.
   std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
 
-  int Idx_;
+  int Idx_ = -1; // Initialized with a value indicating unset ID.
 
 public:
   size_t getMaxMallocSize() {
@@ -791,7 +790,7 @@ public:
    * @brief Construct a new CHIPDevice object
    *
    */
-  CHIPDevice(CHIPContext *Ctx);
+  CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
 
   /**
    * @brief Construct a new CHIPDevice object
@@ -1083,7 +1082,7 @@ public:
    * @brief Destroy the CHIPContext object
    *
    */
-  ~CHIPContext();
+  virtual ~CHIPContext();
 
   virtual void syncQueues(CHIPQueue *TargetQueue);
 
@@ -1324,7 +1323,7 @@ public:
    * @brief Destroy the CHIPBackend objectk
    *
    */
-  ~CHIPBackend();
+  virtual ~CHIPBackend();
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1612,7 +1611,7 @@ public:
    * @brief Destroy the CHIPQueue object
    *
    */
-  ~CHIPQueue();
+  virtual ~CHIPQueue();
 
   CHIPQueueType getQueueType() { return QueueType_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {

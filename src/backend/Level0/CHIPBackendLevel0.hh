@@ -169,9 +169,9 @@ public:
   ze_context_handle_t ZeCtx;
   ze_driver_handle_t ZeDriver;
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t &&ZeCtx)
-      : ZeDriver(ZeDriver), ZeCtx(ZeCtx) {}
+      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
-      : ZeDriver(ZeDriver), ZeCtx(ZeCtx) {}
+      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
 
   void *allocateImpl(size_t Size, size_t Alignment,
                      CHIPMemoryType MemTy) override;
