@@ -49,21 +49,13 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
-                             size_t Count, hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
   auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
   Stream->finish();
   RETURN(Status);
 };
-hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
-                        size_t Count) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
+
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
                          int SrcDeviceId, size_t SizeBytes) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -79,10 +71,7 @@ hipError_t hipMalloc3DArray(hipArray **Array,
                             struct hipExtent Extent, unsigned int Flags) {
   UNIMPLEMENTED(hipErrorNotSupported);
 };
-hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
-                            size_t Count, hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
+
 hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
                               int SrcDevice, size_t SizeBytes,
                               hipStream_t Stream) {
@@ -1441,38 +1430,17 @@ hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
   RETURN(hipMemcpy(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
 }
 
-hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
-                             hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  Stream = Backend->findQueue(Stream);
-
-  Stream->getDevice()->initializeDeviceVariables();
-  Stream->memFillAsync(Dst, 4 * Count, &Value, 4);
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
-hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst);
-
-  Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveQueue()->memFill(Dst, 4 * Count, &Value, 4);
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
 hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                             size_t Height, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+
   NULLCHECK(Dst);
   Stream = Backend->findQueue(Stream);
 
   size_t SizeBytes = Pitch * Height;
   RETURN(hipMemsetAsync(Dst, Value, SizeBytes, Stream));
+  CHIP_CATCH
 }
 
 hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
@@ -1498,13 +1466,10 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
-  if (!Stream)
-    Stream = Backend->getActiveQueue();
 
   char CharVal = Value;
   Stream->memFillAsync(Dst, SizeBytes, &CharVal, 1);
 
-  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -1521,9 +1486,73 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIP_CATCH
 }
 
+hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
+                            size_t Count, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dest);
+  Stream = Backend->findQueue(Stream);
+
+  Stream->getDevice()->initializeDeviceVariables();
+  Stream->memFillAsync(Dest, 1 * Count, &Value, 1);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+};
+
 hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
                        size_t SizeBytes) {
   RETURN(hipMemset(Dest, Value, SizeBytes));
+}
+
+hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
+                             size_t Count, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  Stream = Backend->findQueue(Stream);
+
+  Stream->getDevice()->initializeDeviceVariables();
+  Stream->memFillAsync(Dest, 2 * Count, &Value, 2);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+}
+hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
+                        size_t Count) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dest);
+
+  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveQueue()->memFill(Dest, 2 * Count, &Value, 2);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+};
+
+hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
+                             hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  Stream = Backend->findQueue(Stream);
+
+  Stream->getDevice()->initializeDeviceVariables();
+  Stream->memFillAsync(Dst, 4 * Count, &Value, 4);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+}
+
+hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+
+  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveQueue()->memFill(Dst, 4 * Count, &Value, 4);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
