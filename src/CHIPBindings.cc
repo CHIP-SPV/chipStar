@@ -54,10 +54,6 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
-                            hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
   auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
@@ -1764,6 +1760,19 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
 }
 
 hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Err = hipMemcpy3DAsync(Params, Backend->getActiveQueue());
+
+  Backend->getActiveQueue()->finish();
+
+  RETURN(Err);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
+                            hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Params);
