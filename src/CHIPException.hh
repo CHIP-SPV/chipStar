@@ -80,4 +80,15 @@ inline void checkIfNullptr(int NumArgs, ...) {
     CHIPERR_LOG_AND_THROW("Nullarg", hipErrorInvalidHandle);                   \
   }
 
+#define CHIPASSERT(X)                                                          \
+  do {                                                                         \
+    if (!(X)) {                                                                \
+      std::string Msg = std::string(__FILE__) + ":";                           \
+      Msg += std::to_string(__LINE__) + ": Assertion `";                       \
+      Msg += #X;                                                               \
+      Msg += "' failed.";                                                      \
+      CHIPERR_LOG_AND_THROW(Msg, hipErrorTbd);                                 \
+    }                                                                          \
+  } while (0)
+
 #endif // ifdef guard
