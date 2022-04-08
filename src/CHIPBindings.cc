@@ -1434,31 +1434,82 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                             size_t Height, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-
   NULLCHECK(Dst);
-  Stream = Backend->findQueue(Stream);
+  hipError_t Res = hipSuccess;
+  for (int i = 0; i < Height; i++) {
+    size_t SizeBytes = Width * sizeof(int);
+    auto Offset = Pitch * i;
+    char *DstP = (char *)Dst;
+    auto Res = hipMemset(DstP + Offset, Value, SizeBytes);
+    if (Res != hipSuccess)
+      break;
+  }
 
-  size_t SizeBytes = Pitch * Height;
-  RETURN(hipMemsetAsync(Dst, Value, SizeBytes, Stream));
+  RETURN(Res);
   CHIP_CATCH
 }
 
 hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
                        size_t Height) {
-  size_t SizeBytes = Pitch * Height;
-  RETURN(hipMemset(Dst, Value, SizeBytes));
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveQueue();
+  auto Res = hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
+  Stream->finish();
+
+  RETURN(Res);
+  CHIP_CATCH
 }
 
 hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
                             hipExtent Extent, hipStream_t Stream) {
-  size_t SizeBytes = PitchedDevPtr.pitch * Extent.height * Extent.depth;
-  RETURN(hipMemsetAsync(PitchedDevPtr.ptr, Value, SizeBytes, Stream));
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PitchedDevPtr.ptr);
+
+  if (Extent.height > PitchedDevPtr.ysize ||
+      Extent.width > PitchedDevPtr.xsize || Extent.depth > PitchedDevPtr.pitch)
+    CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorTbd);
+
+  // Check if pointer inside allocation range
+
+  auto Height = Extent.height;
+  auto Width = Extent.width;
+  auto Depth = Extent.depth;
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+
+  if (Height * Width * Depth == 0)
+    return (hipSuccess);
+
+  hipError_t Res = hipSuccess;
+  for (int i = 0; i < Depth; i++)
+    for (int j = 0; j < Height; j++) {
+      size_t SizeBytes = Width;
+      auto Offset = i * (Pitch * Height) + j * Pitch;
+      char *DstP = (char *)Dst;
+      auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
+      if (Res != hipSuccess)
+        break;
+    }
+
+  RETURN(Res);
+  CHIP_CATCH
 }
 
 hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
                        hipExtent Extent) {
-  size_t SizeBytes = PitchedDevPtr.pitch * Extent.height * Extent.depth;
-  RETURN(hipMemset(PitchedDevPtr.ptr, Value, SizeBytes));
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveQueue();
+  auto Res = hipMemset3DAsync(PitchedDevPtr, Value, Extent, Stream);
+  if (Res == hipSuccess)
+    Stream->finish();
+
+  RETURN(Res);
+  CHIP_CATCH
 }
 
 hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
@@ -1466,10 +1517,12 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
+  Stream = Backend->findQueue(Stream);
 
   char CharVal = Value;
   Stream->memFillAsync(Dst, SizeBytes, &CharVal, 1);
 
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
