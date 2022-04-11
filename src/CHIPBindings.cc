@@ -1962,38 +1962,6 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   CHIP_CATCH
 }
 
-hipError_t
-hipCreateTextureObject(hipTextureObject_t *TexObject,
-                       const hipResourceDesc *ResDesc,
-                       const hipTextureDesc *TexDesc,
-                       const struct hipResourceViewDesc *ResViewDesc) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(TexObject, ResDesc, TexDesc, ResViewDesc);
-
-  CHIPTexture *ChipTex =
-      Backend->getActiveDevice()->createTexture(ResDesc, TexDesc, ResViewDesc);
-  hipTextureObject_t RetObj = ChipTex->get();
-  if (RetObj != nullptr) {
-    *TexObject = RetObj;
-    RETURN(hipSuccess);
-  } else
-    RETURN(hipErrorLaunchFailure);
-  CHIP_CATCH
-}
-
-hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
-  CHIP_TRY
-  CHIPInitialize();
-  // TODO CRITCAL look into the define for hipTextureObject_t
-  if (TextureObject == nullptr)
-    RETURN(hipSuccess);
-  CHIPTexture *ChipTexture = (CHIPTexture *)&TextureObject;
-  Backend->getActiveDevice()->destroyTexture(ChipTexture);
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
 hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
   CHIP_TRY
   CHIPInitialize();

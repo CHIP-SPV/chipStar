@@ -189,8 +189,6 @@ add_dependencies(driver LLVMHipPasses)
 
 enable_testing()
 add_subdirectory(HIP/tests/catch catch)
-add_dependencies(UnitTests CHIP)
-
 
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
