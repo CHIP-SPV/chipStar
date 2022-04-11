@@ -35,6 +35,7 @@ class CHIPQueueOpenCL;
 class CHIPEventOpenCL;
 class CHIPBackendOpenCL;
 class CHIPModuleOpenCL;
+class CHIPTextureOpenCL;
 
 class CHIPCallbackDataOpenCL {
 private:
@@ -135,7 +136,10 @@ public:
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
                 const struct hipResourceViewDesc *ResViewDesc) override;
-  virtual void destroyTexture(CHIPTexture *ChipTexture) override;
+  virtual void destroyTexture(CHIPTexture *ChipTexture) override {
+    logTrace("CHIPDeviceOpenCL::destroyTexture");
+    delete ChipTexture;
+  }
 };
 
 class CHIPQueueOpenCL : public CHIPQueue {
@@ -217,6 +221,29 @@ public:
                                                CHIPQueue *ChipQueue) override;
   virtual CHIPEventMonitor *createCallbackEventMonitor() override;
   virtual CHIPEventMonitor *createStaleEventMonitor() override;
+};
+
+class CHIPTextureOpenCL : public CHIPTexture {
+  cl_mem Image;
+  cl_sampler Sampler;
+
+public:
+  CHIPTextureOpenCL() = delete;
+  CHIPTextureOpenCL(const hipResourceDesc &ResDesc, cl_mem TheImage,
+                    cl_sampler TheSampler)
+      : CHIPTexture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
+
+  virtual ~CHIPTextureOpenCL() {
+    cl_int Status;
+    Status = clReleaseMemObject(Image);
+    assert(Status == CL_SUCCESS && "Invalid image handler?");
+    Status = clReleaseSampler(Sampler);
+    assert(Status == CL_SUCCESS && "Invalid sampler handler?");
+    (void)Status;
+  }
+
+  cl_mem getImage() const { return Image; }
+  cl_sampler getSampler() const { return Sampler; }
 };
 
 #endif

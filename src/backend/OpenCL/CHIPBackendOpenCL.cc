@@ -1,6 +1,187 @@
 #include "CHIPBackendOpenCL.hh"
+#include "Utils.hh"
 
 #include <sstream>
+
+#include "Utils.hh"
+
+static cl_sampler createSampler(cl_context Ctx, const hipResourceDesc &ResDesc,
+                                const hipTextureDesc &TexDesc) {
+  // Identify the address mode
+  cl_addressing_mode AddressMode = CL_ADDRESS_NONE;
+  if (ResDesc.resType == hipResourceTypeLinear)
+    // "This [address mode] is ignored if cudaResourceDesc::resType is
+    // cudaResourceTypeLinear." - CUDA 11.6.1/CUDA Runtime API.
+    // Effectively out-of-bound references are undefined.
+    AddressMode = CL_ADDRESS_NONE;
+  else if (TexDesc.addressMode[0] == hipAddressModeWrap)
+    AddressMode = CL_ADDRESS_REPEAT;
+  else if (TexDesc.addressMode[0] == hipAddressModeClamp)
+    AddressMode = CL_ADDRESS_CLAMP_TO_EDGE;
+  else if (TexDesc.addressMode[0] == hipAddressModeMirror)
+    AddressMode = CL_ADDRESS_MIRRORED_REPEAT;
+  else if (TexDesc.addressMode[0] == hipAddressModeBorder)
+    AddressMode = CL_ADDRESS_CLAMP;
+
+  // Identify the filter mode
+  cl_filter_mode FilterMode = CL_FILTER_NEAREST;
+  if (ResDesc.resType == hipResourceTypeLinear)
+    // "This [filter mode] is ignored if cudaResourceDesc::resType is
+    // cudaResourceTypeLinear." - CUDA 11.6.1/CUDA Runtime API.
+    FilterMode = CL_FILTER_NEAREST;
+  else if (TexDesc.filterMode == hipFilterModePoint)
+    FilterMode = CL_FILTER_NEAREST;
+  else if (TexDesc.filterMode == hipFilterModeLinear)
+    FilterMode = CL_FILTER_LINEAR;
+
+  cl_sampler_properties SamplerProps[] = {CL_SAMPLER_NORMALIZED_COORDS,
+                                          TexDesc.normalizedCoords != 0,
+                                          CL_SAMPLER_ADDRESSING_MODE,
+                                          AddressMode,
+                                          CL_SAMPLER_FILTER_MODE,
+                                          FilterMode,
+                                          0};
+  cl_int Status = CL_SUCCESS;
+  auto Sampler = clCreateSamplerWithProperties(Ctx, SamplerProps, &Status);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  return Sampler;
+}
+
+static cl_mem_object_type getImageType(unsigned HipTextureID) {
+  switch (HipTextureID) {
+  default:
+  case hipTextureTypeCubemap:
+  case hipTextureTypeCubemapLayered:
+    break;
+  case hipTextureType1D:
+    return CL_MEM_OBJECT_IMAGE1D;
+  case hipTextureType2D:
+    return CL_MEM_OBJECT_IMAGE2D;
+  case hipTextureType3D:
+    return CL_MEM_OBJECT_IMAGE3D;
+  case hipTextureType1DLayered:
+    return CL_MEM_OBJECT_IMAGE1D_ARRAY;
+  case hipTextureType2DLayered:
+    return CL_MEM_OBJECT_IMAGE2D_ARRAY;
+  }
+  CHIPASSERT(false && "Unknown or unsupported HIP texture type.");
+  return CL_MEM_OBJECT_IMAGE2D;
+}
+
+static const std::map<std::tuple<int, hipChannelFormatKind, bool>,
+                      cl_channel_type>
+    IntChannelTypeMap = {
+        {{8, hipChannelFormatKindSigned, false}, CL_SIGNED_INT8},
+        {{16, hipChannelFormatKindSigned, false}, CL_SIGNED_INT16},
+        {{32, hipChannelFormatKindSigned, false}, CL_SIGNED_INT32},
+        {{8, hipChannelFormatKindUnsigned, false}, CL_UNSIGNED_INT8},
+        {{16, hipChannelFormatKindUnsigned, false}, CL_UNSIGNED_INT16},
+        {{32, hipChannelFormatKindUnsigned, false}, CL_UNSIGNED_INT32},
+        {{8, hipChannelFormatKindSigned, true}, CL_SNORM_INT8},
+        {{16, hipChannelFormatKindSigned, true}, CL_SNORM_INT16},
+        {{8, hipChannelFormatKindUnsigned, true}, CL_UNORM_INT8},
+        {{16, hipChannelFormatKindUnsigned, true}, CL_UNORM_INT16},
+};
+
+static cl_image_format getImageFormat(hipChannelFormatDesc Desc,
+                                      bool NormalizedFloat) {
+
+  cl_image_format ImageFormat;
+  switch (Desc.f) {
+  default:
+    CHIPERR_LOG_AND_THROW("Unsupported texel type kind.", hipErrorTbd);
+  case hipChannelFormatKindUnsigned:
+  case hipChannelFormatKindSigned: {
+    if (Desc.x > 16)
+      // "Note that this [cudaTextureReadMode] applies only to 8-bit and 16-bit
+      // integer formats. 32-bit integer format would not be promoted,
+      // regardless of whether or not this cudaTextureDesc::readMode is set
+      // cudaReadModeNormalizedFloat is specified."
+      //
+      // - CUDA 11.6.1/CUDA Runtime API.
+      NormalizedFloat = false;
+
+    auto I = IntChannelTypeMap.find(
+        std::make_tuple(Desc.x, Desc.f, NormalizedFloat));
+    if (I == IntChannelTypeMap.end())
+      CHIPERR_LOG_AND_THROW("Unsupported integer texel size.", hipErrorTbd);
+    ImageFormat.image_channel_data_type = I->second;
+    break;
+  }
+  case hipChannelFormatKindFloat: {
+    if (Desc.x != 32)
+      CHIPERR_LOG_AND_THROW("Unsupported float texel size.", hipErrorTbd);
+    ImageFormat.image_channel_data_type = CL_FLOAT;
+    break;
+  }
+  }
+
+  // Check the layout is one of: [X, 0, 0, 0], [X, X, 0, 0] or [X, X, X, X].
+  if (!((Desc.y == 0 && Desc.z == 0 && Desc.w == 0) ||
+        (Desc.y == Desc.x && Desc.z == 0 && Desc.w == 0) ||
+        (Desc.y == Desc.x && Desc.z == Desc.x && Desc.w == Desc.x)))
+    CHIPERR_LOG_AND_THROW("Unsupported channel layout.", hipErrorTbd);
+
+  unsigned NumChannels = 1u + (Desc.y != 0) + (Desc.z != 0) + (Desc.w != 0);
+  constexpr cl_channel_order ChannelOrders[4] = {CL_R, CL_RG, CL_RGB, CL_RGBA};
+  ImageFormat.image_channel_order = ChannelOrders[NumChannels - 1];
+
+  return ImageFormat;
+}
+
+static cl_image_desc getImageDescription(unsigned HipTextureTypeID,
+                                         size_t Width, size_t Height = 0,
+                                         size_t Depth = 0) {
+  cl_image_desc ImageDesc;
+  memset(&ImageDesc, 0, sizeof(cl_image_desc));
+  ImageDesc.image_type = getImageType(HipTextureTypeID);
+  ImageDesc.image_width = Width;
+  ImageDesc.image_height = Height;
+  ImageDesc.image_depth = Depth;
+  ImageDesc.image_array_size = Depth;
+  ImageDesc.image_row_pitch = 0;
+  ImageDesc.image_slice_pitch = 0;
+  ImageDesc.num_mip_levels = 0;
+  ImageDesc.num_samples = 0;
+  return ImageDesc;
+}
+
+static cl_mem createImage(cl_context Ctx, unsigned int TextureType,
+                          hipChannelFormatDesc Format, bool NormalizedFloat,
+                          size_t Width, size_t Height = 0, size_t Depth = 0) {
+
+  cl_image_format ImageFormat = getImageFormat(Format, NormalizedFloat);
+  cl_image_desc ImageDesc =
+      getImageDescription(TextureType, Width, Height, Depth);
+  cl_int Status;
+  // These must be zero when host_ptr argument is NULL.
+  CHIPASSERT(ImageDesc.image_row_pitch == 0);
+  CHIPASSERT(ImageDesc.image_slice_pitch == 0);
+  cl_mem Image = clCreateImage(Ctx, CL_MEM_READ_ONLY, &ImageFormat, &ImageDesc,
+                               nullptr, &Status);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+
+  return Image;
+}
+
+static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
+                           const void *HostSrc, const CHIPRegionDesc &SrcRegion,
+                           bool BlockingCopy = true) {
+
+  size_t InputRowPitch = SrcRegion.isPitched() ? SrcRegion.Pitch[0] : 0;
+  size_t InputSlicePitch = 0;
+  if (SrcRegion.isPitched() && SrcRegion.getNumDims() > 2)
+    // The slice pitch must be zero for non-arrayed 1D and 2D images
+    // (OpenCL v2.2/5.3.3).
+    InputSlicePitch = SrcRegion.Pitch[1];
+
+  const size_t *DstOrigin = SrcRegion.Offset;
+  const size_t *DstRegion = SrcRegion.Size;
+  cl_int Status = clEnqueueWriteImage(CmdQ, Image, BlockingCopy, DstOrigin,
+                                      DstRegion, InputRowPitch, InputSlicePitch,
+                                      HostSrc, 0, nullptr, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+}
 
 // CHIPCallbackDataLevel0
 // ************************************************************************
@@ -38,10 +219,72 @@ CHIPTexture *
 CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
                                 const hipTextureDesc *TexDesc,
                                 const struct hipResourceViewDesc *ResViewDesc) {
-  UNIMPLEMENTED(nullptr);
-}
-void CHIPDeviceOpenCL::destroyTexture(CHIPTexture *ChipTexture) {
-  UNIMPLEMENTED();
+  logTrace("CHIPDeviceOpenCL::createTexture");
+
+  bool NormalizedFloat = TexDesc->readMode == hipReadModeNormalizedFloat;
+  auto *Q = (CHIPQueueOpenCL *)getActiveQueue();
+
+  cl_context CLCtx = ((CHIPContextOpenCL *)getContext())->get()->get();
+  cl_sampler Sampler = createSampler(CLCtx, *ResDesc, *TexDesc);
+
+  if (ResDesc->resType == hipResourceTypeArray) {
+    hipArray *Array = ResDesc->res.array.array;
+    // Checked in CHIPBindings already.
+    CHIPASSERT(Array->data && "Invalid hipArray.");
+    CHIPASSERT(!Array->isDrv && "Not supported/implemented yet.");
+    size_t Width = Array->width;
+    size_t Height = Array->height;
+    size_t Depth = Array->depth;
+
+    cl_mem Image = createImage(CLCtx, Array->textureType, Array->desc,
+                               NormalizedFloat, Width, Height, Depth);
+
+    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
+    logTrace("Created texture: {}", (void *)Tex.get());
+
+    CHIPRegionDesc SrcRegion = CHIPRegionDesc::from(*Array);
+    memCopyToImage(Q->get()->get(), Image, Array->data, SrcRegion);
+
+    return Tex.release();
+  }
+
+  if (ResDesc->resType == hipResourceTypeLinear) {
+    auto &Res = ResDesc->res.linear;
+    auto TexelByteSize = getChannelByteSize(Res.desc);
+    size_t Width = Res.sizeInBytes / TexelByteSize;
+
+    cl_mem Image =
+        createImage(CLCtx, hipTextureType1D, Res.desc, NormalizedFloat, Width);
+
+    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
+    logTrace("Created texture: {}", (void *)Tex.get());
+
+    // Copy data to image.
+    auto SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
+    memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
+
+    return Tex.release();
+  }
+
+  if (ResDesc->resType == hipResourceTypePitch2D) {
+    auto &Res = ResDesc->res.pitch2D;
+    assert(Res.pitchInBytes >= Res.width); // Checked in CHIPBindings.
+
+    cl_mem Image = createImage(CLCtx, hipTextureType2D, Res.desc,
+                               NormalizedFloat, Res.width, Res.height);
+
+    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
+    logTrace("Created texture: {}", (void *)Tex.get());
+
+    // Copy data to image.
+    auto SrcDesc = CHIPRegionDesc::from(*ResDesc);
+    memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
+
+    return Tex.release();
+  }
+
+  CHIPASSERT(false && "Unsupported/unimplemented texture resource type.");
+  return nullptr;
 }
 
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
@@ -146,6 +389,27 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.gcnArch = 0;
   HipDeviceProps_.integrated = 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor = 0;
+
+  auto Max1D2DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>();
+  auto Max2DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>();
+  auto Max3DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>();
+  auto Max3DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>();
+  auto Max3DDepth = ClDevice->getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>();
+
+  // Clamp texture dimensions to [0, INT_MAX] because the return value
+  // of hipDeviceGetAttribute() is int type.
+  HipDeviceProps_.maxTexture1DLinear = clampToInt(Max1D2DWidth);
+  HipDeviceProps_.maxTexture1D = clampToInt(Max1D2DWidth);
+  HipDeviceProps_.maxTexture2D[0] = clampToInt(Max1D2DWidth);
+  HipDeviceProps_.maxTexture2D[1] = clampToInt(Max2DHeight);
+  HipDeviceProps_.maxTexture3D[0] = clampToInt(Max3DWidth);
+  HipDeviceProps_.maxTexture3D[1] = clampToInt(Max3DHeight);
+  HipDeviceProps_.maxTexture3D[2] = clampToInt(Max3DDepth);
+
+  // OpenCL does not have alignment requirements for images that
+  // clients should follow.
+  HipDeviceProps_.textureAlignment = 1;
+  HipDeviceProps_.texturePitchAlignment = 1;
 }
 
 void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
@@ -716,27 +980,49 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
       ++NumLocals;
   }
   // there can only be one dynamic shared mem variable, per cuda spec
-  assert(NumLocals <= 1);
+  CHIPASSERT(NumLocals <= 1);
   int Err = 0;
 
   if (ArgsPointer_) {
     logTrace("Setting up arguments NEW HIP API");
-    for (cl_uint i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-      OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[i];
+    for (size_t InArgIdx = 0, OutArgIdx = 0;
+         OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
+      OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[OutArgIdx];
       if (Ai.Type == OCLType::Pointer && Ai.Space != OCLSpace::Local) {
-        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", i, Ai.Size,
-                 ArgsPointer_[i]);
-        assert(Ai.Size == sizeof(void *));
-        const void *Argval = *(void **)ArgsPointer_[i];
-        Err = ::clSetKernelArgSVMPointer(Kernel->get().get(), i, Argval);
-
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
+                 Ai.Size, ArgsPointer_[InArgIdx]);
+        CHIPASSERT(Ai.Size == sizeof(void *));
+        const void *Argval = *(void **)ArgsPointer_[InArgIdx];
+        Err =
+            ::clSetKernelArgSVMPointer(Kernel->get().get(), OutArgIdx, Argval);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
+      } else if (Ai.Type == OCLType::Image) {
+        auto *TexObj = *(CHIPTextureOpenCL **)ArgsPointer_[InArgIdx];
+
+        // Set image argument.
+        cl_mem Image = TexObj->getImage();
+        logTrace("set image arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
+        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx, sizeof(cl_mem),
+                               &Image);
+        CHIPERR_CHECK_LOG_AND_THROW(
+            Err, CL_SUCCESS, hipErrorTbd,
+            "clSetKernelArg failed for image argument.");
+
+        // Set sampler argument.
+        OutArgIdx++;
+        cl_sampler Sampler = TexObj->getSampler();
+        logTrace("set sampler arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
+        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx,
+                               sizeof(cl_sampler), &Sampler);
+        CHIPERR_CHECK_LOG_AND_THROW(
+            Err, CL_SUCCESS, hipErrorTbd,
+            "clSetKernelArg failed for sampler argument.");
       } else {
-        logTrace("clSetKernelArg {} SIZE {} to {}\n", i, Ai.Size,
-                 ArgsPointer_[i]);
-        Err =
-            ::clSetKernelArg(Kernel->get().get(), i, Ai.Size, ArgsPointer_[i]);
+        logTrace("clSetKernelArg {} SIZE {} to {}\n", OutArgIdx, Ai.Size,
+                 ArgsPointer_[InArgIdx]);
+        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx, Ai.Size,
+                               ArgsPointer_[InArgIdx]);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
       }
@@ -788,6 +1074,9 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         Err = ::clSetKernelArgSVMPointer(Kernel->get().get(), i, P);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
+      } else if (Ai.Type == OCLType::Image) {
+        CHIPASSERT(false && "UNIMPLMENTED: Texture argument handling for the "
+                            "old HIP kernel ABI.");
       } else {
         size_t Size = std::get<1>(OffsetSizes_[i]);
         size_t Offs = std::get<0>(OffsetSizes_[i]);
