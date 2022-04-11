@@ -33,8 +33,8 @@ if(NOT LLVM_ENABLE_EH)
 endif()
 
 add_library(LLVMHipDynMem MODULE HipDynMem.cpp)
-add_library(LLVMHipStripCompilerUsed MODULE HipStripCompilerUsed.cpp)
-install(TARGETS LLVMHipDynMem LLVMHipStripCompilerUsed
+add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
+install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics
         LIBRARY DESTINATION lib/llvm
         ARCHIVE DESTINATION lib/llvm
         )
@@ -49,7 +49,7 @@ endif()
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 11.0)
   add_library(LLVMHipPasses MODULE HipPasses.cpp
-    HipDynMem.cpp HipStripCompilerUsed.cpp HipDefrost.cpp
+    HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp)
 
   if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)

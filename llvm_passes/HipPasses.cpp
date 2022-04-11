@@ -2,7 +2,7 @@
 
 #include "HipDefrost.h"
 #include "HipDynMem.h"
-#include "HipStripCompilerUsed.h"
+#include "HipStripUsedIntrinsics.h"
 #include "HipPrintf.h"
 #include "HipGlobalVariables.h"
 #include "HipTextureLowering.h"
@@ -61,8 +61,8 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipGlobalVariablesPass());
 
   // Remove dead code left over by HIP lowering passes and kept alive by
-  // llvm.compiler.used intrinsic variable.
-  MPM.addPass(HipStripCompilerUsedPass());
+  // llvm.used and llvm.compiler.used intrinsic variable.
+  MPM.addPass(HipStripUsedIntrinsicsPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
   MPM.addPass(GlobalDCEPass());
 }
