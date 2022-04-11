@@ -147,6 +147,19 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, size_t Size) {
   return;
 }
 
+AllocationInfo *CHIPAllocationTracker::findBaseDevPtr(void *DevPtr) {
+  for (auto &Info : DevToAllocInfo_) {
+    AllocationInfo *AllocInfo = &Info.second;
+    void *Start = AllocInfo->BasePtr;
+    void *End = (char *)Start + AllocInfo->Size;
+
+    if (Start <= DevPtr && DevPtr < End)
+      return AllocInfo;
+  }
+
+  return nullptr;
+}
+
 // CHIPEvent
 // ************************************************************************
 

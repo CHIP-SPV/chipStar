@@ -337,6 +337,15 @@ public:
    * @param dev_ptr
    */
   void recordAllocation(void *DevPtr, size_t Size);
+
+  /**
+   * @brief Check if a given pointer belongs to any of the existing allocations
+   *
+   * @param DevPtr device side pointer
+   * @return AllocationInfo* pointer to allocation info. Nullptr if this pointer
+   * does not belong to any existing allocations
+   */
+  AllocationInfo *findBaseDevPtr(void *DevPtr);
 };
 
 class CHIPDeviceVar {

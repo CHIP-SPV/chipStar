@@ -1468,11 +1468,21 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr.ptr);
 
+  if (Extent.height * Extent.width * Extent.depth == 0)
+    return hipSuccess;
+
   if (Extent.height > PitchedDevPtr.ysize ||
       Extent.width > PitchedDevPtr.xsize || Extent.depth > PitchedDevPtr.pitch)
     CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorTbd);
 
   // Check if pointer inside allocation range
+  auto AllocTracker = Stream->getDevice()->AllocationTracker;
+  AllocationInfo *AllocInfo = AllocTracker->findBaseDevPtr(PitchedDevPtr.ptr);
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
+                          hipErrorTbd);
+
+  // Check if extents don't overextend the allocation?
 
   auto Height = Extent.height;
   auto Width = Extent.width;
