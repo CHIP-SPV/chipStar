@@ -163,8 +163,9 @@ string (REPLACE ";" " " HIP_OFFLOAD_ARCH_STR "${HIP_OFFLOAD_ARCH}")
 target_compile_options(CHIP PUBLIC -D__HIP_PLATFORM_SPIRV__= ${CHIP_SPV_COMPILE_FLAGS})
 target_compile_definitions(CHIP PUBLIC ${CHIP_SPV_DEFINITIONS})
 
-target_link_libraries(CHIP PUBLIC ${OpenCL_LIBRARY} ${ze_loader_LIBRARY}
-  ${CHIP-SPV_LIBRARIES} ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
+set(CHIP_SPV_LINK_FLAGS ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES})
+# TODO: Check if pthread flag is needed for hipcc
+target_link_libraries(CHIP PUBLIC ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
 target_include_directories(CHIP
     PUBLIC
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
@@ -174,6 +175,12 @@ target_include_directories(CHIP
         "${CMAKE_SOURCE_DIR}/src"
         "${CMAKE_SOURCE_DIR}/include"
 )
+
+# TODO: Make HIP includes to be SYSTEM
+# target_include_directories(CHIP SYSTEM
+#     PUBLIC
+#         "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
+# )
 
 target_include_directories(CHIP SYSTEM PRIVATE
   "${CMAKE_SOURCE_DIR}/HIP/include"
@@ -237,8 +244,23 @@ message(STATUS "HIP Runtime: " ${HIP_RUNTIME})
 message(STATUS "HIP Compiler: " ${HIP_COMPILER})
 add_to_config(_buildInfo HIP_RUNTIME)
 add_to_config(_buildInfo HIP_COMPILER)
-
 add_to_config(_buildInfo HIP_OFFLOAD_ARCH_STR)
+
+# Convert absolute path to library into -L<...> and -l<...> components
+set(CHIP_SPV_LINK_FLAGS_STR "")
+foreach(_library ${CHIP_SPV_LINK_FLAGS})
+  get_filename_component(libpath ${_library} DIRECTORY)
+  get_filename_component(libname ${_library} NAME)
+  string(REGEX MATCH "lib(.*)\.(so*|a)" libname_stripped ${libname})
+  set(libname_stripped ${CMAKE_MATCH_1})
+  set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR} -L${libpath} -l${libname_stripped}")
+endforeach()
+# Add link directory fir libCHIP.so
+set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR}" " -L${CMAKE_INSTALL_PREFIX}/lib -lCHIP")
+# Add an rpath for libCHIP.so so that you don't need to add <CHIP_INSTALL_DIR> to LD_LIBRARY_PATH
+set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR}" " -Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib")
+set(HIP_LINK_OPTIONS ${CHIP_SPV_LINK_FLAGS_STR})
+add_to_config(_buildInfo HIP_LINK_OPTIONS)
 
 # Generate .hipInfo
 file(WRITE "${PROJECT_BINARY_DIR}/lib/.hipInfo" ${_buildInfo})
