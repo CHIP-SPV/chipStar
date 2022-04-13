@@ -192,14 +192,20 @@ static bool shouldLower(const GlobalVariable &GVar) {
   return true;
 }
 
-static void findInstructionUsesImpl(Use &U, std::vector<Use *> &Uses) {
+static void findInstructionUsesImpl(Use &U, std::vector<Use *> &Uses,
+                                    std::set<Use *> &Visited) {
+  if (Visited.count(&U))
+    return;
+  Visited.insert(&U);
+
   assert(isa<Constant>(*U));
   if (isa<Instruction>(U.getUser())) {
     Uses.push_back(&U);
     return;
   }
   if (isa<Constant>(U.getUser())) {
-    for (auto &U : U.getUser()->uses()) findInstructionUsesImpl(U, Uses);
+    for (auto &U : U.getUser()->uses())
+      findInstructionUsesImpl(U, Uses, Visited);
     return;
   }
 
@@ -211,7 +217,9 @@ static void findInstructionUsesImpl(Use &U, std::vector<Use *> &Uses) {
 // Return list of non-constant leaf use edges whose users are instructions.
 static std::vector<Use *> findInstructionUses(GlobalVariable *GVar) {
   std::vector<Use *> Uses;
-  for (auto &U : GVar->uses()) findInstructionUsesImpl(U, Uses);
+  std::set<Use *> Visited;
+  for (auto &U : GVar->uses())
+    findInstructionUsesImpl(U, Uses, Visited);
   return Uses;
 }
 
@@ -256,9 +264,10 @@ static void eraseMappedGlobalVariables(GVarMapT &GVarMap) {
     if (OldGVar->hasNUses(0) ||
         // There might still be constantExpr users but no instructions should
         // depend on them.
-        findInstructionUses(OldGVar).size() == 0)
+        findInstructionUses(OldGVar).size() == 0) {
+      OldGVar->replaceAllUsesWith(PoisonValue::get(OldGVar->getType()));
       OldGVar->eraseFromParent();
-    else
+    } else
       // A non-instruction and non-constantExpr user?
       llvm_unreachable("Original variable still has uses!");
   }
