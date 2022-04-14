@@ -57,4 +57,8 @@ constexpr char ChipVarInitPrefix[] = "__chip_var_init_";
 /// CHIPVarInfo[2]: Non-zero if variable has initializer. Otherwise zero.
 using CHIPVarInfo = int64_t[3];
 
+/// The name of the shadow kernel responsible for resetting host-inaccessible
+/// global device variables (e.g. static local variables in device code).
+constexpr char ChipNonSymbolResetKernelName[] = "__chip_reset_non_symbols";
+
 #endif
