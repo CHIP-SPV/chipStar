@@ -972,6 +972,9 @@ void CHIPContext::reset() {
         Dev->AllocationTracker->TotalMemSize);
   AllocatedPtrs_.clear();
 
+  for (auto *Dev : ChipDevices_)
+    Dev->reset();
+
   // TODO Is all the state reset?
 }
 

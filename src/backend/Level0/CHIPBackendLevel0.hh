@@ -267,7 +267,7 @@ public:
   virtual void populateDevicePropertiesImpl() override;
   ze_device_handle_t &get() { return ZeDev_; }
 
-  virtual void reset() override;
+  virtual void resetImpl() override;
   virtual CHIPModuleLevel0 *addModule(std::string *ModuleStr) override {
     logTrace("CHIPModuleLevel0::addModule()");
     CHIPModuleLevel0 *Mod = new CHIPModuleLevel0(ModuleStr);

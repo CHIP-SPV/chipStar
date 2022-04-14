@@ -129,7 +129,7 @@ public:
                    int Idx);
   cl::Device *get();
   virtual void populateDevicePropertiesImpl() override;
-  virtual void reset() override;
+  virtual void resetImpl() override;
   virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
   virtual CHIPTexture *
