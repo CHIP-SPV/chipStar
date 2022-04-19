@@ -9,3 +9,5 @@ add_chip_test(hipTestSymbolReset hipTestSymbolReset PASSED
 add_chip_test(hipTestSymbolInit hipTestSymbolInit PASSED hipTestSymbolInit.cc)
 add_chip_test(hipTestResetStaticVar hipTestResetStaticVar PASSED
   hipTestResetStaticVar.cc)
+add_chip_test(hipTestVariableTemplateSymbols hipTestVariableTemplateSymbols
+  PASSED hipTestVariableTemplateSymbols.cc)

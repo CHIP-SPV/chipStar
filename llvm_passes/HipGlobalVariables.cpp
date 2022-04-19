@@ -177,8 +177,8 @@ static bool shouldLower(const GlobalVariable &GVar) {
     return false;  // Already lowered.
 
   // All host accessible global device variables are marked to be externally
-  // initialized (so far).
-  if (!GVar.isExternallyInitialized())
+  // initialized and does not have COMDAT (so far).
+  if (!GVar.isExternallyInitialized() || GVar.hasComdat())
     return false;
 
   // String literals get an unnamed_addr attribute, we know by it to
@@ -312,17 +312,17 @@ static GVarMapT emitIndirectGlobalVariables(Module &M) {
   return GVarMap;
 }
 
-// Find global device variables that are not host accessible but which should
-// be reinitialized on hipDeviceReset() - for example, static local variables.
+// Find global device variables that are not host accessible but which should be
+// reinitialized on hipDeviceReset() call - for example, static local variables.
 static std::vector<GlobalVariable *> findResettableNonSymbolGVs(Module &M) {
   std::vector<GlobalVariable *> Result;
   for (GlobalVariable &GV : M.globals()) {
     if (GV.hasSection()) // Non-user defined variable - e.g. llvm.used
                          // intrinsic.
       continue;
-    // So far, all host-inaccessible global device variables lacks the
-    // externally_initialized attribute.
-    if (GV.isExternallyInitialized())
+    // So far, all host-inaccessible global device variables either has a COMDAT
+    // section or lacks the externally_initialized attribute.
+    if (GV.isExternallyInitialized() && !GV.hasComdat())
       continue;
     if (!GV.hasInitializer() || GV.isConstant())
       continue;
