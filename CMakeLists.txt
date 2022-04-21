@@ -269,6 +269,7 @@ install(FILES ${PROJECT_BINARY_DIR}/lib/.hipInfo DESTINATION lib)
 #####################
 # Copy hipconfig, hipvars, etc to bin
 #####################
+file(COPY "${CMAKE_SOURCE_DIR}/HIP/bin" DESTINATION "${PROJECT_BINARY_DIR}")
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/bin DESTINATION . USE_SOURCE_PERMISSIONS)
 
 set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
