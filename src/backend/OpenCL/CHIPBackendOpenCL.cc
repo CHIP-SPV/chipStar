@@ -148,7 +148,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor = 0;
 }
 
-void CHIPDeviceOpenCL::reset() { UNIMPLEMENTED(); }
+void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 // CHIPEventOpenCL
 // ************************************************************************
 

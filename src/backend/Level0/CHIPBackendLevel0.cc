@@ -799,7 +799,7 @@ CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t &&ZeDev,
   assert(Ctx_ != nullptr);
 }
 
-void CHIPDeviceLevel0::reset() { UNIMPLEMENTED(); }
+void CHIPDeviceLevel0::resetImpl() { UNIMPLEMENTED(); }
 
 void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   ze_result_t Status = ZE_RESULT_SUCCESS;

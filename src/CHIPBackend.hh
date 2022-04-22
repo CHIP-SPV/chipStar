@@ -912,7 +912,10 @@ public:
    the current process.
    *
    */
-  virtual void reset() = 0;
+  void reset() {
+    invalidateDeviceVariables();
+    resetImpl();
+  }
 
   /**
    * @brief Query for a specific device attribute. Implementation copied from
@@ -1054,6 +1057,12 @@ public:
   void initializeDeviceVariables();
   void invalidateDeviceVariables();
   void deallocateDeviceVariables();
+
+protected:
+  /**
+   * @brief The backend hook for reset().
+   */
+  virtual void resetImpl() = 0;
 };
 
 /**
