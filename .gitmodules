@@ -4,3 +4,6 @@
 [submodule "Catch2"]
 	path = Catch2
 	url = git@github.com:catchorg/Catch2.git
+[submodule "hip-testsuite"]
+	path = hip-testsuite
+	url = https://github.com/CHIP-SPV/hip-testsuite.git
