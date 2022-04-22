@@ -40,7 +40,7 @@ Building:
 cd llvm-project/llvm
 mkdir build
 cd build
-cmake .. -DLLVM_ENABLE_PROJECTS="clang;openmp" \
+cmake .. -DLLVM_ENABLE_PROJECTS="clang;openmp" \ # openmp is optional
   -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_DIR}
 make
 make install
@@ -67,14 +67,14 @@ cmake .. \
  -DCMAKE_INSTALL_PREFIX=<install location> 
  # optional: -DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>
 
-make -j
+make
 make install
 ```
 
 ## Building & Running Unit Tests
 
 ```bash
-make build_tests_standalone -j
+make build_tests_standalone
 ctest --timeout 120 # currently some tests might hang
 ```
 
@@ -83,11 +83,11 @@ ctest --timeout 120 # currently some tests might hang
 ### CHIP_BE
 
 Select the backend to execute on.
-Possible values: opencl, level0(default)
+Possible values: opencl(default), level0
 
 ### CHIP_LOGLEVEL
 
-Select the verbosity of debug info during exeution.
+Select the verbosity of debug info during execution.
 Possible values: trace, debug(default), warn, err, crit
 
 Setting this value to `debug` will print information coming from the CHIP-SPV functions which are shared between the backends.
@@ -97,7 +97,7 @@ Settings this value to `trace` will print `debug`, as well as debug infomarmatio
 ### HIP_PLATFORM
 
 Select which HIP implementation to execute on. Possible values: amd, nvidia, spirv.
-If you do not provide this value, `hipcc` will check for existance of the following directions and try to guess which implementation is available: 
+If you do not provide this value, `hipcc` will check for existance of the following directions and try to guess which implementation is available:
 
 ```bash
 /usr/local/cuda
@@ -108,7 +108,7 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 
 Compiling a HIP application with CHIP-SPV will allow you to execute HIP code on any device that supports SPIR-V, such as Intel GPUs. To compile a HIP application, all you need to do is to use the `hipcc` compiler wrapper provided by this project. In case you have AMD implementation installed as well, you can switch between them by using `HIP_PLATFORM` environment variable.
 
-You can find various HIP applications here: https://github.com/CHIP-SPV/hip-testsuite
+You can find various HIP applications here: <https://github.com/CHIP-SPV/hip-testsuite>
 
 ```bash
 hipcc ./hip_app.cpp -o hip_app
