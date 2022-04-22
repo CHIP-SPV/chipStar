@@ -17,6 +17,7 @@
 #define __noinline__ __attribute__((noinline))
 #define __forceinline__ inline __attribute__((always_inline))
 
+#define __launch_bounds__(...)
 #else
 
 /**
@@ -30,6 +31,8 @@
 
 #define __noinline__
 #define __forceinline__ inline
+
+#define __launch_bounds__(...)
 
 #endif
 
@@ -46,14 +49,14 @@
 #define HIP_DYNAMIC_SHARED_ATTRIBUTE
 
 typedef int hipLaunchParm;
-#define hipLaunchKernelGGLInternal(kernelName, numBlocks, numThreads,     \
-                                   memPerBlock, streamId, ...)            \
-  do {                                                                    \
-    kernelName<<<(numBlocks), (numThreads), (memPerBlock), (streamId)>>>( \
-        __VA_ARGS__);                                                     \
+#define hipLaunchKernelGGLInternal(kernelName, numBlocks, numThreads,          \
+                                   memPerBlock, streamId, ...)                 \
+  do {                                                                         \
+    kernelName<<<(numBlocks), (numThreads), (memPerBlock), (streamId)>>>(      \
+        __VA_ARGS__);                                                          \
   } while (0)
 
-#define hipLaunchKernelGGL(kernelName, ...) \
+#define hipLaunchKernelGGL(kernelName, ...)                                    \
   hipLaunchKernelGGLInternal((kernelName), __VA_ARGS__)
 
 #pragma push_macro("__DEVICE__")
@@ -79,8 +82,8 @@ __DEVICE__ uint __hip_get_grid_dim_x() { return _Z14get_num_groupsj(0); }
 __DEVICE__ uint __hip_get_grid_dim_y() { return _Z14get_num_groupsj(1); }
 __DEVICE__ uint __hip_get_grid_dim_z() { return _Z14get_num_groupsj(2); }
 
-#define __HIP_DEVICE_BUILTIN(DIMENSION, FUNCTION)               \
-  __declspec(property(get = __get_##DIMENSION)) uint DIMENSION; \
+#define __HIP_DEVICE_BUILTIN(DIMENSION, FUNCTION)                              \
+  __declspec(property(get = __get_##DIMENSION)) uint DIMENSION;                \
   __DEVICE__ uint __get_##DIMENSION(void) { return FUNCTION; }
 
 struct __hip_builtin_threadIdx_t {
@@ -133,12 +136,12 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 #define hipGridDim_y gridDim.y
 #define hipGridDim_z gridDim.z
 
-#endif  // defined(__clang__) && defined(__HIP__)
+#endif // defined(__clang__) && defined(__HIP__)
 
 /* FIXME: after the prototype works, move to proper headers. */
 
 extern "C" __device__ int printf(const char *fmt, ...)
-  __attribute__((format(printf, 1, 2)));
+    __attribute__((format(printf, 1, 2)));
 
 /* /FIXME */
 

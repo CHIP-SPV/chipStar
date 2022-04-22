@@ -22,7 +22,6 @@ macro(find_library_dynamic libname)
   endif()
 endmacro()
 
-# Append '<key>=<value>' line into a variable.
-macro(add_to_config _configvar _key _value)
-  set(${_configvar} "${${_configvar}}${_key}=${_value}\n")
+macro(add_to_config _configfile _variable)
+    set(${_configfile} "${${_configfile}}${_variable}=${${_variable}}\n")
 endmacro()
