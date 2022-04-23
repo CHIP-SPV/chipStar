@@ -95,6 +95,7 @@ set(SAMPLES
     hipSymbol
     hip-cuda
     printf
+    texture
     hipDeviceLink # must be last in this list due to how hacky using multiple compilers with CMake is
 )
 

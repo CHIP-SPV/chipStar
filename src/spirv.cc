@@ -32,6 +32,31 @@ public:
   virtual OCLType ocltype() override { return OCLType::POD; }
 };
 
+class SPIRVtypeOpaque : public SPIRVtype {
+public:
+  SPIRVtypeOpaque(int32_t Id)
+      : SPIRVtype(0) // Opaque types are unsized.
+  {}
+  virtual ~SPIRVtypeOpaque(){};
+  virtual OCLType ocltype() override { return OCLType::Opaque; }
+};
+
+class SPIRVtypeImage : public SPIRVtypeOpaque {
+public:
+  SPIRVtypeImage(int32_t Id) : SPIRVtypeOpaque(Id) {}
+  virtual ~SPIRVtypeImage(){};
+  virtual OCLType ocltype() override { return OCLType::Image; }
+  virtual OCLSpace getAS() override { return OCLSpace::Unknown; }
+};
+
+class SPIRVtypeSampler : public SPIRVtypeOpaque {
+public:
+  SPIRVtypeSampler(int32_t Id) : SPIRVtypeOpaque(Id) {}
+  virtual ~SPIRVtypeSampler(){};
+  virtual OCLType ocltype() override { return OCLType::Sampler; }
+  virtual OCLSpace getAS() override { return OCLSpace::Constant; }
+};
+
 class SPIRVtypePointer : public SPIRVtype {
   OCLSpace ASpace_;
 
@@ -179,6 +204,18 @@ public:
         TotalSize += TypeMap[MemberId]->size();
       }
       return new SPIRVtypePOD(Word1_, TotalSize);
+    }
+
+    if (Opcode_ == spv::Op::OpTypeOpaque) {
+      return new SPIRVtypeOpaque(Word1_);
+    }
+
+    if (Opcode_ == spv::Op::OpTypeImage) {
+      return new SPIRVtypeImage(Word1_);
+    }
+
+    if (Opcode_ == spv::Op::OpTypeSampler) {
+      return new SPIRVtypeSampler(Word1_);
     }
 
     if (Opcode_ == spv::Op::OpTypePointer) {

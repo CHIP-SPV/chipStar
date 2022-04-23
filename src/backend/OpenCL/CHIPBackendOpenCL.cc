@@ -648,12 +648,6 @@ CHIPEvent *CHIPQueueOpenCL::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
   UNIMPLEMENTED(nullptr);
 };
 
-// Memory copy to texture object, i.e. image
-CHIPEvent *CHIPQueueOpenCL::memCopyToTextureImpl(CHIPTexture *TexObj,
-                                                 void *Src) {
-  UNIMPLEMENTED(nullptr);
-};
-
 void CHIPQueueOpenCL::getBackendHandles(unsigned long *NativeInfo, int *Size) {
   UNIMPLEMENTED();
 }
@@ -810,12 +804,6 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
 }
 // CHIPBackendOpenCL
 //*************************************************************************
-
-CHIPTexture *CHIPBackendOpenCL::createCHIPTexture(intptr_t Image,
-                                                  intptr_t Sampler) {
-  UNIMPLEMENTED(nullptr);
-  // return new CHIPTextureOpenCL();
-}
 
 CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;

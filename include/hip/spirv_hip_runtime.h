@@ -19,6 +19,8 @@
 #include <hip/spirv_hip_ldg.h>
 #include <hip/spirv_math_fwd.h>
 
+#include <hip/spirv_texture_functions.h>
+
 // Feature tests:
 #if (defined(__HCC_ACCELERATOR__) && (__HCC_ACCELERATOR__ != 0)) ||            \
     __HIP_DEVICE_COMPILE__

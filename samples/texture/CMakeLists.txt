@@ -1,0 +1,15 @@
+add_chip_test(hipTextureObj2D hipTextureObj2D PASSED hipTextureObj2D.cc)
+add_chip_test(hipTexObjPitch hipTexObjPitch PASSED hipTexObjPitch.cpp)
+add_chip_test(hipTexObjCustomPitch hipTexObjCustomPitch PASSED
+  hipTexObjCustomPitch.cc)
+add_chip_test(hipTextureObj1DFetch hipTextureObj1DFetch PASSED
+  hipTextureObj1DFetch.cpp)
+add_chip_test(hipTex1DFetchCheckModes hipTex1DFetchCheckModes PASSED
+  hipTex1DFetchCheckModes.cpp)
+add_chip_test(hipTextureObjFetchVector hipTextureObjFetchVector PASSED
+  hipTextureObjFetchVector.cc)
+add_chip_test(hipNormalizedCoords hipNormalizedCoords PASSED
+  hipNormalizedCoords.cc)
+add_chip_test(hipNormalizedFloat hipNormalizedFloat PASSED
+  hipNormalizedFloat.cc)
+add_chip_test(hipTextureObj1D hipTextureObj1D PASSED hipTextureObj1D.cc)

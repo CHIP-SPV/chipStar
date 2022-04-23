@@ -6,7 +6,13 @@
 #include <stdint.h>
 #include <string>
 
-enum class OCLType : unsigned { POD = 0, Pointer = 1, Image = 2, Sampler = 3 };
+enum class OCLType : unsigned {
+  POD,
+  Pointer,
+  Image,
+  Sampler,
+  Opaque,
+};
 
 enum class OCLSpace : unsigned {
   Private = 0,

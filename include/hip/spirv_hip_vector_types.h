@@ -38,10 +38,18 @@ struct HIP_vector_base;
 
 template <typename T>
 struct HIP_vector_base<T, 1> {
-  typedef T Native_vec_ __NATIVE_VECTOR__(1, T);
+  // SPIR-V does not have one element vector types and the current
+  // Clang -> SPIR-V translator tool chain used by CHIP-SPV does not
+  // include a legalization phase to lower one element vectors to
+  // scalars. Therefore, define Native_vec_ to be a scalar here.
+  //
+  // When the SPIR-V backend lands on the LLVM we may reintroduce one
+  // element vectors.
+  typedef T Native_vec_ /* __NATIVE_VECTOR__(1, T)*/;
 
   union {
     Native_vec_ data;
+    T array[1];
     struct {
       T x;
     };
@@ -54,6 +62,7 @@ struct HIP_vector_base<T, 2> {
 
   union {
     Native_vec_ data;
+    T array[2];
     struct {
       T x;
       T y;
@@ -67,6 +76,7 @@ struct HIP_vector_base<T, 3> {
 
   union {
     Native_vec_ data;
+    T array[3];
     struct {
       T x;
       T y;
@@ -81,6 +91,7 @@ struct HIP_vector_base<T, 4> {
 
   union {
     Native_vec_ data;
+    T array[4];
     struct {
       T x;
       T y;
@@ -93,13 +104,14 @@ struct HIP_vector_base<T, 4> {
 template <typename T, unsigned int rank>
 struct HIP_vector_type : public HIP_vector_base<T, rank> {
   using HIP_vector_base<T, rank>::data;
+  using HIP_vector_base<T, rank>::array;
   using typename HIP_vector_base<T, rank>::Native_vec_;
 
   __host__ __device__ HIP_vector_type() = default;
   template <typename U, typename std::enable_if<
                             std::is_convertible<U, T>{}>::type* = nullptr>
   __host__ __device__ HIP_vector_type(U x) noexcept {
-    for (auto i = 0u; i != rank; ++i) data[i] = x;
+    for (auto i = 0u; i != rank; ++i) array[i] = x;
   }
   template <  // TODO: constrain based on type as well.
       typename... Us, typename std::enable_if<
@@ -284,9 +296,14 @@ __host__ __device__ inline HIP_vector_type<T, n> operator/(
 template <typename T, unsigned int n>
 __host__ __device__ inline bool operator==(
     const HIP_vector_type<T, n>& x, const HIP_vector_type<T, n>& y) noexcept {
-  auto tmp = x.data == y.data;
+  // Original code:
+  // auto tmp = x.data == y.data;
+  // for (auto i = 0u; i != n; ++i)
+  //   if (tmp[i] == 0) return false;
+  // return true;
   for (auto i = 0u; i != n; ++i)
-    if (tmp[i] == 0) return false;
+    if (x.array[i] != y.array[i])
+      return false;
   return true;
 }
 template <typename T, unsigned int n, typename U>

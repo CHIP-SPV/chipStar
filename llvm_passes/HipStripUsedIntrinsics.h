@@ -7,8 +7,8 @@
 using namespace llvm;
 
 #if LLVM_VERSION_MAJOR > 11
-class HipStripCompilerUsedPass
-    : public PassInfoMixin<HipStripCompilerUsedPass> {
+class HipStripUsedIntrinsicsPass
+    : public PassInfoMixin<HipStripUsedIntrinsicsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

@@ -145,9 +145,9 @@ public:
                                         size_t Width, size_t Height,
                                         size_t Depth) override;
 
-  // Memory copy to texture object, i.e. image
-  virtual CHIPEvent *memCopyToTextureImpl(CHIPTexture *TexObj,
-                                          void *Src) override;
+  virtual CHIPEvent *memCopyToImage(ze_image_handle_t TexStorage,
+                                    const void *Src,
+                                    const CHIPRegionDesc &SrcRegion);
 
   virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) override;
 
@@ -203,51 +203,32 @@ public:
 
 // The struct that accomodate the L0/Hip texture object's content
 class CHIPTextureLevel0 : public CHIPTexture {
+  ze_image_handle_t Image;
+  ze_sampler_handle_t Sampler;
+
 public:
-  CHIPTextureLevel0(intptr_t Image, intptr_t Sampler)
-      : CHIPTexture(Image, Sampler){};
+  CHIPTextureLevel0(const hipResourceDesc &ResDesc, ze_image_handle_t TheImage,
+                    ze_sampler_handle_t TheSampler)
+      : CHIPTexture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
 
-  // The factory function for creating the LZ texture object
-  static CHIPTextureLevel0 *
-  createTextureObject(CHIPQueueLevel0 *Queue, const hipResourceDesc *PResDesc,
-                      const hipTextureDesc *PTexDesc,
-                      const struct hipResourceViewDesc *PResViewDesc) {
-    UNIMPLEMENTED(nullptr);
-  };
-
-  // Destroy the HIP texture object
-  static bool destroyTextureObject(CHIPTextureLevel0 *TexObj) {
-    UNIMPLEMENTED(true);
+  virtual ~CHIPTextureLevel0() {
+    destroyImage(Image);
+    destroySampler(Sampler);
   }
 
-  // The factory function for create the LZ image object
-  static ze_image_handle_t *
-  createImage(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
-              const hipTextureDesc *PTexDesc,
-              const struct hipResourceViewDesc *PResViewDesc);
+  ze_image_handle_t getImage() const { return Image; }
+  ze_sampler_handle_t getSampler() const { return Sampler; }
 
   // Destroy the LZ image object
-  static bool destroyImage(ze_image_handle_t Handle) {
-    // Destroy LZ image handle
+  static void destroyImage(ze_image_handle_t Handle) {
     ze_result_t Status = zeImageDestroy(Handle);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-    return true;
   }
 
-  // The factory function for create the LZ sampler object
-  static ze_sampler_handle_t *
-  createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
-                const hipTextureDesc *PTexDesc,
-                const struct hipResourceViewDesc *PResViewDesc);
-
   // Destroy the LZ sampler object
-  static bool destroySampler(ze_sampler_handle_t Handle) { // TODO return void
-    // Destroy LZ samler
+  static void destroySampler(ze_sampler_handle_t Handle) {
     ze_result_t Status = zeSamplerDestroy(Handle);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-    return true;
   }
 };
 
@@ -277,23 +258,19 @@ public:
 
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
   ze_device_properties_t *getDeviceProps() { return &(this->ZeDeviceProps_); };
+
+  ze_image_handle_t allocateImage(unsigned int TextureType,
+                                  hipChannelFormatDesc Format,
+                                  bool NormalizeToFloat, size_t Width,
+                                  size_t Height = 0, size_t Depth = 0);
+
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *PResDesc, const hipTextureDesc *PTexDesc,
                 const struct hipResourceViewDesc *PResViewDesc) override;
 
   virtual void destroyTexture(CHIPTexture *TextureObject) override {
-    if (TextureObject == nullptr)
-      CHIPERR_LOG_AND_THROW("textureObject is nullptr", hipErrorTbd);
-
-    ze_image_handle_t ImageHandle = (ze_image_handle_t)TextureObject->Image;
-    ze_sampler_handle_t SamplerHandle =
-        (ze_sampler_handle_t)TextureObject->Sampler;
-
-    if (CHIPTextureLevel0::destroyImage(ImageHandle) &&
-        CHIPTextureLevel0::destroySampler(SamplerHandle)) {
-      delete TextureObject;
-    } else
-      CHIPERR_LOG_AND_THROW("Failed to destroy texture", hipErrorTbd);
+    logTrace("CHIPDeviceLevel0::destroyTexture");
+    delete TextureObject;
   }
 };
 
@@ -307,10 +284,6 @@ public:
 
   virtual std::string getDefaultJitFlags() override;
 
-  virtual CHIPTexture *createCHIPTexture(intptr_t Image,
-                                         intptr_t Sampler) override {
-    return new CHIPTextureLevel0(Image, Sampler);
-  }
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
     auto Q = new CHIPQueueLevel0(ChipDevLz);
