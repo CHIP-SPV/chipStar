@@ -1545,14 +1545,14 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
 
   // Check if extents don't overextend the allocation?
 
-  auto Height = Extent.height;
   auto Width = Extent.width;
+  auto Height = Extent.height;
   auto Depth = Extent.depth;
+
+  // auto Height = std::max<size_t>(1, Extent.height);
+  // auto Depth = std::max<size_t>(1, Extent.depth);
   auto Pitch = PitchedDevPtr.pitch;
   auto Dst = PitchedDevPtr.ptr;
-
-  if (Height * Width * Depth == 0)
-    return (hipSuccess);
 
   hipError_t Res = hipSuccess;
   for (int i = 0; i < Depth; i++)
