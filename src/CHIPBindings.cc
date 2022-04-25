@@ -66,12 +66,6 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
   UNIMPLEMENTED(hipErrorNotSupported);
 };
 
-hipError_t hipMalloc3DArray(hipArray **Array,
-                            const struct hipChannelFormatDesc *Desc,
-                            struct hipExtent Extent, unsigned int Flags) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
-
 hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
                               int SrcDevice, size_t SizeBytes,
                               hipStream_t Stream) {
@@ -1186,6 +1180,73 @@ hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
 
   CHIP_CATCH
 }
+
+hipError_t hipMalloc3DArray(hipArray **Array,
+                            const struct hipChannelFormatDesc *Desc,
+                            struct hipExtent Extent, unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Array, Desc);
+
+  auto Width = Extent.width;
+  auto Height = Extent.height;
+  auto Depth = Extent.depth;
+
+  ERROR_IF((Width == 0), hipErrorInvalidValue);
+
+  *Array = new hipArray;
+  ERROR_IF((*Array == nullptr), hipErrorOutOfMemory);
+
+  auto TexType = hipTextureType1D;
+  if (Depth) {
+    TexType = hipTextureType3D;
+  } else if (Height) {
+    TexType = hipTextureType2D;
+  }
+  hipArray_Format hipArrayFormatArray;
+  switch (Desc->f) {
+  case hipChannelFormatKindSigned:
+    hipArrayFormatArray = HIP_AD_FORMAT_SIGNED_INT32;
+    break;
+
+  case hipChannelFormatKindUnsigned:
+    hipArrayFormatArray = HIP_AD_FORMAT_UNSIGNED_INT32;
+    break;
+
+  case hipChannelFormatKindFloat:
+    hipArrayFormatArray = HIP_AD_FORMAT_FLOAT;
+    break;
+
+  case hipChannelFormatKindNone:
+    CHIPERR_LOG_AND_THROW("hipChannelFormatKindNone?", hipErrorInvalidValue);
+    break;
+
+  default:
+    CHIPERR_LOG_AND_THROW("Invalid channel format", hipErrorInvalidValue);
+  }
+
+  (*Array)->data = nullptr;
+  (*Array)->desc = *Desc;
+  (*Array)->type = hipArrayDefault;
+  (*Array)->width = Width;
+  (*Array)->height = Height;
+  (*Array)->depth = Depth;
+  (*Array)->Format = hipArrayFormatArray;
+  (*Array)->NumChannels = 1;
+  (*Array)->isDrv = false;
+  (*Array)->textureType = TexType;
+  void **Ptr = &Array[0]->data;
+
+  size_t AllocSize =
+      Width * std::max<size_t>(Height, 1) * getChannelByteSize(*Desc);
+
+  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
+
+  *Ptr = RetVal;
+  RETURN(hipSuccess);
+  CHIP_CATCH
+};
 
 hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
                           size_t Width, size_t Height, unsigned int Flags) {
