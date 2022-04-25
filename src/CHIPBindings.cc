@@ -1044,6 +1044,7 @@ hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
 
 hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
+  UNIMPLEMENTED(hipErrorTbd)
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
