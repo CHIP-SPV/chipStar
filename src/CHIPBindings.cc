@@ -1550,6 +1550,11 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   auto Height = Extent.height;
   auto Depth = Extent.depth;
 
+  if (PitchedDevPtr.pitch == Extent.width) {
+    return hipMemsetAsync(PitchedDevPtr.ptr, Value, Width * Height * Depth,
+    Stream);
+  }
+
   // auto Height = std::max<size_t>(1, Extent.height);
   // auto Depth = std::max<size_t>(1, Extent.depth);
   auto Pitch = PitchedDevPtr.pitch;
@@ -1559,7 +1564,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   for (int i = 0; i < Depth; i++)
     for (int j = 0; j < Height; j++) {
       size_t SizeBytes = Width;
-      auto Offset = i * (Pitch * Height) + j * Pitch;
+      auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
       char *DstP = (char *)Dst;
       auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
       if (Res != hipSuccess)
