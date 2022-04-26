@@ -93,6 +93,8 @@ protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
 
+  size_t MaxMemoryFillPatternSize = 0;
+
   // Immediate command list is being used. Command queue is implicit
   ze_command_list_handle_t ZeCmdListImm_;
 
