@@ -1552,7 +1552,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
 
   if (PitchedDevPtr.pitch == Extent.width) {
     return hipMemsetAsync(PitchedDevPtr.ptr, Value, Width * Height * Depth,
-    Stream);
+                          Stream);
   }
 
   // auto Height = std::max<size_t>(1, Extent.height);
@@ -1611,6 +1611,20 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   char CharVal = Value;
   Backend->getActiveDevice()->initializeDeviceVariables();
   Backend->getActiveQueue()->memFill(Dst, SizeBytes, &CharVal, 1);
+
+  // Check if this pointer is registered
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getByDevPtr(Dst);
+  if (!AllocInfo)
+    AllocInfo = AllocTracker->getByHostPtr(Dst);
+
+  if (AllocInfo) {
+    logDebug("Found associated alloc info");
+    auto RegisterMemDst =
+        AllocTracker->getAssociatedHostPtr(AllocInfo->BasePtr);
+    if (RegisterMemDst)
+      memset(RegisterMemDst, Value, SizeBytes);
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH

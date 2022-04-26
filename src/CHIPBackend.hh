@@ -267,6 +267,13 @@ public:
     return DevToHost_[DevPtr];
   }
 
+  void *getAssociatedDevPtr(void *HostPtr) {
+    if (!HostToDev_.count(HostPtr))
+      return nullptr;
+
+    return HostToDev_[HostPtr];
+  }
+
   void unregsiterHostPointer(void *HostPtr) {
     if (HostToDev_.count(HostPtr) == 0)
       CHIPERR_LOG_AND_THROW("Tried to unregister a host variable which was not "
@@ -1685,6 +1692,8 @@ protected:
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent *LastEvent_ = nullptr;
+
+  void RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
   // I want others to be able to lock this queue?
