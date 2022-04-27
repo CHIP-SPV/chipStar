@@ -1,14 +1,9 @@
-85% tests passed, 57 tests failed out of 370
+87% tests passed, 49 tests failed out of 370
 
-Total Test time (real) = 659.12 sec
+Total Test time (real) = 651.96 sec
 
 The following tests FAILED:
 	  1 - MemoryTest_NOT_BUILT-b12d07c (Not Run)
-	 21 - Unit_hipMemcpy3D_ExtentValidation (Failed)
-	 27 - Unit_hipMemcpy3DAsync_ExtentValidation (Failed)
-	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
-	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
-	105 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
 	110 - Unit_hipPointerGetAttributes_Basic (Failed)
 	111 - Unit_hipPointerGetAttributes_ClusterAlloc (Failed)
 	112 - Unit_hipPointerGetAttributes_TinyClusterAlloc (Failed)
@@ -20,12 +15,8 @@ The following tests FAILED:
 	131 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	140 - Unit_hipHostMalloc_ArgValidation (Failed)
 	142 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
-	147 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
-	148 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
-	149 - Unit_hipMemset3D_Negative (Subprocess aborted)
-	150 - Unit_hipMemset3DAsync_Negative (Subprocess aborted)
 	153 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
-	161 - Unit_hipMemPrefetchAsync_NonPageSz (SEGFAULT)
+	161 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	180 - Unit_hipMemset2DAsync_MultiThread (Subprocess aborted)
 	196 - Unit_hipHostMalloc_Basic (Failed)
 	198 - Unit_hipHostMalloc_NonCoherent (Failed)
@@ -53,10 +44,11 @@ The following tests FAILED:
 	298 - Unit_hipDeviceSynchronize_Functional (Failed)
 	308 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	310 - Unit_hiprtc_saxpy (Failed)
-	311 - Unit_printf_flags (Subprocess aborted)
-	312 - Unit_printf_specifier (Subprocess aborted)
+	312 - Unit_printf_specifier (Failed)
 	313 - TextureTest_NOT_BUILT-b12d07c (Not Run)
 	314 - StreamPerThreadTest_NOT_BUILT-b12d07c (Not Run)
 	315 - GraphsTest_NOT_BUILT-b12d07c (Not Run)
 	316 - ABMAddKernels_NOT_BUILT-b12d07c (Not Run)
 	317 - memory_NOT_BUILT-b12d07c (Not Run)
+	367 - sycl_chip_interop (Not Run)
+	368 - sycl_chip_interop_usm (Not Run)

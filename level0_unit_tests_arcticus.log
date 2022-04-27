@@ -1,15 +1,9 @@
-78% tests passed, 83 tests failed out of 370
+80% tests passed, 74 tests failed out of 370
 
-Total Test time (real) = 2440.80 sec
+Total Test time (real) = 2146.07 sec
 
 The following tests FAILED:
 	  1 - MemoryTest_NOT_BUILT-b12d07c (Not Run)
-	 21 - Unit_hipMemcpy3D_ExtentValidation (Failed)
-	 27 - Unit_hipMemcpy3DAsync_ExtentValidation (Failed)
-	101 - Unit_hipMemcpy_HalfMemCopy (Failed)
-	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
-	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
-	105 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
 	106 - Unit_hipHostRegister_Memcpy - int (Failed)
 	107 - Unit_hipHostRegister_Memcpy - float (Failed)
 	108 - Unit_hipHostRegister_Memcpy - double (Failed)
@@ -33,13 +27,11 @@ The following tests FAILED:
 	138 - Unit_hipMemset2DAsync_BasicFunctional (Failed)
 	140 - Unit_hipHostMalloc_ArgValidation (Failed)
 	141 - Unit_hipMemset3D_MemsetWithExtent (Subprocess aborted)
-	142 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
+	142 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
+	146 - Unit_hipMemset3DAsync_SeekSetSlice (Failed)
 	147 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
-	148 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
-	149 - Unit_hipMemset3D_Negative (Subprocess aborted)
-	150 - Unit_hipMemset3DAsync_Negative (Subprocess aborted)
-	161 - Unit_hipMemPrefetchAsync_NonPageSz (SEGFAULT)
-	177 - Unit_hipMemcpyWithStream_MultiThread (Timeout)
+	161 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
+	177 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
 	179 - Unit_hipMemset2DAsync_WithKernel (Failed)
 	180 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
 	198 - Unit_hipHostMalloc_NonCoherent (Failed)
@@ -58,7 +50,7 @@ The following tests FAILED:
 	257 - Unit_hipStreamAddCallback_WithCreatedStream (Timeout)
 	258 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	265 - EventTest_NOT_BUILT-b12d07c (Not Run)
-	270 - Unit_hipEvent (Failed)
+	270 -  (Failed)
 	276 - Unit_hipEventIpc (Failed)
 	277 - OccupancyTest_NOT_BUILT-b12d07c (Not Run)
 	278 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
@@ -67,8 +59,8 @@ The following tests FAILED:
 	282 - DeviceTest_NOT_BUILT-b12d07c (Not Run)
 	308 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	310 - Unit_hiprtc_saxpy (Failed)
-	311 - Unit_printf_flags (Subprocess aborted)
-	312 - Unit_printf_specifier (Subprocess aborted)
+	311 - Unit_printf_flags (Failed)
+	312 - Unit_printf_specifier (Failed)
 	313 - TextureTest_NOT_BUILT-b12d07c (Not Run)
 	314 - StreamPerThreadTest_NOT_BUILT-b12d07c (Not Run)
 	315 - GraphsTest_NOT_BUILT-b12d07c (Not Run)
@@ -84,5 +76,4 @@ The following tests FAILED:
 	355 - PrintfNOP (Failed)
 	356 - PrintfDynamic (Failed)
 	357 - hipTextureObj2D (Failed)
-	358 - hipTexObjPitch (Subprocess aborted)
 	364 - hipNormalizedFloat (Failed)
