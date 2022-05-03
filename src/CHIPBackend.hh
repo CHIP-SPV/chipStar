@@ -616,6 +616,14 @@ public:
    * @brief Get the Kernel object
    *
    * @param name name of the corresponding host function
+   * @return CHIPKernel* if found and nullptr otherwise.
+   */
+  CHIPKernel *findKernel(const std::string Name);
+
+  /**
+   * @brief Get the Kernel object
+   *
+   * @param name name of the corresponding host function
    * @return CHIPKernel*
    */
   CHIPKernel *getKernel(std::string Name);

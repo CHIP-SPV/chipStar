@@ -25,7 +25,7 @@ constexpr unsigned SpirvCrossWorkGroupAS = 1;
 
 // Create kernel function stub, returns its return instruction.
 static Instruction *createKernelStub(Module &M, StringRef Name,
-                                     ArrayRef<Type *> ArgTypes) {
+                                     ArrayRef<Type *> ArgTypes = None) {
   Function *F = cast<Function>(
       M.getOrInsertFunction(
            Name,
@@ -176,6 +176,11 @@ static bool shouldLower(const GlobalVariable &GVar) {
   if (GVar.getName().startswith(ChipVarPrefix))
     return false;  // Already lowered.
 
+  // All host accessible global device variables are marked to be externally
+  // initialized (so far).
+  if (!GVar.isExternallyInitialized())
+    return false;
+
   // String literals get an unnamed_addr attribute, we know by it to
   // skip them.
   if (GVar.hasAtLeastLocalUnnamedAddr())
@@ -283,7 +288,8 @@ static GlobalVariable *emitIndirectGlobalVariable(Module &M,
   GlobalVariable *NewGVar = new GlobalVariable(
       M, NewGVarTy, GVar->isConstant(), GVar->getLinkage(),
       Constant::getNullValue(NewGVarTy), NewGVarName, (GlobalVariable *)nullptr,
-      GVar->getThreadLocalMode(), SpirvCrossWorkGroupAS);
+      GVar->getThreadLocalMode(), SpirvCrossWorkGroupAS,
+      GVar->isExternallyInitialized());
   // Original GVars emitted by HIP-Clang are hidden. Make new GVars hidden too
   // for consistency.
   NewGVar->setVisibility(GlobalValue::HiddenVisibility);
@@ -306,21 +312,64 @@ static GVarMapT emitIndirectGlobalVariables(Module &M) {
   return GVarMap;
 }
 
-static bool lowerGlobalVariables(Module &M) {
-  GVarMapT GVarMap = emitIndirectGlobalVariables(M);
-  if (GVarMap.empty()) return false;
+// Find global device variables that are not host accessible but which should
+// be reinitialized on hipDeviceReset() - for example, static local variables.
+static std::vector<GlobalVariable *> findResettableNonSymbolGVs(Module &M) {
+  std::vector<GlobalVariable *> Result;
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.hasSection()) // Non-user defined variable - e.g. llvm.used
+                         // intrinsic.
+      continue;
+    // So far, all host-inaccessible global device variables lacks the
+    // externally_initialized attribute.
+    if (GV.isExternallyInitialized())
+      continue;
+    if (!GV.hasInitializer() || GV.isConstant())
+      continue;
+    LLVM_DEBUG(dbgs() << "Host-inaccessible resettable GV: " << GV);
+    Result.push_back(&GV);
+  }
+  return Result;
+}
 
-  for (auto kv : GVarMap) {
-    emitGlobalVarInfoShadowKernel(M, kv.second, kv.first);
-    emitGlobalVarBindShadowKernel(M, kv.second, kv.first);
-    if (kv.first->hasInitializer())
-      emitGlobalVarInitShadowKernel(M, kv.second, kv.first, GVarMap);
+// Emit a kernel for resetting GVs back to their initialization value.
+// Returns true if any code emitted and false otherwise.
+bool emitNonSymbolInitializerKernel(const std::vector<GlobalVariable *> GVs,
+                                    Module &M) {
+  if (GVs.empty())
+    return false;
+  IRBuilder<> Builder(createKernelStub(M, ChipNonSymbolResetKernelName));
+  for (auto *GV : GVs) {
+    assert(GV->hasInitializer());
+    Builder.CreateStore(GV->getInitializer(), GV);
+  }
+  return true;
+}
+
+static bool lowerGlobalVariables(Module &M) {
+  bool Changed = false;
+
+  // Lower host accessible global device variables.
+  GVarMapT GVarMap = emitIndirectGlobalVariables(M);
+  if (!GVarMap.empty()) {
+    for (auto Kv : GVarMap) {
+      emitGlobalVarInfoShadowKernel(M, Kv.second, Kv.first);
+      emitGlobalVarBindShadowKernel(M, Kv.second, Kv.first);
+      if (Kv.first->hasInitializer())
+        emitGlobalVarInitShadowKernel(M, Kv.second, Kv.first, GVarMap);
+    }
+    replaceGlobalVariableUses(GVarMap);
+    eraseMappedGlobalVariables(GVarMap);
+    Changed |= true;
   }
 
-  replaceGlobalVariableUses(GVarMap);
-  eraseMappedGlobalVariables(GVarMap);
+  // Lower global device variables which are not accessible by the host but
+  // should be reset on hipDeviceReset() call. For example: static function
+  // local variables.
+  auto NonSymbolGVs = findResettableNonSymbolGVs(M);
+  Changed |= emitNonSymbolInitializerKernel(NonSymbolGVs, M);
 
-  return true;
+  return Changed;
 }
 }  // namespace
 

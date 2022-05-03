@@ -198,7 +198,7 @@ void CHIPModule::compileOnce(CHIPDevice *ChipDevice) {
   std::call_once(Compiled_, &CHIPModule::compile, this, ChipDevice);
 }
 
-CHIPKernel *CHIPModule::getKernel(std::string Name) {
+CHIPKernel *CHIPModule::findKernel(const std::string Name) {
   auto KernelFound = std::find_if(ChipKernels_.begin(), ChipKernels_.end(),
                                   [&Name](CHIPKernel *Kernel) {
                                     return Kernel->getName().compare(Name) == 0;
@@ -217,7 +217,8 @@ CHIPKernel *CHIPModule::getKernel(std::string Name) {
   //
   // Try work this bug around by searching for an *unique* kernel that
   // starts with <Name>.
-  if (KernelFound == ChipKernels_.end()) {
+  auto *Kernel = KernelFound == ChipKernels_.end() ? nullptr : *KernelFound;
+  if (!Kernel) {
     CHIPKernel *UniqueCandidate = nullptr;
     for (auto *K : ChipKernels_) {
       if (K->getName().substr(0, Name.size()) == Name) {
@@ -231,13 +232,16 @@ CHIPKernel *CHIPModule::getKernel(std::string Name) {
     if (UniqueCandidate)
       return UniqueCandidate;
   }
+  return Kernel;
+}
 
-  if (KernelFound == ChipKernels_.end()) {
+CHIPKernel *CHIPModule::getKernel(std::string Name) {
+  auto *Kernel = findKernel(Name);
+  if (!Kernel) {
     std::string Msg = "Failed to find kernel via kernel name: " + Name;
     CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
   }
-
-  return *KernelFound;
+  return Kernel;
 }
 
 CHIPKernel *CHIPModule::getKernel(const void *HostFPtr) {
@@ -333,7 +337,8 @@ void CHIPModule::initializeDeviceVariablesNoLock(CHIPDevice *Device,
   (void)Err;
 
   // Mark initialized if the module does not have any device variables.
-  DeviceVariablesInitialized_ |= ChipVars_.empty();
+  auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
+  DeviceVariablesInitialized_ |= ChipVars_.empty() && !NonSymbolResetKernel;
 
   if (DeviceVariablesInitialized_) {
     // Can't be initialized if no storage is not allocated.
@@ -350,8 +355,16 @@ void CHIPModule::initializeDeviceVariablesNoLock(CHIPDevice *Device,
     queueVariableInitShadowKernel(Queue, this, Var);
     QueuedKernels = true;
   }
+
+  // Launch kernel for resetting host-inaccessible global device variables.
+  if (NonSymbolResetKernel) {
+    queueKernel(Queue, NonSymbolResetKernel);
+    QueuedKernels = true;
+  }
+
   if (QueuedKernels)
     Queue->finish();
+
   DeviceVariablesInitialized_ = true;
 }
 
