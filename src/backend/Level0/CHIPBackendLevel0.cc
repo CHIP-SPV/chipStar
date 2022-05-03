@@ -535,18 +535,21 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   ze_command_queue_group_properties_t *CmdqueueGroupProperties =
       (ze_command_queue_group_properties_t *)malloc(
           CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
+  size_t MaxPattern = 0;
   for (int i = 0; i < CmdqueueGroupCount; i++) {
     CmdqueueGroupProperties[i] = {
         ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, // stype
         nullptr,                                          // pNext
         0,                                                // flags
-        0, // maxMemoryFillPatternSize
-        0  // numQueues
+        MaxPattern, // maxMemoryFillPatternSize
+        0           // numQueues
     };
   }
   zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
                                          CmdqueueGroupProperties);
 
+  this->MaxMemoryFillPatternSize =
+      CmdqueueGroupProperties[0].maxMemoryFillPatternSize;
   // Find a command queue type that support compute
   uint32_t ComputeQueueGroupOrdinal = CmdqueueGroupCount;
   for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
@@ -652,6 +655,20 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memFill";
+
+  if (PatternSize >= MaxMemoryFillPatternSize) {
+    logCritical("PatternSize: {} Max: {}", PatternSize,
+                MaxMemoryFillPatternSize);
+    CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this queue",
+                          hipErrorTbd);
+  }
+
+  if (std::ceil(log2(PatternSize)) != std::floor(log2(PatternSize))) {
+    logCritical("PatternSize: {} Max: {}", PatternSize,
+                MaxMemoryFillPatternSize);
+    CHIPERR_LOG_AND_THROW("MemFill PatternSize is not a power of 2",
+                          hipErrorTbd);
+  }
   ze_result_t Status = zeCommandListAppendMemoryFill(
       ZeCmdListImm_, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -1583,5 +1600,3 @@ void CHIPExecItem::setupAllArgs() {
 
   return;
 }
-
-

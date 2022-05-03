@@ -147,6 +147,19 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, size_t Size) {
   return;
 }
 
+AllocationInfo *CHIPAllocationTracker::findBaseDevPtr(void *DevPtr) {
+  for (auto &Info : DevToAllocInfo_) {
+    AllocationInfo *AllocInfo = &Info.second;
+    void *Start = AllocInfo->BasePtr;
+    void *End = (char *)Start + AllocInfo->Size;
+
+    if (Start <= DevPtr && DevPtr < End)
+      return AllocInfo;
+  }
+
+  return nullptr;
+}
+
 // CHIPEvent
 // ************************************************************************
 
@@ -1469,15 +1482,9 @@ void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
   ChipEvent->Msg = "memCopy3DAsync";
   updateLastEvent(ChipEvent);
 }
-void CHIPQueue::launch(CHIPExecItem *ExecItem) {
-  std::lock_guard<std::mutex> Lock(Mtx);
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
-#ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
-#endif
-  auto ChipEvent = launchImpl(ExecItem);
-  ChipEvent->Msg = "launch";
-  updateLastEvent(ChipEvent);
+
+void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
+                                  bool KernelSubmitted) {
 
   auto &ArgTyInfos = ExecItem->getKernel()->getFuncInfo()->ArgTypeInfo;
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -1506,15 +1513,41 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 
     if (HostPtr) {
       auto AllocInfo = AllocTracker->getByDevPtr(DevPtr);
-      logDebug("A hipHostRegister argument was found. Appending a mem copy "
-               "back to the host {} -> {}",
-               DevPtr, HostPtr);
-      auto Ev = this->memCopyImpl(HostPtr, DevPtr, AllocInfo->Size);
-      Ev->Msg = "hipHostRegisterMemCpy";
-      updateLastEvent(Ev);
+
+      if (!KernelSubmitted) {
+        logDebug("A hipHostRegister argument was found. Appending a mem copy "
+                 "Host -> Device {} -> {}",
+                 DevPtr, HostPtr);
+        auto Ev = this->memCopyImpl(DevPtr, HostPtr, AllocInfo->Size);
+        Ev->Msg = "hipHostRegisterMemCpyHostToDev";
+        updateLastEvent(Ev);
+      } else {
+        logDebug("A hipHostRegister argument was found. Appending a mem copy "
+                 "back to the host {} -> {}",
+                 DevPtr, HostPtr);
+        auto Ev = this->memCopyImpl(HostPtr, DevPtr, AllocInfo->Size);
+        Ev->Msg = "hipHostRegisterMemCpyDevToHost";
+        updateLastEvent(Ev);
+      }
     }
   }
 }
+
+void CHIPQueue::launch(CHIPExecItem *ExecItem) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
+
+  RegisteredVarCopy(ExecItem, false);
+  auto ChipEvent = launchImpl(ExecItem);
+  ChipEvent->Msg = "launch";
+  updateLastEvent(ChipEvent);
+  ExecItem->getQueue()->finish();
+  RegisteredVarCopy(ExecItem, true);
+}
+
 CHIPEvent *
 CHIPQueue::enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor) {
   std::lock_guard<std::mutex> Lock(Mtx);

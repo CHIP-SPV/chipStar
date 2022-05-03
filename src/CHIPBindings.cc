@@ -49,25 +49,13 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
-                             size_t Count, hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
-                            hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
   auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
   Stream->finish();
   RETURN(Status);
 };
-hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
-                        size_t Count) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
+
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
                          int SrcDeviceId, size_t SizeBytes) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -78,15 +66,6 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
   UNIMPLEMENTED(hipErrorNotSupported);
 };
 
-hipError_t hipMalloc3DArray(hipArray **Array,
-                            const struct hipChannelFormatDesc *Desc,
-                            struct hipExtent Extent, unsigned int Flags) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
-hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
-                            size_t Count, hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-};
 hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
                               int SrcDevice, size_t SizeBytes,
                               hipStream_t Stream) {
@@ -95,7 +74,32 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
 
 hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
                                  hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_TRY
+  CHIPInitialize();
+
+  if (PCopy->dstPitch == 0)
+    return hipSuccess;
+  if (PCopy->srcPitch == 0)
+    return hipSuccess;
+  if (PCopy->Height * PCopy->WidthInBytes == 0)
+    return hipSuccess;
+  if (PCopy->srcDevice == nullptr && PCopy->dstDevice == nullptr)
+    CHIPERR_LOG_AND_THROW("Source and Destination Device pointer is null",
+                          hipErrorTbd);
+
+  if (PCopy->dstDevice != nullptr && PCopy->srcDevice == nullptr)
+    CHIPERR_LOG_AND_THROW("Source Device pointer is null", hipErrorTbd);
+  if (PCopy->srcDevice != nullptr && PCopy->dstDevice == nullptr)
+    CHIPERR_LOG_AND_THROW("Source Device pointer is null", hipErrorTbd);
+
+  if ((PCopy->WidthInBytes > PCopy->dstPitch) ||
+      (PCopy->WidthInBytes > PCopy->srcPitch))
+    CHIPERR_LOG_AND_THROW("Width > src/dest pitches", hipErrorTbd);
+
+  return hipMemcpy2D(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
+                     PCopy->srcPitch, PCopy->WidthInBytes, PCopy->Height,
+                     hipMemcpyDefault);
+  CHIP_CATCH
 }
 
 //*****************************************************************************
@@ -1040,6 +1044,7 @@ hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
 
 hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
+  UNIMPLEMENTED(hipErrorTbd)
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
@@ -1176,6 +1181,73 @@ hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
 
   CHIP_CATCH
 }
+
+hipError_t hipMalloc3DArray(hipArray **Array,
+                            const struct hipChannelFormatDesc *Desc,
+                            struct hipExtent Extent, unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Array, Desc);
+
+  auto Width = Extent.width;
+  auto Height = Extent.height;
+  auto Depth = Extent.depth;
+
+  ERROR_IF((Width == 0), hipErrorInvalidValue);
+
+  *Array = new hipArray;
+  ERROR_IF((*Array == nullptr), hipErrorOutOfMemory);
+
+  auto TexType = hipTextureType1D;
+  if (Depth) {
+    TexType = hipTextureType3D;
+  } else if (Height) {
+    TexType = hipTextureType2D;
+  }
+  hipArray_Format hipArrayFormatArray;
+  switch (Desc->f) {
+  case hipChannelFormatKindSigned:
+    hipArrayFormatArray = HIP_AD_FORMAT_SIGNED_INT32;
+    break;
+
+  case hipChannelFormatKindUnsigned:
+    hipArrayFormatArray = HIP_AD_FORMAT_UNSIGNED_INT32;
+    break;
+
+  case hipChannelFormatKindFloat:
+    hipArrayFormatArray = HIP_AD_FORMAT_FLOAT;
+    break;
+
+  case hipChannelFormatKindNone:
+    CHIPERR_LOG_AND_THROW("hipChannelFormatKindNone?", hipErrorInvalidValue);
+    break;
+
+  default:
+    CHIPERR_LOG_AND_THROW("Invalid channel format", hipErrorInvalidValue);
+  }
+
+  (*Array)->data = nullptr;
+  (*Array)->desc = *Desc;
+  (*Array)->type = hipArrayDefault;
+  (*Array)->width = Width;
+  (*Array)->height = Height;
+  (*Array)->depth = Depth;
+  (*Array)->Format = hipArrayFormatArray;
+  (*Array)->NumChannels = 1;
+  (*Array)->isDrv = false;
+  (*Array)->textureType = TexType;
+  void **Ptr = &Array[0]->data;
+
+  size_t AllocSize =
+      Width * std::max<size_t>(Height, 1) * getChannelByteSize(*Desc);
+
+  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
+
+  *Ptr = RetVal;
+  RETURN(hipSuccess);
+  CHIP_CATCH
+};
 
 hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
                           size_t Width, size_t Height, unsigned int Flags) {
@@ -1420,6 +1492,188 @@ hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
   RETURN(hipMemcpy(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
 }
 
+hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
+                            size_t Height, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+  hipError_t Res = hipSuccess;
+  for (int i = 0; i < Height; i++) {
+    size_t SizeBytes = Width * sizeof(int);
+    auto Offset = Pitch * i;
+    char *DstP = (char *)Dst;
+    auto Res = hipMemset(DstP + Offset, Value, SizeBytes);
+    if (Res != hipSuccess)
+      break;
+  }
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
+                       size_t Height) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveQueue();
+  auto Res = hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
+  Stream->finish();
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
+                            hipExtent Extent, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PitchedDevPtr.ptr);
+
+  if (Extent.height * Extent.width * Extent.depth == 0)
+    return hipSuccess;
+
+  if (Extent.height > PitchedDevPtr.ysize ||
+      Extent.width > PitchedDevPtr.xsize || Extent.depth > PitchedDevPtr.pitch)
+    CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorTbd);
+
+  // Check if pointer inside allocation range
+  auto AllocTracker = Stream->getDevice()->AllocationTracker;
+  AllocationInfo *AllocInfo = AllocTracker->findBaseDevPtr(PitchedDevPtr.ptr);
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
+                          hipErrorTbd);
+
+  // Check if extents don't overextend the allocation?
+
+  auto Width = Extent.width;
+  auto Height = Extent.height;
+  auto Depth = Extent.depth;
+
+  if (PitchedDevPtr.pitch == Extent.width) {
+    return hipMemsetAsync(PitchedDevPtr.ptr, Value, Width * Height * Depth,
+                          Stream);
+  }
+
+  // auto Height = std::max<size_t>(1, Extent.height);
+  // auto Depth = std::max<size_t>(1, Extent.depth);
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+
+  hipError_t Res = hipSuccess;
+  for (int i = 0; i < Depth; i++)
+    for (int j = 0; j < Height; j++) {
+      size_t SizeBytes = Width;
+      auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
+      char *DstP = (char *)Dst;
+      auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
+      if (Res != hipSuccess)
+        break;
+    }
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
+                       hipExtent Extent) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveQueue();
+  auto Res = hipMemset3DAsync(PitchedDevPtr, Value, Extent, Stream);
+  if (Res == hipSuccess)
+    Stream->finish();
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
+                          hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+  Stream = Backend->findQueue(Stream);
+
+  char CharVal = Value;
+  Stream->memFillAsync(Dst, SizeBytes, &CharVal, 1);
+
+  RETURN(hipSuccess);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+
+  char CharVal = Value;
+  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveQueue()->memFill(Dst, SizeBytes, &CharVal, 1);
+
+  // Check if this pointer is registered
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getByDevPtr(Dst);
+  if (!AllocInfo)
+    AllocInfo = AllocTracker->getByHostPtr(Dst);
+
+  if (AllocInfo) {
+    logDebug("Found associated alloc info");
+    auto RegisterMemDst =
+        AllocTracker->getAssociatedHostPtr(AllocInfo->BasePtr);
+    if (RegisterMemDst)
+      memset(RegisterMemDst, Value, SizeBytes);
+  }
+
+  RETURN(hipSuccess);
+  CHIP_CATCH
+}
+
+hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
+                            size_t Count, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dest);
+  Stream = Backend->findQueue(Stream);
+
+  Stream->getDevice()->initializeDeviceVariables();
+  Stream->memFillAsync(Dest, 1 * Count, &Value, 1);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+};
+
+hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
+                       size_t SizeBytes) {
+  RETURN(hipMemset(Dest, Value, SizeBytes));
+}
+
+hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
+                             size_t Count, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  Stream = Backend->findQueue(Stream);
+
+  Stream->getDevice()->initializeDeviceVariables();
+  Stream->memFillAsync(Dest, 2 * Count, &Value, 2);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+}
+hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
+                        size_t Count) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dest);
+
+  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveQueue()->memFill(Dest, 2 * Count, &Value, 2);
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+};
+
 hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
                              hipStream_t Stream) {
   CHIP_TRY
@@ -1445,73 +1699,16 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   CHIP_CATCH
 }
 
-hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
-                            size_t Height, hipStream_t Stream) {
-  NULLCHECK(Dst);
-  Stream = Backend->findQueue(Stream);
-
-  size_t SizeBytes = Pitch * Height;
-  RETURN(hipMemsetAsync(Dst, Value, SizeBytes, Stream));
-}
-
-hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
-                       size_t Height) {
-  size_t SizeBytes = Pitch * Height;
-  RETURN(hipMemset(Dst, Value, SizeBytes));
-}
-
-hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
-                            hipExtent Extent, hipStream_t Stream) {
-  size_t SizeBytes = PitchedDevPtr.pitch * Extent.height * Extent.depth;
-  RETURN(hipMemsetAsync(PitchedDevPtr.ptr, Value, SizeBytes, Stream));
-}
-
-hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
-                       hipExtent Extent) {
-  size_t SizeBytes = PitchedDevPtr.pitch * Extent.height * Extent.depth;
-  RETURN(hipMemset(PitchedDevPtr.ptr, Value, SizeBytes));
-}
-
-hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
-                          hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst);
-  if (!Stream)
-    Stream = Backend->getActiveQueue();
-
-  char CharVal = Value;
-  Stream->memFillAsync(Dst, SizeBytes, &CharVal, 1);
-
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst);
-
-  char CharVal = Value;
-  Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveQueue()->memFill(Dst, SizeBytes, &CharVal, 1);
-
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
-                       size_t SizeBytes) {
-  RETURN(hipMemset(Dest, Value, SizeBytes));
-}
-
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
-  NULLCHECK(PCopy,
-            PCopy->dstArray); // TODO remove the dstArray check since this can
-                              // be used as trasnfer to non array
-  return hipMemcpy2D(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
-                     PCopy->srcPitch, PCopy->WidthInBytes, PCopy->Height,
-                     hipMemcpyDefault);
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PCopy);
+
+  auto Err = hipMemcpyParam2DAsync(PCopy, Backend->getActiveQueue());
+
+  Backend->getActiveQueue()->finish();
+  RETURN(Err);
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
@@ -1520,6 +1717,16 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+
+  if (DPitch < 1)
+    CHIPERR_LOG_AND_THROW("DPitch <= 0", hipErrorInvalidValue);
+  if (SPitch < 1)
+    CHIPERR_LOG_AND_THROW("SPitch <= 0", hipErrorInvalidValue);
+  if (Width > DPitch)
+    CHIPERR_LOG_AND_THROW("Width > DPitch", hipErrorInvalidValue);
+  if (Height * Width == 0)
+    return hipSuccess;
+
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->initializeDeviceVariables();
 
@@ -1708,6 +1915,17 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   CHIPInitialize();
   NULLCHECK(SrcHost, DstArray);
 
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getByDevPtr(DstArray->data);
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("Destination device pointer not allocated on device",
+                          hipErrorTbd);
+  if (DstOffset > AllocInfo->Size)
+    CHIPERR_LOG_AND_THROW("Offset greater than allocation size", hipErrorTbd);
+  if (Count > AllocInfo->Size)
+    CHIPERR_LOG_AND_THROW("Copy size greater than allocation size",
+                          hipErrorTbd);
+
   return hipMemcpy((char *)DstArray->data + DstOffset, SrcHost, Count,
                    hipMemcpyHostToDevice);
 
@@ -1715,6 +1933,19 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
 }
 
 hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Err = hipMemcpy3DAsync(Params, Backend->getActiveQueue());
+
+  Backend->getActiveQueue()->finish();
+
+  RETURN(Err);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
+                            hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Params);
