@@ -48,6 +48,16 @@
 
 #define HIP_DYNAMIC_SHARED_ATTRIBUTE
 
+extern "C" {
+// A global flag included in all HIP device modules for signaling
+// abort request.
+__attribute__((weak)) __device__ int32_t __chipspv_abort_called;
+
+__device__ void __chipspv_abort(int32_t *abort_flag);
+
+static __device__ void abort() { __chipspv_abort(&__chipspv_abort_called); }
+}
+
 typedef int hipLaunchParm;
 #define hipLaunchKernelGGLInternal(kernelName, numBlocks, numThreads,          \
                                    memPerBlock, streamId, ...)                 \
@@ -138,12 +148,11 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 
 #endif // defined(__clang__) && defined(__HIP__)
 
-/* FIXME: after the prototype works, move to proper headers. */
+/* FIXME: Is this the best place for these declarations? */
 
 extern "C" __device__ int printf(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
-
-/* /FIXME */
+extern "C" __device__ void abort();
 
 /*************************************************************************************************/
 

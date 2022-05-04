@@ -186,14 +186,18 @@ private:
   std::string Name_;
   size_t TotalArgSize_;
   cl::Kernel OclKernel_;
+  CHIPModuleOpenCL *Module;
 
 public:
   CHIPKernelOpenCL(const cl::Kernel &&ClKernel, std::string HostFName,
-                   OCLFuncInfo *FuncInfo);
+                   OCLFuncInfo *FuncInfo, CHIPModuleOpenCL *Parent);
   OCLFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel get() const;
   size_t getTotalArgSize() const;
+
+  CHIPModuleOpenCL *getModule() override { return Module; }
+  const CHIPModuleOpenCL *getModule() const override { return Module; }
 };
 
 class CHIPExecItemOpenCL : public CHIPExecItem {

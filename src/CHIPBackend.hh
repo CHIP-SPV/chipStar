@@ -655,7 +655,7 @@ public:
    * @param name name of the corresponding host function
    * @return CHIPKernel* if found and nullptr otherwise.
    */
-  CHIPKernel *findKernel(const std::string Name);
+  CHIPKernel *findKernel(const std::string &Name);
 
   /**
    * @brief Get the Kernel object
@@ -664,6 +664,14 @@ public:
    * @return CHIPKernel*
    */
   CHIPKernel *getKernel(std::string Name);
+
+  /**
+   * @brief Checks if the module has a kernel with the given name.
+   *
+   * @param name the name of the kernel
+   * @return true in case the kernels is found
+   */
+  bool hasKernel(std::string Name);
 
   /**
    * @brief Get the Kernels object
@@ -771,6 +779,12 @@ public:
    * @return const void*
    */
   void setDevPtr(const void *DevFPtr);
+
+  /**
+   * @brief Return the parent module of the kernel.
+   */
+  virtual CHIPModule *getModule() = 0;
+  virtual const CHIPModule *getModule() const = 0;
 };
 
 /**
@@ -1150,15 +1164,15 @@ public:
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param var host pointer to the variable
-   * @return CHIPDeviceVar*
+   * @return CHIPDeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getDynGlobalVar(const void *Var) { UNIMPLEMENTED(nullptr); }
+  CHIPDeviceVar *getDynGlobalVar(const void *Var) { return nullptr; }
 
   /**
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param var Pointer to host side shadow variable.
-   * @return CHIPDeviceVar*
+   * @return CHIPDeviceVar* if not found returns nullptr
    */
   CHIPDeviceVar *getStatGlobalVar(const void *Var);
 

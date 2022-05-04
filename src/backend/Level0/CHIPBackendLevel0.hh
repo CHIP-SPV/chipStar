@@ -77,17 +77,6 @@ public:
   virtual void monitor() override;
 };
 
-class CHIPKernelLevel0 : public CHIPKernel {
-protected:
-  ze_kernel_handle_t ZeKernel_;
-
-public:
-  CHIPKernelLevel0();
-  CHIPKernelLevel0(ze_kernel_handle_t ZeKernel, std::string FuncName,
-                   OCLFuncInfo *FuncInfo);
-  ze_kernel_handle_t get();
-};
-
 class CHIPQueueLevel0 : public CHIPQueue {
 protected:
   ze_context_handle_t ZeCtx_;
@@ -201,6 +190,21 @@ public:
    * @return ze_module_handle_t
    */
   ze_module_handle_t get() { return ZeModule_; }
+};
+
+class CHIPKernelLevel0 : public CHIPKernel {
+protected:
+  ze_kernel_handle_t ZeKernel_;
+  CHIPModuleLevel0 *Module;
+
+public:
+  CHIPKernelLevel0();
+  CHIPKernelLevel0(ze_kernel_handle_t ZeKernel, std::string FuncName,
+                   OCLFuncInfo *FuncInfo, CHIPModuleLevel0 *Parent);
+  ze_kernel_handle_t get();
+
+  CHIPModuleLevel0 *getModule() override { return Module; }
+  const CHIPModuleLevel0 *getModule() const override { return Module; }
 };
 
 // The struct that accomodate the L0/Hip texture object's content

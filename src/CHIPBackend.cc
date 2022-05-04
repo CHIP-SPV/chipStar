@@ -24,7 +24,7 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
 }
 
 /// Queue a shadow kernel for binding a device variable (a pointer) to
-/// the give n allocation.
+/// the given allocation.
 static void queueVariableInfoShadowKernel(CHIPQueue *Q, CHIPModule *M,
                                           const CHIPDeviceVar *Var,
                                           void *InfoBuffer) {
@@ -211,7 +211,7 @@ void CHIPModule::compileOnce(CHIPDevice *ChipDevice) {
   std::call_once(Compiled_, &CHIPModule::compile, this, ChipDevice);
 }
 
-CHIPKernel *CHIPModule::findKernel(const std::string Name) {
+CHIPKernel *CHIPModule::findKernel(const std::string &Name) {
   auto KernelFound = std::find_if(ChipKernels_.begin(), ChipKernels_.end(),
                                   [&Name](CHIPKernel *Kernel) {
                                     return Kernel->getName().compare(Name) == 0;
@@ -257,6 +257,8 @@ CHIPKernel *CHIPModule::getKernel(std::string Name) {
   return Kernel;
 }
 
+bool CHIPModule::hasKernel(std::string Name) { return findKernel(Name); }
+
 CHIPKernel *CHIPModule::getKernel(const void *HostFPtr) {
   for (auto &Kernel : ChipKernels_)
     logDebug("chip kernel: {} {}", Kernel->getHostPtr(), Kernel->getName());
@@ -280,9 +282,9 @@ CHIPDeviceVar *CHIPModule::getGlobalVar(const char *VarName) {
                                  return Var->getName().compare(VarName) == 0;
                                });
   if (VarFound == ChipVars_.end()) {
-    std::string Msg =
-        "Failed to find global variable by name: " + std::string(VarName);
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
+    logDebug("Failed to find global variable by name: {}",
+             std::string(VarName));
+    return nullptr;
   }
 
   return *VarFound;
@@ -776,10 +778,29 @@ void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
 void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
                                         const void *HostPtr, const char *Name,
                                         size_t Size) {
+  if (!ChipModules.count(ModuleStr)) {
+    auto *NewModule = addModule(ModuleStr);
+    NewModule->compileOnce(this);
+  }
+  if (!ChipModules.count(ModuleStr))
+    CHIPERR_LOG_AND_THROW(
+        "Broken expectation: could not find a module by name,", hipErrorTbd);
+  CHIPModule *Module = ChipModules[ModuleStr];
+
+  std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + Name;
+  if (!Module->hasKernel(VarInfoKernelName)) {
+    // The kernel compilation pipe is allowed to remove device-side unused
+    // global variables from the device modules. This is utilized in the abort
+    // implementation to signal that abort is not called in the module. The
+    // lack of the variable in the device module is used as a quick (and dirty)
+    // way to not query for the global flag value after each kernel execution
+    // (reading of which requires kernel launches).
+    logTrace("Device variable {} not found in the module -- removed as unused?",
+             Name);
+    return;
+  }
+
   auto *Var = new CHIPDeviceVar(Name, Size);
-  auto ModuleIter = ChipModules.find(ModuleStr);
-  assert(ModuleIter != ChipModules.end() && "Module was not registered!");
-  auto *Module = ModuleIter->second;
   Module->addDeviceVariable(Var);
   DeviceVarLookup_.insert(std::make_pair(HostPtr, Var));
 }
