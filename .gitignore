@@ -3,4 +3,5 @@ install/*
 .vscode/*
 samples/0_MatrixMultiply/binary
 *.qsub
+*.sh
 test_find_cmake/*
