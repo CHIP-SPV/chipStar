@@ -1,6 +1,7 @@
-76% tests passed, 90 tests failed out of 372
+f5641a8
+76% tests passed, 91 tests failed out of 376
 
-Total Test time (real) = 508.98 sec
+Total Test time (real) = 815.85 sec
 
 The following tests FAILED:
 	  1 - MemoryTest_NOT_BUILT-b12d07c (Not Run)
@@ -77,19 +78,20 @@ The following tests FAILED:
 	317 - GraphsTest_NOT_BUILT-b12d07c (Not Run)
 	318 - ABMAddKernels_NOT_BUILT-b12d07c (Not Run)
 	319 - memory_NOT_BUILT-b12d07c (Not Run)
-	356 - PrintfSimple (Failed)
-	357 - PrintfNOP (Failed)
-	358 - PrintfDynamic (Failed)
-	359 - hipTextureObj2D (Subprocess aborted)
-	360 - hipTexObjPitch (Subprocess aborted)
-	361 - hipTexObjCustomPitch (Subprocess aborted)
-	362 - hipTextureObj1DFetch (Subprocess aborted)
-	363 - hipTex1DFetchCheckModes (Subprocess aborted)
-	364 - hipTextureObjFetchVector (Failed)
-	365 - hipNormalizedCoords (Subprocess aborted)
-	366 - hipNormalizedFloat (Subprocess aborted)
-	367 - hipTextureObj1D (Subprocess aborted)
-	369 - sycl_chip_interop (SEGFAULT)
-	370 - sycl_chip_interop_usm (SEGFAULT)
-	371 - hip_sycl_interop (Subprocess aborted)
-	372 - hip_sycl_interop_no_buffers (Subprocess aborted)
+	320 - abort (Failed)
+	360 - PrintfSimple (Failed)
+	361 - PrintfNOP (Failed)
+	362 - PrintfDynamic (Failed)
+	363 - hipTextureObj2D (SEGFAULT)
+	364 - hipTexObjPitch (SEGFAULT)
+	365 - hipTexObjCustomPitch (SEGFAULT)
+	366 - hipTextureObj1DFetch (SEGFAULT)
+	367 - hipTex1DFetchCheckModes (SEGFAULT)
+	368 - hipTextureObjFetchVector (Failed)
+	369 - hipNormalizedCoords (SEGFAULT)
+	370 - hipNormalizedFloat (SEGFAULT)
+	371 - hipTextureObj1D (SEGFAULT)
+	373 - sycl_chip_interop (SEGFAULT)
+	374 - sycl_chip_interop_usm (SEGFAULT)
+	375 - hip_sycl_interop (Subprocess aborted)
+	376 - hip_sycl_interop_no_buffers (Subprocess aborted)
