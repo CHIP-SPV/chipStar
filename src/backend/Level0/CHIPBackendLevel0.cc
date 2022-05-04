@@ -1,4 +1,5 @@
 #include "CHIPBackendLevel0.hh"
+#include "Utils.hh"
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
@@ -1160,13 +1161,9 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
   // Clamp texture dimensions to [0, INT_MAX] because the return value
   // of hipDeviceGetAttribute() is int type.
-  auto ClampToInt = [](size_t Val) -> int {
-    auto MaxInt = std::numeric_limits<int>::max();
-    return std::min<int>(Val, MaxInt);
-  };
-  auto MaxDim0 = ClampToInt(DeviceImageProps.maxImageDims1D);
-  auto MaxDim1 = ClampToInt(DeviceImageProps.maxImageDims2D);
-  auto MaxDim2 = ClampToInt(DeviceImageProps.maxImageDims3D);
+  auto MaxDim0 = clampToInt(DeviceImageProps.maxImageDims1D);
+  auto MaxDim1 = clampToInt(DeviceImageProps.maxImageDims2D);
+  auto MaxDim2 = clampToInt(DeviceImageProps.maxImageDims3D);
 
   HipDeviceProps_.maxTexture1DLinear = MaxDim0;
   HipDeviceProps_.maxTexture1D = MaxDim0;
@@ -1220,7 +1217,6 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
     // Checked in CHIPBindings already.
     CHIPASSERT(Array->data && "Invalid hipArray.");
     CHIPASSERT(!Array->isDrv && "Not supported/implemented yet.");
-    auto TexelByteSize = getChannelByteSize(Array->desc);
     size_t Width = Array->width;
     size_t Height = Array->height;
     size_t Depth = Array->depth;
@@ -1229,30 +1225,15 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
         allocateImage(Array->textureType, Array->desc, NormalizedFloat, Width,
                       Height, Depth));
 
-    auto *Tex = new CHIPTextureLevel0(*PResDesc, ImageHandle, SamplerHandle);
-    logTrace("Created texture: {}", (void *)Tex);
+    auto Tex = std::make_unique<CHIPTextureLevel0>(*PResDesc, ImageHandle,
+                                                   SamplerHandle);
+    logTrace("Created texture: {}", (void *)Tex.get());
 
-    CHIPRegionDesc SrcDesc;
-    // TODO: sink logic into CHIPRegionDesc::fromHipArray().
-    switch (Array->textureType) {
-    default:
-      CHIPASSERT(false && "Unkown texture type.");
-      return nullptr;
-    case hipTextureType1D:
-      SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
-      break;
-    case hipTextureType2D:
-      SrcDesc = CHIPRegionDesc::get2DRegion(Width, Height, TexelByteSize);
-      break;
-    case hipTextureType3D:
-      SrcDesc =
-          CHIPRegionDesc::get3DRegion(Width, Height, Depth, TexelByteSize);
-      break;
-    }
-    Q->memCopyToImage(ImageHandle, Array->data, SrcDesc);
+    CHIPRegionDesc SrcRegion = CHIPRegionDesc::from(*Array);
+    Q->memCopyToImage(ImageHandle, Array->data, SrcRegion);
     Q->finish(); // Finish for safety.
 
-    return Tex;
+    return Tex.release();
   }
 
   if (PResDesc->resType == hipResourceTypeLinear) {
@@ -1263,15 +1244,16 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
     ze_image_handle_t ImageHandle = reinterpret_cast<ze_image_handle_t>(
         allocateImage(hipTextureType1D, Res.desc, NormalizedFloat, Width));
 
-    auto *Tex = new CHIPTextureLevel0(*PResDesc, ImageHandle, SamplerHandle);
-    logTrace("Created texture: {}", (void *)Tex);
+    auto Tex = std::make_unique<CHIPTextureLevel0>(*PResDesc, ImageHandle,
+                                                   SamplerHandle);
+    logTrace("Created texture: {}", (void *)Tex.get());
 
     // Copy data to image.
     auto SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
     Q->memCopyToImage(ImageHandle, Res.devPtr, SrcDesc);
     Q->finish(); // Finish for safety.
 
-    return Tex;
+    return Tex.release();
   }
 
   if (PResDesc->resType == hipResourceTypePitch2D) {
@@ -1283,15 +1265,16 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
         allocateImage(hipTextureType2D, Res.desc, NormalizedFloat, Res.width,
                       Res.height));
 
-    auto *Tex = new CHIPTextureLevel0(*PResDesc, ImageHandle, SamplerHandle);
-    logTrace("Created texture: {}", (void *)Tex);
+    auto Tex = std::make_unique<CHIPTextureLevel0>(*PResDesc, ImageHandle,
+                                                   SamplerHandle);
+    logTrace("Created texture: {}", (void *)Tex.get());
 
     // Copy data to image.
     auto SrcDesc = CHIPRegionDesc::from(*PResDesc);
     Q->memCopyToImage(ImageHandle, Res.devPtr, SrcDesc);
     Q->finish(); // Finish for safety.
 
-    return Tex;
+    return Tex.release();
   }
 
   CHIPASSERT(false && "Unsupported/unimplemented texture resource type.");

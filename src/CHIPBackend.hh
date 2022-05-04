@@ -42,10 +42,13 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
 class CHIPRegionDesc {
 public:
   static constexpr unsigned MaxNumDims = 3;
-  // Measured in bytes.
+  // The number of dimensions.
+  unsigned char NumDims = 1;
+  // The size of element measured in bytes.
   size_t ElementSize = 0;
-  // Measured in elements. [X, 0, 0] -> 1D, [X, Y, 0] -> 2D, [X, Y, Z] -> 3D.
-  size_t Size[MaxNumDims] = {0};
+  // Measured in elements. The minimum size allowed is one for the first
+  // NumDim elements.
+  size_t Size[MaxNumDims] = {1, 1, 1};
   // Measured in elements.
   size_t Offset[MaxNumDims] = {0, 0, 0};
   // Row and slice pitch. Measured in bytes.
@@ -62,17 +65,8 @@ public:
   }
 
   unsigned getNumDims() const {
-    unsigned Count = 0;
-    unsigned Idx = 0;
-    for (; Idx < MaxNumDims && Size[Idx]; Idx++)
-      Count++;
-#ifndef NDEBUG
-    // Check no non-zeroes after a zero (e.g. [X, 0, Z]).
-    for (; Idx < MaxNumDims; Idx++)
-      if (Size[Idx])
-        CHIPASSERT(false && "Invalid Size description.");
-#endif
-    return Count;
+    CHIPASSERT(NumDims > 0 && NumDims <= MaxNumDims);
+    return NumDims;
   }
 
   bool isPitched() const {
@@ -94,6 +88,7 @@ public:
                                     size_t TheDepth,
                                     size_t ElementByteSize = 1) {
     CHIPRegionDesc Result;
+    Result.NumDims = 3;
     Result.ElementSize = ElementByteSize;
     Result.Size[0] = TheWidth;
     Result.Size[1] = TheHeight;
@@ -105,12 +100,33 @@ public:
 
   static CHIPRegionDesc get2DRegion(size_t TheWidth, size_t TheHeight,
                                     size_t ElementByteSize = 1) {
-    return get3DRegion(TheWidth, TheHeight, 0, ElementByteSize);
+    auto R = get3DRegion(TheWidth, TheHeight, 1, ElementByteSize);
+    R.NumDims = 2;
+    return R;
   }
 
   static CHIPRegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
                                     size_t ElementByteSize = 1) {
-    return get2DRegion(TheWidth, 0, ElementByteSize);
+    auto R = get2DRegion(TheWidth, 1, ElementByteSize);
+    R.NumDims = 1;
+    return R;
+  }
+
+  static CHIPRegionDesc from(const hipArray &Array) {
+    auto TexelByteSize = getChannelByteSize(Array.desc);
+    switch (Array.textureType) {
+    default:
+      assert(false && "Unkown texture type.");
+      return CHIPRegionDesc();
+    case hipTextureType1D:
+      return CHIPRegionDesc::get1DRegion(Array.width, TexelByteSize);
+    case hipTextureType2D:
+      return CHIPRegionDesc::get2DRegion(Array.width, Array.height,
+                                         TexelByteSize);
+    case hipTextureType3D:
+      return CHIPRegionDesc::get3DRegion(Array.width, Array.height, Array.depth,
+                                         TexelByteSize);
+    }
   }
 
   static CHIPRegionDesc from(const hipResourceDesc &ResDesc) {
@@ -126,7 +142,12 @@ public:
                  "Invalid pitch.");
       return R;
     }
+    case hipResourceTypeArray: {
+      const auto *Array = ResDesc.res.array.array;
+      assert(Array);
+      return from(*Array);
     }
+    } // switch
   }
 };
 
