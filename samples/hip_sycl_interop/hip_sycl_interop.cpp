@@ -36,6 +36,11 @@ void VerifyResult(float *c_A, float *c_B) {
 }
 
 int main() {
+  std::string envVar = std::getenv("CHIP_BE");
+  if (!envVar.compare("opencl")) {
+    std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
+    exit(0);
+  }
   float *A = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *B = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C = (float *)malloc(WIDTH * WIDTH * sizeof(float));
@@ -51,10 +56,12 @@ int main() {
   // prepare matrix data with ROW-major style
   // A(M, N)
   for (size_t i = 0; i < WIDTH; i++)
-    for (size_t j = 0; j < WIDTH; j++) A[i * WIDTH + j] = i * WIDTH + j;
+    for (size_t j = 0; j < WIDTH; j++)
+      A[i * WIDTH + j] = i * WIDTH + j;
   // B(N, P)
   for (size_t i = 0; i < WIDTH; i++)
-    for (size_t j = 0; j < WIDTH; j++) B[i * WIDTH + j] = i * WIDTH + j;
+    for (size_t j = 0; j < WIDTH; j++)
+      B[i * WIDTH + j] = i * WIDTH + j;
 
   // get CPU result for verification
   // Resultant matrix: C_serial = A*B
@@ -67,12 +74,12 @@ int main() {
     }
   }
 
-#define CHECK(err)                                      \
-  do {                                                  \
-    if (err != hipSuccess) {                            \
-      std::cout << hipGetErrorString(err) << std::endl; \
-      std::abort();                                     \
-    }                                                   \
+#define CHECK(err)                                                             \
+  do {                                                                         \
+    if (err != hipSuccess) {                                                   \
+      std::cout << hipGetErrorString(err) << std::endl;                        \
+      std::abort();                                                            \
+    }                                                                          \
   } while (0);
 
   hipStream_t stream = nullptr;

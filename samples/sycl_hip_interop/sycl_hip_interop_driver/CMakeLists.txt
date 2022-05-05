@@ -1,6 +1,7 @@
 set(CMAKE_CXX_COMPILER icpx)
 set(CMAKE_CXX_FLAGS "")
 
+
 add_executable(sycl_chip_interop sycl_chip_interop.cpp)
 add_dependencies(sycl_chip_interop CHIP hipMatrixMul)
 target_link_options(sycl_chip_interop PRIVATE -fsycl  -lze_loader -Wl,-rpath=${CHIP_DIR_}/build ${CHIP_CMAKE_INSTALL_LIBDIR})
@@ -15,6 +16,7 @@ add_test(NAME "sycl_chip_interop"
 
 set_tests_properties("sycl_chip_interop" PROPERTIES
          PASS_REGULAR_EXPRESSION "PASSED"
+         SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
          TIMEOUT 60
          )
 
@@ -26,11 +28,13 @@ target_compile_options(sycl_chip_interop_usm PRIVATE -fsycl  -DUSM -Wno-deprecat
 install(TARGETS sycl_chip_interop_usm
 RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
+add_dependencies(build_tests_standalone sycl_chip_interop sycl_chip_interop_usm)
 add_test(NAME "sycl_chip_interop_usm"
          COMMAND "${CMAKE_CURRENT_BINARY_DIR}/sycl_chip_interop_usm" 
          )
 
 set_tests_properties("sycl_chip_interop_usm" PROPERTIES
          PASS_REGULAR_EXPRESSION "PASSED"
+         SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
          TIMEOUT 60
          )

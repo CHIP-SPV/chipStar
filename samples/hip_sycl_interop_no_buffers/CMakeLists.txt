@@ -1,6 +1,7 @@
 add_subdirectory(onemkl_gemm_wrapper_no_buffers)
 
 add_chip_binary(hip_sycl_interop_no_buffers hip_sycl_interop.cpp)
+add_dependencies(build_tests_standalone hip_sycl_interop_no_buffers)
 target_link_libraries(hip_sycl_interop_no_buffers onemkl_gemm_wrapper_no_buffers)
 
 add_test(NAME "hip_sycl_interop_no_buffers"

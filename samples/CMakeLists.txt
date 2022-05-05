@@ -91,12 +91,12 @@ set(SAMPLES
     10_memcpy3D
     11_device
     hipStreamSemantics
-    hipMultiThreadAddCallback
+    #hipMultiThreadAddCallback
     hipInfo
     hipSymbol
     hip-cuda
     printf
-    texture
+    #texture
     hipDeviceLink # must be last in this list due to how hacky using multiple compilers with CMake is
 )
 
