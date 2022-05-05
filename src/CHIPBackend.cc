@@ -1565,7 +1565,6 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   auto ChipEvent = launchImpl(ExecItem);
   ChipEvent->Msg = "launch";
   updateLastEvent(ChipEvent);
-  ExecItem->getQueue()->finish();
   RegisteredVarCopy(ExecItem, true);
 }
 
