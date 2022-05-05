@@ -19,9 +19,9 @@ const int WIDTH = 16;
 const int size = 1024;
 
 // CPU implementation of matrix transpose
-void matrixMultiplyCPUReference(const float* __restrict A,
-                                const float* __restrict B,
-                                float* __restrict C) {
+void matrixMultiplyCPUReference(const float *__restrict A,
+                                const float *__restrict B,
+                                float *__restrict C) {
   for (uint i = 0; i < WIDTH; i++) {
     for (uint j = 0; j < WIDTH; j++) {
       float acc = 0.0f;
@@ -34,6 +34,11 @@ void matrixMultiplyCPUReference(const float* __restrict A,
 }
 
 int main() {
+  std::string envVar = std::getenv("CHIP_BE");
+  if (!envVar.compare("opencl")) {
+    std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
+    exit(0);
+  }
   queue myQueue;
 
 #ifdef USM
