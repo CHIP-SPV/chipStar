@@ -1,23 +1,20 @@
-dd621db
-86% tests passed, 52 tests failed out of 375
+74c636c
+87% tests passed, 49 tests failed out of 375
 
-Total Test time (real) = 938.68 sec
+Total Test time (real) = 913.41 sec
 
 The following tests FAILED:
 	109 - Unit_hipPointerGetAttributes_Basic (Failed)
 	110 - Unit_hipPointerGetAttributes_ClusterAlloc (Failed)
 	111 - Unit_hipPointerGetAttributes_TinyClusterAlloc (Failed)
 	112 - Unit_hipPointerGetAttributes_MultiThread (Subprocess aborted)
-	113 - Unit_hipHostGetFlags_Basic - int (Failed)
-	114 - Unit_hipHostGetFlags_Basic - float (Failed)
-	115 - Unit_hipHostGetFlags_Basic - double (Failed)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	139 - Unit_hipHostMalloc_ArgValidation (Failed)
 	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	176 - Unit_hipMemcpyWithStream_MultiThread (Timeout)
-	195 - Unit_hipHostMalloc_Basic (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)

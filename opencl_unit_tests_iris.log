@@ -1,7 +1,7 @@
-dd621db
-88% tests passed, 46 tests failed out of 375
+74c636c
+89% tests passed, 43 tests failed out of 375
 
-Total Test time (real) = 612.57 sec
+Total Test time (real) = 611.64 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
@@ -12,12 +12,9 @@ The following tests FAILED:
 	110 - Unit_hipPointerGetAttributes_ClusterAlloc (Failed)
 	111 - Unit_hipPointerGetAttributes_TinyClusterAlloc (Failed)
 	112 - Unit_hipPointerGetAttributes_MultiThread (Subprocess aborted)
-	113 - Unit_hipHostGetFlags_Basic - int (Failed)
-	114 - Unit_hipHostGetFlags_Basic - float (Failed)
-	115 - Unit_hipHostGetFlags_Basic - double (Failed)
 	139 - Unit_hipHostMalloc_ArgValidation (Failed)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	195 - Unit_hipHostMalloc_Basic (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)
@@ -34,7 +31,7 @@ The following tests FAILED:
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
 	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
-	303 - Unit_hipStreamPerThread_StreamSynchronize (SEGFAULT)
+	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
