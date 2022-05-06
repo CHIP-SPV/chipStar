@@ -1,7 +1,7 @@
-74c636c
+c8fe14f
 89% tests passed, 43 tests failed out of 375
 
-Total Test time (real) = 611.64 sec
+Total Test time (real) = 570.40 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)

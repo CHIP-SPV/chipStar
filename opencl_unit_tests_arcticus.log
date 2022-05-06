@@ -1,7 +1,7 @@
-74c636c
-81% tests passed, 72 tests failed out of 375
+c8fe14f
+81% tests passed, 73 tests failed out of 375
 
-Total Test time (real) = 896.72 sec
+Total Test time (real) = 893.43 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
@@ -48,6 +48,7 @@ The following tests FAILED:
 	214 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	215 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	216 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
+	219 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double (SEGFAULT)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	230 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
 	232 - Unit_hipStreamGetPriority_Negative (Failed)
