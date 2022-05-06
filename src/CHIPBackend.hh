@@ -254,6 +254,7 @@ public:
 struct AllocationInfo {
   void *BasePtr;
   size_t Size;
+  unsigned int Flags;
 };
 
 /**
@@ -268,7 +269,7 @@ private:
   std::string Name_;
   std::set<void *> PtrSet_;
 
-  std::unordered_map<void *, AllocationInfo> DevToAllocInfo_;
+  std::unordered_map<void *, AllocationInfo> PtrToAllocInfo_;
 
 public:
   /**
@@ -327,6 +328,13 @@ public:
   std::string getName();
 
   /**
+   * @brief Get Allocation Info associated with this pointer
+   *
+   * @return AllocationInfo contains the base pointer and allocation size;
+   */
+  AllocationInfo *getAllocInfo(const void *);
+
+  /**
    * @brief Get allocation_info based on host pointer
    *
    * @return allocation_info contains the base pointer and allocation size;
@@ -364,7 +372,7 @@ public:
    *
    * @param dev_ptr
    */
-  void recordAllocation(void *DevPtr, size_t Size);
+  void recordAllocation(void *DevPtr, size_t Size, unsigned int Flags);
 
   /**
    * @brief Check if a given pointer belongs to any of the existing allocations
@@ -1323,6 +1331,21 @@ public:
    * @return void* pointer to allocated memory
    */
   void *allocate(size_t Size, size_t Alignment, CHIPMemoryType MemType);
+
+  /**
+   * @brief Allocate data.
+   * Calls reserveMem() to keep track memory used on the device.
+   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * CHIPMemoryType mem_type)
+   *
+   * @param size size of the allocation
+   * @param alignment allocation alignment in bytes
+   * @param mem_type type of the allocation: Host, Device, Shared
+   * @param Flags flags
+   * @return void* pointer to allocated memory
+   */
+  void *allocate(size_t Size, size_t Alignment, CHIPMemoryType MemType,
+                 unsigned int Flags);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each

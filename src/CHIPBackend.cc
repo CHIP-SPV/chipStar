@@ -97,6 +97,14 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
   UNIMPLEMENTED();
 }
 
+AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
+  auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
+  if (Found)
+    return &(PtrToAllocInfo_[const_cast<void *>(Ptr)]);
+
+  return nullptr;
+}
+
 AllocationInfo *CHIPAllocationTracker::getByHostPtr(const void *HostPtr) {
   auto Found = HostToDev_.find(const_cast<void *>(HostPtr));
   if (Found == HostToDev_.end()) {
@@ -106,12 +114,12 @@ AllocationInfo *CHIPAllocationTracker::getByHostPtr(const void *HostPtr) {
 }
 AllocationInfo *CHIPAllocationTracker::getByDevPtr(const void *DevPtr) {
   auto Ptr = const_cast<void *>(DevPtr);
-  logDebug("dev_to_allocation_info size: {}", DevToAllocInfo_.size());
-  auto Count = DevToAllocInfo_.count(Ptr);
+  logDebug("dev_to_allocation_info size: {}", PtrToAllocInfo_.size());
+  auto Count = PtrToAllocInfo_.count(Ptr);
   if (Count == 0)
     return nullptr;
 
-  return &DevToAllocInfo_[const_cast<void *>(DevPtr)];
+  return &PtrToAllocInfo_[const_cast<void *>(DevPtr)];
 }
 
 bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
@@ -139,16 +147,17 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
   return false;
 }
 
-void CHIPAllocationTracker::recordAllocation(void *DevPtr, size_t Size) {
-  AllocationInfo AllocInfo{DevPtr, Size};
-  DevToAllocInfo_[DevPtr] = AllocInfo;
+void CHIPAllocationTracker::recordAllocation(void *Ptr, size_t Size,
+                                             unsigned int Flags = 0) {
+  AllocationInfo AllocInfo{Ptr, Size, Flags};
+  PtrToAllocInfo_[Ptr] = AllocInfo;
   logDebug("CHIPAllocationTracker::recordAllocation size: {}",
-           DevToAllocInfo_.size());
+           PtrToAllocInfo_.size());
   return;
 }
 
 AllocationInfo *CHIPAllocationTracker::findBaseDevPtr(void *DevPtr) {
-  for (auto &Info : DevToAllocInfo_) {
+  for (auto &Info : PtrToAllocInfo_) {
     AllocationInfo *AllocInfo = &Info.second;
     void *Start = AllocInfo->BasePtr;
     void *End = (char *)Start + AllocInfo->Size;
@@ -978,14 +987,19 @@ void CHIPContext::finishAll() {
 }
 
 void *CHIPContext::allocate(size_t Size) {
-  return allocate(Size, 0, CHIPMemoryType::Shared);
+  return allocate(Size, 0, CHIPMemoryType::Shared, hipHostMallocDefault);
 }
 
 void *CHIPContext::allocate(size_t Size, CHIPMemoryType MemType) {
-  return allocate(Size, 0, MemType);
+  return allocate(Size, 0, MemType, hipHostMallocDefault);
 }
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             CHIPMemoryType MemType) {
+  return allocate(Size, Alignment, MemType, hipHostMallocDefault);
+}
+
+void *CHIPContext::allocate(size_t Size, size_t Alignment,
+                            CHIPMemoryType MemType, unsigned int Flags = 0) {
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
 
@@ -999,7 +1013,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  ChipDev->AllocationTracker->recordAllocation(AllocatedPtr, Size);
+  ChipDev->AllocationTracker->recordAllocation(AllocatedPtr, Size, Flags);
 
   return AllocatedPtr;
 }

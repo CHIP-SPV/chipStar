@@ -1382,8 +1382,8 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIPInitialize();
   NULLCHECK(Ptr);
 
-  void *RetVal =
-      Backend->getActiveContext()->allocate(Size, 0x1000, CHIPMemoryType::Host);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      Size, 0x1000, CHIPMemoryType::Host, Flags);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1471,7 +1471,11 @@ hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
   CHIPInitialize();
   NULLCHECK(FlagsPtr, HostPtr);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getAllocInfo(HostPtr);
+
+  unsigned int Flags = AllocInfo->Flags;
+  *FlagsPtr = Flags;
 
   RETURN(hipSuccess);
   CHIP_CATCH
