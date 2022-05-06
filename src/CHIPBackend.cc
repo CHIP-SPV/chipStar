@@ -98,10 +98,12 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
 }
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
+  auto PtrBase = findBaseDevPtr(const_cast<void *>(Ptr));
   auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
   if (Found)
     return &(PtrToAllocInfo_[const_cast<void *>(Ptr)]);
 
+  // TODO: if not found, check all ranges
   return nullptr;
 }
 
@@ -147,10 +149,16 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
   return false;
 }
 
-void CHIPAllocationTracker::recordAllocation(void *Ptr, size_t Size,
-                                             unsigned int Flags = 0) {
-  AllocationInfo AllocInfo{Ptr, Size, Flags};
-  PtrToAllocInfo_[Ptr] = AllocInfo;
+void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
+                                             hipDevice_t Device, size_t Size,
+                                             unsigned int Flags,
+                                             hipMemoryType MemoryType) {
+  AllocationInfo AllocInfo{DevPtr, HostPtr, Size,      Flags,
+                           Device, false,   MemoryType};
+
+  PtrToAllocInfo_[DevPtr] = AllocInfo;
+  PtrToAllocInfo_[HostPtr] = AllocInfo;
+
   logDebug("CHIPAllocationTracker::recordAllocation size: {}",
            PtrToAllocInfo_.size());
   return;
@@ -159,7 +167,7 @@ void CHIPAllocationTracker::recordAllocation(void *Ptr, size_t Size,
 AllocationInfo *CHIPAllocationTracker::findBaseDevPtr(void *DevPtr) {
   for (auto &Info : PtrToAllocInfo_) {
     AllocationInfo *AllocInfo = &Info.second;
-    void *Start = AllocInfo->BasePtr;
+    void *Start = AllocInfo->DevPtr;
     void *End = (char *)Start + AllocInfo->Size;
 
     if (Start <= DevPtr && DevPtr < End)
@@ -314,8 +322,8 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
 
   size_t VarInfoBufSize = sizeof(CHIPVarInfo) * ChipVars_.size();
   auto *Ctx = Device->getContext();
-  CHIPVarInfo *VarInfoBufD =
-      (CHIPVarInfo *)Ctx->allocate(VarInfoBufSize, CHIPMemoryType::Shared);
+  CHIPVarInfo *VarInfoBufD = (CHIPVarInfo *)Ctx->allocate(
+      VarInfoBufSize, hipMemoryType::hipMemoryTypeUnified);
   assert(VarInfoBufD && "Could not allocate space for a shadow kernel.");
   auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(ChipVars_.size());
 
@@ -342,7 +350,8 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
     assert(Alignment && "Unexpected alignment requirement.");
 
     auto *Var = VarInfo.first;
-    Var->setDevAddr(Ctx->allocate(Size, Alignment, CHIPMemoryType::Shared));
+    Var->setDevAddr(
+        Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeUnified));
     Var->markHasInitializer(HasInitializer);
     // Sanity check for object sizes reported by the shadow kernels vs
     // __hipRegisterVar.
@@ -987,19 +996,20 @@ void CHIPContext::finishAll() {
 }
 
 void *CHIPContext::allocate(size_t Size) {
-  return allocate(Size, 0, CHIPMemoryType::Shared, hipHostMallocDefault);
+  return allocate(Size, 0, hipMemoryType::hipMemoryTypeUnified,
+                  hipHostMallocDefault);
 }
 
-void *CHIPContext::allocate(size_t Size, CHIPMemoryType MemType) {
+void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, hipHostMallocDefault);
 }
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            CHIPMemoryType MemType) {
+                            hipMemoryType MemType) {
   return allocate(Size, Alignment, MemType, hipHostMallocDefault);
 }
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            CHIPMemoryType MemType, unsigned int Flags = 0) {
+                            hipMemoryType MemType, unsigned int Flags = 0) {
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
 
@@ -1013,21 +1023,10 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  ChipDev->AllocationTracker->recordAllocation(AllocatedPtr, Size, Flags);
+  ChipDev->AllocationTracker->recordAllocation(
+      AllocatedPtr, nullptr, ChipDev->getDeviceId(), Size, Flags, MemType);
 
   return AllocatedPtr;
-}
-
-hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *Base, size_t *Size,
-                                        hipDeviceptr_t Ptr) {
-  // allocation_info *info = Backend->AllocationTracker.getByDevPtr(dptr);
-  AllocationInfo *Info =
-      Backend->getActiveDevice()->AllocationTracker->getByDevPtr(Ptr);
-  if (!Info)
-    return hipErrorInvalidDevicePointer;
-  *Base = Info->BasePtr;
-  *Size = Info->Size;
-  return hipSuccess;
 }
 
 unsigned int CHIPContext::getFlags() { return Flags_; }

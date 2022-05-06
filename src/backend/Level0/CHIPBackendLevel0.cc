@@ -610,7 +610,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   // Initialize the shared memory buffer
   // TODO This does not record the buffer allocation in device allocation
   // tracker
-  SharedBuf_ = ChipContextLz->allocateImpl(32, 8, CHIPMemoryType::Shared);
+  SharedBuf_ =
+      ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
 
   // Initialize the uint64_t part as 0
   *(uint64_t *)this->SharedBuf_ = 0;
@@ -938,10 +939,10 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 // ***********************************************************************
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
-                                      CHIPMemoryType MemTy) {
+                                      hipMemoryType MemTy) {
   Alignment = 0x1000; // TODO Where/why
   void *Ptr = 0;
-  if (MemTy == CHIPMemoryType::Shared) {
+  if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
     ze_device_mem_alloc_desc_t DmaDesc;
     DmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
     DmaDesc.pNext = NULL;
@@ -964,7 +965,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     logTrace("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", Status);
 
     return Ptr;
-  } else if (MemTy == CHIPMemoryType::Device) {
+  } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     ze_device_mem_alloc_desc_t DmaDesc;
     DmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
     DmaDesc.pNext = NULL;
@@ -980,7 +981,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                 hipErrorMemoryAllocation);
 
     return Ptr;
-  } else if (MemTy == CHIPMemoryType::Host) {
+  } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO
     ze_device_mem_alloc_desc_t DmaDesc;
     DmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;

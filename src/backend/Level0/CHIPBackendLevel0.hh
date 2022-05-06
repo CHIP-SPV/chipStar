@@ -165,7 +165,7 @@ public:
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
 
   void *allocateImpl(size_t Size, size_t Alignment,
-                     CHIPMemoryType MemTy) override;
+                     hipMemoryType MemTy) override;
 
   void freeImpl(void *Ptr) override{}; // TODO
   ze_context_handle_t &get() { return ZeCtx; }

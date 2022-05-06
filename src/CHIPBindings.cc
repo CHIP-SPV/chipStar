@@ -404,7 +404,25 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
 
 hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
                                    const void *ptr) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_TRY
+  CHIPInitialize();
+
+  for (auto Dev : Backend->getDevices()) {
+    auto AllocTracker = Dev->AllocationTracker;
+    auto AllocInfo = AllocTracker->getAllocInfo(ptr);
+    if (AllocInfo) {
+      attributes->allocationFlags = AllocInfo->Flags;
+      attributes->device = AllocInfo->Device;
+      attributes->devicePointer = AllocInfo->DevPtr;
+      attributes->hostPointer = AllocInfo->HostPtr;
+      attributes->isManaged = AllocInfo->Managed;
+      attributes->memoryType = AllocInfo->MemoryType;
+      RETURN(hipSuccess);
+    }
+  }
+
+  RETURN(hipErrorTbd);
+  CHIP_CATCH
 }
 
 hipError_t hipIpcOpenMemHandle(void **DevPtr, hipIpcMemHandle_t Handle,
@@ -1158,12 +1176,15 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
   CHIPInitialize();
   NULLCHECK(Base, Size, Ptr);
 
-  CHIPContext *ChipContext = Backend->getActiveContext();
-  if (ChipContext->findPointerInfo(Base, Size, Ptr))
-    RETURN(hipSuccess);
-  else
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getAllocInfo(Ptr);
+  if (!AllocInfo)
     RETURN(hipErrorInvalidValue);
 
+  *Base = AllocInfo->DevPtr;
+  *Size = AllocInfo->Size;
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -1328,8 +1349,8 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
     *Ptr = nullptr;
     RETURN(hipSuccess);
   }
-  void *RetVal =
-      Backend->getActiveContext()->allocate(Size, CHIPMemoryType::Device);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      Size, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1363,7 +1384,7 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   }
 
   void *RetVal = Backend->getActiveDevice()->getContext()->allocate(
-      Size, CHIPMemoryType::Shared);
+      Size, hipMemoryType::hipMemoryTypeUnified);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *DevPtr = RetVal;
@@ -1383,7 +1404,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   NULLCHECK(Ptr);
 
   void *RetVal = Backend->getActiveContext()->allocate(
-      Size, 0x1000, CHIPMemoryType::Host, Flags);
+      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, Flags);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1460,7 +1481,7 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
             "through hipMallocShared or hipMallocHost");
     *DevPtr = HostPtr;
   } else
-    *DevPtr = AllocInfo->BasePtr;
+    *DevPtr = AllocInfo->DevPtr;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1520,7 +1541,7 @@ hipError_t hipHostUnregister(void *HostPtr) {
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
-  auto Err = hipFree(AllocInfo->BasePtr);
+  auto Err = hipFree(AllocInfo->DevPtr);
   Device->AllocationTracker->unregsiterHostPointer(HostPtr);
   RETURN(Err);
 
@@ -1994,7 +2015,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   if (AllocInfo) {
     logDebug("Found associated alloc info");
     auto RegisterMemDst =
-        AllocTracker->getAssociatedHostPtr(AllocInfo->BasePtr);
+        AllocTracker->getAssociatedHostPtr(AllocInfo->DevPtr);
     if (RegisterMemDst)
       memset(RegisterMemDst, Value, SizeBytes);
   }

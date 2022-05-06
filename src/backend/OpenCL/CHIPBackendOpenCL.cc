@@ -758,7 +758,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
-                                      CHIPMemoryType MemType) {
+                                      hipMemoryType MemType) {
   void *Retval;
 
   Retval = SvmMemory.allocate(Size);

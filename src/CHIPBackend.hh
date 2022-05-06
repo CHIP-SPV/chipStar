@@ -226,7 +226,6 @@ public:
 
 template <class T> std::string resultToString(T Err);
 
-enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 class CHIPEventFlags {
   bool BlockingSync_ = false;
   bool DisableTiming_ = false;
@@ -251,10 +250,18 @@ public:
   bool isInterprocess() { return Interprocess_; };
 };
 
+/**
+ * @brief  Structure describing an allocation
+ *
+ */
 struct AllocationInfo {
-  void *BasePtr;
+  void *DevPtr;
+  void *HostPtr;
   size_t Size;
   unsigned int Flags;
+  hipDevice_t Device;
+  bool Managed = false;
+  enum hipMemoryType MemoryType;
 };
 
 /**
@@ -372,7 +379,9 @@ public:
    *
    * @param dev_ptr
    */
-  void recordAllocation(void *DevPtr, size_t Size, unsigned int Flags);
+  void recordAllocation(void *DevPtr, void *HostPtr, hipDevice_t Device,
+                        size_t Size, unsigned int Flags,
+                        hipMemoryType MemoryType);
 
   /**
    * @brief Check if a given pointer belongs to any of the existing allocations
@@ -1299,7 +1308,7 @@ public:
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type) with allignment = 0 and allocation type = Shared
+   * hipMemoryType mem_type) with allignment = 0 and allocation type = Shared
    *
    *
    * @param size size of the allocation
@@ -1311,32 +1320,32 @@ public:
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type) with allignment = 0
+   * hipMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void *allocate(size_t Size, CHIPMemoryType MemType);
+  void *allocate(size_t Size, hipMemoryType MemType);
 
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type)
+   * hipMemoryType mem_type)
    *
    * @param size size of the allocation
    * @param alignment allocation alignment in bytes
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void *allocate(size_t Size, size_t Alignment, CHIPMemoryType MemType);
+  void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType);
 
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type)
+   * hipMemoryType mem_type)
    *
    * @param size size of the allocation
    * @param alignment allocation alignment in bytes
@@ -1344,7 +1353,7 @@ public:
    * @param Flags flags
    * @return void* pointer to allocated memory
    */
-  void *allocate(size_t Size, size_t Alignment, CHIPMemoryType MemType,
+  void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType,
                  unsigned int Flags);
 
   /**
@@ -1358,7 +1367,7 @@ public:
    * @return void*
    */
   virtual void *allocateImpl(size_t Size, size_t Alignment,
-                             CHIPMemoryType MemType) = 0;
+                             hipMemoryType MemType) = 0;
 
   /**
    * @brief Free memory
@@ -1385,18 +1394,6 @@ public:
    *
    */
   void finishAll();
-
-  /**
-   * @brief For a given device pointer, return the base address of the
-   * allocation to which it belongs to along with the allocation size
-   *
-   * @param pbase device base pointer to which dptr belongs to
-   * @param psize size of the allocation with which pbase was created
-   * @param dptr device pointer
-   * @return hipError_t
-   */
-  virtual hipError_t findPointerInfo(hipDeviceptr_t *Base, size_t *Size,
-                                     hipDeviceptr_t Ptr);
 
   /**
    * @brief Get the flags set on this context
@@ -1451,12 +1448,7 @@ public:
   std::mutex EventsMtx;
 
   std::queue<CHIPCallbackData *> CallbackStack;
-  /**
-   * @brief Keep track of pointers allocated on the device. Used to get info
-   * about allocaitons based on device poitner in case that findPointerInfo() is
-   * not overriden
-   *
-   */
+
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t TlsLastError;
 
