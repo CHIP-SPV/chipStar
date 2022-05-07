@@ -1,25 +1,21 @@
-1d5bfc6
-87% tests passed, 49 tests failed out of 375
+9777ff7
+88% tests passed, 45 tests failed out of 375
 
-Total Test time (real) = 614.91 sec
+Total Test time (real) = 624.71 sec
 
 The following tests FAILED:
-	109 - Unit_hipPointerGetAttributes_Basic (Failed)
-	110 - Unit_hipPointerGetAttributes_ClusterAlloc (Failed)
-	111 - Unit_hipPointerGetAttributes_TinyClusterAlloc (Failed)
-	112 - Unit_hipPointerGetAttributes_MultiThread (Subprocess aborted)
+	101 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	139 - Unit_hipHostMalloc_ArgValidation (Failed)
 	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (SEGFAULT)
+	176 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	232 - Unit_hipStreamGetPriority_Negative (Failed)
-	239 - Unit_hipMultiStream_multimeDevice (Subprocess aborted)
 	241 - Unit_hipStreamAddCallback_ParamTst (SEGFAULT)
 	244 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	255 - Unit_hipEvent (Failed)

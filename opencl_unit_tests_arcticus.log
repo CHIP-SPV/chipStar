@@ -1,7 +1,7 @@
-1d5bfc6
-81% tests passed, 72 tests failed out of 375
+9777ff7
+82% tests passed, 68 tests failed out of 375
 
-Total Test time (real) = 826.14 sec
+Total Test time (real) = 862.67 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
@@ -18,10 +18,6 @@ The following tests FAILED:
 	 69 - Unit_hipMemcpy2DAsync_Host&PinnedMem - double (Failed)
 	 80 - Unit_hipMemcpy2DFromArray_PinnedMemSameGPU (Failed)
 	 86 - Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu (Failed)
-	109 - Unit_hipPointerGetAttributes_Basic (Failed)
-	110 - Unit_hipPointerGetAttributes_ClusterAlloc (Failed)
-	111 - Unit_hipPointerGetAttributes_TinyClusterAlloc (Failed)
-	112 - Unit_hipPointerGetAttributes_MultiThread (Subprocess aborted)
 	113 - Unit_hipHostGetFlags_Basic - int (Failed)
 	114 - Unit_hipHostGetFlags_Basic - float (Failed)
 	115 - Unit_hipHostGetFlags_Basic - double (Failed)
@@ -64,7 +60,7 @@ The following tests FAILED:
 	300 - Unit_hipTextureFetch_vector (SEGFAULT)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
 	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
-	303 - Unit_hipStreamPerThread_StreamSynchronize (SEGFAULT)
+	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
