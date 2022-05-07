@@ -1407,7 +1407,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   NULLCHECK(Ptr);
 
   void *RetVal = Backend->getActiveContext()->allocate(
-      Size, 0x1000, hipMemoryType::hipMemoryTypeUnified, Flags);
+      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, Flags);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
