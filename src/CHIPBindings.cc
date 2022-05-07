@@ -413,15 +413,18 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
     if (AllocInfo) {
       attributes->allocationFlags = AllocInfo->Flags;
       attributes->device = AllocInfo->Device;
-      attributes->devicePointer = AllocInfo->DevPtr;
+      attributes->devicePointer = const_cast<void *>(ptr);
       attributes->hostPointer = AllocInfo->HostPtr;
       attributes->isManaged = AllocInfo->Managed;
       attributes->memoryType = AllocInfo->MemoryType;
+      if (attributes->memoryType == hipMemoryType::hipMemoryTypeUnified &&
+          !attributes->hostPointer)
+        attributes->hostPointer = attributes->devicePointer;
       RETURN(hipSuccess);
     }
   }
 
-  RETURN(hipErrorTbd);
+  RETURN(hipErrorInvalidValue);
   CHIP_CATCH
 }
 
@@ -1404,7 +1407,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   NULLCHECK(Ptr);
 
   void *RetVal = Backend->getActiveContext()->allocate(
-      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, Flags);
+      Size, 0x1000, hipMemoryType::hipMemoryTypeUnified, Flags);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1474,7 +1477,7 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
   NULLCHECK(DevPtr, HostPtr);
 
   auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
+  auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
   if (!AllocInfo) {
     logWarn("host pointer was not mapped via hipHostRegister... Returning host "
             "pointer as device pointer (in case host pointer was mapped "
@@ -1540,9 +1543,8 @@ hipError_t hipHostUnregister(void *HostPtr) {
   NULLCHECK(HostPtr);
 
   auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
+  auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
   auto Err = hipFree(AllocInfo->DevPtr);
-  Device->AllocationTracker->unregsiterHostPointer(HostPtr);
   RETURN(Err);
 
   CHIP_CATCH
@@ -1795,7 +1797,7 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   NULLCHECK(Ptr, Size);
 
   AllocationInfo *AllocInfo =
-      Backend->getActiveDevice()->AllocationTracker->getByDevPtr(Ptr);
+      Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Ptr);
   *Size = AllocInfo->Size;
 
   RETURN(hipSuccess);
@@ -1933,7 +1935,8 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
 
   // Check if pointer inside allocation range
   auto AllocTracker = Stream->getDevice()->AllocationTracker;
-  AllocationInfo *AllocInfo = AllocTracker->findBaseDevPtr(PitchedDevPtr.ptr);
+  AllocationInfo *AllocInfo =
+      AllocTracker->getAllocInfoCheckPtrRanges(PitchedDevPtr.ptr);
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
                           hipErrorTbd);
@@ -2008,14 +2011,11 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
-  auto AllocInfo = AllocTracker->getByDevPtr(Dst);
-  if (!AllocInfo)
-    AllocInfo = AllocTracker->getByHostPtr(Dst);
+  auto AllocInfo = AllocTracker->getAllocInfo(Dst);
 
   if (AllocInfo) {
     logDebug("Found associated alloc info");
-    auto RegisterMemDst =
-        AllocTracker->getAssociatedHostPtr(AllocInfo->DevPtr);
+    auto RegisterMemDst = AllocInfo->HostPtr;
     if (RegisterMemDst)
       memset(RegisterMemDst, Value, SizeBytes);
   }
@@ -2292,7 +2292,7 @@ hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
   if (SrcOffset > Count)
     CHIPERR_LOG_AND_THROW("Offset larger than count", hipErrorTbd);
 
-  auto Info = Backend->getActiveDevice()->AllocationTracker->getByDevPtr(
+  auto Info = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(
       SrcArray->data);
   if (Info->Size < Count)
     CHIPERR_LOG_AND_THROW("MemCopy larger than allocated size", hipErrorTbd);
@@ -2310,7 +2310,7 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   NULLCHECK(SrcHost, DstArray);
 
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
-  auto AllocInfo = AllocTracker->getByDevPtr(DstArray->data);
+  auto AllocInfo = AllocTracker->getAllocInfo(DstArray->data);
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("Destination device pointer not allocated on device",
                           hipErrorTbd);

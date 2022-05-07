@@ -98,30 +98,16 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
 }
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
-  auto PtrBase = findBaseDevPtr(const_cast<void *>(Ptr));
+  // In case that Ptr is the base of the allocation, check hash map directly
   auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
   if (Found)
-    return &(PtrToAllocInfo_[const_cast<void *>(Ptr)]);
+    return PtrToAllocInfo_[const_cast<void *>(Ptr)];
 
-  // TODO: if not found, check all ranges
-  return nullptr;
-}
+  // Ptr can be offset from the base pointer. In this case, iterate through all
+  // allocations, and check if Ptr falls within any of these allocation ranges
+  auto AllocInfo = getAllocInfoCheckPtrRanges(const_cast<void *>(Ptr));
 
-AllocationInfo *CHIPAllocationTracker::getByHostPtr(const void *HostPtr) {
-  auto Found = HostToDev_.find(const_cast<void *>(HostPtr));
-  if (Found == HostToDev_.end()) {
-    return nullptr;
-  }
-  return getByDevPtr(Found->second);
-}
-AllocationInfo *CHIPAllocationTracker::getByDevPtr(const void *DevPtr) {
-  auto Ptr = const_cast<void *>(DevPtr);
-  logDebug("dev_to_allocation_info size: {}", PtrToAllocInfo_.size());
-  auto Count = PtrToAllocInfo_.count(Ptr);
-  if (Count == 0)
-    return nullptr;
-
-  return &PtrToAllocInfo_[const_cast<void *>(DevPtr)];
+  return AllocInfo;
 }
 
 bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
@@ -153,20 +139,23 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipDevice_t Device, size_t Size,
                                              unsigned int Flags,
                                              hipMemoryType MemoryType) {
-  AllocationInfo AllocInfo{DevPtr, HostPtr, Size,      Flags,
-                           Device, false,   MemoryType};
+  AllocationInfo *AllocInfo = new AllocationInfo{
+      DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
 
-  PtrToAllocInfo_[DevPtr] = AllocInfo;
-  PtrToAllocInfo_[HostPtr] = AllocInfo;
+  if (DevPtr)
+    PtrToAllocInfo_[DevPtr] = AllocInfo;
+  if (HostPtr)
+    PtrToAllocInfo_[HostPtr] = AllocInfo;
 
   logDebug("CHIPAllocationTracker::recordAllocation size: {}",
            PtrToAllocInfo_.size());
   return;
 }
 
-AllocationInfo *CHIPAllocationTracker::findBaseDevPtr(void *DevPtr) {
+AllocationInfo *
+CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
   for (auto &Info : PtrToAllocInfo_) {
-    AllocationInfo *AllocInfo = &Info.second;
+    AllocationInfo *AllocInfo = Info.second;
     void *Start = AllocInfo->DevPtr;
     void *End = (char *)Start + AllocInfo->Size;
 
@@ -1009,7 +998,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 }
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            hipMemoryType MemType, unsigned int Flags = 0) {
+                            hipMemoryType MemType, unsigned int Flags) {
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
 
@@ -1054,11 +1043,12 @@ CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
-  AllocationInfo *Info = ChipDev->AllocationTracker->getByDevPtr(Ptr);
-  if (!Info)
+  AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
+  if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
 
-  ChipDev->AllocationTracker->releaseMemReservation(Info->Size);
+  ChipDev->AllocationTracker->eraseRecord(AllocInfo);
+  ChipDev->AllocationTracker->releaseMemReservation(AllocInfo->Size);
   freeImpl(Ptr);
   return hipSuccess;
 }
@@ -1543,10 +1533,12 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       CHIPERR_LOG_AND_THROW(
           "Unexcepted internal error: Argument list has NULLs.", hipErrorTbd);
     void *DevPtr = reinterpret_cast<void *>(*k);
-    void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
+    auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
+    CHIPASSERT(AllocInfo && "Allocation not found");
+    void *HostPtr = AllocInfo->HostPtr;
 
     if (HostPtr) {
-      auto AllocInfo = AllocTracker->getByDevPtr(DevPtr);
+      auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
 
       if (!KernelSubmitted) {
         logDebug("A hipHostRegister argument was found. Appending a mem copy "

@@ -271,12 +271,9 @@ struct AllocationInfo {
 class CHIPAllocationTracker {
 private:
   std::mutex Mtx_;
-  std::unordered_map<void *, void *> HostToDev_;
-  std::unordered_map<void *, void *> DevToHost_;
   std::string Name_;
-  std::set<void *> PtrSet_;
 
-  std::unordered_map<void *, AllocationInfo> PtrToAllocInfo_;
+  std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
 
 public:
   /**
@@ -285,30 +282,11 @@ public:
    * @param HostPtr
    */
   void registerHostPointer(void *HostPtr, void *DevPtr) {
-    HostToDev_[HostPtr] = DevPtr;
-    DevToHost_[DevPtr] = HostPtr;
-  }
-
-  void *getAssociatedHostPtr(void *DevPtr) {
-    if (!DevToHost_.count(DevPtr))
-      return nullptr;
-
-    return DevToHost_[DevPtr];
-  }
-
-  void *getAssociatedDevPtr(void *HostPtr) {
-    if (!HostToDev_.count(HostPtr))
-      return nullptr;
-
-    return HostToDev_[HostPtr];
-  }
-
-  void unregsiterHostPointer(void *HostPtr) {
-    if (HostToDev_.count(HostPtr) == 0)
-      CHIPERR_LOG_AND_THROW("Tried to unregister a host variable which was not "
-                            "registered with this device",
-                            hipErrorTbd);
-    HostToDev_.erase(HostPtr);
+    CHIPASSERT(HostPtr && "HostPtr is null");
+    CHIPASSERT(DevPtr && "DevPtr is null");
+    auto AllocInfo = this->getAllocInfo(DevPtr);
+    AllocInfo->HostPtr = HostPtr;
+    this->PtrToAllocInfo_[HostPtr] = AllocInfo;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -340,19 +318,6 @@ public:
    * @return AllocationInfo contains the base pointer and allocation size;
    */
   AllocationInfo *getAllocInfo(const void *);
-
-  /**
-   * @brief Get allocation_info based on host pointer
-   *
-   * @return allocation_info contains the base pointer and allocation size;
-   */
-  AllocationInfo *getByHostPtr(const void *);
-  /**
-   * @brief Get allocation_info based on device pointer
-   *
-   * @return allocation_info contains the base pointer and allocation size;
-   */
-  AllocationInfo *getByDevPtr(const void *);
 
   /**
    * @brief Reserve memory for an allocation.
@@ -390,7 +355,20 @@ public:
    * @return AllocationInfo* pointer to allocation info. Nullptr if this pointer
    * does not belong to any existing allocations
    */
-  AllocationInfo *findBaseDevPtr(void *DevPtr);
+  AllocationInfo *getAllocInfoCheckPtrRanges(void *DevPtr);
+
+  /**
+   * @brief Delete an AllocationInfo item
+   *
+   * @param AllocInfo
+   */
+  void eraseRecord(AllocationInfo *AllocInfo) {
+    PtrToAllocInfo_.erase(AllocInfo->DevPtr);
+    if (AllocInfo->HostPtr)
+      PtrToAllocInfo_.erase(AllocInfo->HostPtr);
+
+    delete AllocInfo;
+  }
 };
 
 class CHIPDeviceVar {
