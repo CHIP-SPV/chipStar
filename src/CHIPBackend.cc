@@ -1534,7 +1534,11 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
           "Unexcepted internal error: Argument list has NULLs.", hipErrorTbd);
     void *DevPtr = reinterpret_cast<void *>(*k);
     auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
-    CHIPASSERT(AllocInfo && "Allocation not found");
+    if (!AllocInfo)
+      continue;
+    // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but "
+    //                       "it was not registered",
+    //                       hipErrorTbd);
     void *HostPtr = AllocInfo->HostPtr;
 
     if (HostPtr) {
