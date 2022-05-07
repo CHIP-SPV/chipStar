@@ -1,7 +1,7 @@
-c8fe14f
+1d5bfc6
 89% tests passed, 43 tests failed out of 375
 
-Total Test time (real) = 570.40 sec
+Total Test time (real) = 576.55 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
@@ -13,7 +13,7 @@ The following tests FAILED:
 	111 - Unit_hipPointerGetAttributes_TinyClusterAlloc (Failed)
 	112 - Unit_hipPointerGetAttributes_MultiThread (Subprocess aborted)
 	139 - Unit_hipHostMalloc_ArgValidation (Failed)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
