@@ -154,6 +154,7 @@ public:
 class CHIPEventMonitor;
 
 enum class CHIPQueueType : unsigned int {
+  // TODO: Check that both are not enabled at onnce
   Blocking = hipStreamDefault,
   NonBlocking = hipStreamNonBlocking
 };
@@ -1011,7 +1012,7 @@ public:
    */
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
 
-  CHIPQueue *addQueue(unsigned int Flags, int Priority);
+  CHIPQueue *createQueue(unsigned int Flags, int Priority);
 
   /**
    * @brief Add a queue to this device
@@ -1024,7 +1025,7 @@ public:
    *
    * @return std::vector<CHIPQueue*>
    */
-  std::vector<CHIPQueue *> getQueues();
+  std::vector<CHIPQueue *> &getQueues();
   /**
    * @brief HIP API allows for setting the active device, not the active queue
    * so active device's active queue is always it's 0th/default/primary queue
@@ -1251,12 +1252,6 @@ public:
    * @return false upon failure
    */
   void addDevice(CHIPDevice *Dev);
-  /**
-   * @brief Add a queue to this context
-   *
-   * @param q CHIPQueue to be added
-   */
-  void addQueue(CHIPQueue *ChipQueue);
 
   /**
    * @brief Get this context's CHIPDevices
@@ -1414,13 +1409,13 @@ protected:
    * device code and stored in binary representation.
    *  */
   std::vector<std::string *> ModulesStr_;
-  std::mutex Mtx_;
 
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
   CHIPQueue *ActiveQ_;
 
 public:
+  std::mutex Mtx_;
   std::mutex CallbackStackMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;

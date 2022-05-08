@@ -708,7 +708,6 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
 CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this);
-  ChipQueues_.push_back(NewQ);
   return NewQ;
 }
 
@@ -873,7 +872,6 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice)
    *
    */
   setLastEvent(enqueueMarkerImpl());
-  ChipDevice->addQueue(this);
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
@@ -1197,7 +1195,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     Backend->addDevice(ChipDev);
     CHIPQueueOpenCL *Queue = new CHIPQueueOpenCL(ChipDev);
     // chip_dev->addQueue(queue);
-    ChipContext->addQueue(Queue);
+    // ChipContext->addQueue(Queue);
     Backend->addQueue(Queue);
   }
   logDebug("OpenCL Context Initialized.");

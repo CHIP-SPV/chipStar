@@ -813,19 +813,30 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
+  logDebug("CHIPDevice::addQueue ", (char *)ChipQueue);
+  Backend->addQueue(ChipQueue);
+
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
-  if (QueueFound == ChipQueues_.end())
+  if (QueueFound == ChipQueues_.end()) {
     ChipQueues_.push_back(ChipQueue);
+  } else {
+    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
+                          "already present in the backend queue list",
+                          hipErrorTbd);
+  }
   return;
 }
 
-CHIPQueue *CHIPDevice::addQueue(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDevice::createQueue(unsigned int Flags, int Priority) {
+
+  std::lock_guard<std::mutex> Lock(Mtx_);
   auto ChipQueue = addQueueImpl(Flags, Priority);
+  addQueue(ChipQueue);
   return ChipQueue;
 }
 
-std::vector<CHIPQueue *> CHIPDevice::getQueues() { return ChipQueues_; }
+std::vector<CHIPQueue *> &CHIPDevice::getQueues() { return ChipQueues_; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
                                      bool CanAccessPeer) {
@@ -849,6 +860,8 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockBackend(Backend->Mtx_);
+  std::lock_guard<std::mutex> Lock(Mtx_);
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
@@ -857,8 +870,19 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
         "device queue list";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
-
   ChipQueues_.erase(FoundQueue);
+
+  FoundQueue = std::find(Backend->getQueues().begin(),
+                         Backend->getQueues().end(), ChipQueue);
+  if (FoundQueue == Backend->getQueues().end()) {
+    std::string Msg = "Tried to remove a queue for a the backend but the queue "
+                      "was not found in "
+                      "backend queue list";
+    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+  }
+
+  Backend->getQueues().erase(FoundQueue);
+  // mem leak delete *FoundQueue;
   return true;
 }
 
@@ -919,6 +943,7 @@ CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   logDebug("CHIPContext::syncQueues()");
+  std::lock_guard<std::mutex> lock(Mtx);
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
   std::vector<CHIPQueue *> QueuesBlocking;
 
@@ -938,10 +963,12 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     for (auto &q : QueuesBlocking)
       EventsToWaitOn.push_back(q->getLastEvent());
     auto E = DefaultQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    E->Msg = "barrierSyncQueue";
     TargetQueue->setLastEvent(E);
   } else { // blocking stream must wait until default stream is done
     EventsToWaitOn.push_back(DefaultQueue->getLastEvent());
     auto E = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    E->Msg = "barrierSyncQueue";
     TargetQueue->setLastEvent(E);
   }
 }
@@ -964,10 +991,7 @@ std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   }
   return ChipQueues_;
 }
-void CHIPContext::addQueue(CHIPQueue *ChipQueue) {
-  logDebug("CHIPContext.add_queue()");
-  ChipQueues_.push_back(ChipQueue);
-}
+
 hipStream_t CHIPContext::findQueue(hipStream_t Stream) {
   std::vector<CHIPQueue *> Queues = getQueues();
   if (Stream == nullptr)
@@ -1165,8 +1189,16 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
-  logDebug("CHIPBackend.add_queue()");
-  ChipQueues.push_back(ChipQueue);
+  logDebug("CHIPBackend::addQueue()");
+  auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
+  if (QueueFound == ChipQueues.end()) {
+    ChipQueues.push_back(ChipQueue);
+  } else {
+    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
+                          "already present in the backend queue list",
+                          hipErrorTbd);
+  }
+  return;
 }
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
@@ -1348,6 +1380,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> Lock(Mtx_);
   if (ChipQueue == nullptr) {
     logDebug("CHIPBackend::findQueue() was given a nullptr. Returning default "
              "queue");
@@ -1356,10 +1389,10 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Queues = Backend->getActiveDevice()->getQueues();
   auto QueueFound = std::find(Queues.begin(), Queues.end(), ChipQueue);
   if (QueueFound == Queues.end())
-    CHIPERR_LOG_AND_THROW(
-        "CHIPBackend::findQueue() was given a non-nullptr queue but this queue "
-        "was not found among the backend queues.",
-        hipErrorTbd);
+    CHIPERR_LOG_AND_THROW("CHIPBackend::findQueue() was given a non-nullptr "
+                          "queue but this queue "
+                          "was not found among the backend queues.",
+                          hipErrorTbd);
   return *QueueFound;
 }
 
@@ -1387,14 +1420,17 @@ CHIPEvent *CHIPQueue::memCopyImpl(void *Dst, const void *Src, size_t Size) {
   return ChipEvent;
 }
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
-  std::lock_guard<std::mutex> Lock(Mtx);
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  // Scope this so that we release mutex for finish()
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
+    ChipContext_->syncQueues(this);
 #endif
-  auto ChipEvent = memCopyImpl(Dst, Src, Size);
-  ChipEvent->Msg = "memCopy";
-  updateLastEvent(ChipEvent);
+    auto ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+    ChipEvent->Msg = "memCopy";
+    updateLastEvent(ChipEvent);
+  }
   this->finish();
   return hipSuccess;
 }
@@ -1536,7 +1572,8 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
     auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
     if (!AllocInfo)
       continue;
-    // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but "
+    // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but
+    // "
     //                       "it was not registered",
     //                       hipErrorTbd);
     void *HostPtr = AllocInfo->HostPtr;

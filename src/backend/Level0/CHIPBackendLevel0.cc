@@ -586,8 +586,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
                                         &ZeCmdListImm_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
-  ChipContext_->addQueue(this);
-  ChipDevice_->addQueue(this);
 
   // Initialize the internal Event_ pool and finish Event_
   ze_event_pool_desc_t EpDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
@@ -807,6 +805,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
     EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
     for (int i = 0; i < NumEventsToWaitFor; i++) {
       CHIPEventLevel0 *ChipEventLz = (CHIPEventLevel0 *)(*EventsToWaitFor)[i];
+      CHIPASSERT(ChipEventLz);
       EventHandles[i] = ChipEventLz->peek();
     }
   } // done gather Event_ handles to wait on
@@ -829,6 +828,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
   Ev->Msg = "memCopy";
 
   ze_result_t Status;
+  CHIPASSERT(Ev->peek());
   Status = zeCommandListAppendMemoryCopy(ZeCmdListImm_, Dst, Src, Size,
                                          Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -923,16 +923,15 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       ChipL0Dev->populateDeviceProperties();
       ChipL0Ctx->addDevice(ChipL0Dev);
 
-      auto Q = ChipL0Dev->addQueue(0, 0);
+      auto Q = ChipL0Dev->createQueue(0, 0);
 
       Backend->addDevice(ChipL0Dev);
-      Backend->addQueue(Q);
       break; // For now don't add more than one device
     }
   } // End adding CHIPDevices
 
-  StaleEventMonitor_ =
-      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  // StaleEventMonitor_ =
+  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero
@@ -1188,7 +1187,6 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
 CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
   CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
-  ChipQueues_.push_back(NewQ);
   return NewQ;
 }
 
