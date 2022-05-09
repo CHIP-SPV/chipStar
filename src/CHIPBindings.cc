@@ -1042,7 +1042,7 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
   NULLCHECK(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPQueue *ChipQueue = Dev->createQueue(Flags, Priority);
+  CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, Priority);
   *Stream = ChipQueue;
   RETURN(hipSuccess);
 
@@ -2974,7 +2974,7 @@ extern "C" hipError_t hipInitFromOutside(void *DriverPtr, void *DevicePtr,
   Backend->addDevice(ChipDev);
 
   // ze_command_queue_handle_t q = (ze_command_queue_handle_t)queuePtr;
-  ChipDev->createQueue(0, 0);
+  ChipDev->createQueueAndRegister(0, 0);
   Backend->setActiveDevice(ChipDev);
 
   RETURN(hipSuccess);

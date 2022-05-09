@@ -828,7 +828,8 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
   return;
 }
 
-CHIPQueue *CHIPDevice::createQueue(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
+                                              int Priority) {
 
   std::lock_guard<std::mutex> Lock(Mtx_);
   auto ChipQueue = addQueueImpl(Flags, Priority);
@@ -976,6 +977,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPContext.add_device() {}", ChipDevice->getName());
   ChipDevices_.push_back(ChipDevice);
+  // TODO: add to backend as well
 }
 
 std::vector<CHIPDevice *> &CHIPContext::getDevices() {

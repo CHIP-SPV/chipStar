@@ -1192,11 +1192,13 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     logTrace("CHIPDeviceOpenCL {}",
              ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
     ChipDev->populateDeviceProperties();
+
+    // Add device to context & backend
+    ChipContext->addDevice(ChipDev);
     Backend->addDevice(ChipDev);
-    CHIPQueueOpenCL *Queue = new CHIPQueueOpenCL(ChipDev);
-    // chip_dev->addQueue(queue);
-    // ChipContext->addQueue(Queue);
-    Backend->addQueue(Queue);
+
+    // Create and add queue queue to Device and Backend
+    auto Queue = ChipDev->createQueueAndRegister(0, 0);
   }
   logDebug("OpenCL Context Initialized.");
 };

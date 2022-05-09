@@ -923,7 +923,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       ChipL0Dev->populateDeviceProperties();
       ChipL0Ctx->addDevice(ChipL0Dev);
 
-      auto Q = ChipL0Dev->createQueue(0, 0);
+      auto Q = ChipL0Dev->createQueueAndRegister(0, 0);
 
       Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device

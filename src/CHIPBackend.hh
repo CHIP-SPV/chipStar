@@ -924,6 +924,15 @@ protected:
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
 public:
+  /**
+   * @brief Create a Queue object
+   *
+   * @param Flags
+   * @param Priority
+   * @return CHIPQueue*
+   */
+  CHIPQueue *createQueueAndRegister(unsigned int Flags, int Priority);
+
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
       CHIPERR_LOG_AND_THROW("MaxMallocSize was not set", hipErrorTbd);
@@ -1011,8 +1020,6 @@ public:
    * in chip_queues vector)
    */
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
-
-  CHIPQueue *createQueue(unsigned int Flags, int Priority);
 
   /**
    * @brief Add a queue to this device
