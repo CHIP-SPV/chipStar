@@ -1,7 +1,7 @@
-9777ff7
-82% tests passed, 68 tests failed out of 375
+c4c17ed
+81% tests passed, 71 tests failed out of 375
 
-Total Test time (real) = 862.67 sec
+Total Test time (real) = 870.17 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
@@ -18,6 +18,7 @@ The following tests FAILED:
 	 69 - Unit_hipMemcpy2DAsync_Host&PinnedMem - double (Failed)
 	 80 - Unit_hipMemcpy2DFromArray_PinnedMemSameGPU (Failed)
 	 86 - Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu (Failed)
+	109 - Unit_hipPointerGetAttributes_Basic (SEGFAULT)
 	113 - Unit_hipHostGetFlags_Basic - int (Failed)
 	114 - Unit_hipHostGetFlags_Basic - float (Failed)
 	115 - Unit_hipHostGetFlags_Basic - double (Failed)
@@ -73,6 +74,8 @@ The following tests FAILED:
 	325 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	329 - abort (Failed)
+	330 - abort2 (Failed)
+	355 - hipTestSymbolReset (Subprocess aborted)
 	368 - PrintfSimple (Failed)
 	369 - PrintfNOP (Failed)
 	370 - PrintfDynamic (Failed)

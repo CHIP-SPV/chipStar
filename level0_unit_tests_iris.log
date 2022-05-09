@@ -1,17 +1,15 @@
-9777ff7
-88% tests passed, 45 tests failed out of 375
+c4c17ed
+89% tests passed, 43 tests failed out of 375
 
-Total Test time (real) = 624.71 sec
+Total Test time (real) = 621.62 sec
 
 The following tests FAILED:
-	101 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
+	109 - Unit_hipPointerGetAttributes_Basic (SEGFAULT)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	139 - Unit_hipHostMalloc_ArgValidation (Failed)
-	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Subprocess aborted)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)

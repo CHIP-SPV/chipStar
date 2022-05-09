@@ -1,17 +1,17 @@
-9777ff7
-89% tests passed, 40 tests failed out of 375
+c4c17ed
+89% tests passed, 42 tests failed out of 375
 
-Total Test time (real) = 870.09 sec
+Total Test time (real) = 601.95 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
 	373 - sycl_chip_interop_usm (Skipped)
 
 The following tests FAILED:
+	109 - Unit_hipPointerGetAttributes_Basic (SEGFAULT)
 	139 - Unit_hipHostMalloc_ArgValidation (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Timeout)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)
@@ -27,7 +27,7 @@ The following tests FAILED:
 	276 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
-	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
+	302 - Unit_hipStreamPerThread_StreamQuery (SEGFAULT)
 	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
@@ -47,4 +47,6 @@ The following tests FAILED:
 	325 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
+	329 - abort (Failed)
+	355 - hipTestSymbolReset (Subprocess aborted)
 	370 - PrintfDynamic (Failed)
