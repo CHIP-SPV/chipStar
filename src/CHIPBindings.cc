@@ -564,8 +564,9 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  for (auto Q : Backend->getQueues())
-    Q->finish();
+  for (auto Dev : Backend->getDevices())
+    for (auto Q : Dev->getQueues())
+      Q->finish();
 
   RETURN(hipSuccess);
   CHIP_CATCH

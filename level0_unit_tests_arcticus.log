@@ -1,7 +1,7 @@
-c4c17ed
-84% tests passed, 61 tests failed out of 375
+2b9f284216c85b4a2558c78b962d1002ce8e10b8
+84% tests passed, 60 tests failed out of 375
 
-Total Test time (real) = 1947.89 sec
+Total Test time (real) = 1968.35 sec
 
 The following tests FAILED:
 	105 - Unit_hipHostRegister_Memcpy - int (Failed)
@@ -23,7 +23,6 @@ The following tests FAILED:
 	140 - Unit_hipMemset3D_MemsetWithExtent (Failed)
 	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
 	145 - Unit_hipMemset3DAsync_SeekSetSlice (Failed)
-	146 - Unit_hipMemset3D_SeekSetArrayPortion (Failed)
 	147 - Unit_hipMemset3DAsync_SeekSetArrayPortion (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
