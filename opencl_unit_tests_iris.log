@@ -1,7 +1,7 @@
-c4c17ed
-89% tests passed, 42 tests failed out of 375
+3cc9b35
+89% tests passed, 43 tests failed out of 375
 
-Total Test time (real) = 601.95 sec
+Total Test time (real) = 581.71 sec
 
 The following tests did not run:
 	372 - sycl_chip_interop (Skipped)
@@ -27,7 +27,7 @@ The following tests FAILED:
 	276 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
-	302 - Unit_hipStreamPerThread_StreamQuery (SEGFAULT)
+	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
 	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
@@ -48,5 +48,6 @@ The following tests FAILED:
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
 	329 - abort (Failed)
+	330 - abort2 (Failed)
 	355 - hipTestSymbolReset (Subprocess aborted)
 	370 - PrintfDynamic (Failed)
