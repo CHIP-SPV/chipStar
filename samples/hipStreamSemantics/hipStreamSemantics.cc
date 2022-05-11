@@ -6,14 +6,14 @@
 #include <cstdlib>
 #include <iostream>
 
-#define CHECK(cmd)                                                            \
-  {                                                                           \
-    hipError_t error = cmd;                                                   \
-    if (error != hipSuccess) {                                                \
-      fprintf(stderr, "error: '%s'(%d) at %s:%d\n", hipGetErrorString(error), \
-              error, __FILE__, __LINE__);                                     \
-      exit(1);                                                                \
-    }                                                                         \
+#define CHECK(cmd)                                                             \
+  {                                                                            \
+    hipError_t error = cmd;                                                    \
+    if (error != hipSuccess) {                                                 \
+      fprintf(stderr, "error: '%s'(%d) at %s:%d\n", hipGetErrorString(error),  \
+              error, __FILE__, __LINE__);                                      \
+      exit(1);                                                                 \
+    }                                                                          \
   }
 
 __global__ void addOne(int *__restrict A) {
@@ -21,11 +21,26 @@ __global__ void addOne(int *__restrict A) {
   A[i] = A[i] + 1;
 }
 
+template <typename T>
+__global__ void addCountReverse(const T *A_d, T *C_d, int64_t NELEM,
+                                int count) {
+  size_t offset = (blockIdx.x * blockDim.x + threadIdx.x);
+  size_t stride = blockDim.x * gridDim.x;
+
+  // Deliberately do this in an inefficient way to increase kernel runtime
+  for (int i = 0; i < count; i++) {
+    for (int64_t i = NELEM - stride + offset; i >= 0; i -= stride) {
+      C_d[i] = A_d[i] + (T)count;
+    }
+  }
+}
+
 int main() {
   int numBlocks = 5120000;
   int dimBlocks = 32;
   const size_t NUM = numBlocks * dimBlocks;
   int *A_h, *A_d, *Ref;
+  int *C_h, *C_d;
 
   static int device = 0;
   CHECK(hipSetDevice(device));
@@ -34,16 +49,36 @@ int main() {
   printf("info: running on device %s\n", props.name);
 
   A_h = (int *)calloc(NUM, sizeof(int));
+  C_h = (int *)calloc(NUM, sizeof(int));
   CHECK(hipMalloc((void **)&A_d, NUM * sizeof(int)));
+  CHECK(hipMalloc((void **)&C_d, NUM * sizeof(int)));
   printf("info: copy Host2Device\n");
   CHECK(hipMemcpy(A_d, A_d, NUM * sizeof(int), hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(C_d, C_d, NUM * sizeof(int), hipMemcpyHostToDevice));
 
   hipStream_t q;
   uint32_t flags = hipStreamNonBlocking;
   CHECK(hipStreamCreateWithFlags(&q, flags));
 
   size_t sharedMem = 0;
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
+  hipEvent_t start, stop;
+  int count = 1000;
+
+  CHECK(hipEventCreate(&start));
+  CHECK(hipEventCreate(&stop));
+  CHECK(hipEventRecord(start));
+  std::cout << "Launching kernel\n";
+  hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
+                     sharedMem, 0, A_d, C_d, NUM, count);
+  CHECK(hipEventRecord(stop));
+  std::cout << "Kernel submitted to queue\n";
+  CHECK(hipGetLastError());
+  float t;
+  hipError_t notReady = hipEventElapsedTime(&t, start, stop);
+  std::cout << "Kernel time: " << t << "s\n";
+  assert(notReady == hipErrorNotReady);
+
+  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
                      A_d);
   hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
                      A_d);
