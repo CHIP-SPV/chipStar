@@ -1383,6 +1383,11 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   std::lock_guard<std::mutex> Lock(Mtx_);
+
+  if (ChipQueue == hipStreamPerThread) {
+    UNIMPLEMENTED(nullptr);
+  }
+
   if (ChipQueue == nullptr) {
     logDebug("CHIPBackend::findQueue() was given a nullptr. Returning default "
              "queue");
@@ -1398,11 +1403,6 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   return *QueueFound;
 }
 
-// hipError_t CHIPBackend::removeModule(CHIPModule *chip_module){};
-// CHIPModule *CHIPBackend::addModule(std::string *module_str) {
-//   for (auto &ctx : chip_contexts)
-//     for (auto &dev : ctx->getDevices()) dev->addModule(modules_str);
-//}
 // CHIPQueue
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)

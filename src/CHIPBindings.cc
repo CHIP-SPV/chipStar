@@ -1118,11 +1118,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
 
   std::vector<CHIPEvent *> EventsToWaitOn = {Event};
   Stream->enqueueBarrier(&EventsToWaitOn);
-  // event->barrier(Stream);
-  // if (Stream->enqueueBarrier(event))
-  // RETURN(hipSuccess);
-  // else
-  // RETURN(hipErrorInvalidValue);
+
   RETURN(hipSuccess);
   CHIP_CATCH
 }
