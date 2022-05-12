@@ -154,6 +154,7 @@ public:
 class CHIPEventMonitor;
 
 enum class CHIPQueueType : unsigned int {
+  // TODO: Check that both are not enabled at onnce
   Blocking = hipStreamDefault,
   NonBlocking = hipStreamNonBlocking
 };
@@ -226,7 +227,6 @@ public:
 
 template <class T> std::string resultToString(T Err);
 
-enum class CHIPMemoryType : unsigned { Host = 0, Device = 1, Shared = 2 };
 class CHIPEventFlags {
   bool BlockingSync_ = false;
   bool DisableTiming_ = false;
@@ -251,9 +251,18 @@ public:
   bool isInterprocess() { return Interprocess_; };
 };
 
+/**
+ * @brief  Structure describing an allocation
+ *
+ */
 struct AllocationInfo {
-  void *BasePtr;
+  void *DevPtr;
+  void *HostPtr;
   size_t Size;
+  unsigned int Flags;
+  hipDevice_t Device;
+  bool Managed = false;
+  enum hipMemoryType MemoryType;
 };
 
 /**
@@ -263,12 +272,9 @@ struct AllocationInfo {
 class CHIPAllocationTracker {
 private:
   std::mutex Mtx_;
-  std::unordered_map<void *, void *> HostToDev_;
-  std::unordered_map<void *, void *> DevToHost_;
   std::string Name_;
-  std::set<void *> PtrSet_;
 
-  std::unordered_map<void *, AllocationInfo> DevToAllocInfo_;
+  std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
 
 public:
   /**
@@ -277,30 +283,11 @@ public:
    * @param HostPtr
    */
   void registerHostPointer(void *HostPtr, void *DevPtr) {
-    HostToDev_[HostPtr] = DevPtr;
-    DevToHost_[DevPtr] = HostPtr;
-  }
-
-  void *getAssociatedHostPtr(void *DevPtr) {
-    if (!DevToHost_.count(DevPtr))
-      return nullptr;
-
-    return DevToHost_[DevPtr];
-  }
-
-  void *getAssociatedDevPtr(void *HostPtr) {
-    if (!HostToDev_.count(HostPtr))
-      return nullptr;
-
-    return HostToDev_[HostPtr];
-  }
-
-  void unregsiterHostPointer(void *HostPtr) {
-    if (HostToDev_.count(HostPtr) == 0)
-      CHIPERR_LOG_AND_THROW("Tried to unregister a host variable which was not "
-                            "registered with this device",
-                            hipErrorTbd);
-    HostToDev_.erase(HostPtr);
+    CHIPASSERT(HostPtr && "HostPtr is null");
+    CHIPASSERT(DevPtr && "DevPtr is null");
+    auto AllocInfo = this->getAllocInfo(DevPtr);
+    AllocInfo->HostPtr = HostPtr;
+    this->PtrToAllocInfo_[HostPtr] = AllocInfo;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -327,17 +314,11 @@ public:
   std::string getName();
 
   /**
-   * @brief Get allocation_info based on host pointer
+   * @brief Get Allocation Info associated with this pointer
    *
-   * @return allocation_info contains the base pointer and allocation size;
+   * @return AllocationInfo contains the base pointer and allocation size;
    */
-  AllocationInfo *getByHostPtr(const void *);
-  /**
-   * @brief Get allocation_info based on device pointer
-   *
-   * @return allocation_info contains the base pointer and allocation size;
-   */
-  AllocationInfo *getByDevPtr(const void *);
+  AllocationInfo *getAllocInfo(const void *);
 
   /**
    * @brief Reserve memory for an allocation.
@@ -364,7 +345,9 @@ public:
    *
    * @param dev_ptr
    */
-  void recordAllocation(void *DevPtr, size_t Size);
+  void recordAllocation(void *DevPtr, void *HostPtr, hipDevice_t Device,
+                        size_t Size, unsigned int Flags,
+                        hipMemoryType MemoryType);
 
   /**
    * @brief Check if a given pointer belongs to any of the existing allocations
@@ -373,7 +356,20 @@ public:
    * @return AllocationInfo* pointer to allocation info. Nullptr if this pointer
    * does not belong to any existing allocations
    */
-  AllocationInfo *findBaseDevPtr(void *DevPtr);
+  AllocationInfo *getAllocInfoCheckPtrRanges(void *DevPtr);
+
+  /**
+   * @brief Delete an AllocationInfo item
+   *
+   * @param AllocInfo
+   */
+  void eraseRecord(AllocationInfo *AllocInfo) {
+    PtrToAllocInfo_.erase(AllocInfo->DevPtr);
+    if (AllocInfo->HostPtr)
+      PtrToAllocInfo_.erase(AllocInfo->HostPtr);
+
+    delete AllocInfo;
+  }
 };
 
 class CHIPDeviceVar {
@@ -928,6 +924,15 @@ protected:
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
 public:
+  /**
+   * @brief Create a Queue object
+   *
+   * @param Flags
+   * @param Priority
+   * @return CHIPQueue*
+   */
+  CHIPQueue *createQueueAndRegister(unsigned int Flags, int Priority);
+
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
       CHIPERR_LOG_AND_THROW("MaxMallocSize was not set", hipErrorTbd);
@@ -1016,8 +1021,6 @@ public:
    */
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
 
-  CHIPQueue *addQueue(unsigned int Flags, int Priority);
-
   /**
    * @brief Add a queue to this device
    *
@@ -1029,7 +1032,7 @@ public:
    *
    * @return std::vector<CHIPQueue*>
    */
-  std::vector<CHIPQueue *> getQueues();
+  std::vector<CHIPQueue *> &getQueues();
   /**
    * @brief HIP API allows for setting the active device, not the active queue
    * so active device's active queue is always it's 0th/default/primary queue
@@ -1256,12 +1259,6 @@ public:
    * @return false upon failure
    */
   void addDevice(CHIPDevice *Dev);
-  /**
-   * @brief Add a queue to this context
-   *
-   * @param q CHIPQueue to be added
-   */
-  void addQueue(CHIPQueue *ChipQueue);
 
   /**
    * @brief Get this context's CHIPDevices
@@ -1291,7 +1288,7 @@ public:
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type) with allignment = 0 and allocation type = Shared
+   * hipMemoryType mem_type) with allignment = 0 and allocation type = Shared
    *
    *
    * @param size size of the allocation
@@ -1303,26 +1300,41 @@ public:
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type) with allignment = 0
+   * hipMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void *allocate(size_t Size, CHIPMemoryType MemType);
+  void *allocate(size_t Size, hipMemoryType MemType);
 
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * CHIPMemoryType mem_type)
+   * hipMemoryType mem_type)
    *
    * @param size size of the allocation
    * @param alignment allocation alignment in bytes
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void* pointer to allocated memory
    */
-  void *allocate(size_t Size, size_t Alignment, CHIPMemoryType MemType);
+  void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType);
+
+  /**
+   * @brief Allocate data.
+   * Calls reserveMem() to keep track memory used on the device.
+   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * hipMemoryType mem_type)
+   *
+   * @param size size of the allocation
+   * @param alignment allocation alignment in bytes
+   * @param mem_type type of the allocation: Host, Device, Shared
+   * @param Flags flags
+   * @return void* pointer to allocated memory
+   */
+  void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType,
+                 unsigned int Flags);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
@@ -1335,7 +1347,7 @@ public:
    * @return void*
    */
   virtual void *allocateImpl(size_t Size, size_t Alignment,
-                             CHIPMemoryType MemType) = 0;
+                             hipMemoryType MemType) = 0;
 
   /**
    * @brief Free memory
@@ -1362,18 +1374,6 @@ public:
    *
    */
   void finishAll();
-
-  /**
-   * @brief For a given device pointer, return the base address of the
-   * allocation to which it belongs to along with the allocation size
-   *
-   * @param pbase device base pointer to which dptr belongs to
-   * @param psize size of the allocation with which pbase was created
-   * @param dptr device pointer
-   * @return hipError_t
-   */
-  virtual hipError_t findPointerInfo(hipDeviceptr_t *Base, size_t *Size,
-                                     hipDeviceptr_t Ptr);
 
   /**
    * @brief Get the flags set on this context
@@ -1416,24 +1416,19 @@ protected:
    * device code and stored in binary representation.
    *  */
   std::vector<std::string *> ModulesStr_;
-  std::mutex Mtx_;
 
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
   CHIPQueue *ActiveQ_;
 
 public:
+  std::mutex Mtx_;
   std::mutex CallbackStackMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
 
   std::queue<CHIPCallbackData *> CallbackStack;
-  /**
-   * @brief Keep track of pointers allocated on the device. Used to get info
-   * about allocaitons based on device poitner in case that findPointerInfo() is
-   * not overriden
-   *
-   */
+
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t TlsLastError;
 

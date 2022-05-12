@@ -404,7 +404,28 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
 
 hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
                                    const void *ptr) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_TRY
+  CHIPInitialize();
+
+  for (auto Dev : Backend->getDevices()) {
+    auto AllocTracker = Dev->AllocationTracker;
+    auto AllocInfo = AllocTracker->getAllocInfo(ptr);
+    if (AllocInfo) {
+      attributes->allocationFlags = AllocInfo->Flags;
+      attributes->device = AllocInfo->Device;
+      attributes->devicePointer = const_cast<void *>(ptr);
+      attributes->hostPointer = AllocInfo->HostPtr;
+      attributes->isManaged = AllocInfo->Managed;
+      attributes->memoryType = AllocInfo->MemoryType;
+      if (attributes->memoryType == hipMemoryType::hipMemoryTypeUnified &&
+          !attributes->hostPointer)
+        attributes->hostPointer = attributes->devicePointer;
+      RETURN(hipSuccess);
+    }
+  }
+
+  RETURN(hipErrorInvalidValue);
+  CHIP_CATCH
 }
 
 hipError_t hipIpcOpenMemHandle(void **DevPtr, hipIpcMemHandle_t Handle,
@@ -543,8 +564,9 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  for (auto Q : Backend->getQueues())
-    Q->finish();
+  for (auto Dev : Backend->getDevices())
+    for (auto Q : Dev->getQueues())
+      Q->finish();
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1021,8 +1043,7 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
   NULLCHECK(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPQueue *ChipQueue = Dev->addQueue(Flags, Priority);
-  Backend->addQueue(ChipQueue);
+  CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, Priority);
   *Stream = ChipQueue;
   RETURN(hipSuccess);
 
@@ -1097,11 +1118,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
 
   std::vector<CHIPEvent *> EventsToWaitOn = {Event};
   Stream->enqueueBarrier(&EventsToWaitOn);
-  // event->barrier(Stream);
-  // if (Stream->enqueueBarrier(event))
-  // RETURN(hipSuccess);
-  // else
-  // RETURN(hipErrorInvalidValue);
+
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1158,12 +1175,15 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
   CHIPInitialize();
   NULLCHECK(Base, Size, Ptr);
 
-  CHIPContext *ChipContext = Backend->getActiveContext();
-  if (ChipContext->findPointerInfo(Base, Size, Ptr))
-    RETURN(hipSuccess);
-  else
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getAllocInfo(Ptr);
+  if (!AllocInfo)
     RETURN(hipErrorInvalidValue);
 
+  *Base = AllocInfo->DevPtr;
+  *Size = AllocInfo->Size;
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -1328,8 +1348,8 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
     *Ptr = nullptr;
     RETURN(hipSuccess);
   }
-  void *RetVal =
-      Backend->getActiveContext()->allocate(Size, CHIPMemoryType::Device);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      Size, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1363,7 +1383,7 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   }
 
   void *RetVal = Backend->getActiveDevice()->getContext()->allocate(
-      Size, CHIPMemoryType::Shared);
+      Size, hipMemoryType::hipMemoryTypeUnified);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *DevPtr = RetVal;
@@ -1382,8 +1402,8 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIPInitialize();
   NULLCHECK(Ptr);
 
-  void *RetVal =
-      Backend->getActiveContext()->allocate(Size, 0x1000, CHIPMemoryType::Host);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, Flags);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1453,14 +1473,14 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
   NULLCHECK(DevPtr, HostPtr);
 
   auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
+  auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
   if (!AllocInfo) {
     logWarn("host pointer was not mapped via hipHostRegister... Returning host "
             "pointer as device pointer (in case host pointer was mapped "
             "through hipMallocShared or hipMallocHost");
     *DevPtr = HostPtr;
   } else
-    *DevPtr = AllocInfo->BasePtr;
+    *DevPtr = AllocInfo->DevPtr;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1471,7 +1491,11 @@ hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
   CHIPInitialize();
   NULLCHECK(FlagsPtr, HostPtr);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto AllocInfo = AllocTracker->getAllocInfo(HostPtr);
+
+  unsigned int Flags = AllocInfo->Flags;
+  *FlagsPtr = Flags;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1515,9 +1539,8 @@ hipError_t hipHostUnregister(void *HostPtr) {
   NULLCHECK(HostPtr);
 
   auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocationTracker->getByHostPtr(HostPtr);
-  auto Err = hipFree(AllocInfo->BasePtr);
-  Device->AllocationTracker->unregsiterHostPointer(HostPtr);
+  auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
+  auto Err = hipFree(AllocInfo->DevPtr);
   RETURN(Err);
 
   CHIP_CATCH
@@ -1770,7 +1793,7 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   NULLCHECK(Ptr, Size);
 
   AllocationInfo *AllocInfo =
-      Backend->getActiveDevice()->AllocationTracker->getByDevPtr(Ptr);
+      Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Ptr);
   *Size = AllocInfo->Size;
 
   RETURN(hipSuccess);
@@ -1908,7 +1931,8 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
 
   // Check if pointer inside allocation range
   auto AllocTracker = Stream->getDevice()->AllocationTracker;
-  AllocationInfo *AllocInfo = AllocTracker->findBaseDevPtr(PitchedDevPtr.ptr);
+  AllocationInfo *AllocInfo =
+      AllocTracker->getAllocInfoCheckPtrRanges(PitchedDevPtr.ptr);
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
                           hipErrorTbd);
@@ -1983,14 +2007,11 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
-  auto AllocInfo = AllocTracker->getByDevPtr(Dst);
-  if (!AllocInfo)
-    AllocInfo = AllocTracker->getByHostPtr(Dst);
+  auto AllocInfo = AllocTracker->getAllocInfo(Dst);
 
   if (AllocInfo) {
     logDebug("Found associated alloc info");
-    auto RegisterMemDst =
-        AllocTracker->getAssociatedHostPtr(AllocInfo->BasePtr);
+    auto RegisterMemDst = AllocInfo->HostPtr;
     if (RegisterMemDst)
       memset(RegisterMemDst, Value, SizeBytes);
   }
@@ -2267,7 +2288,7 @@ hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
   if (SrcOffset > Count)
     CHIPERR_LOG_AND_THROW("Offset larger than count", hipErrorTbd);
 
-  auto Info = Backend->getActiveDevice()->AllocationTracker->getByDevPtr(
+  auto Info = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(
       SrcArray->data);
   if (Info->Size < Count)
     CHIPERR_LOG_AND_THROW("MemCopy larger than allocated size", hipErrorTbd);
@@ -2285,7 +2306,7 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   NULLCHECK(SrcHost, DstArray);
 
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
-  auto AllocInfo = AllocTracker->getByDevPtr(DstArray->data);
+  auto AllocInfo = AllocTracker->getAllocInfo(DstArray->data);
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("Destination device pointer not allocated on device",
                           hipErrorTbd);
@@ -2950,9 +2971,7 @@ extern "C" hipError_t hipInitFromOutside(void *DriverPtr, void *DevicePtr,
   Backend->addDevice(ChipDev);
 
   // ze_command_queue_handle_t q = (ze_command_queue_handle_t)queuePtr;
-  // CHIPQueueLevel0* chip_queue = CHIPQueueLevel0(q)
-  CHIPQueueLevel0 *ChipQueue = new CHIPQueueLevel0(ChipDev);
-  Backend->addQueue(ChipQueue);
+  ChipDev->createQueueAndRegister(0, 0);
   Backend->setActiveDevice(ChipDev);
 
   RETURN(hipSuccess);

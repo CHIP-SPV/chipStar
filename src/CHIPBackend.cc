@@ -97,21 +97,17 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
   UNIMPLEMENTED();
 }
 
-AllocationInfo *CHIPAllocationTracker::getByHostPtr(const void *HostPtr) {
-  auto Found = HostToDev_.find(const_cast<void *>(HostPtr));
-  if (Found == HostToDev_.end()) {
-    return nullptr;
-  }
-  return getByDevPtr(Found->second);
-}
-AllocationInfo *CHIPAllocationTracker::getByDevPtr(const void *DevPtr) {
-  auto Ptr = const_cast<void *>(DevPtr);
-  logDebug("dev_to_allocation_info size: {}", DevToAllocInfo_.size());
-  auto Count = DevToAllocInfo_.count(Ptr);
-  if (Count == 0)
-    return nullptr;
+AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
+  // In case that Ptr is the base of the allocation, check hash map directly
+  auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
+  if (Found)
+    return PtrToAllocInfo_[const_cast<void *>(Ptr)];
 
-  return &DevToAllocInfo_[const_cast<void *>(DevPtr)];
+  // Ptr can be offset from the base pointer. In this case, iterate through all
+  // allocations, and check if Ptr falls within any of these allocation ranges
+  auto AllocInfo = getAllocInfoCheckPtrRanges(const_cast<void *>(Ptr));
+
+  return AllocInfo;
 }
 
 bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
@@ -139,18 +135,28 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
   return false;
 }
 
-void CHIPAllocationTracker::recordAllocation(void *DevPtr, size_t Size) {
-  AllocationInfo AllocInfo{DevPtr, Size};
-  DevToAllocInfo_[DevPtr] = AllocInfo;
+void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
+                                             hipDevice_t Device, size_t Size,
+                                             unsigned int Flags,
+                                             hipMemoryType MemoryType) {
+  AllocationInfo *AllocInfo = new AllocationInfo{
+      DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
+
+  if (DevPtr)
+    PtrToAllocInfo_[DevPtr] = AllocInfo;
+  if (HostPtr)
+    PtrToAllocInfo_[HostPtr] = AllocInfo;
+
   logDebug("CHIPAllocationTracker::recordAllocation size: {}",
-           DevToAllocInfo_.size());
+           PtrToAllocInfo_.size());
   return;
 }
 
-AllocationInfo *CHIPAllocationTracker::findBaseDevPtr(void *DevPtr) {
-  for (auto &Info : DevToAllocInfo_) {
-    AllocationInfo *AllocInfo = &Info.second;
-    void *Start = AllocInfo->BasePtr;
+AllocationInfo *
+CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
+  for (auto &Info : PtrToAllocInfo_) {
+    AllocationInfo *AllocInfo = Info.second;
+    void *Start = AllocInfo->DevPtr;
     void *End = (char *)Start + AllocInfo->Size;
 
     if (Start <= DevPtr && DevPtr < End)
@@ -305,8 +311,8 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
 
   size_t VarInfoBufSize = sizeof(CHIPVarInfo) * ChipVars_.size();
   auto *Ctx = Device->getContext();
-  CHIPVarInfo *VarInfoBufD =
-      (CHIPVarInfo *)Ctx->allocate(VarInfoBufSize, CHIPMemoryType::Shared);
+  CHIPVarInfo *VarInfoBufD = (CHIPVarInfo *)Ctx->allocate(
+      VarInfoBufSize, hipMemoryType::hipMemoryTypeUnified);
   assert(VarInfoBufD && "Could not allocate space for a shadow kernel.");
   auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(ChipVars_.size());
 
@@ -333,7 +339,8 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
     assert(Alignment && "Unexpected alignment requirement.");
 
     auto *Var = VarInfo.first;
-    Var->setDevAddr(Ctx->allocate(Size, Alignment, CHIPMemoryType::Shared));
+    Var->setDevAddr(
+        Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeUnified));
     Var->markHasInitializer(HasInitializer);
     // Sanity check for object sizes reported by the shadow kernels vs
     // __hipRegisterVar.
@@ -806,19 +813,31 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
+  logDebug("CHIPDevice::addQueue ", (char *)ChipQueue);
+  Backend->addQueue(ChipQueue);
+
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
-  if (QueueFound == ChipQueues_.end())
+  if (QueueFound == ChipQueues_.end()) {
     ChipQueues_.push_back(ChipQueue);
+  } else {
+    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
+                          "already present in the backend queue list",
+                          hipErrorTbd);
+  }
   return;
 }
 
-CHIPQueue *CHIPDevice::addQueue(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
+                                              int Priority) {
+
+  std::lock_guard<std::mutex> Lock(Mtx_);
   auto ChipQueue = addQueueImpl(Flags, Priority);
+  addQueue(ChipQueue);
   return ChipQueue;
 }
 
-std::vector<CHIPQueue *> CHIPDevice::getQueues() { return ChipQueues_; }
+std::vector<CHIPQueue *> &CHIPDevice::getQueues() { return ChipQueues_; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
                                      bool CanAccessPeer) {
@@ -842,6 +861,8 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockBackend(Backend->Mtx_);
+  std::lock_guard<std::mutex> Lock(Mtx_);
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
@@ -850,8 +871,19 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
         "device queue list";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
-
   ChipQueues_.erase(FoundQueue);
+
+  FoundQueue = std::find(Backend->getQueues().begin(),
+                         Backend->getQueues().end(), ChipQueue);
+  if (FoundQueue == Backend->getQueues().end()) {
+    std::string Msg = "Tried to remove a queue for a the backend but the queue "
+                      "was not found in "
+                      "backend queue list";
+    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+  }
+
+  Backend->getQueues().erase(FoundQueue);
+  // mem leak delete *FoundQueue;
   return true;
 }
 
@@ -912,6 +944,7 @@ CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   logDebug("CHIPContext::syncQueues()");
+  std::lock_guard<std::mutex> lock(Mtx);
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
   std::vector<CHIPQueue *> QueuesBlocking;
 
@@ -931,10 +964,12 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     for (auto &q : QueuesBlocking)
       EventsToWaitOn.push_back(q->getLastEvent());
     auto E = DefaultQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    E->Msg = "barrierSyncQueue";
     TargetQueue->setLastEvent(E);
   } else { // blocking stream must wait until default stream is done
     EventsToWaitOn.push_back(DefaultQueue->getLastEvent());
     auto E = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    E->Msg = "barrierSyncQueue";
     TargetQueue->setLastEvent(E);
   }
 }
@@ -942,6 +977,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPContext.add_device() {}", ChipDevice->getName());
   ChipDevices_.push_back(ChipDevice);
+  // TODO: add to backend as well
 }
 
 std::vector<CHIPDevice *> &CHIPContext::getDevices() {
@@ -957,10 +993,7 @@ std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   }
   return ChipQueues_;
 }
-void CHIPContext::addQueue(CHIPQueue *ChipQueue) {
-  logDebug("CHIPContext.add_queue()");
-  ChipQueues_.push_back(ChipQueue);
-}
+
 hipStream_t CHIPContext::findQueue(hipStream_t Stream) {
   std::vector<CHIPQueue *> Queues = getQueues();
   if (Stream == nullptr)
@@ -978,14 +1011,20 @@ void CHIPContext::finishAll() {
 }
 
 void *CHIPContext::allocate(size_t Size) {
-  return allocate(Size, 0, CHIPMemoryType::Shared);
+  return allocate(Size, 0, hipMemoryType::hipMemoryTypeUnified,
+                  hipHostMallocDefault);
 }
 
-void *CHIPContext::allocate(size_t Size, CHIPMemoryType MemType) {
-  return allocate(Size, 0, MemType);
+void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
+  return allocate(Size, 0, MemType, hipHostMallocDefault);
 }
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            CHIPMemoryType MemType) {
+                            hipMemoryType MemType) {
+  return allocate(Size, Alignment, MemType, hipHostMallocDefault);
+}
+
+void *CHIPContext::allocate(size_t Size, size_t Alignment,
+                            hipMemoryType MemType, unsigned int Flags) {
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
 
@@ -999,21 +1038,10 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  ChipDev->AllocationTracker->recordAllocation(AllocatedPtr, Size);
+  ChipDev->AllocationTracker->recordAllocation(
+      AllocatedPtr, nullptr, ChipDev->getDeviceId(), Size, Flags, MemType);
 
   return AllocatedPtr;
-}
-
-hipError_t CHIPContext::findPointerInfo(hipDeviceptr_t *Base, size_t *Size,
-                                        hipDeviceptr_t Ptr) {
-  // allocation_info *info = Backend->AllocationTracker.getByDevPtr(dptr);
-  AllocationInfo *Info =
-      Backend->getActiveDevice()->AllocationTracker->getByDevPtr(Ptr);
-  if (!Info)
-    return hipErrorInvalidDevicePointer;
-  *Base = Info->BasePtr;
-  *Size = Info->Size;
-  return hipSuccess;
 }
 
 unsigned int CHIPContext::getFlags() { return Flags_; }
@@ -1041,11 +1069,12 @@ CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
-  AllocationInfo *Info = ChipDev->AllocationTracker->getByDevPtr(Ptr);
-  if (!Info)
+  AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
+  if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
 
-  ChipDev->AllocationTracker->releaseMemReservation(Info->Size);
+  ChipDev->AllocationTracker->eraseRecord(AllocInfo);
+  ChipDev->AllocationTracker->releaseMemReservation(AllocInfo->Size);
   freeImpl(Ptr);
   return hipSuccess;
 }
@@ -1162,8 +1191,16 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
-  logDebug("CHIPBackend.add_queue()");
-  ChipQueues.push_back(ChipQueue);
+  logDebug("CHIPBackend::addQueue()");
+  auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
+  if (QueueFound == ChipQueues.end()) {
+    ChipQueues.push_back(ChipQueue);
+  } else {
+    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
+                          "already present in the backend queue list",
+                          hipErrorTbd);
+  }
+  return;
 }
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
@@ -1345,6 +1382,12 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> Lock(Mtx_);
+
+  if (ChipQueue == hipStreamPerThread) {
+    UNIMPLEMENTED(nullptr);
+  }
+
   if (ChipQueue == nullptr) {
     logDebug("CHIPBackend::findQueue() was given a nullptr. Returning default "
              "queue");
@@ -1353,18 +1396,13 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Queues = Backend->getActiveDevice()->getQueues();
   auto QueueFound = std::find(Queues.begin(), Queues.end(), ChipQueue);
   if (QueueFound == Queues.end())
-    CHIPERR_LOG_AND_THROW(
-        "CHIPBackend::findQueue() was given a non-nullptr queue but this queue "
-        "was not found among the backend queues.",
-        hipErrorTbd);
+    CHIPERR_LOG_AND_THROW("CHIPBackend::findQueue() was given a non-nullptr "
+                          "queue but this queue "
+                          "was not found among the backend queues.",
+                          hipErrorTbd);
   return *QueueFound;
 }
 
-// hipError_t CHIPBackend::removeModule(CHIPModule *chip_module){};
-// CHIPModule *CHIPBackend::addModule(std::string *module_str) {
-//   for (auto &ctx : chip_contexts)
-//     for (auto &dev : ctx->getDevices()) dev->addModule(modules_str);
-//}
 // CHIPQueue
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
@@ -1384,14 +1422,17 @@ CHIPEvent *CHIPQueue::memCopyImpl(void *Dst, const void *Src, size_t Size) {
   return ChipEvent;
 }
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
-  std::lock_guard<std::mutex> Lock(Mtx);
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  // Scope this so that we release mutex for finish()
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
+    ChipContext_->syncQueues(this);
 #endif
-  auto ChipEvent = memCopyImpl(Dst, Src, Size);
-  ChipEvent->Msg = "memCopy";
-  updateLastEvent(ChipEvent);
+    auto ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+    ChipEvent->Msg = "memCopy";
+    updateLastEvent(ChipEvent);
+  }
   this->finish();
   return hipSuccess;
 }
@@ -1530,10 +1571,17 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       CHIPERR_LOG_AND_THROW(
           "Unexcepted internal error: Argument list has NULLs.", hipErrorTbd);
     void *DevPtr = reinterpret_cast<void *>(*k);
-    void *HostPtr = AllocTracker->getAssociatedHostPtr(DevPtr);
+    auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
+    if (!AllocInfo)
+      continue;
+    // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but
+    // "
+    //                       "it was not registered",
+    //                       hipErrorTbd);
+    void *HostPtr = AllocInfo->HostPtr;
 
     if (HostPtr) {
-      auto AllocInfo = AllocTracker->getByDevPtr(DevPtr);
+      auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
 
       if (!KernelSubmitted) {
         logDebug("A hipHostRegister argument was found. Appending a mem copy "
@@ -1565,7 +1613,6 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   auto ChipEvent = launchImpl(ExecItem);
   ChipEvent->Msg = "launch";
   updateLastEvent(ChipEvent);
-  ExecItem->getQueue()->finish();
   RegisteredVarCopy(ExecItem, true);
 }
 

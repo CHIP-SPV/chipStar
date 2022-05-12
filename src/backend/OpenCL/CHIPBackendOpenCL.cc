@@ -471,6 +471,11 @@ size_t *CHIPEventOpenCL::getRefCount() {
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 void CHIPEventOpenCL::decreaseRefCount() {
   logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", Msg.c_str());
+  if (!ClEvent) {
+    logTrace("CHIPEventOpenCL::decreaseRefCount() ClEvent is null. Likely "
+             "never recorded. Skipping...");
+    return;
+  }
   auto R = getRefCount();
   logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *Refc_, *Refc_ - 1, *R,
            *R - 1);
@@ -614,7 +619,7 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 
   if (!this->isRecordingOrRecorded() || !Other->isRecordingOrRecorded())
     CHIPERR_LOG_AND_THROW("one of the events isn't/hasn't recorded",
-                          hipErrorTbd);
+                          hipErrorInvalidHandle);
 
   if (!this->isFinished() || !Other->isFinished())
     CHIPERR_LOG_AND_THROW("one of the events hasn't finished",
@@ -628,15 +633,13 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 
   // apparently fails for Intel NEO, god knows why
   // assert(Finished >= Started);
-  uint64_t Elapsed;
-  const uint64_t NANOSECS = 1000000000;
-  if (Finished < Started) {
+  int64_t Elapsed;
+  const int64_t NANOSECS = 1000000000;
+  if (Finished < Started)
     logWarn("Finished < Started\n");
-    Elapsed = Started - Finished;
-  } else
-    Elapsed = Finished - Started;
-  uint64_t MS = (Elapsed / NANOSECS) * 1000;
-  uint64_t NS = Elapsed % NANOSECS;
+  Elapsed = Finished - Started;
+  int64_t MS = (Elapsed / NANOSECS) * 1000;
+  int64_t NS = Elapsed % NANOSECS;
   float FractInMS = ((float)NS) / 1000000.0f;
   return (float)MS + FractInMS;
 }
@@ -705,7 +708,6 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
 CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this);
-  ChipQueues_.push_back(NewQ);
   return NewQ;
 }
 
@@ -755,7 +757,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
-                                      CHIPMemoryType MemType) {
+                                      hipMemoryType MemType) {
   void *Retval;
 
   Retval = SvmMemory.allocate(Size);
@@ -870,7 +872,6 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice)
    *
    */
   setLastEvent(enqueueMarkerImpl());
-  ChipDevice->addQueue(this);
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
@@ -1191,11 +1192,13 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     logTrace("CHIPDeviceOpenCL {}",
              ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
     ChipDev->populateDeviceProperties();
+
+    // Add device to context & backend
+    ChipContext->addDevice(ChipDev);
     Backend->addDevice(ChipDev);
-    CHIPQueueOpenCL *Queue = new CHIPQueueOpenCL(ChipDev);
-    // chip_dev->addQueue(queue);
-    ChipContext->addQueue(Queue);
-    Backend->addQueue(Queue);
+
+    // Create and add queue queue to Device and Backend
+    auto Queue = ChipDev->createQueueAndRegister(0, 0);
   }
   logDebug("OpenCL Context Initialized.");
 };
