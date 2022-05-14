@@ -199,6 +199,8 @@ public:
 
     if (Opcode_ == spv::Op::OpTypeStruct) {
       size_t TotalSize = 0;
+      return nullptr;
+
       for (size_t i = 2; i < WordCount_; ++i) {
         int32_t MemberId = OrigStream_[i];
         TotalSize += TypeMap[MemberId]->size();
@@ -223,7 +225,14 @@ public:
       // by a pointer with "byval" keyword; handle them here
       if (Word2_ == (int32_t)spv::StorageClass::Function) {
         int32_t Pointee = Word3_;
-        size_t PointeeSize = TypeMap[Pointee]->size();
+        auto Type = TypeMap[Pointee];
+        if (!Type) {
+          std::cout << "SPIR-V Parser: Failed to find size for type id "
+                    << Pointee << std::endl;
+          return nullptr;
+        }
+
+        size_t PointeeSize = Type->size();
         return new SPIRVtypePOD(Word1_, PointeeSize);
 
       } else
