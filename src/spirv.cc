@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "spirv.hh"
+#include "logging.hh"
 
 const std::string OpenCLStd{"OpenCL.std"};
 
@@ -227,8 +228,8 @@ public:
         int32_t Pointee = Word3_;
         auto Type = TypeMap[Pointee];
         if (!Type) {
-          std::cout << "SPIR-V Parser: Failed to find size for type id "
-                    << Pointee << std::endl;
+          logError("SPIR-V Parser: Failed to find size for type id %s",
+                   Pointee);
           return nullptr;
         }
 
