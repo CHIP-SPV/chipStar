@@ -411,7 +411,7 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
     auto AllocTracker = Dev->AllocationTracker;
     auto AllocInfo = AllocTracker->getAllocInfo(ptr);
     if (AllocInfo) {
-      attributes->allocationFlags = AllocInfo->Flags;
+      attributes->allocationFlags = AllocInfo->Flags.getRaw();
       attributes->device = AllocInfo->Device;
       attributes->devicePointer = const_cast<void *>(ptr);
       attributes->hostPointer = AllocInfo->HostPtr;
@@ -1401,9 +1401,15 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
+  if (Size == 0) {
+    *Ptr = nullptr;
+    RETURN(hipSuccess);
+  }
+
+  auto FlagsParsed = CHIPHostAllocFlags(Flags);
 
   void *RetVal = Backend->getActiveContext()->allocate(
-      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, Flags);
+      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, FlagsParsed);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1413,7 +1419,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
 
 DEPRECATED("use hipHostMalloc instead")
 hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
-  RETURN(hipMalloc(Ptr, Size));
+  RETURN(hipHostMalloc(Ptr, Size, Flags));
 }
 
 hipError_t hipFree(void *Ptr) {
@@ -1494,8 +1500,7 @@ hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto AllocInfo = AllocTracker->getAllocInfo(HostPtr);
 
-  unsigned int Flags = AllocInfo->Flags;
-  *FlagsPtr = Flags;
+  *FlagsPtr = AllocInfo->Flags.getRaw();
 
   RETURN(hipSuccess);
   CHIP_CATCH

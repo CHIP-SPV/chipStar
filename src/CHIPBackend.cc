@@ -139,7 +139,7 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
 
 void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipDevice_t Device, size_t Size,
-                                             unsigned int Flags,
+                                             CHIPHostAllocFlags Flags,
                                              hipMemoryType MemoryType) {
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
@@ -1014,21 +1014,33 @@ void CHIPContext::finishAll() {
 
 void *CHIPContext::allocate(size_t Size) {
   return allocate(Size, 0, hipMemoryType::hipMemoryTypeUnified,
-                  hipHostMallocDefault);
+                  CHIPHostAllocFlags());
 }
 
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
-  return allocate(Size, 0, MemType, hipHostMallocDefault);
+  return allocate(Size, 0, MemType, CHIPHostAllocFlags());
 }
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType) {
-  return allocate(Size, Alignment, MemType, hipHostMallocDefault);
+  return allocate(Size, Alignment, MemType, CHIPHostAllocFlags());
 }
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            hipMemoryType MemType, unsigned int Flags) {
+                            hipMemoryType MemType, CHIPHostAllocFlags Flags) {
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
+
+  // TODO
+  if (Flags.isCoherent())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isNonCoherent())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isNumaUser())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isPortable())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isWriteCombined())
+    UNIMPLEMENTED(nullptr);
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   assert(ChipDev->getContext() == this);

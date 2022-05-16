@@ -164,6 +164,62 @@ enum class CHIPManagedMemFlags : unsigned int {
   AttachGlobal = hipMemAttachGlobal
 };
 
+class CHIPHostAllocFlags {
+  bool Default_ = true;
+  bool Portable_ = false;
+  bool Mapped_ = false;
+  bool WriteCombined_ = false;
+  bool NumaUser_ = false;
+  bool Coherent_ = false;
+  bool NonCoherent_ = false;
+  unsigned int FlagsRaw_;
+
+public:
+  CHIPHostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
+  CHIPHostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+    if (FlagsRaw & hipHostMallocPortable) {
+      Portable_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocPortable);
+    }
+
+    if (FlagsRaw & hipHostMallocMapped) {
+      Mapped_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocMapped);
+    }
+
+    if (FlagsRaw & hipHostMallocWriteCombined) {
+      WriteCombined_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocWriteCombined);
+    }
+
+    if (FlagsRaw & hipHostMallocNumaUser) {
+      NumaUser_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocNumaUser);
+    }
+
+    if (FlagsRaw & hipHostMallocCoherent) {
+      Coherent_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocCoherent);
+    }
+
+    if (FlagsRaw & hipHostMallocNonCoherent) {
+      NonCoherent_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocNonCoherent);
+    }
+
+    if (FlagsRaw > 0)
+      CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorTbd);
+  }
+  unsigned int getRaw() { return FlagsRaw_; }
+  bool isDefault() { return Default_; }
+  bool isPortable() { return Portable_; }
+  bool isMapped() { return Mapped_; }
+  bool isWriteCombined() { return WriteCombined_; }
+  bool isNumaUser() { return NumaUser_; }
+  bool isCoherent() { return Coherent_; }
+  bool isNonCoherent() { return NonCoherent_; }
+};
+
 class CHIPCallbackData {
 protected:
   virtual ~CHIPCallbackData() = default;
@@ -259,7 +315,7 @@ struct AllocationInfo {
   void *DevPtr;
   void *HostPtr;
   size_t Size;
-  unsigned int Flags;
+  CHIPHostAllocFlags Flags;
   hipDevice_t Device;
   bool Managed = false;
   enum hipMemoryType MemoryType;
@@ -346,7 +402,7 @@ public:
    * @param dev_ptr
    */
   void recordAllocation(void *DevPtr, void *HostPtr, hipDevice_t Device,
-                        size_t Size, unsigned int Flags,
+                        size_t Size, CHIPHostAllocFlags Flags,
                         hipMemoryType MemoryType);
 
   /**
@@ -1334,7 +1390,7 @@ public:
    * @return void* pointer to allocated memory
    */
   void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType,
-                 unsigned int Flags);
+                 CHIPHostAllocFlags Flags);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
