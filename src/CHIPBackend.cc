@@ -93,8 +93,10 @@ CHIPAllocationTracker::CHIPAllocationTracker(size_t GlobalMemSize,
   Name_ = Name;
 }
 CHIPAllocationTracker::~CHIPAllocationTracker() {
-  // TODO free up all the pointers in ptr_set
-  UNIMPLEMENTED();
+  for (auto &Member : PtrToAllocInfo_) {
+    AllocationInfo *AllocInfo = Member.second;
+    delete AllocInfo;
+  }
 }
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
