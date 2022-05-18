@@ -143,6 +143,12 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipMemoryType MemoryType) {
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
+  // TODO AllocInfo turned into class and constructor take care of this
+  if (MemoryType == hipMemoryTypeHost)
+    AllocInfo->HostPtr = AllocInfo->DevPtr;
+
+  if (MemoryType == hipMemoryTypeUnified)
+    AllocInfo->HostPtr = AllocInfo->DevPtr;
 
   if (DevPtr)
     PtrToAllocInfo_[DevPtr] = AllocInfo;

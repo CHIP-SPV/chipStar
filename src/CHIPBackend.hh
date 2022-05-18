@@ -317,6 +317,7 @@ public:
  *
  */
 struct AllocationInfo {
+  // TODO make this into a class
   void *DevPtr;
   void *HostPtr;
   size_t Size;

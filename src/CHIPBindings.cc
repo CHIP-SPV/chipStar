@@ -417,9 +417,12 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
       attributes->hostPointer = AllocInfo->HostPtr;
       attributes->isManaged = AllocInfo->Managed;
       attributes->memoryType = AllocInfo->MemoryType;
-      if (attributes->memoryType == hipMemoryType::hipMemoryTypeUnified &&
-          !attributes->hostPointer)
-        attributes->hostPointer = attributes->devicePointer;
+
+      // Seems strange but the expected behavior is that if
+      // hipPointerGetAttributes gets called with an offset host pointer, the
+      // returned attributes should display the offset pointer as the host
+      // pointer (as opposed to the base pointer of the allocation)
+      attributes->hostPointer = const_cast<void *>(ptr);
       RETURN(hipSuccess);
     }
   }
