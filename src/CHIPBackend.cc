@@ -996,17 +996,6 @@ std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   return ChipQueues_;
 }
 
-hipStream_t CHIPContext::findQueue(hipStream_t Stream) {
-  std::vector<CHIPQueue *> Queues = getQueues();
-  if (Stream == nullptr)
-    return Backend->getActiveQueue();
-
-  auto QueueFound = std::find(Queues.begin(), Queues.end(), Stream);
-  if (QueueFound == Queues.end())
-    return nullptr;
-  return *QueueFound;
-}
-
 void CHIPContext::finishAll() {
   for (CHIPQueue *Queue : ChipQueues_)
     Queue->finish();

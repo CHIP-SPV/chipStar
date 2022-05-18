@@ -1336,16 +1336,6 @@ public:
   std::vector<CHIPQueue *> &getQueues();
 
   /**
-   * @brief Find a queue. If a null pointer is passed, return the Active Queue
-   * (active devices's primary queue). If this queue is not found in this
-   * context then return nullptr
-   *
-   * @param stream CHIPQueue to find
-   * @return hipStream_t
-   */
-  hipStream_t findQueue(hipStream_t Stream);
-
-  /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
