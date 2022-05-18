@@ -1043,7 +1043,8 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
                                        int Priority) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Stream);
+  if (Stream == nullptr)
+    CHIPERR_LOG_AND_THROW("Stream pointer is null", hipErrorInvalidValue);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
   CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, Priority);

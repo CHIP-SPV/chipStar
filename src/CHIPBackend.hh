@@ -153,10 +153,33 @@ public:
 
 class CHIPEventMonitor;
 
-enum class CHIPQueueType : unsigned int {
-  // TODO: Check that both are not enabled at onnce
-  Blocking = hipStreamDefault,
-  NonBlocking = hipStreamNonBlocking
+class CHIPQueueFlags {
+  unsigned int FlagsRaw_;
+  bool Default_ = true;
+  bool NonBlocking_ = false;
+
+public:
+  CHIPQueueFlags() : CHIPQueueFlags(hipStreamDefault) {}
+  CHIPQueueFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+
+    if (FlagsRaw & hipStreamDefault) {
+      Default_ = true;
+      FlagsRaw = FlagsRaw & (~hipStreamDefault);
+    }
+
+    if (FlagsRaw & hipStreamNonBlocking) {
+      NonBlocking_ = true;
+      FlagsRaw = FlagsRaw & (~hipStreamNonBlocking);
+    }
+
+    if (FlagsRaw > 0)
+      CHIPERR_LOG_AND_THROW("Invalid CHIPQueueFlags", hipErrorInvalidValue);
+  }
+
+  bool isDefault() { return Default_; }
+  bool isNonBlocking() { return NonBlocking_; }
+  bool isBlocking() { return !NonBlocking_; }
+  unsigned int getRaw() { return FlagsRaw_; }
 };
 
 enum class CHIPManagedMemFlags : unsigned int {
@@ -213,7 +236,7 @@ public:
     }
 
     if (FlagsRaw > 0)
-      CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorTbd);
+      CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
   }
   unsigned int getRaw() { return FlagsRaw_; }
   bool isDefault() { return Default_; }
@@ -1771,7 +1794,7 @@ class CHIPQueue {
 protected:
   int Priority_;
   unsigned int Flags_;
-  CHIPQueueType QueueType_;
+  CHIPQueueFlags QueueFlags_;
   /// Device on which this queue will execute
   CHIPDevice *ChipDevice_;
   /// Context to which device belongs to
@@ -1823,7 +1846,7 @@ public:
    */
   virtual ~CHIPQueue();
 
-  CHIPQueueType getQueueType() { return QueueType_; }
+  CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
     if (LastEvent_ != nullptr)
       std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);

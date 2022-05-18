@@ -961,7 +961,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   Queues.erase(Queues.begin());
 
   for (auto &Queue : Queues)
-    if (Queue->getQueueType() == CHIPQueueType::Blocking)
+    if (Queue->getQueueFlags().isBlocking())
       QueuesBlocking.push_back(Queue);
   logDebug("Num blocking queues: {}", QueuesBlocking.size());
 
@@ -1417,7 +1417,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
     : Priority_(Priority), Flags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
-  QueueType_ = CHIPQueueType{Flags};
+  QueueFlags_ = CHIPQueueFlags{Flags};
 };
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
