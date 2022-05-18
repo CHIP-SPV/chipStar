@@ -210,12 +210,17 @@ public:
 
     if (Opcode_ == spv::Op::OpTypeStruct) {
       size_t TotalSize = 0;
-      logError("SPIRV type struct not supported yet!");
-      return nullptr;
-
       for (size_t i = 2; i < WordCount_; ++i) {
         int32_t MemberId = OrigStream_[i];
-        TotalSize += TypeMap[MemberId]->size();
+
+        auto Type = TypeMap[MemberId];
+        if (!Type) {
+          logWarn("SPIR-V Parser: MemberId {} not found in type map", MemberId);
+          continue;
+        }
+        size_t TypeSize = Type->size();
+
+        TotalSize += TypeSize;
       }
       return new SPIRVtypePOD(Word1_, TotalSize);
     }
