@@ -200,6 +200,7 @@ public:
 
     if (Opcode_ == spv::Op::OpTypeStruct) {
       size_t TotalSize = 0;
+      logError("SPIRV type struct not supported yet!");
       return nullptr;
 
       for (size_t i = 2; i < WordCount_; ++i) {

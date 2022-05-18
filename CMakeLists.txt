@@ -19,7 +19,7 @@ project(CHIP-SPV
 include(cmake/chip_spv_cmake_macros.cmake)
 
 # Cmake options that can be passed in by the user
-option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
+option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" OFF)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
