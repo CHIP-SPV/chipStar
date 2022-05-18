@@ -189,12 +189,22 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpTypeVector) {
-      size_t TypeSize = TypeMap[Word2_]->size();
+      auto Type = TypeMap[Word2_];
+      if (!Type) {
+        logWarn("SPIR-V Parser: Word2_ {} not found in type map", Word2_);
+        return nullptr;
+      }
+      size_t TypeSize = Type->size();
       return new SPIRVtypePOD(Word1_, TypeSize * OrigStream_[3]);
     }
 
     if (Opcode_ == spv::Op::OpTypeArray) {
-      size_t TypeSize = TypeMap[Word2_]->size();
+      auto Type = TypeMap[Word2_];
+      if (!Type) {
+        logWarn("SPIR-V Parser: Word2_ {} not found in type map", Word2_);
+        return nullptr;
+      }
+      size_t TypeSize = Type->size();
       return new SPIRVtypePOD(Word1_, TypeSize * Word3_);
     }
 

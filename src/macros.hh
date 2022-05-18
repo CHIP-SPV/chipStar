@@ -11,8 +11,10 @@
                         hipErrorNotSupported);
 #else
 #define UNIMPLEMENTED(x)                                                       \
-  logWarn("{}: Called a function which is not implemented", __FUNCTION__);     \
-  return x;
+  do {                                                                         \
+    logWarn("{}: Called a function which is not implemented", __FUNCTION__);   \
+    return x;                                                                  \
+  } while (0)
 #endif
 
 #define RETURN(x)                                                              \

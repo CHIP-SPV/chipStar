@@ -177,6 +177,11 @@ class CHIPHostAllocFlags {
 public:
   CHIPHostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
   CHIPHostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+    if (FlagsRaw & hipHostMallocDefault) {
+      Default_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocDefault);
+    }
+
     if (FlagsRaw & hipHostMallocPortable) {
       Portable_ = true;
       FlagsRaw = FlagsRaw & (~hipHostMallocPortable);
