@@ -239,7 +239,7 @@ public:
         int32_t Pointee = Word3_;
         auto Type = TypeMap[Pointee];
         if (!Type) {
-          logError("SPIR-V Parser: Failed to find size for type id %s",
+          logError("SPIR-V Parser: Failed to find size for type id {}",
                    Pointee);
           return nullptr;
         }
