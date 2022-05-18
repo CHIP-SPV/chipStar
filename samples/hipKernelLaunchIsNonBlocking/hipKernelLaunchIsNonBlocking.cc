@@ -77,8 +77,9 @@ int main() {
   hipError_t notReady = hipEventElapsedTime(&t, start, stop);
   std::cout << "Kernel time: " << t << "s\n";
 
-  if (notReady == hipErrorNotReady)
+  if (notReady == hipErrorNotReady) {
     std::cout << "PASSED!" << std::endl;
-
-  std::cout << "FAILED!" << std::endl;
+  } else {
+    std::cout << "FAILED!" << std::endl;
+  }
 }
