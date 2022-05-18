@@ -91,6 +91,7 @@ set(SAMPLES
     10_memcpy3D
     11_device
     hipStreamSemantics
+    hipKernelLaunchIsNonBlocking
     #hipMultiThreadAddCallback
     hipInfo
     hipSymbol

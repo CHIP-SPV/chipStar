@@ -74,29 +74,11 @@ int main() {
   std::cout << "Kernel submitted to queue\n";
   CHECK(hipGetLastError());
   float t;
-  CHECK(hipDeviceSynchronize());
-  CHECK(hipEventElapsedTime(&t, start, stop));
+  hipError_t notReady = hipEventElapsedTime(&t, start, stop);
   std::cout << "Kernel time: " << t << "s\n";
 
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
-                     A_d);
-  hipMemcpy(A_h, A_d, NUM * sizeof(int), hipMemcpyDeviceToHost);
+  if (notReady == hipErrorNotReady)
+    std::cout << "PASSED!" << std::endl;
 
-  bool pass = true;
-  int num_errors = 0;
-  for (int i = 0; i < NUM; i++) {
-    if (A_h[i] != 4) {
-      pass = false;
-      num_errors++;
-    }
-  }
-
-  std::cout << "Num Errors: " << num_errors << std::endl;
-  std::cout << (pass ? "PASSED!" : "FAIL") << std::endl;
+  std::cout << "FAILED!" << std::endl;
 }
