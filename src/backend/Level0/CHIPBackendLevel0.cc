@@ -688,8 +688,9 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
                                            Ev->peek(), 0, nullptr);
   zeCommandListClose(ZeCmdList_);
   zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdList_, nullptr);
+  assert(zeEventQueryStatus(Ev->peek()) == ZE_RESULT_NOT_READY);
   // TODO remove this serialization
-  zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
+  // zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
   zeCommandListReset(ZeCmdList_);
 #endif
 
