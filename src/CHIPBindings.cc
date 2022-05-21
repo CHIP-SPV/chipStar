@@ -1335,6 +1335,7 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
+  Event->updateFinishStatus();
   if (Event->isFinished())
     RETURN(hipSuccess);
   else
