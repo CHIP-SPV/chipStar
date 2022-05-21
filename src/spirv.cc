@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "spirv.hh"
+#include "logging.hh"
 
 const std::string OpenCLStd{"OpenCL.std"};
 
@@ -188,12 +189,22 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpTypeVector) {
-      size_t TypeSize = TypeMap[Word2_]->size();
+      auto Type = TypeMap[Word2_];
+      if (!Type) {
+        logWarn("SPIR-V Parser: Word2_ {} not found in type map", Word2_);
+        return nullptr;
+      }
+      size_t TypeSize = Type->size();
       return new SPIRVtypePOD(Word1_, TypeSize * OrigStream_[3]);
     }
 
     if (Opcode_ == spv::Op::OpTypeArray) {
-      size_t TypeSize = TypeMap[Word2_]->size();
+      auto Type = TypeMap[Word2_];
+      if (!Type) {
+        logWarn("SPIR-V Parser: Word2_ {} not found in type map", Word2_);
+        return nullptr;
+      }
+      size_t TypeSize = Type->size();
       return new SPIRVtypePOD(Word1_, TypeSize * Word3_);
     }
 
@@ -201,7 +212,15 @@ public:
       size_t TotalSize = 0;
       for (size_t i = 2; i < WordCount_; ++i) {
         int32_t MemberId = OrigStream_[i];
-        TotalSize += TypeMap[MemberId]->size();
+
+        auto Type = TypeMap[MemberId];
+        if (!Type) {
+          logWarn("SPIR-V Parser: MemberId {} not found in type map", MemberId);
+          continue;
+        }
+        size_t TypeSize = Type->size();
+
+        TotalSize += TypeSize;
       }
       return new SPIRVtypePOD(Word1_, TotalSize);
     }
@@ -223,7 +242,14 @@ public:
       // by a pointer with "byval" keyword; handle them here
       if (Word2_ == (int32_t)spv::StorageClass::Function) {
         int32_t Pointee = Word3_;
-        size_t PointeeSize = TypeMap[Pointee]->size();
+        auto Type = TypeMap[Pointee];
+        if (!Type) {
+          logError("SPIR-V Parser: Failed to find size for type id {}",
+                   Pointee);
+          return nullptr;
+        }
+
+        size_t PointeeSize = Type->size();
         return new SPIRVtypePOD(Word1_, PointeeSize);
 
       } else

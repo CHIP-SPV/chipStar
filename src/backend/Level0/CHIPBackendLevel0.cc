@@ -296,6 +296,10 @@ bool CHIPEventLevel0::updateFinishStatus() {
   auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
+  logTrace("Query complete.");
+  if (Status == ZE_RESULT_NOT_READY) {
+    CHIPERR_LOG_AND_THROW("Event Not Ready", hipErrorNotReady);
+  }
   if (Status == ZE_RESULT_SUCCESS)
     EventStatus_ = EVENT_STATUS_RECORDED;
 
@@ -359,8 +363,15 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
   unsigned long Started = this->getFinishTime();
   unsigned long Finished = Other->getFinishTime();
 
+  /**
+   *
+   * Kernel timestamps execute along a device timeline but because of limited
+   * range may wrap unexpectedly. Because of this, the temporal order of two
+   * kernel timestamps shouldn’t be inferred despite coincidental START/END
+   * values.
+   * https://spec.oneapi.io/level-zero/latest/core/PROG.html#kernel-timestamp-events
+   */
   if (Started > Finished) {
-    logWarn("End < Start ... Swapping events");
     std::swap(Started, Finished);
   }
 
@@ -649,7 +660,10 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   ze_group_count_t LaunchArgs = {X, Y, Z};
   Status = zeCommandListAppendLaunchKernel(ZeCmdListImm_, KernelZe, &LaunchArgs,
                                            Ev->peek(), 0, nullptr);
-  logTrace("Kernel submitted to the queue");
+  auto StatusReadyCheck = zeEventQueryStatus(Ev->peek());
+  if (StatusReadyCheck != ZE_RESULT_NOT_READY) {
+    logCritical("KernelLaunch event immediately ready!");
+  }
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   return Ev;

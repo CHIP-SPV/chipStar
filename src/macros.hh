@@ -3,14 +3,18 @@
 
 #include "logging.hh"
 #include "iostream"
-#ifdef CHIP_ABORT_ON_UNIMPL
+#include "CHIPException.hh"
+
+#ifdef CHIP_ERROR_ON_UNIMPL
 #define UNIMPLEMENTED(x)                                                       \
-  logCritical("{}: Called a function which is not implemented", __FUNCTION__); \
-  std::abort();
+  CHIPERR_LOG_AND_THROW("Called a function which is not implemented",          \
+                        hipErrorNotSupported);
 #else
 #define UNIMPLEMENTED(x)                                                       \
-  logWarn("{}: Called a function which is not implemented", __FUNCTION__);     \
-  return x;
+  do {                                                                         \
+    logWarn("{}: Called a function which is not implemented", __FUNCTION__);   \
+    return x;                                                                  \
+  } while (0)
 #endif
 
 #define RETURN(x)                                                              \

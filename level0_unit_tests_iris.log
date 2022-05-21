@@ -1,21 +1,21 @@
-c4c17ed
-89% tests passed, 43 tests failed out of 375
+ba92a3c
+88% tests passed, 48 tests failed out of 385
 
-Total Test time (real) = 621.62 sec
+Total Test time (real) = 643.83 sec
 
 The following tests FAILED:
-	109 - Unit_hipPointerGetAttributes_Basic (SEGFAULT)
+	113 - Unit_hipHostGetFlags_Basic - int (Failed)
+	114 - Unit_hipHostGetFlags_Basic - float (Failed)
+	115 - Unit_hipHostGetFlags_Basic - double (Failed)
+	116 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
-	139 - Unit_hipHostMalloc_ArgValidation (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
+	195 - Unit_hipHostMalloc_Basic (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
-	198 - Unit_hipHostMalloc_Coherent (Failed)
-	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	232 - Unit_hipStreamGetPriority_Negative (Failed)
 	241 - Unit_hipStreamAddCallback_ParamTst (SEGFAULT)
-	244 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	255 - Unit_hipEvent (Failed)
 	261 - Unit_hipEventIpc (Failed)
 	262 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
@@ -25,14 +25,15 @@ The following tests FAILED:
 	267 - Unit_hipOccupancyMaxPotentialBlockSize_templateInvocation (Failed)
 	283 - Unit_hipDeviceSynchronize_Functional (Failed)
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
-	301 - Unit_hipStreamPerThread_Basic (Failed)
-	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
-	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
-	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
-	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
-	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
+	301 - Unit_hipStreamPerThread_Basic (SEGFAULT)
+	303 - Unit_hipStreamPerThread_StreamSynchronize (SEGFAULT)
+	305 - Unit_hipStreamPerThread_StreamGetFlags (SEGFAULT)
+	307 - Unit_hipStreamPerThread_MemcpyAsync (SEGFAULT)
 	308 - Unit_hipStreamPerThread_EventRecord (Failed)
 	309 - Unit_hipStreamPerThread_EventSynchronize (Failed)
+	310 - Unit_hipStreamPerThread_MultiThread (SEGFAULT)
+	311 - Unit_hipStreamPerThread_DeviceReset_1 (SEGFAULT)
+	312 - Unit_hipStreamPerThread_DeviceReset_2 (SEGFAULT)
 	313 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	314 - Unit_hipGraphAddDependencies_Functional (Failed)
 	315 - Unit_hipGraph_BasicFunctional (Failed)
@@ -46,4 +47,8 @@ The following tests FAILED:
 	325 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
-	370 - PrintfDynamic (Failed)
+	353 - hipKernelLaunchIsNonBlocking (Failed)
+	356 - hipTestSymbolReset (Subprocess aborted)
+	357 - hipTestSymbolInit (Subprocess aborted)
+	371 - PrintfDynamic (Failed)
+	380 - hipAddressingModes (Failed)

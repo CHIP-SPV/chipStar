@@ -153,15 +153,99 @@ public:
 
 class CHIPEventMonitor;
 
-enum class CHIPQueueType : unsigned int {
-  // TODO: Check that both are not enabled at onnce
-  Blocking = hipStreamDefault,
-  NonBlocking = hipStreamNonBlocking
+class CHIPQueueFlags {
+  unsigned int FlagsRaw_;
+  bool Default_ = true;
+  bool NonBlocking_ = false;
+
+public:
+  CHIPQueueFlags() : CHIPQueueFlags(hipStreamDefault) {}
+  CHIPQueueFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+
+    if (FlagsRaw & hipStreamDefault) {
+      Default_ = true;
+      FlagsRaw = FlagsRaw & (~hipStreamDefault);
+    }
+
+    if (FlagsRaw & hipStreamNonBlocking) {
+      NonBlocking_ = true;
+      FlagsRaw = FlagsRaw & (~hipStreamNonBlocking);
+    }
+
+    if (FlagsRaw > 0)
+      CHIPERR_LOG_AND_THROW("Invalid CHIPQueueFlags", hipErrorInvalidValue);
+  }
+
+  bool isDefault() { return Default_; }
+  bool isNonBlocking() { return NonBlocking_; }
+  bool isBlocking() { return !NonBlocking_; }
+  unsigned int getRaw() { return FlagsRaw_; }
 };
 
 enum class CHIPManagedMemFlags : unsigned int {
   AttachHost = hipMemAttachHost,
   AttachGlobal = hipMemAttachGlobal
+};
+
+class CHIPHostAllocFlags {
+  bool Default_ = true;
+  bool Portable_ = false;
+  bool Mapped_ = false;
+  bool WriteCombined_ = false;
+  bool NumaUser_ = false;
+  bool Coherent_ = false;
+  bool NonCoherent_ = false;
+  unsigned int FlagsRaw_;
+
+public:
+  CHIPHostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
+  CHIPHostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+    if (FlagsRaw & hipHostMallocDefault) {
+      Default_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocDefault);
+    }
+
+    if (FlagsRaw & hipHostMallocPortable) {
+      Portable_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocPortable);
+    }
+
+    if (FlagsRaw & hipHostMallocMapped) {
+      Mapped_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocMapped);
+    }
+
+    if (FlagsRaw & hipHostMallocWriteCombined) {
+      WriteCombined_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocWriteCombined);
+    }
+
+    if (FlagsRaw & hipHostMallocNumaUser) {
+      NumaUser_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocNumaUser);
+    }
+
+    if (FlagsRaw & hipHostMallocCoherent) {
+      Coherent_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocCoherent);
+    }
+
+    if (FlagsRaw & hipHostMallocNonCoherent) {
+      NonCoherent_ = true;
+      FlagsRaw = FlagsRaw & (~hipHostMallocNonCoherent);
+    }
+
+    if (FlagsRaw > 0)
+      CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
+  }
+  unsigned int getRaw() { return FlagsRaw_; }
+  bool isDefault() { return Default_; }
+  bool isPortable() { return Portable_; }
+  bool isMapped() { return Mapped_; }
+  bool isWriteCombined() { return WriteCombined_; }
+  bool isNumaUser() { return NumaUser_; }
+  bool isCoherent() { return Coherent_; }
+  bool isNonCoherent() { return NonCoherent_; }
 };
 
 class CHIPCallbackData {
@@ -256,10 +340,11 @@ public:
  *
  */
 struct AllocationInfo {
+  // TODO make this into a class
   void *DevPtr;
   void *HostPtr;
   size_t Size;
-  unsigned int Flags;
+  CHIPHostAllocFlags Flags;
   hipDevice_t Device;
   bool Managed = false;
   enum hipMemoryType MemoryType;
@@ -346,7 +431,7 @@ public:
    * @param dev_ptr
    */
   void recordAllocation(void *DevPtr, void *HostPtr, hipDevice_t Device,
-                        size_t Size, unsigned int Flags,
+                        size_t Size, CHIPHostAllocFlags Flags,
                         hipMemoryType MemoryType);
 
   /**
@@ -1275,16 +1360,6 @@ public:
   std::vector<CHIPQueue *> &getQueues();
 
   /**
-   * @brief Find a queue. If a null pointer is passed, return the Active Queue
-   * (active devices's primary queue). If this queue is not found in this
-   * context then return nullptr
-   *
-   * @param stream CHIPQueue to find
-   * @return hipStream_t
-   */
-  hipStream_t findQueue(hipStream_t Stream);
-
-  /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
@@ -1334,7 +1409,7 @@ public:
    * @return void* pointer to allocated memory
    */
   void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType,
-                 unsigned int Flags);
+                 CHIPHostAllocFlags Flags);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
@@ -1719,7 +1794,7 @@ class CHIPQueue {
 protected:
   int Priority_;
   unsigned int Flags_;
-  CHIPQueueType QueueType_;
+  CHIPQueueFlags QueueFlags_;
   /// Device on which this queue will execute
   CHIPDevice *ChipDevice_;
   /// Context to which device belongs to
@@ -1771,7 +1846,7 @@ public:
    */
   virtual ~CHIPQueue();
 
-  CHIPQueueType getQueueType() { return QueueType_; }
+  CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
     if (LastEvent_ != nullptr)
       std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);

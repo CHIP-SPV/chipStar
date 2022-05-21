@@ -19,12 +19,13 @@ project(CHIP-SPV
 include(cmake/chip_spv_cmake_macros.cmake)
 
 # Cmake options that can be passed in by the user
-option(ABORT_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, abort execution via std::abort()" OFF)
+option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" OFF)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
+option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
 # If custom HIP_SPIRV_DIR is given, check that kernellib.bc exists
@@ -41,6 +42,10 @@ if(ENFORCE_QUEUE_SYNCHRONIZATION)
   list(APPEND CHIP_SPV_DEFINITIONS ENFORCE_QUEUE_SYNC)
 endif()
 
+if(PER_THREAD_DEFAULT_STREAM)
+  list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
+endif()
+
 
 set(HIP_PLATFORM spirv)
 set(HIP_COMPILER clang)
@@ -55,8 +60,8 @@ if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
   add_compile_options("-Wall")
 endif()
 
-if (ABORT_IF_NOT_IMPLEMENTED)
-  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ABORT_ON_UNIMPL)
+if (ERROR_IF_NOT_IMPLEMENTED)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ERROR_ON_UNIMPL)
 endif()
 
 list(APPEND CHIP_SPV_DEFINITIONS DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)

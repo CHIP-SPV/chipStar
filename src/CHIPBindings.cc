@@ -411,15 +411,18 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
     auto AllocTracker = Dev->AllocationTracker;
     auto AllocInfo = AllocTracker->getAllocInfo(ptr);
     if (AllocInfo) {
-      attributes->allocationFlags = AllocInfo->Flags;
+      attributes->allocationFlags = AllocInfo->Flags.getRaw();
       attributes->device = AllocInfo->Device;
       attributes->devicePointer = const_cast<void *>(ptr);
       attributes->hostPointer = AllocInfo->HostPtr;
       attributes->isManaged = AllocInfo->Managed;
       attributes->memoryType = AllocInfo->MemoryType;
-      if (attributes->memoryType == hipMemoryType::hipMemoryTypeUnified &&
-          !attributes->hostPointer)
-        attributes->hostPointer = attributes->devicePointer;
+
+      // Seems strange but the expected behavior is that if
+      // hipPointerGetAttributes gets called with an offset host pointer, the
+      // returned attributes should display the offset pointer as the host
+      // pointer (as opposed to the base pointer of the allocation)
+      attributes->hostPointer = const_cast<void *>(ptr);
       RETURN(hipSuccess);
     }
   }
@@ -1040,7 +1043,8 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
                                        int Priority) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Stream);
+  if (Stream == nullptr)
+    CHIPERR_LOG_AND_THROW("Stream pointer is null", hipErrorInvalidValue);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
   CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, Priority);
@@ -1331,6 +1335,7 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
+  Event->updateFinishStatus();
   if (Event->isFinished())
     RETURN(hipSuccess);
   else
@@ -1401,9 +1406,15 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
+  if (Size == 0) {
+    *Ptr = nullptr;
+    RETURN(hipSuccess);
+  }
+
+  auto FlagsParsed = CHIPHostAllocFlags(Flags);
 
   void *RetVal = Backend->getActiveContext()->allocate(
-      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, Flags);
+      Size, 0x1000, hipMemoryType::hipMemoryTypeHost, FlagsParsed);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1413,7 +1424,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
 
 DEPRECATED("use hipHostMalloc instead")
 hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
-  RETURN(hipMalloc(Ptr, Size));
+  RETURN(hipHostMalloc(Ptr, Size, Flags));
 }
 
 hipError_t hipFree(void *Ptr) {
@@ -1433,7 +1444,7 @@ hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
 
 hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorTbd)
+  UNIMPLEMENTED(hipErrorTbd);
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
@@ -1494,8 +1505,7 @@ hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto AllocInfo = AllocTracker->getAllocInfo(HostPtr);
 
-  unsigned int Flags = AllocInfo->Flags;
-  *FlagsPtr = Flags;
+  *FlagsPtr = AllocInfo->Flags.getRaw();
 
   RETURN(hipSuccess);
   CHIP_CATCH

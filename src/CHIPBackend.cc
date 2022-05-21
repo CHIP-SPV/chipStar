@@ -93,8 +93,10 @@ CHIPAllocationTracker::CHIPAllocationTracker(size_t GlobalMemSize,
   Name_ = Name;
 }
 CHIPAllocationTracker::~CHIPAllocationTracker() {
-  // TODO free up all the pointers in ptr_set
-  UNIMPLEMENTED();
+  for (auto &Member : PtrToAllocInfo_) {
+    AllocationInfo *AllocInfo = Member.second;
+    delete AllocInfo;
+  }
 }
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
@@ -137,10 +139,16 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
 
 void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipDevice_t Device, size_t Size,
-                                             unsigned int Flags,
+                                             CHIPHostAllocFlags Flags,
                                              hipMemoryType MemoryType) {
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
+  // TODO AllocInfo turned into class and constructor take care of this
+  if (MemoryType == hipMemoryTypeHost)
+    AllocInfo->HostPtr = AllocInfo->DevPtr;
+
+  if (MemoryType == hipMemoryTypeUnified)
+    AllocInfo->HostPtr = AllocInfo->DevPtr;
 
   if (DevPtr)
     PtrToAllocInfo_[DevPtr] = AllocInfo;
@@ -953,7 +961,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   Queues.erase(Queues.begin());
 
   for (auto &Queue : Queues)
-    if (Queue->getQueueType() == CHIPQueueType::Blocking)
+    if (Queue->getQueueFlags().isBlocking())
       QueuesBlocking.push_back(Queue);
   logDebug("Num blocking queues: {}", QueuesBlocking.size());
 
@@ -994,17 +1002,6 @@ std::vector<CHIPQueue *> &CHIPContext::getQueues() {
   return ChipQueues_;
 }
 
-hipStream_t CHIPContext::findQueue(hipStream_t Stream) {
-  std::vector<CHIPQueue *> Queues = getQueues();
-  if (Stream == nullptr)
-    return Backend->getActiveQueue();
-
-  auto QueueFound = std::find(Queues.begin(), Queues.end(), Stream);
-  if (QueueFound == Queues.end())
-    return nullptr;
-  return *QueueFound;
-}
-
 void CHIPContext::finishAll() {
   for (CHIPQueue *Queue : ChipQueues_)
     Queue->finish();
@@ -1012,21 +1009,33 @@ void CHIPContext::finishAll() {
 
 void *CHIPContext::allocate(size_t Size) {
   return allocate(Size, 0, hipMemoryType::hipMemoryTypeUnified,
-                  hipHostMallocDefault);
+                  CHIPHostAllocFlags());
 }
 
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
-  return allocate(Size, 0, MemType, hipHostMallocDefault);
+  return allocate(Size, 0, MemType, CHIPHostAllocFlags());
 }
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType) {
-  return allocate(Size, Alignment, MemType, hipHostMallocDefault);
+  return allocate(Size, Alignment, MemType, CHIPHostAllocFlags());
 }
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            hipMemoryType MemType, unsigned int Flags) {
+                            hipMemoryType MemType, CHIPHostAllocFlags Flags) {
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
+
+  // TODO
+  if (Flags.isCoherent())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isNonCoherent())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isNumaUser())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isPortable())
+    UNIMPLEMENTED(nullptr);
+  if (Flags.isWriteCombined())
+    UNIMPLEMENTED(nullptr);
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   assert(ChipDev->getContext() == this);
@@ -1408,7 +1417,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
     : Priority_(Priority), Flags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
-  QueueType_ = CHIPQueueType{Flags};
+  QueueFlags_ = CHIPQueueFlags{Flags};
 };
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};

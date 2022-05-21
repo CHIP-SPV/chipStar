@@ -41,7 +41,8 @@ cd llvm-project/llvm
 mkdir build
 cd build
 cmake .. -DLLVM_ENABLE_PROJECTS="clang;openmp" \ # openmp is optional
-  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_DIR}
+  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_DIR} \
+  -DLLVM_TARGETS_TO_BUILD=host # Also optional, but if "All" is selected, potential issues can arise. Furthermore, speeds up compilation time if limited to just the architectures you actually use.
 make
 make install
 ```
