@@ -259,21 +259,25 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
 
   CHIPQueueLevel0 *Q = (CHIPQueueLevel0 *)ChipQueue;
 
-  Status = zeCommandListAppendBarrier(Q->getCmdList(), nullptr, 0, nullptr);
+  Status =
+      zeCommandListAppendBarrier(Q->getCmdListCompute(), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
+  Q->executeCommandListCompute();
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      Q->getCmdList(), (uint64_t *)(Q->getSharedBufffer()), nullptr, 0,
+      Q->getCmdListCompute(), (uint64_t *)(Q->getSharedBufffer()), nullptr, 0,
       nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  Status = zeCommandListAppendBarrier(Q->getCmdList(), nullptr, 0, nullptr);
+  Q->executeCommandListCompute();
+  Status =
+      zeCommandListAppendBarrier(Q->getCmdListCompute(), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  Status = zeCommandListAppendMemoryCopy(Q->getCmdList(), &Timestamp_,
+  Q->executeCommandListCompute();
+  Status = zeCommandListAppendMemoryCopy(Q->getCmdListCompute(), &Timestamp_,
                                          Q->getSharedBufffer(),
                                          sizeof(uint64_t), Event_, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  Q->executeCommandListCompute();
 
   EventStatus_ = EVENT_STATUS_RECORDING;
   if (Msg == "") {
@@ -579,7 +583,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       break;
     }
   }
-  ze_command_queue_desc_t CommandQueueDesc = {
+  ze_command_queue_desc_t CommandQueueComputeDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
       nullptr,
       ComputeQueueGroupOrdinal,
@@ -588,28 +592,73 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-  // Create an immediate command list
-  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueDesc,
-                                        &ZeCmdListImm_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  // Find a command queue type that supports memory copies
+  uint32_t CopyQueueGroupOrdinal = CmdqueueGroupCount;
+  for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
+    if (CmdqueueGroupProperties[i].flags &
+        ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) {
+      CopyQueueGroupOrdinal = i;
+      logTrace("Found memory command group");
+      break;
+    }
+  }
+  ze_command_queue_desc_t CommandQueueCopyDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+      nullptr,
+      CopyQueueGroupOrdinal,
+      0, // index
+      0, // flags
+      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
   // Create a default command queue (in case need to pass it outside of
-  Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &CommandQueueDesc, &ZeCmdQ_);
+  // CommandQueueDesc.index++;
+  Status =
+      zeCommandQueueCreate(ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
   ze_command_list_flag_t CommandListFlags{};
 
-  ze_command_list_desc_t CommandListDesc = {
+  ze_command_list_desc_t CommandListComputeDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
       nullptr,
       ComputeQueueGroupOrdinal,
       CommandListFlags,
   };
-  Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc, &ZeCmdList_);
+  ze_command_list_desc_t CommandListMemoryDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+      nullptr,
+      CopyQueueGroupOrdinal,
+      CommandListFlags,
+  };
+
+#ifdef L0_IMM_QUEUES
+  // Create an immediate command list
+  Status = zeCommandListCreateImmediate(
+      ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+  logTrace("Created an immediate compute list");
+  // Create an immediate command list for copy engine
+  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueCopyDesc,
+                                        &ZeCmdListCopyImm_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created an immediate copy list");
+
+#else
+  Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc,
+                               &ZeCmdListCompute_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created a regular compute list");
+  Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc,
+                               &ZeCmdListCopy_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created a regular copy list");
+#endif
 
   // Initialize the internal Event_ pool and finish Event_
   ze_event_pool_desc_t EpDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
@@ -671,28 +720,15 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-#ifdef L0_IMM_QUEUES
-  logTrace("Submitting a kernel to immediate command list");
-  Status = zeCommandListAppendLaunchKernel(ZeCmdListImm_, KernelZe, &LaunchArgs,
-                                           Ev->peek(), 0, nullptr);
+  Status = zeCommandListAppendLaunchKernel(getCmdListCompute(), KernelZe,
+                                           &LaunchArgs, Ev->peek(), 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
   auto StatusReadyCheck = zeEventQueryStatus(Ev->peek());
   if (StatusReadyCheck != ZE_RESULT_NOT_READY) {
     logCritical("KernelLaunch event immediately ready!");
   }
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-#else
-  logTrace("Submitting a kernel to regular command list");
-  CHIPEventLevel0 ImmComplete;
-  Status = zeCommandListAppendLaunchKernel(ZeCmdList_, KernelZe, &LaunchArgs,
-                                           Ev->peek(), 0, nullptr);
-  zeCommandListClose(ZeCmdList_);
-  zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdList_, nullptr);
-  assert(zeEventQueryStatus(Ev->peek()) == ZE_RESULT_NOT_READY);
-  // TODO remove this serialization
-  // zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
-  zeCommandListReset(ZeCmdList_);
-#endif
+  executeCommandListCompute();
 
   return Ev;
 }
@@ -717,9 +753,11 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
     CHIPERR_LOG_AND_THROW("MemFill PatternSize is not a power of 2",
                           hipErrorTbd);
   }
-  ze_result_t Status = zeCommandListAppendMemoryFill(
-      ZeCmdListImm_, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
+  ze_result_t Status =
+      zeCommandListAppendMemoryFill(getCmdListCopy(), Dst, Pattern, PatternSize,
+                                    Size, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  executeCommandListCopy();
   return Ev;
 };
 
@@ -753,9 +791,10 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
   ze_result_t Status = zeCommandListAppendMemoryCopyRegion(
-      ZeCmdListImm_, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
-      Sspitch, Ev->peek(), 0, nullptr);
+      getCmdListCopy(), Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion,
+      Spitch, Sspitch, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  executeCommandListCopy();
   return Ev;
 };
 
@@ -770,8 +809,9 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
 
   if (!SrcRegion.isPitched()) {
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-        ZeCmdListImm_, Image, Src, 0, Ev->peek(), 0, nullptr);
+        getCmdListCopy(), Image, Src, 0, Ev->peek(), 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    executeCommandListCopy();
     return Ev;
   }
 
@@ -789,9 +829,10 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
     DstZeRegion.height = 1;
     DstZeRegion.depth = 1;
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-        ZeCmdListImm_, Image, SrcRow, &DstZeRegion,
+        getCmdListCopy(), Image, SrcRow, &DstZeRegion,
         LastRow ? Ev->peek() : nullptr, 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    executeCommandListCopy();
     SrcRow += SrcRegion.Pitch[0];
   }
   return Ev;
@@ -822,8 +863,9 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 
   MarkerEvent->Msg = "marker";
   auto Status =
-      zeCommandListAppendSignalEvent(getCmdList(), MarkerEvent->peek());
+      zeCommandListAppendSignalEvent(getCmdListCompute(), MarkerEvent->peek());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  executeCommandListCompute();
   return MarkerEvent;
 }
 
@@ -852,9 +894,10 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
     }
   } // done gather Event_ handles to wait on
 
-  auto Status = zeCommandListAppendBarrier(getCmdList(), SignalEventHandle,
-                                           NumEventsToWaitFor, EventHandles);
+  auto Status = zeCommandListAppendBarrier(
+      getCmdListCompute(), SignalEventHandle, NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  executeCommandListCompute();
 
   if (EventHandles)
     delete[] EventHandles;
@@ -871,10 +914,11 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 
   ze_result_t Status;
   CHIPASSERT(Ev->peek());
-  Status = zeCommandListAppendMemoryCopy(ZeCmdListImm_, Dst, Src, Size,
+  Status = zeCommandListAppendMemoryCopy(getCmdListCopy(), Dst, Src, Size,
                                          Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+  executeCommandListCopy();
   return Ev;
 }
 
