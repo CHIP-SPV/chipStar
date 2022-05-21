@@ -27,6 +27,8 @@ private:
   uint64_t Timestamp_;
 
 public:
+  CHIPEventLevel0()
+      : CHIPEventLevel0((CHIPContextLevel0 *)Backend->getActiveContext()) {}
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                   CHIPEventFlags Flags = CHIPEventFlags());
   virtual ~CHIPEventLevel0() override;
