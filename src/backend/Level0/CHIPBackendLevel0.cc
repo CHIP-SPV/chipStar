@@ -660,7 +660,10 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   ze_group_count_t LaunchArgs = {X, Y, Z};
   Status = zeCommandListAppendLaunchKernel(ZeCmdListImm_, KernelZe, &LaunchArgs,
                                            Ev->peek(), 0, nullptr);
-  logTrace("Kernel submitted to the queue");
+  auto StatusReadyCheck = zeEventQueryStatus(Ev->peek());
+  if (StatusReadyCheck != ZE_RESULT_NOT_READY) {
+    logCritical("KernelLaunch event immediately ready!");
+  }
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   return Ev;
