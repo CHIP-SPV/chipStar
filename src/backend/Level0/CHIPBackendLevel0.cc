@@ -363,8 +363,15 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
   unsigned long Started = this->getFinishTime();
   unsigned long Finished = Other->getFinishTime();
 
+  /**
+   *
+   * Kernel timestamps execute along a device timeline but because of limited
+   * range may wrap unexpectedly. Because of this, the temporal order of two
+   * kernel timestamps shouldn’t be inferred despite coincidental START/END
+   * values.
+   * https://spec.oneapi.io/level-zero/latest/core/PROG.html#kernel-timestamp-events
+   */
   if (Started > Finished) {
-    logWarn("End < Start ... Swapping events");
     std::swap(Started, Finished);
   }
 
