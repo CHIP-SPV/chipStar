@@ -296,6 +296,10 @@ bool CHIPEventLevel0::updateFinishStatus() {
   auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
+  logTrace("Query complete.");
+  if (Status == ZE_RESULT_NOT_READY) {
+    CHIPERR_LOG_AND_THROW("Event Not Ready", hipErrorNotReady);
+  }
   if (Status == ZE_RESULT_SUCCESS)
     EventStatus_ = EVENT_STATUS_RECORDED;
 
