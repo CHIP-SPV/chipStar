@@ -87,8 +87,11 @@ protected:
   size_t MaxMemoryFillPatternSize = 0;
 
   // Immediate command list is being used. Command queue is implicit
-  ze_command_list_handle_t ZeCmdListImm_;
-  ze_command_list_handle_t ZeCmdList_;
+  ze_command_list_handle_t ZeCmdListCompute_;
+  ze_command_list_handle_t ZeCmdListCopy_;
+
+  ze_command_list_handle_t ZeCmdListComputeImm_;
+  ze_command_list_handle_t ZeCmdListCopyImm_;
 
   /**
    * @brief Command queue handle
@@ -121,7 +124,62 @@ public:
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
 
-  ze_command_list_handle_t getCmdList() { return ZeCmdListImm_; }
+  ze_command_list_handle_t getCmdListCopy() {
+#ifdef L0_IMM_QUEUES
+    return ZeCmdListCopyImm_;
+#else
+    return ZeCmdListCopy_;
+#endif
+  }
+
+  ze_command_list_handle_t getCmdListCompute() {
+#ifdef L0_IMM_QUEUES
+    return ZeCmdListComputeImm_;
+#else
+    return ZeCmdListCompute_;
+#endif
+  }
+
+  void executeCommandListCopy() {
+#ifdef L0_IMM_QUEUES
+#else
+    logTrace("Executing command list");
+    ze_result_t Status;
+    Status = zeCommandListClose(ZeCmdListCopy_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    Status =
+        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdListCopy_, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    Status = zeCommandListReset(ZeCmdListCopy_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+#endif
+  };
+
+  void executeCommandListCompute() {
+#ifdef L0_IMM_QUEUES
+#else
+    logTrace("Executing command list");
+    ze_result_t Status;
+    Status = zeCommandListClose(ZeCmdListCompute_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdListCompute_,
+                                               nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+    Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    Status = zeCommandListReset(ZeCmdListCompute_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+#endif
+  };
+
+  ze_command_list_handle_t getCmdListComputeImm() {
+    return ZeCmdListComputeImm_;
+  }
+
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
 
