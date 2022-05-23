@@ -88,6 +88,7 @@ protected:
 
   // Immediate command list is being used. Command queue is implicit
   ze_command_list_handle_t ZeCmdListImm_;
+  ze_command_list_handle_t ZeCmdList_;
 
   /**
    * @brief Command queue handle
