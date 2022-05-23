@@ -1094,7 +1094,6 @@ hipError_t CHIPContext::free(void *Ptr) {
 void CHIPBackend::uninitialize() {
   logDebug("CHIPBackend::uninitialize()");
   {
-    // std::lock_guard<std::mutex> LockCallbacks(Backend->CallbackQueueMtx);
     std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
     for (auto q : Backend->getQueues()) {
       auto Ev = q->getLastEvent();
