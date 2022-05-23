@@ -358,7 +358,8 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
   this->updateFinishStatus();
   Other->updateFinishStatus();
   if (!this->isFinished() || !Other->isFinished())
-    return hipErrorNotReady;
+    CHIPERR_LOG_AND_THROW("One of the events for getElapsedTime() was done yet",
+                          hipErrorNotReady);
 
   unsigned long Started = this->getFinishTime();
   unsigned long Finished = Other->getFinishTime();

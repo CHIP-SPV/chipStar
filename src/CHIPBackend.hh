@@ -1935,7 +1935,7 @@ public:
    * @return false
    */
 
-  bool query(); // TODO Depends on Events
+  bool query() { UNIMPLEMENTED(true); }; // TODO Depends on Events
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority
