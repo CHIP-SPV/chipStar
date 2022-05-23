@@ -262,16 +262,13 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   Status =
       zeCommandListAppendBarrier(Q->getCmdListCompute(), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Q->executeCommandListCompute();
   Status = zeCommandListAppendWriteGlobalTimestamp(
       Q->getCmdListCompute(), (uint64_t *)(Q->getSharedBufffer()), nullptr, 0,
       nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Q->executeCommandListCompute();
   Status =
       zeCommandListAppendBarrier(Q->getCmdListCompute(), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Q->executeCommandListCompute();
   Status = zeCommandListAppendMemoryCopy(Q->getCmdListCompute(), &Timestamp_,
                                          Q->getSharedBufffer(),
                                          sizeof(uint64_t), Event_, 0, nullptr);
@@ -558,19 +555,19 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   ze_command_queue_group_properties_t *CmdqueueGroupProperties =
       (ze_command_queue_group_properties_t *)malloc(
           CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
-  size_t MaxPattern = 0;
   for (int i = 0; i < CmdqueueGroupCount; i++) {
     CmdqueueGroupProperties[i] = {
         ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, // stype
         nullptr,                                          // pNext
         0,                                                // flags
-        MaxPattern, // maxMemoryFillPatternSize
-        0           // numQueues
+        0, // maxMemoryFillPatternSize
+        0  // numQueues
     };
   }
   zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
                                          CmdqueueGroupProperties);
 
+  auto MaxQueues = CmdqueueGroupProperties[0].numQueues;
   this->MaxMemoryFillPatternSize =
       CmdqueueGroupProperties[0].maxMemoryFillPatternSize;
   // Find a command queue type that support compute
@@ -587,8 +584,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
       nullptr,
       ComputeQueueGroupOrdinal,
-      0, // index
-      0, // flags
+      NextQueueIndex_, // index
+      0,               // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
@@ -606,10 +603,11 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
       nullptr,
       CopyQueueGroupOrdinal,
-      0, // index
-      0, // flags
+      NextQueueIndex_, // index
+      0,               // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+  NextQueueIndex_ = (NextQueueIndex_ + 1) % MaxQueues;
 
   // Create a default command queue (in case need to pass it outside of
   // CommandQueueDesc.index++;
@@ -626,12 +624,14 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       ComputeQueueGroupOrdinal,
       CommandListFlags,
   };
+  CommandListComputeDesc_ = CommandListComputeDesc;
   ze_command_list_desc_t CommandListMemoryDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
       nullptr,
       CopyQueueGroupOrdinal,
       CommandListFlags,
   };
+  CommandListMemoryDesc_ = CommandListMemoryDesc;
 
 #ifdef L0_IMM_QUEUES
   // Create an immediate command list
@@ -897,7 +897,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   auto Status = zeCommandListAppendBarrier(
       getCmdListCompute(), SignalEventHandle, NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  executeCommandListCompute();
+  // executeCommandListCompute();
 
   if (EventHandles)
     delete[] EventHandles;

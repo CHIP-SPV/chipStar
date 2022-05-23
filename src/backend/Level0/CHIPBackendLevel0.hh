@@ -83,6 +83,13 @@ class CHIPQueueLevel0 : public CHIPQueue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
+  ze_command_list_desc_t CommandListComputeDesc_;
+  ze_command_list_desc_t CommandListMemoryDesc_;
+
+  // Queues need ot be created on separate queue group indices in order to be
+  // independent from one another. Use this variable to do round-robin
+  // distribution across queues every time you create a queue.
+  unsigned int NextQueueIndex_ = 0;
 
   size_t MaxMemoryFillPatternSize = 0;
 
@@ -128,6 +135,10 @@ public:
 #ifdef L0_IMM_QUEUES
     return ZeCmdListCopyImm_;
 #else
+    auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc_,
+                                      &ZeCmdListCopy_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
     return ZeCmdListCopy_;
 #endif
   }
@@ -136,6 +147,10 @@ public:
 #ifdef L0_IMM_QUEUES
     return ZeCmdListComputeImm_;
 #else
+    auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc_,
+                                      &ZeCmdListCompute_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
     return ZeCmdListCompute_;
 #endif
   }
@@ -151,10 +166,10 @@ public:
         zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdListCopy_, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-    Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    Status = zeCommandListReset(ZeCmdListCopy_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    // Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
+    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    // Status = zeCommandListReset(ZeCmdListCopy_);
+    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 #endif
   };
 
@@ -169,10 +184,10 @@ public:
                                                nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-    Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    Status = zeCommandListReset(ZeCmdListCompute_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    // Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
+    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    // Status = zeCommandListReset(ZeCmdListCompute_);
+    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 #endif
   };
 
