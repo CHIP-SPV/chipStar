@@ -1336,8 +1336,8 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   Event->updateFinishStatus();
   if (Event->isFinished())
     RETURN(hipSuccess);
-  else
-    RETURN(hipErrorNotReady);
+
+  RETURN(hipErrorNotReady);
 
   CHIP_CATCH
 }

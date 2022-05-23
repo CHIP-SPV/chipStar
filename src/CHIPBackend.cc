@@ -1669,5 +1669,3 @@ void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
 
   return;
 }
-
-bool CHIPQueue::query() { UNIMPLEMENTED(true); }
