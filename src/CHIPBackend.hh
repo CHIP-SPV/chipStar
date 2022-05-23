@@ -1760,31 +1760,6 @@ public:
 
   virtual CHIPEventMonitor *createCallbackEventMonitor() = 0;
   virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
-
-  /**
- * @brief Get the Callback object
-
- * @param callback_data pointer to callback object
- * @return true callback object available
- * @return false callback object not available
- */
-  bool getCallback(CHIPCallbackData **CallbackData) {
-    // std::lock_guard<std::mutex> Lock(Mtx_);
-
-    // bool Res = false;
-    // logDebug("Elements in callback stack: {}", CallbackStack.size());
-    // if (this->CallbackStack.size()) {
-    //   *CallbackData = CallbackStack.at(CallbackStack.begin());
-    //   if (*CallbackData == nullptr)
-    //     return Res;
-    //   CallbackStack.();
-
-    //   Res = true;
-    // }
-
-    // return Res;
-    return false;
-  }
 };
 
 /**

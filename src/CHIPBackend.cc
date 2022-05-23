@@ -60,24 +60,6 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t TheCallbackF,
     : ChipQueue(TheChipQueue), CallbackArgs(TheCallbackArgs),
       CallbackF(TheCallbackF) {}
 
-// void CHIPEventMonitor::monitor() {
-//   logDebug("CHIPEventMonitor::monitor()");
-//   CHIPCallbackData *CallbackData;
-//   while (Backend->getCallback(&CallbackData)) {
-//     CallbackData->GpuReady->updateFinishStatus();
-//     if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED)
-//       continue;
-//     CallbackData->execute(hipSuccess);
-//     CallbackData->CpuCallbackComplete->hostSignal();
-//     CallbackData->GpuAck->wait();
-//     delete CallbackData;
-//   }
-
-//   // no more callback events left, free up the thread
-//   delete this;
-//   pthread_yield();
-// }
-
 // CHIPDeviceVar
 // ************************************************************************
 CHIPDeviceVar::CHIPDeviceVar(std::string TheName, size_t TheSize)
