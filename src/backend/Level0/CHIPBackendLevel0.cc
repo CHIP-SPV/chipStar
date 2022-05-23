@@ -588,14 +588,26 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
+  // Create an immediate command list
+  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueDesc,
+                                        &ZeCmdListImm_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
   // Create a default command queue (in case need to pass it outside of
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &CommandQueueDesc, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-  // CHIP-SPV) Create an immediate command list
-  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueDesc,
-                                        &ZeCmdListImm_);
+  ze_command_list_flag_t CommandListFlags{};
+
+  ze_command_list_desc_t CommandListDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+      nullptr,
+      ComputeQueueGroupOrdinal,
+      CommandListFlags,
+  };
+  Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc, &ZeCmdList_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
@@ -659,6 +671,8 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
+#ifdef L0_IMM_QUEUES
+  logTrace("Submitting a kernel to immediate command list");
   Status = zeCommandListAppendLaunchKernel(ZeCmdListImm_, KernelZe, &LaunchArgs,
                                            Ev->peek(), 0, nullptr);
   auto StatusReadyCheck = zeEventQueryStatus(Ev->peek());
@@ -667,6 +681,18 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   }
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+#else
+  logTrace("Submitting a kernel to regular command list");
+  CHIPEventLevel0 ImmComplete;
+  Status = zeCommandListAppendLaunchKernel(ZeCmdList_, KernelZe, &LaunchArgs,
+                                           Ev->peek(), 0, nullptr);
+  zeCommandListClose(ZeCmdList_);
+  zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdList_, nullptr);
+  // TODO remove this serialization
+  zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
+  zeCommandListReset(ZeCmdList_);
+#endif
+
   return Ev;
 }
 
