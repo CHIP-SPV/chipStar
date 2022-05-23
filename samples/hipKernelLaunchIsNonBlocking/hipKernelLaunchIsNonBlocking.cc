@@ -37,7 +37,7 @@ __global__ void addCountReverse(const T *A_d, T *C_d, int64_t NELEM,
 
 int main() {
   int numBlocks = 5120000;
-  int dimBlocks = 32;
+  int dimBlocks = 1;
   const size_t NUM = numBlocks * dimBlocks;
   int *A_h, *A_d, *Ref;
   int *C_h, *C_d;
@@ -62,17 +62,25 @@ int main() {
 
   size_t sharedMem = 0;
   hipEvent_t start, stop;
-  int count = 1000;
+  int count = 10000;
 
   CHECK(hipEventCreate(&start));
   CHECK(hipEventCreate(&stop));
+  assert(hipEventQuery(stop) == hipErrorNotReady);
+  assert(hipEventQuery(start) == hipErrorNotReady);
+
   CHECK(hipEventRecord(start));
+
   std::cout << "Launching kernel\n";
   hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
                      sharedMem, 0, A_d, C_d, NUM, count);
-  CHECK(hipEventRecord(stop));
-  std::cout << "Kernel submitted to queue\n";
   CHECK(hipGetLastError());
+  std::cout << "Kernel launched successfully\n";
+
+  CHECK(hipEventRecord(stop));
+
+  assert(hipEventQuery(stop) == hipErrorNotReady);
+
   float t;
   hipError_t notReady = hipEventElapsedTime(&t, start, stop);
   std::cout << "Kernel time: " << t << "s\n";
