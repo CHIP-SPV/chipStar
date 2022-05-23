@@ -1497,6 +1497,7 @@ protected:
   CHIPQueue *ActiveQ_;
 
 public:
+  CHIPEventMonitor *EventMonitor = nullptr;
   std::mutex Mtx_;
   std::mutex CallbackStackMtx;
   std::vector<CHIPEvent *> Events;
@@ -1774,8 +1775,6 @@ protected:
   CHIPDevice *ChipDevice_;
   /// Context to which device belongs to
   CHIPContext *ChipContext_;
-
-  CHIPEventMonitor *EventMonitor_ = nullptr;
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
