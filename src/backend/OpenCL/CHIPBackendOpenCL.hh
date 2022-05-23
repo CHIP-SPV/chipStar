@@ -156,7 +156,7 @@ public:
   ~CHIPQueueOpenCL();
   virtual CHIPEventOpenCL *getLastEvent() override;
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
-  virtual bool addCallback(hipStreamCallback_t Callback,
+  virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
   virtual void finish() override;
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,

@@ -248,6 +248,15 @@ public:
   bool isNonCoherent() { return NonCoherent_; }
 };
 
+/**
+ * @brief This object gets created when a callback is requested. Once created,
+ * it gets placed on the CHIPBackend callback queue. A Callback monitor thread
+ * gets created and executes these callback objects. This object stores all the
+ * necessary data to execute a callback function:
+ * - Events for synching
+ * - Callback function
+ * - Arguments for the callback function
+ */
 class CHIPCallbackData {
 protected:
   virtual ~CHIPCallbackData() = default;
@@ -1498,12 +1507,12 @@ protected:
 
 public:
   CHIPEventMonitor *EventMonitor = nullptr;
-  std::mutex Mtx_;
-  std::mutex CallbackStackMtx;
+  std::mutex Mtx;
+  std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
 
-  std::queue<CHIPCallbackData *> CallbackStack;
+  std::queue<CHIPCallbackData *> CallbackQueue;
 
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t TlsLastError;
@@ -1751,7 +1760,7 @@ public:
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
-   * CHIPCallbackData constructor
+   * CHIPCallbackData constructor.
    * @return CHIPCallbackData* pointer to newly allocated CHIPCallbackData
    * object.
    */
@@ -1994,7 +2003,7 @@ public:
    * @return false
    */
 
-  virtual bool addCallback(hipStreamCallback_t Callback, void *UserData);
+  virtual void addCallback(hipStreamCallback_t Callback, void *UserData);
   /**
    * @brief Insert a memory prefetch
    *

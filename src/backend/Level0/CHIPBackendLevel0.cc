@@ -432,15 +432,15 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 void CHIPCallbackEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
-    if (Backend->CallbackStack.size() == 0) {
+    if (Backend->CallbackQueue.size() == 0) {
       pthread_yield();
       continue;
     }
-    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
+    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
 
     // get the callback item
     CHIPCallbackDataLevel0 *CallbackData =
-        (CHIPCallbackDataLevel0 *)Backend->CallbackStack.front();
+        (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
 
     // Lock the item and members
     std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
@@ -448,13 +448,13 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     std::lock_guard<std::mutex> Lock2(CallbackData->CpuCallbackComplete->Mtx);
     std::lock_guard<std::mutex> Lock3(CallbackData->GpuAck->Mtx);
 
-    Backend->CallbackStack.pop();
+    Backend->CallbackQueue.pop();
 
     // Update Status
     CallbackData->GpuReady->updateFinishStatus();
     if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
       // if not ready, push to the back
-      Backend->CallbackStack.push(CallbackData);
+      Backend->CallbackQueue.push(CallbackData);
       continue;
     }
 

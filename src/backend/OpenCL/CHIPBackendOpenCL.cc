@@ -786,13 +786,13 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 
 cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
 
-bool CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
+void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   logTrace("CHIPQueueOpenCL::addCallback()");
   auto Ev = getLastEvent();
   if (Ev == nullptr) {
     Callback(this, hipSuccess, UserData);
-    return true;
+    return;
   }
 
   HipStreamCallbackData *Cb =
@@ -805,7 +805,7 @@ bool CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // this one to finish)
 
   enqueueBarrier(nullptr);
-  return true;
+  return;
 };
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
