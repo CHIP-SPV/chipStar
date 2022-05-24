@@ -953,18 +953,28 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy) {
-  Alignment = 0x1000; // TODO Where/why
   void *Ptr = 0;
+  logWarn("Ignoring alignment. Using hardcoded value 0x1000");
+  Alignment = 0x1000; // TODO Where/why
+
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
-    ze_device_mem_alloc_desc_t DmaDesc;
-    DmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
-    DmaDesc.pNext = NULL;
-    DmaDesc.flags = 0;
-    DmaDesc.ordinal = 0;
-    ze_host_mem_alloc_desc_t HmaDesc;
-    HmaDesc.stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC;
-    HmaDesc.pNext = NULL;
-    HmaDesc.flags = 0;
+    logWarn("Usigned zeMallocHost instead of zeMallocShared due to outstanding "
+            "bug");
+    MemTy = hipMemoryType::hipMemoryTypeHost;
+  }
+
+  ze_device_mem_alloc_desc_t DmaDesc{
+      /* DmaDesc.stype   = */ ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
+      /* DmaDesc.pNext   = */ nullptr,
+      /* DmaDesc.flags   = */ ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED,
+      /* DmaDesc.ordinal = */ 0,
+  };
+  ze_host_mem_alloc_desc_t HmaDesc{
+      /* HmaDesc.stype = */ ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
+      /* HmaDesc.pNext = */ nullptr,
+      /* HmaDesc.flags = */ ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED,
+  };
+  if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
 
     // TODO Check if devices support cross-device sharing?
     // ze_device_handle_t ZeDev = ((CHIPDeviceLevel0 *)getDevices()[0])->get();
@@ -979,14 +989,8 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 
     return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
-    ze_device_mem_alloc_desc_t DmaDesc;
-    DmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
-    DmaDesc.pNext = NULL;
-    DmaDesc.flags = 0;
-    DmaDesc.ordinal = 0;
-
-    // TODO Select proper device
-    ze_device_handle_t ZeDev = ((CHIPDeviceLevel0 *)getDevices()[0])->get();
+    auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
+    ze_device_handle_t ZeDev = ChipDev->get();
 
     ze_result_t Status =
         zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
@@ -995,17 +999,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 
     return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
-    // TODO
-    ze_device_mem_alloc_desc_t DmaDesc;
-    DmaDesc.stype = ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
-    DmaDesc.pNext = NULL;
-    DmaDesc.flags = 0;
-    DmaDesc.ordinal = 0;
-    ze_host_mem_alloc_desc_t HmaDesc;
-    HmaDesc.stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC;
-    HmaDesc.pNext = NULL;
-    HmaDesc.flags = 0;
-
     // TODO Check if devices support cross-device sharing?
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
 
