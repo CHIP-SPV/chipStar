@@ -37,7 +37,7 @@ public:
 
   virtual bool wait() override;
 
-  bool updateFinishStatus() override;
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
 
   virtual void takeOver(CHIPEvent *Other) override;
 

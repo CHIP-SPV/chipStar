@@ -564,7 +564,7 @@ public:
    * @return true event was in recording state, state might have changed
    * @return false event was not in recording state
    */
-  virtual bool updateFinishStatus() = 0;
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) = 0;
 
   /**
    * @brief Check if this event is recording or already recorded
@@ -1418,9 +1418,9 @@ public:
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void*
    */
-  virtual void *allocateImpl(size_t Size, size_t Alignment,
-                             hipMemoryType MemType,
-                             CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
+  virtual void *
+  allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
+               CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
 
   /**
    * @brief Free memory
