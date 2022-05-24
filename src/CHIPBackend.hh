@@ -1495,7 +1495,8 @@ protected:
   CHIPQueue *ActiveQ_;
 
 public:
-  CHIPEventMonitor *EventMonitor = nullptr;
+  CHIPEventMonitor *CallbackEventMonitor = nullptr;
+  CHIPEventMonitor *StaleEventMonitor = nullptr;
   std::mutex Mtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;

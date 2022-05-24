@@ -434,11 +434,11 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 void CHIPCallbackEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
   while (true) {
+    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
     if (Backend->CallbackQueue.size() == 0) {
       pthread_yield();
       continue;
     }
-    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
 
     // get the callback item
     CHIPCallbackDataLevel0 *CallbackData =
@@ -457,6 +457,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
       // if not ready, push to the back
       Backend->CallbackQueue.push(CallbackData);
+      pthread_yield();
       continue;
     }
 
@@ -904,8 +905,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   auto Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
                                            NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // TODO:  should I close the commadn list here?
-  // executeCommandList(CommandList);
+  executeCommandList(CommandList);
 
   if (EventHandles)
     delete[] EventHandles;
@@ -1018,7 +1018,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       ChipL0Dev->populateDeviceProperties();
       ChipL0Ctx->addDevice(ChipL0Dev);
 
-      auto Q = ChipL0Dev->createQueueAndRegister(0, 0);
+      ChipL0Dev->createQueueAndRegister(0, 0);
 
       Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
