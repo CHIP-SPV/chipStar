@@ -1365,6 +1365,8 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIPInitialize();
   NULLCHECK(DevPtr);
 
+  // TODO: Create a class for parsing this, default to attach global
+  // attach host should be device allocate with associated host poitner?
   auto FlagsParsed = CHIPManagedMemFlags{Flags};
   switch (FlagsParsed) {
   case CHIPManagedMemFlags::AttachGlobal:
