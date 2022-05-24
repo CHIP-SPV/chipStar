@@ -985,11 +985,6 @@ void CHIPContext::finishAll() {
     Queue->finish();
 }
 
-void *CHIPContext::allocate(size_t Size) {
-  return allocate(Size, 0, hipMemoryType::hipMemoryTypeUnified,
-                  CHIPHostAllocFlags());
-}
-
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, CHIPHostAllocFlags());
 }

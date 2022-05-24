@@ -1372,18 +1372,6 @@ public:
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * hipMemoryType mem_type) with allignment = 0 and allocation type = Shared
-   *
-   *
-   * @param size size of the allocation
-   * @return void* pointer to allocated memory
-   */
-  void *allocate(size_t Size);
-
-  /**
-   * @brief Allocate data.
-   * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
