@@ -1026,8 +1026,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     }
   } // End adding CHIPDevices
 
-  // StaleEventMonitor_ =
-  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  StaleEventMonitor_ =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero
