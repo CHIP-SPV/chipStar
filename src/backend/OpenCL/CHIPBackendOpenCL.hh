@@ -72,7 +72,7 @@ public:
   bool wait() override;
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
-  virtual bool updateFinishStatus() override;
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
   cl_event peek();
   cl_event get();
   uint64_t getFinishTime();

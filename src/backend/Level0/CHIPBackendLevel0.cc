@@ -294,12 +294,11 @@ bool CHIPEventLevel0::wait() {
   return true;
 }
 
-bool CHIPEventLevel0::updateFinishStatus() {
+bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
-  logTrace("Query complete.");
-  if (Status == ZE_RESULT_NOT_READY) {
+  if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
     CHIPERR_LOG_AND_THROW("Event Not Ready", hipErrorNotReady);
   }
   if (Status == ZE_RESULT_SUCCESS)
@@ -454,7 +453,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     Backend->CallbackQueue.pop();
 
     // Update Status
-    CallbackData->GpuReady->updateFinishStatus();
+    CallbackData->GpuReady->updateFinishStatus(false);
     if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
       // if not ready, push to the back
       Backend->CallbackQueue.push(CallbackData);
@@ -485,8 +484,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
       if (E->Msg.compare("UserEvent") != 0)
-        if (E->getCHIPRefc() == 1) { // only do this check for non UserEvents
-          E->updateFinishStatus();   // only check if refcount is 1
+        if (E->getCHIPRefc() == 1) {    // only do this check for non UserEvents
+          E->updateFinishStatus(false); // only check if refcount is 1
           if (E->getEventStatus() == EVENT_STATUS_RECORDED) {
             EventsToDelete.push_back(E);
           }
@@ -1026,8 +1025,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     }
   } // End adding CHIPDevices
 
-  StaleEventMonitor_ =
-      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  // StaleEventMonitor_ =
+  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero
