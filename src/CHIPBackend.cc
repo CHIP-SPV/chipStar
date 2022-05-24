@@ -1589,6 +1589,10 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
     //                       hipErrorTbd);
     void *HostPtr = AllocInfo->HostPtr;
 
+    // If this is a shared pointer then we don't need to transfer data back
+    if (AllocInfo->MemoryType == hipMemoryTypeUnified)
+      continue;
+
     if (HostPtr) {
       auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
 
@@ -1596,14 +1600,14 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
         logDebug("A hipHostRegister argument was found. Appending a mem copy "
                  "Host -> Device {} -> {}",
                  DevPtr, HostPtr);
-        auto Ev = this->memCopyImpl(DevPtr, HostPtr, AllocInfo->Size);
+        auto Ev = this->memCopyAsyncImpl(DevPtr, HostPtr, AllocInfo->Size);
         Ev->Msg = "hipHostRegisterMemCpyHostToDev";
         updateLastEvent(Ev);
       } else {
         logDebug("A hipHostRegister argument was found. Appending a mem copy "
                  "back to the host {} -> {}",
                  DevPtr, HostPtr);
-        auto Ev = this->memCopyImpl(HostPtr, DevPtr, AllocInfo->Size);
+        auto Ev = this->memCopyAsyncImpl(HostPtr, DevPtr, AllocInfo->Size);
         Ev->Msg = "hipHostRegisterMemCpyDevToHost";
         updateLastEvent(Ev);
       }
