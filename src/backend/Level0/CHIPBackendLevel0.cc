@@ -952,7 +952,9 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 // ***********************************************************************
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
-                                      hipMemoryType MemTy) {
+                                      hipMemoryType MemTy,
+                                      CHIPHostAllocFlags Flags) {
+
   void *Ptr = 0;
   logWarn("Ignoring alignment. Using hardcoded value 0x1000");
   Alignment = 0x1000; // TODO Where/why
@@ -963,16 +965,22 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     MemTy = hipMemoryType::hipMemoryTypeHost;
   }
 
+  ze_device_mem_alloc_flags_t DeviceFlags =
+      ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
+
   ze_device_mem_alloc_desc_t DmaDesc{
       /* DmaDesc.stype   = */ ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
       /* DmaDesc.pNext   = */ nullptr,
-      /* DmaDesc.flags   = */ ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED,
+      /* DmaDesc.flags   = */ DeviceFlags,
       /* DmaDesc.ordinal = */ 0,
   };
+  ze_host_mem_alloc_flags_t HostFlags = ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
+  if (Flags.isWriteCombined())
+    HostFlags += ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED;
   ze_host_mem_alloc_desc_t HmaDesc{
       /* HmaDesc.stype = */ ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
       /* HmaDesc.pNext = */ nullptr,
-      /* HmaDesc.flags = */ ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED,
+      /* HmaDesc.flags = */ HostFlags,
   };
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
 

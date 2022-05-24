@@ -1419,7 +1419,8 @@ public:
    * @return void*
    */
   virtual void *allocateImpl(size_t Size, size_t Alignment,
-                             hipMemoryType MemType) = 0;
+                             hipMemoryType MemType,
+                             CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
 
   /**
    * @brief Free memory

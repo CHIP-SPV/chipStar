@@ -115,8 +115,8 @@ public:
   cl::Context *ClContext;
   CHIPContextOpenCL(cl::Context *ClContext);
 
-  void *allocateImpl(size_t Size, size_t Alignment,
-                     hipMemoryType MemType) override;
+  void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
+                     CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();

@@ -166,8 +166,8 @@ public:
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
 
-  void *allocateImpl(size_t Size, size_t Alignment,
-                     hipMemoryType MemTy) override;
+  void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
+                     CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   void freeImpl(void *Ptr) override{}; // TODO
   ze_context_handle_t &get() { return ZeCtx; }
