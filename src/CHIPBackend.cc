@@ -60,24 +60,6 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t TheCallbackF,
     : ChipQueue(TheChipQueue), CallbackArgs(TheCallbackArgs),
       CallbackF(TheCallbackF) {}
 
-// void CHIPEventMonitor::monitor() {
-//   logDebug("CHIPEventMonitor::monitor()");
-//   CHIPCallbackData *CallbackData;
-//   while (Backend->getCallback(&CallbackData)) {
-//     CallbackData->GpuReady->updateFinishStatus();
-//     if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED)
-//       continue;
-//     CallbackData->execute(hipSuccess);
-//     CallbackData->CpuCallbackComplete->hostSignal();
-//     CallbackData->GpuAck->wait();
-//     delete CallbackData;
-//   }
-
-//   // no more callback events left, free up the thread
-//   delete this;
-//   pthread_yield();
-// }
-
 // CHIPDeviceVar
 // ************************************************************************
 CHIPDeviceVar::CHIPDeviceVar(std::string TheName, size_t TheSize)
@@ -869,7 +851,7 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(Backend->Mtx_);
+  std::lock_guard<std::mutex> LockBackend(Backend->Mtx);
   std::lock_guard<std::mutex> Lock(Mtx_);
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -1129,8 +1111,8 @@ CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
   while (!ChipExecStack.empty())
     ChipExecStack.pop();
-  while (!CallbackStack.empty())
-    CallbackStack.pop();
+  while (!CallbackQueue.empty())
+    CallbackQueue.pop();
 
   Events.clear();
   for (auto &Ctx : ChipContexts)
@@ -1218,7 +1200,7 @@ void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
 
 void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
   logDebug("CHIPBackend->register_module()");
-  std::lock_guard<std::mutex> Lock(Mtx_);
+  std::lock_guard<std::mutex> Lock(Mtx);
   getModulesStr().push_back(ModuleStr);
 }
 
@@ -1237,7 +1219,7 @@ void CHIPBackend::unregisterModuleStr(std::string *ModuleStr) {
 
 hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
                                       hipStream_t ChipQueue) {
-  std::lock_guard<std::mutex> Lock(Mtx_);
+  std::lock_guard<std::mutex> Lock(Mtx);
   logDebug("CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
@@ -1252,7 +1234,7 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
 
 hipError_t CHIPBackend::setArg(const void *Arg, size_t Size, size_t Offset) {
   logDebug("CHIPBackend->set_arg()");
-  std::lock_guard<std::mutex> Lock(Mtx_);
+  std::lock_guard<std::mutex> Lock(Mtx);
   CHIPExecItem *ExecItem = ChipExecStack.top();
   ExecItem->setArg(Arg, Size, Offset);
 
@@ -1391,7 +1373,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> Lock(Mtx_);
+  std::lock_guard<std::mutex> Lock(Mtx);
 
   if (ChipQueue == hipStreamPerThread) {
     UNIMPLEMENTED(nullptr);
@@ -1695,23 +1677,23 @@ CHIPDevice *CHIPQueue::getDevice() {
 unsigned int CHIPQueue::getFlags() { return Flags_; }
 int CHIPQueue::getPriorityRange(int LowerOrUpper) { UNIMPLEMENTED(0); }
 int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
-bool CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
+void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
   CHIPCallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);
 
   {
-    std::lock_guard<std::mutex> Lock(Backend->CallbackStackMtx);
-    Backend->CallbackStack.push(Callbackdata);
+    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
+    Backend->CallbackQueue.push(Callbackdata);
   }
 
   // Setup event handling on the CPU side
   {
     std::lock_guard<std::mutex> Lock(Mtx);
-    if (!EventMonitor_)
-      EventMonitor_ = Backend->createCallbackEventMonitor();
+    if (!Backend->EventMonitor)
+      Backend->EventMonitor = Backend->createCallbackEventMonitor();
   }
 
-  return true;
+  return;
 }
 
 bool CHIPQueue::query() { UNIMPLEMENTED(true); }

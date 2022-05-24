@@ -248,6 +248,15 @@ public:
   bool isNonCoherent() { return NonCoherent_; }
 };
 
+/**
+ * @brief This object gets created when a callback is requested. Once created,
+ * it gets placed on the CHIPBackend callback queue. A Callback monitor thread
+ * gets created and executes these callback objects. This object stores all the
+ * necessary data to execute a callback function:
+ * - Events for synching
+ * - Callback function
+ * - Arguments for the callback function
+ */
 class CHIPCallbackData {
 protected:
   virtual ~CHIPCallbackData() = default;
@@ -1497,12 +1506,13 @@ protected:
   CHIPQueue *ActiveQ_;
 
 public:
-  std::mutex Mtx_;
-  std::mutex CallbackStackMtx;
+  CHIPEventMonitor *EventMonitor = nullptr;
+  std::mutex Mtx;
+  std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
 
-  std::queue<CHIPCallbackData *> CallbackStack;
+  std::queue<CHIPCallbackData *> CallbackQueue;
 
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t TlsLastError;
@@ -1750,7 +1760,7 @@ public:
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
-   * CHIPCallbackData constructor
+   * CHIPCallbackData constructor.
    * @return CHIPCallbackData* pointer to newly allocated CHIPCallbackData
    * object.
    */
@@ -1760,31 +1770,6 @@ public:
 
   virtual CHIPEventMonitor *createCallbackEventMonitor() = 0;
   virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
-
-  /**
- * @brief Get the Callback object
-
- * @param callback_data pointer to callback object
- * @return true callback object available
- * @return false callback object not available
- */
-  bool getCallback(CHIPCallbackData **CallbackData) {
-    // std::lock_guard<std::mutex> Lock(Mtx_);
-
-    // bool Res = false;
-    // logDebug("Elements in callback stack: {}", CallbackStack.size());
-    // if (this->CallbackStack.size()) {
-    //   *CallbackData = CallbackStack.at(CallbackStack.begin());
-    //   if (*CallbackData == nullptr)
-    //     return Res;
-    //   CallbackStack.();
-
-    //   Res = true;
-    // }
-
-    // return Res;
-    return false;
-  }
 };
 
 /**
@@ -1799,8 +1784,6 @@ protected:
   CHIPDevice *ChipDevice_;
   /// Context to which device belongs to
   CHIPContext *ChipContext_;
-
-  CHIPEventMonitor *EventMonitor_ = nullptr;
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
@@ -2020,7 +2003,7 @@ public:
    * @return false
    */
 
-  virtual bool addCallback(hipStreamCallback_t Callback, void *UserData);
+  virtual void addCallback(hipStreamCallback_t Callback, void *UserData);
   /**
    * @brief Insert a memory prefetch
    *

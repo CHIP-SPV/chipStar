@@ -1166,10 +1166,8 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
     CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
 
   Stream = Backend->findQueue(Stream);
-  if (Stream->addCallback(Callback, UserData))
-    RETURN(hipSuccess);
-  else
-    RETURN(hipErrorInvalidValue);
+  Stream->addCallback(Callback, UserData);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -2961,7 +2959,7 @@ extern "C" hipError_t hipInitFromOutside(void *DriverPtr, void *DevicePtr,
   logDebug("hipInitFromOutside");
   auto Modules = std::move(Backend->getDevices()[0]->getModules());
   {
-    std::lock_guard<std::mutex> LockCallbacks(Backend->CallbackStackMtx);
+    std::lock_guard<std::mutex> LockCallbacks(Backend->CallbackQueueMtx);
     std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
     delete Backend;
   }
