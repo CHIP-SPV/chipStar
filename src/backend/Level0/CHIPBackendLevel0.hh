@@ -337,6 +337,9 @@ class CHIPBackendLevel0 : public CHIPBackend {
   CHIPStaleEventMonitorLevel0 *StaleEventMonitor_;
 
 public:
+  CHIPEventMonitor *CallbackEventMonitor = nullptr;
+  CHIPEventMonitor *StaleEventMonitor = nullptr;
+
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;

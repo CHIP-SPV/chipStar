@@ -1663,8 +1663,8 @@ void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
   // Setup event handling on the CPU side
   {
     std::lock_guard<std::mutex> Lock(Mtx);
-    if (!Backend->EventMonitor)
-      Backend->EventMonitor = Backend->createCallbackEventMonitor();
+    if (!Backend->CallbackEventMonitor)
+      Backend->CallbackEventMonitor = Backend->createCallbackEventMonitor();
   }
 
   return;
