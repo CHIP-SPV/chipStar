@@ -155,39 +155,16 @@ public:
 #endif
   }
 
-  void executeCommandListCopy() {
+  void executeCommandList(ze_command_list_handle_t CommandList) {
 #ifdef L0_IMM_QUEUES
 #else
     logTrace("Executing command list");
     ze_result_t Status;
-    Status = zeCommandListClose(ZeCmdListCopy_);
+    Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     Status =
-        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdListCopy_, nullptr);
+        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-    // Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
-    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    // Status = zeCommandListReset(ZeCmdListCopy_);
-    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-#endif
-  };
-
-  void executeCommandListCompute() {
-#ifdef L0_IMM_QUEUES
-#else
-    logTrace("Executing command list");
-    ze_result_t Status;
-    Status = zeCommandListClose(ZeCmdListCompute_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &ZeCmdListCompute_,
-                                               nullptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-    // Status = zeCommandQueueSynchronize(ZeCmdQ_, UINT32_MAX);
-    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    // Status = zeCommandListReset(ZeCmdListCompute_);
-    // CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 #endif
   };
 
