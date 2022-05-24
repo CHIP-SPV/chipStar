@@ -998,17 +998,18 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
 
-  // TODO
-  if (Flags.isCoherent())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isNonCoherent())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isNumaUser())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isPortable())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isWriteCombined())
-    UNIMPLEMENTED(nullptr);
+  if (!Flags.isDefault()) {
+    if (Flags.isMapped())
+      MemType = hipMemoryType::hipMemoryTypeHost;
+    if (Flags.isCoherent())
+      UNIMPLEMENTED(nullptr);
+    if (Flags.isNonCoherent())
+      UNIMPLEMENTED(nullptr);
+    if (Flags.isNumaUser())
+      UNIMPLEMENTED(nullptr);
+    if (Flags.isPortable())
+      UNIMPLEMENTED(nullptr);
+  }
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   assert(ChipDev->getContext() == this);
