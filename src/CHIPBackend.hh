@@ -1853,7 +1853,6 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual CHIPEvent *memCopyImpl(void *Dst, const void *Src, size_t Size);
   hipError_t memCopy(void *Dst, const void *Src, size_t Size);
 
   /**
@@ -1866,7 +1865,7 @@ public:
    */
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) = 0;
-  hipError_t memCopyAsync(void *Dst, const void *Src, size_t Size);
+  void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
   /**
    * @brief Blocking memset
@@ -1876,8 +1875,6 @@ public:
    * @param pattern
    * @param pattern_size
    */
-  virtual CHIPEvent *memFillImpl(void *Dst, size_t Size, const void *Pattern,
-                                 size_t PatternSize);
   virtual void memFill(void *Dst, size_t Size, const void *Pattern,
                        size_t PatternSize);
 
@@ -1896,8 +1893,6 @@ public:
                             size_t PatternSize);
 
   // The memory copy 2D support
-  virtual CHIPEvent *memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
-                                   size_t Pitch, size_t Width, size_t Height);
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
@@ -1908,10 +1903,6 @@ public:
                               size_t SPitch, size_t Width, size_t Height);
 
   // The memory copy 3D support
-  virtual CHIPEvent *memCopy3DImpl(void *Dst, size_t DPitch, size_t DSPitch,
-                                   const void *Src, size_t Spitch,
-                                   size_t SSPitch, size_t Width, size_t Height,
-                                   size_t Depth);
   virtual void memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
