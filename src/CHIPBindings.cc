@@ -1563,7 +1563,8 @@ static hipError_t hipMallocPitch3D(void **Ptr, size_t *Pitch, size_t Width,
   *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
   const size_t SizeBytes = (*Pitch) * Height * ((Depth == 0) ? 1 : Depth);
 
-  void *RetVal = Backend->getActiveContext()->allocate(SizeBytes);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      SizeBytes, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1641,7 +1642,8 @@ hipError_t hipMalloc3DArray(hipArray **Array,
   size_t AllocSize =
       Width * std::max<size_t>(Height, 1) * getChannelByteSize(*Desc);
 
-  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      AllocSize, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1676,7 +1678,8 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
   size_t AllocSize =
       Width * std::max<size_t>(Height, 1) * getChannelByteSize(*Desc);
 
-  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      AllocSize, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1736,7 +1739,8 @@ hipError_t hipArrayCreate(hipArray **Array,
     break;
   }
 
-  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      AllocSize, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
