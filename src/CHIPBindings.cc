@@ -1838,7 +1838,8 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
     memcpy(Dst, Src, SizeBytes);
     RETURN(hipSuccess);
   } else {
-    RETURN(Stream->memCopyAsync(Dst, Src, SizeBytes));
+    Stream->memCopyAsync(Dst, Src, SizeBytes);
+    RETURN(hipSuccess);
   }
 
   CHIP_CATCH
