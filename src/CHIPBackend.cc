@@ -1065,27 +1065,7 @@ hipError_t CHIPContext::free(void *Ptr) {
 // CHIPBackend
 //*************************************************************************************
 
-void CHIPBackend::uninitialize() {
-  logDebug("CHIPBackend::uninitialize()");
-  {
-    std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
-    for (auto q : Backend->getQueues()) {
-      auto Ev = q->getLastEvent();
-      std::lock_guard<std::mutex> Lock(Ev->Mtx);
-      if (Ev->getCHIPRefc() == 2)
-        Ev->decreaseRefCount();
-    }
-  }
-  // Give a chance for StaleEventMonitor to cleanup
-  pthread_yield();
-  sleep(1); // TODO Is there a better way to do this?
-
-  logDebug("Remaining {} events that haven't been collected:",
-           Backend->Events.size());
-  for (auto E : Backend->Events)
-    logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-             E->getCHIPRefc());
-}
+void CHIPBackend::uninitialize() { logDebug("CHIPBackend::uninitialize()"); }
 
 std::string CHIPBackend::getJitFlags() {
   std::string Flags;
@@ -1660,12 +1640,12 @@ void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
     Backend->CallbackQueue.push(Callbackdata);
   }
 
-  // Setup event handling on the CPU side
-  {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    if (!Backend->CallbackEventMonitor)
-      Backend->CallbackEventMonitor = Backend->createCallbackEventMonitor();
-  }
+  // // Setup event handling on the CPU side
+  // {
+  //   std::lock_guard<std::mutex> Lock(Mtx);
+  //   if (!Backend->CallbackEventMonitor)
+  //     Backend->CallbackEventMonitor = Backend->createCallbackEventMonitor();
+  // }
 
   return;
 }

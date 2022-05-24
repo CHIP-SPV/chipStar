@@ -1164,7 +1164,7 @@ public:
    */
   void reset() {
     invalidateDeviceVariables();
-    resetImpl();
+    // resetImpl();
   }
 
   /**
@@ -1495,8 +1495,6 @@ protected:
   CHIPQueue *ActiveQ_;
 
 public:
-  CHIPEventMonitor *CallbackEventMonitor = nullptr;
-  CHIPEventMonitor *StaleEventMonitor = nullptr;
   std::mutex Mtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;

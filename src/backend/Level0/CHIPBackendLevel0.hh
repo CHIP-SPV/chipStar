@@ -122,6 +122,9 @@ public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
 
+  virtual void addCallback(hipStreamCallback_t Callback,
+                           void *UserData) override;
+
   virtual CHIPEventLevel0 *getLastEvent() override;
 
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
@@ -334,11 +337,12 @@ public:
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
-  CHIPStaleEventMonitorLevel0 *StaleEventMonitor_;
 
 public:
-  CHIPEventMonitor *CallbackEventMonitor = nullptr;
-  CHIPEventMonitor *StaleEventMonitor = nullptr;
+  CHIPCallbackEventMonitorLevel0 *CallbackEventMonitor = nullptr;
+  CHIPStaleEventMonitorLevel0 *StaleEventMonitor = nullptr;
+
+  virtual void uninitialize() override;
 
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,

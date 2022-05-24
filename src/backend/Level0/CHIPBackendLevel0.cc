@@ -433,12 +433,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
   logTrace("CHIPEventMonitorLevel0::monitor()");
-  while (true) {
+  while (Backend->CallbackQueue.size()) {
     std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
-    if (Backend->CallbackQueue.size() == 0) {
-      pthread_yield();
-      continue;
-    }
 
     // get the callback item
     CHIPCallbackDataLevel0 *CallbackData =
@@ -468,10 +464,14 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     delete CallbackData;
     pthread_yield();
   }
+  logTrace("CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting thread");
+  pthread_exit(0);
 }
 
 void CHIPStaleEventMonitorLevel0::monitor() {
-  logTrace("CHIPEventMonitorLevel0::monitor()");
+  logTrace("CHIPStaleEventMonitorLevel0::monitor()");
+  // Stop is false and I have more events
+
   while (true) {
     sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
@@ -484,9 +484,10 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       assert(ChipEvent);
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
+      int DeleteRefCount = Stop ? 3 : 2;
       if (E->Msg.compare("UserEvent") != 0)
-        if (E->getCHIPRefc() == 1) {    // only do this check for non UserEvents
-          E->updateFinishStatus(false); // only check if refcount is 1
+        if (E->getCHIPRefc() < DeleteRefCount) {
+          E->updateFinishStatus(false);
           if (E->getEventStatus() == EVENT_STATUS_RECORDED) {
             EventsToDelete.push_back(E);
           }
@@ -505,6 +506,13 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       delete E;
     }
     pthread_yield();
+    if (Stop && !Backend->Events.size()) {
+      logTrace(
+          "CHIPStaleEventMonitorLevel0 stop was called and all events have "
+          "been cleared");
+      pthread_exit(0);
+    }
+
   } // endless loop
 }
 // End CHIPEventMonitorLevel0
@@ -524,6 +532,30 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
 
 // CHIPQueueLevelZero
 // ***********************************************************************
+
+void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
+                                  void *UserData) {
+  CHIPCallbackData *Callbackdata =
+      Backend->createCallbackData(Callback, UserData, this);
+
+  {
+    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
+    Backend->CallbackQueue.push(Callbackdata);
+  }
+
+  // Setup event handling on the CPU side
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    auto Monitor = ((CHIPBackendLevel0 *)Backend)->CallbackEventMonitor;
+    if (!Monitor) {
+      auto Evm = new CHIPCallbackEventMonitorLevel0();
+      Evm->start();
+      Monitor = Evm;
+    }
+  }
+
+  return;
+}
 
 CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
   return (CHIPEventLevel0 *)LastEvent_;
@@ -943,6 +975,20 @@ void CHIPQueueLevel0::finish() {
 // CHIPBackendLevel0
 // ***********************************************************************
 
+void CHIPBackendLevel0::uninitialize() {
+  logDebug("CHIPBackend::uninitialize()");
+
+  if (CallbackEventMonitor)
+    CallbackEventMonitor->join();
+
+  StaleEventMonitor->Stop = true;
+  StaleEventMonitor->join();
+  logDebug("Remaining {} events that haven't been collected:",
+           Backend->Events.size());
+  for (auto E : Backend->Events)
+    logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+             E->getCHIPRefc());
+}
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
   return std::string(
       "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
@@ -1025,8 +1071,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     }
   } // End adding CHIPDevices
 
-  // StaleEventMonitor_ =
-  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  StaleEventMonitor =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
 // CHIPContextLevelZero
