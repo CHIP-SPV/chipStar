@@ -1002,21 +1002,23 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
   auto ListDoneEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
 
-  // Associate this event with the command list. Once the events are signaled,
-  // CHIPEventMonitorLevel0 will destroy the command list
   {
     std::lock_guard<std::mutex> Lock(
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+
+    // Associate this event with the command list. Once the events are signaled,
+    // CHIPEventMonitorLevel0 will destroy the command list
     ((CHIPBackendLevel0 *)Backend)->EventCommandListMap[ListDoneEvent] =
         CommandList;
-  }
 
-  Status =
-      zeCommandListAppendBarrier(CommandList, ListDoneEvent->get(), 0, nullptr);
-  Status = zeCommandListClose(CommandList);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    Status = zeCommandListAppendBarrier(CommandList, ListDoneEvent->get(), 0,
+                                        nullptr);
+    Status = zeCommandListClose(CommandList);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    Status =
+        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  }
 #endif
 };
 
