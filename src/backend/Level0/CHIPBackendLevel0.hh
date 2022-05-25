@@ -8,6 +8,7 @@
 std::string resultToString(ze_result_t Status);
 
 // fw declares
+class CHIPBackendLevel0;
 class CHIPContextLevel0;
 class CHIPDeviceLevel0;
 class CHIPModuleLevel0;
@@ -158,18 +159,7 @@ public:
 #endif
   }
 
-  void executeCommandList(ze_command_list_handle_t CommandList) {
-#ifdef L0_IMM_QUEUES
-#else
-    logTrace("Executing command list");
-    ze_result_t Status;
-    Status = zeCommandListClose(CommandList);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    Status =
-        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-#endif
-  };
+  void executeCommandList(ze_command_list_handle_t CommandList);
 
   ze_command_list_handle_t getCmdListComputeImm() {
     return ZeCmdListComputeImm_;
@@ -343,6 +333,9 @@ public:
   CHIPStaleEventMonitorLevel0 *StaleEventMonitor = nullptr;
 
   virtual void uninitialize() override;
+  std::mutex CommandListsMtx;
+
+  std::map<CHIPEventLevel0 *, ze_command_list_handle_t> EventCommandListMap;
 
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,

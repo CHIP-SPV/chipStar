@@ -475,7 +475,15 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   while (true) {
     sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
+    std::vector<ze_command_list_handle_t> CommandListsToDelete;
+
     std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+    std::lock_guard<std::mutex> AllCommandListsLock(
+        ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+
+    auto EventCommandListMap =
+        ((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
+
     for (int i = 0; i < Backend->Events.size(); i++) {
       CHIPEvent *ChipEvent = Backend->Events[i];
 
@@ -488,8 +496,14 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       if (E->Msg.compare("UserEvent") != 0)
         if (E->getCHIPRefc() < DeleteRefCount) {
           E->updateFinishStatus(false);
-          if (E->getEventStatus() == EVENT_STATUS_RECORDED) {
+          if (E->isFinished()) {
             EventsToDelete.push_back(E);
+          }
+          bool CommandListFound = EventCommandListMap.count(E);
+          if (E->isFinished() && CommandListFound) {
+            auto CommandList = EventCommandListMap[E];
+            CommandListsToDelete.push_back(CommandList);
+            ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.erase(E);
           }
         }
     } // done collecting events to delete
@@ -505,8 +519,16 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       Backend->Events.erase(Found);
       delete E;
     }
+
+    for (int i = 0; i < CommandListsToDelete.size(); i++) {
+      auto CommandList = CommandListsToDelete[i];
+
+      auto Status = zeCommandListDestroy(CommandList);
+      CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    }
+
     pthread_yield();
-    if (Stop && !Backend->Events.size()) {
+    if (Stop && !Backend->Events.size() && !EventCommandListMap.size()) {
       logTrace(
           "CHIPStaleEventMonitorLevel0 stop was called and all events have "
           "been cleared");
@@ -721,12 +743,12 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   *(uint64_t *)this->SharedBuf_ = 0;
   /**
    * queues should always have lastEvent. Can't do this in the constuctor
-   * because enqueueMarker is virtual and calling overriden virtual methods from
-   * constructors is undefined behavior.
+   * because enqueueMarker is virtual and calling overriden virtual methods
+   * from constructors is undefined behavior.
    *
-   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
-   * one (enqueueMarker) because the wrapped method enforces queue semantics
-   * which require LastEvent to be initialized.
+   * Also, must call implementation method enqueueMarker_ as opposed to
+   * wrapped one (enqueueMarker) because the wrapped method enforces queue
+   * semantics which require LastEvent to be initialized.
    *
    */
   std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
@@ -970,6 +992,34 @@ void CHIPQueueLevel0::finish() {
   return;
 }
 
+void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
+#ifdef L0_IMM_QUEUES
+#else
+  ze_result_t Status;
+  logTrace("Executing command list");
+
+  // Create an event to keep track of when this command list is done
+  auto ListDoneEvent =
+      ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
+
+  // Associate this event with the command list. Once the events are signaled,
+  // CHIPEventMonitorLevel0 will destroy the command list
+  {
+    std::lock_guard<std::mutex> Lock(
+        ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+    ((CHIPBackendLevel0 *)Backend)->EventCommandListMap[ListDoneEvent] =
+        CommandList;
+  }
+
+  Status =
+      zeCommandListAppendBarrier(CommandList, ListDoneEvent->get(), 0, nullptr);
+  Status = zeCommandListClose(CommandList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+#endif
+};
+
 // End CHIPQueueLevelZero
 
 // CHIPBackendLevel0
@@ -988,6 +1038,9 @@ void CHIPBackendLevel0::uninitialize() {
   for (auto E : Backend->Events)
     logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
              E->getCHIPRefc());
+
+  logDebug("Remaining {} command lists that haven't been collected:",
+           ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
 }
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
   return std::string(
@@ -1112,7 +1165,8 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
 
     // TODO Check if devices support cross-device sharing?
-    // ze_device_handle_t ZeDev = ((CHIPDeviceLevel0 *)getDevices()[0])->get();
+    // ze_device_handle_t ZeDev = ((CHIPDeviceLevel0
+    // *)getDevices()[0])->get();
     ze_device_handle_t ZeDev = nullptr; // Do not associate allocation
 
     ze_result_t Status = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size,
@@ -1569,10 +1623,12 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
 
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
-      // TODO: __syncthreads() gets turned into Intel_Symbol_Table_Void_Program
-      // This is a call to OCML so it shouldn't be turned into a CHIPKernel
+      // TODO: __syncthreads() gets turned into
+      // Intel_Symbol_Table_Void_Program This is a call to OCML so it
+      // shouldn't be turned into a CHIPKernel
       continue;
-      // CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+      // CHIPERR_LOG_AND_THROW("Failed to find kernel in
+      // OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
 
