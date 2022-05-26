@@ -585,7 +585,10 @@ bool CHIPEventOpenCL::wait() {
   return true;
 }
 
-bool CHIPEventOpenCL::updateFinishStatus() {
+bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorNotReady) {
+  bool EventStateChange = false;
+  auto PreviousEventStatus = EventStatus_;
+
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
   if (EventStatus_ != EVENT_STATUS_RECORDING)
     return false;
@@ -595,10 +598,16 @@ bool CHIPEventOpenCL::updateFinishStatus() {
                                sizeof(int), &UpdatedStatus, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  if (UpdatedStatus <= CL_COMPLETE)
+  if (UpdatedStatus <= CL_COMPLETE) {
     EventStatus_ = EVENT_STATUS_RECORDED;
+  } else if (ThrowErrorNotReady) {
+    CHIPERR_LOG_AND_THROW("Event Not ready", hipErrorNotReady);
+  }
 
-  return true;
+  if (EventStatus_ != PreviousEventStatus)
+    EventStateChange = true;
+
+  return EventStateChange;
 }
 
 float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {

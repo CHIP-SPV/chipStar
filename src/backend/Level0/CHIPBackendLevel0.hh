@@ -37,7 +37,7 @@ public:
 
   virtual bool wait() override;
 
-  bool updateFinishStatus() override;
+  virtual bool updateFinishStatus(bool ThrowErrorNotReady = false) override;
 
   virtual void takeOver(CHIPEvent *Other) override;
 
@@ -49,6 +49,16 @@ public:
 
   ze_event_handle_t peek();
   ze_event_handle_t get();
+
+  ze_event_handle_t *getDependenciesHandles() {
+    ze_event_handle_t *Handles = new ze_event_handle_t[Dependencies_.size()];
+    for (int i = 0; i < Dependencies_.size(); i++) {
+      auto DependencyL0 = (CHIPEventLevel0 *)Dependencies_[i];
+      Handles[i] = DependencyL0->peek();
+    }
+
+    return Handles;
+  }
 };
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {
@@ -61,9 +71,10 @@ public:
                          CHIPQueue *ChipQueue);
 
   virtual ~CHIPCallbackDataLevel0() override {
-    GpuReady->decreaseRefCount();
-    CpuCallbackComplete->decreaseRefCount();
-    GpuAck->decreaseRefCount();
+    // we can let the event collector do this
+    // GpuReady->decreaseRefCount();
+    // CpuCallbackComplete->decreaseRefCount();
+    // GpuAck->decreaseRefCount();
   }
 };
 
@@ -303,14 +314,8 @@ public:
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override {
     auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-
-    // User Events start with refc=2
     if (UserEvent)
-      Ev->increaseRefCount();
-
-    // User Events do got get garbage collected
-    if (!UserEvent)
-      Backend->Events.push_back(Ev);
+      Ev->Msg = "UserEvent";
 
     return Ev;
   }

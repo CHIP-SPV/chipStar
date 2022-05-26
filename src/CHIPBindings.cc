@@ -1291,9 +1291,11 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  // instead of destroying directly, decrement refc to 1 and  let
-  // StaleEventMonitor destroy this event
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
   Event->decreaseRefCount();
+  assert(Event->getCHIPRefc() == 0);
+  Backend->Events.erase(Event);
+  delete Event;
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1333,7 +1335,7 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  Event->updateFinishStatus();
+  Event->updateFinishStatus(true);
   if (Event->isFinished())
     RETURN(hipSuccess);
   else

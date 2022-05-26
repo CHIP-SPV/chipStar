@@ -18,6 +18,7 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <unordered_set>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -508,6 +509,7 @@ class CHIPEvent {
 protected:
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
+  std::vector<CHIPEvent *> Dependencies_;
 
   // reference count
   size_t *Refc_;
@@ -526,22 +528,42 @@ protected:
   CHIPEvent() = default;
 
 public:
+  void releaseDependencies() {
+    for (auto Event : Dependencies_) {
+      Event->decreaseRefCount();
+    }
+  }
+
+  void dependsOn(std::vector<CHIPEvent *> Dependencies) {
+    for (auto Event : Dependencies) {
+      Event->increaseRefCount();
+      Dependencies_.push_back(Event);
+    }
+  }
+
+  int getNumDependencies() { return Dependencies_.size(); }
+  std::vector<CHIPEvent *> getDependencies() { return Dependencies_; }
+
+  virtual void increaseRefCount() {
+    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
+             *Refc_, *Refc_ + 1);
+    std::lock_guard<std::mutex> Lock(Mtx);
+    (*Refc_)++;
+  }
+  virtual void decreaseRefCount() {
+    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
+             *Refc_, *Refc_ - 1);
+    std::lock_guard<std::mutex> Lock(Mtx);
+    (*Refc_)--;
+    // Destructor to be called by event monitor once backend is done using it
+  }
+
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void takeOver(CHIPEvent *Other){};
-  virtual void decreaseRefCount() {
-    // logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
-    //          *Refc_, *Refc_ - 1);
-    (*Refc_)--;
-    // Destructor to be called by event monitor once backend is done using it
-  }
-  virtual void increaseRefCount() {
-    // logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
-    //          *Refc_, *Refc_ + 1);
-    (*Refc_)++;
-  }
+
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
@@ -564,7 +586,7 @@ public:
    * @return true event was in recording state, state might have changed
    * @return false event was not in recording state
    */
-  virtual bool updateFinishStatus() = 0;
+  virtual bool updateFinishStatus(bool ThrowErrorNotReady = false) = 0;
 
   /**
    * @brief Check if this event is recording or already recorded
@@ -1509,7 +1531,7 @@ public:
   CHIPEventMonitor *EventMonitor = nullptr;
   std::mutex Mtx;
   std::mutex CallbackQueueMtx;
-  std::vector<CHIPEvent *> Events;
+  std::unordered_set<CHIPEvent *> Events;
   std::mutex EventsMtx;
 
   std::queue<CHIPCallbackData *> CallbackQueue;
@@ -1797,7 +1819,6 @@ public:
 
   virtual CHIPEvent *getLastEvent() = 0;
   void setLastEvent(CHIPEvent *ChipEv) {
-    std::lock_guard<std::mutex> Lock(ChipEv->Mtx);
     ChipEv->increaseRefCount();
     LastEvent_ = ChipEv;
   }
@@ -1831,17 +1852,18 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
-    if (LastEvent_ != nullptr)
-      std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
+    std::lock_guard<std::mutex> Lock(Mtx);
+    auto LastMsg = LastEvent_ ? LastEvent_->Msg.c_str() : "";
+    auto NewMsg = ChipEv ? ChipEv->Msg.c_str() : "";
+    logDebug("updateLastEvent() old: {} new: {}", LastMsg, NewMsg);
 
-    std::lock_guard<std::mutex> LockNew(ChipEv->Mtx);
-    assert(ChipEv);
     if (ChipEv == LastEvent_)
       return;
     // logDebug("CHIPQueue::updateLastEvent()");
-    if (LastEvent_ != nullptr)
+    if (LastEvent_)
       LastEvent_->decreaseRefCount();
-    ChipEv->increaseRefCount();
+    if (ChipEv)
+      ChipEv->increaseRefCount();
     LastEvent_ = ChipEv;
   }
 
