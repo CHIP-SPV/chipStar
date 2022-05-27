@@ -506,8 +506,10 @@ class CHIPContext;
 class CHIPDevice;
 
 class CHIPEvent {
-protected:
+public:
   event_status_e EventStatus_;
+
+protected:
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> Dependencies_;
 
@@ -528,6 +530,9 @@ protected:
   CHIPEvent() = default;
 
 public:
+  std::mutex Mtx;
+  std::string Msg;
+
   void releaseDependencies() {
     for (auto Event : Dependencies_) {
       Event->decreaseRefCount();
@@ -550,17 +555,14 @@ public:
     std::lock_guard<std::mutex> Lock(Mtx);
     (*Refc_)++;
   }
-  virtual void decreaseRefCount() {
+  virtual void decreaseRefCount(bool DeleteIfRefcZero = true) {
     logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
              *Refc_, *Refc_ - 1);
     std::lock_guard<std::mutex> Lock(Mtx);
     (*Refc_)--;
-    // Destructor to be called by event monitor once backend is done using it
   }
 
   CHIPEventFlags getFlags() { return Flags_; }
-  std::mutex Mtx;
-  std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void takeOver(CHIPEvent *Other){};
 
@@ -570,7 +572,8 @@ public:
    * @brief CHIPEvent constructor. Must always be created with some context.
    *
    */
-  CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags = CHIPEventFlags());
+  CHIPEvent(CHIPContext *Ctx, std::string MsgIn = "",
+            CHIPEventFlags Flags = CHIPEventFlags());
   /**
    * @brief Get the Context object
    *
@@ -1859,7 +1862,7 @@ public:
 
     if (ChipEv == LastEvent_)
       return;
-    // logDebug("CHIPQueue::updateLastEvent()");
+    // It could be the case that last event was a user event and already destroyed
     if (LastEvent_)
       LastEvent_->decreaseRefCount();
     if (ChipEv)

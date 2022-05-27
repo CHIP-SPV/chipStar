@@ -161,15 +161,14 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 
 void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
   logDebug("CHIPEvent::recordStream()");
-  std::lock_guard<std::mutex> Lock(Mtx);
   assert(ChipQueue->getLastEvent() != nullptr);
   this->takeOver(ChipQueue->getLastEvent());
   EventStatus_ = EVENT_STATUS_RECORDING;
 }
 
-CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
-    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t(0)),
-      ChipContext_(Ctx) {}
+CHIPEvent::CHIPEvent(CHIPContext *Ctx, std::string MsgIn, CHIPEventFlags Flags)
+    : EventStatus_(EVENT_STATUS_INIT), Msg(MsgIn), Flags_(Flags),
+      Refc_(new size_t(0)), ChipContext_(Ctx) {}
 
 // CHIPModuleflags_
 //*************************************************************************************
@@ -1074,8 +1073,10 @@ void CHIPBackend::uninitialize() {
   for (auto Q : Backend->getQueues()) {
     Q->updateLastEvent(nullptr);
   }
-  Backend->EventMonitor->Stop = true;
-  Backend->EventMonitor->join();
+  if (Backend->EventMonitor) {
+    Backend->EventMonitor->Stop = true;
+    Backend->EventMonitor->join();
+  }
 
   if (Backend->Events.size()) {
     logWarn("Remaining {} events that haven't been collected:",

@@ -62,21 +62,23 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
+                  std::string MsgIn = "",
                   CHIPEventFlags Flags = CHIPEventFlags());
-  CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
+  CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, std::string MsgIn = "",
                   CHIPEventFlags Flags = CHIPEventFlags());
+  cl_event *getDependenciesHandles();
   virtual ~CHIPEventOpenCL() override;
   virtual void takeOver(CHIPEvent *Other) override;
-  virtual void decreaseRefCount() override;
+  virtual void decreaseRefCount(bool DeleteIfRefcZero = true) override;
   virtual void increaseRefCount() override;
   bool wait() override;
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
   virtual bool updateFinishStatus(bool ThrowErrorNotReady = true) override;
-  cl_event peek();
-  cl_event get();
+  cl_event &peek();
+  cl_event &get();
   uint64_t getFinishTime();
-  size_t *getRefCount();
+  size_t getRefCount();
 };
 
 class CHIPModuleOpenCL : public CHIPModule {

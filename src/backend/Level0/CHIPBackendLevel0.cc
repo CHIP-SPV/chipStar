@@ -200,7 +200,7 @@ CHIPEventLevel0::~CHIPEventLevel0() {
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
-    : CHIPEvent((CHIPContext *)(ChipCtx), Flags) {
+    : CHIPEvent((CHIPContext *)(ChipCtx), "", Flags) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -827,7 +827,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
 
 CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
-  logTrace("CHIPQueueLevel0::memCopyAsync");
+  logTrace("CHIPQueueLevel0::memCopyAsync{} -> {} / {} B\n", Src, Dst, Size);
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
 
