@@ -1450,7 +1450,6 @@ hipError_t CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 }
 void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
                         size_t PatternSize) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1465,7 +1464,6 @@ CHIPEvent *CHIPQueue::memFillImpl(void *Dst, size_t Size, const void *Pattern,
 }
 void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                              size_t PatternSize) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1474,7 +1472,6 @@ void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
 }
 void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                           size_t SPitch, size_t Width, size_t Height) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1492,7 +1489,6 @@ CHIPEvent *CHIPQueue::memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
 }
 void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                                size_t SPitch, size_t Width, size_t Height) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1502,7 +1498,6 @@ void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
 void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                           const void *Src, size_t SPitch, size_t SSPitch,
                           size_t Width, size_t Height, size_t Depth) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1526,7 +1521,6 @@ CHIPEvent *CHIPQueue::memCopy3DImpl(void *Dst, size_t DPitch, size_t DSPitch,
 void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                const void *Src, size_t SPitch, size_t SSPitch,
                                size_t Width, size_t Height, size_t Depth) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1616,7 +1610,6 @@ CHIPEvent *CHIPQueue::enqueueMarker() {
 }
 
 void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
