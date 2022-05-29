@@ -193,13 +193,6 @@ void CHIPEvent::decreaseRefCount(bool DeleteIfRefcZerox) {
   }
 }
 
-void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
-  logDebug("CHIPEvent::recordStream()");
-  assert(ChipQueue->getLastEvent() != nullptr);
-  this->takeOver(ChipQueue->getLastEvent());
-  EventStatus_ = EVENT_STATUS_RECORDING;
-}
-
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, std::string MsgIn, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Msg(MsgIn), Flags_(Flags),
       Refc_(new size_t(0)), ChipContext_(Ctx) {}

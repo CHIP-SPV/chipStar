@@ -66,6 +66,8 @@ public:
                   CHIPEventFlags Flags = CHIPEventFlags());
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, std::string MsgIn = "",
                   CHIPEventFlags Flags = CHIPEventFlags());
+
+  virtual void recordStream(CHIPQueue *ChipQueue) override;
   cl_event *getDependenciesHandles();
   virtual ~CHIPEventOpenCL() override;
   virtual void takeOver(CHIPEvent *Other) override;
@@ -75,8 +77,8 @@ public:
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
   virtual bool updateFinishStatus(bool ThrowErrorNotReady = true) override;
-  cl_event &peek();
-  cl_event &get();
+  cl_event *peek();
+  cl_event *get();
   uint64_t getFinishTime();
   size_t getRefCount();
 };

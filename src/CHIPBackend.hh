@@ -627,7 +627,7 @@ public:
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue *ChipQueue);
+  virtual void recordStream(CHIPQueue *ChipQueue) = 0;
   /**
    * @brief Wait for this event to complete
    *

@@ -1262,6 +1262,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIPInitialize();
   NULLCHECK(Event);
 
+  // TODO  create event flags parser class
   if (Flags > (hipEventDefault | hipEventBlockingSync | hipEventDisableTiming |
                hipEventInterprocess))
     CHIPERR_LOG_AND_THROW("Invalid hipEvent flag combination",

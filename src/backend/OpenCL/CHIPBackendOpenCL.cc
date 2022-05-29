@@ -436,10 +436,15 @@ CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  std::string MsgIn, CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipContext), MsgIn, Flags), ClEvent() {}
 
-cl_event &CHIPEventOpenCL::peek() { return ClEvent; }
-cl_event &CHIPEventOpenCL::get() {
+cl_event *CHIPEventOpenCL::peek() { return &ClEvent; }
+cl_event *CHIPEventOpenCL::get() {
   increaseRefCount();
-  return ClEvent;
+
+  // If not there already, add event to Backend event tracker
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  Backend->Events.insert(this);
+
+  return &ClEvent;
 }
 
 uint64_t CHIPEventOpenCL::getFinishTime() {
@@ -460,8 +465,8 @@ uint64_t CHIPEventOpenCL::getFinishTime() {
 
 size_t CHIPEventOpenCL::getRefCount() {
   cl_uint RefCount;
-  int Status = ::clGetEventInfo(this->peek(), CL_EVENT_REFERENCE_COUNT, 4,
-                                &RefCount, NULL);
+  int Status =
+      ::clGetEventInfo(*peek(), CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   return RefCount;
 }
@@ -469,27 +474,35 @@ size_t CHIPEventOpenCL::getRefCount() {
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
 void CHIPEventOpenCL::decreaseRefCount(bool DeleteIfRefcZero) {
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    clReleaseEvent(ClEvent);
+  }
   CHIPEvent::decreaseRefCount();
-  std::lock_guard<std::mutex> Lock(Mtx);
-  clReleaseEvent(ClEvent);
-  if (DeleteIfRefcZero && !*Refc_)
-    delete this;
+}
+
+void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
+  logDebug("CHIPEvent::recordStream()");
+
+  assert(ChipQueue->getLastEvent() != nullptr);
+  this->takeOver(ChipQueue->getLastEvent());
+  EventStatus_ = EVENT_STATUS_RECORDING;
 }
 
 void CHIPEventOpenCL::increaseRefCount() {
   CHIPEvent::increaseRefCount();
   std::lock_guard<std::mutex> Lock(Mtx);
   clRetainEvent(ClEvent);
-  logTrace("Refc: {}", (getRefCount()));
 }
 
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
-  std::string Msg = "";
-  if (UserEvent)
-    Msg = "UserEvent";
-  auto Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Msg, Flags);
+  auto Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, "", Flags);
+  if (UserEvent) {
+    Ev->Msg = "UserEvent";
+    Ev->increaseRefCount();
+  }
 
   return Ev;
 }
@@ -506,7 +519,7 @@ cl_event *CHIPEventOpenCL::getDependenciesHandles() {
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   std::lock_guard<std::mutex> LockThis(this->Mtx);
   auto *Other = (CHIPEventOpenCL *)OtherIn;
-  this->ClEvent = Other->get();
+  this->ClEvent = *(Other->peek());
   logTrace("Refc: {}", (getRefCount()));
 }
 
@@ -746,7 +759,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   HipStreamCallbackData *Cb =
       new HipStreamCallbackData{this, hipSuccess, UserData, Callback};
 
-  auto Status = clSetEventCallback(Ev->peek(), CL_COMPLETE, pfn_notify, Cb);
+  auto Status = clSetEventCallback(*(Ev->peek()), CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
   // enqueue barrier with no dependencies (all further enqueues will wait for
