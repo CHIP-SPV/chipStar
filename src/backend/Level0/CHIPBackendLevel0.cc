@@ -183,9 +183,6 @@ ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
 ze_event_handle_t CHIPEventLevel0::get() {
   increaseRefCount();
 
-  // If not there already, add event to Backend event tracker
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
-  Backend->Events.insert(this);
   return Event_;
 }
 
@@ -251,13 +248,17 @@ void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
 void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   ze_result_t Status;
 
+  if (getCHIPRefc() > 1)
+    decreaseRefCount();
   {
-    std::lock_guard<std::mutex> Lock(Mtx);
     if (EventStatus_ == EVENT_STATUS_RECORDED) {
+      std::lock_guard<std::mutex> Lock(Mtx);
       logTrace("{}: EVENT_STATUS_RECORDED ... Resetting event.");
       ze_result_t Status = zeEventHostReset(Event_);
       CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     }
+
+    std::lock_guard<std::mutex> Lock(Mtx);
     EventStatus_ = EVENT_STATUS_RECORDING;
   }
 
@@ -360,8 +361,10 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
   if (!this->isRecordingOrRecorded() || !Other->isRecordingOrRecorded())
     return hipErrorInvalidResourceHandle;
 
-  this->updateFinishStatus();
-  Other->updateFinishStatus();
+  if (this->updateFinishStatus())
+    this->decreaseRefCount();
+  if (Other->updateFinishStatus())
+    Other->decreaseRefCount();
   if (!this->isFinished() || !Other->isFinished())
     return hipErrorNotReady;
 
@@ -470,27 +473,43 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   while (true) {
     sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
-    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+    // std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+    // It seems that on first iteration, I succesffuly delete the event and it
+    // gets removed from the events set
     for (auto Event : Backend->Events) {
       bool EventFinished = Event->updateFinishStatus();
-      if (EventFinished) {
-        logTrace("CHIPStaleEventMonitor Decrementing event {}",
-                 Event->Msg.c_str());
-        Event->decreaseRefCount();
-        Event->releaseDependencies();
-      }
-      if (Event->getCHIPRefc() == 0) {
+      if (EventFinished)
         EventsToDelete.push_back(Event);
-      }
+      //      if (EventFinished) {
+      //        logTrace("CHIPStaleEventMonitor Decrementing event {}",
+      //                 Event->Msg.c_str());
+      //        Event->decreaseRefCount();
+      //        Event->releaseDependencies();
+      //      }
+      //      if (Event->getCHIPRefc() == 0) {
+      //        EventsToDelete.push_back(Event);
+      //      }
     }
 
+    logTrace("Decreasing Refcount for {} Events", EventsToDelete.size());
     for (auto &Event : EventsToDelete) {
-      Backend->Events.erase(Event);
-      delete Event;
+      // Don't need to do this - once refcount goes to 0 it will get removed
+      // Backend->Events.erase(Event);
+      // delete Event;
+      Event->decreaseRefCount();
     }
 
-    if (Stop && !Backend->Events.size())
-      pthread_exit(0);
+    {
+      std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
+      logTrace("Remaining events {}", Backend->Events.size());
+      for (auto Event : Backend->Events) {
+        std::lock_guard<std::mutex> Lock(Event->Mtx);
+        logTrace("Event {} Refcount {}", Event->Msg.c_str(),
+                 Event->getCHIPRefc());
+      }
+      if (Stop && !Backend->Events.size())
+        pthread_exit(0);
+    }
 
     pthread_yield();
   } // endless loop

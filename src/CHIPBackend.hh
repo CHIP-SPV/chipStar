@@ -535,7 +535,7 @@ public:
 
   void releaseDependencies() {
     for (auto Event : Dependencies_) {
-      Event->decreaseRefCount();
+      Event->decreaseRefCountNoEventLock();
     }
   }
 
@@ -549,18 +549,9 @@ public:
   int getNumDependencies() { return Dependencies_.size(); }
   std::vector<CHIPEvent *> getDependencies() { return Dependencies_; }
 
-  virtual void increaseRefCount() {
-    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
-             *Refc_, *Refc_ + 1);
-    std::lock_guard<std::mutex> Lock(Mtx);
-    (*Refc_)++;
-  }
-  virtual void decreaseRefCount(bool DeleteIfRefcZero = true) {
-    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
-             *Refc_, *Refc_ - 1);
-    std::lock_guard<std::mutex> Lock(Mtx);
-    (*Refc_)--;
-  }
+  virtual void increaseRefCount();
+  virtual void decreaseRefCount(bool DeleteIfRefcZero = true);
+  virtual void decreaseRefCountNoEventLock(bool DeleteIfRefcZero = true);
 
   CHIPEventFlags getFlags() { return Flags_; }
   size_t getCHIPRefc() { return *Refc_; }
@@ -1862,7 +1853,6 @@ public:
 
     if (ChipEv == LastEvent_)
       return;
-    // It could be the case that last event was a user event and already destroyed
     if (LastEvent_)
       LastEvent_->decreaseRefCount();
     if (ChipEv)

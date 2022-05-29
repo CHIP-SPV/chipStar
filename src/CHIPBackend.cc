@@ -159,6 +159,40 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 // CHIPEvent
 // ************************************************************************
 
+void CHIPEvent::increaseRefCount() {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  if (*Refc_ == 0) {
+    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+    Backend->Events.insert(this);
+  }
+  logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(), *Refc_,
+           *Refc_ + 1);
+  (*Refc_)++;
+}
+
+void CHIPEvent::decreaseRefCountNoEventLock(bool DeleteIfRefcZerox) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(), *Refc_,
+           *Refc_ - 1);
+  (*Refc_)--;
+  if (*Refc_ == 0) {
+    Backend->Events.erase(this);
+    delete this;
+  }
+}
+
+void CHIPEvent::decreaseRefCount(bool DeleteIfRefcZerox) {
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  std::lock_guard<std::mutex> Lock(Mtx);
+  logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(), *Refc_,
+           *Refc_ - 1);
+  (*Refc_)--;
+  if (*Refc_ == 0) {
+    Backend->Events.erase(this);
+    delete this;
+  }
+}
+
 void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
   logDebug("CHIPEvent::recordStream()");
   assert(ChipQueue->getLastEvent() != nullptr);

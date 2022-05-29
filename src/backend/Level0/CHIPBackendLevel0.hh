@@ -314,8 +314,11 @@ public:
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override {
     auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-    if (UserEvent)
+    // TODO: create event should take a message argument?
+    if (UserEvent) {
       Ev->Msg = "UserEvent";
+      Ev->increaseRefCount();
+    }
 
     return Ev;
   }

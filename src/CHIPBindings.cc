@@ -1291,20 +1291,8 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
-  // assert(Event->getCHIPRefc() == 0);
-  bool UpdateCalled = false;
-  for (auto Q : Backend->getQueues()) {
-    if (Q->getLastEvent() == Event) {
-      Q->updateLastEvent(nullptr);
-      UpdateCalled = true;
-    }
-  }
-  if (!UpdateCalled)
-    Event->decreaseRefCount(false);
+  Event->decreaseRefCount();
 
-  Backend->Events.erase(Event);
-  delete Event;
   RETURN(hipSuccess);
 
   CHIP_CATCH
