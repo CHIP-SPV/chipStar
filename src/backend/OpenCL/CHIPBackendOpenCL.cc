@@ -780,16 +780,10 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
       new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_);
   MarkerEvent->Msg = "marker";
 
-  CHIPEventOpenCL *MarkerEvent2 =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_);
-  MarkerEvent2->Msg = "marker";
-  logTrace("{}", MarkerEvent2->Msg.c_str());
-
   auto Status = ::clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr,
                                               &(MarkerEvent->ClEvent));
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  // This should come after enqueue since Marker ClEvent is null prior to that
   updateLastEvent(MarkerEvent);
   return MarkerEvent;
 }

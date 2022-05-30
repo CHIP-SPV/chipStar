@@ -1293,7 +1293,6 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   NULLCHECK(Event);
 
   Event->decreaseRefCount();
-
   RETURN(hipSuccess);
 
   CHIP_CATCH
