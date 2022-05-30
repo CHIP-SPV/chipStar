@@ -470,8 +470,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   while (true) {
     sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
-    // It seems that on first iteration, I succesffuly delete the event and it
-    // gets removed from the events set
 
     {
       std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
@@ -502,7 +500,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     }
 
     pthread_yield();
-  } // endless loop
+  }
 }
 // End CHIPEventMonitorLevel0
 
