@@ -62,15 +62,14 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
-                  std::string MsgIn = "",
                   CHIPEventFlags Flags = CHIPEventFlags());
-  CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, std::string MsgIn = "",
+  CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   CHIPEventFlags Flags = CHIPEventFlags());
 
   virtual void recordStream(CHIPQueue *ChipQueue) override;
   cl_event *getDependenciesHandles();
   virtual ~CHIPEventOpenCL() override;
-  virtual void takeOver(CHIPEvent *Other) override;
+  void takeOver(CHIPEvent *Other);
   virtual bool decreaseRefCount() override;
   virtual void increaseRefCount() override;
   bool wait() override;

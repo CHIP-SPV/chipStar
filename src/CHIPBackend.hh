@@ -555,7 +555,6 @@ public:
 
   CHIPEventFlags getFlags() { return Flags_; }
   size_t getCHIPRefc() { return *Refc_; }
-  virtual void takeOver(CHIPEvent *Other){};
 
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
@@ -563,8 +562,7 @@ public:
    * @brief CHIPEvent constructor. Must always be created with some context.
    *
    */
-  CHIPEvent(CHIPContext *Ctx, std::string MsgIn = "",
-            CHIPEventFlags Flags = CHIPEventFlags());
+  CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags = CHIPEventFlags());
   /**
    * @brief Get the Context object
    *

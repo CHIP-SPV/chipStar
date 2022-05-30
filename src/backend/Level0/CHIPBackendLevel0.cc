@@ -178,8 +178,18 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 
 // CHIPEventLevel0
 // ***********************************************************************
+ze_event_handle_t *CHIPEventLevel0::getDependenciesHandles() {
+  ze_event_handle_t *Handles = new ze_event_handle_t[Dependencies_.size()];
+  for (int i = 0; i < Dependencies_.size(); i++) {
+    auto DependencyL0 = (CHIPEventLevel0 *)Dependencies_[i];
+    Handles[i] = DependencyL0->peek();
+  }
+
+  return Handles;
+}
 
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
+
 ze_event_handle_t CHIPEventLevel0::get() {
   increaseRefCount();
   return Event_;
@@ -196,7 +206,7 @@ CHIPEventLevel0::~CHIPEventLevel0() {
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
-    : CHIPEvent((CHIPContext *)(ChipCtx), "", Flags) {
+    : CHIPEvent((CHIPContext *)(ChipCtx), Flags) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -228,18 +238,6 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
   Status = zeEventCreate(EventPool_, &EventDesc, &Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ creation fail! ");
-}
-
-void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
-  // Take over target queues Event_
-  CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
-
-  if (*Refc_ > 1)
-    decreaseRefCount();
-  this->Event_ = Other->get(); // increases refcount
-  this->EventPool_ = Other->EventPool_;
-  this->Msg = Other->Msg;
-  this->Refc_ = Other->Refc_;
 }
 
 // Must use this for now - Level Zero hangs when events are host visible +

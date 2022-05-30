@@ -39,8 +39,6 @@ public:
 
   virtual bool updateFinishStatus(bool ThrowErrorNotReady = false) override;
 
-  virtual void takeOver(CHIPEvent *Other) override;
-
   unsigned long getFinishTime();
 
   virtual float getElapsedTime(CHIPEvent *Other) override;
@@ -49,33 +47,16 @@ public:
 
   ze_event_handle_t peek();
   ze_event_handle_t get();
-
-  ze_event_handle_t *getDependenciesHandles() {
-    ze_event_handle_t *Handles = new ze_event_handle_t[Dependencies_.size()];
-    for (int i = 0; i < Dependencies_.size(); i++) {
-      auto DependencyL0 = (CHIPEventLevel0 *)Dependencies_[i];
-      Handles[i] = DependencyL0->peek();
-    }
-
-    return Handles;
-  }
+  ze_event_handle_t *getDependenciesHandles();
 };
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {
-private:
-  // ze_event_pool_handle_t ZeEventPool_;
-
 public:
   std::mutex Mtx;
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
 
-  virtual ~CHIPCallbackDataLevel0() override {
-    // we can let the event collector do this
-    // GpuReady->decreaseRefCount();
-    // CpuCallbackComplete->decreaseRefCount();
-    // GpuAck->decreaseRefCount();
-  }
+  virtual ~CHIPCallbackDataLevel0() override {}
 };
 
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {

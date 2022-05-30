@@ -189,9 +189,9 @@ bool CHIPEvent::decreaseRefCount() {
   return decreaseRefCountNoLock();
 }
 
-CHIPEvent::CHIPEvent(CHIPContext *Ctx, std::string MsgIn, CHIPEventFlags Flags)
-    : EventStatus_(EVENT_STATUS_INIT), Msg(MsgIn), Flags_(Flags),
-      Refc_(new size_t(0)), ChipContext_(Ctx) {}
+CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
+    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t(0)),
+      ChipContext_(Ctx) {}
 
 // CHIPModuleflags_
 //*************************************************************************************

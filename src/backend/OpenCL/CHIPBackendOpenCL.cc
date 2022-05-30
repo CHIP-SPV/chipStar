@@ -426,15 +426,14 @@ void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 // ************************************************************************
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
-                                 cl_event ClEvent, std::string MsgIn,
-                                 CHIPEventFlags Flags)
-    : CHIPEvent((CHIPContext *)(ChipContext), MsgIn, Flags), ClEvent(ClEvent) {
+                                 cl_event ClEvent, CHIPEventFlags Flags)
+    : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent(ClEvent) {
   clRetainEvent(ClEvent);
 }
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
-                                 std::string MsgIn, CHIPEventFlags Flags)
-    : CHIPEvent((CHIPContext *)(ChipContext), MsgIn, Flags), ClEvent() {}
+                                 CHIPEventFlags Flags)
+    : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent() {}
 
 cl_event *CHIPEventOpenCL::peek() { return &ClEvent; }
 cl_event *CHIPEventOpenCL::get() {
@@ -503,7 +502,7 @@ void CHIPEventOpenCL::increaseRefCount() {
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
-  auto Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, "", Flags);
+  auto Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
   if (UserEvent) {
     Ev->Msg = "UserEvent";
     Ev->increaseRefCount();
@@ -800,15 +799,14 @@ CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
 }
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
-  //
   logTrace("CHIPQueueOpenCL->launch()");
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   assert(Kernel != nullptr);
   logTrace("Launching Kernel {}", Kernel->getName());
 
-  CHIPEventOpenCL *Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_,
-                                            std::string("launch"));
+  CHIPEventOpenCL *Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_);
+  Ev->Msg = "launch";
   ChipOclExecItem->setupAllArgs(Kernel);
 
   dim3 GridDim = ChipOclExecItem->getGrid();
@@ -881,8 +879,8 @@ CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size,
                                              const void *Pattern,
                                              size_t PatternSize) {
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
-  CHIPEventOpenCL *Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_,
-                                            std::string("MemFill"));
+  CHIPEventOpenCL *Ev = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_);
+  Ev->Msg = "memfill";
   int Retval = ::clEnqueueSVMMemFill(ClQueue_->get(), Dst, Pattern, PatternSize,
                                      Size, 0, nullptr, &(Ev->ClEvent));
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
