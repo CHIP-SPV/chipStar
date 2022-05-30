@@ -500,7 +500,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         logTrace("Event {} Refcount {}", Event->Msg.c_str(),
                  Event->getCHIPRefc());
       }
-      if (Stop && !Backend->Events.size())
+      if (Stop)
         pthread_exit(0);
     }
 
