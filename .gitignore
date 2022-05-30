@@ -1,4 +1,5 @@
-build/*
+build*
+
 install/*
 .vscode/*
 samples/0_MatrixMultiply/binary
@@ -6,3 +7,4 @@ samples/0_MatrixMultiply/binary
 *.sh
 test_find_cmake/*
 report.*
+test_logs/*

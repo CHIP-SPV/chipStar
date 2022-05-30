@@ -1,21 +1,24 @@
-ba92a3c
-88% tests passed, 48 tests failed out of 385
+87% tests passed, 51 tests failed out of 385
 
-Total Test time (real) = 643.83 sec
+Total Test time (real) = 329.73 sec
 
 The following tests FAILED:
 	113 - Unit_hipHostGetFlags_Basic - int (Failed)
 	114 - Unit_hipHostGetFlags_Basic - float (Failed)
 	115 - Unit_hipHostGetFlags_Basic - double (Failed)
-	116 - Unit_hipMallocManaged_MultiChunkSingleDevice (Failed)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
+	179 - Unit_hipMemset2DAsync_MultiThread (Timeout)
 	195 - Unit_hipHostMalloc_Basic (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	232 - Unit_hipStreamGetPriority_Negative (Failed)
-	241 - Unit_hipStreamAddCallback_ParamTst (SEGFAULT)
+	239 - Unit_hipMultiStream_multimeDevice (Timeout)
+	240 - Unit_hipStreamAddCallback_MultipleThreads (Subprocess aborted)
+	241 - Unit_hipStreamAddCallback_ParamTst (Subprocess aborted)
+	242 - Unit_hipStreamAddCallback_WithDefaultStream (Subprocess aborted)
+	243 - Unit_hipStreamAddCallback_WithCreatedStream (Subprocess aborted)
 	255 - Unit_hipEvent (Failed)
 	261 - Unit_hipEventIpc (Failed)
 	262 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
@@ -48,7 +51,6 @@ The following tests FAILED:
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
 	353 - hipKernelLaunchIsNonBlocking (Failed)
-	356 - hipTestSymbolReset (Subprocess aborted)
-	357 - hipTestSymbolInit (Subprocess aborted)
+	365 - FloydWarshall (Timeout)
 	371 - PrintfDynamic (Failed)
 	380 - hipAddressingModes (Failed)

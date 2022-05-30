@@ -1,7 +1,6 @@
-ba92a3c
-79% tests passed, 81 tests failed out of 385
+79% tests passed, 82 tests failed out of 385
 
-Total Test time (real) = 898.88 sec
+Total Test time (real) = 151.36 sec
 
 The following tests did not run:
 	382 - sycl_chip_interop (Skipped)
@@ -42,11 +41,14 @@ The following tests FAILED:
 	214 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - int (Failed)
 	215 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float (Failed)
 	216 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (Failed)
+	221 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
 	227 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	230 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
 	232 - Unit_hipStreamGetPriority_Negative (Failed)
+	240 - Unit_hipStreamAddCallback_MultipleThreads (Failed)
+	242 - Unit_hipStreamAddCallback_WithDefaultStream (Failed)
+	243 - Unit_hipStreamAddCallback_WithCreatedStream (Failed)
 	244 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
-	255 - Unit_hipEvent (Failed)
 	261 - Unit_hipEventIpc (Failed)
 	262 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	263 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
@@ -75,8 +77,6 @@ The following tests FAILED:
 	329 - abort (Failed)
 	330 - abort2 (Failed)
 	356 - hipTestSymbolReset (Subprocess aborted)
-	357 - hipTestSymbolInit (Subprocess aborted)
-	359 - hipTestVariableTemplateSymbols (Subprocess aborted)
 	369 - PrintfSimple (Failed)
 	370 - PrintfNOP (Failed)
 	371 - PrintfDynamic (Failed)
