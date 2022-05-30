@@ -182,7 +182,6 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
 ze_event_handle_t CHIPEventLevel0::get() {
   increaseRefCount();
-
   return Event_;
 }
 
