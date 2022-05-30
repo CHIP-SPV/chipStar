@@ -473,29 +473,22 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   while (true) {
     sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
-    // std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
     // It seems that on first iteration, I succesffuly delete the event and it
     // gets removed from the events set
-    for (auto Event : Backend->Events) {
-      bool EventFinished = Event->updateFinishStatus();
-      if (EventFinished)
-        EventsToDelete.push_back(Event);
-      //      if (EventFinished) {
-      //        logTrace("CHIPStaleEventMonitor Decrementing event {}",
-      //                 Event->Msg.c_str());
-      //        Event->decreaseRefCount();
-      //        Event->releaseDependencies();
-      //      }
-      //      if (Event->getCHIPRefc() == 0) {
-      //        EventsToDelete.push_back(Event);
-      //      }
+
+    {
+      std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+      for (auto Event : Backend->Events) {
+        bool EventFinished = Event->updateFinishStatus();
+        if (EventFinished) {
+          Event->releaseDependencies();
+          EventsToDelete.push_back(Event);
+        }
+      }
     }
 
     logTrace("Decreasing Refcount for {} Events", EventsToDelete.size());
     for (auto &Event : EventsToDelete) {
-      // Don't need to do this - once refcount goes to 0 it will get removed
-      // Backend->Events.erase(Event);
-      // delete Event;
       Event->decreaseRefCount();
     }
 

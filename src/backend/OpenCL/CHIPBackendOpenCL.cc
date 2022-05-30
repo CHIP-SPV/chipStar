@@ -471,14 +471,19 @@ size_t CHIPEventOpenCL::getRefCount() {
   return RefCount;
 }
 
-CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
+CHIPEventOpenCL::~CHIPEventOpenCL() {
+  ClEvent = nullptr;
+  logTrace("~CHIPEventOpenCL() Releaseing {} Dependencies",
+           Dependencies_.size());
+  releaseDependencies();
+}
 
-void CHIPEventOpenCL::decreaseRefCount(bool DeleteIfRefcZero) {
+bool CHIPEventOpenCL::decreaseRefCount() {
   {
     std::lock_guard<std::mutex> Lock(Mtx);
     clReleaseEvent(ClEvent);
   }
-  CHIPEvent::decreaseRefCount();
+  return CHIPEvent::decreaseRefCount();
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
@@ -542,7 +547,7 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorNotReady) {
   auto PreviousEventStatus = EventStatus_;
 
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
-  if (EventStatus_ != EVENT_STATUS_RECORDING)
+  if (EventStatus_ == EVENT_STATUS_RECORDED)
     return false;
 
   int UpdatedStatus;
@@ -552,6 +557,8 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorNotReady) {
 
   if (UpdatedStatus <= CL_COMPLETE) {
     EventStatus_ = EVENT_STATUS_RECORDED;
+    // This happens in the Event Monitor for L0
+    releaseDependencies();
   } else if (ThrowErrorNotReady) {
     CHIPERR_LOG_AND_THROW("Event Not ready", hipErrorNotReady);
   }
@@ -770,8 +777,14 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 };
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
-  CHIPEventOpenCL *MarkerEvent = new CHIPEventOpenCL(
-      (CHIPContextOpenCL *)ChipContext_, std::string("marker"));
+  CHIPEventOpenCL *MarkerEvent =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_);
+  MarkerEvent->Msg = "marker";
+
+  CHIPEventOpenCL *MarkerEvent2 =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_);
+  MarkerEvent2->Msg = "marker";
+  logTrace("{}", MarkerEvent2->Msg.c_str());
 
   auto Status = ::clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr,
                                               &(MarkerEvent->ClEvent));

@@ -170,27 +170,23 @@ void CHIPEvent::increaseRefCount() {
   (*Refc_)++;
 }
 
-void CHIPEvent::decreaseRefCountNoEventLock(bool DeleteIfRefcZerox) {
-  std::lock_guard<std::mutex> Lock(Mtx);
+bool CHIPEvent::decreaseRefCountNoLock() {
+  bool deleteCalled = false;
   logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(), *Refc_,
            *Refc_ - 1);
   (*Refc_)--;
   if (*Refc_ == 0) {
     Backend->Events.erase(this);
     delete this;
+    deleteCalled = true;
   }
+  return deleteCalled;
 }
 
-void CHIPEvent::decreaseRefCount(bool DeleteIfRefcZerox) {
+bool CHIPEvent::decreaseRefCount() {
   std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
   std::lock_guard<std::mutex> Lock(Mtx);
-  logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(), *Refc_,
-           *Refc_ - 1);
-  (*Refc_)--;
-  if (*Refc_ == 0) {
-    Backend->Events.erase(this);
-    delete this;
-  }
+  return decreaseRefCountNoLock();
 }
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, std::string MsgIn, CHIPEventFlags Flags)
@@ -1108,9 +1104,11 @@ void CHIPBackend::uninitialize() {
   if (Backend->Events.size()) {
     logWarn("Remaining {} events that haven't been collected:",
             Backend->Events.size());
-    for (auto E : Backend->Events)
+    for (auto E : Backend->Events) {
+      E->updateFinishStatus();
       logWarn("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
               E->getCHIPRefc());
+    }
   }
 }
 

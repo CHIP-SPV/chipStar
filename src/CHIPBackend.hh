@@ -535,7 +535,7 @@ public:
 
   void releaseDependencies() {
     for (auto Event : Dependencies_) {
-      Event->decreaseRefCountNoEventLock();
+      Event->decreaseRefCountNoLock();
     }
   }
 
@@ -550,8 +550,8 @@ public:
   std::vector<CHIPEvent *> getDependencies() { return Dependencies_; }
 
   virtual void increaseRefCount();
-  virtual void decreaseRefCount(bool DeleteIfRefcZero = true);
-  virtual void decreaseRefCountNoEventLock(bool DeleteIfRefcZero = true);
+  virtual bool decreaseRefCount();
+  virtual bool decreaseRefCountNoLock();
 
   CHIPEventFlags getFlags() { return Flags_; }
   size_t getCHIPRefc() { return *Refc_; }
@@ -1845,6 +1845,7 @@ public:
   virtual ~CHIPQueue();
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
+
   virtual void updateLastEvent(CHIPEvent *ChipEv) {
     std::lock_guard<std::mutex> Lock(Mtx);
     auto LastMsg = LastEvent_ ? LastEvent_->Msg.c_str() : "";
@@ -1854,7 +1855,8 @@ public:
     if (ChipEv == LastEvent_)
       return;
     if (LastEvent_)
-      LastEvent_->decreaseRefCount();
+      if (LastEvent_->decreaseRefCount())
+        LastEvent_ = nullptr;
     if (ChipEv)
       ChipEv->increaseRefCount();
     LastEvent_ = ChipEv;
