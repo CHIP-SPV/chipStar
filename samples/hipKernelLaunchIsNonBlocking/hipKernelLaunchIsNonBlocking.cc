@@ -77,6 +77,10 @@ int main() {
   hipError_t notReady = hipEventElapsedTime(&t, start, stop);
   std::cout << "Kernel time: " << t << "s\n";
 
+  CHECK(hipDeviceSynchronize());
+  CHECK(hipEventDestroy(start));
+  CHECK(hipEventDestroy(stop));
+
   if (notReady == hipErrorNotReady) {
     std::cout << "PASSED!" << std::endl;
   } else {

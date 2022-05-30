@@ -87,7 +87,7 @@ int main() {
   hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
                      A_d);
   hipMemcpy(A_h, A_d, NUM * sizeof(int), hipMemcpyDeviceToHost);
-
+  //
   bool pass = true;
   int num_errors = 0;
   for (int i = 0; i < NUM; i++) {
@@ -96,6 +96,9 @@ int main() {
       num_errors++;
     }
   }
+  CHECK(hipDeviceSynchronize());
+  CHECK(hipEventDestroy(start));
+  CHECK(hipEventDestroy(stop));
 
   std::cout << "Num Errors: " << num_errors << std::endl;
   std::cout << (pass ? "PASSED!" : "FAIL") << std::endl;
