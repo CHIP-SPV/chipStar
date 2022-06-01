@@ -301,8 +301,6 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
     : CHIPDevice(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
-
-  ChipCtx->addDevice(this);
 }
 
 void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
