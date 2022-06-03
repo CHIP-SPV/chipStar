@@ -186,12 +186,18 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  if (Event_)
-    zeEventDestroy(Event_);
-  if (EventPool_) // Previous event could have deleted this evet
-    zeEventPoolDestroy(EventPool_);
-  Event_ = nullptr;
-  EventPool_ = nullptr;
+  if (Event_) {
+    auto Status = zeEventDestroy(Event_);
+    // '~CHIPEventLevel0' has a non-throwing exception specification
+    assert(Status == ZE_RESULT_SUCCESS);
+    Event_ = nullptr;
+  }
+  if (EventPool_) {
+    auto Status = zeEventPoolDestroy(EventPool_);
+    // '~CHIPEventLevel0' has a non-throwing exception specification
+    assert(Status == ZE_RESULT_SUCCESS);
+    EventPool_ = nullptr;
+  }
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
@@ -482,7 +488,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
 
     auto EventCommandListMap =
-        ((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
+        &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
 
     for (int i = 0; i < Backend->Events.size(); i++) {
       CHIPEvent *ChipEvent = Backend->Events[i];
@@ -499,11 +505,11 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           if (E->isFinished()) {
             EventsToDelete.push_back(E);
           }
-          bool CommandListFound = EventCommandListMap.count(E);
+          bool CommandListFound = EventCommandListMap->count(E);
           if (E->isFinished() && CommandListFound) {
-            auto CommandList = EventCommandListMap[E];
+            auto CommandList = (*EventCommandListMap)[E];
             CommandListsToDelete.push_back(CommandList);
-            ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.erase(E);
+            EventCommandListMap->erase(E);
           }
         }
     } // done collecting events to delete
@@ -528,7 +534,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     }
 
     pthread_yield();
-    if (Stop && !Backend->Events.size() && !EventCommandListMap.size()) {
+    if (Stop && !Backend->Events.size() && !EventCommandListMap->size()) {
       logTrace(
           "CHIPStaleEventMonitorLevel0 stop was called and all events have "
           "been cleared");
@@ -604,7 +610,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
 
   // Discover all command queue groups
   uint32_t CmdqueueGroupCount = 0;
-  zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount, nullptr);
+  Status = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
+                                                  nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logTrace("CommandGroups found: {}", CmdqueueGroupCount);
 
   ze_command_queue_group_properties_t *CmdqueueGroupProperties =
@@ -619,10 +627,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
         0  // numQueues
     };
   }
-  zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
-                                         CmdqueueGroupProperties);
-
-  auto MaxQueues = CmdqueueGroupProperties[0].numQueues;
+  Status = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
+                                                  CmdqueueGroupProperties);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   this->MaxMemoryFillPatternSize =
       CmdqueueGroupProperties[0].maxMemoryFillPatternSize;
   // Find a command queue type that support compute
@@ -654,15 +661,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
       break;
     }
   }
-  ze_command_queue_desc_t CommandQueueCopyDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr,
-      CopyQueueGroupOrdinal,
-      NextQueueIndex_, // index
-      0,               // flags
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-  NextQueueIndex_ = (NextQueueIndex_ + 1) % MaxQueues;
 
   // Create a default command queue (in case need to pass it outside of
   // CommandQueueDesc.index++;
@@ -689,6 +687,19 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   CommandListMemoryDesc_ = CommandListMemoryDesc;
 
 #ifdef L0_IMM_QUEUES
+
+  auto MaxQueues = CmdqueueGroupProperties[0].numQueues;
+
+  ze_command_queue_desc_t CommandQueueCopyDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+      nullptr,
+      CopyQueueGroupOrdinal,
+      NextQueueIndex_, // index
+      0,               // flags
+      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+  NextQueueIndex_ = (NextQueueIndex_ + 1) % MaxQueues;
+
   // Create an immediate command list
   Status = zeCommandListCreateImmediate(
       ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
@@ -1013,6 +1024,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
     Status = zeCommandListAppendBarrier(CommandList, ListDoneEvent->get(), 0,
                                         nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     Status =
@@ -1092,15 +1104,19 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
   assert(ZeDriver != nullptr);
   // Load devices to device vector
-  zeDeviceGet(ZeDriver, &DeviceCount, nullptr);
+  Status = zeDeviceGet(ZeDriver, &DeviceCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   ZeDevices.resize(DeviceCount);
-  zeDeviceGet(ZeDriver, &DeviceCount, ZeDevices.data());
+  Status = zeDeviceGet(ZeDriver, &DeviceCount, ZeDevices.data());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   const ze_context_desc_t CtxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr,
                                      0};
 
   ze_context_handle_t ZeCtx;
-  zeContextCreateEx(ZeDriver, &CtxDesc, DeviceCount, ZeDevices.data(), &ZeCtx);
+  Status = zeContextCreateEx(ZeDriver, &CtxDesc, DeviceCount, ZeDevices.data(),
+                             &ZeCtx);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   CHIPContextLevel0 *ChipL0Ctx = new CHIPContextLevel0(ZeDriver, ZeCtx);
   Backend->addContext(ChipL0Ctx);
 
@@ -1112,7 +1128,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     DeviceProperties.pNext = nullptr;
     DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
 
-    zeDeviceGetProperties(Dev, &DeviceProperties);
+    auto Status = zeDeviceGetProperties(Dev, &DeviceProperties);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev =
           new CHIPDeviceLevel0(std::move(Dev), ChipL0Ctx, i);
@@ -1192,7 +1209,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO Check if devices support cross-device sharing?
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
-
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
     logTrace("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", Status);
