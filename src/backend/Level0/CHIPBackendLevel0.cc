@@ -472,7 +472,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   logTrace("CHIPStaleEventMonitorLevel0::monitor()");
   // Stop is false and I have more events
 
-  while (true) {
+  while (!Stop) {
     sleep(1);
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
