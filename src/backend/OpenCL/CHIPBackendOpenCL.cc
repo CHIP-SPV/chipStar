@@ -650,7 +650,7 @@ void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 CHIPModuleOpenCL::CHIPModuleOpenCL(std::string *ModuleStr)
     : CHIPModule(ModuleStr){};
 
-cl::Program &CHIPModuleOpenCL::get() { return Program_; }
+cl::Program *CHIPModuleOpenCL::get() { return &Program_; }
 
 void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
@@ -714,7 +714,7 @@ CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
 
 OCLFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
-cl::Kernel CHIPKernelOpenCL::get() const { return OclKernel_; }
+cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
 size_t CHIPKernelOpenCL::getTotalArgSize() const { return TotalArgSize_; };
 
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
@@ -839,7 +839,7 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   const cl::NDRange Local(BlockDim.x, BlockDim.y, BlockDim.z);
 
   cl::Event Ev;
-  int Err = ClQueue_->enqueueNDRangeKernel(Kernel->get(), cl::NullRange, Global,
+  int Err = ClQueue_->enqueueNDRangeKernel(*Kernel->get(), cl::NullRange, Global,
                                            Local, nullptr, &Ev);
 
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
@@ -874,8 +874,6 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice)
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
-  delete ClContext_;
-  delete ClDevice_;
 }
 
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
@@ -1004,7 +1002,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         CHIPASSERT(Ai.Size == sizeof(void *));
         const void *Argval = *(void **)ArgsPointer_[InArgIdx];
         Err =
-            ::clSetKernelArgSVMPointer(Kernel->get().get(), OutArgIdx, Argval);
+            ::clSetKernelArgSVMPointer(Kernel->get()->get(), OutArgIdx, Argval);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else if (Ai.Type == OCLType::Image) {
@@ -1013,7 +1011,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         // Set image argument.
         cl_mem Image = TexObj->getImage();
         logTrace("set image arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
-        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx, sizeof(cl_mem),
+        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, sizeof(cl_mem),
                                &Image);
         CHIPERR_CHECK_LOG_AND_THROW(
             Err, CL_SUCCESS, hipErrorTbd,
@@ -1023,7 +1021,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         OutArgIdx++;
         cl_sampler Sampler = TexObj->getSampler();
         logTrace("set sampler arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
-        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx,
+        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx,
                                sizeof(cl_sampler), &Sampler);
         CHIPERR_CHECK_LOG_AND_THROW(
             Err, CL_SUCCESS, hipErrorTbd,
@@ -1031,7 +1029,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
       } else {
         logTrace("clSetKernelArg {} SIZE {} to {}\n", OutArgIdx, Ai.Size,
                  ArgsPointer_[InArgIdx]);
-        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx, Ai.Size,
+        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, Ai.Size,
                                ArgsPointer_[InArgIdx]);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
@@ -1081,7 +1079,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         assert(std::get<1>(OffsetSizes_[i]) == Ai.Size);
         P = *(void **)(Start + std::get<0>(OffsetSizes_[i]));
         logTrace("setArg SVM {} to {}\n", i, P);
-        Err = ::clSetKernelArgSVMPointer(Kernel->get().get(), i, P);
+        Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), i, P);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else if (Ai.Type == OCLType::Image) {
@@ -1092,15 +1090,16 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         size_t Offs = std::get<0>(OffsetSizes_[i]);
         void *Value = (void *)(Start + Offs);
         logTrace("setArg {} size {} offs {}\n", i, Size, Offs);
-        Err = ::clSetKernelArg(Kernel->get().get(), i, Size, Value);
+        Err = ::clSetKernelArg(Kernel->get()->get(), i, Size, Value);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
       }
     }
   }
 
-  return setLocalSize(SharedMem_, FuncInfo, Kernel->get().get());
+  return setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
 }
+
 // CHIPBackendOpenCL
 //*************************************************************************
 
@@ -1197,7 +1196,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     Backend->addDevice(ChipDev);
 
     // Create and add queue queue to Device and Backend
-    auto Queue = ChipDev->createQueueAndRegister(0, 0);
+    ChipDev->createQueueAndRegister((int)0, (int)0);
   }
   logDebug("OpenCL Context Initialized.");
 };

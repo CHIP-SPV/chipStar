@@ -86,7 +86,7 @@ protected:
 public:
   CHIPModuleOpenCL(std::string *ModuleStr);
   virtual void compile(CHIPDevice *ChipDevice) override;
-  cl::Program &get();
+  cl::Program *get();
 };
 
 class SVMemoryRegion {
@@ -146,8 +146,6 @@ public:
 class CHIPQueueOpenCL : public CHIPQueue {
 protected:
   // Any reason to make these private/protected?
-  cl::Context *ClContext_;
-  cl::Device *ClDevice_;
   cl::CommandQueue *ClQueue_;
 
 public:
@@ -194,7 +192,7 @@ public:
                    OCLFuncInfo *FuncInfo, CHIPModuleOpenCL *Parent);
   OCLFuncInfo *getFuncInfo() const;
   std::string getName();
-  cl::Kernel get() const;
+  cl::Kernel *get();
   size_t getTotalArgSize() const;
 
   CHIPModuleOpenCL *getModule() override { return Module; }
