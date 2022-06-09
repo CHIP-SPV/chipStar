@@ -1415,6 +1415,17 @@ public:
                CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
 
   /**
+   * @brief Returns true if the pointer is USM (unified shared memory).
+   * Some backends (like OpenCL) always return USM independently of which
+   * hipMemoryType is requested in allocation
+   *
+   * @param Ptr pointer to memory allocated by allocate()
+   * @return true/false
+   */
+
+  virtual bool isAllocatedPtrUSM(void* Ptr) = 0;
+
+  /**
    * @brief Free memory
    *
    * @param ptr pointer to the memory location to be deallocated. Internally
