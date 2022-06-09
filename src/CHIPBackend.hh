@@ -1324,7 +1324,6 @@ protected:
 class CHIPContext {
 protected:
   std::vector<CHIPDevice *> ChipDevices_;
-  std::vector<CHIPQueue *> ChipQueues_;
   std::vector<void *> AllocatedPtrs_;
 
   unsigned int Flags_;
@@ -1360,13 +1359,6 @@ public:
    * @return std::vector<CHIPDevice*>&
    */
   std::vector<CHIPDevice *> &getDevices();
-
-  /**
-   * @brief Get the this contexts CHIPQueues
-   *
-   * @return std::vector<CHIPQueue*>&
-   */
-  std::vector<CHIPQueue *> &getQueues();
 
   /**
    * @brief Allocate data.
@@ -1441,12 +1433,6 @@ public:
    * @return false
    */
   virtual void freeImpl(void *Ptr) = 0;
-
-  /**
-   * @brief Finish all the queues in this context
-   *
-   */
-  void finishAll();
 
   /**
    * @brief Get the flags set on this context
