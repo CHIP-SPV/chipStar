@@ -56,6 +56,5 @@ void CHIPInitializeCallOnce(std::string BackendStr = "");
 void CHIPUninitializeCallOnce();
 
 std::string read_env_var(std::string EnvVar, bool Lower);
-std::string read_backend_selection();
 
 #endif

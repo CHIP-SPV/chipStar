@@ -17,8 +17,11 @@
 #include "backend/backends.hh"
 
 std::once_flag Initialized;
+std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
+bool UsingDefaultBackend;
 CHIPBackend *Backend;
+std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 
 std::string read_env_var(std::string EnvVar, bool Lower = true) {
   logDebug("Reading {} from env", EnvVar);
@@ -32,12 +35,9 @@ std::string read_env_var(std::string EnvVar, bool Lower = true) {
                    [](unsigned char Ch) { return std::tolower(Ch); });
 
   return Var;
-};
+}
 
-std::string read_backend_selection();
-
-void read_env_vars(std::string &CHIPPlatformStr, std::string &CHIPDeviceTypeStr,
-                   std::string &CHIPDeviceStr) {
+void CHIPReadEnvVarsCallOnce() {
   CHIPPlatformStr = read_env_var("CHIP_PLATFORM");
   if (CHIPPlatformStr.size() == 0)
     CHIPPlatformStr = "0";
@@ -50,14 +50,25 @@ void read_env_vars(std::string &CHIPPlatformStr, std::string &CHIPDeviceTypeStr,
   if (CHIPDeviceStr.size() == 0)
     CHIPDeviceStr = "0";
 
+  UsingDefaultBackend = false;
+  CHIPBackendType = read_env_var("CHIP_BE");
+  if (CHIPBackendType.size() == 0) {
+    CHIPBackendType = "opencl";
+    UsingDefaultBackend = true;
+  }
+
   logDebug("CHIP_PLATFORM={}", CHIPPlatformStr.c_str());
   logDebug("CHIP_DEVICE_TYPE={}", CHIPDeviceTypeStr.c_str());
   logDebug("CHIP_DEVICE={}", CHIPDeviceStr.c_str());
-};
+  logDebug("CHIP_BE={}", CHIPBackendType.c_str());
+}
+
+void CHIPReadEnvVars() {
+  std::call_once(EnvInitialized, &CHIPReadEnvVarsCallOnce);
+}
 
 void CHIPInitializeCallOnce(std::string BackendStr) {
-  std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr;
-  read_env_vars(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
+  CHIPReadEnvVars();
   logDebug("CHIPDriver Initialize");
 
   // Read JIT options from the env
@@ -67,21 +78,20 @@ void CHIPInitializeCallOnce(std::string BackendStr) {
   // If no BE is passed to init explicitly, read env var
   std::string ChipBe;
   if (BackendStr.size() == 0) {
-    ChipBe = read_env_var("CHIP_BE");
+    ChipBe = CHIPBackendType;
   } else {
     ChipBe = BackendStr;
   }
 
   // TODO Check configuration for what backends are configured
   if (!ChipBe.compare("opencl")) {
+    if (UsingDefaultBackend)
+      logWarn("CHIP_BE was not set. Defaulting to OPENCL");
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
   } else if (!ChipBe.compare("level0")) {
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
-  } else if (!ChipBe.compare("")) {
-    logWarn("CHIP_BE was not set. Defaulting to OPENCL");
-    Backend = new CHIPBackendOpenCL();
   } else {
     CHIPERR_LOG_AND_THROW(
         "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
@@ -92,7 +102,7 @@ void CHIPInitializeCallOnce(std::string BackendStr) {
 
 extern void CHIPInitialize(std::string BE) {
   std::call_once(Initialized, &CHIPInitializeCallOnce, BE);
-};
+}
 
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
