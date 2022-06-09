@@ -970,22 +970,10 @@ std::vector<CHIPDevice *> &CHIPContext::getDevices() {
   return ChipDevices_;
 }
 
-std::vector<CHIPQueue *> &CHIPContext::getQueues() {
-  if (ChipQueues_.size() == 0) {
-    std::string Msg = "No queus in this context";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
-  }
-  return ChipQueues_;
-}
-
-void CHIPContext::finishAll() {
-  for (CHIPQueue *Queue : ChipQueues_)
-    Queue->finish();
-}
-
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, CHIPHostAllocFlags());
 }
+
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType) {
   return allocate(Size, Alignment, MemType, CHIPHostAllocFlags());
