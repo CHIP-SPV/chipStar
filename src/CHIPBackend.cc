@@ -888,7 +888,12 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
   return (T1 && T2 && T3);
 }
 
-CHIPQueue *CHIPDevice::getActiveQueue() { return ChipQueues_[0]; }
+CHIPQueue *CHIPDevice::getActiveQueue() {
+    if (ChipQueues_.size() > 0)
+        return ChipQueues_[ActiveQueueId_];
+    else
+        return nullptr;
+}
 
 hipError_t CHIPDevice::allocateDeviceVariables() {
   std::lock_guard<std::mutex> Lock(Mtx_);
