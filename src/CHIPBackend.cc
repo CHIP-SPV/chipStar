@@ -137,8 +137,8 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (HostPtr)
     PtrToAllocInfo_[HostPtr] = AllocInfo;
 
-  logDebug("CHIPAllocationTracker::recordAllocation size: {}",
-           PtrToAllocInfo_.size());
+  logDebug("CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
+           Size, HostPtr, DevPtr, (unsigned)MemoryType);
   return;
 }
 
@@ -982,7 +982,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, CHIPHostAllocFlags Flags) {
   std::lock_guard<std::mutex> Lock(Mtx);
-  void *AllocatedPtr;
+  void *AllocatedPtr, *HostPtr = nullptr;
 
   if (!Flags.isDefault()) {
     if (Flags.isMapped())
@@ -1007,8 +1007,12 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
+  if (MemType == hipMemoryTypeUnified || isAllocatedPtrUSM(AllocatedPtr)) {
+    HostPtr = AllocatedPtr;
+    MemType = hipMemoryTypeUnified;
+  }
   ChipDev->AllocationTracker->recordAllocation(
-      AllocatedPtr, nullptr, ChipDev->getDeviceId(), Size, Flags, MemType);
+      AllocatedPtr, HostPtr, ChipDev->getDeviceId(), Size, Flags, MemType);
 
   return AllocatedPtr;
 }
@@ -1512,8 +1516,10 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
     void *HostPtr = AllocInfo->HostPtr;
 
     // If this is a shared pointer then we don't need to transfer data back
-    if (AllocInfo->MemoryType == hipMemoryTypeUnified)
+    if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
+      logDebug("MemoryType: unified -> skipping");
       continue;
+    }
 
     if (HostPtr) {
       auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);

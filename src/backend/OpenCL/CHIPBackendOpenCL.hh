@@ -118,6 +118,7 @@ public:
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
+  bool isAllocatedPtrUSM(void* Ptr) override { return true; }
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();
 };
