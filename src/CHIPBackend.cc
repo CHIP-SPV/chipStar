@@ -823,6 +823,16 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
   return ChipQueue;
 }
 
+CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
+                                              int NumHandles) {
+  std::lock_guard<std::mutex> Lock(Mtx_);
+  auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
+  addQueue(ChipQueue);
+  return ChipQueue;
+}
+
+
+
 std::vector<CHIPQueue *> &CHIPDevice::getQueues() { return ChipQueues_; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,

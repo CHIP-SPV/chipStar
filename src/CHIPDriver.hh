@@ -55,6 +55,9 @@ void CHIPInitializeCallOnce(std::string BackendStr = "");
  */
 void CHIPUninitializeCallOnce();
 
+
+extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles, int NumHandles);
+
 std::string read_env_var(std::string EnvVar, bool Lower);
 
 #endif
