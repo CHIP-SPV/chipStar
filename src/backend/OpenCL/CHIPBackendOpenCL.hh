@@ -134,6 +134,8 @@ public:
   virtual void resetImpl() override;
   virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
+  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) override;
+
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
                 const struct hipResourceViewDesc *ResViewDesc) override;
@@ -151,7 +153,7 @@ protected:
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
-  CHIPQueueOpenCL(CHIPDevice *ChipDevice);
+  CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue = nullptr);
   ~CHIPQueueOpenCL();
   virtual CHIPEventOpenCL *getLastEvent() override;
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
@@ -173,7 +175,7 @@ public:
                                         size_t Width, size_t Height,
                                         size_t Depth) override;
 
-  virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) override;
+  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) override;
   virtual CHIPEvent *
   enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
   virtual CHIPEvent *enqueueMarkerImpl() override;
@@ -211,10 +213,15 @@ public:
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
-  void initializeImpl(std::string CHIPPlatformStr,
-                      std::string CHIPDeviceTypeStr,
-                      std::string CHIPDeviceStr) override;
+  virtual void initializeImpl(std::string CHIPPlatformStr,
+                              std::string CHIPDeviceTypeStr,
+                              std::string CHIPDeviceStr) override;
+  virtual void initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) override;
+
   virtual std::string getDefaultJitFlags() override;
+
+  virtual int ReqNumHandles() override { return 4; }
+
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual CHIPEventOpenCL *
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
@@ -224,6 +231,10 @@ public:
                                                CHIPQueue *ChipQueue) override;
   virtual CHIPEventMonitor *createCallbackEventMonitor() override;
   virtual CHIPEventMonitor *createStaleEventMonitor() override;
+
+  virtual hipEvent_t getHipEvent(void* NativeEvent) override;
+  virtual void* getNativeEvent(hipEvent_t HipEvent) override;
+
 };
 
 class CHIPTextureOpenCL : public CHIPTexture {

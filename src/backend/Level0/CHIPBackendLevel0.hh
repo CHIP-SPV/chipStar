@@ -32,6 +32,8 @@ public:
       : CHIPEventLevel0((CHIPContextLevel0 *)Backend->getActiveContext()) {}
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                   CHIPEventFlags Flags = CHIPEventFlags());
+  CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
+                  ze_event_handle_t NativeEvent);
   virtual ~CHIPEventLevel0() override;
 
   void recordStream(CHIPQueue *ChipQueue) override;
@@ -118,10 +120,13 @@ protected:
   // The shared memory buffer
   void *SharedBuf_;
 
+  void initializeEventPool(CHIPDeviceLevel0 *ChipDev);
+
 public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
 
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
@@ -188,7 +193,7 @@ public:
                                     const void *Src,
                                     const CHIPRegionDesc &SrcRegion);
 
-  virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) override;
+  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) override;
 
   virtual CHIPEvent *enqueueMarkerImpl() override;
 
@@ -317,6 +322,8 @@ public:
   }
 
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
+  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) override;
+
   ze_device_properties_t *getDeviceProps() { return &(this->ZeDeviceProps_); };
 
   ze_image_handle_t allocateImage(unsigned int TextureType,
@@ -349,7 +356,11 @@ public:
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;
 
+  virtual void initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) override;
+
   virtual std::string getDefaultJitFlags() override;
+
+  virtual int ReqNumHandles() override { return 4; }
 
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
@@ -391,6 +402,9 @@ public:
     Evm->start();
     return Evm;
   }
+
+  virtual hipEvent_t getHipEvent(void* NativeEvent) override;
+  virtual void* getNativeEvent(hipEvent_t HipEvent) override;
 
 }; // CHIPBackendLevel0
 

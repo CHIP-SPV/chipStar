@@ -709,6 +709,12 @@ CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
   return NewQ;
 }
 
+CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) {
+  cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
+  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, CmdQ);
+  return NewQ;
+}
+
 // CHIPKernelOpenCL
 //*************************************************************************
 
@@ -851,15 +857,19 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   return E;
 }
 
-CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice)
+CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
     : CHIPQueue(ChipDevice) {
-  ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
-  ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
 
-  cl_int Status;
-  ClQueue_ = new cl::CommandQueue(*ClContext_, *ClDevice_,
-                                  CL_QUEUE_PROFILING_ENABLE, &Status);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorInitializationError);
+  if (Queue)
+    ClQueue_ = new cl::CommandQueue(Queue);
+  else {
+    cl::Context* ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
+    cl::Device* ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
+    cl_int Status;
+    ClQueue_ = new cl::CommandQueue(*ClContext_, *ClDevice_,
+                                    CL_QUEUE_PROFILING_ENABLE, &Status);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorInitializationError);
+  }
   /**
    * queues should always have lastEvent. Can't do this in the constuctor
    * because enqueueMarker is virtual and calling overriden virtual methods from
@@ -920,9 +930,32 @@ CHIPEvent *CHIPQueueOpenCL::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
   UNIMPLEMENTED(nullptr);
 };
 
-void CHIPQueueOpenCL::getBackendHandles(unsigned long *NativeInfo, int *Size) {
-  UNIMPLEMENTED();
+hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) {
+  logTrace("CHIPQueueOpenCL::getBackendHandles");
+  if (*NumHandles < 4) {
+    logError("getBackendHandles requires space for 4 handles");
+    return hipErrorInvalidValue;
+  }
+  *NumHandles = 4;
+
+  // Get queue handler
+  NativeInfo[3] = (uintptr_t)ClQueue_->get();
+
+  // Get context handler
+  cl::Context* Ctx = ((CHIPContextOpenCL *)ChipContext_)->get();
+  NativeInfo[2] = (uintptr_t)Ctx->get();
+
+  // Get device handler
+  cl::Device* Dev = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
+  NativeInfo[1] = (uintptr_t)Dev->get();
+
+  // Get platform handler
+  cl_platform_id Plat = Dev->getInfo<CL_DEVICE_PLATFORM>();
+  NativeInfo[0] = (uintptr_t)Plat;
+  return hipSuccess;
 }
+
+
 CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
   UNIMPLEMENTED(nullptr);
 }
@@ -1200,6 +1233,49 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   }
   logDebug("OpenCL Context Initialized.");
 };
+
+void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) {
+    logTrace("CHIPBackendOpenCL InitializeNative");
+
+    //cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
+    cl_device_id DevId = (cl_device_id)NativeHandles[1];
+    cl_context CtxId = (cl_context)NativeHandles[2];
+
+    cl::Context *Ctx = new cl::Context(CtxId);
+    CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
+    addContext(ChipContext);
+
+    cl::Device *Dev = new cl::Device(DevId);
+    CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, Dev, 0);
+    logTrace("CHIPDeviceOpenCL {}",
+               ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
+    ChipDev->populateDeviceProperties();
+
+    // Add device to context & backend
+    ChipContext->addDevice(ChipDev);
+    addDevice(ChipDev);
+
+    ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
+
+    setActiveDevice(ChipDev);
+
+    logDebug("OpenCL Context Initialized.");
+}
+
+hipEvent_t CHIPBackendOpenCL::getHipEvent(void* NativeEvent) {
+    cl_event E = (cl_event)NativeEvent;
+    // this retains cl_event
+    CHIPEventOpenCL *NewEvent =
+        new CHIPEventOpenCL((CHIPContextOpenCL *)ActiveCtx_, E);
+    return NewEvent;
+}
+
+void* CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
+    CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
+    // TODO should we retain here?
+    E->increaseRefCount();
+    return (void*)E->ClEvent;
+}
 
 // Other
 //*************************************************************************
