@@ -1054,8 +1054,10 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   logTrace("CHIPBackendLevel0 Initialize");
   ze_result_t Status;
   Status = zeInit(0);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  if (Status != ZE_RESULT_SUCCESS) {
+    logError("zeInit failed ");
+    std::abort();
+  }
 
   bool AnyDeviceType = false;
   ze_device_type_t ZeDeviceType;
