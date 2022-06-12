@@ -711,16 +711,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   logTrace("Created an immediate copy list");
 
 #else
-  Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc,
-                               &ZeCmdListCompute_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  logTrace("Created a regular compute list");
-  Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc,
-                               &ZeCmdListCopy_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  logTrace("Created a regular copy list");
 #endif
 
   // Initialize the internal Event_ pool and finish Event_
@@ -1004,7 +994,6 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 #ifdef L0_IMM_QUEUES
 #else
   ze_result_t Status;
-  logTrace("Executing command list");
 
   // Create an event to keep track of when this command list is done
   auto ListDoneEvent =
@@ -1220,12 +1209,16 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 // ***********************************************************************
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t *ZeDev,
                                    CHIPContextLevel0 *ChipCtx, int Idx)
-    : CHIPDevice(ChipCtx, Idx), ZeDev_(*ZeDev), ZeCtx_(ChipCtx->get()) {
+    : CHIPDevice(ChipCtx, Idx), ZeDev_(*ZeDev), ZeCtx_(ChipCtx->get()),
+      ZeDeviceProps_() {
+  ZeDeviceProps_.pNext = nullptr;
   assert(Ctx_ != nullptr);
 }
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t &&ZeDev,
                                    CHIPContextLevel0 *ChipCtx, int Idx)
-    : CHIPDevice(ChipCtx, Idx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()) {
+    : CHIPDevice(ChipCtx, Idx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()),
+      ZeDeviceProps_() {
+  ZeDeviceProps_.pNext = nullptr;
   assert(Ctx_ != nullptr);
 }
 

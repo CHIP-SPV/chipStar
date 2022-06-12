@@ -139,11 +139,12 @@ public:
 #ifdef L0_IMM_QUEUES
     return ZeCmdListCopyImm_;
 #else
+    ze_command_list_handle_t CommandList;
     auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc_,
-                                      &ZeCmdListCopy_);
+                                      &CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorInitializationError);
-    return ZeCmdListCopy_;
+    return CommandList;
 #endif
   }
 
@@ -224,6 +225,11 @@ class CHIPModuleLevel0 : public CHIPModule {
 
 public:
   CHIPModuleLevel0(std::string *ModuleStr) : CHIPModule(ModuleStr) {}
+  // ~CHIPModuleLevel0() {
+  //   auto Status = zeModuleDestroy(ZeModule_);
+  //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  // Also delete all kernels
+  // }
   /**
    * @brief Compile this module.
    * Extracts kernels, sets the ze_module
