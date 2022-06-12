@@ -151,11 +151,12 @@ public:
 #ifdef L0_IMM_QUEUES
     return ZeCmdListComputeImm_;
 #else
+    ze_command_list_handle_t ZeCmdList;
     auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc_,
-                                      &ZeCmdListCompute_);
+                                      &ZeCmdList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorInitializationError);
-    return ZeCmdListCompute_;
+    return ZeCmdList;
 #endif
   }
 
