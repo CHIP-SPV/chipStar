@@ -929,7 +929,6 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
-  logDebug("CHIPContext::syncQueues()");
   std::lock_guard<std::mutex> lock(Mtx);
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
   std::vector<CHIPQueue *> QueuesBlocking;
@@ -941,7 +940,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   for (auto &Queue : Queues)
     if (Queue->getQueueFlags().isBlocking())
       QueuesBlocking.push_back(Queue);
-  logDebug("Num blocking queues: {}", QueuesBlocking.size());
 
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
