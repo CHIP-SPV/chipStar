@@ -169,7 +169,7 @@ void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t(1)),
-      ChipContext_(Ctx) {}
+      ChipContext_(Ctx), Msg("") {}
 
 // CHIPModuleflags_
 //*************************************************************************************

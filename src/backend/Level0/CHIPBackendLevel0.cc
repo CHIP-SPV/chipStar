@@ -202,7 +202,8 @@ CHIPEventLevel0::~CHIPEventLevel0() {
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
-    : CHIPEvent((CHIPContext *)(ChipCtx), Flags) {
+    : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
+      EventPool_(nullptr), Timestamp_(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -379,12 +380,7 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
    * values.
    * https://spec.oneapi.io/level-zero/latest/core/PROG.html#kernel-timestamp-events
    */
-  if (Started > Finished) {
-    std::swap(Started, Finished);
-  }
-
-  // TODO should this be context or global? Probably context
-  uint64_t Elapsed = Finished - Started;
+  uint64_t Elapsed = std::fabs(Finished - Started);
 
 #define NANOSECS 1000000000
   uint64_t MS = (Elapsed / NANOSECS) * 1000;
@@ -505,6 +501,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           if (E->isFinished()) {
             EventsToDelete.push_back(E);
           }
+          // Check if this event is associated with a CommandList
           bool CommandListFound = EventCommandListMap->count(E);
           if (E->isFinished() && CommandListFound) {
             auto CommandList = (*EventCommandListMap)[E];
@@ -1012,6 +1009,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
   // Create an event to keep track of when this command list is done
   auto ListDoneEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
+  ListDoneEvent->Msg = "ListDone";
 
   {
     std::lock_guard<std::mutex> Lock(
