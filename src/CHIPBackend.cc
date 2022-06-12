@@ -1056,8 +1056,8 @@ hipError_t CHIPContext::free(void *Ptr) {
   if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
 
-  ChipDev->AllocationTracker->eraseRecord(AllocInfo);
   ChipDev->AllocationTracker->releaseMemReservation(AllocInfo->Size);
+  ChipDev->AllocationTracker->eraseRecord(AllocInfo);
   freeImpl(Ptr);
   return hipSuccess;
 }
