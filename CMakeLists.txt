@@ -19,13 +19,14 @@ project(CHIP-SPV
 include(cmake/chip_spv_cmake_macros.cmake)
 
 # Cmake options that can be passed in by the user
-option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" OFF)
+option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
+option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
 set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
 
 # If custom HIP_SPIRV_DIR is given, check that kernellib.bc exists
@@ -46,6 +47,10 @@ if(PER_THREAD_DEFAULT_STREAM)
   list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
 endif()
 
+if(LEVEL_ZERO_IMMEDIATE_QUEUES)
+  list(APPEND CHIP_SPV_DEFINITIONS L0_IMM_QUEUES)
+endif()
+
 
 set(HIP_PLATFORM spirv)
 set(HIP_COMPILER clang)
@@ -58,7 +63,7 @@ endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
   add_compile_options("-Wall")
-  list(APPEND CHIP_SPV_DEFINITIONS DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+  list(APPEND CHIP_SPV_DEFINITIONS DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 else()
   list(APPEND CHIP_SPV_DEFINITIONS DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_WARN)
 endif()

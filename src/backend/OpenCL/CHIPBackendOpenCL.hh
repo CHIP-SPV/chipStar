@@ -72,7 +72,7 @@ public:
   bool wait() override;
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
-  virtual bool updateFinishStatus() override;
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
   cl_event peek();
   cl_event get();
   uint64_t getFinishTime();
@@ -115,8 +115,8 @@ public:
   cl::Context *ClContext;
   CHIPContextOpenCL(cl::Context *ClContext);
 
-  void *allocateImpl(size_t Size, size_t Alignment,
-                     hipMemoryType MemType) override;
+  void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
+                     CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();

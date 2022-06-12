@@ -8,6 +8,7 @@
 std::string resultToString(ze_result_t Status);
 
 // fw declares
+class CHIPBackendLevel0;
 class CHIPContextLevel0;
 class CHIPDeviceLevel0;
 class CHIPModuleLevel0;
@@ -37,7 +38,7 @@ public:
 
   virtual bool wait() override;
 
-  bool updateFinishStatus() override;
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
 
   virtual void takeOver(CHIPEvent *Other) override;
 
@@ -83,11 +84,22 @@ class CHIPQueueLevel0 : public CHIPQueue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
+  ze_command_list_desc_t CommandListComputeDesc_;
+  ze_command_list_desc_t CommandListMemoryDesc_;
+
+  // Queues need ot be created on separate queue group indices in order to be
+  // independent from one another. Use this variable to do round-robin
+  // distribution across queues every time you create a queue.
+  unsigned int NextQueueIndex_ = 0;
 
   size_t MaxMemoryFillPatternSize = 0;
 
   // Immediate command list is being used. Command queue is implicit
-  ze_command_list_handle_t ZeCmdListImm_;
+  ze_command_list_handle_t ZeCmdListCompute_;
+  ze_command_list_handle_t ZeCmdListCopy_;
+
+  ze_command_list_handle_t ZeCmdListComputeImm_;
+  ze_command_list_handle_t ZeCmdListCopyImm_;
 
   /**
    * @brief Command queue handle
@@ -111,6 +123,9 @@ public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
 
+  virtual void addCallback(hipStreamCallback_t Callback,
+                           void *UserData) override;
+
   virtual CHIPEventLevel0 *getLastEvent() override;
 
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
@@ -120,7 +135,38 @@ public:
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
 
-  ze_command_list_handle_t getCmdList() { return ZeCmdListImm_; }
+  ze_command_list_handle_t getCmdListCopy() {
+#ifdef L0_IMM_QUEUES
+    return ZeCmdListCopyImm_;
+#else
+    ze_command_list_handle_t CommandList;
+    auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc_,
+                                      &CommandList);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
+    return CommandList;
+#endif
+  }
+
+  ze_command_list_handle_t getCmdListCompute() {
+#ifdef L0_IMM_QUEUES
+    return ZeCmdListComputeImm_;
+#else
+    ze_command_list_handle_t ZeCmdList;
+    auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc_,
+                                      &ZeCmdList);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
+    return ZeCmdList;
+#endif
+  }
+
+  void executeCommandList(ze_command_list_handle_t CommandList);
+
+  ze_command_list_handle_t getCmdListComputeImm() {
+    return ZeCmdListComputeImm_;
+  }
+
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
 
@@ -166,8 +212,8 @@ public:
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
 
-  void *allocateImpl(size_t Size, size_t Alignment,
-                     hipMemoryType MemTy) override;
+  void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
+                     CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   void freeImpl(void *Ptr) override{}; // TODO
   ze_context_handle_t &get() { return ZeCtx; }
@@ -179,6 +225,11 @@ class CHIPModuleLevel0 : public CHIPModule {
 
 public:
   CHIPModuleLevel0(std::string *ModuleStr) : CHIPModule(ModuleStr) {}
+  // ~CHIPModuleLevel0() {
+  //   auto Status = zeModuleDestroy(ZeModule_);
+  //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  // Also delete all kernels
+  // }
   /**
    * @brief Compile this module.
    * Extracts kernels, sets the ze_module
@@ -283,9 +334,16 @@ public:
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {
-  CHIPStaleEventMonitorLevel0 *StaleEventMonitor_;
 
 public:
+  CHIPCallbackEventMonitorLevel0 *CallbackEventMonitor = nullptr;
+  CHIPStaleEventMonitorLevel0 *StaleEventMonitor = nullptr;
+
+  virtual void uninitialize() override;
+  std::mutex CommandListsMtx;
+
+  std::map<CHIPEventLevel0 *, ze_command_list_handle_t> EventCommandListMap;
+
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;

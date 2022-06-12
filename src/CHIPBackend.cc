@@ -169,7 +169,7 @@ void CHIPEvent::recordStream(CHIPQueue *ChipQueue) {
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t(1)),
-      ChipContext_(Ctx) {}
+      ChipContext_(Ctx), Msg("") {}
 
 // CHIPModuleflags_
 //*************************************************************************************
@@ -313,11 +313,7 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
     queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
     VarInfos.push_back(std::make_pair(Var, &VarInfoBufH[I]));
   }
-  auto Err =
-      Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
-  if (Err != hipSuccess)
-    CHIPERR_LOG_AND_THROW("Internal error: Unexpected memcopy failure.",
-                          hipErrorTbd);
+  Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
   Queue->finish();
 
   // Allocate storage for the device variables.
@@ -933,7 +929,6 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
-  logDebug("CHIPContext::syncQueues()");
   std::lock_guard<std::mutex> lock(Mtx);
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
   std::vector<CHIPQueue *> QueuesBlocking;
@@ -945,7 +940,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   for (auto &Queue : Queues)
     if (Queue->getQueueFlags().isBlocking())
       QueuesBlocking.push_back(Queue);
-  logDebug("Num blocking queues: {}", QueuesBlocking.size());
 
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
@@ -989,11 +983,6 @@ void CHIPContext::finishAll() {
     Queue->finish();
 }
 
-void *CHIPContext::allocate(size_t Size) {
-  return allocate(Size, 0, hipMemoryType::hipMemoryTypeUnified,
-                  CHIPHostAllocFlags());
-}
-
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, CHIPHostAllocFlags());
 }
@@ -1007,17 +996,18 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   std::lock_guard<std::mutex> Lock(Mtx);
   void *AllocatedPtr;
 
-  // TODO
-  if (Flags.isCoherent())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isNonCoherent())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isNumaUser())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isPortable())
-    UNIMPLEMENTED(nullptr);
-  if (Flags.isWriteCombined())
-    UNIMPLEMENTED(nullptr);
+  if (!Flags.isDefault()) {
+    if (Flags.isMapped())
+      MemType = hipMemoryType::hipMemoryTypeHost;
+    if (Flags.isCoherent())
+      UNIMPLEMENTED(nullptr);
+    if (Flags.isNonCoherent())
+      UNIMPLEMENTED(nullptr);
+    if (Flags.isNumaUser())
+      UNIMPLEMENTED(nullptr);
+    if (Flags.isPortable())
+      UNIMPLEMENTED(nullptr);
+  }
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   assert(ChipDev->getContext() == this);
@@ -1064,8 +1054,8 @@ hipError_t CHIPContext::free(void *Ptr) {
   if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
 
-  ChipDev->AllocationTracker->eraseRecord(AllocInfo);
   ChipDev->AllocationTracker->releaseMemReservation(AllocInfo->Size);
+  ChipDev->AllocationTracker->eraseRecord(AllocInfo);
   freeImpl(Ptr);
   return hipSuccess;
 }
@@ -1073,27 +1063,7 @@ hipError_t CHIPContext::free(void *Ptr) {
 // CHIPBackend
 //*************************************************************************************
 
-void CHIPBackend::uninitialize() {
-  logDebug("CHIPBackend::uninitialize()");
-  {
-    std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
-    for (auto q : Backend->getQueues()) {
-      auto Ev = q->getLastEvent();
-      std::lock_guard<std::mutex> Lock(Ev->Mtx);
-      if (Ev->getCHIPRefc() == 2)
-        Ev->decreaseRefCount();
-    }
-  }
-  // Give a chance for StaleEventMonitor to cleanup
-  pthread_yield();
-  sleep(1); // TODO Is there a better way to do this?
-
-  logDebug("Remaining {} events that haven't been collected:",
-           Backend->Events.size());
-  for (auto E : Backend->Events)
-    logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-             E->getCHIPRefc());
-}
+void CHIPBackend::uninitialize() { logDebug("CHIPBackend::uninitialize()"); }
 
 std::string CHIPBackend::getJitFlags() {
   std::string Flags;
@@ -1407,11 +1377,6 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice) : CHIPQueue(ChipDevice, 0, 0){};
 CHIPQueue::~CHIPQueue(){};
 
 ///////// Enqueue Operations //////////
-CHIPEvent *CHIPQueue::memCopyImpl(void *Dst, const void *Src, size_t Size) {
-  auto ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
-  finish();
-  return ChipEvent;
-}
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   // Scope this so that we release mutex for finish()
   {
@@ -1427,7 +1392,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   this->finish();
   return hipSuccess;
 }
-hipError_t CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
+void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
   std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
@@ -1435,25 +1400,24 @@ hipError_t CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
   auto ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
   ChipEvent->Msg = "memCopyAsync";
   updateLastEvent(ChipEvent);
-  return hipSuccess;
+  return;
 }
 void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
                         size_t PatternSize) {
-  std::lock_guard<std::mutex> Lock(Mtx);
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
+    ChipContext_->syncQueues(this);
 #endif
-  auto ChipEvent = memFillImpl(Dst, Size, Pattern, PatternSize);
-  ChipEvent->Msg = "memFill";
-  updateLastEvent(ChipEvent);
+    auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
+    ChipEvent->Msg = "memFill";
+    updateLastEvent(ChipEvent);
+  }
+  this->finish();
+  return;
 }
-CHIPEvent *CHIPQueue::memFillImpl(void *Dst, size_t Size, const void *Pattern,
-                                  size_t PatternSize) {
-  auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
-  finish();
-  return ChipEvent;
-}
+
 void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                              size_t PatternSize) {
   std::lock_guard<std::mutex> Lock(Mtx);
@@ -1477,25 +1441,24 @@ void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
   finish();
   updateLastEvent(ChipEvent);
 }
-CHIPEvent *CHIPQueue::memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
-                                    size_t SPitch, size_t Width,
-                                    size_t Height) {
 
-  auto ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
-  finish();
-  return ChipEvent;
-}
 void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                                size_t SPitch, size_t Width, size_t Height) {
-  std::lock_guard<std::mutex> Lock(Mtx);
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
 #ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
+    ChipContext_->syncQueues(this);
 #endif
-  auto ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
-  ChipEvent->Msg = "memCopy2DAsync";
-  updateLastEvent(ChipEvent);
+    auto ChipEvent =
+        memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
+    ChipEvent->Msg = "memCopy2DAsync";
+    updateLastEvent(ChipEvent);
+  }
+  this->finish();
+  return;
 }
+
 void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                           const void *Src, size_t SPitch, size_t SSPitch,
                           size_t Width, size_t Height, size_t Depth) {
@@ -1510,18 +1473,7 @@ void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
   finish();
   updateLastEvent(ChipEvent);
 }
-CHIPEvent *CHIPQueue::memCopy3DImpl(void *Dst, size_t DPitch, size_t DSPitch,
-                                    const void *Src, size_t SPithc,
-                                    size_t SSPitch, size_t Width, size_t Height,
-                                    size_t Depth) {
-#ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
-#endif
-  auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPithc,
-                                      SSPitch, Width, Height, Depth);
-  finish();
-  return ChipEvent;
-}
+
 void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                const void *Src, size_t SPitch, size_t SSPitch,
                                size_t Width, size_t Height, size_t Depth) {
@@ -1686,14 +1638,12 @@ void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
     Backend->CallbackQueue.push(Callbackdata);
   }
 
-  // Setup event handling on the CPU side
-  {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    if (!Backend->EventMonitor)
-      Backend->EventMonitor = Backend->createCallbackEventMonitor();
-  }
+  // // Setup event handling on the CPU side
+  // {
+  //   std::lock_guard<std::mutex> Lock(Mtx);
+  //   if (!Backend->CallbackEventMonitor)
+  //     Backend->CallbackEventMonitor = Backend->createCallbackEventMonitor();
+  // }
 
   return;
 }
-
-bool CHIPQueue::query() { UNIMPLEMENTED(true); }

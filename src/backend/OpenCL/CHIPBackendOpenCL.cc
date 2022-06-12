@@ -583,7 +583,7 @@ bool CHIPEventOpenCL::wait() {
   return true;
 }
 
-bool CHIPEventOpenCL::updateFinishStatus() {
+bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
   if (EventStatus_ != EVENT_STATUS_RECORDING)
     return false;
@@ -755,7 +755,8 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
-                                      hipMemoryType MemType) {
+                                      hipMemoryType MemType,
+                                      CHIPHostAllocFlags Flags) {
   void *Retval;
 
   Retval = SvmMemory.allocate(Size);

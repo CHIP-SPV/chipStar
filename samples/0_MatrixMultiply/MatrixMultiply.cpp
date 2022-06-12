@@ -30,21 +30,21 @@
 // how many times to run the matmul kernel
 #define ITERS 1
 
-#define ERR_CHECK_2                   \
-  do {                                \
-    err = hipGetLastError();          \
-    if (err != hipSuccess) {          \
-      std::cerr << "HIP API error\n"; \
-      return -1;                      \
-    }                                 \
+#define ERR_CHECK_2                                                            \
+  do {                                                                         \
+    err = hipGetLastError();                                                   \
+    if (err != hipSuccess) {                                                   \
+      std::cerr << "HIP API error\n";                                          \
+      return -1;                                                               \
+    }                                                                          \
   } while (0)
 
-#define ERR_CHECK                     \
-  do {                                \
-    if (err != hipSuccess) {          \
-      std::cerr << "HIP API error\n"; \
-      return -1;                      \
-    }                                 \
+#define ERR_CHECK                                                              \
+  do {                                                                         \
+    if (err != hipSuccess) {                                                   \
+      std::cerr << "HIP API error\n";                                          \
+      return -1;                                                               \
+    }                                                                          \
   } while (0)
 
 /*****************************************************************************/
@@ -52,16 +52,16 @@
 #ifndef MM_SHARED
 
 // Simple version, myGEMM2
-__global__ void gpuMatrixMul(const float* __restrict A,
-                             const float* __restrict B, float* __restrict C,
+__global__ void gpuMatrixMul(const float *__restrict A,
+                             const float *__restrict B, float *__restrict C,
                              uint M, uint N, uint K)
 
 {
   // Thread identifiers
   const uint globalRow =
-      hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;  // Row ID of C (0..M)
+      hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x; // Row ID of C (0..M)
   const uint globalCol =
-      hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;  // Col ID of C (0..N)
+      hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y; // Col ID of C (0..N)
 
   // Compute a single element (loop over K)
   float acc = 0.0f;
@@ -86,14 +86,14 @@ __global__ void gpuMatrixMul(const float* __restrict A,
 #define RTS 4
 
 // Tiled and coalesced version, myGEMM4
-__global__ void gpuMatrixMul(const float* __restrict A,
-                             const float* __restrict B, float* __restrict C,
+__global__ void gpuMatrixMul(const float *__restrict A,
+                             const float *__restrict B, float *__restrict C,
                              uint M, uint N, uint K) {
   // Thread identifiers
-  const uint row = hipThreadIdx_x;  // Local row ID (max: TS)
-  const uint col = hipThreadIdx_y;  // Local col ID (max: TS/WPT == RTS)
-  const uint globalRow = TS * hipBlockIdx_x + row;  // Row ID of C (0..M)
-  const uint globalCol = TS * hipBlockIdx_y + col;  // Col ID of C (0..N)
+  const uint row = hipThreadIdx_x; // Local row ID (max: TS)
+  const uint col = hipThreadIdx_y; // Local col ID (max: TS/WPT == RTS)
+  const uint globalRow = TS * hipBlockIdx_x + row; // Row ID of C (0..M)
+  const uint globalCol = TS * hipBlockIdx_y + col; // Col ID of C (0..N)
 
   // Local memory to fit a tile of TS*TS elements of A and B
   __shared__ float Asub[TS][TS];
@@ -144,9 +144,9 @@ __global__ void gpuMatrixMul(const float* __restrict A,
 /*****************************************************************************/
 
 // CPU implementation of matrix transpose
-void matrixMultiplyCPUReference(const float* __restrict A,
-                                const float* __restrict B,
-                                float* __restrict C) {
+void matrixMultiplyCPUReference(const float *__restrict A,
+                                const float *__restrict B,
+                                float *__restrict C) {
   for (uint i = 0; i < WIDTH; i++) {
     for (uint j = 0; j < WIDTH; j++) {
       float acc = 0.0f;
@@ -170,14 +170,14 @@ int main() {
   auto rnd =
       std::bind(std::uniform_real_distribution<float>{100.0f, 1000.0f}, gen);
 
-  float* Matrix1;
-  float* Matrix2;
-  float* MultiplyMatrix;
-  float* cpuMultiplyMatrix;
+  float *Matrix1;
+  float *Matrix2;
+  float *MultiplyMatrix;
+  float *cpuMultiplyMatrix;
 
-  float* gpuMatrix1;
-  float* gpuMatrix2;
-  float* gpuMultiplyMatrix;
+  float *gpuMatrix1;
+  float *gpuMatrix2;
+  float *gpuMultiplyMatrix;
 
   hipDeviceProp_t devProp;
   err = hipGetDeviceProperties(&devProp, 0);
@@ -197,6 +197,12 @@ int main() {
   Matrix2 = new float[NUM];
   MultiplyMatrix = new float[NUM];
   cpuMultiplyMatrix = new float[NUM];
+  for (int i = 0; i < NUM; i++) {
+    Matrix1[i] = 0;
+    Matrix2[i] = 0;
+    MultiplyMatrix[i] = 0;
+    cpuMultiplyMatrix[i] = 0;
+  }
 
   // initialize the input data
   for (i = 0; i < NUM; i++) {
@@ -207,11 +213,11 @@ int main() {
   float minMs, tempMs;
 
   // allocate the memory on the device side
-  err = hipMalloc((void**)&gpuMatrix1, NUM * sizeof(float));
+  err = hipMalloc((void **)&gpuMatrix1, NUM * sizeof(float));
   ERR_CHECK;
-  err = hipMalloc((void**)&gpuMatrix2, NUM * sizeof(float));
+  err = hipMalloc((void **)&gpuMatrix2, NUM * sizeof(float));
   ERR_CHECK;
-  err = hipMalloc((void**)&gpuMultiplyMatrix, NUM * sizeof(float));
+  err = hipMalloc((void **)&gpuMultiplyMatrix, NUM * sizeof(float));
   ERR_CHECK;
 
   auto timeGPU1 = std::chrono::high_resolution_clock::now();
@@ -261,7 +267,8 @@ int main() {
     err = hipEventElapsedTime(&tempMs, events[i * 2], events[i * 2 + 1]);
     ERR_CHECK;
     std::cout << "hipLaunchKernel " << i << " time taken: " << tempMs << "\n";
-    if (tempMs < minMs) minMs = tempMs;
+    if (tempMs < minMs)
+      minMs = tempMs;
   }
 
   std::cout << "hipLaunchKernel BEST TIME: " << minMs << "\n";

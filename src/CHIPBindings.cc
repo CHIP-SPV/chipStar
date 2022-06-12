@@ -72,141 +72,219 @@ static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
 }
 
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphDestroy(hipGraph_t graph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
                                    const hipGraphNode_t *to,
                                    size_t numDependencies) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
                                       const hipGraphNode_t *from,
                                       const hipGraphNode_t *to,
                                       size_t numDependencies) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
                             hipGraphNode_t *to, size_t *numEdges) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphGetNodes(hipGraph_t graph, hipGraphNode_t *nodes,
                             size_t *numNodes) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphGetRootNodes(hipGraph_t graph, hipGraphNode_t *pRootNodes,
                                 size_t *pNumRootNodes) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphNodeGetDependencies(hipGraphNode_t node,
                                        hipGraphNode_t *pDependencies,
                                        size_t *pNumDependencies) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
                                          hipGraphNode_t *pDependentNodes,
                                          size_t *pNumDependentNodes) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphNodeFindInClone(hipGraphNode_t *pNode,
                                    hipGraphNode_t originalNode,
                                    hipGraph_t clonedGraph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphInstantiate(hipGraphExec_t *pGraphExec, hipGraph_t graph,
                                hipGraphNode_t *pErrorNode, char *pLogBuffer,
                                size_t bufferSize) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphInstantiateWithFlags(hipGraphExec_t *pGraphExec,
                                         hipGraph_t graph,
                                         unsigned long long flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecDestroy(hipGraphExec_t graphExec) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
                               hipGraphNode_t *hErrorNode_out,
                               hipGraphExecUpdateResult *updateResult_out) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipGraphNode_t *pDependencies,
                                  size_t numDependencies,
                                  const hipKernelNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphKernelNodeGetParams(hipGraphNode_t node,
                                        hipKernelNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphKernelNodeSetParams(hipGraphNode_t node,
                                        const hipKernelNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t
 hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
                                 const hipKernelNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipGraphNode_t *pDependencies,
                                  size_t numDependencies,
                                  const hipMemcpy3DParms *pCopyParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
                                        hipMemcpy3DParms *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemcpyNodeSetParams(hipGraphNode_t node,
                                        const hipMemcpy3DParms *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecMemcpyNodeSetParams(hipGraphExec_t hGraphExec,
                                            hipGraphNode_t node,
                                            hipMemcpy3DParms *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
@@ -214,20 +292,29 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                    size_t numDependencies, void *dst,
                                    const void *src, size_t count,
                                    hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemcpyNodeSetParams1D(hipGraphNode_t node, void *dst,
                                          const void *src, size_t count,
                                          hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
                                              hipGraphNode_t node, void *dst,
                                              const void *src, size_t count,
                                              hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddMemcpyNodeFromSymbol(hipGraphNode_t *pGraphNode,
@@ -236,20 +323,29 @@ hipError_t hipGraphAddMemcpyNodeFromSymbol(hipGraphNode_t *pGraphNode,
                                            size_t numDependencies, void *dst,
                                            const void *symbol, size_t count,
                                            size_t offset, hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemcpyNodeSetParamsFromSymbol(hipGraphNode_t node, void *dst,
                                                  const void *symbol,
                                                  size_t count, size_t offset,
                                                  hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecMemcpyNodeSetParamsFromSymbol(
     hipGraphExec_t hGraphExec, hipGraphNode_t node, void *dst,
     const void *symbol, size_t count, size_t offset, hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddMemcpyNodeToSymbol(hipGraphNode_t *pGraphNode,
@@ -259,7 +355,10 @@ hipError_t hipGraphAddMemcpyNodeToSymbol(hipGraphNode_t *pGraphNode,
                                          const void *symbol, const void *src,
                                          size_t count, size_t offset,
                                          hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemcpyNodeSetParamsToSymbol(hipGraphNode_t node,
@@ -267,59 +366,89 @@ hipError_t hipGraphMemcpyNodeSetParamsToSymbol(hipGraphNode_t node,
                                                const void *src, size_t count,
                                                size_t offset,
                                                hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecMemcpyNodeSetParamsToSymbol(
     hipGraphExec_t hGraphExec, hipGraphNode_t node, const void *symbol,
     const void *src, size_t count, size_t offset, hipMemcpyKind kind) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipGraphNode_t *pDependencies,
                                  size_t numDependencies,
                                  const hipMemsetParams *pMemsetParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
                                        hipMemsetParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphMemsetNodeSetParams(hipGraphNode_t node,
                                        const hipMemsetParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecMemsetNodeSetParams(hipGraphExec_t hGraphExec,
                                            hipGraphNode_t node,
                                            const hipMemsetParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddHostNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                const hipGraphNode_t *pDependencies,
                                size_t numDependencies,
                                const hipHostNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphHostNodeGetParams(hipGraphNode_t node,
                                      hipHostNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphHostNodeSetParams(hipGraphNode_t node,
                                      const hipHostNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecHostNodeSetParams(hipGraphExec_t hGraphExec,
                                          hipGraphNode_t node,
                                          const hipHostNodeParams *pNodeParams) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
@@ -327,24 +456,36 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
                                      const hipGraphNode_t *pDependencies,
                                      size_t numDependencies,
                                      hipGraph_t childGraph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphChildGraphNodeGetGraph(hipGraphNode_t node,
                                           hipGraph_t *pGraph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecChildGraphNodeSetParams(hipGraphExec_t hGraphExec,
                                                hipGraphNode_t node,
                                                hipGraph_t childGraph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                 const hipGraphNode_t *pDependencies,
                                 size_t numDependencies) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
@@ -352,54 +493,84 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
                                       const hipGraphNode_t *pDependencies,
                                       size_t numDependencies,
                                       hipEvent_t event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphEventRecordNodeGetEvent(hipGraphNode_t node,
                                            hipEvent_t *event_out) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphEventRecordNodeSetEvent(hipGraphNode_t node,
                                            hipEvent_t event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
                                                hipGraphNode_t hNode,
                                                hipEvent_t event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
                                     hipGraph_t graph,
                                     const hipGraphNode_t *pDependencies,
                                     size_t numDependencies, hipEvent_t event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphEventWaitNodeGetEvent(hipGraphNode_t node,
                                          hipEvent_t *event_out) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphEventWaitNodeSetEvent(hipGraphNode_t node,
                                          hipEvent_t event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
                                              hipGraphNode_t hNode,
                                              hipEvent_t event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 hipError_t hipStreamBeginCapture(hipStream_t stream,
                                  hipStreamCaptureMode mode) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
@@ -433,13 +604,22 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
 
 hipError_t hipIpcOpenMemHandle(void **DevPtr, hipIpcMemHandle_t Handle,
                                unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 hipError_t hipIpcCloseMemHandle(void *DevPtr) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
@@ -451,18 +631,27 @@ hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
 
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
                          int SrcDeviceId, size_t SizeBytes) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 };
 hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
                                    hipMemRangeAttribute Attribute,
                                    const void *DevPtr, size_t Count) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 };
 
 hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
                               int SrcDevice, size_t SizeBytes,
                               hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 };
 
 hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
@@ -1336,8 +1525,8 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   Event->updateFinishStatus();
   if (Event->isFinished())
     RETURN(hipSuccess);
-  else
-    RETURN(hipErrorNotReady);
+
+  RETURN(hipErrorNotReady);
 
   CHIP_CATCH
 }
@@ -1365,6 +1554,8 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIPInitialize();
   NULLCHECK(DevPtr);
 
+  // TODO: Create a class for parsing this, default to attach global
+  // attach host should be device allocate with associated host poitner?
   auto FlagsParsed = CHIPManagedMemFlags{Flags};
   switch (FlagsParsed) {
   case CHIPManagedMemFlags::AttachGlobal:
@@ -1442,8 +1633,8 @@ hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
 
 hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
-  UNIMPLEMENTED(hipErrorTbd);
   CHIP_TRY
+  UNIMPLEMENTED(hipErrorTbd);
   CHIPInitialize();
   NULLCHECK(Ptr);
   Stream = Backend->findQueue(Stream);
@@ -1563,7 +1754,8 @@ static hipError_t hipMallocPitch3D(void **Ptr, size_t *Pitch, size_t Width,
   *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
   const size_t SizeBytes = (*Pitch) * Height * ((Depth == 0) ? 1 : Depth);
 
-  void *RetVal = Backend->getActiveContext()->allocate(SizeBytes);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      SizeBytes, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1641,7 +1833,8 @@ hipError_t hipMalloc3DArray(hipArray **Array,
   size_t AllocSize =
       Width * std::max<size_t>(Height, 1) * getChannelByteSize(*Desc);
 
-  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      AllocSize, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1676,7 +1869,8 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
   size_t AllocSize =
       Width * std::max<size_t>(Height, 1) * getChannelByteSize(*Desc);
 
-  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      AllocSize, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1736,7 +1930,8 @@ hipError_t hipArrayCreate(hipArray **Array,
     break;
   }
 
-  void *RetVal = Backend->getActiveContext()->allocate(AllocSize);
+  void *RetVal = Backend->getActiveContext()->allocate(
+      AllocSize, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
@@ -1838,7 +2033,8 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
     memcpy(Dst, Src, SizeBytes);
     RETURN(hipSuccess);
   } else {
-    RETURN(Stream->memCopyAsync(Dst, Src, SizeBytes));
+    Stream->memCopyAsync(Dst, Src, SizeBytes);
+    RETURN(hipSuccess);
   }
 
   CHIP_CATCH
@@ -3029,10 +3225,16 @@ hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
 
 hipError_t hipIpcOpenEventHandle(hipEvent_t *Event,
                                  hipIpcEventHandle_t Handle) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *Handle, hipEvent_t Event) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipModuleOccupancyMaxPotentialBlockSize(int *GridSize,
@@ -3044,43 +3246,64 @@ hipError_t hipModuleOccupancyMaxPotentialBlockSize(int *GridSize,
 hipError_t hipModuleOccupancyMaxPotentialBlockSizeWithFlags(
     int *GridSize, int *BlockSize, hipFunction_t Func,
     size_t DynSharedMemPerBlk, int BlockSizeLimit, unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessor(
     int *NumBlocks, hipFunction_t Func, int BlockSize,
     size_t DynSharedMemPerBlk) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
     int *NumBlocks, hipFunction_t Func, int BlockSize,
     size_t DynSharedMemPerBlk, unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t
 hipOccupancyMaxActiveBlocksPerMultiprocessor(int *NumBlocks, const void *Func,
                                              int BlockSize,
                                              size_t DynSharedMemPerBlk) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
     int *NumBlocks, const void *Func, int BlockSize, size_t DynSharedMemPerBlk,
     unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipOccupancyMaxPotentialBlockSize(int *GridSize, int *BlockSize,
                                              const void *Func,
                                              size_t DynSharedMemPerBlk,
                                              int BlockSizeLimit) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 hipError_t hipGetDeviceFlags(unsigned int *Flags) {
+  CHIP_TRY
+  CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
 }
 
 /**

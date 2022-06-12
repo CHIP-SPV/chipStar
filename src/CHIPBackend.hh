@@ -564,7 +564,7 @@ public:
    * @return true event was in recording state, state might have changed
    * @return false event was not in recording state
    */
-  virtual bool updateFinishStatus() = 0;
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) = 0;
 
   /**
    * @brief Check if this event is recording or already recorded
@@ -1164,7 +1164,7 @@ public:
    */
   void reset() {
     invalidateDeviceVariables();
-    resetImpl();
+    // resetImpl();
   }
 
   /**
@@ -1372,18 +1372,6 @@ public:
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
    * Calls CHIPContext::allocate_(size_t size, size_t alignment,
-   * hipMemoryType mem_type) with allignment = 0 and allocation type = Shared
-   *
-   *
-   * @param size size of the allocation
-   * @return void* pointer to allocated memory
-   */
-  void *allocate(size_t Size);
-
-  /**
-   * @brief Allocate data.
-   * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
@@ -1430,8 +1418,9 @@ public:
    * @param mem_type type of the allocation: Host, Device, Shared
    * @return void*
    */
-  virtual void *allocateImpl(size_t Size, size_t Alignment,
-                             hipMemoryType MemType) = 0;
+  virtual void *
+  allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
+               CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
 
   /**
    * @brief Free memory
@@ -1506,7 +1495,6 @@ protected:
   CHIPQueue *ActiveQ_;
 
 public:
-  CHIPEventMonitor *EventMonitor = nullptr;
   std::mutex Mtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
@@ -1853,7 +1841,6 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual CHIPEvent *memCopyImpl(void *Dst, const void *Src, size_t Size);
   hipError_t memCopy(void *Dst, const void *Src, size_t Size);
 
   /**
@@ -1866,7 +1853,7 @@ public:
    */
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) = 0;
-  hipError_t memCopyAsync(void *Dst, const void *Src, size_t Size);
+  void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
   /**
    * @brief Blocking memset
@@ -1876,8 +1863,6 @@ public:
    * @param pattern
    * @param pattern_size
    */
-  virtual CHIPEvent *memFillImpl(void *Dst, size_t Size, const void *Pattern,
-                                 size_t PatternSize);
   virtual void memFill(void *Dst, size_t Size, const void *Pattern,
                        size_t PatternSize);
 
@@ -1896,8 +1881,6 @@ public:
                             size_t PatternSize);
 
   // The memory copy 2D support
-  virtual CHIPEvent *memCopy2DImpl(void *Dst, size_t DPitch, const void *Src,
-                                   size_t Pitch, size_t Width, size_t Height);
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
@@ -1908,10 +1891,6 @@ public:
                               size_t SPitch, size_t Width, size_t Height);
 
   // The memory copy 3D support
-  virtual CHIPEvent *memCopy3DImpl(void *Dst, size_t DPitch, size_t DSPitch,
-                                   const void *Src, size_t Spitch,
-                                   size_t SSPitch, size_t Width, size_t Height,
-                                   size_t Depth);
   virtual void memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
@@ -1955,7 +1934,7 @@ public:
    * @return false
    */
 
-  bool query(); // TODO Depends on Events
+  bool query() { UNIMPLEMENTED(true); }; // TODO Depends on Events
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority
