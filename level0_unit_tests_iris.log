@@ -1,6 +1,6 @@
-84% tests passed, 62 tests failed out of 385
+84% tests passed, 61 tests failed out of 385
 
-Total Test time (real) = 909.84 sec
+Total Test time (real) = 919.68 sec
 
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
@@ -9,7 +9,6 @@ The following tests FAILED:
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (SEGFAULT)
 	179 - Unit_hipMemset2DAsync_MultiThread (Subprocess aborted)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
@@ -37,7 +36,7 @@ The following tests FAILED:
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
 	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
-	303 - Unit_hipStreamPerThread_StreamSynchronize (SEGFAULT)
+	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
