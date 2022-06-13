@@ -475,7 +475,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
 
   while (!Stop) {
-    sleep(1);
+    usleep(100);
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
@@ -530,7 +530,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     }
 
-    pthread_yield();
     if (Stop && !Backend->Events.size() && !EventCommandListMap->size()) {
       logTrace(
           "CHIPStaleEventMonitorLevel0 stop was called and all events have "
