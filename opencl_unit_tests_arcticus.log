@@ -1,6 +1,6 @@
-77% tests passed, 89 tests failed out of 385
+77% tests passed, 90 tests failed out of 385
 
-Total Test time (real) = 770.41 sec
+Total Test time (real) = 473.93 sec
 
 The following tests did not run:
 	382 - sycl_chip_interop (Skipped)
@@ -12,6 +12,8 @@ The following tests FAILED:
 	 59 - Unit_hipMemcpy2D_H2D-D2D-D2H - int (Failed)
 	 60 - Unit_hipMemcpy2D_H2D-D2D-D2H - float (Failed)
 	 61 - Unit_hipMemcpy2D_H2D-D2D-D2H - double (Failed)
+	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
+	 66 - Unit_hipMemcpy2D_Negative (Failed)
 	 67 - Unit_hipMemcpy2DAsync_Host&PinnedMem - int (Failed)
 	 68 - Unit_hipMemcpy2DAsync_Host&PinnedMem - float (Failed)
 	 69 - Unit_hipMemcpy2DAsync_Host&PinnedMem - double (Failed)
@@ -83,7 +85,6 @@ The following tests FAILED:
 	325 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	329 - abort (Failed)
-	354 - hipTestDeviceSymbol (Subprocess aborted)
 	369 - PrintfSimple (Failed)
 	370 - PrintfNOP (Failed)
 	371 - PrintfDynamic (Failed)

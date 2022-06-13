@@ -1,12 +1,14 @@
 86% tests passed, 52 tests failed out of 385
 
-Total Test time (real) = 562.65 sec
+Total Test time (real) = 228.85 sec
 
 The following tests did not run:
 	382 - sycl_chip_interop (Skipped)
 	383 - sycl_chip_interop_usm (Skipped)
 
 The following tests FAILED:
+	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
+	 66 - Unit_hipMemcpy2D_Negative (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
@@ -43,8 +45,6 @@ The following tests FAILED:
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
 	308 - Unit_hipStreamPerThread_EventRecord (Failed)
 	309 - Unit_hipStreamPerThread_EventSynchronize (Failed)
-	310 - Unit_hipStreamPerThread_MultiThread (SEGFAULT)
-	311 - Unit_hipStreamPerThread_DeviceReset_1 (Subprocess aborted)
 	313 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	314 - Unit_hipGraphAddDependencies_Functional (Failed)
 	315 - Unit_hipGraph_BasicFunctional (Failed)
