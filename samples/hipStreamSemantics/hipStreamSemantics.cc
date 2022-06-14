@@ -36,7 +36,7 @@ __global__ void addCountReverse(const T *A_d, T *C_d, int64_t NELEM,
 }
 
 int main() {
-  int numBlocks = 5120000;
+  int numBlocks = 512000;
   int dimBlocks = 32;
   const size_t NUM = numBlocks * dimBlocks;
   int *A_h, *A_d, *Ref;
@@ -53,8 +53,8 @@ int main() {
   CHECK(hipMalloc((void **)&A_d, NUM * sizeof(int)));
   CHECK(hipMalloc((void **)&C_d, NUM * sizeof(int)));
   printf("info: copy Host2Device\n");
-  CHECK(hipMemcpy(A_d, A_d, NUM * sizeof(int), hipMemcpyHostToDevice));
-  CHECK(hipMemcpy(C_d, C_d, NUM * sizeof(int), hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(A_d, A_h, NUM * sizeof(int), hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(C_d, C_h, NUM * sizeof(int), hipMemcpyHostToDevice));
 
   hipStream_t q;
   uint32_t flags = hipStreamNonBlocking;
