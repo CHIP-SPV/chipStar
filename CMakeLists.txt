@@ -207,6 +207,10 @@ add_subdirectory(./samples samples)
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
+
+# CHIP binaries
+add_subdirectory(bin)
+
 # CHIP-SPV CMAKE DEPENDENCIES
 ###############################################################################
 
