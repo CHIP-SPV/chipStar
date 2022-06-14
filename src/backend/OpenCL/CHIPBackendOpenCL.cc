@@ -1029,7 +1029,9 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
       OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[OutArgIdx];
-      if (Ai.Type == OCLType::Pointer && Ai.Space != OCLSpace::Local) {
+      if (Ai.Type == OCLType::Pointer) {
+        if (Ai.Space == OCLSpace::Local)
+            continue;
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
                  Ai.Size, ArgsPointer_[InArgIdx]);
         CHIPASSERT(Ai.Size == sizeof(void *));
