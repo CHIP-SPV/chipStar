@@ -19,7 +19,10 @@
 
 #include <CL/cl_ext_intel.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
 #include <CL/opencl.hpp>
+#pragma GCC diagnostic pop
 
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
