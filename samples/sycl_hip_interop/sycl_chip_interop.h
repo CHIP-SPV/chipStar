@@ -4,8 +4,7 @@
 extern "C" {
 // Initialize CHIP-SPV Level-Zero Backend via providing native runtime
 // information
-int hipInitFromOutside(void* driverPtr, void* deviePtr, void* contextPtr,
-                       void* queueptr);
+hipError_t hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles);
 
 // Run GEMM test via CHIP-SPV Level-Zero Backend via USM data transfer
 int hipMatrixMultiplicationUSMTest(const float* A, const float* B, float* C,
