@@ -73,11 +73,13 @@ int main() {
   if (Devs.size() >= 1) {
     // Initialize CHIP-SPV Level-Zero Backend via providing native runtime
     // information
-    hipInitFromOutside(
-        Plt.template get_native<sycl::backend::level_zero>(),
-        Devs[0].template get_native<sycl::backend::level_zero>(),
-        Ctx.template get_native<sycl::backend::level_zero>(),
-        myQueue.template get_native<sycl::backend::level_zero>());
+    uintptr_t Args[] = {
+        (uintptr_t)Plt.template get_native<sycl::backend::level_zero>(),
+        (uintptr_t)Devs[0].template get_native<sycl::backend::level_zero>(),
+        (uintptr_t)Ctx.template get_native<sycl::backend::level_zero>(),
+        (uintptr_t)myQueue.template get_native<sycl::backend::level_zero>()
+      };
+    hipInitFromNativeHandles(Args, 4);
 
 #ifdef USM
     // Run GEMM test via CHIP-SPV Level-Zero Backend and USM data transfer

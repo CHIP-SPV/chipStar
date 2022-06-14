@@ -89,9 +89,9 @@ int main() {
 
   assert(stream != nullptr);
 
-  unsigned long nativeHandlers[4];
-  int numItems = 0;
-  error = hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
+  uintptr_t nativeHandlers[4];
+  int numItems = 4;
+  error = hipGetBackendNativeHandles(stream, nativeHandlers, &numItems);
   CHECK(error);
 
   // Invoke oneMKL GEEM

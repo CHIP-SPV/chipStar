@@ -60,9 +60,10 @@ int main() {
   hipStream_t stream = nullptr;
   hipStreamCreate(&stream);
 
-  unsigned long nativeHandlers[4];
-  int numItems = 0;
-  hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
+  uintptr_t nativeHandlers[4];
+  int numItems = 4;
+  error = hipGetBackendNativeHandles(stream, nativeHandlers, &numItems);
+  CHECK(error);
 
   // allocate memory
   hipMalloc(&d_A, WIDTH * WIDTH * sizeof(float));
