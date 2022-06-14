@@ -564,6 +564,9 @@ NON_OVLD int GEN_NAME(group_any)(int predicate);
 NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 }
 
+unsigned __activemask()
+    __attribute__((unavailable("unsupported in CHIP-SPV.")));
+
 // memory routines
 
 /**********************************************************************/
@@ -571,6 +574,9 @@ NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 #else
 EXPORT float __saturatef(float x);
 EXPORT void __sincosf(float x, float *sptr, float *cptr);
+
+EXPORT unsigned __activemask()
+    __attribute__((unavailable("unsupported in CHIP-SPV.")));
 
 #endif
 

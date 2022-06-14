@@ -199,7 +199,7 @@ add_subdirectory(bitcode)
 
 enable_testing()
 add_subdirectory(HIP/tests/catch catch)
-
+add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
 
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
