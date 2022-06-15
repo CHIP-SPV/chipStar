@@ -985,7 +985,10 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 void CHIPQueueLevel0::finish() {
   // The finish Event_ that denotes the finish of current command list items
   pthread_yield();
-  getLastEvent()->wait();
+  // Using zeCommandQueueSynchronize() for ensuring the device printf
+  // buffers get flushed.
+  zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
+
   return;
 }
 
