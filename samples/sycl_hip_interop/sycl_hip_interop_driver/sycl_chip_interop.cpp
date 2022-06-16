@@ -1,5 +1,4 @@
 #include <stdint.h>
-
 #include "level_zero/ze_api.h"
 #include <CL/sycl.hpp>
 #include <CL/sycl/stl.hpp>
@@ -77,8 +76,7 @@ int main() {
         (uintptr_t)Plt.template get_native<sycl::backend::level_zero>(),
         (uintptr_t)Devs[0].template get_native<sycl::backend::level_zero>(),
         (uintptr_t)Ctx.template get_native<sycl::backend::level_zero>(),
-        (uintptr_t)myQueue.template get_native<sycl::backend::level_zero>()
-      };
+        (uintptr_t)myQueue.template get_native<sycl::backend::level_zero>()};
     hipInitFromNativeHandles(Args, 4);
 
 #ifdef USM

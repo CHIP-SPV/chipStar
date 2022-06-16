@@ -8,6 +8,11 @@
 
 #include "hip_sycl_interop.h"
 
+// must declare this here since it's not part of the standard HIP API
+extern "C" hipError_t hipGetBackendNativeHandles(hipStream_t Stream,
+                                                 uintptr_t *NativeHandles,
+                                                 int *NumHandles);
+
 using namespace std;
 
 const int WIDTH = 10;
