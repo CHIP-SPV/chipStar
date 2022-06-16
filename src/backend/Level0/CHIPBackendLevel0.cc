@@ -239,8 +239,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
-    : CHIPEvent((CHIPContext *)(ChipCtx)),
-      Event_(NativeEvent), EventPool_(nullptr), Timestamp_(0) {}
+    : CHIPEvent((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
+      EventPool_(nullptr), Timestamp_(0) {}
 
 void CHIPEventLevel0::takeOver(CHIPEvent *OtherIn) {
   // Take over target queues Event_
@@ -596,51 +596,49 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
     : CHIPQueueLevel0(ChipDev, 0, 0) {}
 
 void CHIPQueueLevel0::initializeEventPool(CHIPDeviceLevel0 *ChipDev) {
-    ze_result_t Status;
-    auto ChipContextLz = (CHIPContextLevel0 *)ChipDev->getContext();
+  ze_result_t Status;
+  auto ChipContextLz = (CHIPContextLevel0 *)ChipDev->getContext();
 
-    // Initialize the internal Event_ pool and finish Event_
-    ze_event_pool_desc_t EpDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
-                                   ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
-                                   1 /* Count */};
+  // Initialize the internal Event_ pool and finish Event_
+  ze_event_pool_desc_t EpDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
+                                 ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
+                                 1 /* Count */};
 
-    ze_event_desc_t EvDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr,
-                              0, /* Index */
-                              ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
-    uint32_t NumDevices = 1;
-    Status = zeEventPoolCreate(ZeCtx_, &EpDesc, NumDevices, &ZeDev_, &EventPool_);
+  ze_event_desc_t EvDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr,
+                            0, /* Index */
+                            ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
+  uint32_t NumDevices = 1;
+  Status = zeEventPoolCreate(ZeCtx_, &EpDesc, NumDevices, &ZeDev_, &EventPool_);
 
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                                "zeEventPoolCreate FAILED");
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                              "zeEventPoolCreate FAILED");
 
-    Status = zeEventCreate(EventPool_, &EvDesc, &FinishEvent_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                                "zeEventCreate FAILED with return code");
+  Status = zeEventCreate(EventPool_, &EvDesc, &FinishEvent_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                              "zeEventCreate FAILED with return code");
 
-    // Initialize the shared memory buffer
-    // TODO This does not record the buffer allocation in device allocation
-    // tracker
-    SharedBuf_ =
-        ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
+  // Initialize the shared memory buffer
+  // TODO This does not record the buffer allocation in device allocation
+  // tracker
+  SharedBuf_ =
+      ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
 
-    // Initialize the uint64_t part as 0
-    *(uint64_t *)this->SharedBuf_ = 0;
-    /**
-     * queues should always have lastEvent. Can't do this in the constuctor
-     * because enqueueMarker is virtual and calling overriden virtual methods
-     * from constructors is undefined behavior.
-     *
-     * Also, must call implementation method enqueueMarker_ as opposed to
-     * wrapped one (enqueueMarker) because the wrapped method enforces queue
-     * semantics which require LastEvent to be initialized.
-     *
-     */
-    std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
-    auto Ev = enqueueMarker();
-    Ev->Msg = "InitialMarker";
+  // Initialize the uint64_t part as 0
+  *(uint64_t *)this->SharedBuf_ = 0;
+  /**
+   * queues should always have lastEvent. Can't do this in the constuctor
+   * because enqueueMarker is virtual and calling overriden virtual methods
+   * from constructors is undefined behavior.
+   *
+   * Also, must call implementation method enqueueMarker_ as opposed to
+   * wrapped one (enqueueMarker) because the wrapped method enforces queue
+   * semantics which require LastEvent to be initialized.
+   *
+   */
+  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
+  auto Ev = enqueueMarker();
+  Ev->Msg = "InitialMarker";
 }
-
-
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
                                  int Priority)
@@ -763,38 +761,37 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
 #else
 #endif
 
-  initializeEventPool(ChipDev);
+  // initializeEventPool(ChipDev);
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 ze_command_queue_handle_t ZeQue)
+                                 ze_command_queue_handle_t ZeCmdQ)
     : CHIPQueue(ChipDev, 0, 0) {
-    auto ChipDevLz = ChipDev;
-    auto Ctx = ChipDevLz->getContext();
-    auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
+  auto ChipDevLz = ChipDev;
+  auto Ctx = ChipDevLz->getContext();
+  auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
 
-    ZeCtx_ = ChipContextLz->get();
-    ZeDev_ = ChipDevLz->get();
+  ZeCtx_ = ChipContextLz->get();
+  ZeDev_ = ChipDevLz->get();
 
-    ZeCmdQ_ = ZeQue;
+  ZeCmdQ_ = ZeCmdQ;
 #ifdef L0_IMM_QUEUES
-    // Create an immediate command list
-    Status = zeCommandListCreateImmediate(
-        ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
-    logTrace("Created an immediate compute list");
-    // Create an immediate command list for copy engine
-    Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueCopyDesc,
-                                          &ZeCmdListCopyImm_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
-    logTrace("Created an immediate copy list");
+  // Create an immediate command list
+  Status = zeCommandListCreateImmediate(
+      ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created an immediate compute list");
+  // Create an immediate command list for copy engine
+  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueCopyDesc,
+                                        &ZeCmdListCopyImm_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created an immediate copy list");
 #else
 #endif
-    initializeEventPool(ChipDev);
+  // initializeEventPool(ChipDev);
 }
-
 
 CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
@@ -937,11 +934,12 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
   return Ev;
 };
 
-hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) {
+hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
+                                              int *NumHandles) {
   logTrace("CHIPQueueLevel0::getBackendHandles");
   if (*NumHandles < 4) {
-       logError("getBackendHandles requires space for 4 handles");
-       return hipErrorInvalidValue;
+    logError("getBackendHandles requires space for 4 handles");
+    return hipErrorInvalidValue;
   }
   *NumHandles = 4;
 
@@ -1183,40 +1181,42 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 }
 
+void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
+                                             int NumHandles) {
+  logTrace("CHIPBackendLevel0 InitializeNative");
 
-void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) {
-    logTrace("CHIPBackendLevel0 InitializeNative");
+  ze_driver_handle_t Drv = (ze_driver_handle_t)NativeHandles[0];
+  ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];
+  ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[2];
 
-    ze_driver_handle_t Drv = (ze_driver_handle_t)NativeHandles[0];
-    ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];
-    ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[2];
+  CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Drv, Ctx);
+  addContext(ChipCtx);
 
-    CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Drv, Ctx);
-    addContext(ChipCtx);
+  CHIPDeviceLevel0 *ChipDev = new CHIPDeviceLevel0(&Dev, ChipCtx, 0);
+  ChipCtx->addDevice(ChipDev);
+  addDevice(ChipDev);
 
-    CHIPDeviceLevel0 *ChipDev = new CHIPDeviceLevel0(&Dev, ChipCtx, 0);
-    ChipCtx->addDevice(ChipDev);
-    addDevice(ChipDev);
+  ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
 
-    ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
+  StaleEventMonitor =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
 
-    setActiveDevice(ChipDev);
+  setActiveDevice(ChipDev);
 }
 
-hipEvent_t CHIPBackendLevel0::getHipEvent(void* NativeEvent) {
-    ze_event_handle_t E = (ze_event_handle_t)NativeEvent;
-    // TODO should we make refc == 2 ?
-    CHIPEventLevel0 *NewEvent =
-        new CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
-    return NewEvent;
+hipEvent_t CHIPBackendLevel0::getHipEvent(void *NativeEvent) {
+  ze_event_handle_t E = (ze_event_handle_t)NativeEvent;
+  // TODO should we make refc == 2 ?
+  CHIPEventLevel0 *NewEvent =
+      new CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
+  return NewEvent;
 }
 
-void* CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
-    CHIPEventLevel0 *E = (CHIPEventLevel0 *)HipEvent;
-    // TODO should we retain here?
-    return (void*)E->get();
+void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
+  CHIPEventLevel0 *E = (CHIPEventLevel0 *)HipEvent;
+  // TODO should we retain here?
+  return (void *)E->get();
 }
-
 
 // CHIPContextLevelZero
 // ***********************************************************************
@@ -1482,8 +1482,15 @@ CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
 CHIPQueue *CHIPDeviceLevel0::addQueueImpl(const uintptr_t *NativeHandles,
                                           int NumHandles) {
   ze_command_queue_handle_t CmdQ = (ze_command_queue_handle_t)NativeHandles[3];
+  CHIPQueueLevel0 *NewQ;
+  if (!CmdQ) {
+    logWarn("initializeFromNative: native queue pointer is null. Creating a "
+            "new queue");
+    NewQ = new CHIPQueueLevel0(this, 0, 0);
+  } else {
+    NewQ = new CHIPQueueLevel0(this, CmdQ);
+  }
 
-  CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, CmdQ);
   return NewQ;
 }
 
