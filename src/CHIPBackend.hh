@@ -1027,7 +1027,8 @@ public:
    */
   CHIPQueue *createQueueAndRegister(unsigned int Flags, int Priority);
 
-  CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles, int NumHandles);
+  CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
+                                    int NumHandles);
 
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
@@ -1116,7 +1117,8 @@ public:
    * in chip_queues vector)
    */
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
-  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) = 0;
+  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles,
+                                  int NumHandles) = 0;
 
   /**
    * @brief Add a queue to this device
@@ -1299,6 +1301,7 @@ public:
                               const char *Name, size_t Size);
 
   virtual CHIPModule *addModule(std::string *ModuleStr) = 0;
+  void addModule(const std::string *ModuleStr, CHIPModule *Module);
 
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
@@ -1426,7 +1429,7 @@ public:
    * @return true/false
    */
 
-  virtual bool isAllocatedPtrUSM(void* Ptr) = 0;
+  virtual bool isAllocatedPtrUSM(void *Ptr) = 0;
 
   /**
    * @brief Free memory
@@ -1584,7 +1587,8 @@ public:
    * @param device_type_str
    * @param device_ids_str
    */
-  virtual void initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) = 0;
+  virtual void initializeFromNative(const uintptr_t *NativeHandles,
+                                    int NumHandles) = 0;
 
   /**
    * @brief
@@ -1770,8 +1774,8 @@ public:
   virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
 
   /* event interop */
-  virtual hipEvent_t getHipEvent(void* NativeEvent) = 0;
-  virtual void* getNativeEvent(hipEvent_t HipEvent) = 0;
+  virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
+  virtual void *getNativeEvent(hipEvent_t HipEvent) = 0;
 };
 
 /**
@@ -2053,10 +2057,13 @@ public:
    *
    * @param NativeHandles storage for handles
    * @param NumHandles variable to hold number of returned handles
-   * @return for Level0 backend, returns { ze_driver_handle_t, ze_device_handle_t, ze_context_handle_t, ze_command_queue_handle_t }
-   * @return for OpenCL backend, returns { cl_platform_id, cl_device_id, cl_context, cl_command_queue }
+   * @return for Level0 backend, returns { ze_driver_handle_t,
+   * ze_device_handle_t, ze_context_handle_t, ze_command_queue_handle_t }
+   * @return for OpenCL backend, returns { cl_platform_id, cl_device_id,
+   * cl_context, cl_command_queue }
    */
-  virtual hipError_t getBackendHandles(uintptr_t *NativeHandles, int *NumHandles) = 0;
+  virtual hipError_t getBackendHandles(uintptr_t *NativeHandles,
+                                       int *NumHandles) = 0;
 
   CHIPContext *getContext() { return ChipContext_; }
 };

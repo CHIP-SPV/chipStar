@@ -113,40 +113,47 @@ extern void CHIPUninitialize() {
   std::call_once(Uninitialized, &CHIPUninitializeCallOnce);
 }
 
-extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles, int NumHandles) {
-    CHIPReadEnvVars();
-    logDebug("CHIPDriver REInitialize");
+extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
+                                   int NumHandles) {
+  CHIPReadEnvVars();
+  logDebug("CHIPDriver REInitialize");
 
-    if (Backend)
-    {
-      logDebug("uninitializing existing Backend object.");
-      Backend->uninitialize();
-      delete Backend;
-    }
+  // Kernel compilation already took place so we need save these modules and
+  // pass them to re-initialization function
+  auto Modules = Backend->getActiveDevice()->getModules();
 
-    // TODO Check configuration for what backends are configured
-    if (!CHIPBackendType.compare("opencl")) {
-      if (UsingDefaultBackend)
-        logWarn("CHIP_BE was not set. Defaulting to OPENCL");
-      logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
-      Backend = new CHIPBackendOpenCL();
-    } else if (!CHIPBackendType.compare("level0")) {
-      logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
-      Backend = new CHIPBackendLevel0();
-    } else {
-      CHIPERR_LOG_AND_THROW(
-          "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
-          hipErrorInitializationError);
-    }
+  if (Backend) {
+    logDebug("uninitializing existing Backend object.");
+    Backend->uninitialize();
+    delete Backend;
+  }
 
-    int RequiredHandles = Backend->ReqNumHandles();
-    if (RequiredHandles != NumHandles)  {
-        delete Backend;
-        CHIPERR_LOG_AND_THROW(
-            "Invalid number of native handles",
-            hipErrorInitializationError);
-    }
+  // TODO Check configuration for what backends are configured
+  if (!CHIPBackendType.compare("opencl")) {
+    if (UsingDefaultBackend)
+      logWarn("CHIP_BE was not set. Defaulting to OPENCL");
+    logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
+    Backend = new CHIPBackendOpenCL();
+  } else if (!CHIPBackendType.compare("level0")) {
+    logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
+    Backend = new CHIPBackendLevel0();
+  } else {
+    CHIPERR_LOG_AND_THROW(
+        "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
+        hipErrorInitializationError);
+  }
 
-    Backend->initializeFromNative(NativeHandles, NumHandles);
-    return hipSuccess;
+  int RequiredHandles = Backend->ReqNumHandles();
+  if (RequiredHandles != NumHandles) {
+    delete Backend;
+    CHIPERR_LOG_AND_THROW("Invalid number of native handles",
+                          hipErrorInitializationError);
+  }
+
+  Backend->initializeFromNative(NativeHandles, NumHandles);
+  for (auto ModulePair : Modules) {
+    Backend->getActiveDevice()->addModule(ModulePair.first, ModulePair.second);
+  }
+
+  return hipSuccess;
 }

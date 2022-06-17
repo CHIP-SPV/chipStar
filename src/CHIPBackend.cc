@@ -137,8 +137,9 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (HostPtr)
     PtrToAllocInfo_[HostPtr] = AllocInfo;
 
-  logDebug("CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
-           Size, HostPtr, DevPtr, (unsigned)MemoryType);
+  logDebug(
+      "CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
+      Size, HostPtr, DevPtr, (unsigned)MemoryType);
   return;
 }
 
@@ -742,6 +743,10 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
 
 size_t CHIPDevice::getGlobalMemSize() { return HipDeviceProps_.totalGlobalMem; }
 
+void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
+  this->ChipModules[ModuleStr] = Module;
+}
+
 void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
                                           const void *HostFPtr,
                                           const char *HostFName) {
@@ -831,8 +836,6 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
   return ChipQueue;
 }
 
-
-
 std::vector<CHIPQueue *> &CHIPDevice::getQueues() { return ChipQueues_; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
@@ -899,10 +902,10 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
 }
 
 CHIPQueue *CHIPDevice::getActiveQueue() {
-    if (ChipQueues_.size() > 0)
-        return ChipQueues_[ActiveQueueId_];
-    else
-        return nullptr;
+  if (ChipQueues_.size() > 0)
+    return ChipQueues_[ActiveQueueId_];
+  else
+    return nullptr;
 }
 
 hipError_t CHIPDevice::allocateDeviceVariables() {

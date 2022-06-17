@@ -3294,49 +3294,56 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
  ************************************************************/
 
 extern "C" hipError_t hipGetBackendNativeHandles(hipStream_t Stream,
-                                      uintptr_t *NativeHandles, int *NumHandles) {
+                                                 uintptr_t *NativeHandles,
+                                                 int *NumHandles) {
   logDebug("hipGetBackendNativeHandles");
   ERROR_IF((Stream == nullptr), hipErrorInvalidValue);
   return Stream->getBackendHandles(NativeHandles, NumHandles);
 }
 
-extern "C" hipError_t hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles) {
-    CHIP_TRY
-    logDebug("hipInitFromNativeHandles");
-    RETURN(CHIPReinitialize(NativeHandles, NumHandles));
-    CHIP_CATCH
+// returning a hipError_t here is problematic because icpx is being used a
+// compiler and the use of hipError_t mandates inclusion if hip/hip_runtime.h
+// which is not compatible which icpx
+extern "C" int hipInitFromNativeHandles(const uintptr_t *NativeHandles,
+                                        int NumHandles) {
+  CHIP_TRY
+  logDebug("hipInitFromNativeHandles");
+  // TODO fix this
+  // RETURN(CHIPReinitialize(NativeHandles, NumHandles));
+  auto Err = CHIPReinitialize(NativeHandles, NumHandles);
+  if (Err == hipSuccess)
+    return 0;
+
+  return -1;
+  CHIP_CATCH
 }
 
-extern "C" void* hipGetNativeEventFromHipEvent(hipEvent_t Event)
-{
-    logDebug("hipGetNativeEventFromHipEvent");
-    void *e = nullptr;
-    CHIP_TRY
-    CHIPInitialize();
+extern "C" void *hipGetNativeEventFromHipEvent(hipEvent_t Event) {
+  logDebug("hipGetNativeEventFromHipEvent");
+  void *e = nullptr;
+  CHIP_TRY
+  CHIPInitialize();
 
-    if (Event == NULL)
-        return NULL;
+  if (Event == NULL)
+    return NULL;
 
-    e = Backend->getNativeEvent(Event);
-    CHIP_CATCH_NO_RETURN
-    return e;
+  e = Backend->getNativeEvent(Event);
+  CHIP_CATCH_NO_RETURN
+  return e;
 }
 
-extern "C" hipEvent_t hipGetHipEventFromNativeEvent(void* Event)
-{
-    logDebug("hipGetHipEventFromNativeEvent");
-    hipEvent_t e = nullptr;
-    CHIP_TRY
-    CHIPInitialize();
+extern "C" hipEvent_t hipGetHipEventFromNativeEvent(void *Event) {
+  logDebug("hipGetHipEventFromNativeEvent");
+  hipEvent_t e = nullptr;
+  CHIP_TRY
+  CHIPInitialize();
 
-    if (Event == NULL)
-        return NULL;
+  if (Event == NULL)
+    return NULL;
 
-    e = Backend->getHipEvent(Event);
-    CHIP_CATCH_NO_RETURN
-    return e;
+  e = Backend->getHipEvent(Event);
+  CHIP_CATCH_NO_RETURN
+  return e;
 }
-
-
 
 #endif

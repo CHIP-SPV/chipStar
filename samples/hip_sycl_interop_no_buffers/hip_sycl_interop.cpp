@@ -1,12 +1,16 @@
-#include "hip/hip_runtime.h"
-
 // STL classes
 #include <exception>
 #include <iostream>
 
+#include "hip/hip_runtime.h"
 #include <vector>
-
+#include <cmath>
 #include "hip_sycl_interop.h"
+
+// must declare this here since it's not part of the standard HIP API
+extern "C" hipError_t hipGetBackendNativeHandles(hipStream_t Stream,
+                                                 uintptr_t *NativeHandles,
+                                                 int *NumHandles);
 
 using namespace std;
 
@@ -62,8 +66,8 @@ int main() {
 
   uintptr_t nativeHandlers[4];
   int numItems = 4;
-  error = hipGetBackendNativeHandles(stream, nativeHandlers, &numItems);
-  CHECK(error);
+  auto error = hipGetBackendNativeHandles(stream, nativeHandlers, &numItems);
+  assert(error == hipSuccess);
 
   // allocate memory
   hipMalloc(&d_A, WIDTH * WIDTH * sizeof(float));
