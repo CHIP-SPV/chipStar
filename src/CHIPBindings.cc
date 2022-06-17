@@ -3308,8 +3308,6 @@ extern "C" int hipInitFromNativeHandles(const uintptr_t *NativeHandles,
                                         int NumHandles) {
   CHIP_TRY
   logDebug("hipInitFromNativeHandles");
-  // TODO fix this
-  // RETURN(CHIPReinitialize(NativeHandles, NumHandles));
   auto Err = CHIPReinitialize(NativeHandles, NumHandles);
   if (Err == hipSuccess)
     return 0;
