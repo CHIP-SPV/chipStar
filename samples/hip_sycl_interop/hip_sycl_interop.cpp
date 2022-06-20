@@ -8,6 +8,11 @@
 
 #include "hip_sycl_interop.h"
 
+// must declare this here since it's not part of the standard HIP API
+extern "C" hipError_t hipGetBackendNativeHandles(hipStream_t Stream,
+                                                 uintptr_t *NativeHandles,
+                                                 int *NumHandles);
+
 using namespace std;
 
 const int WIDTH = 10;
@@ -89,9 +94,9 @@ int main() {
 
   assert(stream != nullptr);
 
-  unsigned long nativeHandlers[4];
-  int numItems = 0;
-  error = hipStreamGetBackendHandles(stream, nativeHandlers, &numItems);
+  uintptr_t nativeHandlers[4];
+  int numItems = 4;
+  error = hipGetBackendNativeHandles(stream, nativeHandlers, &numItems);
   CHECK(error);
 
   // Invoke oneMKL GEEM

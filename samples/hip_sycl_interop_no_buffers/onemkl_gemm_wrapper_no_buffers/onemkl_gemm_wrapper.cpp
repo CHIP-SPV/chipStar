@@ -50,7 +50,7 @@ int onemkl_gemm(sycl::queue& my_queue, float* A, float* B, float* C, int m,
 }
 
 // Run GEMM test via oneMKL
-int oneMKLGemmTest(unsigned long* nativeHandlers, float* A, float* B, float* C,
+int oneMKLGemmTest(uintptr_t* nativeHandlers, float* A, float* B, float* C,
                    int M, int N, int K, int ldA, int ldB, int ldC, float alpha,
                    float beta) {
   // Extract the native information

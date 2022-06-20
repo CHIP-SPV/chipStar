@@ -19,7 +19,10 @@
 
 #include <CL/cl_ext_intel.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
 #include <CL/opencl.hpp>
+#pragma GCC diagnostic pop
 
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
@@ -86,7 +89,7 @@ protected:
 public:
   CHIPModuleOpenCL(std::string *ModuleStr);
   virtual void compile(CHIPDevice *ChipDevice) override;
-  cl::Program &get();
+  cl::Program *get();
 };
 
 class SVMemoryRegion {
@@ -118,6 +121,7 @@ public:
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
+  bool isAllocatedPtrUSM(void* Ptr) override { return true; }
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();
 };
@@ -133,6 +137,8 @@ public:
   virtual void resetImpl() override;
   virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
+  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) override;
+
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
                 const struct hipResourceViewDesc *ResViewDesc) override;
@@ -145,14 +151,12 @@ public:
 class CHIPQueueOpenCL : public CHIPQueue {
 protected:
   // Any reason to make these private/protected?
-  cl::Context *ClContext_;
-  cl::Device *ClDevice_;
   cl::CommandQueue *ClQueue_;
 
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
-  CHIPQueueOpenCL(CHIPDevice *ChipDevice);
+  CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue = nullptr);
   ~CHIPQueueOpenCL();
   virtual CHIPEventOpenCL *getLastEvent() override;
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
@@ -174,7 +178,7 @@ public:
                                         size_t Width, size_t Height,
                                         size_t Depth) override;
 
-  virtual void getBackendHandles(unsigned long *NativeInfo, int *Size) override;
+  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) override;
   virtual CHIPEvent *
   enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
   virtual CHIPEvent *enqueueMarkerImpl() override;
@@ -193,7 +197,7 @@ public:
                    OCLFuncInfo *FuncInfo, CHIPModuleOpenCL *Parent);
   OCLFuncInfo *getFuncInfo() const;
   std::string getName();
-  cl::Kernel get() const;
+  cl::Kernel *get();
   size_t getTotalArgSize() const;
 
   CHIPModuleOpenCL *getModule() override { return Module; }
@@ -212,10 +216,15 @@ public:
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
-  void initializeImpl(std::string CHIPPlatformStr,
-                      std::string CHIPDeviceTypeStr,
-                      std::string CHIPDeviceStr) override;
+  virtual void initializeImpl(std::string CHIPPlatformStr,
+                              std::string CHIPDeviceTypeStr,
+                              std::string CHIPDeviceStr) override;
+  virtual void initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) override;
+
   virtual std::string getDefaultJitFlags() override;
+
+  virtual int ReqNumHandles() override { return 4; }
+
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual CHIPEventOpenCL *
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
@@ -225,6 +234,10 @@ public:
                                                CHIPQueue *ChipQueue) override;
   virtual CHIPEventMonitor *createCallbackEventMonitor() override;
   virtual CHIPEventMonitor *createStaleEventMonitor() override;
+
+  virtual hipEvent_t getHipEvent(void* NativeEvent) override;
+  virtual void* getNativeEvent(hipEvent_t HipEvent) override;
+
 };
 
 class CHIPTextureOpenCL : public CHIPTexture {

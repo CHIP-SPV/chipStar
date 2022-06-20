@@ -650,7 +650,7 @@ void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 CHIPModuleOpenCL::CHIPModuleOpenCL(std::string *ModuleStr)
     : CHIPModule(ModuleStr){};
 
-cl::Program &CHIPModuleOpenCL::get() { return Program_; }
+cl::Program *CHIPModuleOpenCL::get() { return &Program_; }
 
 void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
@@ -709,12 +709,19 @@ CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
   return NewQ;
 }
 
+CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(const uintptr_t *NativeHandles,
+                                          int NumHandles) {
+  cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
+  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, CmdQ);
+  return NewQ;
+}
+
 // CHIPKernelOpenCL
 //*************************************************************************
 
 OCLFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
-cl::Kernel CHIPKernelOpenCL::get() const { return OclKernel_; }
+cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
 size_t CHIPKernelOpenCL::getTotalArgSize() const { return TotalArgSize_; };
 
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
@@ -839,8 +846,8 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   const cl::NDRange Local(BlockDim.x, BlockDim.y, BlockDim.z);
 
   cl::Event Ev;
-  int Err = ClQueue_->enqueueNDRangeKernel(Kernel->get(), cl::NullRange, Global,
-                                           Local, nullptr, &Ev);
+  int Err = ClQueue_->enqueueNDRangeKernel(*Kernel->get(), cl::NullRange,
+                                           Global, Local, nullptr, &Ev);
 
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
 
@@ -851,15 +858,20 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   return E;
 }
 
-CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice)
+CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
     : CHIPQueue(ChipDevice) {
-  ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
-  ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
 
-  cl_int Status;
-  ClQueue_ = new cl::CommandQueue(*ClContext_, *ClDevice_,
-                                  CL_QUEUE_PROFILING_ENABLE, &Status);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorInitializationError);
+  if (Queue)
+    ClQueue_ = new cl::CommandQueue(Queue);
+  else {
+    cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
+    cl::Device *ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
+    cl_int Status;
+    ClQueue_ = new cl::CommandQueue(*ClContext_, *ClDevice_,
+                                    CL_QUEUE_PROFILING_ENABLE, &Status);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
+                                hipErrorInitializationError);
+  }
   /**
    * queues should always have lastEvent. Can't do this in the constuctor
    * because enqueueMarker is virtual and calling overriden virtual methods from
@@ -873,10 +885,7 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice)
   setLastEvent(enqueueMarkerImpl());
 }
 
-CHIPQueueOpenCL::~CHIPQueueOpenCL() {
-  delete ClContext_;
-  delete ClDevice_;
-}
+CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
 
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
@@ -922,9 +931,32 @@ CHIPEvent *CHIPQueueOpenCL::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
   UNIMPLEMENTED(nullptr);
 };
 
-void CHIPQueueOpenCL::getBackendHandles(unsigned long *NativeInfo, int *Size) {
-  UNIMPLEMENTED();
+hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
+                                              int *NumHandles) {
+  logTrace("CHIPQueueOpenCL::getBackendHandles");
+  if (*NumHandles < 4) {
+    logError("getBackendHandles requires space for 4 handles");
+    return hipErrorInvalidValue;
+  }
+  *NumHandles = 4;
+
+  // Get queue handler
+  NativeInfo[3] = (uintptr_t)ClQueue_->get();
+
+  // Get context handler
+  cl::Context *Ctx = ((CHIPContextOpenCL *)ChipContext_)->get();
+  NativeInfo[2] = (uintptr_t)Ctx->get();
+
+  // Get device handler
+  cl::Device *Dev = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
+  NativeInfo[1] = (uintptr_t)Dev->get();
+
+  // Get platform handler
+  cl_platform_id Plat = Dev->getInfo<CL_DEVICE_PLATFORM>();
+  NativeInfo[0] = (uintptr_t)Plat;
+  return hipSuccess;
 }
+
 CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
   UNIMPLEMENTED(nullptr);
 }
@@ -998,13 +1030,15 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
       OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[OutArgIdx];
-      if (Ai.Type == OCLType::Pointer && Ai.Space != OCLSpace::Local) {
+      if (Ai.Type == OCLType::Pointer) {
+        if (Ai.Space == OCLSpace::Local)
+          continue;
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
                  Ai.Size, ArgsPointer_[InArgIdx]);
         CHIPASSERT(Ai.Size == sizeof(void *));
         const void *Argval = *(void **)ArgsPointer_[InArgIdx];
         Err =
-            ::clSetKernelArgSVMPointer(Kernel->get().get(), OutArgIdx, Argval);
+            ::clSetKernelArgSVMPointer(Kernel->get()->get(), OutArgIdx, Argval);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else if (Ai.Type == OCLType::Image) {
@@ -1013,7 +1047,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         // Set image argument.
         cl_mem Image = TexObj->getImage();
         logTrace("set image arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
-        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx, sizeof(cl_mem),
+        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, sizeof(cl_mem),
                                &Image);
         CHIPERR_CHECK_LOG_AND_THROW(
             Err, CL_SUCCESS, hipErrorTbd,
@@ -1023,7 +1057,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         OutArgIdx++;
         cl_sampler Sampler = TexObj->getSampler();
         logTrace("set sampler arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
-        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx,
+        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx,
                                sizeof(cl_sampler), &Sampler);
         CHIPERR_CHECK_LOG_AND_THROW(
             Err, CL_SUCCESS, hipErrorTbd,
@@ -1031,7 +1065,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
       } else {
         logTrace("clSetKernelArg {} SIZE {} to {}\n", OutArgIdx, Ai.Size,
                  ArgsPointer_[InArgIdx]);
-        Err = ::clSetKernelArg(Kernel->get().get(), OutArgIdx, Ai.Size,
+        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, Ai.Size,
                                ArgsPointer_[InArgIdx]);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
@@ -1081,7 +1115,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         assert(std::get<1>(OffsetSizes_[i]) == Ai.Size);
         P = *(void **)(Start + std::get<0>(OffsetSizes_[i]));
         logTrace("setArg SVM {} to {}\n", i, P);
-        Err = ::clSetKernelArgSVMPointer(Kernel->get().get(), i, P);
+        Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), i, P);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else if (Ai.Type == OCLType::Image) {
@@ -1092,15 +1126,16 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         size_t Offs = std::get<0>(OffsetSizes_[i]);
         void *Value = (void *)(Start + Offs);
         logTrace("setArg {} size {} offs {}\n", i, Size, Offs);
-        Err = ::clSetKernelArg(Kernel->get().get(), i, Size, Value);
+        Err = ::clSetKernelArg(Kernel->get()->get(), i, Size, Value);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
       }
     }
   }
 
-  return setLocalSize(SharedMem_, FuncInfo, Kernel->get().get());
+  return setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
 }
+
 // CHIPBackendOpenCL
 //*************************************************************************
 
@@ -1197,10 +1232,53 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     Backend->addDevice(ChipDev);
 
     // Create and add queue queue to Device and Backend
-    auto Queue = ChipDev->createQueueAndRegister(0, 0);
+    ChipDev->createQueueAndRegister((int)0, (int)0);
   }
   logDebug("OpenCL Context Initialized.");
 };
+
+void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
+                                             int NumHandles) {
+  logTrace("CHIPBackendOpenCL InitializeNative");
+
+  // cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
+  cl_device_id DevId = (cl_device_id)NativeHandles[1];
+  cl_context CtxId = (cl_context)NativeHandles[2];
+
+  cl::Context *Ctx = new cl::Context(CtxId);
+  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
+  addContext(ChipContext);
+
+  cl::Device *Dev = new cl::Device(DevId);
+  CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, Dev, 0);
+  logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
+  ChipDev->populateDeviceProperties();
+
+  // Add device to context & backend
+  ChipContext->addDevice(ChipDev);
+  addDevice(ChipDev);
+
+  ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
+
+  setActiveDevice(ChipDev);
+
+  logDebug("OpenCL Context Initialized.");
+}
+
+hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {
+  cl_event E = (cl_event)NativeEvent;
+  // this retains cl_event
+  CHIPEventOpenCL *NewEvent =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ActiveCtx_, E);
+  return NewEvent;
+}
+
+void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
+  CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
+  // TODO should we retain here?
+  E->increaseRefCount();
+  return (void *)E->ClEvent;
+}
 
 // Other
 //*************************************************************************

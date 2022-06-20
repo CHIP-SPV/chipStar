@@ -53,8 +53,8 @@ int main() {
   CHECK(hipMalloc((void **)&A_d, NUM * sizeof(int)));
   CHECK(hipMalloc((void **)&C_d, NUM * sizeof(int)));
   printf("info: copy Host2Device\n");
-  CHECK(hipMemcpy(A_d, A_d, NUM * sizeof(int), hipMemcpyHostToDevice));
-  CHECK(hipMemcpy(C_d, C_d, NUM * sizeof(int), hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(A_d, A_h, NUM * sizeof(int), hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(C_d, C_h, NUM * sizeof(int), hipMemcpyHostToDevice));
 
   hipStream_t q;
   uint32_t flags = hipStreamNonBlocking;

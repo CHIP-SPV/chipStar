@@ -137,8 +137,9 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (HostPtr)
     PtrToAllocInfo_[HostPtr] = AllocInfo;
 
-  logDebug("CHIPAllocationTracker::recordAllocation size: {}",
-           PtrToAllocInfo_.size());
+  logDebug(
+      "CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
+      Size, HostPtr, DevPtr, (unsigned)MemoryType);
   return;
 }
 
@@ -742,6 +743,10 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
 
 size_t CHIPDevice::getGlobalMemSize() { return HipDeviceProps_.totalGlobalMem; }
 
+void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
+  this->ChipModules[ModuleStr] = Module;
+}
+
 void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
                                           const void *HostFPtr,
                                           const char *HostFName) {
@@ -823,6 +828,14 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
   return ChipQueue;
 }
 
+CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
+                                              int NumHandles) {
+  std::lock_guard<std::mutex> Lock(Mtx_);
+  auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
+  addQueue(ChipQueue);
+  return ChipQueue;
+}
+
 std::vector<CHIPQueue *> &CHIPDevice::getQueues() { return ChipQueues_; }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
@@ -888,7 +901,12 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
   return (T1 && T2 && T3);
 }
 
-CHIPQueue *CHIPDevice::getActiveQueue() { return ChipQueues_[0]; }
+CHIPQueue *CHIPDevice::getActiveQueue() {
+  if (ChipQueues_.size() > 0)
+    return ChipQueues_[ActiveQueueId_];
+  else
+    return nullptr;
+}
 
 hipError_t CHIPDevice::allocateDeviceVariables() {
   std::lock_guard<std::mutex> Lock(Mtx_);
@@ -970,22 +988,10 @@ std::vector<CHIPDevice *> &CHIPContext::getDevices() {
   return ChipDevices_;
 }
 
-std::vector<CHIPQueue *> &CHIPContext::getQueues() {
-  if (ChipQueues_.size() == 0) {
-    std::string Msg = "No queus in this context";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
-  }
-  return ChipQueues_;
-}
-
-void CHIPContext::finishAll() {
-  for (CHIPQueue *Queue : ChipQueues_)
-    Queue->finish();
-}
-
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, CHIPHostAllocFlags());
 }
+
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType) {
   return allocate(Size, Alignment, MemType, CHIPHostAllocFlags());
@@ -994,7 +1000,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, CHIPHostAllocFlags Flags) {
   std::lock_guard<std::mutex> Lock(Mtx);
-  void *AllocatedPtr;
+  void *AllocatedPtr, *HostPtr = nullptr;
 
   if (!Flags.isDefault()) {
     if (Flags.isMapped())
@@ -1019,8 +1025,12 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
+  if (MemType == hipMemoryTypeUnified || isAllocatedPtrUSM(AllocatedPtr)) {
+    HostPtr = AllocatedPtr;
+    MemType = hipMemoryTypeUnified;
+  }
   ChipDev->AllocationTracker->recordAllocation(
-      AllocatedPtr, nullptr, ChipDev->getDeviceId(), Size, Flags, MemType);
+      AllocatedPtr, HostPtr, ChipDev->getDeviceId(), Size, Flags, MemType);
 
   return AllocatedPtr;
 }
@@ -1524,8 +1534,10 @@ void CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
     void *HostPtr = AllocInfo->HostPtr;
 
     // If this is a shared pointer then we don't need to transfer data back
-    if (AllocInfo->MemoryType == hipMemoryTypeUnified)
+    if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
+      logDebug("MemoryType: unified -> skipping");
       continue;
+    }
 
     if (HostPtr) {
       auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
