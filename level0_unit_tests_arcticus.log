@@ -1,6 +1,9 @@
 84% tests passed, 61 tests failed out of 385
 
-Total Test time (real) = 1224.50 sec
+Label Time Summary:
+internal    = 255.79 sec*proc (50 tests)
+
+Total Test time (real) = 1056.06 sec
 
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
@@ -8,10 +11,10 @@ The following tests FAILED:
 	129 - Unit_hipMemset_SetMemoryWithOffset (SEGFAULT)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (SEGFAULT)
 	140 - Unit_hipMemset3D_MemsetWithExtent (SEGFAULT)
-	141 - Unit_hipMemset3DAsync_MemsetWithExtent (SEGFAULT)
+	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Failed)
 	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	179 - Unit_hipMemset2DAsync_MultiThread (Subprocess aborted)
+	179 - Unit_hipMemset2DAsync_MultiThread (SEGFAULT)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	216 - Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double (SEGFAULT)
@@ -56,8 +59,8 @@ The following tests FAILED:
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (SEGFAULT)
 	329 - abort (Failed)
 	352 - hipStreamSemantics (Failed)
-	361 - BitonicSort (Timeout)
-	365 - FloydWarshall (SEGFAULT)
+	361 - BitonicSort (SEGFAULT)
+	365 - FloydWarshall (Timeout)
 	369 - PrintfSimple (Failed)
 	370 - PrintfNOP (Failed)
 	371 - PrintfDynamic (Failed)

@@ -1,6 +1,9 @@
-84% tests passed, 61 tests failed out of 385
+83% tests passed, 64 tests failed out of 385
 
-Total Test time (real) = 919.68 sec
+Label Time Summary:
+internal    = 236.03 sec*proc (50 tests)
+
+Total Test time (real) = 894.41 sec
 
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
@@ -35,13 +38,14 @@ The following tests FAILED:
 	282 - Unit_hipDeviceGetCacheConfig_FuncTst (Failed)
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
-	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
+	302 - Unit_hipStreamPerThread_StreamQuery (SEGFAULT)
 	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
 	308 - Unit_hipStreamPerThread_EventRecord (Failed)
 	309 - Unit_hipStreamPerThread_EventSynchronize (Failed)
+	311 - Unit_hipStreamPerThread_DeviceReset_1 (SEGFAULT)
 	313 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	314 - Unit_hipGraphAddDependencies_Functional (Failed)
 	315 - Unit_hipGraph_BasicFunctional (Failed)
@@ -57,10 +61,13 @@ The following tests FAILED:
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
 	329 - abort (Failed)
 	352 - hipStreamSemantics (Failed)
+	364 - FastWalshTransform (SEGFAULT)
 	365 - FloydWarshall (Timeout)
+	367 - RecursiveGaussian (SEGFAULT)
 	369 - PrintfSimple (Failed)
 	370 - PrintfNOP (Failed)
 	371 - PrintfDynamic (Failed)
-	380 - hipAddressingModes (Failed)
+	372 - hipTextureObj2D (SEGFAULT)
 	382 - sycl_chip_interop (SEGFAULT)
 	383 - sycl_chip_interop_usm (SEGFAULT)
+	

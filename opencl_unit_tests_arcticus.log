@@ -1,6 +1,9 @@
-77% tests passed, 90 tests failed out of 385
+76% tests passed, 93 tests failed out of 385
 
-Total Test time (real) = 459.97 sec
+Label Time Summary:
+internal    =  16.04 sec*proc (50 tests)
+
+Total Test time (real) = 469.41 sec
 
 The following tests did not run:
 	382 - sycl_chip_interop (Skipped)
@@ -19,6 +22,9 @@ The following tests FAILED:
 	 69 - Unit_hipMemcpy2DAsync_Host&PinnedMem - double (Failed)
 	 80 - Unit_hipMemcpy2DFromArray_PinnedMemSameGPU (Failed)
 	 86 - Unit_hipMemcpy2DFromArrayAsync_PinnedHostMemSameGpu (Failed)
+	102 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
+	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
+	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
 	113 - Unit_hipHostGetFlags_Basic - int (Failed)
 	114 - Unit_hipHostGetFlags_Basic - float (Failed)
 	115 - Unit_hipHostGetFlags_Basic - double (Failed)

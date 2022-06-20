@@ -1,6 +1,9 @@
-86% tests passed, 54 tests failed out of 385
+85% tests passed, 57 tests failed out of 385
 
-Total Test time (real) = 211.35 sec
+Label Time Summary:
+internal    =  13.50 sec*proc (50 tests)
+
+Total Test time (real) = 203.41 sec
 
 The following tests did not run:
 	382 - sycl_chip_interop (Skipped)
@@ -9,7 +12,10 @@ The following tests did not run:
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
 	 66 - Unit_hipMemcpy2D_Negative (Failed)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
+	102 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
+	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
+	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
