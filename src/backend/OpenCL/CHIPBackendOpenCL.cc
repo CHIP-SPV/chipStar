@@ -1278,15 +1278,19 @@ hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {
   // this retains cl_event
   CHIPEventOpenCL *NewEvent =
       new CHIPEventOpenCL((CHIPContextOpenCL *)ActiveCtx_, E);
+  NewEvent->Msg = "fromHipEvent";
   return NewEvent;
 }
 
 void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
+  if (!E->isRecordingOrRecorded())
+    return nullptr;
   // TODO should we retain here?
   // E->increaseRefCount();
   return (void *)E->ClEvent;
 }
+
 
 // Other
 //*************************************************************************

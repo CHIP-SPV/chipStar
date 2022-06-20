@@ -1344,6 +1344,8 @@ hipEvent_t CHIPBackendLevel0::getHipEvent(void *NativeEvent) {
 
 void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventLevel0 *E = (CHIPEventLevel0 *)HipEvent;
+  if (!E->isRecordingOrRecorded())
+    return nullptr;
   // TODO should we retain here?
   return (void *)E->get();
 }
