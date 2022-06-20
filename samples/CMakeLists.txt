@@ -96,6 +96,7 @@ set(SAMPLES
     #hipMultiThreadAddCallback
     hipInfo
     hipSymbol
+    hip_async_interop
     hip-cuda
     printf
     texture
