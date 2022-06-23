@@ -24,6 +24,7 @@
 #include "backend/backends.hh"
 #include "hip/hip_fatbin.h"
 #include "hip/hip_runtime_api.h"
+#include "hip/hip_interop.h"
 #include "hip_conversions.hh"
 #include "macros.hh"
 
@@ -3303,50 +3304,50 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
 // as compiler for sycl and the use of hipError_t mandates inclusion
 // of hip/hip_runtime.h which is not compatible which icpx
 
-extern "C" int hipGetBackendNativeHandles(hipStream_t Stream,
-                                          uintptr_t *NativeHandles,
-                                          int *NumHandles) {
+int hipGetBackendNativeHandles(uintptr_t Stream,
+                               uintptr_t *NativeHandles,
+                               int *NumHandles) {
   CHIP_TRY
   logDebug("hipGetBackendNativeHandles");
-  Stream = Backend->findQueue(Stream);
-  RETURN(Stream->getBackendHandles(NativeHandles, NumHandles));
+  CHIPQueue *HipStream = Backend->findQueue((hipStream_t)Stream);
+  RETURN(HipStream->getBackendHandles(NativeHandles, NumHandles));
   CHIP_CATCH
 }
 
-extern "C" int hipInitFromNativeHandles(const uintptr_t *NativeHandles,
-                                        int NumHandles) {
+int hipInitFromNativeHandles(const uintptr_t *NativeHandles,
+                             int NumHandles) {
   CHIP_TRY
   logDebug("hipInitFromNativeHandles");
   RETURN(CHIPReinitialize(NativeHandles, NumHandles));
   CHIP_CATCH
 }
 
-extern "C" void* hipGetNativeEventFromHipEvent(void* Event)
+void *hipGetNativeEventFromHipEvent(void *HipEvent)
 {
   logDebug("hipGetNativeEventFromHipEvent");
   void *E = nullptr;
   CHIP_TRY
   CHIPInitialize();
 
-  if (Event == NULL)
+  if (HipEvent == NULL)
     return NULL;
 
-  E = Backend->getNativeEvent((hipEvent_t)Event);
+  E = Backend->getNativeEvent((hipEvent_t)HipEvent);
   CHIP_CATCH_NO_RETURN
   return E;
 }
 
-extern "C" void* hipGetHipEventFromNativeEvent(void* Event)
+void *hipGetHipEventFromNativeEvent(void *NativeEvent)
 {
   logDebug("hipGetHipEventFromNativeEvent");
   hipEvent_t E = nullptr;
   CHIP_TRY
   CHIPInitialize();
 
-  if (Event == NULL)
+  if (NativeEvent == NULL)
     return NULL;
 
-  E = Backend->getHipEvent(Event);
+  E = Backend->getHipEvent(NativeEvent);
   CHIP_CATCH_NO_RETURN
   return E;
 }

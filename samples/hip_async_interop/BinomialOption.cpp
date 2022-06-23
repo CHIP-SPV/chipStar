@@ -33,14 +33,11 @@ THE SOFTWARE.
 
 #define SAMPLE_VERSION "HIP-Examples-Applications-v1.0"
 
+#include "hip/hip_interop.h"
+
 extern "C" {
   void* runOpenCLKernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHandles, unsigned Blocks, unsigned Threads, unsigned Arg1, void *Arg2, void *Arg3);
   void* runLevel0Kernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHandles, unsigned Blocks, unsigned Threads, unsigned Arg1, void *Arg2, void *Arg3);
-
-  int hipGetBackendNativeHandles(void* Stream, uintptr_t *NativeHandles, int *NumHandles);
-  int hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles);
-  void* hipGetHipEventFromNativeEvent(void* Event);
-  void* hipGetNativeEventFromHipEvent(void* Event);
 }
 
 using namespace appsdk;
@@ -377,7 +374,7 @@ BinomialOption::runKernels(unsigned iterations)
 
   uintptr_t NativeHandles[4];
   int NumHandles = 4;
-  int Err = hipGetBackendNativeHandles(NULL, NativeHandles, &NumHandles);
+  int Err = hipGetBackendNativeHandles((uintptr_t)0, NativeHandles, &NumHandles);
   assert(Err == 0);
 
   unsigned int LocalThreads = {numSteps + 1};

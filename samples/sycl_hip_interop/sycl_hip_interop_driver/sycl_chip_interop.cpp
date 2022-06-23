@@ -6,6 +6,10 @@
 
 #include "sycl_chip_interop.h"
 
+// include this file with relative path,
+// because -I<CHIP>/include causes CL header conflict
+#include "../../../include/hip/hip_interop.h"
+
 #include <vector>
 #include <iostream>
 
