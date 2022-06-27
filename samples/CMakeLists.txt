@@ -110,6 +110,12 @@ if (ICPX_EXECUTABLE)
     sycl_hip_interop
     hip_sycl_interop
     hip_sycl_interop_no_buffers)
+
+  # the ENABLE_OMP_OFFLOAD is only required to unhide MKL::sycl in intel's MKLConfig.cmake file
+  set(ENABLE_OMP_OFFLOAD ON)
+  set(MKL_THREADING sequential)
+  find_package(MKL REQUIRED CONFIG PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
+
 else()
   message(STATUS "icpx is not found: Not building SYCL interop samples.")
 endif()
