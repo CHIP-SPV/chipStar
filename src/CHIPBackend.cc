@@ -829,7 +829,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
 }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
-                                              int NumHandles) {
+                                              const size_t NumHandles) {
   std::lock_guard<std::mutex> Lock(Mtx_);
   auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
   addQueue(ChipQueue);
@@ -963,13 +963,19 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   std::vector<CHIPEvent *> EventsToWaitOn;
 
   if (TargetQueue == DefaultQueue) {
-    for (auto &q : QueuesBlocking)
-      EventsToWaitOn.push_back(q->getLastEvent());
+    for (auto &q : QueuesBlocking) {
+      auto TargetQLastEvent = q->getLastEvent();
+      if (TargetQLastEvent)
+        EventsToWaitOn.push_back(q->getLastEvent());
+    }
     auto E = DefaultQueue->enqueueBarrierImpl(&EventsToWaitOn);
     E->Msg = "barrierSyncQueue";
     TargetQueue->setLastEvent(E);
   } else { // blocking stream must wait until default stream is done
-    EventsToWaitOn.push_back(DefaultQueue->getLastEvent());
+    auto TargetQLastEvent = DefaultQueue->getLastEvent();
+    if (TargetQLastEvent)
+      EventsToWaitOn.push_back(TargetQLastEvent);
+
     auto E = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     E->Msg = "barrierSyncQueue";
     TargetQueue->setLastEvent(E);

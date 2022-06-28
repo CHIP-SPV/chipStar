@@ -590,76 +590,76 @@ CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
   return (CHIPEventLevel0 *)LastEvent_;
 }
 
+ze_command_list_handle_t CHIPQueueLevel0::getCmdListCopy() {
+#ifdef L0_IMM_QUEUES
+  return ZeCmdListCopyImm_;
+#else
+  ze_command_list_handle_t CommandList;
+  auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc_,
+                                    &CommandList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  return CommandList;
+#endif
+}
+
+ze_command_list_handle_t CHIPQueueLevel0::getCmdListCompute() {
+#ifdef L0_IMM_QUEUES
+  return ZeCmdListComputeImm_;
+#else
+  ze_command_list_handle_t ZeCmdList;
+  auto Status =
+      zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc_, &ZeCmdList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  return ZeCmdList;
+#endif
+}
+
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags)
     : CHIPQueueLevel0(ChipDev, Flags, 0) {}
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
     : CHIPQueueLevel0(ChipDev, 0, 0) {}
 
-void CHIPQueueLevel0::initializeEventPool(CHIPDeviceLevel0 *ChipDev) {
-  ze_result_t Status;
-  auto ChipContextLz = (CHIPContextLevel0 *)ChipDev->getContext();
+void CHIPQueueLevel0::initializeCopyListImm() {
+  ze_command_queue_desc_t CommandQueueCopyDesc = getNextComputeQueueDesc();
 
-  // Initialize the internal Event_ pool and finish Event_
-  ze_event_pool_desc_t EpDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
-                                 ZE_EVENT_POOL_FLAG_HOST_VISIBLE,
-                                 1 /* Count */};
+  // Create an immediate command list for copy engine
+  auto Status = zeCommandListCreateImmediate(
+      ZeCtx_, ZeDev_, &CommandQueueCopyDesc, &ZeCmdListCopyImm_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created an immediate copy list");
+}
+void CHIPQueueLevel0::initializeComputeListImm() {
 
-  ze_event_desc_t EvDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr,
-                            0, /* Index */
-                            ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
-  uint32_t NumDevices = 1;
-  Status = zeEventPoolCreate(ZeCtx_, &EpDesc, NumDevices, &ZeDev_, &EventPool_);
+  ze_command_queue_desc_t CommandQueueComputeDesc = getNextComputeQueueDesc();
 
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeEventPoolCreate FAILED");
+  // Create an immediate command list
+  auto Status = zeCommandListCreateImmediate(
+      ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  logTrace("Created an immediate compute list");
+}
 
-  Status = zeEventCreate(EventPool_, &EvDesc, &FinishEvent_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeEventCreate FAILED with return code");
+void CHIPQueueLevel0::initializeQueueGroupProperties() {
 
-  // Initialize the shared memory buffer
-  // TODO This does not record the buffer allocation in device allocation
-  // tracker
+  auto ChipContextLz = (CHIPContextLevel0 *)ChipContext_;
   SharedBuf_ =
       ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
 
   // Initialize the uint64_t part as 0
   *(uint64_t *)this->SharedBuf_ = 0;
-  /**
-   * queues should always have lastEvent. Can't do this in the constuctor
-   * because enqueueMarker is virtual and calling overriden virtual methods
-   * from constructors is undefined behavior.
-   *
-   * Also, must call implementation method enqueueMarker_ as opposed to
-   * wrapped one (enqueueMarker) because the wrapped method enforces queue
-   * semantics which require LastEvent to be initialized.
-   *
-   */
-  std::lock_guard<std::mutex> LockEvents(Backend->EventsMtx);
-  auto Ev = enqueueMarker();
-  Ev->Msg = "InitialMarker";
-}
 
-CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
-                                 int Priority)
-    : CHIPQueue(ChipDev, Flags, Priority) {
-  ze_result_t Status;
-  auto ChipDevLz = ChipDev;
-  auto Ctx = ChipDevLz->getContext();
-  auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
-
-  ZeCtx_ = ChipContextLz->get();
-  ZeDev_ = ChipDevLz->get();
-
-  logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
-
-  // Discover all command queue groups
+  // Discover the number of command queues
   uint32_t CmdqueueGroupCount = 0;
-  Status = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
-                                                  nullptr);
+  auto Status = zeDeviceGetCommandQueueGroupProperties(
+      ZeDev_, &CmdqueueGroupCount, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logTrace("CommandGroups found: {}", CmdqueueGroupCount);
 
+  // Create a vector of command queue properties, fill it
   ze_command_queue_group_properties_t *CmdqueueGroupProperties =
       (ze_command_queue_group_properties_t *)malloc(
           CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
@@ -675,93 +675,103 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   Status = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
                                                   CmdqueueGroupProperties);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
   this->MaxMemoryFillPatternSize =
       CmdqueueGroupProperties[0].maxMemoryFillPatternSize;
+
   // Find a command queue type that support compute
-  uint32_t ComputeQueueGroupOrdinal = CmdqueueGroupCount;
   for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
     if (CmdqueueGroupProperties[i].flags &
         ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
-      ComputeQueueGroupOrdinal = i;
+      ComputeQueueGroupOrdinal_ = i;
+      ComputeQueueProperties_ = CmdqueueGroupProperties[i];
       logTrace("Found compute command group");
       break;
     }
   }
-  ze_command_queue_desc_t CommandQueueComputeDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr,
-      ComputeQueueGroupOrdinal,
-      NextQueueIndex_, // index
-      0,               // flags
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-  // Find a command queue type that supports memory copies
-  uint32_t CopyQueueGroupOrdinal = CmdqueueGroupCount;
+  // Find a command queue type that support copy
   for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
     if (CmdqueueGroupProperties[i].flags &
         ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) {
-      CopyQueueGroupOrdinal = i;
+      CopyQueueGroupOrdinal_ = i;
+      CopyQueueProperties_ = CmdqueueGroupProperties[i];
       logTrace("Found memory command group");
       break;
     }
   }
 
-  // Create a default command queue (in case need to pass it outside of
-  // CommandQueueDesc.index++;
-  Status =
-      zeCommandQueueCreate(ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdQ_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-
-  ze_command_list_flag_t CommandListFlags{};
-
-  ze_command_list_desc_t CommandListComputeDesc = {
+  // initialize compute and copy list descriptors
+  CommandListComputeDesc_ = {
       ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
       nullptr,
-      ComputeQueueGroupOrdinal,
-      CommandListFlags,
+      ComputeQueueGroupOrdinal_,
+      0 /* CommandListFlags */,
   };
-  CommandListComputeDesc_ = CommandListComputeDesc;
-  ze_command_list_desc_t CommandListMemoryDesc = {
+
+  CommandListMemoryDesc_ = {
       ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
       nullptr,
-      CopyQueueGroupOrdinal,
-      CommandListFlags,
+      CopyQueueGroupOrdinal_,
+      0 /* CommandListFlags */,
   };
-  CommandListMemoryDesc_ = CommandListMemoryDesc;
+}
 
-#ifdef L0_IMM_QUEUES
+ze_command_queue_desc_t CHIPQueueLevel0::getNextComputeQueueDesc() {
+  ze_command_queue_desc_t CommandQueueComputeDesc = {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+      nullptr,
+      ComputeQueueGroupOrdinal_,
+      NextComputeQueueIndex_, // index
+      0,                      // flags
+      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-  auto MaxQueues = CmdqueueGroupProperties[0].numQueues;
+  auto MaxQueues = ComputeQueueProperties_.numQueues;
+  NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
 
+  return CommandQueueComputeDesc;
+}
+
+ze_command_queue_desc_t CHIPQueueLevel0::getNextCopyQueueDesc() {
   ze_command_queue_desc_t CommandQueueCopyDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
       nullptr,
-      CopyQueueGroupOrdinal,
-      NextQueueIndex_, // index
-      0,               // flags
+      CopyQueueGroupOrdinal_,
+      NextComputeQueueIndex_, // index
+      0,                      // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-  NextQueueIndex_ = (NextQueueIndex_ + 1) % MaxQueues;
 
-  // Create an immediate command list
-  Status = zeCommandListCreateImmediate(
-      ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
+  auto MaxQueues = CopyQueueProperties_.numQueues;
+  NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+
+  return CommandQueueCopyDesc;
+}
+
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
+                                 int Priority)
+    : CHIPQueue(ChipDev, Flags, Priority) {
+  ze_result_t Status;
+  auto ChipDevLz = ChipDev;
+  auto Ctx = ChipDevLz->getContext();
+  auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
+
+  ZeCtx_ = ChipContextLz->get();
+  ZeDev_ = ChipDevLz->get();
+
+  logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
+  initializeQueueGroupProperties();
+
+  ze_command_queue_desc_t QueueDescriptor = getNextComputeQueueDesc();
+  Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
-  logTrace("Created an immediate compute list");
-  // Create an immediate command list for copy engine
-  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueCopyDesc,
-                                        &ZeCmdListCopyImm_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  logTrace("Created an immediate copy list");
 
-#else
+#ifdef L0_IMM_QUEUES
+  initializeComputeListImm();
+  initializeCopyListImm();
 #endif
-
-  // initializeEventPool(ChipDev);
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
@@ -774,23 +784,14 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ZeCtx_ = ChipContextLz->get();
   ZeDev_ = ChipDevLz->get();
 
+  initializeQueueGroupProperties();
+
   ZeCmdQ_ = ZeCmdQ;
+
 #ifdef L0_IMM_QUEUES
-  // Create an immediate command list
-  Status = zeCommandListCreateImmediate(
-      ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  logTrace("Created an immediate compute list");
-  // Create an immediate command list for copy engine
-  Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &CommandQueueCopyDesc,
-                                        &ZeCmdListCopyImm_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  logTrace("Created an immediate copy list");
-#else
+  initializeComputeListImm();
+  initializeCopyListImm();
 #endif
-  // initializeEventPool(ChipDev);
 }
 
 CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {

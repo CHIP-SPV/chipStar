@@ -32,8 +32,7 @@ public:
       : CHIPEventLevel0((CHIPContextLevel0 *)Backend->getActiveContext()) {}
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                   CHIPEventFlags Flags = CHIPEventFlags());
-  CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
-                  ze_event_handle_t NativeEvent);
+  CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, ze_event_handle_t NativeEvent);
   virtual ~CHIPEventLevel0() override;
 
   void recordStream(CHIPQueue *ChipQueue) override;
@@ -86,19 +85,16 @@ class CHIPQueueLevel0 : public CHIPQueue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
-  ze_command_list_desc_t CommandListComputeDesc_;
-  ze_command_list_desc_t CommandListMemoryDesc_;
 
   // Queues need ot be created on separate queue group indices in order to be
   // independent from one another. Use this variable to do round-robin
   // distribution across queues every time you create a queue.
-  unsigned int NextQueueIndex_ = 0;
+  unsigned int NextCopyQueueIndex_ = 0;
+  unsigned int NextComputeQueueIndex_ = 0;
 
   size_t MaxMemoryFillPatternSize = 0;
-
-  // Immediate command list is being used. Command queue is implicit
-  ze_command_list_handle_t ZeCmdListCompute_;
-  ze_command_list_handle_t ZeCmdListCopy_;
+  // The shared memory buffer
+  void *SharedBuf_;
 
   ze_command_list_handle_t ZeCmdListComputeImm_;
   ze_command_list_handle_t ZeCmdListCopyImm_;
@@ -112,15 +108,20 @@ protected:
    */
   ze_command_queue_handle_t ZeCmdQ_;
 
-  // Immediate command lists do not support syncronization via
-  // zeCommandQueueSynchronize
-  ze_event_pool_handle_t EventPool_;
-  ze_event_handle_t FinishEvent_;
+  ze_command_queue_group_properties_t CopyQueueProperties_;
+  ze_command_queue_group_properties_t ComputeQueueProperties_;
+  unsigned int CopyQueueGroupOrdinal_;
+  unsigned int ComputeQueueGroupOrdinal_;
 
-  // The shared memory buffer
-  void *SharedBuf_;
+  void initializeQueueGroupProperties();
+  void initializeCopyListImm();
+  void initializeComputeListImm();
 
-  void initializeEventPool(CHIPDeviceLevel0 *ChipDev);
+  ze_command_queue_desc_t getNextComputeQueueDesc();
+  ze_command_queue_desc_t getNextCopyQueueDesc();
+
+  ze_command_list_desc_t CommandListComputeDesc_;
+  ze_command_list_desc_t CommandListMemoryDesc_;
 
 public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
@@ -140,37 +141,27 @@ public:
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
 
-  ze_command_list_handle_t getCmdListCopy() {
-#ifdef L0_IMM_QUEUES
-    return ZeCmdListCopyImm_;
-#else
-    ze_command_list_handle_t CommandList;
-    auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc_,
-                                      &CommandList);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
-    return CommandList;
-#endif
-  }
+  /**
+   * @brief Get a copy list handle. Using not using immediate command lists,
+   * create a new copy list
+   *
+   * @return ze_command_list_handle_t
+   */
+  ze_command_list_handle_t getCmdListCopy();
+  /**
+   * @brief Get a compute list handle. Using not using immediate command lists,
+   * create a new compute list
+   *
+   * @return ze_command_list_handle_t
+   */
+  ze_command_list_handle_t getCmdListCompute();
 
-  ze_command_list_handle_t getCmdListCompute() {
-#ifdef L0_IMM_QUEUES
-    return ZeCmdListComputeImm_;
-#else
-    ze_command_list_handle_t ZeCmdList;
-    auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc_,
-                                      &ZeCmdList);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
-    return ZeCmdList;
-#endif
-  }
-
+  /**
+   * @brief Execute a given command list
+   *
+   * @param CommandList a handle to either a compute or copy command list
+   */
   void executeCommandList(ze_command_list_handle_t CommandList);
-
-  ze_command_list_handle_t getCmdListComputeImm() {
-    return ZeCmdListComputeImm_;
-  }
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
@@ -193,7 +184,8 @@ public:
                                     const void *Src,
                                     const CHIPRegionDesc &SrcRegion);
 
-  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) override;
+  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
+                                       int *NumHandles) override;
 
   virtual CHIPEvent *enqueueMarkerImpl() override;
 
@@ -220,8 +212,8 @@ public:
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
-  bool isAllocatedPtrUSM(void* Ptr) override { return false; } // TODO
-  void freeImpl(void *Ptr) override{}; // TODO
+  bool isAllocatedPtrUSM(void *Ptr) override { return false; } // TODO
+  void freeImpl(void *Ptr) override{};                         // TODO
   ze_context_handle_t &get() { return ZeCtx; }
 
 }; // CHIPContextLevel0
@@ -322,7 +314,8 @@ public:
   }
 
   virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
-  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) override;
+  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles,
+                                  int NumHandles) override;
 
   ze_device_properties_t *getDeviceProps() { return &(this->ZeDeviceProps_); };
 
@@ -356,7 +349,8 @@ public:
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;
 
-  virtual void initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) override;
+  virtual void initializeFromNative(const uintptr_t *NativeHandles,
+                                    int NumHandles) override;
 
   virtual std::string getDefaultJitFlags() override;
 
@@ -403,8 +397,8 @@ public:
     return Evm;
   }
 
-  virtual hipEvent_t getHipEvent(void* NativeEvent) override;
-  virtual void* getNativeEvent(hipEvent_t HipEvent) override;
+  virtual hipEvent_t getHipEvent(void *NativeEvent) override;
+  virtual void *getNativeEvent(hipEvent_t HipEvent) override;
 
 }; // CHIPBackendLevel0
 
