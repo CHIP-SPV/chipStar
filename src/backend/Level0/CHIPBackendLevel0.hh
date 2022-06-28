@@ -41,8 +41,6 @@ public:
 
   virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
 
-  virtual void takeOver(CHIPEvent *Other) override;
-
   unsigned long getFinishTime();
 
   virtual float getElapsedTime(CHIPEvent *Other) override;
@@ -63,9 +61,9 @@ public:
                          CHIPQueue *ChipQueue);
 
   virtual ~CHIPCallbackDataLevel0() override {
-    GpuReady->decreaseRefCount();
-    CpuCallbackComplete->decreaseRefCount();
-    GpuAck->decreaseRefCount();
+    delete GpuReady;
+    delete CpuCallbackComplete;
+    delete GpuAck;
   }
 };
 
@@ -367,14 +365,6 @@ public:
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override {
     auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-
-    // User Events start with refc=2
-    if (UserEvent)
-      Ev->increaseRefCount();
-
-    // User Events do got get garbage collected
-    if (!UserEvent)
-      Backend->Events.push_back(Ev);
 
     return Ev;
   }

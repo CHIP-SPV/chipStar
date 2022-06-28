@@ -1482,7 +1482,7 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
 
   // instead of destroying directly, decrement refc to 1 and  let
   // StaleEventMonitor destroy this event
-  Event->decreaseRefCount();
+  delete Event;
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -3162,6 +3162,37 @@ hipError_t hipSetupArgument(const void *Arg, size_t Size, size_t Offset) {
   RETURN(Backend->setArg(Arg, Size, Offset));
   RETURN(hipSuccess);
   CHIP_CATCH
+}
+
+// TODO make generic with Size and pointer
+extern "C" hipError_t hipInitFromOutside(void *DriverPtr, void *DevicePtr,
+                                         void *ContexPtr, void *QueuePtr) {
+  logDebug("hipInitFromOutside");
+  auto Modules = std::move(Backend->getDevices()[0]->getModules());
+  {
+    std::lock_guard<std::mutex> LockCallbacks(Backend->CallbackQueueMtx);
+    delete Backend;
+  }
+  logDebug("deleting Backend object.");
+  Backend = new CHIPBackendLevel0();
+
+  ze_context_handle_t Ctx = (ze_context_handle_t)ContexPtr;
+  ze_driver_handle_t Driver = (ze_driver_handle_t)DriverPtr;
+  CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Driver, Ctx);
+  Backend->addContext(ChipCtx);
+
+  ze_device_handle_t Dev = (ze_device_handle_t)DevicePtr;
+  auto Idx = 0; // All devices should have been deleted
+  CHIPDeviceLevel0 *ChipDev = new CHIPDeviceLevel0(&Dev, ChipCtx, Idx);
+  ChipDev->ChipModules = Modules;
+  Backend->ChipContexts[0]->getDevices().push_back(ChipDev);
+  Backend->addDevice(ChipDev);
+
+  // ze_command_queue_handle_t q = (ze_command_queue_handle_t)queuePtr;
+  ChipDev->createQueueAndRegister(0, 0);
+  Backend->setActiveDevice(ChipDev);
+
+  RETURN(hipSuccess);
 }
 
 extern "C" void
