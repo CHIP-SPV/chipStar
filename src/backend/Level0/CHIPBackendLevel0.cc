@@ -622,17 +622,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
     : CHIPQueueLevel0(ChipDev, 0, 0) {}
 
 void CHIPQueueLevel0::initializeCopyListImm() {
-  ze_command_queue_desc_t CommandQueueCopyDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr,
-      CopyQueueGroupOrdinal_,
-      NextCopyQueueIndex_, // index
-      0,                   // flags
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
-
-  auto MaxQueues = CopyQueueProperties_.numQueues;
-  NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+  ze_command_queue_desc_t CommandQueueCopyDesc = getNextComputeQueueDesc();
 
   // Create an immediate command list for copy engine
   auto Status = zeCommandListCreateImmediate(
@@ -643,14 +633,7 @@ void CHIPQueueLevel0::initializeCopyListImm() {
 }
 void CHIPQueueLevel0::initializeComputeListImm() {
 
-  ze_command_queue_desc_t CommandQueueComputeDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr,
-      ComputeQueueGroupOrdinal_,
-      NextComputeQueueIndex_, // index
-      0,                      // flags
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+  ze_command_queue_desc_t CommandQueueComputeDesc = getNextComputeQueueDesc();
 
   // Create an immediate command list
   auto Status = zeCommandListCreateImmediate(
