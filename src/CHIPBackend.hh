@@ -1028,7 +1028,7 @@ public:
   CHIPQueue *createQueueAndRegister(unsigned int Flags, int Priority);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
-                                    int NumHandles);
+                                    const size_t NumHandles);
 
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
