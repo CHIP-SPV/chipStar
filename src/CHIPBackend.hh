@@ -509,6 +509,7 @@ protected:
   std::once_flag TrackCalled;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
+  std::vector<CHIPEvent *> DependsOnList;
 
   // reference count
   size_t *Refc_;
@@ -527,6 +528,14 @@ protected:
   CHIPEvent() = default;
 
 public:
+  void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
+  void releaseDependencies() {
+    for (auto Event : DependsOnList) {
+      std::lock_guard<std::mutex> Lock(Event->Mtx);
+      Event->decreaseRefCount(
+          "An event that depended on this one has finished");
+    }
+  }
   void trackImpl();
   void track() { std::call_once(TrackCalled, &CHIPEvent::trackImpl, this); }
   CHIPEventFlags getFlags() { return Flags_; }

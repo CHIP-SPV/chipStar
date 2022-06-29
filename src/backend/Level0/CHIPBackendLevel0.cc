@@ -516,6 +516,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         continue;
 
       E->decreaseRefCount("Event became ready");
+      E->releaseDependencies();
 
       // Check if this event is associated with a CommandList
       bool CommandListFound = EventCommandListMap->count(E);
@@ -1002,6 +1003,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
       CHIPEventLevel0 *ChipEventLz = (CHIPEventLevel0 *)(*EventsToWaitFor)[i];
       CHIPASSERT(ChipEventLz);
       EventHandles[i] = ChipEventLz->get();
+      EventToSignal->addDependency(ChipEventLz);
     }
   } // done gather Event_ handles to wait on
 
