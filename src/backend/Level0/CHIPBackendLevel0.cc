@@ -1102,15 +1102,20 @@ void CHIPBackendLevel0::uninitialize() {
     CallbackEventMonitor->join();
 
   StaleEventMonitor->Stop = true;
-  StaleEventMonitor->join();
-  logDebug("Remaining {} events that haven't been collected:",
-           Backend->Events.size());
-  for (auto E : Backend->Events)
-    logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-             E->getCHIPRefc());
+  // There are cases where not all the events get cleaned up causing join() to
+  // hang. For now, just print warnings.
 
-  logDebug("Remaining {} command lists that haven't been collected:",
-           ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  // StaleEventMonitor->join();
+  sleep(1);
+
+  logWarn("Remaining {} events that haven't been collected:",
+          Backend->Events.size());
+  for (auto E : Backend->Events)
+    logWarn("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+            E->getCHIPRefc());
+
+  logWarn("Remaining {} command lists that haven't been collected:",
+          ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
 }
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
   return std::string(
