@@ -75,7 +75,7 @@ public:
 
 class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  ~CHIPStaleEventMonitorLevel0() { join(); };
+  ~CHIPStaleEventMonitorLevel0(){};
   virtual void monitor() override;
 };
 

@@ -475,7 +475,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   logTrace("CHIPStaleEventMonitorLevel0::monitor()");
   // Stop is false and I have more events
 
-  while (true) {
+  while (!Stop) {
     usleep(100);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
     logTrace("num Events {} num queues() {}", Backend->Events.size(),
@@ -1052,12 +1052,10 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 #ifdef L0_IMM_QUEUES
 #else
-  bool EventCreated = false;
 
   auto LastCmdListEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
-  EventCreated = true;
 
   ze_result_t Status;
 
@@ -1102,11 +1100,7 @@ void CHIPBackendLevel0::uninitialize() {
     CallbackEventMonitor->join();
 
   StaleEventMonitor->Stop = true;
-  // There are cases where not all the events get cleaned up causing join() to
-  // hang. For now, just print warnings.
-
-  // StaleEventMonitor->join();
-  sleep(1);
+  StaleEventMonitor->join();
 
   logWarn("Remaining {} events that haven't been collected:",
           Backend->Events.size());
