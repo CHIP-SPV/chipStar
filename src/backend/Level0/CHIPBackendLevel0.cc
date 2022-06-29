@@ -180,6 +180,7 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // ***********************************************************************
 
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
+
 ze_event_handle_t CHIPEventLevel0::get() {
   increaseRefCount("get()");
   return Event_;
@@ -536,6 +537,10 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "removed from backend event list",
                                 hipErrorTbd);
         Backend->Events.erase(Found);
+
+        // Add the most course-grain lock here in case event destructor is not
+        // thread-safe
+        std::lock_guard Lock(Backend->Mtx);
         delete E;
       }
     } // done collecting events to delete
@@ -1089,6 +1094,15 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
 // CHIPBackendLevel0
 // ***********************************************************************
+
+CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
+                                                    CHIPEventFlags Flags,
+                                                    bool UserEvent) {
+  std::lock_guard Lock(Backend->Mtx);
+  auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+
+  return Ev;
+}
 
 void CHIPBackendLevel0::uninitialize() {
   logDebug("CHIPBackend::uninitialize()");

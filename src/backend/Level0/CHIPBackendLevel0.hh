@@ -363,11 +363,7 @@ public:
 
   virtual CHIPEventLevel0 *
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
-                  bool UserEvent = false) override {
-    auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-
-    return Ev;
-  }
+                  bool UserEvent = false) override;
 
   virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
