@@ -193,12 +193,36 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     assert(Status == ZE_RESULT_SUCCESS);
     Event_ = nullptr;
   }
-  if (EventPool_) {
-    auto Status = zeEventPoolDestroy(EventPool_);
-    // '~CHIPEventLevel0' has a non-throwing exception specification
-    assert(Status == ZE_RESULT_SUCCESS);
-    EventPool_ = nullptr;
-  }
+  // if (EventPool_) {
+  //   auto Status = zeEventPoolDestroy(EventPool_);
+  //   // '~CHIPEventLevel0' has a non-throwing exception specification
+  //   assert(Status == ZE_RESULT_SUCCESS);
+  //   EventPool_ = nullptr;
+  // }
+}
+CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
+                                 EventPool *EventPool,
+                                 unsigned int ThePoolIndex,
+                                 CHIPEventFlags Flags)
+    : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
+      EventPool_(nullptr), Timestamp_(0) {
+  Pool = EventPool;
+  PoolIndex = ThePoolIndex;
+  EventPool_ = EventPool->get();
+
+  ze_event_desc_t EventDesc = {
+      ZE_STRUCTURE_TYPE_EVENT_DESC, // stype
+      nullptr,                      // pNext
+      PoolIndex,                    // index
+      ZE_EVENT_SCOPE_FLAG_HOST,     // ensure memory/cache coherency required on
+                                    // signaauto l
+      ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
+                                    // Host after Event_ completes
+  };
+
+  auto Status = zeEventCreate(EventPool_, &EventDesc, &Event_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                              "Level Zero Event_ creation fail! ");
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
@@ -508,7 +532,10 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "removed from backend event list",
                                 hipErrorTbd);
         Backend->Events.erase(Found);
-        delete E;
+        CHIPEventLevel0 *Event = (CHIPEventLevel0 *)(*Found);
+        Event->Pool->returnSlot(Event->PoolIndex);
+
+        // delete E;
         continue;
       }
 
@@ -1092,6 +1119,75 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
 // End CHIPQueueLevelZero
 
+// EventPool
+// ***********************************************************************
+EventPool::EventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
+    : Ctx_(Ctx), Size_(Size) {
+
+  unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
+  // if (!flags.isDisableTiming())
+  //   pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+
+  ze_event_pool_desc_t EventPoolDesc = {
+      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
+      nullptr,                           // pNext
+      PoolFlags,                         // Flags
+      Size_                              // count
+  };
+
+  ze_result_t Status =
+      zeEventPoolCreate(Ctx_->get(), &EventPoolDesc, 0, nullptr, &EventPool_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
+                              "Level Zero Event_ pool creation fail! ");
+
+  for (int i = 0; i < Size_; i++) {
+    CHIPEventFlags Flags;
+    Events_.push_back(new CHIPEventLevel0(Ctx_, this, i, Flags));
+    FreeSlots_.push(i);
+  }
+};
+
+EventPool::~EventPool() {
+  for (int i = 0; i < Size_; i++) {
+    auto Status = zeEventDestroy(Events_[i]->get());
+    // '~CHIPEventLevel0' has a non-throwing exception specification
+    assert(Status == ZE_RESULT_SUCCESS);
+  }
+  auto Status = zeEventPoolDestroy(EventPool_);
+  // '~CHIPEventLevel0' has a non-throwing exception specification
+  assert(Status == ZE_RESULT_SUCCESS);
+};
+
+CHIPEventLevel0 *EventPool::getEvent() {
+  int PoolIndex = getFreeSlot();
+  if (PoolIndex == -1)
+    return nullptr;
+  auto Event = Events_[PoolIndex];
+
+  // reset event
+  auto Status = zeEventHostReset(Event->get());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  return Event;
+};
+
+int EventPool::getFreeSlot() {
+  if (FreeSlots_.size() == 0)
+    return -1;
+
+  auto Slot = FreeSlots_.top();
+  FreeSlots_.pop();
+
+  return Slot;
+}
+
+void EventPool::returnSlot(int Slot) {
+  FreeSlots_.push(Slot);
+  return;
+}
+
+// End EventPool
+
 // CHIPBackendLevel0
 // ***********************************************************************
 
@@ -1099,9 +1195,15 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
   std::lock_guard Lock(Backend->Mtx);
-  auto Ev = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+  CHIPEventLevel0 *Event;
+  if (UserEvent) {
+    Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+  } else {
+    auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
+    Event = ZeCtx->getEventFromPool();
+  }
 
-  return Ev;
+  return Event;
 }
 
 void CHIPBackendLevel0::uninitialize() {
