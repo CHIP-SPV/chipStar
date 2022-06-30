@@ -435,7 +435,7 @@ CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
 
 cl_event CHIPEventOpenCL::peek() { return ClEvent; }
 cl_event CHIPEventOpenCL::get() {
-  increaseRefCount();
+  increaseRefCount("get()");
   return ClEvent;
 }
 
@@ -467,7 +467,7 @@ size_t *CHIPEventOpenCL::getRefCount() {
 }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
-void CHIPEventOpenCL::decreaseRefCount() {
+void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", Msg.c_str());
   if (!ClEvent) {
     logTrace("CHIPEventOpenCL::decreaseRefCount() ClEvent is null. Likely "
@@ -475,18 +475,18 @@ void CHIPEventOpenCL::decreaseRefCount() {
     return;
   }
   auto R = getRefCount();
-  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *Refc_, *Refc_ - 1, *R,
-           *R - 1);
+  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
+           *Refc_ - 1, *R, *R - 1, Reason);
   (*Refc_)--;
   clReleaseEvent(ClEvent);
   // Destructor to be called by event monitor once backend is done using it
   // if (*refc == 1) delete this;
 }
-void CHIPEventOpenCL::increaseRefCount() {
+void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
   logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", Msg.c_str());
   auto R = getRefCount();
-  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{}", *Refc_, *Refc_ + 1, *R,
-           *R + 1);
+  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
+           *Refc_ + 1, *R, *R + 1, Reason);
   (*Refc_)++;
   clRetainEvent(ClEvent);
 }
@@ -497,9 +497,17 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
   return new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
 }
 
+void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
+  logDebug("CHIPEvent::recordStream()");
+  std::lock_guard<std::mutex> Lock(Mtx);
+  assert(ChipQueue->getLastEvent() != nullptr);
+  this->takeOver(ChipQueue->getLastEvent());
+  EventStatus_ = EVENT_STATUS_RECORDING;
+}
+
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   if (*Refc_ > 1)
-    decreaseRefCount();
+    decreaseRefCount("takeOver");
   auto *Other = (CHIPEventOpenCL *)OtherIn;
   this->ClEvent = Other->get(); // increases refcount
   this->Refc_ = Other->getRefCount();
@@ -882,7 +890,7 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
    * which require LastEvent to be initialized.
    *
    */
-  setLastEvent(enqueueMarkerImpl());
+  updateLastEvent(enqueueMarkerImpl());
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
@@ -1276,7 +1284,7 @@ hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {
 void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
   // TODO should we retain here?
-  E->increaseRefCount();
+  // E->increaseRefCount();
   return (void *)E->ClEvent;
 }
 

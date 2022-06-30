@@ -1,18 +1,19 @@
-83% tests passed, 64 tests failed out of 385
+85% tests passed, 57 tests failed out of 385
 
 Label Time Summary:
-internal    = 236.03 sec*proc (50 tests)
+internal    =  52.96 sec*proc (50 tests)
 
-Total Test time (real) = 894.41 sec
+Total Test time (real) = 469.07 sec
 
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
 	 66 - Unit_hipMemcpy2D_Negative (Failed)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
+	140 - Unit_hipMemset3D_MemsetWithExtent (Subprocess aborted)
+	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	179 - Unit_hipMemset2DAsync_MultiThread (Subprocess aborted)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	229 - Unit_hipStreamCreateWithPriority (Failed)
@@ -22,7 +23,8 @@ The following tests FAILED:
 	235 - Unit_hipStreamGetPriority_higher (Failed)
 	236 - Unit_hipStreamGetPriority_low (Failed)
 	237 - Unit_hipStreamGetPriority_lower (Failed)
-	239 - Unit_hipMultiStream_multimeDevice (Failed)
+	239 - Unit_hipMultiStream_multimeDevice (Subprocess aborted)
+	240 - Unit_hipStreamAddCallback_MultipleThreads (Timeout)
 	245 - Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities (Failed)
 	246 - Unit_hipStreamCreateWithPriority_MulthreadDefaultflag (Failed)
 	247 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
@@ -38,18 +40,17 @@ The following tests FAILED:
 	282 - Unit_hipDeviceGetCacheConfig_FuncTst (Failed)
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
-	302 - Unit_hipStreamPerThread_StreamQuery (SEGFAULT)
+	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
 	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
 	308 - Unit_hipStreamPerThread_EventRecord (Failed)
 	309 - Unit_hipStreamPerThread_EventSynchronize (Failed)
-	311 - Unit_hipStreamPerThread_DeviceReset_1 (SEGFAULT)
 	313 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	314 - Unit_hipGraphAddDependencies_Functional (Failed)
 	315 - Unit_hipGraph_BasicFunctional (Failed)
-	316 - Unit_hipGraph_SimpleGraphWithKernel (Failed)
+	316 - Unit_hipGraph_SimpleGraphWithKernel (SEGFAULT)
 	317 - Unit_hipGraphAddMemcpyNode_Functional (Failed)
 	318 - ABM_AddKernel_MultiTypeMultiSize - int (Failed)
 	319 - ABM_AddKernel_MultiTypeMultiSize - long (Failed)
@@ -59,15 +60,6 @@ The following tests FAILED:
 	325 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
-	329 - abort (Failed)
-	352 - hipStreamSemantics (Failed)
-	364 - FastWalshTransform (SEGFAULT)
-	365 - FloydWarshall (Timeout)
-	367 - RecursiveGaussian (SEGFAULT)
-	369 - PrintfSimple (Failed)
-	370 - PrintfNOP (Failed)
 	371 - PrintfDynamic (Failed)
-	372 - hipTextureObj2D (SEGFAULT)
 	382 - sycl_chip_interop (SEGFAULT)
 	383 - sycl_chip_interop_usm (SEGFAULT)
-	

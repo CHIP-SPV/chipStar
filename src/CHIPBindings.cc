@@ -1482,7 +1482,7 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
 
   // instead of destroying directly, decrement refc to 1 and  let
   // StaleEventMonitor destroy this event
-  Event->decreaseRefCount();
+  delete Event;
   RETURN(hipSuccess);
 
   CHIP_CATCH

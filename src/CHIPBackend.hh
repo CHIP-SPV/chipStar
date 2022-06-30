@@ -506,8 +506,10 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
+  std::once_flag TrackCalled;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
+  std::vector<CHIPEvent *> DependsOnList;
 
   // reference count
   size_t *Refc_;
@@ -526,20 +528,29 @@ protected:
   CHIPEvent() = default;
 
 public:
+  void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
+  void releaseDependencies() {
+    for (auto Event : DependsOnList) {
+      std::lock_guard<std::mutex> Lock(Event->Mtx);
+      Event->decreaseRefCount(
+          "An event that depended on this one has finished");
+    }
+  }
+  void trackImpl();
+  void track() { std::call_once(TrackCalled, &CHIPEvent::trackImpl, this); }
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
-  virtual void takeOver(CHIPEvent *Other){};
-  virtual void decreaseRefCount() {
-    // logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{}", Msg.c_str(),
-    //          *Refc_, *Refc_ - 1);
+  virtual void decreaseRefCount(std::string Reason) {
+    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{} REASON: {}",
+             Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     (*Refc_)--;
     // Destructor to be called by event monitor once backend is done using it
   }
-  virtual void increaseRefCount() {
-    // logDebug("CHIPEvent::increaseRefCount() {} refc {}->{}", Msg.c_str(),
-    //          *Refc_, *Refc_ + 1);
+  virtual void increaseRefCount(std::string Reason) {
+    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{} REASON: {}",
+             Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
@@ -611,7 +622,7 @@ public:
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue *ChipQueue);
+  virtual void recordStream(CHIPQueue *ChipQueue) = 0;
   /**
    * @brief Wait for this event to complete
    *
@@ -1795,18 +1806,13 @@ protected:
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent *LastEvent_ = nullptr;
 
-  void RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
+  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
   // I want others to be able to lock this queue?
   std::mutex Mtx;
 
   virtual CHIPEvent *getLastEvent() = 0;
-  void setLastEvent(CHIPEvent *ChipEv) {
-    std::lock_guard<std::mutex> Lock(ChipEv->Mtx);
-    ChipEv->increaseRefCount();
-    LastEvent_ = ChipEv;
-  }
 
   /**
    * @brief Construct a new CHIPQueue object
@@ -1836,19 +1842,22 @@ public:
   virtual ~CHIPQueue();
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(CHIPEvent *ChipEv) {
-    if (LastEvent_ != nullptr)
-      std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
-
-    std::lock_guard<std::mutex> LockNew(ChipEv->Mtx);
-    assert(ChipEv);
-    if (ChipEv == LastEvent_)
+  virtual void updateLastEvent(CHIPEvent *NewEvent) {
+    if (NewEvent == LastEvent_)
       return;
-    // logDebug("CHIPQueue::updateLastEvent()");
-    if (LastEvent_ != nullptr)
-      LastEvent_->decreaseRefCount();
-    ChipEv->increaseRefCount();
-    LastEvent_ = ChipEv;
+
+    if (LastEvent_ != nullptr) {
+      std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
+      LastEvent_->decreaseRefCount("updateLastEvent - old event");
+    }
+
+    if (NewEvent != nullptr) {
+      std::lock_guard<std::mutex> LockLast(NewEvent->Mtx);
+      NewEvent->increaseRefCount("updateLastEvent - new event");
+    }
+
+    // std::lock_guard Lock(Mtx);
+    LastEvent_ = NewEvent;
   }
 
   /**
