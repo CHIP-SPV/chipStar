@@ -193,34 +193,28 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     assert(Status == ZE_RESULT_SUCCESS);
     Event_ = nullptr;
   }
-  // if (EventPool_) {
-  //   auto Status = zeEventPoolDestroy(EventPool_);
-  //   // '~CHIPEventLevel0' has a non-throwing exception specification
-  //   assert(Status == ZE_RESULT_SUCCESS);
-  //   EventPool_ = nullptr;
-  // }
 }
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
-                                 EventPool *EventPool,
+                                 LZEventPool *TheEventPool,
                                  unsigned int ThePoolIndex,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPool_(nullptr), Timestamp_(0) {
-  Pool = EventPool;
-  PoolIndex = ThePoolIndex;
-  EventPool_ = EventPool->get();
+      EventPoolHandle_(nullptr), Timestamp_(0) {
+  EventPool = TheEventPool;
+  EventPoolIndex = ThePoolIndex;
+  EventPoolHandle_ = TheEventPool->get();
 
   ze_event_desc_t EventDesc = {
       ZE_STRUCTURE_TYPE_EVENT_DESC, // stype
       nullptr,                      // pNext
-      PoolIndex,                    // index
+      EventPoolIndex,               // index
       ZE_EVENT_SCOPE_FLAG_HOST,     // ensure memory/cache coherency required on
                                     // signaauto l
       ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
                                     // Host after Event_ completes
   };
 
-  auto Status = zeEventCreate(EventPool_, &EventDesc, &Event_);
+  auto Status = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ creation fail! ");
 }
@@ -228,7 +222,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPool_(nullptr), Timestamp_(0) {
+      EventPoolHandle_(nullptr), Timestamp_(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -242,8 +236,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       1                                  // count
   };
 
-  ze_result_t Status =
-      zeEventPoolCreate(ZeCtx->get(), &EventPoolDesc, 0, nullptr, &EventPool_);
+  ze_result_t Status = zeEventPoolCreate(ZeCtx->get(), &EventPoolDesc, 0,
+                                         nullptr, &EventPoolHandle_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ pool creation fail! ");
 
@@ -257,7 +251,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                     // Host after Event_ completes
   };
 
-  Status = zeEventCreate(EventPool_, &EventDesc, &Event_);
+  Status = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ creation fail! ");
 }
@@ -265,7 +259,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : CHIPEvent((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
-      EventPool_(nullptr), Timestamp_(0) {}
+      EventPoolHandle_(nullptr), Timestamp_(0) {}
 
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
@@ -533,9 +527,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 hipErrorTbd);
         Backend->Events.erase(Found);
         CHIPEventLevel0 *Event = (CHIPEventLevel0 *)(*Found);
-        Event->Pool->returnSlot(Event->PoolIndex);
-
-        // delete E;
+        Event->EventPool->returnSlot(Event->EventPoolIndex);
         continue;
       }
 
@@ -1121,7 +1113,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
 // EventPool
 // ***********************************************************************
-EventPool::EventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
+LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
     : Ctx_(Ctx), Size_(Size) {
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -1147,18 +1139,17 @@ EventPool::EventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
   }
 };
 
-EventPool::~EventPool() {
+LZEventPool::~LZEventPool() {
   for (int i = 0; i < Size_; i++) {
-    auto Status = zeEventDestroy(Events_[i]->get());
-    // '~CHIPEventLevel0' has a non-throwing exception specification
-    assert(Status == ZE_RESULT_SUCCESS);
+    delete Events_[i];
   }
+
   auto Status = zeEventPoolDestroy(EventPool_);
   // '~CHIPEventLevel0' has a non-throwing exception specification
   assert(Status == ZE_RESULT_SUCCESS);
 };
 
-CHIPEventLevel0 *EventPool::getEvent() {
+CHIPEventLevel0 *LZEventPool::getEvent() {
   int PoolIndex = getFreeSlot();
   if (PoolIndex == -1)
     return nullptr;
@@ -1171,7 +1162,7 @@ CHIPEventLevel0 *EventPool::getEvent() {
   return Event;
 };
 
-int EventPool::getFreeSlot() {
+int LZEventPool::getFreeSlot() {
   if (FreeSlots_.size() == 0)
     return -1;
 
@@ -1181,7 +1172,7 @@ int EventPool::getFreeSlot() {
   return Slot;
 }
 
-void EventPool::returnSlot(int Slot) {
+void LZEventPool::returnSlot(int Slot) {
   FreeSlots_.push(Slot);
   return;
 }
