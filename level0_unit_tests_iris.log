@@ -1,19 +1,20 @@
-85% tests passed, 57 tests failed out of 385
+84% tests passed, 60 tests failed out of 385
 
 Label Time Summary:
-internal    =  52.96 sec*proc (50 tests)
+internal    = 255.98 sec*proc (50 tests)
 
-Total Test time (real) = 469.07 sec
+Total Test time (real) = 1533.35 sec
 
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
 	 66 - Unit_hipMemcpy2D_Negative (Failed)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
-	140 - Unit_hipMemset3D_MemsetWithExtent (Subprocess aborted)
-	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Subprocess aborted)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (SEGFAULT)
+	140 - Unit_hipMemset3D_MemsetWithExtent (Timeout)
+	141 - Unit_hipMemset3DAsync_MemsetWithExtent (Timeout)
+	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
+	179 - Unit_hipMemset2DAsync_MultiThread (Timeout)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	229 - Unit_hipStreamCreateWithPriority (Failed)
@@ -23,7 +24,7 @@ The following tests FAILED:
 	235 - Unit_hipStreamGetPriority_higher (Failed)
 	236 - Unit_hipStreamGetPriority_low (Failed)
 	237 - Unit_hipStreamGetPriority_lower (Failed)
-	239 - Unit_hipMultiStream_multimeDevice (Subprocess aborted)
+	239 - Unit_hipMultiStream_multimeDevice (Timeout)
 	240 - Unit_hipStreamAddCallback_MultipleThreads (Timeout)
 	245 - Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities (Failed)
 	246 - Unit_hipStreamCreateWithPriority_MulthreadDefaultflag (Failed)
@@ -47,10 +48,11 @@ The following tests FAILED:
 	307 - Unit_hipStreamPerThread_MemcpyAsync (Failed)
 	308 - Unit_hipStreamPerThread_EventRecord (Failed)
 	309 - Unit_hipStreamPerThread_EventSynchronize (Failed)
+	311 - Unit_hipStreamPerThread_DeviceReset_1 (SEGFAULT)
 	313 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	314 - Unit_hipGraphAddDependencies_Functional (Failed)
 	315 - Unit_hipGraph_BasicFunctional (Failed)
-	316 - Unit_hipGraph_SimpleGraphWithKernel (SEGFAULT)
+	316 - Unit_hipGraph_SimpleGraphWithKernel (Failed)
 	317 - Unit_hipGraphAddMemcpyNode_Functional (Failed)
 	318 - ABM_AddKernel_MultiTypeMultiSize - int (Failed)
 	319 - ABM_AddKernel_MultiTypeMultiSize - long (Failed)
@@ -60,6 +62,7 @@ The following tests FAILED:
 	325 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	326 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	327 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
+	365 - FloydWarshall (Timeout)
 	371 - PrintfDynamic (Failed)
 	382 - sycl_chip_interop (SEGFAULT)
 	383 - sycl_chip_interop_usm (SEGFAULT)
