@@ -12,6 +12,7 @@ The following tests did not run:
 The following tests FAILED:
 	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
 	 66 - Unit_hipMemcpy2D_Negative (Failed)
+	101 - Unit_hipMemcpy_MultiThread-AllAPIs (SEGFAULT)
 	102 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
 	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
@@ -44,7 +45,7 @@ The following tests FAILED:
 	282 - Unit_hipDeviceGetCacheConfig_FuncTst (Failed)
 	293 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	301 - Unit_hipStreamPerThread_Basic (Failed)
-	302 - Unit_hipStreamPerThread_StreamQuery (Subprocess aborted)
+	302 - Unit_hipStreamPerThread_StreamQuery (SEGFAULT)
 	303 - Unit_hipStreamPerThread_StreamSynchronize (Subprocess aborted)
 	304 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	305 - Unit_hipStreamPerThread_StreamGetFlags (Failed)
