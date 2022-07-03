@@ -1,6 +1,9 @@
 #ifndef CHIP_BACKEND_LEVEL0_H
 #define CHIP_BACKEND_LEVEL0_H
 
+// TODO: Should this be a cmake parameter? env? What is max size?
+#define EVENT_POOL_SIZE 1000
+
 #include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
 #include "../src/common.hh"
@@ -16,23 +19,28 @@ class CHIPTextureLevel0;
 class CHIPEventLevel0;
 class CHIPQueueLevel0;
 class LZCommandList;
+class LZEventPool;
 
 class CHIPEventLevel0 : public CHIPEvent {
 private:
   friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t Event_;
-  ze_event_pool_handle_t EventPool_;
+  ze_event_pool_handle_t EventPoolHandle_;
 
   // The timestamp value
   uint64_t Timestamp_;
 
 public:
+  unsigned int EventPoolIndex;
+  LZEventPool *EventPool;
   CHIPEventLevel0()
       : CHIPEventLevel0((CHIPContextLevel0 *)Backend->getActiveContext()) {}
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                   CHIPEventFlags Flags = CHIPEventFlags());
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, ze_event_handle_t NativeEvent);
+  CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, LZEventPool *EventPool,
+                  unsigned int PoolIndex, CHIPEventFlags Flags);
   virtual ~CHIPEventLevel0() override;
 
   void recordStream(CHIPQueue *ChipQueue) override;
@@ -77,6 +85,26 @@ class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
 public:
   ~CHIPStaleEventMonitorLevel0(){};
   virtual void monitor() override;
+};
+
+class LZEventPool {
+private:
+  CHIPContextLevel0 *Ctx_;
+  ze_event_pool_handle_t EventPool_;
+  unsigned int Size_;
+  std::stack<int> FreeSlots_;
+  std::vector<CHIPEventLevel0 *> Events_;
+
+  int getFreeSlot();
+
+public:
+  LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
+  ~LZEventPool();
+  ze_event_pool_handle_t get() { return EventPool_; }
+
+  void returnSlot(int Slot);
+
+  CHIPEventLevel0 *getEvent();
 };
 
 class CHIPQueueLevel0 : public CHIPQueue {
@@ -198,8 +226,28 @@ public:
 
 class CHIPContextLevel0 : public CHIPContext {
   OpenCLFunctionInfoMap FuncInfos_;
+  std::vector<LZEventPool *> EventPools_;
 
 public:
+  CHIPEventLevel0 *getEventFromPool() {
+
+    // go through all pools and try to get an allocated event
+    for (int i = 0; i < EventPools_.size(); i++) {
+      CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
+      if (Event)
+        return Event;
+    }
+
+    // no events available, create new pool, get event from there and return
+    logTrace("No available events found in {} event pools. Creating a new "
+             "event pool",
+             EventPools_.size());
+    auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
+    auto Event = NewEventPool->getEvent();
+    EventPools_.push_back(NewEventPool);
+    return Event;
+  }
+
   ze_context_handle_t ZeCtx;
   ze_driver_handle_t ZeDriver;
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t &&ZeCtx)
