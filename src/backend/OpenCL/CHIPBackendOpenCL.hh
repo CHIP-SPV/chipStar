@@ -89,6 +89,7 @@ protected:
 
 public:
   CHIPModuleOpenCL(std::string *ModuleStr);
+  virtual ~CHIPModuleOpenCL() {}
   virtual void compile(CHIPDevice *ChipDevice) override;
   cl::Program *get();
 };
@@ -118,7 +119,7 @@ public:
   SVMemoryRegion SvmMemory;
   cl::Context *ClContext;
   CHIPContextOpenCL(cl::Context *ClContext);
-
+  virtual ~CHIPContextOpenCL() {}
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
@@ -196,6 +197,7 @@ private:
 public:
   CHIPKernelOpenCL(const cl::Kernel &&ClKernel, std::string HostFName,
                    OCLFuncInfo *FuncInfo, CHIPModuleOpenCL *Parent);
+  virtual ~CHIPKernelOpenCL() {}
   OCLFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();

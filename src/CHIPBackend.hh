@@ -695,7 +695,7 @@ public:
    * @brief Destroy the CHIPModule object
    *
    */
-  ~CHIPModule();
+  virtual ~CHIPModule();
   /**
    * @brief Construct a new CHIPModule object.
    * This constructor should be implemented by the derived class (specific
@@ -834,7 +834,7 @@ protected:
   OCLFuncInfo *FuncInfo_;
 
 public:
-  ~CHIPKernel();
+  virtual ~CHIPKernel();
 
   /**
    * @brief Get the Name object

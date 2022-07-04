@@ -187,6 +187,7 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
+  logDebug("chipEventLevel0 DEST {}", (void*)this->Event_);
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
     // '~CHIPEventLevel0' has a non-throwing exception specification
