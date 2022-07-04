@@ -659,6 +659,8 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
   CHIP_TRY
   CHIPInitialize();
 
+  Stream = Backend->findQueue(Stream);
+
   if (PCopy->dstPitch == 0)
     return hipSuccess;
   if (PCopy->srcPitch == 0)
@@ -2093,6 +2095,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
+  Stream = Backend->findQueue(Stream);
   hipError_t Res = hipSuccess;
   for (int i = 0; i < Height; i++) {
     size_t SizeBytes = Width * sizeof(int);
@@ -2126,6 +2129,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr.ptr);
+  Stream = Backend->findQueue(Stream);
 
   if (Extent.height * Extent.width * Extent.depth == 0)
     return hipSuccess;
@@ -2384,6 +2388,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+  Stream = Backend->findQueue(Stream);
 
   if (!Dst)
     RETURN(hipErrorUnknown);
@@ -2427,6 +2432,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+  Stream = Backend->findQueue(Stream);
 
   if (!Width || !Height)
     RETURN(hipSuccess);
@@ -2554,7 +2560,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   CHIPInitialize();
   NULLCHECK(Params);
 
-  auto Stream = Backend->getActiveQueue();
+  Stream = Backend->findQueue(Stream);
 
   const HIP_MEMCPY3D PDrvI = getDrvMemcpy3DDesc(*Params);
   const HIP_MEMCPY3D *PDrv = &PDrvI;
