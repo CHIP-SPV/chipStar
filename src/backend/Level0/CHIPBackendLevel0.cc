@@ -1190,6 +1190,7 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   CHIPEventLevel0 *Event;
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+    Event->increaseRefCount("hipEventCreate");
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
     Event = ZeCtx->getEventFromPool();
@@ -1337,9 +1338,9 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
 hipEvent_t CHIPBackendLevel0::getHipEvent(void *NativeEvent) {
   ze_event_handle_t E = (ze_event_handle_t)NativeEvent;
-  // TODO should we make refc == 2 ?
   CHIPEventLevel0 *NewEvent =
       new CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
+  NewEvent->increaseRefCount("getHipEvent");
   return NewEvent;
 }
 

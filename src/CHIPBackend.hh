@@ -545,7 +545,11 @@ public:
   virtual void decreaseRefCount(std::string Reason) {
     logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{} REASON: {}",
              Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-    (*Refc_)--;
+    if (*Refc_ > 0) {
+      (*Refc_)--;
+    } else {
+      logError("CHIPEvent::decreaseRefCount() called when refc == 0");
+    }
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {

@@ -494,7 +494,9 @@ void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
-  return new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
+  CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
+  if (UserEvent) Event->increaseRefCount("hipEventCreate");
+  return Event;
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
