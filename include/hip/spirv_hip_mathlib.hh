@@ -49,7 +49,7 @@ THE SOFTWARE.
 #define OVLD __attribute__((overloadable)) __device__
 #define NON_OVLD __device__
 #define GEN_NAME(N) opencl_##N
-#define GEN_NAME2(N, S) opencl__##N##_##S
+#define GEN_NAME2(N, S) opencl_##N##_##S
 #else
 #define __DEVICE__ extern __device__
 #define EXPORT extern __device__
@@ -316,6 +316,12 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
   }                                                    \
   EXPORT float __##NAME##f(float x) { return GEN_NAME2(NAME##_native, f)(x); }
 
+#define DEFOPENCL2F_NATIVE(NAME)                       \
+  extern "C" {                                         \
+  float NON_OVLD GEN_NAME2(NAME##_native, f)(float x, float y); \
+  }                                                    \
+  EXPORT float __##NAME##f(float x, float y) { return GEN_NAME2(NAME##_native, f)(x, y); }
+
 #define FAKE_ROUNDINGS2(NAME, CODE)                                 \
   EXPORT float __f##NAME##_rd(float x, float y) { return CODE; }    \
   EXPORT float __f##NAME##_rn(float x, float y) { return CODE; }    \
@@ -391,6 +397,7 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
   EXPORT long long int ll##NAME(double x);
 
 #define DEFOPENCL1F_NATIVE(NAME) EXPORT float __##NAME##f(float x);
+#define DEFOPENCL2F_NATIVE(NAME) EXPORT float __##NAME##f(float x, float y);
 
 #define FAKE_ROUNDINGS2(NAME, CODE)                 \
   EXPORT float __f##NAME##_rd(float x, float y);    \
@@ -425,6 +432,7 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
 #endif
 DEFOPENCL1F(sqrt)
 DEFOPENCL1F(rsqrt)
+//DEFOPENCL2F(pow)
 
 DEFOPENCL1F(acos)
 DEFOPENCL1F(asin)
@@ -783,6 +791,8 @@ DEFOPENCL1F_NATIVE(tan)
 DEFOPENCL1F_NATIVE(exp10)
 DEFOPENCL1F_NATIVE(exp)
 
+DEFOPENCL2F_NATIVE(pow)
+
 DEFOPENCL1F_NATIVE(sqrt)
 DEFOPENCL1F_NATIVE(rsqrt)
 DEFOPENCL1F_NATIVE(log10)
@@ -794,9 +804,9 @@ extern "C" {
 float NON_OVLD GEN_NAME2(powr_native, f)(float x, float y);
 }
 
-EXPORT float __powf(float x, float y) {
-  return GEN_NAME2(powr_native, f)(x, y);
-}
+//EXPORT float __powf(float x, float y) {
+//  return GEN_NAME2(powr_native, f)(x, y);
+//}
 
 EXPORT float __saturatef(float x) {
   return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
@@ -867,7 +877,7 @@ EXPORT void *memcpy(void *dest, const void *src, size_t n) {
 /**********************************************************************/
 
 #else
-EXPORT float __powf(float x, float y);
+// EXPORT float __powf(float x, float y);
 EXPORT float __saturatef(float x);
 EXPORT void __sincosf(float x, float *sptr, float *cptr);
 EXPORT void __syncthreads();
