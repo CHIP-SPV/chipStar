@@ -193,8 +193,12 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     // '~CHIPEventLevel0' has a non-throwing exception specification
     assert(Status == ZE_RESULT_SUCCESS);
     Event_ = nullptr;
+    EventPoolHandle_ = nullptr;
+    EventPool = nullptr;
+    Timestamp_ = 0;
   }
 }
+
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  LZEventPool *TheEventPool,
                                  unsigned int ThePoolIndex,
@@ -223,7 +227,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), Timestamp_(0) {
+      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0), EventPool(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -260,7 +264,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : CHIPEvent((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
-      EventPoolHandle_(nullptr), Timestamp_(0) {}
+      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0), EventPool(nullptr) {}
 
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
@@ -270,7 +274,6 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   if (EventStatus_ == EVENT_STATUS_RECORDED) {
     logTrace("Event {}: EVENT_STATUS_RECORDED ... Resetting event.", (void*)this);
     ze_result_t Status = zeEventHostReset(Event_);
-    *Refc_ = 0;
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
 
@@ -528,7 +531,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 hipErrorTbd);
         Backend->Events.erase(Found);
         CHIPEventLevel0 *Event = (CHIPEventLevel0 *)(*Found);
-        Event->EventPool->returnSlot(Event->EventPoolIndex);
+        if (Event->EventPool)
+          Event->EventPool->returnSlot(Event->EventPoolIndex);
         continue;
       }
 
@@ -1191,6 +1195,8 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
     Event->increaseRefCount("hipEventCreate");
+    Event->increaseRefCount("hipEventCreate");
+    Event->track();
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
     Event = ZeCtx->getEventFromPool();
