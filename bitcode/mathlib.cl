@@ -321,6 +321,7 @@ EXPORT void CL_NAME(local_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
 EXPORT void CL_NAME(global_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 
+EXPORT void CL_NAME(system_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value

@@ -144,53 +144,18 @@ inline float __frcp_rz(float x) {
   return 1;
 }
 #endif
-__DEVICE__
-inline float __frsqrt_rn(float x) {
-  // return __llvm_amdgcn_rsq_f32(x);
-  return 1;
-}
+
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fsqrt_rd(float x) { return __ocml_sqrt_rtn_f32(x); }
-#endif
-__DEVICE__
-inline float __fsqrt_rn(float x) { return __ocml_native_sqrt_f32(x); }
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fsqrt_ru(float x) { return __ocml_sqrt_rtp_f32(x); }
-__DEVICE__
-inline float __fsqrt_rz(float x) { return __ocml_sqrt_rtz_f32(x); }
 __DEVICE__
 inline float __fsub_rd(float x, float y) { return __ocml_sub_rtn_f32(x, y); }
 #endif
 __DEVICE__
-// inline float __fsub_rn(float x, float y) { return x - y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsub_ru(float x, float y) { return __ocml_sub_rtp_f32(x, y); }
 __DEVICE__
 inline float __fsub_rz(float x, float y) { return __ocml_sub_rtz_f32(x, y); }
 #endif
-// __DEVICE__
-// inline float __log10f(float x) { return __ocml_native_log10_f32(x); }
-// __DEVICE__
-// inline float __log2f(float x) { return __ocml_native_log2_f32(x); }
-// __DEVICE__
-// inline float __logf(float x) { return __ocml_native_log_f32(x); }
-// __DEVICE__
-// inline float __powf(float x, float y) { return __ocml_pow_f32(x, y); }
-// __DEVICE__
-// inline float __saturatef(float x) { return (x < 0) ? 0 : ((x > 1) ? 1 : x); }
-// __DEVICE__
-// inline void __sincosf(float x, float *sptr, float *cptr) {
-//   *sptr = __ocml_native_sin_f32(x);
-//   *cptr = __ocml_native_cos_f32(x);
-// }
-// __DEVICE__
-// inline float __sinf(float x) { return __ocml_native_sin_f32(x); }
-// __DEVICE__
-// inline float __tanf(float x) { return __ocml_tan_f32(x); }
-// END INTRINSICS
 
 __device__ inline unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
                                                unsigned int shift) {
@@ -458,6 +423,8 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
   EXPORT double __##NAME##_rz(double x, double y, double z);
 
 #endif
+DEFOPENCL1F(sqrt)
+DEFOPENCL1F(rsqrt)
 
 DEFOPENCL1F(acos)
 DEFOPENCL1F(asin)
@@ -629,7 +596,6 @@ DEFOPENCL3F(rnorm3d)
 DEFOPENCL4F(rnorm4d)
 
 DEFOPENCL1F(round)
-DEFOPENCL1F(rsqrt)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 extern "C" {
@@ -661,7 +627,6 @@ DEFOPENCL1B(signbit)
 DEFOPENCL1F(sin)
 DEFOPENCL1F(sinh)
 DEFOPENCL1F(sinpi)
-DEFOPENCL1F(sqrt)
 DEFOPENCL1F(tan)
 DEFOPENCL1F(tanh)
 DEFOPENCL1F(tgamma)
@@ -806,7 +771,8 @@ FAKE_ROUNDINGS2(div, x / y)
 FAKE_ROUNDINGS2(mul, x *y)
 
 FAKE_ROUNDINGS1(rcp, (1.0f / x))
-FAKE_ROUNDINGS2(sqrt, GEN_NAME2(sqrt, f)(x))
+FAKE_ROUNDINGS1(rsqrt, rsqrt(x))
+FAKE_ROUNDINGS1(sqrt, sqrt(x))
 
 FAKE_ROUNDINGS3(fma, GEN_NAME2(fma, f)(x, y, z))
 
@@ -817,6 +783,8 @@ DEFOPENCL1F_NATIVE(tan)
 DEFOPENCL1F_NATIVE(exp10)
 DEFOPENCL1F_NATIVE(exp)
 
+DEFOPENCL1F_NATIVE(sqrt)
+DEFOPENCL1F_NATIVE(rsqrt)
 DEFOPENCL1F_NATIVE(log10)
 DEFOPENCL1F_NATIVE(log2)
 DEFOPENCL1F_NATIVE(log)
@@ -843,19 +811,23 @@ EXPORT void __sincosf(float x, float *sptr, float *cptr) {
 
 extern "C" {
 NON_OVLD void GEN_NAME(local_barrier)();
+NON_OVLD int GEN_NAME(group_all)(int predicate);
+NON_OVLD int GEN_NAME(group_any)(int predicate);
+NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 }
+
 EXPORT void __syncthreads() { GEN_NAME(local_barrier)(); }
 EXPORT int __syncthreads_and(int predicate) {
   GEN_NAME(local_barrier)();
-  return 1;
+  return GEN_NAME(group_all)(!!predicate);
 }
 EXPORT int __syncthreads_or(int predicate) {
   GEN_NAME(local_barrier)();
-  return 1;
+  return GEN_NAME(group_any)(!!predicate);
 }
-EXPORT int __syncthreads_count(int predicate) {
+EXPORT ulong __syncthreads_count(int predicate) {
   GEN_NAME(local_barrier)();
-  return 1;
+  return GEN_NAME(group_ballot)(!!predicate);
 }
 
 extern "C" {
