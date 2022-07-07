@@ -80,7 +80,7 @@ public:
   cl_event peek();
   cl_event get();
   uint64_t getFinishTime();
-  size_t *getRefCount();
+  size_t getRefCount();
 };
 
 class CHIPModuleOpenCL : public CHIPModule {
