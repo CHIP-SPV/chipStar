@@ -543,8 +543,8 @@ public:
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void decreaseRefCount(std::string Reason) {
-    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{} REASON: {}",
-             Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void*)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
     } else {
@@ -553,8 +553,8 @@ public:
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {
-    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{} REASON: {}",
-             Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void*)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;

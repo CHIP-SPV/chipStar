@@ -187,7 +187,7 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  logDebug("chipEventLevel0 DEST {}", (void*)this->Event_);
+  logDebug("chipEventLevel0 DEST {}", (void*)this);
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
     // '~CHIPEventLevel0' has a non-throwing exception specification
@@ -268,7 +268,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   ze_result_t Status;
 
   if (EventStatus_ == EVENT_STATUS_RECORDED) {
-    logTrace("{}: EVENT_STATUS_RECORDED ... Resetting event.");
+    logTrace("Event {}: EVENT_STATUS_RECORDED ... Resetting event.", (void*)this);
     ze_result_t Status = zeEventHostReset(Event_);
     *Refc_ = 0;
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
