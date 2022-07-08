@@ -64,19 +64,11 @@ THE SOFTWARE.
 #endif
 
 // BEGIN INTRINSICS
-// __DEVICE__
-// inline float __cosf(float x) { return __ocml_native_cos_f32(x); }
-// __DEVICE__
-// inline float __exp10f(float x) { return __ocml_native_exp10_f32(x); }
-// __DEVICE__
-// inline float __expf(float x) { return __ocml_native_exp_f32(x); }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 // TODO Check for implementations
 __DEVICE__
 inline float __fadd_rd(float x, float y) { return __ocml_add_rtn_f32(x, y); }
 #endif
-__DEVICE__
-// inline float __fadd_rn(float x, float y) { return x + y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fadd_ru(float x, float y) { return __ocml_add_rtp_f32(x, y); }
@@ -85,26 +77,18 @@ inline float __fadd_rz(float x, float y) { return __ocml_add_rtz_f32(x, y); }
 __DEVICE__
 inline float __fdiv_rd(float x, float y) { return __ocml_div_rtn_f32(x, y); }
 #endif
-__DEVICE__
-// inline float __fdiv_rn(float x, float y) { return x / y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fdiv_ru(float x, float y) { return __ocml_div_rtp_f32(x, y); }
 __DEVICE__
 inline float __fdiv_rz(float x, float y) { return __ocml_div_rtz_f32(x, y); }
 #endif
-__DEVICE__
-inline float __fdividef(float x, float y) { return x / y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fmaf_rd(float x, float y, float z) {
   return __ocml_fma_rtn_f32(x, y, z);
 }
 #endif
-// __DEVICE__
-// inline float __fmaf_rn(float x, float y, float z) {
-//   return __ocml_fma_f32(x, y, z);
-// }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fmaf_ru(float x, float y, float z) {
@@ -117,8 +101,6 @@ inline float __fmaf_rz(float x, float y, float z) {
 __DEVICE__
 inline float __fmul_rd(float x, float y) { return __ocml_mul_rtn_f32(x, y); }
 #endif
-__DEVICE__
-// inline float __fmul_rn(float x, float y) { return x * y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fmul_ru(float x, float y) { return __ocml_mul_rtp_f32(x, y); }
@@ -130,8 +112,6 @@ inline float __frcp_rd(float x) {
   return 1;
 }
 #endif
-__DEVICE__
-// inline float __frcp_rn(float x) { return __llvm_amdgcn_rcp_f32(x); }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __frcp_ru(float x) {
@@ -144,17 +124,10 @@ inline float __frcp_rz(float x) {
   return 1;
 }
 #endif
-__DEVICE__
-inline float __frsqrt_rn(float x) {
-  // return __llvm_amdgcn_rsq_f32(x);
-  return 1;
-}
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsqrt_rd(float x) { return __ocml_sqrt_rtn_f32(x); }
 #endif
-__DEVICE__
-inline float __fsqrt_rn(float x) { return __ocml_native_sqrt_f32(x); }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsqrt_ru(float x) { return __ocml_sqrt_rtp_f32(x); }
@@ -163,34 +136,13 @@ inline float __fsqrt_rz(float x) { return __ocml_sqrt_rtz_f32(x); }
 __DEVICE__
 inline float __fsub_rd(float x, float y) { return __ocml_sub_rtn_f32(x, y); }
 #endif
-__DEVICE__
-// inline float __fsub_rn(float x, float y) { return x - y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsub_ru(float x, float y) { return __ocml_sub_rtp_f32(x, y); }
 __DEVICE__
 inline float __fsub_rz(float x, float y) { return __ocml_sub_rtz_f32(x, y); }
 #endif
-// __DEVICE__
-// inline float __log10f(float x) { return __ocml_native_log10_f32(x); }
-// __DEVICE__
-// inline float __log2f(float x) { return __ocml_native_log2_f32(x); }
-// __DEVICE__
-// inline float __logf(float x) { return __ocml_native_log_f32(x); }
-// __DEVICE__
-// inline float __powf(float x, float y) { return __ocml_pow_f32(x, y); }
-// __DEVICE__
-// inline float __saturatef(float x) { return (x < 0) ? 0 : ((x > 1) ? 1 : x); }
-// __DEVICE__
-// inline void __sincosf(float x, float *sptr, float *cptr) {
-//   *sptr = __ocml_native_sin_f32(x);
-//   *cptr = __ocml_native_cos_f32(x);
-// }
-// __DEVICE__
-// inline float __sinf(float x) { return __ocml_native_sin_f32(x); }
-// __DEVICE__
-// inline float __tanf(float x) { return __ocml_tan_f32(x); }
-// END INTRINSICS
+
 
 __device__ inline unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
                                                unsigned int shift) {
@@ -351,6 +303,12 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
   }                                                    \
   EXPORT float __##NAME##f(float x) { return GEN_NAME2(NAME##_native, f)(x); }
 
+#define DEFOPENCL2F_NATIVE(NAME)                       \
+  extern "C" {                                         \
+  float NON_OVLD GEN_NAME2(NAME##_native, f)(float x, float y); \
+  }                                                    \
+  EXPORT float __##NAME##f(float x, float y) { return GEN_NAME2(NAME##_native, f)(x, y); }
+
 #define FAKE_ROUNDINGS2(NAME, CODE)                                 \
   EXPORT float __f##NAME##_rd(float x, float y) { return CODE; }    \
   EXPORT float __f##NAME##_rn(float x, float y) { return CODE; }    \
@@ -426,6 +384,8 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
   EXPORT long long int ll##NAME(double x);
 
 #define DEFOPENCL1F_NATIVE(NAME) EXPORT float __##NAME##f(float x);
+
+#define DEFOPENCL2F_NATIVE(NAME) EXPORT float __##NAME##f(float x, float y);
 
 #define FAKE_ROUNDINGS2(NAME, CODE)                 \
   EXPORT float __f##NAME##_rd(float x, float y);    \
@@ -806,7 +766,8 @@ FAKE_ROUNDINGS2(div, x / y)
 FAKE_ROUNDINGS2(mul, x *y)
 
 FAKE_ROUNDINGS1(rcp, (1.0f / x))
-FAKE_ROUNDINGS2(sqrt, GEN_NAME2(sqrt, f)(x))
+FAKE_ROUNDINGS1(sqrt, GEN_NAME2(sqrt, f)(x))
+FAKE_ROUNDINGS1(rsqrt, GEN_NAME2(rsqrt, f)(x))
 
 FAKE_ROUNDINGS3(fma, GEN_NAME2(fma, f)(x, y, z))
 
@@ -821,14 +782,14 @@ DEFOPENCL1F_NATIVE(log10)
 DEFOPENCL1F_NATIVE(log2)
 DEFOPENCL1F_NATIVE(log)
 
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-float NON_OVLD GEN_NAME2(powr_native, f)(float x, float y);
-}
+DEFOPENCL1F_NATIVE(recip)
+DEFOPENCL1F_NATIVE(sqrt)
+DEFOPENCL1F_NATIVE(rsqrt)
 
-EXPORT float __powf(float x, float y) {
-  return GEN_NAME2(powr_native, f)(x, y);
-}
+DEFOPENCL2F_NATIVE(divide)
+DEFOPENCL2F_NATIVE(powr)
+
+#if defined(__HIP_DEVICE_COMPILE__)
 
 EXPORT float __saturatef(float x) {
   return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
@@ -895,7 +856,6 @@ EXPORT void *memcpy(void *dest, const void *src, size_t n) {
 /**********************************************************************/
 
 #else
-EXPORT float __powf(float x, float y);
 EXPORT float __saturatef(float x);
 EXPORT void __sincosf(float x, float *sptr, float *cptr);
 EXPORT void __syncthreads();
@@ -910,6 +870,11 @@ EXPORT unsigned long long clock64();
 EXPORT void *memset(void *ptr, int value, size_t size);
 EXPORT void *memcpy(void *dest, const void *src, size_t n);
 #endif
+
+// native(fast) approximations
+EXPORT float __powf(float x, float y) { return __powrf(x, y); }
+EXPORT float __fdividef(float x, float y) { return __dividef(x,y); }
+
 
 // NAN/NANF
 
