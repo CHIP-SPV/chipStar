@@ -464,8 +464,13 @@ size_t CHIPEventOpenCL::getRefCount() {
   return RefCount;
 }
 
-CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
+CHIPEventOpenCL::~CHIPEventOpenCL() {
+  ClEvent = nullptr;
+}
+
 void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", Msg.c_str());
   if (!ClEvent) {
     logTrace("CHIPEventOpenCL::decreaseRefCount() ClEvent is null. Likely "
@@ -476,17 +481,18 @@ void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
            *Refc_ - 1, R, R - 1, Reason);
   (*Refc_)--;
-  clReleaseEvent(ClEvent);
   // Destructor to be called by event monitor once backend is done using it
   // if (*refc == 1) delete this;
 }
+
 void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", Msg.c_str());
   size_t R = getRefCount();
   logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
            *Refc_ + 1, R, R + 1, Reason);
   (*Refc_)++;
-  if (ClEvent) clRetainEvent(ClEvent);
 }
 
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
@@ -501,8 +507,9 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
-  logDebug("CHIPEvent::recordStream()");
   std::lock_guard<std::mutex> Lock(Mtx);
+
+  logDebug("CHIPEvent::recordStream()");
   assert(ChipQueue->getLastEvent() != nullptr);
   this->takeOver(ChipQueue->getLastEvent());
   EventStatus_ = EVENT_STATUS_RECORDING;
