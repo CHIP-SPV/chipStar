@@ -776,6 +776,7 @@ DEFOPENCL1F_NATIVE(sin)
 DEFOPENCL1F_NATIVE(tan)
 
 DEFOPENCL1F_NATIVE(exp10)
+DEFOPENCL1F_NATIVE(exp2)
 DEFOPENCL1F_NATIVE(exp)
 
 DEFOPENCL1F_NATIVE(log10)
@@ -872,7 +873,7 @@ EXPORT void *memcpy(void *dest, const void *src, size_t n);
 #endif
 
 // native(fast) approximations
-EXPORT float __powf(float x, float y) { return __powrf(x, y); }
+EXPORT float __powf(float x, float y) { return __exp2f(y * __log2f(x)); }
 EXPORT float __fdividef(float x, float y) { return __dividef(x,y); }
 
 
