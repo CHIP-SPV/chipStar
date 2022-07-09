@@ -25,18 +25,6 @@ else()
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
-add_custom_command( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc"
-                    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mathlib.cl"
-        COMMAND "${CMAKE_CXX_COMPILER}"
-        "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
-        -O2 -x cl -cl-std=CL2.0
-        --target=${BC_TRIPLE} -emit-llvm
-        -o "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc"
-        -c "${CMAKE_CURRENT_SOURCE_DIR}/mathlib.cl"
-        COMMENT "Building mathlib.bc"
-        VERBATIM)
-list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc")
-
 # Support function(s) for printf().
 add_custom_command( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
                     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
@@ -62,26 +50,6 @@ add_custom_command( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc"
         VERBATIM)
 list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc")
 
-# kernellib sources
-
-set(SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF tables y0D y0F y1D y1F)
-foreach(SOURCE IN LISTS SOURCES)
-  add_custom_command(
-        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
-        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
-        COMMAND "${CMAKE_CXX_COMPILER}"
-        "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
-        -O2 -pthread -x cl -cl-std=CL2.0
-        --target=${BC_TRIPLE} -emit-llvm
-        -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
-        -c "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
-        COMMENT "Building ${SOURCE}.bc"
-        VERBATIM)
-  list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
-endforeach()
-
-# kernellib
-
 add_custom_command(
         OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
         DEPENDS ${DEPEND_LIST}
@@ -94,7 +62,10 @@ add_custom_command(
         VERBATIM)
 
 add_custom_target("kernellib_bc"
-  DEPENDS "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}")
+  DEPENDS 
+  "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
+  opencl ocml ockl
+  )
 
 install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
   DESTINATION ${BC_DESTINATION})

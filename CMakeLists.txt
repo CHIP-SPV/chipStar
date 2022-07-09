@@ -133,10 +133,22 @@ else()
   set(CHIP_LIB_NAME "libCHIP.a")
 endif()
 
+get_filename_component(CLANG_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+get_filename_component(LLVM_CMAKE_DIR "${CLANG_DIR}/../lib/cmake" ABSOLUTE)
+message(STATUS "LLVM_CMAKE_DIR ${LLVM_CMAKE_DIR}")
+
 include(cmake/FindLLVM.cmake)
+find_package(Clang PATHS ${LLVM_CMAKE_DIR} REQUIRED)
+find_package(LLVM PATHS ${LLVM_CMAKE_DIR} REQUIRED)
+list(APPEND CMAKE_MODULE_PATH ${LLVM_DIR})
+set(ROCM_DEVICELIB_STANDALONE_BUILD ON)
+
+add_subdirectory(bitcode/ROCm-Device-Libs)
+add_subdirectory(bitcode)
 
 set(HIP_PATH HIP)
 
+# LLVM Setup
 if(DEFINED LLVM_VERSION AND "${LLVM_VERSION}" VERSION_LESS 14)
   # Definitions for the older forked, experimental HIP-Clang.
   set(HIP_LINK_LINE
@@ -197,7 +209,7 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 add_subdirectory(llvm_passes)
-add_subdirectory(bitcode)
+
 
 add_executable(driver ${DRIVER_SRC})
 target_compile_options(driver PRIVATE ${OFFLOAD_ARCH_STR})
@@ -252,11 +264,11 @@ add_to_config(_buildInfo HIP_OFFLOAD_ARCH_STR)
 set(CHIP_SPV_LINK_FLAGS_STR "")
 
 foreach(_library ${CHIP_SPV_LINK_FLAGS})
-  get_filename_component(libpath ${_library} DIRECTORY)
-  get_filename_component(libname ${_library} NAME)
-  string(REGEX MATCH "lib(.*)\.(so*|a)" libname_stripped ${libname})
-  set(libname_stripped ${CMAKE_MATCH_1})
-  set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR} -L${libpath} -l${libname_stripped}")
+ get_filename_component(libpath ${_library} DIRECTORY)
+ get_filename_component(libname ${_library} NAME)
+ string(REGEX MATCH "lib(.*)\.(so*|a)" libname_stripped ${libname})
+ set(libname_stripped ${CMAKE_MATCH_1})
+ set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR} -L${libpath} -l${libname_stripped}")
 endforeach()
 
 # Add link directory fir libCHIP.so
@@ -281,9 +293,9 @@ set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(CHIP_CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(TARGETS CHIP
-  EXPORT CHIPTargets
-  LIBRARY DESTINATION ${CHIP_CMAKE_INSTALL_LIBDIR}
-  INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
+ EXPORT CHIPTargets
+ LIBRARY DESTINATION ${CHIP_CMAKE_INSTALL_LIBDIR}
+ INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
@@ -293,6 +305,6 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_P
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/cmake DESTINATION . USE_SOURCE_PERMISSIONS)
 
 install(EXPORT CHIPTargets
-  FILE CHIPTargets.cmake
-  NAMESPACE CHIP::
-  DESTINATION cmake/CHIP)
+ FILE CHIPTargets.cmake
+ NAMESPACE CHIP::
+ DESTINATION cmake/CHIP)

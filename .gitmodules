@@ -7,3 +7,7 @@
 [submodule "hip-testsuite"]
 	path = hip-testsuite
 	url = https://github.com/CHIP-SPV/hip-testsuite.git
+
+[submodule "bitcode/ROCm-Device-Libs"]
+	path = bitcode/ROCm-Device-Libs
+	url = https://github.com/RadeonOpenCompute/ROCm-Device-Libs.git

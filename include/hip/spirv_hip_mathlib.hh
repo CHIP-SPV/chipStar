@@ -49,7 +49,7 @@ THE SOFTWARE.
 #define OVLD __attribute__((overloadable)) __device__
 #define NON_OVLD __device__
 #define GEN_NAME(N) opencl_##N
-#define GEN_NAME2(N, S) opencl__##N##_##S
+#define GEN_NAME2(N, S) opencl_##N##_##S
 #else
 #define __DEVICE__ extern __device__
 #define EXPORT extern __device__
@@ -384,6 +384,7 @@ typedef short api_half2 __attribute__((ext_vector_type(2)));
   EXPORT long long int ll##NAME(double x);
 
 #define DEFOPENCL1F_NATIVE(NAME) EXPORT float __##NAME##f(float x);
+#define DEFOPENCL2F_NATIVE(NAME) EXPORT float __##NAME##f(float x, float y);
 
 #define DEFOPENCL2F_NATIVE(NAME) EXPORT float __##NAME##f(float x, float y);
 
@@ -805,19 +806,23 @@ EXPORT void __sincosf(float x, float *sptr, float *cptr) {
 
 extern "C" {
 NON_OVLD void GEN_NAME(local_barrier)();
+NON_OVLD int GEN_NAME(group_all)(int predicate);
+NON_OVLD int GEN_NAME(group_any)(int predicate);
+NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 }
+
 EXPORT void __syncthreads() { GEN_NAME(local_barrier)(); }
 EXPORT int __syncthreads_and(int predicate) {
   GEN_NAME(local_barrier)();
-  return 1;
+  return GEN_NAME(group_all)(!!predicate);
 }
 EXPORT int __syncthreads_or(int predicate) {
   GEN_NAME(local_barrier)();
-  return 1;
+  return GEN_NAME(group_any)(!!predicate);
 }
-EXPORT int __syncthreads_count(int predicate) {
+EXPORT ulong __syncthreads_count(int predicate) {
   GEN_NAME(local_barrier)();
-  return 1;
+  return GEN_NAME(group_ballot)(!!predicate);
 }
 
 extern "C" {

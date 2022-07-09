@@ -28,7 +28,7 @@
 #define PRIVATE_AS __private
 
 #define CL_NAME(N) opencl_##N
-#define CL_NAME2(N, S) opencl__##N##_##S
+#define CL_NAME2(N, S) opencl_##N##_##S
 
 #define CL_NAME_MANGLED_ATOM(NAME, S) CL_NAME2(atomic_##NAME, S)
 
@@ -339,6 +339,7 @@ EXPORT void CL_NAME(local_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
 EXPORT void CL_NAME(global_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 
+EXPORT void CL_NAME(system_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value
