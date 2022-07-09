@@ -77,13 +77,19 @@ public:
 
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  ~CHIPCallbackEventMonitorLevel0() { logDebug("CHIPCallbackEventMonitorLevel0 DEST"); join(); };
+  ~CHIPCallbackEventMonitorLevel0() {
+    logDebug("CHIPCallbackEventMonitorLevel0 DEST");
+    join();
+  };
   virtual void monitor() override;
 };
 
 class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  ~CHIPStaleEventMonitorLevel0() { logDebug("CHIPStaleEventMonitorLevel0 DEST"); join(); };
+  ~CHIPStaleEventMonitorLevel0() {
+    logDebug("CHIPStaleEventMonitorLevel0 DEST");
+    join();
+  };
   virtual void monitor() override;
 };
 

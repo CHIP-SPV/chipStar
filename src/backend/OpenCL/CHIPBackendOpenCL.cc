@@ -457,16 +457,15 @@ uint64_t CHIPEventOpenCL::getFinishTime() {
 
 size_t CHIPEventOpenCL::getRefCount() {
   cl_uint RefCount;
-  if (ClEvent == nullptr) return 0;
+  if (ClEvent == nullptr)
+    return 0;
   int Status = ::clGetEventInfo(this->peek(), CL_EVENT_REFERENCE_COUNT, 4,
                                 &RefCount, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   return RefCount;
 }
 
-CHIPEventOpenCL::~CHIPEventOpenCL() {
-  ClEvent = nullptr;
-}
+CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
 void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   std::lock_guard<std::mutex> Lock(Mtx);
@@ -498,7 +497,8 @@ void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
-  CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
+  CHIPEventOpenCL *Event =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
   if (UserEvent) {
     Event->increaseRefCount("hipEventCreate");
     Event->track();
@@ -1300,7 +1300,6 @@ void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
   // E->increaseRefCount();
   return (void *)E->ClEvent;
 }
-
 
 // Other
 //*************************************************************************

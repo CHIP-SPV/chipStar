@@ -544,7 +544,7 @@ public:
   virtual void decreaseRefCount(std::string Reason) {
     std::lock_guard<std::mutex> Lock(Mtx);
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void*)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
     } else {
@@ -555,7 +555,7 @@ public:
   virtual void increaseRefCount(std::string Reason) {
     std::lock_guard<std::mutex> Lock(Mtx);
     logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void*)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
