@@ -114,6 +114,7 @@ if (ICPX_EXECUTABLE)
   # the ENABLE_OMP_OFFLOAD is only required to unhide MKL::sycl in intel's MKLConfig.cmake file
   set(ENABLE_OMP_OFFLOAD ON)
   set(MKL_THREADING sequential)
+  include(../cmake/FindMKL.cmake)
   find_package(MKL REQUIRED CONFIG PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
 
 else()
