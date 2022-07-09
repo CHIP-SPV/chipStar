@@ -133,12 +133,13 @@ else()
   set(CHIP_LIB_NAME "libCHIP.a")
 endif()
 
-get_filename_component(CLANG_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
-get_filename_component(LLVM_CMAKE_DIR ${CLANG_DIR}/../../lib/cmake ABSOLUTE)
-#set(LLVM_DIR "/soft/compilers/clang-hipcl/13.0-experimental-v5-rel/lib/cmake")
+get_filename_component(CLANG_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+get_filename_component(LLVM_CMAKE_DIR "${CLANG_DIR}/../lib/cmake" ABSOLUTE)
+message(STATUS "LLVM_CMAKE_DIR ${LLVM_CMAKE_DIR}")
 
+include(cmake/FindLLVM.cmake)
+find_package(Clang PATHS ${LLVM_CMAKE_DIR} REQUIRED)
 find_package(LLVM PATHS ${LLVM_CMAKE_DIR} REQUIRED)
-find_package(Clang HINTS ${LLVM_DIR}/../clang REQUIRED)
 list(APPEND CMAKE_MODULE_PATH ${LLVM_DIR})
 set(ROCM_DEVICELIB_STANDALONE_BUILD ON)
 
@@ -148,7 +149,6 @@ add_subdirectory(bitcode)
 set(HIP_PATH HIP)
 
 # LLVM Setup
-include(cmake/FindLLVM.cmake)
 if(DEFINED LLVM_VERSION AND "${LLVM_VERSION}" VERSION_LESS 14)
   # Definitions for the older forked, experimental HIP-Clang.
   set(HIP_LINK_LINE
