@@ -3304,8 +3304,7 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
 // as compiler for sycl and the use of hipError_t mandates inclusion
 // of hip/hip_runtime.h which is not compatible which icpx
 
-int hipGetBackendNativeHandles(uintptr_t Stream,
-                               uintptr_t *NativeHandles,
+int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
                                int *NumHandles) {
   CHIP_TRY
   logDebug("hipGetBackendNativeHandles");
@@ -3314,16 +3313,14 @@ int hipGetBackendNativeHandles(uintptr_t Stream,
   CHIP_CATCH
 }
 
-int hipInitFromNativeHandles(const uintptr_t *NativeHandles,
-                             int NumHandles) {
+int hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles) {
   CHIP_TRY
   logDebug("hipInitFromNativeHandles");
   RETURN(CHIPReinitialize(NativeHandles, NumHandles));
   CHIP_CATCH
 }
 
-void *hipGetNativeEventFromHipEvent(void *HipEvent)
-{
+void *hipGetNativeEventFromHipEvent(void *HipEvent) {
   logDebug("hipGetNativeEventFromHipEvent");
   void *E = nullptr;
   CHIP_TRY
@@ -3337,8 +3334,7 @@ void *hipGetNativeEventFromHipEvent(void *HipEvent)
   return E;
 }
 
-void *hipGetHipEventFromNativeEvent(void *NativeEvent)
-{
+void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   logDebug("hipGetHipEventFromNativeEvent");
   hipEvent_t E = nullptr;
   CHIP_TRY

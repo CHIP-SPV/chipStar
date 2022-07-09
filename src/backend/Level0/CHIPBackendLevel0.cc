@@ -187,7 +187,7 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  logDebug("chipEventLevel0 DEST {}", (void*)this);
+  logDebug("chipEventLevel0 DEST {}", (void *)this);
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
     // '~CHIPEventLevel0' has a non-throwing exception specification
@@ -227,7 +227,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0), EventPool(0) {
+      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
+      EventPool(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -264,7 +265,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : CHIPEvent((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
-      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0), EventPool(nullptr) {}
+      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
+      EventPool(nullptr) {}
 
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
@@ -274,7 +276,8 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   {
     std::lock_guard<std::mutex> Lock(Mtx);
     if (EventStatus_ == EVENT_STATUS_RECORDED) {
-      logTrace("Event {}: EVENT_STATUS_RECORDED ... Resetting event.", (void*)this);
+      logTrace("Event {}: EVENT_STATUS_RECORDED ... Resetting event.",
+               (void *)this);
       ze_result_t Status = zeEventHostReset(Event_);
       EventStatus_ = EVENT_STATUS_INIT;
       CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
