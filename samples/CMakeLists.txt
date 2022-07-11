@@ -103,22 +103,16 @@ set(SAMPLES
     hipDeviceLink # must be last in this list due to how hacky using multiple compilers with CMake is
 )
 
+include(mkl_and_icpx)
 # Add samples that depend on Intel's oneAPI compiler - if available.
-find_program(ICPX_EXECUTABLE NAMES icpx)
-if (ICPX_EXECUTABLE)
+if (SYCL_AVAILABLE)
   list(APPEND SAMPLES
     sycl_hip_interop
     hip_sycl_interop
     hip_sycl_interop_no_buffers)
 
-  # the ENABLE_OMP_OFFLOAD is only required to unhide MKL::sycl in intel's MKLConfig.cmake file
-  set(ENABLE_OMP_OFFLOAD ON)
-  set(MKL_THREADING sequential)
-  include(../cmake/FindMKL.cmake)
-  find_package(MKL REQUIRED CONFIG PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
-
 else()
-  message(STATUS "icpx is not found: Not building SYCL interop samples.")
+  message(STATUS "icpx or MKL not found: Not building SYCL interop samples.")
 endif()
 
 add_custom_target(samples DEPENDS ${SAMPLES})

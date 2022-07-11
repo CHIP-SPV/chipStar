@@ -10,13 +10,16 @@ set(CHIP_DIR_ ${CMAKE_CURRENT_SOURCE_DIR})
 # end temporary
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
 project(CHIP-SPV
   VERSION 0.1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES C CXX)
-include(cmake/chip_spv_cmake_macros.cmake)
+
+include(chip_spv_cmake_macros)
 
 # Cmake options that can be passed in by the user
 option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
