@@ -175,9 +175,9 @@ DEF_OPENCL1INT(ilogb)
 DEF_OPENCL1B(isfinite)
 DEF_OPENCL1B(isinf)
 DEF_OPENCL1B(isnan)
-
-DEFOCML_OPENCL1F(j0)
-DEFOCML_OPENCL1F(j1)
+// TODO: this results in errors
+// DEFOCML_OPENCL1F(j0)
+// DEFOCML_OPENCL1F(j1)
 
 float OVLD ldexp(float f, int k);
 double OVLD ldexp(double f, int k);
