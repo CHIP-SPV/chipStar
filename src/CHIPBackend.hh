@@ -531,7 +531,6 @@ public:
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
   void releaseDependencies() {
     for (auto Event : DependsOnList) {
-      std::lock_guard<std::mutex> Lock(Event->Mtx);
       Event->decreaseRefCount(
           "An event that depended on this one has finished");
     }
@@ -543,14 +542,20 @@ public:
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void decreaseRefCount(std::string Reason) {
-    logDebug("CHIPEvent::decreaseRefCount() {} refc {}->{} REASON: {}",
-             Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-    (*Refc_)--;
+    std::lock_guard<std::mutex> Lock(Mtx);
+    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+    if (*Refc_ > 0) {
+      (*Refc_)--;
+    } else {
+      logError("CHIPEvent::decreaseRefCount() called when refc == 0");
+    }
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {
-    logDebug("CHIPEvent::increaseRefCount() {} refc {}->{} REASON: {}",
-             Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+    std::lock_guard<std::mutex> Lock(Mtx);
+    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
@@ -695,7 +700,7 @@ public:
    * @brief Destroy the CHIPModule object
    *
    */
-  ~CHIPModule();
+  virtual ~CHIPModule();
   /**
    * @brief Construct a new CHIPModule object.
    * This constructor should be implemented by the derived class (specific
@@ -834,7 +839,7 @@ protected:
   OCLFuncInfo *FuncInfo_;
 
 public:
-  ~CHIPKernel();
+  virtual ~CHIPKernel();
 
   /**
    * @brief Get the Name object
@@ -1847,12 +1852,10 @@ public:
       return;
 
     if (LastEvent_ != nullptr) {
-      std::lock_guard<std::mutex> LockLast(LastEvent_->Mtx);
       LastEvent_->decreaseRefCount("updateLastEvent - old event");
     }
 
     if (NewEvent != nullptr) {
-      std::lock_guard<std::mutex> LockLast(NewEvent->Mtx);
       NewEvent->increaseRefCount("updateLastEvent - new event");
     }
 

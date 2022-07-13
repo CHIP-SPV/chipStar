@@ -6,12 +6,9 @@
 
 #include <vector>
 
-#include "hip_sycl_interop.h"
+#include "hip/hip_interop.h"
 
-// must declare this here since it's not part of the standard HIP API
-extern "C" hipError_t hipGetBackendNativeHandles(hipStream_t Stream,
-                                                 uintptr_t *NativeHandles,
-                                                 int *NumHandles);
+#include "hip_sycl_interop.h"
 
 using namespace std;
 
@@ -96,7 +93,7 @@ int main() {
 
   uintptr_t nativeHandlers[4];
   int numItems = 4;
-  error = hipGetBackendNativeHandles(stream, nativeHandlers, &numItems);
+  error = (hipError_t)hipGetBackendNativeHandles((uintptr_t)stream, nativeHandlers, &numItems);
   CHECK(error);
 
   // Invoke oneMKL GEEM

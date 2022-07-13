@@ -24,6 +24,7 @@
 #include "backend/backends.hh"
 #include "hip/hip_fatbin.h"
 #include "hip/hip_runtime_api.h"
+#include "hip/hip_interop.h"
 #include "hip_conversions.hh"
 #include "macros.hh"
 
@@ -1305,7 +1306,6 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
                               unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Event);
 
   Stream = Backend->findQueue(Stream);
   ERROR_IF((Stream == nullptr), hipErrorInvalidResourceHandle);
@@ -1484,7 +1484,7 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
 
   // instead of destroying directly, decrement refc to 1 and  let
   // StaleEventMonitor destroy this event
-  delete Event;
+  Event->decreaseRefCount("hipEventDestroy");
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -3034,6 +3034,7 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   ChipQueue->launch(ExecItem);
   handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
+  delete ExecItem;
 
   return hipSuccess;
   CHIP_CATCH
@@ -3299,57 +3300,52 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
  ************************************************************
  ************************************************************/
 
-extern "C" hipError_t hipGetBackendNativeHandles(hipStream_t Stream,
-                                                 uintptr_t *NativeHandles,
-                                                 int *NumHandles) {
-  logDebug("hipGetBackendNativeHandles");
-  ERROR_IF((Stream == nullptr), hipErrorInvalidValue);
-  return Stream->getBackendHandles(NativeHandles, NumHandles);
-}
+// returning a hipError_t from these API is problematic, because icpx is used
+// as compiler for sycl and the use of hipError_t mandates inclusion
+// of hip/hip_runtime.h which is not compatible which icpx
 
-// returning a hipError_t here is problematic because icpx is being used a
-// compiler and the use of hipError_t mandates inclusion if hip/hip_runtime.h
-// which is not compatible which icpx
-extern "C" int hipInitFromNativeHandles(const uintptr_t *NativeHandles,
-                                        int NumHandles) {
+int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
+                               int *NumHandles) {
   CHIP_TRY
-  logDebug("hipInitFromNativeHandles");
-  // TODO fix this
-  // RETURN(CHIPReinitialize(NativeHandles, NumHandles));
-  auto Err = CHIPReinitialize(NativeHandles, NumHandles);
-  if (Err == hipSuccess)
-    return 0;
-
-  return -1;
+  logDebug("hipGetBackendNativeHandles");
+  CHIPQueue *HipStream = Backend->findQueue((hipStream_t)Stream);
+  RETURN(HipStream->getBackendHandles(NativeHandles, NumHandles));
   CHIP_CATCH
 }
 
-extern "C" void *hipGetNativeEventFromHipEvent(hipEvent_t Event) {
-  logDebug("hipGetNativeEventFromHipEvent");
-  void *e = nullptr;
+int hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles) {
   CHIP_TRY
-  CHIPInitialize();
-
-  if (Event == NULL)
-    return NULL;
-
-  e = Backend->getNativeEvent(Event);
-  CHIP_CATCH_NO_RETURN
-  return e;
+  logDebug("hipInitFromNativeHandles");
+  RETURN(CHIPReinitialize(NativeHandles, NumHandles));
+  CHIP_CATCH
 }
 
-extern "C" hipEvent_t hipGetHipEventFromNativeEvent(void *Event) {
-  logDebug("hipGetHipEventFromNativeEvent");
-  hipEvent_t e = nullptr;
+void *hipGetNativeEventFromHipEvent(void *HipEvent) {
+  logDebug("hipGetNativeEventFromHipEvent");
+  void *E = nullptr;
   CHIP_TRY
   CHIPInitialize();
 
-  if (Event == NULL)
+  if (HipEvent == NULL)
     return NULL;
 
-  e = Backend->getHipEvent(Event);
+  E = Backend->getNativeEvent((hipEvent_t)HipEvent);
   CHIP_CATCH_NO_RETURN
-  return e;
+  return E;
+}
+
+void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
+  logDebug("hipGetHipEventFromNativeEvent");
+  hipEvent_t E = nullptr;
+  CHIP_TRY
+  CHIPInitialize();
+
+  if (NativeEvent == NULL)
+    return NULL;
+
+  E = Backend->getHipEvent(NativeEvent);
+  CHIP_CATCH_NO_RETURN
+  return E;
 }
 
 #endif

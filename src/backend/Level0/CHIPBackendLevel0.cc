@@ -187,13 +187,18 @@ ze_event_handle_t CHIPEventLevel0::get() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
+  logDebug("chipEventLevel0 DEST {}", (void *)this);
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
     // '~CHIPEventLevel0' has a non-throwing exception specification
     assert(Status == ZE_RESULT_SUCCESS);
-    Event_ = nullptr;
   }
+  Event_ = nullptr;
+  EventPoolHandle_ = nullptr;
+  EventPool = nullptr;
+  Timestamp_ = 0;
 }
+
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  LZEventPool *TheEventPool,
                                  unsigned int ThePoolIndex,
@@ -222,7 +227,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), Timestamp_(0) {
+      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
+      EventPool(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -259,18 +265,23 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : CHIPEvent((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
-      EventPoolHandle_(nullptr), Timestamp_(0) {}
+      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
+      EventPool(nullptr) {}
 
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
 void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   ze_result_t Status;
 
-  if (EventStatus_ == EVENT_STATUS_RECORDED) {
-    logTrace("{}: EVENT_STATUS_RECORDED ... Resetting event.");
-    ze_result_t Status = zeEventHostReset(Event_);
-    *Refc_ = 0;
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    if (EventStatus_ == EVENT_STATUS_RECORDED) {
+      logTrace("Event {}: EVENT_STATUS_RECORDED ... Resetting event.",
+               (void *)this);
+      ze_result_t Status = zeEventHostReset(Event_);
+      EventStatus_ = EVENT_STATUS_INIT;
+      CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    }
   }
 
   if (ChipQueue == nullptr)
@@ -304,12 +315,9 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   Q->executeCommandList(CommandList);
   DestoyCommandListEvent->track();
 
+  std::lock_guard<std::mutex> Lock(Mtx);
   EventStatus_ = EVENT_STATUS_RECORDING;
-  if (Msg == "") {
-    Msg = "recordStream";
-  }
-
-  return;
+  Msg = "recordStream";
 }
 
 bool CHIPEventLevel0::wait() {
@@ -318,11 +326,14 @@ bool CHIPEventLevel0::wait() {
   ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
+  std::lock_guard<std::mutex> Lock(Mtx);
   EventStatus_ = EVENT_STATUS_RECORDED;
   return true;
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   auto EventStatusOld = getEventStatusStr();
 
   ze_result_t Status = zeEventQueryStatus(Event_);
@@ -420,6 +431,7 @@ void CHIPEventLevel0::hostSignal() {
   auto Status = zeEventHostSignal(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
+  std::lock_guard<std::mutex> Lock(Mtx);
   EventStatus_ = EVENT_STATUS_RECORDED;
 }
 
@@ -464,10 +476,6 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
 
     // Lock the item and members
     std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
-    std::lock_guard<std::mutex> Lock1(CallbackData->GpuReady->Mtx);
-    std::lock_guard<std::mutex> Lock2(CallbackData->CpuCallbackComplete->Mtx);
-    std::lock_guard<std::mutex> Lock3(CallbackData->GpuAck->Mtx);
-
     Backend->CallbackQueue.pop();
 
     // Update Status
@@ -495,7 +503,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
 
   while (!Stop) {
-    usleep(100);
+    usleep(20000);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
     logTrace("num Events {} num queues() {}", Backend->Events.size(),
              LzBackend->EventCommandListMap.size());
@@ -512,11 +520,16 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     for (int i = 0; i < Backend->Events.size(); i++) {
       CHIPEvent *ChipEvent = Backend->Events[i];
 
-      std::lock_guard<std::mutex> CurrentEventLock(Backend->Events[i]->Mtx);
-
       assert(ChipEvent);
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
+      // do not change refcount for user events
+      if (E->updateFinishStatus(false) && E->EventPool) {
+        E->decreaseRefCount("Event became ready");
+        E->releaseDependencies();
+      }
+
+      // delete the event if refcount reached 0
       if (E->getCHIPRefc() == 0) {
         auto Found =
             std::find(Backend->Events.begin(), Backend->Events.end(), E);
@@ -526,42 +539,25 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "removed from backend event list",
                                 hipErrorTbd);
         Backend->Events.erase(Found);
-        CHIPEventLevel0 *Event = (CHIPEventLevel0 *)(*Found);
-        Event->EventPool->returnSlot(Event->EventPoolIndex);
-        continue;
-      }
 
-      // if status didn't change, don't destry the cmd list
-      if (!E->updateFinishStatus(false))
-        continue;
+        if (E->EventPool)
+          E->EventPool->returnSlot(E->EventPoolIndex);
 
-      E->decreaseRefCount("Event became ready");
-      E->releaseDependencies();
-
-      // Check if this event is associated with a CommandList
-      bool CommandListFound = EventCommandListMap->count(E);
-      if (CommandListFound) {
-        auto CommandList = (*EventCommandListMap)[E];
-        EventCommandListMap->erase(E);
-        auto Status = zeCommandListDestroy(CommandList);
-        CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-      }
-
-      if (E->getCHIPRefc() == 0) {
-        auto Found =
-            std::find(Backend->Events.begin(), Backend->Events.end(), E);
-        if (Found == Backend->Events.end())
-          CHIPERR_LOG_AND_THROW("StaleEventMonitor is trying to destroy an "
-                                "event which is already "
-                                "removed from backend event list",
-                                hipErrorTbd);
-        Backend->Events.erase(Found);
+        // Check if this event is associated with a CommandList
+        bool CommandListFound = EventCommandListMap->count(E);
+        if (CommandListFound) {
+          auto CommandList = (*EventCommandListMap)[E];
+          EventCommandListMap->erase(E);
+          auto Status = zeCommandListDestroy(CommandList);
+          CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+        }
 
         // Add the most course-grain lock here in case event destructor is not
         // thread-safe
         std::lock_guard Lock(Backend->Mtx);
         delete E;
       }
+
     } // done collecting events to delete
 
     if (Stop && !Backend->Events.size() && !EventCommandListMap->size()) {
@@ -1189,6 +1185,8 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   CHIPEventLevel0 *Event;
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+    Event->increaseRefCount("hipEventCreate");
+    Event->track();
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
     Event = ZeCtx->getEventFromPool();
@@ -1336,14 +1334,16 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
 hipEvent_t CHIPBackendLevel0::getHipEvent(void *NativeEvent) {
   ze_event_handle_t E = (ze_event_handle_t)NativeEvent;
-  // TODO should we make refc == 2 ?
   CHIPEventLevel0 *NewEvent =
       new CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
+  NewEvent->increaseRefCount("getHipEvent");
   return NewEvent;
 }
 
 void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventLevel0 *E = (CHIPEventLevel0 *)HipEvent;
+  if (!E->isRecordingOrRecorded())
+    return nullptr;
   // TODO should we retain here?
   return (void *)E->get();
 }
