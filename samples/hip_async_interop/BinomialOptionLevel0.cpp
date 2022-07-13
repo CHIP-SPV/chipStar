@@ -1,5 +1,6 @@
 
-#include "kernel.h"
+extern unsigned char KernelSpirV[];
+extern unsigned int KernelSpirVLength;
 
 #include <ze_api.h>
 
@@ -110,7 +111,7 @@ void* runLevel0Kernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
       ZE_STRUCTURE_TYPE_KERNEL_DESC,
       nullptr,
       0, // flags
-     "binomial_options_level0.1"
+     "binomial_options.1"
     };
     Err = zeKernelCreate(Program, &KernelDesc, &Kernel);
     assert(Err == ZE_RESULT_SUCCESS);

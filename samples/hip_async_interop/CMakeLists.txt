@@ -1,5 +1,5 @@
 # async interop
-add_chip_binary(hip_async_binomial BinomialOption.cpp BinomialOptionOpenCL.cpp BinomialOptionLevel0.cpp)
+add_chip_binary(hip_async_binomial BinomialOption.cpp BinomialOptionOpenCL.cpp BinomialOptionLevel0.cpp kernel.cpp)
 
 add_test(NAME "hip_async_binomial"
          COMMAND "${CMAKE_CURRENT_BINARY_DIR}/hip_async_binomial"
