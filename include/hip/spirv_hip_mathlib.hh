@@ -456,6 +456,10 @@ DEFOPENCL2F(frexp)
 
 EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
+EXPORT float __fmaf_ieee_rd(float x, float y, float z);
+EXPORT float __fmaf_ieee_rn(float x, float y, float z);
+EXPORT float __fmaf_ieee_ru(float x, float y, float z);
+EXPORT float __fmaf_ieee_rz(float x, float y, float z);
 
 DEFOPENCL3F(fma)
 
@@ -474,6 +478,13 @@ EXPORT double frexp(double f, int *i) { return GEN_NAME2(frexp, d)(f, i); }
 EXPORT float frexpf(float f, int *i);
 EXPORT double frexp(double f, int *i);
 #endif
+
+EXPORT unsigned long long int ullmin(const unsigned long long int a,
+                                     const unsigned long long int b);
+EXPORT unsigned long long int ullmax(const unsigned long long int a,
+                                     const unsigned long long int b);
+EXPORT unsigned int ullmin(const unsigned int a, const unsigned int b);
+EXPORT unsigned int umin(const unsigned int a, const unsigned int b);
 
 DEFOPENCL2F(hypot)
 DEFOPENCL1INT(ilogb)
@@ -780,6 +791,7 @@ FAKE_ROUNDINGS1(sqrt, GEN_NAME2(sqrt, f)(x))
 FAKE_ROUNDINGS1(rsqrt, GEN_NAME2(rsqrt, f)(x))
 
 FAKE_ROUNDINGS3(fma, GEN_NAME2(fma, f)(x, y, z))
+// FAKE_ROUNDINGS3(fmaf_ieee, GEN_NAME2(fmaf_ieee, f)(x, y, z))
 
 DEFOPENCL1F_NATIVE(cos)
 DEFOPENCL1F_NATIVE(sin)
