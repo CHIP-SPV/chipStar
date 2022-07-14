@@ -772,6 +772,25 @@ EXPORT float CL_NAME2(shfl_down, f)(float var, uint delta) {
 
 
 
+EXPORT int CL_NAME2(max, i)(int a, int b) { return max(a, b); }
+
+EXPORT uint CL_NAME2(max, u)(uint a, uint b) { return max(a, b); }
+
+EXPORT long CL_NAME2(max, l)(long a, long b) { return max(a, b); }
+
+EXPORT ulong CL_NAME2(max, ul)(ulong a, ulong b) { return max(a, b); }
+
+EXPORT int CL_NAME2(min, i)(int a, int b) { return min(a, b); }
+
+EXPORT uint CL_NAME2(min, u)(uint a, uint b) { return min(a, b); }
+
+EXPORT long CL_NAME2(min, l)(long a, long b) { return min(a, b); }
+
+EXPORT ulong CL_NAME2(min, ul)(ulong a, ulong b) { return min(a, b); }
+
+EXPORT int CL_NAME2(abs, i)(int a) { return abs(a); }
+EXPORT long CL_NAME2(abs, l)(long a) { return abs(a); }
+
 typedef struct {
   intptr_t  image;
   intptr_t  sampler;
