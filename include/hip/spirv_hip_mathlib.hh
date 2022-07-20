@@ -124,13 +124,6 @@ EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
 EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
                                      unsigned int shift);
 
-#if defined(__HIP_DEVICE_COMPILE__)
-typedef _Float16 api_half;
-typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
-#else
-typedef short api_half;
-typedef short api_half2 __attribute__((ext_vector_type(2)));
-#endif
 
 
 

@@ -21,11 +21,19 @@
 #define OVLD
 #define GEN_NAME(N) N
 #define GEN_NAME2(N, S) N
-#endif
+#endif // __HIP_DEVICE_COMPILE__
 
 #ifndef INT_MAX
 #define INT_MAX 2147483647
 #endif
+
+#if defined(__HIP_DEVICE_COMPILE__)
+typedef _Float16 api_half;
+typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
+#else
+typedef short api_half;
+typedef short api_half2 __attribute__((ext_vector_type(2)));
+#endif // __HIP_DEVICE_COMPILE__
 
 #if defined(__HIP_DEVICE_COMPILE__)
 
@@ -230,8 +238,6 @@
   EXPORT long long int ll##NAME(double x);
 
 #define DEFOPENCL1F_NATIVE(NAME) EXPORT float __##NAME##f(float x);
-#define DEFOPENCL2F_NATIVE(NAME) EXPORT float __##NAME##f(float x, float y);
-
 #define DEFOPENCL2F_NATIVE(NAME) EXPORT float __##NAME##f(float x, float y);
 
 #define FAKE_ROUNDINGS2(NAME, CODE)                                            \
