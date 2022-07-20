@@ -1,5 +1,5 @@
-#ifndef HIP_INCLUDE_MATHLIB_DP_MATH_H
-#define HIP_INCLUDE_MATHLIB_DP_MATH_H
+#ifndef HIP_INCLUDE_DEVICELIB_DP_MATH_H
+#define HIP_INCLUDE_DEVICELIB_DP_MATH_H
 
 #include <hip/devicelib/macros.hh>
 // __device__ double acos(double x)

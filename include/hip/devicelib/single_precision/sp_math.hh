@@ -1,5 +1,5 @@
-#ifndef HIP_INCLUDE_MATHLIB_SP_MATH_H
-#define HIP_INCLUDE_MATHLIB_SP_MATH_H
+#ifndef HIP_INCLUDE_DEVICELIB_SP_MATH_H
+#define HIP_INCLUDE_DEVICELIB_SP_MATH_H
 
 #include <hip/devicelib/macros.hh>
 // __device__ float acosf(float x)

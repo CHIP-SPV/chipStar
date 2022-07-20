@@ -1,5 +1,5 @@
-#ifndef HIP_INCLUDE_MATHLIB_MACROS_H
-#define HIP_INCLUDE_MATHLIB_MACROS_H
+#ifndef HIP_INCLUDE_DEVICELIB_MACROS_H
+#define HIP_INCLUDE_DEVICELIB_MACROS_H
 
 #include <hip/spirv_math_fwd.h>
 #include <algorithm>

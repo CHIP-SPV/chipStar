@@ -1,5 +1,5 @@
-#ifndef HIP_INCLUDE_MATHLIB_INT_MATH_H
-#define HIP_INCLUDE_MATHLIB_INT_MATH_H
+#ifndef HIP_INCLUDE_DEVICELIB_INT_MATH_H
+#define HIP_INCLUDE_DEVICELIB_INT_MATH_H
 
 #include <hip/devicelib/macros.hh>
 
