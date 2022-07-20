@@ -37,39 +37,13 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
-#include <hip/spirv_math_fwd.h>
-#include <algorithm>
-#include <limits>
+#include <hip/mathlib/macros.hh>
 
-#define NOOPT __attribute__((optnone))
-
-#if defined(__HIP_DEVICE_COMPILE__)
-#define __DEVICE__ static __device__
-#define EXPORT static inline __device__
-#define OVLD __attribute__((overloadable)) __device__
-#define NON_OVLD __device__
-#define GEN_NAME(N) opencl_##N
-#define GEN_NAME2(N, S) opencl_##N##_##S
-#else
-#define __DEVICE__ extern __device__
-#define EXPORT extern __device__
-#define NON_OVLD
-#define OVLD
-#define GEN_NAME(N) N
-#define GEN_NAME2(N, S) N
-#endif
-
-#ifndef INT_MAX
-#define INT_MAX 2147483647
-#endif
 
 // BEGIN INTRINSICS
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
-// TODO Check for implementations
 __DEVICE__
 inline float __fadd_rd(float x, float y) { return __ocml_add_rtn_f32(x, y); }
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fadd_ru(float x, float y) { return __ocml_add_rtp_f32(x, y); }
 __DEVICE__
@@ -135,42 +109,20 @@ __DEVICE__
 inline float __fsqrt_rz(float x) { return __ocml_sqrt_rtz_f32(x); }
 __DEVICE__
 inline float __fsub_rd(float x, float y) { return __ocml_sub_rtn_f32(x, y); }
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsub_ru(float x, float y) { return __ocml_sub_rtp_f32(x, y); }
 __DEVICE__
 inline float __fsub_rz(float x, float y) { return __ocml_sub_rtz_f32(x, y); }
 #endif
 
-__device__ inline unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
-                                               unsigned int shift) {
-  // uint32_t mask_shift = shift & 31;
-  // return mask_shift == 0 ? hi
-  //                        : __builtin_amdgcn_alignbit(hi, lo, 32 -
-  //                        mask_shift);
-  return 1;
-}
-
-__device__ inline unsigned int
-__funnelshift_lc(unsigned int lo, unsigned int hi, unsigned int shift) {
-  // uint32_t min_shift = shift >= 32 ? 32 : shift;
-  // return min_shift == 0 ? hi
-  //                       : __builtin_amdgcn_alignbit(hi, lo, 32 - min_shift);
-  return 1;
-}
-
-__device__ inline unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
-                                               unsigned int shift) {
-  // return __builtin_amdgcn_alignbit(hi, lo, shift);
-  return 1;
-}
-
-__device__ inline unsigned int
-__funnelshift_rc(unsigned int lo, unsigned int hi, unsigned int shift) {
-  // return shift >= 32 ? hi : __builtin_amdgcn_alignbit(hi, lo, shift);
-  return 1;
-}
+EXPORT unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
+                                    unsigned int shift);
+EXPORT unsigned int __funnelshift_lc(unsigned int lo, unsigned int hi,
+                                     unsigned int shift);
+EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
+                                    unsigned int shift);
+EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
+                                     unsigned int shift);
 
 #if defined(__HIP_DEVICE_COMPILE__)
 typedef _Float16 api_half;
