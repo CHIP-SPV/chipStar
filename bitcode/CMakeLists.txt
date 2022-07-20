@@ -15,7 +15,7 @@ endif()
 if("${LLVM_VERSION}" VERSION_LESS 14.0)
   # Definitions for pre-upstreamed HIP-Clang.
   set(BC_TRIPLE "spir64-unknown-unknown")
-  set(BC_FILE "kernellib.bc")
+  set(BC_FILE "devicelib.bc")
   set(BC_DESTINATION share)
 else()
   # HIP-Clang automatically looks for hipspv-<triple>.bc in
@@ -25,17 +25,17 @@ else()
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
-add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc"
+add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc"
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/devicelib.cl"
   COMMAND "${CMAKE_CXX_COMPILER}"
   "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
   -O2 -x cl -cl-std=CL2.0
   --target=${BC_TRIPLE} -emit-llvm
-  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc"
+  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/devicelib.cl"
-  COMMENT "Building mathlib.bc"
+  COMMENT "Building devicelib.bc"
   VERBATIM)
-list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/mathlib.bc")
+list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc")
 
 # Support function(s) for printf().
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
@@ -62,7 +62,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc"
   VERBATIM)
 list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc")
 
-# kernellib sources
+# devicelib sources
 set(SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF tables y0D y0F y1D y1F)
 
 foreach(SOURCE IN LISTS SOURCES)
@@ -80,7 +80,7 @@ foreach(SOURCE IN LISTS SOURCES)
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
 endforeach()
 
-# kernellib
+# devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
   DEPENDS ${DEPEND_LIST}
@@ -92,7 +92,7 @@ add_custom_command(
   COMMENT "Linking device library bitcode '${BC_FILE}'"
   VERBATIM)
 
-add_custom_target("kernellib_bc"
+add_custom_target("devicelib_bc"
   DEPENDS "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}")
 
 install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
