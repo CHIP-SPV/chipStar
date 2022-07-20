@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_DP_INTRINSICS_H
 #define HIP_INCLUDE_MATHLIB_DP_INTRINSICS_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 
 // __device__​ double __dadd_rd ( double  x, double  y )
 // __device__​ double __dadd_rn ( double  x, double  y )

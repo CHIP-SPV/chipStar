@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_HALF_CONVERSION_AND_MOVEMENT_H
 #define HIP_INCLUDE_MATHLIB_HALF_CONVERSION_AND_MOVEMENT_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 
 // __host__​__device__​ __half 	__double2half ( const double  a )
 // __host__​__device__​ __half2 	__float22half2_rn ( const float2 a )
@@ -11,7 +11,8 @@
 // __host__​__device__​ __half 	__float2half_rn ( const float  a )
 // __host__​__device__​ __half 	__float2half_ru ( const float  a )
 // __host__​__device__​ __half 	__float2half_rz ( const float  a )
-// __host__​__device__​ __half2 	__floats2half2_rn ( const float  a, const float  b )
+// __host__​__device__​ __half2 	__floats2half2_rn ( const float  a,
+// const float  b )
 // __host__​__device__​ float2 	__half22float2 ( const __half2 a )
 // __host__​__device__​ float 	__half2float ( const __half a )
 // __device__​ __half2 __half2half2 ( const __half a )
@@ -34,7 +35,8 @@
 // __device__​ unsigned long long int 	__half2ull_rd ( const __half h )
 // __device__​ unsigned long long int 	__half2ull_rn ( const __half h )
 // __device__​ unsigned long long int 	__half2ull_ru ( const __half h )
-// __host__​__device__​ unsigned long long int 	__half2ull_rz ( const __half h )
+// __host__​__device__​ unsigned long long int 	__half2ull_rz ( const
+// __half h )
 // __device__​ unsigned short int 	__half2ushort_rd ( const __half h )
 // __device__​ unsigned short int 	__half2ushort_rn ( const __half h )
 // __device__​ unsigned short int 	__half2ushort_ru ( const __half h )
@@ -71,14 +73,22 @@
 // __device__​ __half2 __low2half2 ( const __half2 a )
 // __device__​ __half2 __lowhigh2highlow ( const __half2 a )
 // __device__​ __half2 __lows2half2 ( const __half2 a, const __half2 b )
-// __device__​ __half __shfl_down_sync ( const unsigned mask, const __half var, const unsigned int  delta, const int  width = warpSize )
-// __device__​ __half2 __shfl_down_sync ( const unsigned mask, const __half2 var, const unsigned int  delta, const int  width = warpSize )
-// __device__​ __half __shfl_sync ( const unsigned mask, const __half var, const int  delta, const int  width = warpSize )
-// __device__​ __half2 __shfl_sync ( const unsigned mask, const __half2 var, const int  delta, const int  width = warpSize )
-// __device__​ __half __shfl_up_sync ( const unsigned mask, const __half var, const unsigned int  delta, const int  width = warpSize )
-// __device__​ __half2 __shfl_up_sync ( const unsigned mask, const __half2 var, const unsigned int  delta, const int  width = warpSize )
-// __device__​ __half __shfl_xor_sync ( const unsigned mask, const __half var, const int  delta, const int  width = warpSize )
-// __device__​ __half2 __shfl_xor_sync ( const unsigned mask, const __half2 var, const int  delta, const int  width = warpSize )
+// __device__​ __half __shfl_down_sync ( const unsigned mask, const __half
+// var, const unsigned int  delta, const int  width = warpSize )
+// __device__​ __half2 __shfl_down_sync ( const unsigned mask, const __half2
+// var, const unsigned int  delta, const int  width = warpSize )
+// __device__​ __half __shfl_sync ( const unsigned mask, const __half var,
+// const int  delta, const int  width = warpSize )
+// __device__​ __half2 __shfl_sync ( const unsigned mask, const __half2 var,
+// const int  delta, const int  width = warpSize )
+// __device__​ __half __shfl_up_sync ( const unsigned mask, const __half var,
+// const unsigned int  delta, const int  width = warpSize )
+// __device__​ __half2 __shfl_up_sync ( const unsigned mask, const __half2
+// var, const unsigned int  delta, const int  width = warpSize )
+// __device__​ __half __shfl_xor_sync ( const unsigned mask, const __half var,
+// const int  delta, const int  width = warpSize )
+// __device__​ __half2 __shfl_xor_sync ( const unsigned mask, const __half2
+// var, const int  delta, const int  width = warpSize )
 // __device__​ __half __short2half_rd ( const short int i )
 // __host__​__device__​ __half 	__short2half_rn ( const short int i )
 // __device__​ __half __short2half_ru ( const short int i )
@@ -97,11 +107,13 @@
 // __device__​ __half __uint2half_ru ( const unsigned int  i )
 // __device__​ __half __uint2half_rz ( const unsigned int  i )
 // __device__​ __half __ull2half_rd ( const unsigned long long int i )
-// __host__​__device__​ __half 	__ull2half_rn ( const unsigned long long int i )
+// __host__​__device__​ __half 	__ull2half_rn ( const unsigned long long
+// int i )
 // __device__​ __half __ull2half_ru ( const unsigned long long int i )
 // __device__​ __half __ull2half_rz ( const unsigned long long int i )
 // __device__​ __half __ushort2half_rd ( const unsigned short int i )
-// __host__​__device__​ __half 	__ushort2half_rn ( const unsigned short int i )
+// __host__​__device__​ __half 	__ushort2half_rn ( const unsigned short
+// int i )
 // __device__​ __half __ushort2half_ru ( const unsigned short int i )
 // __device__​ __half __ushort2half_rz ( const unsigned short int i )
 // __device__​ __half __ushort_as_half ( const unsigned short int i )

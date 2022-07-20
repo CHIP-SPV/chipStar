@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_DP_MATH_H
 #define HIP_INCLUDE_MATHLIB_DP_MATH_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 // __device__ double acos(double x)
 // __device__​ double acosh ( double  x )
 // __device__​ double asin ( double  x )

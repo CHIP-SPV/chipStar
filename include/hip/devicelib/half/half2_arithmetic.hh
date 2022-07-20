@@ -1,17 +1,21 @@
 #ifndef HIP_INCLUDE_MATHLIB_HALF2_ARITHMETIC_H
 #define HIP_INCLUDE_MATHLIB_HALF2_ARITHMETIC_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 
 // __device__​ __half2 __h2div ( const __half2 a, const __half2 b )
 // __device__​ __half2 __habs2 ( const __half2 a )
 // __device__​ __half2 __hadd2 ( const __half2 a, const __half2 b )
 // __device__​ __half2 __hadd2_rn ( const __half2 a, const __half2 b )
 // __device__​ __half2 __hadd2_sat ( const __half2 a, const __half2 b )
-// __device__​ __half2 __hcmadd ( const __half2 a, const __half2 b, const __half2 c )
-// __device__​ __half2 __hfma2 ( const __half2 a, const __half2 b, const __half2 c )
-// __device__​ __half2 __hfma2_relu ( const __half2 a, const __half2 b, const __half2 c )
-// __device__​ __half2 __hfma2_sat ( const __half2 a, const __half2 b, const __half2 c )
+// __device__​ __half2 __hcmadd ( const __half2 a, const __half2 b, const
+// __half2 c )
+// __device__​ __half2 __hfma2 ( const __half2 a, const __half2 b, const
+// __half2 c )
+// __device__​ __half2 __hfma2_relu ( const __half2 a, const __half2 b, const
+// __half2 c )
+// __device__​ __half2 __hfma2_sat ( const __half2 a, const __half2 b, const
+// __half2 c )
 // __device__​ __half2 __hmul2 ( const __half2 a, const __half2 b )
 // __device__​ __half2 __hmul2_rn ( const __half2 a, const __half2 b )
 // __device__​ __half2 __hmul2_sat ( const __half2 a, const __half2 b )

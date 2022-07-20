@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_SP_INTRINSICS_H
 #define HIP_INCLUDE_MATHLIB_SP_INTRINSICS_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 
 // __device__​ float __cosf ( float  x )
 // __device__​ float __exp10f ( float  x )

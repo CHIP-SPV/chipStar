@@ -9,7 +9,7 @@
  * 3) some OpenCL functions (e.g. geometric) take vector arguments
  *    but HIP/CUDA do not have vectors.
  *
- * the counterpart to this file, compiled in OpenCL mode, is mathlib.cl
+ * the counterpart to this file, compiled in OpenCL mode, is devicelib.cl
  *
  * portions copyright:
  *
@@ -37,8 +37,7 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
-#include <hip/mathlib/macros.hh>
-
+#include <hip/devicelib/macros.hh>
 
 // BEGIN INTRINSICS
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
@@ -123,9 +122,6 @@ EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
                                     unsigned int shift);
 EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
                                      unsigned int shift);
-
-
-
 
 DEFOPENCL1F(acos)
 DEFOPENCL1F(asin)

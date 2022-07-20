@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_SP_MATH_H
 #define HIP_INCLUDE_MATHLIB_SP_MATH_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 // __device__ float acosf(float x)
 // __device__  float acoshf ( float  x )
 // __device__  float asinf ( float  x )
@@ -28,7 +28,8 @@
 // __device__  float expm1f ( float  x )
 // __device__  float fabsf ( float  x )
 // __device__  float fdimf ( float  x, float  y )
-// __device__  float fdividef ( float  x, float  y ) // not available in double precision
+// __device__  float fdividef ( float  x, float  y ) // not available in double
+// precision
 // __device__  float floorf ( float  x )
 // __device__  float fmaf ( float  x, float  y, float  z )
 // __device__  float fmaxf ( float  x, float  y )

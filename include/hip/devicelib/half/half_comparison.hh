@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_HALF_COMPARISON_H
 #define HIP_INCLUDE_MATHLIB_HALF_COMPARISON_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 
 // __device__ bool __heq ( const __half a, const __half b )
 // __device__ bool __hequ ( const __half a, const __half b )

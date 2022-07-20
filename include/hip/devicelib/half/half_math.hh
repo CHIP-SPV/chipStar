@@ -1,7 +1,7 @@
 #ifndef HIP_INCLUDE_MATHLIB_HALF_MATH_H
 #define HIP_INCLUDE_MATHLIB_HALF_MATH_H
 
-#include <hip/mathlib/macros.hh>
+#include <hip/devicelib/macros.hh>
 
 //__device__ __half hceil ( const __half h )
 //__device__ __half hcos ( const __half a )
