@@ -44,11 +44,13 @@
 // __nv_bfloat162 b )
 // __device__​ __nv_bfloat162 	__hmax2 ( const __nv_bfloat162 a, const
 // __nv_bfloat162 b )
-// __device__​ __nv_bfloat162 	__hmax2_nan ( const __nv_bfloat162 a, const
+// __device__​ __nv_bfloat162 	__hmax2_nan ( const __nv_bfloat162 a,
+// const
 // __nv_bfloat162 b )
 // __device__​ __nv_bfloat162 	__hmin2 ( const __nv_bfloat162 a, const
 // __nv_bfloat162 b )
-// __device__​ __nv_bfloat162 	__hmin2_nan ( const __nv_bfloat162 a, const
+// __device__​ __nv_bfloat162 	__hmin2_nan ( const __nv_bfloat162 a,
+// const
 // __nv_bfloat162 b )
 // __device__​ __nv_bfloat162 	__hne2 ( const __nv_bfloat162 a, const
 // __nv_bfloat162 b )

@@ -4,7 +4,8 @@
 #include <hip/devicelib/macros.hh>
 
 // __device__​ unsigned int 	__brev ( unsigned int  x )
-// __device__​ unsigned long long int 	__brevll ( unsigned long long int x
+// __device__​ unsigned long long int 	__brevll ( unsigned long long int
+// x
 // )
 // __device__​ unsigned int 	__byte_perm ( unsigned int  x, unsigned int y,
 // unsigned int  s )
@@ -30,8 +31,8 @@
 // __device__​ unsigned int 	__sad ( int  x, int  y, unsigned int  z )
 // __device__​ unsigned int 	__uhadd ( unsigned int  x, unsigned int  y )
 // __device__​ unsigned int 	__umul24 ( unsigned int  x, unsigned int  y )
-// __device__​ unsigned long long int 	__umul64hi ( unsigned long long int
-// x, unsigned long long int y )
+// __device__​ unsigned long long int 	__umul64hi ( unsigned long long
+// int x, unsigned long long int y )
 // __device__​ unsigned int 	__umulhi ( unsigned int  x, unsigned int  y )
 // __device__​ unsigned int 	__urhadd ( unsigned int  x, unsigned int  y )
 // __device__​ unsigned int 	__usad ( unsigned int  x, unsigned int  y,
