@@ -30,13 +30,13 @@ option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
-set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/kernellib.bc and HIP_SPIRV_DIR/lib/llvm")
+set(HIP_SPIRV_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Path to HIP SPIRV directory containing HIP_SPIRV_DIR/share/devicelib.bc and HIP_SPIRV_DIR/lib/llvm")
 
-# If custom HIP_SPIRV_DIR is given, check that kernellib.bc exists
+# If custom HIP_SPIRV_DIR is given, check that devicelib.bc exists
 # TODO: Should this be deprecated now? This does not work for LLVM 14+.
 if(NOT "${HIP_SPIRV_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}"
-  AND NOT EXISTS "${HIP_SPIRV_DIR}/share/kernellib.bc")
-  message(FATAL_ERROR "Custom HIP_SPIRV_DIR=${HIP_SPIRV_DIR} was provided H that does not contain <HIP_SPIRV_DIR>/share/kernellib.bc")
+  AND NOT EXISTS "${HIP_SPIRV_DIR}/share/devicelib.bc")
+  message(FATAL_ERROR "Custom HIP_SPIRV_DIR=${HIP_SPIRV_DIR} was provided H that does not contain <HIP_SPIRV_DIR>/share/devicelib.bc")
 endif()
 
 set(CHIP_SPV_LINK_FLAGS "")
@@ -145,12 +145,12 @@ if(DEFINED LLVM_VERSION AND "${LLVM_VERSION}" VERSION_LESS 14)
   set(HIP_LINK_LINE
     $<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}/share>
     $<INSTALL_INTERFACE:--hip-device-lib-path=${CMAKE_INSTALL_PREFIX}/share>
-    --hip-device-lib=kernellib.bc
+    --hip-device-lib=devicelib.bc
     $<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>
     $<INSTALL_INTERFACE:--hip-llvm-pass-path=${CMAKE_INSTALL_PREFIX}/lib/llvm>)
   set(OFFLOAD_ARCH_STR
     -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu ${HIP_LINK_LINE})
-  set(HIP_OFFLOAD_ARCH -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${CMAKE_INSTALL_PREFIX}/share --hip-device-lib=kernellib.bc --hip-llvm-pass-path=${CMAKE_INSTALL_PREFIX}/lib/llvm)
+  set(HIP_OFFLOAD_ARCH -D__HIP_PLATFORM_SPIRV__= -x hip --target=x86_64-linux-gnu --hip-device-lib-path=${CMAKE_INSTALL_PREFIX}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_INSTALL_PREFIX}/lib/llvm)
 else()
   # Definitions for upstream HIP-Clang.
   set(HIP_LINK_LINE
@@ -213,10 +213,10 @@ add_subdirectory(HIP/tests/catch catch)
 set(CHIP_SAMPLE_BINDIR ${CMAKE_INSTALL_PREFIX}/bin/samples)
 add_subdirectory(./samples samples)
 
-# Make CHIP depend on kernellib_bc and LLVMHipPasses for
+# Make CHIP depend on devicelib_bc and LLVMHipPasses for
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
-add_dependencies(CHIP kernellib_bc LLVMHipPasses)
+add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
 
 # ####################

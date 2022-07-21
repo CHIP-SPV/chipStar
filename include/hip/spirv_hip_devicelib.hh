@@ -9,7 +9,7 @@
  * 3) some OpenCL functions (e.g. geometric) take vector arguments
  *    but HIP/CUDA do not have vectors.
  *
- * the counterpart to this file, compiled in OpenCL mode, is mathlib.cl
+ * the counterpart to this file, compiled in OpenCL mode, is devicelib.cl
  *
  * portions copyright:
  *
@@ -37,47 +37,12 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
-#include <hip/spirv_math_fwd.h>
-#include <algorithm>
-#include <limits>
-
-#define NOOPT __attribute__((optnone))
-
-#if defined(__HIP_DEVICE_COMPILE__)
-#define __DEVICE__ static __device__
-#define EXPORT static inline __device__
-#define OVLD __attribute__((overloadable)) __device__
-#define NON_OVLD __device__
-#define GEN_NAME(N) opencl_##N
-#define GEN_NAME2(N, S) opencl__##N##_##S
-#else
-#define __DEVICE__ extern __device__
-#define EXPORT extern __device__
-#define NON_OVLD
-#define OVLD
-#define GEN_NAME(N) N
-#define GEN_NAME2(N, S) N
-#endif
-
-#ifndef INT_MAX
-#define INT_MAX 2147483647
-#endif
+#include <hip/devicelib/sync_and_util.hh>
 
 // BEGIN INTRINSICS
-// __DEVICE__
-// inline float __cosf(float x) { return __ocml_native_cos_f32(x); }
-// __DEVICE__
-// inline float __exp10f(float x) { return __ocml_native_exp10_f32(x); }
-// __DEVICE__
-// inline float __expf(float x) { return __ocml_native_exp_f32(x); }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
-// TODO Check for implementations
 __DEVICE__
 inline float __fadd_rd(float x, float y) { return __ocml_add_rtn_f32(x, y); }
-#endif
-__DEVICE__
-// inline float __fadd_rn(float x, float y) { return x + y; }
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fadd_ru(float x, float y) { return __ocml_add_rtp_f32(x, y); }
 __DEVICE__
@@ -85,26 +50,18 @@ inline float __fadd_rz(float x, float y) { return __ocml_add_rtz_f32(x, y); }
 __DEVICE__
 inline float __fdiv_rd(float x, float y) { return __ocml_div_rtn_f32(x, y); }
 #endif
-__DEVICE__
-// inline float __fdiv_rn(float x, float y) { return x / y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fdiv_ru(float x, float y) { return __ocml_div_rtp_f32(x, y); }
 __DEVICE__
 inline float __fdiv_rz(float x, float y) { return __ocml_div_rtz_f32(x, y); }
 #endif
-__DEVICE__
-inline float __fdividef(float x, float y) { return x / y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fmaf_rd(float x, float y, float z) {
   return __ocml_fma_rtn_f32(x, y, z);
 }
 #endif
-// __DEVICE__
-// inline float __fmaf_rn(float x, float y, float z) {
-//   return __ocml_fma_f32(x, y, z);
-// }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fmaf_ru(float x, float y, float z) {
@@ -117,8 +74,6 @@ inline float __fmaf_rz(float x, float y, float z) {
 __DEVICE__
 inline float __fmul_rd(float x, float y) { return __ocml_mul_rtn_f32(x, y); }
 #endif
-__DEVICE__
-// inline float __fmul_rn(float x, float y) { return x * y; }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fmul_ru(float x, float y) { return __ocml_mul_rtp_f32(x, y); }
@@ -130,8 +85,6 @@ inline float __frcp_rd(float x) {
   return 1;
 }
 #endif
-__DEVICE__
-// inline float __frcp_rn(float x) { return __llvm_amdgcn_rcp_f32(x); }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __frcp_ru(float x) {
@@ -144,17 +97,10 @@ inline float __frcp_rz(float x) {
   return 1;
 }
 #endif
-__DEVICE__
-inline float __frsqrt_rn(float x) {
-  // return __llvm_amdgcn_rsq_f32(x);
-  return 1;
-}
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsqrt_rd(float x) { return __ocml_sqrt_rtn_f32(x); }
 #endif
-__DEVICE__
-inline float __fsqrt_rn(float x) { return __ocml_native_sqrt_f32(x); }
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsqrt_ru(float x) { return __ocml_sqrt_rtp_f32(x); }
@@ -162,302 +108,20 @@ __DEVICE__
 inline float __fsqrt_rz(float x) { return __ocml_sqrt_rtz_f32(x); }
 __DEVICE__
 inline float __fsub_rd(float x, float y) { return __ocml_sub_rtn_f32(x, y); }
-#endif
-__DEVICE__
-// inline float __fsub_rn(float x, float y) { return x - y; }
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
 inline float __fsub_ru(float x, float y) { return __ocml_sub_rtp_f32(x, y); }
 __DEVICE__
 inline float __fsub_rz(float x, float y) { return __ocml_sub_rtz_f32(x, y); }
 #endif
-// __DEVICE__
-// inline float __log10f(float x) { return __ocml_native_log10_f32(x); }
-// __DEVICE__
-// inline float __log2f(float x) { return __ocml_native_log2_f32(x); }
-// __DEVICE__
-// inline float __logf(float x) { return __ocml_native_log_f32(x); }
-// __DEVICE__
-// inline float __powf(float x, float y) { return __ocml_pow_f32(x, y); }
-// __DEVICE__
-// inline float __saturatef(float x) { return (x < 0) ? 0 : ((x > 1) ? 1 : x); }
-// __DEVICE__
-// inline void __sincosf(float x, float *sptr, float *cptr) {
-//   *sptr = __ocml_native_sin_f32(x);
-//   *cptr = __ocml_native_cos_f32(x);
-// }
-// __DEVICE__
-// inline float __sinf(float x) { return __ocml_native_sin_f32(x); }
-// __DEVICE__
-// inline float __tanf(float x) { return __ocml_tan_f32(x); }
-// END INTRINSICS
 
-__device__ inline unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
-                                               unsigned int shift) {
-  // uint32_t mask_shift = shift & 31;
-  // return mask_shift == 0 ? hi
-  //                        : __builtin_amdgcn_alignbit(hi, lo, 32 -
-  //                        mask_shift);
-  return 1;
-}
-
-__device__ inline unsigned int __funnelshift_lc(unsigned int lo,
-                                                unsigned int hi,
-                                                unsigned int shift) {
-  // uint32_t min_shift = shift >= 32 ? 32 : shift;
-  // return min_shift == 0 ? hi
-  //                       : __builtin_amdgcn_alignbit(hi, lo, 32 - min_shift);
-  return 1;
-}
-
-__device__ inline unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
-                                               unsigned int shift) {
-  // return __builtin_amdgcn_alignbit(hi, lo, shift);
-  return 1;
-}
-
-__device__ inline unsigned int __funnelshift_rc(unsigned int lo,
-                                                unsigned int hi,
-                                                unsigned int shift) {
-  // return shift >= 32 ? hi : __builtin_amdgcn_alignbit(hi, lo, shift);
-  return 1;
-}
-
-#if defined(__HIP_DEVICE_COMPILE__)
-typedef _Float16 api_half;
-typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
-#else
-typedef short api_half;
-typedef short api_half2 __attribute__((ext_vector_type(2)));
-#endif
-
-#if defined(__HIP_DEVICE_COMPILE__)
-
-#define DEFOPENCL1F(NAME)                                                \
-  extern "C" {                                                           \
-  float NON_OVLD GEN_NAME2(NAME, f)(float f);                            \
-  double NON_OVLD GEN_NAME2(NAME, d)(double f);                          \
-  api_half NON_OVLD GEN_NAME2(NAME, h)(api_half f);                      \
-  api_half2 NON_OVLD GEN_NAME2(NAME, h2)(api_half2 f);                   \
-  }                                                                      \
-  EXPORT float NAME##f(float x) { return GEN_NAME2(NAME, f)(x); }        \
-  EXPORT double NAME(double x) { return GEN_NAME2(NAME, d)(x); }         \
-  EXPORT api_half NAME##_h(api_half x) { return GEN_NAME2(NAME, h)(x); } \
-  EXPORT api_half2 NAME##_2h(api_half2 x) { return GEN_NAME2(NAME, h2)(x); }
-
-#define DEFOPENCL2F(NAME)                                                     \
-  extern "C" {                                                                \
-  float NON_OVLD GEN_NAME2(NAME, f)(float x, float y);                        \
-  double NON_OVLD GEN_NAME2(NAME, d)(double x, double y);                     \
-  api_half NON_OVLD GEN_NAME2(NAME, h)(api_half x, api_half y);               \
-  api_half2 NON_OVLD GEN_NAME2(NAME, h2)(api_half2 x, api_half2 y);           \
-  }                                                                           \
-  EXPORT float NAME##f(float x, float y) { return GEN_NAME2(NAME, f)(x, y); } \
-  EXPORT double NAME(double x, double y) { return GEN_NAME2(NAME, d)(x, y); } \
-  EXPORT api_half NAME##_h(api_half x, api_half y) {                          \
-    return GEN_NAME2(NAME, h)(x, y);                                          \
-  }                                                                           \
-  EXPORT api_half2 NAME##_2h(api_half2 x, api_half2 y) {                      \
-    return GEN_NAME2(NAME, h2)(x, y);                                         \
-  }
-
-#define DEFOPENCL3F(NAME)                                                   \
-  extern "C" {                                                              \
-  float NON_OVLD GEN_NAME2(NAME, f)(float x, float y, float z);             \
-  double NON_OVLD GEN_NAME2(NAME, d)(double x, double y, double z);         \
-  api_half NON_OVLD GEN_NAME2(NAME, h)(api_half x, api_half y, api_half z); \
-  api_half2 NON_OVLD GEN_NAME2(NAME, h2)(api_half2 x, api_half2 y,          \
-                                         api_half2 z);                      \
-  }                                                                         \
-  EXPORT float NAME##f(float x, float y, float z) {                         \
-    return GEN_NAME2(NAME, f)(x, y, z);                                     \
-  }                                                                         \
-  EXPORT double NAME(double x, double y, double z) {                        \
-    return GEN_NAME2(NAME, d)(x, y, z);                                     \
-  }                                                                         \
-  EXPORT api_half NAME##_h(api_half x, api_half y, api_half z) {            \
-    return GEN_NAME2(NAME, h)(x, y, z);                                     \
-  }                                                                         \
-  EXPORT api_half2 NAME##_2h(api_half2 x, api_half2 y, api_half2 z) {       \
-    return GEN_NAME2(NAME, h2)(x, y, z);                                    \
-  }
-
-#define DEFOPENCL4F(NAME)                                                     \
-  extern "C" {                                                                \
-  float NON_OVLD GEN_NAME2(NAME, f)(float x, float y, float z, float w);      \
-  double NON_OVLD GEN_NAME2(NAME, d)(double x, double y, double z, double w); \
-  api_half NON_OVLD GEN_NAME2(NAME, h)(api_half x, api_half y, api_half z,    \
-                                       api_half w);                           \
-  api_half2 NON_OVLD GEN_NAME2(NAME, h2)(api_half2 x, api_half2 y,            \
-                                         api_half2 z, api_half2 w);           \
-  }                                                                           \
-  EXPORT float NAME##f(float x, float y, float z, float w) {                  \
-    return GEN_NAME2(NAME, f)(x, y, z, w);                                    \
-  }                                                                           \
-  EXPORT double NAME(double x, double y, double z, double w) {                \
-    return GEN_NAME2(NAME, d)(x, y, z, w);                                    \
-  }                                                                           \
-  EXPORT api_half NAME##_h(api_half x, api_half y, api_half z, api_half w) {  \
-    return GEN_NAME2(NAME, h)(x, y, z, w);                                    \
-  }                                                                           \
-  EXPORT api_half2 NAME##_2h(api_half2 x, api_half2 y, api_half2 z,           \
-                             api_half2 w) {                                   \
-    return GEN_NAME2(NAME, h2)(x, y, z, w);                                   \
-  }
-
-#define DEFOPENCL1B(NAME)                                                \
-  extern "C" {                                                           \
-  int NON_OVLD GEN_NAME2(NAME, f)(float f);                              \
-  long NON_OVLD GEN_NAME2(NAME, d)(double f);                            \
-  api_half NON_OVLD GEN_NAME2(NAME, h)(api_half f);                      \
-  api_half2 NON_OVLD GEN_NAME2(NAME, h2)(api_half2 f);                   \
-  }                                                                      \
-  EXPORT bool NAME(float x) { return (bool)GEN_NAME2(NAME, f)(x); }      \
-  EXPORT bool NAME(double x) { return (bool)GEN_NAME2(NAME, d)(x); }     \
-  EXPORT api_half NAME##_h(api_half x) { return GEN_NAME2(NAME, h)(x); } \
-  EXPORT api_half2 NAME##_2h(api_half2 x) { return GEN_NAME2(NAME, h2)(x); }
-
-#define DEFOPENCL1INT(NAME)                                     \
-  extern "C" {                                                  \
-  int NON_OVLD GEN_NAME2(NAME, f)(float f);                     \
-  int NON_OVLD GEN_NAME2(NAME, d)(double f);                    \
-  int NON_OVLD GEN_NAME2(NAME, h)(api_half f);                  \
-  }                                                             \
-  EXPORT int NAME##f(float x) { return GEN_NAME2(NAME, f)(x); } \
-  EXPORT int NAME(double x) { return GEN_NAME2(NAME, d)(x); }   \
-  EXPORT int NAME##_h(api_half x) { return GEN_NAME2(NAME, h)(x); }
-
-#define DEFOPENCL1LL(NAME)                           \
-  extern "C" {                                       \
-  int64_t NON_OVLD GEN_NAME2(LL##NAME, f)(float f);  \
-  int64_t NON_OVLD GEN_NAME2(LL##NAME, d)(double f); \
-  }                                                  \
-  EXPORT long int l##NAME##f(float x) {              \
-    return (long int)GEN_NAME2(LL##NAME, f)(x);      \
-  }                                                  \
-  EXPORT long int l##NAME(double x) {                \
-    return (long int)GEN_NAME2(LL##NAME, d)(x);      \
-  }                                                  \
-  EXPORT long long int ll##NAME##f(float x) {        \
-    return (long long int)GEN_NAME2(LL##NAME, f)(x); \
-  }                                                  \
-  EXPORT long long int ll##NAME(double x) {          \
-    return (long long int)GEN_NAME2(LL##NAME, d)(x); \
-  }
-
-#define DEFOPENCL1F_NATIVE(NAME)                       \
-  extern "C" {                                         \
-  float NON_OVLD GEN_NAME2(NAME##_native, f)(float f); \
-  }                                                    \
-  EXPORT float __##NAME##f(float x) { return GEN_NAME2(NAME##_native, f)(x); }
-
-#define FAKE_ROUNDINGS2(NAME, CODE)                                 \
-  EXPORT float __f##NAME##_rd(float x, float y) { return CODE; }    \
-  EXPORT float __f##NAME##_rn(float x, float y) { return CODE; }    \
-  EXPORT float __f##NAME##_ru(float x, float y) { return CODE; }    \
-  EXPORT float __f##NAME##_rz(float x, float y) { return CODE; }    \
-  EXPORT double __d##NAME##_rd(double x, double y) { return CODE; } \
-  EXPORT double __d##NAME##_rn(double x, double y) { return CODE; } \
-  EXPORT double __d##NAME##_ru(double x, double y) { return CODE; } \
-  EXPORT double __d##NAME##_rz(double x, double y) { return CODE; }
-
-#define FAKE_ROUNDINGS1(NAME, CODE)                       \
-  EXPORT float __f##NAME##_rd(float x) { return CODE; }   \
-  EXPORT float __f##NAME##_rn(float x) { return CODE; }   \
-  EXPORT float __f##NAME##_ru(float x) { return CODE; }   \
-  EXPORT float __f##NAME##_rz(float x) { return CODE; }   \
-  EXPORT double __d##NAME##_rd(double x) { return CODE; } \
-  EXPORT double __d##NAME##_rn(double x) { return CODE; } \
-  EXPORT double __d##NAME##_ru(double x) { return CODE; } \
-  EXPORT double __d##NAME##_rz(double x) { return CODE; }
-
-#define FAKE_ROUNDINGS3(NAME, CODE)                                          \
-  EXPORT float __##NAME##f_rd(float x, float y, float z) { return CODE; }    \
-  EXPORT float __##NAME##f_rn(float x, float y, float z) { return CODE; }    \
-  EXPORT float __##NAME##f_ru(float x, float y, float z) { return CODE; }    \
-  EXPORT float __##NAME##f_rz(float x, float y, float z) { return CODE; }    \
-  EXPORT double __##NAME##_rd(double x, double y, double z) { return CODE; } \
-  EXPORT double __##NAME##_rn(double x, double y, double z) { return CODE; } \
-  EXPORT double __##NAME##_ru(double x, double y, double z) { return CODE; } \
-  EXPORT double __##NAME##_rz(double x, double y, double z) { return CODE; }
-
-#else
-
-#define DEFOPENCL1F(NAME)               \
-  EXPORT float NAME##f(float x);        \
-  EXPORT double NAME(double x);         \
-  EXPORT api_half NAME##_h(api_half x); \
-  EXPORT api_half2 NAME##_2h(api_half2 x);
-
-#define DEFOPENCL2F(NAME)                           \
-  EXPORT float NAME##f(float x, float y);           \
-  EXPORT double NAME(double x, double y);           \
-  EXPORT api_half NAME##_h(api_half x, api_half y); \
-  EXPORT api_half2 NAME##_2h(api_half2 x, api_half2 y);
-
-#define DEFOPENCL3F(NAME)                                       \
-  EXPORT float NAME##f(float x, float y, float z);              \
-  EXPORT double NAME(double x, double y, double z);             \
-  EXPORT api_half NAME##_h(api_half x, api_half y, api_half z); \
-  EXPORT api_half2 NAME##_2h(api_half2 x, api_half2 y, api_half2 z);
-
-#define DEFOPENCL4F(NAME)                                                   \
-  EXPORT float NAME##f(float x, float y, float z, float w);                 \
-  EXPORT double NAME(double x, double y, double z, double w);               \
-  EXPORT api_half NAME##_h(api_half x, api_half y, api_half z, api_half w); \
-  EXPORT api_half2 NAME##_2h(api_half2 x, api_half2 y, api_half2 z,         \
-                             api_half2 w);
-
-#define DEFOPENCL1B(NAME)               \
-  EXPORT bool NAME(float x);            \
-  EXPORT bool NAME(double x);           \
-  EXPORT api_half NAME##_h(api_half x); \
-  EXPORT api_half2 NAME##_2h(api_half2 x);
-
-#define DEFOPENCL1INT(NAME)    \
-  EXPORT int NAME##f(float x); \
-  EXPORT int NAME(double x);   \
-  EXPORT int NAME##_h(api_half x);
-
-#define DEFOPENCL1LL(NAME)                   \
-  EXPORT long int l##NAME##f(float x);       \
-  EXPORT long int l##NAME(double x);         \
-  EXPORT long long int ll##NAME##f(float x); \
-  EXPORT long long int ll##NAME(double x);
-
-#define DEFOPENCL1F_NATIVE(NAME) EXPORT float __##NAME##f(float x);
-
-#define FAKE_ROUNDINGS2(NAME, CODE)                 \
-  EXPORT float __f##NAME##_rd(float x, float y);    \
-  EXPORT float __f##NAME##_rn(float x, float y);    \
-  EXPORT float __f##NAME##_ru(float x, float y);    \
-  EXPORT float __f##NAME##_rz(float x, float y);    \
-  EXPORT double __d##NAME##_rd(double x, double y); \
-  EXPORT double __d##NAME##_rn(double x, double y); \
-  EXPORT double __d##NAME##_ru(double x, double y); \
-  EXPORT double __d##NAME##_rz(double x, double y);
-
-#define FAKE_ROUNDINGS1(NAME, CODE)       \
-  EXPORT float __f##NAME##_rd(float x);   \
-  EXPORT float __f##NAME##_rn(float x);   \
-  EXPORT float __f##NAME##_ru(float x);   \
-  EXPORT float __f##NAME##_rz(float x);   \
-  EXPORT double __d##NAME##_rd(double x); \
-  EXPORT double __d##NAME##_rn(double x); \
-  EXPORT double __d##NAME##_ru(double x); \
-  EXPORT double __d##NAME##_rz(double x);
-
-#define FAKE_ROUNDINGS3(NAME, CODE)                          \
-  EXPORT float __##NAME##f_rd(float x, float y, float z);    \
-  EXPORT float __##NAME##f_rn(float x, float y, float z);    \
-  EXPORT float __##NAME##f_ru(float x, float y, float z);    \
-  EXPORT float __##NAME##f_rz(float x, float y, float z);    \
-  EXPORT double __##NAME##_rd(double x, double y, double z); \
-  EXPORT double __##NAME##_rn(double x, double y, double z); \
-  EXPORT double __##NAME##_ru(double x, double y, double z); \
-  EXPORT double __##NAME##_rz(double x, double y, double z);
-
-#endif
+EXPORT unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
+                                    unsigned int shift);
+EXPORT unsigned int __funnelshift_lc(unsigned int lo, unsigned int hi,
+                                     unsigned int shift);
+EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
+                                    unsigned int shift);
+EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
+                                     unsigned int shift);
 
 DEFOPENCL1F(acos)
 DEFOPENCL1F(asin)
@@ -491,9 +155,15 @@ DEFOPENCL1F(expm1)
 DEFOPENCL1F(fabs)
 DEFOPENCL2F(fdim)
 DEFOPENCL1F(floor)
+DEFOPENCL2F(floor)
+DEFOPENCL2F(frexp)
 
 EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
+EXPORT float __fmaf_ieee_rd(float x, float y, float z);
+EXPORT float __fmaf_ieee_rn(float x, float y, float z);
+EXPORT float __fmaf_ieee_ru(float x, float y, float z);
+EXPORT float __fmaf_ieee_rz(float x, float y, float z);
 
 DEFOPENCL3F(fma)
 
@@ -513,6 +183,14 @@ EXPORT float frexpf(float f, int *i);
 EXPORT double frexp(double f, int *i);
 #endif
 
+EXPORT unsigned long long int ullmin(const unsigned long long int a,
+                                     const unsigned long long int b);
+EXPORT unsigned long long int ullmax(const unsigned long long int a,
+                                     const unsigned long long int b);
+EXPORT unsigned int ullmin(const unsigned int a, const unsigned int b);
+EXPORT unsigned int umin(const unsigned int a, const unsigned int b);
+EXPORT unsigned int umax(const unsigned int a, const unsigned int b);
+
 DEFOPENCL2F(hypot)
 DEFOPENCL1INT(ilogb)
 
@@ -523,12 +201,14 @@ DEFOPENCL1B(isnan)
 DEFOPENCL1F(j0)
 DEFOPENCL1F(j1)
 
-EXPORT float jnf(int n, float x) {  // TODO: we could use Ahmes multiplication
-                                    // and the Miller & Brown algorithm
+EXPORT float jnf(int n, float x) { // TODO: we could use Ahmes multiplication
+                                   // and the Miller & Brown algorithm
   //       for linear recurrences to get O(log n) steps, but it's unclear if
   //       it'd be beneficial in this case.
-  if (n == 0) return j0f(x);
-  if (n == 1) return j1f(x);
+  if (n == 0)
+    return j0f(x);
+  if (n == 1)
+    return j1f(x);
 
   float x0 = j0f(x);
   float x1 = j1f(x);
@@ -540,13 +220,15 @@ EXPORT float jnf(int n, float x) {  // TODO: we could use Ahmes multiplication
 
   return x1;
 }
-EXPORT double jn(int n, double x) {  // TODO: we could use Ahmes multiplication
-                                     // and the Miller & Brown algorithm
+EXPORT double jn(int n, double x) { // TODO: we could use Ahmes multiplication
+                                    // and the Miller & Brown algorithm
   //       for linear recurrences to get O(log n) steps, but it's unclear if
   //       it'd be beneficial in this case. Placeholder until OCML adds
   //       support.
-  if (n == 0) return j0(x);
-  if (n == 1) return j1(x);
+  if (n == 0)
+    return j0(x);
+  if (n == 1)
+    return j1(x);
 
   double x0 = j0(x);
   double x1 = j1(x);
@@ -671,7 +353,7 @@ DEFOPENCL1F(trunc)
 // float normf ( int dim, const float *a )
 EXPORT
 float normf(int dim,
-            const float *a) {  // TODO: placeholder until OCML adds support.
+            const float *a) { // TODO: placeholder until OCML adds support.
   float r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -684,7 +366,7 @@ float normf(int dim,
 // float rnormf ( int  dim, const float* t )
 EXPORT
 float rnormf(int dim,
-             const float *a) {  // TODO: placeholder until OCML adds support.
+             const float *a) { // TODO: placeholder until OCML adds support.
   float r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -696,7 +378,7 @@ float rnormf(int dim,
 
 EXPORT
 double norm(int dim,
-            const double *a) {  // TODO: placeholder until OCML adds support.
+            const double *a) { // TODO: placeholder until OCML adds support.
   double r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -708,7 +390,7 @@ double norm(int dim,
 
 EXPORT
 double rnorm(int dim,
-             const double *a) {  // TODO: placeholder until OCML adds support.
+             const double *a) { // TODO: placeholder until OCML adds support.
   double r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -761,13 +443,15 @@ EXPORT void sincospi(double x, double *sptr, double *cptr);
 
 DEFOPENCL1F(y0)
 DEFOPENCL1F(y1)
-EXPORT float ynf(int n, float x) {  // TODO: we could use Ahmes multiplication
-                                    // and the Miller & Brown algorithm
+EXPORT float ynf(int n, float x) { // TODO: we could use Ahmes multiplication
+                                   // and the Miller & Brown algorithm
   //       for linear recurrences to get O(log n) steps, but it's unclear if
   //       it'd be beneficial in this case. Placeholder until OCML adds
   //       support.
-  if (n == 0) return y0f(x);
-  if (n == 1) return y1f(x);
+  if (n == 0)
+    return y0f(x);
+  if (n == 1)
+    return y1f(x);
 
   float x0 = y0f(x);
   float x1 = y1f(x);
@@ -779,13 +463,15 @@ EXPORT float ynf(int n, float x) {  // TODO: we could use Ahmes multiplication
 
   return x1;
 }
-EXPORT double yn(int n, double x) {  // TODO: we could use Ahmes multiplication
-                                     // and the Miller & Brown algorithm
+EXPORT double yn(int n, double x) { // TODO: we could use Ahmes multiplication
+                                    // and the Miller & Brown algorithm
   //       for linear recurrences to get O(log n) steps, but it's unclear if
   //       it'd be beneficial in this case. Placeholder until OCML adds
   //       support.
-  if (n == 0) return j0(x);
-  if (n == 1) return j1(x);
+  if (n == 0)
+    return j0(x);
+  if (n == 1)
+    return j1(x);
 
   double x0 = j0(x);
   double x1 = j1(x);
@@ -806,29 +492,32 @@ FAKE_ROUNDINGS2(div, x / y)
 FAKE_ROUNDINGS2(mul, x *y)
 
 FAKE_ROUNDINGS1(rcp, (1.0f / x))
-FAKE_ROUNDINGS2(sqrt, GEN_NAME2(sqrt, f)(x))
+FAKE_ROUNDINGS1(sqrt, GEN_NAME2(sqrt, f)(x))
+FAKE_ROUNDINGS1(rsqrt, GEN_NAME2(rsqrt, f)(x))
 
 FAKE_ROUNDINGS3(fma, GEN_NAME2(fma, f)(x, y, z))
+// FAKE_ROUNDINGS3(fmaf_ieee, GEN_NAME2(fmaf_ieee, f)(x, y, z))
 
 DEFOPENCL1F_NATIVE(cos)
 DEFOPENCL1F_NATIVE(sin)
 DEFOPENCL1F_NATIVE(tan)
 
 DEFOPENCL1F_NATIVE(exp10)
+DEFOPENCL1F_NATIVE(exp2)
 DEFOPENCL1F_NATIVE(exp)
 
 DEFOPENCL1F_NATIVE(log10)
 DEFOPENCL1F_NATIVE(log2)
 DEFOPENCL1F_NATIVE(log)
 
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-float NON_OVLD GEN_NAME2(powr_native, f)(float x, float y);
-}
+DEFOPENCL1F_NATIVE(recip)
+DEFOPENCL1F_NATIVE(sqrt)
+DEFOPENCL1F_NATIVE(rsqrt)
 
-EXPORT float __powf(float x, float y) {
-  return GEN_NAME2(powr_native, f)(x, y);
-}
+DEFOPENCL2F_NATIVE(divide)
+DEFOPENCL2F_NATIVE(powr)
+
+#if defined(__HIP_DEVICE_COMPILE__)
 
 EXPORT float __saturatef(float x) {
   return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
@@ -843,73 +532,28 @@ EXPORT void __sincosf(float x, float *sptr, float *cptr) {
 
 extern "C" {
 NON_OVLD void GEN_NAME(local_barrier)();
-}
-EXPORT void __syncthreads() { GEN_NAME(local_barrier)(); }
-EXPORT int __syncthreads_and(int predicate) {
-  GEN_NAME(local_barrier)();
-  return 1;
-}
-EXPORT int __syncthreads_or(int predicate) {
-  GEN_NAME(local_barrier)();
-  return 1;
-}
-EXPORT int __syncthreads_count(int predicate) {
-  GEN_NAME(local_barrier)();
-  return 1;
+NON_OVLD int GEN_NAME(group_all)(int predicate);
+NON_OVLD int GEN_NAME(group_any)(int predicate);
+NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 }
 
-extern "C" {
-NON_OVLD void GEN_NAME(local_fence)();
-}
-EXPORT void __threadfence_block() { GEN_NAME(local_fence)(); }
 
-extern "C" {
-NON_OVLD void GEN_NAME(system_fence)();
-}
-EXPORT void __threadfence_system() { GEN_NAME(system_fence)(); }
 
-extern "C" {
-NON_OVLD void GEN_NAME(global_fence)();
-}
-EXPORT void __threadfence() { GEN_NAME(global_fence)(); }
-
-EXPORT clock_t clock() { return 0; }
-
-EXPORT unsigned long long clock64() { return 0; }
 
 // memory routines
-extern "C" {
-NON_OVLD void *GEN_NAME(memset)(void *ptr, int value, size_t size);
-}
-EXPORT void *memset(void *ptr, int value, size_t size) {
-  return GEN_NAME(memset)(ptr, value, size);
-}
-
-extern "C" {
-NON_OVLD void *GEN_NAME(memcpy)(void *dest, const void *src, size_t n);
-}
-EXPORT void *memcpy(void *dest, const void *src, size_t n) {
-  return GEN_NAME(memcpy)(dest, src, n);
-}
 
 /**********************************************************************/
 
 #else
-EXPORT float __powf(float x, float y);
 EXPORT float __saturatef(float x);
 EXPORT void __sincosf(float x, float *sptr, float *cptr);
-EXPORT void __syncthreads();
-EXPORT int __syncthreads_and(int predicate);
-EXPORT int __syncthreads_or(int predicate);
-EXPORT int __syncthreads_count(int predicate);
-EXPORT void __threadfence_block();
-EXPORT void __threadfence_system();
-EXPORT void __threadfence();
-EXPORT clock_t clock();
-EXPORT unsigned long long clock64();
-EXPORT void *memset(void *ptr, int value, size_t size);
-EXPORT void *memcpy(void *dest, const void *src, size_t n);
+
+
 #endif
+
+// native(fast) approximations
+EXPORT float __powf(float x, float y) { return __exp2f(y * __log2f(x)); }
+EXPORT float __fdividef(float x, float y) { return __dividef(x, y); }
 
 // NAN/NANF
 
@@ -970,7 +614,8 @@ uint64_t __make_mantissa_base16(const char *tagp) {
 
 EXPORT
 uint64_t __make_mantissa(const char *tagp) {
-  if (!tagp) return 0u;
+  if (!tagp)
+    return 0u;
 
   if (*tagp == '0') {
     ++tagp;
@@ -1079,11 +724,11 @@ EXPORT unsigned int __ffsll(long long int input) {
 // optimization tries to use llvm intrinsics here, but we don't want that
 EXPORT NOOPT unsigned int __brev(unsigned int a) {
   uint32_t m;
-  a = (a >> 16) | (a << 16);  // swap halfwords
+  a = (a >> 16) | (a << 16); // swap halfwords
   m = 0x00FF00FFU;
-  a = ((a >> 8) & m) | ((a << 8) & ~m);  // swap bytes
+  a = ((a >> 8) & m) | ((a << 8) & ~m); // swap bytes
   m = m ^ (m << 4);
-  a = ((a >> 4) & m) | ((a << 4) & ~m);  // swap nibbles
+  a = ((a >> 4) & m) | ((a << 4) & ~m); // swap nibbles
   m = m ^ (m << 2);
   a = ((a >> 2) & m) | ((a << 2) & ~m);
   m = m ^ (m << 1);
@@ -1093,13 +738,13 @@ EXPORT NOOPT unsigned int __brev(unsigned int a) {
 
 EXPORT NOOPT unsigned long long int __brevll(unsigned long long int a) {
   uint64_t m;
-  a = (a >> 32) | (a << 32);  // swap words
+  a = (a >> 32) | (a << 32); // swap words
   m = 0x0000FFFF0000FFFFUL;
-  a = ((a >> 16) & m) | ((a << 16) & ~m);  // swap halfwords
+  a = ((a >> 16) & m) | ((a << 16) & ~m); // swap halfwords
   m = m ^ (m << 8);
-  a = ((a >> 8) & m) | ((a << 8) & ~m);  // swap bytes
+  a = ((a >> 8) & m) | ((a << 8) & ~m); // swap bytes
   m = m ^ (m << 4);
-  a = ((a >> 4) & m) | ((a << 4) & ~m);  // swap nibbles
+  a = ((a >> 4) & m) | ((a << 4) & ~m); // swap nibbles
   m = m ^ (m << 2);
   a = ((a >> 2) & m) | ((a << 2) & ~m);
   m = m ^ (m << 1);
@@ -1277,54 +922,50 @@ EXPORT api_half fma(api_half x, api_half y, api_half z) {
 #pragma push_macro("__HIP_OVERLOAD2")
 
 // __hip_enable_if::type is a type function which returns __T if __B is true.
-template <bool __B, class __T = void>
-struct __hip_enable_if {};
+template <bool __B, class __T = void> struct __hip_enable_if {};
 
-template <class __T>
-struct __hip_enable_if<true, __T> {
-  typedef __T type;
-};
+template <class __T> struct __hip_enable_if<true, __T> { typedef __T type; };
 
 // __HIP_OVERLOAD1 is used to resolve function calls with integer argument to
 // avoid compilation error due to ambibuity. e.g. floor(5) is resolved with
 // floor(double).
-#define __HIP_OVERLOAD1(__retty, __fn)                                      \
-  template <typename __T>                                                   \
-  __DEVICE__ typename __hip_enable_if<std::numeric_limits<__T>::is_integer, \
-                                      __retty>::type                        \
-  __fn(__T __x) {                                                           \
-    return ::__fn((double)__x);                                             \
+#define __HIP_OVERLOAD1(__retty, __fn)                                         \
+  template <typename __T>                                                      \
+  __DEVICE__ typename __hip_enable_if<std::numeric_limits<__T>::is_integer,    \
+                                      __retty>::type                           \
+  __fn(__T __x) {                                                              \
+    return ::__fn((double)__x);                                                \
   }
 
 // __HIP_OVERLOAD2 is used to resolve function calls with mixed float/double
 // or integer argument to avoid compilation error due to ambibuity. e.g.
 // max(5.0f, 6.0) is resolved with max(double, double).
-#define __HIP_OVERLOAD2(__retty, __fn)                                        \
-  template <typename __T1, typename __T2>                                     \
-  __DEVICE__                                                                  \
-      typename __hip_enable_if<std::numeric_limits<__T1>::is_specialized &&   \
-                                   std::numeric_limits<__T2>::is_specialized, \
-                               __retty>::type                                 \
-      __fn(__T1 __x, __T2 __y) {                                              \
-    return __fn((double)__x, (double)__y);                                    \
+#define __HIP_OVERLOAD2(__retty, __fn)                                         \
+  template <typename __T1, typename __T2>                                      \
+  __DEVICE__                                                                   \
+      typename __hip_enable_if<std::numeric_limits<__T1>::is_specialized &&    \
+                                   std::numeric_limits<__T2>::is_specialized,  \
+                               __retty>::type                                  \
+      __fn(__T1 __x, __T2 __y) {                                               \
+    return __fn((double)__x, (double)__y);                                     \
   }
 
 // Define cmath functions with float argument and returns float.
-#define __DEF_FUN1(retty, func)              \
-  EXPORT                                     \
-  float func(float x) { return func##f(x); } \
+#define __DEF_FUN1(retty, func)                                                \
+  EXPORT                                                                       \
+  float func(float x) { return func##f(x); }                                   \
   __HIP_OVERLOAD1(retty, func)
 
 // Define cmath functions with float argument and returns retty.
-#define __DEF_FUNI(retty, func)              \
-  EXPORT                                     \
-  retty func(float x) { return func##f(x); } \
+#define __DEF_FUNI(retty, func)                                                \
+  EXPORT                                                                       \
+  retty func(float x) { return func##f(x); }                                   \
   __HIP_OVERLOAD1(retty, func)
 
 // define cmath functions with two float arguments.
-#define __DEF_FUN2(retty, func)                          \
-  EXPORT                                                 \
-  float func(float x, float y) { return func##f(x, y); } \
+#define __DEF_FUN2(retty, func)                                                \
+  EXPORT                                                                       \
+  float func(float x, float y) { return func##f(x, y); }                       \
   __HIP_OVERLOAD2(retty, func)
 
 __DEF_FUN1(double, acos)
@@ -1389,8 +1030,8 @@ __DEF_FUN1(double, tgamma)
 __DEF_FUN1(double, trunc);
 
 // define cmath functions with a float and an integer argument.
-#define __DEF_FLOAT_FUN2I(func) \
-  EXPORT                        \
+#define __DEF_FLOAT_FUN2I(func)                                                \
+  EXPORT                                                                       \
   float func(float x, int y) { return func##f(x, y); }
 __DEF_FLOAT_FUN2I(scalbn)
 
@@ -1418,89 +1059,89 @@ __HIP_OVERLOAD2(double, min)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 
-#define DEFOPENCL_ATOMIC2(HIPNAME, CLNAME)                                    \
-  extern "C" {                                                                \
-  NON_OVLD int GEN_NAME2(atomic_##CLNAME, i)(int *address, int i);            \
-  NON_OVLD unsigned int GEN_NAME2(atomic_##CLNAME, u)(unsigned int *address,  \
-                                                      unsigned int ui);       \
-  NON_OVLD unsigned long long GEN_NAME2(atomic_##CLNAME,                      \
-                                        l)(unsigned long long *address,       \
-                                           unsigned long long ull);           \
-  }                                                                           \
-  EXPORT OVLD int atomic##HIPNAME(int *address, int val) {                    \
-    return GEN_NAME2(atomic_##CLNAME, i)(address, val);                       \
-  }                                                                           \
-  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address,             \
-                                           unsigned int val) {                \
-    return GEN_NAME2(atomic_##CLNAME, u)(address, val);                       \
-  }                                                                           \
-  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address, \
-                                                 unsigned long long val) {    \
-    return GEN_NAME2(atomic_##CLNAME, l)(address, val);                       \
+#define DEFOPENCL_ATOMIC2(HIPNAME, CLNAME)                                     \
+  extern "C" {                                                                 \
+  NON_OVLD int GEN_NAME2(atomic_##CLNAME, i)(int *address, int i);             \
+  NON_OVLD unsigned int GEN_NAME2(atomic_##CLNAME, u)(unsigned int *address,   \
+                                                      unsigned int ui);        \
+  NON_OVLD unsigned long long GEN_NAME2(atomic_##CLNAME,                       \
+                                        l)(unsigned long long *address,        \
+                                           unsigned long long ull);            \
+  }                                                                            \
+  EXPORT OVLD int atomic##HIPNAME(int *address, int val) {                     \
+    return GEN_NAME2(atomic_##CLNAME, i)(address, val);                        \
+  }                                                                            \
+  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address,              \
+                                           unsigned int val) {                 \
+    return GEN_NAME2(atomic_##CLNAME, u)(address, val);                        \
+  }                                                                            \
+  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address,  \
+                                                 unsigned long long val) {     \
+    return GEN_NAME2(atomic_##CLNAME, l)(address, val);                        \
   }
 
-#define DEFOPENCL_ATOMIC1(HIPNAME, CLNAME)                                    \
-  extern "C" {                                                                \
-  NON_OVLD int GEN_NAME2(atomic_##CLNAME, i)(int *address);                   \
-  NON_OVLD unsigned int GEN_NAME2(atomic_##CLNAME, u)(unsigned int *address); \
-  NON_OVLD unsigned long long GEN_NAME2(atomic_##CLNAME,                      \
-                                        l)(unsigned long long *address);      \
-  }                                                                           \
-  EXPORT OVLD int atomic##HIPNAME(int *address) {                             \
-    return GEN_NAME2(atomic_##CLNAME, i)(address);                            \
-  }                                                                           \
-  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address) {           \
-    return GEN_NAME2(atomic_##CLNAME, u)(address);                            \
-  }                                                                           \
-  EXPORT OVLD unsigned long long atomic##HIPNAME(                             \
-      unsigned long long *address) {                                          \
-    return GEN_NAME2(atomic_##CLNAME, l)(address);                            \
+#define DEFOPENCL_ATOMIC1(HIPNAME, CLNAME)                                     \
+  extern "C" {                                                                 \
+  NON_OVLD int GEN_NAME2(atomic_##CLNAME, i)(int *address);                    \
+  NON_OVLD unsigned int GEN_NAME2(atomic_##CLNAME, u)(unsigned int *address);  \
+  NON_OVLD unsigned long long GEN_NAME2(atomic_##CLNAME,                       \
+                                        l)(unsigned long long *address);       \
+  }                                                                            \
+  EXPORT OVLD int atomic##HIPNAME(int *address) {                              \
+    return GEN_NAME2(atomic_##CLNAME, i)(address);                             \
+  }                                                                            \
+  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address) {            \
+    return GEN_NAME2(atomic_##CLNAME, u)(address);                             \
+  }                                                                            \
+  EXPORT OVLD unsigned long long atomic##HIPNAME(                              \
+      unsigned long long *address) {                                           \
+    return GEN_NAME2(atomic_##CLNAME, l)(address);                             \
   }
 
-#define DEFOPENCL_ATOMIC3(HIPNAME, CLNAME)                                    \
-  extern "C" {                                                                \
-  NON_OVLD int GEN_NAME2(atomic_##CLNAME, i)(int *address, int cmp, int val); \
-  NON_OVLD unsigned int GEN_NAME2(atomic_##CLNAME, u)(unsigned int *address,  \
-                                                      unsigned int cmp,       \
-                                                      unsigned int val);      \
-  NON_OVLD unsigned long long GEN_NAME2(atomic_##CLNAME,                      \
-                                        l)(unsigned long long *address,       \
-                                           unsigned long long cmp,            \
-                                           unsigned long long val);           \
-  }                                                                           \
-  EXPORT OVLD int atomic##HIPNAME(int *address, int cmp, int val) {           \
-    return GEN_NAME2(atomic_##CLNAME, i)(address, cmp, val);                  \
-  }                                                                           \
-  EXPORT OVLD unsigned int atomic##HIPNAME(                                   \
-      unsigned int *address, unsigned int cmp, unsigned int val) {            \
-    return GEN_NAME2(atomic_##CLNAME, u)(address, cmp, val);                  \
-  }                                                                           \
-  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address, \
-                                                 unsigned long long cmp,      \
-                                                 unsigned long long val) {    \
-    return GEN_NAME2(atomic_##CLNAME, l)(address, cmp, val);                  \
+#define DEFOPENCL_ATOMIC3(HIPNAME, CLNAME)                                     \
+  extern "C" {                                                                 \
+  NON_OVLD int GEN_NAME2(atomic_##CLNAME, i)(int *address, int cmp, int val);  \
+  NON_OVLD unsigned int GEN_NAME2(atomic_##CLNAME, u)(unsigned int *address,   \
+                                                      unsigned int cmp,        \
+                                                      unsigned int val);       \
+  NON_OVLD unsigned long long GEN_NAME2(atomic_##CLNAME,                       \
+                                        l)(unsigned long long *address,        \
+                                           unsigned long long cmp,             \
+                                           unsigned long long val);            \
+  }                                                                            \
+  EXPORT OVLD int atomic##HIPNAME(int *address, int cmp, int val) {            \
+    return GEN_NAME2(atomic_##CLNAME, i)(address, cmp, val);                   \
+  }                                                                            \
+  EXPORT OVLD unsigned int atomic##HIPNAME(                                    \
+      unsigned int *address, unsigned int cmp, unsigned int val) {             \
+    return GEN_NAME2(atomic_##CLNAME, u)(address, cmp, val);                   \
+  }                                                                            \
+  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address,  \
+                                                 unsigned long long cmp,       \
+                                                 unsigned long long val) {     \
+    return GEN_NAME2(atomic_##CLNAME, l)(address, cmp, val);                   \
   }
 
 #else
 
-#define DEFOPENCL_ATOMIC2(HIPNAME, CLNAME)                                    \
-  EXPORT OVLD int atomic##HIPNAME(int *address, int val);                     \
-  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address,             \
-                                           unsigned int val);                 \
-  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address, \
+#define DEFOPENCL_ATOMIC2(HIPNAME, CLNAME)                                     \
+  EXPORT OVLD int atomic##HIPNAME(int *address, int val);                      \
+  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address,              \
+                                           unsigned int val);                  \
+  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address,  \
                                                  unsigned long long val);
 
-#define DEFOPENCL_ATOMIC1(HIPNAME, CLNAME)                         \
-  EXPORT OVLD int atomic##HIPNAME(int *address);                   \
-  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address); \
+#define DEFOPENCL_ATOMIC1(HIPNAME, CLNAME)                                     \
+  EXPORT OVLD int atomic##HIPNAME(int *address);                               \
+  EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address);             \
   EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address);
 
-#define DEFOPENCL_ATOMIC3(HIPNAME, CLNAME)                                    \
-  EXPORT OVLD int atomic##HIPNAME(int *address, int cmp, int val);            \
-  EXPORT OVLD unsigned int atomic##HIPNAME(                                   \
-      unsigned int *address, unsigned int cmp, unsigned int val);             \
-  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address, \
-                                                 unsigned long long cmp,      \
+#define DEFOPENCL_ATOMIC3(HIPNAME, CLNAME)                                     \
+  EXPORT OVLD int atomic##HIPNAME(int *address, int cmp, int val);             \
+  EXPORT OVLD unsigned int atomic##HIPNAME(                                    \
+      unsigned int *address, unsigned int cmp, unsigned int val);              \
+  EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address,  \
+                                                 unsigned long long cmp,       \
                                                  unsigned long long val);
 
 #endif

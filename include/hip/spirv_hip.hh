@@ -37,7 +37,7 @@
 #endif
 
 #if defined(__clang__) && defined(__HIP__)
-#include "spirv_hip_mathlib.hh"
+#include "spirv_hip_devicelib.hh"
 
 #define uint uint32_t
 

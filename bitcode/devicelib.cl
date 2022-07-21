@@ -28,7 +28,7 @@
 #define PRIVATE_AS __private
 
 #define CL_NAME(N) opencl_##N
-#define CL_NAME2(N, S) opencl__##N##_##S
+#define CL_NAME2(N, S) opencl_##N##_##S
 
 #define CL_NAME_MANGLED_ATOM(NAME, S) CL_NAME2(atomic_##NAME, S)
 
@@ -93,7 +93,16 @@ EXPORT int CL_NAME2(NAME, h)(half x) { return NAME(x); }
 //EXPORT int CL_NAME(NAME, h2)(half2 x) { return NAME(x); }
 
 #define DEF_OPENCL1F_NATIVE(NAME) \
-EXPORT float CL_NAME2(NAME##_native, f)(float x) { return native_##NAME(x); }
+float OVLD native_##NAME(float x); \
+double OVLD native_##NAME(double x); \
+EXPORT float CL_NAME2(NAME##_native, f)(float x) { return native_##NAME(x); } \
+EXPORT double CL_NAME2(NAME##_native, d)(double x) { return native_##NAME(x); }
+
+#define DEF_OPENCL2F_NATIVE(NAME) \
+float OVLD native_##NAME(float x, float y); \
+double OVLD native_##NAME(double x, double y); \
+EXPORT float CL_NAME2(NAME##_native, f)(float x, float y) { return native_##NAME(x, y); } \
+EXPORT double CL_NAME2(NAME##_native, d)(double x, double y) { return native_##NAME(x, y); }
 
 // +7
 DEF_OPENCL1F(acos)
@@ -166,9 +175,9 @@ DEF_OPENCL1INT(ilogb)
 DEF_OPENCL1B(isfinite)
 DEF_OPENCL1B(isinf)
 DEF_OPENCL1B(isnan)
-
-DEFOCML_OPENCL1F(j0)
-DEFOCML_OPENCL1F(j1)
+// TODO: this results in errors
+// DEFOCML_OPENCL1F(j0)
+// DEFOCML_OPENCL1F(j1)
 
 float OVLD ldexp(float f, int k);
 double OVLD ldexp(double f, int k);
@@ -307,11 +316,20 @@ DEF_OPENCL1F_NATIVE(sin)
 DEF_OPENCL1F_NATIVE(tan)
 
 DEF_OPENCL1F_NATIVE(exp10)
+DEF_OPENCL1F_NATIVE(exp2)
 DEF_OPENCL1F_NATIVE(exp)
 
 DEF_OPENCL1F_NATIVE(log10)
 DEF_OPENCL1F_NATIVE(log2)
 DEF_OPENCL1F_NATIVE(log)
+
+DEF_OPENCL1F_NATIVE(recip)
+DEF_OPENCL1F_NATIVE(rsqrt)
+DEF_OPENCL1F_NATIVE(sqrt)
+
+DEF_OPENCL2F_NATIVE(powr)
+DEF_OPENCL2F_NATIVE(divide)
+
 
 /* other */
 
@@ -321,6 +339,7 @@ EXPORT void CL_NAME(local_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
 EXPORT void CL_NAME(global_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 
+EXPORT void CL_NAME(system_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value
@@ -751,9 +770,7 @@ EXPORT float CL_NAME2(shfl_down, f)(float var, uint delta) {
 };
 
 
-int CL_NAME(group_all)(int pred) { return sub_group_all(pred); }
-int CL_NAME(group_any)(int pred) { return sub_group_any(pred); }
-ulong CL_NAME(group_ballot)(int pred) { return sub_group_reduce_add(pred ? (ulong)1 << get_sub_group_local_id() : 0); }
+
 
 typedef struct {
   intptr_t  image;
