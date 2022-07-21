@@ -38,6 +38,32 @@ THE SOFTWARE.
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
 #include <hip/devicelib/sync_and_util.hh>
+#include <hip/devicelib/type_casting_intrinsics.hh>
+
+#include <hip/devicelib/bfloat16/bfloat162_math.hh>
+#include <hip/devicelib/bfloat16/bfloat16_comparison.hh>
+#include <hip/devicelib/bfloat16/bfloat16_math.hh>
+#include <hip/devicelib/bfloat16/bfloat162_comparison.hh>
+#include <hip/devicelib/bfloat16/bfloat16_arithemtic.hh>
+#include <hip/devicelib/bfloat16/bfloat16_conversion_and_movement.hh>
+
+#include <hip/devicelib/half/half2_arithmetic.hh>
+#include <hip/devicelib/half/half2_math.hh>
+#include <hip/devicelib/half/half_comparison.hh>
+#include <hip/devicelib/half/half_math.hh>
+#include <hip/devicelib/half/half2_comparison.hh>
+#include <hip/devicelib/half/half_arithmetic.hh>
+#include <hip/devicelib/half/half_conversion_and_movement.hh>
+                        
+#include <hip/devicelib/double_precision/dp_intrinsics.hh>
+#include <hip/devicelib/double_precision/dp_math.hh>
+    
+#include <hip/devicelib/single_precision/sp_intrinsics.hh>
+#include <hip/devicelib/single_precision/sp_math.hh>
+
+#include <hip/devicelib/integer/int_intrinsics.hh>
+#include <hip/devicelib/integer/int_math.hh>
+
 
 // BEGIN INTRINSICS
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
