@@ -15,10 +15,14 @@
 // __device__ bool __hleu ( const __nv_bfloat16 a, const __nv_bfloat16 b )
 // __device__ bool __hlt ( const __nv_bfloat16 a, const __nv_bfloat16 b )
 // __device__ bool __hltu ( const __nv_bfloat16 a, const __nv_bfloat16 b )
-// __device__ __nv_bfloat16 	__hmax ( const __nv_bfloat16 a, const __nv_bfloat16 b )
-// __device__ __nv_bfloat16 	__hmax_nan ( const __nv_bfloat16 a, const __nv_bfloat16 b )
-// __device__ __nv_bfloat16 	__hmin ( const __nv_bfloat16 a, const __nv_bfloat16 b )
-// __device__ __nv_bfloat16 	__hmin_nan ( const __nv_bfloat16 a, const __nv_bfloat16 b )
+// __device__ __nv_bfloat16 	__hmax ( const __nv_bfloat16 a, const
+// __nv_bfloat16 b )
+// __device__ __nv_bfloat16 	__hmax_nan ( const __nv_bfloat16 a, const
+// __nv_bfloat16 b )
+// __device__ __nv_bfloat16 	__hmin ( const __nv_bfloat16 a, const
+// __nv_bfloat16 b )
+// __device__ __nv_bfloat16 	__hmin_nan ( const __nv_bfloat16 a, const
+// __nv_bfloat16 b )
 // __device__ bool __hne ( const __nv_bfloat16 a, const __nv_bfloat16 b )
 // __device__ bool __hneu ( const __nv_bfloat16 a, const __nv_bfloat16 b )
 
