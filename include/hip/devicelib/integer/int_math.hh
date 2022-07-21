@@ -18,8 +18,8 @@
 // const unsigned long long int b )
 // __device__ long long int 	max ( const long long int a, const long long int
 // b )
-// __device__ unsigned long int 	max ( const unsigned long int a, const long
-// int  b )
+// __device__ unsigned long int 	max ( const unsigned long int a, const
+// long int  b )
 // __device__ unsigned long int 	max ( const long int  a, const unsigned
 // long int b )
 // __device__ unsigned long int 	max ( const unsigned long int a, const
@@ -38,8 +38,8 @@
 // const unsigned long long int b )
 // __device__ long long int 	min ( const long long int a, const long long int
 // b )
-// __device__ unsigned long int 	min ( const unsigned long int a, const long
-// int  b )
+// __device__ unsigned long int 	min ( const unsigned long int a, const
+// long int  b )
 // __device__ unsigned long int 	min ( const long int  a, const unsigned
 // long int b )
 // __device__ unsigned long int 	min ( const unsigned long int a, const
