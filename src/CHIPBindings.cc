@@ -34,6 +34,8 @@ static unsigned NumBinariesLoaded = 0;
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
+hipError_t hipInit(unsigned int flags) { return hipSuccess; };
+
 // Handles device side abort() call by checking the abort flag global
 // variable used for signaling the request.
 static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
