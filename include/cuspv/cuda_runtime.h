@@ -40,6 +40,9 @@ THE SOFTWARE.
 #ifndef __CUDART_VERSION__
 #define __CUDART_VERSION__ 8000
 #endif
+#ifndef CUDART_VERSION
+#define CUDART_VERSION 8000
+#endif
 
 // Pretend compute capability to be 2.0
 #ifndef __CUDA_ARCH__
@@ -373,32 +376,21 @@ using CUtexObject = hipTextureObject_t;
 
 // Flags that can be used with hipHostMalloc.
 /** Default pinned memory allocation on the host.*/
-#define cudaHostMallocDefault hipHostMallocDefault
+#define cudaHostAllocDefault hipHostMallocDefault
 
 /** Memory is considered allocated by all contexts.*/
 #define cudaHostAllocPortable hipHostMallocPortable
 
 /** Map the allocation into the address space for the current device. The device
  * pointer can be obtained with #hipHostGetDevicePointer.*/
-#define cudaHostMallocMapped hipHostMallocMapped
+#define cudaHostAllocMapped hipHostMallocMapped
 
 /** Allocates the memory as write-combined. On some system configurations,
  * write-combined allocation may be transferred faster across the PCI Express
  * bus, however, could have low read efficiency by
  * most CPUs. It's a good option for data tranfer from host to device via mapped
  * pinned memory.*/
-#define cudaHostMallocWriteCombined hipHostMallocWriteCombined
-
-/** Host memory allocation will follow numa policy set by user.*/
-#define cudaHostMallocNumaUser hipHostMallocNumaUser
-
-/** Allocate coherent memory. Overrides HIP_COHERENT_HOST_ALLOC for specific
- * allocation.*/
-#define cudaHostMallocCoherent hipHostMallocCoherent
-
-/** Allocate non-coherent memory. Overrides HIP_COHERENT_HOST_ALLOC for specific
- * allocation.*/
-#define cudaHostMallocNonCoherent hipHostMallocNonCoherent
+#define cudaHostAllocWriteCombined hipHostMallocWriteCombined
 
 /** Memory can be accessed by any stream on any device*/
 #define cudaMemAttachGlobal hipMemAttachGlobal
