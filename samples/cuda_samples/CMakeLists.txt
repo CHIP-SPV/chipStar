@@ -25,6 +25,8 @@ function(add_cuda_sample TEST_NAME SUBDIR MAIN_SOURCE)
 
 endfunction()
 
+############################
+
 ## 0_Simple
 add_cuda_sample(cuda-asyncAPI 0_Simple/asyncAPI asyncAPI.cu)
 add_cuda_sample(cuda-lambda 0_Simple/lambda lambda.cu)
@@ -32,6 +34,8 @@ add_cuda_sample(cuda-matrixMul 0_Simple/matrixMul matrixMul.cu)
 add_cuda_sample(cuda-template 0_Simple/template template.cu template_cpu.cpp)
 add_cuda_sample(cuda-vectorAdd 0_Simple/vectorAdd vectorAdd.cu)
 
+add_cuda_sample(cuda-clock 0_Simple/clock clock.cu)
+add_cuda_sample(cuda-cppIntegration 0_Simple/cppIntegration cppIntegration.cu  cppIntegration_gold.cpp  main.cpp)
 # cppOverload: DISABLED: Due to the following error:
 #
 # ../cppOverload.cu:138:11: error: assigning to 'void (*)(const int *, int *, int)' from incompatible type '<overloaded function type>'
@@ -50,10 +54,52 @@ add_cuda_sample(cuda-simpleTemplates 0_Simple/simpleTemplates  simpleTemplates.c
 ##### when run, sometimes fails sometimes passes TODO investigate
 add_cuda_sample(cuda-simpleCallback 0_Simple/simpleCallback  multithreading.cpp   simpleCallback.cu)
 
+### compilation failures:
+#add_cuda_sample(cuda-simpleVoteIntrinsics 0_Simple/simpleVoteIntrinsics  simpleVoteIntrinsics.cu)
+#add_cuda_sample(cuda-simpleZeroCopy 0_Simple/simpleZeroCopy  simpleZeroCopy.cu)
+#add_cuda_sample(cuda-simpleStreams 0_Simple/simpleStreams  simpleStreams.cu)
+
+##### requires assert (different from abort)
+#add_cuda_sample(cuda-simpleAssert 0_Simple/simpleAssert  simpleAssert.cu)
+
+#### requires function pointers
+#add_cuda_sample(cuda-simpleSeparateCompilation 0_Simple/simpleSeparateCompilation  simpleDeviceLibrary.cu  simpleSeparateCompilation.cu)
+
+#### requires surfaces
+#add_cuda_sample(cuda-simpleSurfaceWrite 0_Simple/simpleSurfaceWrite  simpleSurfaceWrite.cu)
+
+#### requires textures
+#add_cuda_sample(cuda-simpleTexture 0_Simple/simpleTexture  simpleTexture.cu)
+
+############################
+
+## 1_Utilities
+add_cuda_sample(cuda-bandwidthTest 1_Utilities/bandwidthTest bandwidthTest.cu)
+# TODO FIXME:
+# add_cuda_sample(cuda-deviceQuery 1_Utilities/deviceQuery deviceQuery.cpp)
+
+############################
+
+## 2_Graphics
+add_cuda_sample(cuda-convolutionSeparable 2_Graphics/convolutionSeparable convolutionSeparable.cu  convolutionSeparable_gold.cpp  main.cpp)
+#add_cuda_sample(cuda-convolutionTexture  2_Graphics/convolutionTexture  convolutionTexture.cu  convolutionTexture_gold.cpp  main.cpp)
+#add_cuda_sample(cuda-dct8x8  2_Graphics/dct8x8  BmpUtil.cpp dct8x8.cu  DCT8x8_Gold.cpp )
+#add_cuda_sample(cuda-dwtHaar1D  2_Graphics/dwtHaar1D  dwtHaar1D.cu)
+#add_cuda_sample(cuda-dxtc  2_Graphics/dxtc  dxtc.cu)
+add_cuda_sample(cuda-histogram  2_Graphics/histogram  histogram_gold.cpp  main.cpp  histogram256.cu  histogram64.cu)
+#add_cuda_sample(cuda-HSOpticalFlow  2_Graphics/HSOpticalFlow  flowCUDA.cu flowGold.cpp  main.cpp)
+#add_cuda_sample(cuda-stereoDisparity  2_Graphics/stereoDisparity  stereoDisparity.cu)
+
+
+
+############################
+
 ## 4_Finance
 add_cuda_sample(cuda-binomialoptions  4_Finance/binomialOptions binomialOptions.cpp  binomialOptions_gold.cpp  binomialOptions_kernel.cu)
 add_cuda_sample(cuda-blackscholes  4_Finance/BlackScholes BlackScholes.cu  BlackScholes_gold.cpp)
 add_cuda_sample(cuda-qrng  4_Finance/quasirandomGenerator quasirandomGenerator.cpp  quasirandomGenerator_gold.cpp  quasirandomGenerator_kernel.cu)
+
+############################
 
 ## 6_Advanced
 add_cuda_sample(cuda-mergesort  6_Advanced/mergeSort bitonic.cu  main.cpp  mergeSort.cu  mergeSort_host.cpp  mergeSort_validate.cpp)
@@ -64,3 +110,11 @@ add_cuda_sample(cuda-FDTD3d  6_Advanced/FDTD3d FDTD3dReference.cpp FDTD3dGPU.cu 
 add_cuda_sample(cuda-sobolqrng  4_Finance/SobolQRNG sobol.cpp  sobol_gold.cpp  sobol_gpu.cu  sobol_primitives.cpp)
 add_cuda_sample(cuda-reduction  6_Advanced/reduction reduction.cpp  reduction_kernel.cu)
 add_cuda_sample(cuda-fastwalsh  6_Advanced/fastWalshTransform fastWalshTransform.cu  fastWalshTransform_gold.cpp)
+
+# 6_Advanced/shfl_scan/shfl_integral_image.cuh:31:33: error: use of undeclared identifier 'warpSize'
+# 6_Advanced/shfl_scan/shfl_integral_image.cuh:83:17: error: no matching function for call to '__shfl_up'
+# error: no matching function for call to '__shfl_xor'
+#add_cuda_sample(cuda-shflscan  6_Advanced/shfl_scan shfl_scan.cu)
+
+# requires function pointers:    kernel = &copySharedMem;
+#add_cuda_sample(cuda-transpose 6_Advanced/transpose transpose.cu)
