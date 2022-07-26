@@ -21,7 +21,7 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
 
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-    target_link_libraries("${EXEC_NAME}" CHIP device)
+    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
@@ -48,7 +48,7 @@ function(add_chip_binary EXEC_NAME)
 
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
-    target_link_libraries("${EXEC_NAME}" CHIP device)
+    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
 
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
@@ -64,7 +64,7 @@ function(add_chip_library EXEC_NAME)
 
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-    target_link_libraries("${EXEC_NAME}" CHIP device)
+    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
 
 endfunction()

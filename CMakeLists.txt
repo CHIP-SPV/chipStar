@@ -224,14 +224,27 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_
 string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_}")
 message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS}")
 
+# Must separate these targets into deviceInteral to be used for building samples,etc.
+# and device for external export. Have to do this because generator expressions don't seem to work here.
+# TODO: Is there a better way to do this?
+add_library(deviceInternal INTERFACE)
+target_compile_options(deviceInternal INTERFACE 
+  ${HIP_ENABLE_SPIRV} 
+  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
+  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
+  ${HIP_LINK_DEVICELIB_BUILD})
+target_link_options(deviceInternal INTERFACE 
+  ${HIP_LINK_DEVICELIB_BUILD})
+target_link_libraries(deviceInternal INTERFACE CHIP)
+
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE 
   ${HIP_ENABLE_SPIRV} 
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
-  ${HIP_LINK_DEVICELIB_BUILD})
+  ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE 
-  ${HIP_LINK_DEVICELIB_BUILD})
+  ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on CHIP-SPV but provides compatibility with AMD

@@ -6,7 +6,7 @@ add_chip_binary(
 	hipDeviceLinkWrite.cpp)
 
 target_compile_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc )
-target_link_libraries(hipTestDeviceLink CHIP device)
+target_link_libraries(hipTestDeviceLink CHIP deviceInternal)
 target_link_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc --hip-link)
 
 if(DEFINED LLVM_VERSION AND "${LLVM_VERSION}" VERSION_GREATER_EQUAL 14)
