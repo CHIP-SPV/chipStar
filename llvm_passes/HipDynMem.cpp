@@ -109,7 +109,8 @@ private:
     }
   }
 
-#if LLVM_VERSION_MAJOR <= 14
+  // will not compile after typed pointer removal
+#if LLVM_VERSION_MAJOR <= 15
   static void recursivelyReplaceArrayWithPointer(Value *DestV, Value *SrcV, Type *ElemType, IRBuilder<> &B) {
     SmallVector<Instruction *> InstsToDelete;
 
@@ -355,26 +356,32 @@ private:
     if (isGVarUsedInFunction(GV, NewF)) {
       B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
 
-#if LLVM_VERSION_MAJOR <= 14
-      // insert a bitcast of dyn mem argument to [N x Type] Array
-      Value *BitcastV = B.CreateBitOrPointerCast(last_arg, GV->getType(), "casted_last_arg");
-      Instruction *LastArgBitcast = dyn_cast<Instruction>(BitcastV);
+#if LLVM_VERSION_MAJOR == 15
+      assert(M.getContext().hasSetOpaquePointersValue());
 
-      // replace GVar references with the [N x Type] bitcast
-      replaceGVarUsesWith(GV, NewF, BitcastV);
+      if (M.getContext().supportsTypedPointers()) {
+#endif
+        // insert a bitcast of dyn mem argument to [N x Type] Array
+        Value *BitcastV = B.CreateBitOrPointerCast(last_arg, GV->getType(), "casted_last_arg");
+        Instruction *LastArgBitcast = dyn_cast<Instruction>(BitcastV);
 
-      // now the code should be without GVar references, but still potentially
-      // contains [0 x ElemType] arrays; we need to get rid of those
+        // replace GVar references with the [N x Type] bitcast
+        replaceGVarUsesWith(GV, NewF, BitcastV);
 
-      // replace all [N x Type]* bitcast uses with direct use of ElemT*-type dyn mem argument
-      recursivelyReplaceArrayWithPointer(last_arg, LastArgBitcast, ElemT, B);
+        // now the code should be without GVar references, but still potentially
+        // contains [0 x ElemType] arrays; we need to get rid of those
 
-      // the bitcast to [N x Type] should now be unused
-      if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
-      LastArgBitcast->eraseFromParent();
-#else
-      // replace GVar references with the argument
-      replaceGVarUsesWith(GV, NewF, last_arg);
+        // replace all [N x Type]* bitcast uses with direct use of ElemT*-type dyn mem argument
+        recursivelyReplaceArrayWithPointer(last_arg, LastArgBitcast, ElemT, B);
+
+        // the bitcast to [N x Type] should now be unused
+        if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
+        LastArgBitcast->eraseFromParent();
+#if LLVM_VERSION_MAJOR == 15
+      } else {
+        // replace GVar references with the argument
+        replaceGVarUsesWith(GV, NewF, last_arg);
+      }
 #endif
     }
 
