@@ -4,7 +4,7 @@ add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
--Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations")
+-Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument")
 # end temporary
 
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
@@ -155,9 +155,37 @@ set(PTHREAD_LIBRARY Threads::Threads)
 
 ###############################################################################
 # CHIP-SPV COMPILATION SETUP
+# For building on top of HIP-COMMON
+target_compile_options(CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
+target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
+
+set(CHIP_SPV_LINK_FLAGS ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES})
+
+# TODO: Check if pthread flag is needed for hipcc
+target_link_libraries(CHIP PUBLIC ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
+
+# Previously these were set to SYSTEM which resulted in CMake picking up
+# OpenCL headers from the system where the version might differ resulting in errors.
+target_include_directories(CHIP
+  PUBLIC
+  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include;${CMAKE_SOURCE_DIR}/include>"
+  PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_SOURCE_DIR}/include"
+)
+# CHIP-SPV COMPILATION SETUP
+###############################################################################
+
+###############################################################################
+# HIP OFFLOAD FLAGS
 set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu)
+
+# Adding these options to compile will generate a lot of unused compiler option warnings when used during linking stage
+# But if these are not used at compile time, abort samples fail to build. 
+# TODO: Find a better way to handle this.
 if(NOT CLANG_VERSION_LESS_14)
-  set(HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_
+  set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
       --offload=spirv64
       # By default RocmInstallationDetector::AddHIPIncludeArgs in the
       # HIP-Clang inserts include wrapper headers which cause compile
@@ -178,11 +206,15 @@ endif()
 set(HIP_OFFLOAD_COMPILE_OPTIONS_
   ${HIP_ENABLE_SPIRV} 
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_} 
-  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_}
   ${HIP_LINK_DEVICELIB_INSTALL})
+set(HIP_OFFLOAD_LINK_OPTIONS_
+  ${HIP_LINK_DEVICELIB_INSTALL})
+
 # Workaround istead of trying to generate the CMake generator expression
 string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_}")
+string(REPLACE ";" " " HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_}")
 message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS}")
+message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_}")
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE 
@@ -191,41 +223,14 @@ target_compile_options(device INTERFACE
   ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_options(device INTERFACE 
-  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_BUILD})
-
-
-
-# target_link_libraries(device INTERFACE ${HIP_LINK_DEVICELIB_BUILD})
-# target_include_directories(device INTERFACE ${INCLUDE_INSTALL_DIR})
-# target_link_libraries(device INTERFACE CHIP)
+target_link_libraries(device INTERFACE CHIP)
 
 # same as device on CHIP-SPV but provides compatibility with AMD
 add_library(host INTERFACE)
-# target_link_libraries(host INTERFACE device)
-
-
-# For building on top of HIP-COMMON
-target_compile_options(CHIP PUBLIC ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
-target_compile_definitions(CHIP PUBLIC ${CHIP_SPV_DEFINITIONS})
-
-set(CHIP_SPV_LINK_FLAGS ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES})
-
-# TODO: Check if pthread flag is needed for hipcc
-target_link_libraries(CHIP PUBLIC ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
-
-# Previously these were set to SYSTEM which resulted in CMake picking up
-# OpenCL headers from the system where the version might differ resulting in errors.
-target_include_directories(CHIP
-  PUBLIC
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include;${CMAKE_SOURCE_DIR}/include>"
-  PRIVATE
-  "${CMAKE_SOURCE_DIR}/src"
-  "${CMAKE_SOURCE_DIR}/include"
-)
-
-# CHIP-SPV COMPILATION SETUP
+target_compile_options(host INTERFACE device)
+target_link_libraries(host INTERFACE device)
+# HIP OFFLOAD FLAGS
 ###############################################################################
 
 ###############################################################################
