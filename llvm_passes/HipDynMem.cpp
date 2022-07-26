@@ -19,6 +19,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/IR/ReplaceConstant.h"
 
 #include <iostream>
 #include <set>
@@ -30,6 +31,7 @@ using namespace llvm;
 
 typedef llvm::SmallPtrSet<Function *, 16> FSet;
 typedef llvm::SetVector<Function *> OrderedFSet;
+typedef llvm::SmallVector<GlobalVariable *, 8> GVarVec;
 
 class HipDynMemExternReplacePass : public ModulePass {
 private:
@@ -107,6 +109,7 @@ private:
     }
   }
 
+#if LLVM_VERSION_MAJOR <= 14
   static void recursivelyReplaceArrayWithPointer(Value *DestV, Value *SrcV, Type *ElemType, IRBuilder<> &B) {
     SmallVector<Instruction *> InstsToDelete;
 
@@ -174,6 +177,7 @@ private:
     }
 
   }
+#endif
 
   // get Function metadata "MDName" and append NN to it
   static void appendMD(Function *F, StringRef MDName, MDNode *NN) {
@@ -224,6 +228,32 @@ private:
     MD = MDNode::get(M.getContext(), MDString::get(M.getContext(), ""));
     appendMD(F, "kernel_arg_type_qual", MD);
   }
+
+  static void getInstUsers(ConstantExpr *CE, SmallVector<Instruction*, 4> &Users) {
+    for (Value *U: CE->users()) {
+      if (Instruction *I = dyn_cast<Instruction>(U)) {
+        Users.push_back(I);
+      }
+      if (ConstantExpr *SubCE = dyn_cast<ConstantExpr>(U)) {
+        getInstUsers(SubCE, Users);
+      }
+    }
+  }
+
+  static void breakConstantExprs(const GVarVec &GVars) {
+    for (GlobalVariable *GV : GVars) {
+      for (Value *U : GV->users()) {
+        ConstantExpr *CE = dyn_cast<ConstantExpr>(U);
+        if (!CE) continue;
+        SmallVector<Instruction*, 4> IUsers;
+        getInstUsers(CE, IUsers);
+        for (Instruction *I : IUsers) {
+          convertConstantExprsToInstructions(I, CE);
+        }
+      }
+    }
+  }
+
 
   /* clones a function with an additional argument */
   static Function *cloneFunctionWithDynMemArg(Function *F, Module &M,
@@ -282,6 +312,7 @@ private:
     M.getOrInsertFunction(NewF->getName(), NewF->getFunctionType(),
                           NewF->getAttributes());
 
+
     // find all calls/uses of this function...
     std::vector<CallInst *>  CallInstUses;
     for (const auto &U : F->users()) {
@@ -306,12 +337,14 @@ private:
       Args.push_back(LastArg);
       B.SetInsertPoint(CI);
       CallInst *NewCI = B.CreateCall(FT, NewF, Args);
+
       CI->replaceAllUsesWith(NewCI);
       CI->eraseFromParent();
     }
 
     // now we can safely delete the old function
-    if(F->getNumUses() != 0) llvm_unreachable("old function still has uses - bug!");
+    if(F->getNumUses() != 0)
+      llvm_unreachable("old function still has uses - bug!");
     F->eraseFromParent();
 
     Argument *last_arg = NewF->arg_end();
@@ -322,6 +355,7 @@ private:
     if (isGVarUsedInFunction(GV, NewF)) {
       B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
 
+#if LLVM_VERSION_MAJOR <= 14
       // insert a bitcast of dyn mem argument to [N x Type] Array
       Value *BitcastV = B.CreateBitOrPointerCast(last_arg, GV->getType(), "casted_last_arg");
       Instruction *LastArgBitcast = dyn_cast<Instruction>(BitcastV);
@@ -338,6 +372,10 @@ private:
       // the bitcast to [N x Type] should now be unused
       if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
       LastArgBitcast->eraseFromParent();
+#else
+      // replace GVar references with the argument
+      replaceGVarUsesWith(GV, NewF, last_arg);
+#endif
     }
 
     return NewF;
@@ -347,7 +385,7 @@ private:
 
     bool Modified = false;
 
-    SmallVector<GlobalVariable *> GVars;
+    GVarVec GVars;
 
     /* unfortunately the M.global_begin/end iterators hide some of the
      * global variables, therefore are not usable here; must use VST */
@@ -377,6 +415,9 @@ private:
       }
     }
 
+    breakConstantExprs(GVars);
+
+
     for (GlobalVariable *GV : GVars) {
       FSet DirectUserSet;
 
@@ -384,16 +425,18 @@ private:
       // called from other functions, so we need to append the
       // dynamic shared memory argument recursively.
       recursivelyFindDirectUsers(GV, DirectUserSet);
-      if (DirectUserSet.empty())
+      if (DirectUserSet.empty()) {
         continue;
+      }
 
       OrderedFSet IndirectUserSet;
       for (Function *F : DirectUserSet) {
         recursivelyFindIndirectUsers(F, IndirectUserSet);
       }
 
-      // find the functions that indirectly use the GVar. These will be processed (cloned with dyn mem arg) first,
-      // so that the direct users can rely on dyn mem argument being present in their caller.
+      // find the functions that indirectly use the GVar. These will be processed (cloned with
+      // dyn mem arg) before the direct users, so that the direct users
+      // can rely on dyn mem argument being present in their caller.
       for (auto FI = IndirectUserSet.rbegin(); FI != IndirectUserSet.rend(); ++FI) {
         Function *F = *FI;
         Function *NewF = cloneFunctionWithDynMemArg(F, M, GV);
@@ -404,32 +447,30 @@ private:
       for (Function *F : DirectUserSet) {
 
         Function *NewF = cloneFunctionWithDynMemArg(F, M, GV);
-        if(NewF == nullptr) llvm_unreachable("cloning failed");
+        if(NewF == nullptr)
+          llvm_unreachable("cloning failed");
         Modified = true;
       }
 
-      // it seems that the
-      bool Deleted = true;
-      while (Deleted && GV->getNumUses()) {
-        Deleted = false;
+      // it seems that there are some leftover users of the GVar (ConstExprs)
+      while (GV->getNumUses() > 0) {
         User *U = *GV->user_begin();
         if (Instruction *I = dyn_cast<Instruction>(U)) {
           if (I->getParent()) {
             I->eraseFromParent();
-            Deleted = true;
           }
         } else
         if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
           if (U->getNumUses() <= 1) {
             CE->destroyConstant();
-            Deleted = true;
           }
         } else
         llvm_unreachable("unknown User of Global Variable - bug!");
       }
 
-      if (GV->getNumUses() != 0)
-        llvm_unreachable("Some uses still remain - bug!");
+      if (GV->getNumUses() != 0) {
+        llvm_unreachable("Some uses of dynamic memory GlobalVariable still remain - bug");
+      }
       GV->eraseFromParent();
     }
 
