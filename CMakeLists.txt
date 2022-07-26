@@ -69,8 +69,7 @@ set(CHIP_SPV_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installat
 
 # FOR EXTERNAL USE
 set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
-set(HIP_OFFLOAD_ARCH "" CACHE STRING "Semicolon separated list of compiler flags needed for generating offload code")
-set(HIP_OFFLOAD_ARCH_STR "" CACHE STRING "Comma separated list of compiler flags needed for generating offload code")
+set(HIP_OFFLOAD_COMPILE_OPTIONS "" CACHE STRING "Semicolon separated list of compiler flags needed for generating offload code")
 set(HIP_PATH HIP) #TODO WHAT DOES IT DO
 # CHIP-SPV CMAKE VARIABLBLES/OPTIONS
 ###############################################################################
@@ -155,46 +154,49 @@ set(PTHREAD_LIBRARY Threads::Threads)
 
 ###############################################################################
 # CHIP-SPV COMPILATION SETUP
-set(HIP_CLANG_VERSION_INDEPENDENT_OPTIONS -x hip --target=x86_64-linux-gnu)
-if(CLANG_VERSION_LESS_14 )
-  # Definitions for the older forked, experimental HIP-Clang.
-  set(HIP_LINK_LINE
-    $<BUILD_INTERFACE:--hip-device-lib-path=${CMAKE_BINARY_DIR}/share>
-    $<INSTALL_INTERFACE:--hip-device-lib-path=${SHARE_INSTALL_DIR}>
-    --hip-device-lib=devicelib.bc
-    $<BUILD_INTERFACE:--hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes>
-    $<INSTALL_INTERFACE:--hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm>)
-  set(OFFLOAD_ARCH_STR
-    ${HIP_ENABLE_SPIRV} ${HIP_CLANG_VERSION_INDEPENDENT_OPTIONS} ${HIP_LINK_LINE})
-  set(HIP_OFFLOAD_ARCH 
-    ${HIP_ENABLE_SPIRV} ${HIP_CLANG_VERSION_INDEPENDENT_OPTIONS} --hip-device-lib-path=${SHARE_INSTALL_DIR} --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm)
-else()
-  # Definitions for upstream HIP-Clang.
-  set(HIP_LINK_LINE
-    $<BUILD_INTERFACE:--hip-path=${CMAKE_BINARY_DIR}>
-    $<INSTALL_INTERFACE:--hip-path=${CMAKE_INSTALL_PREFIX}>
-
-    # By default RocmInstallationDetector::AddHIPIncludeArgs in the
-    # HIP-Clang inserts include wrapper headers which cause compile
-    # errors when compiling HIP sources for SPIR-V target.  This flag
-    # excludes the wrappers.
-    "-nohipwrapperinc")
-  set(OFFLOAD_ARCH_STR
-
-    # TODO: Consider integrating the '${HIP_ENABLE_SPIRV}' into
-    # HIPSPV's tool chain.
-    ${HIP_ENABLE_SPIRV} 
-    ${HIP_CLANG_VERSION_INDEPENDENT_OPTIONS}
-    --offload=spirv64 ${HIP_LINK_LINE})
-
-  set(HIP_OFFLOAD_ARCH 
-    ${HIP_ENABLE_SPIRV} 
-    ${HIP_CLANG_VERSION_INDEPENDENT_OPTIONS}
-    --offload=spirv64 --hip-path=${CMAKE_INSTALL_PREFIX} -nohipwrapperinc)
+set(HIP_OFFLOAD_COMPILE_FLAGS -x hip --target=x86_64-linux-gnu)
+if(NOT CLANG_VERSION_LESS_14)
+  set(HIP_OFFLOAD_COMPILE_FLAGS ${HIP_OFFLOAD_COMPILE_FLAGS}
+      --offload=spirv64
+      # By default RocmInstallationDetector::AddHIPIncludeArgs in the
+      # HIP-Clang inserts include wrapper headers which cause compile
+      # errors when compiling HIP sources for SPIR-V target.  This flag
+      # excludes the wrappers.
+      "-nohipwrapperinc")
 endif()
 
+if(CLANG_VERSION_LESS_14 )
+  set(HIP_LINK_DEVICELIB_BUILD --hip-device-lib-path=${CMAKE_BINARY_DIR}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes)
+  set(HIP_LINK_DEVICELIB_INSTALL --hip-device-lib-path=${SHARE_INSTALL_DIR} --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm)
+else()
+  set(HIP_LINK_DEVICELIB_BUILD --hip-path=${CMAKE_BINARY_DIR})
+  set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
+endif()
+
+# for exporting
+set(HIP_OFFLOAD_COMPILE_OPTIONS_
+  ${HIP_ENABLE_SPIRV} 
+  ${HIP_OFFLOAD_COMPILE_FLAGS} 
+  ${HIP_LINK_DEVICELIB_INSTALL})
 # Workaround istead of trying to generate the CMake generator expression
-string(REPLACE ";" " " HIP_OFFLOAD_ARCH_STR "${HIP_OFFLOAD_ARCH}")
+string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_}")
+message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS}")
+
+add_library(device INTERFACE)
+target_compile_options(device INTERFACE 
+  ${HIP_ENABLE_SPIRV} 
+  ${HIP_OFFLOAD_COMPILE_FLAGS} 
+  ${HIP_LINK_DEVICELIB_BUILD})
+
+
+# target_link_libraries(device INTERFACE ${HIP_LINK_DEVICELIB_BUILD})
+# target_include_directories(device INTERFACE ${INCLUDE_INSTALL_DIR})
+# target_link_libraries(device INTERFACE CHIP)
+
+# same as device on CHIP-SPV but provides compatibility with AMD
+add_library(host INTERFACE)
+# target_link_libraries(host INTERFACE device)
+
 
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PUBLIC ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
@@ -269,17 +271,9 @@ message(STATUS "HIP Runtime: " ${HIP_RUNTIME})
 message(STATUS "HIP Compiler: " ${HIP_COMPILER})
 add_to_config(_buildInfo HIP_RUNTIME)
 add_to_config(_buildInfo HIP_COMPILER)
-add_to_config(_buildInfo HIP_OFFLOAD_ARCH_STR)
+add_to_config(_buildInfo HIP_OFFLOAD_COMPILE_OPTIONS)
 
-add_library(host INTERFACE)
-target_compile_options(host INTERFACE ${HIP_OFFLOAD_ARCH})
-target_include_directories(host INTERFACE ${INCLUDE_INSTALL_DIR})
-target_link_libraries(host INTERFACE CHIP)
 
-add_library(device INTERFACE)
-target_compile_options(device INTERFACE ${HIP_OFFLOAD_ARCH})
-target_include_directories(device INTERFACE ${INCLUDE_INSTALL_DIR})
-target_link_libraries(device INTERFACE CHIP)
 
 INSTALL(TARGETS CHIP host device
   EXPORT hip-targets
