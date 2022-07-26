@@ -97,7 +97,7 @@ set(SAMPLES
     hip-cuda
     printf
     texture
-    #hipDeviceLink # must be last in this list due to how hacky using multiple compilers with CMake is
+    hipDeviceLink # must be last in this list due to how hacky using multiple compilers with CMake is
 )
 
 include(mkl_and_icpx)

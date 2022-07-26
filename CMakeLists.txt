@@ -55,6 +55,7 @@ set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share)
 set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip)
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang)
 
+# TODO: Add CHIP_ prefix
 option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
 option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
@@ -154,9 +155,9 @@ set(PTHREAD_LIBRARY Threads::Threads)
 
 ###############################################################################
 # CHIP-SPV COMPILATION SETUP
-set(HIP_OFFLOAD_COMPILE_FLAGS -x hip --target=x86_64-linux-gnu)
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu)
 if(NOT CLANG_VERSION_LESS_14)
-  set(HIP_OFFLOAD_COMPILE_FLAGS ${HIP_OFFLOAD_COMPILE_FLAGS}
+  set(HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_
       --offload=spirv64
       # By default RocmInstallationDetector::AddHIPIncludeArgs in the
       # HIP-Clang inserts include wrapper headers which cause compile
@@ -176,7 +177,8 @@ endif()
 # for exporting
 set(HIP_OFFLOAD_COMPILE_OPTIONS_
   ${HIP_ENABLE_SPIRV} 
-  ${HIP_OFFLOAD_COMPILE_FLAGS} 
+  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_} 
+  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_}
   ${HIP_LINK_DEVICELIB_INSTALL})
 # Workaround istead of trying to generate the CMake generator expression
 string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_}")
@@ -185,8 +187,13 @@ message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPT
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE 
   ${HIP_ENABLE_SPIRV} 
-  ${HIP_OFFLOAD_COMPILE_FLAGS} 
+  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
+  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_BUILD})
+target_link_options(device INTERFACE 
+  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
+  ${HIP_LINK_DEVICELIB_BUILD})
+
 
 
 # target_link_libraries(device INTERFACE ${HIP_LINK_DEVICELIB_BUILD})
