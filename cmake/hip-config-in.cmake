@@ -73,9 +73,19 @@ if(WIN32)
   message(FATAL_ERROR "Windows not yet supported for CHIP-SPV")
 endif()
 
-set(HIP_COMPILER "@HIP_COMPILER@")
-set(HIP_RUNTIME "@HIP_RUNTIME@")
-set(HIP_OFFLOAD_COMPILE_OPTIONS "@HIP_OFFLOAD_COMPILE_OPTIONS@")
+set(HIP_PATH "@HIP_PATH@" CACHE PATH "Path to the CHIP-SPV installation")
+set(HIP_COMPILER "@HIP_COMPILER@" CACHE STRING "C++ compiler")
+set(HIP_RUNTIME "@HIP_RUNTIME@" CACHE STRING "" FORCE)
+set(HIP_PLATFORM "@HIP_PLATFORM@" CACHE STRING "" FORCE)
+set(HIP_ARCH "@HIP_ARCH@" CACHE STRING "" FORCE)
+set(HIP_OFFLOAD_COMPILE_OPTIONS "@HIP_OFFLOAD_COMPILE_OPTIONS@" CACHE STRING "clang compiler variables for offload compilation")
+message(STATUS "hip-config.cmake CHIP-SPV:")
+message(STATUS "HIP_PATH: ${HIP_PATH}")
+message(STATUS "HIP_COMPILER: ${HIP_COMPILER}")
+message(STATUS "HIP_RUNTIME: ${HIP_RUNTIME}")
+message(STATUS "HIP_PLATFORM: ${HIP_PLATFORM}")
+message(STATUS "HIP_ARCH: ${HIP_ARCH}")
+message(STATUS "HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS}")
 
 set_and_check( hip_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@" )
 set_and_check( hip_INCLUDE_DIRS "${hip_INCLUDE_DIR}" )
@@ -90,9 +100,9 @@ else()
 endif()
 
 
-# TODO check if hipcc CMAKE_C_COMPILER_ID is clang
+# TODO check if hipcc CMAKE_CXX_COMPILER_ID is clang
 # Make sure that the compiler is either clang, IntelLLVM, or hipcc
-if((CMAKE_C_COMPILER_ID MATCHES "[Cc]lang") OR(CMAKE_C_COMPILER_ID MATCHES "IntelLLVM"))
+if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR(CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
     message(FATAL_ERROR "this project requires clang >= 8.0")
   endif()
@@ -102,7 +112,7 @@ if((CMAKE_C_COMPILER_ID MATCHES "[Cc]lang") OR(CMAKE_C_COMPILER_ID MATCHES "Inte
             Support for Clang < 14.0 will be discontinued in the future.")
   endif()
 else()
-  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_C_COMPILER_ID = ${CMAKE_C_COMPILER_ID}")
+  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 if(NOT HIP_CXX_COMPILER)
