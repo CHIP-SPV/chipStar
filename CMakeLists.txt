@@ -66,6 +66,7 @@ option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
+option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -90,6 +91,16 @@ if((CMAKE_C_COMPILER_ID MATCHES "[Cc]lang") OR(CMAKE_C_COMPILER_ID MATCHES "Inte
   endif()
 else()
   message(FATAL_ERROR "this project must be compiled with clang. CMAKE_C_COMPILER_ID = ${CMAKE_C_COMPILER_ID}")
+endif()
+
+if(LLVM_USE_INTERGRATED_SPIRV)
+  if(CLANG_VERSION_LESS_14)
+    set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
+  else()
+    message(FATAL_ERROR "-DLLVM_USE_INTERGRATED_SPIRV=On is not supported for LLVM 13 and less")
+  endif()
+else()
+  set(SPIRV_EMITTER_OPTS "")
 endif()
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
@@ -193,7 +204,7 @@ target_include_directories(CHIP
 
 ###############################################################################
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu)
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu ${SPIRV_EMITTER_OPTS})
 
 # hipDeviceLink sample requires --offload=spirv64 flag at link time. Why? 
 if(NOT CLANG_VERSION_LESS_14)

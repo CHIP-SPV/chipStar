@@ -5,7 +5,7 @@ add_chip_binary(
 	hipDeviceLinkRead.cpp
 	hipDeviceLinkWrite.cpp)
 
-target_compile_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc )
+target_compile_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc)
 target_link_libraries(hipTestDeviceLink CHIP deviceInternal)
 target_link_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc --hip-link)
 
