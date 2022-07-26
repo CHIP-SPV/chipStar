@@ -24,6 +24,7 @@ THE SOFTWARE.
 #define SPIRV_HIP_TEXTURE_FUNCTIONS_H
 
 #include "spirv_hip_vector_types.h"
+#include "spirv_hip_texture_types.h"
 
 #define __TEXTURE_FUNCTIONS_DECL__ static inline __device__
 
@@ -235,8 +236,7 @@ DEF_TEX2D_VEC4(tex2D, int4, _chip_tex2di);
 DEF_TEX2D_VEC4(tex2D, uint4, _chip_tex2du);
 DEF_TEX2D_VEC4(tex2D, float4, _chip_tex2df);
 
-// Public HIP Runtime API Bindings //
-
+// nvidia texture object API
 template <class T>
 __TEXTURE_FUNCTIONS_DECL__ T tex1Dfetch(hipTextureObject_t TexObj, int X) {
   T Ret;
@@ -252,11 +252,79 @@ __TEXTURE_FUNCTIONS_DECL__ T tex1D(hipTextureObject_t TexObj, float X) {
 }
 
 template <class T>
-__TEXTURE_FUNCTIONS_DECL__ T tex2D(hipTextureObject_t TexObj, float X,
-                                   float Y) {
+__TEXTURE_FUNCTIONS_DECL__ T tex2D(hipTextureObject_t TexObj, float X, float Y) {
   T Ret;
   tex2D(&Ret, TexObj, X, Y);
   return Ret;
 }
+
+// nvidia texture reference API
+
+#define DEF_TEXREF(DataType, FloatType) \
+__TEXTURE_FUNCTIONS_DECL__ DataType tex1D(texture<DataType, hipTextureType2D, hipReadModeElementType> texRef, float x) { \
+  DataType RetVal; \
+  tex1D(&RetVal, texRef.textureObject, x); \
+  return RetVal; \
+} \
+__TEXTURE_FUNCTIONS_DECL__ FloatType tex1D(texture<DataType, hipTextureType2D, hipReadModeNormalizedFloat> texRef, float x) { \
+  FloatType RetVal; \
+  tex1D(&RetVal, texRef.textureObject, x); \
+  return RetVal; \
+} \
+__TEXTURE_FUNCTIONS_DECL__ DataType tex2D(texture<DataType, hipTextureType2D, hipReadModeElementType> texRef, float x, float y) { \
+  DataType RetVal; \
+  tex2D(&RetVal, texRef.textureObject, x, y); \
+  return RetVal; \
+} \
+__TEXTURE_FUNCTIONS_DECL__ FloatType tex2D(texture<DataType, hipTextureType2D, hipReadModeNormalizedFloat> texRef, float x, float y) { \
+  FloatType RetVal; \
+  tex2D(&RetVal, texRef.textureObject, x, y); \
+  return RetVal; \
+} \
+__asm__("")
+/*
+__TEXTURE_FUNCTIONS_DECL__ DataType tex3D(texture<DataType, hipTextureType2D, hipReadModeElementType> texRef, float x, float y, float z) { \
+  DataType RetVal; \
+  tex3D(&RetVal, texRef.textureObject, x, y, z); \
+  return RetVal; \
+} \
+__TEXTURE_FUNCTIONS_DECL__ FloatType tex3D(texture<DataType, hipTextureType2D, hipReadModeNormalizedFloat> texRef, float x, float y, float z) { \
+  FloatType RetVal; \
+  tex3D(&RetVal, texRef.textureObject, x, y, z); \
+  return RetVal; \
+} \
+*/
+
+DEF_TEXREF(char, float);
+DEF_TEXREF(unsigned char, float);
+DEF_TEXREF(short, float);
+DEF_TEXREF(unsigned short, float);
+DEF_TEXREF(int, float);
+DEF_TEXREF(unsigned int, float);
+DEF_TEXREF(float, float);
+
+DEF_TEXREF(char1, float1);
+DEF_TEXREF(uchar1, float1);
+DEF_TEXREF(short1, float1);
+DEF_TEXREF(ushort1, float1);
+DEF_TEXREF(int1, float1);
+DEF_TEXREF(uint1, float1);
+DEF_TEXREF(float1, float1);
+
+DEF_TEXREF(char2, float2);
+DEF_TEXREF(uchar2, float2);
+DEF_TEXREF(short2, float2);
+DEF_TEXREF(ushort2, float2);
+DEF_TEXREF(int2, float2);
+DEF_TEXREF(uint2, float2);
+DEF_TEXREF(float2, float2);
+
+DEF_TEXREF(char4, float4);
+DEF_TEXREF(uchar4, float4);
+DEF_TEXREF(short4, float4);
+DEF_TEXREF(ushort4, float4);
+DEF_TEXREF(int4, float4);
+DEF_TEXREF(uint4, float4);
+DEF_TEXREF(float4, float4);
 
 #endif

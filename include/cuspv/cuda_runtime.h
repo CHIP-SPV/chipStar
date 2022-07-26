@@ -341,6 +341,14 @@ using CUtexObject = hipTextureObject_t;
 #define CUDA_TEXTURE_DESC HIP_TEXTURE_DESC
 #define CUDA_RESOURCE_VIEW_DESC HIP_RESOURCE_VIEW_DESC
 
+#define cudaTextureType1D hipTextureType1D
+#define cudaTextureType2D hipTextureType2D
+#define cudaTextureType3D hipTextureType3D
+#define cudaTextureTypeCubemap hipTextureTypeCubemap
+#define cudaTextureType1DLayered hipTextureType1DLayered
+#define cudaTextureType2DLayered hipTextureType2DLayered
+#define cudaTextureTypeCubemapLayered hipTextureTypeCubemapLayered
+
 // Flags that can be used with hipStreamCreateWithFlags.
 /** Default stream creation flags. These are used with hipStreamCreate().*/
 #define cudaStreamDefault hipStreamDefault

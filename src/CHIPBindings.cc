@@ -3207,6 +3207,17 @@ __hipRegisterVar(void **Data,
   CHIP_CATCH_NO_RETURN
 }
 
+/*
+ *
+__hipRegisterTexture (void **fatCubinHandle,
+                       const struct textureReference *hostVar, // shadow variable in host code
+                       const void **deviceAddress, // actually variable name
+                       const char *deviceName, // variable name, same as ^^
+                       int TextureType, // 1D/2D/3D
+                       int Normalized, //
+                       int Extern)
+*/
+
 hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
   CHIP_TRY
   CHIPInitialize();
