@@ -70,6 +70,7 @@ option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics o
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
 option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
+option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -241,7 +242,10 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_
 
 # HIP applicaitons need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR} -lCHIP")
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-Wl,-rpath,${LIB_INSTALL_DIR}")
+if(SET_RPATH)
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-Wl,-rpath,${LIB_INSTALL_DIR}")
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
 
 # Workaround istead of trying to generate the CMake generator expression
 string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_}")
@@ -270,7 +274,6 @@ target_compile_options(device INTERFACE
   ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE 
-  ${HIP_OFFLOAD_LINK_OPTIONS}
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_libraries(device INTERFACE CHIP)
 
