@@ -626,7 +626,7 @@ static inline cudaError_t cudaStreamSynchronize(cudaStream_t Stream) {
 }
 static inline cudaError_t cudaStreamWaitEvent(cudaStream_t Stream,
                                               cudaEvent_t Event,
-                                              unsigned int Flags) {
+                                              unsigned int Flags = 0) {
   return hipStreamWaitEvent(Stream, Event, Flags);
 }
 static inline cudaError_t cudaStreamGetFlags(cudaStream_t Stream,
@@ -673,7 +673,7 @@ static inline cudaError_t cudaEventCreateWithFlags(cudaEvent_t *Event,
   return hipEventCreateWithFlags(Event, Flags);
 }
 static inline cudaError_t cudaEventRecord(cudaEvent_t Event,
-                                          cudaStream_t Stream) {
+                                          cudaStream_t Stream = 0) {
   return hipEventRecord(Event, Stream);
 }
 
@@ -700,7 +700,7 @@ static inline cudaError_t cudaMalloc(T **ptr, size_t size) {
   return hipMalloc((void **)ptr, size);
 }
 static inline cudaError_t cudaMallocManaged(void **DevPtr, size_t Size,
-                                            unsigned int Flags) {
+                                            unsigned int Flags = cudaMemAttachGlobal) {
   return hipMallocManaged(DevPtr, Size, Flags);
 }
 static inline cudaError_t cudaMallocHost(void **Ptr, size_t Size) {
@@ -728,7 +728,7 @@ static inline cudaError_t cudaHostFree(void *Ptr) { return hipHostFree(Ptr); }
 static inline cudaError_t cudaFreeHost(void *Ptr) { return hipHostFree(Ptr); }
 static inline cudaError_t cudaMemPrefetchAsync(const void *Ptr, size_t Count,
                                                int DstDevId,
-                                               cudaStream_t Stream) {
+                                               cudaStream_t Stream = 0) {
   return hipMemPrefetchAsync(Ptr, Count, DstDevId, Stream);
 }
 
@@ -758,7 +758,7 @@ static inline cudaError_t cudaMallocPitch(void **Ptr, size_t *Pitch,
 static inline cudaError_t cudaMalloc3DArray(cudaArray_t *Array,
                                             const cudaChannelFormatDesc *Desc,
                                             cudaExtent Extent,
-                                            unsigned int Flags) {
+                                            unsigned int Flags = 0) {
   return hipMalloc3DArray(Array, Desc, Extent, Flags);
 }
 
@@ -836,7 +836,7 @@ static inline cudaError_t cudaMemcpy2DAsync(void *Dst, size_t DPitch,
                                             const void *Src, size_t SPitch,
                                             size_t Width, size_t Height,
                                             cudaMemcpyKind Kind,
-                                            cudaStream_t Stream) {
+                                            cudaStream_t Stream = 0) {
   return hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height, Kind,
                           Stream);
 }
@@ -852,7 +852,7 @@ static inline cudaError_t
 cudaMemcpy2DToArrayAsync(cudaArray *Dst, size_t WOffset, size_t HOffset,
                          const void *Src, size_t SPitch, size_t Width,
                          size_t Height, cudaMemcpyKind Kind,
-                         cudaStream_t Stream) {
+                         cudaStream_t Stream = 0) {
   return hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
                                  Height, Kind, Stream);
 }
@@ -868,7 +868,7 @@ static inline cudaError_t
 cudaMemcpy2DFromArrayAsync(void *Dst, size_t DPitch, cudaArray_const_t Src,
                            size_t WOffset, size_t HOffset, size_t Width,
                            size_t Height, cudaMemcpyKind Kind,
-                           cudaStream_t Stream) {
+                           cudaStream_t Stream = 0) {
   return hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset, Width,
                                    Height, Kind, Stream);
 }
@@ -941,7 +941,7 @@ static inline cudaError_t cudaMemset2D(void *Dst, size_t Pitch, int Value,
 
 static inline cudaError_t cudaMemset2DAsync(void *Dst, size_t Pitch, int Value,
                                             size_t Width, size_t Height,
-                                            cudaStream_t Stream) {
+                                            cudaStream_t Stream = 0) {
   return hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
 }
 
@@ -951,7 +951,7 @@ static inline cudaError_t cudaMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
 }
 static inline cudaError_t cudaMemset3DAsync(hipPitchedPtr PitchedDevPtr,
                                             int Value, hipExtent Extent,
-                                            cudaStream_t Stream) {
+                                            cudaStream_t Stream = 0) {
   return hipMemset3DAsync(PitchedDevPtr, Value, Extent, Stream);
 }
 static inline cudaError_t
