@@ -242,6 +242,8 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_
 
 # HIP applicaitons need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR} -lCHIP")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-lOpenCL")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-lze_loader")
 if(SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-Wl,-rpath,${LIB_INSTALL_DIR}")
   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
