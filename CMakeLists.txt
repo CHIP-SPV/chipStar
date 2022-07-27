@@ -34,7 +34,7 @@ set(CHIP_SRC
 )
 
 set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "CHIP-SPV source directory")
-set(CLANG_VERSION_LESS_14 OFF CACHE INTERNAL "Clang version < 14.0")
+set(CLANG_VERSION_LESS_14 FALSE CACHE INTERNAL "Clang version < 14.0")
 
 set(CHIP_SPV_LINK_FLAGS "")
 set(CHIP_SPV_COMPILE_FLAGS "")
@@ -75,7 +75,8 @@ set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE,
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
 set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
 # FOR EXTERNAL USE
-set(HIP_OFFLOAD_COMPILE_OPTIONS "" CACHE STRING "Semicolon separated list of compiler flags needed for generating offload code")
+set(HIP_OFFLOAD_COMPILE_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for generating offload code")
+set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for linking binaries with GPU offload")
 # CHIP-SPV CMAKE VARIABLBLES/OPTIONS
 ###############################################################################
 
@@ -157,10 +158,15 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 # CHIP-SPV CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library_dynamic(OpenCL)
+  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ REQUIRED)
+  message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
 endif()
-find_library_dynamic(ze_loader)
-message(STATUS "\n\nCHIP-SPV_LIBRARIES=${CHIP-SPV_LIBRARIES}\n\n")
+
+if(NOT DEFINED LevelZero_LIBRARY)
+  message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
+  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./ REQUIRED)
+  message(STATUS "LevelZero_LIBRARY: ${LevelZero_LIBRARY}")
+endif()
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -189,9 +195,7 @@ add_dependencies(samples CHIP)
 target_compile_options(CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
 target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
 
-set(CHIP_SPV_LINK_FLAGS ${OpenCL_LIBRARY} ${CHIP-SPV_LIBRARIES})
-
-target_link_libraries(CHIP PUBLIC ${CHIP_SPV_LINK_FLAGS} ${PTHREAD_LIBRARY})
+target_link_libraries(CHIP INTERFACE ${OpenCL_LIBRARY} ${LevelZero_LIBRARY} ${PTHREAD_LIBRARY})
 
 # Previously these were set to SYSTEM which resulted in CMake picking up
 # OpenCL headers from the system where the version might differ resulting in errors.
@@ -235,9 +239,15 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_INSTALL})
 
+# HIP applicaitons need to link against libCHIP.so; add it to rpath
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR} -lCHIP")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-Wl,-rpath,${LIB_INSTALL_DIR}")
+
 # Workaround istead of trying to generate the CMake generator expression
 string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_}")
+string(REPLACE ";" " " HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_}")
 message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS}")
+message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS}")
 
 # Must separate these targets into deviceInteral to be used for building samples,etc.
 # and device for external export. Have to do this because generator expressions don't seem to work here.
@@ -249,7 +259,8 @@ target_compile_options(deviceInternal INTERFACE
   ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_options(deviceInternal INTERFACE 
-  ${HIP_LINK_DEVICELIB_BUILD})
+  ${HIP_LINK_DEVICELIB_BUILD}
+  ${HIP_OFFLOAD_LINK_OPTIONS})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
@@ -259,6 +270,7 @@ target_compile_options(device INTERFACE
   ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE 
+  ${HIP_OFFLOAD_LINK_OPTIONS}
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_libraries(device INTERFACE CHIP)
 
@@ -300,6 +312,7 @@ add_to_config(_buildInfo HIP_RUNTIME)
 add_to_config(_buildInfo HIP_COMPILER)
 add_to_config(_buildInfo HIP_ARCH)
 add_to_config(_buildInfo HIP_OFFLOAD_COMPILE_OPTIONS)
+add_to_config(_buildInfo HIP_OFFLOAD_LINK_OPTIONS)
 
 INSTALL(TARGETS CHIP host device
   EXPORT hip-targets
@@ -332,24 +345,6 @@ install(
   ${CONFIG_PACKAGE_INSTALL_DIR}
 )
 install ( EXPORT hip-targets  FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip  COMPONENT binary)
-# Convert absolute path to library into -L<...> and -l<...> components
-set(CHIP_SPV_LINK_FLAGS_STR "")
-
-foreach(_library ${CHIP_SPV_LINK_FLAGS})
-  get_filename_component(libpath ${_library} DIRECTORY)
-  get_filename_component(libname ${_library} NAME)
-  string(REGEX MATCH "lib(.*)\.(so*|a)" libname_stripped ${libname})
-  set(libname_stripped ${CMAKE_MATCH_1})
-  set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR} -L${libpath} -l${libname_stripped}")
-endforeach()
-
-# Add link directory fir libCHIP.so
-set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR}" " -L${LIB_INSTALL_DIR} -lCHIP")
-
-# Add an rpath for libCHIP.so so that you don't need to add <CHIP_INSTALL_DIR> to LD_LIBRARY_PATH
-set(CHIP_SPV_LINK_FLAGS_STR "${CHIP_SPV_LINK_FLAGS_STR}" " -Wl,-rpath,${LIB_INSTALL_DIR}")
-set(HIP_LINK_OPTIONS ${CHIP_SPV_LINK_FLAGS_STR})
-add_to_config(_buildInfo HIP_LINK_OPTIONS)
 
 # Generate .hipInfo
 file(WRITE "${PROJECT_BINARY_DIR}/lib/.hipInfo" ${_buildInfo})
