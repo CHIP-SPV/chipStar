@@ -269,7 +269,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_
   ${HIP_LINK_DEVICELIB_INSTALL})
 
 # HIP applicaitons need to link against libCHIP.so; add it to rpath
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR} -lCHIP")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR}" "-lCHIP")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-lOpenCL")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-lze_loader")
 if(SET_RPATH)
@@ -290,18 +290,15 @@ add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE 
   ${HIP_ENABLE_SPIRV} 
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_options(deviceInternal INTERFACE 
-  ${HIP_LINK_DEVICELIB_BUILD}
-  ${HIP_OFFLOAD_LINK_OPTIONS})
+  ${HIP_LINK_DEVICELIB_BUILD})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE 
   ${HIP_ENABLE_SPIRV} 
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE 
   ${HIP_LINK_DEVICELIB_INSTALL})
