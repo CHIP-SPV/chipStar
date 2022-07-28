@@ -13,7 +13,7 @@ function(add_cuda_sample TEST_NAME SUBDIR MAIN_SOURCE)
 
   set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-  target_link_libraries("${EXEC_NAME}" CHIP)
+  target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
   target_include_directories("${EXEC_NAME}"
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Common ${SUBDIR})
   install(TARGETS "${EXEC_NAME}"
