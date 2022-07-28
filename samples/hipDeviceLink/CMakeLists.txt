@@ -6,13 +6,11 @@ add_chip_binary(
 	hipDeviceLinkWrite.cpp)
 
 target_compile_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc)
-if(DEFINED LLVM_VERSION AND "${LLVM_VERSION}" VERSION_LESS 14)
-  target_link_options(hipTestDeviceLink
-    PRIVATE -fPIE -fgpu-rdc --hip-link ${HIP_LINK_LINE})
-else()
-  target_link_options(hipTestDeviceLink
-    PRIVATE -fPIE -fgpu-rdc --hip-link --offload=spirv64 ${HIP_LINK_LINE}
-    ${SPIRV_EMITTER_OPTS})
+target_link_libraries(hipTestDeviceLink CHIP deviceInternal)
+target_link_options(hipTestDeviceLink PRIVATE -fPIE -fgpu-rdc --hip-link)
+
+if(DEFINED LLVM_VERSION AND "${LLVM_VERSION}" VERSION_GREATER_EQUAL 14)
+  target_link_options(hipTestDeviceLink PRIVATE --offload=spirv64)
 endif()
 
 add_test(NAME hipTestDeviceLink

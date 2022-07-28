@@ -1,9 +1,8 @@
 set(SOURCE abort.cc)
 set_source_files_properties(${SOURCE} PROPERTIES LANGUAGE CXX)
 add_executable(abort ${SOURCE})
-target_compile_options(abort PRIVATE ${OFFLOAD_ARCH_STR})
+target_link_libraries(abort PUBLIC CHIP deviceInternal)
 set_target_properties(abort PROPERTIES CXX_STANDARD_REQUIRED ON)
-target_link_libraries(abort CHIP)
 target_include_directories(abort PUBLIC
   ${CMAKE_SOURCE_DIR}/HIP/include ${CMAKE_SOURCE_DIR}/include)
 configure_file(
@@ -22,9 +21,8 @@ add_test(
 set(SOURCE abort2.cc)
 set_source_files_properties(${SOURCE} PROPERTIES LANGUAGE CXX)
 add_executable(abort2 ${SOURCE})
-target_compile_options(abort2 PRIVATE ${OFFLOAD_ARCH_STR})
+target_link_libraries(abort2 PUBLIC CHIP deviceInternal)
 set_target_properties(abort2 PROPERTIES CXX_STANDARD_REQUIRED ON)
-target_link_libraries(abort2 CHIP)
 target_include_directories(abort2 PUBLIC
   ${CMAKE_SOURCE_DIR}/HIP/include ${CMAKE_SOURCE_DIR}/include)
 configure_file(

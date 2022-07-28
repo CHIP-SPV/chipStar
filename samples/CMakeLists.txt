@@ -19,11 +19,10 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
 
     add_executable("${EXEC_NAME}" ${SOURCE})
 
-    target_compile_options("${EXEC_NAME}" PRIVATE ${OFFLOAD_ARCH_STR})
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-    target_link_libraries("${EXEC_NAME}" CHIP)
-    target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_DIR_}/HIP/include ${CHIP_DIR_}/include)
+    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
+    target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
@@ -47,10 +46,9 @@ function(add_chip_binary EXEC_NAME)
 
     add_executable("${EXEC_NAME}" ${SOURCES})
 
-    target_compile_options("${EXEC_NAME}" PRIVATE ${OFFLOAD_ARCH_STR})
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
-    target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_DIR_}/HIP/include ${CHIP_DIR_}/include)
-    target_link_libraries("${EXEC_NAME}" CHIP)
+    target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
+    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
 
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
@@ -64,11 +62,10 @@ function(add_chip_library EXEC_NAME)
 
     add_library("${EXEC_NAME}" STATIC ${SOURCES})
 
-    target_compile_options("${EXEC_NAME}" PRIVATE ${OFFLOAD_ARCH_STR})
     set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-    target_link_libraries("${EXEC_NAME}" CHIP)
-    target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_DIR_}/HIP/include ${CHIP_DIR_}/include)
+    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
+    target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
 
 endfunction()
 
