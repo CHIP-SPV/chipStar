@@ -90,6 +90,10 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
     message(FATAL_ERROR "this project requires clang >= 8.0")
   endif()
 
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0.0)
+    set(CLANG_VERSION_LESS_16 ON)
+  endif()
+
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
     set(CLANG_VERSION_LESS_15 ON)
   endif()
@@ -99,6 +103,11 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
             Support for Clang < 14.0 will be discontinued in the future.")
     set(CLANG_VERSION_LESS_14 ON)
   endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0.0)
+    set(CLANG_VERSION_LESS_13 ON)
+  endif()
+
 else()
   message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()

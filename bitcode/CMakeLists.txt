@@ -1,15 +1,15 @@
 
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/BC")
 
+set(EXTRA_FLAGS)
 # Ugly fix for interactions between clang13+ and igc
-if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13)
-  set(CLANG_CL_NO_STDINC_FLAG "")
-else()
-  set(CLANG_CL_NO_STDINC_FLAG "-cl-no-stdinc")
+if(NOT CLANG_VERSION_LESS_13)
+  list(APPEND EXTRA_FLAGS "-cl-no-stdinc")
 endif()
 
-if(NOT DEFINED LLVM_VERSION)
-  message(FATAL "Could not determine LLVM version.")
+# disable opaque pointers for LLVM 15 only
+if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
+  list(APPEND EXTRA_FLAGS ${DISABLE_OPAQUE_PTRS_OPT})
 endif()
 
 if("${LLVM_VERSION}" VERSION_LESS 14.0)
@@ -25,42 +25,29 @@ else()
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
-set(BITCODE_COMPILE_FLAGS "${CLANG_CL_NO_STDINC_FLAG}"
+set(BITCODE_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
-  --target=${BC_TRIPLE} -emit-llvm ${DISABLE_OPAQUE_PTRS_OPT})
+  --target=${BC_TRIPLE} -emit-llvm ${EXTRA_FLAGS})
 
-add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/devicelib.cl"
-  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
-  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc"
-  -c "${CMAKE_CURRENT_SOURCE_DIR}/devicelib.cl"
-  COMMENT "Building devicelib.bc"
-  VERBATIM)
-list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc")
+# non-OCML sources
+set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture") # "printf_support"
 
-# Support function(s) for printf().
-add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
-  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
-  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
-  -c "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
-  COMMENT "Building printf_support.bc"
-  VERBATIM)
-list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc")
+foreach(SOURCE IN LISTS NON_OCML_SOURCES)
+  add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
+    -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
+    -c "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    COMMENT "Building ${SOURCE}.bc"
+    VERBATIM)
+  list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
+endforeach()
 
-add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/texture.cl"
-  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
-  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc"
-  -c "${CMAKE_CURRENT_SOURCE_DIR}/texture.cl"
-  COMMENT "Building texture.bc"
-  VERBATIM)
-list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc")
+# OCML sources
+set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF tables y0D y0F y1D y1F)
 
-# devicelib sources
-set(SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF tables y0D y0F y1D y1F)
-
-foreach(SOURCE IN LISTS SOURCES)
+foreach(SOURCE IN LISTS OCML_SOURCES)
   add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
