@@ -105,6 +105,10 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 /opt/rocm
 ```
 
+### Compiling CUDA application directly with CHIP-SPV
+
+Compilation of CUDA sources without changing the sources, can be done in two ways. The first is to replace calls of the nvcc compiler with calls of the wrapper script <CHIP-install-path>/bin/cuspv in Makefiles. The other way is possible when using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::CHIP hip::host hip::device)`
+
 ## Compiling a HIP application using CHIP-SPV
 
 Compiling a HIP application with CHIP-SPV will allow you to execute HIP code on any device that supports SPIR-V, such as Intel GPUs. To compile a HIP application, all you need to do is to use the `hipcc` compiler wrapper provided by this project. In case you have AMD implementation installed as well, you can switch between them by using `HIP_PLATFORM` environment variable.
