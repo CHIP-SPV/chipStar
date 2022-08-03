@@ -5,4 +5,6 @@
 # cuda_runtime.h wrapper which translates CUDA API to HIP API.
 #
 # NOTE: this file is not meant only to be usable in CHIP-SPV build directory.
-@CMAKE_CXX_COMPILER@ @HIP_OFFLOAD_COMPILE_OPTIONS_BUILD@ @CHIP_INCLUDES@ "$@"
+export HIP_PLATFORM=spirv
+export PATH=@CMAKE_BINARY_DIR@/bin:$PATH
+hipcc @CHIP_INCLUDES@ "$@"
