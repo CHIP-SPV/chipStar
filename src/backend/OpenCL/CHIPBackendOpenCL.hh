@@ -129,12 +129,15 @@ public:
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
-public:
-  cl::Device *ClDevice;
-  cl::Context *ClContext;
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
                    int Idx);
-  cl::Device *get();
+
+public:
+  static CHIPDeviceOpenCL *create(CHIPContextOpenCL *ChipContext,
+                                  cl::Device *ClDevice, int Idx);
+  cl::Device *ClDevice;
+  cl::Context *ClContext;
+  cl::Device *get() { return ClDevice; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
   virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;

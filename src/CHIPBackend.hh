@@ -1042,6 +1042,11 @@ protected:
 
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
+  // only callable from derived classes, because we need to call also init()
+  CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
+  // initializer. may call virtual methods
+  void init();
+
 public:
   /**
    * @brief Create a Queue object
@@ -1066,23 +1071,7 @@ public:
 
   CHIPAllocationTracker *AllocationTracker = nullptr;
 
-  /**
-   * @brief Construct a new CHIPDevice object
-   *
-   */
-  CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
-
-  /**
-   * @brief Construct a new CHIPDevice object
-   *
-   */
-  CHIPDevice();
-
-  /**
-   * @brief Destroy the CHIPDevice object
-   *
-   */
-  ~CHIPDevice();
+  virtual ~CHIPDevice();
 
   /**
    * @brief Get the Kernels object
@@ -1097,12 +1086,6 @@ public:
    * @return std::vector<CHIPModule*>&
    */
   std::unordered_map<const std::string *, CHIPModule *> &getModules();
-
-  /**
-   * @brief Use a backend to populate device properties such as memory
-   * available, frequencies, etc.
-   */
-  void populateDeviceProperties();
 
   /**
    * @brief Use a backend to populate device properties such as memory

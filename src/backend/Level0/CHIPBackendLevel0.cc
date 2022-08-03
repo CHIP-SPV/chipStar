@@ -1326,9 +1326,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     auto Status = zeDeviceGetProperties(Dev, &DeviceProperties);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
-      CHIPDeviceLevel0 *ChipL0Dev =
-          new CHIPDeviceLevel0(std::move(Dev), ChipL0Ctx, i);
-      ChipL0Dev->populateDeviceProperties();
+      CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
 
       ChipL0Dev->createQueueAndRegister((int)0, (int)0);
@@ -1353,7 +1351,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Drv, Ctx);
   addContext(ChipCtx);
 
-  CHIPDeviceLevel0 *ChipDev = new CHIPDeviceLevel0(&Dev, ChipCtx, 0);
+  CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
   ChipCtx->addDevice(ChipDev);
   addDevice(ChipDev);
 
@@ -1448,19 +1446,20 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 
 // CHIPDeviceLevelZero
 // ***********************************************************************
-CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t *ZeDev,
-                                   CHIPContextLevel0 *ChipCtx, int Idx)
-    : CHIPDevice(ChipCtx, Idx), ZeDev_(*ZeDev), ZeCtx_(ChipCtx->get()),
-      ZeDeviceProps_() {
-  ZeDeviceProps_.pNext = nullptr;
-  assert(Ctx_ != nullptr);
-}
-CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t &&ZeDev,
+CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t ZeDev,
                                    CHIPContextLevel0 *ChipCtx, int Idx)
     : CHIPDevice(ChipCtx, Idx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()),
       ZeDeviceProps_() {
   ZeDeviceProps_.pNext = nullptr;
   assert(Ctx_ != nullptr);
+}
+
+CHIPDeviceLevel0 *CHIPDeviceLevel0::create(ze_device_handle_t ZeDev,
+                                           CHIPContextLevel0 *ChipCtx,
+                                           int Idx) {
+  CHIPDeviceLevel0 *Dev = new CHIPDeviceLevel0(ZeDev, ChipCtx, Idx);
+  Dev->init();
+  return Dev;
 }
 
 void CHIPDeviceLevel0::resetImpl() { UNIMPLEMENTED(); }
