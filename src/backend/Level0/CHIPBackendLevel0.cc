@@ -615,6 +615,8 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
   Attr->numRegs = 0;
   Attr->preferredShmemCarveout = 0;
   Attr->ptxVersion = 10;
+
+  return hipSuccess;
 }
 
 // CHIPQueueLevelZero
