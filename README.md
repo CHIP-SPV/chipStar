@@ -107,7 +107,7 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 
 ### Compiling CUDA application directly with CHIP-SPV
 
-Compilation of CUDA sources without changing the sources, can be done in two ways. The first is to replace calls of the nvcc compiler with calls of the wrapper script <CHIP-install-path>/bin/cuspv in Makefiles. The other way is possible when using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::CHIP hip::host hip::device)`
+Compilation of CUDA sources without changing the sources, can be done in two ways. The first is to replace calls of the nvcc compiler with calls of the wrapper script <CHIP-install-path>/bin/cuspv in Makefiles. The wrapper script will call clang with the correct flags. The other way is possible when using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::CHIP hip::host hip::device)`. However the project must be compiled with Clang (a version supported by HIP). Note that it's not necessary to have Nvidia's CUDA installed.
 
 ## Compiling a HIP application using CHIP-SPV
 
