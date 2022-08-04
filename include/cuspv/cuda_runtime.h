@@ -1328,6 +1328,11 @@ static inline cudaError_t cudaGetChannelDesc(cudaChannelFormatDesc *desc,
   return hipGetChannelDesc(desc, array);
 }
 
+static inline cudaChannelFormatDesc
+cudaCreateChannelDesc(int x, int y, int z, int w, cudaChannelFormatKind f) {
+  return hipCreateChannelDesc(x, y, z, w, f);
+}
+
 static inline cudaError_t
 cudaGetTextureObjectResourceDesc(cudaResourceDesc *ResDesc,
                                  cudaTextureObject_t TextureObject) {
@@ -1460,12 +1465,6 @@ cudaBindTextureToMipmappedArray(const struct texture<T, dim, readMode> &tex,
   return cudaBindTextureToMipmappedArray(&tex, mipmappedArray, &desc);
 }
 
-/* TODO find definition. is this a compiler builtin ?*/
-template <typename... Args>
-static inline cudaChannelFormatDesc cudaCreateChannelDesc(Args &&...A) {
-  return hipCreateChannelDesc(std::forward<Args>(A)...);
-}
-
 DEPRECATED
 static inline cudaError_t
 cudaGetTextureAlignmentOffset(size_t *offset, const textureReference *texref) {
@@ -1480,6 +1479,74 @@ DEPRECATED static inline cudaError_t
 cudaUnbindTexture(const struct texture<T, dim, readMode> &tex) {
   return cudaUnbindTexture(&tex);
 }
+
+//#########################
+
+template <class T> inline cudaChannelFormatDesc cudaCreateChannelDesc(void) {
+  return hipCreateChannelDesc(0, 0, 0, 0, cudaChannelFormatKindNone);
+}
+
+// char, signed char, unsigned char, short, unsigned short, int, unsigned int,
+// long, unsigned long, and float
+#define DEF_CREATE_CH_DESC_SCL(ITYPE, SUFFIX)                                  \
+  template <>                                                                  \
+  inline cudaChannelFormatDesc cudaCreateChannelDesc<ITYPE>(void) {            \
+    return hipCreateChannelDesc(sizeof(ITYPE), 0, 0, 0,                        \
+                                cudaChannelFormatKind##SUFFIX);                \
+  }
+
+#define DEF_CREATE_CH_DESC_VEC(ITYPE, SUFFIX)                                  \
+  template <>                                                                  \
+  inline cudaChannelFormatDesc cudaCreateChannelDesc<ITYPE##1>(void) {         \
+    return hipCreateChannelDesc(sizeof(ITYPE##1), 0, 0, 0,                     \
+                                cudaChannelFormatKind##SUFFIX);                \
+  }                                                                            \
+  template <>                                                                  \
+  inline cudaChannelFormatDesc cudaCreateChannelDesc<ITYPE##2>(void) {         \
+    return hipCreateChannelDesc(sizeof(ITYPE##1), sizeof(ITYPE##1), 0, 0,      \
+                                cudaChannelFormatKind##SUFFIX);                \
+  }                                                                            \
+  template <>                                                                  \
+  inline cudaChannelFormatDesc cudaCreateChannelDesc<ITYPE##3>(void) {         \
+    return hipCreateChannelDesc(sizeof(ITYPE##1), sizeof(ITYPE##1),            \
+                                sizeof(ITYPE##1), 0,                           \
+                                cudaChannelFormatKind##SUFFIX);                \
+  }                                                                            \
+  template <>                                                                  \
+  inline cudaChannelFormatDesc cudaCreateChannelDesc<ITYPE##4>(void) {         \
+    return hipCreateChannelDesc(sizeof(ITYPE##1), sizeof(ITYPE##1),            \
+                                sizeof(ITYPE##1), sizeof(ITYPE##1),            \
+                                cudaChannelFormatKind##SUFFIX);                \
+  }
+
+DEF_CREATE_CH_DESC_SCL(char, Signed)
+DEF_CREATE_CH_DESC_SCL(signed char, Signed)
+DEF_CREATE_CH_DESC_SCL(unsigned char, Unsigned)
+
+DEF_CREATE_CH_DESC_SCL(signed short, Signed)
+DEF_CREATE_CH_DESC_SCL(unsigned short, Unsigned)
+
+DEF_CREATE_CH_DESC_SCL(signed int, Signed)
+DEF_CREATE_CH_DESC_SCL(unsigned int, Unsigned)
+
+DEF_CREATE_CH_DESC_SCL(signed long, Signed)
+DEF_CREATE_CH_DESC_SCL(unsigned long, Unsigned)
+
+DEF_CREATE_CH_DESC_SCL(float, Float)
+
+DEF_CREATE_CH_DESC_VEC(char, Signed)
+DEF_CREATE_CH_DESC_VEC(uchar, Unsigned)
+
+DEF_CREATE_CH_DESC_VEC(short, Signed)
+DEF_CREATE_CH_DESC_VEC(ushort, Unsigned)
+
+DEF_CREATE_CH_DESC_VEC(int, Signed)
+DEF_CREATE_CH_DESC_VEC(uint, Unsigned)
+
+DEF_CREATE_CH_DESC_VEC(long, Signed)
+DEF_CREATE_CH_DESC_VEC(ulong, Unsigned)
+
+DEF_CREATE_CH_DESC_VEC(float, Float)
 
 //#########################
 // HIP runtime_api.h: "The following are not supported."
