@@ -44,7 +44,7 @@ void* runOpenCLKernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
       return NULL;
     }
 
-    Kernel = clCreateKernel(Program, "binomial_options.1", &Err);
+    Kernel = clCreateKernel(Program, "binomial_options", &Err);
     assert (Err == CL_SUCCESS);
 
     Err = clSetKernelArg(Kernel, 0, sizeof(int), &Arg1);

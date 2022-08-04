@@ -91,6 +91,41 @@ public:
   OCLSpace getAS() override { return ASpace_; }
 };
 
+// Parses and checks SPIR-V header. Sets word buffer pointer to poin
+// past the header and updates NumWords count to exclude header words.
+// Return false if there is an error in the header. Otherwise, return
+// true.
+static bool parseHeader(const int32_t *&WordBuffer, size_t &NumWords) {
+  if (*WordBuffer != spv::MagicNumber) {
+    logError("Incorrect SPIR-V magic number.");
+    return false;
+  }
+  ++WordBuffer;
+
+  if (*WordBuffer < spv::Version10 || *WordBuffer > spv::Version12) {
+    logError("Unsupported SPIR-V version.");
+    return false;
+  }
+  ++WordBuffer;
+
+  // GENERATOR
+  ++WordBuffer;
+
+  // BOUND
+  // int32_t Bound = *WordBuffer;
+  ++WordBuffer;
+
+  // RESERVED
+  if (*WordBuffer != 0) {
+    logError("Invalid SPIR-V: Reserved word is not 0.");
+    return false;
+  }
+  ++WordBuffer;
+
+  NumWords -= 5;
+  return true;
+}
+
 class SPIRVinst {
   spv::Op Opcode_;
   size_t WordCount_;
@@ -98,10 +133,10 @@ class SPIRVinst {
   int32_t Word2_;
   int32_t Word3_;
   std::string Extra_;
-  int32_t *OrigStream_;
+  const int32_t *OrigStream_;
 
 public:
-  SPIRVinst(int32_t *Stream) {
+  SPIRVinst(const int32_t *Stream) {
     OrigStream_ = Stream;
     int32_t Word0 = Stream[0];
     WordCount_ = (unsigned)Word0 >> 16;
@@ -171,6 +206,14 @@ public:
   }
   bool isFunctionType() const { return (Opcode_ == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (Opcode_ == spv::Op::OpFunction); }
+
+  // Return true if the instruction is an OpName.
+  bool isName() const { return Opcode_ == spv::Op::OpName; }
+
+  // Return true if the instruction is the given Decoration.
+  bool isDecoration(spv::Decoration Dec) const {
+    return Opcode_ == spv::Op::OpDecorate && Word2_ == (int32_t)Dec;
+  }
 
   SPIRVtype *decodeType(SPIRTypeMap &TypeMap, size_t PointerSize) {
     if (Opcode_ == spv::Op::OpTypeVoid) {
@@ -327,45 +370,16 @@ public:
     return AllOk;
   }
 
-  bool parseSPIRV(int32_t *Stream, size_t NumWords) {
-    int32_t *StreamIntPtr = Stream;
-
+  bool parseSPIRV(const int32_t *Stream, size_t NumWords) {
     KernelCapab_ = false;
     ExtIntOpenCL_ = false;
     HeaderOK_ = false;
     MemModelCL_ = false;
     ParseOK_ = false;
-
-    if (*StreamIntPtr != spv::MagicNumber) {
-      logError("Incorrect SPIR-V magic number.");
-      return false;
-    }
-    ++StreamIntPtr;
-
-    if (*StreamIntPtr < spv::Version10 || *StreamIntPtr > spv::Version12) {
-      logError("Unsupported SPIR-V version.");
-      return false;
-    }
-    ++StreamIntPtr;
-
-    // GENERATOR
-    ++StreamIntPtr;
-
-    // BOUND
-    // int32_t Bound = *StreamIntPtr;
-    ++StreamIntPtr;
-
-    // RESERVED
-    if (*StreamIntPtr != 0) {
-      logError("Invalid SPIR-V: Reserved word is not 0.");
-      return false;
-    }
-    ++StreamIntPtr;
-
-    HeaderOK_ = true;
+    HeaderOK_ = parseHeader(Stream, NumWords);
 
     // INSTRUCTION STREAM
-    ParseOK_ = parseInstructionStream(StreamIntPtr, (NumWords - 5));
+    ParseOK_ = parseInstructionStream(Stream, NumWords);
     return valid();
   }
 
@@ -386,8 +400,8 @@ public:
   }
 
 private:
-  bool parseInstructionStream(int32_t *Stream, size_t NumWords) {
-    int32_t *StreamIntPtr = Stream;
+  bool parseInstructionStream(const int32_t *Stream, size_t NumWords) {
+    const int32_t *StreamIntPtr = Stream;
     size_t PointerSize = 0;
     while (NumWords > 0) {
       SPIRVinst Inst(StreamIntPtr);
@@ -437,6 +451,43 @@ private:
     return true;
   }
 };
+
+bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
+  logTrace("filterSPIRV");
+
+  auto *WordsPtr = (const int32_t *)Bytes;
+  size_t NumWords = NumBytes / sizeof(int32_t);
+
+  if (!parseHeader(WordsPtr, NumWords))
+    return false; // Invalid SPIR-V binary.
+
+  Dst.reserve(NumBytes);
+  Dst.append(Bytes, (const char *)WordsPtr); // Copy the header.
+
+  size_t InsnSize = 0;
+  for (size_t I = 0; I < NumWords; I += InsnSize) {
+    SPIRVinst Insn(WordsPtr + I);
+    InsnSize = Insn.size();
+    assert(InsnSize && "Invalis instruction size, will loop forever!");
+
+    // A workaround for https://github.com/CHIP-SPV/chip-spv/issues/48.
+    //
+    // Some Intel Compute Runtime versions fails to compile valid SPIR-V
+    // modules correctly on OpenCL if there are OpEntryPoints and
+    // functions or export linkage attributes by the same name.
+    //
+    // This workaround just simply drops all OpName and linkage
+    // attribute OpDecorations from the binary. OpNames do not have
+    // semantical meaning and we are not currently linking the SPIR-V
+    // modules with anything else.
+    if (Insn.isName() || Insn.isDecoration(spv::Decoration::LinkageAttributes))
+      continue;
+
+    Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(int32_t));
+  }
+
+  return true;
+}
 
 bool parseSPIR(int32_t *Stream, size_t NumWords,
                OpenCLFunctionInfoMap &Output) {
