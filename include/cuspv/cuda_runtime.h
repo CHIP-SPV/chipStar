@@ -52,6 +52,8 @@ THE SOFTWARE.
 #define __CUDA_ARCH__ 200
 #endif
 
+#define __align__(X)  __attribute__((aligned(X)))
+
 #undef DEPRECATED
 #define DEPRECATED                                                             \
   __attribute__((deprecated("This API is marked as deprecated.")))
