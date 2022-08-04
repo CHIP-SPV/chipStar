@@ -31,6 +31,9 @@ THE SOFTWARE.
 
 #include <hip/hip_runtime.h>
 
+// for memset
+#include <cstring>
+
 // Needed for some CUDA samples.
 #ifndef __DRIVER_TYPES_H__
 #define __DRIVER_TYPES_H__
@@ -286,6 +289,36 @@ THE SOFTWARE.
 #define cudaDevAttrAmdSpecificEnd hipDeviceAttributeAmdSpecificEnd
 #define cudaDevAttrVendorSpecificBegin hipDeviceAttributeVendorSpecificBegin
 
+// contains flags missing from hipDeviceProp_t but present in cuda's cudaDeviceProp
+struct cudaDeviceProp : hipDeviceProp_t {
+  int  deviceOverlap;
+  int  asyncEngineCount;
+  size_t  surfaceAlignment;
+  int  unifiedAddressing;
+
+  int  maxTexture1DLayered[2];
+  int  maxTexture1DMipmap;
+
+  int  maxTexture2DGather[2];
+  int  maxTexture2DLayered[3];
+  int  maxTexture2DLinear[3];
+  int  maxTexture2DMipmap[2];
+
+  int  maxTexture3DAlt[3];
+
+  int  maxTextureCubemap;
+  int  maxTextureCubemapLayered[2];
+
+  int  maxSurface1D;
+  int  maxSurface2D[2];
+  int  maxSurface3D[3];
+  int  maxSurface1DLayered[2];
+  int  maxSurface2DLayered[3];
+
+  int  maxSurfaceCubemap;
+  int  maxSurfaceCubemapLayered[2];
+};
+
 // compute mode
 #define cudaComputeModeDefault hipComputeModeDefault
 #define cudaComputeModeExclusive hipComputeModeExclusive
@@ -299,7 +332,6 @@ using cudaArray_const_t = hipArray_const_t;
 using cudaChannelFormatDesc = hipChannelFormatDesc;
 using cudaComputeMode = hipComputeMode;
 using cudaDeviceAttribute_t = hipDeviceAttribute_t;
-using cudaDeviceProp = hipDeviceProp_t;
 using cudaDevice_t = hipDevice_t;
 using cudaError_t = hipError_t;
 using cudaEvent_t = hipEvent_t;
@@ -527,6 +559,9 @@ cudaDeviceGetAttribute(int *RetPtr, cudaDeviceAttribute_t Attr, int DeviceId) {
 }
 static inline cudaError_t cudaGetDeviceProperties(cudaDeviceProp *Prop,
                                                   int DeviceId) {
+  // TODO we should somehow fill the extra properties
+  // for now memset to 0 at least not return garbage
+  std::memset(Prop, 0, sizeof(cudaDeviceProp));
   return hipGetDeviceProperties(Prop, DeviceId);
 }
 static inline cudaError_t cudaDeviceGetLimit(size_t *PValue, cudaLimit Limit) {
