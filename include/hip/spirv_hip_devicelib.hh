@@ -210,14 +210,6 @@ EXPORT float frexpf(float f, int *i);
 EXPORT double frexp(double f, int *i);
 #endif
 
-EXPORT unsigned long long int ullmin(const unsigned long long int a,
-                                     const unsigned long long int b);
-EXPORT unsigned long long int ullmax(const unsigned long long int a,
-                                     const unsigned long long int b);
-EXPORT unsigned int ullmin(const unsigned int a, const unsigned int b);
-EXPORT unsigned int umin(const unsigned int a, const unsigned int b);
-EXPORT unsigned int umax(const unsigned int a, const unsigned int b);
-
 DEFOPENCL2F(hypot)
 DEFOPENCL1INT(ilogb)
 
