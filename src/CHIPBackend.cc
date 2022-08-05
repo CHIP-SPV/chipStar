@@ -205,36 +205,7 @@ CHIPKernel *CHIPModule::findKernel(const std::string &Name) {
                                   [&Name](CHIPKernel *Kernel) {
                                     return Kernel->getName().compare(Name) == 0;
                                   });
-
-  // If not found, consider there is a bug in backend's SPIR-V consumer and try
-  // a workaround.
-  //
-  // A bug was found in level0 where kernels could be unintentionally
-  // renamed. For example, original kernel "foo" would registered as
-  // "foo.1". The bug is/was triggered by SPIR-V binaries which have
-  // entry points and functions by the same name. This is not illegal
-  // SPIR-V as names assigned to functions via OpName are not
-  // semantically meaningful - the names can be dropped and
-  // program and linking behavior stays unchanged.
-  //
-  // Try work this bug around by searching for an *unique* kernel that
-  // starts with <Name>.
-  auto *Kernel = KernelFound == ChipKernels_.end() ? nullptr : *KernelFound;
-  if (!Kernel) {
-    CHIPKernel *UniqueCandidate = nullptr;
-    for (auto *K : ChipKernels_) {
-      if (K->getName().substr(0, Name.size()) == Name) {
-        if (UniqueCandidate) {
-          UniqueCandidate = nullptr;
-          break;
-        }
-        UniqueCandidate = K;
-      }
-    }
-    if (UniqueCandidate)
-      return UniqueCandidate;
-  }
-  return Kernel;
+  return KernelFound == ChipKernels_.end() ? nullptr : *KernelFound;
 }
 
 CHIPKernel *CHIPModule::getKernel(std::string Name) {
@@ -384,32 +355,7 @@ void CHIPModule::deallocateDeviceVariablesNoLock(CHIPDevice *Device) {
 }
 
 OCLFuncInfo *CHIPModule::findFunctionInfo(const std::string &FName) {
-  if (FuncInfos_.count(FName))
-    return FuncInfos_.at(FName);
-
-  // If not found, consider there is a SPIR-V consumer bug involved
-  // and try a work around.
-  //
-  // A bug was found in level0 where kernels could be unintentionally
-  // renamed. For example, original kernel "foo" would registered as
-  // "foo.1". The bug is/was triggered by SPIR-V binaries which have
-  // entry points and functions by the same name. This is not illegal
-  // SPIR-V as names assigned to functions via OpName are not
-  // semantically meaningful - the names can be dropped and
-  // program and linking behavior stays unchanged.
-  //
-  // Consider that FName has an extraneous suffix and find an unique
-  // kernel with a name the FName starts with.
-  OCLFuncInfo *Candidate = nullptr;
-  for (auto KV : FuncInfos_) {
-    std::string Key = KV.first;
-    if (FName.substr(0, Key.size()) == Key) {
-      if (Candidate)
-        return nullptr;
-      Candidate = KV.second;
-    }
-  }
-  return Candidate;
+  return FuncInfos_.count(FName) ? FuncInfos_.at(FName) : nullptr;
 }
 
 // CHIPKernel
