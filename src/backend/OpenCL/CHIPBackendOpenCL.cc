@@ -354,8 +354,9 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   // The minimum subgroup size on an intel GPU
   if (ClDevice->getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_GPU) {
     std::vector<uint> Sg = ClDevice->getInfo<CL_DEVICE_SUB_GROUP_SIZES_INTEL>();
-    if (Sg.begin() != Sg.end())
-      HipDeviceProps_.warpSize = *std::min_element(Sg.begin(), Sg.end());
+    if (Sg.begin() != Sg.end()) {
+      HipDeviceProps_.warpSize = *std::max_element(Sg.begin(), Sg.end());
+    }
   }
   HipDeviceProps_.maxGridSize[0] = HipDeviceProps_.maxGridSize[1] =
       HipDeviceProps_.maxGridSize[2] = 65536;
