@@ -55,9 +55,17 @@ add_cuda_sample(cuda-simpleTemplates 0_Simple/simpleTemplates  simpleTemplates.c
 add_cuda_sample(cuda-simpleCallback 0_Simple/simpleCallback  multithreading.cpp   simpleCallback.cu)
 
 ### compilation failures:
+
+#### use of undeclared identifier 'all', 'any'
 #add_cuda_sample(cuda-simpleVoteIntrinsics 0_Simple/simpleVoteIntrinsics  simpleVoteIntrinsics.cu)
+
+#### use of undeclared identifier 'CU_MEMHOSTALLOC_DEVICEMAP'
 #add_cuda_sample(cuda-simpleZeroCopy 0_Simple/simpleZeroCopy  simpleZeroCopy.cu)
+
+#### hipErrorNotSupported (Called a function which is not implemented) in /home/michal/0/source/chip-spv-test/src/CHIPBindings.cc:995:hipSetDeviceFlags
 #add_cuda_sample(cuda-simpleStreams 0_Simple/simpleStreams  simpleStreams.cu)
+
+############################
 
 ##### requires assert (different from abort)
 #add_cuda_sample(cuda-simpleAssert 0_Simple/simpleAssert  simpleAssert.cu)
@@ -75,8 +83,7 @@ add_cuda_sample(cuda-simpleCallback 0_Simple/simpleCallback  multithreading.cpp 
 
 ## 1_Utilities
 add_cuda_sample(cuda-bandwidthTest 1_Utilities/bandwidthTest bandwidthTest.cu)
-# TODO FIXME:
-# add_cuda_sample(cuda-deviceQuery 1_Utilities/deviceQuery deviceQuery.cpp)
+add_cuda_sample(cuda-deviceQuery 1_Utilities/deviceQuery deviceQuery.cpp)
 
 ############################
 
