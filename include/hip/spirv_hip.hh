@@ -55,7 +55,9 @@ __attribute__((weak)) __device__ int32_t __chipspv_abort_called;
 
 __device__ void __chipspv_abort(int32_t *abort_flag);
 
-static __device__ void abort() { __chipspv_abort(&__chipspv_abort_called); }
+static inline __device__ void abort() {
+  __chipspv_abort(&__chipspv_abort_called);
+}
 }
 
 typedef int hipLaunchParm;
