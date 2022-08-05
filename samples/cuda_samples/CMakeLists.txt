@@ -89,15 +89,29 @@ add_cuda_sample(cuda-deviceQuery 1_Utilities/deviceQuery deviceQuery.cpp)
 
 ## 2_Graphics
 add_cuda_sample(cuda-convolutionSeparable 2_Graphics/convolutionSeparable convolutionSeparable.cu  convolutionSeparable_gold.cpp  main.cpp)
+
+#### requires texture support: "Don't know how to lower this texture use case."
 #add_cuda_sample(cuda-convolutionTexture  2_Graphics/convolutionTexture  convolutionTexture.cu  convolutionTexture_gold.cpp  main.cpp)
+
+#### requires texture support: "Don't know how to lower this texture use case."
 #add_cuda_sample(cuda-dct8x8  2_Graphics/dct8x8  BmpUtil.cpp dct8x8.cu  DCT8x8_Gold.cpp )
-#add_cuda_sample(cuda-dwtHaar1D  2_Graphics/dwtHaar1D  dwtHaar1D.cu)
+
+#### works after editing sources: threadblock size 512 -> 256
+add_cuda_sample(cuda-dwtHaar1D  2_Graphics/dwtHaar1D  dwtHaar1D.cu)
+set_property(TEST cuda-dwtHaar1D PROPERTY WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/2_Graphics/dwtHaar1D")
+
+#### hipErrorLaunchFailure (chip_kernels is empty for this device)
+## llvm translator BUG: produces invalid SPIR-V:
+## 1st operand of Capability: operand FPFastMathModeINTEL(5837) requires one of these extensions: SPV_INTEL_fp_fast_math_mode
 #add_cuda_sample(cuda-dxtc  2_Graphics/dxtc  dxtc.cu)
+
 add_cuda_sample(cuda-histogram  2_Graphics/histogram  histogram_gold.cpp  main.cpp  histogram256.cu  histogram64.cu)
+
+#### requires texture support: "Don't know how to lower this texture use case."
 #add_cuda_sample(cuda-HSOpticalFlow  2_Graphics/HSOpticalFlow  flowCUDA.cu flowGold.cpp  main.cpp)
+
+#### requires texture support: "Don't know how to lower this texture use case."
 #add_cuda_sample(cuda-stereoDisparity  2_Graphics/stereoDisparity  stereoDisparity.cu)
-
-
 
 ############################
 
