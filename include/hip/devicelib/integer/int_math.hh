@@ -10,16 +10,22 @@ extern __device__ unsigned max(unsigned int a, unsigned int b);
 extern __device__ long int max(long int a, long int b);
 extern __device__ unsigned long int max(unsigned long int a,
                                         unsigned long int b);
+extern __device__ unsigned long long int max(unsigned long long int a,
+                                             unsigned long long int b);
 extern __device__ int min(int a, int b);
 extern __device__ unsigned min(unsigned int a, unsigned int b);
 extern __device__ long int min(long int a, long int b);
 extern __device__ unsigned long int min(unsigned long int a,
                                         unsigned long int b);
+extern __device__ unsigned long int min(unsigned long long int a,
+                                        unsigned long long int b);
 
 extern __device__ int abs(int a);
 extern __device__ long int abs(long int a);
+extern __device__ long long int abs(long long int a);
 
 __device__ long int labs(long int a) { return abs(a); }
+__device__ long long llabs(long long int a) { return abs(a); }
 
 __device__ unsigned long int max(const unsigned long int a, const long int b) {
   return (b < 0) ? a : max(a, (unsigned long)b);
@@ -56,6 +62,15 @@ __device__ unsigned int umax(const unsigned int a, const unsigned int b) {
 __device__ unsigned int umin(const unsigned int a, const unsigned int b) {
   return min(a, b);
 }
+
+__device__ unsigned long long int ullmax(const unsigned long long int a,
+                                         const unsigned long long int b) {
+  return max(a, b);
+};
+__device__ unsigned long long int ullmin(const unsigned long long int a,
+                                         const unsigned long long int b) {
+  return min(a, b);
+}
 }
 
 #else
@@ -64,6 +79,7 @@ extern "C++" {
 
 extern __device__ int abs(int a);
 extern __device__ long int labs(long int a);
+extern __device__ long long int llabs(long long int a);
 extern __device__ unsigned long int max(const unsigned long int a,
                                         const long int b);
 extern __device__ unsigned long int max(const long int a,
@@ -89,16 +105,18 @@ extern __device__ int min(const int a, const int b);
 
 extern __device__ unsigned int umax(const unsigned int a, const unsigned int b);
 extern __device__ unsigned int umin(const unsigned int a, const unsigned int b);
+extern __device__ unsigned long long int ullmax(const unsigned long long int a,
+                                                const unsigned long long int b);
+extern __device__ unsigned long long int ullmin(const unsigned long long int a,
+                                                const unsigned long long int b);
 }
 
 #endif
 
-// __device__ long long int 	llabs ( long long int a )
 // __device__ long long int 	llmax ( const long long int a, const long long
 // int b )
 // __device__ long long int 	llmin ( const long long int a, const long long
 // int b )
-
 // __device__ unsigned long long int 	ullmax ( const unsigned long long int a,
 // const unsigned long long int b )
 // __device__ unsigned long long int 	ullmin ( const unsigned long long int a,
