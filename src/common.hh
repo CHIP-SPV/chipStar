@@ -37,6 +37,7 @@ typedef std::map<int32_t, OCLFuncInfo *> OCLFuncInfoMap;
 
 typedef std::map<std::string, OCLFuncInfo *> OpenCLFunctionInfoMap;
 
+bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(int32_t *Stream, size_t NumWords,
                OpenCLFunctionInfoMap &FuncInfoMap);
 

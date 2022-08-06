@@ -107,12 +107,9 @@ void* runLevel0Kernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
       std::cout << "Level0: kernel " << i << " : " << KernelNames[i] << std::endl;
     }
 
-    ze_kernel_desc_t KernelDesc = {
-      ZE_STRUCTURE_TYPE_KERNEL_DESC,
-      nullptr,
-      0, // flags
-     "binomial_options.1"
-    };
+    ze_kernel_desc_t KernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
+                                   0, // flags
+                                   "binomial_options"};
     Err = zeKernelCreate(Program, &KernelDesc, &Kernel);
     assert(Err == ZE_RESULT_SUCCESS);
     assert(Kernel);

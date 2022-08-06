@@ -3115,7 +3115,10 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   const char *StringData = reinterpret_cast<const char *>(
       reinterpret_cast<uintptr_t>(Header) + (uintptr_t)Desc->offset);
   size_t StringSize = Desc->size;
-  Module->assign(StringData, StringSize);
+  if (!filterSPIRV(StringData, StringSize, *Module)) {
+    CHIPERR_LOG_AND_THROW("Error in filtering a SPIR-V module",
+                          hipErrorInitializationError);
+  }
 
   logDebug("Register module: {} \n", (void *)Module);
 
