@@ -34,7 +34,6 @@ set(CHIP_SRC
 )
 
 set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "CHIP-SPV source directory")
-set(CLANG_VERSION_LESS_14 FALSE CACHE INTERNAL "Clang version < 14.0")
 
 set(CHIP_SPV_LINK_FLAGS "")
 set(CHIP_SPV_COMPILE_FLAGS "")
@@ -83,9 +82,17 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 ###############################################################################
 # CHIP-SPV CMAKE OPTIONS PARSING
-if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR(CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
+
+set(CLANG_VERSION_LESS_14 FALSE CACHE INTERNAL "Clang version < 14.0")
+set(CLANG_VERSION_LESS_15 FALSE CACHE INTERNAL "Clang version < 15.0")
+if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
+   (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
     message(FATAL_ERROR "this project requires clang >= 8.0")
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
+    set(CLANG_VERSION_LESS_15 ON)
   endif()
 
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
@@ -175,7 +182,6 @@ find_package(Threads REQUIRED)
 set(PTHREAD_LIBRARY Threads::Threads)
 
 add_subdirectory(llvm_passes)
-add_subdirectory(bitcode)
 
 enable_testing()
 add_subdirectory(HIP/tests/catch catch)
@@ -213,7 +219,22 @@ target_include_directories(CHIP
 
 ###############################################################################
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu ${SPIRV_EMITTER_OPTS})
+set(DISABLE_OPAQUE_PTRS_OPT "")
+if (NOT CLANG_VERSION_LESS_15)
+  # LLVM 15 switches to opaque pointer mode by default which
+  # llvm-spirv currently does not support. Switch the mode off.
+  #
+  # NOTE: https://reviews.llvm.org/D130766 will disable the mode off
+  #       for SPIR-V targets but the patch has not yet landed on the
+  #       LLVM 15 branch.
+  #
+  # NOTE: Bitcode library must be compiled with the same opaque
+  #       pointer setting.
+  set(DISABLE_OPAQUE_PTRS_OPT -Xclang -no-opaque-pointers)
+endif()
+
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu
+  ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
 
 # hipDeviceLink sample requires --offload=spirv64 flag at link time. Why? 
 if(NOT CLANG_VERSION_LESS_14)
@@ -225,6 +246,8 @@ if(NOT CLANG_VERSION_LESS_14)
       # excludes the wrappers.
       "-nohipwrapperinc")
 endif()
+
+add_subdirectory(bitcode)
 
 if(CLANG_VERSION_LESS_14 )
   set(HIP_LINK_DEVICELIB_BUILD --hip-device-lib-path=${CMAKE_BINARY_DIR}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes)
