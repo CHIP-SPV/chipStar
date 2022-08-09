@@ -1359,12 +1359,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
   logWarn("Ignoring alignment. Using hardcoded value 0x1000");
   Alignment = 0x1000; // TODO Where/why
 
-  if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
-    logWarn("Usigned zeMallocHost instead of zeMallocShared due to outstanding "
-            "bug");
-    MemTy = hipMemoryType::hipMemoryTypeHost;
-  }
-
   ze_device_mem_alloc_flags_t DeviceFlags =
       ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
 
