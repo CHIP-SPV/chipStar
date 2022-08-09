@@ -143,7 +143,13 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
       logDebug("CHIP_BE was not set. Defaulting to OPENCL");
     else
       logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
+#ifdef HAVE_OPENCL
     Backend = new CHIPBackendOpenCL();
+#else
+    CHIPERR_LOG_AND_THROW("Invalid CHIP-SPV Backend Selected. This CHIP-SPV "
+                          "was not compiled with OpenCL backend",
+                          hipErrorInitializationError);
+#endif
   } else if (!CHIPBackendType.compare("level0")) {
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();

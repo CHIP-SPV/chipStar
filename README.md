@@ -13,41 +13,17 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 ## Prerequisites
 
 * Cmake >= 3.18.0
-* Clang >= 14.0
+* Clang 14 or 15
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'. *NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`.
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
-  (e.g. llvm\_release\_140 for Clang 14.0)
+  (e.g. llvm\_release\_150 for Clang 15.0)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
 * For Level Zero Backend
-  * [Intel Compute Runtime](https://github.com/intel/compute-runtime)
+  * [Intel Compute Runtime](https://github.com/intel/compute-runtime) and
+  * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
 * For OpenCL Backend
-  * An OpenCL implementation with (at least partial) 2.x support;
-    HIPCL requires Shared Virtual Memory and clCreateProgramWithIL()
-    support
-
-*NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`
-
-## Downloading and Building Clang
-
-Downloading:
-
-```bash
-git clone -b release/14.x https://github.com/llvm/llvm-project.git
-cd llvm-project/llvm/projects
-git clone -b llvm_release_140 https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
-```
-
-Building:
-
-```bash
-cd llvm-project/llvm
-mkdir build
-cd build
-cmake .. -DLLVM_ENABLE_PROJECTS="clang;openmp" \ # openmp is optional
-  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_DIR} \
-  -DLLVM_TARGETS_TO_BUILD=host # Also optional, but if "All" is selected, potential issues can arise. Furthermore, speeds up compilation time if limited to just the architectures you actually use.
-make
-make install
-```
+  * OpenCL implementation with Shared Virtual Memory and SPIR-V
+    support.
 
 ## Downloading Sources
 
@@ -60,25 +36,28 @@ git submodule update --init --recursive
 ## Building
 
 ```bash
-# export PATH=${LLVM_INSTALL_DIR}/bin:$PATH
 mkdir build
 cd build
 
 cmake .. \
  -DCMAKE_CXX_COMPILER=clang++ \
  -DCMAKE_C_COMPILER=clang \
- -DCMAKE_INSTALL_PREFIX=<install location> 
+ -DCMAKE_INSTALL_PREFIX=<install location>
  # optional: -DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>
 
 make
 make install
 ```
 
+Be sure you refer to the clang++ and clang binaries you want to build against in
+the above command. For example, the LLVM debian packages might install binaries with
+a version suffix in the names: 'clang++-15' and 'clang-15'.
+
 ## Building & Running Unit Tests
 
 ```bash
 make build_tests_standalone
-ctest --timeout 120 # currently some tests might hang
+ctest --timeout 40 # currently some tests might hang
 ```
 
 ## Environment Flags
@@ -118,6 +97,7 @@ Compiling a HIP application with CHIP-SPV will allow you to execute HIP code on 
 You can find various HIP applications here: <https://github.com/CHIP-SPV/hip-testsuite>
 
 ```bash
+export HIP_PLATFORM=spirv
 hipcc ./hip_app.cpp -o hip_app
 ```
 
