@@ -517,7 +517,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     auto EventCommandListMap =
         &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
 
-    for (int i = 0; i < Backend->Events.size(); i++) {
+    for (size_t i = 0; i < Backend->Events.size(); i++) {
       CHIPEvent *ChipEvent = Backend->Events[i];
 
       assert(ChipEvent);
@@ -580,8 +580,8 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
                                    CHIPDeviceLevel0 *Dev, std::string HostFName,
                                    OCLFuncInfo *FuncInfo,
                                    CHIPModuleLevel0 *Parent)
-    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Module(Parent),
-      Device(Dev), Name_(HostFName) {
+    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Name_(HostFName),
+      Module(Parent), Device(Dev) {
   logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
 
   ze_kernel_properties_t Props = {ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, 0};
@@ -723,7 +723,7 @@ void CHIPQueueLevel0::initializeQueueGroupProperties() {
   ze_command_queue_group_properties_t *CmdqueueGroupProperties =
       (ze_command_queue_group_properties_t *)malloc(
           CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
-  for (int i = 0; i < CmdqueueGroupCount; i++) {
+  for (uint32_t i = 0; i < CmdqueueGroupCount; i++) {
     CmdqueueGroupProperties[i] = {
         ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, // stype
         nullptr,                                          // pNext
@@ -1054,7 +1054,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
 
   if (NumEventsToWaitFor > 0) {
     EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
-    for (int i = 0; i < NumEventsToWaitFor; i++) {
+    for (size_t i = 0; i < NumEventsToWaitFor; i++) {
       CHIPEventLevel0 *ChipEventLz = (CHIPEventLevel0 *)(*EventsToWaitFor)[i];
       CHIPASSERT(ChipEventLz);
       EventHandles[i] = ChipEventLz->get();
@@ -1163,7 +1163,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ pool creation fail! ");
 
-  for (int i = 0; i < Size_; i++) {
+  for (unsigned i = 0; i < Size_; i++) {
     CHIPEventFlags Flags;
     Events_.push_back(new CHIPEventLevel0(Ctx_, this, i, Flags));
     FreeSlots_.push(i);
@@ -1171,7 +1171,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 };
 
 LZEventPool::~LZEventPool() {
-  for (int i = 0; i < Size_; i++) {
+  for (unsigned i = 0; i < Size_; i++) {
     delete Events_[i];
   }
 
@@ -1319,7 +1319,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
   // Filter in only devices of selected type and add them to the
   // backend as derivates of CHIPDevice
-  for (int i = 0; i < DeviceCount; i++) {
+  for (uint32_t i = 0; i < DeviceCount; i++) {
     auto Dev = ZeDevices[i];
     ze_device_properties_t DeviceProperties{};
     DeviceProperties.pNext = nullptr;
@@ -1884,7 +1884,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   for (auto &Kernel : KernelNames)
     logTrace("Kernel {}", Kernel);
-  for (int i = 0; i < KernelCount; i++) {
+  for (uint32_t i = 0; i < KernelCount; i++) {
     std::string HostFName = KernelNames[i];
     logTrace("Registering kernel {}", HostFName);
 

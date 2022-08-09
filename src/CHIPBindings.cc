@@ -2099,7 +2099,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   NULLCHECK(Dst);
   Stream = Backend->findQueue(Stream);
   hipError_t Res = hipSuccess;
-  for (int i = 0; i < Height; i++) {
+  for (size_t i = 0; i < Height; i++) {
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
@@ -2150,9 +2150,9 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
 
   // Check if extents don't overextend the allocation?
 
-  auto Width = Extent.width;
-  auto Height = Extent.height;
-  auto Depth = Extent.depth;
+  size_t Width = Extent.width;
+  size_t Height = Extent.height;
+  size_t Depth = Extent.depth;
 
   if (PitchedDevPtr.pitch == Extent.width) {
     return hipMemsetAsync(PitchedDevPtr.ptr, Value, Width * Height * Depth,
@@ -2165,8 +2165,8 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   auto Dst = PitchedDevPtr.ptr;
 
   hipError_t Res = hipSuccess;
-  for (int i = 0; i < Depth; i++)
-    for (int j = 0; j < Height; j++) {
+  for (size_t i = 0; i < Depth; i++)
+    for (size_t j = 0; j < Height; j++) {
       size_t SizeBytes = Width;
       auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
       char *DstP = (char *)Dst;

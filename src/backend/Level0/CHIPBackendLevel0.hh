@@ -239,7 +239,7 @@ public:
   CHIPEventLevel0 *getEventFromPool() {
 
     // go through all pools and try to get an allocated event
-    for (int i = 0; i < EventPools_.size(); i++) {
+    for (size_t i = 0; i < EventPools_.size(); i++) {
       CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
       if (Event)
         return Event;
