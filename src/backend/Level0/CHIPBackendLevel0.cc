@@ -1389,8 +1389,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       CHIPHostAllocFlags Flags) {
 
   void *Ptr = 0;
-  logWarn("Ignoring alignment. Using hardcoded value 0x1000");
-  Alignment = 0x1000; // TODO Where/why
 
   ze_device_mem_alloc_flags_t DeviceFlags =
       ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
