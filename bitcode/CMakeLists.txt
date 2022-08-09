@@ -25,12 +25,13 @@ else()
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
+set(BITCODE_COMPILE_FLAGS "${CLANG_CL_NO_STDINC_FLAG}"
+  -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
+  --target=${BC_TRIPLE} -emit-llvm ${DISABLE_OPAQUE_PTRS_OPT})
+
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc"
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/devicelib.cl"
-  COMMAND "${CMAKE_CXX_COMPILER}"
-  "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
-  -O2 -x cl -cl-std=CL2.0
-  --target=${BC_TRIPLE} -emit-llvm
+  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
   -o "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/devicelib.cl"
   COMMENT "Building devicelib.bc"
@@ -40,10 +41,7 @@ list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/devicelib.bc")
 # Support function(s) for printf().
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
-  COMMAND "${CMAKE_CXX_COMPILER}"
-  "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
-  -O2 -x cl -cl-std=CL2.0
-  --target=spir64-unknown-unknown -emit-llvm
+  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
   -o "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/_cl_print_str.cl"
   COMMENT "Building printf_support.bc"
@@ -52,10 +50,7 @@ list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/printf_support.bc")
 
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc"
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/texture.cl"
-  COMMAND "${CMAKE_CXX_COMPILER}"
-  "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
-  -O2 -x cl -cl-std=CL2.0
-  --target=${BC_TRIPLE} -emit-llvm
+  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
   -o "${CMAKE_CURRENT_BINARY_DIR}/BC/texture.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/texture.cl"
   COMMENT "Building texture.bc"
@@ -69,10 +64,7 @@ foreach(SOURCE IN LISTS SOURCES)
   add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
-    COMMAND "${CMAKE_CXX_COMPILER}"
-    "${CLANG_CL_NO_STDINC_FLAG}" -Xclang -finclude-default-header
-    -O2 -pthread -x cl -cl-std=CL2.0
-    --target=${BC_TRIPLE} -emit-llvm
+    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
     -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     -c "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
     COMMENT "Building ${SOURCE}.bc"
