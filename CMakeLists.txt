@@ -69,8 +69,6 @@ if(LevelZero_LIBRARY)
 endif()
 
 set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "CHIP-SPV source directory")
-set(CLANG_VERSION_LESS_14 FALSE CACHE INTERNAL "Clang version < 14.0")
-set(CLANG_VERSION_LESS_15 FALSE CACHE INTERNAL "Clang version < 15.0")
 
 set(CHIP_SPV_LINK_FLAGS "")
 set(CHIP_SPV_COMPILE_FLAGS "")
@@ -119,33 +117,6 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 ###############################################################################
 # CHIP-SPV CMAKE OPTIONS PARSING
-if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
-   (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
-    message(FATAL_ERROR "this project requires clang >= 8.0")
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0.0)
-    set(CLANG_VERSION_LESS_16 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
-    set(CLANG_VERSION_LESS_15 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
-    message(WARNING "Deprecated clang version '${CMAKE_CXX_COMPILER_VERSION}'. \
-            Support for Clang < 14.0 will be discontinued in the future.")
-    set(CLANG_VERSION_LESS_14 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0.0)
-    set(CLANG_VERSION_LESS_13 ON)
-  endif()
-
-else()
-  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
-endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 if (NOT CLANG_VERSION_LESS_15)
