@@ -110,7 +110,20 @@ GlobalVariable *findGlobalStr(Value *Arg) {
 // NumberOfFormatSpecs to returns it as a final return value.
 static std::vector<std::string>
 getFormatStringPieces(Value *FmtStrArg, unsigned &NumberOfFormatSpecs) {
-  auto *OrigFmtStr = findGlobalStr(FmtStrArg);
+
+  Value *Temp = FmtStrArg;
+
+  // the ARG is a GEP, get the first operand
+  if (Instruction *I = dyn_cast<Instruction>(Temp)) {
+    Temp = I->getOperand(0);
+  }
+
+  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Temp)) {
+    Temp = CE->getOperand(0);
+  }
+
+  GlobalVariable *OrigFmtStr = findGlobalStr(Temp);
+
   std::vector<std::string> FmtStrPieces;
   ConstantDataSequential *FmtStrData =
       dyn_cast<ConstantDataSequential>(OrigFmtStr->getInitializer());
@@ -214,27 +227,24 @@ HipPrintfToOpenCLPrintfPass::getOrCreateStrLiteralArg(const std::string &Str,
   if (LiteralArg != nullptr)
     return LiteralArg;
 
-  LiteralArg = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
-                                    SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
-
 #if LLVM_VERSION_MAJOR >= 15
+  assert(B.getContext().hasSetOpaquePointersValue());
+
   if (B.getContext().supportsTypedPointers()) {
 #endif
+    GlobalVariable *LiteralStr = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
+                                            SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
+
     IntegerType *Int64Ty = Type::getInt64Ty(M_->getContext());
     ConstantInt *Zero = ConstantInt::get(Int64Ty, 0);
     std::array<Constant *, 2> Indices = {Zero, Zero};
 
-    PointerType *PtrTy =
-        cast<PointerType>(LiteralArg->getType()->getScalarType());
-
     LiteralArg = llvm::ConstantExpr::getGetElementPtr(
-#if LLVM_VERSION_MAJOR >= 15
-        PtrTy->getNonOpaquePointerElementType(),
-#else
-      PtrTy->getElementType(),
-#endif
-        LiteralArg, Indices);
-#if LLVM_VERSION_MAJOR >= 15
+               LiteralStr->getValueType(), LiteralStr, Indices);
+#if LLVM_VERSION_MAJOR == 15
+  } else {
+    LiteralArg = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
+                              SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
   }
 #endif
 
@@ -272,6 +282,8 @@ static Function* getCalledFunction(CallInst *CI, const LLVMContext &Ctx) {
   // A call with mismatched call signature.
 
 #if LLVM_VERSION_MAJOR > 14
+  assert(Ctx.hasSetOpaquePointersValue());
+
   if (!Ctx.supportsTypedPointers())
     return cast<Function>(CI->getCalledOperand());
 #endif
@@ -291,7 +303,8 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
   GlobalValue *HipPrintf = Mod.getNamedValue(ORIG_PRINTF_FUNC_NAME);
 
   // No printf decl in the module, no printf calls to handle.
-  if (Printf == nullptr)
+  // 1 use if the "printf" is only used by "_cl_printf"
+  if (Printf == nullptr || Printf->getNumUses() == 1)
     return PreservedAnalyses::all();
   LLVM_DEBUG(dbgs() << "Found printf decl: "; Printf->dump());
 
@@ -331,12 +344,21 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
     SmallPtrSet<Instruction *, 8> EraseList;
     for (auto &BB : F) {
       for (auto &I : BB) {
-        auto *CI = dyn_cast<CallInst>(&I);
+        CallInst *CI = dyn_cast<CallInst>(&I);
         if (!CI)
           continue;
-        auto *Callee = getCalledFunction(CI, Ctx);
-        if (!Callee)
-          continue; // CI is indirect call.
+
+        Function *Callee = getCalledFunction(CI, Ctx);
+        if (!Callee) {
+          // There is a call signature mismatch if getCalledFunction() returns
+          // nullptr.
+          Value *CalledOpV = CI->getCalledOperand();
+          Instruction *CalledOpInst = dyn_cast<Instruction>(CalledOpV);
+          assert(CalledOpInst->getOpcode() == Instruction::BitCast);
+          Callee = cast<Function>(CalledOpInst->getOperand(0));
+          if (Callee == nullptr)
+            llvm_unreachable("callee is not a function!");
+        }
         if (Callee->getName() != ORIG_PRINTF_FUNC_NAME)
           continue;
 

@@ -90,6 +90,10 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
     message(FATAL_ERROR "this project requires clang >= 8.0")
   endif()
 
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0.0)
+    set(CLANG_VERSION_LESS_16 ON)
+  endif()
+
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
     set(CLANG_VERSION_LESS_15 ON)
   endif()
@@ -99,6 +103,11 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
             Support for Clang < 14.0 will be discontinued in the future.")
     set(CLANG_VERSION_LESS_14 ON)
   endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0.0)
+    set(CLANG_VERSION_LESS_13 ON)
+  endif()
+
 else()
   message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()
@@ -199,7 +208,7 @@ add_subdirectory(bitcode)
 
 enable_testing()
 add_subdirectory(HIP/tests/catch catch)
-
+add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
 
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
@@ -207,6 +216,10 @@ add_subdirectory(./samples samples)
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
+
+# CHIP binaries
+add_subdirectory(bin)
+
 # CHIP-SPV CMAKE DEPENDENCIES
 ###############################################################################
 
@@ -223,7 +236,10 @@ target_link_libraries(CHIP INTERFACE ${OpenCL_LIBRARY} ${LevelZero_LIBRARY} ${PT
 target_include_directories(CHIP
   PUBLIC
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include;${CMAKE_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cuspv>"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
@@ -262,7 +278,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_
   ${HIP_LINK_DEVICELIB_INSTALL})
 
 # HIP applicaitons need to link against libCHIP.so; add it to rpath
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR} -lCHIP")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-L${LIB_INSTALL_DIR}" "-lCHIP")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-lOpenCL")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_  "-lze_loader")
 if(SET_RPATH)
@@ -283,18 +299,15 @@ add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE 
   ${HIP_ENABLE_SPIRV} 
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_options(deviceInternal INTERFACE 
-  ${HIP_LINK_DEVICELIB_BUILD}
-  ${HIP_OFFLOAD_LINK_OPTIONS})
+  ${HIP_LINK_DEVICELIB_BUILD})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE 
   ${HIP_ENABLE_SPIRV} 
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_OFFLOAD_COMPILE_AND_LINK_OPTIONS_} 
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE 
   ${HIP_LINK_DEVICELIB_INSTALL})

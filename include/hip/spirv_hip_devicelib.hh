@@ -210,14 +210,6 @@ EXPORT float frexpf(float f, int *i);
 EXPORT double frexp(double f, int *i);
 #endif
 
-EXPORT unsigned long long int ullmin(const unsigned long long int a,
-                                     const unsigned long long int b);
-EXPORT unsigned long long int ullmax(const unsigned long long int a,
-                                     const unsigned long long int b);
-EXPORT unsigned int ullmin(const unsigned int a, const unsigned int b);
-EXPORT unsigned int umin(const unsigned int a, const unsigned int b);
-EXPORT unsigned int umax(const unsigned int a, const unsigned int b);
-
 DEFOPENCL2F(hypot)
 DEFOPENCL1INT(ilogb)
 
@@ -564,6 +556,9 @@ NON_OVLD int GEN_NAME(group_any)(int predicate);
 NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 }
 
+unsigned __activemask()
+    __attribute__((unavailable("unsupported in CHIP-SPV.")));
+
 // memory routines
 
 /**********************************************************************/
@@ -571,6 +566,9 @@ NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
 #else
 EXPORT float __saturatef(float x);
 EXPORT void __sincosf(float x, float *sptr, float *cptr);
+
+EXPORT unsigned __activemask()
+    __attribute__((unavailable("unsupported in CHIP-SPV.")));
 
 #endif
 
@@ -912,26 +910,6 @@ EXPORT unsigned int __usad(unsigned int x, unsigned int y, unsigned int z) {
 #define CHAR_BIT 8
 #endif
 
-// BEGIN INTEGER
-EXPORT int abs(int x) {
-  int sgn = x >> (sizeof(int) * CHAR_BIT - 1);
-  return (x ^ sgn) - sgn;
-}
-EXPORT long labs(long x) {
-  long sgn = x >> (sizeof(long) * CHAR_BIT - 1);
-  return (x ^ sgn) - sgn;
-}
-EXPORT long long llabs(long long x) {
-  long long sgn = x >> (sizeof(long long) * CHAR_BIT - 1);
-  return (x ^ sgn) - sgn;
-}
-
-#if defined(__cplusplus)
-EXPORT long abs(long x) { return labs(x); }
-EXPORT long long abs(long long x) { return llabs(x); }
-#endif
-// END INTEGER
-
 EXPORT float fma(float x, float y, float z) { return fmaf(x, y, z); }
 
 EXPORT api_half fma(api_half x, api_half y, api_half z) {
@@ -1057,9 +1035,6 @@ __DEF_FUN1(double, trunc);
   EXPORT                                                                       \
   float func(float x, int y) { return func##f(x, y); }
 __DEF_FLOAT_FUN2I(scalbn)
-
-EXPORT int min(int arg1, int arg2) { return (arg1 < arg2) ? arg1 : arg2; }
-EXPORT int max(int arg1, int arg2) { return (arg1 > arg2) ? arg1 : arg2; }
 
 EXPORT float max(float x, float y) { return fmaxf(x, y); }
 

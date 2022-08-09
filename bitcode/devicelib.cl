@@ -769,9 +769,6 @@ EXPORT float CL_NAME2(shfl_down, f)(float var, uint delta) {
   return intel_sub_group_shuffle_down(var, tmp2, delta);
 };
 
-
-
-
 typedef struct {
   intptr_t  image;
   intptr_t  sampler;

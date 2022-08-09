@@ -2648,12 +2648,15 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   CHIP_CATCH
 }
 
-hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr, const void *Func) {
+hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
+                                const void *HostFunction) {
   CHIP_TRY
   CHIPInitialize();
 
-  UNIMPLEMENTED(hipErrorNotSupported);
-  RETURN(hipSuccess);
+  CHIPDevice *Dev = Backend->getActiveDevice();
+  CHIPKernel *Kernel = Dev->findKernelByHostPtr(HostFunction);
+  hipError_t Res = Kernel->getAttributes(Attr);
+  RETURN(Res);
 
   CHIP_CATCH
 }
@@ -3203,6 +3206,17 @@ __hipRegisterVar(void **Data,
 
   CHIP_CATCH_NO_RETURN
 }
+
+/*
+ *
+__hipRegisterTexture (void **fatCubinHandle,
+                       const struct textureReference *hostVar, // shadow variable in host code
+                       const void **deviceAddress, // actually variable name
+                       const char *deviceName, // variable name, same as ^^
+                       int TextureType, // 1D/2D/3D
+                       int Normalized, //
+                       int Extern)
+*/
 
 hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
   CHIP_TRY

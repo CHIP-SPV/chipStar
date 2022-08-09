@@ -15,12 +15,14 @@
 const std::string OpenCLStd{"OpenCL.std"};
 
 class SPIRVtype {
+  int32_t Id_;
   size_t Size_;
 
 public:
-  SPIRVtype(size_t Size) : Size_(Size) {}
+  SPIRVtype(int32_t Id, size_t Size) : Id_(Id), Size_(Size) {}
   virtual ~SPIRVtype(){};
   size_t size() { return Size_; }
+  int32_t id() { return Id_; }
   virtual OCLType ocltype() = 0;
   virtual OCLSpace getAS() { return OCLSpace::Private; }
 };
@@ -29,31 +31,31 @@ typedef std::map<int32_t, SPIRVtype *> SPIRTypeMap;
 
 class SPIRVtypePOD : public SPIRVtype {
 public:
-  SPIRVtypePOD(int32_t Id, size_t Size) : SPIRVtype(Size) {}
+  SPIRVtypePOD(int32_t Id, size_t Size) : SPIRVtype(Id, Size) {}
   virtual ~SPIRVtypePOD(){};
   virtual OCLType ocltype() override { return OCLType::POD; }
 };
 
 class SPIRVtypeOpaque : public SPIRVtype {
+  std::string Name;
 public:
-  SPIRVtypeOpaque(int32_t Id)
-      : SPIRVtype(0) // Opaque types are unsized.
-  {}
+  SPIRVtypeOpaque(int32_t Id, std::string &&Name)
+      : SPIRVtype(Id, 0), Name(Name) {} // Opaque types are unsized.
   virtual ~SPIRVtypeOpaque(){};
   virtual OCLType ocltype() override { return OCLType::Opaque; }
 };
 
-class SPIRVtypeImage : public SPIRVtypeOpaque {
+class SPIRVtypeImage : public SPIRVtype {
 public:
-  SPIRVtypeImage(int32_t Id) : SPIRVtypeOpaque(Id) {}
+  SPIRVtypeImage(int32_t Id) : SPIRVtype(Id, 0) {}
   virtual ~SPIRVtypeImage(){};
   virtual OCLType ocltype() override { return OCLType::Image; }
   virtual OCLSpace getAS() override { return OCLSpace::Unknown; }
 };
 
-class SPIRVtypeSampler : public SPIRVtypeOpaque {
+class SPIRVtypeSampler : public SPIRVtype {
 public:
-  SPIRVtypeSampler(int32_t Id) : SPIRVtypeOpaque(Id) {}
+  SPIRVtypeSampler(int32_t Id) : SPIRVtype(Id, 0) {}
   virtual ~SPIRVtypeSampler(){};
   virtual OCLType ocltype() override { return OCLType::Sampler; }
   virtual OCLSpace getAS() override { return OCLSpace::Constant; }
@@ -64,7 +66,7 @@ class SPIRVtypePointer : public SPIRVtype {
 
 public:
   SPIRVtypePointer(int32_t Id, int32_t StorClass, size_t PointerSize)
-      : SPIRVtype(PointerSize) {
+      : SPIRVtype(Id, PointerSize) {
     switch (StorClass) {
     case (int32_t)spv::StorageClass::CrossWorkgroup:
       ASpace_ = OCLSpace::Global;
@@ -157,6 +159,11 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpExtInstImport) {
+      const char *Pp = (const char *)(Stream + 2);
+      Extra_ = Pp;
+    }
+
+    if (Opcode_ == spv::Op::OpTypeOpaque) {
       const char *Pp = (const char *)(Stream + 2);
       Extra_ = Pp;
     }
@@ -270,7 +277,7 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpTypeOpaque) {
-      return new SPIRVtypeOpaque(Word1_);
+      return new SPIRVtypeOpaque(Word1_, std::move(Extra_));
     }
 
     if (Opcode_ == spv::Op::OpTypeImage) {

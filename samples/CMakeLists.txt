@@ -3,6 +3,8 @@
 option(SAVE_TEMPS "Save temporary compilation products" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 
+set(CHIP_SAMPLE_BINDIR bin/chip_spv_samples)
+
 if(SAVE_TEMPS)
   add_compile_options("--save-temps")
 endif()
@@ -121,4 +123,4 @@ foreach (SAMPLE ${SAMPLES})
   add_subdirectory(${SAMPLE})
 endforeach()
 
-#add_subdirectory(hip-cuda)
+add_subdirectory(cuda_samples)
