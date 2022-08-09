@@ -1240,15 +1240,17 @@ void CHIPBackendLevel0::uninitialize() {
   StaleEventMonitor->Stop = true;
   StaleEventMonitor->join();
 
-  logWarn("Remaining {} events that haven't been collected:",
-          Backend->Events.size());
-  for (auto E : Backend->Events)
-    logWarn("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-            E->getCHIPRefc());
-
-  logWarn("Remaining {} command lists that haven't been collected:",
-          ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  if (Backend->Events.size()) {
+    logDebug("Remaining {} events that haven't been collected:",
+             Backend->Events.size());
+    for (auto *E : Backend->Events)
+      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+               E->getCHIPRefc());
+    logDebug("Remaining {} command lists that haven't been collected:",
+             ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  }
 }
+
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
   return std::string(
       "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
