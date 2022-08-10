@@ -1959,8 +1959,19 @@ void CHIPExecItem::setupAllArgs() {
       } else {
         logTrace("setArg {} size {} addr {}\n", OutArgIdx, ArgTypeInfo.Size,
                  ArgsPointer_[InArgIdx]);
-        ze_result_t Status = zeKernelSetArgumentValue(
-            Kernel->get(), OutArgIdx, ArgTypeInfo.Size, ArgsPointer_[InArgIdx]);
+        ze_result_t Status;
+        void **Ptr = (void **)ArgsPointer_[InArgIdx];
+        // NULL pointers as kernel argument require special handling
+        if ((ArgTypeInfo.Type == OCLType::Pointer) &&
+            (ArgTypeInfo.Space != OCLSpace::Local) && (*Ptr == nullptr)) {
+          logTrace("setArg was given NULL");
+          Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
+                                            ArgTypeInfo.Size, nullptr);
+        } else {
+          Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
+                                            ArgTypeInfo.Size,
+                                            ArgsPointer_[InArgIdx]);
+        }
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");
       }
