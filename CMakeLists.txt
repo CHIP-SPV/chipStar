@@ -105,6 +105,8 @@ option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream.
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
 option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
+option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
+option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -211,7 +213,6 @@ enable_testing()
 add_subdirectory(HIP/tests/catch catch)
 add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
-
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
