@@ -283,7 +283,6 @@ BitonicSort::runKernels(void)
 
     // allocate and init memory used by host
 
-    hipHostMalloc((void**)&inputBuffer,length * sizeof(unsigned int), hipHostMallocDefault);
     unsigned int *din;
     hipHostGetDevicePointer((void**)&din, inputBuffer,0);
     hipMemcpy(din, input,length * sizeof(unsigned int), hipMemcpyHostToDevice);
@@ -499,6 +498,8 @@ int BitonicSort::setup()
     sampleTimer->stopTimer(timer);
 
     setupTime = (double)sampleTimer->readTimer(timer);
+
+    hipHostMalloc((void**)&inputBuffer,length * sizeof(unsigned int), hipHostMallocDefault);
 
     return SDK_SUCCESS;
 }
