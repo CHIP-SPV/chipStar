@@ -507,7 +507,7 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
-  std::once_flag TrackCalled;
+  bool TrackCalled_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
@@ -537,7 +537,7 @@ public:
     }
   }
   void trackImpl();
-  void track() { std::call_once(TrackCalled, &CHIPEvent::trackImpl, this); }
+  void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;

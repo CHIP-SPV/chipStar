@@ -24,6 +24,8 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
     HIPCL requires Shared Virtual Memory and clCreateProgramWithIL()
     support
 
+*NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`
+
 ## Downloading and Building Clang
 
 Downloading:
