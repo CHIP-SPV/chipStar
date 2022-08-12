@@ -474,25 +474,37 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
-  logTrace("CHIPEventMonitorLevel0::monitor()");
-  while (Backend->CallbackQueue.size()) {
-    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
+  CHIPCallbackDataLevel0 *CallbackData;
+  while (true) {
+    {
 
-    // get the callback item
-    CHIPCallbackDataLevel0 *CallbackData =
-        (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+      if (Stop) {
+        logTrace(
+            "CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting thread");
+        pthread_exit(0);
+      }
 
-    // Lock the item and members
-    std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
-    Backend->CallbackQueue.pop();
+      std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
 
-    // Update Status
-    CallbackData->GpuReady->updateFinishStatus(false);
-    if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
-      // if not ready, push to the back
-      Backend->CallbackQueue.push(CallbackData);
-      pthread_yield();
-      continue;
+      // get the callback item
+      CallbackData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+      if (!CallbackData) // Callback stack empty
+        continue;
+
+      // Lock the item and members
+      std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
+      Backend->CallbackQueue.pop();
+
+      // Update Status
+      logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
+               "status for {}",
+               (void *)CallbackData->GpuReady);
+      CallbackData->GpuReady->updateFinishStatus(false);
+      if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+        // if not ready, push to the back
+        Backend->CallbackQueue.push(CallbackData);
+        continue;
+      }
     }
 
     CallbackData->execute(hipSuccess);
@@ -502,19 +514,15 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
     delete CallbackData;
     pthread_yield();
   }
-  logTrace("CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting thread");
-  pthread_exit(0);
 }
 
 void CHIPStaleEventMonitorLevel0::monitor() {
-  logTrace("CHIPStaleEventMonitorLevel0::monitor()");
   // Stop is false and I have more events
-
   while (!Stop) {
     usleep(20000);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
-    logTrace("num Events {} num queues() {}", Backend->Events.size(),
-             LzBackend->EventCommandListMap.size());
+    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
+             Backend->Events.size(), LzBackend->EventCommandListMap.size());
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
@@ -1232,14 +1240,20 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
-  logDebug("CHIPBackend::uninitialize()");
+  std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+  std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
 
+  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent for all queues");
   for (auto Q : Backend->getQueues())
     Q->updateLastEvent(nullptr);
 
-  if (CallbackEventMonitor)
+  if (CallbackEventMonitor) {
+    logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
+    StaleEventMonitor->Stop = true;
     CallbackEventMonitor->join();
+  }
 
+  logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
   StaleEventMonitor->Stop = true;
   StaleEventMonitor->join();
 
