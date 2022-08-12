@@ -757,6 +757,14 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
   return;
 }
 
+void CHIPEvent::track() {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  if (!TrackCalled_) {
+    trackImpl();
+    TrackCalled_ = true;
+  }
+}
+
 void CHIPEvent::trackImpl() {
   std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
   Backend->Events.push_back(this);

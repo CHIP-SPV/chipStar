@@ -179,6 +179,14 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // CHIPEventLevel0
 // ***********************************************************************
 
+void CHIPEventLevel0::reset() {
+  auto Status = zeEventHostReset(get());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  std::lock_guard<std::mutex> Lock(Mtx);
+  TrackCalled_ = false;
+  EventStatus_  = EVENT_STATUS_INIT;
+}
+
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
 
 ze_event_handle_t CHIPEventLevel0::get() {
@@ -1182,11 +1190,7 @@ CHIPEventLevel0 *LZEventPool::getEvent() {
   if (PoolIndex == -1)
     return nullptr;
   auto Event = Events_[PoolIndex];
-
-  // reset event
-  auto Status = zeEventHostReset(Event->get());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Event->TrackCalled = false;
+  Event->reset();
 
   return Event;
 };
