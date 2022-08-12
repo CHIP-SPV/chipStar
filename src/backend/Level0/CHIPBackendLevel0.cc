@@ -184,7 +184,7 @@ void CHIPEventLevel0::reset() {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   std::lock_guard<std::mutex> Lock(Mtx);
   TrackCalled_ = false;
-  EventStatus_  = EVENT_STATUS_INIT;
+  EventStatus_ = EVENT_STATUS_INIT;
 }
 
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
@@ -560,7 +560,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
-
       }
 
     } // done collecting events to delete
