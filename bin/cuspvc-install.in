@@ -4,6 +4,6 @@
 # CUDA sources are compiled in HIP mode with an include search path to
 # cuda_runtime.h wrapper which translates CUDA API to HIP API.
 export HIP_PLATFORM=spirv
-# Add path for locating hipcc.
-export PATH=@CMAKE_INSTALL_PREFIX@/bin:$PATH
+# Set PATH for locating hipcc and clang.
+export PATH=@CLANG_BIN_DIR@:@CMAKE_INSTALL_PREFIX@/bin:$PATH
 hipcc -I@CMAKE_INSTALL_PREFIX@/include/cuspv "$@"

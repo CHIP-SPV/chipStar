@@ -1,3 +1,7 @@
+
+# For telling cuspvc where to look for clang.
+get_filename_component(CLANG_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+
 # Read includes, prepend each one with -I.
 set(prop "$<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>")
 set(CHIP_INCLUDES "$<$<BOOL:${prop}>:-I$<JOIN:${prop}, -I>>")
