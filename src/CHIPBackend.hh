@@ -507,7 +507,7 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
-  std::once_flag TrackCalled;
+  bool TrackCalled = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
@@ -537,7 +537,14 @@ public:
     }
   }
   void trackImpl();
-  void track() { std::call_once(TrackCalled, &CHIPEvent::trackImpl, this); }
+  void track() {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    //std::call_once(TrackCalled, &CHIPEvent::trackImpl, this);
+    if (!TrackCalled) {
+      trackImpl();
+      TrackCalled = true;
+    }
+  }
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;
@@ -548,6 +555,11 @@ public:
              (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
+      if (*Refc_ == 0) {
+        Msg = "INVALID";
+        TrackCalled = false;
+        EventStatus_ = EVENT_STATUS_INIT;
+      }
     } else {
       logError("CHIPEvent::decreaseRefCount() called when refc == 0");
     }

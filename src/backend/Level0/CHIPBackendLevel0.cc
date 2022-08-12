@@ -546,6 +546,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         // Check if this event is associated with a CommandList
         bool CommandListFound = EventCommandListMap->count(E);
         if (CommandListFound) {
+          logDebug("Erase cmdlist assoc w/ event: {}", (void *)E);
           auto CommandList = (*EventCommandListMap)[E];
           EventCommandListMap->erase(E);
           auto Status = zeCommandListDestroy(CommandList);
@@ -555,7 +556,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         // Add the most course-grain lock here in case event destructor is not
         // thread-safe
         std::lock_guard Lock(Backend->Mtx);
-        delete E;
+        if (!E->EventPool) // Delete event if not owned by an event pool.
+          delete E;
       }
 
     } // done collecting events to delete
@@ -1119,12 +1121,13 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     // Associate this event with the command list. Once the events are signaled,
     // CHIPEventMonitorLevel0 will destroy the command list
 
+    logDebug("assoc event {} w/ cmdlist", (void *)LastCmdListEvent);
     ((CHIPBackendLevel0 *)Backend)
         ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent] =
         CommandList;
 
-    Status = zeCommandListAppendBarrier(CommandList, LastCmdListEvent->get(), 0,
-                                        nullptr);
+    Status = zeCommandListAppendBarrier(CommandList, LastCmdListEvent->peek(),
+                                        0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
     Status = zeCommandListClose(CommandList);
