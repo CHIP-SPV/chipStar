@@ -1,6 +1,16 @@
+//===- HipTextureLowering.cpp ---------------------------------------------===//
+//
+// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 // A pass to lower HIP texture functions.
 //
 // (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
+//===----------------------------------------------------------------------===//
+
 #include "HipTextureLowering.h"
 
 #include "LLVMSPIRV.h"

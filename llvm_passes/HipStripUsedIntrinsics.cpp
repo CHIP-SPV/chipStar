@@ -1,3 +1,11 @@
+//===- HipStripUsedIntrinsics.cpp -----------------------------------------===//
+//
+// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 // LLVM pass to remove llvm.used and llvm.compiler.used intrinsic variables (see
 // LLVM lang ref for details) from HIP device code modules.
 //
@@ -8,6 +16,10 @@
 //
 // This pass is likely not needed when SPIR-V backend land on LLVM in the
 // future.
+//
+// (c) 2021-2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
+//===----------------------------------------------------------------------===//
+
 
 #include "HipStripUsedIntrinsics.h"
 
