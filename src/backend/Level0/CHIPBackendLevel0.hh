@@ -55,6 +55,8 @@ public:
 
   virtual void hostSignal() override;
 
+  void reset();
+
   ze_event_handle_t peek();
   ze_event_handle_t get();
 };

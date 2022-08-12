@@ -179,6 +179,14 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // CHIPEventLevel0
 // ***********************************************************************
 
+void CHIPEventLevel0::reset() {
+  auto Status = zeEventHostReset(get());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  std::lock_guard<std::mutex> Lock(Mtx);
+  TrackCalled_ = false;
+  EventStatus_ = EVENT_STATUS_INIT;
+}
+
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
 
 ze_event_handle_t CHIPEventLevel0::get() {
@@ -546,16 +554,12 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         // Check if this event is associated with a CommandList
         bool CommandListFound = EventCommandListMap->count(E);
         if (CommandListFound) {
+          logDebug("Erase cmdlist assoc w/ event: {}", (void *)E);
           auto CommandList = (*EventCommandListMap)[E];
           EventCommandListMap->erase(E);
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
-
-        // Add the most course-grain lock here in case event destructor is not
-        // thread-safe
-        std::lock_guard Lock(Backend->Mtx);
-        delete E;
       }
 
     } // done collecting events to delete
@@ -615,6 +619,7 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
   Attr->numRegs = 0;
   Attr->preferredShmemCarveout = 0;
   Attr->ptxVersion = 10;
+  return hipSuccess;
 }
 
 // CHIPQueueLevelZero
@@ -1119,12 +1124,13 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     // Associate this event with the command list. Once the events are signaled,
     // CHIPEventMonitorLevel0 will destroy the command list
 
+    logDebug("assoc event {} w/ cmdlist", (void *)LastCmdListEvent);
     ((CHIPBackendLevel0 *)Backend)
         ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent] =
         CommandList;
 
-    Status = zeCommandListAppendBarrier(CommandList, LastCmdListEvent->get(), 0,
-                                        nullptr);
+    Status = zeCommandListAppendBarrier(CommandList, LastCmdListEvent->peek(),
+                                        0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
     Status = zeCommandListClose(CommandList);
@@ -1183,10 +1189,7 @@ CHIPEventLevel0 *LZEventPool::getEvent() {
   if (PoolIndex == -1)
     return nullptr;
   auto Event = Events_[PoolIndex];
-
-  // reset event
-  auto Status = zeEventHostReset(Event->get());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  Event->reset();
 
   return Event;
 };
