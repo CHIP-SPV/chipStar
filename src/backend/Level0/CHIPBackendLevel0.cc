@@ -352,9 +352,9 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
     EventStatus_ = EVENT_STATUS_RECORDED;
 
   auto EventStatusNew = getEventStatusStr();
+  logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
+           EventStatusOld, EventStatusNew);
   if (EventStatusNew != EventStatusOld) {
-    logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
-             EventStatusOld, EventStatusNew);
     return true;
   }
 
@@ -475,7 +475,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
   CHIPCallbackDataLevel0 *CallbackData;
-  while (true) {
+  while (!Stop) {
     {
 
       if (Stop) {
@@ -521,12 +521,12 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   while (!Stop) {
     usleep(20000);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
-    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
-             Backend->Events.size(), LzBackend->EventCommandListMap.size());
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
     std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
+             Backend->Events.size(), LzBackend->EventCommandListMap.size());
     std::lock_guard<std::mutex> AllCommandListsLock(
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
 
@@ -1240,32 +1240,35 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
-  std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
-  std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
 
   logDebug("CHIPBackend::uninitialize(): Setting the LastEvent for all queues");
   for (auto Q : Backend->getQueues())
     Q->updateLastEvent(nullptr);
 
   if (CallbackEventMonitor) {
+    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
     logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
-    StaleEventMonitor->Stop = true;
+    CallbackEventMonitor->Stop = true;
     CallbackEventMonitor->join();
   }
 
-  logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
-  StaleEventMonitor->Stop = true;
-  StaleEventMonitor->join();
-
-  if (Backend->Events.size()) {
-    logDebug("Remaining {} events that haven't been collected:",
-             Backend->Events.size());
-    for (auto *E : Backend->Events)
-      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-               E->getCHIPRefc());
-    logDebug("Remaining {} command lists that haven't been collected:",
-             ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  {
+    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
+    logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
+    StaleEventMonitor->Stop = true;
   }
+  StaleEventMonitor->join();
+  return;
+
+  // if (Backend->Events.size()) {
+  //   logDebug("Remaining {} events that haven't been collected:",
+  //            Backend->Events.size());
+  //   for (auto *E : Backend->Events)
+  //     logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+  //              E->getCHIPRefc());
+  //   logDebug("Remaining {} command lists that haven't been collected:",
+  //            ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  // }
 }
 
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
