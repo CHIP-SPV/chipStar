@@ -1246,17 +1246,13 @@ void CHIPBackendLevel0::uninitialize() {
     Q->updateLastEvent(nullptr);
 
   if (CallbackEventMonitor) {
-    std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
     logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
     CallbackEventMonitor->Stop = true;
     CallbackEventMonitor->join();
   }
 
-  {
-    std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
-    logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
-    StaleEventMonitor->Stop = true;
-  }
+  logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
+  StaleEventMonitor->Stop = true;
   StaleEventMonitor->join();
   return;
 
