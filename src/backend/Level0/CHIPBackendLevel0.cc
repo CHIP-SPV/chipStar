@@ -1240,15 +1240,17 @@ void CHIPBackendLevel0::uninitialize() {
   StaleEventMonitor->Stop = true;
   StaleEventMonitor->join();
 
-  logWarn("Remaining {} events that haven't been collected:",
-          Backend->Events.size());
-  for (auto E : Backend->Events)
-    logWarn("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-            E->getCHIPRefc());
-
-  logWarn("Remaining {} command lists that haven't been collected:",
-          ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  if (Backend->Events.size()) {
+    logDebug("Remaining {} events that haven't been collected:",
+             Backend->Events.size());
+    for (auto *E : Backend->Events)
+      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+               E->getCHIPRefc());
+    logDebug("Remaining {} command lists that haven't been collected:",
+             ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  }
 }
+
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
   return std::string(
       "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
@@ -1389,8 +1391,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       CHIPHostAllocFlags Flags) {
 
   void *Ptr = 0;
-  logWarn("Ignoring alignment. Using hardcoded value 0x1000");
-  Alignment = 0x1000; // TODO Where/why
 
   ze_device_mem_alloc_flags_t DeviceFlags =
       ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
