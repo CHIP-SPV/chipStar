@@ -476,6 +476,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 void CHIPCallbackEventMonitorLevel0::monitor() {
   CHIPCallbackDataLevel0 *CallbackData;
   while (!Stop) {
+    usleep(20000);
+    std::lock_guard Lock(Mtx);
     {
 
       if (Stop) {
@@ -520,6 +522,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (!Stop) {
     usleep(20000);
+    std::lock_guard Lock(Mtx);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
@@ -1247,12 +1250,16 @@ void CHIPBackendLevel0::uninitialize() {
 
   if (CallbackEventMonitor) {
     logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
+    std::lock_guard Lock(CallbackEventMonitor->Mtx);
     CallbackEventMonitor->Stop = true;
-    CallbackEventMonitor->join();
   }
+  CallbackEventMonitor->join();
 
-  logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
-  StaleEventMonitor->Stop = true;
+  {
+    logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
+    std::lock_guard Lock(StaleEventMonitor->Mtx);
+    StaleEventMonitor->Stop = true;
+  }
   StaleEventMonitor->join();
   return;
 

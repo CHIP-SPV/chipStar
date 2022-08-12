@@ -289,6 +289,7 @@ protected:
   pthread_t Thread_;
 
 public:
+  std::mutex Mtx;
   volatile bool Stop = false;
 
   void join() { pthread_join(Thread_, nullptr); }
