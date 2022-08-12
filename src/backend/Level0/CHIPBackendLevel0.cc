@@ -553,11 +553,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
 
-        // Add the most course-grain lock here in case event destructor is not
-        // thread-safe
-        std::lock_guard Lock(Backend->Mtx);
-        if (!E->EventPool) // Delete event if not owned by an event pool.
-          delete E;
       }
 
     } // done collecting events to delete
@@ -1190,6 +1185,7 @@ CHIPEventLevel0 *LZEventPool::getEvent() {
   // reset event
   auto Status = zeEventHostReset(Event->get());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  Event->TrackCalled = false;
 
   return Event;
 };

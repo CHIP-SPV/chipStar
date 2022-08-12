@@ -506,8 +506,9 @@ class CHIPContext;
 class CHIPDevice;
 
 class CHIPEvent {
-protected:
+  public:
   bool TrackCalled = false;
+protected:
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
