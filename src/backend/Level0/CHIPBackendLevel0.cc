@@ -1523,13 +1523,9 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
                               hipErrorInitializationError);
 
   // Copy device name
-  if (255 < ZE_MAX_DEVICE_NAME) {
-    strncpy(HipDeviceProps_.name, HipDeviceProps_.name, 255);
-    HipDeviceProps_.name[255] = 0;
-  } else {
-    strncpy(HipDeviceProps_.name, HipDeviceProps_.name, ZE_MAX_DEVICE_NAME);
-    HipDeviceProps_.name[ZE_MAX_DEVICE_NAME - 1] = 0;
-  }
+  strncpy(HipDeviceProps_.name, ZeDeviceProps_.name,
+          std::min<size_t>(255, ZE_MAX_DEVICE_NAME));
+  HipDeviceProps_.name[255] = 0;
 
   // Get total device memory
   HipDeviceProps_.totalGlobalMem = DeviceMemProps.totalSize;
