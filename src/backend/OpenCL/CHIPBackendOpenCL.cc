@@ -218,12 +218,12 @@ void CHIPEventMonitorOpenCL::monitor() {
 // CHIPDeviceOpenCL
 // ************************************************************************
 
-cl::Device *CHIPDeviceOpenCL::get() { return ClDevice; }
 CHIPModuleOpenCL *CHIPDeviceOpenCL::addModule(std::string *ModuleStr) {
   CHIPModuleOpenCL *Module = new CHIPModuleOpenCL(ModuleStr);
   ChipModules.insert(std::make_pair(ModuleStr, Module));
   return Module;
 }
+
 CHIPTexture *
 CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
                                 const hipTextureDesc *TexDesc,
@@ -303,6 +303,13 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
            "pointer");
 }
 
+CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(CHIPContextOpenCL *ChipContext,
+                                           cl::Device *ClDevice, int Idx) {
+  CHIPDeviceOpenCL *Dev = new CHIPDeviceOpenCL(ChipContext, ClDevice, Idx);
+  Dev->init();
+  return Dev;
+}
+
 void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   logTrace("CHIPDeviceOpenCL->populate_device_properties()");
   cl_int Err;
@@ -347,8 +354,9 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   // The minimum subgroup size on an intel GPU
   if (ClDevice->getInfo<CL_DEVICE_TYPE>() == CL_DEVICE_TYPE_GPU) {
     std::vector<uint> Sg = ClDevice->getInfo<CL_DEVICE_SUB_GROUP_SIZES_INTEL>();
-    if (Sg.begin() != Sg.end())
-      HipDeviceProps_.warpSize = *std::min_element(Sg.begin(), Sg.end());
+    if (Sg.begin() != Sg.end()) {
+      HipDeviceProps_.warpSize = *std::max_element(Sg.begin(), Sg.end());
+    }
   }
   HipDeviceProps_.maxGridSize[0] = HipDeviceProps_.maxGridSize[1] =
       HipDeviceProps_.maxGridSize[2] = 65536;
@@ -1280,10 +1288,9 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   Backend->addContext(ChipContext);
   for (int i = 0; i < Devices.size(); i++) {
     cl::Device *Dev = new cl::Device(Devices[i]);
-    CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, Dev, i);
+    CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(ChipContext, Dev, i);
     logTrace("CHIPDeviceOpenCL {}",
              ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
-    ChipDev->populateDeviceProperties();
 
     // Add device to context & backend
     ChipContext->addDevice(ChipDev);
@@ -1308,9 +1315,8 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   addContext(ChipContext);
 
   cl::Device *Dev = new cl::Device(DevId);
-  CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, Dev, 0);
+  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(ChipContext, Dev, 0);
   logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
-  ChipDev->populateDeviceProperties();
 
   // Add device to context & backend
   ChipContext->addDevice(ChipDev);

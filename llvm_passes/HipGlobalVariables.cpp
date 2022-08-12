@@ -1,4 +1,29 @@
-// TODO: copyright.
+//===----------------------------------------------------------------------===//
+// (c) 2022 Parmance for Argonne National Laboratory
+//===----------------------------------------------------------------------===//
+
+// In HIP, __constant__ global scope variables in the device code can be accessed via a host API. Features and capabilities include:
+
+// * Reading and writing the variables,
+// * querying their size,
+// * taking addresses of them and
+// * passing the taken addresses to kernels (Note: HIP exclusive)
+
+// This API can be implemented in Level Zero with zeModuleGetGlobalPointer API function.
+// However, OpenCL does not have a corresponding API function. There is a non-public Intel extension,
+// clGetDeviceGlobalVariablePointerINTEL, which brings the functionality of zeModuleGetGlobalPointer,
+// but an address acquired by this API extension and being passed to kernels was tested to not work
+// (possibly a bug in Intel’s OpenCL implementation). Nonetheless, use of the vendor extension would
+// not be portable. Our implementation is designed such that it does not rely on vendor extensions
+// and thus making it portable to various OpenCL drivers in addition to LZ. The implementation
+// requires the OpenCL 2.0 coarse grained SVM capability from the OpenCL implementation.
+
+// In OpenCL, constant objects in global scope are immutable in contrast to HIP and CUDA where they
+// can be modified. Using constant global scope objects would block us from modifying them. This
+// aspect has been already covered in the upstreamed HIP-Clang by mapping HIP/CUDA __constant__
+// address space objects to global address space in OpenCL, or more specifically
+// - the CrossWorkGroup address space of the SPIR-V specification.
+
 
 #include "HipGlobalVariables.h"
 

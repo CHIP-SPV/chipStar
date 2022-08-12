@@ -83,15 +83,24 @@ void CHIPInitializeCallOnce(std::string BackendStr) {
     ChipBe = BackendStr;
   }
 
-  // TODO Check configuration for what backends are configured
   if (!ChipBe.compare("opencl")) {
-    if (UsingDefaultBackend)
-      logWarn("CHIP_BE was not set. Defaulting to OPENCL");
+#ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
+#else
+    CHIPERR_LOG_AND_THROW("Invalid CHIP-SPV Backend Selected. This CHIP-SPV "
+                          "was not compiled with OpenCL backend",
+                          hipErrorInitializationError);
+#endif
   } else if (!ChipBe.compare("level0")) {
+#ifdef HAVE_LEVEL0
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
+#else
+    CHIPERR_LOG_AND_THROW("Invalid CHIP-SPV Backend Selected. This CHIP-SPV "
+                          "was not compiled with Level0 backend",
+                          hipErrorInitializationError);
+#endif
   } else {
     CHIPERR_LOG_AND_THROW(
         "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
@@ -131,8 +140,9 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   // TODO Check configuration for what backends are configured
   if (!CHIPBackendType.compare("opencl")) {
     if (UsingDefaultBackend)
-      logWarn("CHIP_BE was not set. Defaulting to OPENCL");
-    logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
+      logDebug("CHIP_BE was not set. Defaulting to OPENCL");
+    else
+      logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
   } else if (!CHIPBackendType.compare("level0")) {
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");

@@ -1,37 +1,49 @@
-# Build LLVM-PASSES 
-set(LLVM_DIR "" CACHE PATH "Path to LLVM Instal with SPIR-V patches")
-if(LLVM_DIR STREQUAL "") 
-  message(STATUS "LLVM_DIR is not set. Setting LLVM_DIR to compiler bin directory.")
-  get_filename_component(LLVM_DIR "${CMAKE_CXX_COMPILER}../" DIRECTORY)
+if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
+   (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
+    message(FATAL_ERROR "this project requires clang >= 8.0")
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0.0)
+    set(CLANG_VERSION_LESS_16 ON)
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
+    set(CLANG_VERSION_LESS_15 ON)
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
+    message(WARNING "Deprecated clang version '${CMAKE_CXX_COMPILER_VERSION}'. \
+            Support for Clang < 14.0 will be discontinued in the future.")
+    set(CLANG_VERSION_LESS_14 ON)
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0.0)
+    set(CLANG_VERSION_LESS_13 ON)
+  endif()
+
+else()
+  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
-message(STATUS "Using Clang: ${CMAKE_CXX_COMPILER}")
+string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
+list(GET VERSION_LIST 0 CLANG_VERSION_MAJOR)
+get_filename_component(CLANG_BIN_NAME "${CMAKE_CXX_COMPILER}" NAME)
+if(CLANG_BIN_NAME MATCHES "clang[+][+](-${CLANG_VERSION_MAJOR})")
+  set(BINARY_VERSION_SUFFIX "-${CLANG_VERSION_MAJOR}")
+else()
+  set(BINARY_VERSION_SUFFIX)
+endif()
+
+#################################################################
+
 get_filename_component(CLANG_BIN_PATH "${CMAKE_CXX_COMPILER}" DIRECTORY)
-message(STATUS "Using LLVM Install: ${LLVM_DIR}")
-
-if(NOT DEFINED LLVM_LINK)
-  if(EXISTS "${CLANG_BIN_PATH}/llvm-link")
-    set(LLVM_LINK "${CLANG_BIN_PATH}/llvm-link" CACHE PATH "llvm-link")
-  else()
-    message(FATAL_ERROR "Can't find llvm-link at ${CLANG_BIN_PATH}. Please provide CMake argument -DLLVM_LINK=<path/to/llvm-link>")
-  endif()
-endif()
-
-message(STATUS "Using llvm-link: ${LLVM_LINK}")
-
-if(NOT DEFINED LLVM_SPIRV)
-  if(EXISTS "${CLANG_BIN_PATH}/llvm-spirv")
-    set(LLVM_SPIRV "${CLANG_BIN_PATH}/llvm-spirv" CACHE PATH "llvm-spirv")
-  else()
-    message(FATAL_ERROR "Can't find llvm-spirv at ${CLANG_BIN_PATH}. Please copy llvm-spirv to ${CLANG_BIN_PATH}, Clang expects it there!")
-  endif()
-endif()
-
-message(STATUS "Using llvm-spirv: ${LLVM_SPIRV}")
 
 if(NOT DEFINED LLVM_CONFIG)
   if(EXISTS "${CLANG_BIN_PATH}/llvm-config")
     set(LLVM_CONFIG "${CLANG_BIN_PATH}/llvm-config" CACHE PATH "llvm-config")
+  elseif(EXISTS "${CLANG_BIN_PATH}/llvm-config${BINARY_VERSION_SUFFIX}")
+    set(LLVM_CONFIG "${CLANG_BIN_PATH}/llvm-config${BINARY_VERSION_SUFFIX}" CACHE PATH "llvm-config")
   else()
     message(FATAL_ERROR "Can't find llvm-config at ${CLANG_BIN_PATH}. Please provide CMake argument -DLLVM_CONFIG=<path/to/llvm-config>")
   endif()
@@ -48,3 +60,38 @@ execute_process(COMMAND "${LLVM_CONFIG}" "--version"
   RESULT_VARIABLE RES
   OUTPUT_VARIABLE LLVM_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+##################################################################
+
+if(NOT DEFINED LLVM_LINK)
+  if(EXISTS "${CLANG_BIN_PATH}/llvm-link")
+    set(LLVM_LINK "${CLANG_BIN_PATH}/llvm-link" CACHE PATH "llvm-link")
+  elseif(EXISTS "${CLANG_BIN_PATH}/llvm-link${BINARY_VERSION_SUFFIX}")
+    set(LLVM_LINK "${CLANG_BIN_PATH}/llvm-link${BINARY_VERSION_SUFFIX}" CACHE PATH "llvm-link")
+  else()
+    message(FATAL_ERROR "Can't find llvm-link at ${CLANG_BIN_PATH}. Please install it into that directory")
+  endif()
+endif()
+message(STATUS "Using llvm-link: ${LLVM_LINK}")
+
+if(NOT DEFINED LLVM_SPIRV)
+  if(EXISTS "${CLANG_BIN_PATH}/llvm-spirv")
+    set(LLVM_SPIRV "${CLANG_BIN_PATH}/llvm-spirv" CACHE PATH "llvm-spirv")
+  elseif(EXISTS "${CLANG_BIN_PATH}/llvm-spirv${BINARY_VERSION_SUFFIX}")
+    set(LLVM_SPIRV "${CLANG_BIN_PATH}/llvm-spirv${BINARY_VERSION_SUFFIX}" CACHE PATH "llvm-spirv")
+  else()
+    message(FATAL_ERROR "Can't find llvm-spirv at ${CLANG_BIN_PATH}. Please install it into that directory")
+  endif()
+endif()
+message(STATUS "Using llvm-spirv: ${LLVM_SPIRV}")
+
+if(NOT DEFINED CLANG_OFFLOAD_BUNDLER)
+  if(EXISTS "${CLANG_BIN_PATH}/clang-offload-bundler")
+    set(CLANG_OFFLOAD_BUNDLER "${CLANG_BIN_PATH}/clang-offload-bundler" CACHE PATH "clang-offload-bundler")
+  elseif(EXISTS "${CLANG_BIN_PATH}/clang-offload-bundler${BINARY_VERSION_SUFFIX}")
+    set(CLANG_OFFLOAD_BUNDLER "${CLANG_BIN_PATH}/clang-offload-bundler${BINARY_VERSION_SUFFIX}" CACHE PATH "clang-offload-bundler")
+  else()
+    message(FATAL_ERROR "Can't find clang-offload-bundler at ${CLANG_BIN_PATH}. Please install it into that directory")
+  endif()
+endif()
+message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")

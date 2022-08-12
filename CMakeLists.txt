@@ -15,9 +15,36 @@ project(CHIP-SPV
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(chip_spv_cmake_macros)
+
+###############################################################################
+# CHIP-SPV CMAKE DEPENDENCIES
+
 include(FindLLVM)
 
+if(NOT DEFINED OpenCL_LIBRARY)
+  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
+  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./)
+endif()
 
+if(NOT DEFINED LevelZero_LIBRARY)
+  message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
+  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./)
+endif()
+
+message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
+message(STATUS "LevelZero_LIBRARY: ${LevelZero_LIBRARY}")
+
+if(NOT OpenCL_LIBRARY AND NOT LevelZero_LIBRARY)
+  message(FATAL_ERROR "At least one of OpenCL,Level0 libraries must be available")
+endif()
+
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
+set(PTHREAD_LIBRARY Threads::Threads)
+
+# CHIP-SPV CMAKE DEPENDENCIES
+###############################################################################
 
 ###############################################################################
 # CHIP-SPV CMAKE VARIABLBLES/OPTIONS
@@ -27,15 +54,21 @@ set(CHIP_SRC
   src/CHIPDriver.cc
   src/CHIPBackend.cc
   src/CHIPBindings.cc
-  src/backend/Level0/CHIPBackendLevel0.cc
-  src/backend/OpenCL/CHIPBackendOpenCL.cc
-  src/backend/OpenCL/SVMemoryRegion.cc
   src/logging.cc
 )
 
+if(OpenCL_LIBRARY)
+  list(APPEND CHIP_SRC
+    src/backend/OpenCL/CHIPBackendOpenCL.cc
+    src/backend/OpenCL/SVMemoryRegion.cc)
+endif()
+
+if(LevelZero_LIBRARY)
+  list(APPEND CHIP_SRC
+    src/backend/Level0/CHIPBackendLevel0.cc)
+endif()
+
 set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "CHIP-SPV source directory")
-set(CLANG_VERSION_LESS_14 FALSE CACHE INTERNAL "Clang version < 14.0")
-set(CLANG_VERSION_LESS_15 FALSE CACHE INTERNAL "Clang version < 15.0")
 
 set(CHIP_SPV_LINK_FLAGS "")
 set(CHIP_SPV_COMPILE_FLAGS "")
@@ -84,33 +117,6 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 ###############################################################################
 # CHIP-SPV CMAKE OPTIONS PARSING
-if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
-   (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
-    message(FATAL_ERROR "this project requires clang >= 8.0")
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0.0)
-    set(CLANG_VERSION_LESS_16 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
-    set(CLANG_VERSION_LESS_15 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
-    message(WARNING "Deprecated clang version '${CMAKE_CXX_COMPILER_VERSION}'. \
-            Support for Clang < 14.0 will be discontinued in the future.")
-    set(CLANG_VERSION_LESS_14 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0.0)
-    set(CLANG_VERSION_LESS_13 ON)
-  endif()
-
-else()
-  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
-endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 if (NOT CLANG_VERSION_LESS_15)
@@ -175,6 +181,17 @@ else()
   set(CHIP_LIB_NAME "libCHIP.a")
 endif()
 
+set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})
+if(OpenCL_LIBRARY)
+  list(APPEND CHIP_SPV_DEFINITIONS HAVE_OPENCL)
+  list(PREPEND CHIP_INTERFACE_LIBS ${OpenCL_LIBRARY})
+endif()
+
+if(LevelZero_LIBRARY)
+  list(APPEND CHIP_SPV_DEFINITIONS HAVE_LEVEL0)
+  list(PREPEND CHIP_INTERFACE_LIBS ${LevelZero_LIBRARY})
+endif()
+
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix" FORCE)
 endif()
@@ -185,23 +202,7 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 ###############################################################################
 
 ###############################################################################
-# CHIP-SPV CMAKE DEPENDENCIES
-if(NOT DEFINED OpenCL_LIBRARY)
-  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ REQUIRED)
-  message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
-endif()
-
-if(NOT DEFINED LevelZero_LIBRARY)
-  message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
-  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./ REQUIRED)
-  message(STATUS "LevelZero_LIBRARY: ${LevelZero_LIBRARY}")
-endif()
-
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads REQUIRED)
-set(PTHREAD_LIBRARY Threads::Threads)
+# CHIP-SPV BINARIES & TESTS
 
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
@@ -217,10 +218,9 @@ add_subdirectory(./samples samples)
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
 
-# CHIP binaries
 add_subdirectory(bin)
 
-# CHIP-SPV CMAKE DEPENDENCIES
+# CHIP-SPV BINARIES & TESTS
 ###############################################################################
 
 ###############################################################################
@@ -229,7 +229,7 @@ add_subdirectory(bin)
 target_compile_options(CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
 target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
 
-target_link_libraries(CHIP INTERFACE ${OpenCL_LIBRARY} ${LevelZero_LIBRARY} ${PTHREAD_LIBRARY})
+target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 
 # Previously these were set to SYSTEM which resulted in CMake picking up
 # OpenCL headers from the system where the version might differ resulting in errors.
