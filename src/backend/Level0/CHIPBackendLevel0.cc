@@ -647,17 +647,6 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
     Backend->CallbackQueue.push(Callbackdata);
   }
 
-  // Setup event handling on the CPU side
-  {
-    std::lock_guard<std::mutex> Lock(Mtx);
-    auto Monitor = ((CHIPBackendLevel0 *)Backend)->CallbackEventMonitor;
-    if (!Monitor) {
-      auto Evm = new CHIPCallbackEventMonitorLevel0();
-      Evm->start();
-      Monitor = Evm;
-    }
-  }
-
   return;
 }
 
@@ -1364,6 +1353,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  CallbackEventMonitor =
+      (CHIPCallbackEventMonitorLevel0 *)Backend->createCallbackEventMonitor();
 }
 
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
@@ -1385,7 +1376,8 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
-
+  CallbackEventMonitor =
+      (CHIPCallbackEventMonitorLevel0 *)Backend->createCallbackEventMonitor();
   setActiveDevice(ChipDev);
 }
 
