@@ -453,6 +453,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
   std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockQueue(ChipQueue->Mtx);
   CHIPContext *Ctx = ChipQueue->getContext();
 
   CpuCallbackComplete = (CHIPEventLevel0 *)Backend->createCHIPEvent(Ctx);
