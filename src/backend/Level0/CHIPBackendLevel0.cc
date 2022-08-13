@@ -1251,17 +1251,17 @@ void CHIPBackendLevel0::uninitialize() {
     StaleEventMonitor->Stop = true;
   }
   StaleEventMonitor->join();
-  return;
 
-  // if (Backend->Events.size()) {
-  //   logDebug("Remaining {} events that haven't been collected:",
-  //            Backend->Events.size());
-  //   for (auto *E : Backend->Events)
-  //     logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-  //              E->getCHIPRefc());
-  //   logDebug("Remaining {} command lists that haven't been collected:",
-  //            ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
-  // }
+  if (Backend->Events.size()) {
+    logDebug("Remaining {} events that haven't been collected:",
+             Backend->Events.size());
+    for (auto *E : Backend->Events)
+      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+               E->getCHIPRefc());
+    logDebug("Remaining {} command lists that haven't been collected:",
+             ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+  }
+  return;
 }
 
 std::string CHIPBackendLevel0::getDefaultJitFlags() {
