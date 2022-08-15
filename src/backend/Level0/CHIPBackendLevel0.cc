@@ -723,9 +723,9 @@ void CHIPQueueLevel0::initializeQueueGroupProperties() {
   logTrace("CommandGroups found: {}", CmdqueueGroupCount);
 
   // Create a vector of command queue properties, fill it
-  ze_command_queue_group_properties_t *CmdqueueGroupProperties =
-      (ze_command_queue_group_properties_t *)malloc(
-          CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
+  std::vector<ze_command_queue_group_properties_t> CmdqueueGroupProperties(
+      CmdqueueGroupCount);
+
   for (uint32_t i = 0; i < CmdqueueGroupCount; i++) {
     CmdqueueGroupProperties[i] = {
         ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, // stype
@@ -735,8 +735,8 @@ void CHIPQueueLevel0::initializeQueueGroupProperties() {
         0  // numQueues
     };
   }
-  Status = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
-                                                  CmdqueueGroupProperties);
+  Status = zeDeviceGetCommandQueueGroupProperties(
+      ZeDev_, &CmdqueueGroupCount, CmdqueueGroupProperties.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   this->MaxMemoryFillPatternSize =
