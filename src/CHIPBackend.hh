@@ -833,7 +833,7 @@ protected:
   /// Name of the function
   std::string HostFName_;
   /// Pointer to the host function
-  const void *HostFPtr_;
+  const void *HostFPtr_ = nullptr;
   /// Pointer to the device function
   const void *DevFPtr_;
 
