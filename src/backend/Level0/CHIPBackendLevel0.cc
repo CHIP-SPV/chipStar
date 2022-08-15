@@ -1862,6 +1862,8 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     Status = zeModuleBuildLogGetString(Log, &LogSize, LogStr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logError("ZE Build Log: {}", std::string(LogStr).c_str());
+    Status = zeModuleBuildLogDestroy(Log);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
   CHIPERR_CHECK_LOG_AND_THROW(BuildStatus, ZE_RESULT_SUCCESS, hipErrorTbd);
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
