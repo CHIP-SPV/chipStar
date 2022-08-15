@@ -1342,10 +1342,10 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   // Scope this so that we release mutex for finish()
   CHIPEvent *ChipEvent;
   {
-    std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
+    std::lock_guard<std::mutex> Lock(Mtx);
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
@@ -1368,10 +1368,10 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
                         size_t PatternSize) {
   {
-    std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
+    std::lock_guard<std::mutex> Lock(Mtx);
     auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
     updateLastEvent(ChipEvent);
@@ -1383,10 +1383,11 @@ void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
 
 void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                              size_t PatternSize) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
   updateLastEvent(ChipEvent);
@@ -1394,10 +1395,11 @@ void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
 }
 void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                           size_t SPitch, size_t Width, size_t Height) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   auto ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
   ChipEvent->Msg = "memCopy2D";
   finish();
@@ -1425,10 +1427,11 @@ void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
 void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                           const void *Src, size_t SPitch, size_t SSPitch,
                           size_t Width, size_t Height, size_t Depth) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3D";
@@ -1440,10 +1443,11 @@ void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
 void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                const void *Src, size_t SPitch, size_t SSPitch,
                                size_t Width, size_t Height, size_t Depth) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3DAsync";
@@ -1518,10 +1522,11 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
 }
 
 void CHIPQueue::launch(CHIPExecItem *ExecItem) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
+  std::lock_guard<std::mutex> Lock(Mtx);
+
 
   auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, false);
   auto LaunchEvent = launchImpl(ExecItem);
@@ -1556,10 +1561,11 @@ CHIPEvent *CHIPQueue::enqueueMarker() {
 }
 
 void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
-  std::lock_guard<std::mutex> Lock(Mtx);
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
+  std::lock_guard<std::mutex> Lock(Mtx);
+
   auto ChipEvent = memPrefetchImpl(Ptr, Count);
   ChipEvent->Msg = "memPrefetch";
   updateLastEvent(ChipEvent);

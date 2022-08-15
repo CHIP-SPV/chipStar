@@ -58,7 +58,7 @@ public:
   void reset();
 
   ze_event_handle_t peek();
-  ze_event_handle_t get();
+  ze_event_handle_t get(std::string Msg);
 };
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {

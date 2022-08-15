@@ -1768,6 +1768,14 @@ public:
                                      CHIPEventFlags Flags = CHIPEventFlags(),
                                      bool UserEvent = false) = 0;
 
+  CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
+                             CHIPEventFlags Flags = CHIPEventFlags(),
+                             bool UserEvent = false)
+                             {
+                              auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
+                              NewEvent->Msg = MsgIn;
+                             }
+
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
