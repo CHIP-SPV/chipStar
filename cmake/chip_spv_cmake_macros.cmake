@@ -22,6 +22,6 @@ macro(find_library_dynamic libname)
   endif()
 endmacro()
 
-macro(add_to_config _configfile _variable)
-    set(${_configfile} "${${_configfile}}${_variable}=${${_variable}}\n")
+macro(add_to_config _configfile _variable _value)
+  set(${_configfile} "${${_configfile}}${_variable}=${_value}\n")
 endmacro()
