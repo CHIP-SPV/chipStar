@@ -106,6 +106,7 @@ private:
   int getFreeSlot();
 
 public:
+  std::mutex Mtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
   ze_event_pool_handle_t get() { return EventPool_; }
