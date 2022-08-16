@@ -197,9 +197,6 @@ DEF_OPENCL1INT(ilogb)
 DEF_OPENCL1B(isfinite)
 DEF_OPENCL1B(isinf)
 DEF_OPENCL1B(isnan)
-// TODO: this results in errors
-// DEFOCML_OPENCL1F(j0)
-// DEFOCML_OPENCL1F(j1)
 
 float OVLD ldexp(float f, int k);
 double OVLD ldexp(double f, int k);
@@ -284,6 +281,7 @@ EXPORT double CL_NAME2(rnorm4d, d)(double x, double y, double z, double w) { dou
 EXPORT float CL_NAME2(rnorm3d, f)(float x, float y, float z) { float3 temp = (float3)(x, y, z); return rlen3(temp); }
 EXPORT double CL_NAME2(rnorm3d, d)(double x, double y, double z) { double3 temp = (double3)(x, y, z); return rlen3(temp); }
 
+DEF_OPENCL1F(rint)
 
 DEF_OPENCL1F(round)
 DEF_OPENCL1F(rsqrt)
@@ -330,6 +328,9 @@ EXPORT float CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
 // OCML
 DEFOCML_OPENCL1F(y0)
 DEFOCML_OPENCL1F(y1)
+
+DEFOCML_OPENCL1F(j0)
+DEFOCML_OPENCL1F(j1)
 
 /* native */
 

@@ -19,14 +19,17 @@
 // Mangling
 #define MATH_MANGLE(N) N
 #define MATH_PRIVATE(N) __priv##N
+#define MATH_PRIVATE_OVLD(N) __attribute__((overloadable)) __priv##N
 
 // mine
+#define MATH_CLZI(x) (x == 0 ? 64 : clz(x))
 #define MATH_MAD(x, y, z) fma(x, y, z)
 #define FINITE_ONLY_OPT() 0
 #define BUILTIN_FMA_F64(x, y, z) fma(x, y, z)
 #define MATH_SQRT(x) sqrt(x)
 #define MATH_RCP(x) native_recip(x)
 #define AS_DOUBLE(x) as_double(x)
+#define AS_INT2(x) as_int2(x)
 #define AS_LONG(x) as_long(x)
 #define BUILTIN_ABS_F64(x) fabs(x)
 #define BUILTIN_COPYSIGN_F64(x, y) copysign(x, y)
@@ -45,6 +48,13 @@
 #define BUILTIN_RINT_F32(x) rint(x)
 #define BUILTIN_RINT_F64(x) rint(x)
 
+static inline double BUILTIN_FRACTION_F64(double x) {
+  double temp;
+  double retval = fract(x, &temp);
+  return retval;
+}
+
+
 static inline int frexp_exp(double x) {
   int e;
   double mant = frexp(x, &e);
@@ -52,7 +62,9 @@ static inline int frexp_exp(double x) {
 }
 
 #define BUILTIN_FREXP_EXP_F64(x) frexp_exp(x)
-#define BUILTIN_FLDEXP_F64(x, k) ldexp(x, k)
+#define BUILTIN_FLDEXP_F64(x, k) ldexp(x, (int)k)
+
+double BUILTIN_TRIG_PREOP_F64(double input, int shift);
 
 // Optimization Controls
 //#include "opts.h"
@@ -121,9 +133,29 @@ static inline long CONSTATTR BUILTIN_CLASS_F64(double x, int klass)
   return 0;
 }
 
+// types
+struct redret;
+struct scret;
+
 // declarations
 
-PUREATTR double j1(double x);
-PUREATTR double j0(double x);
-CONSTATTR double erfinv(double x);
-CONSTATTR double erfcinv(double x);
+extern PUREATTR double j1(double x);
+extern PUREATTR double j0(double x);
+extern CONSTATTR double erfinv(double x);
+extern CONSTATTR double erfcinv(double x);
+
+extern CONSTATTR double MATH_PRIVATE_OVLD(ba0)(double t);
+extern CONSTATTR double MATH_PRIVATE_OVLD(ba1)(double t);
+
+extern CONSTATTR double MATH_PRIVATE_OVLD(bp0)(double t);
+extern CONSTATTR double MATH_PRIVATE_OVLD(bp1)(double t);
+
+double MATH_PRIVATE_OVLD(cosb)(double x, int n, double p);
+double MATH_PRIVATE_OVLD(sinb)(double x, int n, double p);
+
+extern CONSTATTR struct scret MATH_PRIVATE_OVLD(sincosred)(double x);
+extern CONSTATTR struct scret MATH_PRIVATE_OVLD(sincosred2)(double x, double y);
+
+extern CONSTATTR struct redret MATH_PRIVATE_OVLD(trigredsmall)(double x);
+extern CONSTATTR struct redret MATH_PRIVATE_OVLD(trigredlarge)(double x);
+extern CONSTATTR struct redret MATH_PRIVATE_OVLD(trigred)(double x);

@@ -71,7 +71,16 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
 endforeach()
 
 # OCML sources
-set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF tables y0D y0F y1D y1F)
+set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF
+    i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF
+    nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD
+    rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF
+    tables y0D y0F y1D y1F ba0F ba0D ba1F ba1D bp0F bp0D bp1F bp1D
+    cosbF cosbD sinbF sinbD
+    trigredD trigredF
+    sincosred2D sincosred2F sincosredD sincosredF
+    trigredlargeD trigredlargeF trigredsmallD trigredsmallF
+    trig_preop64)
 
 foreach(SOURCE IN LISTS OCML_SOURCES)
   add_custom_command(
