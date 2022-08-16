@@ -1770,11 +1770,10 @@ public:
 
   CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
                              CHIPEventFlags Flags = CHIPEventFlags(),
-                             bool UserEvent = false)
-                             {
-                              auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
-                              NewEvent->Msg = MsgIn;
-                             }
+                             bool UserEvent = false) {
+    auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
+    NewEvent->Msg = MsgIn;
+  }
 
   /**
    * @brief Create a Callback Obj object

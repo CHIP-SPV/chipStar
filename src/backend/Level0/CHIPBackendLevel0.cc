@@ -191,7 +191,7 @@ void CHIPEventLevel0::reset() {
 ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
 
 ze_event_handle_t CHIPEventLevel0::get(std::string Msg) {
-  if(Msg.size() > 0) {
+  if (Msg.size() > 0) {
     increaseRefCount(Msg);
   } else {
     increaseRefCount("get()");
@@ -357,8 +357,8 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
     EventStatus_ = EVENT_STATUS_RECORDED;
 
   auto EventStatusNew = getEventStatusStr();
-  logTrace("CHIPEventLevel0::updateFinishStatus() Refc: {} {}: {} -> {}", getCHIPRefc(), Msg,
-           EventStatusOld, EventStatusNew);
+  logTrace("CHIPEventLevel0::updateFinishStatus() Refc: {} {}: {} -> {}",
+           getCHIPRefc(), Msg, EventStatusOld, EventStatusNew);
   if (EventStatusNew != EventStatusOld) {
     return true;
   }
@@ -883,8 +883,10 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
   auto CommandList = getCmdListCompute();
-//  Status = zeCommandListAppendLaunchKernel(CommandList, KernelZe, &LaunchArgs,
-//                                            LaunchEvent->get("zeCommandListAppendLaunchKernel"), 0, nullptr);
+  //  Status = zeCommandListAppendLaunchKernel(CommandList, KernelZe,
+  //  &LaunchArgs,
+  //                                            LaunchEvent->get("zeCommandListAppendLaunchKernel"),
+  //                                            0, nullptr);
   Status = zeCommandListAppendLaunchKernel(CommandList, KernelZe, &LaunchArgs,
                                            LaunchEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -921,7 +923,8 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
   }
   auto CommandList = getCmdListCopy();
   ze_result_t Status = zeCommandListAppendMemoryFill(
-      CommandList, Dst, Pattern, PatternSize, Size, Ev->get("zeCommandListAppendMemoryFill"), 0, nullptr);
+      CommandList, Dst, Pattern, PatternSize, Size,
+      Ev->get("zeCommandListAppendMemoryFill"), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 
@@ -979,7 +982,8 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
   if (!SrcRegion.isPitched()) {
     auto CommandList = getCmdListCopy();
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-        CommandList, Image, Src, 0, Ev->get("zeCommandListAppendImageCopyFromMemory"), 0, nullptr);
+        CommandList, Image, Src, 0,
+        Ev->get("zeCommandListAppendImageCopyFromMemory"), 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     executeCommandList(CommandList);
 
@@ -1001,7 +1005,8 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
     DstZeRegion.depth = 1;
     auto CommandList = getCmdListCopy();
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-        CommandList, Image, SrcRow, &DstZeRegion, LastRow ? Ev->get("zeCommandListAppendImageCopyFromMemory") : nullptr,
+        CommandList, Image, SrcRow, &DstZeRegion,
+        LastRow ? Ev->get("zeCommandListAppendImageCopyFromMemory") : nullptr,
         0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     executeCommandList(CommandList);
@@ -1042,7 +1047,9 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 
   MarkerEvent->Msg = "marker";
   auto CommandList = getCmdListCompute();
-  auto Status = zeCommandListAppendSignalEvent(CommandList, MarkerEvent->get("MarkerEvent: zeCommandListAppendSignalEvent"));
+  auto Status = zeCommandListAppendSignalEvent(
+      CommandList,
+      MarkerEvent->get("MarkerEvent: zeCommandListAppendSignalEvent"));
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 

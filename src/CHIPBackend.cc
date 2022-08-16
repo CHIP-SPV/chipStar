@@ -1527,7 +1527,6 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #endif
   std::lock_guard<std::mutex> Lock(Mtx);
 
-
   auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, false);
   auto LaunchEvent = launchImpl(ExecItem);
   auto RegisteredVarOutEvent = RegisteredVarCopy(ExecItem, true);
