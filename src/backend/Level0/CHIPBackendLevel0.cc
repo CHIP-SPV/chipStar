@@ -357,7 +357,7 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
     EventStatus_ = EVENT_STATUS_RECORDED;
 
   auto EventStatusNew = getEventStatusStr();
-  logTrace("CHIPEventLevel0::updateFinishStatus() {}: {} -> {}", Msg,
+  logTrace("CHIPEventLevel0::updateFinishStatus() Refc: {} {}: {} -> {}", getCHIPRefc(), Msg,
            EventStatusOld, EventStatusNew);
   if (EventStatusNew != EventStatusOld) {
     return true;
