@@ -181,7 +181,6 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 
 void CHIPEventLevel0::reset() {
   auto Status = zeEventHostReset(get("zeEventHostReset"));
-  // auto Status = zeEventHostReset(peek());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   std::lock_guard<std::mutex> Lock(Mtx);
   TrackCalled_ = false;
@@ -488,6 +487,9 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
       if (Stop) {
         logTrace(
             "CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting thread");
+        if (Backend->CallbackQueue.size())
+          logWarn("Callback thread exiting while there are still active "
+                  "callbacks in the queue");
         pthread_exit(0);
       }
 
