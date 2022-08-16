@@ -69,7 +69,7 @@ cmake .. \
  -DCMAKE_C_COMPILER=clang \
  -DCMAKE_INSTALL_PREFIX=<install location> 
  # optional: -DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>
-
+ # optional: to provide a path to separately built SPIRV-LLVM translator, use -DLLVM_SPIRV_BINARY=/path
 make
 make install
 ```
