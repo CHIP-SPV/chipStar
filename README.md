@@ -57,7 +57,9 @@ a version suffix in the names: 'clang++-15' and 'clang-15'.
 
 ```bash
 make build_tests_standalone
-ctest --timeout 40 # currently some tests might hang
+# currently some tests might hang and have known issues,
+# exclude the unsolved ones and timeout the hanging ones
+ctest -E "`cat ../flaky_tests`" --timeout 40
 ```
 
 ## Environment Flags
