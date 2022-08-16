@@ -463,3 +463,16 @@ install(EXPORT CHIPTargets
 
 # CHIP-SPV INSTALLATION AND PACKAGING
 ###############################################################################
+
+
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+
+  set(DOXYGEN_GENERATE_HTML YES)
+  set(DOXYGEN_GENERATE_MAN NO)
+  set(DOXYGEN_OUTPUT_DIRECTORY doxygen)
+  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+  doxygen_add_docs(gendocs README.md src llvm_passes
+                   COMMENT "generate documentation for source")
+
+endif()
