@@ -74,6 +74,19 @@ make
 make install
 ```
 
+## Building documentation
+
+Make sure you have doxygen installed. Then:
+
+```bash
+....
+cd build
+cmake .....
+make gendocs
+```
+
+The documentation will be placed in `doxygen/html`.
+
 ## Building & Running Unit Tests
 
 ```bash
