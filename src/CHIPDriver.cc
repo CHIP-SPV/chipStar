@@ -89,22 +89,9 @@ void CHIPReadEnvVars() {
   std::call_once(EnvInitialized, &CHIPReadEnvVarsCallOnce);
 }
 
-void CHIPInitializeCallOnce(std::string BackendStr) {
-  CHIPReadEnvVars();
-  logDebug("CHIPDriver Initialize");
+static void createBackendObject() {
 
-  // Read JIT options from the env
-
-  // Get the current Backend Env Var
-
-  // If no BE is passed to init explicitly, read env var
-  std::string ChipBe;
-  if (BackendStr.size() == 0) {
-    ChipBe = CHIPBackendType;
-  } else {
-    ChipBe = BackendStr;
-  }
-
+  const std::string ChipBe = CHIPBackendType;
   if (!ChipBe.compare("opencl")) {
 #ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
@@ -128,11 +115,19 @@ void CHIPInitializeCallOnce(std::string BackendStr) {
         "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
         hipErrorInitializationError);
   }
+}
+
+void CHIPInitializeCallOnce() {
+  CHIPReadEnvVars();
+  logDebug("CHIPDriver Initialize");
+
+  createBackendObject();
+
   Backend->initialize(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
 }
 
-extern void CHIPInitialize(std::string BE) {
-  std::call_once(Initialized, &CHIPInitializeCallOnce, BE);
+extern void CHIPInitialize() {
+  std::call_once(Initialized, &CHIPInitializeCallOnce);
 }
 
 void CHIPUninitializeCallOnce() {
@@ -159,21 +154,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
     delete Backend;
   }
 
-  // TODO Check configuration for what backends are configured
-  if (!CHIPBackendType.compare("opencl")) {
-    if (UsingDefaultBackend)
-      logDebug("CHIP_BE was not set. Defaulting to OPENCL");
-    else
-      logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
-    Backend = new CHIPBackendOpenCL();
-  } else if (!CHIPBackendType.compare("level0")) {
-    logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
-    Backend = new CHIPBackendLevel0();
-  } else {
-    CHIPERR_LOG_AND_THROW(
-        "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
-        hipErrorInitializationError);
-  }
+  createBackendObject();
 
   int RequiredHandles = Backend->ReqNumHandles();
   if (RequiredHandles != NumHandles) {

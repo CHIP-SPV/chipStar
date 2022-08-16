@@ -356,13 +356,23 @@ BinomialOption::runNativeKernel(void *NativeEventDep, uintptr_t *NativeHandles, 
     EnvBe = "opencl";
   std::string Backend{EnvBe};
   if (Backend.compare("opencl") == 0) {
-    //std::cout << "Executing runOpenCLKernel\n";
+#ifdef HAVE_OPENCL
     return runOpenCLKernel(NativeEventDep, NativeHandles, NumHandles, Blocks, Threads, Arg1, Arg2, Arg3);
+#else
+    std::cerr
+        << "Cannot execute native kernel with OpenCL Backend unavailable\n";
+    return nullptr;
+#endif
   } else if (Backend.compare("level0") == 0) {
-    //std::cout << "Executing runOpenCLKernel\n";
+#ifdef HAVE_LEVEL0
     return runLevel0Kernel(NativeEventDep, NativeHandles, NumHandles, Blocks, Threads, Arg1, Arg2, Arg3);
+#else
+    std::cerr
+        << "Cannot execute native kernel with Level0 Backend unavailable\n";
+    return nullptr;
+#endif
   } else {
-    //std::cout << "ERROR: unknown runNativeKernel\n";
+    std::cerr << "ERROR: unknown CHIP-SPV backend\n";
     return nullptr;
   }
 }

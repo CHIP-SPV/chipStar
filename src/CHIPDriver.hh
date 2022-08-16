@@ -57,7 +57,7 @@ extern std::once_flag Uninitialized;
  * @brief
  * Singleton backend initialization function outer wrapper
  */
-extern void CHIPInitialize(std::string BackendStr = "");
+extern void CHIPInitialize();
 
 /**
  * @brief
@@ -69,7 +69,7 @@ extern void CHIPUninitialize();
  * @brief
  * Singleton backend initialization function called via std::call_once
  */
-void CHIPInitializeCallOnce(std::string BackendStr = "");
+void CHIPInitializeCallOnce();
 
 /**
  * @brief
