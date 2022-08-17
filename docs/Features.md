@@ -39,9 +39,10 @@ This is a (non-exhaustive) list of features currently (un)supported by CHIP-SPV.
 #### Partially supported
 
 * Warp functions (__all, __any, __ballot): only the non-sync versions are supported
-* Shuffle functions (__shfl_{up,down,xor}): only the non-sync version are supported
+* Shuffle functions (__shfl_{up,down,xor}): only the non-sync versions are supported
 * assert(), __trap, __brkpt are not available but abort() is
-* mathematical library: almost all functions are available
+* mathematical library: almost all single/double functions are available,
+  but half-precision variants are not available
 
 ### Known issues
 
