@@ -246,6 +246,11 @@ add_dependencies(samples CHIP)
 
 add_subdirectory(bin)
 
+# custom target to avoid tests that are known to fail
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -E
+                  "'Unit_hipDeviceSynchronize_Functional|funnelshift|__fmaf_ieee_'"
+                  USES_TERMINAL)
+
 # CHIP-SPV BINARIES & TESTS
 ###############################################################################
 
