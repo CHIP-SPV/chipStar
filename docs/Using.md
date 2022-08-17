@@ -10,7 +10,7 @@ Possible values: opencl(default), level0
 #### CHIP_LOGLEVEL
 
 Select the verbosity of debug info during execution.
-Possible values: trace, debug(default), warn, err, crit
+Possible values: trace, debug(default for Debug builds), warn(default for non-Debug builds), err, crit
 
 Setting this value to `debug` will print information coming from the CHIP-SPV functions which are shared between the backends.
 
