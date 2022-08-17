@@ -31,8 +31,8 @@
 #define NOOPT __attribute__((optnone))
 
 #if defined(__HIP_DEVICE_COMPILE__)
-#define __DEVICE__ static __device__
-#define EXPORT static inline __device__
+#define __DEVICE__ __device__
+#define EXPORT inline __device__
 #define OVLD __attribute__((overloadable)) __device__
 #define NON_OVLD __device__
 #define GEN_NAME(N) opencl_##N

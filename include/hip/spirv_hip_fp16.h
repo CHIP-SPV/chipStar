@@ -846,9 +846,9 @@ inline __device__ __half hceil(__half x) {
 inline __device__ __half hfloor(__half x) {
   return __half_raw{floor_h(static_cast<__half_raw>(x).data)};
 }
-inline __device__ __half hrint(__half x) {
-  return __half_raw{rint_h(static_cast<__half_raw>(x).data)};
-}
+// inline __device__ __half hrint(__half x) {
+//   return __half_raw{rint_h(static_cast<__half_raw>(x).data)};
+// }
 inline __device__ __half hsin(__half x) {
   return __half_raw{sin_h(static_cast<__half_raw>(x).data)};
 }
@@ -901,7 +901,8 @@ inline __device__ __half2 h2ceil(__half2 x) { return __half2_raw{ceil_2h(x)}; }
 inline __device__ __half2 h2floor(__half2 x) {
   return __half2_raw{floor_2h(x)};
 }
-inline __device__ __half2 h2rint(__half2 x) { return __half2_raw{rint_2h(x)}; }
+// inline __device__ __half2 h2rint(__half2 x) { return __half2_raw{rint_2h(x)};
+// }
 inline __device__ __half2 h2sin(__half2 x) { return __half2_raw{sin_2h(x)}; }
 inline __device__ __half2 h2cos(__half2 x) { return __half2_raw{cos_2h(x)}; }
 inline __device__ __half2 h2exp(__half2 x) { return __half2_raw{exp_2h(x)}; }
