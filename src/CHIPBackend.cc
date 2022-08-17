@@ -920,6 +920,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
       if (Ev)
         EventsToWaitOn.push_back(Ev);
     }
+    std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
     TargetQueue->updateLastEvent(SyncQueuesEvent);
@@ -927,6 +928,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     auto Ev = DefaultQueue->getLastEvent();
     if (Ev)
       EventsToWaitOn.push_back(Ev);
+    std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
     TargetQueue->updateLastEvent(SyncQueuesEvent);
