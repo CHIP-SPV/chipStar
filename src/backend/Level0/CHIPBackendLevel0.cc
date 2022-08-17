@@ -1262,12 +1262,12 @@ void CHIPBackendLevel0::uninitialize() {
   }
   CallbackEventMonitor->join();
 
-  // {
-  //   logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
-  //   std::lock_guard Lock(StaleEventMonitor->Mtx);
-  //   StaleEventMonitor->Stop = true;
-  // }
-  // StaleEventMonitor->join();
+  {
+    logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
+    std::lock_guard Lock(StaleEventMonitor->Mtx);
+    StaleEventMonitor->Stop = true;
+  }
+  StaleEventMonitor->join();
 
   if (Backend->Events.size()) {
     logDebug("Remaining {} events that haven't been collected:",
@@ -1368,8 +1368,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     }
   } // End adding CHIPDevices
 
-  // StaleEventMonitor =
-  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  StaleEventMonitor =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
   CallbackEventMonitor =
       (CHIPCallbackEventMonitorLevel0 *)Backend->createCallbackEventMonitor();
 }
@@ -1391,8 +1391,8 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
 
-  // StaleEventMonitor =
-  //     (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
+  StaleEventMonitor =
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
   CallbackEventMonitor =
       (CHIPCallbackEventMonitorLevel0 *)Backend->createCallbackEventMonitor();
   setActiveDevice(ChipDev);
