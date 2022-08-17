@@ -536,6 +536,8 @@ public:
       Event->decreaseRefCount(
           "An event that depended on this one has finished");
     }
+    std::lock_guard<std::mutex> Lock(EventMtx);
+    DependsOnList.clear();
   }
   void trackImpl();
   void track();
