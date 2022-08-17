@@ -542,7 +542,8 @@ public:
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex Mtx;
   std::string Msg;
-  size_t getCHIPRefc() { return *Refc_; }
+  size_t getCHIPRefc() { 
+    return *Refc_; }
   virtual void decreaseRefCount(std::string Reason) {
     std::lock_guard<std::mutex> Lock(Mtx);
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -1768,12 +1769,13 @@ public:
                                      CHIPEventFlags Flags = CHIPEventFlags(),
                                      bool UserEvent = false) = 0;
 
-  CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
-                             CHIPEventFlags Flags = CHIPEventFlags(),
-                             bool UserEvent = false) {
-    auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
-    NewEvent->Msg = MsgIn;
-  }
+  // CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
+  //                            CHIPEventFlags Flags = CHIPEventFlags(),
+  //                            bool UserEvent = false) {
+  //   auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
+  //   NewEvent->Msg = MsgIn;
+  //   return NewEvent;
+  // }
 
   /**
    * @brief Create a Callback Obj object

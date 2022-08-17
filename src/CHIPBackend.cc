@@ -767,7 +767,7 @@ void CHIPEvent::trackImpl() {
 CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
                                               int Priority) {
 
-  std::lock_guard<std::mutex> Lock(Mtx_);
+  std::lock_guard<std::mutex> Lock(Backend->Mtx);
   auto ChipQueue = addQueueImpl(Flags, Priority);
   addQueue(ChipQueue);
   return ChipQueue;
@@ -775,7 +775,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
                                               const size_t NumHandles) {
-  std::lock_guard<std::mutex> Lock(Mtx_);
+  std::lock_guard<std::mutex> Lock(Backend->Mtx); 
   auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
   addQueue(ChipQueue);
   return ChipQueue;
@@ -891,7 +891,7 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
-  std::lock_guard<std::mutex> lock(Mtx);
+  std::lock_guard<std::mutex> LockContext(Mtx);
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
   std::vector<CHIPQueue *> QueuesBlocking;
 
@@ -913,7 +913,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
       if (Ev)
         EventsToWaitOn.push_back(Ev);
     }
-    SyncQueuesEvent = DefaultQueue->enqueueBarrierImpl(&EventsToWaitOn);
+    SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
     TargetQueue->updateLastEvent(SyncQueuesEvent);
   } else { // blocking stream must wait until default stream is done
@@ -1373,6 +1373,7 @@ void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
     ChipContext_->syncQueues(this);
 #endif
     std::lock_guard<std::mutex> Lock(Mtx);
+
     auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
     updateLastEvent(ChipEvent);
@@ -1526,7 +1527,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> LockQueue(Mtx);
 
   auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, false);
   auto LaunchEvent = launchImpl(ExecItem);
