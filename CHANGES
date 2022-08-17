@@ -6,4 +6,4 @@ Initial release of CHIP-SPV
 - support for OpenCL and Level0 backends
 - support for Clang 14 & 15
 - most of the HIP API supported
-- ability to compile CUDA 8.0 sources
+- ability to compile CUDA 8.0 sources directly
