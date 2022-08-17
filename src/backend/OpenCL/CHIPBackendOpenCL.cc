@@ -476,7 +476,7 @@ size_t CHIPEventOpenCL::getRefCount() {
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
 void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
 
   logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", Msg.c_str());
   if (!ClEvent) {
@@ -493,7 +493,7 @@ void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
 }
 
 void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
 
   logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", Msg.c_str());
   size_t R = getRefCount();
@@ -515,7 +515,7 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
 
   logDebug("CHIPEvent::recordStream()");
   assert(ChipQueue->getLastEvent() != nullptr);

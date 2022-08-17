@@ -182,7 +182,7 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 void CHIPEventLevel0::reset() {
   auto Status = zeEventHostReset(get("zeEventHostReset"));
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
   TrackCalled_ = false;
   EventStatus_ = EVENT_STATUS_INIT;
 }
@@ -217,7 +217,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr), Timestamp_(0) {
-  std::lock_guard<std::mutex> LockPool(TheEventPool->Mtx);
+  std::lock_guard<std::mutex> LockPool(TheEventPool->EventPoolMtx);
   EventPool = TheEventPool;
   EventPoolIndex = ThePoolIndex;
   EventPoolHandle_ = TheEventPool->get();
@@ -287,7 +287,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   ze_result_t Status;
 
   {
-    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> Lock(EventMtx);
     if (EventStatus_ == EVENT_STATUS_RECORDED) {
       logTrace("Event {}: EVENT_STATUS_RECORDED ... Resetting event.",
                (void *)this);
@@ -328,7 +328,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   Q->executeCommandList(CommandList);
   DestoyCommandListEvent->track();
 
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
   EventStatus_ = EVENT_STATUS_RECORDING;
   Msg = "recordStream";
 }
@@ -339,13 +339,13 @@ bool CHIPEventLevel0::wait() {
   ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
   EventStatus_ = EVENT_STATUS_RECORDED;
   return true;
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
 
   auto EventStatusOld = getEventStatusStr();
 
@@ -444,7 +444,7 @@ void CHIPEventLevel0::hostSignal() {
   auto Status = zeEventHostSignal(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventMtx);
   EventStatus_ = EVENT_STATUS_RECORDED;
 }
 
@@ -457,7 +457,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
-    std::lock_guard Lock(Backend->Mtx);
+    std::lock_guard Lock(Backend->BackendMtx);
 
   CHIPContext *Ctx = ChipQueue->getContext();
 
@@ -483,7 +483,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
   CHIPCallbackDataLevel0 *CallbackData;
   while (true) {
     usleep(20000);
-    std::lock_guard Lock(Mtx);
+    std::lock_guard Lock(EventMonitorMtx);
     {
 
       if (Stop) {
@@ -503,7 +503,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
         continue;
 
       // Lock the item and members
-      std::lock_guard<std::mutex> LockCallbackData(CallbackData->Mtx);
+      std::lock_guard<std::mutex> LockCallbackData(CallbackData->CallbackDataMtx);
       Backend->CallbackQueue.pop();
 
       // Update Status
@@ -531,7 +531,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (!Stop) {
     usleep(20000);
-    std::lock_guard Lock(Mtx);
+    std::lock_guard Lock(EventMonitorMtx);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
@@ -1041,7 +1041,7 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
 }
 
 CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
-  std::lock_guard<std::mutex> LockQueue(Mtx);
+  std::lock_guard<std::mutex> LockQueue(QueueMtx);
   CHIPEventLevel0 *MarkerEvent =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
 
@@ -1058,7 +1058,7 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEvent *
 CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  std::lock_guard<std::mutex> LockQueue(Mtx);
+  std::lock_guard<std::mutex> LockQueue(QueueMtx);
   // Create an event, refc=2, add it to EventList
   CHIPEventLevel0 *EventToSignal =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
@@ -1212,7 +1212,7 @@ CHIPEventLevel0 *LZEventPool::getEvent() {
 };
 
 int LZEventPool::getFreeSlot() {
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventPoolMtx);
   if (FreeSlots_.size() == 0)
     return -1;
 
@@ -1223,7 +1223,7 @@ int LZEventPool::getFreeSlot() {
 }
 
 void LZEventPool::returnSlot(int Slot) {
-  std::lock_guard<std::mutex> Lock(Mtx);
+  std::lock_guard<std::mutex> Lock(EventPoolMtx);
   FreeSlots_.push(Slot);
   return;
 }
@@ -1257,14 +1257,14 @@ void CHIPBackendLevel0::uninitialize() {
 
   if (CallbackEventMonitor) {
     logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
-    std::lock_guard Lock(CallbackEventMonitor->Mtx);
+    std::lock_guard Lock(CallbackEventMonitor->EventMonitorMtx);
     CallbackEventMonitor->Stop = true;
   }
   CallbackEventMonitor->join();
 
   {
     logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
-    std::lock_guard Lock(StaleEventMonitor->Mtx);
+    std::lock_guard Lock(StaleEventMonitor->EventMonitorMtx);
     StaleEventMonitor->Stop = true;
   }
   StaleEventMonitor->join();
