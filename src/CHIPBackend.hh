@@ -544,8 +544,7 @@ public:
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc() { 
-    return *Refc_; }
+  size_t getCHIPRefc() { return *Refc_; }
   virtual void decreaseRefCount(std::string Reason) {
     std::lock_guard<std::mutex> Lock(EventMtx);
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -1852,7 +1851,8 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
-    logDebug("Setting LastEvent for {} {} -> {}", (void*)this, (void*)LastEvent_, (void*)NewEvent);
+    logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
+             (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
       return;
 
