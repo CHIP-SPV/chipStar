@@ -72,11 +72,9 @@ void CHIPReadEnvVarsCallOnce() {
   if (CHIPDeviceStr.size() == 0)
     CHIPDeviceStr = "0";
 
-  UsingDefaultBackend = false;
   CHIPBackendType = read_env_var("CHIP_BE");
   if (CHIPBackendType.size() == 0) {
-    CHIPBackendType = "opencl";
-    UsingDefaultBackend = true;
+    CHIPBackendType = "default";
   }
 
   logDebug("CHIP_PLATFORM={}", CHIPPlatformStr.c_str());
@@ -92,6 +90,7 @@ void CHIPReadEnvVars() {
 static void createBackendObject() {
 
   const std::string ChipBe = CHIPBackendType;
+
   if (!ChipBe.compare("opencl")) {
 #ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
@@ -110,6 +109,24 @@ static void createBackendObject() {
                           "was not compiled with Level0 backend",
                           hipErrorInitializationError);
 #endif
+  } else if (!ChipBe.compare("default")) {
+    Backend = nullptr;
+#ifdef HAVE_LEVEL0
+    if (!Backend) {
+      logDebug("CHIPBE=default... trying Level0 Backend");
+      Backend = new CHIPBackendLevel0();
+    }
+#endif
+#ifdef HAVE_OPENCL
+    if (!Backend) {
+      logDebug("CHIPBE=default... trying OpenCL Backend");
+      Backend = new CHIPBackendOpenCL();
+    }
+#endif
+    if (!Backend) {
+      CHIPERR_LOG_AND_THROW("Could not initialize any backend.",
+                            hipErrorInitializationError);
+    }
   } else {
     CHIPERR_LOG_AND_THROW(
         "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
