@@ -767,7 +767,7 @@ void CHIPEvent::trackImpl() {
 CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
                                               int Priority) {
 
-  std::lock_guard<std::mutex> Lock(DeviceMtx);
+  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto ChipQueue = addQueueImpl(Flags, Priority);
   addQueue(ChipQueue);
   return ChipQueue;
@@ -775,7 +775,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
                                               const size_t NumHandles) {
-  std::lock_guard<std::mutex> Lock(DeviceMtx); 
+  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
   addQueue(ChipQueue);
   return ChipQueue;
@@ -805,7 +805,14 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
+  // TODO: Cleanup
   std::lock_guard<std::mutex> Lock(DeviceMtx);
+  std::lock_guard<std::mutex> LockQueue(ChipQueue->QueueMtx);
+  // If this stream has a LastEvent, it will release it, decrement its refcount
+  // and let the StaleEventMonitor to collect it
+  ChipQueue->updateLastEvent(nullptr);
+
+  // Remove from device queue list
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
@@ -816,6 +823,8 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   }
   ChipQueues_.erase(FoundQueue);
 
+  // Remove from the Backend Queue List
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   FoundQueue = std::find(Backend->getQueues().begin(),
                          Backend->getQueues().end(), ChipQueue);
   if (FoundQueue == Backend->getQueues().end()) {
@@ -825,7 +834,6 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
 
-  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   Backend->getQueues().erase(FoundQueue);
   return true;
 }

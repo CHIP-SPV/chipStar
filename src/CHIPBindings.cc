@@ -1270,6 +1270,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIPInitialize();
 
   Stream = Backend->findQueue(Stream);
+
   CHIPDevice *Dev = Backend->getActiveDevice();
 
   if (Dev->removeQueue(Stream))
@@ -3209,8 +3210,8 @@ __hipRegisterVar(void **Data,
 /*
  *
 __hipRegisterTexture (void **fatCubinHandle,
-                       const struct textureReference *hostVar, // shadow variable in host code
-                       const void **deviceAddress, // actually variable name
+                       const struct textureReference *hostVar, // shadow
+variable in host code const void **deviceAddress, // actually variable name
                        const char *deviceName, // variable name, same as ^^
                        int TextureType, // 1D/2D/3D
                        int Normalized, //

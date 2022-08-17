@@ -1850,6 +1850,7 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
+    logDebug("Setting LastEvent for {} {} -> {}", (void*)this, (void*)LastEvent_, (void*)NewEvent);
     if (NewEvent == LastEvent_)
       return;
 

@@ -300,6 +300,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   if (ChipQueue == nullptr)
     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
 
+  std::lock_guard<std::mutex> LockQueue(ChipQueue->QueueMtx);
   CHIPQueueLevel0 *Q = (CHIPQueueLevel0 *)ChipQueue;
 
   auto CommandList = Q->getCmdListCompute();
@@ -357,8 +358,8 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
     EventStatus_ = EVENT_STATUS_RECORDED;
 
   auto EventStatusNew = getEventStatusStr();
-  logTrace("CHIPEventLevel0::updateFinishStatus() Refc: {} {}: {} -> {}",
-           getCHIPRefc(), Msg, EventStatusOld, EventStatusNew);
+  logTrace("CHIPEventLevel0::updateFinishStatus() {} Refc: {} {}: {} -> {}",
+           (void*)this, getCHIPRefc(), Msg, EventStatusOld, EventStatusNew);
   if (EventStatusNew != EventStatusOld) {
     return true;
   }
@@ -529,7 +530,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
 
 void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
-  while (!Stop) {
+  while (true) {
     usleep(20000);
     std::lock_guard Lock(EventMonitorMtx);
     auto LzBackend = (CHIPBackendLevel0 *)Backend;
@@ -924,7 +925,7 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
   auto CommandList = getCmdListCopy();
   ze_result_t Status = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size,
-      Ev->get("zeCommandListAppendMemoryFill"), 0, nullptr);
+      Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 
@@ -1239,8 +1240,7 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   CHIPEventLevel0 *Event;
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-    Event->increaseRefCount("hipEventCreate");
-    Event->track();
+    //Event->increaseRefCount("hipEventCreate");
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
     Event = ZeCtx->getEventFromPool();
@@ -1252,8 +1252,10 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 void CHIPBackendLevel0::uninitialize() {
 
   logDebug("CHIPBackend::uninitialize(): Setting the LastEvent for all queues");
-  for (auto Q : Backend->getQueues())
+  for (auto Q : Backend->getQueues()) {
+    std::lock_guard Lock(Q->QueueMtx);
     Q->updateLastEvent(nullptr);
+  }
 
   if (CallbackEventMonitor) {
     logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
