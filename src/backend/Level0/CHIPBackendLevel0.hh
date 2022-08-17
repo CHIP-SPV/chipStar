@@ -303,7 +303,6 @@ public:
 class CHIPKernelLevel0 : public CHIPKernel {
 protected:
   ze_kernel_handle_t ZeKernel_;
-  std::string Name_;
   size_t MaxDynamicLocalSize_;
   size_t MaxWorkGroupSize_;
   size_t StaticLocalSize_;

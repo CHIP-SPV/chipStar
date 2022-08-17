@@ -606,8 +606,8 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
                                    CHIPDeviceLevel0 *Dev, std::string HostFName,
                                    OCLFuncInfo *FuncInfo,
                                    CHIPModuleLevel0 *Parent)
-    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Name_(HostFName),
-      Module(Parent), Device(Dev) {
+    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Module(Parent),
+      Device(Dev) {
   logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
 
   ze_kernel_properties_t Props = {ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, 0};
@@ -734,9 +734,9 @@ void CHIPQueueLevel0::initializeQueueGroupProperties() {
   logTrace("CommandGroups found: {}", CmdqueueGroupCount);
 
   // Create a vector of command queue properties, fill it
-  ze_command_queue_group_properties_t *CmdqueueGroupProperties =
-      (ze_command_queue_group_properties_t *)malloc(
-          CmdqueueGroupCount * sizeof(ze_command_queue_group_properties_t));
+  std::vector<ze_command_queue_group_properties_t> CmdqueueGroupProperties(
+      CmdqueueGroupCount);
+
   for (uint32_t i = 0; i < CmdqueueGroupCount; i++) {
     CmdqueueGroupProperties[i] = {
         ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, // stype
@@ -746,8 +746,8 @@ void CHIPQueueLevel0::initializeQueueGroupProperties() {
         0  // numQueues
     };
   }
-  Status = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
-                                                  CmdqueueGroupProperties);
+  Status = zeDeviceGetCommandQueueGroupProperties(
+      ZeDev_, &CmdqueueGroupCount, CmdqueueGroupProperties.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   this->MaxMemoryFillPatternSize =
@@ -1555,13 +1555,9 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
                               hipErrorInitializationError);
 
   // Copy device name
-  if (255 < ZE_MAX_DEVICE_NAME) {
-    strncpy(HipDeviceProps_.name, HipDeviceProps_.name, 255);
-    HipDeviceProps_.name[255] = 0;
-  } else {
-    strncpy(HipDeviceProps_.name, HipDeviceProps_.name, ZE_MAX_DEVICE_NAME);
-    HipDeviceProps_.name[ZE_MAX_DEVICE_NAME - 1] = 0;
-  }
+  strncpy(HipDeviceProps_.name, ZeDeviceProps_.name,
+          std::min<size_t>(255, ZE_MAX_DEVICE_NAME));
+  HipDeviceProps_.name[255] = 0;
 
   // Get total device memory
   HipDeviceProps_.totalGlobalMem = DeviceMemProps.totalSize;
@@ -1898,6 +1894,8 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     Status = zeModuleBuildLogGetString(Log, &LogSize, LogStr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logError("ZE Build Log: {}", std::string(LogStr).c_str());
+    Status = zeModuleBuildLogDestroy(Log);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
   CHIPERR_CHECK_LOG_AND_THROW(BuildStatus, ZE_RESULT_SUCCESS, hipErrorTbd);
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",

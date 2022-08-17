@@ -402,6 +402,7 @@ public:
       assert(Fi != FunctionTypeMap_.end());
       ModuleMap.emplace(std::make_pair(i.second, Fi->second));
     }
+    FunctionTypeMap_.clear();
 
     return true;
   }

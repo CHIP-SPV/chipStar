@@ -717,6 +717,7 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   *SharedMem = ExecItem->getSharedMem();
   *Stream = ExecItem->getQueue();
   Backend->ChipExecStack.pop();
+  delete ExecItem;
   RETURN(hipSuccess);
   CHIP_CATCH
 }

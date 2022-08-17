@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdint.h>
 #include <string>
+#include <memory>
 
 enum class OCLType : unsigned {
   POD,
@@ -33,9 +34,10 @@ struct OCLFuncInfo {
   OCLArgTypeInfo RetTypeInfo;
 };
 
-typedef std::map<int32_t, OCLFuncInfo *> OCLFuncInfoMap;
+typedef std::map<int32_t, std::shared_ptr<OCLFuncInfo>> OCLFuncInfoMap;
 
-typedef std::map<std::string, OCLFuncInfo *> OpenCLFunctionInfoMap;
+typedef std::map<std::string, std::shared_ptr<OCLFuncInfo>>
+    OpenCLFunctionInfoMap;
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(int32_t *Stream, size_t NumWords,

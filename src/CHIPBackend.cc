@@ -355,7 +355,7 @@ void CHIPModule::deallocateDeviceVariablesNoLock(CHIPDevice *Device) {
 }
 
 OCLFuncInfo *CHIPModule::findFunctionInfo(const std::string &FName) {
-  return FuncInfos_.count(FName) ? FuncInfos_.at(FName) : nullptr;
+  return FuncInfos_.count(FName) ? FuncInfos_.at(FName).get() : nullptr;
 }
 
 // CHIPKernel
