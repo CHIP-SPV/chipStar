@@ -274,10 +274,6 @@ EXPORT double ldexp(double x, int k);
 
 DEFOPENCL1F(lgamma)
 
-DEFOPENCL1LL(rint)
-DEFOPENCL1F(rint)
-DEFOPENCL1LL(round)
-
 DEFOPENCL1F(log10)
 DEFOPENCL1F(log1p)
 DEFOPENCL1F(log2)
@@ -329,7 +325,6 @@ DEFOPENCL2F(rhypot)
 DEFOPENCL3F(rnorm3d)
 DEFOPENCL4F(rnorm4d)
 
-DEFOPENCL1F(round)
 DEFOPENCL1F(rsqrt)
 
 #if defined(__HIP_DEVICE_COMPILE__)
@@ -1011,16 +1006,10 @@ __DEF_FUN1(double, log10)
 __DEF_FUN1(double, log1p)
 __DEF_FUN1(double, log2)
 __DEF_FUN1(double, logb)
-__DEF_FUNI(long long, llrint)
-__DEF_FUNI(long long, llround)
-__DEF_FUNI(long, lrint)
-__DEF_FUNI(long, lround)
 __DEF_FUN1(double, nearbyint);
 __DEF_FUN2(double, nextafter);
 __DEF_FUN2(double, pow);
 __DEF_FUN2(double, remainder);
-__DEF_FUN1(double, rint);
-__DEF_FUN1(double, round);
 __HIP_OVERLOAD1(bool, signbit)
 __DEF_FUN1(double, sin)
 __DEF_FUN1(double, sinh)

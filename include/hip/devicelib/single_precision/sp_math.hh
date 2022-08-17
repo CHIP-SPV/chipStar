@@ -25,6 +25,23 @@
 #define HIP_INCLUDE_DEVICELIB_SP_MATH_H
 
 #include <hip/devicelib/macros.hh>
+
+extern "C++" {
+
+extern __device__ float rint(float x);
+extern __device__ float round(float x);
+extern __device__ long int convert_long(float x);
+
+__device__ float rintf(float x) { return rint(x); }
+__device__ float roundf(float x) { return round(x); }
+
+__device__ long int lrintf(float x) { return convert_long(rint(x)); }
+__device__ long int lroundf(float x) { return convert_long(round(x)); }
+
+__device__ long long int llrintf(float x) { return lrintf(x); }
+__device__ long long int llroundf(float x) { return lroundf(x); }
+}
+
 // __device__ float acosf(float x)
 // __device__  float acoshf ( float  x )
 // __device__  float asinf ( float  x )
@@ -69,15 +86,11 @@
 // __device__  float jnf ( int  n, float  x )
 // __device__  float ldexpf ( float  x, int  exp )
 // __device__  float lgammaf ( float  x )
-// __device__  long long int 	llrintf ( float  x )
-// __device__  long long int 	llroundf ( float  x )
 // __device__  float log10f ( float  x )
 // __device__  float log1pf ( float  x )
 // __device__  float log2f ( float  x )
 // __device__  float logbf ( float  x )
 // __device__  float logf ( float  x )
-// __device__  long int lrintf ( float  x )
-// __device__  long int lroundf ( float  x )
 // __device__  float max ( const float  a, const float  b )
 // __device__  float min ( const float  a, const float  b )
 // __device__  float modff ( float  x, float* iptr )
@@ -94,11 +107,9 @@
 // __device__  float remainderf ( float  x, float  y )
 // __device__  float remquof ( float  x, float  y, int* quo )
 // __device__  float rhypotf ( float  x, float  y )
-// __device__  float rintf ( float  x )
 // __device__  float rnorm3df ( float  a, float  b, float  c )
 // __device__  float rnorm4df ( float  a, float  b, float  c, float  d )
 // __device__  float rnormf ( int  dim, const float* p )
-// __device__  float roundf ( float  x )
 // __device__  float rsqrtf ( float  x )
 // __device__  float scalblnf ( float  x, long int  n )
 // __device__  float scalbnf ( float  x, int  n )

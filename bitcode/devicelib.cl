@@ -281,9 +281,6 @@ EXPORT double CL_NAME2(rnorm4d, d)(double x, double y, double z, double w) { dou
 EXPORT float CL_NAME2(rnorm3d, f)(float x, float y, float z) { float3 temp = (float3)(x, y, z); return rlen3(temp); }
 EXPORT double CL_NAME2(rnorm3d, d)(double x, double y, double z) { double3 temp = (double3)(x, y, z); return rlen3(temp); }
 
-DEF_OPENCL1F(rint)
-
-DEF_OPENCL1F(round)
 DEF_OPENCL1F(rsqrt)
 
 // OCML
