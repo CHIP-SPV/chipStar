@@ -58,7 +58,7 @@ public:
   void reset();
 
   ze_event_handle_t peek();
-  ze_event_handle_t get();
+  ze_event_handle_t get(std::string Msg);
 };
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {
@@ -66,7 +66,7 @@ private:
   // ze_event_pool_handle_t ZeEventPool_;
 
 public:
-  std::mutex Mtx;
+  std::mutex CallbackDataMtx;
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
 
@@ -106,6 +106,7 @@ private:
   int getFreeSlot();
 
 public:
+  std::mutex EventPoolMtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
   ze_event_pool_handle_t get() { return EventPool_; }

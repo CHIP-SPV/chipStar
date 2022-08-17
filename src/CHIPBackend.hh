@@ -289,6 +289,7 @@ protected:
   pthread_t Thread_;
 
 public:
+  std::mutex EventMonitorMtx;
   volatile bool Stop = false;
 
   void join() { pthread_join(Thread_, nullptr); }
@@ -366,12 +367,12 @@ struct AllocationInfo {
  */
 class CHIPAllocationTracker {
 private:
-  std::mutex Mtx_;
   std::string Name_;
 
   std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
 
 public:
+  std::mutex AllocationTrackerMtx;
   /**
    * @brief Associate a host pointer with a device pointer. @see hipHostRegister
    *
@@ -535,15 +536,17 @@ public:
       Event->decreaseRefCount(
           "An event that depended on this one has finished");
     }
+    std::lock_guard<std::mutex> Lock(EventMtx);
+    DependsOnList.clear();
   }
   void trackImpl();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
-  std::mutex Mtx;
+  std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc() { return *Refc_; }
   virtual void decreaseRefCount(std::string Reason) {
-    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> Lock(EventMtx);
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
              (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
@@ -554,7 +557,7 @@ public:
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {
-    std::lock_guard<std::mutex> Lock(Mtx);
+    std::lock_guard<std::mutex> Lock(EventMtx);
     logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
              (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
@@ -1024,7 +1027,6 @@ public:
 class CHIPDevice {
 protected:
   std::string DeviceName_;
-  std::mutex Mtx_;
   CHIPContext *Ctx_;
   std::vector<CHIPQueue *> ChipQueues_;
   int ActiveQueueId_ = 0;
@@ -1048,6 +1050,7 @@ protected:
   void init();
 
 public:
+  std::mutex DeviceMtx;
   /**
    * @brief Create a Queue object
    *
@@ -1344,7 +1347,7 @@ protected:
 
 public:
   std::vector<CHIPEvent *> Events;
-  std::mutex Mtx;
+  std::mutex ContextMtx;
   /**
    * @brief Construct a new CHIPContext object
    *
@@ -1506,7 +1509,7 @@ protected:
   CHIPQueue *ActiveQ_;
 
 public:
-  std::mutex Mtx;
+  std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
@@ -1767,6 +1770,14 @@ public:
                                      CHIPEventFlags Flags = CHIPEventFlags(),
                                      bool UserEvent = false) = 0;
 
+  // CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
+  //                            CHIPEventFlags Flags = CHIPEventFlags(),
+  //                            bool UserEvent = false) {
+  //   auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
+  //   NewEvent->Msg = MsgIn;
+  //   return NewEvent;
+  // }
+
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
@@ -1807,7 +1818,7 @@ protected:
 
 public:
   // I want others to be able to lock this queue?
-  std::mutex Mtx;
+  std::mutex QueueMtx;
 
   virtual CHIPEvent *getLastEvent() = 0;
 
@@ -1840,6 +1851,8 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
+    logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
+             (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
       return;
 
@@ -1851,7 +1864,6 @@ public:
       NewEvent->increaseRefCount("updateLastEvent - new event");
     }
 
-    // std::lock_guard Lock(Mtx);
     LastEvent_ = NewEvent;
   }
 
