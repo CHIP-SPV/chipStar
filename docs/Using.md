@@ -5,7 +5,9 @@
 #### CHIP_BE
 
 Select the backend to execute on.
-Possible values: opencl(default), level0
+Possible values: opencl, level0, default
+
+If set to "default" (or unset), it automatically selects any available backend in order: Level0, OpenCL.
 
 #### CHIP_LOGLEVEL
 
