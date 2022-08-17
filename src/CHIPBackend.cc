@@ -767,7 +767,7 @@ void CHIPEvent::trackImpl() {
 CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
                                               int Priority) {
 
-  std::lock_guard<std::mutex> Lock(Backend->Mtx);
+  std::lock_guard<std::mutex> Lock(Mtx_);
   auto ChipQueue = addQueueImpl(Flags, Priority);
   addQueue(ChipQueue);
   return ChipQueue;
@@ -775,7 +775,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
                                               const size_t NumHandles) {
-  std::lock_guard<std::mutex> Lock(Backend->Mtx); 
+  std::lock_guard<std::mutex> Lock(Mtx_); 
   auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
   addQueue(ChipQueue);
   return ChipQueue;
