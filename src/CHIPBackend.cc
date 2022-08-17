@@ -805,7 +805,6 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   std::lock_guard<std::mutex> Lock(DeviceMtx);
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -826,8 +825,8 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
 
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   Backend->getQueues().erase(FoundQueue);
-  // mem leak delete *FoundQueue;
   return true;
 }
 
