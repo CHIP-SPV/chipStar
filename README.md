@@ -74,6 +74,6 @@ The documentation will be placed in `doxygen/html`.
 
 ```bash
 make build_tests_standalone
-ctest --timeout 40 # currently some tests might hang
+make check # runs only tests known to work
 ```
 
