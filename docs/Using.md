@@ -28,6 +28,10 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 /opt/rocm
 ```
 
+### Disabling GPU hangcheck
+
+Note that long-running GPU compute kernels can trigger hang detection mechanism in the GPU driver, which will cause the kernel execution to be terminated and the runtime will report an error. Consult the documentation of your GPU driver on how to disable this hangcheck.
+
 ### Compiling CUDA application directly with CHIP-SPV
 
 Compilation of CUDA sources without changing the sources, can be done in two ways. The first is to replace calls of the nvcc compiler with calls of the wrapper script <CHIP-install-path>/bin/cuspv in Makefiles. The wrapper script will call clang with the correct flags. The other way is possible when using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::device)`. However the project must be compiled with Clang (a version supported by HIP). Note that it's not necessary to have Nvidia's CUDA installed.
@@ -46,7 +50,7 @@ hipcc ./hip_app.cpp -o hip_app
 
 CHIP-SPV provides several extra APIs (not present in AMD's HIP) for interoperability with its backends:
 
-* the hipGetBackendNativeHandles API returns native object handles, but does not give up ownership of these objects (HIP will keep using them asynchronously with the application). 
+* the hipGetBackendNativeHandles API returns native object handles, but does not give up ownership of these objects (HIP will keep using them asynchronously with the application).
 * hipInitFromNativeHandles API creates HIP objects from native handles, but again does not take ownership (they're still usable from application).
 
 Synchronization of context switching is left to the application.
