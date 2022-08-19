@@ -530,7 +530,7 @@ protected:
   CHIPEvent() = default;
 
 public:
-  CHIPQueue* LastEventForThisQueue;
+  CHIPQueue *LastEventForThisQueue;
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
   void releaseDependencies() {
     for (auto Event : DependsOnList) {
@@ -1974,7 +1974,16 @@ public:
    * @return false
    */
 
-  bool query() { UNIMPLEMENTED(true); }; // TODO Depends on Events
+  bool query() {
+    if (!LastEvent_)
+      return true;
+
+    LastEvent_->updateFinishStatus(false);
+    if (LastEvent_->isFinished())
+      return true;
+
+    return false;
+  };
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority
