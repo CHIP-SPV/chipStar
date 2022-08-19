@@ -1305,15 +1305,11 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
 
-  if (!Stream) {
-    Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-    Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
-  } else {
-    Stream = Backend->findQueue(Stream);
-    Stream->finish();
-  }
-
+  Stream = Backend->findQueue(Stream);
+  Backend->getActiveDevice()->getContext()->syncQueues(Stream);
+  Stream->finish();
   RETURN(hipSuccess);
+
   CHIP_CATCH
 }
 
