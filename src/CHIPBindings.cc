@@ -768,6 +768,10 @@ hipError_t hipDeviceSynchronize(void) {
     Q->finish();
   }
 
+  Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
+  if (Backend->getActiveDevice()->PerThreadStreamUsed)
+    Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1301,7 +1305,7 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
 
-  if(!Stream) {
+  if (!Stream) {
     Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
   } else {
@@ -2068,7 +2072,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
   } else
     Backend->getActiveDevice()->initializeDeviceVariables();
-  RETURN(Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src, SizeBytes));
+  RETURN(Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src,
+                                                                SizeBytes));
 
   CHIP_CATCH
 }
@@ -2223,7 +2228,8 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 
   char CharVal = Value;
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes, &CharVal, 1);
+  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
+                                                         &CharVal, 1);
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -2278,7 +2284,8 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
   NULLCHECK(Dest);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dest, 2 * Count, &Value, 2);
+  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dest, 2 * Count,
+                                                         &Value, 2);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2303,7 +2310,8 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   NULLCHECK(Dst);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, 4 * Count, &Value, 4);
+  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, 4 * Count, &Value,
+                                                         4);
   RETURN(hipSuccess);
 
   CHIP_CATCH
