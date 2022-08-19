@@ -1052,11 +1052,11 @@ protected:
 public:
   std::mutex DeviceMtx;
 
-  CHIPQueue *LegacyDefaultQueue;
-  inline static thread_local CHIPQueue *PerThreadDefaultQueue;
+  std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
+  inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
   CHIPQueue *getLegacyDefaultQueue() {
     assert(LegacyDefaultQueue);
-    return LegacyDefaultQueue;
+    return LegacyDefaultQueue.get();
   }
   CHIPQueue *getPerThreadDefaultQueue();
 

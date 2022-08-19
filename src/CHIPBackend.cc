@@ -409,12 +409,12 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 CHIPDevice::~CHIPDevice() {}
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
-  if (!PerThreadDefaultQueue) {
+  if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
-    PerThreadDefaultQueue = Backend->createCHIPQueue(this);
+    PerThreadDefaultQueue = std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
   }
 
-  return PerThreadDefaultQueue;
+  return PerThreadDefaultQueue.get();
 }
 
 std::vector<CHIPKernel *> CHIPDevice::getKernels() {
@@ -1359,7 +1359,10 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice) : CHIPQueue(ChipDevice, 0, 0){};
-CHIPQueue::~CHIPQueue(){};
+CHIPQueue::~CHIPQueue(){
+  logDebug("~CHIPQueue()");
+  updateLastEvent(nullptr);
+};
 
 ///////// Enqueue Operations //////////
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {

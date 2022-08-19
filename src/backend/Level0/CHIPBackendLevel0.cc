@@ -1366,7 +1366,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       //ChipL0Dev->createQueueAndRegister((int)0, (int)0);
       std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
       auto ChipQueue = new CHIPQueueLevel0(ChipL0Dev, 0, 0);
-      ChipL0Dev->LegacyDefaultQueue = ChipQueue;
+      ChipL0Dev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
       addQueue(ChipQueue);
 
       Backend->addDevice(ChipL0Dev);
