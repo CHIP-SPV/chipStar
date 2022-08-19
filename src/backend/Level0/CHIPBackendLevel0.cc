@@ -1363,7 +1363,11 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
 
-      ChipL0Dev->createQueueAndRegister((int)0, (int)0);
+      //ChipL0Dev->createQueueAndRegister((int)0, (int)0);
+      std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
+      auto ChipQueue = new CHIPQueueLevel0(ChipL0Dev, 0, 0);
+      ChipL0Dev->LegacyDefaultQueue = ChipQueue;
+      addQueue(ChipQueue);
 
       Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
@@ -1703,7 +1707,7 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
   logTrace("CHIPDeviceLevel0::createTexture");
 
   bool NormalizedFloat = PTexDesc->readMode == hipReadModeNormalizedFloat;
-  auto *Q = (CHIPQueueLevel0 *)getActiveQueue();
+  auto *Q = (CHIPQueueLevel0 *)getDefaultQueue();
 
   ze_sampler_handle_t SamplerHandle =
       createSampler(this, PResDesc, PTexDesc, PResViewDesc);

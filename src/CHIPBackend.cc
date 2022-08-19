@@ -401,9 +401,21 @@ CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
 // CHIPDevice
 //*************************************************************************************
 CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
-    : Ctx_(Ctx), Idx_(DeviceIdx) {}
+    : Ctx_(Ctx), Idx_(DeviceIdx) {
+  LegacyDefaultQueue = nullptr;
+  PerThreadDefaultQueue = nullptr;
+}
 
 CHIPDevice::~CHIPDevice() {}
+
+CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
+  if (!PerThreadDefaultQueue) {
+    logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
+    PerThreadDefaultQueue = Backend->createCHIPQueue(this);
+  }
+
+  return PerThreadDefaultQueue;
+}
 
 std::vector<CHIPKernel *> CHIPDevice::getKernels() {
   std::vector<CHIPKernel *> ChipKernels;
@@ -852,19 +864,12 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
   return (T1 && T2 && T3);
 }
 
-CHIPQueue *CHIPDevice::getActiveQueue() {
-  if (ChipQueues_.size() > 0)
-    return ChipQueues_[ActiveQueueId_];
-  else
-    return nullptr;
-}
-
 hipError_t CHIPDevice::allocateDeviceVariables() {
   std::lock_guard<std::mutex> Lock(DeviceMtx);
   logTrace("Allocate storage for device variables.");
   for (auto I : ChipModules) {
     auto Status =
-        I.second->allocateDeviceVariablesNoLock(this, getActiveQueue());
+        I.second->allocateDeviceVariablesNoLock(this, getDefaultQueue());
     if (Status != hipSuccess)
       return Status;
   }
@@ -875,7 +880,7 @@ void CHIPDevice::initializeDeviceVariables() {
   std::lock_guard<std::mutex> Lock(DeviceMtx);
   logTrace("Initialize device variables.");
   for (auto Module : ChipModules)
-    Module.second->initializeDeviceVariablesNoLock(this, getActiveQueue());
+    Module.second->initializeDeviceVariablesNoLock(this, getDefaultQueue());
 }
 
 void CHIPDevice::invalidateDeviceVariables() {
@@ -898,12 +903,24 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
+#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+  // The per-thread default stream is an implicit stream local to both the
+  // thread and the CUcontext, and which does not synchronize with other streams
+  // (just like explcitly created streams). The per-thread default stream is not
+  // a non-blocking stream and will synchronize with the legacy default stream
+  // if both are used in a program.
+
+  // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
+  // default stream thus no syncronization necessary
+  if (TargetQueue == DefaultQueue)
+    return;
+#endif
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPQueue *> Queues = Backend->getQueues();
   std::vector<CHIPQueue *> QueuesBlocking;
 
-  // // Default queue gets created add init - always 0th in queue list
-  CHIPQueue *DefaultQueue = Queues[0];
+  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
+
   Queues.erase(Queues.begin());
 
   for (auto &Queue : Queues)
@@ -1071,6 +1088,16 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
     std::string Msg = "No CHIPDevices were initialized";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
   }
+
+  // check if all the devices had their default queues initialized
+  for (auto Dev : ChipDevices) {
+    if (Dev->LegacyDefaultQueue == nullptr)
+      CHIPERR_LOG_AND_THROW("LegacyDefaultQueue not initialized",
+                            hipErrorInitializationError);
+    // if (Dev->PerThreadDefaultQueue == nullptr)
+    //   CHIPERR_LOG_AND_THROW("PerThreadDefaultQueue not initialized",
+    //                         hipErrorInitializationError);
+  }
   setActiveDevice(ChipDevices[0]);
 }
 
@@ -1085,16 +1112,8 @@ void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
   };
   ActiveDev_ = ChipDevice;
   ActiveCtx_ = ChipDevice->getContext();
-  ActiveQ_ = ChipDevice->getActiveQueue();
 }
 std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return ChipQueues; }
-CHIPQueue *CHIPBackend::getActiveQueue() {
-  if (ActiveQ_ == nullptr) {
-    std::string Msg = "Active queue is null";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
-  }
-  return ActiveQ_;
-};
 
 CHIPContext *CHIPBackend::getActiveContext() {
   if (ActiveCtx_ == nullptr) {
@@ -1164,9 +1183,9 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
-  if (ChipQueue == nullptr)
-    ChipQueue = getActiveQueue();
-  CHIPExecItem *ExecItem = new CHIPExecItem(Grid, Block, SharedMem, ChipQueue);
+  auto TargetQueue = Backend->findQueue(ChipQueue);
+  CHIPExecItem *ExecItem =
+      new CHIPExecItem(Grid, Block, SharedMem, TargetQueue);
   ChipExecStack.push(ExecItem);
 
   return hipSuccess;
@@ -1313,16 +1332,12 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> Lock(BackendMtx);
-
   if (ChipQueue == hipStreamPerThread) {
-    UNIMPLEMENTED(nullptr);
-  }
-
-  if (ChipQueue == nullptr) {
-    logDebug("CHIPBackend::findQueue() was given a nullptr. Returning default "
-             "queue");
-    return Backend->getActiveQueue();
+    return Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  } else if (ChipQueue == hipStreamLegacy) {
+    return Backend->getActiveDevice()->getLegacyDefaultQueue();
+  } else if (ChipQueue == nullptr) {
+    return Backend->getActiveDevice()->getDefaultQueue();
   }
   auto Queues = Backend->getActiveDevice()->getQueues();
   auto QueueFound = std::find(Queues.begin(), Queues.end(), ChipQueue);

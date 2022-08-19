@@ -426,7 +426,7 @@ public:
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
     auto Q = new CHIPQueueLevel0(ChipDevLz);
-    Backend->addQueue(Q);
+    ChipDev->addQueue(Q);
     return Q;
   }
 

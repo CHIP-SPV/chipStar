@@ -530,6 +530,7 @@ protected:
   CHIPEvent() = default;
 
 public:
+  CHIPQueue* LastEventForThisQueue;
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
   void releaseDependencies() {
     for (auto Event : DependsOnList) {
@@ -1029,7 +1030,6 @@ protected:
   std::string DeviceName_;
   CHIPContext *Ctx_;
   std::vector<CHIPQueue *> ChipQueues_;
-  int ActiveQueueId_ = 0;
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1051,6 +1051,23 @@ protected:
 
 public:
   std::mutex DeviceMtx;
+
+  CHIPQueue *LegacyDefaultQueue;
+  inline static thread_local CHIPQueue *PerThreadDefaultQueue;
+  CHIPQueue *getLegacyDefaultQueue() {
+    assert(LegacyDefaultQueue);
+    return LegacyDefaultQueue;
+  }
+  CHIPQueue *getPerThreadDefaultQueue();
+
+  CHIPQueue *getDefaultQueue() {
+#ifdef CUDA_API_PER_THREAD_DEFAULT_STREAM
+    return getLegacyDefaultQueue();
+#else
+    return getLegacyDefaultQueue();
+#endif
+  }
+
   /**
    * @brief Create a Queue object
    *
@@ -1143,13 +1160,7 @@ public:
    * @return std::vector<CHIPQueue*>
    */
   std::vector<CHIPQueue *> &getQueues();
-  /**
-   * @brief HIP API allows for setting the active device, not the active queue
-   * so active device's active queue is always it's 0th/default/primary queue
-   *
-   * @return CHIPQueue*
-   */
-  CHIPQueue *getActiveQueue();
+
   /**
    * @brief Remove a queue from this device's queue vector
    *
@@ -1506,7 +1517,6 @@ protected:
 
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
-  CHIPQueue *ActiveQ_;
 
 public:
   std::mutex BackendMtx;
@@ -1613,12 +1623,7 @@ public:
    * @return std::vector<CHIPQueue*>&
    */
   std::vector<CHIPQueue *> &getQueues();
-  /**
-   * @brief Get the Active Queue object
-   *
-   * @return CHIPQueue*
-   */
-  CHIPQueue *getActiveQueue();
+
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.

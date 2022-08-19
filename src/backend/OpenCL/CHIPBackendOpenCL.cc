@@ -231,7 +231,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
   logTrace("CHIPDeviceOpenCL::createTexture");
 
   bool NormalizedFloat = TexDesc->readMode == hipReadModeNormalizedFloat;
-  auto *Q = (CHIPQueueOpenCL *)getActiveQueue();
+  auto *Q = (CHIPQueueOpenCL *)getDefaultQueue();
 
   cl_context CLCtx = ((CHIPContextOpenCL *)getContext())->get()->get();
   cl_sampler Sampler = createSampler(CLCtx, *ResDesc, *TexDesc);
