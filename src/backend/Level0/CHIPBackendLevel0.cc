@@ -1367,7 +1367,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
       auto ChipQueue = new CHIPQueueLevel0(ChipL0Dev, 0, 0);
       ChipL0Dev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
-      addQueue(ChipQueue);
 
       Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
@@ -1395,6 +1394,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipCtx->addDevice(ChipDev);
   addDevice(ChipDev);
 
+  // TODO: Initialize DefaultQueue
   ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
 
   StaleEventMonitor =

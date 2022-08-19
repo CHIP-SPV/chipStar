@@ -1050,6 +1050,7 @@ protected:
   void init();
 
 public:
+  bool PerThreadStreamUsed = false;
   std::mutex DeviceMtx;
 
   std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
@@ -1149,7 +1150,7 @@ public:
                                   int NumHandles) = 0;
 
   /**
-   * @brief Add a queue to this device
+   * @brief Add a queue to this device and the backend
    *
    * @param chip_queue_  CHIPQueue to be added
    */
@@ -1666,7 +1667,7 @@ public:
    */
   void addContext(CHIPContext *ChipContext);
   /**
-   * @brief Add a context to this backend.
+   * @brief Add a queue to this backend.
    *
    * @param q_in
    */

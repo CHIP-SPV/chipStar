@@ -411,7 +411,9 @@ CHIPDevice::~CHIPDevice() {}
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
-    PerThreadDefaultQueue = std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
+    PerThreadDefaultQueue =
+        std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
+    PerThreadStreamUsed = true;
   }
 
   return PerThreadDefaultQueue.get();
@@ -781,6 +783,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
 
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto ChipQueue = addQueueImpl(Flags, Priority);
+  // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
   return ChipQueue;
 }
@@ -789,6 +792,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
                                               const size_t NumHandles) {
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
+  // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
   return ChipQueue;
 }
@@ -916,23 +920,31 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     return;
 #endif
   std::lock_guard<std::mutex> LockContext(ContextMtx);
-  std::vector<CHIPQueue *> Queues = Backend->getQueues();
-  std::vector<CHIPQueue *> QueuesBlocking;
+  std::vector<CHIPQueue *> QueuesToSyncWith;
 
   auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  Queues.erase(Queues.begin());
+  // The per-thread default stream is not a non-blocking stream and will
+  // synchronize with the legacy default stream if both are used in a program
+  if (Backend->getActiveDevice()->PerThreadStreamUsed) {
+    if (TargetQueue == Backend->getActiveDevice()->getPerThreadDefaultQueue())
+      QueuesToSyncWith.push_back(DefaultQueue);
+    else if (TargetQueue == Backend->getActiveDevice()->getLegacyDefaultQueue())
+      QueuesToSyncWith.push_back(
+          Backend->getActiveDevice()->getPerThreadDefaultQueue());
+  }
 
-  for (auto &Queue : Queues)
+  // Always sycn with all blocking queues
+  for (auto &Queue : Backend->getQueues())
     if (Queue->getQueueFlags().isBlocking())
-      QueuesBlocking.push_back(Queue);
+      QueuesToSyncWith.push_back(Queue);
 
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
 
   CHIPEvent *SyncQueuesEvent;
   if (TargetQueue == DefaultQueue) {
-    for (auto &q : QueuesBlocking) {
+    for (auto &q : QueuesToSyncWith) {
       auto Ev = q->getLastEvent();
       if (Ev)
         EventsToWaitOn.push_back(Ev);
@@ -1183,9 +1195,8 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
-  auto TargetQueue = Backend->findQueue(ChipQueue);
   CHIPExecItem *ExecItem =
-      new CHIPExecItem(Grid, Block, SharedMem, TargetQueue);
+      new CHIPExecItem(Grid, Block, SharedMem, ChipQueue);
   ChipExecStack.push(ExecItem);
 
   return hipSuccess;
@@ -1339,9 +1350,16 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   } else if (ChipQueue == nullptr) {
     return Backend->getActiveDevice()->getDefaultQueue();
   }
-  auto Queues = Backend->getActiveDevice()->getQueues();
-  auto QueueFound = std::find(Queues.begin(), Queues.end(), ChipQueue);
-  if (QueueFound == Queues.end())
+
+  // Safety Check to make sure that the requested queue is registereted
+  std::vector<CHIPQueue *> AllQueues = Backend->getActiveDevice()->getQueues();
+  AllQueues.push_back(Backend->getActiveDevice()->getLegacyDefaultQueue());
+
+  if (Backend->getActiveDevice()->PerThreadStreamUsed)
+    AllQueues.push_back(Backend->getActiveDevice()->getPerThreadDefaultQueue());
+
+  auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
+  if (QueueFound == AllQueues.end())
     CHIPERR_LOG_AND_THROW("CHIPBackend::findQueue() was given a non-nullptr "
                           "queue but this queue "
                           "was not found among the backend queues.",
@@ -1359,7 +1377,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice) : CHIPQueue(ChipDevice, 0, 0){};
-CHIPQueue::~CHIPQueue(){
+CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue()");
   updateLastEvent(nullptr);
 };
