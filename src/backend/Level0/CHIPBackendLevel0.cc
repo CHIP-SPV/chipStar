@@ -1251,8 +1251,17 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 
 void CHIPBackendLevel0::uninitialize() {
 
-  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent for all queues");
+  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+           "user-created queues");
   for (auto Q : Backend->getQueues()) {
+    std::lock_guard Lock(Q->QueueMtx);
+    Q->updateLastEvent(nullptr);
+  }
+
+  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+           "default queues");
+  for (auto Dev : Backend->getDevices()) {
+    auto Q = Dev->getDefaultQueue();
     std::lock_guard Lock(Q->QueueMtx);
     Q->updateLastEvent(nullptr);
   }
@@ -1363,7 +1372,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
 
-      //ChipL0Dev->createQueueAndRegister((int)0, (int)0);
+      // ChipL0Dev->createQueueAndRegister((int)0, (int)0);
       std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
       auto ChipQueue = new CHIPQueueLevel0(ChipL0Dev, 0, 0);
       ChipL0Dev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
