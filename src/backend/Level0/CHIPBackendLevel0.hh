@@ -380,9 +380,9 @@ public:
     return Mod;
   }
 
-  virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
-  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles,
-                                  int NumHandles) override;
+  virtual CHIPQueue *createQueue(unsigned int Flags, int Priority) override;
+  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+                                 int NumHandles) override;
 
   ze_device_properties_t *getDeviceProps() { return &(this->ZeDeviceProps_); };
 
@@ -426,7 +426,7 @@ public:
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
     auto Q = new CHIPQueueLevel0(ChipDevLz);
-    Backend->addQueue(Q);
+
     return Q;
   }
 

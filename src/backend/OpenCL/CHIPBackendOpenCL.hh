@@ -123,7 +123,7 @@ public:
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
-  bool isAllocatedPtrUSM(void* Ptr) override { return true; }
+  bool isAllocatedPtrUSM(void *Ptr) override { return true; }
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();
 };
@@ -133,16 +133,17 @@ class CHIPDeviceOpenCL : public CHIPDevice {
                    int Idx);
 
 public:
-  static CHIPDeviceOpenCL *create(CHIPContextOpenCL *ChipContext,
-                                  cl::Device *ClDevice, int Idx);
+  static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
+                                  CHIPContextOpenCL *ChipContext, int Idx);
   cl::Device *ClDevice;
   cl::Context *ClContext;
   cl::Device *get() { return ClDevice; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
   virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;
-  virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) override;
-  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles, int NumHandles) override;
+  virtual CHIPQueue *createQueue(unsigned int Flags, int Priority) override;
+  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+                                 int NumHandles) override;
 
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
@@ -183,7 +184,8 @@ public:
                                         size_t Width, size_t Height,
                                         size_t Depth) override;
 
-  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo, int *NumHandles) override;
+  virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
+                                       int *NumHandles) override;
   virtual CHIPEvent *
   enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
   virtual CHIPEvent *enqueueMarkerImpl() override;
@@ -233,7 +235,8 @@ public:
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;
-  virtual void initializeFromNative(const uintptr_t *NativeHandles, int NumHandles) override;
+  virtual void initializeFromNative(const uintptr_t *NativeHandles,
+                                    int NumHandles) override;
 
   virtual std::string getDefaultJitFlags() override;
 
@@ -249,9 +252,8 @@ public:
   virtual CHIPEventMonitor *createCallbackEventMonitor() override;
   virtual CHIPEventMonitor *createStaleEventMonitor() override;
 
-  virtual hipEvent_t getHipEvent(void* NativeEvent) override;
-  virtual void* getNativeEvent(hipEvent_t HipEvent) override;
-
+  virtual hipEvent_t getHipEvent(void *NativeEvent) override;
+  virtual void *getNativeEvent(hipEvent_t HipEvent) override;
 };
 
 class CHIPTextureOpenCL : public CHIPTexture {

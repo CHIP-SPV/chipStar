@@ -1251,8 +1251,17 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 
 void CHIPBackendLevel0::uninitialize() {
 
-  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent for all queues");
+  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+           "user-created queues");
   for (auto Q : Backend->getQueues()) {
+    std::lock_guard Lock(Q->QueueMtx);
+    Q->updateLastEvent(nullptr);
+  }
+
+  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+           "default queues");
+  for (auto Dev : Backend->getDevices()) {
+    auto Q = Dev->getDefaultQueue();
     std::lock_guard Lock(Q->QueueMtx);
     Q->updateLastEvent(nullptr);
   }
@@ -1362,9 +1371,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
-
-      ChipL0Dev->createQueueAndRegister((int)0, (int)0);
-
       Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
     }
@@ -1391,7 +1397,9 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipCtx->addDevice(ChipDev);
   addDevice(ChipDev);
 
-  ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
+  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
+  auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
+  ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
@@ -1661,13 +1669,13 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.texturePitchAlignment = 1;
 }
 
-CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDeviceLevel0::createQueue(unsigned int Flags, int Priority) {
   CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
   return NewQ;
 }
 
-CHIPQueue *CHIPDeviceLevel0::addQueueImpl(const uintptr_t *NativeHandles,
-                                          int NumHandles) {
+CHIPQueue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
+                                         int NumHandles) {
   ze_command_queue_handle_t CmdQ = (ze_command_queue_handle_t)NativeHandles[3];
   CHIPQueueLevel0 *NewQ;
   if (!CmdQ) {
@@ -1703,7 +1711,7 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
   logTrace("CHIPDeviceLevel0::createTexture");
 
   bool NormalizedFloat = PTexDesc->readMode == hipReadModeNormalizedFloat;
-  auto *Q = (CHIPQueueLevel0 *)getActiveQueue();
+  auto *Q = (CHIPQueueLevel0 *)getDefaultQueue();
 
   ze_sampler_handle_t SamplerHandle =
       createSampler(this, PResDesc, PTexDesc, PResViewDesc);
