@@ -1371,12 +1371,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
-
-      // ChipL0Dev->createQueueAndRegister((int)0, (int)0);
-      std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-      auto ChipQueue = new CHIPQueueLevel0(ChipL0Dev, 0, 0);
-      ChipL0Dev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
-
       Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
     }
@@ -1404,7 +1398,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   addDevice(ChipDev);
 
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-  auto ChipQueue = ChipDev->addQueueImpl(NativeHandles, NumHandles);
+  auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
   ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 
   StaleEventMonitor =
@@ -1675,13 +1669,13 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.texturePitchAlignment = 1;
 }
 
-CHIPQueue *CHIPDeviceLevel0::addQueueImpl(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDeviceLevel0::createQueue(unsigned int Flags, int Priority) {
   CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
   return NewQ;
 }
 
-CHIPQueue *CHIPDeviceLevel0::addQueueImpl(const uintptr_t *NativeHandles,
-                                          int NumHandles) {
+CHIPQueue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
+                                         int NumHandles) {
   ze_command_queue_handle_t CmdQ = (ze_command_queue_handle_t)NativeHandles[3];
   CHIPQueueLevel0 *NewQ;
   if (!CmdQ) {

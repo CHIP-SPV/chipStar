@@ -454,6 +454,11 @@ void CHIPDevice::init() {
   if (!AllocationTracker)
     AllocationTracker = new CHIPAllocationTracker(
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
+
+  unsigned int Flags = 0;
+  int Priority = 0;
+  auto ChipQueue = createQueue(Flags, Priority);
+  LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 }
 
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *Prop) {
@@ -762,8 +767,8 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockDevice(DeviceMtx);
   logDebug("CHIPDevice::addQueue ", (char *)ChipQueue);
-  Backend->addQueue(ChipQueue);
 
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -793,19 +798,19 @@ void CHIPEvent::trackImpl() {
 CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
                                               int Priority) {
 
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-  auto ChipQueue = addQueueImpl(Flags, Priority);
+  auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
+  Backend->addQueue(ChipQueue);
   return ChipQueue;
 }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
                                               const size_t NumHandles) {
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-  auto ChipQueue = addQueueImpl(NativeHandles, NumHandles);
+  auto ChipQueue = createQueue(NativeHandles, NumHandles);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
+  Backend->addQueue(ChipQueue);
   return ChipQueue;
 }
 
@@ -979,8 +984,8 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPContext.add_device() {}", ChipDevice->getName());
+  std::lock_guard<std::mutex> LockContext(ContextMtx);
   ChipDevices_.push_back(ChipDevice);
-  // TODO: add to backend as well
 }
 
 std::vector<CHIPDevice *> &CHIPContext::getDevices() {
@@ -1166,6 +1171,7 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
 }
 void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
   logDebug("CHIPBackend::addQueue()");
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
   if (QueueFound == ChipQueues.end()) {
     ChipQueues.push_back(ChipQueue);
@@ -1178,12 +1184,13 @@ void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
 }
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   ChipDevices.push_back(ChipDevice);
 }
 
 void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
   logDebug("CHIPBackend->register_module()");
-  std::lock_guard<std::mutex> Lock(BackendMtx);
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   getModulesStr().push_back(ModuleStr);
 }
 
@@ -1202,7 +1209,7 @@ void CHIPBackend::unregisterModuleStr(std::string *ModuleStr) {
 
 hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
                                       hipStream_t ChipQueue) {
-  std::lock_guard<std::mutex> Lock(BackendMtx);
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   logDebug("CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
@@ -1215,7 +1222,7 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
 
 hipError_t CHIPBackend::setArg(const void *Arg, size_t Size, size_t Offset) {
   logDebug("CHIPBackend->set_arg()");
-  std::lock_guard<std::mutex> Lock(BackendMtx);
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   CHIPExecItem *ExecItem = ChipExecStack.top();
   ExecItem->setArg(Arg, Size, Offset);
 

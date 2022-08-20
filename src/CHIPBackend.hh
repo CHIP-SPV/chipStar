@@ -1154,9 +1154,9 @@ public:
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
-  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles,
-                                  int NumHandles) = 0;
+  virtual CHIPQueue *createQueue(unsigned int Flags, int Priority) = 0;
+  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+                                 int NumHandles) = 0;
 
   /**
    * @brief Add a queue to this device and the backend

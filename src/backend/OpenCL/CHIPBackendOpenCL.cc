@@ -303,8 +303,9 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
            "pointer");
 }
 
-CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(CHIPContextOpenCL *ChipContext,
-                                           cl::Device *ClDevice, int Idx) {
+CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
+                                           CHIPContextOpenCL *ChipContext,
+                                           int Idx) {
   CHIPDeviceOpenCL *Dev = new CHIPDeviceOpenCL(ChipContext, ClDevice, Idx);
   Dev->init();
   return Dev;
@@ -488,8 +489,6 @@ void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
            *Refc_ - 1, R, R - 1, Reason);
   (*Refc_)--;
-  // Destructor to be called by event monitor once backend is done using it
-  // if (*refc == 1) delete this;
 }
 
 void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
@@ -518,7 +517,8 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
   std::lock_guard<std::mutex> Lock(EventMtx);
 
   logDebug("CHIPEvent::recordStream()");
-  assert(ChipQueue->getLastEvent() != nullptr);
+  if (!ChipQueue->getLastEvent())
+    ChipQueue->enqueueMarker();
   this->takeOver(ChipQueue->getLastEvent());
   EventStatus_ = EVENT_STATUS_RECORDING;
 }
@@ -730,13 +730,13 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   }
 }
 
-CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDeviceOpenCL::createQueue(unsigned int Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this);
   return NewQ;
 }
 
-CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(const uintptr_t *NativeHandles,
-                                          int NumHandles) {
+CHIPQueue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
+                                         int NumHandles) {
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, CmdQ);
   return NewQ;
@@ -938,17 +938,6 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
   }
-  /**
-   * queues should always have lastEvent. Can't do this in the constuctor
-   * because enqueueMarker is virtual and calling overriden virtual methods from
-   * constructors is undefined behavior.
-   *
-   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
-   * one (enqueueMarker) because the wrapped method enforces queue semantics
-   * which require LastEvent to be initialized.
-   *
-   */
-  updateLastEvent(enqueueMarkerImpl());
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
@@ -1288,16 +1277,14 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   Backend->addContext(ChipContext);
   for (int i = 0; i < Devices.size(); i++) {
     cl::Device *Dev = new cl::Device(Devices[i]);
-    CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(ChipContext, Dev, i);
+    CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, i);
+
     logTrace("CHIPDeviceOpenCL {}",
              ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
     // Add device to context & backend
     ChipContext->addDevice(ChipDev);
     Backend->addDevice(ChipDev);
-
-    // Create and add queue queue to Device and Backend
-    ChipDev->createQueueAndRegister((int)0, (int)0);
   }
   logDebug("OpenCL Context Initialized.");
 };
@@ -1315,14 +1302,12 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   addContext(ChipContext);
 
   cl::Device *Dev = new cl::Device(DevId);
-  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(ChipContext, Dev, 0);
+  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, 0);
   logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
   // Add device to context & backend
   ChipContext->addDevice(ChipDev);
   addDevice(ChipDev);
-
-  ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
 
   setActiveDevice(ChipDev);
 
