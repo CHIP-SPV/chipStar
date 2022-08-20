@@ -407,6 +407,18 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 }
 
 CHIPDevice::~CHIPDevice() {}
+CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
+  assert(LegacyDefaultQueue);
+  return LegacyDefaultQueue.get();
+}
+
+CHIPQueue *CHIPDevice::getDefaultQueue() {
+#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+  return getLegacyDefaultQueue();
+#else
+  return getLegacyDefaultQueue();
+#endif
+}
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {

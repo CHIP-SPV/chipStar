@@ -530,7 +530,6 @@ protected:
   CHIPEvent() = default;
 
 public:
-  CHIPQueue *LastEventForThisQueue;
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
   void releaseDependencies() {
     for (auto Event : DependsOnList) {
@@ -1055,19 +1054,29 @@ public:
 
   std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
-  CHIPQueue *getLegacyDefaultQueue() {
-    assert(LegacyDefaultQueue);
-    return LegacyDefaultQueue.get();
-  }
-  CHIPQueue *getPerThreadDefaultQueue();
 
-  CHIPQueue *getDefaultQueue() {
-#ifdef CUDA_API_PER_THREAD_DEFAULT_STREAM
-    return getLegacyDefaultQueue();
-#else
-    return getLegacyDefaultQueue();
-#endif
-  }
+  /**
+   * @brief Get the Legacy Default Queue object.
+   *
+   * @return CHIPQueue* default legacy queue
+   */
+  CHIPQueue *getLegacyDefaultQueue();
+  /**
+   * @brief Get the Per Thread Default Queue object. If it was not initialized,
+   * initialize it and set PerThreadStreamUsed to true
+   * @see CHIPDevice::PerThreadStreamUsed
+   *
+   * @return CHIPQueue*
+   */
+  CHIPQueue *getPerThreadDefaultQueue();
+  /**
+   * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
+   * was set during compilation, return PerThreadStream, otherwise return legacy
+   * stream
+   *
+   * @return CHIPQueue*
+   */
+  CHIPQueue *getDefaultQueue();
 
   /**
    * @brief Create a Queue object
