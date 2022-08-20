@@ -105,7 +105,6 @@ option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream.
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
 option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
-option(STREAM_PER_THREAD "Each thread to use a separate stream" OFF)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -197,9 +196,6 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix" FORCE)
 endif()
 
-if(STREAM_PER_THREAD)
-  list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
-endif()
 set(HIP_PATH ${CMAKE_INSTALL_PREFIX})
 message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 # CHIP-SPV CMAKE OPTIONS PARSING
