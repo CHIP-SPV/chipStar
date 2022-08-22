@@ -517,13 +517,17 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
   std::lock_guard<std::mutex> Lock(EventMtx);
 
   logDebug("CHIPEvent::recordStream()");
-  if (!ChipQueue->getLastEvent())
+  if (!ChipQueue->getLastEvent()) {
+    logTrace("LastEvent is null for Queue {}.. Enqueue marker",
+             (void *)ChipQueue);
     ChipQueue->enqueueMarker();
+  }
   this->takeOver(ChipQueue->getLastEvent());
   EventStatus_ = EVENT_STATUS_RECORDING;
 }
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
+  logTrace("CHIPEventOpenCL::takeOver");
   if (*Refc_ > 1)
     decreaseRefCount("takeOver");
   auto *Other = (CHIPEventOpenCL *)OtherIn;
