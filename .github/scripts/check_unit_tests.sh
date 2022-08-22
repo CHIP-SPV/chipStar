@@ -1,7 +1,7 @@
 #!/bin/bash
-CURRENT_COMMIT=`git_hash=$(git rev-parse --short "$GITHUB_SHA")`
+CURRENT_COMMIT=`git rev-parse --short "$GITHUB_SHA"`
 # CURRENT_COMMIT=`git log --oneline --skip=1 -1 | awk '{print $1}'`
-echo "CURRENT COMMIT: ${GITHUB_SHA}"
+echo "CURRENT COMMIT: ${CURRENT_COMMIT}"
 
 
 OPENCL_UNIT_TEST_COMMIT=`cat opencl_unit_tests_iris.log | awk 'NR==1{print $1}'`
