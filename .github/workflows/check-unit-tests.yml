@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: test sha
+        run: echo "${github.event.pull_request.head.sha}"
+        shell: bash
       - name: Run unit test checking script
         run: ./.github/scripts/check_unit_tests.sh
         shell: bash
