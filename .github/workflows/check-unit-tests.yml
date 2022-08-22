@@ -13,9 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: test sha
-        run: echo "${{ github.event.pull_request.head.sha }}"
-        shell: bash
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - name: test sha2
         run: echo "${{ github.event.pull_request.head.sha }}"
         shell: bash
