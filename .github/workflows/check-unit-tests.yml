@@ -13,12 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
-      - name: test sha2
-        run: echo "${{ github.event.before }}"
+      - name: Latest github sha from context
+        run: echo "${{ github.event.after }}"
+        shell: bash
+      - name: Latest github sha from git
+        run: git log -1
         shell: bash
       - name: Run unit test checking script
         run: ./.github/scripts/check_unit_tests.sh "${{ github.event.before }}"
