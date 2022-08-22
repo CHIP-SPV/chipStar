@@ -17,6 +17,6 @@ jobs:
         run: echo "${{ github.event.pull_request.base.sha }}"
         shell: bash
       - name: Run unit test checking script
-        run: ./.github/scripts/check_unit_tests.sh
+        run: ./.github/scripts/check_unit_tests.sh "${{ github.event.pull_request.base.sha }}"
         shell: bash
 
