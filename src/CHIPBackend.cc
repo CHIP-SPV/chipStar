@@ -414,7 +414,7 @@ CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
 
 CHIPQueue *CHIPDevice::getDefaultQueue() {
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-  return getLegacyDefaultQueue();
+  return getPerThreadDefaultQueue();
 #else
   return getLegacyDefaultQueue();
 #endif
@@ -924,6 +924,7 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
+  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
   // The per-thread default stream is an implicit stream local to both the
   // thread and the CUcontext, and which does not synchronize with other streams
@@ -938,8 +939,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 #endif
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPQueue *> QueuesToSyncWith;
-
-  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
 
   // The per-thread default stream is not a non-blocking stream and will
   // synchronize with the legacy default stream if both are used in a program
@@ -1361,6 +1360,8 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+
   if (ChipQueue == hipStreamPerThread) {
     return Backend->getActiveDevice()->getPerThreadDefaultQueue();
   } else if (ChipQueue == hipStreamLegacy) {

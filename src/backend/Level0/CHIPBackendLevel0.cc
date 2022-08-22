@@ -1261,9 +1261,12 @@ void CHIPBackendLevel0::uninitialize() {
   logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "default queues");
   for (auto Dev : Backend->getDevices()) {
-    auto Q = Dev->getDefaultQueue();
+#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+#else
+    auto Q = Dev->getLegacyDefaultQueue();
     std::lock_guard Lock(Q->QueueMtx);
     Q->updateLastEvent(nullptr);
+#endif
   }
 
   if (CallbackEventMonitor) {
