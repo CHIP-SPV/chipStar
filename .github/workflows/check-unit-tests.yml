@@ -5,8 +5,6 @@ name: unit-test-checker
 on:
   push:
     paths-ignore: "docs/**"
-  pull_request:
-    paths-ignore: "docs/**"
 
 jobs:
   unit-test-checker:
@@ -14,9 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: test sha
-        run: echo "${{ github.event.pull_request.base.sha }}"
+        run: echo "${{ github.event.pull_request.head.sha }}"
         shell: bash
       - name: Run unit test checking script
-        run: ./.github/scripts/check_unit_tests.sh "${{ github.event.pull_request.base.sha }}"
+        run: ./.github/scripts/check_unit_tests.sh "${{ github.event.pull_request.head.sha }}"
         shell: bash
 
