@@ -2369,6 +2369,9 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+  if (SPitch < 1 || DPitch < 1 || Width > DPitch) {
+    CHIPERR_LOG_AND_THROW("Source Pitch less than 1", hipErrorInvalidValue);
+  }
 
   auto Stream = Backend->getActiveDevice()->getDefaultQueue();
 
