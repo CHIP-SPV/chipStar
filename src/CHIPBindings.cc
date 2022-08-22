@@ -1519,6 +1519,10 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
   NULLCHECK(Start, Stop);
 
+  if (!Start->isRecordingOrRecorded() || !Stop->isRecordingOrRecorded()) {
+    CHIPERR_LOG_AND_THROW("One of the events was not recorded",
+                          hipErrorInvalidHandle);
+  }
   if (Start->getFlags().isDisableTiming() || Stop->getFlags().isDisableTiming())
     CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
                           "Unable to return elasped time",
