@@ -58,38 +58,53 @@ if(NOT LLVM_ENABLE_EH)
   add_compile_options("-fno-exceptions")
 endif()
 
-add_library(LLVMHipDynMem MODULE HipDynMem.cpp)
+set(EXTRA_OBJS)
+
+if(LLVM_LINK_LLVM_DYLIB OR LLVM_ENABLE_SHARED_LIBS)
+  message(STATUS "LLVM built with shared libraries -> pass plugin should just work")
+else()
+  message(STATUS "LLVM built with static libraries -> adding workaround for issue #102")
+
+  get_target_property(LLVMCORE_CONF LLVMCore IMPORTED_CONFIGURATIONS)
+  get_target_property(LLVMCORE_PATH LLVMCore IMPORTED_LOCATION_${LLVMCORE_CONF})
+  message(STATUS "libLLVMCore CONFIG: ${LLVMCORE_CONF}")
+  message(STATUS "libLLVMCore PATH: ${LLVMCORE_PATH}")
+  file(REMOVE "${CMAKE_BINARY_DIR}/ReplaceConstant.cpp.o")
+  execute_process(COMMAND "ar" p "${LLVMCORE_PATH}" "ReplaceConstant.cpp.o"
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/ReplaceConstant.cpp.o"
+    RESULT_VARIABLE RES)
+  if(NOT RES EQUAL "0")
+    message(FATAL_ERROR "ar command on ${LLVMCORE_PATH} failed")
+  endif()
+
+  add_library(ReplaceConstant OBJECT IMPORTED)
+  set_property(TARGET ReplaceConstant PROPERTY IMPORTED_OBJECTS
+    "${CMAKE_BINARY_DIR}/ReplaceConstant.cpp.o")
+
+  set(EXTRA_OBJS "$<TARGET_OBJECTS:ReplaceConstant>")
+
+endif()
+
+
+add_library(LLVMHipDynMem MODULE HipDynMem.cpp ${EXTRA_OBJS})
 add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
-install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics
+add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
+add_library(LLVMHipPasses MODULE HipPasses.cpp
+    HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
+    HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
+    ${EXTRA_OBJS})
+
+if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
+  set_target_properties(LLVMHipPasses PROPERTIES
+    # HIP-Clang 14+ automatically searches for libLLVMHipSpvPasses.so in
+    # <HIP-PATH>/lib where <HIP-PATH> is path given to --hip-path for
+    # HIP program compilation.
+    OUTPUT_NAME "LLVMHipSpvPasses"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+endif()
+
+install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipDefrost LLVMHipPasses
         LIBRARY DESTINATION lib/llvm
         ARCHIVE DESTINATION lib/llvm
         )
-
-if("${LLVM_VERSION}" VERSION_GREATER 9.0)
-  add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
-  install(TARGETS LLVMHipDefrost
-          LIBRARY DESTINATION lib/llvm
-          ARCHIVE DESTINATION lib/llvm
-          )
-endif()
-
-if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 11.0)
-  add_library(LLVMHipPasses MODULE HipPasses.cpp
-    HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
-    HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp)
-
-  if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
-    set_target_properties(LLVMHipPasses PROPERTIES
-      # HIP-Clang 14+ automatically searches for libLLVMHipSpvPasses.so in
-      # <HIP-PATH>/lib where <HIP-PATH> is path given to --hip-path for
-      # HIP program compilation.
-      OUTPUT_NAME "LLVMHipSpvPasses"
-      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-  endif()
-
-  install(TARGETS LLVMHipPasses
-          LIBRARY DESTINATION lib/llvm
-          ARCHIVE DESTINATION lib/llvm)
-
-endif()
