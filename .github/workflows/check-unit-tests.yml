@@ -1,0 +1,19 @@
+# Workflow syntax:
+# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+name: unit-test-checker
+
+on:
+  push:
+    paths-ignore: "docs/**"
+  pull_request:
+    paths-ignore: "docs/**"
+
+jobs:
+  unit-test-checker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run unit test checking script
+        run: ./.github/scripts/check_unit_tests.sh
+        shell: bash
+
