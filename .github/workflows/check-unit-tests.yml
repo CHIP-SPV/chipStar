@@ -18,9 +18,9 @@ jobs:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
       - name: test sha2
-        run: echo "${{ github.event.pull_request.head.sha }}"
+        run: echo "${{ github.event.before }}"
         shell: bash
       - name: Run unit test checking script
-        run: ./.github/scripts/check_unit_tests.sh "${{ github.event.pull_request.head.sha }}"
+        run: ./.github/scripts/check_unit_tests.sh "${{ github.event.before }}"
         shell: bash
 
