@@ -1049,6 +1049,7 @@ protected:
   void init();
 
 public:
+  hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   bool PerThreadStreamUsed = false;
   std::mutex DeviceMtx;
 

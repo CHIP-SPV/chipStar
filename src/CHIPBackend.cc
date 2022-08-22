@@ -1593,6 +1593,30 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #endif
   std::lock_guard<std::mutex> LockQueue(QueueMtx);
 
+  auto TotalThreadsPerBlock =
+      ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
+  auto DeviceProps = ExecItem->getQueue()->getDevice()->getDeviceProps();
+  auto MaxTotalThreadsPerBlock = DeviceProps.maxThreadsPerBlock;
+
+  if (TotalThreadsPerBlock > MaxTotalThreadsPerBlock) {
+    logCritical("Requested total local size {} exceeds HW limit {}",
+                TotalThreadsPerBlock, MaxTotalThreadsPerBlock);
+    CHIPERR_LOG_AND_THROW("Requested local size exceeds HW max",
+                          hipErrorLaunchFailure);
+  }
+
+  if (ExecItem->getBlock().x > DeviceProps.maxThreadsDim[0] ||
+      ExecItem->getBlock().y > DeviceProps.maxThreadsDim[1] ||
+      ExecItem->getBlock().z > DeviceProps.maxThreadsDim[2]) {
+    logCritical(
+        "Requested local size dimension ({}, {}, {}) exceeds max ({}, {}, {})",
+        ExecItem->getBlock().x, ExecItem->getBlock().y, ExecItem->getBlock().z,
+        DeviceProps.maxThreadsDim[0], DeviceProps.maxThreadsDim[1],
+        DeviceProps.maxThreadsDim[2]);
+    CHIPERR_LOG_AND_THROW("Requested local size exceeds HW max",
+                          hipErrorLaunchFailure);
+  }
+
   auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, false);
   auto LaunchEvent = launchImpl(ExecItem);
   auto RegisteredVarOutEvent = RegisteredVarCopy(ExecItem, true);
