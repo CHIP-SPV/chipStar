@@ -322,9 +322,6 @@ EXPORT double remquo(double x, double y, int *quo);
 
 DEFOPENCL2F(rhypot)
 
-DEFOPENCL3F(rnorm3d)
-DEFOPENCL4F(rnorm4d)
-
 DEFOPENCL1F(rsqrt)
 
 #if defined(__HIP_DEVICE_COMPILE__)

@@ -270,17 +270,6 @@ EXPORT float CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
 // OCML
 DEFOCML_OPENCL2F(rhypot)
 
-// OCML rlen3 / rlen4
-float OVLD rlen4(float4 f);
-double OVLD rlen4(double4 f);
-float OVLD rlen3(float3 f);
-double OVLD rlen3(double3 f);
-
-EXPORT float CL_NAME2(rnorm4d, f)(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return rlen4(temp); }
-EXPORT double CL_NAME2(rnorm4d, d)(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return rlen4(temp); }
-EXPORT float CL_NAME2(rnorm3d, f)(float x, float y, float z) { float3 temp = (float3)(x, y, z); return rlen3(temp); }
-EXPORT double CL_NAME2(rnorm3d, d)(double x, double y, double z) { double3 temp = (double3)(x, y, z); return rlen3(temp); }
-
 DEF_OPENCL1F(rsqrt)
 
 // OCML

@@ -49,3 +49,9 @@ MATH_MANGLE(rlen3)(double x, double y, double z)
     return ret;
 }
 
+CONSTATTR double
+MATH_MANGLE(rnorm3d)(double x, double y, double z)
+{
+    double ret = MATH_MANGLE(rlen3)(x, y, z);
+    return 1.0 / ret;
+}
