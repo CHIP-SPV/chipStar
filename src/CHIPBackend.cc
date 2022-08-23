@@ -767,8 +767,7 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockDevice(DeviceMtx);
-  logDebug("CHIPDevice::addQueue ", (char *)ChipQueue);
+  std::lock_guard<std::mutex> LockDevice(Backend->BackendMtx);
 
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -779,6 +778,9 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
                           "already present in the backend queue list",
                           hipErrorTbd);
   }
+  logDebug("CHIPQueue {} added to the queue vector for device {} ",
+           (void *)ChipQueue, (void *)this);
+
   return;
 }
 
@@ -814,7 +816,10 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
   return ChipQueue;
 }
 
-std::vector<CHIPQueue *> &CHIPDevice::getQueues() { return ChipQueues_; }
+std::vector<CHIPQueue *> &CHIPDevice::getQueues() {
+  std::lock_guard<std::mutex> LockDevice(DeviceMtx);
+  return ChipQueues_;
+}
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
                                      bool CanAccessPeer) {
@@ -838,9 +843,7 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  // TODO: Cleanup
-  std::lock_guard<std::mutex> Lock(DeviceMtx);
-  std::lock_guard<std::mutex> LockQueue(ChipQueue->QueueMtx);
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   // If this stream has a LastEvent, it will release it, decrement its refcount
   // and let the StaleEventMonitor to collect it
   ChipQueue->updateLastEvent(nullptr);
@@ -857,7 +860,6 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   ChipQueues_.erase(FoundQueue);
 
   // Remove from the Backend Queue List
-  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   FoundQueue = std::find(Backend->getQueues().begin(),
                          Backend->getQueues().end(), ChipQueue);
   if (FoundQueue == Backend->getQueues().end()) {
@@ -1169,7 +1171,6 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
-  logDebug("CHIPBackend::addQueue()");
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
   auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
   if (QueueFound == ChipQueues.end()) {
@@ -1179,12 +1180,19 @@ void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
                           "already present in the backend queue list",
                           hipErrorTbd);
   }
+
+  logDebug("CHIPQueue {} added to the queue vector for backend {} ",
+           (void *)ChipQueue, (void *)this);
+
   return;
 }
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
   ChipDevices.push_back(ChipDevice);
+
+  logDebug("CHIPDevice {} added to the queue vector for backend {} ",
+           (void *)ChipDevice, (void *)this);
 }
 
 void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
