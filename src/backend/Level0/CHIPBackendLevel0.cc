@@ -722,9 +722,9 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListCompute() {
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags)
-    : CHIPQueueLevel0(ChipDev, Flags, 0) {}
+    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY) {}
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
-    : CHIPQueueLevel0(ChipDev, 0, 0) {}
+    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {}
 
 void CHIPQueueLevel0::initializeCopyListImm() {
   ze_command_queue_desc_t CommandQueueCopyDesc = getNextComputeQueueDesc();
@@ -871,6 +871,22 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   initializeQueueGroupProperties();
 
   ze_command_queue_desc_t QueueDescriptor = getNextComputeQueueDesc();
+
+  switch (Priority_) {
+  case 0:
+    QueueDescriptor.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
+    break;
+  case 1:
+    QueueDescriptor.priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+    break;
+  case 2:
+    QueueDescriptor.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW;
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW(
+        "Invalid Priority range requested during L0 Queue init", hipErrorTbd);
+  }
+
   std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -884,7 +900,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  ze_command_queue_handle_t ZeCmdQ)
-    : CHIPQueue(ChipDev, 0, 0) {
+    : CHIPQueue(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();
   auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
@@ -1340,6 +1356,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
                                        std::string CHIPDeviceTypeStr,
                                        std::string CHIPDeviceStr) {
   logTrace("CHIPBackendLevel0 Initialize");
+  MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   ze_result_t Status;
   Status = zeInit(0);
   if (Status != ZE_RESULT_SUCCESS) {
@@ -1424,6 +1441,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
                                              int NumHandles) {
   logTrace("CHIPBackendLevel0 InitializeNative");
+  MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
 
   ze_driver_handle_t Drv = (ze_driver_handle_t)NativeHandles[0];
   ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];

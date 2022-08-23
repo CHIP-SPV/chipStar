@@ -483,7 +483,7 @@ void CHIPDevice::init() {
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
 
   unsigned int Flags = 0;
-  int Priority = 0;
+  int Priority = 1; // TODO : set a default
   auto ChipQueue = createQueue(Flags, Priority);
   LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 }
@@ -1110,6 +1110,10 @@ hipError_t CHIPContext::free(void *Ptr) {
 
 // CHIPBackend
 //*************************************************************************************
+int CHIPBackend::getQueuePriorityRange() {
+  assert(MinQueuePriority_);
+  return MinQueuePriority_;
+}
 
 void CHIPBackend::uninitialize() { logDebug("CHIPBackend::uninitialize()"); }
 
@@ -1435,14 +1439,12 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 
 // CHIPQueue
 //*************************************************************************************
-CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags, int Priority)
-    : Priority_(Priority), Flags_(Flags), ChipDevice_(ChipDevice) {
+CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
+    : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
-  QueueFlags_ = CHIPQueueFlags{Flags};
 };
-CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, unsigned int Flags)
+CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
-CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice) : CHIPQueue(ChipDevice, 0, 0){};
 CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue()");
   updateLastEvent(nullptr);
@@ -1744,9 +1746,8 @@ CHIPDevice *CHIPQueue::getDevice() {
   return ChipDevice_;
 }
 
-unsigned int CHIPQueue::getFlags() { return Flags_; }
-int CHIPQueue::getPriorityRange(int LowerOrUpper) { UNIMPLEMENTED(0); }
-int CHIPQueue::getPriority() { UNIMPLEMENTED(0); }
+CHIPQueueFlags CHIPQueue::getFlags() { return QueueFlags_; }
+int CHIPQueue::getPriority() { return Priority_; }
 void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
   CHIPCallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);

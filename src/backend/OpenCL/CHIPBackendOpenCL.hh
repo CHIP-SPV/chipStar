@@ -22,7 +22,7 @@
 
 /**
  * @file Backend.hh
- * @author Paulius Velesko (pvelesko@gmail.com)
+ * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief OpenCL backend for CHIP. CHIPBackendOpenCL class definition with
  * inheritance from CHIPBackend. Subsequent virtual function overrides.
  * @version 0.1
@@ -39,6 +39,8 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 210
 #define CL_HPP_MINIMUM_OPENCL_VERSION 200
 
+#pragma OPENCL EXTENSION cl_khr_priority_hints : enable
+
 #include <CL/cl_ext_intel.h>
 
 #pragma GCC diagnostic push
@@ -49,6 +51,8 @@
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
+
+#define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
 
 std::string resultToString(int Status);
 
@@ -182,7 +186,8 @@ protected:
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
-  CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue = nullptr);
+  CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
+                  cl_command_queue Queue = nullptr);
   ~CHIPQueueOpenCL();
   virtual CHIPEventOpenCL *getLastEvent() override;
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
