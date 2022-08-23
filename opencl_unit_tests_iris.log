@@ -1,11 +1,11 @@
-5798195556a1501f75d811671bbdf775bbd8b61f
-87% tests passed, 91 tests failed out of 707
+bd12622dc87d9294fea49bb15ccdf97f94009676
+87% tests passed, 90 tests failed out of 707
 
 Label Time Summary:
-cuda        =  88.13 sec*proc (27 tests)
-internal    = 139.32 sec*proc (79 tests)
+cuda        =  97.50 sec*proc (27 tests)
+internal    = 169.78 sec*proc (79 tests)
 
-Total Test time (real) = 169.25 sec
+Total Test time (real) = 168.63 sec
 
 The following tests did not run:
 	677 - sycl_chip_interop (Skipped)
@@ -16,10 +16,9 @@ The following tests FAILED:
 	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
-	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
+	221 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)

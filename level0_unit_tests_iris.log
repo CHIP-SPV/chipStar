@@ -1,11 +1,11 @@
-5798195556a1501f75d811671bbdf775bbd8b61f
-88% tests passed, 84 tests failed out of 707
+bd12622dc87d9294fea49bb15ccdf97f94009676
+88% tests passed, 83 tests failed out of 707
 
 Label Time Summary:
-cuda        = 115.89 sec*proc (27 tests)
-internal    = 449.63 sec*proc (79 tests)
+cuda        = 115.80 sec*proc (27 tests)
+internal    = 456.66 sec*proc (79 tests)
 
-Total Test time (real) = 243.09 sec
+Total Test time (real) = 256.44 sec
 
 The following tests FAILED:
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
@@ -71,7 +71,6 @@ The following tests FAILED:
 	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
-	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
