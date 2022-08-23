@@ -409,9 +409,6 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
 
-  if (!this->isRecordingOrRecorded() || !Other->isRecordingOrRecorded())
-    return hipErrorInvalidResourceHandle;
-
   this->updateFinishStatus();
   Other->updateFinishStatus();
   if (!this->isFinished() || !Other->isFinished())
@@ -429,11 +426,13 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
    * values.
    * https://spec.oneapi.io/level-zero/latest/core/PROG.html#kernel-timestamp-events
    */
-  uint64_t Elapsed = std::fabs(Finished - Started);
+  // uint64_t Elapsed = std::fabs(Finished - Started);
+  // Infering temporal order anyways because hipEvent unit tests expects it
+  int64_t Elapsed = (Finished - Started);
 
 #define NANOSECS 1000000000
-  uint64_t MS = (Elapsed / NANOSECS) * 1000;
-  uint64_t NS = Elapsed % NANOSECS;
+  int64_t MS = (Elapsed / NANOSECS) * 1000;
+  int64_t NS = Elapsed % NANOSECS;
   float FractInMS = ((float)NS) / 1000000.0f;
   auto Ms = (float)MS + FractInMS;
 

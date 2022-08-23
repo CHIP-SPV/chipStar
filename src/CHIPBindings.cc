@@ -762,9 +762,7 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  std::lock_guard<std::mutex> LockQueue(Backend->getActiveDevice()->DeviceMtx);
   for (auto Q : Backend->getActiveDevice()->getQueues()) {
-    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
     Q->finish();
   }
 
@@ -1470,6 +1468,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
                           hipErrorInvalidValue);
 
   *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
+  (*Event)->increaseRefCount("hipEventCreateWithFlags");
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1493,9 +1492,10 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  // instead of destroying directly, decrement refc to 1 and  let
-  // StaleEventMonitor destroy this event
   Event->decreaseRefCount("hipEventDestroy");
+  if (Event->getCHIPRefc() != 0) {
+    logError("hipEventDestroy was called but remaining refcount is not 0");
+  }
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1519,6 +1519,10 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
   NULLCHECK(Start, Stop);
 
+  if (!Start->isRecordingOrRecorded() || !Stop->isRecordingOrRecorded()) {
+    CHIPERR_LOG_AND_THROW("One of the events was not recorded",
+                          hipErrorInvalidHandle);
+  }
   if (Start->getFlags().isDisableTiming() || Stop->getFlags().isDisableTiming())
     CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
                           "Unable to return elasped time",
@@ -2369,6 +2373,9 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+  if (SPitch < 1 || DPitch < 1 || Width > DPitch) {
+    CHIPERR_LOG_AND_THROW("Source Pitch less than 1", hipErrorInvalidValue);
+  }
 
   auto Stream = Backend->getActiveDevice()->getDefaultQueue();
 
