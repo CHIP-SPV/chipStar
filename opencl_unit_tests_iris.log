@@ -1,28 +1,25 @@
-e9c8ac30b102e826a30c1dfa7a77ca3b8fe28486
-87% tests passed, 95 tests failed out of 707
+5798195556a1501f75d811671bbdf775bbd8b61f
+87% tests passed, 91 tests failed out of 707
 
 Label Time Summary:
-cuda        =  97.89 sec*proc (27 tests)
-internal    = 162.67 sec*proc (79 tests)
+cuda        =  88.13 sec*proc (27 tests)
+internal    = 139.32 sec*proc (79 tests)
 
-Total Test time (real) = 163.42 sec
+Total Test time (real) = 169.25 sec
 
 The following tests did not run:
 	677 - sycl_chip_interop (Skipped)
 	678 - sycl_chip_interop_usm (Skipped)
 
 The following tests FAILED:
-	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
-	 66 - Unit_hipMemcpy2D_Negative (Failed)
 	102 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
 	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
+	176 - Unit_hipMemcpyWithStream_MultiThread (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	222 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
@@ -106,4 +103,3 @@ The following tests FAILED:
 	618 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	619 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	620 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
-	691 - cuda-simpleCallback (SEGFAULT)

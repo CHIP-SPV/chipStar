@@ -1,21 +1,16 @@
-e9c8ac30b102e826a30c1dfa7a77ca3b8fe28486
-87% tests passed, 89 tests failed out of 707
+5798195556a1501f75d811671bbdf775bbd8b61f
+88% tests passed, 84 tests failed out of 707
 
 Label Time Summary:
-cuda        = 135.34 sec*proc (27 tests)
-internal    = 466.27 sec*proc (79 tests)
+cuda        = 115.89 sec*proc (27 tests)
+internal    = 449.63 sec*proc (79 tests)
 
-Total Test time (real) = 297.12 sec
+Total Test time (real) = 243.09 sec
 
 The following tests FAILED:
-	 65 - Unit_hipMemcpy2D_SizeCheck (Failed)
-	 66 - Unit_hipMemcpy2D_Negative (Failed)
-	101 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
-	152 - Unit_hipMemset3DAsync_ConcurrencyMthread (Subprocess aborted)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Timeout)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_AnyAll_CompileTest (Failed)
@@ -76,7 +71,7 @@ The following tests FAILED:
 	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
-	550 - Unit_hipEvent (Failed)
+	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
