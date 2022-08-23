@@ -476,31 +476,6 @@ size_t CHIPEventOpenCL::getRefCount() {
 
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
-void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
-
-  logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", Msg.c_str());
-  if (!ClEvent) {
-    logTrace("CHIPEventOpenCL::decreaseRefCount() ClEvent is null. Likely "
-             "never recorded. Skipping...");
-    return;
-  }
-  size_t R = getRefCount();
-  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
-           *Refc_ - 1, R, R - 1, Reason);
-  (*Refc_)--;
-}
-
-void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
-
-  logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", Msg.c_str());
-  size_t R = getRefCount();
-  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
-           *Refc_ + 1, R, R + 1, Reason);
-  (*Refc_)++;
-}
-
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
@@ -514,8 +489,6 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
-
   logDebug("CHIPEvent::recordStream()");
   if (!ChipQueue->getLastEvent()) {
     logTrace("LastEvent is null for Queue {}.. Enqueue marker",
@@ -531,6 +504,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   if (*Refc_ > 1)
     decreaseRefCount("takeOver");
   auto *Other = (CHIPEventOpenCL *)OtherIn;
+  std::lock_guard<std::mutex> LockEvent(EventMtx);
   this->ClEvent = Other->ClEvent;
   this->Refc_ = Other->Refc_;
   this->Msg = Other->Msg;

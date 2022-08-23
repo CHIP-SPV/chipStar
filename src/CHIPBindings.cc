@@ -1468,6 +1468,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
                           hipErrorInvalidValue);
 
   *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
+  (*Event)->increaseRefCount("hipEventCreateWithFlags");
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1491,9 +1492,10 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  // instead of destroying directly, decrement refc to 1 and  let
-  // StaleEventMonitor destroy this event
   Event->decreaseRefCount("hipEventDestroy");
+  if (Event->getCHIPRefc() != 0) {
+    logError("hipEventDestroy was called but remaining refcount is not 0");
+  }
   RETURN(hipSuccess);
 
   CHIP_CATCH

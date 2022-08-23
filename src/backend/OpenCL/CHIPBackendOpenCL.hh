@@ -71,8 +71,6 @@ public:
   virtual ~CHIPEventOpenCL() override;
   virtual void recordStream(CHIPQueue *ChipQueue) override;
   void takeOver(CHIPEvent *Other);
-  virtual void decreaseRefCount(std::string Reason) override;
-  virtual void increaseRefCount(std::string Reason) override;
   bool wait() override;
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
