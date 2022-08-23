@@ -272,8 +272,6 @@ EXPORT float ldexpf(float x, int k);
 EXPORT double ldexp(double x, int k);
 #endif
 
-DEFOPENCL1F(lgamma)
-
 DEFOPENCL1F(log10)
 DEFOPENCL1F(log1p)
 DEFOPENCL1F(log2)
@@ -997,7 +995,6 @@ __HIP_OVERLOAD2(bool, islessgreater);
 __HIP_OVERLOAD1(bool, isnan);
 //__HIP_OVERLOAD1(bool, isnormal)
 __HIP_OVERLOAD2(bool, isunordered);
-__DEF_FUN1(double, lgamma)
 __DEF_FUN1(double, log)
 __DEF_FUN1(double, log10)
 __DEF_FUN1(double, log1p)

@@ -203,10 +203,6 @@ double OVLD ldexp(double f, int k);
 EXPORT float CL_NAME2(ldexp, f)(float x, int k) { return ldexp(x, k); }
 EXPORT double CL_NAME2(ldexp, d)(double x, int k) { return ldexp(x, k); }
 
-float OVLD lgamma(float f, PRIVATE_AS int *signp);
-double OVLD lgamma(double f, PRIVATE_AS int *signp);
-EXPORT float CL_NAME2(lgamma, f)(float x) { int sign; return lgamma(x, &sign); }
-EXPORT double CL_NAME2(lgamma, d)(double x) { int sign; return lgamma(x, &sign); }
 
 DEF_OPENCL1F(log10)
 DEF_OPENCL1F(log1p)

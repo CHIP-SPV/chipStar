@@ -40,6 +40,8 @@ __device__ long long int llround(double x) { return lround(x); }
 
 extern __device__ double rnorm3d(double a, double b, double c);
 extern __device__ double rnorm4d(double a, double b, double c, double d);
+
+extern __device__ double lgamma ( double  x );
 }
 
 // __device__ double acos(double x)
@@ -83,7 +85,6 @@ extern __device__ double rnorm4d(double a, double b, double c, double d);
 // __device__​ double j1 ( double  x )
 // __device__​ double jn ( int  n, double  x )
 // __device__​ double ldexp ( double  x, int  exp )
-// __device__​ double lgamma ( double  x )
 // __device__​ double log ( double  x )
 // __device__​ double log10 ( double  x )
 // __device__​ double log1p ( double  x )
