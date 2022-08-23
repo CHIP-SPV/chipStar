@@ -8,7 +8,7 @@
 #include "mathF.h"
 
 CONSTATTR float
-MATH_MANGLE(ncdfinv)(float x)
+MATH_MANGLE(normcdfinv)(float x)
 {
     return -0x1.6a09e6p+0f * MATH_MANGLE(erfcinv)(x + x);
 }

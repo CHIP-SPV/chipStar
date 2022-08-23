@@ -8,7 +8,7 @@
 #include "mathF.h"
 
 CONSTATTR float
-MATH_MANGLE(ncdf)(float x)
+MATH_MANGLE(normcdf)(float x)
 {
     float ret;
 

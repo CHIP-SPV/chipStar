@@ -8,7 +8,7 @@
 #include "mathD.h"
 
 CONSTATTR double
-MATH_MANGLE(ncdf)(double x)
+MATH_MANGLE(normcdf)(double x)
 {
     double ret;
 
