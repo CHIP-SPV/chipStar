@@ -59,3 +59,10 @@ MATH_MANGLE(rlen4)(double x, double y, double z, double w)
     return ret;
 }
 
+
+CONSTATTR double
+MATH_MANGLE(rnorm4d)(double x, double y, double z, double w)
+{
+    double ret = MATH_MANGLE(rlen4)(x, y, z, w);
+    return 1.0 / ret;
+}

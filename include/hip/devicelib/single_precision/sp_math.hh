@@ -40,6 +40,9 @@ __device__ long int lroundf(float x) { return convert_long(round(x)); }
 
 __device__ long long int llrintf(float x) { return lrintf(x); }
 __device__ long long int llroundf(float x) { return lroundf(x); }
+
+extern __device__ float rnorm3df(float a, float b, float c);
+extern __device__ float rnorm4df(float a, float b, float c, float d);
 }
 
 // __device__ float acosf(float x)
@@ -107,8 +110,6 @@ __device__ long long int llroundf(float x) { return lroundf(x); }
 // __device__  float remainderf ( float  x, float  y )
 // __device__  float remquof ( float  x, float  y, int* quo )
 // __device__  float rhypotf ( float  x, float  y )
-// __device__  float rnorm3df ( float  a, float  b, float  c )
-// __device__  float rnorm4df ( float  a, float  b, float  c, float  d )
 // __device__  float rnormf ( int  dim, const float* p )
 // __device__  float rsqrtf ( float  x )
 // __device__  float scalblnf ( float  x, long int  n )

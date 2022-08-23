@@ -48,3 +48,9 @@ MATH_MANGLE(rlen4)(float x, float y, float z, float w)
     return ret;
 }
 
+CONSTATTR float
+MATH_MANGLE(rnorm4df)(float x, float y, float z, float w)
+{
+    float ret = MATH_MANGLE(rlen4)(x, y, z, w);
+    return 1.0f / ret;
+}

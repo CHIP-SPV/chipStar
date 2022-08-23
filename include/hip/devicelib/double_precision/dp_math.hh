@@ -37,6 +37,9 @@ __device__ long int lround(double x) { return convert_long(round(x)); }
 
 __device__ long long int llrint(double x) { return lrint(x); }
 __device__ long long int llround(double x) { return lround(x); }
+
+extern __device__ double rnorm3d(double a, double b, double c);
+extern __device__ double rnorm4d(double a, double b, double c, double d);
 }
 
 // __device__ double acos(double x)
@@ -107,8 +110,6 @@ __device__ long long int llround(double x) { return lround(x); }
 // __device__​ double remquo ( double  x, double  y, int* quo )
 // __device__​ double rhypot ( double  x, double  y )
 // __device__​ double rnorm ( int  dim, const double* p )
-// __device__​ double rnorm3d ( double  a, double  b, double  c )
-// __device__​ double rnorm4d ( double  a, double  b, double  c, double  d)
 // __device__​ double rsqrt ( double  x )
 // __device__​ double scalbln ( double  x, long int  n )
 // __device__​ double scalbn ( double  x, int  n )
