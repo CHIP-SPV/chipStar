@@ -43,6 +43,10 @@ __device__ long long int llroundf(float x) { return lroundf(x); }
 
 extern __device__ float rnorm3df(float a, float b, float c);
 extern __device__ float rnorm4df(float a, float b, float c, float d);
+
+extern __device__  float lgamma ( float  x );
+__device__  float lgammaf ( float  x ) { return (lgamma(x)); };
+
 }
 
 // __device__ float acosf(float x)
@@ -88,7 +92,6 @@ extern __device__ float rnorm4df(float a, float b, float c, float d);
 // __device__  float j1f ( float  x )
 // __device__  float jnf ( int  n, float  x )
 // __device__  float ldexpf ( float  x, int  exp )
-// __device__  float lgammaf ( float  x )
 // __device__  float log10f ( float  x )
 // __device__  float log1pf ( float  x )
 // __device__  float log2f ( float  x )
