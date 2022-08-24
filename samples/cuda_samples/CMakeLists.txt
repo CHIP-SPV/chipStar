@@ -1,11 +1,16 @@
-# ARGN = additional source files
-function(add_cuda_sample TEST_NAME SUBDIR MAIN_SOURCE)
-  set(SOURCES "")
-  foreach(SOURCE ${MAIN_SOURCE} ${ARGN})
-    list(APPEND SOURCES "${SUBDIR}/${SOURCE}")
+# usage: add_cuda_sample_args(NAME test-name SUBDIR test-dir SOURCES source1 source2 ARGS command-arg1 arg2 arg3)
+function(add_cuda_sample_args)
+  set(options)
+  set(oneValueArgs NAME SUBDIR)
+  set(multiValueArgs SOURCES ARGS)
+  cmake_parse_arguments(CUDA "${options}" "${oneValueArgs}"
+                        "${multiValueArgs}" ${ARGN})
+  set(SOURCES)
+  foreach(SOURCE IN LISTS CUDA_SOURCES)
+    list(APPEND SOURCES "${CUDA_SUBDIR}/${SOURCE}")
   endforeach()
 
-  set(EXEC_NAME ${TEST_NAME})
+  set(EXEC_NAME ${CUDA_NAME})
   set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
   add_executable("${EXEC_NAME}" ${SOURCES})
 
@@ -15,14 +20,21 @@ function(add_cuda_sample TEST_NAME SUBDIR MAIN_SOURCE)
 
   target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
   target_include_directories("${EXEC_NAME}"
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Common ${SUBDIR})
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Common ${CUDA_SUBDIR})
   install(TARGETS "${EXEC_NAME}"
     RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}/cuda_samples")
 
-  add_test(NAME "${TEST_NAME}"
-    COMMAND "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}")
-  set_property(TEST "${EXEC_NAME}" PROPERTY LABELS "internal;cuda")
+  add_test(NAME "${CUDA_NAME}"
+    COMMAND "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${CUDA_ARGS})
+  set_property(TEST "${CUDA_NAME}" PROPERTY LABELS "internal;cuda")
 
+endfunction()
+
+# ARGN = additional source files
+function(add_cuda_sample TEST_NAME SUBDIR MAIN_SOURCE)
+  add_cuda_sample_args(NAME "${TEST_NAME}"
+                       SUBDIR "${SUBDIR}"
+                       SOURCES ${MAIN_SOURCE} ${ARGN})
 endfunction()
 
 ############################
@@ -52,9 +64,13 @@ add_cuda_sample(cuda-deviceQuery 1_Utilities/deviceQuery deviceQuery.cpp)
 add_cuda_sample(cuda-convolutionSeparable 2_Graphics/convolutionSeparable convolutionSeparable.cu  convolutionSeparable_gold.cpp  main.cpp)
 
 #### works after editing sources: threadblock size 512 -> 256
-add_cuda_sample(cuda-dwtHaar1D  2_Graphics/dwtHaar1D  dwtHaar1D.cu)
-# needs to find data files
-set_property(TEST cuda-dwtHaar1D PROPERTY WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/2_Graphics/dwtHaar1D")
+add_cuda_sample_args(NAME "cuda-dwtHaar1D"
+                     SUBDIR "2_Graphics/dwtHaar1D"
+                     SOURCES "dwtHaar1D.cu"
+                     ARGS "--signal=${CMAKE_CURRENT_SOURCE_DIR}/2_Graphics/dwtHaar1D/data/signal.dat"
+                     "--gold=${CMAKE_CURRENT_SOURCE_DIR}/2_Graphics/dwtHaar1D/data/regression.gold.dat"
+                     "--result=${CMAKE_BINARY_DIR}/dwtHaar1D_result.dat"
+                     )
 
 add_cuda_sample(cuda-histogram  2_Graphics/histogram  histogram_gold.cpp  main.cpp  histogram256.cu  histogram64.cu)
 
