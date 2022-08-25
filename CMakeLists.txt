@@ -125,6 +125,7 @@ option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead 
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
+option(BUILD_DOCS "Build doxygen documentation" OFF)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
@@ -533,15 +534,12 @@ install(EXPORT CHIPTargets
 # CHIP-SPV INSTALLATION AND PACKAGING
 ###############################################################################
 
-
-find_package(Doxygen)
-if(DOXYGEN_FOUND)
-
+if(BUILD_DOCS)
+  find_package(Doxygen REQUIRED)
   set(DOXYGEN_GENERATE_HTML YES)
   set(DOXYGEN_GENERATE_MAN NO)
   set(DOXYGEN_OUTPUT_DIRECTORY doxygen)
   set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
   doxygen_add_docs(gendocs README.md src llvm_passes
-                   COMMENT "generate documentation for source")
-
+                  COMMENT "generate documentation for source")
 endif()
