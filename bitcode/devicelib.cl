@@ -184,7 +184,7 @@ EXPORT float CL_NAME2(frexp, f)(float x, DEFAULT_AS int *i) {
   *i = tmp;
   return ret;
 }
-EXPORT float CL_NAME2(frexp, d)(double x, DEFAULT_AS int *i) {
+EXPORT double CL_NAME2(frexp, d)(double x, DEFAULT_AS int *i) {
   int tmp;
   double ret = frexp(x, &tmp);
   *i = tmp;
@@ -219,7 +219,7 @@ EXPORT float CL_NAME2(modf, f)(float x, DEFAULT_AS float *i) {
   *i = tmp;
   return ret;
 }
-EXPORT float CL_NAME2(modf, d)(double x, DEFAULT_AS double *i) {
+EXPORT double CL_NAME2(modf, d)(double x, DEFAULT_AS double *i) {
   double tmp;
   double ret = modf(x, &tmp);
   *i = tmp;
@@ -256,7 +256,7 @@ EXPORT float CL_NAME2(remquo, f)(float x, float y, DEFAULT_AS int *quo) {
   *quo = tmp;
   return rem;
 }
-EXPORT float CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
+EXPORT double CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
   int tmp;
   double rem = remquo(x, y, &tmp);
   *quo = tmp;
@@ -300,7 +300,7 @@ EXPORT float CL_NAME2(sincos, f)(float x, DEFAULT_AS float *cos) {
   return sin;
 }
 
-EXPORT float CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
+EXPORT double CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
   PRIVATE_AS double tmp;
   PRIVATE_AS double sin = sincos(x, &tmp);
   *cos = tmp;

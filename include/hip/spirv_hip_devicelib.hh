@@ -183,7 +183,6 @@ DEFOPENCL1F(fabs)
 DEFOPENCL2F(fdim)
 DEFOPENCL1F(floor)
 DEFOPENCL2F(floor)
-DEFOPENCL2F(frexp)
 
 EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
