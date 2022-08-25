@@ -221,7 +221,7 @@ ze_event_handle_t CHIPEventLevel0::get(std::string Msg) {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  logDebug("chipEventLevel0 DEST {}", (void *)this);
+  logTrace("chipEventLevel0 DEST {}", (void *)this);
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
     // '~CHIPEventLevel0' has a non-throwing exception specification
@@ -597,7 +597,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         // Check if this event is associated with a CommandList
         bool CommandListFound = EventCommandListMap->count(E);
         if (CommandListFound) {
-          logDebug("Erase cmdlist assoc w/ event: {}", (void *)E);
+          logTrace("Erase cmdlist assoc w/ event: {}", (void *)E);
           auto CommandList = (*EventCommandListMap)[E];
           EventCommandListMap->erase(E);
           auto Status = zeCommandListDestroy(CommandList);
@@ -1163,7 +1163,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     // Associate this event with the command list. Once the events are signaled,
     // CHIPEventMonitorLevel0 will destroy the command list
 
-    logDebug("assoc event {} w/ cmdlist", (void *)LastCmdListEvent);
+    logTrace("assoc event {} w/ cmdlist", (void *)LastCmdListEvent);
     ((CHIPBackendLevel0 *)Backend)
         ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent] =
         CommandList;
@@ -1272,14 +1272,14 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 
 void CHIPBackendLevel0::uninitialize() {
 
-  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
   for (auto Q : Backend->getQueues()) {
     std::lock_guard Lock(Q->QueueMtx);
     Q->updateLastEvent(nullptr);
   }
 
-  logDebug("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "default queues");
   for (auto Dev : Backend->getDevices()) {
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -1291,26 +1291,26 @@ void CHIPBackendLevel0::uninitialize() {
   }
 
   if (CallbackEventMonitor) {
-    logDebug("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
+    logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
     std::lock_guard Lock(CallbackEventMonitor->EventMonitorMtx);
     CallbackEventMonitor->Stop = true;
   }
   CallbackEventMonitor->join();
 
   {
-    logDebug("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
+    logTrace("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
     std::lock_guard Lock(StaleEventMonitor->EventMonitorMtx);
     StaleEventMonitor->Stop = true;
   }
   StaleEventMonitor->join();
 
   if (Backend->Events.size()) {
-    logDebug("Remaining {} events that haven't been collected:",
+    logTrace("Remaining {} events that haven't been collected:",
              Backend->Events.size());
     for (auto *E : Backend->Events)
-      logDebug("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+      logTrace("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
                E->getCHIPRefc());
-    logDebug("Remaining {} command lists that haven't been collected:",
+    logTrace("Remaining {} command lists that haven't been collected:",
              ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
   }
   return;
