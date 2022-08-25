@@ -1,8 +1,20 @@
+//===- HipDefrost.cpp -----------------------------------------------------===//
+//
+// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 // Removes freeze instructions from code for SPIRV-LLVM translator tool.
 //
 // SPIRV-LLVM translator tool does not understand freeze instructions. This file
 // provides a pass to remove them as a workaround. This pass won't likely be
 // needed when the SPIR-V backend lands on the LLVM.
+//
+// (c) 2021 Paulius Velesko for Argonne National Laboratory
+//===----------------------------------------------------------------------===//
+
 
 #include "HipDefrost.h"
 

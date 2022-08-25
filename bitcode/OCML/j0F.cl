@@ -7,10 +7,6 @@
 
 #include "mathF.h"
 
-extern float MATH_PRIVATE(cosb)(float, int, float);
-extern CONSTATTR float MATH_PRIVATE(bp0)(float);
-extern CONSTATTR float MATH_PRIVATE(ba0)(float);
-
 PUREATTR float
 MATH_MANGLE(j0)(float x)
 {

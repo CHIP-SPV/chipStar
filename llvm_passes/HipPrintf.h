@@ -1,4 +1,4 @@
-//===- HipPrintf.cppp -----------------------------------------------===//
+//===- HipPrintf.cpp ------------------------------------------------------===//
 //
 // Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
 // Exceptions.

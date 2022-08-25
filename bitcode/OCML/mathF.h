@@ -17,8 +17,10 @@
 // Mangling
 #define MATH_MANGLE(N) N
 #define MATH_PRIVATE(N) __priv##N
+#define MATH_PRIVATE_OVLD(N) __attribute__((overloadable)) __priv##N
 
 // mine
+#define MATH_CLZI(x) (x == 0 ? 32 : clz(x))
 #define MATH_MAD(x, y, z) mad(x, y, z)
 #define FINITE_ONLY_OPT() 0
 #define BUILTIN_FMA_F32(x, y, z) fma(x, y, z)
@@ -26,6 +28,7 @@
 #define MATH_RCP(x) native_recip(x)
 #define AS_FLOAT(x) as_float(x)
 #define AS_INT(x) as_int(x)
+#define AS_INT2(x) as_int2(x)
 #define AS_UINT(x) as_uint(x)
 #define BUILTIN_ABS_F32(x) fabs(x)
 #define BUILTIN_COPYSIGN_F32(x, y) copysign(x, y)
@@ -47,6 +50,11 @@
 
 #define BUILTIN_RINT_F32(x) rint(x)
 
+static inline float BUILTIN_FRACTION_F32(float x) {
+  float temp;
+  float retval = fract(x, &temp);
+  return retval;
+}
 
 static inline int frexp_exp(float x) {
   int e;
@@ -55,8 +63,11 @@ static inline int frexp_exp(float x) {
 }
 
 #define BUILTIN_FREXP_EXP_F32(x) frexp_exp(x)
-#define BUILTIN_FLDEXP_F32(x, k) ldexp(x, k)
+#define BUILTIN_FLDEXP_F32(x, k) ldexp(x, (int)k)
 
+static inline uint BUILTIN_BITALIGN_B32(uint x, uint y, uint shift) {
+  return (x << (32-shift)) | (y >> shift);
+}
 
 // Optimization Controls
 //#include "opts.h"
@@ -123,9 +134,29 @@ static inline int CONSTATTR BUILTIN_CLASS_F32(float x, int klass)
   return 0;
 }
 
-// declarations
+// types
+struct redret;
+struct scret;
 
+// declarations
 PUREATTR float j1(float x);
 PUREATTR float j0(float x);
+
 CONSTATTR float erfinv(float x);
 CONSTATTR float erfcinv(float x);
+
+CONSTATTR float MATH_PRIVATE_OVLD(ba0)(float t);
+CONSTATTR float MATH_PRIVATE_OVLD(ba1)(float t);
+
+CONSTATTR float MATH_PRIVATE_OVLD(bp0)(float t);
+CONSTATTR float MATH_PRIVATE_OVLD(bp1)(float t);
+
+float MATH_PRIVATE_OVLD(cosb)(float x, int n, float p);
+float MATH_PRIVATE_OVLD(sinb)(float x, int n, float p);
+
+CONSTATTR struct scret MATH_PRIVATE_OVLD(sincosred)(float x);
+CONSTATTR struct scret MATH_PRIVATE_OVLD(sincosred2)(float x, float y);
+
+CONSTATTR struct redret MATH_PRIVATE_OVLD(trigredsmall)(float x);
+CONSTATTR struct redret MATH_PRIVATE_OVLD(trigredlarge)(float x);
+CONSTATTR struct redret MATH_PRIVATE_OVLD(trigred)(float x);

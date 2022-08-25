@@ -1,3 +1,29 @@
+#=============================================================================
+#   CMake build system files
+#
+#   Copyright (c) 2021-22 CHIP-SPV developers
+#
+#   Permission is hereby granted, free of charge, to any person obtaining a copy
+#   of this software and associated documentation files (the "Software"), to deal
+#   in the Software without restriction, including without limitation the rights
+#   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#   copies of the Software, and to permit persons to whom the Software is
+#   furnished to do so, subject to the following conditions:
+#
+#   The above copyright notice and this permission notice shall be included in
+#   all copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#   THE SOFTWARE.
+#
+#=============================================================================
+
+
 
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/BC")
 
@@ -45,7 +71,16 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
 endforeach()
 
 # OCML sources
-set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF tables y0D y0F y1D y1F)
+set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF
+    i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF
+    nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD
+    rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF
+    tables y0D y0F y1D y1F ba0F ba0D ba1F ba1D bp0F bp0D bp1F bp1D
+    cosbF cosbD sinbF sinbD
+    trigredD trigredF
+    sincosred2D sincosred2F sincosredD sincosredF
+    trigredlargeD trigredlargeF trigredsmallD trigredsmallF
+    trig_preop64)
 
 foreach(SOURCE IN LISTS OCML_SOURCES)
   add_custom_command(

@@ -7,10 +7,6 @@
 
 #include "mathD.h"
 
-extern double MATH_PRIVATE(sinb)(double, int, double);
-extern CONSTATTR double MATH_PRIVATE(bp0)(double);
-extern CONSTATTR double MATH_PRIVATE(ba0)(double);
-
 PUREATTR double
 MATH_MANGLE(y0)(double x)
 {

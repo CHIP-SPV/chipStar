@@ -1,4 +1,17 @@
+//===- HipPasses.cpp ------------------------------------------------------===//
+//
+// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 // Define a pass plugin that runs a collection of HIP passes.
+//
+// (c) 2021 Parmance for Argonne National Laboratory
+//===----------------------------------------------------------------------===//
+
+
 
 #include "HipAbort.h"
 #include "HipDefrost.h"

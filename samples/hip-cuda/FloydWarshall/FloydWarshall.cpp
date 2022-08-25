@@ -352,9 +352,6 @@ FloydWarshall::runKernels(void)
     * path goes for each pair of nodes.
     */
 
-    hipHostMalloc((void**)&pathDistanceBuffer, sizeof(unsigned int) * numNodes * numNodes,hipHostMallocDefault);
-    hipHostMalloc((void**)&pathBuffer, sizeof(unsigned int) * numNodes * numNodes,hipHostMallocDefault);
-
     float *din, *di;
 
     hipHostGetDevicePointer((void**)&din, pathDistanceBuffer,0);
@@ -514,12 +511,16 @@ int FloydWarshall::setup()
 
     setupTime = (double)sampleTimer->readTimer(timer);
 
+    hipHostMalloc((void**)&pathDistanceBuffer, sizeof(unsigned int) * numNodes * numNodes,hipHostMallocDefault);
+    hipHostMalloc((void**)&pathBuffer, sizeof(unsigned int) * numNodes * numNodes,hipHostMallocDefault);
+
     return SDK_SUCCESS;
 }
 
 
 int FloydWarshall::run()
 {
+
     for(int i = 0; i < 2 && iterations != 1; i++)
     {
         // Arguments are set and execution call is enqueued on command buffer

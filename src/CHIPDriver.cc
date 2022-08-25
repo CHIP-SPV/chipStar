@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2021-22 CHIP-SPV developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
 /**
  * @file CHIPDriver.cc
  * @author Paulius Velesko (pvelesko@gmail.com)
@@ -67,22 +89,9 @@ void CHIPReadEnvVars() {
   std::call_once(EnvInitialized, &CHIPReadEnvVarsCallOnce);
 }
 
-void CHIPInitializeCallOnce(std::string BackendStr) {
-  CHIPReadEnvVars();
-  logDebug("CHIPDriver Initialize");
+static void createBackendObject() {
 
-  // Read JIT options from the env
-
-  // Get the current Backend Env Var
-
-  // If no BE is passed to init explicitly, read env var
-  std::string ChipBe;
-  if (BackendStr.size() == 0) {
-    ChipBe = CHIPBackendType;
-  } else {
-    ChipBe = BackendStr;
-  }
-
+  const std::string ChipBe = CHIPBackendType;
   if (!ChipBe.compare("opencl")) {
 #ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
@@ -106,11 +115,19 @@ void CHIPInitializeCallOnce(std::string BackendStr) {
         "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
         hipErrorInitializationError);
   }
+}
+
+void CHIPInitializeCallOnce() {
+  CHIPReadEnvVars();
+  logDebug("CHIPDriver Initialize");
+
+  createBackendObject();
+
   Backend->initialize(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
 }
 
-extern void CHIPInitialize(std::string BE) {
-  std::call_once(Initialized, &CHIPInitializeCallOnce, BE);
+extern void CHIPInitialize() {
+  std::call_once(Initialized, &CHIPInitializeCallOnce);
 }
 
 void CHIPUninitializeCallOnce() {
@@ -137,21 +154,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
     delete Backend;
   }
 
-  // TODO Check configuration for what backends are configured
-  if (!CHIPBackendType.compare("opencl")) {
-    if (UsingDefaultBackend)
-      logDebug("CHIP_BE was not set. Defaulting to OPENCL");
-    else
-      logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
-    Backend = new CHIPBackendOpenCL();
-  } else if (!CHIPBackendType.compare("level0")) {
-    logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
-    Backend = new CHIPBackendLevel0();
-  } else {
-    CHIPERR_LOG_AND_THROW(
-        "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
-        hipErrorInitializationError);
-  }
+  createBackendObject();
 
   int RequiredHandles = Backend->ReqNumHandles();
   if (RequiredHandles != NumHandles) {

@@ -7,11 +7,6 @@
 
 #include "mathD.h"
 
-extern double MATH_PRIVATE(cosb)(double, int, double);
-extern CONSTATTR double MATH_PRIVATE(bp1)(double);
-extern CONSTATTR double MATH_PRIVATE(ba1)(double);
-
-
 PUREATTR double
 MATH_MANGLE(j1)(double x)
 {

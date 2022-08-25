@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2021-22 CHIP-SPV developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+/*
  * This is counterpart to hipcl_mathlib.hh
  * ATM it can't be used right after compilation because of a problem with mangling.
  *
@@ -175,9 +197,6 @@ DEF_OPENCL1INT(ilogb)
 DEF_OPENCL1B(isfinite)
 DEF_OPENCL1B(isinf)
 DEF_OPENCL1B(isnan)
-// TODO: this results in errors
-// DEFOCML_OPENCL1F(j0)
-// DEFOCML_OPENCL1F(j1)
 
 float OVLD ldexp(float f, int k);
 double OVLD ldexp(double f, int k);
@@ -262,6 +281,7 @@ EXPORT double CL_NAME2(rnorm4d, d)(double x, double y, double z, double w) { dou
 EXPORT float CL_NAME2(rnorm3d, f)(float x, float y, float z) { float3 temp = (float3)(x, y, z); return rlen3(temp); }
 EXPORT double CL_NAME2(rnorm3d, d)(double x, double y, double z) { double3 temp = (double3)(x, y, z); return rlen3(temp); }
 
+DEF_OPENCL1F(rint)
 
 DEF_OPENCL1F(round)
 DEF_OPENCL1F(rsqrt)
@@ -308,6 +328,9 @@ EXPORT float CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
 // OCML
 DEFOCML_OPENCL1F(y0)
 DEFOCML_OPENCL1F(y1)
+
+DEFOCML_OPENCL1F(j0)
+DEFOCML_OPENCL1F(j1)
 
 /* native */
 
