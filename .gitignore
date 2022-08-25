@@ -3,7 +3,8 @@ install/*
 .vscode/*
 samples/0_MatrixMultiply/binary
 *.qsub
-*.sh
+test_build_arcticus.sh
+test_build_iris.sh
 test_find_cmake/*
 report.*
 test_logs/*

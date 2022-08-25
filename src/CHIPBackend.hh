@@ -1050,7 +1050,6 @@ protected:
   std::string DeviceName_;
   CHIPContext *Ctx_;
   std::vector<CHIPQueue *> ChipQueues_;
-  int ActiveQueueId_ = 0;
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1071,7 +1070,36 @@ protected:
   void init();
 
 public:
+  hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
+  bool PerThreadStreamUsed = false;
   std::mutex DeviceMtx;
+
+  std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
+  inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
+
+  /**
+   * @brief Get the Legacy Default Queue object.
+   *
+   * @return CHIPQueue* default legacy queue
+   */
+  CHIPQueue *getLegacyDefaultQueue();
+  /**
+   * @brief Get the Per Thread Default Queue object. If it was not initialized,
+   * initialize it and set PerThreadStreamUsed to true
+   * @see CHIPDevice::PerThreadStreamUsed
+   *
+   * @return CHIPQueue*
+   */
+  CHIPQueue *getPerThreadDefaultQueue();
+  /**
+   * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
+   * was set during compilation, return PerThreadStream, otherwise return legacy
+   * stream
+   *
+   * @return CHIPQueue*
+   */
+  CHIPQueue *getDefaultQueue();
+
   /**
    * @brief Create a Queue object
    *
@@ -1148,12 +1176,12 @@ public:
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue *addQueueImpl(unsigned int Flags, int Priority) = 0;
-  virtual CHIPQueue *addQueueImpl(const uintptr_t *NativeHandles,
-                                  int NumHandles) = 0;
+  virtual CHIPQueue *createQueue(unsigned int Flags, int Priority) = 0;
+  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+                                 int NumHandles) = 0;
 
   /**
-   * @brief Add a queue to this device
+   * @brief Add a queue to this device and the backend
    *
    * @param chip_queue_  CHIPQueue to be added
    */
@@ -1164,13 +1192,7 @@ public:
    * @return std::vector<CHIPQueue*>
    */
   std::vector<CHIPQueue *> &getQueues();
-  /**
-   * @brief HIP API allows for setting the active device, not the active queue
-   * so active device's active queue is always it's 0th/default/primary queue
-   *
-   * @return CHIPQueue*
-   */
-  CHIPQueue *getActiveQueue();
+
   /**
    * @brief Remove a queue from this device's queue vector
    *
@@ -1527,7 +1549,6 @@ protected:
 
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
-  CHIPQueue *ActiveQ_;
 
 public:
   std::mutex BackendMtx;
@@ -1634,12 +1655,7 @@ public:
    * @return std::vector<CHIPQueue*>&
    */
   std::vector<CHIPQueue *> &getQueues();
-  /**
-   * @brief Get the Active Queue object
-   *
-   * @return CHIPQueue*
-   */
-  CHIPQueue *getActiveQueue();
+
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
@@ -1682,7 +1698,7 @@ public:
    */
   void addContext(CHIPContext *ChipContext);
   /**
-   * @brief Add a context to this backend.
+   * @brief Add a queue to this backend.
    *
    * @param q_in
    */
@@ -1989,7 +2005,16 @@ public:
    * @return false
    */
 
-  bool query() { UNIMPLEMENTED(true); }; // TODO Depends on Events
+  bool query() {
+    if (!LastEvent_)
+      return true;
+
+    LastEvent_->updateFinishStatus(false);
+    if (LastEvent_->isFinished())
+      return true;
+
+    return false;
+  };
   /**
    * @brief Get the Priority Range object defining the bounds for
    * hipStreamCreateWithPriority

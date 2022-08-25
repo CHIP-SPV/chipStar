@@ -253,7 +253,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
   logTrace("CHIPDeviceOpenCL::createTexture");
 
   bool NormalizedFloat = TexDesc->readMode == hipReadModeNormalizedFloat;
-  auto *Q = (CHIPQueueOpenCL *)getActiveQueue();
+  auto *Q = (CHIPQueueOpenCL *)getDefaultQueue();
 
   cl_context CLCtx = ((CHIPContextOpenCL *)getContext())->get()->get();
   cl_sampler Sampler = createSampler(CLCtx, *ResDesc, *TexDesc);
@@ -325,8 +325,9 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
            "pointer");
 }
 
-CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(CHIPContextOpenCL *ChipContext,
-                                           cl::Device *ClDevice, int Idx) {
+CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
+                                           CHIPContextOpenCL *ChipContext,
+                                           int Idx) {
   CHIPDeviceOpenCL *Dev = new CHIPDeviceOpenCL(ChipContext, ClDevice, Idx);
   Dev->init();
   return Dev;
@@ -497,33 +498,6 @@ size_t CHIPEventOpenCL::getRefCount() {
 
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
-void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
-
-  logTrace("CHIPEventOpenCL::decreaseRefCount() msg={}", Msg.c_str());
-  if (!ClEvent) {
-    logTrace("CHIPEventOpenCL::decreaseRefCount() ClEvent is null. Likely "
-             "never recorded. Skipping...");
-    return;
-  }
-  size_t R = getRefCount();
-  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
-           *Refc_ - 1, R, R - 1, Reason);
-  (*Refc_)--;
-  // Destructor to be called by event monitor once backend is done using it
-  // if (*refc == 1) delete this;
-}
-
-void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
-
-  logTrace("CHIPEventOpenCL::increaseRefCount() msg={}", Msg.c_str());
-  size_t R = getRefCount();
-  logTrace("CHIP Refc: {}->{} OpenCL Refc: {}->{} REASON: {}", *Refc_,
-           *Refc_ + 1, R, R + 1, Reason);
-  (*Refc_)++;
-}
-
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
@@ -537,85 +511,26 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
-
   logDebug("CHIPEvent::recordStream()");
-  assert(ChipQueue->getLastEvent() != nullptr);
+  if (!ChipQueue->getLastEvent()) {
+    logTrace("LastEvent is null for Queue {}.. Enqueue marker",
+             (void *)ChipQueue);
+    ChipQueue->enqueueMarker();
+  }
   this->takeOver(ChipQueue->getLastEvent());
   EventStatus_ = EVENT_STATUS_RECORDING;
 }
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
+  logTrace("CHIPEventOpenCL::takeOver");
   if (*Refc_ > 1)
     decreaseRefCount("takeOver");
   auto *Other = (CHIPEventOpenCL *)OtherIn;
+  std::lock_guard<std::mutex> LockEvent(EventMtx);
   this->ClEvent = Other->ClEvent;
   this->Refc_ = Other->Refc_;
   this->Msg = Other->Msg;
 }
-// void CHIPEventOpenCL::recordStream(CHIPQueue *chip_queue_) {
-//   logTrace("CHIPEventOpenCL::recordStream()");
-//   /**
-//    * each CHIPQueue keeps track of the status of the last enqueue command.
-//    This
-//    * is done by creating a CHIPEvent and associating it with the newly
-//    submitted
-//    * command. Each CHIPQueue has a LastEvent field.
-//    *
-//    * Recording is done by taking ownership of the target queues' LastEvent,
-//    * incrementing that event's refcount.
-//    */
-//
-//   auto chip_queue = (CHIPQueueOpenCL *)chip_queue_;
-//   auto last_chip_event = (CHIPEventOpenCL *)chip_queue->getLastEvent();
-
-//   // If this event was used previously, clear it
-//   // can be >1 because recordEvent can be called >1 on the same event
-//   bool fresh_event = true;
-//   if (ev != nullptr) {
-//     fresh_event = false;
-//     decreaseRefCount();
-//   }
-
-//   // if no previous event, create a marker event - we always need 2 events to
-//   // measure differences
-//   assert(chip_queue->getLastEvent() != nullptr);
-
-//   // Take over target queues event
-//   this->ev = chip_queue->getLastEvent()->get();
-//   this->refc = chip_queue->getLastEvent()->getRefCount();
-//   this->msg = chip_queue->getLastEvent()->msg;
-//   // if (fresh_event) assert(this->refc  3);
-
-//   event_status = EVENT_STATUS_RECORDING;
-
-//   /**
-//    * There's nothing preventing you from calling hipRecordStream multiple
-//    times
-//    * in a row on the same event. In such case, after the first call, this
-//    events
-//    * clEvent field is no longer null and the event's refcount has been
-//    * incremented.
-//    *
-//    * From HIP API: If hipEventRecord() has been previously called on this
-//    * event, then this call will overwrite any existing state in event.
-//    *
-//    * hipEventCreate(myEvent); < clEvent is nullptr
-//    * hipMemCopy(..., Q1)
-//    * Q1.LastEvent = Q1_MemCopyEvent_0.refcount = 1
-//    *
-//    * hipStreamRecord(myEvent, Q1);
-//    * clEvent== Q1_MemCopyEvent_0, refcount 1->2
-//    *
-//    * hipMemCopy(..., Q1)
-//    * Q1.LastEvent = Q1_MemCopyEvent_1.refcount = 1
-//    * Q1_MemCopyEvent_0.refcount 2->1
-//    *
-//    * hipStreamRecord(myEvent, Q1);
-//    * Q1_MemCopyEvent_0.refcount 1->0
-//    * clEvent==Q1_MemCopyEvent_1, refcount 1->2
-//    */
-// }
 
 bool CHIPEventOpenCL::wait() {
   logTrace("CHIPEventOpenCL::wait()");
@@ -752,13 +667,13 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   }
 }
 
-CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDeviceOpenCL::createQueue(unsigned int Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this);
   return NewQ;
 }
 
-CHIPQueue *CHIPDeviceOpenCL::addQueueImpl(const uintptr_t *NativeHandles,
-                                          int NumHandles) {
+CHIPQueue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
+                                         int NumHandles) {
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, CmdQ);
   return NewQ;
@@ -960,17 +875,6 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
   }
-  /**
-   * queues should always have lastEvent. Can't do this in the constuctor
-   * because enqueueMarker is virtual and calling overriden virtual methods from
-   * constructors is undefined behavior.
-   *
-   * Also, must call implementation method enqueueMarker_ as opposed to wrapped
-   * one (enqueueMarker) because the wrapped method enforces queue semantics
-   * which require LastEvent to be initialized.
-   *
-   */
-  updateLastEvent(enqueueMarkerImpl());
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
@@ -1310,16 +1214,14 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   Backend->addContext(ChipContext);
   for (int i = 0; i < Devices.size(); i++) {
     cl::Device *Dev = new cl::Device(Devices[i]);
-    CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(ChipContext, Dev, i);
+    CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, i);
+
     logTrace("CHIPDeviceOpenCL {}",
              ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
     // Add device to context & backend
     ChipContext->addDevice(ChipDev);
     Backend->addDevice(ChipDev);
-
-    // Create and add queue queue to Device and Backend
-    ChipDev->createQueueAndRegister((int)0, (int)0);
   }
   logDebug("OpenCL Context Initialized.");
 };
@@ -1337,14 +1239,12 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   addContext(ChipContext);
 
   cl::Device *Dev = new cl::Device(DevId);
-  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(ChipContext, Dev, 0);
+  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, 0);
   logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
   // Add device to context & backend
   ChipContext->addDevice(ChipDev);
   addDevice(ChipDev);
-
-  ChipDev->createQueueAndRegister(NativeHandles, NumHandles);
 
   setActiveDevice(ChipDev);
 
