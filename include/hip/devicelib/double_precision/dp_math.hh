@@ -32,17 +32,17 @@ extern __device__ double rint(double x);
 extern __device__ double round(double x);
 extern __device__ long int convert_long(double x);
 
-__device__ long int lrint(double x) { return convert_long(rint(x)); }
-__device__ long int lround(double x) { return convert_long(round(x)); }
-
-__device__ long long int llrint(double x) { return lrint(x); }
-__device__ long long int llround(double x) { return lround(x); }
-
 extern __device__ double rnorm3d(double a, double b, double c);
 extern __device__ double rnorm4d(double a, double b, double c, double d);
 
 extern __device__ double lgamma ( double  x );
 }
+
+static inline __device__ long int lrint(double x) { return convert_long(rint(x)); }
+static inline __device__ long int lround(double x) { return convert_long(round(x)); }
+
+static inline __device__ long long int llrint(double x) { return lrint(x); }
+static inline __device__ long long int llround(double x) { return lround(x); }
 
 // __device__ double acos(double x)
 // __device__​ double acosh ( double  x )

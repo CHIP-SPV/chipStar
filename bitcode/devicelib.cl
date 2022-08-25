@@ -46,8 +46,7 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
-#define DEFAULT_AS
-#define PRIVATE_AS __private
+#define DEFAULT_AS __generic
 
 #define CL_NAME(N) opencl_##N
 #define CL_NAME2(N, S) opencl_##N##_##S
@@ -176,8 +175,6 @@ DEF_OPENCL2F(fmax)
 DEF_OPENCL2F(fmin)
 DEF_OPENCL2F(fmod)
 
-float OVLD frexp(float f, PRIVATE_AS int *i);
-double OVLD frexp(double f, PRIVATE_AS int *i);
 EXPORT float CL_NAME2(frexp, f)(float x, DEFAULT_AS int *i) {
   int tmp;
   float ret = frexp(x, &tmp);
@@ -198,8 +195,6 @@ DEF_OPENCL1B(isfinite)
 DEF_OPENCL1B(isinf)
 DEF_OPENCL1B(isnan)
 
-float OVLD ldexp(float f, int k);
-double OVLD ldexp(double f, int k);
 EXPORT float CL_NAME2(ldexp, f)(float x, int k) { return ldexp(x, k); }
 EXPORT double CL_NAME2(ldexp, d)(double x, int k) { return ldexp(x, k); }
 
@@ -210,9 +205,6 @@ DEF_OPENCL1F(log2)
 DEF_OPENCL1F(logb)
 DEF_OPENCL1F(log)
 
-// modf
-float OVLD modf(float f, PRIVATE_AS float *i);
-double OVLD modf(double f, PRIVATE_AS double *i);
 EXPORT float CL_NAME2(modf, f)(float x, DEFAULT_AS float *i) {
   float tmp;
   float ret = modf(x, &tmp);
@@ -248,8 +240,6 @@ DEF_OPENCL2F(remainder)
 DEFOCML_OPENCL1F(rcbrt)
 
 // remquo
-float OVLD remquo(float x,   float y,  PRIVATE_AS int *quo);
-double OVLD remquo(double x, double y, PRIVATE_AS int *quo);
 EXPORT float CL_NAME2(remquo, f)(float x, float y, DEFAULT_AS int *quo) {
   int tmp;
   float rem = remquo(x, y, &tmp);
@@ -290,19 +280,16 @@ DEF_OPENCL1F(trunc)
 
 
 // sincos
-float OVLD sincos(float x, PRIVATE_AS float *cosval);
-double OVLD sincos(double x, PRIVATE_AS double *cosval);
-
 EXPORT float CL_NAME2(sincos, f)(float x, DEFAULT_AS float *cos) {
-  PRIVATE_AS float tmp;
-  PRIVATE_AS float sin = sincos(x, &tmp);
+  float tmp;
+  float sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }
 
 EXPORT double CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
-  PRIVATE_AS double tmp;
-  PRIVATE_AS double sin = sincos(x, &tmp);
+  double tmp;
+  double sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }

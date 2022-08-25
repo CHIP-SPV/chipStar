@@ -32,22 +32,23 @@ extern __device__ float rint(float x);
 extern __device__ float round(float x);
 extern __device__ long int convert_long(float x);
 
-__device__ float rintf(float x) { return rint(x); }
-__device__ float roundf(float x) { return round(x); }
-
-__device__ long int lrintf(float x) { return convert_long(rint(x)); }
-__device__ long int lroundf(float x) { return convert_long(round(x)); }
-
-__device__ long long int llrintf(float x) { return lrintf(x); }
-__device__ long long int llroundf(float x) { return lroundf(x); }
-
 extern __device__ float rnorm3df(float a, float b, float c);
 extern __device__ float rnorm4df(float a, float b, float c, float d);
 
 extern __device__  float lgamma ( float  x );
-__device__  float lgammaf ( float  x ) { return (lgamma(x)); };
 
 }
+
+static inline __device__ float rintf(float x) { return rint(x); }
+static inline __device__ float roundf(float x) { return round(x); }
+
+static inline __device__ long int lrintf(float x) { return convert_long(rint(x)); }
+static inline __device__ long int lroundf(float x) { return convert_long(round(x)); }
+
+static inline __device__ long long int llrintf(float x) { return lrintf(x); }
+static inline __device__ long long int llroundf(float x) { return lroundf(x); }
+
+static inline __device__  float lgammaf ( float  x ) { return (lgamma(x)); };
 
 // __device__ float acosf(float x)
 // __device__  float acoshf ( float  x )
