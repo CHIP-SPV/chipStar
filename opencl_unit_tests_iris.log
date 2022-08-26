@@ -1,11 +1,11 @@
-778011a194e73370c3dbe7853b777191b6424d0a
-91% tests passed, 63 tests failed out of 707
+d2fd94994f03dfcb55edba16fd5d6482df64b756
+91% tests passed, 61 tests failed out of 707
 
 Label Time Summary:
-cuda        =  98.54 sec*proc (26 tests)
-internal    = 149.78 sec*proc (79 tests)
+cuda        =  89.85 sec*proc (26 tests)
+internal    = 150.50 sec*proc (79 tests)
 
-Total Test time (real) = 242.91 sec
+Total Test time (real) = 240.00 sec
 
 The following tests did not run:
 	678 - sycl_chip_interop (Skipped)

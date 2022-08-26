@@ -1,11 +1,11 @@
-778011a194e73370c3dbe7853b777191b6424d0a
+d2fd94994f03dfcb55edba16fd5d6482df64b756
 92% tests passed, 55 tests failed out of 707
 
 Label Time Summary:
-cuda        = 109.46 sec*proc (26 tests)
-internal    = 405.08 sec*proc (79 tests)
+cuda        = 109.34 sec*proc (26 tests)
+internal    = 433.00 sec*proc (79 tests)
 
-Total Test time (real) = 302.28 sec
+Total Test time (real) = 300.41 sec
 
 The following tests did not run:
 	692 - cuda-simpleCallback (Disabled)
@@ -45,6 +45,7 @@ The following tests FAILED:
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
 	545 - Unit_hipStreamCreate_MultistreamBasicFunctionalities (Timeout)
+	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
