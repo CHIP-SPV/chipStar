@@ -77,4 +77,4 @@ The following tests FAILED:
 	618 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	619 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	620 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
-	663 - RecursiveGaussian (Failed)
+	642 - stream (Failed)
