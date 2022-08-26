@@ -368,18 +368,21 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
+  std::string EventStatusOld, EventStatusNew;
+  {
+    std::lock_guard<std::mutex> Lock(EventMtx);
 
-  auto EventStatusOld = getEventStatusStr();
+    EventStatusOld = getEventStatusStr();
 
-  ze_result_t Status = zeEventQueryStatus(Event_);
-  if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
-    CHIPERR_LOG_AND_THROW("Event Not Ready", hipErrorNotReady);
+    ze_result_t Status = zeEventQueryStatus(Event_);
+    if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
+      CHIPERR_LOG_AND_THROW("Event Not Ready", hipErrorNotReady);
+    }
+    if (Status == ZE_RESULT_SUCCESS)
+      EventStatus_ = EVENT_STATUS_RECORDED;
+
+    EventStatusNew = getEventStatusStr();
   }
-  if (Status == ZE_RESULT_SUCCESS)
-    EventStatus_ = EVENT_STATUS_RECORDED;
-
-  auto EventStatusNew = getEventStatusStr();
   logTrace("CHIPEventLevel0::updateFinishStatus() {} Refc: {} {}: {} -> {}",
            (void *)this, getCHIPRefc(), Msg, EventStatusOld, EventStatusNew);
   if (EventStatusNew != EventStatusOld) {
@@ -479,8 +482,6 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
-  std::lock_guard Lock(Backend->BackendMtx);
-
   CHIPContext *Ctx = ChipQueue->getContext();
 
   CpuCallbackComplete = (CHIPEventLevel0 *)Backend->createCHIPEvent(Ctx);
@@ -516,15 +517,17 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
                   "callbacks in the queue");
         pthread_exit(0);
       }
-
+      std::lock_guard LockBackend(Backend->BackendMtx);
       std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
+
+      if ((Backend->CallbackQueue.size() == 0))
+        continue;
 
       // get the callback item
       CallbackData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
-      if (!CallbackData) // Callback stack empty
-        continue;
 
       // Lock the item and members
+      assert(CallbackData);
       std::lock_guard<std::mutex> LockCallbackData(
           CallbackData->CallbackDataMtx);
       Backend->CallbackQueue.pop();
@@ -560,10 +563,10 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
     std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
-    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
-             Backend->Events.size(), LzBackend->EventCommandListMap.size());
     std::lock_guard<std::mutex> AllCommandListsLock(
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
+             Backend->Events.size(), LzBackend->EventCommandListMap.size());
 
     auto EventCommandListMap =
         &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
@@ -600,6 +603,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           logTrace("Erase cmdlist assoc w/ event: {}", (void *)E);
           auto CommandList = (*EventCommandListMap)[E];
           EventCommandListMap->erase(E);
+          std::lock_guard<std::mutex> LockQueues(
+              Backend->QueueCreateDestroyMtx);
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
@@ -690,6 +695,7 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListCopy() {
   return ZeCmdListCopyImm_;
 #else
   ze_command_list_handle_t CommandList;
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   auto Status = zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListMemoryDesc_,
                                     &CommandList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -703,6 +709,7 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListCompute() {
   return ZeCmdListComputeImm_;
 #else
   ze_command_list_handle_t ZeCmdList;
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   auto Status =
       zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListComputeDesc_, &ZeCmdList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -720,6 +727,7 @@ void CHIPQueueLevel0::initializeCopyListImm() {
   ze_command_queue_desc_t CommandQueueCopyDesc = getNextComputeQueueDesc();
 
   // Create an immediate command list for copy engine
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   auto Status = zeCommandListCreateImmediate(
       ZeCtx_, ZeDev_, &CommandQueueCopyDesc, &ZeCmdListCopyImm_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -731,6 +739,7 @@ void CHIPQueueLevel0::initializeComputeListImm() {
   ze_command_queue_desc_t CommandQueueComputeDesc = getNextComputeQueueDesc();
 
   // Create an immediate command list
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   auto Status = zeCommandListCreateImmediate(
       ZeCtx_, ZeDev_, &CommandQueueComputeDesc, &ZeCmdListComputeImm_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -859,6 +868,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
   initializeQueueGroupProperties();
 
   ze_command_queue_desc_t QueueDescriptor = getNextComputeQueueDesc();
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
@@ -1141,6 +1151,7 @@ void CHIPQueueLevel0::finish() {
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
   // buffers get flushed.
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
 
   return;
@@ -1174,6 +1185,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
     Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
     Status =
         zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);

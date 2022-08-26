@@ -49,11 +49,15 @@ include(FindLLVM)
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./)
+  get_filename_component(OpenCL_DIR ${OpenCL_LIBRARY} DIRECTORY)
+  message(STATUS "Setting OpenCL_DIR to ${OpenCL_LIBRARY}")
 endif()
 
 if(NOT DEFINED LevelZero_LIBRARY)
   message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
   find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./)
+  get_filename_component(LevelZero_DIR ${LevelZero_LIBRARY} DIRECTORY)
+  message(STATUS "Setting LevelZero_DIR to ${LevelZero_DIR}")
 endif()
 
 message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
@@ -380,9 +384,9 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 
 # HIP applications need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
-  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-lOpenCL" "-lze_loader")
+  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
-  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-lOpenCL" "-lze_loader")
+  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
 if(SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")

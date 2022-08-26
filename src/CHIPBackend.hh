@@ -481,6 +481,7 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
+    std::lock_guard<std::mutex> Lock(AllocationTrackerMtx);
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -565,7 +566,10 @@ public:
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc() { return *Refc_; }
+  size_t getCHIPRefc() {
+    std::lock_guard<std::mutex> Lock(this->EventMtx);
+    return *Refc_;
+  }
   virtual void decreaseRefCount(std::string Reason) {
     std::lock_guard<std::mutex> Lock(EventMtx);
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -1551,6 +1555,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
