@@ -17,6 +17,8 @@ The following tests FAILED:
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
+	221 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
+	222 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
