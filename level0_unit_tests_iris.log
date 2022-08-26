@@ -1,25 +1,22 @@
-495b870470347c1a707305a5f0b74b1417ddd505
-91% tests passed, 63 tests failed out of 707
+778011a194e73370c3dbe7853b777191b6424d0a
+92% tests passed, 55 tests failed out of 707
 
 Label Time Summary:
-cuda        =  59.41 sec*proc (26 tests)
-internal    =  83.32 sec*proc (79 tests)
+cuda        = 109.46 sec*proc (26 tests)
+internal    = 405.08 sec*proc (79 tests)
 
-Total Test time (real) = 1108.38 sec
+Total Test time (real) = 302.28 sec
 
 The following tests did not run:
-	678 - sycl_chip_interop (Skipped)
-	679 - sycl_chip_interop_usm (Skipped)
 	692 - cuda-simpleCallback (Disabled)
 
 The following tests FAILED:
-	101 - Unit_hipMemcpy_MultiThread-AllAPIs (Subprocess aborted)
-	102 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
-	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
-	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
+	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
+	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
+	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
@@ -34,12 +31,7 @@ The following tests FAILED:
 	319 - Unit_deviceFunctions_CompileTest___funnelshift_lc_int (Failed)
 	320 - Unit_deviceFunctions_CompileTest___funnelshift_r_int (Failed)
 	321 - Unit_deviceFunctions_CompileTest___funnelshift_rc_int (Failed)
-	458 - Unit_deviceFunctions_CompileTest_frexp_double (Timeout)
-	480 - Unit_deviceFunctions_CompileTest_modf_double (Timeout)
-	492 - Unit_deviceFunctions_CompileTest_remquo_double (Timeout)
-	522 - Unit_hipStreamCreateWithFlags_Negative (Failed)
 	524 - Unit_hipStreamCreateWithPriority (Failed)
-	525 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
 	527 - Unit_hipStreamGetPriority_Negative (Failed)
 	528 - Unit_hipStreamGetPriority_default (Failed)
 	529 - Unit_hipStreamGetPriority_high (Failed)
@@ -47,19 +39,16 @@ The following tests FAILED:
 	531 - Unit_hipStreamGetPriority_low (Failed)
 	532 - Unit_hipStreamGetPriority_lower (Failed)
 	533 - Unit_hipMultiStream_sameDevice (Timeout)
-	539 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	540 - Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities (Failed)
 	541 - Unit_hipStreamCreateWithPriority_MulthreadDefaultflag (Failed)
 	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
 	545 - Unit_hipStreamCreate_MultistreamBasicFunctionalities (Timeout)
-	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
 	560 - Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation (Failed)
-	569 - Unit_hipDeviceGetLimit_CheckValidityOfOutputVal (Failed)
 	575 - Unit_hipDeviceGetCacheConfig_FuncTst (Failed)
 	586 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	597 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
@@ -76,4 +65,4 @@ The following tests FAILED:
 	618 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	619 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	620 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
-	
+	663 - RecursiveGaussian (Failed)
