@@ -1,11 +1,11 @@
-f8b06bd3bb172f6c809ff7b4ebcc6b2fdc35b4c8
-92% tests passed, 59 tests failed out of 707
+58ffe238bbb0e6b263ade1305fb3c1a69c074d7c
+92% tests passed, 58 tests failed out of 707
 
 Label Time Summary:
-cuda        =  97.10 sec*proc (26 tests)
-internal    = 171.00 sec*proc (79 tests)
+cuda        = 105.77 sec*proc (26 tests)
+internal    = 170.31 sec*proc (79 tests)
 
-Total Test time (real) = 165.10 sec
+Total Test time (real) = 226.86 sec
 
 The following tests did not run:
 	678 - sycl_chip_interop (Skipped)
@@ -17,12 +17,9 @@ The following tests FAILED:
 	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Failed)
+	176 - Unit_hipMemcpyWithStream_MultiThread (Timeout)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
-	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	221 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted)
-	221 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
@@ -46,14 +43,12 @@ The following tests FAILED:
 	530 - Unit_hipStreamGetPriority_higher (Failed)
 	531 - Unit_hipStreamGetPriority_low (Failed)
 	532 - Unit_hipStreamGetPriority_lower (Failed)
-	533 - Unit_hipMultiStream_sameDevice (Timeout)
 	539 - Unit_hipStreamCreateWithFlags_ArgValidation (Failed)
 	540 - Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities (Failed)
 	541 - Unit_hipStreamCreateWithPriority_MulthreadDefaultflag (Failed)
 	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
-	545 - Unit_hipStreamCreate_MultistreamBasicFunctionalities (Timeout)
 	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
@@ -63,7 +58,6 @@ The following tests FAILED:
 	575 - Unit_hipDeviceGetCacheConfig_FuncTst (Failed)
 	586 - Unit_hipGetDeviceFlags_FuncTst (Failed)
 	597 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
-	603 - Unit_hipStreamPerThread_MultiThread (SEGFAULT)
 	606 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	607 - Unit_hipGraphAddDependencies_Functional (Failed)
 	608 - Unit_hipGraph_BasicFunctional (Failed)
@@ -77,4 +71,3 @@ The following tests FAILED:
 	618 - Stress_hipMemcpy_multiDevice-AllAPIs - int (Failed)
 	619 - Stress_hipMemcpy_multiDevice-AllAPIs - size_t (Failed)
 	620 - Stress_hipMemcpy_multiDevice-AllAPIs - long double (Failed)
-	642 - stream (Failed)
