@@ -29,7 +29,7 @@ add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
--Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument")
+-Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
 # end temporary
 
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)

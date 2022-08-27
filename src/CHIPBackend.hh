@@ -1555,6 +1555,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
@@ -1844,6 +1845,7 @@ public:
  */
 class CHIPQueue {
 protected:
+  std::mutex LastEventMtx;
   int Priority_;
   unsigned int Flags_;
   CHIPQueueFlags QueueFlags_;
@@ -1893,6 +1895,7 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
+    std::lock_guard<std::mutex> Lock(LastEventMtx);
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
@@ -1905,7 +1908,6 @@ public:
     if (NewEvent != nullptr) {
       NewEvent->increaseRefCount("updateLastEvent - new event");
     }
-
     LastEvent_ = NewEvent;
   }
 

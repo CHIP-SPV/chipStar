@@ -482,6 +482,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
+  std::lock_guard Lock(Backend->BackendMtx);
+
   CHIPContext *Ctx = ChipQueue->getContext();
 
   CpuCallbackComplete = (CHIPEventLevel0 *)Backend->createCHIPEvent(Ctx);
@@ -517,7 +519,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
                   "callbacks in the queue");
         pthread_exit(0);
       }
-      std::lock_guard LockBackend(Backend->BackendMtx);
+
       std::lock_guard<std::mutex> Lock(Backend->CallbackQueueMtx);
 
       if ((Backend->CallbackQueue.size() == 0))
@@ -687,6 +689,7 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 }
 
 CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
+  std::lock_guard<std::mutex> Lock(LastEventMtx);
   return (CHIPEventLevel0 *)LastEvent_;
 }
 

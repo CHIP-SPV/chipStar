@@ -150,6 +150,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipMemoryType MemoryType) {
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
+  std::lock_guard<std::mutex> Lock(AllocationTrackerMtx);
   // TODO AllocInfo turned into class and constructor take care of this
   if (MemoryType == hipMemoryTypeHost)
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -811,6 +812,7 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
 }
 
 void CHIPEvent::track() {
+  std::lock_guard<std::mutex> LockBackend(Backend->EventsMtx);
   std::lock_guard<std::mutex> Lock(EventMtx);
   if (!TrackCalled_) {
     trackImpl();
@@ -819,7 +821,6 @@ void CHIPEvent::track() {
 }
 
 void CHIPEvent::trackImpl() {
-  std::lock_guard<std::mutex> Lock(Backend->EventsMtx);
   Backend->Events.push_back(this);
 }
 
@@ -1162,6 +1163,8 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
+  std::lock_guard<std::mutex> LockSetActive(Backend->SetActiveMtx);
+
   auto DeviceFound =
       std::find(ChipDevices.begin(), ChipDevices.end(), ChipDevice);
   if (DeviceFound == ChipDevices.end()) {
@@ -1176,6 +1179,7 @@ void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
 std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return ChipQueues; }
 
 CHIPContext *CHIPBackend::getActiveContext() {
+  std::lock_guard<std::mutex> LockSetActive(Backend->SetActiveMtx);
   if (ActiveCtx_ == nullptr) {
     std::string Msg = "Active context is null";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
@@ -1184,6 +1188,7 @@ CHIPContext *CHIPBackend::getActiveContext() {
 };
 
 CHIPDevice *CHIPBackend::getActiveDevice() {
+  std::lock_guard<std::mutex> LockSetActive(Backend->SetActiveMtx);
   if (ActiveDev_ == nullptr) {
     CHIPERR_LOG_AND_THROW(
         "CHIPBackend.getActiveDevice() was called but active_ctx is null",
@@ -1192,7 +1197,11 @@ CHIPDevice *CHIPBackend::getActiveDevice() {
   return ActiveDev_;
 };
 
-std::vector<CHIPDevice *> &CHIPBackend::getDevices() { return ChipDevices; }
+std::vector<CHIPDevice *> &CHIPBackend::getDevices() {
+  std::lock_guard<std::mutex> LockSetActive(Backend->SetActiveMtx);
+
+  return ChipDevices;
+}
 
 size_t CHIPBackend::getNumDevices() { return ChipDevices.size(); }
 std::vector<std::string *> &CHIPBackend::getModulesStr() { return ModulesStr_; }
