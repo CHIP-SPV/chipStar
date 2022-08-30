@@ -1,23 +1,21 @@
-58ffe238bbb0e6b263ade1305fb3c1a69c074d7c
-92% tests passed, 58 tests failed out of 707
+457414652fbddd8189eb1c3a3102ddb2afc6715e
+92% tests passed, 56 tests failed out of 708
 
 Label Time Summary:
-cuda        = 105.77 sec*proc (26 tests)
-internal    = 170.31 sec*proc (79 tests)
+cuda        =  87.03 sec*proc (27 tests)
+internal    = 140.42 sec*proc (80 tests)
 
-Total Test time (real) = 226.86 sec
+Total Test time (real) = 163.72 sec
 
 The following tests did not run:
 	678 - sycl_chip_interop (Skipped)
 	679 - sycl_chip_interop_usm (Skipped)
-	692 - cuda-simpleCallback (Disabled)
 
 The following tests FAILED:
 	102 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int (Failed)
 	103 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float (Failed)
 	104 - Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double (Failed)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Timeout)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
 	227 - Unit_AnyAll_CompileTest (Failed)
@@ -49,7 +47,6 @@ The following tests FAILED:
 	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
-	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)

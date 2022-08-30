@@ -1,14 +1,11 @@
-58ffe238bbb0e6b263ade1305fb3c1a69c074d7c
-93% tests passed, 51 tests failed out of 707
+457414652fbddd8189eb1c3a3102ddb2afc6715e
+93% tests passed, 51 tests failed out of 708
 
 Label Time Summary:
-cuda        = 106.21 sec*proc (26 tests)
-internal    = 450.92 sec*proc (79 tests)
+cuda        = 106.07 sec*proc (27 tests)
+internal    = 337.64 sec*proc (80 tests)
 
-Total Test time (real) = 265.56 sec
-
-The following tests did not run:
-	692 - cuda-simpleCallback (Disabled)
+Total Test time (real) = 206.03 sec
 
 The following tests FAILED:
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
