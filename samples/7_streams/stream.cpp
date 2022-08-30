@@ -127,8 +127,8 @@ int main() {
 
   randArray = (float*)malloc(NUM * sizeof(float));
   
-  TransposeMatrix[0] = (float*)malloc(NUM * sizeof(float));
-  TransposeMatrix[1] = (float*)malloc(NUM * sizeof(float));
+  TransposeMatrix[0] = (float*)calloc(NUM , sizeof(float));
+  TransposeMatrix[1] = (float*)calloc(NUM , sizeof(float));
   
   hipMalloc((void**)&gpuTransposeMatrix[0], NUM * sizeof(float));
   hipMalloc((void**)&gpuTransposeMatrix[1], NUM * sizeof(float));

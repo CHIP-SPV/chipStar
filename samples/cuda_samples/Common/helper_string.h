@@ -285,6 +285,7 @@ inline char *sdkFindFilePath(const char *filename,
   // the .exe file, a .bat file launching an .exe, a browser .exe launching the
   // .exe or .bat, etc
   const char *searchPath[] = {
+      "",                                             // root dir for absolute paths
       "./",                                           // same dir
       "./data/",                                      // same dir
 

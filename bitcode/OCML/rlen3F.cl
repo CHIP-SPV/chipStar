@@ -40,3 +40,9 @@ MATH_MANGLE(rlen3)(float x, float y, float z)
     return ret;
 }
 
+CONSTATTR float
+MATH_MANGLE(rnorm3df)(float x, float y, float z)
+{
+    float ret = MATH_MANGLE(rlen3)(x, y, z);
+    return 1.0f / ret;
+}

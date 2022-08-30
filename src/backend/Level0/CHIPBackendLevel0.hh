@@ -102,7 +102,7 @@ public:
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
 public:
   ~CHIPCallbackEventMonitorLevel0() {
-    logDebug("CHIPCallbackEventMonitorLevel0 DEST");
+    logTrace("CHIPCallbackEventMonitorLevel0 DEST");
     join();
   };
   virtual void monitor() override;
@@ -111,7 +111,7 @@ public:
 class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
 public:
   ~CHIPStaleEventMonitorLevel0() {
-    logDebug("CHIPStaleEventMonitorLevel0 DEST");
+    logTrace("CHIPStaleEventMonitorLevel0 DEST");
     join();
   };
   virtual void monitor() override;
@@ -185,7 +185,7 @@ public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
-  virtual ~CHIPQueueLevel0() { logDebug("CHIPQueueLevel0 DEST"); }
+  virtual ~CHIPQueueLevel0() { logTrace("CHIPQueueLevel0 DEST"); }
 
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
@@ -286,7 +286,7 @@ public:
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
-  virtual ~CHIPContextLevel0() { logDebug("CHIPContextLevel0 DEST"); }
+  virtual ~CHIPContextLevel0() { logTrace("CHIPContextLevel0 DEST"); }
 
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
@@ -302,7 +302,7 @@ class CHIPModuleLevel0 : public CHIPModule {
 
 public:
   CHIPModuleLevel0(std::string *ModuleStr) : CHIPModule(ModuleStr) {}
-  virtual ~CHIPModuleLevel0() { logDebug("CHIPModuleLevel0 DEST"); }
+  virtual ~CHIPModuleLevel0() { logTrace("CHIPModuleLevel0 DEST"); }
   //   auto Status = zeModuleDestroy(ZeModule_);
   //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // Also delete all kernels
@@ -335,7 +335,7 @@ protected:
 
 public:
   CHIPKernelLevel0();
-  virtual ~CHIPKernelLevel0() { logDebug("CHIPKernelLevel0 DEST"); }
+  virtual ~CHIPKernelLevel0() { logTrace("CHIPKernelLevel0 DEST"); }
   CHIPKernelLevel0(ze_kernel_handle_t ZeKernel, CHIPDeviceLevel0 *Dev,
                    std::string FuncName, OCLFuncInfo *FuncInfo,
                    CHIPModuleLevel0 *Parent);

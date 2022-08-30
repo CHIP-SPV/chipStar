@@ -481,6 +481,7 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
+    std::lock_guard<std::mutex> Lock(AllocationTrackerMtx);
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -565,7 +566,10 @@ public:
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc() { return *Refc_; }
+  size_t getCHIPRefc() {
+    std::lock_guard<std::mutex> Lock(this->EventMtx);
+    return *Refc_;
+  }
   virtual void decreaseRefCount(std::string Reason) {
     std::lock_guard<std::mutex> Lock(EventMtx);
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -1551,6 +1555,8 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  std::mutex SetActiveMtx;
+  std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
@@ -1839,6 +1845,7 @@ public:
  */
 class CHIPQueue {
 protected:
+  std::mutex LastEventMtx;
   int Priority_;
   unsigned int Flags_;
   CHIPQueueFlags QueueFlags_;
@@ -1888,6 +1895,7 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
+    std::lock_guard<std::mutex> Lock(LastEventMtx);
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
@@ -1900,7 +1908,6 @@ public:
     if (NewEvent != nullptr) {
       NewEvent->increaseRefCount("updateLastEvent - new event");
     }
-
     LastEvent_ = NewEvent;
   }
 

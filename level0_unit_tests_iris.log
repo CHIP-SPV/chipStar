@@ -1,25 +1,18 @@
-495b870470347c1a707305a5f0b74b1417ddd505
-90% tests passed, 72 tests failed out of 707
+457414652fbddd8189eb1c3a3102ddb2afc6715e
+93% tests passed, 51 tests failed out of 708
 
 Label Time Summary:
-cuda        = 118.56 sec*proc (26 tests)
-internal    = 480.99 sec*proc (79 tests)
+cuda        = 106.07 sec*proc (27 tests)
+internal    = 337.64 sec*proc (80 tests)
 
-Total Test time (real) = 243.91 sec
-
-The following tests did not run:
-	692 - cuda-simpleCallback (Disabled)
+Total Test time (real) = 206.03 sec
 
 The following tests FAILED:
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
 	130 - Unit_hipMemsetAsync_SetMemoryWithOffset (Failed)
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
-	176 - Unit_hipMemcpyWithStream_MultiThread (Failed) (transient)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
-	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted) (transient) (only when ctest -j)
-	221 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float (Subprocess aborted) (transient) (only when ctest -j)
-	222 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted) (transient) (only when ctest -j)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
@@ -34,24 +27,6 @@ The following tests FAILED:
 	319 - Unit_deviceFunctions_CompileTest___funnelshift_lc_int (Failed)
 	320 - Unit_deviceFunctions_CompileTest___funnelshift_r_int (Failed)
 	321 - Unit_deviceFunctions_CompileTest___funnelshift_rc_int (Failed)
-	378 - Unit_deviceFunctions_CompileTest_lgammaf_float (Failed)
-	379 - Unit_deviceFunctions_CompileTest_llrintf_float (Failed)
-	380 - Unit_deviceFunctions_CompileTest_llroundf_float (Failed)
-	386 - Unit_deviceFunctions_CompileTest_lrintf_float (Failed)
-	387 - Unit_deviceFunctions_CompileTest_lroundf_float (Failed)
-	396 - Unit_deviceFunctions_CompileTest_normcdff_float (Failed)
-	397 - Unit_deviceFunctions_CompileTest_normcdfinvf_float (Failed)
-	405 - Unit_deviceFunctions_CompileTest_rnorm3df_float (Failed)
-	406 - Unit_deviceFunctions_CompileTest_rnorm4df_float (Failed)
-	468 - Unit_deviceFunctions_CompileTest_lgamma_double (Failed)
-	469 - Unit_deviceFunctions_CompileTest_llrint_double (Failed)
-	470 - Unit_deviceFunctions_CompileTest_llround_double (Failed)
-	476 - Unit_deviceFunctions_CompileTest_lrint_double (Failed)
-	477 - Unit_deviceFunctions_CompileTest_lround_double (Failed)
-	487 - Unit_deviceFunctions_CompileTest_normcdf_double (Failed)
-	488 - Unit_deviceFunctions_CompileTest_normcdfinv_double (Failed)
-	496 - Unit_deviceFunctions_CompileTest_rnorm3d_double (Failed)
-	497 - Unit_deviceFunctions_CompileTest_rnorm4d_double (Failed)
 	524 - Unit_hipStreamCreateWithPriority (Failed)
 	527 - Unit_hipStreamGetPriority_Negative (Failed)
 	528 - Unit_hipStreamGetPriority_default (Failed)
@@ -64,7 +39,6 @@ The following tests FAILED:
 	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
 	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
 	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
-	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)

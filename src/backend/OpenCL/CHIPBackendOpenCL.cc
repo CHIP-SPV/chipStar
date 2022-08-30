@@ -511,14 +511,12 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
-  logDebug("CHIPEvent::recordStream()");
-  if (!ChipQueue->getLastEvent()) {
-    logTrace("LastEvent is null for Queue {}.. Enqueue marker",
-             (void *)ChipQueue);
-    ChipQueue->enqueueMarker();
-  }
-  this->takeOver(ChipQueue->getLastEvent());
-  EventStatus_ = EVENT_STATUS_RECORDING;
+  logTrace("CHIPEvent::recordStream()");
+  auto MarkerEvent = ChipQueue->enqueueMarker();
+  this->takeOver(MarkerEvent);
+
+  this->EventStatus_ = EVENT_STATUS_RECORDING;
+  return;
 }
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
@@ -555,6 +553,9 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   auto Status = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
                                sizeof(int), &UpdatedStatus, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  if (ThrowErrorIfNotReady && UpdatedStatus != CL_COMPLETE) {
+    CHIPERR_LOG_AND_THROW("Event not yet ready", hipErrorNotReady);
+  }
 
   if (UpdatedStatus <= CL_COMPLETE)
     EventStatus_ = EVENT_STATUS_RECORDED;
@@ -575,8 +576,8 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
         "the same context",
         hipErrorTbd);
 
-  this->updateFinishStatus();
-  Other->updateFinishStatus();
+  this->updateFinishStatus(true);
+  Other->updateFinishStatus(true);
 
   if (!this->isRecordingOrRecorded() || !Other->isRecordingOrRecorded())
     CHIPERR_LOG_AND_THROW("one of the events isn't/hasn't recorded",
@@ -1175,7 +1176,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
   else
     throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
-  logDebug("Using Devices of type {}", CHIPDeviceTypeStr);
+  logTrace("Using Devices of type {}", CHIPDeviceTypeStr);
 
   std::vector<cl::Platform> Platforms;
   cl_int Err = cl::Platform::get(&Platforms);
@@ -1185,7 +1186,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   for (int i = 0; i < Platforms.size(); i++) {
     StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
-  logDebug("{}", StrStream.str());
+  logTrace("{}", StrStream.str());
   StrStream.str("");
 
   StrStream << "OpenCL Devices of type " << CHIPDeviceTypeStr
@@ -1204,7 +1205,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
       }
     }
   }
-  logDebug("{}", StrStream.str());
+  logTrace("{}", StrStream.str());
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
@@ -1223,7 +1224,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     ChipContext->addDevice(ChipDev);
     Backend->addDevice(ChipDev);
   }
-  logDebug("OpenCL Context Initialized.");
+  logTrace("OpenCL Context Initialized.");
 };
 
 void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
@@ -1248,7 +1249,7 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
 
   setActiveDevice(ChipDev);
 
-  logDebug("OpenCL Context Initialized.");
+  logTrace("OpenCL Context Initialized.");
 }
 
 hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {

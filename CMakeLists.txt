@@ -29,7 +29,7 @@ add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
--Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument")
+-Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
 # end temporary
 
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
@@ -49,11 +49,15 @@ include(FindLLVM)
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./)
+  get_filename_component(OpenCL_DIR ${OpenCL_LIBRARY} DIRECTORY)
+  message(STATUS "Setting OpenCL_DIR to ${OpenCL_LIBRARY}")
 endif()
 
 if(NOT DEFINED LevelZero_LIBRARY)
   message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
   find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./)
+  get_filename_component(LevelZero_DIR ${LevelZero_LIBRARY} DIRECTORY)
+  message(STATUS "Setting LevelZero_DIR to ${LevelZero_DIR}")
 endif()
 
 message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
@@ -125,6 +129,7 @@ option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead 
 option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
+option(BUILD_DOCS "Build doxygen documentation" OFF)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
@@ -246,6 +251,75 @@ add_dependencies(samples CHIP)
 
 add_subdirectory(bin)
 
+# custom target to avoid tests that are known to fail
+# each entry in the regexp list must be without whitespace and end with "|\"
+#
+# Note that this list only contains tests external to CHIP-SPV,
+# such as those frome HIP's testsuite; the internal tests
+# should be disabled based on value ENABLE_FAILING_TESTS option
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -E
+"ABM_AddKernel_MultiTypeMultiSize|\
+Stress_hipMemcpy_multiDevice-AllAPIs|\
+Unit_AnyAll_CompileTest$|\
+Unit_ballot$|\
+Unit_deviceFunctions_CompileTest___fmaf_ieee|\
+Unit_deviceFunctions_CompileTest___funnelshift|\
+Unit_funnelshift$|\
+Unit_hipDeviceGetCacheConfig_FuncTst$|\
+Unit_hipDeviceGetLimit_CheckValidityOfOutputVal$|\
+Unit_hipDeviceSynchronize_Functional$|\
+Unit_hipEvent$|\
+Unit_hipEventIpc$|\
+Unit_hipGetDeviceFlags_FuncTst$|\
+Unit_hipGraphAddDependencies_Functional$|\
+Unit_hipGraphAddEmptyNode_Functional$|\
+Unit_hipGraphAddMemcpyNode_Functional$|\
+Unit_hipGraph_BasicFunctional$|\
+Unit_hipGraph_SimpleGraphWithKernel$|\
+Unit_hipHostMalloc_Coherent$|\
+Unit_hipHostMalloc_NonCoherent$|\
+Unit_hipHostRegister_ReferenceFromKernelandhipMemset|\
+Unit_hipMallocManaged_MultiKrnlHmmAccess$|\
+Unit_hipMemcpy2D_Negative$|\
+Unit_hipMemcpy2D_SizeCheck$|\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream|\
+Unit_hipMemcpyWithStream_MultiThread$|\
+Unit_hipMemPrefetchAsync_NonPageSz$|\
+Unit_hipMemset3DAsync_ConcurrencyMthread$|\
+Unit_hipMemsetAsync_SetMemoryWithOffset$|\
+Unit_hipMemset_SetMemoryWithOffset$|\
+Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative$|\
+Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation$|\
+Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation$|\
+Unit_hipStreamAddCallback_MultipleThreads$|\
+Unit_hipStreamCreateWithFlags_ArgValidation$|\
+Unit_hipStreamCreateWithFlags_Negative$|\
+Unit_hipStreamCreateWithPriority$|\
+Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities$|\
+Unit_hipStreamCreateWithPriority_MulthreadDefaultflag$|\
+Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag$|\
+Unit_hipStreamCreateWithPriority_NegTst$|\
+Unit_hipStreamCreateWithPriority_ValidateWithEvents$|\
+Unit_hipStreamGetFlags_BasicFunctionalities$|\
+Unit_hipStreamGetPriority_default$|\
+Unit_hipStreamGetPriority_high$|\
+Unit_hipStreamGetPriority_higher$|\
+Unit_hipStreamGetPriority_low$|\
+Unit_hipStreamGetPriority_lower$|\
+Unit_hipStreamGetPriority_Negative$|\
+Unit_hipStreamPerThread_Basic$|\
+Unit_hipStreamPerThread_EventRecord$|\
+Unit_hipStreamPerThread_EventSynchronize$|\
+Unit_hipStreamPerThread_MemcpyAsync$|\
+Unit_hipStreamPerThread_StreamGetFlags$|\
+Unit_hipStreamPerThread_StreamGetPriority$|\
+Unit_hipStreamPerThread_StreamQuery$|\
+Unit_hipStreamPerThread_StreamSynchronize$|\
+Unit_syncthreads_and$|\
+Unit_syncthreads_count$|\
+Unit_syncthreads_or$"
+USES_TERMINAL VERBATIM)
+
 # CHIP-SPV BINARIES & TESTS
 ###############################################################################
 
@@ -310,9 +384,9 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 
 # HIP applications need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
-  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-lOpenCL" "-lze_loader")
+  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
-  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-lOpenCL" "-lze_loader")
+  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
 if(SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")
@@ -464,15 +538,12 @@ install(EXPORT CHIPTargets
 # CHIP-SPV INSTALLATION AND PACKAGING
 ###############################################################################
 
-
-find_package(Doxygen)
-if(DOXYGEN_FOUND)
-
+if(BUILD_DOCS)
+  find_package(Doxygen REQUIRED)
   set(DOXYGEN_GENERATE_HTML YES)
   set(DOXYGEN_GENERATE_MAN NO)
   set(DOXYGEN_OUTPUT_DIRECTORY doxygen)
   set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
   doxygen_add_docs(gendocs README.md src llvm_passes
-                   COMMENT "generate documentation for source")
-
+                  COMMENT "generate documentation for source")
 endif()

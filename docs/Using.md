@@ -5,12 +5,14 @@
 #### CHIP_BE
 
 Select the backend to execute on.
-Possible values: opencl(default), level0
+Possible values: opencl, level0, default
+
+If set to "default" (or unset), it automatically selects any available backend in order: Level0, OpenCL.
 
 #### CHIP_LOGLEVEL
 
 Select the verbosity of debug info during execution.
-Possible values: trace, debug(default), warn, err, crit
+Possible values: trace, debug(default for Debug builds), warn(default for non-Debug builds), err, crit
 
 Setting this value to `debug` will print information coming from the CHIP-SPV functions which are shared between the backends.
 
@@ -25,6 +27,10 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 /usr/local/cuda
 /opt/rocm
 ```
+
+### Disabling GPU hangcheck
+
+Note that long-running GPU compute kernels can trigger hang detection mechanism in the GPU driver, which will cause the kernel execution to be terminated and the runtime will report an error. Consult the documentation of your GPU driver on how to disable this hangcheck.
 
 ### Compiling CUDA application directly with CHIP-SPV
 
@@ -44,7 +50,7 @@ hipcc ./hip_app.cpp -o hip_app
 
 CHIP-SPV provides several extra APIs (not present in AMD's HIP) for interoperability with its backends:
 
-* the hipGetBackendNativeHandles API returns native object handles, but does not give up ownership of these objects (HIP will keep using them asynchronously with the application). 
+* the hipGetBackendNativeHandles API returns native object handles, but does not give up ownership of these objects (HIP will keep using them asynchronously with the application).
 * hipInitFromNativeHandles API creates HIP objects from native handles, but again does not take ownership (they're still usable from application).
 
 Synchronization of context switching is left to the application.

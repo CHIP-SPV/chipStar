@@ -113,3 +113,50 @@ These called functions are implemented in the runtime, `src/CHIPBindings.cc`; th
 `__hipRegisterVar`: this registers global variables, again connecting a host pointer with a variable name.
 
 there is an additional `__hipUnregisterFatBinary()` called after main() returns; in CHIP-SPV, this calls `CHIPUninitialize()` once the number of loaded modules becomes zero.
+
+
+# Release management
+
+For each release, a release manager is assigned. Release manager is responsible
+for creating and requesting testers from different platforms. After a release
+candidate round with success reports and no failure reports, a release is published.
+
+A checklist of things to do for a release:
+
+* Check that CHANGES has the most interesting updates since last release.
+  Add missing notable changes from git log.
+
+* Update the docs/Features.md with any changes.
+
+* Create a single commit in main branch: change the version to the
+  release one (without -pre), in all relevant places (CHANGES, docs,
+  CMakeLists.txt, etc); update the libCHIP.so version (if required);
+  check that supported LLVM versions are correct.
+  Create the release branch from this commit and push it to github.
+
+* In the main branch, create a new commit: increase version
+  number (with -pre suffix) in all relevant places; update the
+  libCHIP.so version; increase the supported LLVM versions in
+  cmake/LLVM.cmake. Commit, push main to github. Now development
+  can go on in main while the release branch is being stabilized.
+
+* The previous two steps ensure that merge-base of release & main is
+  the start of release branch, which means that merging release
+  to the main will not screw up the version numbers in the main.
+  Bugs should be fixed first in release branch then merged into main,
+  but ofc it's also possible to cherry-pick commits.
+
+* Create a new release on Github. Mark it as pre-release. This should
+  create both a tarball and a git tag.
+
+* Request for testers in all communication channels. Point the testers to
+  send their test reports to you privately or by adding them to the wiki.
+  A good way is to create a wiki page for the release schedule and a test
+  log. See https://github.com/CHIP-SPV/chip-spv/wiki/Release-testing-of-chip-spv-0-9
+  for an example.
+
+* To publish a release, create a new release on Github without the
+  checking the pre-release checkbox. Notify interested parties.
+
+* update the github pages to point to doxygen documentation of the
+  latest release.

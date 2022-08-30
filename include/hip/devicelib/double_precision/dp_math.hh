@@ -20,11 +20,33 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef HIP_INCLUDE_DEVICELIB_DP_MATH_H
 #define HIP_INCLUDE_DEVICELIB_DP_MATH_H
 
 #include <hip/devicelib/macros.hh>
+
+extern "C++" {
+
+extern __device__ double rint(double x);
+extern __device__ double round(double x);
+extern __device__ long int convert_long(double x);
+
+extern __device__ double rnorm3d(double a, double b, double c);
+extern __device__ double rnorm4d(double a, double b, double c, double d);
+
+extern __device__ double lgamma(double x);
+}
+
+static inline __device__ long int lrint(double x) {
+  return convert_long(rint(x));
+}
+static inline __device__ long int lround(double x) {
+  return convert_long(round(x));
+}
+
+static inline __device__ long long int llrint(double x) { return lrint(x); }
+static inline __device__ long long int llround(double x) { return lround(x); }
+
 // __device__ double acos(double x)
 // __device__​ double acosh ( double  x )
 // __device__​ double asin ( double  x )
@@ -66,16 +88,11 @@
 // __device__​ double j1 ( double  x )
 // __device__​ double jn ( int  n, double  x )
 // __device__​ double ldexp ( double  x, int  exp )
-// __device__​ double lgamma ( double  x )
-// __device__​ long long int 	llrint ( double  x )
-// __device__​ long long int 	llround ( double  x )
 // __device__​ double log ( double  x )
 // __device__​ double log10 ( double  x )
 // __device__​ double log1p ( double  x )
 // __device__​ double log2 ( double  x )
 // __device__​ double logb ( double  x )
-// __device__​ long int lrint ( double  x )
-// __device__​ long int lround ( double  x )
 // __device__​ double max ( const double  a, const float  b )
 // __device__​ double max ( const float  a, const double  b )
 // __device__​ double max ( const double  a, const double  b )
@@ -96,11 +113,7 @@
 // __device__​ double remainder ( double  x, double  y )
 // __device__​ double remquo ( double  x, double  y, int* quo )
 // __device__​ double rhypot ( double  x, double  y )
-// __device__​ double rint ( double  x )
 // __device__​ double rnorm ( int  dim, const double* p )
-// __device__​ double rnorm3d ( double  a, double  b, double  c )
-// __device__​ double rnorm4d ( double  a, double  b, double  c, double  d)
-// __device__​ double round ( double  x )
 // __device__​ double rsqrt ( double  x )
 // __device__​ double scalbln ( double  x, long int  n )
 // __device__​ double scalbn ( double  x, int  n )

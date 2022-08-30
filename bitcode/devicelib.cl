@@ -46,8 +46,7 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
-#define DEFAULT_AS
-#define PRIVATE_AS __private
+#define DEFAULT_AS __generic
 
 #define CL_NAME(N) opencl_##N
 #define CL_NAME2(N, S) opencl_##N##_##S
@@ -176,15 +175,13 @@ DEF_OPENCL2F(fmax)
 DEF_OPENCL2F(fmin)
 DEF_OPENCL2F(fmod)
 
-float OVLD frexp(float f, PRIVATE_AS int *i);
-double OVLD frexp(double f, PRIVATE_AS int *i);
 EXPORT float CL_NAME2(frexp, f)(float x, DEFAULT_AS int *i) {
   int tmp;
   float ret = frexp(x, &tmp);
   *i = tmp;
   return ret;
 }
-EXPORT float CL_NAME2(frexp, d)(double x, DEFAULT_AS int *i) {
+EXPORT double CL_NAME2(frexp, d)(double x, DEFAULT_AS int *i) {
   int tmp;
   double ret = frexp(x, &tmp);
   *i = tmp;
@@ -198,15 +195,9 @@ DEF_OPENCL1B(isfinite)
 DEF_OPENCL1B(isinf)
 DEF_OPENCL1B(isnan)
 
-float OVLD ldexp(float f, int k);
-double OVLD ldexp(double f, int k);
 EXPORT float CL_NAME2(ldexp, f)(float x, int k) { return ldexp(x, k); }
 EXPORT double CL_NAME2(ldexp, d)(double x, int k) { return ldexp(x, k); }
 
-float OVLD lgamma(float f, PRIVATE_AS int *signp);
-double OVLD lgamma(double f, PRIVATE_AS int *signp);
-EXPORT float CL_NAME2(lgamma, f)(float x) { int sign; return lgamma(x, &sign); }
-EXPORT double CL_NAME2(lgamma, d)(double x) { int sign; return lgamma(x, &sign); }
 
 DEF_OPENCL1F(log10)
 DEF_OPENCL1F(log1p)
@@ -214,16 +205,13 @@ DEF_OPENCL1F(log2)
 DEF_OPENCL1F(logb)
 DEF_OPENCL1F(log)
 
-// modf
-float OVLD modf(float f, PRIVATE_AS float *i);
-double OVLD modf(double f, PRIVATE_AS double *i);
 EXPORT float CL_NAME2(modf, f)(float x, DEFAULT_AS float *i) {
   float tmp;
   float ret = modf(x, &tmp);
   *i = tmp;
   return ret;
 }
-EXPORT float CL_NAME2(modf, d)(double x, DEFAULT_AS double *i) {
+EXPORT double CL_NAME2(modf, d)(double x, DEFAULT_AS double *i) {
   double tmp;
   double ret = modf(x, &tmp);
   *i = tmp;
@@ -252,15 +240,13 @@ DEF_OPENCL2F(remainder)
 DEFOCML_OPENCL1F(rcbrt)
 
 // remquo
-float OVLD remquo(float x,   float y,  PRIVATE_AS int *quo);
-double OVLD remquo(double x, double y, PRIVATE_AS int *quo);
 EXPORT float CL_NAME2(remquo, f)(float x, float y, DEFAULT_AS int *quo) {
   int tmp;
   float rem = remquo(x, y, &tmp);
   *quo = tmp;
   return rem;
 }
-EXPORT float CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
+EXPORT double CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
   int tmp;
   double rem = remquo(x, y, &tmp);
   *quo = tmp;
@@ -270,20 +256,6 @@ EXPORT float CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
 // OCML
 DEFOCML_OPENCL2F(rhypot)
 
-// OCML rlen3 / rlen4
-float OVLD rlen4(float4 f);
-double OVLD rlen4(double4 f);
-float OVLD rlen3(float3 f);
-double OVLD rlen3(double3 f);
-
-EXPORT float CL_NAME2(rnorm4d, f)(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return rlen4(temp); }
-EXPORT double CL_NAME2(rnorm4d, d)(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return rlen4(temp); }
-EXPORT float CL_NAME2(rnorm3d, f)(float x, float y, float z) { float3 temp = (float3)(x, y, z); return rlen3(temp); }
-EXPORT double CL_NAME2(rnorm3d, d)(double x, double y, double z) { double3 temp = (double3)(x, y, z); return rlen3(temp); }
-
-DEF_OPENCL1F(rint)
-
-DEF_OPENCL1F(round)
 DEF_OPENCL1F(rsqrt)
 
 // OCML
@@ -308,19 +280,16 @@ DEF_OPENCL1F(trunc)
 
 
 // sincos
-float OVLD sincos(float x, PRIVATE_AS float *cosval);
-double OVLD sincos(double x, PRIVATE_AS double *cosval);
-
 EXPORT float CL_NAME2(sincos, f)(float x, DEFAULT_AS float *cos) {
-  PRIVATE_AS float tmp;
-  PRIVATE_AS float sin = sincos(x, &tmp);
+  float tmp;
+  float sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }
 
-EXPORT float CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
-  PRIVATE_AS double tmp;
-  PRIVATE_AS double sin = sincos(x, &tmp);
+EXPORT double CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
+  double tmp;
+  double sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }
