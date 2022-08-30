@@ -512,13 +512,11 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
   logTrace("CHIPEvent::recordStream()");
-  if (!ChipQueue->getLastEvent()) {
-    logTrace("LastEvent is null for Queue {}.. Enqueue marker",
-             (void *)ChipQueue);
-    ChipQueue->enqueueMarker();
-  }
-  this->takeOver(ChipQueue->getLastEvent());
-  EventStatus_ = EVENT_STATUS_RECORDING;
+  auto MarkerEvent = ChipQueue->enqueueMarker();
+  this->takeOver(MarkerEvent);
+
+  this->EventStatus_ = EVENT_STATUS_RECORDING;
+  return;
 }
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
@@ -555,6 +553,9 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   auto Status = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
                                sizeof(int), &UpdatedStatus, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  if (ThrowErrorIfNotReady && UpdatedStatus != CL_COMPLETE) {
+    CHIPERR_LOG_AND_THROW("Event not yet ready", hipErrorNotReady);
+  }
 
   if (UpdatedStatus <= CL_COMPLETE)
     EventStatus_ = EVENT_STATUS_RECORDED;
@@ -575,8 +576,8 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
         "the same context",
         hipErrorTbd);
 
-  this->updateFinishStatus();
-  Other->updateFinishStatus();
+  this->updateFinishStatus(true);
+  Other->updateFinishStatus(true);
 
   if (!this->isRecordingOrRecorded() || !Other->isRecordingOrRecorded())
     CHIPERR_LOG_AND_THROW("one of the events isn't/hasn't recorded",
