@@ -95,10 +95,10 @@ add_cuda_sample(cuda-fastwalsh  6_Advanced/fastWalshTransform fastWalshTransform
 
 ############################
 
-if(NOT ENABLE_FAILING_TESTS)
-  ##### when run, sometimes fails sometimes passes TODO investigate
-  set_tests_properties("cuda-simpleCallback" PROPERTIES DISABLED 1 LABELS "")
-endif()
+# if(NOT ENABLE_FAILING_TESTS)
+#   ##### when run, sometimes fails sometimes passes TODO investigate
+#   set_tests_properties("cuda-simpleCallback" PROPERTIES DISABLED 1 LABELS "")
+# endif()
 
 if(ENABLE_UNCOMPILABLE_TESTS)
   # cppOverload: DISABLED: Due to the following error:
