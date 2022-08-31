@@ -21,7 +21,7 @@
  */
 /**
  * @file CHIPBackend.hh
- * @author Paulius Velesko (pvelesko@gmail.com)
+ * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief CHIPBackend class definition. CHIP backends are to inherit from this
  * base class and override desired virtual functions. Overrides for this class
  * are expected to be minimal with primary overrides being done on lower-level
@@ -1543,6 +1543,9 @@ public:
  */
 class CHIPBackend {
 protected:
+  int MinQueuePriority_;
+  int MaxQueuePriority_ = 0;
+
   /**
    * @brief ChipModules stored in binary representation.
    * During compilation each translation unit is parsed for functions that are
@@ -1577,6 +1580,8 @@ public:
    *
    */
   std::string CustomJitFlags;
+
+  int getQueuePriorityRange();
 
   /**
    * @brief Get the default compiler flags for the JIT compiler
@@ -1847,6 +1852,12 @@ class CHIPQueue {
 protected:
   std::mutex LastEventMtx;
   int Priority_;
+  /**
+   * @brief Maximum priority that can be had by a queue is 0; Priority range is
+   * defined to be [0, MinPriority]
+   */
+  const int MaxPriority = 0;
+  int MinPriority;
   unsigned int Flags_;
   CHIPQueueFlags QueueFlags_;
   /// Device on which this queue will execute
@@ -1870,15 +1881,9 @@ public:
    * @brief Construct a new CHIPQueue object
    *
    * @param chip_dev
-   */
-  CHIPQueue(CHIPDevice *ChipDev);
-  /**
-   * @brief Construct a new CHIPQueue object
-   *
-   * @param chip_dev
    * @param flags
    */
-  CHIPQueue(CHIPDevice *ChipDev, unsigned int Flags);
+  CHIPQueue(CHIPDevice *ChipDev, CHIPQueueFlags Flags);
   /**
    * @brief Construct a new CHIPQueue object
    *
@@ -1886,7 +1891,7 @@ public:
    * @param flags
    * @param priority
    */
-  CHIPQueue(CHIPDevice *ChipDev, unsigned int Flags, int Priority);
+  CHIPQueue(CHIPDevice *ChipDev, CHIPQueueFlags Flags, int Priority);
   /**
    * @brief Destroy the CHIPQueue object
    *
@@ -2022,15 +2027,7 @@ public:
 
     return false;
   };
-  /**
-   * @brief Get the Priority Range object defining the bounds for
-   * hipStreamCreateWithPriority
-   *
-   * @param lower_or_upper 0 to get lower bound, 1 to get upper bound
-   * @return int bound
-   */
 
-  int getPriorityRange(int LowerOrUpper); // TODO CHIP
   /**
    * @brief Insert an event into this queue
    *
@@ -2051,14 +2048,14 @@ public:
    * @return unsigned int
    */
 
-  unsigned int getFlags(); // TODO CHIP
+  CHIPQueueFlags getFlags();
   /**
    * @brief Get the Priority object with which this queue was created.
    *
    * @return int
    */
 
-  int getPriority(); // TODO CHIP
+  int getPriority();
   /**
    * @brief Add a callback funciton to be called on the host after the specified
    * stream is done

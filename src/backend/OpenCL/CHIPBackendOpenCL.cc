@@ -669,14 +669,15 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 }
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(unsigned int Flags, int Priority) {
-  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this);
+  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
   return NewQ;
 }
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
                                          int NumHandles) {
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
-  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, CmdQ);
+  CHIPQueueOpenCL *NewQ =
+      new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
   return NewQ;
 }
 
@@ -862,8 +863,29 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   return E;
 }
 
-CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
-    : CHIPQueue(ChipDevice) {
+CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
+                                 cl_command_queue Queue)
+    : CHIPQueue(ChipDevice, CHIPQueueFlags{}, Priority) {
+
+  cl_queue_priority_khr PrioritySelection;
+  switch (Priority_) {
+  case 0:
+    PrioritySelection = CL_QUEUE_PRIORITY_HIGH_KHR;
+    break;
+  case 1:
+    PrioritySelection = CL_QUEUE_PRIORITY_MED_KHR;
+    break;
+  case 2:
+    PrioritySelection = CL_QUEUE_PRIORITY_LOW_KHR;
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW(
+        "Invalid Priority range requested during OpenCL Queue init",
+        hipErrorTbd);
+  }
+
+  if (PrioritySelection != CL_QUEUE_PRIORITY_MED_KHR)
+    logWarn("CHIPQueueOpenCL is ignoring Priority value");
 
   if (Queue)
     ClQueue_ = new cl::CommandQueue(Queue);
@@ -871,8 +893,17 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, cl_command_queue Queue)
     cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
     cl::Device *ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
     cl_int Status;
-    ClQueue_ = new cl::CommandQueue(*ClContext_, *ClDevice_,
-                                    CL_QUEUE_PROFILING_ENABLE, &Status);
+    // Adding priority breaks correctness?
+    // cl_queue_properties QueueProperties[] = {
+    //     CL_QUEUE_PRIORITY_KHR, PrioritySelection, CL_QUEUE_PROPERTIES,
+    //     CL_QUEUE_PROFILING_ENABLE, 0};
+    cl_queue_properties QueueProperties[] = {CL_QUEUE_PROPERTIES,
+                                             CL_QUEUE_PROFILING_ENABLE, 0};
+
+    const cl_command_queue Q = clCreateCommandQueueWithProperties(
+        ClContext_->get(), ClDevice_->get(), QueueProperties, &Status);
+    ClQueue_ = new cl::CommandQueue(Q);
+
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
   }
@@ -1134,7 +1165,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
 
 CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
-  return new CHIPQueueOpenCL(ChipDevCl);
+  return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
 }
 
 CHIPCallbackData *
@@ -1161,6 +1192,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
                                        std::string CHIPDeviceTypeStr,
                                        std::string CHIPDeviceStr) {
   logTrace("CHIPBackendOpenCL Initialize");
+  MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
 
   // transform device type string into CL
   cl_bitfield SelectedDevType = 0;
@@ -1230,7 +1262,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
 void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
                                              int NumHandles) {
   logTrace("CHIPBackendOpenCL InitializeNative");
-
+  MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
   // cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
   cl_device_id DevId = (cl_device_id)NativeHandles[1];
   cl_context CtxId = (cl_context)NativeHandles[2];

@@ -1,11 +1,11 @@
-457414652fbddd8189eb1c3a3102ddb2afc6715e
-93% tests passed, 51 tests failed out of 708
+53b5c5f0aa7c9c1a69af18716873eb9572f1db27
+94% tests passed, 39 tests failed out of 708
 
 Label Time Summary:
-cuda        = 106.07 sec*proc (27 tests)
-internal    = 337.64 sec*proc (80 tests)
+cuda        =  97.18 sec*proc (27 tests)
+internal    = 441.55 sec*proc (80 tests)
 
-Total Test time (real) = 206.03 sec
+Total Test time (real) = 248.94 sec
 
 The following tests FAILED:
 	129 - Unit_hipMemset_SetMemoryWithOffset (Failed)
@@ -27,25 +27,13 @@ The following tests FAILED:
 	319 - Unit_deviceFunctions_CompileTest___funnelshift_lc_int (Failed)
 	320 - Unit_deviceFunctions_CompileTest___funnelshift_r_int (Failed)
 	321 - Unit_deviceFunctions_CompileTest___funnelshift_rc_int (Failed)
-	524 - Unit_hipStreamCreateWithPriority (Failed)
-	527 - Unit_hipStreamGetPriority_Negative (Failed)
-	528 - Unit_hipStreamGetPriority_default (Failed)
-	529 - Unit_hipStreamGetPriority_high (Failed)
-	530 - Unit_hipStreamGetPriority_higher (Failed)
-	531 - Unit_hipStreamGetPriority_low (Failed)
-	532 - Unit_hipStreamGetPriority_lower (Failed)
-	540 - Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities (Failed)
-	541 - Unit_hipStreamCreateWithPriority_MulthreadDefaultflag (Failed)
-	542 - Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag (Failed)
-	543 - Unit_hipStreamCreateWithPriority_NegTst (Failed)
-	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
+	550 - Unit_hipEvent (Subprocess aborted)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
 	560 - Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation (Failed)
 	575 - Unit_hipDeviceGetCacheConfig_FuncTst (Failed)
 	586 - Unit_hipGetDeviceFlags_FuncTst (Failed)
-	597 - Unit_hipStreamPerThread_StreamGetPriority (Failed)
 	606 - Unit_hipGraphAddEmptyNode_Functional (Failed)
 	607 - Unit_hipGraphAddDependencies_Functional (Failed)
 	608 - Unit_hipGraph_BasicFunctional (Failed)

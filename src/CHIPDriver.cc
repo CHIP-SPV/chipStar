@@ -22,7 +22,7 @@
 
 /**
  * @file CHIPDriver.cc
- * @author Paulius Velesko (pvelesko@gmail.com)
+ * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief Definitions of extern declared functions and objects in CHIPDriver.hh
  * Initializing the CHIP runtime with backend selection through CHIP_BE
  * environment variable.

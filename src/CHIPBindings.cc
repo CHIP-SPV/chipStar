@@ -22,7 +22,7 @@
 
 /**
  * @file CHIPBindings.hh
- * @author Paulius Velesko (pvelesko@gmail.com)
+ * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief Implementations of the HIP API functions using the CHIP interface
  * providing basic functionality such hipMemcpy, host and device function
  * registration, hipLaunchByPtr, etc.
@@ -1257,7 +1257,7 @@ hipError_t hipStreamCreate(hipStream_t *Stream) {
 }
 
 hipError_t hipStreamCreateWithFlags(hipStream_t *Stream, unsigned int Flags) {
-  RETURN(hipStreamCreateWithPriority(Stream, Flags, 0));
+  RETURN(hipStreamCreateWithPriority(Stream, Flags, 1));
 }
 
 hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
@@ -1268,7 +1268,15 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
     CHIPERR_LOG_AND_THROW("Stream pointer is null", hipErrorInvalidValue);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, Priority);
+
+  // TODO: make all queues deal with parsed flags
+  volatile CHIPQueueFlags FlagsParsed = CHIPQueueFlags{Flags};
+
+  // Clamp priority between min and max
+  auto MaxPriority = 0;
+  auto MinPriority = Backend->getQueuePriorityRange();
+  auto ClampedPriority = std::min(MinPriority, std::max(MaxPriority, Priority));
+  CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, ClampedPriority);
   *Stream = ChipQueue;
   RETURN(hipSuccess);
 
@@ -1281,12 +1289,10 @@ hipError_t hipDeviceGetStreamPriorityRange(int *LeastPriority,
   CHIPInitialize();
   NULLCHECK(LeastPriority, GreatestPriority);
 
-  CHIPQueue *ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-
   if (LeastPriority)
-    *LeastPriority = ChipQueue->getPriorityRange(0);
+    *LeastPriority = Backend->getQueuePriorityRange();
   if (GreatestPriority)
-    *GreatestPriority = ChipQueue->getPriorityRange(1);
+    *GreatestPriority = 0;
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1355,7 +1361,9 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   NULLCHECK(Flags);
 
   Stream = Backend->findQueue(Stream);
-  *Flags = Stream->getFlags();
+
+  auto ChipQueueFlags = Stream->getFlags();
+  *Flags = ChipQueueFlags.getRaw();
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1364,7 +1372,9 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
 hipError_t hipStreamGetPriority(hipStream_t Stream, int *Priority) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Priority);
+  if (Priority == nullptr) {
+    CHIPERR_LOG_AND_THROW("Priority is nullptr", hipErrorInvalidValue);
+  }
 
   Stream = Backend->findQueue(Stream);
   *Priority = Stream->getPriority();

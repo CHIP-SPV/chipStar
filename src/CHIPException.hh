@@ -22,7 +22,7 @@
 
 /**
  * @file CHIPException.hh
- * @author Paulius Velesko (pvelesko@gmail.com)
+ * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief Header defining CHIP Exceptions
  * @version 0.1
  * @date 2021-08-19

@@ -22,7 +22,7 @@
 
 /**
  * @file CHIPDriver.hh
- * @author Paulius Velesko (pvelesko@gmail.com)
+ * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief Header defining global CHIP classes and functions such as
  * CHIPBackend type pointer Backend which gets initialized at the start of
  * execution.
@@ -77,8 +77,8 @@ void CHIPInitializeCallOnce();
  */
 void CHIPUninitializeCallOnce();
 
-
-extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles, int NumHandles);
+extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
+                                   int NumHandles);
 
 std::string read_env_var(std::string EnvVar, bool Lower);
 
