@@ -1,11 +1,11 @@
-4cba07ffebc14ac82241a16443d9db9c49b98ef2
-89% tests passed, 77 tests failed out of 707
+53b5c5f0aa7c9c1a69af18716873eb9572f1db27
+94% tests passed, 41 tests failed out of 708
 
 Label Time Summary:
-cuda        =  99.90 sec*proc (27 tests)
-internal    = 175.65 sec*proc (79 tests)
+cuda        =  98.97 sec*proc (27 tests)
+internal    = 191.66 sec*proc (80 tests)
 
-Total Test time (real) = 166.48 sec
+Total Test time (real) = 175.64 sec
 
 The following tests did not run:
 	678 - sycl_chip_interop (Skipped)
@@ -18,8 +18,6 @@ The following tests FAILED:
 	160 - Unit_hipMemPrefetchAsync_NonPageSz (Failed)
 	197 - Unit_hipHostMalloc_NonCoherent (Failed)
 	198 - Unit_hipHostMalloc_Coherent (Failed)
-	220 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - int (Subprocess aborted)
-	222 - Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - double (Subprocess aborted)
 	227 - Unit_AnyAll_CompileTest (Failed)
 	228 - Unit_ballot (Failed)
 	231 - Unit_funnelshift (Failed)
@@ -34,40 +32,7 @@ The following tests FAILED:
 	319 - Unit_deviceFunctions_CompileTest___funnelshift_lc_int (Failed)
 	320 - Unit_deviceFunctions_CompileTest___funnelshift_r_int (Failed)
 	321 - Unit_deviceFunctions_CompileTest___funnelshift_rc_int (Failed)
-	374 - Unit_deviceFunctions_CompileTest_j0f_float (Failed)
-	375 - Unit_deviceFunctions_CompileTest_j1f_float (Failed)
-	376 - Unit_deviceFunctions_CompileTest_jnf_float (Failed)
-	378 - Unit_deviceFunctions_CompileTest_lgammaf_float (Failed)
-	379 - Unit_deviceFunctions_CompileTest_llrintf_float (Failed)
-	380 - Unit_deviceFunctions_CompileTest_llroundf_float (Failed)
-	386 - Unit_deviceFunctions_CompileTest_lrintf_float (Failed)
-	387 - Unit_deviceFunctions_CompileTest_lroundf_float (Failed)
-	396 - Unit_deviceFunctions_CompileTest_normcdff_float (Failed)
-	397 - Unit_deviceFunctions_CompileTest_normcdfinvf_float (Failed)
-	404 - Unit_deviceFunctions_CompileTest_rintf_float (Failed)
-	405 - Unit_deviceFunctions_CompileTest_rnorm3df_float (Failed)
-	406 - Unit_deviceFunctions_CompileTest_rnorm4df_float (Failed)
-	423 - Unit_deviceFunctions_CompileTest_y0f_float (Failed)
-	424 - Unit_deviceFunctions_CompileTest_y1f_float (Failed)
-	425 - Unit_deviceFunctions_CompileTest_ynf_float (Failed)
-	464 - Unit_deviceFunctions_CompileTest_j0_double (Failed)
-	465 - Unit_deviceFunctions_CompileTest_j1_double (Failed)
-	466 - Unit_deviceFunctions_CompileTest_jn_double (Failed)
-	468 - Unit_deviceFunctions_CompileTest_lgamma_double (Failed)
-	469 - Unit_deviceFunctions_CompileTest_llrint_double (Failed)
-	470 - Unit_deviceFunctions_CompileTest_llround_double (Failed)
-	476 - Unit_deviceFunctions_CompileTest_lrint_double (Failed)
-	477 - Unit_deviceFunctions_CompileTest_lround_double (Failed)
-	487 - Unit_deviceFunctions_CompileTest_normcdf_double (Failed)
-	488 - Unit_deviceFunctions_CompileTest_normcdfinv_double (Failed)
-	494 - Unit_deviceFunctions_CompileTest_rint_double (Failed)
-	496 - Unit_deviceFunctions_CompileTest_rnorm3d_double (Failed)
-	497 - Unit_deviceFunctions_CompileTest_rnorm4d_double (Failed)
-	513 - Unit_deviceFunctions_CompileTest_y0_double (Failed)
-	514 - Unit_deviceFunctions_CompileTest_y1_double (Failed)
-	515 - Unit_deviceFunctions_CompileTest_yn_double (Failed)
 	525 - Unit_hipStreamGetFlags_BasicFunctionalities (Failed)
-	544 - Unit_hipStreamCreateWithPriority_ValidateWithEvents (Failed)
 	556 - Unit_hipEventIpc (Failed)
 	557 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative (Failed)
 	558 - Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation (Failed)
