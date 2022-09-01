@@ -19,7 +19,7 @@ This is a (non-exhaustive) list of features currently (un)supported by CHIP-SPV.
   hipSetDeviceFlags,  hipGetDeviceFlags,
   hipDeviceCanAccessPeer, hipDeviceEnablePeerAccess,
   hipDeviceDisablePeerAccess, hipDeviceGetStreamPriorityRange,
-  hipStreamGetPriority, hipDevicePrimaryCtxRelease, hipDevicePrimaryCtxRetain,
+  hipDevicePrimaryCtxRelease, hipDevicePrimaryCtxRetain,
   hipDevicePrimaryCtxSetFlags, hipMemPrefetchAsync, hipMemAdvise,
   hipModuleLoadData, hipModuleUnload, hipModuleLaunchKernel
 
