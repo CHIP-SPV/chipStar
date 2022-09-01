@@ -262,14 +262,8 @@ add_subdirectory(bin)
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -E
-"ABM_AddKernel_MultiTypeMultiSize|\
-Unit_AnyAll_CompileTest$|\
-Unit_ballot$|\
-Unit_deviceFunctions_CompileTest___fmaf_ieee|\
-Unit_deviceFunctions_CompileTest___funnelshift|\
-Unit_funnelshift$|\
-Unit_hipDeviceGetCacheConfig_FuncTst$|\
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -R
+"Unit_hipDeviceGetCacheConfig_FuncTst$|\
 Unit_hipEvent$|\
 Unit_hipEventIpc$|\
 Unit_hipGetDeviceFlags_FuncTst$|\
@@ -282,13 +276,17 @@ Unit_hipHostMalloc_Coherent$|\
 Unit_hipHostMalloc_NonCoherent$|\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread|\
 Unit_hipMemPrefetchAsync_NonPageSz$|\
-Unit_hipMemset3DAsync_ConcurrencyMthread$|\
 Unit_hipMemsetAsync_SetMemoryWithOffset$|\
 Unit_hipMemset_SetMemoryWithOffset$|\
 Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative$|\
 Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation$|\
 Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation$|\
 Unit_hipStreamCreateWithPriority_ValidateWithEvents$|\
+Unit_AnyAll_CompileTest$|\
+Unit_ballot$|\
+Unit_deviceFunctions_CompileTest___fmaf_ieee|\
+Unit_deviceFunctions_CompileTest___funnelshift|\
+Unit_funnelshift$|\
 Unit_syncthreads_and$|\
 Unit_syncthreads_count$|\
 Unit_syncthreads_or$"
