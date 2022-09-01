@@ -264,7 +264,6 @@ add_subdirectory(bin)
 # should be disabled based on value ENABLE_FAILING_TESTS option
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -E
 "ABM_AddKernel_MultiTypeMultiSize|\
-Stress_hipMemcpy_multiDevice-AllAPIs|\
 Unit_AnyAll_CompileTest$|\
 Unit_ballot$|\
 Unit_deviceFunctions_CompileTest___fmaf_ieee|\
