@@ -262,7 +262,7 @@ add_subdirectory(bin)
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -R
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
 "Unit_hipDeviceGetCacheConfig_FuncTst$|\
 Unit_hipEvent$|\
 Unit_hipEventIpc$|\
@@ -273,8 +273,10 @@ Unit_hipGraphAddMemcpyNode_Functional$|\
 Unit_hipGraph_BasicFunctional$|\
 Unit_hipGraph_SimpleGraphWithKernel$|\
 Unit_hipHostMalloc_Coherent$|\
+Unit_hiprtc_saxpy$|\
 Unit_hipHostMalloc_NonCoherent$|\
-Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread|\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
 Unit_hipMemPrefetchAsync_NonPageSz$|\
 Unit_hipMemsetAsync_SetMemoryWithOffset$|\
 Unit_hipMemset_SetMemoryWithOffset$|\
