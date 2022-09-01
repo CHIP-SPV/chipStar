@@ -133,6 +133,7 @@ option(BUILD_DOCS "Build doxygen documentation" OFF)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
+option(MALLOC_SHARED_WORKAROUND "Use zeMallocHost instead of zeMallocShared as it causes segfaults on some systems" ON)
 option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
@@ -149,6 +150,10 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 ###############################################################################
 # CHIP-SPV CMAKE OPTIONS PARSING
+
+if(MALLOC_SHARED_WORKAROUND)
+  list(APPEND CHIP_SPV_DEFINITIONS MALLOC_SHARED_WORKAROUND)
+endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 if (NOT CLANG_VERSION_LESS_15)

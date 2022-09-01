@@ -1488,6 +1488,13 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy,
                                       CHIPHostAllocFlags Flags) {
 
+#ifdef MALLOC_SHARED_WORKAROUND
+  if(MemTy == hipMemoryType::hipMemoryTypeUnified) {
+    MemTy = hipMemoryType::hipMemoryTypeHost;
+    logWarn("Using zeMemAllocHost as a workaround instead of zeMemAllocShared");
+  }
+#endif
+
   void *Ptr = 0;
 
   ze_device_mem_alloc_flags_t DeviceFlags =
