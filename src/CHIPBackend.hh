@@ -689,6 +689,42 @@ public:
   virtual void hostSignal() = 0;
 };
 
+class CHIPProgram {
+  std::string ProgramName_;   ///< Program name.
+  std::string ProgramSource_; ///< Program source code.
+
+  /// Include headers.
+  std::map<std::string, std::string> Headers_;
+
+  std::string ProgramLog_; ///< Captured compilation log.
+  std::string Code_;       ///< Compiled program.
+
+public:
+  CHIPProgram() = delete;
+  CHIPProgram(const std::string &ProgramName) : ProgramName_(ProgramName) {}
+
+  void setSource(const char *Source) {
+    if (Source)
+      ProgramSource_.assign(Source);
+  }
+
+  void addHeader(std::string_view IncludeName, std::string_view Contents) {
+    assert(!IncludeName.empty() && "Nameless include header!");
+    Headers_[std::string(IncludeName)].assign(Contents);
+  }
+
+  void appendToLog(const std::string &Log) { ProgramLog_.append(Log); }
+
+  void addCode(std::string_view Code) { Code_.append(Code); }
+
+  const std::map<std::string, std::string> &getHeaders() const {
+    return Headers_;
+  }
+  const std::string &getSource() const { return ProgramSource_; }
+  const std::string &getProgramLog() const { return ProgramLog_; }
+  const std::string &getCode() const { return Code_; }
+};
+
 /**
  * @brief Module abstraction. Contains global variables and kernels. Can be
  * extracted from FatBinary or loaded at runtime.
@@ -806,7 +842,7 @@ public:
    * @param name name of the corresponding host function
    * @return CHIPKernel*
    */
-  CHIPKernel *getKernel(std::string Name);
+  CHIPKernel *getKernelByName(const std::string &Name);
 
   /**
    * @brief Checks if the module has a kernel with the given name.
@@ -1564,6 +1600,9 @@ protected:
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
 
+  // Programs created with hiprtcCreateProgram().
+  std::vector<std::unique_ptr<CHIPProgram>> ChipPrograms_;
+
 public:
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
@@ -1850,6 +1889,12 @@ public:
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
   virtual void *getNativeEvent(hipEvent_t HipEvent) = 0;
+
+  void addProgram(std::unique_ptr<CHIPProgram> Program) {
+    ChipPrograms_.push_back(std::move(Program));
+  }
+
+  bool eraseProgram(const CHIPProgram *Program);
 };
 
 /**
@@ -2095,36 +2140,9 @@ public:
    * @param args
    * @param sharedMemBytes
    */
-  void launchHostFunc(const void *HostFunction, dim3 NumBlocks, dim3 DimBlocks,
-                      void **Args, size_t SharedMemBytes);
+  void launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks, dim3 DimBlocks,
+                    void **Args, size_t SharedMemBytes);
 
-  /**
-   * @brief
-   *
-   * @param grid
-   * @param block
-   * @param sharedMemBytes
-   * @param args
-   * @param kernel
-   * @return hipError_t
-   */
-  virtual void launchWithKernelParams(dim3 Grid, dim3 Block,
-                                      unsigned int SharedMemBytes, void **Args,
-                                      CHIPKernel *Kernel);
-
-  /**
-   * @brief
-   *
-   * @param grid
-   * @param block
-   * @param sharedMemBytes
-   * @param extra
-   * @param kernel
-   * @return hipError_t
-   */
-  virtual void launchWithExtraParams(dim3 Grid, dim3 Block,
-                                     unsigned int SharedMemBytes, void **Extra,
-                                     CHIPKernel *Kernel);
   /**
    * @brief returns Native backend handles for a stream
    *
