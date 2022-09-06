@@ -24,9 +24,56 @@
 #ifndef SRC_UTILS_HH
 #define SRC_UTILS_HH
 
+#include "common.hh"
+
+#include "hip/hip_fatbin.h"
+
+#include <filesystem>
+#include <optional>
+
 /// Clamps 'Val' to [0, INT_MAX] range.
 static inline int clampToInt(size_t Val) {
   return std::min<size_t>(Val, std::numeric_limits<int>::max());
 }
+
+// Round a value up to next power of two - e.g. 13 -> 16, 8 -> 8.
+static inline size_t roundUpToPowerOfTwo(size_t Val) {
+  size_t Pow = 1;
+  while (Pow < Val)
+    Pow *= 2;
+  return Pow;
+}
+
+/// Round a value up e.g. roundUp(9, 8) -> 16.
+static inline size_t roundUp(size_t Val, size_t Rounding) {
+  return ((Val + Rounding - 1) / Rounding) * Rounding;
+}
+
+/// Return a random 'N' length string.
+std::string getRandomString(size_t N);
+
+/// Return a unique directory for temporary use.
+std::optional<std::filesystem::path> createTemporaryDirectory();
+
+/// Write 'Data' into 'Path' file. If the file exists, its content is
+/// overwriten. Return false on errors.
+bool writeToFile(const std::filesystem::path Path, const std::string &Data);
+
+/// Reads contents of file from 'Path' into a std::string.
+std::optional<std::string> readFromFile(const std::filesystem::path Path);
+
+/// Locate hipcc tool. Return an absolute path to it if found.
+std::optional<std::filesystem::path> getHIPCCPath();
+
+/// Returns a span (string_view) over SPIR-V module in the given clang
+/// offload bundle.  Returns empty span if an error was encountered
+/// and 'ErrorMsg' is set to describe the encountered error.
+std::string_view extractSPIRVModule(const void *ClangOffloadBundle,
+                                    std::string &ErrorMsg);
+
+/// Convert "extra" kernel argument passing style to pointer array
+/// style (an array of pointers to the arguments).
+std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
+                                                   const OCLFuncInfo &FuncInfo);
 
 #endif

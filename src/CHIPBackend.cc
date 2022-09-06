@@ -51,7 +51,7 @@ static void queueVariableInfoShadowKernel(CHIPQueue *Q, CHIPModule *M,
                                           const CHIPDeviceVar *Var,
                                           void *InfoBuffer) {
   assert(M && Var && InfoBuffer);
-  auto *K = M->getKernel(std::string(ChipVarInfoPrefix) + Var->getName());
+  auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) + Var->getName());
   assert(K && "Module is missing a shadow kernel?");
   void *Args[] = {&InfoBuffer};
   queueKernel(Q, K, Args);
@@ -62,7 +62,7 @@ static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
   assert(M && Var);
   auto *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Space has not be allocated for a variable.");
-  auto *K = M->getKernel(std::string(ChipVarBindPrefix) + Var->getName());
+  auto *K = M->getKernelByName(std::string(ChipVarBindPrefix) + Var->getName());
   assert(K && "Module is missing a shadow kernel?");
   void *Args[] = {&DevPtr};
   queueKernel(Q, K, Args);
@@ -71,7 +71,7 @@ static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
 static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
                                           const CHIPDeviceVar *Var) {
   assert(M && Var);
-  auto *K = M->getKernel(std::string(ChipVarInitPrefix) + Var->getName());
+  auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) + Var->getName());
   assert(K && "Module is missing a shadow kernel?");
   queueKernel(Q, K);
 }
@@ -235,7 +235,7 @@ CHIPKernel *CHIPModule::findKernel(const std::string &Name) {
   return KernelFound == ChipKernels_.end() ? nullptr : *KernelFound;
 }
 
-CHIPKernel *CHIPModule::getKernel(std::string Name) {
+CHIPKernel *CHIPModule::getKernelByName(const std::string &Name) {
   auto *Kernel = findKernel(Name);
   if (!Kernel) {
     std::string Msg = "Failed to find kernel via kernel name: " + Name;
@@ -748,7 +748,7 @@ void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
     Module->compileOnce(this);
   }
 
-  CHIPKernel *Kernel = Module->getKernel(std::string(HostFName));
+  CHIPKernel *Kernel = Module->getKernelByName(HostFName);
   if (!Kernel) {
     std::string Msg = "Device " + getName() +
                       " tried to register host function " + HostFName +
@@ -1445,6 +1445,17 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   return *QueueFound;
 }
 
+bool CHIPBackend::eraseProgram(const CHIPProgram *ToErase) {
+  auto ErasePos =
+      std::remove_if(ChipPrograms_.begin(), ChipPrograms_.end(),
+                     [&](const std::unique_ptr<CHIPProgram> &Prog) -> bool {
+                       return Prog.get() == ToErase;
+                     });
+  bool WasErased = ErasePos != ChipPrograms_.end();
+  ChipPrograms_.erase(ErasePos, ChipPrograms_.end());
+  return WasErased;
+}
+
 // CHIPQueue
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
@@ -1718,29 +1729,13 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
   ChipEvent->track();
 }
 
-void CHIPQueue::launchHostFunc(const void *HostFunction, dim3 NumBlocks,
-                               dim3 DimBlocks, void **Args,
-                               size_t SharedMemBytes) {
+void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
+                             dim3 DimBlocks, void **Args,
+                             size_t SharedMemBytes) {
   CHIPExecItem ExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
-
-  CHIPDevice *ChipDev = getDevice();
-  CHIPKernel *ChipKernel = ChipDev->findKernelByHostPtr(HostFunction);
-
   ExecItem.setArgPointer(Args);
   ExecItem.setKernel(ChipKernel);
   launch(&ExecItem);
-}
-
-void CHIPQueue::launchWithKernelParams(dim3 Grid, dim3 Block,
-                                       unsigned int SharedMemBytes, void **Args,
-                                       CHIPKernel *Kernel) {
-  UNIMPLEMENTED();
-}
-
-void CHIPQueue::launchWithExtraParams(dim3 Grid, dim3 Block,
-                                      unsigned int SharedMemBytes, void **Extra,
-                                      CHIPKernel *Kernel) {
-  UNIMPLEMENTED();
 }
 
 ///////// End Enqueue Operations //////////

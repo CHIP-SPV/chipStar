@@ -44,13 +44,11 @@
 #include "CHIPDriver.hh"
 #include "CHIPException.hh"
 #include "common.hh"
-#include "hip/hip_fatbin.h"
 #include "hip/hip_interop.h"
 #include "hip/hip_runtime_api.h"
 #include "hip_conversions.hh"
 #include "macros.hh"
-
-#define SPIR_BUNDLE_ID "hip-spir64-unknown-unknown"
+#include "Utils.hh"
 
 static unsigned NumBinariesLoaded = 0;
 
@@ -2828,12 +2826,28 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
   CHIP_CATCH
 }
 
-hipError_t hipModuleLoadData(hipModule_t *Module, const void *Image) {
+hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Module, Image);
+  NULLCHECK(ModuleHandle, Image);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  std::string ErrorMsg;
+  // Image is expected to be a Clang offload bundle.
+  std::string_view Module = extractSPIRVModule(Image, ErrorMsg);
+  if (Module.empty()) {
+    logDebug("{}", ErrorMsg);
+    RETURN(hipErrorTbd);
+  }
+
+  std::string FilteredModule;
+  if (!filterSPIRV(Module.data(), Module.size(), FilteredModule)) {
+    logDebug("Encountered error in SPIR-V filtering.");
+    RETURN(hipErrorTbd);
+  }
+
+  auto *ChipModule = Backend->getActiveDevice()->addModule(&FilteredModule);
+  ChipModule->compileOnce(Backend->getActiveDevice());
+  *ModuleHandle = ChipModule;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2860,7 +2874,8 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   auto *Device = Backend->getActiveDevice();
   Device->initializeDeviceVariables();
 
-  Stream->launchHostFunc(HostFunction, GridDim, BlockDim, Args, SharedMem);
+  CHIPKernel *ChipKernel = Device->findKernelByHostPtr(HostFunction);
+  Stream->launchKernel(ChipKernel, GridDim, BlockDim, Args, SharedMem);
 
   CHIPKernel *Kernel = Device->findKernelByHostPtr(HostFunction);
   if (!Kernel)
@@ -3028,7 +3043,9 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIPInitialize();
   NULLCHECK(Module);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  // TODO: Backend->getActiveDevice()->eraseModule((CHIPModule *)Module));
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -3038,7 +3055,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
 
-  CHIPKernel *Kernel = Module->getKernel(Name);
+  CHIPKernel *Kernel = Module->getKernelByName(Name);
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);
 
@@ -3052,8 +3069,8 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
                                  unsigned int BlockDimX, unsigned int BlockDimY,
                                  unsigned int BlockDimZ,
                                  unsigned int SharedMemBytes,
-                                 hipStream_t Stream, void **KernelParams,
-                                 void **Extra) {
+                                 hipStream_t Stream, void *KernelParams[],
+                                 void *Extra[]) {
   CHIP_TRY
   CHIPInitialize();
   Stream = Backend->findQueue(Stream);
@@ -3062,19 +3079,46 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
     CHIPERR_LOG_AND_THROW("Dynamic shared memory not yet implemented",
                           hipErrorLaunchFailure);
 
-  if (KernelParams == nullptr && Extra == nullptr)
+  if (KernelParams == Extra)
     CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",
                           hipErrorLaunchFailure);
 
-  dim3 Gird(GridDimX, GridDimY, GridDimZ);
+  dim3 Grid(GridDimX, GridDimY, GridDimZ);
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
+
   if (KernelParams)
-    Stream->launchWithKernelParams(Gird, Block, SharedMemBytes, KernelParams,
-                                   Kernel);
-  else
-    Stream->launchWithExtraParams(Gird, Block, SharedMemBytes, Extra, Kernel);
+    Stream->launchKernel(Kernel, Grid, Block, KernelParams, SharedMemBytes);
+  else {
+    // Convert the "extra" argument passing style to KernelParams's
+    // format (an array of pointers to the argument data) for avoiding
+    // adding another argument processing logic in the downstream.
+
+    void *ExtraArgBuf = nullptr;
+    // Some limit to avoid a run away case (e.g. missing HIP_LAUNCH_PARAM_END).
+    constexpr unsigned ArgLimit = 100;
+    for (unsigned i = 0; Extra[i] != HIP_LAUNCH_PARAM_END && i < ArgLimit;
+         i++) {
+      if (Extra[i] == HIP_LAUNCH_PARAM_BUFFER_POINTER)
+        ExtraArgBuf = Extra[++i];
+      else if (Extra[i] == HIP_LAUNCH_PARAM_BUFFER_SIZE) {
+        i++; // Ignore setting value.
+        continue;
+      } else
+        RETURN(hipErrorInvalidValue);
+    }
+
+    if (!ExtraArgBuf) // Null argument pointer.
+      RETURN(hipErrorInvalidValue);
+
+    auto *FuncInfo = Kernel->getFuncInfo();
+    auto ParamBuffer = convertExtraArgsToPointerArray(ExtraArgBuf, *FuncInfo);
+
+    Stream->launchKernel(Kernel, Grid, Block, ParamBuffer.data(),
+                         SharedMemBytes);
+  }
+
   handleAbortRequest(*Stream, *Kernel->getModule());
   return hipSuccess;
   CHIP_CATCH
@@ -3135,56 +3179,18 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
                           hipErrorInitializationError);
   }
 
-  const __ClangOffloadBundleHeader *Header = Wrapper->binary;
-  std::string Magic(reinterpret_cast<const char *>(Header),
-                    sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
-  if (Magic.compare(CLANG_OFFLOAD_BUNDLER_MAGIC)) {
-    CHIPERR_LOG_AND_THROW("The bundled binaries are not Clang bundled "
-                          "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)",
-                          hipErrorInitializationError);
-  }
-
   std::string *Module = new std::string;
   if (!Module) {
     CHIPERR_LOG_AND_THROW("Failed to allocate memory",
                           hipErrorInitializationError);
   }
 
-  const __ClangOffloadBundleDesc *Desc = &Header->desc[0];
-  bool Found = false;
+  std::string ErrorMsg;
+  auto SPIRVModuleSpan = extractSPIRVModule(Wrapper->binary, ErrorMsg);
+  if (SPIRVModuleSpan.empty())
+    CHIPERR_LOG_AND_THROW(ErrorMsg, hipErrorInitializationError);
 
-  for (uint64_t i = 0; i < Header->numBundles;
-       ++i, Desc = reinterpret_cast<const __ClangOffloadBundleDesc *>(
-                reinterpret_cast<uintptr_t>(&Desc->triple[0]) +
-                Desc->tripleSize)) {
-    std::string EntryID{&Desc->triple[0], Desc->tripleSize};
-    logDebug("Bundle entry ID {} is: '{}'\n", i, EntryID);
-
-    // SPIR-V bundle entry ID for HIP-Clang 14+. Additional components
-    // are ignored for now.
-    const std::string SPIRVBundleID = "hip-spirv64";
-    if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID) {
-      Found = true;
-      break;
-    }
-
-    if (EntryID == SPIR_BUNDLE_ID) {
-      Found = true;
-      break;
-    }
-
-    logDebug("not a SPIR-V triple, ignoring\n");
-  }
-
-  if (!Found) {
-    CHIPERR_LOG_AND_THROW("Didn't find any suitable compiled binary!",
-                          hipErrorInitializationError);
-  }
-
-  const char *StringData = reinterpret_cast<const char *>(
-      reinterpret_cast<uintptr_t>(Header) + (uintptr_t)Desc->offset);
-  size_t StringSize = Desc->size;
-  if (!filterSPIRV(StringData, StringSize, *Module)) {
+  if (!filterSPIRV(SPIRVModuleSpan.data(), SPIRVModuleSpan.size(), *Module)) {
     CHIPERR_LOG_AND_THROW("Error in filtering a SPIR-V module",
                           hipErrorInitializationError);
   }

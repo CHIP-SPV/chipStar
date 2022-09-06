@@ -85,6 +85,7 @@ set(CHIP_SRC
   src/CHIPBackend.cc
   src/CHIPBindings.cc
   src/logging.cc
+  src/Utils.cc
 )
 
 if(OpenCL_LIBRARY)
@@ -331,6 +332,7 @@ target_include_directories(CHIP
   PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_BINARY_DIR}"
 )
 # CHIP-SPV COMPILATION SETUP
 ###############################################################################
@@ -414,6 +416,18 @@ target_link_libraries(device INTERFACE CHIP)
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
 # HIP OFFLOAD FLAGS
+###############################################################################
+
+###############################################################################
+# PROJECT CONFIGURATION HEADER
+
+set(CHIP_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
+set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
+set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
+configure_file(Config.hh.in Config.hh @ONLY)
+
+# PROJECT CONFIGURATION HEADER
 ###############################################################################
 
 ###############################################################################

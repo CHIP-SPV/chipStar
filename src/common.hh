@@ -23,6 +23,8 @@
 #ifndef HIP_COMMON_H
 #define HIP_COMMON_H
 
+#include "Config.hh"
+
 #include <map>
 #include <vector>
 #include <stdint.h>
