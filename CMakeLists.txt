@@ -109,6 +109,8 @@ set(HIP_COMPILER "clang" CACHE STRING "CHIP-SPV compiler")
 set(HIP_RUNTIME "spirv" CACHE STRING "CHIP-SPV runtime")
 set(HIP_PLATFORM "spirv" CACHE STRING "CHIP-SPV platform")
 set(HIP_ARCH "spirv" CACHE STRING "CHIP-SPV architecture")
+get_filename_component(HIP_CLANG_PATH ${CMAKE_CXX_COMPILER} DIRECTORY)
+get_filename_component(HIP_CLANG_PATH "${HIP_CLANG_PATH}../" DIRECTORY CACHE)
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -248,11 +250,13 @@ enable_testing()
 add_subdirectory(HIP/tests/catch catch)
 add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
+add_subdirectory(HIPCC)
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
+add_dependencies(CHIP hipcc.bin)
 
 add_subdirectory(bin)
 
@@ -439,6 +443,7 @@ add_to_config(_hipInfo_install HIP_PATH "${HIP_PATH}")
 add_to_config(_hipInfo_install HIP_RUNTIME "${HIP_RUNTIME}")
 add_to_config(_hipInfo_install HIP_COMPILER "${HIP_COMPILER}")
 add_to_config(_hipInfo_install HIP_ARCH "${HIP_ARCH}")
+add_to_config(_hipInfo_install HIP_CLANG_PATH "${HIP_CLANG_PATH}")
 add_to_config(_hipInfo_install
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 add_to_config(_hipInfo_install
@@ -450,6 +455,7 @@ add_to_config(_hipInfo_build HIP_PATH "${CMAKE_BINARY_DIR}")
 add_to_config(_hipInfo_build HIP_RUNTIME "${HIP_RUNTIME}")
 add_to_config(_hipInfo_build HIP_COMPILER "${HIP_COMPILER}")
 add_to_config(_hipInfo_build HIP_ARCH "${HIP_ARCH}")
+add_to_config(_hipInfo_build HIP_CLANG_PATH "${HIP_CLANG_PATH}")
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD}")
 add_to_config(_hipInfo_build
@@ -494,8 +500,8 @@ install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
   DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
 
 # Copy hipconfig, hipvars, etc to bin
-file(COPY "${CMAKE_SOURCE_DIR}/HIP/bin" DESTINATION "${PROJECT_BINARY_DIR}")
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/bin DESTINATION . USE_SOURCE_PERMISSIONS)
+install(FILES ${CMAKE_BINARY_DIR}/HIPCC/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
+install(FILES ${CMAKE_BINARY_DIR}/HIPCC/hipconfig.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipconfig PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
 
 set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(CHIP_CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
