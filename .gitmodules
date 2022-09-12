@@ -13,4 +13,4 @@
 	url = https://github.com/RadeonOpenCompute/ROCm-Device-Libs.git
 [submodule "HIPCC"]
 	path = HIPCC
-	url = https://github.com/ROCm-Developer-Tools/HIPCC.git
+	url = https://github.com/CHIP-SPV/HIPCC.git
