@@ -262,9 +262,15 @@ add_subdirectory(bin)
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
+set(FLAKY_TESTS
+"Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
+Unit_hipStreamCreateWithPriority_ValidateWithEvents$"
+)
+add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" --repeat until-fail:1000 -j 10 -R ${FLAKY_TESTS} USES_TERMINAL VERBATIM)
+
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
 "Unit_hipDeviceGetCacheConfig_FuncTst$|\
-Unit_hipEvent$|\
 Unit_hipEventIpc$|\
 Unit_hipGetDeviceFlags_FuncTst$|\
 Unit_hipGraphAddDependencies_Functional$|\
