@@ -453,6 +453,7 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
     PerThreadDefaultQueue =
         std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
     PerThreadStreamUsed = true;
+    Backend->addQueue(PerThreadDefaultQueue.get());
   }
 
   return PerThreadDefaultQueue.get();
@@ -1237,6 +1238,19 @@ void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
 
   return;
 }
+
+void CHIPBackend::removeQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+  auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
+  if (QueueFound != ChipQueues.end()) {
+    ChipQueues.erase(QueueFound);
+  } 
+  logDebug("CHIPQueue {} removed from the queue vector for backend {} ",
+           (void *)ChipQueue, (void *)this);
+
+  return;
+}
+
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
@@ -1419,7 +1433,6 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
 
   if (ChipQueue == hipStreamPerThread) {
     return Backend->getActiveDevice()->getPerThreadDefaultQueue();
@@ -1428,6 +1441,10 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   } else if (ChipQueue == nullptr) {
     return Backend->getActiveDevice()->getDefaultQueue();
   }
+
+  // getPerThreadDefaultQueue() might add a queue to the device which requires a
+  // lock on BackendMtx so this lock must be here
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
 
   // Safety Check to make sure that the requested queue is registereted
   std::vector<CHIPQueue *> AllQueues = Backend->getActiveDevice()->getQueues();
@@ -1455,6 +1472,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue()");
+  Backend->removeQueue(this);
   updateLastEvent(nullptr);
 };
 

@@ -1715,6 +1715,8 @@ public:
    * @param q_in
    */
   void addQueue(CHIPQueue *ChipQueue);
+
+  void removeQueue(CHIPQueue *ChipQueue);
   /**
    * @brief  Add a device to this backend.
    *

@@ -30,6 +30,7 @@
 #include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
 #include "../src/common.hh"
+#include <unordered_set>
 
 std::string resultToString(ze_result_t Status);
 
@@ -56,6 +57,7 @@ protected:
   ze_command_list_handle_t Handle_;
 
 public:
+  std::mutex Mtx;
   LZCommandListType Type;
   LZCommandList(ze_context_handle_t ZeCtx, ze_device_handle_t ZeDev,
                 ze_command_list_desc_t Desc, LZCommandListType TheType,
@@ -77,21 +79,27 @@ private:
   ze_device_handle_t ZeDev_;
 
 public:
+  std::mutex Mtx;
   std::queue<LZCommandList *> ComputeLists;
   std::queue<LZCommandList *> CopyLists;
+  std::unordered_set<LZCommandList *> AllLists;
 
   LZCommandListPool(CHIPQueueLevel0 *TheQueue);
+  ~LZCommandListPool();
 
   LZCommandList *getCompute();
   LZCommandList *getCopy();
 
   void returnList(LZCommandList *TheList) {
+    std::lock_guard<std::mutex> Lock(Mtx);
     if (TheList->Type == ComputeList) {
       ComputeLists.push(TheList);
     } else {
       CopyLists.push(TheList);
     }
   }
+
+  CHIPQueueLevel0* getQueue() {return ChipQueue_;}
 };
 
 class CHIPEventLevel0 : public CHIPEvent {
@@ -237,7 +245,10 @@ public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags, int Priority);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
-  virtual ~CHIPQueueLevel0() { logTrace("CHIPQueueLevel0 DEST"); }
+  virtual ~CHIPQueueLevel0() {
+    logTrace("CHIPQueueLevel0 DEST");
+    std::lock_guard<std::mutex> Lock(QueueMtx);
+  }
 
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
@@ -257,21 +268,21 @@ public:
    *
    * @return ze_command_list_handle_t
    */
-  LZCommandList* getCommandListCopy();
+  LZCommandList *getCommandListCopy();
   /**
    * @brief Get a compute list handle. Using not using immediate command lists,
    * create a new compute list
    *
    * @return ze_command_list_handle_t
    */
-  LZCommandList* getCommandListCompute();
+  LZCommandList *getCommandListCompute();
 
   /**
    * @brief Execute a given command list
    *
    * @param CommandList a handle to either a compute or copy command list
    */
-  void executeCommandList(LZCommandList* CommandList);
+  void executeCommandList(LZCommandList *CommandList);
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
