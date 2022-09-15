@@ -39,8 +39,8 @@ THE SOFTWARE.
 typedef _Float16 _hip_f16;
 typedef _Float16 _hip_f16_2 __attribute__((ext_vector_type(2)));
 #else
-typedef api_half _hip_f16;
-typedef api_half2 _hip_f16_2;
+typedef short _hip_f16;
+typedef short _hip_f16_2 __attribute__((ext_vector_type(2)));
 #endif
 
 struct __half_raw {
