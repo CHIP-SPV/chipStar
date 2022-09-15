@@ -3121,6 +3121,53 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
   CHIP_CATCH
 }
 
+hipError_t hipExtModuleLaunchKernel(
+    hipFunction_t Kernel,
+    // NOTE: Grid units are threads/work-items instead of blocks/workgroups.
+    uint32_t GlobalWorkSizeX, uint32_t GlobalWorkSizeY,
+    uint32_t GlobalWorkSizeZ, uint32_t LocalWorkSizeX, uint32_t LocalWorkSizeY,
+    uint32_t LocalWorkSizeZ, size_t SharedMemBytes, hipStream_t Stream,
+    void **KernelParams, void **Extra, hipEvent_t StartEvent,
+    hipEvent_t StopEvent, uint32_t Flags) {
+
+  CHIP_TRY
+  NULLCHECK(Kernel);
+  // Null checks on the KernelParams and Extra arguments are performed by
+  // hipModuleLaunchKernel().
+  CHIPInitialize();
+
+  // TODO: Process flags (hipExtAnyOrderLaunch).
+
+  // Check local sizes divide grids.
+  if (GlobalWorkSizeX % LocalWorkSizeX != 0 ||
+      GlobalWorkSizeY % LocalWorkSizeY != 0 ||
+      GlobalWorkSizeZ % LocalWorkSizeZ != 0)
+    RETURN(hipErrorInvalidValue);
+
+  auto GridBlocksX = GlobalWorkSizeX / LocalWorkSizeX;
+  auto GridBlocksY = GlobalWorkSizeY / LocalWorkSizeY;
+  auto GridBlocksZ = GlobalWorkSizeZ / LocalWorkSizeZ;
+
+  hipError_t Result = hipSuccess;
+
+  if (StartEvent)
+    Result = hipEventRecord(StartEvent, Stream);
+  if (Result != hipSuccess)
+    RETURN(Result);
+
+  Result = hipModuleLaunchKernel(Kernel, GridBlocksX, GridBlocksY, GridBlocksZ,
+                                 LocalWorkSizeX, LocalWorkSizeY, LocalWorkSizeZ,
+                                 SharedMemBytes, Stream, KernelParams, Extra);
+  if (Result != hipSuccess)
+    RETURN(Result);
+
+  if (StopEvent)
+    Result = hipEventRecord(StopEvent, Stream);
+
+  RETURN(Result);
+  CHIP_CATCH
+}
+
 //*****************************************************************************
 //*****************************************************************************
 //*****************************************************************************
