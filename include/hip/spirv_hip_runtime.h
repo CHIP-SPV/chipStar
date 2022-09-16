@@ -42,6 +42,107 @@ THE SOFTWARE.
 
 #include <hip/spirv_texture_functions.h>
 
+/**
+ * If HIP_API_PER_THREAD_DEFAULT_STREAM is defined, we map all regular functions to the per-thread stream versions
+ * hipMemcpy() -> hipMemcpy_spt()
+ * 
+ * If HIP_API_PER_THREAD_DEFAULT_STREAM is not defined, we have two versions:
+ * hipMemcpy()
+ * hipMemcpy_spt()
+ * 
+ * We must ensure that once CHIP-SPV is compiled, we can still use `hipcc ----default-stream`
+ */
+
+/// hipStreamPerThread implementation
+#if defined(HIP_API_PER_THREAD_DEFAULT_STREAM)
+    #define __HIP_STREAM_PER_THREAD
+    #define __HIP_API_SPT(api) api ## _spt
+#else
+    #define __HIP_API_SPT(api) api
+#endif
+
+#if defined(__HIP_STREAM_PER_THREAD)
+    // Memory APIs
+    #define hipMemcpy                     __HIP_API_SPT(hipMemcpy)
+    #define hipMemcpyToSymbol             __HIP_API_SPT(hipMemcpyToSymbol)
+    #define hipMemcpyFromSymbol           __HIP_API_SPT(hipMemcpyFromSymbol)
+    #define hipMemcpy2D                   __HIP_API_SPT(hipMemcpy2D)
+    #define hipMemcpy2DToArray            __HIP_API_SPT(hipMemcpy2DToArray)
+    #define hipMemcpy2DFromArray          __HIP_API_SPT(hipMemcpy2DFromArray)
+    #define hipMemcpy3D                   __HIP_API_SPT(hipMemcpy3D)
+    #define hipMemset                     __HIP_API_SPT(hipMemset)
+    #define hipMemset2D                   __HIP_API_SPT(hipMemset2D)
+    #define hipMemset3D                   __HIP_API_SPT(hipMemset3D)
+    #define hipMemcpyAsync                __HIP_API_SPT(hipMemcpyAsync)
+
+    // Stream APIs
+    #define hipStreamSynchronize          __HIP_API_SPT(hipStreamSynchronize)
+    #define hipStreamQuery                __HIP_API_SPT(hipStreamQuery)
+    #define hipStreamGetFlags             __HIP_API_SPT(hipStreamGetFlags)
+    #define hipStreamGetPriority          __HIP_API_SPT(hipStreamGetPriority)
+    #define hipStreamWaitEvent            __HIP_API_SPT(hipStreamWaitEvent)
+
+    // Event APIs
+    #define hipEventRecord               __HIP_API_SPT(hipEventRecord)
+
+    // Launch APIs
+    #define hipLaunchKernel               __HIP_API_SPT(hipLaunchKernel)
+    #define hipLaunchCooperativeKernel    __HIP_API_SPT(hipLaunchCooperativeKernel)
+#endif
+
+hipError_t hipMemcpy_spt(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind);
+
+hipError_t hipMemcpyToSymbol_spt(const void* symbol, const void* src, size_t sizeBytes,
+                             size_t offset, hipMemcpyKind kind);
+
+hipError_t hipMemcpyFromSymbol_spt(void* dst, const void* symbol,size_t sizeBytes,
+                               size_t offset, hipMemcpyKind kind);
+
+hipError_t hipMemcpy2D_spt(void* dst, size_t dpitch, const void* src, size_t spitch, size_t width,
+                        size_t height, hipMemcpyKind kind);
+
+hipError_t hipMemcpy2DToArray_spt(hipArray* dst, size_t wOffset, size_t hOffset, const void* src,
+                              size_t spitch, size_t width, size_t height, hipMemcpyKind kind);
+
+hipError_t hipMemcpy2DFromArray_spt( void* dst, size_t dpitch, hipArray_const_t src, size_t wOffset,
+                        size_t hOffset, size_t width, size_t height, hipMemcpyKind kind);
+
+hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms* p);
+
+hipError_t hipMemset_spt(void* dst, int value, size_t sizeBytes);
+
+hipError_t hipMemset2D_spt(void* dst, size_t pitch, int value, size_t width, size_t height);
+
+hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int  value, hipExtent extent );
+
+hipError_t hipMemcpyAsync_spt(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind,
+                          hipStream_t stream);
+
+hipError_t hipStreamQuery_spt(hipStream_t stream);
+
+hipError_t hipStreamSynchronize_spt(hipStream_t stream);
+
+hipError_t hipStreamGetPriority_spt(hipStream_t stream, int* priority);
+
+hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event, unsigned int flags);
+
+hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int* flags);
+
+hipError_t hipLaunchCooperativeKernel_spt(const void* f,
+                                      dim3 gridDim, dim3 blockDim,
+                                      void **kernelParams, uint32_t sharedMemBytes, hipStream_t hStream);
+#ifdef __cplusplus
+extern "C" {
+#endif
+hipError_t hipLaunchKernel_spt(const void* function_address,
+                           dim3 numBlocks,
+                           dim3 dimBlocks,
+                           void** args,
+                           size_t sharedMemBytes, hipStream_t stream);
+#ifdef __cplusplus
+}
+#endif // extern "C"
+
 // Feature tests:
 #if (defined(__HCC_ACCELERATOR__) && (__HCC_ACCELERATOR__ != 0)) ||            \
     __HIP_DEVICE_COMPILE__

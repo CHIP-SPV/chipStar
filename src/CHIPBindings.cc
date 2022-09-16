@@ -3417,4 +3417,60 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   return E;
 }
 
+//
+
+hipError_t hipMemcpy_spt(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind);
+
+hipError_t hipMemcpyToSymbol_spt(const void* symbol, const void* src, size_t sizeBytes,
+                             size_t offset, hipMemcpyKind kind);
+
+hipError_t hipMemcpyFromSymbol_spt(void* dst, const void* symbol,size_t sizeBytes,
+                               size_t offset, hipMemcpyKind kind);
+
+hipError_t hipMemcpy2D_spt(void* dst, size_t dpitch, const void* src, size_t spitch, size_t width,
+                        size_t height, hipMemcpyKind kind);
+
+hipError_t hipMemcpy2DToArray_spt(hipArray* dst, size_t wOffset, size_t hOffset, const void* src,
+                              size_t spitch, size_t width, size_t height, hipMemcpyKind kind);
+
+hipError_t hipMemcpy2DFromArray_spt( void* dst, size_t dpitch, hipArray_const_t src, size_t wOffset,
+                        size_t hOffset, size_t width, size_t height, hipMemcpyKind kind);
+
+hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms* p);
+
+hipError_t hipMemset_spt(void* dst, int value, size_t sizeBytes);
+
+hipError_t hipMemset2D_spt(void* dst, size_t pitch, int value, size_t width, size_t height);
+
+hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int  value, hipExtent extent );
+
+hipError_t hipMemcpyAsync_spt(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind,
+                          hipStream_t stream);
+
+hipError_t hipStreamQuery_spt(hipStream_t stream);
+
+hipError_t hipStreamSynchronize_spt(hipStream_t stream);
+
+hipError_t hipStreamGetPriority_spt(hipStream_t stream, int* priority);
+
+hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event, unsigned int flags);
+
+hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int* flags);
+
+hipError_t hipLaunchCooperativeKernel_spt(const void* f,
+                                      dim3 gridDim, dim3 blockDim,
+                                      void **kernelParams, uint32_t sharedMemBytes, hipStream_t hStream);
+#ifdef __cplusplus
+extern "C" {
 #endif
+hipError_t hipLaunchKernel_spt(const void* function_address,
+                           dim3 numBlocks,
+                           dim3 dimBlocks,
+                           void** args,
+                           size_t sharedMemBytes, hipStream_t stream);
+#ifdef __cplusplus
+}
+#endif // extern "C"
+
+
+#endif // include guard
