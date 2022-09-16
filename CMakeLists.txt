@@ -488,10 +488,10 @@ install(
 install ( EXPORT hip-targets  FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip  COMPONENT binary)
 
 # Generate .hipInfo
-file(WRITE "${PROJECT_BINARY_DIR}/lib/.hipInfo_install" ${_hipInfo_install})
-file(WRITE "${PROJECT_BINARY_DIR}/lib/.hipInfo" ${_hipInfo_build})
-install(FILES ${PROJECT_BINARY_DIR}/lib/.hipInfo_install
-  DESTINATION ${LIB_INSTALL_DIR} RENAME .hipInfo)
+file(WRITE "${PROJECT_BINARY_DIR}/bin/.hipInfo_install" ${_hipInfo_install})
+file(WRITE "${PROJECT_BINARY_DIR}/bin/.hipInfo" ${_hipInfo_build})
+install(FILES ${PROJECT_BINARY_DIR}/bin/.hipInfo_install
+  DESTINATION ${BIN_INSTALL_DIR} RENAME .hipInfo)
 
 # Copy hipconfig, hipvars, etc to bin
 file(COPY "${CMAKE_SOURCE_DIR}/HIP/bin" DESTINATION "${PROJECT_BINARY_DIR}")
