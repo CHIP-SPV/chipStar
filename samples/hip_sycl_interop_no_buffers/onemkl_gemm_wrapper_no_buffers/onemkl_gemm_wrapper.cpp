@@ -21,7 +21,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "level_zero/ze_api.h"
+#include "../../../include/ze_api.h"
 #include "CL/sycl/backend/level_zero.hpp"
 #include "oneapi/mkl.hpp"
 #include <stdlib.h>
