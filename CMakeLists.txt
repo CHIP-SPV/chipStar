@@ -470,7 +470,7 @@ configure_package_config_file(
   ${CMAKE_SOURCE_DIR}/cmake/hip-config-in.cmake
   ${CMAKE_CURRENT_BINARY_DIR}/hip-config.cmake
   INSTALL_DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR}
-  PATH_VARS LIB_INSTALL_DIR INCLUDE_INSTALL_DIR BIN_INSTALL_DIR
+  PATH_VARS LIB_INSTALL_DIR INCLUDE_INSTALL_DIR BIN_INSTALL_DIR SHARE_INSTALL_DIR
 )
 
 write_basic_package_version_file(
@@ -488,10 +488,10 @@ install(
 install ( EXPORT hip-targets  FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip  COMPONENT binary)
 
 # Generate .hipInfo
-file(WRITE "${PROJECT_BINARY_DIR}/bin/.hipInfo_install" ${_hipInfo_install})
-file(WRITE "${PROJECT_BINARY_DIR}/bin/.hipInfo" ${_hipInfo_build})
-install(FILES ${PROJECT_BINARY_DIR}/bin/.hipInfo_install
-  DESTINATION ${BIN_INSTALL_DIR} RENAME .hipInfo)
+file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install" ${_hipInfo_install})
+file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo" ${_hipInfo_build})
+install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
+  DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
 
 # Copy hipconfig, hipvars, etc to bin
 file(COPY "${CMAKE_SOURCE_DIR}/HIP/bin" DESTINATION "${PROJECT_BINARY_DIR}")
