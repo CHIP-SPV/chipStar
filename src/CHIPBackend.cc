@@ -439,14 +439,6 @@ CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
   return LegacyDefaultQueue.get();
 }
 
-CHIPQueue *CHIPDevice::getDefaultQueue() {
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-  return getPerThreadDefaultQueue();
-#else
-  return getLegacyDefaultQueue();
-#endif
-}
-
 bool CHIPDevice::isPerThreadQueueInitialized() {
   return (PerThreadDefaultQueue.get());
 }
@@ -965,14 +957,16 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 
   // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
   // default stream thus no syncronization necessary
+  CHIPQueue* DefaultQueue;
   if (Backend->getActiveDevice()->isPerThreadQueueInitialized()) {
-    auto PerThreadQueue =
+    DefaultQueue =
         Backend->getActiveDevice()->getPerThreadDefaultQueue();
-    if (TargetQueue == PerThreadQueue)
+    if (TargetQueue == DefaultQueue)
       return;
+  } else {
+    DefaultQueue = Backend->getActiveDevice()->getLegacyDefaultQueue();
   }
 
-  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPQueue *> QueuesToSyncWith;
 

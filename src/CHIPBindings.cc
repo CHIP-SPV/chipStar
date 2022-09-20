@@ -2102,7 +2102,7 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
   } else
     Backend->getActiveDevice()->initializeDeviceVariables();
-  RETURN(Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src,
+  RETURN(Backend->getActiveDevice()->getLegacyDefaultQueue()->memCopy(Dst, Src,
                                                                 SizeBytes));
 
   CHIP_CATCH
@@ -2161,7 +2161,7 @@ hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
   CHIP_TRY
   CHIPInitialize();
 
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
   auto Res = hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
   if (Res == hipSuccess)
     Stream->finish();
@@ -2228,7 +2228,7 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_TRY
   CHIPInitialize();
 
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
   auto Res = hipMemset3DAsync(PitchedDevPtr, Value, Extent, Stream);
   if (Res == hipSuccess)
     Stream->finish();
@@ -2258,7 +2258,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 
   char CharVal = Value;
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
+  Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dst, SizeBytes,
                                                          &CharVal, 1);
 
   // Check if this pointer is registered
@@ -2314,7 +2314,7 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
   NULLCHECK(Dest);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dest, 2 * Count,
+  Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dest, 2 * Count,
                                                          &Value, 2);
   RETURN(hipSuccess);
 
@@ -2340,7 +2340,7 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   NULLCHECK(Dst);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, 4 * Count, &Value,
+  Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dst, 4 * Count, &Value,
                                                          4);
   RETURN(hipSuccess);
 
@@ -2351,7 +2351,7 @@ hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(PCopy);
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
   auto Res = hipMemcpyParam2DAsync(PCopy, Stream);
   if (Res == hipSuccess)
     Stream->finish();
@@ -2407,7 +2407,7 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
     CHIPERR_LOG_AND_THROW("Source Pitch less than 1", hipErrorInvalidValue);
   }
 
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   hipError_t Res =
       hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height, Kind, Stream);
@@ -2422,7 +2422,9 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
 hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
                               const void *Src, size_t SPitch, size_t Width,
                               size_t Height, hipMemcpyKind Kind) {
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  CHIP_TRY
+  CHIPInitialize();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
                                      Height, Kind, Stream);
@@ -2431,6 +2433,7 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
     Stream->finish();
 
   RETURN(Res);
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
@@ -2467,7 +2470,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
 hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
                                 size_t WOffset, size_t HOffset, size_t Width,
                                 size_t Height, hipMemcpyKind Kind) {
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   auto Res = hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset,
                                        Width, Height, Kind, Stream);
@@ -2597,7 +2600,7 @@ hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
   CHIP_TRY
   CHIPInitialize();
 
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
   auto Res = hipMemcpy3DAsync(Params, Stream);
   if (Res == hipSuccess)
     Stream->finish();
@@ -2744,7 +2747,7 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   CHIPInitialize();
   NULLCHECK(Symbol, Src);
 
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   hipError_t Res =
       hipMemcpyToSymbolAsync(Symbol, Src, SizeBytes, Offset, Kind, Stream);
@@ -2781,7 +2784,7 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
   CHIPInitialize();
   NULLCHECK(Dst, Symbol);
 
-  auto Stream = Backend->getActiveDevice()->getDefaultQueue();
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   hipError_t Res =
       hipMemcpyFromSymbolAsync(Dst, Symbol, SizeBytes, Offset, Kind, Stream);
