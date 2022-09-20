@@ -3424,24 +3424,63 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
 
 hipError_t hipMemcpy_spt(void *dst, const void *src, size_t sizeBytes,
                          hipMemcpyKind kind) {
-  return hipMemcpy(dst, src, sizeBytes, kind);
-}; 
+  return hipMemcpyWithStream(dst, src, sizeBytes, kind, hipStreamPerThread);
+};
 
 hipError_t hipMemcpyToSymbol_spt(const void *symbol, const void *src,
                                  size_t sizeBytes, size_t offset,
                                  hipMemcpyKind kind) {
-  hipMemcpyToSymbol(symbol, src, sizeBytes, offset, kind);
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto PerThreadQueue = Backend->findQueue(hipStreamPerThread);
+  auto Res = hipMemcpyToSymbolAsync(symbol, src, sizeBytes, offset, kind,
+                                    PerThreadQueue);
+  if (Res == hipSuccess) {
+    PerThreadQueue->finish();
+  }
+
+  RETURN(Res);
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
                                    size_t sizeBytes, size_t offset,
                                    hipMemcpyKind kind) {
-  hipMemcpyFromSymbol(dst, symbol, sizeBytes, offset, kind);
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto PerThreadQueue = Backend->findQueue(hipStreamPerThread);
+  auto Res = hipMemcpyFromSymbolAsync(dst, symbol, sizeBytes, offset, kind,
+                                      PerThreadQueue);
+  if (Res == hipSuccess) {
+    PerThreadQueue->finish();
+  }
+
+  RETURN(Res);
+  CHIP_CATCH
 };
 
-hipError_t hipMemcpy2D_spt(void *dst, size_t dpitch, const void *src,
-                           size_t spitch, size_t width, size_t height,
-                           hipMemcpyKind kind);
+hipError_t hipMemcpy2D_spt(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
+                       size_t Width, size_t Height, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst, Src);
+  if (SPitch < 1 || DPitch < 1 || Width > DPitch) {
+    CHIPERR_LOG_AND_THROW("Source Pitch less than 1", hipErrorInvalidValue);
+  }
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+
+  hipError_t Res =
+      hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height, Kind, Stream);
+
+  if (Res == hipSuccess)
+    Stream->finish();
+
+  RETURN(hipSuccess);
+  CHIP_CATCH
+}
 
 hipError_t hipMemcpy2DToArray_spt(hipArray *dst, size_t wOffset, size_t hOffset,
                                   const void *src, size_t spitch, size_t width,
