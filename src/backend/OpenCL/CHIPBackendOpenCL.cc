@@ -916,13 +916,30 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
-  cl_event Ev = nullptr;
-  int Retval = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src, Size,
-                                    0, nullptr, &Ev);
-  CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
-  CHIPEventOpenCL *E =
+  if (Dst == Src) {
+    // Although ROCm API ref says that Dst and Src should not overlap,
+    // HIP seems to handle Dst == Src as a special (no-operation) case.
+    // This is seen in the test unit/memory/hipMemcpyAllApiNegative.
+
+    // Intel GPU OpenCL driver seems to do also so for clEnqueueSVMMemcpy, which
+    // makes/ it pass, but Intel CPU OpenCL returns CL_​MEM_​COPY_​OVERLAP like
+    // it should. To unify the behavior, let's convert the special case
+    // to a maker here, so we can return an event.
+    cl::Event MarkerEvent;
+    int status = ClQueue_->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
+    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+    CHIPEventOpenCL *E =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, MarkerEvent.get());
+    return E;
+  } else {
+    cl_event Ev = nullptr;
+    int Retval = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src, Size,
+				      0, nullptr, &Ev);
+    CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+    CHIPEventOpenCL *E =
       new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, Ev);
-  return E;
+    return E;
+  }
 }
 
 void CHIPQueueOpenCL::finish() {
