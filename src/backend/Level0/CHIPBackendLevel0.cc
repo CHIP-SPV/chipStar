@@ -1773,7 +1773,7 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
   logTrace("CHIPDeviceLevel0::createTexture");
 
   bool NormalizedFloat = PTexDesc->readMode == hipReadModeNormalizedFloat;
-  auto *Q = (CHIPQueueLevel0 *)getDefaultQueue();
+  auto *Q = (CHIPQueueLevel0 *)getLegacyDefaultQueue();
 
   ze_sampler_handle_t SamplerHandle =
       createSampler(this, PResDesc, PTexDesc, PResViewDesc);

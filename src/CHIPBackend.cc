@@ -447,6 +447,10 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 #endif
 }
 
+bool CHIPDevice::isPerThreadQueueInitialized() {
+  return (PerThreadDefaultQueue.get());
+}
+
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
@@ -917,7 +921,7 @@ hipError_t CHIPDevice::allocateDeviceVariables() {
   logTrace("Allocate storage for device variables.");
   for (auto I : ChipModules) {
     auto Status =
-        I.second->allocateDeviceVariablesNoLock(this, getDefaultQueue());
+        I.second->allocateDeviceVariablesNoLock(this, getLegacyDefaultQueue());
     if (Status != hipSuccess)
       return Status;
   }
@@ -928,7 +932,8 @@ void CHIPDevice::initializeDeviceVariables() {
   std::lock_guard<std::mutex> Lock(DeviceMtx);
   logTrace("Initialize device variables.");
   for (auto Module : ChipModules)
-    Module.second->initializeDeviceVariablesNoLock(this, getDefaultQueue());
+    Module.second->initializeDeviceVariablesNoLock(this,
+                                                   getLegacyDefaultQueue());
 }
 
 void CHIPDevice::invalidateDeviceVariables() {
@@ -951,8 +956,7 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
-  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+
   // The per-thread default stream is an implicit stream local to both the
   // thread and the CUcontext, and which does not synchronize with other streams
   // (just like explcitly created streams). The per-thread default stream is not
@@ -961,9 +965,14 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 
   // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
   // default stream thus no syncronization necessary
-  if (TargetQueue == DefaultQueue)
-    return;
-#endif
+  if (Backend->getActiveDevice()->isPerThreadQueueInitialized()) {
+    auto PerThreadQueue =
+        Backend->getActiveDevice()->getPerThreadDefaultQueue();
+    if (TargetQueue == PerThreadQueue)
+      return;
+  }
+
+  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPQueue *> QueuesToSyncWith;
 
@@ -1426,7 +1435,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   } else if (ChipQueue == hipStreamLegacy) {
     return Backend->getActiveDevice()->getLegacyDefaultQueue();
   } else if (ChipQueue == nullptr) {
-    return Backend->getActiveDevice()->getDefaultQueue();
+    return Backend->getActiveDevice()->getLegacyDefaultQueue();
   }
 
   // Safety Check to make sure that the requested queue is registereted
