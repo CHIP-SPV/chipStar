@@ -82,25 +82,28 @@ public:
     logError(hipGetErrorName(_status.toHIPError()));                           \
   }
 
-inline void checkIfNullptr(int NumArgs, ...) {
+inline void checkIfNullptr(std::string_view File, int Line,
+                           std::string_view Function, int NumArgs, ...) {
   va_list VaArgList;
 
   va_start(VaArgList, NumArgs);
-  while (NumArgs--)
-    if (va_arg(VaArgList, const void *) == nullptr)
-      CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidHandle);
+  while (NumArgs--) {
+    if (va_arg(VaArgList, const void *) == nullptr) {
+      auto Error = CHIPError("passed in nullptr", hipErrorInvalidHandle);
+      logError("{} ({}) in {}:{}:{}\n", Error.getErrStr(), Error.getMsgStr(),
+               File, Line, Function);
+      throw Error;
+    }
+  }
   va_end(VaArgList);
 
   return;
 }
 
 #define NUMARGS(...) (sizeof((const void *[]){__VA_ARGS__}) / sizeof(void *))
-#define NULLCHECK(...) checkIfNullptr(NUMARGS(__VA_ARGS__), __VA_ARGS__);
-
-#define CHECK(X)                                                               \
-  if (X == nullptr) {                                                          \
-    CHIPERR_LOG_AND_THROW("Nullarg", hipErrorInvalidHandle);                   \
-  }
+#define NULLCHECK(...)                                                         \
+  checkIfNullptr(__FILE__, __LINE__, __func__, NUMARGS(__VA_ARGS__),           \
+                 __VA_ARGS__);
 
 #define CHIPASSERT(X)                                                          \
   do {                                                                         \

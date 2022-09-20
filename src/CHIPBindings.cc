@@ -2054,8 +2054,7 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
                           hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst);
-  CHECK(Src);
+  NULLCHECK(Dst, Src);
 
   if (SizeBytes == 0)
     RETURN(hipSuccess);
@@ -2091,8 +2090,7 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst);
-  CHECK(Src);
+  NULLCHECK(Dst, Src);
 
   if (SizeBytes == 0)
     RETURN(hipSuccess);
