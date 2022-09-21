@@ -1327,6 +1327,12 @@ hipError_t hipStreamQuery(hipStream_t Stream) {
   CHIP_CATCH
 }
 
+hipError_t hipStreamQuery_spt(hipStream_t Stream) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipStreamQuery(Stream);
+}
+
 hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
@@ -1337,6 +1343,12 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
   RETURN(hipSuccess);
 
   CHIP_CATCH
+}
+
+hipError_t hipStreamSynchronize_spt(hipStream_t Stream) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipStreamSynchronize(Stream);
 }
 
 hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
@@ -1355,6 +1367,13 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   CHIP_CATCH
 }
 
+hipError_t hipStreamWaitEvent_spt(hipStream_t Stream, hipEvent_t Event,
+                                  unsigned int Flags) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipStreamWaitEvent(Stream, Event, Flags);
+}
+
 hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   CHIP_TRY
   CHIPInitialize();
@@ -1369,6 +1388,12 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   CHIP_CATCH
 }
 
+hipError_t hipStreamGetFlags_spt(hipStream_t Stream, unsigned int *Flags) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipStreamGetFlags(Stream, Flags);
+}
+
 hipError_t hipStreamGetPriority(hipStream_t Stream, int *Priority) {
   CHIP_TRY
   CHIPInitialize();
@@ -1381,6 +1406,12 @@ hipError_t hipStreamGetPriority(hipStream_t Stream, int *Priority) {
   RETURN(hipSuccess);
 
   CHIP_CATCH
+}
+
+hipError_t hipStreamGetPriority_spt(hipStream_t Stream, int *Priority) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipStreamGetPriority(Stream, Priority);
 }
 
 hipError_t hipStreamAddCallback(hipStream_t Stream,
@@ -1507,7 +1538,6 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  // TODO: Why does this check fail for OpenCL but not for Level0
   NULLCHECK(Event);
 
   Stream = Backend->findQueue(Stream);
@@ -1515,6 +1545,12 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   RETURN(hipSuccess);
 
   CHIP_CATCH
+}
+
+hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipEventRecord(Event, Stream);
 }
 
 hipError_t hipEventDestroy(hipEvent_t Event) {
@@ -2062,20 +2098,6 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
 
   Stream = Backend->findQueue(Stream);
 
-  // Stream->getDevice()->initializeDeviceVariables();
-  // auto TargetDevAllocTracker = Stream->getDevice()->AllocationTracker;
-  // auto ActiveDevAllocTracker = Backend->getActiveDevice()->AllocationTracker;
-
-  // if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyDeviceToHost)) {
-  //   if (!TargetDevAllocTracker->getByHostPtr(Src))
-  //     RETURN(hipErrorInvalidDevicePointer);
-  // }
-
-  // if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyHostToDevice)) {
-  //   if (!ActiveDevAllocTracker->getByHostPtr(Dst))
-  //     RETURN(hipErrorInvalidDevicePointer);
-  // }
-
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
     RETURN(hipSuccess);
@@ -2087,24 +2109,55 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
   CHIP_CATCH
 }
 
+hipError_t hipMemcpyAsync_spt(void *Dst, const void *Src, size_t SizeBytes,
+                              hipMemcpyKind Kind, hipStream_t Stream) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
+}
+
+hipError_t hipMemcpyImpl(void *Dst, const void *Src, size_t SizeBytes,
+                         hipMemcpyKind Kind, hipStream_t Stream) {
+  NULLCHECK(Dst);
+  CHECK(Src);
+
+  hipError_t Res;
+
+  if (SizeBytes == 0)
+    Res = hipSuccess;
+
+  if (Kind == hipMemcpyHostToHost) {
+    memcpy(Dst, Src, SizeBytes);
+    Res = hipSuccess;
+  } else
+    Backend->getActiveDevice()->initializeDeviceVariables();
+  Res = Backend->getActiveDevice()->getLegacyDefaultQueue()->memCopy(Dst, Src,
+                                                                     SizeBytes);
+
+  return Res;
+}
+
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst);
-  CHECK(Src);
 
-  if (SizeBytes == 0)
-    RETURN(hipSuccess);
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+  auto Res = hipMemcpyImpl(Dst, Src, SizeBytes, Kind, Stream);
 
-  if (Kind == hipMemcpyHostToHost) {
-    memcpy(Dst, Src, SizeBytes);
-    RETURN(hipSuccess);
-  } else
-    Backend->getActiveDevice()->initializeDeviceVariables();
-  RETURN(Backend->getActiveDevice()->getLegacyDefaultQueue()->memCopy(
-      Dst, Src, SizeBytes));
+  RETURN(Res);
+  CHIP_CATCH
+}
 
+hipError_t hipMemcpy_spt(void *Dst, const void *Src, size_t SizeBytes,
+                         hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res = hipMemcpyImpl(Dst, Src, SizeBytes, Kind, Stream);
+
+  RETURN(Res);
   CHIP_CATCH
 }
 
@@ -2156,15 +2209,34 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   CHIP_CATCH
 }
 
+hipError_t hipMemset2DImpl(void *Dst, size_t Pitch, int Value, size_t Width,
+                           size_t Height, hipStream_t Stream) {
+  auto Res = hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
+  if (Res == hipSuccess)
+    Stream->finish();
+
+  return Res;
+}
+
 hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
                        size_t Height) {
   CHIP_TRY
   CHIPInitialize();
 
   auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
-  auto Res = hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
-  if (Res == hipSuccess)
-    Stream->finish();
+  auto Res = hipMemset2DImpl(Dst, Pitch, Value, Width, Height, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset2D_spt(void *Dst, size_t Pitch, int Value, size_t Width,
+                           size_t Height) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res = hipMemset2DImpl(Dst, Pitch, Value, Width, Height, Stream);
 
   RETURN(Res);
   CHIP_CATCH
@@ -2223,15 +2295,33 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_CATCH
 }
 
+hipError_t hipMemset3DImpl(hipPitchedPtr PitchedDevPtr, int Value,
+                           hipExtent Extent, hipStream_t Stream) {
+
+  auto Res = hipMemset3DImpl(PitchedDevPtr, Value, Extent, Stream);
+
+  return Res;
+}
+
 hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
                        hipExtent Extent) {
   CHIP_TRY
   CHIPInitialize();
 
   auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
-  auto Res = hipMemset3DAsync(PitchedDevPtr, Value, Extent, Stream);
-  if (Res == hipSuccess)
-    Stream->finish();
+  auto Res = hipMemset3DImpl(PitchedDevPtr, Value, Extent, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset3D_spt(hipPitchedPtr PitchedDevPtr, int Value,
+                           hipExtent Extent) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res = hipMemset3DImpl(PitchedDevPtr, Value, Extent, Stream);
 
   RETURN(Res);
   CHIP_CATCH
@@ -2251,15 +2341,14 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
-  CHIP_TRY
-  CHIPInitialize();
+hipError_t hipMemsetImpl(void *Dst, int Value, size_t SizeBytes,
+                         hipStream_t Stream) {
   NULLCHECK(Dst);
 
+  hipError_t Res = hipSuccess;
   char CharVal = Value;
-  Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dst, SizeBytes,
-                                                               &CharVal, 1);
+  Backend->getActiveDevice()->initializeDeviceVariables(); // TODO
+  Stream->memFill(Dst, SizeBytes, &CharVal, 1);
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -2272,7 +2361,28 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
       memset(RegisterMemDst, Value, SizeBytes);
   }
 
-  RETURN(hipSuccess);
+  return Res;
+}
+
+hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+  hipError_t Res = hipMemsetImpl(Dst, Value, SizeBytes, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemset_spt(void *Dst, int Value, size_t SizeBytes) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  hipError_t Res = hipMemsetImpl(Dst, Value, SizeBytes, Stream);
+
+  RETURN(Res);
   CHIP_CATCH
 }
 
@@ -2398,16 +2508,13 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
-                       size_t Width, size_t Height, hipMemcpyKind Kind) {
-  CHIP_TRY
-  CHIPInitialize();
+hipError_t hipMemcpy2DImpl(void *Dst, size_t DPitch, const void *Src,
+                           size_t SPitch, size_t Width, size_t Height,
+                           hipMemcpyKind Kind, hipStream_t Stream) {
   NULLCHECK(Dst, Src);
   if (SPitch < 1 || DPitch < 1 || Width > DPitch) {
     CHIPERR_LOG_AND_THROW("Source Pitch less than 1", hipErrorInvalidValue);
   }
-
-  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   hipError_t Res =
       hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height, Kind, Stream);
@@ -2415,8 +2522,48 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
   if (Res == hipSuccess)
     Stream->finish();
 
-  RETURN(hipSuccess);
+  return Res;
+}
+
+hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
+                       size_t Width, size_t Height, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+  hipError_t Res =
+      hipMemcpy2DImpl(Dst, DPitch, Src, SPitch, Width, Height, Kind, Stream);
+
+  RETURN(Res);
   CHIP_CATCH
+}
+
+hipError_t hipMemcpy2D_spt(void *Dst, size_t DPitch, const void *Src,
+                           size_t SPitch, size_t Width, size_t Height,
+                           hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  hipError_t Res =
+      hipMemcpy2DImpl(Dst, DPitch, Src, SPitch, Width, Height, Kind, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy2DToArrayImpl(hipArray *Dst, size_t WOffset, size_t HOffset,
+                                  const void *Src, size_t SPitch, size_t Width,
+                                  size_t Height, hipMemcpyKind Kind,
+                                  hipStream_t Stream) {
+
+  auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
+                                     Height, Kind, Stream);
+
+  if (Res == hipSuccess)
+    Stream->finish();
+
+  return Res;
 }
 
 hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
@@ -2424,13 +2571,24 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
                               size_t Height, hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
   auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
                                      Height, Kind, Stream);
 
-  if (Res == hipSuccess)
-    Stream->finish();
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy2DToArray_spt(hipArray *Dst, size_t WOffset, size_t HOffset,
+                                  const void *Src, size_t SPitch, size_t Width,
+                                  size_t Height, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res = hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
+                                     Height, Kind, Stream);
 
   RETURN(Res);
   CHIP_CATCH
@@ -2467,18 +2625,48 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
   CHIP_CATCH
 };
 
-hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
-                                size_t WOffset, size_t HOffset, size_t Width,
-                                size_t Height, hipMemcpyKind Kind) {
-  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+hipError_t hipMemcpy2DFromArrayImpl(void *Dst, size_t DPitch,
+                                    hipArray_const_t Src, size_t WOffset,
+                                    size_t HOffset, size_t Width, size_t Height,
+                                    hipMemcpyKind Kind, hipStream_t Stream) {
 
   auto Res = hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset,
                                        Width, Height, Kind, Stream);
   if (Res == hipSuccess)
     Stream->finish();
 
-  RETURN(Res);
+  return Res;
 }
+
+hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
+                                size_t WOffset, size_t HOffset, size_t Width,
+                                size_t Height, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+  auto Res = hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset,
+                                       Width, Height, Kind, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy2DFromArray_spt(void *Dst, size_t DPitch,
+                                    hipArray_const_t Src, size_t WOffset,
+                                    size_t HOffset, size_t Width, size_t Height,
+                                    hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res = hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset,
+                                       Width, Height, Kind, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
 hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
                                      hipArray_const_t Src, size_t WOffset,
                                      size_t HOffset, size_t Width,
@@ -2596,14 +2784,32 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   CHIP_CATCH
 }
 
+hipError_t hipMemcpy3DImpl(const struct hipMemcpy3DParms *Params,
+                           hipStream_t Stream) {
+  auto Res = hipMemcpy3DAsync(Params, Stream);
+  if (Res == hipSuccess)
+    Stream->finish();
+
+  return Res;
+}
+
 hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
   CHIP_TRY
   CHIPInitialize();
 
   auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
-  auto Res = hipMemcpy3DAsync(Params, Stream);
-  if (Res == hipSuccess)
-    Stream->finish();
+  auto Res = hipMemcpy3DImpl(Params, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms *Params) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res = hipMemcpy3DImpl(Params, Stream);
 
   RETURN(Res);
   CHIP_CATCH
@@ -2740,14 +2946,10 @@ hipError_t hipGetSymbolSize(size_t *Size, const void *Symbol) {
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
-                             size_t SizeBytes, size_t Offset,
-                             hipMemcpyKind Kind) {
-  CHIP_TRY
-  CHIPInitialize();
+hipError_t hipMemcpyToSymbolImpl(const void *Symbol, const void *Src,
+                                 size_t SizeBytes, size_t Offset,
+                                 hipMemcpyKind Kind, hipStream_t Stream) {
   NULLCHECK(Symbol, Src);
-
-  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   hipError_t Res =
       hipMemcpyToSymbolAsync(Symbol, Src, SizeBytes, Offset, Kind, Stream);
@@ -2755,7 +2957,38 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   if (Res == hipSuccess)
     Stream->finish();
 
-  RETURN(hipSuccess);
+  return Res;
+}
+
+hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
+                             size_t SizeBytes, size_t Offset,
+                             hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  NULLCHECK(Symbol, Src);
+
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+  auto Res =
+      hipMemcpyToSymbolImpl(Symbol, Src, SizeBytes, Offset, Kind, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpyToSymbol_spt(const void *Symbol, const void *Src,
+                                 size_t SizeBytes, size_t Offset,
+                                 hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  NULLCHECK(Symbol, Src);
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  auto Res =
+      hipMemcpyToSymbolImpl(Symbol, Src, SizeBytes, Offset, Kind, Stream);
+
+  RETURN(Res);
   CHIP_CATCH
 }
 
@@ -2778,13 +3011,10 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
-                               size_t Offset, hipMemcpyKind Kind) {
-  CHIP_TRY
-  CHIPInitialize();
+hipError_t hipMemcpyFromSymbolImpl(void *Dst, const void *Symbol,
+                                   size_t SizeBytes, size_t Offset,
+                                   hipMemcpyKind Kind, hipStream_t Stream) {
   NULLCHECK(Dst, Symbol);
-
-  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
 
   hipError_t Res =
       hipMemcpyFromSymbolAsync(Dst, Symbol, SizeBytes, Offset, Kind, Stream);
@@ -2792,7 +3022,33 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
   if (Res == hipSuccess)
     Stream->finish();
 
-  RETURN(hipSuccess);
+  return Res;
+}
+
+hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
+                               size_t Offset, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getLegacyDefaultQueue();
+  hipError_t Res =
+      hipMemcpyFromSymbolImpl(Dst, Symbol, SizeBytes, Offset, Kind, Stream);
+
+  RETURN(Res);
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpyFromSymbol_spt(void *Dst, const void *Symbol,
+                                   size_t SizeBytes, size_t Offset,
+                                   hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+
+  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
+  hipError_t Res =
+      hipMemcpyFromSymbolImpl(Dst, Symbol, SizeBytes, Offset, Kind, Stream);
+
+  RETURN(Res);
   CHIP_CATCH
 }
 
@@ -2857,6 +3113,22 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
 
   RETURN(hipSuccess);
   CHIP_CATCH
+}
+
+hipError_t hipLaunchKernel_spt(const void *HostFunction, dim3 GridDim,
+                               dim3 BlockDim, void **Args, size_t SharedMem,
+                               hipStream_t Stream) {
+  if (!Stream)
+    Stream = hipStreamPerThread;
+  return hipLaunchKernel(HostFunction, GridDim, BlockDim, Args, SharedMem,
+                         Stream);
+}
+
+hipError_t hipLaunchCooperativeKernel_spt(const void *f, dim3 gridDim,
+                                          dim3 blockDim, void **kernelParams,
+                                          uint32_t sharedMemBytes,
+                                          hipStream_t hStream) {
+  UNIMPLEMENTED(hipErrorTbd);
 }
 
 static unsigned getNumTextureDimensions(const hipResourceDesc *ResDesc) {
@@ -3419,127 +3691,5 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   CHIP_CATCH_NO_RETURN
   return E;
 }
-
-//
-
-hipError_t hipMemcpy_spt(void *dst, const void *src, size_t sizeBytes,
-                         hipMemcpyKind kind) {
-  return hipMemcpyWithStream(dst, src, sizeBytes, kind, hipStreamPerThread);
-};
-
-hipError_t hipMemcpyToSymbol_spt(const void *symbol, const void *src,
-                                 size_t sizeBytes, size_t offset,
-                                 hipMemcpyKind kind) {
-  CHIP_TRY
-  CHIPInitialize();
-
-  auto PerThreadQueue = Backend->findQueue(hipStreamPerThread);
-  auto Res = hipMemcpyToSymbolAsync(symbol, src, sizeBytes, offset, kind,
-                                    PerThreadQueue);
-  if (Res == hipSuccess) {
-    PerThreadQueue->finish();
-  }
-
-  RETURN(Res);
-  CHIP_CATCH
-}
-
-hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
-                                   size_t sizeBytes, size_t offset,
-                                   hipMemcpyKind kind) {
-  CHIP_TRY
-  CHIPInitialize();
-
-  auto PerThreadQueue = Backend->findQueue(hipStreamPerThread);
-  auto Res = hipMemcpyFromSymbolAsync(dst, symbol, sizeBytes, offset, kind,
-                                      PerThreadQueue);
-  if (Res == hipSuccess) {
-    PerThreadQueue->finish();
-  }
-
-  RETURN(Res);
-  CHIP_CATCH
-};
-
-hipError_t hipMemcpy2D_spt(void *Dst, size_t DPitch, const void *Src,
-                           size_t SPitch, size_t Width, size_t Height,
-                           hipMemcpyKind Kind) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst, Src);
-  if (SPitch < 1 || DPitch < 1 || Width > DPitch) {
-    CHIPERR_LOG_AND_THROW("Source Pitch less than 1", hipErrorInvalidValue);
-  }
-
-  auto Stream = Backend->getActiveDevice()->getPerThreadDefaultQueue();
-
-  hipError_t Res =
-      hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height, Kind, Stream);
-
-  if (Res == hipSuccess)
-    Stream->finish();
-
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipMemcpy2DToArray_spt(hipArray *dst, size_t wOffset, size_t hOffset,
-                                  const void *src, size_t spitch, size_t width,
-                                  size_t height, hipMemcpyKind kind);
-
-hipError_t hipMemcpy2DFromArray_spt(void *dst, size_t dpitch,
-                                    hipArray_const_t src, size_t wOffset,
-                                    size_t hOffset, size_t width, size_t height,
-                                    hipMemcpyKind kind);
-
-hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms *p);
-
-hipError_t hipMemset_spt(void *dst, int value, size_t sizeBytes);
-
-hipError_t hipMemset2D_spt(void *dst, size_t pitch, int value, size_t width,
-                           size_t height);
-
-hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int value,
-                           hipExtent extent);
-
-hipError_t hipMemcpyAsync_spt(void *dst, const void *src, size_t sizeBytes,
-                              hipMemcpyKind kind, hipStream_t stream);
-
-hipError_t hipStreamQuery_spt(hipStream_t stream);
-
-hipError_t hipStreamSynchronize_spt(hipStream_t stream);
-
-hipError_t hipStreamGetPriority_spt(hipStream_t stream, int *priority);
-
-hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event,
-                                  unsigned int flags);
-
-hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Event);
-
-  Stream = Backend->findQueue(hipStreamPerThread);
-  Event->recordStream(Stream);
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
-hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int *flags);
-
-hipError_t hipLaunchCooperativeKernel_spt(const void *f, dim3 gridDim,
-                                          dim3 blockDim, void **kernelParams,
-                                          uint32_t sharedMemBytes,
-                                          hipStream_t hStream);
-#ifdef __cplusplus
-extern "C" {
-#endif
-hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
-                               dim3 dimBlocks, void **args,
-                               size_t sharedMemBytes, hipStream_t stream);
-#ifdef __cplusplus
-}
-#endif // extern "C"
 
 #endif // include guard
