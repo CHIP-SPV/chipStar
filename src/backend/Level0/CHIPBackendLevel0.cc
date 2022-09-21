@@ -721,7 +721,8 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListCompute() {
 #endif
 }
 
-CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags)
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
+                                 CHIPQueueFlags Flags)
     : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY) {}
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
     : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {}
@@ -856,8 +857,8 @@ ze_command_queue_desc_t CHIPQueueLevel0::getNextCopyQueueDesc() {
   return CommandQueueCopyDesc;
 }
 
-CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, unsigned int Flags,
-                                 int Priority)
+CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
+                                 CHIPQueueFlags Flags, int Priority)
     : CHIPQueue(ChipDev, Flags, Priority) {
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
@@ -1733,7 +1734,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.texturePitchAlignment = 1;
 }
 
-CHIPQueue *CHIPDeviceLevel0::createQueue(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDeviceLevel0::createQueue(CHIPQueueFlags Flags, int Priority) {
   CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
   return NewQ;
 }

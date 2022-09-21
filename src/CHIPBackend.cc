@@ -482,7 +482,7 @@ void CHIPDevice::init() {
     AllocationTracker = new CHIPAllocationTracker(
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
 
-  unsigned int Flags = 0;
+  CHIPQueueFlags Flags;
   int Priority = 1; // TODO : set a default
   auto ChipQueue = createQueue(Flags, Priority);
   LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
@@ -824,7 +824,7 @@ void CHIPEvent::trackImpl() {
   Backend->Events.push_back(this);
 }
 
-CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
+CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
                                               int Priority) {
 
   auto ChipQueue = createQueue(Flags, Priority);

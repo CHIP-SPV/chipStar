@@ -669,7 +669,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   }
 }
 
-CHIPQueue *CHIPDeviceOpenCL::createQueue(unsigned int Flags, int Priority) {
+CHIPQueue *CHIPDeviceOpenCL::createQueue(CHIPQueueFlags Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
   return NewQ;
 }

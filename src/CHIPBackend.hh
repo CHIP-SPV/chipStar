@@ -351,6 +351,12 @@ class CHIPEventFlags {
 public:
   CHIPEventFlags() = default;
   CHIPEventFlags(unsigned Flags) {
+
+    if (Flags > (hipEventDefault | hipEventBlockingSync |
+                 hipEventDisableTiming | hipEventInterprocess))
+      CHIPERR_LOG_AND_THROW("Invalid hipEvent flag combination",
+                            hipErrorInvalidValue);
+
     if (Flags & hipEventBlockingSync)
       BlockingSync_ = true;
     if (Flags & hipEventDisableTiming)
@@ -1111,7 +1117,7 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(unsigned int Flags, int Priority);
+  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags, int Priority);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
@@ -1180,7 +1186,7 @@ public:
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue *createQueue(unsigned int Flags, int Priority) = 0;
+  virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) = 0;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) = 0;
 
@@ -1858,7 +1864,6 @@ protected:
    */
   const int MaxPriority = 0;
   int MinPriority;
-  unsigned int Flags_;
   CHIPQueueFlags QueueFlags_;
   /// Device on which this queue will execute
   CHIPDevice *ChipDevice_;
