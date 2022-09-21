@@ -2102,8 +2102,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
   } else
     Backend->getActiveDevice()->initializeDeviceVariables();
-  RETURN(Backend->getActiveDevice()->getLegacyDefaultQueue()->memCopy(Dst, Src,
-                                                                SizeBytes));
+  RETURN(Backend->getActiveDevice()->getLegacyDefaultQueue()->memCopy(
+      Dst, Src, SizeBytes));
 
   CHIP_CATCH
 }
@@ -2259,7 +2259,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   char CharVal = Value;
   Backend->getActiveDevice()->initializeDeviceVariables();
   Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dst, SizeBytes,
-                                                         &CharVal, 1);
+                                                               &CharVal, 1);
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -2315,7 +2315,7 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
 
   Backend->getActiveDevice()->initializeDeviceVariables();
   Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dest, 2 * Count,
-                                                         &Value, 2);
+                                                               &Value, 2);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2340,8 +2340,8 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   NULLCHECK(Dst);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dst, 4 * Count, &Value,
-                                                         4);
+  Backend->getActiveDevice()->getLegacyDefaultQueue()->memFill(Dst, 4 * Count,
+                                                               &Value, 4);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -3461,8 +3461,9 @@ hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
   CHIP_CATCH
 };
 
-hipError_t hipMemcpy2D_spt(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
-                       size_t Width, size_t Height, hipMemcpyKind Kind) {
+hipError_t hipMemcpy2D_spt(void *Dst, size_t DPitch, const void *Src,
+                           size_t SPitch, size_t Width, size_t Height,
+                           hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
