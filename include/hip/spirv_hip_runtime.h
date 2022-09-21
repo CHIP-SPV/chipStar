@@ -126,6 +126,8 @@ hipError_t hipStreamGetPriority_spt(hipStream_t stream, int* priority);
 
 hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event, unsigned int flags);
 
+hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream);
+
 hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int* flags);
 
 hipError_t hipLaunchCooperativeKernel_spt(const void* f,
