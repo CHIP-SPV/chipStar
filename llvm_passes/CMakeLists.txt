@@ -66,6 +66,7 @@ else()
   message(STATUS "LLVM built with static libraries -> adding workaround for issue #102")
 
   get_target_property(LLVMCORE_CONF LLVMCore IMPORTED_CONFIGURATIONS)
+  string(REPLACE ";.*$" "" LLVMCORE_CONF "${LLVMCORE_CONF}")
   get_target_property(LLVMCORE_PATH LLVMCore IMPORTED_LOCATION_${LLVMCORE_CONF})
   message(STATUS "libLLVMCore CONFIG: ${LLVMCORE_CONF}")
   message(STATUS "libLLVMCore PATH: ${LLVMCORE_PATH}")

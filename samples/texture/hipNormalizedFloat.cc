@@ -26,6 +26,8 @@
 
 #include <random>
 
+#define TOL 0.0001f
+
 template <typename T>
 __global__ void tex2DKernel(T *OutputData, hipTextureObject_t TextureObject,
                             int Width, int Height) {
@@ -123,7 +125,7 @@ template <typename T> int checkNormalizedFloat() {
     for (int j = 0; j < Width; j++) {
       float Expected = RefData[i * Width + j];
       float Actual = OutputH[i * Width + j];
-      if (Actual != Expected) {
+      if (std::fabs(Actual - Expected) > TOL) {
         std::cout << "Error at [" << i << "][" << j << "]: Expected '"
                   << Expected << "'. Got '" << Actual << "'\n";
         TestResult = 0;
@@ -204,7 +206,7 @@ template <typename T> int checkIgnoreNormalizedFloat() {
     for (int j = 0; j < Width; j++) {
       T Expected = InputH[i * Width + j];
       T Actual = OutputH[i * Width + j];
-      if (Actual != Expected) {
+      if (std::fabs(Actual - Expected) > TOL) {
         std::cout << "Error at [" << i << "][" << j << "]: Expected '"
                   << Expected << "'. Got '" << Actual << "'\n";
         break;

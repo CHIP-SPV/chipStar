@@ -133,6 +133,7 @@ option(BUILD_DOCS "Build doxygen documentation" OFF)
 option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
 option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
+option(MALLOC_SHARED_WORKAROUND "Use zeMallocHost instead of zeMallocShared as it causes segfaults on some systems" ON)
 option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
@@ -149,6 +150,10 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 ###############################################################################
 # CHIP-SPV CMAKE OPTIONS PARSING
+
+if(MALLOC_SHARED_WORKAROUND)
+  list(APPEND CHIP_SPV_DEFINITIONS MALLOC_SHARED_WORKAROUND)
+endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 if (NOT CLANG_VERSION_LESS_15)
@@ -257,18 +262,15 @@ add_subdirectory(bin)
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} "--output-on-failure" -E
-"ABM_AddKernel_MultiTypeMultiSize|\
-Stress_hipMemcpy_multiDevice-AllAPIs|\
-Unit_AnyAll_CompileTest$|\
-Unit_ballot$|\
-Unit_deviceFunctions_CompileTest___fmaf_ieee|\
-Unit_deviceFunctions_CompileTest___funnelshift|\
-Unit_funnelshift$|\
-Unit_hipDeviceGetCacheConfig_FuncTst$|\
-Unit_hipDeviceGetLimit_CheckValidityOfOutputVal$|\
-Unit_hipDeviceSynchronize_Functional$|\
-Unit_hipEvent$|\
+set(FLAKY_TESTS
+"Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
+Unit_hipStreamCreateWithPriority_ValidateWithEvents$"
+)
+add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" --repeat until-fail:1000 -j 10 -R ${FLAKY_TESTS} USES_TERMINAL VERBATIM)
+
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
+"Unit_hipDeviceGetCacheConfig_FuncTst$|\
 Unit_hipEventIpc$|\
 Unit_hipGetDeviceFlags_FuncTst$|\
 Unit_hipGraphAddDependencies_Functional$|\
@@ -277,44 +279,22 @@ Unit_hipGraphAddMemcpyNode_Functional$|\
 Unit_hipGraph_BasicFunctional$|\
 Unit_hipGraph_SimpleGraphWithKernel$|\
 Unit_hipHostMalloc_Coherent$|\
+Unit_hiprtc_saxpy$|\
 Unit_hipHostMalloc_NonCoherent$|\
-Unit_hipHostRegister_ReferenceFromKernelandhipMemset|\
-Unit_hipMallocManaged_MultiKrnlHmmAccess$|\
-Unit_hipMemcpy2D_Negative$|\
-Unit_hipMemcpy2D_SizeCheck$|\
-Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream|\
-Unit_hipMemcpyWithStream_MultiThread$|\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
+Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
 Unit_hipMemPrefetchAsync_NonPageSz$|\
-Unit_hipMemset3DAsync_ConcurrencyMthread$|\
 Unit_hipMemsetAsync_SetMemoryWithOffset$|\
 Unit_hipMemset_SetMemoryWithOffset$|\
 Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative$|\
 Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation$|\
 Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation$|\
-Unit_hipStreamAddCallback_MultipleThreads$|\
-Unit_hipStreamCreateWithFlags_ArgValidation$|\
-Unit_hipStreamCreateWithFlags_Negative$|\
-Unit_hipStreamCreateWithPriority$|\
-Unit_hipStreamCreateWithPriority_FunctionalForAllPriorities$|\
-Unit_hipStreamCreateWithPriority_MulthreadDefaultflag$|\
-Unit_hipStreamCreateWithPriority_MulthreadNonblockingflag$|\
-Unit_hipStreamCreateWithPriority_NegTst$|\
 Unit_hipStreamCreateWithPriority_ValidateWithEvents$|\
-Unit_hipStreamGetFlags_BasicFunctionalities$|\
-Unit_hipStreamGetPriority_default$|\
-Unit_hipStreamGetPriority_high$|\
-Unit_hipStreamGetPriority_higher$|\
-Unit_hipStreamGetPriority_low$|\
-Unit_hipStreamGetPriority_lower$|\
-Unit_hipStreamGetPriority_Negative$|\
-Unit_hipStreamPerThread_Basic$|\
-Unit_hipStreamPerThread_EventRecord$|\
-Unit_hipStreamPerThread_EventSynchronize$|\
-Unit_hipStreamPerThread_MemcpyAsync$|\
-Unit_hipStreamPerThread_StreamGetFlags$|\
-Unit_hipStreamPerThread_StreamGetPriority$|\
-Unit_hipStreamPerThread_StreamQuery$|\
-Unit_hipStreamPerThread_StreamSynchronize$|\
+Unit_AnyAll_CompileTest$|\
+Unit_ballot$|\
+Unit_deviceFunctions_CompileTest___fmaf_ieee|\
+Unit_deviceFunctions_CompileTest___funnelshift|\
+Unit_funnelshift$|\
 Unit_syncthreads_and$|\
 Unit_syncthreads_count$|\
 Unit_syncthreads_or$"
@@ -490,7 +470,7 @@ configure_package_config_file(
   ${CMAKE_SOURCE_DIR}/cmake/hip-config-in.cmake
   ${CMAKE_CURRENT_BINARY_DIR}/hip-config.cmake
   INSTALL_DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR}
-  PATH_VARS LIB_INSTALL_DIR INCLUDE_INSTALL_DIR BIN_INSTALL_DIR
+  PATH_VARS LIB_INSTALL_DIR INCLUDE_INSTALL_DIR BIN_INSTALL_DIR SHARE_INSTALL_DIR
 )
 
 write_basic_package_version_file(
@@ -508,10 +488,10 @@ install(
 install ( EXPORT hip-targets  FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip  COMPONENT binary)
 
 # Generate .hipInfo
-file(WRITE "${PROJECT_BINARY_DIR}/lib/.hipInfo_install" ${_hipInfo_install})
-file(WRITE "${PROJECT_BINARY_DIR}/lib/.hipInfo" ${_hipInfo_build})
-install(FILES ${PROJECT_BINARY_DIR}/lib/.hipInfo_install
-  DESTINATION ${LIB_INSTALL_DIR} RENAME .hipInfo)
+file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install" ${_hipInfo_install})
+file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo" ${_hipInfo_build})
+install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
+  DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
 
 # Copy hipconfig, hipvars, etc to bin
 file(COPY "${CMAKE_SOURCE_DIR}/HIP/bin" DESTINATION "${PROJECT_BINARY_DIR}")
