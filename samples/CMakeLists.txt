@@ -122,7 +122,7 @@ set(SAMPLES
     hip_async_interop
     hip-cuda
     printf
-    texture
+    # texture # included in Catch2 unit tests
     simple_kernel
     # DISABLED for LLVM 15. Fails due to clang inserting -lamdhip64
     # into the linking phase.
