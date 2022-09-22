@@ -105,7 +105,7 @@ set(CHIP_SPV_COMPILE_FLAGS "")
 list(APPEND CHIP_SPV_DEFINITIONS "")
 
 # used by hipcc/hipconfig
-set(HIP_PATH "" CACHE PATH "Path to the CHIP-SPV installation")
+# set(HIP_PATH "" CACHE PATH "Path to the CHIP-SPV installation")
 set(HIP_COMPILER "clang" CACHE STRING "CHIP-SPV compiler")
 set(HIP_RUNTIME "spirv" CACHE STRING "CHIP-SPV runtime")
 set(HIP_PLATFORM "spirv" CACHE STRING "CHIP-SPV platform")
@@ -238,7 +238,6 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix" FORCE)
 endif()
 
-set(HIP_PATH ${CMAKE_INSTALL_PREFIX})
 message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 # CHIP-SPV CMAKE OPTIONS PARSING
 ###############################################################################
@@ -249,6 +248,7 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
+set(HIP_PATH ${CMAKE_INSTALL_PREFIX})
 add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
