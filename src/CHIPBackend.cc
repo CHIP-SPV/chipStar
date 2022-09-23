@@ -1034,15 +1034,6 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, CHIPHostAllocFlags Flags) {
-
-  if (Size > getMaxAllocSize()) {
-    logCritical("Requested allocation of {} exceeds the maximum size of a "
-                "single allocation of {}",
-                Size, getMaxAllocSize());
-    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits",
-                          hipErrorInvalidValue);
-  }
-
   std::lock_guard<std::mutex> Lock(ContextMtx);
   void *AllocatedPtr, *HostPtr = nullptr;
 
@@ -1060,6 +1051,14 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   }
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
+
+    if (Size > ChipDev->getMaxMallocSize()) {
+    logCritical("Requested allocation of {} exceeds the maximum size of a "
+                "single allocation of {}",
+                Size, ChipDev->getMaxMallocSize());
+    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits",
+                          hipErrorInvalidValue);
+  }
   assert(ChipDev->getContext() == this);
 
   assert(ChipDev->AllocationTracker && "AllocationTracker was not created!");

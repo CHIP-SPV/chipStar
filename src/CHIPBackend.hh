@@ -1536,21 +1536,6 @@ public:
    * @return CHIPContext*
    */
   CHIPContext *retain();
-
-  /**
-   * @brief Get the smallest max allocation size for this context by checking
-   * the max allocation size across all devices in this context.
-   *
-   * @return size_t
-   */
-  size_t getMaxAllocSize() {
-    size_t AllocSize = std::numeric_limits<size_t>::max();
-    for (auto Dev : getDevices()) {
-      if (Dev->getMaxMallocSize() < AllocSize)
-        AllocSize = Dev->getMaxMallocSize();
-    }
-    return AllocSize;
-  }
 };
 
 /**
