@@ -820,9 +820,7 @@ void CHIPEvent::track() {
   }
 }
 
-void CHIPEvent::trackImpl() {
-  Backend->Events.push_back(this);
-}
+void CHIPEvent::trackImpl() { Backend->Events.push_back(this); }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(unsigned int Flags,
                                               int Priority) {
@@ -1053,6 +1051,14 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   }
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
+
+    if (Size > ChipDev->getMaxMallocSize()) {
+    logCritical("Requested allocation of {} exceeds the maximum size of a "
+                "single allocation of {}",
+                Size, ChipDev->getMaxMallocSize());
+    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits",
+                          hipErrorInvalidValue);
+  }
   assert(ChipDev->getContext() == this);
 
   assert(ChipDev->AllocationTracker && "AllocationTracker was not created!");

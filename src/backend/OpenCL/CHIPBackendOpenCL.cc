@@ -338,6 +338,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   cl_int Err;
   std::string Temp;
 
+  this->MaxMallocSize_ = ClDevice->getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>();
   assert(ClDevice != nullptr);
   Temp = ClDevice->getInfo<CL_DEVICE_NAME>();
   strncpy(HipDeviceProps_.name, Temp.c_str(), 255);
