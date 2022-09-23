@@ -165,7 +165,7 @@ public:
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
   virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;
-  virtual CHIPQueue *createQueue(unsigned int Flags, int Priority) override;
+  virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
 

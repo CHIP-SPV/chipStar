@@ -1269,14 +1269,14 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
 
   CHIPDevice *Dev = Backend->getActiveDevice();
 
-  // TODO: make all queues deal with parsed flags
-  volatile CHIPQueueFlags FlagsParsed = CHIPQueueFlags{Flags};
+  CHIPQueueFlags FlagsParsed{Flags};
 
   // Clamp priority between min and max
   auto MaxPriority = 0;
   auto MinPriority = Backend->getQueuePriorityRange();
   auto ClampedPriority = std::min(MinPriority, std::max(MaxPriority, Priority));
-  CHIPQueue *ChipQueue = Dev->createQueueAndRegister(Flags, ClampedPriority);
+  CHIPQueue *ChipQueue =
+      Dev->createQueueAndRegister(FlagsParsed, ClampedPriority);
   *Stream = ChipQueue;
   RETURN(hipSuccess);
 
@@ -1494,12 +1494,10 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  if (Flags > (hipEventDefault | hipEventBlockingSync | hipEventDisableTiming |
-               hipEventInterprocess))
-    CHIPERR_LOG_AND_THROW("Invalid hipEvent flag combination",
-                          hipErrorInvalidValue);
+  CHIPEventFlags EventFlags{Flags};
 
-  *Event = Backend->createCHIPEvent(Backend->getActiveContext(), Flags, true);
+  *Event =
+      Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
   (*Event)->increaseRefCount("hipEventCreateWithFlags");
   RETURN(hipSuccess);
 
