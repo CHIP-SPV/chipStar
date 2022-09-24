@@ -13,7 +13,7 @@ This is a (non-exhaustive) list of features currently (un)supported by CHIP-SPV.
 * hipModuleOccupancy API
 * hipTexRef (texture reference) API
 * surface object / reference APIs
-* hipMemcpyPeer, hipMemcpyPeerAsync, hipMemRangeGetAttribute,
+* hipMemcpyPeer, hipMemcpyPeerAsync, hipMemRangeGetAttribute, hipFuncGetAttributes,
   hipDeviceSetCacheConfig, hipDeviceGetCacheConfig,
   hipDeviceSetSharedMemConfig, hipDeviceGetSharedMemConfig,
   hipSetDeviceFlags,  hipGetDeviceFlags,
