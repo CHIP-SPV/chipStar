@@ -286,7 +286,6 @@ Unit_hipGraphAddMemcpyNode_Functional$|\
 Unit_hipGraph_BasicFunctional$|\
 Unit_hipGraph_SimpleGraphWithKernel$|\
 Unit_hipHostMalloc_Coherent$|\
-Unit_hiprtc_saxpy$|\
 Unit_hipHostMalloc_NonCoherent$|\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
