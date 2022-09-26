@@ -1527,8 +1527,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
 
-    logTrace("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", Status);
-
     return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
@@ -1545,7 +1543,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-    logTrace("LZ MEMORY ALLOCATE via calling zeMemAllocShared {} ", Status);
 
     return Ptr;
   }

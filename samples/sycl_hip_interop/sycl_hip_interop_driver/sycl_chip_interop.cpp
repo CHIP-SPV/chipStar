@@ -23,7 +23,7 @@
 
 
 #include <stdint.h>
-#include "level_zero/ze_api.h"
+#include "../../../include/ze_api.h"
 #include <CL/sycl.hpp>
 #include <CL/sycl/stl.hpp>
 #include "CL/sycl/backend/level_zero.hpp"

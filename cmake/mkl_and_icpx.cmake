@@ -2,6 +2,12 @@ find_program(ICPX_EXECUTABLE NAMES icpx
 	HINTS $ENV{CMPLR_ROOT}/linux/bin $ENV{ONEAPI_ROOT}/compiler/latest/linux/bin
 	PATHS /opt/intel/oneapi/compiler/latest/linux/bin)
 
+if(ICPX_EXECUTABLE)
+	get_filename_component(ICPX_CORE_BINDIR ${ICPX_EXECUTABLE} DIRECTORY)
+	get_filename_component(ICPX_CORE_LIBDIR "${ICPX_CORE_BINDIR}/../../linux/compiler/lib/intel64_lin" ABSOLUTE)
+	get_filename_component(ICPX_SYCL_LIBDIR "${ICPX_CORE_BINDIR}/../../linux/lib" ABSOLUTE)
+endif()
+
 # the ENABLE_OMP_OFFLOAD is only required to unhide MKL::sycl in intel's MKLConfig.cmake file
 set(ENABLE_OMP_OFFLOAD ON)
 set(MKL_THREADING sequential)
