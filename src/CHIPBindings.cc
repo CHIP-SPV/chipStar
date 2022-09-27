@@ -2836,15 +2836,18 @@ hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
     RETURN(hipErrorTbd);
   }
 
-  std::string FilteredModule;
-  if (!filterSPIRV(Module.data(), Module.size(), FilteredModule)) {
+  auto FilteredModule = std::make_unique<std::string>();
+  if (!filterSPIRV(Module.data(), Module.size(), *FilteredModule)) {
     logDebug("Encountered error in SPIR-V filtering.");
     RETURN(hipErrorTbd);
   }
 
-  auto *ChipModule = Backend->getActiveDevice()->addModule(&FilteredModule);
+  auto *ChipModule =
+      Backend->getActiveDevice()->addModule(FilteredModule.get());
   ChipModule->compileOnce(Backend->getActiveDevice());
   *ModuleHandle = ChipModule;
+
+  Backend->registerModuleStr(FilteredModule.release());
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -3040,7 +3043,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIPInitialize();
   NULLCHECK(Module);
 
-  // TODO: Backend->getActiveDevice()->eraseModule((CHIPModule *)Module));
+  Backend->getActiveDevice()->eraseModule((CHIPModule *)Module);
 
   RETURN(hipSuccess);
   CHIP_CATCH

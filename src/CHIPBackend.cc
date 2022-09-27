@@ -194,8 +194,8 @@ CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
 // CHIPModuleflags_
 //*************************************************************************************
 void CHIPModule::consumeSPIRV() {
-  FuncIL_ = (uint8_t *)Src_.data();
-  IlSize_ = Src_.length();
+  FuncIL_ = (uint8_t *)Src_->data();
+  IlSize_ = Src_->length();
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
@@ -210,13 +210,10 @@ void CHIPModule::consumeSPIRV() {
 }
 
 CHIPModule::CHIPModule(std::string *ModuleStr) {
-  Src_ = *ModuleStr;
-  consumeSPIRV();
-}
-CHIPModule::CHIPModule(std::string &&ModuleStr) {
   Src_ = ModuleStr;
   consumeSPIRV();
 }
+
 CHIPModule::~CHIPModule() {}
 
 void CHIPModule::addKernel(CHIPKernel *Kernel) {
@@ -735,6 +732,14 @@ size_t CHIPDevice::getGlobalMemSize() { return HipDeviceProps_.totalGlobalMem; }
 
 void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
   this->ChipModules[ModuleStr] = Module;
+}
+
+void CHIPDevice::eraseModule(CHIPModule *Module) {
+  auto *ModSrc = Module->getModuleSource();
+  if (auto It = ChipModules.find(ModSrc); It != ChipModules.end()) {
+    delete It->second;
+    ChipModules.erase(It);
+  }
 }
 
 void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
