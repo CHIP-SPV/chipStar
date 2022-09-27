@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include <cstdlib>
 #include <regex>
 #include <set>
+#include <fstream>
 
 static bool saveTemps() {
   if (auto *Value = std::getenv("CHIP_RTC_SAVE_TEMPS"))
@@ -54,34 +55,52 @@ static bool createHeaderFiles(const CHIPProgram &Program,
 }
 
 static bool createSourceFile(const CHIPProgram &Program,
-                             const fs::path OutputFile) {
-  return writeToFile(OutputFile, Program.getSource());
+                             const fs::path OutputFile,
+                             // A file to output lowered name expressions.
+                             const fs::path LoweredNamesFile) {
+
+  std::ofstream File(OutputFile);
+  File << Program.getSource() << "\n";
+
+  // Insert name expressions at the end of the program. They are used
+  // for mapping name expressions to mangled kernels and they may
+  // instantiate templates.
+  const auto &NameExprMap = Program.getNameExpressionMap();
+  if (NameExprMap.empty())
+    return File.good();
+
+  // CUDA NVRTC guide: "... The characters in the name expression
+  // string are parsed as a C++ constant expression at the end of the
+  // user program."
+  File << "extern \"C\" __device__ constexpr void *_chip_name_exprs[] = {\n";
+  for (auto &Kv : Program.getNameExpressionMap())
+    File << "    (void *)" << Kv.first << ",\n";
+  File << "};\n";
+
+  // The lowered name expressions are extracted by a LLVM pass which
+  // detects the magic variable in the above. Because HIPSPV tool
+  // chain does not support passing options to the our pass plugin, we
+  // emit another magic variable for pointing the output file where
+  // the results are written to.
+  File << R"---(
+extern  "C" __device__ const char *_chip_name_expr_output_file =
+    )---"
+       << LoweredNamesFile << ";";
+
+  return File.good();
 }
 
-static bool createCompileCommand(const fs::path &WorkingDirectory,
-                                 const fs::path &SourceFile,
-                                 const fs::path &OutputFile,
-                                 const fs::path &CompileLogFile,
-                                 std::string &CompileCommandRet) {
+static std::string createCompileCommand(const fs::path &WorkingDirectory,
+                                        const fs::path &SourceFile,
+                                        const fs::path &OutputFile) {
 
-  CompileCommandRet.clear();
+  std::string CompileCommand;
 
   auto Append = [&](const std::string Str) -> void {
-    if (CompileCommandRet.size())
-      CompileCommandRet += " ";
-    CompileCommandRet += Str;
+    if (CompileCommand.size())
+      CompileCommand += " ";
+    CompileCommand += Str;
   };
-
-  Append("sh -c '");
-
-#ifdef CHIP_CLANG_PATH
-  // For convenience, add the clang (needed by hipcc) found during
-  // project configuration into the PATH in case it's not there
-  // already. The path is appended to the back so we don't override
-  // search paths the client has possibly set.
-  CompileCommandRet +=
-      std::string("export PATH=$PATH:") + CHIP_CLANG_PATH + ";";
-#endif
 
   // Get path to hipcc tool. If not found use "hipcc" and hope it's
   // found in PATH.
@@ -111,18 +130,55 @@ static bool createCompileCommand(const fs::path &WorkingDirectory,
 
   Append(SourceFile.string());
   Append("-o " + OutputFile.string());
-  Append(">" + CompileLogFile.string() + " 2>&1");
 
-  CompileCommandRet += "'";
-
-  return true;
+  return CompileCommand;
 }
 
-static bool executeCommand(const std::string &Command) {
-  logDebug("Executing shell command '{}'", Command);
-  int ReturnCode = std::system(Command.c_str());
+static bool executeCommand(const fs::path &WorkingDirectory,
+                           std::string_view Command,
+                           const fs::path &CompileLogFile) {
+
+  auto ScriptFile = WorkingDirectory / "compile.sh";
+
+  std::string ShellScript;
+#ifdef CHIP_CLANG_PATH
+  // For convenience, add the clang (needed by hipcc) found during
+  // project configuration into the PATH in case it's not there
+  // already. The path is appended to the back so we don't override
+  // search paths the client has possibly set.
+  ShellScript += std::string("export PATH=$PATH:") + CHIP_CLANG_PATH + "; ";
+#endif
+  ShellScript += Command;
+  ShellScript += " >'" + CompileLogFile.string() + "' 2>&1";
+
+  if (!writeToFile(ScriptFile, ShellScript)) {
+    logError("Could not create shell command script.");
+    return false;
+  }
+
+  logDebug("Executing shell command '{}'", ShellScript);
+
+  auto ShellCommand = std::string("sh ") + ScriptFile.string();
+  int ReturnCode = std::system(ShellCommand.c_str());
   logDebug("Return code: {}", ReturnCode);
   return ReturnCode == 0;
+}
+
+static void getLoweredNameExpressions(CHIPProgram &Program,
+                                      const fs::path &WorkingDirectory,
+                                      const fs::path &LoweredNamesFile) {
+  auto &NameExprMap = Program.getNameExpressionMap();
+  if (NameExprMap.empty())
+    return;
+
+  if (auto InputStream = std::ifstream(LoweredNamesFile)) {
+    auto It = NameExprMap.begin();
+    std::string LoweredName;
+    while (std::getline(InputStream, LoweredName)) {
+      assert(It != NameExprMap.end());
+      It++->second = LoweredName;
+    }
+  }
 }
 
 // Compiles sources stored in 'Program'. Uses 'WorkingDirectory' for
@@ -131,6 +187,7 @@ static hiprtcResult compile(CHIPProgram &Program, fs::path WorkingDirectory) {
   // Create source and header files.
   auto SourceFile = WorkingDirectory / "program.hip";
   auto OutputFile = WorkingDirectory / "program.o";
+  auto LoweredNamesFile = WorkingDirectory / "lowerednames.txt";
   auto CompileLogFile = WorkingDirectory / "compile.log";
 
   if (!createHeaderFiles(Program, WorkingDirectory)) {
@@ -138,19 +195,16 @@ static hiprtcResult compile(CHIPProgram &Program, fs::path WorkingDirectory) {
     return HIPRTC_ERROR_COMPILATION;
   }
 
-  if (!createSourceFile(Program, SourceFile)) {
+  if (!createSourceFile(Program, SourceFile, LoweredNamesFile)) {
     logError("hiprtc: could not create user source file.");
     return HIPRTC_ERROR_COMPILATION;
   }
 
-  std::string CompileCommand;
-  if (!createCompileCommand(WorkingDirectory, SourceFile, OutputFile,
-                            CompileLogFile, CompileCommand)) {
-    logError("hiprtc: Could not create compilation command.");
-    return HIPRTC_ERROR_COMPILATION;
-  }
+  std::string CompileCommand =
+      createCompileCommand(WorkingDirectory, SourceFile, OutputFile);
 
-  bool ExecSuccess = executeCommand(CompileCommand);
+  bool ExecSuccess =
+      executeCommand(WorkingDirectory, CompileCommand, CompileLogFile);
 
   if (auto Log = readFromFile(CompileLogFile))
     Program.appendToLog(*Log);
@@ -168,6 +222,9 @@ static hiprtcResult compile(CHIPProgram &Program, fs::path WorkingDirectory) {
   }
 
   Program.addCode(*Bundle);
+
+  getLoweredNameExpressions(Program, WorkingDirectory, LoweredNamesFile);
+
   return HIPRTC_SUCCESS;
 }
 
@@ -219,7 +276,25 @@ hiprtcResult hiprtcVersion(int *Major, int *Minor) {
 
 hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
                                      const char *NameExpression) {
-  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
+  if (!Prog || !NameExpression)
+    return HIPRTC_ERROR_INVALID_INPUT;
+
+  auto &Program = *(CHIPProgram *)Prog;
+  if (Program.isAfterCompilation())
+    return HIPRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION;
+
+  // Reject some unreasonable name expressions upfront that would
+  // cause failures at the compilation step or cause other issues.
+  using RE = std::regex;
+  if ( // Empty name expressions.
+      std::string_view(NameExpression).empty() ||
+      std::regex_match(NameExpression, RE("[[:space:]]*")) ||
+      // Characters not expected in expressions.
+      std::regex_search(NameExpression, RE("[;]")))
+    return HIPRTC_ERROR_NAME_EXPRESSION_NOT_VALID;
+
+  Program.addNameExpression(NameExpression);
+  return HIPRTC_SUCCESS;
 }
 
 hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
@@ -333,10 +408,24 @@ hiprtcResult hiprtcDestroyProgram(hiprtcProgram *Prog) {
   return HIPRTC_SUCCESS;
 }
 
-hiprtcResult hiprtcGetLoweredName(hiprtcProgram Prog,
+hiprtcResult hiprtcGetLoweredName(hiprtcProgram WrappedProg,
                                   const char *NameExpression,
                                   const char **LoweredName) {
-  UNIMPLEMENTED(HIPRTC_ERROR_BUILTIN_OPERATION_FAILURE);
+  if (!WrappedProg || !NameExpression || !LoweredName)
+    return HIPRTC_ERROR_INVALID_INPUT;
+
+  auto &Prog = *(CHIPProgram *)WrappedProg;
+  if (!Prog.isAfterCompilation())
+    return HIPRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION;
+
+  const auto &NameExprMap = Prog.getNameExpressionMap();
+  auto It = NameExprMap.find(NameExpression);
+  if (It != NameExprMap.end()) {
+    *LoweredName = It->second.data();
+    return HIPRTC_SUCCESS;
+  }
+
+  return HIPRTC_ERROR_NAME_EXPRESSION_NOT_VALID;
 }
 
 hiprtcResult hiprtcGetProgramLog(hiprtcProgram Prog, char *Log) {

@@ -696,6 +696,12 @@ class CHIPProgram {
   /// Include headers.
   std::map<std::string, std::string> Headers_;
 
+  /// Name expressions added before compilation as key to the
+  /// map. After compilation they point to their lowered/mangled
+  /// names. The map value may also be empty meaning the lowered name
+  /// is unknown.
+  std::map<std::string, std::string> NameExpressions_;
+
   std::string ProgramLog_; ///< Captured compilation log.
   std::string Code_;       ///< Compiled program.
 
@@ -717,12 +723,28 @@ public:
 
   void addCode(std::string_view Code) { Code_.append(Code); }
 
+  void addNameExpression(std::string_view NameExpr) {
+    assert(!isAfterCompilation() &&
+           "Must not add name expressions after compilation!");
+    NameExpressions_.emplace(std::make_pair(NameExpr, ""));
+  }
+
   const std::map<std::string, std::string> &getHeaders() const {
     return Headers_;
   }
   const std::string &getSource() const { return ProgramSource_; }
   const std::string &getProgramLog() const { return ProgramLog_; }
   const std::string &getCode() const { return Code_; }
+
+  const std::map<std::string, std::string> &getNameExpressionMap() const {
+    return NameExpressions_;
+  }
+  std::map<std::string, std::string> &getNameExpressionMap() {
+    return NameExpressions_;
+  }
+
+  /// Return true if the program has been compiled.
+  bool isAfterCompilation() const { return !Code_.empty(); }
 };
 
 /**
