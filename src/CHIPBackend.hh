@@ -754,8 +754,8 @@ protected:
   std::vector<CHIPDeviceVar *> ChipVars_;
   // Kernels
   std::vector<CHIPKernel *> ChipKernels_;
-  /// Binary representation extracted from FatBinary
-  std::string Src_;
+  /// Binary representation extracted from FatBinary.
+  std::string *Src_;
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
 
@@ -783,12 +783,6 @@ public:
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
   CHIPModule(std::string *ModuleStr);
-  /**
-   * @brief Construct a new CHIPModule object using move semantics
-   *
-   * @param module_str string from which to move resources
-   */
-  CHIPModule(std::string &&ModuleStr);
 
   /**
    * @brief Add a CHIPKernel to this module.
@@ -889,6 +883,8 @@ public:
   void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 
   OCLFuncInfo *findFunctionInfo(const std::string &FName);
+
+  const std::string *getModuleSource() const { return Src_; }
 };
 
 /**
@@ -1404,6 +1400,7 @@ public:
 
   virtual CHIPModule *addModule(std::string *ModuleStr) = 0;
   void addModule(const std::string *ModuleStr, CHIPModule *Module);
+  void eraseModule(CHIPModule *Module);
 
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,

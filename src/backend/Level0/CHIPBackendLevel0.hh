@@ -304,11 +304,16 @@ class CHIPModuleLevel0 : public CHIPModule {
 
 public:
   CHIPModuleLevel0(std::string *ModuleStr) : CHIPModule(ModuleStr) {}
-  virtual ~CHIPModuleLevel0() { logTrace("CHIPModuleLevel0 DEST"); }
-  //   auto Status = zeModuleDestroy(ZeModule_);
-  //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // Also delete all kernels
-  // }
+
+  virtual ~CHIPModuleLevel0() {
+    logTrace("destroy CHIPModuleLevel0 {}", (void *)this);
+    for (auto *K : ChipKernels_) // Kernels must be destroyed before the module.
+      delete K;
+    ChipKernels_.clear();
+    auto Result = zeModuleDestroy(ZeModule_);
+    assert(Result == ZE_RESULT_SUCCESS && "Double free?");
+  }
+
   /**
    * @brief Compile this module.
    * Extracts kernels, sets the ze_module
@@ -337,7 +342,13 @@ protected:
 
 public:
   CHIPKernelLevel0();
-  virtual ~CHIPKernelLevel0() { logTrace("CHIPKernelLevel0 DEST"); }
+
+  virtual ~CHIPKernelLevel0() {
+    logTrace("destroy CHIPKernelLevel0 {}", (void *)this);
+    auto Result = zeKernelDestroy(ZeKernel_);
+    assert(Result == ZE_RESULT_SUCCESS && "Double free?");
+  }
+
   CHIPKernelLevel0(ze_kernel_handle_t ZeKernel, CHIPDeviceLevel0 *Dev,
                    std::string FuncName, OCLFuncInfo *FuncInfo,
                    CHIPModuleLevel0 *Parent);
