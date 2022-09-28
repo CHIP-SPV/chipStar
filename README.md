@@ -77,3 +77,18 @@ make build_tests_standalone
 make check # runs only tests known to work
 ```
 
+## Troubleshooting
+
+### Missing Double Precision Support
+
+When running the tests on OpenCL devices which do not support double precision floats,
+there will be multiple tests that will error out.
+
+It might be possible to enable software emulation of double precision floats for
+Intel iGPUs by setting [two environment variables](https://github.com/intel/compute-runtime/blob/master/opencl/doc/FAQ.md#feature-double-precision-emulation-fp64) to make kernels using doubles work but with the major
+overhead of software emulation:
+
+```bash
+export IGC_EnableDPEmulation=1
+export OverrideDefaultFP64Settings=1
+```
