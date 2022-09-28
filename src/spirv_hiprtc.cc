@@ -305,8 +305,7 @@ hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
       Program->addHeader(IncludeName, HeaderPtr);
     }
 
-    *Prog = (hiprtcProgram)Program.get();
-    Backend->addProgram(std::move(Program));
+    *Prog = (hiprtcProgram)Program.release();
     return HIPRTC_SUCCESS;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
@@ -318,13 +317,13 @@ hiprtcResult hiprtcDestroyProgram(hiprtcProgram *Prog) {
   if (!Prog || !*Prog)
     return HIPRTC_ERROR_INVALID_PROGRAM;
   try {
-    return Backend->eraseProgram((CHIPProgram *)*Prog)
-               ? HIPRTC_SUCCESS
-               : HIPRTC_ERROR_INVALID_PROGRAM;
+    delete (CHIPProgram *)*Prog;
+    *Prog = nullptr;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
     return HIPRTC_ERROR_INTERNAL_ERROR;
   }
+  return HIPRTC_SUCCESS;
 }
 
 hiprtcResult hiprtcGetLoweredName(hiprtcProgram Prog,

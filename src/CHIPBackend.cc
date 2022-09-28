@@ -1451,17 +1451,6 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   return *QueueFound;
 }
 
-bool CHIPBackend::eraseProgram(const CHIPProgram *ToErase) {
-  auto ErasePos =
-      std::remove_if(ChipPrograms_.begin(), ChipPrograms_.end(),
-                     [&](const std::unique_ptr<CHIPProgram> &Prog) -> bool {
-                       return Prog.get() == ToErase;
-                     });
-  bool WasErased = ErasePos != ChipPrograms_.end();
-  ChipPrograms_.erase(ErasePos, ChipPrograms_.end());
-  return WasErased;
-}
-
 // CHIPQueue
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)

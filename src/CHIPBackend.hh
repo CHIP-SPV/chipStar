@@ -1597,9 +1597,6 @@ protected:
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
 
-  // Programs created with hiprtcCreateProgram().
-  std::vector<std::unique_ptr<CHIPProgram>> ChipPrograms_;
-
 public:
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
@@ -1886,12 +1883,6 @@ public:
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
   virtual void *getNativeEvent(hipEvent_t HipEvent) = 0;
-
-  void addProgram(std::unique_ptr<CHIPProgram> Program) {
-    ChipPrograms_.push_back(std::move(Program));
-  }
-
-  bool eraseProgram(const CHIPProgram *Program);
 };
 
 /**
