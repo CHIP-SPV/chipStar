@@ -1,0 +1,31 @@
+CHIP-SPV 0.9 Released
+---------------------
+
+The goal of CHIP-SPV is to make HIP and CUDA applications portable to
+devices which support SPIR-V's OpenCL profile as the input intermediate
+language. It supports OpenCL and Intel oneAPI Level Zero as the low-level
+runtime options.
+
+This is the first preview release of the project, thus bumps the road.
+However, we have tested it somewhat and shaved off the most apparent
+issues with a bunch of tests and small application cases.
+
+Testers and especially contributing developers are welcomed to join the
+effort.
+
+Release Highlights
+------------------
+
+* The compilation toolchain works with upstream Clang/LLVM 14 and 15.
+* Over 600 unit tests and various small applications pass.
+* See the Features document for the current HIP/CUDA feature coverage.
+* Tested with Intel Level Zero on multiple GPU devices [list].
+* Tested with Intel OpenCL for CPUs and GPUs on various devices [list]
+
+Links
+-----
+
+Release web page: https://github.com/CHIP-SPV/chip-spv/[FILL]
+This announcement: https://github.com/CHIP-SPV/chip-spv/[FILL]
+Change log: https://github.com/CHIP-SPV/chip-spv/blob/Release-0.9/CHANGES
+Download: https://github.com/CHIP-SPV/chip-spv/[FILL]
