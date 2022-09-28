@@ -31,6 +31,12 @@ THE SOFTWARE.
 #include <regex>
 #include <set>
 
+static bool saveTemps() {
+  if (auto *Value = std::getenv("CHIP_RTC_SAVE_TEMPS"))
+    return std::string_view(Value) == "1";
+  return false;
+}
+
 /// Checks the name is valid string for #include (both the "" and <>
 /// forms) and is sensible name for shells as is (doesn't need escaping).
 static bool checkIncludeName(std::string_view Name) {
@@ -249,13 +255,14 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     logDebug("hiprtc: Temp directory: '{}'", TmpDir->string());
     hiprtcResult Result = compile(Program, *TmpDir);
 
-    // TODO: Add a debug option for preserving the directory.
-    assert(!TmpDir->empty() && *TmpDir != TmpDir->root_path() &&
-           "Attempted to delete a root directory!");
+    if (!saveTemps()) {
+      assert(!TmpDir->empty() && *TmpDir != TmpDir->root_path() &&
+             "Attempted to delete a root directory!");
 
-    logDebug("Removing '{}'", TmpDir->string());
-    std::error_code IgnoreErrors;
-    fs::remove_all(*TmpDir, IgnoreErrors);
+      logDebug("Removing '{}'", TmpDir->string());
+      std::error_code IgnoreErrors;
+      fs::remove_all(*TmpDir, IgnoreErrors);
+    }
 
     return Result;
   } catch (...) {
