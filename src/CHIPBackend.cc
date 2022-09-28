@@ -1056,8 +1056,8 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
     logCritical("Requested allocation of {} exceeds the maximum size of a "
                 "single allocation of {}",
                 Size, ChipDev->getMaxMallocSize());
-    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits",
-                          hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits for a single allocation",
+                          hipErrorOutOfMemory);
   }
   assert(ChipDev->getContext() == this);
 
