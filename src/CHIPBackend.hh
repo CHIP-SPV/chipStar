@@ -2027,7 +2027,8 @@ public:
     if (!LastEvent_)
       return true;
 
-    LastEvent_->updateFinishStatus(false);
+    if(LastEvent_->updateFinishStatus(false))
+      LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;
 
