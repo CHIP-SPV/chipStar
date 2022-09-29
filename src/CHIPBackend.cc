@@ -1076,7 +1076,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  if (MemType == hipMemoryTypeUnified || isAllocatedPtrUSM(AllocatedPtr)) {
+  if (MemType == hipMemoryTypeUnified || isAllocatedPtrMappedToVM(AllocatedPtr)) {
     HostPtr = AllocatedPtr;
     MemType = hipMemoryTypeUnified;
   }

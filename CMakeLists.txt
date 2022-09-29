@@ -32,6 +32,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
 # end temporary
 
+# Currently we require symlinks to clang and clang++ to be found in PATH.
+set(CMAKE_C_COMPILER clang CACHE STRING "Clang C compiler" FORCE)
+set(CMAKE_CXX_COMPILER clang++ CACHE STRING "Clang C++ compiler" FORCE)
+
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(CHIP-SPV
   VERSION 1.0

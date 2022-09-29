@@ -1487,15 +1487,14 @@ public:
                CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
 
   /**
-   * @brief Returns true if the pointer is USM (unified shared memory).
-   * Some backends (like OpenCL) always return USM independently of which
-   * hipMemoryType is requested in allocation
+   * @brief Returns true if the pointer is mapped to virtual memory with
+   * updates synchronized to it automatically at synchronization points.
    *
-   * @param Ptr pointer to memory allocated by allocate()
+   * @param Ptr pointer to memory allocated by allocate().
    * @return true/false
    */
 
-  virtual bool isAllocatedPtrUSM(void *Ptr) = 0;
+  virtual bool isAllocatedPtrMappedToVM(void *Ptr) = 0;
 
   /**
    * @brief Free memory
