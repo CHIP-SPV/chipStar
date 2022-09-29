@@ -95,16 +95,13 @@ std::optional<std::string> readFromFile(const fs::path Path) {
 }
 
 std::optional<std::filesystem::path> getHIPCCPath() {
-  static const std::vector<fs::path> SearchLocs = {
-      fs::path(CHIP_INSTALL_DIR) / "bin",
-      fs::path(CHIP_BUILD_DIR) / "bin",
-  };
-
-  for (const auto &SearchLoc : SearchLocs) {
-    auto ExeCand = SearchLoc / "hipcc";
+  // TODO: Probably should detect if we are using a built or an
+  //       installed CHIP library. Mixing the installed and the built
+  //       resources could lead to obscure issues.
+  for (const auto &ExeCand : {fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
+                              fs::path(CHIP_BUILD_DIR) / "HIPCC/hipcc.bin"})
     if (canExecute(ExeCand))
       return ExeCand;
-  }
 
   return std::nullopt;
 }
