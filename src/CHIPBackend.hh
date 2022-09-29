@@ -536,6 +536,7 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
+  bool UserEvent_ = false;
   bool TrackCalled_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
@@ -558,6 +559,7 @@ protected:
   CHIPEvent() = default;
 
 public:
+  bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
   void releaseDependencies() {
     for (auto Event : DependsOnList) {
@@ -2137,6 +2139,7 @@ public:
                                        int *NumHandles) = 0;
 
   CHIPContext *getContext() { return ChipContext_; }
+  void setFlags(CHIPQueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
 
 #endif
