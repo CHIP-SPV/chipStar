@@ -91,7 +91,7 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
-                  CHIPEventFlags Flags = CHIPEventFlags());
+                  CHIPEventFlags Flags = CHIPEventFlags(), bool UserEvent = false);
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   CHIPEventFlags Flags = CHIPEventFlags());
   virtual ~CHIPEventOpenCL() override;
@@ -101,10 +101,13 @@ public:
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
   virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
-  cl_event peek();
-  cl_event get();
+  cl_event* getNativePtr() {return &ClEvent;}
+  cl_event& getNativeRef() {return ClEvent;}
   uint64_t getFinishTime();
   size_t getRefCount();
+
+  virtual void increaseRefCount(std::string Reason) override;
+  virtual void decreaseRefCount(std::string Reason) override;
 };
 
 class CHIPModuleOpenCL : public CHIPModule {

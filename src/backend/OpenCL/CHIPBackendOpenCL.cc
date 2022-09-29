@@ -456,20 +456,14 @@ void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 // ************************************************************************
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
-                                 cl_event ClEvent, CHIPEventFlags Flags)
+                                 cl_event ClEvent, CHIPEventFlags Flags, bool UserEvent)
     : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent(ClEvent) {
-  clRetainEvent(ClEvent);
-}
+      UserEvent_ = UserEvent;
+    }
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  CHIPEventFlags Flags)
-    : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent(nullptr) {}
-
-cl_event CHIPEventOpenCL::peek() { return ClEvent; }
-cl_event CHIPEventOpenCL::get() {
-  increaseRefCount("get()");
-  return ClEvent;
-}
+    : CHIPEventOpenCL(ChipContext, nullptr, Flags, false) {}
 
 uint64_t CHIPEventOpenCL::getFinishTime() {
   int Status;
@@ -491,7 +485,7 @@ size_t CHIPEventOpenCL::getRefCount() {
   cl_uint RefCount;
   if (ClEvent == nullptr)
     return 0;
-  int Status = ::clGetEventInfo(this->peek(), CL_EVENT_REFERENCE_COUNT, 4,
+  int Status = clGetEventInfo(getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
                                 &RefCount, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   return RefCount;
@@ -503,11 +497,8 @@ CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
   CHIPEventOpenCL *Event =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, Flags);
-  if (UserEvent) {
-    Event->increaseRefCount("hipEventCreate");
-    Event->track();
-  }
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, UserEvent);
+
   return Event;
 }
 
@@ -547,8 +538,8 @@ bool CHIPEventOpenCL::wait() {
 
 bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
-  if (EventStatus_ != EVENT_STATUS_RECORDING)
-    return false;
+  if (ThrowErrorIfNotReady && this->ClEvent == nullptr)
+    CHIPERR_LOG_AND_THROW("OpenCL has not been initialized cl_event is null", hipErrorNotReady);
 
   int UpdatedStatus;
   auto Status = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
@@ -609,6 +600,33 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 
+void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
+  std::lock_guard<std::mutex> Lock(EventMtx);
+  auto status = clRetainEvent(this->ClEvent);
+  if(!UserEvent_)
+    assert(status == 0);
+  logDebug("CHIPEventOpenCL::increaseRefCount() {} {} refc {}->{} REASON: {}",
+           (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+  (*Refc_)++;
+  assert(*Refc_ = getRefCount() - 1);
+   logDebug("CHIPEventOpenCL::increaseRefCount() {} OpenCL RefCount: {}",
+            (void *)this, getRefCount());
+}
+
+void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
+  std::lock_guard<std::mutex> Lock(EventMtx);
+   logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
+            (void *)this, getRefCount());
+  logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+           (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+  if (*Refc_ > 0) {
+    (*Refc_)--;
+  } else {
+    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
+  }
+  clReleaseEvent(this->ClEvent);
+}
+
 // CHIPModuleOpenCL
 //*************************************************************************
 
@@ -661,7 +679,8 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
       continue; // TODO
-      // CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+      // CHIPERR_LOG_AND_THROW("Failed to find kernel in
+      // OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
     CHIPKernelOpenCL *ChipKernel = new CHIPKernelOpenCL(
@@ -672,6 +691,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(unsigned int Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
+  NewQ->setFlags(Flags);
   return NewQ;
 }
 
@@ -805,7 +825,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   HipStreamCallbackData *Cb =
       new HipStreamCallbackData{this, hipSuccess, UserData, Callback};
 
-  auto Status = clSetEventCallback(Ev->peek(), CL_COMPLETE, pfn_notify, Cb);
+  auto Status = clSetEventCallback(Ev->getNativeRef(), CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
   // enqueue barrier with no dependencies (all further enqueues will wait for
@@ -816,13 +836,11 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 };
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
-  cl::Event MarkerEvent;
-  auto Status = this->get()->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
+  CHIPEventOpenCL *MarkerEvent = (CHIPEventOpenCL*)Backend->createCHIPEvent(ChipContext_);
+  auto Status = clEnqueueMarker(this->get()->get(), MarkerEvent->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
-  CHIPEventOpenCL *CHIPMarkerEvent =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, MarkerEvent.get());
-  CHIPMarkerEvent->Msg = "marker";
-  return CHIPMarkerEvent;
+  MarkerEvent->Msg = "marker";
+  return MarkerEvent;
 }
 
 CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
@@ -830,8 +848,8 @@ CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
 }
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
-  //
   logTrace("CHIPQueueOpenCL->launch()");
+  CHIPEventOpenCL* LaunchEvent = (CHIPEventOpenCL*)Backend->createCHIPEvent(ChipContext_);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   assert(Kernel != nullptr);
@@ -842,27 +860,25 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   dim3 GridDim = ChipOclExecItem->getGrid();
   dim3 BlockDim = ChipOclExecItem->getBlock();
 
-  const cl::NDRange Global(GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
-                           GridDim.z * BlockDim.z);
-  const cl::NDRange Local(BlockDim.x, BlockDim.y, BlockDim.z);
 
-  logTrace("Launch GLOBAL: {} {} {}", Global.get()[0], Global.get()[1],
-           Global.get()[2]);
+  const size_t NumDims = 3;
+  const size_t GlobalOffset[NumDims] = {0, 0, 0};
+  const size_t Global[NumDims] = {GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
+                           GridDim.z * BlockDim.z};
+  const size_t Local[NumDims] = {BlockDim.x, BlockDim.y, BlockDim.z};
 
-  logTrace("Launch LOCAL: {} {} {}", Local.get()[0], Local.get()[1],
-           Local.get()[2]);
+  logTrace("Launch GLOBAL: {} {} {}", Global[0], Global[1],
+           Global[2]);
 
-  cl::Event Ev;
-  int Err = ClQueue_->enqueueNDRangeKernel(*Kernel->get(), cl::NullRange,
-                                           Global, Local, nullptr, &Ev);
+  logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1],
+           Local[2]);
 
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
 
-  CHIPEventOpenCL *E =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, Ev.get());
-  // clRetainEvent(ev.get());
-  // updateLastEvent(e);
-  return E;
+  auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(), NumDims, GlobalOffset, Global, Local, 0, nullptr, LaunchEvent->getNativePtr());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+
+  LaunchEvent->Msg = "KernelLaunch";
+  return LaunchEvent;
 }
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
@@ -915,6 +931,8 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
 
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
+  CHIPEventOpenCL *Event =
+    (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
@@ -922,24 +940,18 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
     // This is seen in the test unit/memory/hipMemcpyAllApiNegative.
 
     // Intel GPU OpenCL driver seems to do also so for clEnqueueSVMMemcpy, which
-    // makes/ it pass, but Intel CPU OpenCL returns CL_​MEM_​COPY_​OVERLAP like
-    // it should. To unify the behavior, let's convert the special case
-    // to a maker here, so we can return an event.
+    // makes/ it pass, but Intel CPU OpenCL returns CL_​MEM_​COPY_​OVERLAP
+    // like it should. To unify the behavior, let's convert the special case to
+    // a maker here, so we can return an event.
     cl::Event MarkerEvent;
-    int status = ClQueue_->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
-    CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
-    CHIPEventOpenCL *E =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, MarkerEvent.get());
-    return E;
+    auto Status = clEnqueueMarker(ClQueue_->get(), Event->getNativePtr());
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
-    cl_event Ev = nullptr;
-    int Retval = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src, Size,
-				      0, nullptr, &Ev);
-    CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
-    CHIPEventOpenCL *E =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, Ev);
-    return E;
+    auto Status = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src,
+                                       Size, 0, nullptr, Event->getNativePtr());
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
   }
+  return Event;
 }
 
 void CHIPQueueOpenCL::finish() {
@@ -950,14 +962,13 @@ void CHIPQueueOpenCL::finish() {
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size,
                                              const void *Pattern,
                                              size_t PatternSize) {
+  CHIPEventOpenCL* Event = (CHIPEventOpenCL*)Backend->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
   cl_event Ev = nullptr;
   int Retval = ::clEnqueueSVMMemFill(ClQueue_->get(), Dst, Pattern, PatternSize,
-                                     Size, 0, nullptr, &Ev);
+                                     Size, 0, nullptr, Event->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
-  CHIPEventOpenCL *E =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, Ev);
-  return E;
+  return Event;
 };
 
 CHIPEvent *CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
@@ -1006,26 +1017,30 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 CHIPEvent *
 CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  cl::Event MarkerEvent;
-  int status = ClQueue_->enqueueMarkerWithWaitList(nullptr, &MarkerEvent);
-  CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd);
+  CHIPEventOpenCL *Event = (CHIPEventOpenCL *)Backend->createCHIPEvent(this->ChipContext_);
+    cl_int RefCount;
+    int Status;
+    Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
+                                &RefCount, NULL);
+  if (EventsToWaitFor && EventsToWaitFor->size() > 0) {
+    std::vector<cl_event> Events = {};
+    for (auto E : *EventsToWaitFor) {
+      auto Ee = (CHIPEventOpenCL *)E;
+      //assert(Ee->getRefCount() > 0);
+      Events.push_back(Ee->getNativeRef());
+    }
+    //auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
+    auto Status = clEnqueueBarrierWithWaitList(ClQueue_->get(), Events.size(), Events.data(), &(Event->getNativeRef()));
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  } else {
+    //auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
+    auto Status = clEnqueueBarrierWithWaitList(ClQueue_->get(), 0, nullptr, Event->getNativePtr());
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  }
 
-  cl::vector<cl::Event> Events = {};
-  // if (EventsToWaitFor)
-  //   for (auto E : *EventsToWaitFor) {
-  //     auto Ee = (CHIPEventOpenCL *)E;
-  //     Events.push_back(cl::Event(Ee->peek()));
-  //   }
-  Events.push_back(MarkerEvent);
-
-  cl::Event Barrier;
-  auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
-
-  CHIPEventOpenCL *NewEvent =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipContext_, Barrier.get());
-
-  return NewEvent;
+    Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
+                                &RefCount, NULL);
+  return Event;
 }
 
 static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
@@ -1316,8 +1331,6 @@ void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
   if (!E->isRecordingOrRecorded())
     return nullptr;
-  // TODO should we retain here?
-  // E->increaseRefCount();
   return (void *)E->ClEvent;
 }
 
