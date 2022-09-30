@@ -25,4 +25,4 @@ Release Highlights
 Links
 -----
 
-Release web page: [tbd]
+Release web page: https://github.com/CHIP-SPV/chip-spv/releases/tag/v0.9
