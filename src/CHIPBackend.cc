@@ -992,8 +992,11 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   if (TargetQueue == DefaultQueue) {
     for (auto &q : QueuesToSyncWith) {
       auto Ev = q->getLastEvent();
-      if (Ev)
-        EventsToWaitOn.push_back(Ev);
+      if (Ev && Ev->getCHIPRefc() > 0) {
+        Ev->updateFinishStatus(false);
+        if (!Ev->isFinished())
+          EventsToWaitOn.push_back(Ev);
+      }
     }
     std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
@@ -1001,8 +1004,12 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     TargetQueue->updateLastEvent(SyncQueuesEvent);
   } else { // blocking stream must wait until default stream is done
     auto Ev = DefaultQueue->getLastEvent();
-    if (Ev)
-      EventsToWaitOn.push_back(Ev);
+    if (Ev) {
+      std::lock_guard<std::mutex> LockEvent(Ev->EventMtx);
+      Ev->updateFinishStatus(false);
+      if (!Ev->isFinished())
+        EventsToWaitOn.push_back(Ev);
+    }
     std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
@@ -1052,12 +1059,13 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
 
-    if (Size > ChipDev->getMaxMallocSize()) {
+  if (Size > ChipDev->getMaxMallocSize()) {
     logCritical("Requested allocation of {} exceeds the maximum size of a "
                 "single allocation of {}",
                 Size, ChipDev->getMaxMallocSize());
-    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits",
-                          hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW(
+        "Allocation size exceeds limits for a single allocation",
+        hipErrorOutOfMemory);
   }
   assert(ChipDev->getContext() == this);
 
@@ -1068,7 +1076,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  if (MemType == hipMemoryTypeUnified || isAllocatedPtrUSM(AllocatedPtr)) {
+  if (MemType == hipMemoryTypeUnified || isAllocatedPtrMappedToVM(AllocatedPtr)) {
     HostPtr = AllocatedPtr;
     MemType = hipMemoryTypeUnified;
   }

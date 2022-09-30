@@ -530,6 +530,7 @@ class CHIPDevice;
 
 class CHIPEvent {
 protected:
+  bool UserEvent_ = false;
   bool TrackCalled_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
@@ -552,6 +553,7 @@ protected:
   CHIPEvent() = default;
 
 public:
+  bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
   void releaseDependencies() {
     for (auto Event : DependsOnList) {
@@ -1479,15 +1481,14 @@ public:
                CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
 
   /**
-   * @brief Returns true if the pointer is USM (unified shared memory).
-   * Some backends (like OpenCL) always return USM independently of which
-   * hipMemoryType is requested in allocation
+   * @brief Returns true if the pointer is mapped to virtual memory with
+   * updates synchronized to it automatically at synchronization points.
    *
-   * @param Ptr pointer to memory allocated by allocate()
+   * @param Ptr pointer to memory allocated by allocate().
    * @return true/false
    */
 
-  virtual bool isAllocatedPtrUSM(void *Ptr) = 0;
+  virtual bool isAllocatedPtrMappedToVM(void *Ptr) = 0;
 
   /**
    * @brief Free memory
@@ -2133,6 +2134,7 @@ public:
                                        int *NumHandles) = 0;
 
   CHIPContext *getContext() { return ChipContext_; }
+  void setFlags(CHIPQueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
 
 #endif
