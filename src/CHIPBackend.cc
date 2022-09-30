@@ -992,11 +992,8 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   if (TargetQueue == DefaultQueue) {
     for (auto &q : QueuesToSyncWith) {
       auto Ev = q->getLastEvent();
-      if (Ev && Ev->getCHIPRefc() > 0) {
-        Ev->updateFinishStatus(false);
-        if (!Ev->isFinished())
-          EventsToWaitOn.push_back(Ev);
-      }
+      if (Ev)
+        EventsToWaitOn.push_back(Ev);
     }
     std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
@@ -1004,12 +1001,8 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     TargetQueue->updateLastEvent(SyncQueuesEvent);
   } else { // blocking stream must wait until default stream is done
     auto Ev = DefaultQueue->getLastEvent();
-    if (Ev) {
-      std::lock_guard<std::mutex> LockEvent(Ev->EventMtx);
-      Ev->updateFinishStatus(false);
-      if (!Ev->isFinished())
-        EventsToWaitOn.push_back(Ev);
-    }
+    if (Ev)
+      EventsToWaitOn.push_back(Ev);
     std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
