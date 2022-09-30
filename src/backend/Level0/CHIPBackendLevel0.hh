@@ -293,7 +293,7 @@ public:
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
-  bool isAllocatedPtrUSM(void *Ptr) override { return false; } // TODO
+  bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   void freeImpl(void *Ptr) override{};                         // TODO
   ze_context_handle_t &get() { return ZeCtx; }
 

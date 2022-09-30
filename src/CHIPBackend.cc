@@ -1052,12 +1052,13 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 
   CHIPDevice *ChipDev = Backend->getActiveDevice();
 
-    if (Size > ChipDev->getMaxMallocSize()) {
+  if (Size > ChipDev->getMaxMallocSize()) {
     logCritical("Requested allocation of {} exceeds the maximum size of a "
                 "single allocation of {}",
                 Size, ChipDev->getMaxMallocSize());
-    CHIPERR_LOG_AND_THROW("Allocation size exceeds limits for a single allocation",
-                          hipErrorOutOfMemory);
+    CHIPERR_LOG_AND_THROW(
+        "Allocation size exceeds limits for a single allocation",
+        hipErrorOutOfMemory);
   }
   assert(ChipDev->getContext() == this);
 
@@ -1068,7 +1069,8 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  if (MemType == hipMemoryTypeUnified || isAllocatedPtrUSM(AllocatedPtr)) {
+  if (MemType == hipMemoryTypeUnified ||
+      isAllocatedPtrMappedToVM(AllocatedPtr)) {
     HostPtr = AllocatedPtr;
     MemType = hipMemoryTypeUnified;
   }
@@ -1468,8 +1470,8 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
+    this->finish();
   }
-  this->finish();
   ChipEvent->track();
 
   return hipSuccess;
@@ -1497,8 +1499,8 @@ void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
     ChipEvent->Msg = "memFill";
     updateLastEvent(ChipEvent);
     ChipEvent->track();
+    this->finish();
   }
-  this->finish();
   return;
 }
 
@@ -1540,8 +1542,8 @@ void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
     ChipEvent->Msg = "memCopy2DAsync";
     updateLastEvent(ChipEvent);
     ChipEvent->track();
+    this->finish();
   }
-  this->finish();
   return;
 }
 

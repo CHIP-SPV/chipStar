@@ -1,11 +1,8 @@
 # CHIP-SPV
 
-CHIP-SPV is a HIP implementation that abstracts HIP API, providing a
-set of base classes that can be derived from to implement an
-additional, SPIR-V capable backend on which to execute HIP
-calls.
-
-Currently CHIP-SPV supports OpenCL and Level Zero as backend alternatives.
+CHIP-SPV that aims to make HIP and CUDA portable to platforms which support
+SPIR-V as the device intermediate representation. Currently CHIP-SPV supports
+OpenCL and Level Zero as the low-level runtime alternatives.
 
 This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 [HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
@@ -26,13 +23,12 @@ For a list of (un)supported features in CHIP-SPV, read [this.](docs/Features.md)
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime) and
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
 * For OpenCL Backend
-  * OpenCL implementation with Shared Virtual Memory and SPIR-V
-    support.
+  * OpenCL 2.0 or 3.0 implementation with coarse grained Shared Virtual Memory and SPIR-V input supported.
 
 ## Downloading Sources
 
 ```bash
-git clone https://github.com/CHIP-SPV/chip-spv.git
+git clone https://github.com/CHIP-SPV/chip-spv.git -b Release-0.9
 cd chip-spv
 git submodule update --init --recursive
 ```
@@ -47,15 +43,27 @@ cmake .. \
  -DCMAKE_CXX_COMPILER=clang++ \
  -DCMAKE_C_COMPILER=clang \
  -DCMAKE_INSTALL_PREFIX=<install location>
- # optional: -DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>
- # optional: to provide a path to separately built SPIRV-LLVM translator, use -DLLVM_SPIRV_BINARY=/path
+
 make
 make install
 ```
 
-Be sure you refer to the clang++ and clang binaries you want to build against in
-the above command. For example, the LLVM debian packages might install binaries with
-a version suffix in the names: 'clang++-15' and 'clang-15'.
+Note: At the moment the build assumes it finds the following LLVM project binaries
+with the given names 'clang++', 'clang' and 'llvm-link'. Thus, make sure you have
+symlinks setup to the correct versions before building chip-spv. See [Issue 133](https://github.com/CHIP-SPV/chip-spv/issues/133)).
+
+Useful options:
+ * -DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>
+ * to provide a path to separately built SPIRV-LLVM translator, use -DLLVM_SPIRV_BINARY=/path
+
+The documentation will be placed in `doxygen/html`.
+
+## Building & Running Unit Tests
+
+```bash
+make build_tests_standalone
+make check # runs only tests that are expected to work
+```
 
 ## Building documentation
 
@@ -77,3 +85,18 @@ make build_tests_standalone
 make check # runs only tests known to work
 ```
 
+## Troubleshooting
+
+### Missing Double Precision Support
+
+When running the tests on OpenCL devices which do not support double precision floats,
+there will be multiple tests that will error out.
+
+It might be possible to enable software emulation of double precision floats for
+Intel iGPUs by setting [two environment variables](https://github.com/intel/compute-runtime/blob/master/opencl/doc/FAQ.md#feature-double-precision-emulation-fp64) to make kernels using doubles work but with the major
+overhead of software emulation:
+
+```bash
+export IGC_EnableDPEmulation=1
+export OverrideDefaultFP64Settings=1
+```
