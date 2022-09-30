@@ -844,6 +844,7 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
 }
 
 CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
+  std::lock_guard<std::mutex> Lock(LastEventMtx);
   return (CHIPEventOpenCL *)LastEvent_;
 }
 

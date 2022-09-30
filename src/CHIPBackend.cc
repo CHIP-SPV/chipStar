@@ -1069,7 +1069,8 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  if (MemType == hipMemoryTypeUnified || isAllocatedPtrMappedToVM(AllocatedPtr)) {
+  if (MemType == hipMemoryTypeUnified ||
+      isAllocatedPtrMappedToVM(AllocatedPtr)) {
     HostPtr = AllocatedPtr;
     MemType = hipMemoryTypeUnified;
   }
@@ -1469,8 +1470,8 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
+    this->finish();
   }
-  this->finish();
   ChipEvent->track();
 
   return hipSuccess;
@@ -1498,8 +1499,8 @@ void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
     ChipEvent->Msg = "memFill";
     updateLastEvent(ChipEvent);
     ChipEvent->track();
+    this->finish();
   }
-  this->finish();
   return;
 }
 
@@ -1541,8 +1542,8 @@ void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
     ChipEvent->Msg = "memCopy2DAsync";
     updateLastEvent(ChipEvent);
     ChipEvent->track();
+    this->finish();
   }
-  this->finish();
   return;
 }
 
