@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
- * Copyright (c) 2021-22 Paulius Velesko <pvelesko@pglc.io>
+ * Copyright (c) 2022-23 CHIP-SPV developers
+ * Copyright (c) 2022-23 Sarbojit Sarkar <sarkar.iitr@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,104 +21,50 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "hip/hip_runtime.h"
+#include <hip/hip_runtime.h>
+#include <unistd.h>
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-
-#define CHECK(cmd)                                                             \
-  {                                                                            \
-    hipError_t error = cmd;                                                    \
-    if (error != hipSuccess) {                                                 \
-      fprintf(stderr, "error: '%s'(%d) at %s:%d\n", hipGetErrorString(error),  \
-              error, __FILE__, __LINE__);                                      \
-      exit(1);                                                                 \
-    }                                                                          \
-  }
-
-__global__ void addOne(int *__restrict A) {
-  const uint i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-  A[i] = A[i] + 1;
+void callback_sleep2(hipStream_t stream, hipError_t status, void* user_data) {
+    int *data = (int*)user_data;
+    printf("callback_sleep2: Going to sleep for 2sec\n");
+    sleep(2);
+    *data = 2;
+    printf("callback_sleep2: Exiting now\n");
 }
 
-template <typename T>
-__global__ void addCountReverse(const T *A_d, T *C_d, int64_t NELEM,
-                                int count) {
-  size_t offset = (blockIdx.x * blockDim.x + threadIdx.x);
-  size_t stride = blockDim.x * gridDim.x;
-
-  // Deliberately do this in an inefficient way to increase kernel runtime
-  for (int i = 0; i < count; i++) {
-    for (int64_t i = NELEM - stride + offset; i >= 0; i -= stride) {
-      C_d[i] = A_d[i] + (T)count;
-    }
-  }
+void callback_sleep10(hipStream_t stream, hipError_t status, void* user_data) {
+    int *data = (int*)user_data;
+    printf("callback_sleep10: Going to sleep for 10sec\n");
+    sleep(10);
+    *data = 2;
+    printf("callback_sleep10: Exiting now\n");
 }
 
 int main() {
-  int numBlocks = 512000;
-  int dimBlocks = 32;
-  const size_t NUM = numBlocks * dimBlocks;
-  int *A_h, *A_d, *Ref;
-  int *C_h, *C_d;
+    int* stream1_shared_data = nullptr;
+    int* stream2_shared_data = nullptr;
+    stream1_shared_data = (int*)malloc(sizeof(int));
+    stream2_shared_data = (int*)malloc(sizeof(int));
+    hipStream_t stream1, stream2;
+    hipStreamCreate(&stream1);
+    hipStreamCreate(&stream2);
 
-  static int device = 0;
-  CHECK(hipSetDevice(device));
-  hipDeviceProp_t props;
-  CHECK(hipGetDeviceProperties(&props, device /*deviceID*/));
-  printf("info: running on device %s\n", props.name);
+    *stream1_shared_data = 1;
+    hipStreamAddCallback(stream1, callback_sleep2, stream1_shared_data, 0);
+    *stream2_shared_data = 1;
+    hipStreamAddCallback(stream2, callback_sleep10, stream2_shared_data, 0);
 
-  A_h = (int *)calloc(NUM, sizeof(int));
-  C_h = (int *)calloc(NUM, sizeof(int));
-  CHECK(hipMalloc((void **)&A_d, NUM * sizeof(int)));
-  CHECK(hipMalloc((void **)&C_d, NUM * sizeof(int)));
-  printf("info: copy Host2Device\n");
-  CHECK(hipMemcpy(A_d, A_h, NUM * sizeof(int), hipMemcpyHostToDevice));
-  CHECK(hipMemcpy(C_d, C_h, NUM * sizeof(int), hipMemcpyHostToDevice));
+    printf("Going to sync stream1\n");
+    hipStreamSynchronize(stream1);
+    printf("Going to call query\n");
+    printf("Stream2 status %s\n", hipGetErrorName(hipStreamQuery(stream2)));
 
-  hipStream_t q;
-  uint32_t flags = hipStreamNonBlocking;
-  CHECK(hipStreamCreateWithFlags(&q, flags));
-
-  size_t sharedMem = 0;
-  hipEvent_t start, stop;
-  int count = 1000;
-
-  CHECK(hipEventCreate(&start));
-  CHECK(hipEventCreate(&stop));
-  CHECK(hipEventRecord(start));
-  std::cout << "Launching kernel\n";
-  hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
-                     sharedMem, 0, A_d, C_d, NUM, count);
-  CHECK(hipEventRecord(stop));
-  std::cout << "Kernel submitted to queue\n";
-  CHECK(hipGetLastError());
-  float t;
-  CHECK(hipDeviceSynchronize());
-  CHECK(hipEventElapsedTime(&t, start, stop));
-  std::cout << "Kernel time: " << t << "s\n";
-
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
-                     A_d);
-  hipMemcpy(A_h, A_d, NUM * sizeof(int), hipMemcpyDeviceToHost);
-
-  bool pass = true;
-  int num_errors = 0;
-  for (int i = 0; i < NUM; i++) {
-    if (A_h[i] != 4) {
-      pass = false;
-      num_errors++;
+    hipDeviceSynchronize();
+    if (*stream1_shared_data != 2 || *stream1_shared_data != 2) {
+        printf("Failed\n");
+    } else {
+        printf("Passed\n");
     }
-  }
 
-  std::cout << "Num Errors: " << num_errors << std::endl;
-  std::cout << (pass ? "PASSED!" : "FAIL") << std::endl;
+    return 0;
 }
