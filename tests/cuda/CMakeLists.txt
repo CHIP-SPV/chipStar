@@ -18,6 +18,8 @@ function(add_compile_test)
 endfunction()
 
 add_compile_test(NAME activemask SOURCES activemask.cu
-  COMPILE_OPTIONS -fsyntax-only)
+  # '-c' option is a kludge fix for C++ based hipcc. This test worked
+  # without the option with the previous perl-based hipcc.
+  COMPILE_OPTIONS "-fsyntax-only -c")
 set_tests_properties(activemask PROPERTIES
   PASS_REGULAR_EXPRESSION "error: '__activemask' is unavailable: unsupported in CHIP-SPV")
