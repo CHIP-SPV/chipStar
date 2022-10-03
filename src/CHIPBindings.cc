@@ -96,6 +96,182 @@ static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
   printf("[ABORT IGNORED]\n");
 }
 
+hipError_t hipLaunchCooperativeKernel(const void *f, dim3 gridDim,
+                                      dim3 blockDimX, void **kernelParams,
+                                      unsigned int sharedMemBytes,
+                                      hipStream_t stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t
+hipLaunchCooperativeKernelMultiDevice(hipLaunchParams *launchParamsList,
+                                      int numDevices, unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipExtLaunchMultiKernelMultiDevice(hipLaunchParams *launchParamsList,
+                                              int numDevices,
+                                              unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxCreate(hipCtx_t *ctx, unsigned int flags, hipDevice_t device) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxDestroy(hipCtx_t ctx) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxPopCurrent(hipCtx_t *ctx) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxSetCurrent(hipCtx_t ctx) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxGetCurrent(hipCtx_t *ctx) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxGetDevice(hipDevice_t *device) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxGetApiVersion(hipCtx_t ctx, int *apiVersion) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxGetCacheConfig(hipFuncCache_t *cacheConfig) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxSetCacheConfig(hipFuncCache_t cacheConfig) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxSetSharedMemConfig(hipSharedMemConfig config) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxGetSharedMemConfig(hipSharedMemConfig *pConfig) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxSynchronize(void) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxGetFlags(unsigned int *flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxEnablePeerAccess(hipCtx_t peerCtx, unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipCtxDisablePeerAccess(hipCtx_t peerCtx) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipDevicePrimaryCtxGetState(hipDevice_t dev, unsigned int *flags,
+                                       int *active) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipDevicePrimaryCtxRelease(hipDevice_t dev) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *pctx, hipDevice_t dev) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipDevicePrimaryCtxReset(hipDevice_t dev) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t dev, unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
   CHIP_TRY
   CHIPInitialize();
@@ -592,6 +768,45 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
 }
 
 hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipStreamGetCaptureInfo(hipStream_t stream,
+                                   hipStreamCaptureStatus *pCaptureStatus,
+                                   unsigned long long *pId) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipStreamGetCaptureInfo_v2(hipStream_t stream,
+                                      hipStreamCaptureStatus *captureStatus_out,
+                                      unsigned long long *id_out,
+                                      hipGraph_t *graph_out,
+                                      const hipGraphNode_t **dependencies_out,
+                                      size_t *numDependencies_out) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipStreamIsCapturing(hipStream_t stream,
+                                hipStreamCaptureStatus *pCaptureStatus) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipStreamUpdateCaptureDependencies(hipStream_t stream,
+                                              hipGraphNode_t *dependencies,
+                                              size_t numDependencies,
+                                              unsigned int flags) {
   CHIP_TRY
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -1403,6 +1618,168 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
   CHIP_CATCH
 }
 
+hipError_t hipStreamWaitValue32(hipStream_t stream, void *ptr, uint32_t value,
+                                unsigned int flags, uint32_t mask) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipStreamWaitValue64(hipStream_t stream, void *ptr, uint64_t value,
+                                unsigned int flags, uint64_t mask) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipStreamWriteValue32(hipStream_t stream, void *ptr, uint32_t value,
+                                 unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipStreamWriteValue64(hipStream_t stream, void *ptr, uint64_t value,
+                                 unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipMemAllocPitch(hipDeviceptr_t *dptr, size_t *pitch,
+                            size_t widthInBytes, size_t height,
+                            unsigned int elementSizeBytes) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipPointerGetAttribute(void *data, hipPointer_attribute attribute,
+                                  hipDeviceptr_t ptr) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipDeviceGetDefaultMemPool(hipMemPool_t *mem_pool, int device) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipDeviceSetMemPool(int device, hipMemPool_t mem_pool) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipDeviceGetMemPool(hipMemPool_t *mem_pool, int device) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMallocAsync(void **dev_ptr, size_t size, hipStream_t stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipFreeAsync(void *dev_ptr, hipStream_t stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolTrimTo(hipMemPool_t mem_pool, size_t min_bytes_to_hold) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolSetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr,
+                                  void *value) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolGetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr,
+                                  void *value) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolSetAccess(hipMemPool_t mem_pool,
+                               const hipMemAccessDesc *desc_list,
+                               size_t count) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolGetAccess(hipMemAccessFlags *flags, hipMemPool_t mem_pool,
+                               hipMemLocation *location) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolCreate(hipMemPool_t *mem_pool,
+                            const hipMemPoolProps *pool_props) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolDestroy(hipMemPool_t mem_pool) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMallocFromPoolAsync(void **dev_ptr, size_t size,
+                                  hipMemPool_t mem_pool, hipStream_t stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t
+hipMemPoolExportToShareableHandle(void *shared_handle, hipMemPool_t mem_pool,
+                                  hipMemAllocationHandleType handle_type,
+                                  unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t
+hipMemPoolImportFromShareableHandle(hipMemPool_t *mem_pool, void *shared_handle,
+                                    hipMemAllocationHandleType handle_type,
+                                    unsigned int flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolExportPointer(hipMemPoolPtrExportData *export_data,
+                                   void *dev_ptr) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipMemPoolImportPointer(void **dev_ptr, hipMemPool_t mem_pool,
+                                   hipMemPoolPtrExportData *export_data) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
 hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
                                  hipDeviceptr_t Ptr) {
   CHIP_TRY
@@ -1421,67 +1798,25 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
   CHIP_CATCH
 }
 
-hipError_t hipDevicePrimaryCtxGetState(hipDevice_t Device, unsigned int *Flags,
-                                       int *Active) {
+hipError_t hipDeviceSetLimit(enum hipLimit_t limit, size_t value) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Flags, Active);
-  ERROR_CHECK_DEVNUM(Device);
-
-  CHIPContext *CurrCtx = Backend->getActiveContext();
-
-  // Currently device only has 1 context
-  CHIPContext *PrimaryCtx = (Backend->getDevices()[Device])->getContext();
-
-  *Active = (PrimaryCtx == CurrCtx) ? 1 : 0;
-  *Flags = PrimaryCtx->getFlags();
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxRelease(hipDevice_t Device) {
-  CHIP_TRY
-  CHIPInitialize();
-  ERROR_CHECK_DEVNUM(Device);
   UNIMPLEMENTED(hipErrorNotSupported);
-  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
-hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *Context, hipDevice_t Device) {
+hipError_t hipDeviceGetUuid(hipUUID *uuid, hipDevice_t device) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Context);
-  ERROR_CHECK_DEVNUM(Device);
-
   UNIMPLEMENTED(hipErrorNotSupported);
-  *Context = (Backend->getDevices()[Device])->getContext()->retain();
-  RETURN(hipSuccess);
-
   CHIP_CATCH
 }
 
-hipError_t hipDevicePrimaryCtxReset(hipDevice_t Device) {
+hipError_t hipDeviceGetP2PAttribute(int *value, hipDeviceP2PAttr attr,
+                                    int srcDevice, int dstDevice) {
   CHIP_TRY
   CHIPInitialize();
-  ERROR_CHECK_DEVNUM(Device);
-
-  (Backend->getDevices()[Device])->getContext()->reset();
-
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t Device, unsigned int Flags) {
-  CHIP_TRY
-  CHIPInitialize();
-  ERROR_CHECK_DEVNUM(Device);
-
   UNIMPLEMENTED(hipErrorNotSupported);
-  (Backend->getDevices()[Device])->getContext()->setFlags(Flags);
-  RETURN(hipSuccess);
-
   CHIP_CATCH
 }
 
@@ -1927,7 +2262,39 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
   RETURN(hipSuccess);
   CHIP_CATCH
 }
-
+hipError_t hipDrvPointerGetAttributes(unsigned int numAttributes,
+                                      hipPointer_attribute *attributes,
+                                      void **data, hipDeviceptr_t ptr) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipDrvMemcpy3DAsync(const HIP_MEMCPY3D *pCopy, hipStream_t stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipDrvMemcpy3D(const HIP_MEMCPY3D *pCopy) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipArrayDestroy(hipArray *array) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+hipError_t hipArray3DCreate(hipArray **array,
+                            const HIP_ARRAY3D_DESCRIPTOR *pAllocateArray) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
 hipError_t hipArrayCreate(hipArray **Array,
                           const HIP_ARRAY_DESCRIPTOR *AllocateArray) {
   CHIP_TRY
@@ -2986,6 +3353,14 @@ hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
   CHIPTexture *ChipTexture = (CHIPTexture *)TextureObject;
   Backend->getActiveDevice()->destroyTexture(ChipTexture);
   RETURN(hipSuccess);
+  CHIP_CATCH
+}
+
+hipError_t hipGetChannelDesc(hipChannelFormatDesc *desc,
+                             hipArray_const_t array) {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 
