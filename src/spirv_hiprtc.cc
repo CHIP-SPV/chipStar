@@ -32,6 +32,11 @@ THE SOFTWARE.
 #include <set>
 #include <fstream>
 
+struct CompileOptions {
+  std::vector<std::string> Options; /// All accepted user options.
+  bool HasO = false; /// True if the user provided an optimization flag.
+};
+
 static bool saveTemps() {
   if (auto *Value = std::getenv("CHIP_RTC_SAVE_TEMPS"))
     return std::string_view(Value) == "1";
@@ -90,16 +95,78 @@ extern  "C" __device__ const char *_chip_name_expr_output_file =
   return File.good();
 }
 
-static std::string createCompileCommand(const fs::path &WorkingDirectory,
+/// Filter and translate user given options. Return true if an error
+/// was encountered.
+static bool processOptions(CHIPProgram &Program, int NumOptions,
+                           const char **Options, CompileOptions &OptionsOut) {
+
+  // Already checked in hiprtcCompileProgram().
+  assert(NumOptions >= 0);
+  assert(Options || NumOptions == 0);
+
+  auto Match = [&](std::string_view Str, std::string_view RegEx) -> bool {
+    return std::regex_match(Str.begin(), Str.end(),
+                            std::regex(RegEx.data(), RegEx.size()));
+  };
+
+  // Pass whitelisted options. Unrecognized options are ignored.
+  for (int OptIdx = 0; OptIdx < NumOptions; OptIdx++) {
+    if (!Options[OptIdx])
+      continue; // Consider NULL pointers are empty.
+    auto OptionIn = trim(std::string_view(Options[OptIdx]));
+
+    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*")) {
+      logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
+      OptionsOut.Options.emplace_back(OptionIn);
+      continue;
+    }
+
+    if (Match(OptionIn, "-O[0-3]")) {
+      OptionsOut.Options.emplace_back(OptionIn);
+      OptionsOut.HasO = true;
+      continue;
+    }
+
+    // TODO: match and translate nvrtc options?
+
+    logWarn("hiprtc: ignored option: '{}'", OptionIn);
+    Program.appendToLog(std::string("warning: ignored option '") +
+                        std::string(OptionIn) + "'\n");
+  }
+
+  return false;
+}
+
+/// Escapes the string with single quotes for bourne shell.
+static std::string escapeWithSingleQuotes(const std::string &Str) {
+  std::string Result;
+  Result.reserve(Str.size() + 2);
+  Result += "'";
+  for (auto C : Str) {
+    if (C == '\'') // Escape '.
+      Result += "'\"'\"'";
+    else
+      Result += C;
+  }
+  Result += "'";
+  return Result;
+}
+
+static std::string createCompileCommand(const CompileOptions &Options,
+                                        const fs::path &WorkingDirectory,
                                         const fs::path &SourceFile,
                                         const fs::path &OutputFile) {
 
   std::string CompileCommand;
 
   auto Append = [&](const std::string Str) -> void {
+    if (Str.empty())
+      return;
     if (CompileCommand.size())
       CompileCommand += " ";
-    CompileCommand += Str;
+    // Put arguments into single quotes for avoiding misinterpretations
+    // and shell injections.
+    CompileCommand += escapeWithSingleQuotes(Str);
   };
 
   // Get path to hipcc tool. If not found use "hipcc" and hope it's
@@ -125,11 +192,19 @@ static std::string createCompileCommand(const fs::path &WorkingDirectory,
   // Clients don't need to include hip_runtime.h by themselves.
   Append("--include=hip/hip_runtime.h");
 
+  // User options.
+  for (const auto &Opt : Options.Options)
+    Append(Opt);
+
   // By default optimizations are on (-dopt).
-  Append("-O2 -c");
+  if (!Options.HasO)
+    Append("-O2");
+
+  Append("-c");
 
   Append(SourceFile.string());
-  Append("-o " + OutputFile.string());
+  Append("-o");
+  Append(OutputFile.string());
 
   return CompileCommand;
 }
@@ -183,12 +258,18 @@ static void getLoweredNameExpressions(CHIPProgram &Program,
 
 // Compiles sources stored in 'Program'. Uses 'WorkingDirectory' for
 // temporary compilation I/O.
-static hiprtcResult compile(CHIPProgram &Program, fs::path WorkingDirectory) {
+static hiprtcResult compile(CHIPProgram &Program, int NumRawOptions,
+                            const char **RawOptions,
+                            fs::path WorkingDirectory) {
   // Create source and header files.
   auto SourceFile = WorkingDirectory / "program.hip";
   auto OutputFile = WorkingDirectory / "program.o";
   auto LoweredNamesFile = WorkingDirectory / "lowerednames.txt";
   auto CompileLogFile = WorkingDirectory / "compile.log";
+
+  CompileOptions ProcessedOptions;
+  if (processOptions(Program, NumRawOptions, RawOptions, ProcessedOptions))
+    return HIPRTC_ERROR_INVALID_INPUT;
 
   if (!createHeaderFiles(Program, WorkingDirectory)) {
     logError("hiprtc: could not create user header files.");
@@ -200,8 +281,8 @@ static hiprtcResult compile(CHIPProgram &Program, fs::path WorkingDirectory) {
     return HIPRTC_ERROR_COMPILATION;
   }
 
-  std::string CompileCommand =
-      createCompileCommand(WorkingDirectory, SourceFile, OutputFile);
+  std::string CompileCommand = createCompileCommand(
+      ProcessedOptions, WorkingDirectory, SourceFile, OutputFile);
 
   bool ExecSuccess =
       executeCommand(WorkingDirectory, CompileCommand, CompileLogFile);
@@ -301,17 +382,14 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
                                   const char **Options) {
   logTrace("{}", __func__);
 
-  if (NumOptions < 0)
+  if (NumOptions < 0) {
+    logError("Invalid option count ({}).", NumOptions);
     return HIPRTC_ERROR_INVALID_INPUT;
+  }
 
-  if (NumOptions)
-    logWarn("hiprtc: compile options are ignored (not supported yet).");
-
-  for (int OptIdx = 0; OptIdx < NumOptions; OptIdx++) {
-    const auto *Option = Options[OptIdx];
-    if (!Option)
-      return HIPRTC_ERROR_INVALID_INPUT;
-    logDebug("hiprtc: option: '{}'", Option);
+  if (NumOptions && !Options) {
+    logError("Option array may not be NULL.");
+    return HIPRTC_ERROR_INVALID_INPUT;
   }
 
   if (!Prog)
@@ -328,7 +406,7 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     }
 
     logDebug("hiprtc: Temp directory: '{}'", TmpDir->string());
-    hiprtcResult Result = compile(Program, *TmpDir);
+    hiprtcResult Result = compile(Program, NumOptions, Options, *TmpDir);
 
     if (!saveTemps()) {
       assert(!TmpDir->empty() && *TmpDir != TmpDir->root_path() &&
