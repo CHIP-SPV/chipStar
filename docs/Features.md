@@ -7,7 +7,6 @@ This is a (non-exhaustive) list of features currently (un)supported by CHIP-SPV.
 
 #### Unsupported / unimplemented APIs
 
-* hipRtc API
 * hipGraph API
 * hipIpc API
 * hipModuleOccupancy API
@@ -24,8 +23,10 @@ This is a (non-exhaustive) list of features currently (un)supported by CHIP-SPV.
   hipModuleLoadData, hipModuleUnload, hipModuleLaunchKernel
 
 #### partially supported
-  * Texture Objects of 1D/2D type are supported; 3D, LOD, Grad,
-    Cubemap, Gather and Mipmapped textures are not supported
+* Texture Objects of 1D/2D type are supported; 3D, LOD, Grad,
+  Cubemap, Gather and Mipmapped textures are not supported.
+* hiprtc: Referring global device variables, constants and texture
+  references in the name expressions are not supported.
 
 ### Device side
 
@@ -47,3 +48,13 @@ This is a (non-exhaustive) list of features currently (un)supported by CHIP-SPV.
 ### Known issues
 
 * warpSize might depend on the kernel instead of being a device constant
+
+* hiprtc: Valid name expressions with a function pointer cast
+  (e.g. '(void(*)(float *))akernel') fails with misleading
+  messages. For example: "error: address of overloaded function
+  'akernel' does not match required type ...". This issue prevents
+  disambiguation of overloaded kernels.
+
+* hiprtc: quoted strings are not preserved due to the way the hipcc
+  handles arguments currently.  E.g. -DGREETING="Hello, World!" is
+  treated as two argument ('-DGREETING=Hello,' and 'World!').
