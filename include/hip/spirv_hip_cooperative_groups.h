@@ -9,4 +9,5 @@
 //#include <hip/hip_runtime.h>
 //#include <hip/hip_runtime_api.h>
 
+namespace cooperative_groups {}
 #endif  // HIP_INCLUDE_HIP_NVIDIA_DETAIL_HIP_COOPERATIVE_GROUPS_H
