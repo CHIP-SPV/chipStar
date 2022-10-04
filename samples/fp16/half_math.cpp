@@ -45,7 +45,7 @@
 void checkCuda(hipError_t result) {
   if (result != hipSuccess) {
     std::cerr << "HIP Runtime Error: " << hipGetErrorString(result) << "\n";
-    assert(result == hipSuccess);
+    //assert(result == hipSuccess);
   }
 }
 
