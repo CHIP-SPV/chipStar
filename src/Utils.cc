@@ -99,7 +99,8 @@ std::optional<std::filesystem::path> getHIPCCPath() {
   //       installed CHIP library. Mixing the installed and the built
   //       resources could lead to obscure issues.
   for (const auto &ExeCand : {fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
-                              fs::path(CHIP_BUILD_DIR) / "HIPCC/hipcc.bin"})
+                              fs::path(CHIP_BUILD_DIR) / "bin/hipcc",
+                              fs::path(CHIP_BUILD_DIR) / "bin/hipcc.bin"})
     if (canExecute(ExeCand))
       return ExeCand;
 
