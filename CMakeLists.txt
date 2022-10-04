@@ -140,6 +140,8 @@ option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emi
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
+option(BUILD_TESTS "Build Catch2 unit tests" ON)
+option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -246,8 +248,6 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-enable_testing()
-add_subdirectory(HIP/tests/catch catch)
 add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
@@ -528,6 +528,11 @@ install(EXPORT CHIPTargets
 
 # CHIP-SPV INSTALLATION AND PACKAGING
 ###############################################################################
+#
+if(BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(HIP/tests/catch catch)
+endif()
 
 if(BUILD_DOCS)
   find_package(Doxygen REQUIRED)
