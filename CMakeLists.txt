@@ -534,7 +534,7 @@ install(EXPORT CHIPTargets
 if(BUILD_TESTS)
   set(HIP_PATH ${CMAKE_BINARY_DIR})
   add_subdirectory(HIP/tests/catch catch)
-  add_dependencies(build_tests CHIP samples)
+  add_dependencies(build_tests hipcc.bin)
 endif()
 
 if(BUILD_DOCS)
