@@ -2267,16 +2267,17 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
     logDebug("Found associated alloc info");
 
     Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
-							   &CharVal, 1);
+                                                           &CharVal, 1);
     auto RegisterMemDst = AllocInfo->HostPtr;
     if (RegisterMemDst)
       memset(RegisterMemDst, Value, SizeBytes);
     RETURN(hipSuccess);
   } else {
     logDebug("Unregistered pointer");
-    // Unregistered pointer, so it's either not a device pointer or it's a Unified
-    // Memory pointer allocated with host malloc() which could be accessible directly
-    // by the device or not, depending on its UM capabilities.
+    // Unregistered pointer, so it's either not a device pointer or it's a
+    // Unified Memory pointer allocated with host malloc() which could be
+    // accessible directly by the device or not, depending on its UM
+    // capabilities.
     if (Backend->getActiveDevice()->getContext()->isAllocatedPtrMappedToVM(
             Dst)) {
       logDebug("Pointer mapped to VM.");
