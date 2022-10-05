@@ -1667,6 +1667,9 @@ hipError_t hipFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
 
+  auto Status = hipDeviceSynchronize();
+  ERROR_IF((Status != hipSuccess), hipErrorTbd);
+
   ERROR_IF((Ptr == nullptr), hipSuccess);
   RETURN(Backend->getActiveContext()->free(Ptr));
 
