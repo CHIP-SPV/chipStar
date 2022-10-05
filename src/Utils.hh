@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef SRC_UTILS_HH
 #define SRC_UTILS_HH
 
@@ -28,7 +27,7 @@
 
 #include "hip/hip_fatbin.h"
 
-#include <filesystem>
+#include <experimental/filesystem>
 #include <optional>
 
 /// Clamps 'Val' to [0, INT_MAX] range.
@@ -53,17 +52,19 @@ static inline size_t roundUp(size_t Val, size_t Rounding) {
 std::string getRandomString(size_t N);
 
 /// Return a unique directory for temporary use.
-std::optional<std::filesystem::path> createTemporaryDirectory();
+std::optional<std::experimental::filesystem::path> createTemporaryDirectory();
 
 /// Write 'Data' into 'Path' file. If the file exists, its content is
 /// overwriten. Return false on errors.
-bool writeToFile(const std::filesystem::path Path, const std::string &Data);
+bool writeToFile(const std::experimental::filesystem::path Path,
+                 const std::string &Data);
 
 /// Reads contents of file from 'Path' into a std::string.
-std::optional<std::string> readFromFile(const std::filesystem::path Path);
+std::optional<std::string>
+readFromFile(const std::experimental::filesystem::path Path);
 
 /// Locate hipcc tool. Return an absolute path to it if found.
-std::optional<std::filesystem::path> getHIPCCPath();
+std::optional<std::experimental::filesystem::path> getHIPCCPath();
 
 /// Returns a span (string_view) over SPIR-V module in the given clang
 /// offload bundle.  Returns empty span if an error was encountered

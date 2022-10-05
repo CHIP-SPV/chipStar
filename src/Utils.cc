@@ -24,11 +24,10 @@
 
 #include "logging.hh"
 
-#include <filesystem>
 #include <fstream>
 #include <random>
 
-namespace fs = std::filesystem;
+namespace fs = std::experimental::filesystem;
 
 template <class T>
 static T copyAs(const void *BaseAddr, size_t ByteOffset = 0) {
@@ -94,7 +93,7 @@ std::optional<std::string> readFromFile(const fs::path Path) {
   return std::nullopt;
 }
 
-std::optional<std::filesystem::path> getHIPCCPath() {
+std::optional<std::experimental::filesystem::path> getHIPCCPath() {
   // TODO: Probably should detect if we are using a built or an
   //       installed CHIP library. Mixing the installed and the built
   //       resources could lead to obscure issues.

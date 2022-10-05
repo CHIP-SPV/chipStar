@@ -27,12 +27,11 @@ THE SOFTWARE.
 #include "CHIPBackend.hh"
 #include "Utils.hh"
 
-#include <filesystem>
 #include <cstdlib>
 #include <regex>
 #include <set>
 
-namespace fs = std::filesystem;
+namespace fs = std::experimental::filesystem;
 
 /// Checks the name is valid string for #include (both the "" and <>
 /// forms) and is sensible name for shells as is (doesn't need escaping).
