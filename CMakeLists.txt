@@ -73,6 +73,16 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 set(PTHREAD_LIBRARY Threads::Threads)
 
+include(CheckIncludeFileCXX)
+check_include_file_cxx("filesystem" HAS_FILESYSTEM)
+if(NOT HAS_FILESYSTEM)
+  check_include_file_cxx("experimental/filesystem" HAS_EXPERIMENTAL_FILESYSTEM)
+endif()
+
+if(NOT HAS_FILESYSTEM AND NOT HAS_EXPERIMENTAL_FILESYSTEM)
+  message(FATAL_ERROR "<filesystem> was not found.")
+endif()
+
 # CHIP-SPV CMAKE DEPENDENCIES
 ###############################################################################
 

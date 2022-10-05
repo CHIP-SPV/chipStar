@@ -28,8 +28,6 @@
 #include <fstream>
 #include <random>
 
-namespace fs = std::filesystem;
-
 template <class T>
 static T copyAs(const void *BaseAddr, size_t ByteOffset = 0) {
   T Res;

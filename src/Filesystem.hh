@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 CHIP-SPV developers
+ * Copyright (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,19 +20,25 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef CHIP_CONFIG_H
-#define CHIP_CONFIG_H
+// Provides a namespace alias (fs) over std::filesystem-like module.
 
-#cmakedefine CHIP_SOURCE_DIR "@CHIP_SOURCE_DIR@"
+#ifndef SRC_FILESYSTEM_HH
+#define SRC_FILESYSTEM_HH
 
-#cmakedefine CHIP_BUILD_DIR "@CHIP_BUILD_DIR@"
+#include "Config.hh"
 
-#cmakedefine CHIP_INSTALL_DIR "@CHIP_INSTALL_DIR@"
+#if defined(HAS_FILESYSTEM) && HAS_FILESYSTEM == 1
 
-#cmakedefine CHIP_CLANG_PATH "@CHIP_CLANG_PATH@"
+#include <filesystem>
+namespace fs = std::filesystem;
 
-#cmakedefine HAS_FILESYSTEM @HAS_FILESYSTEM@
+#elif defined(HAS_EXPERIMENTAL_FILESYSTEM) && HAS_EXPERIMENTAL_FILESYSTEM == 1
 
-#cmakedefine HAS_EXPERIMENTAL_FILESYSTEM @HAS_EXPERIMENTAL_FILESYSTEM@
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+
+#else
+#error filesystem is not available!
+#endif
 
 #endif
