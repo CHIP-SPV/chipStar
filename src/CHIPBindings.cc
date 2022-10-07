@@ -1667,6 +1667,9 @@ hipError_t hipFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
 
+  auto Status = hipDeviceSynchronize();
+  ERROR_IF((Status != hipSuccess), hipErrorTbd);
+
   ERROR_IF((Ptr == nullptr), hipSuccess);
   RETURN(Backend->getActiveContext()->free(Ptr));
 
@@ -2258,8 +2261,6 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 
   char CharVal = Value;
   Backend->getActiveDevice()->initializeDeviceVariables();
-  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
-                                                         &CharVal, 1);
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -2267,12 +2268,30 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 
   if (AllocInfo) {
     logDebug("Found associated alloc info");
+
+    Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
+                                                           &CharVal, 1);
     auto RegisterMemDst = AllocInfo->HostPtr;
     if (RegisterMemDst)
       memset(RegisterMemDst, Value, SizeBytes);
+    RETURN(hipSuccess);
+  } else {
+    logDebug("Unregistered pointer");
+    // Unregistered pointer, so it's either not a device pointer or it's a
+    // Unified Memory pointer allocated with host malloc() which could be
+    // accessible directly by the device or not, depending on its UM
+    // capabilities.
+    if (Backend->getActiveDevice()->getContext()->isAllocatedPtrMappedToVM(
+            Dst)) {
+      logDebug("Pointer mapped to VM.");
+      Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
+                                                             &CharVal, 1);
+      RETURN(hipSuccess);
+    } else {
+      RETURN(hipErrorInvalidValue);
+    }
   }
 
-  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

@@ -34,12 +34,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(CHIP-SPV
-  VERSION 0.9
+  VERSION 1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(chip_spv_cmake_macros)
+enable_testing()
 
 ###############################################################################
 # CHIP-SPV CMAKE DEPENDENCIES
@@ -140,6 +141,8 @@ option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emi
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
+option(BUILD_TESTS "Build Catch2 unit tests" ON)
+option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -246,17 +249,16 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-enable_testing()
-add_subdirectory(HIP/tests/catch catch)
 add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
+set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
-add_dependencies(CHIP hipcc.bin)
+add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 add_subdirectory(bin)
 
@@ -275,6 +277,7 @@ add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--ou
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
 "Unit_hipDeviceGetCacheConfig_FuncTst$|\
+Unit_hipDeviceSynchronize_Functional$|\
 Unit_hipEventIpc$|\
 Unit_hipGetDeviceFlags_FuncTst$|\
 Unit_hipGraphAddDependencies_Functional$|\
@@ -301,6 +304,7 @@ Unit_deviceFunctions_CompileTest___funnelshift|\
 Unit_funnelshift$|\
 Unit_syncthreads_and$|\
 Unit_syncthreads_count$|\
+fp16_math$|\
 Unit_syncthreads_or$"
 USES_TERMINAL VERBATIM)
 
@@ -499,9 +503,13 @@ file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo" ${_hipInfo_build})
 install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
   DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
 
+# Copy over includes for hipcc to work in the build dir
+file(COPY ${CMAKE_SOURCE_DIR}/include DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${CMAKE_BINARY_DIR}/include)
+
 # Copy hipconfig, hipvars, etc to bin
-install(FILES ${CMAKE_BINARY_DIR}/HIPCC/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
-install(FILES ${CMAKE_BINARY_DIR}/HIPCC/hipconfig.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipconfig PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
+install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
+install(FILES ${CMAKE_BINARY_DIR}/bin/hipconfig.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipconfig PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
 
 set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(CHIP_CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
@@ -523,6 +531,11 @@ install(EXPORT CHIPTargets
 
 # CHIP-SPV INSTALLATION AND PACKAGING
 ###############################################################################
+#
+if(BUILD_TESTS)
+   add_subdirectory(HIP/tests/catch catch)
+   add_dependencies(build_tests CHIP samples)
+endif()
 
 if(BUILD_DOCS)
   find_package(Doxygen REQUIRED)
