@@ -63,10 +63,10 @@ bool TestStreamSemantics_1() {
     bool testStatus = true;
     printf("TestStreamSemantics_1 : ");
     if (*stream1_shared_data != 2 || *stream1_shared_data != 2) {
-        printf("Failed\n");
+        printf("FAILED\n");
         testStatus = false;
     } else {
-        printf("Passed\n");
+        printf("PASSED\n");
     }
 
     // clean-up
