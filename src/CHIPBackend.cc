@@ -1757,6 +1757,7 @@ CHIPDevice *CHIPQueue::getDevice() {
 CHIPQueueFlags CHIPQueue::getFlags() { return QueueFlags_; }
 int CHIPQueue::getPriority() { return Priority_; }
 void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
+  logDebug("CHIPQueue::addCallback()");
   CHIPCallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);
 
