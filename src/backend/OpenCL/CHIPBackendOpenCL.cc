@@ -818,8 +818,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   logTrace("CHIPQueueOpenCL::addCallback()");
   auto Ev = getLastEvent();
   if (Ev == nullptr) {
-    Callback(this, hipSuccess, UserData);
-    return;
+    Ev = (CHIPEventOpenCL*)enqueueMarker();
   }
 
   HipStreamCallbackData *Cb =
@@ -831,7 +830,10 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // enqueue barrier with no dependencies (all further enqueues will wait for
   // this one to finish)
 
-  enqueueBarrier(nullptr);
+  // TODO  Check if this works
+  auto CallbackCompleted = enqueueBarrier(nullptr);
+  updateLastEvent(CallbackCompleted);
+  assert(query() == false);
   return;
 };
 
