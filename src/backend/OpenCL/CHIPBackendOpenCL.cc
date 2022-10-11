@@ -647,7 +647,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       (CHIPContextOpenCL *)(ChipDevOcl->getContext());
 
   int Err;
-  std::vector<char> BinaryVec(Src_.begin(), Src_.end());
+  std::vector<char> BinaryVec(Src_->begin(), Src_->end());
   auto Program = cl::Program(*(ChipCtxOcl->get()), BinaryVec, false, &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 

@@ -73,6 +73,16 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 set(PTHREAD_LIBRARY Threads::Threads)
 
+include(CheckIncludeFileCXX)
+check_include_file_cxx("filesystem" HAS_FILESYSTEM)
+if(NOT HAS_FILESYSTEM)
+  check_include_file_cxx("experimental/filesystem" HAS_EXPERIMENTAL_FILESYSTEM)
+endif()
+
+if(NOT HAS_FILESYSTEM AND NOT HAS_EXPERIMENTAL_FILESYSTEM)
+  message(FATAL_ERROR "<filesystem> was not found.")
+endif()
+
 # CHIP-SPV CMAKE DEPENDENCIES
 ###############################################################################
 
@@ -85,6 +95,7 @@ set(CHIP_SRC
   src/CHIPBackend.cc
   src/CHIPBindings.cc
   src/logging.cc
+  src/Utils.cc
 )
 
 if(OpenCL_LIBRARY)
@@ -286,7 +297,6 @@ Unit_hipGraphAddMemcpyNode_Functional$|\
 Unit_hipGraph_BasicFunctional$|\
 Unit_hipGraph_SimpleGraphWithKernel$|\
 Unit_hipHostMalloc_Coherent$|\
-Unit_hiprtc_saxpy$|\
 Unit_hipHostMalloc_NonCoherent$|\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
@@ -331,6 +341,7 @@ target_include_directories(CHIP
   PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_BINARY_DIR}"
 )
 # CHIP-SPV COMPILATION SETUP
 ###############################################################################
@@ -414,6 +425,18 @@ target_link_libraries(device INTERFACE CHIP)
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
 # HIP OFFLOAD FLAGS
+###############################################################################
+
+###############################################################################
+# PROJECT CONFIGURATION HEADER
+
+set(CHIP_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
+set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
+set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
+configure_file(Config.hh.in Config.hh @ONLY)
+
+# PROJECT CONFIGURATION HEADER
 ###############################################################################
 
 ###############################################################################
