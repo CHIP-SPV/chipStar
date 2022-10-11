@@ -493,7 +493,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   GpuReady->Msg = "GpuReady";
 
   std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
-  ChipQueue->enqueueBarrierImpl(&ChipEvs);
+  auto WaitForCpuComplete = ChipQueue->enqueueBarrierImpl(&ChipEvs);
+  ChipQueue->updateLastEvent(WaitForCpuComplete);
 
   GpuAck = ChipQueue->enqueueMarkerImpl();
   GpuAck->Msg = "GpuAck";
