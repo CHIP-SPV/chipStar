@@ -105,8 +105,8 @@ endif()
 
 
 # TODO check if hipcc CMAKE_CXX_COMPILER_ID is clang
-# Make sure that the compiler is either clang, IntelLLVM, or hipcc
-if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR(CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
+# Make sure that the compiler is clang
+if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang"))
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
     message(FATAL_ERROR "this project requires clang >= 8.0")
   endif()
