@@ -456,10 +456,11 @@ void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 // ************************************************************************
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
-                                 cl_event ClEvent, CHIPEventFlags Flags, bool UserEvent)
+                                 cl_event ClEvent, CHIPEventFlags Flags,
+                                 bool UserEvent)
     : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent(ClEvent) {
-      UserEvent_ = UserEvent;
-    }
+  UserEvent_ = UserEvent;
+}
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  CHIPEventFlags Flags)
@@ -486,7 +487,7 @@ size_t CHIPEventOpenCL::getRefCount() {
   if (ClEvent == nullptr)
     return 0;
   int Status = clGetEventInfo(getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
-                                &RefCount, NULL);
+                              &RefCount, NULL);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   return RefCount;
 }
@@ -496,8 +497,8 @@ CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
-  CHIPEventOpenCL *Event =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, UserEvent);
+  CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
+                                               nullptr, Flags, UserEvent);
 
   return Event;
 }
@@ -539,7 +540,8 @@ bool CHIPEventOpenCL::wait() {
 bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
   if (ThrowErrorIfNotReady && this->ClEvent == nullptr)
-    CHIPERR_LOG_AND_THROW("OpenCL has not been initialized cl_event is null", hipErrorNotReady);
+    CHIPERR_LOG_AND_THROW("OpenCL has not been initialized cl_event is null",
+                          hipErrorNotReady);
 
   int UpdatedStatus;
   auto Status = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
@@ -603,20 +605,20 @@ void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
   std::lock_guard<std::mutex> Lock(EventMtx);
   auto status = clRetainEvent(this->ClEvent);
-  if(!UserEvent_)
+  if (!UserEvent_)
     assert(status == 0);
   logDebug("CHIPEventOpenCL::increaseRefCount() {} {} refc {}->{} REASON: {}",
            (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
   (*Refc_)++;
   assert(*Refc_ = getRefCount() - 1);
-   logDebug("CHIPEventOpenCL::increaseRefCount() {} OpenCL RefCount: {}",
-            (void *)this, getRefCount());
+  logDebug("CHIPEventOpenCL::increaseRefCount() {} OpenCL RefCount: {}",
+           (void *)this, getRefCount());
 }
 
 void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   std::lock_guard<std::mutex> Lock(EventMtx);
-   logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
-            (void *)this, getRefCount());
+  logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
+           (void *)this, getRefCount());
   logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON: {}",
            (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
   if (*Refc_ > 0) {
@@ -818,26 +820,29 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   logTrace("CHIPQueueOpenCL::addCallback()");
   auto Ev = getLastEvent();
   if (Ev == nullptr) {
-    Callback(this, hipSuccess, UserData);
-    return;
+    Ev = (CHIPEventOpenCL *)enqueueMarker();
   }
 
   HipStreamCallbackData *Cb =
       new HipStreamCallbackData{this, hipSuccess, UserData, Callback};
 
-  auto Status = clSetEventCallback(Ev->getNativeRef(), CL_COMPLETE, pfn_notify, Cb);
+  auto Status =
+      clSetEventCallback(Ev->getNativeRef(), CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
   // enqueue barrier with no dependencies (all further enqueues will wait for
   // this one to finish)
 
-  enqueueBarrier(nullptr);
+  auto CallbackCompleted = enqueueBarrier(nullptr);
+  updateLastEvent(CallbackCompleted);
   return;
 };
 
 CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
-  CHIPEventOpenCL *MarkerEvent = (CHIPEventOpenCL*)Backend->createCHIPEvent(ChipContext_);
-  auto Status = clEnqueueMarker(this->get()->get(), MarkerEvent->getNativePtr());
+  CHIPEventOpenCL *MarkerEvent =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+  auto Status =
+      clEnqueueMarker(this->get()->get(), MarkerEvent->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   MarkerEvent->Msg = "marker";
   return MarkerEvent;
@@ -850,7 +855,8 @@ CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
-  CHIPEventOpenCL* LaunchEvent = (CHIPEventOpenCL*)Backend->createCHIPEvent(ChipContext_);
+  CHIPEventOpenCL *LaunchEvent =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   assert(Kernel != nullptr);
@@ -861,21 +867,19 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   dim3 GridDim = ChipOclExecItem->getGrid();
   dim3 BlockDim = ChipOclExecItem->getBlock();
 
-
   const size_t NumDims = 3;
   const size_t GlobalOffset[NumDims] = {0, 0, 0};
-  const size_t Global[NumDims] = {GridDim.x * BlockDim.x, GridDim.y * BlockDim.y,
-                           GridDim.z * BlockDim.z};
+  const size_t Global[NumDims] = {
+      GridDim.x * BlockDim.x, GridDim.y * BlockDim.y, GridDim.z * BlockDim.z};
   const size_t Local[NumDims] = {BlockDim.x, BlockDim.y, BlockDim.z};
 
-  logTrace("Launch GLOBAL: {} {} {}", Global[0], Global[1],
-           Global[2]);
+  logTrace("Launch GLOBAL: {} {} {}", Global[0], Global[1], Global[2]);
 
-  logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1],
-           Local[2]);
+  logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1], Local[2]);
 
-
-  auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(), NumDims, GlobalOffset, Global, Local, 0, nullptr, LaunchEvent->getNativePtr());
+  auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(),
+                                       NumDims, GlobalOffset, Global, Local, 0,
+                                       nullptr, LaunchEvent->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
   LaunchEvent->Msg = "KernelLaunch";
@@ -933,7 +937,7 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
   CHIPEventOpenCL *Event =
-    (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
@@ -963,7 +967,8 @@ void CHIPQueueOpenCL::finish() {
 CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size,
                                              const void *Pattern,
                                              size_t PatternSize) {
-  CHIPEventOpenCL* Event = (CHIPEventOpenCL*)Backend->createCHIPEvent(ChipContext_);
+  CHIPEventOpenCL *Event =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
   cl_event Ev = nullptr;
   int Retval = ::clEnqueueSVMMemFill(ClQueue_->get(), Dst, Pattern, PatternSize,
@@ -1018,29 +1023,33 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 CHIPEvent *
 CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  CHIPEventOpenCL *Event = (CHIPEventOpenCL *)Backend->createCHIPEvent(this->ChipContext_);
-    cl_int RefCount;
-    int Status;
-    Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
-                                &RefCount, NULL);
+  CHIPEventOpenCL *Event =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(this->ChipContext_);
+  cl_int RefCount;
+  int Status;
+  Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
+                          &RefCount, NULL);
   if (EventsToWaitFor && EventsToWaitFor->size() > 0) {
     std::vector<cl_event> Events = {};
     for (auto E : *EventsToWaitFor) {
       auto Ee = (CHIPEventOpenCL *)E;
-      //assert(Ee->getRefCount() > 0);
+      // assert(Ee->getRefCount() > 0);
       Events.push_back(Ee->getNativeRef());
     }
-    //auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
-    auto Status = clEnqueueBarrierWithWaitList(ClQueue_->get(), Events.size(), Events.data(), &(Event->getNativeRef()));
+    // auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
+    auto Status =
+        clEnqueueBarrierWithWaitList(ClQueue_->get(), Events.size(),
+                                     Events.data(), &(Event->getNativeRef()));
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
-    //auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
-    auto Status = clEnqueueBarrierWithWaitList(ClQueue_->get(), 0, nullptr, Event->getNativePtr());
+    // auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
+    auto Status = clEnqueueBarrierWithWaitList(ClQueue_->get(), 0, nullptr,
+                                               Event->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
 
-    Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
-                                &RefCount, NULL);
+  Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
+                          &RefCount, NULL);
   return Event;
 }
 
