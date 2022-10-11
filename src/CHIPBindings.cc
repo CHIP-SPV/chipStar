@@ -1306,6 +1306,9 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
 
   CHIPDevice *Dev = Backend->getActiveDevice();
 
+  // make sure nothing is pending in the stream
+  Stream->finish();
+  
   if (Dev->removeQueue(Stream))
     RETURN(hipSuccess);
   else
