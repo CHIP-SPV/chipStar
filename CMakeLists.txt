@@ -323,8 +323,8 @@ target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 # OpenCL headers from the system where the version might differ resulting in errors.
 target_include_directories(CHIP
   PUBLIC
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cuspv>"
+  "$<INSTALL_INTERFACE:include>"
+  "$<INSTALL_INTERFACE:include/cuspv>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
