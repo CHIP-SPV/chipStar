@@ -235,7 +235,7 @@ if(LevelZero_LIBRARY)
 endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix" FORCE)
+  set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix")
 endif()
 
 set(HIP_PATH ${CMAKE_INSTALL_PREFIX})
@@ -323,8 +323,8 @@ target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 # OpenCL headers from the system where the version might differ resulting in errors.
 target_include_directories(CHIP
   PUBLIC
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cuspv>"
+  "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>"
+  "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}/cuspv>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
@@ -505,7 +505,7 @@ install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
 
 # Copy over includes for hipcc to work in the build dir
 file(COPY ${CMAKE_SOURCE_DIR}/include DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${CMAKE_BINARY_DIR}/include)
+file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${INCLUDE_INSTALL_DIR})
 
 # Copy hipconfig, hipvars, etc to bin
 install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
