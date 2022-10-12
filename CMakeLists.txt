@@ -329,7 +329,7 @@ target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 if(HAS_EXPERIMENTAL_FILESYSTEM)
-  target_link_libraries(CHIP stdc++fs)
+  target_link_libraries(CHIP PUBLIC stdc++fs)
 endif()
 
 # Previously these were set to SYSTEM which resulted in CMake picking up
