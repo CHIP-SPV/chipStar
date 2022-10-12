@@ -187,10 +187,75 @@ bool TestStreamSemantics_3() {
     return testStatus;
 }
 
+/*
+ * Intent : Destroy a stream with pending task
+ * Expectation : Test should end gracefully, there should not be any hang or crash.
+ */
+bool TestStreamSemantics_4() {
+    printf("------------------------------------------------------------------\n");
+    int* stream_shared_data = nullptr;
+    stream_shared_data = (int*)malloc(sizeof(int));
+    *stream_shared_data = 1;
+
+    hipStream_t stream;
+    CHECK(hipStreamCreate(&stream));
+    CHECK(hipStreamAddCallback(stream, callback_sleep2, stream_shared_data, 0));
+    printf("Going to destroy a stream which has pending work\n");
+    CHECK(hipStreamDestroy(stream));
+
+    printf("Waiting for device to finish the task\n");
+    CHECK(hipDeviceSynchronize());
+
+    printf("%s (stream destroy): Passed\n", __FUNCTION__);
+
+    free(stream_shared_data);
+    return true;
+}
+
+/*
+ * Intent : Synchronize between two streams using event 
+ */
+bool TestStreamSemantics_5() {
+    printf("------------------------------------------------------------------\n");
+    int* stream_shared_data = nullptr;
+    stream_shared_data = (int*)malloc(sizeof(int));
+    *stream_shared_data = 1;
+
+    hipStream_t stream1, stream2;
+    hipEvent_t event;
+    CHECK(hipStreamCreate(&stream1));
+    CHECK(hipStreamCreate(&stream2));
+    CHECK(hipEventCreate(&event));
+
+    CHECK(hipStreamAddCallback(stream1, callback_sleep2, stream_shared_data, 0));
+    CHECK(hipEventRecord(event, stream1));
+
+    CHECK(hipStreamWaitEvent(stream2, event, 0));
+    CHECK(hipStreamSynchronize(stream2));
+
+    bool testStatus = true;
+    printf("%s (sync streams): ", __FUNCTION__);
+    if (*stream_shared_data != 2) {
+        testStatus = false;
+        printf("%s %s %s\n","\033[0;31m", "Failed", "\033[0m");
+    } else {
+        printf("Passed\n");
+    }
+    
+    CHECK(hipDeviceSynchronize());
+
+    CHECK(hipStreamDestroy(stream1));
+    CHECK(hipStreamDestroy(stream2));
+    free(stream_shared_data);
+    return testStatus;
+}
+
 int main() {
     TestStreamSemantics_1();
     TestStreamSemantics_2();
     TestStreamSemantics_3();
+    TestStreamSemantics_4();
+    TestStreamSemantics_5();
     return 0;
 }
 
