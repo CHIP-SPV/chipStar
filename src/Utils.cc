@@ -24,7 +24,6 @@
 
 #include "logging.hh"
 
-#include <filesystem>
 #include <fstream>
 #include <random>
 
@@ -92,7 +91,7 @@ std::optional<std::string> readFromFile(const fs::path Path) {
   return std::nullopt;
 }
 
-std::optional<std::filesystem::path> getHIPCCPath() {
+std::optional<fs::path> getHIPCCPath() {
   // TODO: Probably should detect if we are using a built or an
   //       installed CHIP library. Mixing the installed and the built
   //       resources could lead to obscure issues.
