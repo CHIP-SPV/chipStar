@@ -1256,7 +1256,10 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
 
   std::vector<cl::Platform> Platforms;
   cl_int Err = cl::Platform::get(&Platforms);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+  if (Err != CL_SUCCESS) {
+    logCritical("OpenCL failed to initialize any devices");
+    std::exit(1);
+  }
   std::stringstream StrStream;
   StrStream << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
   for (int i = 0; i < Platforms.size(); i++) {
