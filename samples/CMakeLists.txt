@@ -39,7 +39,7 @@ endif()
 
 # ARGN = test args
 function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
-
+    message(STATUS "CHIP-SPV Sample test: ${EXEC_NAME} ${SOURCE}")
     set(TEST_EXEC_ARGS ${ARGN})
     set_source_files_properties(${SOURCE} PROPERTIES LANGUAGE CXX)
 

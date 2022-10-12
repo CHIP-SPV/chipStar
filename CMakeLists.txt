@@ -34,12 +34,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(CHIP-SPV
-  VERSION 0.9
+  VERSION 1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(chip_spv_cmake_macros)
+enable_testing()
 
 ###############################################################################
 # CHIP-SPV CMAKE DEPENDENCIES
@@ -72,6 +73,16 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 set(PTHREAD_LIBRARY Threads::Threads)
 
+include(CheckIncludeFileCXX)
+check_include_file_cxx("filesystem" HAS_FILESYSTEM)
+if(NOT HAS_FILESYSTEM)
+  check_include_file_cxx("experimental/filesystem" HAS_EXPERIMENTAL_FILESYSTEM)
+endif()
+
+if(NOT HAS_FILESYSTEM AND NOT HAS_EXPERIMENTAL_FILESYSTEM)
+  message(FATAL_ERROR "<filesystem> was not found.")
+endif()
+
 # CHIP-SPV CMAKE DEPENDENCIES
 ###############################################################################
 
@@ -84,6 +95,7 @@ set(CHIP_SRC
   src/CHIPBackend.cc
   src/CHIPBindings.cc
   src/logging.cc
+  src/Utils.cc
 )
 
 if(OpenCL_LIBRARY)
@@ -140,6 +152,8 @@ option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emi
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
+option(BUILD_TESTS "Build Catch2 unit tests" ON)
+option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -232,7 +246,7 @@ if(LevelZero_LIBRARY)
 endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix" FORCE)
+  set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix")
 endif()
 
 set(HIP_PATH ${CMAKE_INSTALL_PREFIX})
@@ -246,17 +260,16 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-enable_testing()
-add_subdirectory(HIP/tests/catch catch)
 add_subdirectory(tests/cuda)
 add_subdirectory(./samples samples)
+set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(samples CHIP)
-add_dependencies(CHIP hipcc.bin)
+add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 add_subdirectory(bin)
 
@@ -275,6 +288,7 @@ add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--ou
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
 "Unit_hipDeviceGetCacheConfig_FuncTst$|\
+Unit_hipDeviceSynchronize_Functional$|\
 Unit_hipEventIpc$|\
 Unit_hipGetDeviceFlags_FuncTst$|\
 Unit_hipGraphAddDependencies_Functional$|\
@@ -283,7 +297,6 @@ Unit_hipGraphAddMemcpyNode_Functional$|\
 Unit_hipGraph_BasicFunctional$|\
 Unit_hipGraph_SimpleGraphWithKernel$|\
 Unit_hipHostMalloc_Coherent$|\
-Unit_hiprtc_saxpy$|\
 Unit_hipHostMalloc_NonCoherent$|\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
@@ -301,6 +314,7 @@ Unit_deviceFunctions_CompileTest___funnelshift|\
 Unit_funnelshift$|\
 Unit_syncthreads_and$|\
 Unit_syncthreads_count$|\
+fp16_math$|\
 Unit_syncthreads_or$"
 USES_TERMINAL VERBATIM)
 
@@ -319,14 +333,15 @@ target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 # OpenCL headers from the system where the version might differ resulting in errors.
 target_include_directories(CHIP
   PUBLIC
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cuspv>"
+  "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>"
+  "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}/cuspv>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_BINARY_DIR}"
 )
 # CHIP-SPV COMPILATION SETUP
 ###############################################################################
@@ -410,6 +425,18 @@ target_link_libraries(device INTERFACE CHIP)
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
 # HIP OFFLOAD FLAGS
+###############################################################################
+
+###############################################################################
+# PROJECT CONFIGURATION HEADER
+
+set(CHIP_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
+set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
+set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
+configure_file(Config.hh.in Config.hh @ONLY)
+
+# PROJECT CONFIGURATION HEADER
 ###############################################################################
 
 ###############################################################################
@@ -499,9 +526,13 @@ file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo" ${_hipInfo_build})
 install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
   DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
 
+# Copy over includes for hipcc to work in the build dir
+file(COPY ${CMAKE_SOURCE_DIR}/include DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${INCLUDE_INSTALL_DIR})
+
 # Copy hipconfig, hipvars, etc to bin
-install(FILES ${CMAKE_BINARY_DIR}/HIPCC/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
-install(FILES ${CMAKE_BINARY_DIR}/HIPCC/hipconfig.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipconfig PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
+install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
+install(FILES ${CMAKE_BINARY_DIR}/bin/hipconfig.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipconfig PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
 
 set(CHIP_CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(CHIP_CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
@@ -523,6 +554,11 @@ install(EXPORT CHIPTargets
 
 # CHIP-SPV INSTALLATION AND PACKAGING
 ###############################################################################
+#
+if(BUILD_TESTS)
+   add_subdirectory(HIP/tests/catch catch)
+   add_dependencies(build_tests CHIP samples)
+endif()
 
 if(BUILD_DOCS)
   find_package(Doxygen REQUIRED)

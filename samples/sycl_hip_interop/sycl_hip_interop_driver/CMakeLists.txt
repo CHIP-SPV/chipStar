@@ -31,7 +31,7 @@ target_compile_options(sycl_chip_interop_usm PRIVATE -fsycl -DUSM -Wno-deprecate
 install(TARGETS sycl_chip_interop_usm
     RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
-add_dependencies(build_tests_standalone sycl_chip_interop sycl_chip_interop_usm)
+add_dependencies(samples sycl_chip_interop sycl_chip_interop_usm)
 add_test(NAME "sycl_chip_interop_usm"
     COMMAND "${CMAKE_CURRENT_BINARY_DIR}/sycl_chip_interop_usm"
 )

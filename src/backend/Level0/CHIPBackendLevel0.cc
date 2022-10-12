@@ -493,7 +493,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   GpuReady->Msg = "GpuReady";
 
   std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
-  ChipQueue->enqueueBarrierImpl(&ChipEvs);
+  auto WaitForCpuComplete = ChipQueue->enqueueBarrierImpl(&ChipEvs);
+  ChipQueue->updateLastEvent(WaitForCpuComplete);
 
   GpuAck = ChipQueue->enqueueMarkerImpl();
   GpuAck->Msg = "GpuAck";
@@ -1361,8 +1362,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   ze_result_t Status;
   Status = zeInit(0);
   if (Status != ZE_RESULT_SUCCESS) {
-    logError("zeInit failed with code {}", Status);
-    std::abort();
+    logCritical("Level Zero failed to initialize any devices");
+    std::exit(1);
   }
 
   bool AnyDeviceType = false;

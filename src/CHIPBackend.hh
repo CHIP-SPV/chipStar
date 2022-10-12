@@ -689,6 +689,42 @@ public:
   virtual void hostSignal() = 0;
 };
 
+class CHIPProgram {
+  std::string ProgramName_;   ///< Program name.
+  std::string ProgramSource_; ///< Program source code.
+
+  /// Include headers.
+  std::map<std::string, std::string> Headers_;
+
+  std::string ProgramLog_; ///< Captured compilation log.
+  std::string Code_;       ///< Compiled program.
+
+public:
+  CHIPProgram() = delete;
+  CHIPProgram(const std::string &ProgramName) : ProgramName_(ProgramName) {}
+
+  void setSource(const char *Source) {
+    if (Source)
+      ProgramSource_.assign(Source);
+  }
+
+  void addHeader(std::string_view IncludeName, std::string_view Contents) {
+    assert(!IncludeName.empty() && "Nameless include header!");
+    Headers_[std::string(IncludeName)].assign(Contents);
+  }
+
+  void appendToLog(const std::string &Log) { ProgramLog_.append(Log); }
+
+  void addCode(std::string_view Code) { Code_.append(Code); }
+
+  const std::map<std::string, std::string> &getHeaders() const {
+    return Headers_;
+  }
+  const std::string &getSource() const { return ProgramSource_; }
+  const std::string &getProgramLog() const { return ProgramLog_; }
+  const std::string &getCode() const { return Code_; }
+};
+
 /**
  * @brief Module abstraction. Contains global variables and kernels. Can be
  * extracted from FatBinary or loaded at runtime.
@@ -718,8 +754,8 @@ protected:
   std::vector<CHIPDeviceVar *> ChipVars_;
   // Kernels
   std::vector<CHIPKernel *> ChipKernels_;
-  /// Binary representation extracted from FatBinary
-  std::string Src_;
+  /// Binary representation extracted from FatBinary.
+  std::string *Src_;
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
 
@@ -747,12 +783,6 @@ public:
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
   CHIPModule(std::string *ModuleStr);
-  /**
-   * @brief Construct a new CHIPModule object using move semantics
-   *
-   * @param module_str string from which to move resources
-   */
-  CHIPModule(std::string &&ModuleStr);
 
   /**
    * @brief Add a CHIPKernel to this module.
@@ -806,7 +836,7 @@ public:
    * @param name name of the corresponding host function
    * @return CHIPKernel*
    */
-  CHIPKernel *getKernel(std::string Name);
+  CHIPKernel *getKernelByName(const std::string &Name);
 
   /**
    * @brief Checks if the module has a kernel with the given name.
@@ -853,6 +883,8 @@ public:
   void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 
   OCLFuncInfo *findFunctionInfo(const std::string &FName);
+
+  const std::string *getModuleSource() const { return Src_; }
 };
 
 /**
@@ -1368,6 +1400,7 @@ public:
 
   virtual CHIPModule *addModule(std::string *ModuleStr) = 0;
   void addModule(const std::string *ModuleStr, CHIPModule *Module);
+  void eraseModule(CHIPModule *Module);
 
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
@@ -2095,36 +2128,9 @@ public:
    * @param args
    * @param sharedMemBytes
    */
-  void launchHostFunc(const void *HostFunction, dim3 NumBlocks, dim3 DimBlocks,
-                      void **Args, size_t SharedMemBytes);
+  void launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks, dim3 DimBlocks,
+                    void **Args, size_t SharedMemBytes);
 
-  /**
-   * @brief
-   *
-   * @param grid
-   * @param block
-   * @param sharedMemBytes
-   * @param args
-   * @param kernel
-   * @return hipError_t
-   */
-  virtual void launchWithKernelParams(dim3 Grid, dim3 Block,
-                                      unsigned int SharedMemBytes, void **Args,
-                                      CHIPKernel *Kernel);
-
-  /**
-   * @brief
-   *
-   * @param grid
-   * @param block
-   * @param sharedMemBytes
-   * @param extra
-   * @param kernel
-   * @return hipError_t
-   */
-  virtual void launchWithExtraParams(dim3 Grid, dim3 Block,
-                                     unsigned int SharedMemBytes, void **Extra,
-                                     CHIPKernel *Kernel);
   /**
    * @brief returns Native backend handles for a stream
    *
