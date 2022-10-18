@@ -1303,6 +1303,9 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   if(Stream == hipStreamPerThread) 
     CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue", hipErrorTbd);
 
+  if(Stream == hipStreamLegacy) 
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default legacy queue", hipErrorTbd);
+
   Stream = Backend->findQueue(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
