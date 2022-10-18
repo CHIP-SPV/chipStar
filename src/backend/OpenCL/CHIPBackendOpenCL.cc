@@ -932,7 +932,10 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
   }
 }
 
-CHIPQueueOpenCL::~CHIPQueueOpenCL() {}
+CHIPQueueOpenCL::~CHIPQueueOpenCL() {
+  logTrace("{} ~CHIPQueueOpenCL()", (void*)this);
+  finish();
+};
 
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
@@ -960,6 +963,7 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
 }
 
 void CHIPQueueOpenCL::finish() {
+  logTrace("{} CHIPQueueOpenCL::finish()", (void*)this);
   auto Status = ClQueue_->finish();
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }

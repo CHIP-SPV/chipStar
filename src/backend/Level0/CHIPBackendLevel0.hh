@@ -186,7 +186,10 @@ public:
                   LevelZeroQueueType TheQueueType);
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
-  virtual ~CHIPQueueLevel0() { logTrace("CHIPQueueLevel0 DEST"); }
+  ~CHIPQueueLevel0() {
+    logTrace("{} ~CHIPQueueLevel0()", (void *)this);
+    finish();
+  }
 
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;

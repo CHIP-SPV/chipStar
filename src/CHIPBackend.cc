@@ -446,10 +446,12 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {
-    logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
-    PerThreadDefaultQueue =                                   // thread local
-        std::unique_ptr<CHIPQueue>(createQueueAndRegister()); // locks inside
-    PerThreadStreamUsed = true;                               // thread local
+    auto NewQueue = createQueueAndRegister(); // locks inside
+    PerThreadDefaultQueue =                   // thread local
+        std::unique_ptr<CHIPQueue>(NewQueue);
+    PerThreadStreamUsed = true; // thread local
+    logDebug("PerThreadDefaultQueue was null for TID {} Created a new queue {}",
+             pthread_self(), (void *)(NewQueue));
   }
 
   return PerThreadDefaultQueue.get();
@@ -830,7 +832,7 @@ void CHIPEvent::trackImpl() { Backend->Events.push_back(this); }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
                                               int Priority) {
-
+  logDebug("CHIPDevice::createQueueAndRegister()"); // TODO add argument info
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);          // lock on BackendMtx inside
@@ -874,6 +876,7 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
+  logDebug("CHIPDevice::removeQueue({})", (void *)ChipQueue);
   std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   // If this stream has a LastEvent, it will release it, decrement its refcount
   // and let the StaleEventMonitor to collect it
@@ -1455,8 +1458,8 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
-  logDebug("~CHIPQueue()");
-  updateLastEvent(nullptr);
+  logTrace("~CHIPQueue({})", (void *)this);
+  ChipDevice_->removeQueue(this); // locks BackendMtx
 };
 
 ///////// Enqueue Operations //////////

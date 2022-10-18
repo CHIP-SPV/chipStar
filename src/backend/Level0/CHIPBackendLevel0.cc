@@ -1201,6 +1201,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 }
 
 void CHIPQueueLevel0::finish() {
+  logTrace("{} CHIPQueueLevel0::finish()", (void*)this);
   // The finish Event_ that denotes the finish of current command list items
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
