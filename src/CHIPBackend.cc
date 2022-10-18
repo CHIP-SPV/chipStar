@@ -884,6 +884,13 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   // and let the StaleEventMonitor to collect it
   ChipQueue->updateLastEvent(nullptr);
 
+  // If attempting to remove the default queue (during uninitialize), don't
+  // check the queue vectors
+  if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
+    logDebug("Removing the default legacy queue");
+    return true;
+  }
+
   // Remove from the Backend Per-Thread Queue List, if there
   auto FoundQueue = std::find(Backend->getPerThreadQueues().begin(),
                               Backend->getPerThreadQueues().end(), ChipQueue);
@@ -901,9 +908,11 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
         "device queue list";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+    // CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+    logWarn("{}", Msg);
+  } else {
+    ChipQueues_.erase(FoundQueue);
   }
-  ChipQueues_.erase(FoundQueue);
 
   // Remove from the Backend Queue List
   FoundQueue = std::find(Backend->getQueues().begin(),
@@ -912,7 +921,10 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     std::string Msg = "Tried to remove a queue for a the backend but the queue "
                       "was not found in "
                       "backend queue list";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+    // CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+    logWarn("{}", Msg);
+  } else {
+    Backend->getQueues().erase(FoundQueue);
   }
 
   return true;
