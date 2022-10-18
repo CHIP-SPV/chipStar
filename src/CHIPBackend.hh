@@ -1638,6 +1638,7 @@ public:
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
   std::vector<CHIPQueue *> ChipQueues;
+  std::vector<CHIPQueue *> PerThreadQueues;
   std::vector<CHIPDevice *> ChipDevices;
 
   /**
@@ -1732,6 +1733,7 @@ public:
    */
   std::vector<CHIPQueue *> &getQueues();
 
+  std::vector<CHIPQueue *> &getPerThreadQueues();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
@@ -1779,6 +1781,8 @@ public:
    * @param q_in
    */
   void addQueue(CHIPQueue *ChipQueue);
+
+  void addPerThreadQueue(CHIPQueue *ChipQueue);
   /**
    * @brief  Add a device to this backend.
    *

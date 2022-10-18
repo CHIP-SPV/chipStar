@@ -446,8 +446,9 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {
-    auto NewQueue = createQueueAndRegister(); // locks inside
-    PerThreadDefaultQueue =                   // thread local
+    auto NewQueue = Backend->createCHIPQueue(this); // locks inside
+    Backend->addPerThreadQueue(NewQueue);
+    PerThreadDefaultQueue = // thread local
         std::unique_ptr<CHIPQueue>(NewQueue);
     PerThreadStreamUsed = true; // thread local
     logDebug("PerThreadDefaultQueue was null for TID {} Created a new queue {}",
@@ -802,6 +803,7 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
+  logDebug("{} CHIPDevice::addQueue({})", (void *)this, (void *)ChipQueue);
   std::lock_guard<std::mutex> LockDevice(Backend->BackendMtx);
 
   auto QueueFound =
@@ -882,9 +884,19 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   // and let the StaleEventMonitor to collect it
   ChipQueue->updateLastEvent(nullptr);
 
+  // Remove from the Backend Per-Thread Queue List, if there
+  auto FoundQueue = std::find(Backend->getPerThreadQueues().begin(),
+                              Backend->getPerThreadQueues().end(), ChipQueue);
+  if (FoundQueue != Backend->getPerThreadQueues().end()) {
+    logDebug("CHIPDevice::removeQueue({}) was found in per-thread queue list. "
+             "Removing..",
+             (void *)ChipQueue);
+    Backend->getPerThreadQueues().erase(FoundQueue);
+    return true;
+  }
+
   // Remove from device queue list
-  auto FoundQueue =
-      std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
+  FoundQueue = std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
@@ -903,7 +915,6 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
 
-  Backend->getQueues().erase(FoundQueue);
   return true;
 }
 
@@ -1199,6 +1210,10 @@ void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
 }
 std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return ChipQueues; }
 
+std::vector<CHIPQueue *> &CHIPBackend::getPerThreadQueues() {
+  return PerThreadQueues;
+}
+
 CHIPContext *CHIPBackend::getActiveContext() {
   std::lock_guard<std::mutex> LockSetActive(Backend->SetActiveMtx);
   if (ActiveCtx_ == nullptr) {
@@ -1230,7 +1245,28 @@ std::vector<std::string *> &CHIPBackend::getModulesStr() { return ModulesStr_; }
 void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
+
+void CHIPBackend::addPerThreadQueue(CHIPQueue *ChipQueue) {
+  logDebug("CHIPBackend::addPerThreadQueue({})", (void *)ChipQueue);
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+  auto QueueFound =
+      std::find(PerThreadQueues.begin(), PerThreadQueues.end(), ChipQueue);
+  if (QueueFound == PerThreadQueues.end()) {
+    PerThreadQueues.push_back(ChipQueue);
+  } else {
+    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
+                          "already present in the backend queue list",
+                          hipErrorTbd);
+  }
+
+  logDebug("CHIPQueue {} added to the per-thread queue vector for backend {} ",
+           (void *)ChipQueue, (void *)this);
+
+  return;
+}
+
 void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
+  logDebug("CHIPBackend::addQueue({})", (void *)ChipQueue);
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
   auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
   if (QueueFound == ChipQueues.end()) {
@@ -1439,6 +1475,8 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   // Safety Check to make sure that the requested queue is registereted
   std::vector<CHIPQueue *> AllQueues = Backend->getActiveDevice()->getQueues();
   AllQueues.push_back(Backend->getActiveDevice()->getLegacyDefaultQueue());
+  for (auto Q : Backend->getPerThreadQueues())
+    AllQueues.push_back(Q);
 
   auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
   if (QueueFound == AllQueues.end())
@@ -1458,7 +1496,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
-  logTrace("~CHIPQueue({})", (void *)this);
+  logTrace("{} ~CHIPQueue()", (void *)this);
   ChipDevice_->removeQueue(this); // locks BackendMtx
 };
 
