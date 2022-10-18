@@ -21,7 +21,7 @@
  */
 
 #include "CHIPBackend.hh"
-
+#include <sstream>
 #include <utility>
 
 /// Queue a kernel for retrieving information about the device variable.
@@ -971,63 +971,65 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
-  auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-  // The per-thread default stream is an implicit stream local to both the
-  // thread and the CUcontext, and which does not synchronize with other streams
-  // (just like explcitly created streams). The per-thread default stream is not
-  // a non-blocking stream and will synchronize with the legacy default stream
-  // if both are used in a program.
-
-  // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
-  // default stream thus no syncronization necessary
-  if (TargetQueue == DefaultQueue)
-    return;
-#endif
-  std::lock_guard<std::mutex> LockContext(ContextMtx);
-  std::vector<CHIPQueue *> QueuesToSyncWith;
-
-  // The per-thread default stream is not a non-blocking stream and will
-  // synchronize with the legacy default stream if both are used in a program
-  if (Backend->getActiveDevice()->PerThreadStreamUsed) {
-    if (TargetQueue == Backend->getActiveDevice()->getPerThreadDefaultQueue())
-      QueuesToSyncWith.push_back(DefaultQueue);
-    else if (TargetQueue == Backend->getActiveDevice()->getLegacyDefaultQueue())
-      QueuesToSyncWith.push_back(
-          Backend->getActiveDevice()->getPerThreadDefaultQueue());
-  }
-
-  {
-    std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
-    // Always sycn with all blocking queues
-    for (auto &Queue : Backend->getQueues())
-      if (Queue->getQueueFlags().isBlocking())
-        QueuesToSyncWith.push_back(Queue);
-  }
-
-  // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
+  auto Dev = Backend->getActiveDevice();
+  auto LegacyDefaultQ = Dev->getLegacyDefaultQueue();
+  auto LegacyDefaultQLastEvent = LegacyDefaultQ->getLastEvent();
 
-  CHIPEvent *SyncQueuesEvent;
-  if (TargetQueue == DefaultQueue) {
-    for (auto &q : QueuesToSyncWith) {
-      auto Ev = q->getLastEvent();
-      if (Ev)
-        EventsToWaitOn.push_back(Ev);
-    }
-    std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
-    SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
-    SyncQueuesEvent->Msg = "barrierSyncQueue";
-    TargetQueue->updateLastEvent(SyncQueuesEvent);
-  } else { // blocking stream must wait until default stream is done
-    auto Ev = DefaultQueue->getLastEvent();
-    if (Ev)
-      EventsToWaitOn.push_back(Ev);
-    std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
-    SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
-    SyncQueuesEvent->Msg = "barrierSyncQueue";
-    TargetQueue->updateLastEvent(SyncQueuesEvent);
+  // If the target queue is non-blocking, return;
+  if (TargetQueue->getQueueFlags().isNonBlocking()) {
+    logDebug(
+        "CHIPContext::syncQueues() target queue {} is non-blocking. Returing..",
+        (void *)TargetQueue);
+    return;
   }
+
+  // default legacy queue must wait for blocking queues (including per-thread)
+  else if (TargetQueue == LegacyDefaultQ) {
+    std::stringstream DebugMsg;
+    for (auto &Queue : Backend->getQueues()) {
+      if (Queue->getQueueFlags().isBlocking() && Queue->getLastEvent()) {
+        EventsToWaitOn.push_back(Queue->getLastEvent());
+        DebugMsg << (void *)Queue->getLastEvent() << " "
+                 << Queue->getLastEvent()->Msg << "\n";
+      }
+    }
+    for (auto &Queue : Backend->getPerThreadQueues()) {
+      if (Queue->getQueueFlags().isBlocking() && Queue->getLastEvent()) {
+        EventsToWaitOn.push_back(Queue->getLastEvent());
+        DebugMsg << (void *)Queue->getLastEvent() << "(per-thread) "
+                 << Queue->getLastEvent()->Msg << "\n";
+      }
+    }
+    logDebug("CHIPContext::syncQueues() target queue {} default legacy stream. "
+             "Enqueueing dependencies on:\n{}",
+             (void *)LegacyDefaultQ, DebugMsg.str());
+  }
+
+  // Blocking queues must wait for default legacy queue
+  else if (TargetQueue->getQueueFlags().isBlocking()) {
+    if (LegacyDefaultQLastEvent) {
+      logDebug(
+          "CHIPContext::syncQueues() target queue {} is blocking. Enqueueing "
+          "dependency on default lagacy queue{}'s LastEvent {} {}",
+          (void *)TargetQueue, (void *)LegacyDefaultQ,
+          (void *)LegacyDefaultQLastEvent, LegacyDefaultQLastEvent->Msg);
+      EventsToWaitOn.push_back(LegacyDefaultQLastEvent);
+    } else {
+      logDebug("CHIPContext::syncQueues() target queue {} is blocking. Default "
+               "legacy queue's {} LastEvent is null.Returing..",
+               (void *)TargetQueue, (void *)LegacyDefaultQ);
+      return;
+    }
+  } else {
+    CHIPERR_LOG_AND_THROW("CHIPContext::syncQueues() unrecognized target queue",
+                          hipErrorTbd);
+  }
+
+  std::lock_guard<std::mutex> LockQueue(TargetQueue->QueueMtx);
+  auto SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
+  SyncQueuesEvent->Msg = "barrierSyncQueue";
+  TargetQueue->updateLastEvent(SyncQueuesEvent);
   SyncQueuesEvent->track();
 }
 
