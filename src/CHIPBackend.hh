@@ -55,6 +55,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+#define DEFAULT_QUEUE_PRIORITY 1
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -1173,7 +1175,8 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags, int Priority);
+  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
+                                    int Priority = DEFAULT_QUEUE_PRIORITY);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
@@ -2082,7 +2085,7 @@ public:
     if (!LastEvent_)
       return true;
 
-    if(LastEvent_->updateFinishStatus(false))
+    if (LastEvent_->updateFinishStatus(false))
       LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;

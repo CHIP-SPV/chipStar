@@ -447,9 +447,9 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
-    PerThreadDefaultQueue =
-        std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
-    PerThreadStreamUsed = true;
+    PerThreadDefaultQueue =                                   // thread local
+        std::unique_ptr<CHIPQueue>(createQueueAndRegister()); // locks inside
+    PerThreadStreamUsed = true;                               // thread local
   }
 
   return PerThreadDefaultQueue.get();
@@ -480,7 +480,7 @@ void CHIPDevice::init() {
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
 
   CHIPQueueFlags Flags;
-  int Priority = 1; // TODO : set a default
+  int Priority = DEFAULT_QUEUE_PRIORITY; // TODO : set a default
   auto ChipQueue = createQueue(Flags, Priority);
   LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 }
@@ -833,8 +833,8 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
 
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
-  addQueue(ChipQueue);
-  Backend->addQueue(ChipQueue);
+  addQueue(ChipQueue);          // lock on BackendMtx inside
+  Backend->addQueue(ChipQueue); // lock on BackendMtx inside
   return ChipQueue;
 }
 
@@ -1425,8 +1425,6 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
-
   if (ChipQueue == hipStreamPerThread) {
     return Backend->getActiveDevice()->getPerThreadDefaultQueue();
   } else if (ChipQueue == hipStreamLegacy) {
@@ -1438,9 +1436,6 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   // Safety Check to make sure that the requested queue is registereted
   std::vector<CHIPQueue *> AllQueues = Backend->getActiveDevice()->getQueues();
   AllQueues.push_back(Backend->getActiveDevice()->getLegacyDefaultQueue());
-
-  if (Backend->getActiveDevice()->PerThreadStreamUsed)
-    AllQueues.push_back(Backend->getActiveDevice()->getPerThreadDefaultQueue());
 
   auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
   if (QueueFound == AllQueues.end())
