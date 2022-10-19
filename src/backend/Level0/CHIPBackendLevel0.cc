@@ -601,8 +601,9 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     std::lock_guard<std::mutex> AllEventsLock(Backend->EventsMtx);
     std::lock_guard<std::mutex> AllCommandListsLock(
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
-    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
-             Backend->Events.size(), LzBackend->EventCommandListMap.size());
+    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues
+    // {}",
+    //          Backend->Events.size(), LzBackend->EventCommandListMap.size());
 
     auto EventCommandListMap =
         &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
