@@ -42,6 +42,7 @@ std::once_flag Initialized;
 std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
 bool UsingDefaultBackend;
+std::mutex InitMtx;
 CHIPBackend *Backend;
 std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 
@@ -144,6 +145,7 @@ void CHIPInitializeCallOnce() {
 }
 
 extern void CHIPInitialize() {
+  std::lock_guard<std::mutex> LockInit(InitMtx);
   std::call_once(Initialized, &CHIPInitializeCallOnce);
 }
 
@@ -153,6 +155,7 @@ void CHIPUninitializeCallOnce() {
 }
 
 extern void CHIPUninitialize() {
+  std::lock_guard<std::mutex> LockInit(InitMtx);
   std::call_once(Uninitialized, &CHIPUninitializeCallOnce);
 }
 

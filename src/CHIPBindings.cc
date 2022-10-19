@@ -730,7 +730,7 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
-
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   auto *ExecItem = Backend->ChipExecStack.top();
   *GridDim = ExecItem->getGrid();
   *BlockDim = ExecItem->getBlock();
@@ -783,12 +783,19 @@ hipError_t hipDeviceSynchronize(void) {
   CHIPInitialize();
 
   for (auto Q : Backend->getActiveDevice()->getQueues()) {
+    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
     Q->finish();
   }
 
-  Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->PerThreadStreamUsed)
-    Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+  {
+    std::lock_guard<std::mutex> LockQueue(Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
+    Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
+  }
+
+  for (auto Q : Backend->getPerThreadQueues()) {
+    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+    Q->finish();
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH

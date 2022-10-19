@@ -983,6 +983,14 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
+  std::vector<CHIPQueue*> Queues, PerThreadQueues;
+  {
+    std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
+    Queues = Backend->getQueues();
+    PerThreadQueues = Backend->getPerThreadQueues();
+
+  }
+  std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPEvent *> EventsToWaitOn;
   auto Dev = Backend->getActiveDevice();
   auto LegacyDefaultQ = Dev->getLegacyDefaultQueue();
@@ -999,14 +1007,14 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   // default legacy queue must wait for blocking queues (including per-thread)
   else if (TargetQueue == LegacyDefaultQ) {
     std::stringstream DebugMsg;
-    for (auto &Queue : Backend->getQueues()) {
+    for (auto &Queue : Queues) {
       if (Queue->getQueueFlags().isBlocking() && Queue->getLastEvent()) {
         EventsToWaitOn.push_back(Queue->getLastEvent());
         DebugMsg << (void *)Queue->getLastEvent() << " "
                  << Queue->getLastEvent()->Msg << "\n";
       }
     }
-    for (auto &Queue : Backend->getPerThreadQueues()) {
+    for (auto &Queue : PerThreadQueues) {
       if (Queue->getQueueFlags().isBlocking() && Queue->getLastEvent()) {
         EventsToWaitOn.push_back(Queue->getLastEvent());
         DebugMsg << (void *)Queue->getLastEvent() << "(per-thread) "
