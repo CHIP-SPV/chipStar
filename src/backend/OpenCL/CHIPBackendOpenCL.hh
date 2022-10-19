@@ -266,6 +266,7 @@ public:
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
                                     int NumHandles) override;
 
+  virtual void uninitialize() override;
   virtual std::string getDefaultJitFlags() override;
 
   virtual int ReqNumHandles() override { return 4; }
