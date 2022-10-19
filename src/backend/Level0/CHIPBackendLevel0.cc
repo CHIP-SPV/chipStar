@@ -1202,7 +1202,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 }
 
 void CHIPQueueLevel0::finish() {
-  logTrace("{} CHIPQueueLevel0::finish()", (void*)this);
+  logTrace("{} CHIPQueueLevel0::finish()", (void *)this);
   // The finish Event_ that denotes the finish of current command list items
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
@@ -1340,11 +1340,33 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 
 void CHIPBackendLevel0::uninitialize() {
 
-  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+  logTrace("CHIPBackendLevel0::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
-  for (auto Q : Backend->getQueues()) {
-    std::lock_guard Lock(Q->QueueMtx);
-    Q->updateLastEvent(nullptr);
+  // TODO I need to check that there are no more per-thread default queues
+  // because it could be the case that they are still doing work
+  while (true) {
+    {
+      std::lock_guard<std::mutex> LockBackend(BackendMtx);
+      auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
+      if (!NumPerThreadQueuesActive)
+        break;
+      logTrace(
+          "CHIPBackendLevel0::uninitialize() per-thread queues still active "
+          "{}. Sleeping for 1s..",
+          NumPerThreadQueuesActive);
+    }
+    sleep(1);
+  }
+
+  {
+    std::lock_guard<std::mutex> LockBackend(BackendMtx);
+    for (auto Q : Backend->getQueues()) {
+//      TODO finish?
+//      if (!Q) // TODO
+//        continue;
+      std::lock_guard Lock(Q->QueueMtx);
+      Q->updateLastEvent(nullptr);
+    }
   }
 
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
