@@ -828,7 +828,6 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
       ComputeQueueGroupOrdinal_ = i;
       ComputeQueueProperties_ = CmdqueueGroupProperties[i];
       logTrace("Found compute command group");
-      // TODO fix-207 print queue properties
       continue;
     }
 
