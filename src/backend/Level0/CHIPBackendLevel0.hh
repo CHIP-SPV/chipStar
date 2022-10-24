@@ -170,7 +170,9 @@ protected:
 
 public:
   ze_command_list_handle_t getCmdList();
-  size_t getMaxMemoryFillPatternSize() { return QueueProperties_.maxMemoryFillPatternSize; }
+  size_t getMaxMemoryFillPatternSize() {
+    return QueueProperties_.maxMemoryFillPatternSize;
+  }
   LevelZeroQueueType QueueType = LevelZeroQueueType::Unknown;
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags);
