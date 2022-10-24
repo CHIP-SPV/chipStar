@@ -695,7 +695,10 @@ CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
 }
 
 ze_command_list_handle_t CHIPDeviceLevel0::getCmdListCopy() {
-  // TODO fix-207 check if copy queue is available
+  if(!CopyQueueAvailable) {
+    logWarn("Copy queue not available. Returning Compute queue instead.");
+    return getCmdListCompute();
+  }
 #ifdef L0_IMM_QUEUES
   return ZeCmdListCopyImm_;
 #else
@@ -790,6 +793,7 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
       ComputeQueueGroupOrdinal_ = i;
       ComputeQueueProperties_ = CmdqueueGroupProperties[i];
       logTrace("Found compute command group");
+      // TODO fix-207 print queue properties
       continue;
     }
 
