@@ -708,31 +708,34 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
-    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY, LevelZeroQueueType::Compute) {}
+    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY,
+                      LevelZeroQueueType::Compute) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  CHIPQueueFlags Flags)
-    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY, LevelZeroQueueType::Compute) {}
+    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY,
+                      LevelZeroQueueType::Compute) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  CHIPQueueFlags Flags, int Priority)
     : CHIPQueueLevel0(ChipDev, Flags, Priority, LevelZeroQueueType::Compute) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 CHIPQueueFlags Flags, int Priority, LevelZeroQueueType TheType)
+                                 CHIPQueueFlags Flags, int Priority,
+                                 LevelZeroQueueType TheType)
     : CHIPQueue(ChipDev, Flags, Priority) {
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();
   auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
 
-if(TheType == Compute) {
+  if (TheType == Compute) {
     QueueProperties_ = ChipDev->getComputeQueueProps();
-    QueueDescriptor_ = ChipDev->getNextComputeQueueDesc();
+    QueueDescriptor_ = ChipDev->getNextComputeQueueDesc(Priority);
     CommandListDesc_ = ChipDev->getCommandListComputeDesc();
   } else if (TheType == Copy) {
     QueueProperties_ = ChipDev->getCopyQueueProps();
-    QueueDescriptor_ = ChipDev->getNextCopyQueueDesc();
+    QueueDescriptor_ = ChipDev->getNextCopyQueueDesc(Priority);
     CommandListDesc_ = ChipDev->getCommandListCopyDesc();
 
   } else {
@@ -750,21 +753,6 @@ if(TheType == Compute) {
   ZeDev_ = ChipDevLz->get();
 
   logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
-
-  switch (Priority_) {
-  case 0:
-    QueueDescriptor_.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
-    break;
-  case 1:
-    QueueDescriptor_.priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
-    break;
-  case 2:
-    QueueDescriptor_.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW;
-    break;
-  default:
-    CHIPERR_LOG_AND_THROW(
-        "Invalid Priority range requested during L0 Queue init", hipErrorTbd);
-  }
 
   std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
@@ -798,24 +786,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
-  CHIPDeviceLevel0* ChipDevLz = (CHIPDeviceLevel0*)getDevice();
+  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)getDevice();
   ze_command_queue_desc_t CmdQueueDesc;
-  
-  assert(QueueType != Unknown);
-  if (QueueType == Compute) {
-    logTrace("Creating an immediate compute list");
-    CmdQueueDesc = ChipDevLz->getNextComputeQueueDesc();
-  } else if (QueueType == Copy) {
-    logTrace("Creating an immediate copy list");
-    CmdQueueDesc = ChipDevLz->getNextCopyQueueDesc();
-  }
 
+  assert(QueueType != Unknown);
   std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
-  auto Status = zeCommandListCreateImmediate(
-      ZeCtx_, ZeDev_, &CmdQueueDesc, &ZeCmdList_);
+  auto Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
+                                             &ZeCmdList_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
-
 }
 
 void CHIPDeviceLevel0::initializeQueueGroupProperties() {
@@ -886,17 +865,39 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
     };
   }
 }
+ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
+  ze_command_queue_desc_t QueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+                                       nullptr, // pNext
+                                       0,       // ordinal
+                                       0,       // index
+                                       0,       // flags
+                                       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+                                       ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
-ze_command_queue_desc_t CHIPDeviceLevel0::getNextComputeQueueDesc() {
+  switch (Priority) {
+  case 0:
+    QueueDesc.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
+    break;
+  case 1:
+    QueueDesc.priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
+    break;
+  case 2:
+    QueueDesc.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW;
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW(
+        "Invalid Priority range requested during L0 Queue init", hipErrorTbd);
+  }
+
+  return QueueDesc;
+}
+
+ze_command_queue_desc_t
+CHIPDeviceLevel0::getNextComputeQueueDesc(int Priority) {
+
   assert(ComputeQueueGroupOrdinal_ > -1);
-  ze_command_queue_desc_t CommandQueueComputeDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr, // pNext
-      (unsigned int)ComputeQueueGroupOrdinal_,
-      NextComputeQueueIndex_, // index
-      0,                      // flags
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO fix-207: use priority
+  ze_command_queue_desc_t CommandQueueComputeDesc = getQueueDesc_(Priority);
+  CommandQueueComputeDesc.ordinal = ComputeQueueGroupOrdinal_;
 
   auto MaxQueues = ComputeQueueProperties_.numQueues;
   NextComputeQueueIndex_ = (NextComputeQueueIndex_ + 1) % MaxQueues;
@@ -904,24 +905,16 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextComputeQueueDesc() {
   return CommandQueueComputeDesc;
 }
 
-ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc() {
+ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
   assert(CopyQueueGroupOrdinal_ > -1);
-  ze_command_queue_desc_t CommandQueueCopyDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr, // pNext
-      (unsigned int)CopyQueueGroupOrdinal_,
-      NextCopyQueueIndex_, // index
-      0,                   // flags
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO fix-207: use priority
+  ze_command_queue_desc_t CommandQueueCopyDesc = getQueueDesc_(Priority);
+  CommandQueueCopyDesc.ordinal = CopyQueueGroupOrdinal_;
 
   auto MaxQueues = CopyQueueProperties_.numQueues;
   NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
 
   return CommandQueueCopyDesc;
 }
-
-
 
 CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
@@ -989,7 +982,8 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
   // else {
   //   logCritical("PatternSize: {} Max: {}", PatternSize,
   //               MaxMemoryFillPatternSize_);
-  //   CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this queue",
+  //   CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this
+  //   queue",
   //                         hipErrorTbd);
   // }
 

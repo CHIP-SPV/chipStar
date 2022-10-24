@@ -400,18 +400,26 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   CHIPDeviceLevel0(ze_device_handle_t ZeDev, CHIPContextLevel0 *ChipCtx,
                    int Idx);
 
+  ze_command_queue_desc_t getQueueDesc_(int Priority);
+
 public:
   bool copyQueueIsAvailable() { return CopyQueueAvailable_; }
-  ze_command_list_desc_t getCommandListComputeDesc() { return CommandListComputeDesc_; }
-  ze_command_list_desc_t getCommandListCopyDesc() { return CommandListCopyDesc_; }
+  ze_command_list_desc_t getCommandListComputeDesc() {
+    return CommandListComputeDesc_;
+  }
+  ze_command_list_desc_t getCommandListCopyDesc() {
+    return CommandListCopyDesc_;
+  }
   ze_command_queue_group_properties_t getComputeQueueProps() {
     return ComputeQueueProperties_;
   }
   ze_command_queue_group_properties_t getCopyQueueProps() {
     return CopyQueueProperties_;
   }
-  ze_command_queue_desc_t getNextComputeQueueDesc();
-  ze_command_queue_desc_t getNextCopyQueueDesc();
+  ze_command_queue_desc_t
+  getNextComputeQueueDesc(int Priority = L0_DEFAULT_QUEUE_PRIORITY);
+  ze_command_queue_desc_t
+  getNextCopyQueueDesc(int Priority = L0_DEFAULT_QUEUE_PRIORITY);
 
   static CHIPDeviceLevel0 *create(ze_device_handle_t ZeDev,
                                   CHIPContextLevel0 *ChipCtx, int Idx);
