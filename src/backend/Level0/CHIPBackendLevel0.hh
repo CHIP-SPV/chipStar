@@ -382,6 +382,7 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   // Queues need ot be created on separate queue group indices in order to be
   // independent from one another. Use this variable to do round-robin
   // distribution across queues every time you create a queue.
+  std::mutex NextQueueIndexMtx_;
   unsigned int NextCopyQueueIndex_ = 0;
   unsigned int NextComputeQueueIndex_ = 0;
 
