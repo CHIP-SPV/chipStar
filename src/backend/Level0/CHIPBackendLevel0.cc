@@ -833,10 +833,10 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextComputeQueueDesc() {
       NextComputeQueueIndex_, // index
       0,                      // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO: use priority
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO fix-207: use priority
 
   auto MaxQueues = ComputeQueueProperties_.numQueues;
-  NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+  NextComputeQueueIndex_ = (NextComputeQueueIndex_ + 1) % MaxQueues;
 
   return CommandQueueComputeDesc;
 }
@@ -847,10 +847,10 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc() {
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
       nullptr, // pNext
       (unsigned int)CopyQueueGroupOrdinal_,
-      NextComputeQueueIndex_, // index
-      0,                      // flags
+      NextCopyQueueIndex_, // index
+      0,                   // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO: use priority
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO fix-207: use priority
 
   auto MaxQueues = CopyQueueProperties_.numQueues;
   NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
