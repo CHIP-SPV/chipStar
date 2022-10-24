@@ -382,7 +382,12 @@ class CHIPDeviceLevel0 : public CHIPDevice {
                    int Idx);
 
 public:
-  size_t MaxMemoryFillPatternSize = 0;
+  ze_command_queue_group_properties_t getComputeQueueProps() {
+    return ComputeQueueProperties_;
+  }
+  ze_command_queue_group_properties_t getCopyQueueProps() {
+    return CopyQueueProperties_;
+  }
   ze_command_queue_desc_t getNextComputeQueueDesc();
   ze_command_queue_desc_t getNextCopyQueueDesc();
   /**

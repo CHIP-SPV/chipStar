@@ -695,7 +695,7 @@ CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
 }
 
 ze_command_list_handle_t CHIPDeviceLevel0::getCmdListCopy() {
-  if(!CopyQueueAvailable) {
+  if (!CopyQueueAvailable) {
     logWarn("Copy queue not available. Returning Compute queue instead.");
     return getCmdListCompute();
   }
@@ -781,9 +781,6 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
   Status = zeDeviceGetCommandQueueGroupProperties(
       ZeDev_, &CmdqueueGroupCount, CmdqueueGroupProperties.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  this->MaxMemoryFillPatternSize =
-      CmdqueueGroupProperties[0].maxMemoryFillPatternSize;
 
   // Find a command queue type that support compute
   for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
@@ -973,22 +970,40 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
   CHIPEventLevel0 *Ev = (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
   Ev->Msg = "memFill";
 
-  auto MaxMemoryFillPatternSize = ChipDevZe->MaxMemoryFillPatternSize;
+  auto CopyQueueMaxPatternSize =
+      ChipDevZe->getCopyQueueProps().maxMemoryFillPatternSize;
+  auto ComputeQueueMaxPatternSize =
+      ChipDevZe->getComputeQueueProps().maxMemoryFillPatternSize;
+  auto MaxMemoryFillPatternSize =
+      std::max(CopyQueueMaxPatternSize, ComputeQueueMaxPatternSize);
 
-  if (PatternSize >= MaxMemoryFillPatternSize) {
-    logCritical("PatternSize: {} Max: {}", PatternSize,
-                MaxMemoryFillPatternSize);
-    CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this queue",
-                          hipErrorTbd);
-  }
-
+  // Check that requested pattern is a power of 2
   if (std::ceil(log2(PatternSize)) != std::floor(log2(PatternSize))) {
     logCritical("PatternSize: {} Max: {}", PatternSize,
                 MaxMemoryFillPatternSize);
     CHIPERR_LOG_AND_THROW("MemFill PatternSize is not a power of 2",
                           hipErrorTbd);
   }
-  auto CommandList = ChipDevZe->getCmdListCopy();
+
+  ze_command_list_handle_t CommandList;
+
+  // Use copy queue if requested pattern is short enough
+  if (PatternSize <= CopyQueueMaxPatternSize) {
+    CommandList = ChipDevZe->getCmdListCopy();
+  }
+
+  // Otherwise try to use compute queue which has a larger max pattern size
+  else if (PatternSize <= ComputeQueueMaxPatternSize) {
+    CommandList = ChipDevZe->getCmdListCompute();
+  }
+
+  else {
+    logCritical("PatternSize: {} Max: {}", PatternSize,
+                MaxMemoryFillPatternSize);
+    CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this queue",
+                          hipErrorTbd);
+  }
+
   ze_result_t Status = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
