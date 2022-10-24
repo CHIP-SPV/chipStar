@@ -790,51 +790,56 @@ void CHIPQueueLevel0::initializeQueueGroupProperties() {
 
   // Find a command queue type that support compute
   for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
-    if (CmdqueueGroupProperties[i].flags &
-        ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
+    if (ComputeQueueGroupOrdinal_ == -1 &&
+        CmdqueueGroupProperties[i].flags &
+            ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
       ComputeQueueGroupOrdinal_ = i;
       ComputeQueueProperties_ = CmdqueueGroupProperties[i];
       logTrace("Found compute command group");
-      break;
+      continue;
     }
-  }
 
-  // Find a command queue type that support copy
-  for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
-    if (CmdqueueGroupProperties[i].flags &
-        ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) {
+    if (CopyQueueGroupOrdinal_ == -1 &&
+        CmdqueueGroupProperties[i].flags &
+            ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) {
       CopyQueueGroupOrdinal_ = i;
       CopyQueueProperties_ = CmdqueueGroupProperties[i];
+      CopyQueueAvailable = true;
       logTrace("Found memory command group");
-      break;
+      continue;
     }
   }
 
   // initialize compute and copy list descriptors
+  assert(ComputeQueueGroupOrdinal_ > -1);
   CommandListComputeDesc_ = {
       ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
       nullptr,
-      ComputeQueueGroupOrdinal_,
+      (unsigned int)ComputeQueueGroupOrdinal_,
       0 /* CommandListFlags */,
   };
 
-  CommandListMemoryDesc_ = {
-      ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
-      nullptr,
-      CopyQueueGroupOrdinal_,
-      0 /* CommandListFlags */,
-  };
+  if (CopyQueueAvailable) {
+    assert(CopyQueueGroupOrdinal_ > -1);
+    CommandListMemoryDesc_ = {
+        ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
+        nullptr,
+        (unsigned int)CopyQueueGroupOrdinal_,
+        0 /* CommandListFlags */,
+    };
+  }
 }
 
 ze_command_queue_desc_t CHIPQueueLevel0::getNextComputeQueueDesc() {
+  assert(ComputeQueueGroupOrdinal_ > -1);
   ze_command_queue_desc_t CommandQueueComputeDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr,
-      ComputeQueueGroupOrdinal_,
+      nullptr, // pNext
+      (unsigned int)ComputeQueueGroupOrdinal_,
       NextComputeQueueIndex_, // index
       0,                      // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO: use priority
 
   auto MaxQueues = ComputeQueueProperties_.numQueues;
   NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
@@ -843,14 +848,15 @@ ze_command_queue_desc_t CHIPQueueLevel0::getNextComputeQueueDesc() {
 }
 
 ze_command_queue_desc_t CHIPQueueLevel0::getNextCopyQueueDesc() {
+  assert(CopyQueueGroupOrdinal_ > -1);
   ze_command_queue_desc_t CommandQueueCopyDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
-      nullptr,
-      CopyQueueGroupOrdinal_,
+      nullptr, // pNext
+      (unsigned int)CopyQueueGroupOrdinal_,
       NextComputeQueueIndex_, // index
       0,                      // flags
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-      ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL}; // TODO: use priority
 
   auto MaxQueues = CopyQueueProperties_.numQueues;
   NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;

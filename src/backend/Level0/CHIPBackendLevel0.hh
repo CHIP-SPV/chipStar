@@ -168,8 +168,9 @@ protected:
 
   ze_command_queue_group_properties_t CopyQueueProperties_;
   ze_command_queue_group_properties_t ComputeQueueProperties_;
-  unsigned int CopyQueueGroupOrdinal_;
-  unsigned int ComputeQueueGroupOrdinal_;
+  bool CopyQueueAvailable = false;
+  int CopyQueueGroupOrdinal_ = -1;
+  int ComputeQueueGroupOrdinal_ = -1;
 
   void initializeQueueGroupProperties();
   void initializeCopyListImm();
