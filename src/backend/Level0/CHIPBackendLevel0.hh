@@ -153,8 +153,6 @@ protected:
   // The shared memory buffer
   void *SharedBuf_;
 
-  size_t MaxMemoryFillPatternSize_;
-
   /**
    * @brief Command queue handle
    * CHIP-SPV Uses the immediate command list for all its operations. However,
@@ -172,7 +170,7 @@ protected:
 
 public:
   ze_command_list_handle_t getCmdList();
-  size_t getMaxMemoryFillPatternSize() { return MaxMemoryFillPatternSize_; }
+  size_t getMaxMemoryFillPatternSize() { return QueueProperties_.maxMemoryFillPatternSize; }
   LevelZeroQueueType QueueType = LevelZeroQueueType::Unknown;
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags);

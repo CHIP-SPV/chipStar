@@ -786,9 +786,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
-  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)getDevice();
-  ze_command_queue_desc_t CmdQueueDesc;
-
   assert(QueueType != Unknown);
   std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   auto Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
@@ -961,31 +958,20 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
   // Check that requested pattern is a power of 2
   if (std::ceil(log2(PatternSize)) != std::floor(log2(PatternSize))) {
     logCritical("PatternSize: {} Max: {}", PatternSize,
-                MaxMemoryFillPatternSize_);
+                getMaxMemoryFillPatternSize());
     CHIPERR_LOG_AND_THROW("MemFill PatternSize is not a power of 2",
                           hipErrorTbd);
   }
 
+  // Check that requested pattern is not too long for this queue
+  if (PatternSize > getMaxMemoryFillPatternSize()) {
+    logCritical("PatternSize: {} Max: {}", PatternSize,
+                getMaxMemoryFillPatternSize());
+    CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this queue",
+                          hipErrorTbd);
+  }
+
   ze_command_list_handle_t CommandList = getCmdList();
-
-  // TODO fix-207 move this one level up
-  // Use copy queue if requested pattern is short enough
-  // if (PatternSize <= CopyQueueMaxPatternSize) {
-  //   CommandList = ChipDevZe->getCmdListCopy();
-  // }
-
-  // // Otherwise try to use compute queue which has a larger max pattern size
-  // else if (PatternSize <= ComputeQueueMaxPatternSize) {
-  //   CommandList = ChipDevZe->getCmdListCompute();
-  // }
-
-  // else {
-  //   logCritical("PatternSize: {} Max: {}", PatternSize,
-  //               MaxMemoryFillPatternSize_);
-  //   CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this
-  //   queue",
-  //                         hipErrorTbd);
-  // }
 
   ze_result_t Status = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
