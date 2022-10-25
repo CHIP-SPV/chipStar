@@ -93,7 +93,7 @@ add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
-    ${EXTRA_OBJS})
+    HipEmitLoweredNames.cpp ${EXTRA_OBJS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES

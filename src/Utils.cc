@@ -188,3 +188,12 @@ convertExtraArgsToPointerArray(void *ExtraArgBuf, const OCLFuncInfo &FuncInfo) {
   }
   return PointerArray;
 }
+
+std::string_view trim(std::string_view Str) {
+  auto IsWhitespace = [](char C) -> bool { return (C == ' ' || C == '\t'); };
+  while (!Str.empty() && IsWhitespace(Str.front()))
+    Str.remove_prefix(1);
+  while (!Str.empty() && IsWhitespace(Str.back()))
+    Str.remove_suffix(1);
+  return Str;
+}
