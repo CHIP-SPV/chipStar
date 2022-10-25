@@ -76,7 +76,7 @@ bool TestStreamSemantics_1() {
     // printf("Failed, queue status is %s but expected is hipErrorNotReady\n",
     // hipGetErrorName(status));
   } else {
-    printf("Passed\n");
+    printf("PASSED\n");
   }
 
   // Wait for all tasks to be finished
@@ -128,7 +128,7 @@ bool TestStreamSemantics_2() {
     // printf("host_ptr = %d, stream_shared_data = %d\n", *host_ptr,
     // *stream_shared_data);fflush(stdout);
   } else {
-    printf("Passed\n");
+    printf("PASSED\n");
   }
 
   // Wait for all tasks to be finished
@@ -181,7 +181,7 @@ bool TestStreamSemantics_3() {
     // printf("Failed, queue status is %s but expected is hipErrorNotReady\n",
     // hipGetErrorName(status));
   } else {
-    printf("Passed\n");
+    printf("PASSED\n");
   }
 
   CHECK(hipDeviceSynchronize());
@@ -216,7 +216,7 @@ bool TestStreamSemantics_4() {
   printf("Waiting for device to finish the task\n");
   CHECK(hipDeviceSynchronize());
 
-  printf("%s (stream destroy): Passed\n", __FUNCTION__);
+  printf("%s (stream destroy): PASSED\n", __FUNCTION__);
 
   free(stream_shared_data);
   return true;
@@ -250,7 +250,7 @@ bool TestStreamSemantics_5() {
     testStatus = false;
     printf("%s %s %s\n", "\033[0;31m", "Failed", "\033[0m");
   } else {
-    printf("Passed\n");
+    printf("PASSED\n");
   }
 
   CHECK(hipDeviceSynchronize());

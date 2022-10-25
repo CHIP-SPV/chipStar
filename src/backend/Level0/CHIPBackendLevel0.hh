@@ -139,23 +139,19 @@ public:
   CHIPEventLevel0 *getEvent();
 };
 
+enum LevelZeroQueueType {
+  Unknown = 0,
+  Compute,
+  Copy,
+};
+
 class CHIPQueueLevel0 : public CHIPQueue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
 
-  // Queues need ot be created on separate queue group indices in order to be
-  // independent from one another. Use this variable to do round-robin
-  // distribution across queues every time you create a queue.
-  unsigned int NextCopyQueueIndex_ = 0;
-  unsigned int NextComputeQueueIndex_ = 0;
-
-  size_t MaxMemoryFillPatternSize = 0;
   // The shared memory buffer
   void *SharedBuf_;
-
-  ze_command_list_handle_t ZeCmdListComputeImm_;
-  ze_command_list_handle_t ZeCmdListCopyImm_;
 
   /**
    * @brief Command queue handle
@@ -164,28 +160,27 @@ protected:
    * need pointers to the command queue as well. This is that command queue.
    * Current implementation does nothing with it.
    */
+  ze_command_queue_group_properties_t QueueProperties_;
+  ze_command_queue_desc_t QueueDescriptor_;
+  ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
+  ze_command_list_handle_t ZeCmdList_;
 
-  ze_command_queue_group_properties_t CopyQueueProperties_;
-  ze_command_queue_group_properties_t ComputeQueueProperties_;
-  unsigned int CopyQueueGroupOrdinal_;
-  unsigned int ComputeQueueGroupOrdinal_;
-
-  void initializeQueueGroupProperties();
-  void initializeCopyListImm();
-  void initializeComputeListImm();
-
-  ze_command_queue_desc_t getNextComputeQueueDesc();
-  ze_command_queue_desc_t getNextCopyQueueDesc();
-
-  ze_command_list_desc_t CommandListComputeDesc_;
-  ze_command_list_desc_t CommandListMemoryDesc_;
+  void initializeCmdListImm();
 
 public:
+  ze_command_list_handle_t getCmdList();
+  size_t getMaxMemoryFillPatternSize() {
+    return QueueProperties_.maxMemoryFillPatternSize;
+  }
+  LevelZeroQueueType QueueType = LevelZeroQueueType::Unknown;
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags,
                   int Priority);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags, int Priority,
+                  LevelZeroQueueType TheQueueType);
+
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   virtual ~CHIPQueueLevel0() { logTrace("CHIPQueueLevel0 DEST"); }
 
@@ -200,21 +195,6 @@ public:
 
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
-
-  /**
-   * @brief Get a copy list handle. Using not using immediate command lists,
-   * create a new copy list
-   *
-   * @return ze_command_list_handle_t
-   */
-  ze_command_list_handle_t getCmdListCopy();
-  /**
-   * @brief Get a compute list handle. Using not using immediate command lists,
-   * create a new compute list
-   *
-   * @return ze_command_list_handle_t
-   */
-  ze_command_list_handle_t getCmdListCompute();
 
   /**
    * @brief Execute a given command list
@@ -294,7 +274,7 @@ public:
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
-  void freeImpl(void *Ptr) override{};                         // TODO
+  void freeImpl(void *Ptr) override{};                                // TODO
   ze_context_handle_t &get() { return ZeCtx; }
 
 }; // CHIPContextLevel0
@@ -394,13 +374,54 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   ze_device_handle_t ZeDev_;
   ze_context_handle_t ZeCtx_;
 
+  ze_command_queue_group_properties_t CopyQueueProperties_;
+  ze_command_queue_group_properties_t ComputeQueueProperties_;
+  bool CopyQueueAvailable_ = false;
+  int CopyQueueGroupOrdinal_ = -1;
+  int ComputeQueueGroupOrdinal_ = -1;
+  // Queues need ot be created on separate queue group indices in order to be
+  // independent from one another. Use this variable to do round-robin
+  // distribution across queues every time you create a queue.
+  std::mutex NextQueueIndexMtx_;
+  unsigned int NextCopyQueueIndex_ = 0;
+  unsigned int NextComputeQueueIndex_ = 0;
+
+  ze_command_list_desc_t CommandListComputeDesc_;
+  ze_command_list_desc_t CommandListCopyDesc_;
+
+  ze_command_list_handle_t ZeCmdListComputeImm_;
+  ze_command_list_handle_t ZeCmdListCopyImm_;
+  void initializeQueueGroupProperties();
+
+  void initializeCopyQueue_();
+
   // The handle of device properties
   ze_device_properties_t ZeDeviceProps_;
 
   CHIPDeviceLevel0(ze_device_handle_t ZeDev, CHIPContextLevel0 *ChipCtx,
                    int Idx);
 
+  ze_command_queue_desc_t getQueueDesc_(int Priority);
+
 public:
+  bool copyQueueIsAvailable() { return CopyQueueAvailable_; }
+  ze_command_list_desc_t getCommandListComputeDesc() {
+    return CommandListComputeDesc_;
+  }
+  ze_command_list_desc_t getCommandListCopyDesc() {
+    return CommandListCopyDesc_;
+  }
+  ze_command_queue_group_properties_t getComputeQueueProps() {
+    return ComputeQueueProperties_;
+  }
+  ze_command_queue_group_properties_t getCopyQueueProps() {
+    return CopyQueueProperties_;
+  }
+  ze_command_queue_desc_t
+  getNextComputeQueueDesc(int Priority = L0_DEFAULT_QUEUE_PRIORITY);
+  ze_command_queue_desc_t
+  getNextCopyQueueDesc(int Priority = L0_DEFAULT_QUEUE_PRIORITY);
+
   static CHIPDeviceLevel0 *create(ze_device_handle_t ZeDev,
                                   CHIPContextLevel0 *ChipCtx, int Idx);
 
