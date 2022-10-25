@@ -983,12 +983,11 @@ CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
-  std::vector<CHIPQueue*> Queues, PerThreadQueues;
+  std::vector<CHIPQueue *> Queues, PerThreadQueues;
   {
     std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
     Queues = Backend->getQueues();
     PerThreadQueues = Backend->getPerThreadQueues();
-
   }
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPEvent *> EventsToWaitOn;
@@ -1193,6 +1192,50 @@ CHIPBackend::~CHIPBackend() {
     delete Q;
   for (auto &Mod : ModulesStr_)
     delete Mod;
+}
+
+void CHIPBackend::waitForThreadExit() {
+  logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues");
+  while (true) {
+    {
+      std::lock_guard<std::mutex> LockBackend(BackendMtx);
+      auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
+      if (!NumPerThreadQueuesActive)
+        break;
+      logDebug(
+          "CHIPBackend::waitForThreadExit() per-thread queues still active "
+          "{}. Sleeping for 1s..",
+          NumPerThreadQueuesActive);
+    }
+    sleep(1);
+  }
+
+  logDebug("CHIPBackend::waitForThreadExit() setting LastEvent to null for all "
+           "created queues");
+  {
+    std::lock_guard<std::mutex> LockBackend(BackendMtx);
+    for (auto Q : Backend->getQueues()) {
+      std::lock_guard Lock(Q->QueueMtx);
+      Q->finish();
+      Q->updateLastEvent(nullptr);
+    }
+  }
+
+  logTrace(
+      "CHIPBackend::waitForThreadExit(): Setting the LastEvent to null for all "
+      "default queues");
+  {
+    std::lock_guard<std::mutex> LockBackend(BackendMtx);
+    for (auto Dev : Backend->getDevices()) {
+#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+#else
+      auto Q = Dev->getLegacyDefaultQueue();
+      std::lock_guard Lock(Q->QueueMtx);
+      Q->finish();
+      Q->updateLastEvent(nullptr);
+#endif
+    }
+  }
 }
 
 void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,

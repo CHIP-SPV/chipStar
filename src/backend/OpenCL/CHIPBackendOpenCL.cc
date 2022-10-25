@@ -1212,35 +1212,10 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
 //*************************************************************************
 
 void CHIPBackendOpenCL::uninitialize() {
-  logTrace("CHIPBackendOpenCL::uninitialize(): Setting the LastEvent to null for all "
-           "user-created queues");
-  // TODO I need to check that there are no more per-thread default queues
-  // because it could be the case that they are still doing work
-  while (true) {
-    {
-      std::lock_guard<std::mutex> LockBackend(BackendMtx);
-      auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
-      if (!NumPerThreadQueuesActive)
-        break;
-      logTrace(
-          "CHIPBackendLevel0::uninitialize() per-thread queues still active "
-          "{}. Sleeping for 1s..",
-          NumPerThreadQueuesActive);
-    }
-    sleep(1);
-  }
-
-  {
-    std::lock_guard<std::mutex> LockBackend(BackendMtx);
-    for (auto Q : Backend->getQueues()) {
-      //      TODO finish?
-      //      if (!Q) // TODO
-      //        continue;
-      std::lock_guard Lock(Q->QueueMtx);
-      Q->updateLastEvent(nullptr);
-    }
-  }
+  logTrace("CHIPBackendOpenCL::uninitialize()");
+  waitForThreadExit();
 }
+
 CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);

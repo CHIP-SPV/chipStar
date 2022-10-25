@@ -1339,47 +1339,8 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
-
-  logTrace("CHIPBackendLevel0::uninitialize(): Setting the LastEvent to null for all "
-           "user-created queues");
-  // TODO I need to check that there are no more per-thread default queues
-  // because it could be the case that they are still doing work
-  while (true) {
-    {
-      std::lock_guard<std::mutex> LockBackend(BackendMtx);
-      auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
-      if (!NumPerThreadQueuesActive)
-        break;
-      logTrace(
-          "CHIPBackendLevel0::uninitialize() per-thread queues still active "
-          "{}. Sleeping for 1s..",
-          NumPerThreadQueuesActive);
-    }
-    sleep(1);
-  }
-
-  {
-    std::lock_guard<std::mutex> LockBackend(BackendMtx);
-    for (auto Q : Backend->getQueues()) {
-//      TODO finish?
-//      if (!Q) // TODO
-//        continue;
-      std::lock_guard Lock(Q->QueueMtx);
-      Q->updateLastEvent(nullptr);
-    }
-  }
-
-  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
-           "default queues");
-  for (auto Dev : Backend->getDevices()) {
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-#else
-    auto Q = Dev->getLegacyDefaultQueue();
-    std::lock_guard Lock(Q->QueueMtx);
-    Q->updateLastEvent(nullptr);
-#endif
-  }
-
+  logTrace("CHIPBackendLevel0::uninitialize()");
+  waitForThreadExit();
   if (CallbackEventMonitor) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
     std::lock_guard Lock(CallbackEventMonitor->EventMonitorMtx);

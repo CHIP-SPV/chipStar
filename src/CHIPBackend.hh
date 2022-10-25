@@ -1727,6 +1727,12 @@ public:
   virtual void uninitialize();
 
   /**
+   * @brief Wait for all per-thread queues to finish
+   * 
+   */
+  void waitForThreadExit();
+
+  /**
    * @brief Get the Queues object
    *
    * @return std::vector<CHIPQueue*>&
