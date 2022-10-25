@@ -1342,14 +1342,14 @@ void CHIPBackendLevel0::uninitialize() {
   logTrace("CHIPBackendLevel0::uninitialize()");
   waitForThreadExit();
   if (CallbackEventMonitor) {
-    logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
+    logTrace("CHIPBackendLevel0::uninitialize(): Killing CallbackEventMonitor");
     std::lock_guard Lock(CallbackEventMonitor->EventMonitorMtx);
     CallbackEventMonitor->Stop = true;
   }
   CallbackEventMonitor->join();
 
   {
-    logTrace("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
+    logTrace("CHIPBackendLevel0::uninitialize(): Killing StaleEventMonitor");
     std::lock_guard Lock(StaleEventMonitor->EventMonitorMtx);
     StaleEventMonitor->Stop = true;
   }

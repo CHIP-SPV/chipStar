@@ -145,8 +145,19 @@ void CHIPInitializeCallOnce() {
 }
 
 extern void CHIPInitialize() {
-  std::lock_guard<std::mutex> LockInit(InitMtx);
+  // This is the first CHIP-SPV call that user-created threads will encounter.
+  // We must ensure that the backend is initialized.
   std::call_once(Initialized, &CHIPInitializeCallOnce);
+
+  // if a user creates threads, these other threads will enter this function and
+  // skip the call to CHIPInitializeCallOnce since that was done by the main
+  // thread. There could be the case that the main thread does nothing other
+  // than spawn threads. In such case, the main thread will call
+  // CHIPBackend::uninitialize() really early. That function will wait for all
+  // the per-thread queues to exit. In order to make sure that all the
+  // per-thread queues were created as early as possible, we must call this
+  // function here.
+  Backend->getActiveDevice()->getPerThreadDefaultQueue();
 }
 
 void CHIPUninitializeCallOnce() {

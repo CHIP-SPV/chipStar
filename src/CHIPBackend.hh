@@ -1639,6 +1639,7 @@ public:
   std::vector<CHIPContext *> ChipContexts;
   std::vector<CHIPQueue *> ChipQueues;
   std::vector<CHIPQueue *> PerThreadQueues;
+  std::atomic<int> ThreadCount = 0;
   std::vector<CHIPDevice *> ChipDevices;
 
   /**

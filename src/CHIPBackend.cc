@@ -1195,7 +1195,21 @@ CHIPBackend::~CHIPBackend() {
 }
 
 void CHIPBackend::waitForThreadExit() {
-  logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues");
+  /**
+   *  If the main thread just creates a bunch of other threads and tries to exit
+   * right away, it could be the case that all those threads are not yet done
+   * with initialization. In particular, these threads might not have yet
+   * created their per-thread queues which is how we keep track of threads.
+   *
+   * So we just wait for 0.1 seconds before starting to check for thread exit.
+   */
+  pthread_yield();
+  unsigned long long int sleepMicroSeconds = 500000 + Backend->ThreadCount * 200000;
+  usleep(sleepMicroSeconds);
+
+  logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues. "
+           "Number of generated per-thread queues: {}",
+           Backend->ThreadCount);
   while (true) {
     {
       std::lock_guard<std::mutex> LockBackend(BackendMtx);
@@ -1312,6 +1326,10 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
 }
 
 void CHIPBackend::addPerThreadQueue(CHIPQueue *ChipQueue) {
+  // atomic increment. Based on this, we adjust the amount of time we wait
+  // before exit
+  ThreadCount++;
+
   logDebug("CHIPBackend::addPerThreadQueue({})", (void *)ChipQueue);
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
   auto QueueFound =

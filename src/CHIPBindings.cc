@@ -3274,7 +3274,6 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
 
 extern "C" void __hipUnregisterFatBinary(void *Data) {
   CHIP_TRY
-  CHIPInitialize();
   std::string *Module = reinterpret_cast<std::string *>(Data);
 
   logDebug("Unregister module: {} \n", (void *)Module);
