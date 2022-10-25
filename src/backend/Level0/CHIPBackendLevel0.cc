@@ -897,6 +897,7 @@ CHIPDeviceLevel0::getNextComputeQueueDesc(int Priority) {
 
   auto MaxQueues = ComputeQueueProperties_.numQueues;
   std::lock_guard<std::mutex> LockQueueIndexIterator(NextQueueIndexMtx_);
+  CommandQueueComputeDesc.index = NextComputeQueueIndex_;
   NextComputeQueueIndex_ = (NextComputeQueueIndex_ + 1) % MaxQueues;
 
   return CommandQueueComputeDesc;
@@ -909,6 +910,7 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
 
   auto MaxQueues = CopyQueueProperties_.numQueues;
   std::lock_guard<std::mutex> LockQueueIndexIterator(NextQueueIndexMtx_);
+  CommandQueueCopyDesc.index = NextCopyQueueIndex_;
   NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
 
   return CommandQueueCopyDesc;
