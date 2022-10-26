@@ -57,7 +57,7 @@ private:
   uint64_t Timestamp_;
 
 public:
-  uint32_t getValidTimestampBits() ;
+  uint32_t getValidTimestampBits();
   uint64_t getHostTimestamp() { return HostTimestamp_; }
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
