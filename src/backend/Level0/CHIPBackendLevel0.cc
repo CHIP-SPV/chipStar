@@ -1476,7 +1476,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
-  ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
+  ChipDev->LegacyDefaultQueue = ChipQueue;
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();

@@ -180,7 +180,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   auto Modules = Backend->getActiveDevice()->getModules();
 
   if (Backend) {
-    logDebug("uninitializing existing Backend object.");
+    logDebug("CHIPReinitialize: uninitializing existing Backend object.");
     Backend->uninitialize();
     delete Backend;
   }

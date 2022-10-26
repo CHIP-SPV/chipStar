@@ -433,7 +433,7 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 CHIPDevice::~CHIPDevice() {}
 CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
   assert(LegacyDefaultQueue);
-  return LegacyDefaultQueue.get();
+  return LegacyDefaultQueue;
 }
 
 CHIPQueue *CHIPDevice::getDefaultQueue() {
@@ -445,6 +445,10 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 }
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
+  if(getpid() == gettid()) {
+    return getLegacyDefaultQueue();
+  }
+
   if (!PerThreadDefaultQueue.get()) {
     auto NewQueue = Backend->createCHIPQueue(this); // locks inside
     Backend->addPerThreadQueue(NewQueue);
@@ -485,7 +489,7 @@ void CHIPDevice::init() {
   CHIPQueueFlags Flags;
   int Priority = DEFAULT_QUEUE_PRIORITY; // TODO : set a default
   auto ChipQueue = createQueue(Flags, Priority);
-  LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
+  LegacyDefaultQueue = ChipQueue;
 }
 
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *Prop) {
@@ -1204,7 +1208,7 @@ void CHIPBackend::waitForThreadExit() {
    * So we just wait for 0.1 seconds before starting to check for thread exit.
    */
   pthread_yield();
-  unsigned long long int sleepMicroSeconds = 500000 + Backend->ThreadCount * 200000;
+  unsigned long long int sleepMicroSeconds = 500000 + Backend->ThreadCount * 1000;
   usleep(sleepMicroSeconds);
 
   logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues. "
@@ -1216,6 +1220,7 @@ void CHIPBackend::waitForThreadExit() {
       auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
       if (!NumPerThreadQueuesActive)
         break;
+
       logDebug(
           "CHIPBackend::waitForThreadExit() per-thread queues still active "
           "{}. Sleeping for 1s..",
@@ -1230,7 +1235,7 @@ void CHIPBackend::waitForThreadExit() {
     std::lock_guard<std::mutex> LockBackend(BackendMtx);
     for (auto Q : Backend->getQueues()) {
       std::lock_guard Lock(Q->QueueMtx);
-      Q->finish();
+      // Q->finish();
       Q->updateLastEvent(nullptr);
     }
   }

@@ -35,7 +35,7 @@ multiple Threads.
 #define HIPCHECK(x) assert(x == hipSuccess)
 #define HIP_CHECK(x) assert(x == hipSuccess)
 
-static constexpr size_t N = 4096;
+static constexpr size_t N = 1024;
 static constexpr int numThreads = 1000;
 static std::atomic<int> Cb_count{0}, Data_mismatch{0};
 static hipStream_t mystream;
