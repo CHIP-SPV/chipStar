@@ -34,6 +34,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include <fstream>
+#include <optional>
 
 #define PASS_NAME "emit-lowered-names"
 #define DEBUG_TYPE PASS_NAME
