@@ -26,6 +26,15 @@
 
 #include <hip/devicelib/macros.hh>
 
+extern "C++" {
+
+extern __device__ api_half2 rint(api_half2 x);
+
+}
+
+static inline __device__ api_half2 rint_2h(api_half2 x) { return rint(x); }
+
+
 //__device__ __half2 h2ceil ( const __half2 h )
 //__device__ __half2 h2cos ( const __half2 a )
 //__device__ __half2 h2exp ( const __half2 a )
