@@ -46,6 +46,8 @@ class LZEventPool;
 
 class CHIPEventLevel0 : public CHIPEvent {
 private:
+  // Used for resolving device counter overflow
+  uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t Event_;
@@ -55,6 +57,8 @@ private:
   uint64_t Timestamp_;
 
 public:
+  uint32_t getValidTimestampBits() ;
+  uint64_t getHostTimestamp() { return HostTimestamp_; }
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
   CHIPEventLevel0()

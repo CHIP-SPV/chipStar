@@ -315,9 +315,16 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
                (void *)this);
       ze_result_t Status = zeEventHostReset(Event_);
       EventStatus_ = EVENT_STATUS_INIT;
+      HostTimestamp_ = 0;
+      DeviceTimestamp_ = 0;
       CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     }
   }
+
+  auto Dev = (CHIPDeviceLevel0 *)ChipQueue->getDevice();
+  Status = zeDeviceGetGlobalTimestamps(Dev->get(), &HostTimestamp_,
+                                       &DeviceTimestamp_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   if (ChipQueue == nullptr)
     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
@@ -411,6 +418,13 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   }
   */
 
+uint32_t CHIPEventLevel0::getValidTimestampBits() {
+  CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
+  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevices()[0];
+  auto Props = ChipDevLz->getDeviceProps();
+  return Props->timestampValidBits;
+}
+
 unsigned long CHIPEventLevel0::getFinishTime() {
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
   CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevices()[0];
@@ -439,8 +453,10 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
     CHIPERR_LOG_AND_THROW("One of the events for getElapsedTime() was done yet",
                           hipErrorNotReady);
 
-  unsigned long Started = this->getFinishTime();
-  unsigned long Finished = Other->getFinishTime();
+  uint32_t Started = this->getFinishTime();
+  uint32_t Finished = Other->getFinishTime();
+  auto StartedCPU = this->getHostTimestamp();
+  auto FinishedCPU = Other->getHostTimestamp();
 
   /**
    *
@@ -452,6 +468,22 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
    */
   // uint64_t Elapsed = std::fabs(Finished - Started);
   // Infering temporal order anyways because hipEvent unit tests expects it
+
+  // Resolve overflows
+  // hipEventElapsed(start, stop)
+  bool ReversedEvents = false;
+  if (FinishedCPU < StartedCPU) {
+    ReversedEvents = true;
+    auto Temp = Started;
+    Started = Finished;
+    Finished = Temp;
+  }
+
+  if (Finished < Started) {
+    const uint64_t maxValue = (1ull << getValidTimestampBits()) - 1;
+    Finished = Finished + (maxValue - Started);
+  }
+
   int64_t Elapsed = (Finished - Started);
 
 #define NANOSECS 1000000000
@@ -460,6 +492,8 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
   float FractInMS = ((float)NS) / 1000000.0f;
   auto Ms = (float)MS + FractInMS;
 
+  if (ReversedEvents)
+    Ms = Ms * -1;
   return Ms;
 }
 
