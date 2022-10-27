@@ -445,7 +445,7 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 }
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
-  if(getpid() == gettid()) {
+  if (getpid() == gettid()) {
     return getLegacyDefaultQueue();
   }
 
@@ -1208,7 +1208,8 @@ void CHIPBackend::waitForThreadExit() {
    * So we just wait for 0.1 seconds before starting to check for thread exit.
    */
   pthread_yield();
-  unsigned long long int sleepMicroSeconds = 500000 + Backend->ThreadCount * 1000;
+  unsigned long long int sleepMicroSeconds =
+      500000 + Backend->ThreadCount * 1000;
   usleep(sleepMicroSeconds);
 
   logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues. "

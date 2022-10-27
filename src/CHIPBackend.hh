@@ -1142,7 +1142,7 @@ public:
   bool PerThreadStreamUsed = false;
   std::mutex DeviceMtx;
 
-  CHIPQueue* LegacyDefaultQueue;
+  CHIPQueue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**
@@ -1729,7 +1729,7 @@ public:
 
   /**
    * @brief Wait for all per-thread queues to finish
-   * 
+   *
    */
   void waitForThreadExit();
 
