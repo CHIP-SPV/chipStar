@@ -1117,6 +1117,7 @@ class CHIPDevice {
 protected:
   std::string DeviceName_;
   CHIPContext *Ctx_;
+  // TODO SyncThreadsPerTHread Why are these not unique??
   std::vector<CHIPQueue *> ChipQueues_;
   std::once_flag PropsPopulated_;
 
@@ -1141,8 +1142,9 @@ public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   bool PerThreadStreamUsed = false;
   std::mutex DeviceMtx;
+  std::mutex DeviceModulesMtx;
 
-  CHIPQueue *LegacyDefaultQueue;
+  CHIPQueue *LegacyDefaultQueue; // TODO SyncThreadsPerThread Why am I not making this unique so that I can just delete the Device and these will be destroyed automatically?
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**
@@ -1192,7 +1194,9 @@ public:
 
   CHIPAllocationTracker *AllocationTracker = nullptr;
 
-  virtual ~CHIPDevice();
+  virtual ~CHIPDevice(
+    // TODO SyncThreadsPerThread delete all queues?
+  );
 
   /**
    * @brief Get the Kernels object
@@ -1637,7 +1641,7 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<CHIPQueue *> ChipQueues;
+  std::vector<std::unique_ptr<CHIPQueue>> ChipQueues;
   std::vector<CHIPQueue *> PerThreadQueues;
   std::atomic<int> ThreadCount = 0;
   std::vector<CHIPDevice *> ChipDevices;
@@ -1738,9 +1742,16 @@ public:
    *
    * @return std::vector<CHIPQueue*>&
    */
-  std::vector<CHIPQueue *> &getQueues();
+  // std::vector<CHIPQueue *> getUserQueues();
+  std::vector<CHIPQueue *> getUserQueues();
+
+  std::vector<CHIPQueue *> getDefaultQueues();
+
+  std::vector<CHIPQueue *> getAllQueues();
 
   std::vector<CHIPQueue *> &getPerThreadQueues();
+
+  void removePerThreadQueue(CHIPQueue* ChipQueue);
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
@@ -1782,12 +1793,6 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
-  /**
-   * @brief Add a queue to this backend.
-   *
-   * @param q_in
-   */
-  void addQueue(CHIPQueue *ChipQueue);
 
   void addPerThreadQueue(CHIPQueue *ChipQueue);
   /**
@@ -1796,6 +1801,8 @@ public:
    * @param dev_in
    */
   void addDevice(CHIPDevice *ChipDevice);
+
+  void removeDevice(CHIPDevice *ChipDevice);
   /**
    * @brief
    *

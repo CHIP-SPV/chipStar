@@ -1340,7 +1340,16 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 
 void CHIPBackendLevel0::uninitialize() {
   logTrace("CHIPBackendLevel0::uninitialize()");
-  waitForThreadExit();
+  waitForThreadExit(); // All Per-Thread Queues exit
+
+
+  auto AllQueues = Backend->getAllQueues();
+  assert(AllQueues.size() == 0);
+
+  // TODO SyncThreadsPerThread delete all devices  which delete their default queues
+  // TODO SyncThreadsPerThread make sure all UserQueues have been deleted. Delete by force and warn
+
+
   if (CallbackEventMonitor) {
     logTrace("CHIPBackendLevel0::uninitialize(): Killing CallbackEventMonitor");
     std::lock_guard Lock(CallbackEventMonitor->EventMonitorMtx);

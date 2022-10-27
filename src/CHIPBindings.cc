@@ -782,20 +782,30 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  for (auto Q : Backend->getActiveDevice()->getQueues()) {
-    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+  for (auto Q : Backend->getUserQueues()) {
     Q->finish();
   }
 
-  {
-    std::lock_guard<std::mutex> LockQueue(Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
-    Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  }
+  // TODO SyncThreadsPerThread
+  // for(auto Q: Backend->getPerThreadQueues()) {
+  //   Q->finish();
+  // }
 
-  for (auto Q : Backend->getPerThreadQueues()) {
-    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
-    Q->finish();
-  }
+  // for (auto Q : Backend->getActiveDevice()->getQueues()) {
+  //   std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+  //   Q->finish();
+  // }
+
+  // {
+  //   std::lock_guard<std::mutex>
+  //   LockQueue(Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
+  //   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
+  // }
+
+  // for (auto Q : Backend->getPerThreadQueues()) {
+  //   std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+  //   Q->finish();
+  // }
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1307,24 +1317,23 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
 
-  if(Stream == hipStreamPerThread) 
-    CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue", hipErrorTbd);
+  if (Stream == hipStreamPerThread)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
+                          hipErrorTbd);
 
-  if(Stream == hipStreamLegacy) 
-    CHIPERR_LOG_AND_THROW("Attemped to destroy default legacy queue", hipErrorTbd);
+  if (Stream == hipStreamLegacy)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default legacy queue",
+                          hipErrorTbd);
 
   Stream = Backend->findQueue(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
 
-  // make sure nothing is pending in the stream
-  Stream->finish();
+  // This will call finish, setLastEvent, removeQueue
+  //TODO SyncThreadsPerThread make removeQueue() protected?
+  delete Stream;
 
-  if (Dev->removeQueue(Stream))
-    RETURN(hipSuccess);
-  else
-    RETURN(hipErrorInvalidValue);
-
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

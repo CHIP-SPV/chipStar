@@ -430,7 +430,15 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
   PerThreadDefaultQueue = nullptr;
 }
 
-CHIPDevice::~CHIPDevice() {}
+CHIPDevice::~CHIPDevice() {
+ logDebug("CHIPDevice::~CHIPDevice(){}", (void*)this); ;
+  // TODO SyncThredsPerThread these should be unique and get deleted auto 
+  for(auto Q: getQueues()) {
+    delete Q;
+  }
+  delete LegacyDefaultQueue;
+}
+
 CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
   assert(LegacyDefaultQueue);
   return LegacyDefaultQueue;
@@ -489,6 +497,7 @@ void CHIPDevice::init() {
   CHIPQueueFlags Flags;
   int Priority = DEFAULT_QUEUE_PRIORITY; // TODO : set a default
   auto ChipQueue = createQueue(Flags, Priority);
+  logDebug("Setting {} as LegacyDefaultQueue for Device {}", (void*)ChipQueue, (void*)this);
   LegacyDefaultQueue = ChipQueue;
 }
 
@@ -738,11 +747,13 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
 size_t CHIPDevice::getGlobalMemSize() { return HipDeviceProps_.totalGlobalMem; }
 
 void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
+  std::lock_guard<std::mutex> Lock(DeviceModulesMtx);
   this->ChipModules[ModuleStr] = Module;
 }
 
 void CHIPDevice::eraseModule(CHIPModule *Module) {
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
+  std::lock_guard<std::mutex> Lock(DeviceModulesMtx);
+  //std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto *ModSrc = Module->getModuleSource();
   if (auto It = ChipModules.find(ModSrc); It != ChipModules.end()) {
     delete It->second;
@@ -807,7 +818,9 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
+  // TODO SyncThreadsPerThread add pthread_yield after added
   logDebug("{} CHIPDevice::addQueue({})", (void *)this, (void *)ChipQueue);
+  // TODO SyncThreadsPerThread Why BackendMtx and not DeviceMtx?
   std::lock_guard<std::mutex> LockDevice(Backend->BackendMtx);
 
   auto QueueFound =
@@ -838,25 +851,26 @@ void CHIPEvent::trackImpl() { Backend->Events.push_back(this); }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
                                               int Priority) {
-  logDebug("CHIPDevice::createQueueAndRegister()"); // TODO add argument info
+  logDebug("CHIPDevice::createQueueAndRegister()"); // TODO SyncThreadsPerThread
+                                                    // add argument info
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
-  addQueue(ChipQueue);          // lock on BackendMtx inside
-  Backend->addQueue(ChipQueue); // lock on BackendMtx inside
+  addQueue(ChipQueue); // lock on BackendMtx inside
   return ChipQueue;
 }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
                                               const size_t NumHandles) {
+  logDebug("CHIPDevice::createQueueAndRegister()"); // TODO SyncThreadsPerThread
+                                                    // add argument info
   auto ChipQueue = createQueue(NativeHandles, NumHandles);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
-  Backend->addQueue(ChipQueue);
   return ChipQueue;
 }
 
+// TODO SyncThredsPerThread maybe we should have a noLock variant? Often times we get queues and then do operations. If locked inside then when lock exists we can delete it while still doing operations on preveiously acquired queueds
 std::vector<CHIPQueue *> &CHIPDevice::getQueues() {
-  std::lock_guard<std::mutex> LockDevice(DeviceMtx);
   return ChipQueues_;
 }
 
@@ -883,31 +897,22 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   logDebug("CHIPDevice::removeQueue({})", (void *)ChipQueue);
-  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
-  // If this stream has a LastEvent, it will release it, decrement its refcount
-  // and let the StaleEventMonitor to collect it
-  ChipQueue->updateLastEvent(nullptr);
 
   // If attempting to remove the default queue (during uninitialize), don't
   // check the queue vectors
+  // TODO SyncThreadsPerThread make sure that legacy and per-thread aren't added
+  // to the backend lists
   if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
     logDebug("Removing the default legacy queue");
     return true;
   }
 
   // Remove from the Backend Per-Thread Queue List, if there
-  auto FoundQueue = std::find(Backend->getPerThreadQueues().begin(),
-                              Backend->getPerThreadQueues().end(), ChipQueue);
-  if (FoundQueue != Backend->getPerThreadQueues().end()) {
-    logDebug("CHIPDevice::removeQueue({}) was found in per-thread queue list. "
-             "Removing..",
-             (void *)ChipQueue);
-    Backend->getPerThreadQueues().erase(FoundQueue);
-    return true;
-  }
+  Backend->removePerThreadQueue(ChipQueue);
 
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   // Remove from device queue list
-  FoundQueue = std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
+  auto FoundQueue = std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
@@ -916,19 +921,6 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     logWarn("{}", Msg);
   } else {
     ChipQueues_.erase(FoundQueue);
-  }
-
-  // Remove from the Backend Queue List
-  FoundQueue = std::find(Backend->getQueues().begin(),
-                         Backend->getQueues().end(), ChipQueue);
-  if (FoundQueue == Backend->getQueues().end()) {
-    std::string Msg = "Tried to remove a queue for a the backend but the queue "
-                      "was not found in "
-                      "backend queue list";
-    // CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
-    logWarn("{}", Msg);
-  } else {
-    Backend->getQueues().erase(FoundQueue);
   }
 
   return true;
@@ -949,7 +941,7 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
 }
 
 hipError_t CHIPDevice::allocateDeviceVariables() {
-  std::lock_guard<std::mutex> Lock(DeviceMtx);
+  std::lock_guard<std::mutex> Lock(DeviceModulesMtx);
   logTrace("Allocate storage for device variables.");
   for (auto I : ChipModules) {
     auto Status =
@@ -961,21 +953,21 @@ hipError_t CHIPDevice::allocateDeviceVariables() {
 }
 
 void CHIPDevice::initializeDeviceVariables() {
-  std::lock_guard<std::mutex> Lock(DeviceMtx);
+  std::lock_guard<std::mutex> Lock(DeviceModulesMtx);
   logTrace("Initialize device variables.");
   for (auto Module : ChipModules)
     Module.second->initializeDeviceVariablesNoLock(this, getDefaultQueue());
 }
 
 void CHIPDevice::invalidateDeviceVariables() {
-  std::lock_guard<std::mutex> Lock(DeviceMtx);
+  std::lock_guard<std::mutex> Lock(DeviceModulesMtx);
   logTrace("invalidate device variables.");
   for (auto Module : ChipModules)
     Module.second->invalidateDeviceVariablesNoLock();
 }
 
 void CHIPDevice::deallocateDeviceVariables() {
-  std::lock_guard<std::mutex> Lock(DeviceMtx);
+  std::lock_guard<std::mutex> Lock(DeviceModulesMtx);
   logTrace("Deallocate storage for device variables.");
   for (auto Module : ChipModules)
     Module.second->deallocateDeviceVariablesNoLock(this);
@@ -988,12 +980,10 @@ CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   std::vector<CHIPQueue *> Queues, PerThreadQueues;
-  {
-    std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
-    Queues = Backend->getQueues();
-    PerThreadQueues = Backend->getPerThreadQueues();
-  }
-  std::lock_guard<std::mutex> LockContext(ContextMtx);
+  Queues = Backend->getUserQueues();
+  PerThreadQueues = Backend->getPerThreadQueues();
+
+  //std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPEvent *> EventsToWaitOn;
   auto Dev = Backend->getActiveDevice();
   auto LegacyDefaultQ = Dev->getLegacyDefaultQueue();
@@ -1192,8 +1182,6 @@ CHIPBackend::~CHIPBackend() {
   Events.clear();
   for (auto &Ctx : ChipContexts)
     delete Ctx;
-  for (auto &Q : ChipQueues)
-    delete Q;
   for (auto &Mod : ModulesStr_)
     delete Mod;
 }
@@ -1217,7 +1205,6 @@ void CHIPBackend::waitForThreadExit() {
            Backend->ThreadCount);
   while (true) {
     {
-      std::lock_guard<std::mutex> LockBackend(BackendMtx);
       auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
       if (!NumPerThreadQueuesActive)
         break;
@@ -1230,32 +1217,14 @@ void CHIPBackend::waitForThreadExit() {
     sleep(1);
   }
 
-  logDebug("CHIPBackend::waitForThreadExit() setting LastEvent to null for all "
-           "created queues");
-  {
-    std::lock_guard<std::mutex> LockBackend(BackendMtx);
-    for (auto Q : Backend->getQueues()) {
-      std::lock_guard Lock(Q->QueueMtx);
-      // Q->finish();
-      Q->updateLastEvent(nullptr);
-    }
-  }
-
   logTrace(
       "CHIPBackend::waitForThreadExit(): Setting the LastEvent to null for all "
       "default queues");
-  {
-    std::lock_guard<std::mutex> LockBackend(BackendMtx);
-    for (auto Dev : Backend->getDevices()) {
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-#else
-      auto Q = Dev->getLegacyDefaultQueue();
-      std::lock_guard Lock(Q->QueueMtx);
-      Q->finish();
-      Q->updateLastEvent(nullptr);
-#endif
-    }
+  for(auto &Device : getDevices()) {
+    removeDevice(Device);
+    delete Device;
   }
+
 }
 
 void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
@@ -1267,6 +1236,7 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
   }
 
+  // TODO SyncThreadsPerThread clean this up
   // check if all the devices had their default queues initialized
   for (auto Dev : ChipDevices) {
     if (Dev->LegacyDefaultQueue == nullptr)
@@ -1293,10 +1263,71 @@ void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
   ActiveDev_ = ChipDevice;
   ActiveCtx_ = ChipDevice->getContext();
 }
-std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return ChipQueues; }
 
+// std::vector<CHIPQueue *> CHIPBackend::getLegacyDefaultQueues() {
+//   std::vector<CHIPQueue *> Queues;
+//   for (auto Dev : getDevices()) {
+//     std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+//       auto Q = Dev->getLe
+//       Queues.push_back(Q);
+//   }
+
+//   return Queues;
+// }
+
+std::vector<CHIPQueue *> CHIPBackend::getUserQueues() {
+  std::vector<CHIPQueue *> Queues;
+  for (auto Dev : getDevices()) {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+    for (auto Q : Dev->getQueues()) { 
+      Queues.push_back(Q);
+    }
+  }
+
+  return Queues;
+}
+
+std::vector<CHIPQueue *> CHIPBackend::getDefaultQueues() {
+  std::vector<CHIPQueue *> Queues;
+  for (auto Dev : getDevices()) {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+      Queues.push_back(Dev->getLegacyDefaultQueue());
+  }
+
+  return Queues;
+}
+
+// TODO SyncTHreadsPerThread Should we keep PerThreadQueues in Backend? Not in individual device?
 std::vector<CHIPQueue *> &CHIPBackend::getPerThreadQueues() {
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   return PerThreadQueues;
+}
+
+std::vector<CHIPQueue *> CHIPBackend::getAllQueues() {
+  std::vector<CHIPQueue *> DefaultQueues = getDefaultQueues();
+  std::vector<CHIPQueue *> UserQueues = getUserQueues();
+  std::vector<CHIPQueue *> PerThreadQueues = getPerThreadQueues();
+
+  std::vector<CHIPQueue *> Queues;
+  Queues.insert(Queues.end(), DefaultQueues.begin(), DefaultQueues.end());
+  Queues.insert(Queues.end(), UserQueues.begin(), UserQueues.end());
+  Queues.insert(Queues.end(), PerThreadQueues.begin(), PerThreadQueues.end());
+
+  return Queues;
+}
+
+void CHIPBackend::removePerThreadQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+
+  auto FoundQueue =
+      std::find(PerThreadQueues.begin(), PerThreadQueues.end(), ChipQueue);
+  if (FoundQueue != PerThreadQueues.end()) {
+    logDebug("CHIPBackend::removePerThreadQueue({}) was found in per-thread queue list. "
+             "Removing..",
+             (void *)ChipQueue);
+    PerThreadQueues.erase(FoundQueue);
+  }
+  return;
 }
 
 CHIPContext *CHIPBackend::getActiveContext() {
@@ -1319,7 +1350,7 @@ CHIPDevice *CHIPBackend::getActiveDevice() {
 };
 
 std::vector<CHIPDevice *> &CHIPBackend::getDevices() {
-  std::lock_guard<std::mutex> LockSetActive(Backend->SetActiveMtx);
+  std::lock_guard<std::mutex> LockBackend(BackendMtx);
 
   return ChipDevices;
 }
@@ -1353,24 +1384,7 @@ void CHIPBackend::addPerThreadQueue(CHIPQueue *ChipQueue) {
 
   return;
 }
-
-void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
-  logDebug("CHIPBackend::addQueue({})", (void *)ChipQueue);
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
-  auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
-  if (QueueFound == ChipQueues.end()) {
-    ChipQueues.push_back(ChipQueue);
-  } else {
-    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
-                          "already present in the backend queue list",
-                          hipErrorTbd);
-  }
-
-  logDebug("CHIPQueue {} added to the queue vector for backend {} ",
-           (void *)ChipQueue, (void *)this);
-
-  return;
-}
+// TODO SyncThreadsPerThread maybe remove this as well and have CHIPContext do this? just like with queues
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
@@ -1379,6 +1393,23 @@ void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice {} added to the queue vector for backend {} ",
            (void *)ChipDevice, (void *)this);
 }
+
+void CHIPBackend::removeDevice(CHIPDevice *ChipDevice) {
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
+  logDebug("CHIPBackend::removeDevice() {}", ChipDevice->getName());
+  // Remove from device queue list
+  auto FoundDevice = std::find(ChipDevices.begin(), ChipDevices.end(), ChipDevice);
+  if (FoundDevice == ChipDevices.end()) {
+    std::string Msg =
+        "Tried to remove a device from backend device list but it was not found in "
+        "device queue list";
+    // CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+    logWarn("{}", Msg);
+  } else {
+    ChipDevices.erase(FoundDevice);
+  }
+}
+
 
 void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
   logDebug("CHIPBackend->register_module()");
@@ -1561,19 +1592,20 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
     return Backend->getActiveDevice()->getDefaultQueue();
   }
 
+  // TODO SyncThreadsPerThread use Backend->getQueues() and Backend->getPerThreadQueues()
   // Safety Check to make sure that the requested queue is registereted
-  std::vector<CHIPQueue *> AllQueues = Backend->getActiveDevice()->getQueues();
-  AllQueues.push_back(Backend->getActiveDevice()->getLegacyDefaultQueue());
-  for (auto Q : Backend->getPerThreadQueues())
-    AllQueues.push_back(Q);
+  // AllQueues.push_back(Backend->getActiveDevice()->getLegacyDefaultQueue());
+  // for (auto Q : Backend->getPerThreadQueues())
+  //   AllQueues.push_back(Q);
 
-  auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
-  if (QueueFound == AllQueues.end())
-    CHIPERR_LOG_AND_THROW("CHIPBackend::findQueue() was given a non-nullptr "
-                          "queue but this queue "
-                          "was not found among the backend queues.",
-                          hipErrorTbd);
-  return *QueueFound;
+  // auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
+  // if (QueueFound == AllQueues.end())
+  //   CHIPERR_LOG_AND_THROW("CHIPBackend::findQueue() was given a non-nullptr "
+  //                         "queue but this queue "
+  //                         "was not found among the backend queues.",
+  //                         hipErrorTbd);
+  // return *QueueFound;
+  return ChipQueue;
 }
 
 // CHIPQueue
@@ -1586,6 +1618,13 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
   logTrace("{} ~CHIPQueue()", (void *)this);
+
+  // If this stream has a LastEvent, it will release it, decrement its refcount
+  // and let the StaleEventMonitor to collect it
+  // TODO SyncThreadsPerThread move this inside child constructor since pure
+  // virtual finish();
+  updateLastEvent(nullptr);
+
   ChipDevice_->removeQueue(this); // locks BackendMtx
 };
 

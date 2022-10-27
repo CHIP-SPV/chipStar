@@ -251,7 +251,7 @@ class CHIPContextLevel0 : public CHIPContext {
 
 public:
   CHIPEventLevel0 *getEventFromPool() {
-
+    std::lock_guard<std::mutex> LockContext(ContextMtx);
     // go through all pools and try to get an allocated event
     for (size_t i = 0; i < EventPools_.size(); i++) {
       CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
