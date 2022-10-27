@@ -36,7 +36,7 @@
 // __device__​ float __fdiv_rn ( float  x, float  y )
 // __device__​ float __fdiv_ru ( float  x, float  y )
 // __device__​ float __fdiv_rz ( float  x, float  y )
-// __device__​ float __fdividef ( float  x, float  y )
+__device__ float __fdividef(float x, float y);
 // __device__​ float __fmaf_ieee_rd ( float  x, float  y, float  z )
 // __device__​ float __fmaf_ieee_rn ( float  x, float  y, float  z )
 // __device__​ float __fmaf_ieee_ru ( float  x, float  y, float  z )
