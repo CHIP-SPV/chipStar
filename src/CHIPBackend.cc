@@ -902,13 +902,14 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   // check the queue vectors
   // TODO SyncThreadsPerThread make sure that legacy and per-thread aren't added
   // to the backend lists
-  if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
+  if (ChipQueue == getLegacyDefaultQueue()) {
     logDebug("Removing the default legacy queue");
     return true;
   }
 
   // Remove from the Backend Per-Thread Queue List, if there
-  Backend->removePerThreadQueue(ChipQueue);
+  if(Backend->removePerThreadQueue(ChipQueue))
+    return true;
 
   std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   // Remove from device queue list
@@ -917,8 +918,7 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
         "device queue list";
-    // CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
-    logWarn("{}", Msg);
+    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   } else {
     ChipQueues_.erase(FoundQueue);
   }
@@ -1316,8 +1316,9 @@ std::vector<CHIPQueue *> CHIPBackend::getAllQueues() {
   return Queues;
 }
 
-void CHIPBackend::removePerThreadQueue(CHIPQueue *ChipQueue) {
+bool CHIPBackend::removePerThreadQueue(CHIPQueue *ChipQueue) {
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
+  bool Found = false;
 
   auto FoundQueue =
       std::find(PerThreadQueues.begin(), PerThreadQueues.end(), ChipQueue);
@@ -1326,8 +1327,9 @@ void CHIPBackend::removePerThreadQueue(CHIPQueue *ChipQueue) {
              "Removing..",
              (void *)ChipQueue);
     PerThreadQueues.erase(FoundQueue);
+    Found = true;
   }
-  return;
+  return Found;
 }
 
 CHIPContext *CHIPBackend::getActiveContext() {

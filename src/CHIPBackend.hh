@@ -1751,7 +1751,7 @@ public:
 
   std::vector<CHIPQueue *> &getPerThreadQueues();
 
-  void removePerThreadQueue(CHIPQueue* ChipQueue);
+  bool removePerThreadQueue(CHIPQueue* ChipQueue);
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
