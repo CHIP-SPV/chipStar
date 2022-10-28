@@ -170,7 +170,7 @@ __global__ void half_le(const half2 *x, const half2 *y, half2 *z) {
 
 __global__ void half_lt(const half2 *x, const half2 *y, half2 *z) {
   size_t i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-  z[i] = __hgt2(x[i], y[i]);
+  z[i] = __hlt2(x[i], y[i]);
 }
 __global__ void half_ne(const half2 *x, const half2 *y, half2 *z) {
   size_t i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
