@@ -1194,9 +1194,7 @@ public:
 
   CHIPAllocationTracker *AllocationTracker = nullptr;
 
-  virtual ~CHIPDevice(
-    // TODO SyncThreadsPerThread delete all queues?
-  );
+  virtual ~CHIPDevice();
 
   /**
    * @brief Get the Kernels object

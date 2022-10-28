@@ -1176,6 +1176,7 @@ void CHIPBackend::syncAllQueues() {
   logDebug("CHIPBackend::syncAllQueues");
    auto Queues = getAllQueues();
    for(auto Q: Queues) {
+    // WHY DOES THIS KEEP FAILING
     Q->finish();
    }
  

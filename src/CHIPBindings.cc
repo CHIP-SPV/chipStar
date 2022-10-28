@@ -1326,6 +1326,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   Stream = Backend->findQueue(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
+  Stream->finish();
 
   // This will call finish, setLastEvent, removeQueue
   //TODO SyncThreadsPerThread make removeQueue() protected?
