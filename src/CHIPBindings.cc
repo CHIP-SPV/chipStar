@@ -782,7 +782,8 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  for (auto Q : Backend->getUserQueues()) {
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
+  for (auto Q : Backend->getAllQueues()) {
     Q->finish();
   }
 

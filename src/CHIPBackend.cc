@@ -818,6 +818,7 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
   // TODO SyncThreadsPerThread add pthread_yield after added
   logDebug("{} CHIPDevice::addQueue({})", (void *)this, (void *)ChipQueue);
   // TODO SyncThreadsPerThread Why BackendMtx and not DeviceMtx?
@@ -896,6 +897,7 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
   logDebug("CHIPDevice::removeQueue({})", (void *)ChipQueue);
 
   // If attempting to remove the default queue (during uninitialize), don't
@@ -1298,7 +1300,7 @@ std::vector<CHIPQueue *> CHIPBackend::getDefaultQueues() {
 }
 
 // TODO SyncTHreadsPerThread Should we keep PerThreadQueues in Backend? Not in individual device?
-std::vector<CHIPQueue *> &CHIPBackend::getPerThreadQueues() {
+std::vector<CHIPQueue *> CHIPBackend::getPerThreadQueues() {
   std::lock_guard<std::mutex> LockBackend(BackendMtx);
   return PerThreadQueues;
 }

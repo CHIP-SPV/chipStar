@@ -1627,6 +1627,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  std::mutex QueueAddOrRemove;
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
@@ -1641,7 +1642,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<std::unique_ptr<CHIPQueue>> ChipQueues;
   std::vector<CHIPQueue *> PerThreadQueues;
   std::atomic<int> ThreadCount = 0;
   std::vector<CHIPDevice *> ChipDevices;
@@ -1749,7 +1749,7 @@ public:
 
   std::vector<CHIPQueue *> getAllQueues();
 
-  std::vector<CHIPQueue *> &getPerThreadQueues();
+  std::vector<CHIPQueue *> getPerThreadQueues();
 
   bool removePerThreadQueue(CHIPQueue* ChipQueue);
   /**

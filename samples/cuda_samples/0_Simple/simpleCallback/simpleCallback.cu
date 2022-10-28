@@ -27,7 +27,7 @@
 
 #include "multithreading.h"
 
-const int N_workloads  = 8;
+const int N_workloads  = 4;
 const int N_elements_per_workload = 100000;
 
 CUTBarrier thread_barrier;
