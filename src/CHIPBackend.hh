@@ -1264,7 +1264,7 @@ public:
    *
    * @return std::vector<CHIPQueue*>
    */
-  std::vector<CHIPQueue *> &getQueues();
+  std::vector<CHIPQueue *> getQueues();
 
   /**
    * @brief Remove a queue from this device's queue vector

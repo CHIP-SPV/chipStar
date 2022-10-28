@@ -866,8 +866,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
 }
 
 // TODO SyncThredsPerThread maybe we should have a noLock variant? Often times we get queues and then do operations. If locked inside then when lock exists we can delete it while still doing operations on preveiously acquired queueds
-std::vector<CHIPQueue *> &CHIPDevice::getQueues() {
-  return ChipQueues_;
+std::vector<CHIPQueue *> CHIPDevice::getQueues() {
 }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
