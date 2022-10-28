@@ -433,6 +433,7 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 CHIPDevice::~CHIPDevice() {
  logDebug("CHIPDevice::~CHIPDevice(){}", (void*)this); ;
   // TODO SyncThredsPerThread these should be unique and get deleted auto 
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
   for(auto Q: getQueues()) {
     delete Q;
   }
@@ -459,7 +460,6 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
 
   if (!PerThreadDefaultQueue.get()) {
     auto NewQueue = Backend->createCHIPQueue(this); // locks inside
-    Backend->addPerThreadQueue(NewQueue);
     PerThreadDefaultQueue = // thread local
         std::unique_ptr<CHIPQueue>(NewQueue);
     PerThreadStreamUsed = true; // thread local
@@ -897,22 +897,26 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
+  std::lock_guard<std::mutex> LockDevice(DeviceMtx);
   logDebug("CHIPDevice::removeQueue({})", (void *)ChipQueue);
-
   // If attempting to remove the default queue (during uninitialize), don't
   // check the queue vectors
   // TODO SyncThreadsPerThread make sure that legacy and per-thread aren't added
   // to the backend lists
   if (ChipQueue == getLegacyDefaultQueue()) {
+    LegacyDefaultQueue = nullptr;
     logDebug("Removing the default legacy queue");
     return true;
   }
 
-  // Remove from the Backend Per-Thread Queue List, if there
-  if(Backend->removePerThreadQueue(ChipQueue))
+    if (ChipQueue == getPerThreadDefaultQueue()) {
+    logDebug("Removing the per-thread queue");
+    //PerThreadDefaultQueue = nullptr; // I can't do this because it will call destructor causing recursion
+    PerThreadStreamUsed = false;
     return true;
+  }
 
+  // TODO SyncThreadsPerThread this mutex is not needed anymore?
   std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   // Remove from device queue list
   auto FoundQueue = std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -1155,6 +1159,25 @@ hipError_t CHIPContext::free(void *Ptr) {
 
 // CHIPBackend
 //*************************************************************************************
+int CHIPBackend::getPerThreadQueuesActive() {
+   std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
+   int Active = 0;
+   for(auto Dev: getDevices()) {
+    if(Dev->PerThreadStreamUsed) {
+      Active++;
+    }
+   } 
+   return Active;
+}
+void CHIPBackend::syncAllQueues() {
+   std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
+  logDebug("CHIPBackend::syncAllQueues");
+   auto Queues = getAllQueues();
+   for(auto Q: Queues) {
+    Q->finish();
+   }
+ 
+}
 int CHIPBackend::getQueuePriorityRange() {
   assert(MinQueuePriority_);
   return MinQueuePriority_;
@@ -1207,7 +1230,7 @@ void CHIPBackend::waitForThreadExit() {
            Backend->ThreadCount);
   while (true) {
     {
-      auto NumPerThreadQueuesActive = Backend->getPerThreadQueues().size();
+      auto NumPerThreadQueuesActive = Backend->getPerThreadQueuesActive();
       if (!NumPerThreadQueuesActive)
         break;
 
@@ -1299,10 +1322,14 @@ std::vector<CHIPQueue *> CHIPBackend::getDefaultQueues() {
   return Queues;
 }
 
-// TODO SyncTHreadsPerThread Should we keep PerThreadQueues in Backend? Not in individual device?
 std::vector<CHIPQueue *> CHIPBackend::getPerThreadQueues() {
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
-  return PerThreadQueues;
+  std::vector<CHIPQueue *> Queues;
+  for (auto Dev : getDevices()) {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+      Queues.push_back(Dev->getPerThreadDefaultQueue());
+  }
+
+  return Queues;
 }
 
 std::vector<CHIPQueue *> CHIPBackend::getAllQueues() {
@@ -1366,28 +1393,6 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 
-void CHIPBackend::addPerThreadQueue(CHIPQueue *ChipQueue) {
-  // atomic increment. Based on this, we adjust the amount of time we wait
-  // before exit
-  ThreadCount++;
-
-  logDebug("CHIPBackend::addPerThreadQueue({})", (void *)ChipQueue);
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
-  auto QueueFound =
-      std::find(PerThreadQueues.begin(), PerThreadQueues.end(), ChipQueue);
-  if (QueueFound == PerThreadQueues.end()) {
-    PerThreadQueues.push_back(ChipQueue);
-  } else {
-    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
-                          "already present in the backend queue list",
-                          hipErrorTbd);
-  }
-
-  logDebug("CHIPQueue {} added to the per-thread queue vector for backend {} ",
-           (void *)ChipQueue, (void *)this);
-
-  return;
-}
 // TODO SyncThreadsPerThread maybe remove this as well and have CHIPContext do this? just like with queues
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
@@ -1621,6 +1626,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove); 
   logTrace("{} ~CHIPQueue()", (void *)this);
 
   // If this stream has a LastEvent, it will release it, decrement its refcount

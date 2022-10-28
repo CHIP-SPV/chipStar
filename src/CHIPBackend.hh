@@ -1627,6 +1627,8 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  int getPerThreadQueuesActive();
+  void syncAllQueues();
   std::mutex QueueAddOrRemove;
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
@@ -1794,7 +1796,6 @@ public:
    */
   void addContext(CHIPContext *ChipContext);
 
-  void addPerThreadQueue(CHIPQueue *ChipQueue);
   /**
    * @brief  Add a device to this backend.
    *

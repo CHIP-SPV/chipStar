@@ -782,10 +782,7 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
-  for (auto Q : Backend->getAllQueues()) {
-    Q->finish();
-  }
+  Backend->syncAllQueues();
 
   // TODO SyncThreadsPerThread
   // for(auto Q: Backend->getPerThreadQueues()) {
