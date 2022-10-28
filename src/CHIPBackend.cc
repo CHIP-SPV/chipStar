@@ -433,16 +433,11 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 CHIPDevice::~CHIPDevice() {
  logDebug("CHIPDevice::~CHIPDevice(){}", (void*)this); ;
   // TODO SyncThredsPerThread these should be unique and get deleted auto 
-  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
-  for(auto Q: getQueues()) {
-    delete Q;
-  }
-  delete LegacyDefaultQueue;
+  // }
 }
 
 CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
-  assert(LegacyDefaultQueue);
-  return LegacyDefaultQueue;
+  return LegacyDefaultQueue.get();
 }
 
 CHIPQueue *CHIPDevice::getDefaultQueue() {
@@ -498,7 +493,7 @@ void CHIPDevice::init() {
   int Priority = DEFAULT_QUEUE_PRIORITY; // TODO : set a default
   auto ChipQueue = createQueue(Flags, Priority);
   logDebug("Setting {} as LegacyDefaultQueue for Device {}", (void*)ChipQueue, (void*)this);
-  LegacyDefaultQueue = ChipQueue;
+  LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 }
 
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *Prop) {
@@ -986,6 +981,7 @@ CHIPContext::~CHIPContext() {}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   std::vector<CHIPQueue *> Queues, PerThreadQueues;
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
   Queues = Backend->getUserQueues();
   PerThreadQueues = Backend->getPerThreadQueues();
 

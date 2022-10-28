@@ -1144,7 +1144,7 @@ public:
   std::mutex DeviceMtx;
   std::mutex DeviceModulesMtx;
 
-  CHIPQueue *LegacyDefaultQueue; // TODO SyncThreadsPerThread Why am I not making this unique so that I can just delete the Device and these will be destroyed automatically?
+  std::unique_ptr<CHIPQueue> LegacyDefaultQueue; 
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**
