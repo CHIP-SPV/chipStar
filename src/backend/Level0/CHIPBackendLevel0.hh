@@ -187,6 +187,7 @@ public:
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   ~CHIPQueueLevel0() {
+    std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
     logTrace("{} ~CHIPQueueLevel0()", (void *)this);
     //finish();  // Can't call finish here because the underlaying context could already be destroyed. 
     // TODO SyncThreadsPerThread context destructor should finish all of it's queues
