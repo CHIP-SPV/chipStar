@@ -432,8 +432,10 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 
 CHIPDevice::~CHIPDevice() {
  logDebug("CHIPDevice::~CHIPDevice(){}", (void*)this); ;
-  // TODO SyncThredsPerThread these should be unique and get deleted auto 
-  // }
+  while(ChipQueues_.size()) {
+    delete *ChipQueues_.begin(); // destructor will remove it from this device's queue list
+    ChipQueues_.erase(ChipQueues_.begin());
+  }
 }
 
 CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
@@ -457,6 +459,7 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
     auto NewQueue = Backend->createCHIPQueue(this); // locks inside
     PerThreadDefaultQueue = // thread local
         std::unique_ptr<CHIPQueue>(NewQueue);
+    std::lock_guard<std::mutex> LockDevice(DeviceMtx);
     PerThreadStreamUsed = true; // thread local
     logDebug("PerThreadDefaultQueue was null for TID {} Created a new queue {}",
              pthread_self(), (void *)(NewQueue));
@@ -867,6 +870,7 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
 
 // TODO SyncThredsPerThread maybe we should have a noLock variant? Often times we get queues and then do operations. If locked inside then when lock exists we can delete it while still doing operations on preveiously acquired queueds
 std::vector<CHIPQueue *> CHIPDevice::getQueues() {
+  return ChipQueues_;
 }
 
 hipError_t CHIPDevice::setPeerAccess(CHIPDevice *Peer, int Flags,
@@ -898,12 +902,14 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   // TODO SyncThreadsPerThread make sure that legacy and per-thread aren't added
   // to the backend lists
   if (ChipQueue == getLegacyDefaultQueue()) {
-    LegacyDefaultQueue = nullptr;
+    std::abort();
+    // LegacyDefaultQueue = nullptr// I can't do this because it will call destructor causing recursion;
     logDebug("Removing the default legacy queue");
     return true;
   }
 
     if (ChipQueue == getPerThreadDefaultQueue()) {
+    std::abort();
     logDebug("Removing the per-thread queue");
     //PerThreadDefaultQueue = nullptr; // I can't do this because it will call destructor causing recursion
     PerThreadStreamUsed = false;
@@ -1158,6 +1164,7 @@ int CHIPBackend::getPerThreadQueuesActive() {
    std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
    int Active = 0;
    for(auto Dev: getDevices()) {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
     if(Dev->PerThreadStreamUsed) {
       Active++;
     }
@@ -1165,7 +1172,7 @@ int CHIPBackend::getPerThreadQueuesActive() {
    return Active;
 }
 void CHIPBackend::syncAllQueues() {
-   std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove);
   logDebug("CHIPBackend::syncAllQueues");
    auto Queues = getAllQueues();
    for(auto Q: Queues) {
@@ -1202,6 +1209,8 @@ CHIPBackend::~CHIPBackend() {
   Events.clear();
   for (auto &Ctx : ChipContexts)
     delete Ctx;
+  for (auto &Dev : ChipDevices)
+    delete Dev;
   for (auto &Mod : ModulesStr_)
     delete Mod;
 }
@@ -1620,17 +1629,18 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
 };
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
+
 CHIPQueue::~CHIPQueue() {
-  std::lock_guard<std::mutex> LockQueues(Backend->QueueAddOrRemove); 
   logTrace("{} ~CHIPQueue()", (void *)this);
+  std::lock_guard<std::mutex> LockQueue(Backend->QueueAddOrRemove);
 
-  // If this stream has a LastEvent, it will release it, decrement its refcount
-  // and let the StaleEventMonitor to collect it
-  // TODO SyncThreadsPerThread move this inside child constructor since pure
-  // virtual finish();
+
   updateLastEvent(nullptr);
-
-  ChipDevice_->removeQueue(this); // locks BackendMtx
+  // If this was per-thread queue, set 
+  std::lock_guard<std::mutex> LockDevice(ChipDevice_->DeviceMtx);
+  if (this->ChipDevice_->getPerThreadDefaultQueue() == this) {
+    ChipDevice_->PerThreadStreamUsed = false;
+  }
 };
 
 ///////// Enqueue Operations //////////

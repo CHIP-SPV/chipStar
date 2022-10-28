@@ -1342,7 +1342,6 @@ void CHIPBackendLevel0::uninitialize() {
   logTrace("CHIPBackendLevel0::uninitialize()");
   waitForThreadExit(); // All Per-Thread Queues exit
 
-
   auto AllQueues = Backend->getAllQueues();
   assert(AllQueues.size() == 0);
 
@@ -1470,7 +1469,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
                                              int NumHandles) {
   logTrace("CHIPBackendLevel0 InitializeNative");
-  MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
+  MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH; // TODO Why is this not default?
 
   ze_driver_handle_t Drv = (ze_driver_handle_t)NativeHandles[0];
   ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];
@@ -1483,10 +1482,11 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipCtx->addDevice(ChipDev);
   addDevice(ChipDev);
 
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-  auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
-  ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
+  // TODO SyncThreadsPerThread since the queue is null anyways see #???, we don't need to do this
+  // auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
+  // ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 
+  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
   CallbackEventMonitor =

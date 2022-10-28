@@ -1329,6 +1329,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
 
   // This will call finish, setLastEvent, removeQueue
   //TODO SyncThreadsPerThread make removeQueue() protected?
+  Dev->removeQueue(Stream);
   delete Stream;
 
   RETURN(hipSuccess);
