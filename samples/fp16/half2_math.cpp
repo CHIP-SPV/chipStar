@@ -83,21 +83,23 @@ void check(std::string fn, const half2 *x, const half2 *y, const half2 *z, const
     else if (fn == "neg")
 	    verify = -1.0f * xx_computed;
     else if (fn == "eq")
-	    verify = xx_computed == yy_computed;
+      verify = xx_computed == yy_computed;
     else if (fn == "neq")
-	    verify = xx_computed != yy_computed;
+      verify = xx_computed != yy_computed;
     else if (fn == "lt")
-	    verify = xx_computed < yy_computed;
+      verify = xx_computed < yy_computed;
     else if (fn == "gt")
-	    verify = xx_computed > yy_computed;
+      verify = xx_computed > yy_computed;
     else if (fn == "le")
-	    verify = xx_computed <= yy_computed;
+      verify = xx_computed <= yy_computed;
     else if (fn == "ge")
-	    verify = xx_computed >= yy_computed;
+      verify = xx_computed >= yy_computed;
 
-    // with logical operators, the "truth" value on CPU is 1 but on GPU with vectors it's -1
-    if (eq_oper && verify)
-      verify = -1;
+    // with logical operators, the "truth" value on CPU is 1
+    // but on GPU with vectors it can be 1 or -1
+    if (eq_oper) {
+      zz_computed = (zz_computed != 0.0f);
+    }
 
     if ((eq_oper && (zz_computed != verify)) ||
         (!eq_oper && compare_calculated(zz_computed, verify) > 4)) {
@@ -142,12 +144,12 @@ __global__ void half_mul(const half2 *x, const half2 *y, half2 *z) {
   size_t i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
   z[i] = __hmul2(x[i], y[i]);
 }
-/*
+
 __global__ void half_div(const half2 *x, const half2 *y, half2 *z) {
   size_t i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-  z[i] = __hdiv2(x[i], y[i]);
+  z[i] = __h2div(x[i], y[i]);
 }
-*/
+
 __global__ void half_eq(const half2 *x, const half2 *y, half2 *z) {
   size_t i = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
   z[i] = __heq2(x[i], y[i]);
@@ -218,12 +220,12 @@ int main(void) {
   checkCuda(hipGetLastError());
   checkCuda(hipMemcpy(z, d_z, n * sizeof(half2), hipMemcpyDeviceToHost));
   check("mul", x, y, z, n);
-/*
+
   hipLaunchKernelGGL(half_div, dim3(nBlocks), dim3(blockSize), 0, 0, d_x, d_y, d_z);
   checkCuda(hipGetLastError());
   checkCuda(hipMemcpy(z, d_z, n * sizeof(half2), hipMemcpyDeviceToHost));
   check("div", x, y, z, n);
-*/
+
   hipLaunchKernelGGL(half_fma, dim3(nBlocks), dim3(blockSize), 0, 0, d_x, d_y, d_z);
   checkCuda(hipGetLastError());
   checkCuda(hipMemcpy(z, d_z, n * sizeof(half2), hipMemcpyDeviceToHost));
