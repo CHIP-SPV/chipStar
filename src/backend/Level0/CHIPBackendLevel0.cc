@@ -710,7 +710,7 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 // ***********************************************************************
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
-  logTrace("~CHIPQueueLevel0() {}", (void*)this);
+  logTrace("~CHIPQueueLevel0() {}", (void *)this);
   zeCommandQueueDestroy(ZeCmdQ_);
 }
 
@@ -1524,8 +1524,8 @@ void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
 // CHIPContextLevelZero
 // ***********************************************************************
 
-CHIPContextLevel0::~CHIPContextLevel0() { 
-  logTrace("~CHIPContextLevel0() {}", (void*)this); 
+CHIPContextLevel0::~CHIPContextLevel0() {
+  logTrace("~CHIPContextLevel0() {}", (void *)this);
   zeContextDestroy(this->ZeCtx);
 }
 
