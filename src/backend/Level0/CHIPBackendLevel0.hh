@@ -186,7 +186,7 @@ public:
                   LevelZeroQueueType TheQueueType);
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
-  virtual ~CHIPQueueLevel0() { logTrace("CHIPQueueLevel0 DEST"); }
+  virtual ~CHIPQueueLevel0() override;
 
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
@@ -272,7 +272,7 @@ public:
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
-  virtual ~CHIPContextLevel0() { logTrace("CHIPContextLevel0 DEST"); }
+  virtual ~CHIPContextLevel0() override;
 
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;

@@ -709,6 +709,11 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 // CHIPQueueLevelZero
 // ***********************************************************************
 
+CHIPQueueLevel0::~CHIPQueueLevel0() {
+  logTrace("~CHIPQueueLevel0() {}", (void *)this);
+  zeCommandQueueDestroy(ZeCmdQ_);
+}
+
 void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   CHIPCallbackData *Callbackdata =
@@ -793,7 +798,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUES
+#ifdef L0_IMM_QUEUEs
   initializeCmdListImm();
 #endif
 }
@@ -1518,6 +1523,11 @@ void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
 
 // CHIPContextLevelZero
 // ***********************************************************************
+
+CHIPContextLevel0::~CHIPContextLevel0() {
+  logTrace("~CHIPContextLevel0() {}", (void *)this);
+  zeContextDestroy(this->ZeCtx);
+}
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy,
