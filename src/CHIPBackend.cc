@@ -1111,6 +1111,7 @@ CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
+  std::lock_guard<std::mutex> LockContext(ContextMtx); // touched CHIPContextOpenCL::SvmMemory
   std::lock_guard<std::mutex> LockDevice(ChipDev->DeviceMtx);
   AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
