@@ -742,7 +742,7 @@ void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
 }
 
 void CHIPDevice::eraseModule(CHIPModule *Module) {
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
+  LOCK(DeviceMtx);
   auto *ModSrc = Module->getModuleSource();
   if (auto It = ChipModules.find(ModSrc); It != ChipModules.end()) {
     delete It->second;
@@ -807,7 +807,7 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockDevice(Backend->BackendMtx);
+  LOCK(DeviceMtx)
 
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -881,12 +881,11 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
-  // If this stream has a LastEvent, it will release it, decrement its refcount
-  // and let the StaleEventMonitor to collect it
+  LOCK(ChipQueue->QueueMtx)
   ChipQueue->updateLastEvent(nullptr);
 
   // Remove from device queue list
+  LOCK(DeviceMtx)
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
@@ -1001,7 +1000,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   }
 
   {
-    std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
+    LOCK(Backend->BackendMtx) // reading CHIPBackend::ChipQueues
     // Always sycn with all blocking queues
     for (auto &Queue : Backend->getQueues())
       if (Queue->getQueueFlags().isBlocking())
@@ -1247,7 +1246,7 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+  LOCK(BackendMtx) // reading CHIPBackend::ChipQueues
   auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
   if (QueueFound == ChipQueues.end()) {
     ChipQueues.push_back(ChipQueue);
@@ -1263,8 +1262,8 @@ void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
   return;
 }
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
+  LOCK(BackendMtx) // writing CHIPBackend::ChipDevices
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   ChipDevices.push_back(ChipDevice);
 
   logDebug("CHIPDevice {} added to the queue vector for backend {} ",
@@ -1272,17 +1271,18 @@ void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
 }
 
 void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
+  LOCK(BackendMtx) // writing  CHIPBackend::ModulesStr_
   logDebug("CHIPBackend->register_module()");
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
-  getModulesStr().push_back(ModuleStr);
+  ModulesStr_.push_back(ModuleStr);
 }
 
 void CHIPBackend::unregisterModuleStr(std::string *ModuleStr) {
+  LOCK(BackendMtx) // writing CHIPBackend::ModulesStr_ 
   logDebug("CHIPBackend->unregister_module()");
   auto ModuleFound =
       std::find(ModulesStr_.begin(), ModulesStr_.end(), ModuleStr);
   if (ModuleFound != ModulesStr_.end()) {
-    getModulesStr().erase(ModuleFound);
+    ModulesStr_.erase(ModuleFound);
   } else {
     logWarn("Module {} not found in CHIPBackend.modules_str while trying to "
             "unregister",
@@ -1292,7 +1292,7 @@ void CHIPBackend::unregisterModuleStr(std::string *ModuleStr) {
 
 hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
                                       hipStream_t ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+  LOCK(BackendMtx) // writing CHIPBackend::ChipExecStack
   logDebug("CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
@@ -1304,8 +1304,8 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
 }
 
 hipError_t CHIPBackend::setArg(const void *Arg, size_t Size, size_t Offset) {
+  LOCK(BackendMtx) // reading CHIPBackend::ChipExecStack
   logDebug("CHIPBackend->set_arg()");
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
   CHIPExecItem *ExecItem = ChipExecStack.top();
   ExecItem->setArg(Arg, Size, Offset);
 
@@ -1444,7 +1444,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  std::lock_guard<std::mutex> LockBackend(BackendMtx);
+  LOCK(BackendMtx)
 
   if (ChipQueue == hipStreamPerThread) {
     return Backend->getActiveDevice()->getPerThreadDefaultQueue();
@@ -1673,7 +1673,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  std::lock_guard<std::mutex> LockQueue(Backend->BackendMtx);
+  LOCK(Backend->BackendMtx)
 
   auto TotalThreadsPerBlock =
       ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
