@@ -515,7 +515,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
-  std::lock_guard Lock(Backend->BackendMtx);
+  LOCK(Backend->BackendMtx)
 
   CHIPContext *Ctx = ChipQueue->getContext();
 
@@ -1497,7 +1497,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipCtx->addDevice(ChipDev);
   addDevice(ChipDev);
 
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
+  LOCK(Backend->BackendMtx)
   auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
   ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
 

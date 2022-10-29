@@ -1444,7 +1444,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  LOCK(BackendMtx)
+  LOCK(BackendMtx) // reading CHIPDevice::PerThreadDefaultQueue
 
   if (ChipQueue == hipStreamPerThread) {
     return Backend->getActiveDevice()->getPerThreadDefaultQueue();
