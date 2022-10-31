@@ -285,7 +285,8 @@ set(FLAKY_TESTS
 Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
 Unit_hipStreamCreateWithPriority_ValidateWithEvents$"
 )
-add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" --repeat until-fail:1000 -j 10 -R ${FLAKY_TESTS} USES_TERMINAL VERBATIM)
+add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure"  -R ${FLAKY_TESTS} --repeat until-fail:1000 USES_TERMINAL VERBATIM)
+add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread" --repeat until-fail:100 USES_TERMINAL VERBATIM)
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
 "Unit_hipDeviceGetCacheConfig_FuncTst$|\
