@@ -386,10 +386,17 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_LINK_DEVICELIB_BUILD})
 
 # HIP applications need to link against libCHIP.so; add it to rpath
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
-  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
-  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${CMAKE_BINARY_DIR}" "-lCHIP")
+if(OpenCL_LIBRARY)
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${OpenCL_DIR}" "-lOpenCL")
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_  "-L${OpenCL_DIR}" "-lOpenCL")
+endif()
+if(LevelZero_LIBRARY)
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LevelZero_DIR}" "-lze_loader")
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${LevelZero_DIR}" "-lze_loader")
+endif()
+
 if(SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")
