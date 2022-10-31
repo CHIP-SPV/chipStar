@@ -782,6 +782,8 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
+  // prevents queues from being destryed while iterating
+  std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   for (auto Q : Backend->getActiveDevice()->getQueues()) {
     Q->finish();
   }
