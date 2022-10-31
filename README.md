@@ -78,13 +78,6 @@ make gendocs
 
 The documentation will be placed in `doxygen/html`.
 
-## Building & Running Unit Tests
-
-```bash
-make build_tests
-make check # runs only tests known to work
-```
-
 ## Troubleshooting
 
 ### Missing Double Precision Support
