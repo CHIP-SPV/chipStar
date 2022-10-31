@@ -54,8 +54,8 @@
 typedef _Float16 api_half;
 typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
 #else
-typedef short api_half;
-typedef short api_half2 __attribute__((ext_vector_type(2)));
+typedef _Float16 api_half;
+typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
 #endif // __HIP_DEVICE_COMPILE__
 
 #if defined(__HIP_DEVICE_COMPILE__)

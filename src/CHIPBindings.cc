@@ -2093,6 +2093,15 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   CHIP_CATCH
 }
 
+int hipGetStreamDeviceId(hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  CHIPDevice *Device =
+    Backend->findQueue(static_cast<CHIPQueue *>(Stream))->getDevice();
+  return Device->getDeviceId();
+  CHIP_CATCH
+}
+
 hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   CHIP_TRY
   CHIPInitialize();

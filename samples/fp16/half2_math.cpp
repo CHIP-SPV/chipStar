@@ -195,8 +195,8 @@ int main(void) {
   z = (half2 *)malloc(n * sizeof(half2));
 
   for (int i = 0; i < n; i++) {
-    x[i] = __half2(static_cast<_hip_f16_2>(rnd()));
-    y[i] = __half2(static_cast<_hip_f16_2>(rnd()));
+    x[i] = __half2(static_cast<__half2>(rnd()));
+    y[i] = __half2(static_cast<__half2>(rnd()));
   }
 
   checkCuda(hipMalloc((void **)&d_x, n * sizeof(half2)));
