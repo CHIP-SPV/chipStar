@@ -153,6 +153,6 @@ int main() {
   checkUnaryKernel(Module, LoweredCastF2I0, 1.23f, 1);
 
   HIPRTC_CHECK(hiprtcDestroyProgram(&Prog));
-
+  HIP_CHECK(hipModuleUnload(Module));
   return 0;
 }
