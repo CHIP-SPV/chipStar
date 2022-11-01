@@ -1184,7 +1184,11 @@ std::string CHIPBackend::getJitFlags() {
   return Flags;
 }
 
-CHIPBackend::CHIPBackend() { logDebug("CHIPBackend Base Constructor"); };
+CHIPBackend::CHIPBackend() {
+  logDebug("CHIPBackend Base Constructor");
+  Logger = spdlog::default_logger();
+};
+
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
   while (!ChipExecStack.empty())

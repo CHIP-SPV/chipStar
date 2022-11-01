@@ -1632,6 +1632,10 @@ protected:
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
 
+  // Keep hold on the default logger instance to make sure that it is
+  // not destructed before the backend finishes uninitialization.
+  std::shared_ptr<spdlog::logger> Logger;
+
 public:
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
@@ -1640,7 +1644,8 @@ public:
 
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
-  std::mutex BackendMtx;
+  std::mutex QueueCreateDestroyMtx;
+  mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
@@ -1798,6 +1803,10 @@ public:
    * @param mod_str
    */
   void unregisterModuleStr(std::string *ModuleStr);
+  size_t getNumRegisteredModules() const {
+    std::lock_guard<std::mutex> LockBackend(BackendMtx);
+    return ModulesStr_.size();
+  };
   /**
    * @brief Configure an upcoming kernel call
    *

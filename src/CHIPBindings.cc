@@ -50,8 +50,6 @@
 #include "macros.hh"
 #include "Utils.hh"
 
-static unsigned NumBinariesLoaded = 0;
-
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
 hipError_t hipInit(unsigned int flags) { return hipSuccess; };
@@ -2871,8 +2869,6 @@ hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   ChipModule->compileOnce(Backend->getActiveDevice());
   *ModuleHandle = ChipModule;
 
-  Backend->registerModuleStr(FilteredModule.release());
-
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -3274,8 +3270,6 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
 
   Backend->registerModuleStr(Module);
 
-  ++NumBinariesLoaded;
-
   return (void **)Module;
   CHIP_CATCH_NO_RETURN
   return nullptr;
@@ -3289,12 +3283,11 @@ extern "C" void __hipUnregisterFatBinary(void *Data) {
   logDebug("Unregister module: {} \n", (void *)Module);
   Backend->unregisterModuleStr(Module);
 
-  --NumBinariesLoaded;
+  auto NumBinariesLoaded = Backend->getNumRegisteredModules();
   logDebug("__hipUnRegisterFatBinary {}\n", NumBinariesLoaded);
 
-  if (NumBinariesLoaded == 0) {
+  if (NumBinariesLoaded == 0)
     CHIPUninitialize();
-  }
 
   CHIP_CATCH_NO_RETURN
 }
