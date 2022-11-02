@@ -105,7 +105,7 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
   {
-    LOCK(AllocationTrackerMtx);
+    LOCK(AllocationTrackerMtx); // reading CHIPAllocationTracker::PtrToAllocInfo_
     // In case that Ptr is the base of the allocation, check hash map directly
     auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
     if (Found)
@@ -120,7 +120,7 @@ AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
 }
 
 bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
-  LOCK(AllocationTrackerMtx);
+  LOCK(AllocationTrackerMtx); // reading CHIPAllocationTracker::GlobalMemSize
   if (Bytes <= (GlobalMemSize - TotalMemSize)) {
     TotalMemSize += Bytes;
     if (TotalMemSize > MaxMemUsed)
@@ -135,7 +135,7 @@ bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
 }
 
 bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
-  LOCK(AllocationTrackerMtx);
+  LOCK(AllocationTrackerMtx); // reading CHIPAllocationTracker::GlobalMemSize
   if (TotalMemSize >= Bytes) {
     TotalMemSize -= Bytes;
     return true;
@@ -150,7 +150,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipMemoryType MemoryType) {
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
-  LOCK(AllocationTrackerMtx);
+  LOCK(AllocationTrackerMtx); // writing CHIPAllocationTracker::PtrToAllocInfo_
   // TODO AllocInfo turned into class and constructor take care of this
   if (MemoryType == hipMemoryTypeHost)
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -171,7 +171,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
 
 AllocationInfo *
 CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
-  LOCK(AllocationTrackerMtx);
+  LOCK(AllocationTrackerMtx); 
   for (auto &Info : PtrToAllocInfo_) {
     AllocationInfo *AllocInfo = Info.second;
     void *Start = AllocInfo->DevPtr;
@@ -742,7 +742,7 @@ void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
 }
 
 void CHIPDevice::eraseModule(CHIPModule *Module) {
-  LOCK(DeviceMtx);
+  LOCK(DeviceMtx); // writing CHIPDevice::ChipModules
   auto *ModSrc = Module->getModuleSource();
   if (auto It = ChipModules.find(ModSrc); It != ChipModules.end()) {
     delete It->second;
@@ -807,7 +807,7 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
-  LOCK(DeviceMtx)
+  LOCK(DeviceMtx) // writing CHIPDevice::ChipQueues_
 
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -825,8 +825,8 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
 }
 
 void CHIPEvent::track() {
-  LOCK(Backend->EventsMtx);
-  LOCK(EventMtx);
+  LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
+  LOCK(EventMtx); // writing bool CHIPEvent::TrackCalled_
   if (!TrackCalled_) {
     trackImpl();
     TrackCalled_ = true;
@@ -927,7 +927,7 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
 }
 
 hipError_t CHIPDevice::allocateDeviceVariables() {
-  LOCK(DeviceMtx);
+  LOCK(DeviceMtx); // CHIPDevice::ChipModules
   logTrace("Allocate storage for device variables.");
   for (auto I : ChipModules) {
     auto Status =
@@ -939,21 +939,21 @@ hipError_t CHIPDevice::allocateDeviceVariables() {
 }
 
 void CHIPDevice::initializeDeviceVariables() {
-  LOCK(DeviceMtx);
+  LOCK(DeviceMtx); // CHIPDevice::ChipModules
   logTrace("Initialize device variables.");
   for (auto Module : ChipModules)
     Module.second->initializeDeviceVariablesNoLock(this, getDefaultQueue());
 }
 
 void CHIPDevice::invalidateDeviceVariables() {
-  LOCK(DeviceMtx);
+  LOCK(DeviceMtx); // CHIPDevice::ChipModules
   logTrace("invalidate device variables.");
   for (auto Module : ChipModules)
     Module.second->invalidateDeviceVariablesNoLock();
 }
 
 void CHIPDevice::deallocateDeviceVariables() {
-  LOCK(DeviceMtx);
+  LOCK(DeviceMtx); // CHIPDevice::ChipModules
   logTrace("Deallocate storage for device variables.");
   for (auto Module : ChipModules)
     Module.second->deallocateDeviceVariablesNoLock(this);
@@ -1056,9 +1056,8 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, CHIPHostAllocFlags Flags) {
-  LOCK(ContextMtx);
   void *AllocatedPtr, *HostPtr = nullptr;
-
+  CHIPDevice *ChipDev = Backend->getActiveDevice();
   if (!Flags.isDefault()) {
     if (Flags.isMapped())
       MemType = hipMemoryType::hipMemoryTypeHost;
@@ -1071,8 +1070,6 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
     if (Flags.isPortable())
       UNIMPLEMENTED(nullptr);
   }
-
-  CHIPDevice *ChipDev = Backend->getActiveDevice();
 
   if (Size > ChipDev->getMaxMallocSize()) {
     logCritical("Requested allocation of {} exceeds the maximum size of a "
@@ -1128,7 +1125,7 @@ CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   LOCK(ContextMtx); // freeImpl touches CHIPContextOpenCL::SvmMemory
-  LOCK(ChipDev->DeviceMtx);
+  LOCK(ChipDev->DeviceMtx); 
   AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
@@ -1198,7 +1195,7 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
-  LOCK(Backend->SetActiveMtx);
+  LOCK(Backend->SetActiveMtx); // CHIPDevice::ActiveDev_
 
   auto DeviceFound =
       std::find(ChipDevices.begin(), ChipDevices.end(), ChipDevice);
@@ -1214,7 +1211,7 @@ void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
 std::vector<CHIPQueue *> &CHIPBackend::getQueues() { return ChipQueues; }
 
 CHIPContext *CHIPBackend::getActiveContext() {
-  LOCK(Backend->SetActiveMtx);
+  LOCK(Backend->SetActiveMtx); // CHIPBackend::ActiveDev_
   if (ActiveCtx_ == nullptr) {
     std::string Msg = "Active context is null";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
@@ -1223,7 +1220,7 @@ CHIPContext *CHIPBackend::getActiveContext() {
 };
 
 CHIPDevice *CHIPBackend::getActiveDevice() {
-  LOCK(Backend->SetActiveMtx);
+  LOCK(Backend->SetActiveMtx); // CHIPBackend::ActiveDev_
   if (ActiveDev_ == nullptr) {
     CHIPERR_LOG_AND_THROW(
         "CHIPBackend.getActiveDevice() was called but active_ctx is null",
@@ -1233,7 +1230,7 @@ CHIPDevice *CHIPBackend::getActiveDevice() {
 };
 
 std::vector<CHIPDevice *> &CHIPBackend::getDevices() {
-  LOCK(Backend->SetActiveMtx);
+  LOCK(Backend->SetActiveMtx); // CHIPBackend::ChipDevices
 
   return ChipDevices;
 }
