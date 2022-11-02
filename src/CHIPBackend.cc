@@ -881,11 +881,12 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  LOCK(ChipQueue->QueueMtx)
+  LOCK(Backend->BackendMtx) // reading Backend::ChipQueues
+  LOCK(DeviceMtx) // reading CHIPDevice::ChipQueues_
+  LOCK(ChipQueue->QueueMtx) // writing CHIPQueue::updateLastEvent
   ChipQueue->updateLastEvent(nullptr);
 
   // Remove from device queue list
-  LOCK(DeviceMtx)
   auto FoundQueue =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
   if (FoundQueue == ChipQueues_.end()) {
@@ -905,7 +906,6 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
                       "backend queue list";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
-
   Backend->getQueues().erase(FoundQueue);
 
   delete ChipQueue;
@@ -1277,7 +1277,7 @@ void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
 }
 
 void CHIPBackend::unregisterModuleStr(std::string *ModuleStr) {
-  LOCK(BackendMtx) // writing CHIPBackend::ModulesStr_ 
+  LOCK(BackendMtx) // writing CHIPBackend::ModulesStr_
   logDebug("CHIPBackend->unregister_module()");
   auto ModuleFound =
       std::find(ModulesStr_.begin(), ModulesStr_.end(), ModuleStr);
