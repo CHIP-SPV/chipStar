@@ -517,7 +517,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   if (*Refc_ > 1)
     decreaseRefCount("takeOver");
   auto *Other = (CHIPEventOpenCL *)OtherIn;
-  std::lock_guard<std::mutex> LockEvent(EventMtx);
+  LOCK(EventMtx);
   this->ClEvent = Other->ClEvent;
   this->Refc_ = Other->Refc_;
   this->Msg = Other->Msg;
@@ -603,7 +603,7 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 
 void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
+  LOCK(EventMtx);
   auto status = clRetainEvent(this->ClEvent);
   if (!UserEvent_)
     assert(status == 0);
@@ -616,7 +616,7 @@ void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
 }
 
 void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
+  LOCK(EventMtx);
   logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
            (void *)this, getRefCount());
   logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -849,7 +849,7 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
 }
 
 CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
-  std::lock_guard<std::mutex> Lock(LastEventMtx);
+  LOCK(LastEventMtx);
   return (CHIPEventOpenCL *)LastEvent_;
 }
 
