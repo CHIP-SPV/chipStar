@@ -1465,7 +1465,6 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue()");
-  updateLastEvent(nullptr);
 };
 
 ///////// Enqueue Operations //////////
