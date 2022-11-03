@@ -963,7 +963,14 @@ void CHIPDevice::deallocateDeviceVariables() {
 // CHIPContext
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
-CHIPContext::~CHIPContext() {}
+CHIPContext::~CHIPContext() {
+  std::lock_guard<std::mutex> LockContext(ContextMtx); // CHIPContext::ChipDevices_
+  logDebug("~CHIPContext() {}", (void*)this);
+  while(ChipDevices_.size() > 0) {
+    delete ChipDevices_[0];
+    ChipDevices_.erase(ChipDevices_.begin());
+  }
+}
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
