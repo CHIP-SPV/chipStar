@@ -430,7 +430,14 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
   PerThreadDefaultQueue = nullptr;
 }
 
-CHIPDevice::~CHIPDevice() {}
+CHIPDevice::~CHIPDevice() {
+  std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::ChipQueues_
+  logDebug("~CHIPDevice() {}", (void*)this);
+  while(this->ChipQueues_.size() > 0) {
+    delete ChipQueues_[0];
+    ChipQueues_.erase(ChipQueues_.begin());
+  }
+}
 CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
   assert(LegacyDefaultQueue);
   return LegacyDefaultQueue.get();
