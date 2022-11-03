@@ -1464,7 +1464,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
-  logDebug("~CHIPQueue()");
+  logDebug("~CHIPQueue() {}", (void*)this);
 };
 
 ///////// Enqueue Operations //////////
