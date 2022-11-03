@@ -775,7 +775,10 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 // CHIPContextOpenCL
 //*************************************************************************
 
-void CHIPContextOpenCL::freeImpl(void *Ptr) { SvmMemory.free(Ptr); }
+void CHIPContextOpenCL::freeImpl(void *Ptr) {
+  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
+  SvmMemory.free(Ptr);
+}
 
 cl::Context *CHIPContextOpenCL::get() { return ClContext; }
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
@@ -788,7 +791,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemType,
                                       CHIPHostAllocFlags Flags) {
   void *Retval;
-  LOCK(ContextMtx); // SVMemoryRegion::SvmAllocations_
+  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
   Retval = SvmMemory.allocate(Size);
   return Retval;
 }
