@@ -901,6 +901,8 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   }
 
   Backend->getQueues().erase(FoundQueue);
+
+  delete ChipQueue; 
   return true;
 }
 
