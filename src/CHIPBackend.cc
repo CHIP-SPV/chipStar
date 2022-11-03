@@ -1765,7 +1765,7 @@ void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
       Backend->createCallbackData(Callback, UserData, this);
 
   {
-    LOCK(Backend->CallbackQueueMtx);
+    LOCK(Backend->CallbackQueueMtx); // CHIPBackend::CallbackQueue
     Backend->CallbackQueue.push(Callbackdata);
   }
 

@@ -487,7 +487,7 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
-    LOCK(AllocationTrackerMtx);
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -566,7 +566,7 @@ public:
       Event->decreaseRefCount(
           "An event that depended on this one has finished");
     }
-    LOCK(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::DependsOnList
     DependsOnList.clear();
   }
   void trackImpl();
@@ -575,11 +575,11 @@ public:
   std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc() {
-    LOCK(this->EventMtx);
+    LOCK(this->EventMtx); // CHIPEvent::Refc_
     return *Refc_;
   }
   virtual void decreaseRefCount(std::string Reason) {
-    LOCK(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::Refc_
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
              (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
@@ -590,7 +590,7 @@ public:
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {
-    LOCK(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::Refc_
     logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
              (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
@@ -1961,7 +1961,7 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
-    LOCK(LastEventMtx);
+    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
