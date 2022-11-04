@@ -1125,8 +1125,6 @@ CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
-  LOCK(ContextMtx); // TODO MutexCleanupFree - delete this
-  LOCK(ChipDev->DeviceMtx); // TODO MutexCleanupFree - delete this
   AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
