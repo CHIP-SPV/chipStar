@@ -785,12 +785,18 @@ hipError_t hipDeviceSynchronize(void) {
   // prevents queues from being destryed while iterating
   std::lock_guard<std::mutex> LockBackend(Backend->BackendMtx);
   for (auto Q : Backend->getActiveDevice()->getQueues()) {
+    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
     Q->finish();
   }
 
+  std::lock_guard<std::mutex> LockQueue(
+      Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->PerThreadStreamUsed)
+  if (Backend->getActiveDevice()->PerThreadStreamUsed) {
+    std::lock_guard<std::mutex> LockQueue(
+        Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1336,6 +1342,7 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
 
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->getContext()->syncQueues(Stream);
+  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
   Stream->finish();
   RETURN(hipSuccess);
 
