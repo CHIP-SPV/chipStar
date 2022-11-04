@@ -1528,8 +1528,9 @@ void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
 // ***********************************************************************
 
 void CHIPContextLevel0::freeImpl(void *Ptr) {
-  logTrace("{} CHIPContextLevel0::freeImpl({})", (void*)this, Ptr);
-  // TODO The application must not call this function from simultaneous threads with the same pointer.
+  logTrace("{} CHIPContextLevel0::freeImpl({})", (void *)this, Ptr);
+  // TODO The application must not call this function from simultaneous threads
+  // with the same pointer.
   zeMemFree(this->ZeCtx, Ptr);
 }
 
