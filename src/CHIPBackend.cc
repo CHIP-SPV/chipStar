@@ -171,7 +171,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
 
 AllocationInfo *
 CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
-  LOCK(AllocationTrackerMtx); 
+  LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
   for (auto &Info : PtrToAllocInfo_) {
     AllocationInfo *AllocInfo = Info.second;
     void *Start = AllocInfo->DevPtr;
@@ -986,7 +986,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   if (TargetQueue == DefaultQueue)
     return;
 #endif
-  LOCK(ContextMtx);
+  LOCK(ContextMtx); // ???
   std::vector<CHIPQueue *> QueuesToSyncWith;
 
   // The per-thread default stream is not a non-blocking stream and will
@@ -1000,6 +1000,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   }
 
   {
+    // TODO MutexCleanup Why not lock this at the top?
     LOCK(Backend->BackendMtx) // reading CHIPBackend::ChipQueues
     // Always sycn with all blocking queues
     for (auto &Queue : Backend->getQueues())
@@ -1125,7 +1126,7 @@ CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   LOCK(ContextMtx); // freeImpl touches CHIPContextOpenCL::SvmMemory
-  LOCK(ChipDev->DeviceMtx); 
+  LOCK(ChipDev->DeviceMtx); // TODO MutexCleanup remove?
   AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
     return hipErrorInvalidDevicePointer;
@@ -1487,7 +1488,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
-    LOCK(QueueMtx);
+    LOCK(QueueMtx) // TODO MutexCleanup OpenCL is thread-safe.
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
@@ -1501,7 +1502,7 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx);
+  LOCK(QueueMtx)// TODO MutexCleanup OpenCL is thread-safe.
   auto ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
   ChipEvent->Msg = "memCopyAsync";
   updateLastEvent(ChipEvent);
@@ -1514,7 +1515,7 @@ void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
-    LOCK(QueueMtx);
+    LOCK(QueueMtx) // TODO MutexCleanup OpenCL is thread-safe.
 
     auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
@@ -1530,7 +1531,7 @@ void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx);
+  LOCK(QueueMtx) // TODO MutexCleanup OpenCL is thread-safe.
 
   auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
@@ -1542,7 +1543,7 @@ void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx);
+  LOCK(QueueMtx);// TODO MutexCleanup OpenCL is thread-safe.
 
   auto ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
   ChipEvent->Msg = "memCopy2D";
@@ -1554,7 +1555,7 @@ void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
 void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                                size_t SPitch, size_t Width, size_t Height) {
   {
-    LOCK(QueueMtx);
+    LOCK(QueueMtx) // TODO MutexCleanup OpenCL is thread-safe.
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
@@ -1574,7 +1575,7 @@ void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx);
+  LOCK(QueueMtx) // TODO MutexCleanup OpenCL is thread-safe.
 
   auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
@@ -1590,7 +1591,7 @@ void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx);
+  LOCK(QueueMtx); // TODO MutexCleanup OpenCL is thread-safe.
 
   auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
@@ -1669,7 +1670,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(Backend->BackendMtx); // ???
+  LOCK(Backend->BackendMtx);  // TODO MutexCleanup remove?
 
   auto TotalThreadsPerBlock =
       ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
@@ -1711,7 +1712,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 
 CHIPEvent *
 CHIPQueue::enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  LOCK(QueueMtx);
+  LOCK(QueueMtx)// TODO MutexCleanup OpenCL is thread-safe.;
   auto ChipEvent = enqueueBarrierImpl(EventsToWaitFor);
   ChipEvent->Msg = "enqueueBarrier";
   updateLastEvent(ChipEvent);
@@ -1719,7 +1720,7 @@ CHIPQueue::enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor) {
   return ChipEvent;
 }
 CHIPEvent *CHIPQueue::enqueueMarker() {
-  LOCK(QueueMtx);
+  LOCK(QueueMtx);// TODO MutexCleanup OpenCL is thread-safe.
   auto ChipEvent = enqueueMarkerImpl();
   ChipEvent->Msg = "enqueueMarker";
   updateLastEvent(ChipEvent);
@@ -1731,7 +1732,7 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx);
+  LOCK(QueueMtx);// TODO MutexCleanup OpenCL is thread-safe.
 
   auto ChipEvent = memPrefetchImpl(Ptr, Count);
   ChipEvent->Msg = "memPrefetch";
