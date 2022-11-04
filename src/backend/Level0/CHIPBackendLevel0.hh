@@ -278,8 +278,8 @@ public:
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
-  void freeImpl(void *Ptr) override{};                                // TODO
-  ze_context_handle_t &get() { return ZeCtx; }
+  void freeImpl(void *Ptr) override;
+  DO ze_context_handle_t &get() { return ZeCtx; }
 
 }; // CHIPContextLevel0
 
