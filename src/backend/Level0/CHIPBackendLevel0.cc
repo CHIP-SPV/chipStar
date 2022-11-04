@@ -710,9 +710,6 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
-  std::lock_guard<std::mutex> LockQueues(
-      Backend->QueueCreateDestroyMtx); // other threads may be checking the
-                                       // status of this queue
   zeCommandQueueDestroy(ZeCmdQ_);
 }
 

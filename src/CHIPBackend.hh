@@ -1621,7 +1621,6 @@ protected:
 
 public:
   std::mutex SetActiveMtx;
-  std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
