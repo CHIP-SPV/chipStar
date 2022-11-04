@@ -639,8 +639,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           logTrace("Erase cmdlist assoc w/ event: {}", (void *)E);
           auto CommandList = (*EventCommandListMap)[E];
           EventCommandListMap->erase(E);
-          LOCK( // TODO MutexCleanupQueueCreate
-              Backend->QueueCreateDestroyMtx);
+ 
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
@@ -740,7 +739,7 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
   return ZeCmdList_;
 #else
   ze_command_list_handle_t ZeCmdList;
-  LOCK(Backend->QueueCreateDestroyMtx); // TODO MutexCleanupQueueCreate remove?
+ 
   auto Status =
       zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -796,7 +795,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
 
-  LOCK(Backend->QueueCreateDestroyMtx);  // TODO MutexCleanupQueueCreate remove?
+ 
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
@@ -829,7 +828,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
 void CHIPQueueLevel0::initializeCmdListImm() {
   assert(QueueType != Unknown);
-  LOCK(Backend->QueueCreateDestroyMtx);  // TODO MutexCleanupQueueCreate remove?
+ 
   auto Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
                                              &ZeCmdList_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -1136,7 +1135,7 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
 }
 
 CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
-  LOCK(QueueMtx); // TODO MutexCleanupQueue remove?
+ 
   CHIPEventLevel0 *MarkerEvent =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
 
@@ -1213,7 +1212,7 @@ void CHIPQueueLevel0::finish() {
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
   // buffers get flushed.
-  LOCK(Backend->QueueCreateDestroyMtx); // TODO MutexCleanupQueueCreate remove?
+ 
   zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
 
   return;
@@ -1247,7 +1246,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
     Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    LOCK(Backend->QueueCreateDestroyMtx); // TODO MutexCleanupQueueCreate remove?
+ 
     Status =
         zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
