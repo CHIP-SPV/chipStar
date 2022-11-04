@@ -432,8 +432,8 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 
 CHIPDevice::~CHIPDevice() {
   std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::ChipQueues_
-  logDebug("~CHIPDevice() {}", (void*)this);
-  while(this->ChipQueues_.size() > 0) {
+  logDebug("~CHIPDevice() {}", (void *)this);
+  while (this->ChipQueues_.size() > 0) {
     delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
   }
@@ -909,7 +909,7 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
 
   Backend->getQueues().erase(FoundQueue);
 
-  delete ChipQueue; 
+  delete ChipQueue;
   return true;
 }
 
@@ -964,9 +964,10 @@ void CHIPDevice::deallocateDeviceVariables() {
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {
-  std::lock_guard<std::mutex> LockContext(ContextMtx); // CHIPContext::ChipDevices_
-  logDebug("~CHIPContext() {}", (void*)this);
-  while(ChipDevices_.size() > 0) {
+  std::lock_guard<std::mutex> LockContext(
+      ContextMtx); // CHIPContext::ChipDevices_
+  logDebug("~CHIPContext() {}", (void *)this);
+  while (ChipDevices_.size() > 0) {
     delete ChipDevices_[0];
     ChipDevices_.erase(ChipDevices_.begin());
   }
@@ -1478,7 +1479,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
-  logDebug("~CHIPQueue() {}", (void*)this);
+  logDebug("~CHIPQueue() {}", (void *)this);
   updateLastEvent(nullptr);
 };
 

@@ -933,7 +933,7 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
-  logTrace("~CHIPQueueOpenCL() {}", (void*)this);
+  logTrace("~CHIPQueueOpenCL() {}", (void *)this);
 }
 
 CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,

@@ -789,10 +789,12 @@ hipError_t hipDeviceSynchronize(void) {
     Q->finish();
   }
 
-  std::lock_guard<std::mutex> LockQueue(Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
+  std::lock_guard<std::mutex> LockQueue(
+      Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   if (Backend->getActiveDevice()->PerThreadStreamUsed) {
-    std::lock_guard<std::mutex> LockQueue(Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
+    std::lock_guard<std::mutex> LockQueue(
+        Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
   }
 
