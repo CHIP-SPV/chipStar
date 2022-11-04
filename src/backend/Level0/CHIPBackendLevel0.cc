@@ -23,6 +23,25 @@
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
 
+/**
+ *  CHIPQueueLevel0::getCmdList() will return an immediate command list handle
+ * if L0_IMM_QUEUES is used. There is only one such handle for a queue and a
+ * queue can be shared between multiple threads thus this lock is necessary.
+ *
+ * If immediate command lists are not used, getCmdList will create a new
+ * handle which is a thread safe operation
+ */
+#ifdef L0_IMM_QUEUES
+#define GET_COMMAND_LIST(Queue)                                                \
+  ze_command_list_handle_t CommandList;                                        \
+  LOCK(Queue->QueueMtx);                                                       \
+  CommandList = Queue->getCmdList();
+#else
+#define GET_COMMAND_LIST(Queue)                                                \
+  ze_command_list_handle_t CommandList;                                        \
+  CommandList = Queue->getCmdList();
+#endif
+
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
   default:
@@ -253,8 +272,9 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
                                     // Host after Event_ completes
   };
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same event pool handle.
+  // Done via EventPoolMtx
   auto Status = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ creation fail! ");
@@ -292,8 +312,9 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
                                     // Host after Event_ completes
   };
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same event pool handle.
+  // Done. Event pool handle is local to this event + this is constructor
   Status = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                               "Level Zero Event_ creation fail! ");
@@ -331,23 +352,22 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   if (ChipQueue == nullptr)
     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
 
-  LOCK(ChipQueue->QueueMtx); // TODO MutexCleanup remove?
   CHIPQueueLevel0 *Q = (CHIPQueueLevel0 *)ChipQueue;
-  auto CommandList = Q->getCmdList();
-  // TODO MutexCleanupQueues The application must not call this function from
+  GET_COMMAND_LIST(Q)
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendWriteGlobalTimestamp(
       CommandList, (uint64_t *)(Q->getSharedBufffer()), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendMemoryCopy(CommandList, &Timestamp_,
                                          Q->getSharedBufffer(),
@@ -357,8 +377,9 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   auto DestoyCommandListEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(this->ChipContext_);
   DestoyCommandListEvent->Msg = "recordStreamComplete";
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
   Status = zeCommandListAppendBarrier(
       CommandList, DestoyCommandListEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -648,8 +669,9 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           logTrace("Erase cmdlist assoc w/ event: {}", (void *)E);
           auto CommandList = (*EventCommandListMap)[E];
           EventCommandListMap->erase(E);
-          // TODO MutexCleanupQueues The application must not call this function
+          // The application must not call this function
           // from simultaneous threads with the same command list handle.
+          // Done via this is the only thread that calls it
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
@@ -720,8 +742,9 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same command queue handle.
+  // Done. Destructor should not be called by multiple threads
   zeCommandQueueDestroy(ZeCmdQ_);
 }
 
@@ -975,20 +998,27 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   ze_kernel_handle_t KernelZe = ChipKernel->get();
   logTrace("Launching Kernel {}", ChipKernel->getName());
 
-  // TODO MutexCleanupQueues The application must not call this function from
-  // simultaneous threads with the same kernel handle.
-  ze_result_t Status =
-      zeKernelSetGroupSize(KernelZe, ExecItem->getBlock().x,
-                           ExecItem->getBlock().y, ExecItem->getBlock().z);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  {
+    LOCK(ExecItem->ExecItemMtx)
+    // The application must not call this function from
+    // simultaneous threads with the same kernel handle.
+    // Done by locking ExecItemMtx
+    ze_result_t Status =
+        zeKernelSetGroupSize(KernelZe, ExecItem->getBlock().x,
+                             ExecItem->getBlock().y, ExecItem->getBlock().z);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  }
 
   ExecItem->setupAllArgs();
   auto X = ExecItem->getGrid().x;
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-  auto CommandList = getCmdList();
-  Status = zeCommandListAppendLaunchKernel(CommandList, KernelZe, &LaunchArgs,
+  GET_COMMAND_LIST(this);
+  // This function may not be called from simultaneous threads with the same
+  // command list handle.
+  // Done via GET_COMMAND_LIST
+  auto Status = zeCommandListAppendLaunchKernel(CommandList, KernelZe, &LaunchArgs,
                                            LaunchEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
@@ -1025,9 +1055,10 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
                           hipErrorTbd);
   }
 
-  ze_command_list_handle_t CommandList = getCmdList();
-  // TODO MutexCleanupQueues The application must not call this function from
+  GET_COMMAND_LIST(this);
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
   ze_result_t Status = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -1065,9 +1096,10 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
   SrcRegion.width = Width;
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
-  auto CommandList = getCmdList();
-  // TODO MutexCleanupQueues The application must not call this function from
+  GET_COMMAND_LIST(this);
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
   ze_result_t Status = zeCommandListAppendMemoryCopyRegion(
       CommandList, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
       Sspitch, Ev->peek(), 0, nullptr);
@@ -1087,9 +1119,10 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
   Ev->Msg = "memCopyToImage";
 
   if (!SrcRegion.isPitched()) {
-    auto CommandList = getCmdList();
-    // TODO MutexCleanupQueues The application must not call this function from
+    GET_COMMAND_LIST(this)
+    // The application must not call this function from
     // simultaneous threads with the same command list handle.
+    // Done via GET_COMMAND_LIST
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, Src, 0,
         Ev->get("zeCommandListAppendImageCopyFromMemory"), 0, nullptr);
@@ -1112,9 +1145,11 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
     DstZeRegion.width = SrcRegion.Size[0];
     DstZeRegion.height = 1;
     DstZeRegion.depth = 1;
-    auto CommandList = getCmdList();
-    // TODO MutexCleanupQueues The application must not call this function from
+
+    GET_COMMAND_LIST(this)
+    // The application must not call this function from
     // simultaneous threads with the same command list handle.
+    // Done via GET_COMMAND_LIST
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, SrcRow, &DstZeRegion,
         LastRow ? Ev->get("zeCommandListAppendImageCopyFromMemory") : nullptr,
@@ -1157,9 +1192,10 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
 
   MarkerEvent->Msg = "marker";
-  auto CommandList = getCmdList();
-  // TODO MutexCleanupQueues The application must not call this function from
+  GET_COMMAND_LIST(this)
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
   auto Status = zeCommandListAppendSignalEvent(
       CommandList,
       MarkerEvent->get("MarkerEvent: zeCommandListAppendSignalEvent"));
@@ -1195,9 +1231,10 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   } // done gather Event_ handles to wait on
 
   // TODO Should this be memory or compute?
-  auto CommandList = getCmdList();
-  // TODO MutexCleanupQueues The application must not call this function from
+  GET_COMMAND_LIST(this)
+  // The application must not call this function from
   // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
   auto Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
                                            NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -1218,7 +1255,10 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 
   ze_result_t Status;
   CHIPASSERT(MemCopyEvent->peek());
-  auto CommandList = getCmdList();
+  GET_COMMAND_LIST(this);
+  // The application must not call this function from simultaneous threads with
+  // the same command list handle
+  // Done via GET_COMMAND_LIST
   Status = zeCommandListAppendMemoryCopy(CommandList, Dst, Src, Size,
                                          MemCopyEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -1260,13 +1300,15 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     ((CHIPBackendLevel0 *)Backend)
         ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent] =
         CommandList;
-    // TODO MutexCleanupQueues The application must not call this function from
+    // The application must not call this function from
     // simultaneous threads with the same command list handle.
+    // Done via GET_COMMAND_LIST
     Status = zeCommandListAppendBarrier(CommandList, LastCmdListEvent->peek(),
                                         0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    // TODO MutexCleanupQueues The application must not call this function from
+    // The application must not call this function from
     // simultaneous threads with the same command list handle.
+    // Done via GET_COMMAND_LIST
     Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
@@ -1313,8 +1355,9 @@ LZEventPool::~LZEventPool() {
   for (unsigned i = 0; i < Size_; i++) {
     delete Events_[i];
   }
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same event pool handle.
+  // Done via destructor should not be called from multiple threads
   auto Status = zeEventPoolDestroy(EventPool_);
   // '~CHIPEventLevel0' has a non-throwing exception specification
   assert(Status == ZE_RESULT_SUCCESS);
@@ -1553,16 +1596,19 @@ void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
 // ***********************************************************************
 
 void CHIPContextLevel0::freeImpl(void *Ptr) {
+  LOCK(this->ContextMtx);
   logTrace("{} CHIPContextLevel0::freeImpl({})", (void *)this, Ptr);
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same pointer.
+  // Done via ContextMtx. Too broad?
   zeMemFree(this->ZeCtx, Ptr);
 }
 
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
-  // TODO MutexCleanupQueues The application must not call this function from
+  // The application must not call this function from
   // simultaneous threads with the same context handle.
+  // Done via destructor should not be called from multiple threads
   zeContextDestroy(this->ZeCtx);
 }
 
@@ -2046,8 +2092,9 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     Status = zeModuleBuildLogGetString(Log, &LogSize, LogStr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logError("ZE Build Log: {}", std::string(LogStr).c_str());
-    // TODO MutexCleanupQueues The application must not call this function from
+    // The application must not call this function from
     // simultaneous threads with the same build log handle.
+    // Done via this function is only invoked via call_once
     Status = zeModuleBuildLogDestroy(Log);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
@@ -2099,6 +2146,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
 }
 
 void CHIPExecItem::setupAllArgs() {
+  LOCK(this->ExecItemMtx);
   CHIPKernelLevel0 *Kernel = (CHIPKernelLevel0 *)ChipKernel_;
 
   OCLFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
@@ -2128,8 +2176,9 @@ void CHIPExecItem::setupAllArgs() {
         ze_image_handle_t ImageHandle = TexObj->getImage();
         logTrace("setImageArg {} size {}\n", OutArgIdx,
                  sizeof(ze_image_handle_t));
-        // TODO MutexCleanupQueues The application must not call this function
+        // The application must not call this function
         // from simultaneous threads with the same kernel handle.
+        // Done via ExecItemMtx
         ze_result_t Status = zeKernelSetArgumentValue(
             Kernel->get(), OutArgIdx, sizeof(ze_image_handle_t), &ImageHandle);
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -2139,8 +2188,9 @@ void CHIPExecItem::setupAllArgs() {
         ze_sampler_handle_t SamplerHandle = TexObj->getSampler();
         logTrace("setSamplerArg {} size {}\n", OutArgIdx,
                  sizeof(ze_sampler_handle_t));
-        // TODO MutexCleanupQueues The application must not call this function
+        // The application must not call this function
         // from simultaneous threads with the same kernel handle.
+        // Done via ExecItemMtx
         Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
                                           sizeof(ze_sampler_handle_t),
                                           &SamplerHandle);
@@ -2154,13 +2204,15 @@ void CHIPExecItem::setupAllArgs() {
         if ((ArgTypeInfo.Type == OCLType::Pointer) &&
             (ArgTypeInfo.Space != OCLSpace::Local) && (*Ptr == nullptr)) {
           logTrace("setArg was given NULL");
-          // TODO MutexCleanupQueues The application must not call this function
+          // The application must not call this function
           // from simultaneous threads with the same kernel handle.
+          // Done via ExecItemMtx
           Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
                                             ArgTypeInfo.Size, nullptr);
         } else {
-          // TODO MutexCleanupQueues The application must not call this function
+          // The application must not call this function
           // from simultaneous threads with the same kernel handle.
+          // Done via ExecItemMtx
           Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
                                             ArgTypeInfo.Size,
                                             ArgsPointer_[InArgIdx]);
@@ -2217,8 +2269,9 @@ void CHIPExecItem::setupAllArgs() {
         size_t Offset = std::get<0>(OffsetSizes_[i]);
         const void *Value = (void *)(Start + Offset);
         logTrace("setArg SVM {} to {}\n", i, (void *)Value);
-        // TODO MutexCleanupQueues The application must not call this function
+        // The application must not call this function
         // from simultaneous threads with the same kernel handle.
+        // Done via ExecItemMtx
         ze_result_t Status =
             zeKernelSetArgumentValue(Kernel->get(), i, Size, Value);
 
@@ -2233,8 +2286,9 @@ void CHIPExecItem::setupAllArgs() {
         size_t Offset = std::get<0>(OffsetSizes_[i]);
         const void *Value = (void *)(Start + Offset);
         logTrace("setArg {} size {} offs {}\n", i, Size, Offset);
-        // TODO MutexCleanupQueues The application must not call this function
+        // The application must not call this function
         // from simultaneous threads with the same kernel handle.
+        // Done via ExecItemMtx
         ze_result_t Status =
             zeKernelSetArgumentValue(Kernel->get(), i, Size, Value);
 
@@ -2251,8 +2305,9 @@ void CHIPExecItem::setupAllArgs() {
   // Setup the kernel argument's value related to dynamically sized share
   // memory
   if (NumLocals == 1) {
-    // TODO MutexCleanupQueues The application must not call this function
+    // The application must not call this function
     // from simultaneous threads with the same kernel handle.
+    // Done via ExecItemMtx
     ze_result_t Status = zeKernelSetArgumentValue(
         Kernel->get(), FuncInfo->ArgTypeInfo.size() - 1, SharedMem_, nullptr);
     logTrace("LZ set dynamically sized share memory related argument via "

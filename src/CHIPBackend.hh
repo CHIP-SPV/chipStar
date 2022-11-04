@@ -1017,6 +1017,7 @@ protected:
   void **ArgsPointer_ = nullptr;
 
 public:
+  std::mutex ExecItemMtx;
   size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
   void **getArgsPointer() { return ArgsPointer_; }
   /**
