@@ -781,9 +781,12 @@ hipError_t hipSetDevice(int DeviceId) {
 hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
-
-  LOCK(Backend->BackendMtx); // CHIPBackend::ChipQueues_
-  for (auto Q : Backend->getActiveDevice()->getQueues()) {
+  auto Dev = Backend->getActiveDevice();
+  LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_
+  logDebug("hipDeviceSynchronize()");
+  for (auto Q : Dev->getQueuesNoLock()) {
+    logDebug("Device: {}", (void*)Dev);
+    logDebug("Queue {}", (void*)Q);
     std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
     Q->finish();
   }

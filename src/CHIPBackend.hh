@@ -1141,6 +1141,8 @@ public:
   bool PerThreadStreamUsed = false;
   std::mutex DeviceMtx;
 
+  std::vector<CHIPQueue *> getQueuesNoLock(){return ChipQueues_; }
+
   std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
@@ -1634,7 +1636,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<CHIPQueue *> ChipQueues;
   std::vector<CHIPDevice *> ChipDevices;
 
   /**
@@ -1723,13 +1724,6 @@ public:
   virtual void uninitialize();
 
   /**
-   * @brief Get the Queues object
-   *
-   * @return std::vector<CHIPQueue*>&
-   */
-  std::vector<CHIPQueue *> &getQueues();
-
-  /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
    *
@@ -1770,12 +1764,7 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
-  /**
-   * @brief Add a queue to this backend.
-   *
-   * @param q_in
-   */
-  void addQueue(CHIPQueue *ChipQueue);
+
   /**
    * @brief  Add a device to this backend.
    *
@@ -2082,7 +2071,7 @@ public:
     if (!LastEvent_)
       return true;
 
-    if(LastEvent_->updateFinishStatus(false))
+    if (LastEvent_->updateFinishStatus(false))
       LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;

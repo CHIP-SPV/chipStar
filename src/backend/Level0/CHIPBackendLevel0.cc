@@ -1412,26 +1412,31 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
-
-  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
-           "user-created queues");
-  for (auto Q : Backend->getQueues()) {
-    LOCK(Q->QueueMtx); // TODO MutexCleanup remove? Was this for preventing
-                       // destr?
-    Q->updateLastEvent(nullptr);
+  for(int i = 0; i < Backend->getDevices().size(); i++) {
+    delete Backend->getDevices()[i];
   }
+  // logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+  //          "user-created queues");
+  // for (auto Q : Backend->getQueues()) {
+  //   LOCK(Q->QueueMtx); // TODO MutexCleanup remove? Was this for preventing
+  //                      // destr?
+  //   Q->updateLastEvent(nullptr);
+  // }
 
-  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
-           "default queues");
-  for (auto Dev : Backend->getDevices()) {
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-#else
-    auto Q = Dev->getLegacyDefaultQueue();
-    LOCK(Q->QueueMtx); // TODO MutexCleanup remove? Was this for preventing
-                       // destr?
-    Q->updateLastEvent(nullptr);
-#endif
-  }
+//   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+//            "default queues");
+//   for (auto Dev : Backend->getDevices()) {
+//     for(auto Q : Dev->getQueues()) {
+//       Dev->removeQueue(Q);
+//     }
+// #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+// #else
+//     auto Q = Dev->getLegacyDefaultQueue();
+//     LOCK(Q->QueueMtx); // TODO MutexCleanup remove? Was this for preventing
+//                        // destr?
+//     Q->updateLastEvent(nullptr);
+// #endif
+//   }
 
   if (CallbackEventMonitor) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");

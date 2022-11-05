@@ -843,7 +843,6 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
-  Backend->addQueue(ChipQueue);
   return ChipQueue;
 }
 
@@ -852,7 +851,6 @@ CHIPQueue *CHIPDevice::createQueueAndRegister(const uintptr_t *NativeHandles,
   auto ChipQueue = createQueue(NativeHandles, NumHandles);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
-  Backend->addQueue(ChipQueue);
   return ChipQueue;
 }
 
@@ -883,7 +881,6 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 }
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
-  LOCK(Backend->BackendMtx) // reading Backend::ChipQueues
   LOCK(DeviceMtx) // reading CHIPDevice::ChipQueues_
   LOCK(ChipQueue->QueueMtx) // writing CHIPQueue::updateLastEvent
   ChipQueue->updateLastEvent(nullptr);
@@ -898,17 +895,6 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
   ChipQueues_.erase(FoundQueue);
-
-  // Remove from the Backend Queue List
-  FoundQueue = std::find(Backend->getQueues().begin(),
-                         Backend->getQueues().end(), ChipQueue);
-  if (FoundQueue == Backend->getQueues().end()) {
-    std::string Msg = "Tried to remove a queue for a the backend but the queue "
-                      "was not found in "
-                      "backend queue list";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
-  }
-  Backend->getQueues().erase(FoundQueue);
 
   delete ChipQueue;
   return true;
@@ -975,6 +961,7 @@ CHIPContext::~CHIPContext() {
 }
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
+  auto Dev = Backend->getActiveDevice();
   auto DefaultQueue = Backend->getActiveDevice()->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
   // The per-thread default stream is an implicit stream local to both the
@@ -1020,7 +1007,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
       if (Ev)
         EventsToWaitOn.push_back(Ev);
     }
-    LOCK(TargetQueue->QueueMtx); // CHIPQueue enqueue
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
     TargetQueue->updateLastEvent(SyncQueuesEvent);
@@ -1028,7 +1014,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     auto Ev = DefaultQueue->getLastEvent();
     if (Ev)
       EventsToWaitOn.push_back(Ev);
-    LOCK(TargetQueue->QueueMtx); // CHIPQueue enqueue
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(&EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
     TargetQueue->updateLastEvent(SyncQueuesEvent);
@@ -1242,22 +1227,7 @@ std::vector<std::string *> &CHIPBackend::getModulesStr() { return ModulesStr_; }
 void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
-void CHIPBackend::addQueue(CHIPQueue *ChipQueue) {
-  LOCK(BackendMtx) // reading CHIPBackend::ChipQueues
-  auto QueueFound = std::find(ChipQueues.begin(), ChipQueues.end(), ChipQueue);
-  if (QueueFound == ChipQueues.end()) {
-    ChipQueues.push_back(ChipQueue);
-  } else {
-    CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
-                          "already present in the backend queue list",
-                          hipErrorTbd);
-  }
 
-  logDebug("CHIPQueue {} added to the queue vector for backend {} ",
-           (void *)ChipQueue, (void *)this);
-
-  return;
-}
 void CHIPBackend::addDevice(CHIPDevice *ChipDevice) {
   LOCK(BackendMtx) // writing CHIPBackend::ChipDevices
   logDebug("CHIPDevice.add_device() {}", ChipDevice->getName());
@@ -1441,22 +1411,23 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  LOCK(BackendMtx) // reading CHIPDevice::PerThreadDefaultQueue
+  auto Dev = Backend->getActiveDevice();
+  LOCK(Dev->DeviceMtx) // reading CHIPDevice::PerThreadDefaultQueue
 
   if (ChipQueue == hipStreamPerThread) {
-    return Backend->getActiveDevice()->getPerThreadDefaultQueue();
+    return Dev->getPerThreadDefaultQueue();
   } else if (ChipQueue == hipStreamLegacy) {
-    return Backend->getActiveDevice()->getLegacyDefaultQueue();
+    return Dev->getLegacyDefaultQueue();
   } else if (ChipQueue == nullptr) {
-    return Backend->getActiveDevice()->getDefaultQueue();
+    return Dev->getDefaultQueue();
   }
 
   // Safety Check to make sure that the requested queue is registereted
-  std::vector<CHIPQueue *> AllQueues = Backend->getActiveDevice()->getQueues();
-  AllQueues.push_back(Backend->getActiveDevice()->getLegacyDefaultQueue());
+  std::vector<CHIPQueue *> AllQueues = Dev->getQueuesNoLock();
+  AllQueues.push_back(Dev->getLegacyDefaultQueue());
 
-  if (Backend->getActiveDevice()->PerThreadStreamUsed)
-    AllQueues.push_back(Backend->getActiveDevice()->getPerThreadDefaultQueue());
+  if (Dev->PerThreadStreamUsed)
+    AllQueues.push_back(Dev->getPerThreadDefaultQueue());
 
   auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
   if (QueueFound == AllQueues.end())
