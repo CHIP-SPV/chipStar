@@ -1303,7 +1303,6 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
 
     // Add device to context & backend
     ChipContext->addDevice(ChipDev);
-    Backend->addDevice(ChipDev);
   }
   logTrace("OpenCL Context Initialized.");
 };
@@ -1326,7 +1325,6 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
 
   // Add device to context & backend
   ChipContext->addDevice(ChipDev);
-  addDevice(ChipDev);
 
   setActiveDevice(ChipDev);
 

@@ -1348,9 +1348,13 @@ void CHIPBackendLevel0::uninitialize() {
 
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
-  for (auto Q : Backend->getQueues()) {
-    std::lock_guard Lock(Q->QueueMtx);
-    Q->updateLastEvent(nullptr);
+  for (auto Dev : Backend->getDevices()) {
+    std::lock_guard LockDevice(Dev->DeviceMtx);
+    for(auto Q : Dev->getQueues()) {
+      std::lock_guard LockQueue(Q->QueueMtx);
+      Q->finish();
+      Q->updateLastEvent(nullptr);
+    }
   }
 
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
@@ -1470,7 +1474,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
-      Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
     }
   } // End adding CHIPDevices
@@ -1495,7 +1498,6 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
   ChipCtx->addDevice(ChipDev);
-  addDevice(ChipDev);
 
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
   auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
