@@ -480,6 +480,7 @@ CHIPDevice::getModules() {
 std::string CHIPDevice::getName() { return std::string(HipDeviceProps_.name); }
 
 void CHIPDevice::init() {
+  LOCK(DeviceMtx) // CHIPDevice::LegacyDefaultQueue
   std::call_once(PropsPopulated_, &CHIPDevice::populateDevicePropertiesImpl,
                  this);
   if (!AllocationTracker)
