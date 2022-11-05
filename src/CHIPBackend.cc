@@ -878,11 +878,13 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   std::lock_guard<std::mutex> LockDevice(DeviceMtx);
-  std::lock_guard<std::mutex> LockQueue(ChipQueue->QueueMtx);
-  ChipQueue->finish();
-  // If this stream has a LastEvent, it will release it, decrement its refcount
-  // and let the StaleEventMonitor to collect it
-  ChipQueue->updateLastEvent(nullptr);
+  {
+    std::lock_guard<std::mutex> LockQueue(ChipQueue->QueueMtx);
+    ChipQueue->finish();
+    // If this stream has a LastEvent, it will release it, decrement its refcount
+    // and let the StaleEventMonitor to collect it
+    ChipQueue->updateLastEvent(nullptr);
+  }
 
   // Remove from device queue list
   auto FoundQueue =
