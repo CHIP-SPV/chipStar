@@ -797,6 +797,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  CHIPQueueFlags Flags, int Priority,
                                  LevelZeroQueueType TheType)
     : CHIPQueue(ChipDev, Flags, Priority) {
+  logTrace("CHIPQueueLevel0() {}", (void*)this);
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();

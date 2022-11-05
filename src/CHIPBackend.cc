@@ -808,6 +808,7 @@ void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
   LOCK(DeviceMtx) // writing CHIPDevice::ChipQueues_
+  logDebug("{} CHIPDevice::addQueue({})", (void*)this, (void*)ChipQueue);
 
   auto QueueFound =
       std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
@@ -1470,9 +1471,12 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
+  logDebug("CHIPQueue() {}", (void*)this);
 };
+
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
+
 CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue() {}", (void *)this);
   updateLastEvent(nullptr);
