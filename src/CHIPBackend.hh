@@ -1138,6 +1138,7 @@ protected:
 public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   bool PerThreadStreamUsed = false;
+  std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
   std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
@@ -1634,8 +1635,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<CHIPQueue *> ChipQueues;
-  std::vector<CHIPDevice *> ChipDevices;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1723,13 +1722,6 @@ public:
   virtual void uninitialize();
 
   /**
-   * @brief Get the Queues object
-   *
-   * @return std::vector<CHIPQueue*>&
-   */
-  std::vector<CHIPQueue *> &getQueues();
-
-  /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
    *
@@ -1751,7 +1743,7 @@ public:
    */
   void setActiveDevice(CHIPDevice *ChipDevice);
 
-  std::vector<CHIPDevice *> &getDevices();
+  std::vector<CHIPDevice *> getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1770,18 +1762,7 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
-  /**
-   * @brief Add a queue to this backend.
-   *
-   * @param q_in
-   */
-  void addQueue(CHIPQueue *ChipQueue);
-  /**
-   * @brief  Add a device to this backend.
-   *
-   * @param dev_in
-   */
-  void addDevice(CHIPDevice *ChipDevice);
+
   /**
    * @brief
    *
