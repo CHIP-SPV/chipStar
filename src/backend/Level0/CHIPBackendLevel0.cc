@@ -39,6 +39,7 @@
 #else
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
+  LOCK(Queue->QueueMtx);                                                       \
   CommandList = Queue->getCmdList();
 #endif
 

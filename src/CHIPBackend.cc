@@ -454,6 +454,7 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   if (!PerThreadDefaultQueue.get()) {
+    LOCK(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
@@ -887,10 +888,10 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
    * execution before the queue is deleted. The queue may be destroyed while
    * some commands are still inflight, or may wait for all commands queued to
    * the stream before destroying it.
-   * 
+   *
    * Choosing not to call Queue->finish()
    */
-  LOCK(DeviceMtx)           // reading CHIPDevice::ChipQueues_
+  LOCK(DeviceMtx) // reading CHIPDevice::ChipQueues_
   ChipQueue->updateLastEvent(nullptr);
 
   // Remove from device queue list
@@ -970,20 +971,19 @@ CHIPContext::~CHIPContext() {
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
-  LOCK(ContextMtx); // TODO MutexCleanup remove?
-  LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock 
-  // TODO MutexCleanup change this to the locked version
+
   auto DefaultQueue = Dev->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-      // The per-thread default stream is an implicit stream local to both the
-      // thread and the CUcontext, and which does not synchronize with other
-      // streams (just like explcitly created streams). The per-thread default
-      // stream is not a non-blocking stream and will synchronize with the
-      // legacy default stream if both are used in a program.
+  // The per-thread default stream is an implicit stream local to both the
+  // thread and the CUcontext, and which does not synchronize with other
+  // streams (just like explcitly created streams). The per-thread default
+  // stream is not a non-blocking stream and will synchronize with the
+  // legacy default stream if both are used in a program.
 
-      // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
-      // default stream thus no syncronization necessary
-      if (TargetQueue == DefaultQueue) return;
+  // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
+  // default stream thus no syncronization necessary
+  if (TargetQueue == DefaultQueue)
+    return;
 #endif
   std::vector<CHIPQueue *> QueuesToSyncWith;
 
@@ -995,6 +995,10 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     else if (TargetQueue == Dev->getLegacyDefaultQueue())
       QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueue());
   }
+
+  LOCK(ContextMtx);     // TODO MutexCleanup remove?
+  LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock
+  // TODO MutexCleanup change this to the locked version
 
   // Always sycn with all blocking queues
   for (auto Queue : Dev->getQueuesNoLock()) {
@@ -1400,7 +1404,6 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Dev = Backend->getActiveDevice();
-  LOCK(Dev->DeviceMtx) // reading CHIPDevice::PerThreadDefaultQueue
 
   if (ChipQueue == hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueue();
@@ -1411,7 +1414,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   }
 
   // Safety Check to make sure that the requested queue is registereted
-  std::vector<CHIPQueue *> AllQueues = Dev->getQueuesNoLock();
+  std::vector<CHIPQueue *> AllQueues = Dev->getQueues();
   AllQueues.push_back(Dev->getLegacyDefaultQueue());
 
   if (Dev->PerThreadStreamUsed)
