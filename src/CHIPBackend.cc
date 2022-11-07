@@ -456,6 +456,11 @@ bool CHIPDevice::isPerThreadStreamUsed() {
   return PerThreadStreamUsed_;
 }
 
+void CHIPDevice::setPerThreadStreamUsed(bool Status) {
+  std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  PerThreadStreamUsed_ = Status;
+}
+
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   if (!PerThreadDefaultQueue.get()) {
@@ -463,6 +468,7 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
     PerThreadDefaultQueue =
         std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
     PerThreadStreamUsed_ = true;
+    PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
   }
 
   return PerThreadDefaultQueue.get();
@@ -1494,6 +1500,9 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
 CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue() {}", (void *)this);
   updateLastEvent(nullptr);
+  if(PerThreadQueueForDevice) {
+    PerThreadQueueForDevice->setPerThreadStreamUsed(false);
+  }
 };
 
 ///////// Enqueue Operations //////////

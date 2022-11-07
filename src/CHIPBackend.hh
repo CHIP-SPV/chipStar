@@ -1162,6 +1162,8 @@ public:
   CHIPQueue *getPerThreadDefaultQueue();
 
   bool isPerThreadStreamUsed();
+  void setPerThreadStreamUsed(bool Status);
+
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
    * was set during compilation, return PerThreadStream, otherwise return legacy
@@ -1926,6 +1928,8 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
+  CHIPDevice*  PerThreadQueueForDevice = nullptr;
+
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
