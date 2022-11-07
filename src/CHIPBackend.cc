@@ -880,8 +880,8 @@ bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   {
     std::lock_guard<std::mutex> LockQueue(ChipQueue->QueueMtx);
     ChipQueue->finish();
-    // If this stream has a LastEvent, it will release it, decrement its refcount
-    // and let the StaleEventMonitor to collect it
+    // If this stream has a LastEvent, it will release it, decrement its
+    // refcount and let the StaleEventMonitor to collect it
     ChipQueue->updateLastEvent(nullptr);
   }
 
@@ -1399,7 +1399,8 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Dev = Backend->getActiveDevice();
-  std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
+  std::lock_guard<std::mutex> LockDevice(
+      Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
 
   if (ChipQueue == hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueue();
