@@ -1399,6 +1399,7 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Dev = Backend->getActiveDevice();
+  std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
 
   if (ChipQueue == hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueue();
