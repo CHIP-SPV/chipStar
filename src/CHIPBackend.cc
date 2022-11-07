@@ -452,17 +452,20 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 }
 
 bool CHIPDevice::isPerThreadStreamUsed() {
-  std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  std::lock_guard<std::mutex> LockDevice(
+      DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   return PerThreadStreamUsed_;
 }
 
 void CHIPDevice::setPerThreadStreamUsed(bool Status) {
-  std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  std::lock_guard<std::mutex> LockDevice(
+      DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   PerThreadStreamUsed_ = Status;
 }
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
-  std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  std::lock_guard<std::mutex> LockDevice(
+      DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
@@ -975,7 +978,7 @@ CHIPContext::~CHIPContext() {
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
   std::lock_guard<std::mutex> LockContext(ContextMtx);
-  
+
   auto DefaultQueue = Dev->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
   // The per-thread default stream is an implicit stream local to both the
@@ -1000,17 +1003,15 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
       QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueue());
   }
 
-
-{
-  std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
-  // Always sycn with all blocking queues
-  for (auto Queue : Dev->getQueues()) {
-    std::lock_guard<std::mutex> LockQueue(Queue->QueueMtx);
-    if (Queue->getQueueFlags().isBlocking())
-      QueuesToSyncWith.push_back(Queue);
+  {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+    // Always sycn with all blocking queues
+    for (auto Queue : Dev->getQueues()) {
+      std::lock_guard<std::mutex> LockQueue(Queue->QueueMtx);
+      if (Queue->getQueueFlags().isBlocking())
+        QueuesToSyncWith.push_back(Queue);
+    }
   }
-}
-
 
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
@@ -1148,14 +1149,15 @@ hipError_t CHIPContext::free(void *Ptr) {
 // CHIPBackend
 //*************************************************************************************
 int CHIPBackend::getPerThreadQueuesActive() {
-   std::lock_guard<std::mutex> LockQueues(Backend->BackendMtx); // Prevent adding/removing devices while iterating
-   int Active = 0;
-   for(auto Dev: getDevices()) {
-    if(Dev->isPerThreadStreamUsed()) {
+  std::lock_guard<std::mutex> LockQueues(
+      Backend->BackendMtx); // Prevent adding/removing devices while iterating
+  int Active = 0;
+  for (auto Dev : getDevices()) {
+    if (Dev->isPerThreadStreamUsed()) {
       Active++;
     }
-   } 
-   return Active;
+  }
+  return Active;
 }
 int CHIPBackend::getQueuePriorityRange() {
   assert(MinQueuePriority_);
@@ -1458,7 +1460,6 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Dev = Backend->getActiveDevice();
 
-
   if (ChipQueue == hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueue();
   } else if (ChipQueue == hipStreamLegacy) {
@@ -1469,10 +1470,10 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 
   std::vector<CHIPQueue *> AllQueues;
   {
-  std::lock_guard<std::mutex> LockDevice(
-      Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
-  // Safety Check to make sure that the requested queue is registereted
-  AllQueues = Dev->getQueues();
+    std::lock_guard<std::mutex> LockDevice(
+        Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
+    // Safety Check to make sure that the requested queue is registereted
+    AllQueues = Dev->getQueues();
   }
 
   AllQueues.push_back(Dev->getLegacyDefaultQueue());
@@ -1500,7 +1501,7 @@ CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
 CHIPQueue::~CHIPQueue() {
   logDebug("~CHIPQueue() {}", (void *)this);
   updateLastEvent(nullptr);
-  if(PerThreadQueueForDevice) {
+  if (PerThreadQueueForDevice) {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);
   }
 };
