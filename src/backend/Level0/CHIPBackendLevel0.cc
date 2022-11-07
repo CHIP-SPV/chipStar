@@ -1213,7 +1213,6 @@ void CHIPQueueLevel0::finish() {
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
   // buffers get flushed.
-  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
   zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
 
   return;
