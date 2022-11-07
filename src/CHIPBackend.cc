@@ -434,7 +434,6 @@ CHIPDevice::~CHIPDevice() {
   std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::ChipQueues_
   logDebug("~CHIPDevice() {}", (void *)this);
   while (this->ChipQueues_.size() > 0) {
-    ChipQueues_[0]->finish();
     delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
   }
@@ -978,10 +977,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     return;
 #endif
   std::lock_guard<std::mutex> LockContext(ContextMtx);
-  int Size = 2 + Dev->getQueues().size();
-  std::vector<CHIPQueue*> QueuesToSyncWith;
-  // CHIPQueue* QueuesToSyncWith[Size];
-  //int QueueIntex = 0;
+  std::vector<CHIPQueue *> QueuesToSyncWith;
 
   // The per-thread default stream is not a non-blocking stream and will
   // synchronize with the legacy default stream if both are used in a program
