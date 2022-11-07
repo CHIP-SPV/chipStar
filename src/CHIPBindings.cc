@@ -730,6 +730,8 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
+  std::lock_guard<std::mutex> LockBackend(
+      Backend->BackendMtx); // CHIPBackend::ChipExecStack
 
   auto *ExecItem = Backend->ChipExecStack.top();
   *GridDim = ExecItem->getGrid();
@@ -3198,8 +3200,13 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->initializeDeviceVariables();
-  CHIPExecItem *ExecItem = Backend->ChipExecStack.top();
-  Backend->ChipExecStack.pop();
+  CHIPExecItem *ExecItem;
+  {
+    std::lock_guard<std::mutex> LockBackend(
+        Backend->BackendMtx); // CHIPBackend::ChipExecStack
+    ExecItem = Backend->ChipExecStack.top();
+    Backend->ChipExecStack.pop();
+  }
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {
