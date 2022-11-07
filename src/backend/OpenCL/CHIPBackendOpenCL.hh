@@ -261,6 +261,9 @@ public:
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
+  virtual void uninitialize() override {
+    waitForThreadExit();
+  }
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;

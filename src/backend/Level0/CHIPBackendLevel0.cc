@@ -1352,6 +1352,7 @@ void CHIPBackendLevel0::uninitialize() {
    *
    * To be safe, we iterate through all the queues and update their last event.
    */
+  waitForThreadExit();
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
   {
@@ -1359,9 +1360,8 @@ void CHIPBackendLevel0::uninitialize() {
         Backend->BackendMtx); // prevent devices from being destrpyed
 
     for (auto Dev : Backend->getDevices()) {
-      std::lock_guard LockDevice(Dev->DeviceMtx);
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      if (Dev->PerThreadStreamUsed) {
+      if (Dev->isPerThreadStreamUsed()) {
         Dev->getPerThreadDefaultQueue()->updateLastEvent(nullptr);
       }
       int NumQueues = Dev->getQueues().size();

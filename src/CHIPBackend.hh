@@ -55,6 +55,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+#define DEFAULT_QUEUE_PRIORITY 1
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -1134,10 +1136,10 @@ protected:
   CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
+  bool PerThreadStreamUsed_ = false;
 
 public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
-  bool PerThreadStreamUsed = false;
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
@@ -1158,6 +1160,8 @@ public:
    * @return CHIPQueue*
    */
   CHIPQueue *getPerThreadDefaultQueue();
+
+  bool isPerThreadStreamUsed();
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
    * was set during compilation, return PerThreadStream, otherwise return legacy
@@ -1174,7 +1178,8 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags, int Priority);
+  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
+                                    int Priority = DEFAULT_QUEUE_PRIORITY);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
@@ -1621,6 +1626,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
@@ -1635,6 +1641,7 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
+  std::atomic<int> ThreadCount = 0;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1721,6 +1728,11 @@ public:
    */
   virtual void uninitialize();
 
+  /**
+   * @brief Wait for all per-thread queues to finish
+   *
+   */
+  void waitForThreadExit();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.

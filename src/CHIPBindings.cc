@@ -786,16 +786,18 @@ hipError_t hipDeviceSynchronize(void) {
 
   // prevents queues from being destryed while iterating
   auto Dev = Backend->getActiveDevice();
-  std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
-  for (auto Q : Dev->getQueues()) {
-    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
-    Q->finish();
+  {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+    for (auto Q : Dev->getQueues()) {
+      std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+      Q->finish();
+    }
   }
 
   std::lock_guard<std::mutex> LockQueue(
       Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->PerThreadStreamUsed) {
+  if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
     std::lock_guard<std::mutex> LockQueue(
         Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
@@ -1310,6 +1312,14 @@ hipError_t hipDeviceGetStreamPriorityRange(int *LeastPriority,
 hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+
+  if (Stream == hipStreamPerThread)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
+                          hipErrorTbd);
+
+  if (Stream == hipStreamLegacy)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default legacy queue",
+                          hipErrorTbd);
 
   Stream = Backend->findQueue(Stream);
 
