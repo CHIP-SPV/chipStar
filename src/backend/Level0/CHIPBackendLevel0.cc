@@ -1345,27 +1345,39 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
-
+  /**
+   * Stale Event Monitor expects to collect all events. To do this, all events
+   * must reach the refcount of 0. At this point, all queues should have their
+   * LastEvent as nullptr but in case a user didn't sync and destroy a
+   * user-created stream, such stream might not have its LastEvent as nullptr.
+   * 
+   * To be safe, we iterate through all the queues and update their last event.
+   */
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
-  for (auto Dev : Backend->getDevices()) {
-    std::lock_guard LockDevice(Dev->DeviceMtx);
-    for(auto Q : Dev->getQueues()) {
-      std::lock_guard LockQueue(Q->QueueMtx);
-      Q->finish();
-      Q->updateLastEvent(nullptr);
-    }
-  }
+  {
+    std::lock_guard LockBackend(
+        Backend->BackendMtx); // prevent devices from being destrpyed
 
-  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
-           "default queues");
-  for (auto Dev : Backend->getDevices()) {
-#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-#else
-    auto Q = Dev->getLegacyDefaultQueue();
-    std::lock_guard Lock(Q->QueueMtx);
-    Q->updateLastEvent(nullptr);
-#endif
+    for (auto Dev : Backend->getDevices()) {
+      std::lock_guard LockDevice(Dev->DeviceMtx);
+      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
+      if (Dev->PerThreadStreamUsed) {
+        Dev->getPerThreadDefaultQueue()->updateLastEvent(nullptr);
+      }
+      int NumQueues = Dev->getQueues().size();
+      if (NumQueues) {
+        logWarn("Not all user created streams have been destoyed... Queues remaining: ", NumQueues);
+        logWarn("Make sure to call hipStreamDestroy() for all queues that have been created via hipStreamCreate()");
+      }
+      for (auto Q : Dev->getQueues()) {
+        // std::lock_guard LockQueue(Q->QueueMtx);
+        //  Q->finish(); these are user queues. Mostly likely allocated on the
+        //  stack in the main. Ideally, the user would have called sync. We
+        //  should just remove these queues.
+        Q->updateLastEvent(nullptr);
+      }
+    }
   }
 
   if (CallbackEventMonitor) {
