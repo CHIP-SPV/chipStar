@@ -962,6 +962,7 @@ CHIPContext::~CHIPContext() {
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
+  std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
   auto DefaultQueue = Dev->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -976,7 +977,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   if (TargetQueue == DefaultQueue)
     return;
 #endif
-  std::lock_guard<std::mutex> LockContext(ContextMtx);
   std::vector<CHIPQueue *> QueuesToSyncWith;
 
   // The per-thread default stream is not a non-blocking stream and will
