@@ -472,6 +472,7 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
         std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
+    Backend->ThreadCount++;
   }
 
   return PerThreadDefaultQueue.get();
