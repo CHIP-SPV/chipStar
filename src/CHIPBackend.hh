@@ -1139,6 +1139,7 @@ protected:
 public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   bool PerThreadStreamUsed = false;
+  std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
   std::vector<CHIPQueue *> getQueuesNoLock(){return ChipQueues_; }
@@ -1636,7 +1637,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<CHIPDevice *> ChipDevices;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1745,7 +1745,7 @@ public:
    */
   void setActiveDevice(CHIPDevice *ChipDevice);
 
-  std::vector<CHIPDevice *> &getDevices();
+  std::vector<CHIPDevice *> getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1765,12 +1765,6 @@ public:
    */
   void addContext(CHIPContext *ChipContext);
 
-  /**
-   * @brief  Add a device to this backend.
-   *
-   * @param dev_in
-   */
-  void addDevice(CHIPDevice *ChipDevice);
   /**
    * @brief
    *

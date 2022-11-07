@@ -730,6 +730,7 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
+  LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
 
   auto *ExecItem = Backend->ChipExecStack.top();
   *GridDim = ExecItem->getGrid();
@@ -781,13 +782,11 @@ hipError_t hipSetDevice(int DeviceId) {
 hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
+
   auto Dev = Backend->getActiveDevice();
-  LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_
-  logDebug("hipDeviceSynchronize()");
+  LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
   for (auto Q : Dev->getQueuesNoLock()) {
-    logDebug("Device: {}", (void*)Dev);
-    logDebug("Queue {}", (void*)Q);
-    std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+    LOCK(Q->QueueMtx); // TODO MutexCleanup
     Q->finish();
   }
 
@@ -3199,8 +3198,12 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->initializeDeviceVariables();
-  CHIPExecItem *ExecItem = Backend->ChipExecStack.top();
-  Backend->ChipExecStack.pop();
+  CHIPExecItem *ExecItem;
+  {
+    LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
+    ExecItem = Backend->ChipExecStack.top();
+    Backend->ChipExecStack.pop();
+  }
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {

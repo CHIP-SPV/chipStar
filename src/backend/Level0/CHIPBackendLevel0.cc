@@ -742,6 +742,12 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
+  updateLastEvent(
+      nullptr); // Just in case that unique_ptr destructor calls this, the
+                // generic ~CHIPQueue() (which calls updateLastEvent(nullptr))
+                // hasn't been called yet, and the stale event monitor ends up
+                // waiting forever.
+
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
@@ -797,7 +803,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  CHIPQueueFlags Flags, int Priority,
                                  LevelZeroQueueType TheType)
     : CHIPQueue(ChipDev, Flags, Priority) {
-  logTrace("CHIPQueueLevel0() {}", (void*)this);
+  logTrace("CHIPQueueLevel0() {}", (void *)this);
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();
@@ -1019,8 +1025,8 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via GET_COMMAND_LIST
-  auto Status = zeCommandListAppendLaunchKernel(CommandList, KernelZe, &LaunchArgs,
-                                           LaunchEvent->peek(), 0, nullptr);
+  auto Status = zeCommandListAppendLaunchKernel(
+      CommandList, KernelZe, &LaunchArgs, LaunchEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   auto StatusReadyCheck = zeEventQueryStatus(LaunchEvent->peek());
@@ -1412,31 +1418,43 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
-  for(int i = 0; i < Backend->getDevices().size(); i++) {
-    delete Backend->getDevices()[i];
-  }
-  // logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
-  //          "user-created queues");
-  // for (auto Q : Backend->getQueues()) {
-  //   LOCK(Q->QueueMtx); // TODO MutexCleanup remove? Was this for preventing
-  //                      // destr?
-  //   Q->updateLastEvent(nullptr);
-  // }
+  /**
+   * Stale Event Monitor expects to collect all events. To do this, all events
+   * must reach the refcount of 0. At this point, all queues should have their
+   * LastEvent as nullptr but in case a user didn't sync and destroy a
+   * user-created stream, such stream might not have its LastEvent as nullptr.
+   *
+   * To be safe, we iterate through all the queues and update their last event.
+   */
+  logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
+           "user-created queues");
+  {
+    LOCK(Backend->BackendMtx); // prevent devices from being destrpyed
 
-//   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
-//            "default queues");
-//   for (auto Dev : Backend->getDevices()) {
-//     for(auto Q : Dev->getQueues()) {
-//       Dev->removeQueue(Q);
-//     }
-// #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
-// #else
-//     auto Q = Dev->getLegacyDefaultQueue();
-//     LOCK(Q->QueueMtx); // TODO MutexCleanup remove? Was this for preventing
-//                        // destr?
-//     Q->updateLastEvent(nullptr);
-// #endif
-//   }
+    for (auto Dev : Backend->getDevices()) {
+      LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
+      // TODO MutexCleanup replace this with lock?
+      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
+      if (Dev->PerThreadStreamUsed) {
+        Dev->getPerThreadDefaultQueue()->updateLastEvent(nullptr);
+      }
+      int NumQueues = Dev->getQueuesNoLock().size();
+      if (NumQueues) {
+        logWarn("Not all user created streams have been destoyed... Queues "
+                "remaining: ",
+                NumQueues);
+        logWarn("Make sure to call hipStreamDestroy() for all queues that have "
+                "been created via hipStreamCreate()");
+      }
+      for (auto Q : Dev->getQueuesNoLock()) {
+        // std::lock_guard LockQueue(Q->QueueMtx);
+        //  Q->finish(); these are user queues. Mostly likely allocated on the
+        //  stack in the main. Ideally, the user would have called sync. We
+        //  should just remove these queues.
+        Q->updateLastEvent(nullptr);
+      }
+    }
+  }
 
   if (CallbackEventMonitor) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
@@ -1544,7 +1562,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
       CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
       ChipL0Ctx->addDevice(ChipL0Dev);
-      Backend->addDevice(ChipL0Dev);
       break; // For now don't add more than one device
     }
   } // End adding CHIPDevices
@@ -1569,7 +1586,6 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
   ChipCtx->addDevice(ChipDev);
-  addDevice(ChipDev);
 
   LOCK(Backend->BackendMtx) // CHIPBackendLevel0::StaleEventMonitor
   auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
