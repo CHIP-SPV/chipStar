@@ -1628,7 +1628,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
-int getPerThreadQueuesActive();
+  int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
@@ -1928,7 +1928,7 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
-  CHIPDevice*  PerThreadQueueForDevice = nullptr;
+  CHIPDevice *PerThreadQueueForDevice = nullptr;
 
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
@@ -2079,7 +2079,7 @@ public:
     if (!LastEvent_)
       return true;
 
-    if(LastEvent_->updateFinishStatus(false))
+    if (LastEvent_->updateFinishStatus(false))
       LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;
