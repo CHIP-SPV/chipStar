@@ -1349,7 +1349,7 @@ void CHIPBackendLevel0::uninitialize() {
    * must reach the refcount of 0. At this point, all queues should have their
    * LastEvent as nullptr but in case a user didn't sync and destroy a
    * user-created stream, such stream might not have its LastEvent as nullptr.
-   * 
+   *
    * To be safe, we iterate through all the queues and update their last event.
    */
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
@@ -1366,8 +1366,11 @@ void CHIPBackendLevel0::uninitialize() {
       }
       int NumQueues = Dev->getQueues().size();
       if (NumQueues) {
-        logWarn("Not all user created streams have been destoyed... Queues remaining: ", NumQueues);
-        logWarn("Make sure to call hipStreamDestroy() for all queues that have been created via hipStreamCreate()");
+        logWarn("Not all user created streams have been destoyed... Queues "
+                "remaining: ",
+                NumQueues);
+        logWarn("Make sure to call hipStreamDestroy() for all queues that have "
+                "been created via hipStreamCreate()");
       }
       for (auto Q : Dev->getQueues()) {
         // std::lock_guard LockQueue(Q->QueueMtx);
