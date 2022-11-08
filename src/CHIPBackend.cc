@@ -1233,7 +1233,7 @@ void CHIPBackend::waitForThreadExit() {
    * So we just wait for 0.5 seconds before starting to check for thread exit.
    */
   pthread_yield();
-  // TODO PerThreadExit is there a better way to do this?
+  // TODO fix-255 is there a better way to do this?
   unsigned long long int sleepMicroSeconds = 500000;
   usleep(sleepMicroSeconds);
 
