@@ -628,7 +628,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "event which is already "
                                 "removed from backend event list",
                                 hipErrorTbd);
-        Backend->Events.erase(Found);
+        Backend->Events.erase(Found); // TODO fix-251 segfault here
 
         if (E->EventPool)
           E->EventPool->returnSlot(E->EventPoolIndex);
