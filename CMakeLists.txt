@@ -319,7 +319,7 @@ list(APPEND FAILING_TESTS ${FLAKY_TESTS})
 string(REGEX REPLACE ";" "\$|" FAILING_TESTS_STR "${FAILING_TESTS}")
 set(EXCLUDED_TESTS "${FAILING_TESTS_STR}$")
 
-# TODO PerThreadExit how do I make these read from the environment?
+# TODO fix-254 how do I make these read from the environment?
 # MULTI_TESTS_REPEAT=33 make multi_tests
 # Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
 set(FLAKY_TESTS_REPEAT 100)
