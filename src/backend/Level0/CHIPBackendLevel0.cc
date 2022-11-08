@@ -647,7 +647,10 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       }
 
     } // done collecting events to delete
-
+    // TODO PerThreadExit in the case that a user doesn't destroy all the
+    // created streams, we remove the streams and outstanding events in
+    // CHIPBackend::waitForThreadExit() but CHIPBackend has no knowledge of
+    // EventCommandListMap
     if (Stop && !Backend->Events.size() && !EventCommandListMap->size()) {
       logTrace(
           "CHIPStaleEventMonitorLevel0 stop was called and all events have "
