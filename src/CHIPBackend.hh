@@ -55,6 +55,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+#define DEFAULT_QUEUE_PRIORITY 1
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -569,7 +571,6 @@ public:
     std::lock_guard<std::mutex> Lock(EventMtx);
     DependsOnList.clear();
   }
-  void trackImpl();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
@@ -1134,14 +1135,14 @@ protected:
   CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
+  bool PerThreadStreamUsed_ = false;
 
 public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
-  bool PerThreadStreamUsed = false;
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
+  CHIPQueue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**
@@ -1158,6 +1159,10 @@ public:
    * @return CHIPQueue*
    */
   CHIPQueue *getPerThreadDefaultQueue();
+
+  bool isPerThreadStreamUsed();
+  void setPerThreadStreamUsed(bool Status);
+
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
    * was set during compilation, return PerThreadStream, otherwise return legacy
@@ -1174,7 +1179,8 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags, int Priority);
+  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
+                                    int Priority = DEFAULT_QUEUE_PRIORITY);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
@@ -1480,6 +1486,7 @@ public:
    * @return false upon failure
    */
   void addDevice(CHIPDevice *Dev);
+  void removeDevice(CHIPDevice *Dev);
 
   /**
    * @brief Get this context's CHIPDevices
@@ -1621,6 +1628,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
@@ -1719,8 +1727,13 @@ public:
    * @brief
    *
    */
-  virtual void uninitialize();
+  virtual void uninitialize() = 0;
 
+  /**
+   * @brief Wait for all per-thread queues to finish
+   *
+   */
+  void waitForThreadExit();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
@@ -1762,6 +1775,7 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
+  void removeContext(CHIPContext *ChipContext);
 
   /**
    * @brief
@@ -1914,6 +1928,8 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
+  CHIPDevice *PerThreadQueueForDevice = nullptr;
+
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
@@ -2063,7 +2079,7 @@ public:
     if (!LastEvent_)
       return true;
 
-    if(LastEvent_->updateFinishStatus(false))
+    if (LastEvent_->updateFinishStatus(false))
       LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;

@@ -628,7 +628,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "event which is already "
                                 "removed from backend event list",
                                 hipErrorTbd);
-        Backend->Events.erase(Found);
+        Backend->Events.erase(Found); // TODO fix-251 segfault here
 
         if (E->EventPool)
           E->EventPool->returnSlot(E->EventPoolIndex);
@@ -648,7 +648,13 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
     } // done collecting events to delete
 
-    if (Stop && !Backend->Events.size() && !EventCommandListMap->size()) {
+    /**
+     * In the case that a user doesn't destroy all the
+     * created streams, we remove the streams and outstanding events in
+     * CHIPBackend::waitForThreadExit() but CHIPBackend has no knowledge of
+     * EventCommandListMap
+     */
+    if (Stop && !Backend->Events.size() /* && !EventCommandListMap->size() */) {
       logTrace(
           "CHIPStaleEventMonitorLevel0 stop was called and all events have "
           "been cleared");
@@ -711,6 +717,11 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
+  finish(); // must finish the queue because it's possible that that there are
+            // outstanding operations which have an associated CHIPEvent. If we
+            // do not finish we risk the chance of StaleEventMonitor of
+            // deadlocking while waiting for queue completion and subsequent
+            // event status change
   std::lock_guard<std::mutex> LockQueues(
       Backend->QueueCreateDestroyMtx); // other threads may be checking the
                                        // status of this queue
@@ -1352,35 +1363,9 @@ void CHIPBackendLevel0::uninitialize() {
    *
    * To be safe, we iterate through all the queues and update their last event.
    */
+  waitForThreadExit();
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
-  {
-    std::lock_guard LockBackend(
-        Backend->BackendMtx); // prevent devices from being destrpyed
-
-    for (auto Dev : Backend->getDevices()) {
-      std::lock_guard LockDevice(Dev->DeviceMtx);
-      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      if (Dev->PerThreadStreamUsed) {
-        Dev->getPerThreadDefaultQueue()->updateLastEvent(nullptr);
-      }
-      int NumQueues = Dev->getQueues().size();
-      if (NumQueues) {
-        logWarn("Not all user created streams have been destoyed... Queues "
-                "remaining: ",
-                NumQueues);
-        logWarn("Make sure to call hipStreamDestroy() for all queues that have "
-                "been created via hipStreamCreate()");
-      }
-      for (auto Q : Dev->getQueues()) {
-        // std::lock_guard LockQueue(Q->QueueMtx);
-        //  Q->finish(); these are user queues. Mostly likely allocated on the
-        //  stack in the main. Ideally, the user would have called sync. We
-        //  should just remove these queues.
-        Q->updateLastEvent(nullptr);
-      }
-    }
-  }
 
   if (CallbackEventMonitor) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
@@ -1514,8 +1499,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipCtx->addDevice(ChipDev);
 
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-  auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
-  ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
+  ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
