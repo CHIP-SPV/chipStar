@@ -314,7 +314,8 @@ list(APPEND FAILING_TESTS "Unit_syncthreads_and")
 list(APPEND FAILING_TESTS "Unit_syncthreads_count")
 list(APPEND FAILING_TESTS "Unit_syncthreads_or")
 
-list(APPEND FAILING_TESTS FLAKY_TESTS)
+list(APPEND FAILING_TESTS ${FLAKY_TESTS})
+
 string(REGEX REPLACE ";" "\$|" FAILING_TESTS_STR "${FAILING_TESTS}")
 set(EXCLUDED_TESTS "${FAILING_TESTS_STR}$")
 
