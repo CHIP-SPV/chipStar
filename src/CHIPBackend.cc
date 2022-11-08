@@ -441,9 +441,7 @@ CHIPDevice::~CHIPDevice() {
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
 }
-CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
-  return LegacyDefaultQueue;
-}
+CHIPQueue *CHIPDevice::getLegacyDefaultQueue() { return LegacyDefaultQueue; }
 
 CHIPQueue *CHIPDevice::getDefaultQueue() {
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
