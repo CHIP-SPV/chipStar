@@ -318,10 +318,17 @@ list(APPEND FAILING_TESTS FLAKY_TESTS)
 string(REGEX REPLACE ";" "\$|" FAILING_TESTS_STR "${FAILING_TESTS}")
 set(EXCLUDED_TESTS "${FAILING_TESTS_STR}$")
 
-add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -R ${FLAKY_TESTS} --repeat until-fail:100 USES_TERMINAL VERBATIM)
-add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread" --repeat until-fail:25 USES_TERMINAL VERBATIM)
+# TODO PerThreadExit how do I make these read from the environment?
+# MULTI_TESTS_REPEAT=33 make multi_tests
+# Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
+set(FLAKY_TESTS_REPEAT 100)
+set(MULTI_TESTS_REPEAT 25)
 
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E ${EXCLUDED_TESTS} VERBATIM)
+set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
+add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R ${FLAKY_TESTS} --repeat until-fail:${FLAKY_TESTS_REPEAT} USES_TERMINAL VERBATIM)
+add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread|[Ss]tream" --repeat until-fail:${MULTI_TESTS_REPEAT} VERBATIM)
+
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${EXCLUDED_TESTS} VERBATIM)
 
 # CHIP-SPV BINARIES & TESTS
 # =============================================================================
