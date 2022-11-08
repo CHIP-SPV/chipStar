@@ -1176,8 +1176,6 @@ int CHIPBackend::getQueuePriorityRange() {
   return MinQueuePriority_;
 }
 
-void CHIPBackend::uninitialize() { logDebug("CHIPBackend::uninitialize()"); }
-
 std::string CHIPBackend::getJitFlags() {
   std::string Flags;
   if (CustomJitFlags != "") {

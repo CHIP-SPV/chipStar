@@ -1728,7 +1728,7 @@ public:
    * @brief
    *
    */
-  virtual void uninitialize();
+  virtual void uninitialize() = 0;
 
   /**
    * @brief Wait for all per-thread queues to finish
