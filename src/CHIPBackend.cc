@@ -976,7 +976,7 @@ CHIPContext::~CHIPContext() {
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
-  // TODO PerThreadExit why is this mutex necessary
+  // TODO MutexCleanup why is this mutex necessary
   std::lock_guard<std::mutex> LockContext(ContextMtx);
 
   auto DefaultQueue = Dev->getDefaultQueue();
