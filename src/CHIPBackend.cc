@@ -1212,9 +1212,13 @@ CHIPBackend::~CHIPBackend() {
       Ctx->removeDevice(Dev);
       delete Dev;
     }
-    // TODO PerThreadExit Why does cause a segfault? Especially for
-    // hip_sycl_interop where the context is given to oneAPI so it should still
-    // be owned by CHIP-SPV? delete Ctx;
+    Backend->removeContext(Ctx);
+    /**
+     * TODO fix-253 Why does cause a segfault? Especially for
+     * hip_sycl_interop where the context is given to oneAPI so it should still
+     * be owned by CHIP-SPV?
+     */
+    // delete Ctx;
   }
 
   for (auto &Mod : ModulesStr_)
@@ -1344,6 +1348,14 @@ size_t CHIPBackend::getNumDevices() {
   return NumDevices;
 }
 std::vector<std::string *> &CHIPBackend::getModulesStr() { return ModulesStr_; }
+
+void CHIPBackend::removeContext(CHIPContext *ChipContext) {
+  auto ContextFound =
+      std::find(ChipContexts.begin(), ChipContexts.end(), ChipContext);
+  if (ContextFound != ChipContexts.end()) {
+    ChipContexts.erase(ContextFound);
+  }
+}
 
 void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);

@@ -1775,6 +1775,7 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
+  void removeContext(CHIPContext *ChipContext);
 
   /**
    * @brief
