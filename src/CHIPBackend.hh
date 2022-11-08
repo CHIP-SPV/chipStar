@@ -1142,7 +1142,7 @@ public:
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
+  CHIPQueue* LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**

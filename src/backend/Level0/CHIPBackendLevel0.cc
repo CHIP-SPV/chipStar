@@ -651,7 +651,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     // created streams, we remove the streams and outstanding events in
     // CHIPBackend::waitForThreadExit() but CHIPBackend has no knowledge of
     // EventCommandListMap
-    if (Stop && !Backend->Events.size() && !EventCommandListMap->size()) {
+    if (Stop && !Backend->Events.size() /* && !EventCommandListMap->size() */) {
       logTrace(
           "CHIPStaleEventMonitorLevel0 stop was called and all events have "
           "been cleared");
@@ -1496,8 +1496,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipCtx->addDevice(ChipDev);
 
   std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
-  auto ChipQueue = ChipDev->createQueue(NativeHandles, NumHandles);
-  ChipDev->LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
+  ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();

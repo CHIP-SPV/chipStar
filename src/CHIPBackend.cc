@@ -437,10 +437,12 @@ CHIPDevice::~CHIPDevice() {
     delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
   }
+
+  delete LegacyDefaultQueue;
+  LegacyDefaultQueue = nullptr;
 }
 CHIPQueue *CHIPDevice::getLegacyDefaultQueue() {
-  assert(LegacyDefaultQueue);
-  return LegacyDefaultQueue.get();
+  return LegacyDefaultQueue;
 }
 
 CHIPQueue *CHIPDevice::getDefaultQueue() {
@@ -503,8 +505,7 @@ void CHIPDevice::init() {
 
   CHIPQueueFlags Flags;
   int Priority = 1; // TODO : set a default
-  auto ChipQueue = createQueue(Flags, Priority);
-  LegacyDefaultQueue = std::unique_ptr<CHIPQueue>(ChipQueue);
+  LegacyDefaultQueue = createQueue(Flags, Priority);
 }
 
 void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *Prop) {
