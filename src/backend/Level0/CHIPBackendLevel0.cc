@@ -1360,32 +1360,7 @@ void CHIPBackendLevel0::uninitialize() {
   waitForThreadExit();
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
-  {
-    std::lock_guard LockBackend(
-        Backend->BackendMtx); // prevent devices from being destrpyed
 
-    for (auto Dev : Backend->getDevices()) {
-      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      if (Dev->isPerThreadStreamUsed()) {
-        Dev->getPerThreadDefaultQueue()->updateLastEvent(nullptr);
-      }
-      int NumQueues = Dev->getQueues().size();
-      if (NumQueues) {
-        logWarn("Not all user created streams have been destoyed... Queues "
-                "remaining: {}",
-                NumQueues);
-        logWarn("Make sure to call hipStreamDestroy() for all queues that have "
-                "been created via hipStreamCreate()");
-      }
-      for (auto Q : Dev->getQueues()) {
-        // std::lock_guard LockQueue(Q->QueueMtx);
-        //  Q->finish(); these are user queues. Mostly likely allocated on the
-        //  stack in the main. Ideally, the user would have called sync. We
-        //  should just remove these queues.
-        Q->updateLastEvent(nullptr);
-      }
-    }
-  }
 
   if (CallbackEventMonitor) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");

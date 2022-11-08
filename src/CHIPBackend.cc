@@ -1038,13 +1038,14 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 }
 
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
-  logDebug("{} CHIPContext.addDevice() {}", (void*)this, (void*)ChipDevice);
+  logDebug("{} CHIPContext.addDevice() {}", (void *)this, (void *)ChipDevice);
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   ChipDevices_.push_back(ChipDevice);
 }
 
 void CHIPContext::removeDevice(CHIPDevice *ChipDevice) {
-  logDebug("{} CHIPContext.removeDevice() {}", (void*)this, (void*)ChipDevice);
+  logDebug("{} CHIPContext.removeDevice() {}", (void *)this,
+           (void *)ChipDevice);
   std::lock_guard<std::mutex> LockContext(ContextMtx);
 
   auto DeviceFound =
@@ -1196,8 +1197,21 @@ CHIPBackend::~CHIPBackend() {
     CallbackQueue.pop();
 
   Events.clear();
+  // for (auto &Ctx : ChipContexts) {
+  //   delete Ctx;
+  // }
+
   for (auto &Ctx : ChipContexts) {
-    delete Ctx;
+    for (auto &Dev : Ctx->getDevices()) {
+      for (auto &Q : Dev->getQueues()) {
+        Dev->removeQueue(Q);
+        delete Q;
+      }
+      Ctx->removeDevice(Dev);
+      delete Dev;
+    }
+    // TODO PerThreadExit Why does cause a segfault? Especially for hip_sycl_interop where the context is given to oneAPI so it should still be owned by CHIP-SPV?
+    // delete Ctx;
   }
 
   for (auto &Mod : ModulesStr_)
@@ -1206,20 +1220,18 @@ CHIPBackend::~CHIPBackend() {
 
 void CHIPBackend::waitForThreadExit() {
   /**
-   *  If the main thread just creates a bunch of other threads and tries to exit
-   * right away, it could be the case that all those threads are not yt done
+   * If the main thread just creates a bunch of other threads and tries to exit
+   * right away, it could be the case that all those threads are not yet done
    * with initialization. In particular, these threads might not have yet
    * created their per-thread queues which is how we keep track of threads.
    *
-   * So we just wait for 0.1 seconds before starting to check for thread exit.
+   * So we just wait for 0.5 seconds before starting to check for thread exit.
    */
   pthread_yield();
+  // TODO PerThreadExit is there a better way to do this?
   unsigned long long int sleepMicroSeconds = 500000;
   usleep(sleepMicroSeconds);
 
-  logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues. "
-           "Number of generated per-thread queues: {}",
-           Backend->ThreadCount);
   while (true) {
     {
       auto NumPerThreadQueuesActive = Backend->getPerThreadQueuesActive();
@@ -1232,6 +1244,41 @@ void CHIPBackend::waitForThreadExit() {
           NumPerThreadQueuesActive);
     }
     sleep(1);
+  }
+
+  // Cleanup all queues
+  {
+    std::lock_guard LockBackend(
+        Backend->BackendMtx); // prevent devices from being destrpyed
+
+    for (auto Dev : Backend->getDevices()) {
+      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
+      int NumQueues = Dev->getQueues().size();
+      if (NumQueues) {
+        logWarn("Not all user created streams have been destoyed... Queues "
+                "remaining: {}",
+                NumQueues);
+        logWarn("Make sure to call hipStreamDestroy() for all queues that have "
+                "been created via hipStreamCreate()");
+        logWarn("Removing user-created streams without calling a destructor");
+        Dev->getQueues().clear();
+        if (Backend->Events.size()) {
+          logWarn("Clearing Event list {}", Backend->Events.size());
+          Backend->Events.clear();
+        }
+      }
+      /**
+       * Skip setting LastEvent for these queues. At this point, the main() has exited and the memory allocated for these queues has already been freed.
+       * 
+       */
+      // for (auto Q : Dev->getQueues()) {
+      //   // std::lock_guard LockQueue(Q->QueueMtx);
+      //   //  Q->finish(); these are user queues. Mostly likely allocated on the
+      //   //  stack in the main. Ideally, the user would have called sync. We
+      //   //  should just remove these queues.
+      //   Q->updateLastEvent(nullptr);
+      // }
+    }
   }
 }
 void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
@@ -1505,14 +1552,11 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
-  Backend->ThreadCount++;
   ChipContext_ = ChipDevice->getContext();
 };
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
-  Backend->ThreadCount--;
-  logDebug("~CHIPQueue() {} QueueCount: {}", (void *)this, Backend->ThreadCount);
   updateLastEvent(nullptr);
   if (PerThreadQueueForDevice) {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);

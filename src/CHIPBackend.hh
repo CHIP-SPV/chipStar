@@ -1643,7 +1643,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::atomic<int> ThreadCount = 0;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
