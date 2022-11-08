@@ -1209,8 +1209,9 @@ CHIPBackend::~CHIPBackend() {
       Ctx->removeDevice(Dev);
       delete Dev;
     }
-    // TODO PerThreadExit Why does cause a segfault? Especially for hip_sycl_interop where the context is given to oneAPI so it should still be owned by CHIP-SPV?
-    // delete Ctx;
+    // TODO PerThreadExit Why does cause a segfault? Especially for
+    // hip_sycl_interop where the context is given to oneAPI so it should still
+    // be owned by CHIP-SPV? delete Ctx;
   }
 
   for (auto &Mod : ModulesStr_)
@@ -1267,12 +1268,15 @@ void CHIPBackend::waitForThreadExit() {
         }
       }
       /**
-       * Skip setting LastEvent for these queues. At this point, the main() has exited and the memory allocated for these queues has already been freed.
-       * 
+       * Skip setting LastEvent for these queues. At this point, the main() has
+       * exited and the memory allocated for these queues has already been
+       * freed.
+       *
        */
       // for (auto Q : Dev->getQueues()) {
       //   // std::lock_guard LockQueue(Q->QueueMtx);
-      //   //  Q->finish(); these are user queues. Mostly likely allocated on the
+      //   //  Q->finish(); these are user queues. Mostly likely allocated on
+      //   the
       //   //  stack in the main. Ideally, the user would have called sync. We
       //   //  should just remove these queues.
       //   Q->updateLastEvent(nullptr);
