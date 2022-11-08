@@ -257,9 +257,9 @@ set(HIP_PATH ${CMAKE_INSTALL_PREFIX})
 message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
 # CHIP-SPV CMAKE OPTIONS PARSING
-# ##############################################################################
+# =============================================================================
 
-# ##############################################################################
+# =============================================================================
 # CHIP-SPV BINARIES & TESTS
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
