@@ -571,7 +571,6 @@ public:
     std::lock_guard<std::mutex> Lock(EventMtx);
     DependsOnList.clear();
   }
-  void trackImpl();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
@@ -1487,6 +1486,7 @@ public:
    * @return false upon failure
    */
   void addDevice(CHIPDevice *Dev);
+  void removeDevice(CHIPDevice *Dev);
 
   /**
    * @brief Get this context's CHIPDevices

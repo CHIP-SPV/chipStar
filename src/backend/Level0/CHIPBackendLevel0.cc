@@ -711,6 +711,11 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
+  finish(); // must finish the queue because it's possible that that there are
+            // outstanding operations which have an associated CHIPEvent. If we
+            // do not finish we risk the chance of StaleEventMonitor of
+            // deadlocking while waiting for queue completion and subsequent
+            // event status change
   std::lock_guard<std::mutex> LockQueues(
       Backend->QueueCreateDestroyMtx); // other threads may be checking the
                                        // status of this queue
@@ -1367,7 +1372,7 @@ void CHIPBackendLevel0::uninitialize() {
       int NumQueues = Dev->getQueues().size();
       if (NumQueues) {
         logWarn("Not all user created streams have been destoyed... Queues "
-                "remaining: ",
+                "remaining: {}",
                 NumQueues);
         logWarn("Make sure to call hipStreamDestroy() for all queues that have "
                 "been created via hipStreamCreate()");

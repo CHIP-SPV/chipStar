@@ -472,7 +472,6 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
         std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-    Backend->ThreadCount++;
   }
 
   return PerThreadDefaultQueue.get();
@@ -844,12 +843,10 @@ void CHIPEvent::track() {
   std::lock_guard<std::mutex> LockBackend(Backend->EventsMtx);
   std::lock_guard<std::mutex> Lock(EventMtx);
   if (!TrackCalled_) {
-    trackImpl();
+    Backend->Events.push_back(this);
     TrackCalled_ = true;
   }
 }
-
-void CHIPEvent::trackImpl() { Backend->Events.push_back(this); }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
                                               int Priority) {
@@ -1041,9 +1038,23 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 }
 
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
-  logDebug("CHIPContext.add_device() {}", ChipDevice->getName());
+  logDebug("{} CHIPContext.addDevice() {}", (void*)this, (void*)ChipDevice);
   std::lock_guard<std::mutex> LockContext(ContextMtx);
   ChipDevices_.push_back(ChipDevice);
+}
+
+void CHIPContext::removeDevice(CHIPDevice *ChipDevice) {
+  logDebug("{} CHIPContext.removeDevice() {}", (void*)this, (void*)ChipDevice);
+  std::lock_guard<std::mutex> LockContext(ContextMtx);
+
+  auto DeviceFound =
+      std::find(ChipDevices_.begin(), ChipDevices_.end(), ChipDevice);
+  if (DeviceFound != ChipDevices_.end()) {
+    ChipDevices_.erase(DeviceFound);
+  } else {
+    std::abort();
+  }
+  return;
 }
 
 std::vector<CHIPDevice *> &CHIPContext::getDevices() {
@@ -1187,8 +1198,10 @@ CHIPBackend::~CHIPBackend() {
     CallbackQueue.pop();
 
   Events.clear();
-  for (auto &Ctx : ChipContexts)
+  for (auto &Ctx : ChipContexts) {
     delete Ctx;
+  }
+
   for (auto &Mod : ModulesStr_)
     delete Mod;
 }
@@ -1196,15 +1209,14 @@ CHIPBackend::~CHIPBackend() {
 void CHIPBackend::waitForThreadExit() {
   /**
    *  If the main thread just creates a bunch of other threads and tries to exit
-   * right away, it could be the case that all those threads are not yet done
+   * right away, it could be the case that all those threads are not yt done
    * with initialization. In particular, these threads might not have yet
    * created their per-thread queues which is how we keep track of threads.
    *
    * So we just wait for 0.1 seconds before starting to check for thread exit.
    */
   pthread_yield();
-  unsigned long long int sleepMicroSeconds =
-      500000 + Backend->ThreadCount * 1000;
+  unsigned long long int sleepMicroSeconds = 500000;
   usleep(sleepMicroSeconds);
 
   logDebug("CHIPBackend::waitForThreadExit() checking per-thread queues. "
@@ -1495,12 +1507,14 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 //*************************************************************************************
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
+  Backend->ThreadCount++;
   ChipContext_ = ChipDevice->getContext();
 };
 CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 CHIPQueue::~CHIPQueue() {
-  logDebug("~CHIPQueue() {}", (void *)this);
+  Backend->ThreadCount--;
+  logDebug("~CHIPQueue() {} QueueCount: {}", (void *)this, Backend->ThreadCount);
   updateLastEvent(nullptr);
   if (PerThreadQueueForDevice) {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);
