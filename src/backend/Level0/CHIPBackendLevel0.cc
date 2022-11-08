@@ -1361,7 +1361,6 @@ void CHIPBackendLevel0::uninitialize() {
   logTrace("CHIPBackend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
 
-
   if (CallbackEventMonitor) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
     std::lock_guard Lock(CallbackEventMonitor->EventMonitorMtx);
