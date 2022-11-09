@@ -28,8 +28,8 @@
 #include "CHIPException.hh"
 
 #define CONCAT(a, b) CONCAT_INNER(a, b)
-#define CONCAT_INNER(a, b) a ## b
-#define LOCK(x) std::lock_guard<std::mutex> CONCAT(Lock, __LINE__) (x);
+#define CONCAT_INNER(a, b) a##b
+#define LOCK(x) std::lock_guard<std::mutex> CONCAT(Lock, __LINE__)(x);
 
 #ifdef CHIP_ERROR_ON_UNIMPL
 #define UNIMPLEMENTED(x)                                                       \

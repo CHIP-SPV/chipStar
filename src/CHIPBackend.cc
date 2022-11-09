@@ -432,7 +432,7 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
 }
 
 CHIPDevice::~CHIPDevice() {
-  std::lock_guard<std::mutex> LockDevice(DeviceMtx); // CHIPDevice::ChipQueues_
+  LOCK(DeviceMtx); // CHIPDevice::ChipQueues_
   logDebug("~CHIPDevice() {}", (void *)this);
   while (this->ChipQueues_.size() > 0) {
     delete ChipQueues_[0];
@@ -453,14 +453,12 @@ CHIPQueue *CHIPDevice::getDefaultQueue() {
 }
 
 bool CHIPDevice::isPerThreadStreamUsed() {
-  std::lock_guard<std::mutex> LockDevice(
-      DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  LOCK(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   return PerThreadStreamUsed_;
 }
 
 void CHIPDevice::setPerThreadStreamUsed(bool Status) {
-  std::lock_guard<std::mutex> LockDevice(
-      DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  LOCK(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   PerThreadStreamUsed_ = Status;
 }
 
@@ -970,8 +968,7 @@ void CHIPDevice::deallocateDeviceVariables() {
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {
-  std::lock_guard<std::mutex> LockContext(
-      ContextMtx); // CHIPContext::ChipDevices_
+  LOCK(ContextMtx); // CHIPContext::ChipDevices_
   logDebug("~CHIPContext() {}", (void *)this);
   while (ChipDevices_.size() > 0) {
     delete ChipDevices_[0];
@@ -981,8 +978,7 @@ CHIPContext::~CHIPContext() {
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
-  // TODO MutexCleanup why is this mutex necessary
-  std::lock_guard<std::mutex> LockContext(ContextMtx);
+  LOCK(ContextMtx); // TODO MutexCleanup why is this mutex necessary
 
   auto DefaultQueue = Dev->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -1009,10 +1005,10 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   }
 
   {
-    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+    LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
     // Always sycn with all blocking queues
     for (auto Queue : Dev->getQueuesNoLock()) {
-      std::lock_guard<std::mutex> LockQueue(Queue->QueueMtx);
+      LOCK(Queue->QueueMtx); // TODO MutexCleanup
       if (Queue->getQueueFlags().isBlocking())
         QueuesToSyncWith.push_back(Queue);
     }
@@ -1051,7 +1047,7 @@ void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
 void CHIPContext::removeDevice(CHIPDevice *ChipDevice) {
   logDebug("{} CHIPContext.removeDevice() {}", (void *)this,
            (void *)ChipDevice);
-  std::lock_guard<std::mutex> LockContext(ContextMtx);
+  LOCK(ContextMtx); // TODO MutexCleanup why?
 
   auto DeviceFound =
       std::find(ChipDevices_.begin(), ChipDevices_.end(), ChipDevice);
@@ -1161,8 +1157,7 @@ hipError_t CHIPContext::free(void *Ptr) {
 // CHIPBackend
 //*************************************************************************************
 int CHIPBackend::getPerThreadQueuesActive() {
-  std::lock_guard<std::mutex> LockQueues(
-      Backend->BackendMtx); // Prevent adding/removing devices while iterating
+  LOCK(Backend->BackendMtx); // Prevent adding/removing devices while iterating
   int Active = 0;
   for (auto Dev : getDevices()) {
     if (Dev->isPerThreadStreamUsed()) {
@@ -1252,8 +1247,7 @@ void CHIPBackend::waitForThreadExit() {
 
   // Cleanup all queues
   {
-    std::lock_guard LockBackend(
-        Backend->BackendMtx); // prevent devices from being destrpyed
+    LOCK(Backend->BackendMtx); // prevent devices from being destrpyed
 
     for (auto Dev : Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
@@ -1278,7 +1272,7 @@ void CHIPBackend::waitForThreadExit() {
        *
        */
       // for (auto Q : Dev->getQueues()) {
-      //   // std::lock_guard LockQueue(Q->QueueMtx);
+      //   // LOCK(Q->QueueMtx);
       //   //  Q->finish(); these are user queues. Mostly likely allocated on
       //   the
       //   //  stack in the main. Ideally, the user would have called sync. We
@@ -1328,7 +1322,7 @@ CHIPDevice *CHIPBackend::getActiveDevice() {
 std::vector<CHIPDevice *> CHIPBackend::getDevices() {
   std::vector<CHIPDevice *> Devices;
   for (auto Ctx : ChipContexts) {
-    std::lock_guard<std::mutex> LockContext(Ctx->ContextMtx);
+    LOCK(Ctx->ContextMtx); // TODO MutexCleanup
     for (auto Dev : Ctx->getDevices()) {
       Devices.push_back(Dev);
     }
@@ -1544,8 +1538,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 
   std::vector<CHIPQueue *> AllQueues;
   {
-    std::lock_guard<std::mutex> LockDevice(
-        Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
+    LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
     // Safety Check to make sure that the requested queue is registereted
     AllQueues = Dev->getQueuesNoLock();
   }

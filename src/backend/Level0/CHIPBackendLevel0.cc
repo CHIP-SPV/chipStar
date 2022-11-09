@@ -34,12 +34,12 @@
 #ifdef L0_IMM_QUEUES
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
-  LOCK(Queue->QueueMtx);                                                       \
+  LOCK(Queue->QueueMtx); /* CHIPQueueLevel0::ZeCmdList_ */                     \
   CommandList = Queue->getCmdList();
 #else
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
-  LOCK(Queue->QueueMtx);                                                       \
+  LOCK(Queue->QueueMtx); /* TODO MutexCleanup */                               \
   CommandList = Queue->getCmdList();
 #endif
 
@@ -1019,7 +1019,7 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("Launching Kernel {}", ChipKernel->getName());
 
   {
-    LOCK(ExecItem->ExecItemMtx)
+    LOCK(ExecItem->ExecItemMtx) // TODO MutexCleanup
     // The application must not call this function from
     // simultaneous threads with the same kernel handle.
     // Done by locking ExecItemMtx
@@ -1574,7 +1574,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
   ChipCtx->addDevice(ChipDev);
 
-  std::lock_guard<std::mutex> Lock(Backend->BackendMtx);
+  LOCK(Backend->BackendMtx); // TODO MutexCleanup
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
 
   StaleEventMonitor =
@@ -1604,7 +1604,7 @@ void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
 // ***********************************************************************
 
 void CHIPContextLevel0::freeImpl(void *Ptr) {
-  LOCK(this->ContextMtx);
+  LOCK(this->ContextMtx); // TODO MutexCleanup
   logTrace("{} CHIPContextLevel0::freeImpl({})", (void *)this, Ptr);
   // The application must not call this function from
   // simultaneous threads with the same pointer.

@@ -792,12 +792,10 @@ hipError_t hipDeviceSynchronize(void) {
     }
   }
 
-  std::lock_guard<std::mutex> LockQueue(
-      Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
+  LOCK(Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx); // TODO MutexCleanup
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
-    std::lock_guard<std::mutex> LockQueue(
-        Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
+    LOCK(Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx); // TODO MutexCleanup
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
   }
 
@@ -1353,7 +1351,7 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
 
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->getContext()->syncQueues(Stream);
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // TODO MutexCleanup
   Stream->finish();
   RETURN(hipSuccess);
 
