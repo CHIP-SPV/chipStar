@@ -65,8 +65,6 @@ NON_OVLD void GEN_NAME(global_fence)();
 }
 EXPORT void __threadfence() { GEN_NAME(global_fence)(); }
 
-EXPORT clock_t clock() { return 0; }
-
 extern "C" {
 NON_OVLD void *GEN_NAME(memset)(void *ptr, int value, size_t size);
 }
