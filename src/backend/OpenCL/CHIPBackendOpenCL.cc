@@ -517,7 +517,7 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   if (*Refc_ > 1)
     decreaseRefCount("takeOver");
   auto *Other = (CHIPEventOpenCL *)OtherIn;
-  std::lock_guard<std::mutex> LockEvent(EventMtx);
+  LOCK(EventMtx); // CHIPEvent::Refc_
   this->ClEvent = Other->ClEvent;
   this->Refc_ = Other->Refc_;
   this->Msg = Other->Msg;
@@ -603,7 +603,7 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 
 void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
+  LOCK(EventMtx); // CHIPEvent::Refc_
   auto status = clRetainEvent(this->ClEvent);
   if (!UserEvent_)
     assert(status == 0);
@@ -616,7 +616,7 @@ void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
 }
 
 void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
-  std::lock_guard<std::mutex> Lock(EventMtx);
+  LOCK(EventMtx); // CHIPEvent::Refc_
   logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
            (void *)this, getRefCount());
   logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -775,7 +775,10 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 // CHIPContextOpenCL
 //*************************************************************************
 
-void CHIPContextOpenCL::freeImpl(void *Ptr) { SvmMemory.free(Ptr); }
+void CHIPContextOpenCL::freeImpl(void *Ptr) {
+  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
+  SvmMemory.free(Ptr);
+}
 
 cl::Context *CHIPContextOpenCL::get() { return ClContext; }
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
@@ -788,7 +791,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemType,
                                       CHIPHostAllocFlags Flags) {
   void *Retval;
-
+  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
   Retval = SvmMemory.allocate(Size);
   return Retval;
 }
@@ -849,7 +852,7 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
 }
 
 CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
-  std::lock_guard<std::mutex> Lock(LastEventMtx);
+  LOCK(LastEventMtx); // CHIPQueue::LastEvent_
   return (CHIPEventOpenCL *)LastEvent_;
 }
 

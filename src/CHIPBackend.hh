@@ -489,7 +489,7 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
-    std::lock_guard<std::mutex> Lock(AllocationTrackerMtx);
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -568,7 +568,7 @@ public:
       Event->decreaseRefCount(
           "An event that depended on this one has finished");
     }
-    std::lock_guard<std::mutex> Lock(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::DependsOnList
     DependsOnList.clear();
   }
   void track();
@@ -576,11 +576,11 @@ public:
   std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc() {
-    std::lock_guard<std::mutex> Lock(this->EventMtx);
+    LOCK(this->EventMtx); // CHIPEvent::Refc_
     return *Refc_;
   }
   virtual void decreaseRefCount(std::string Reason) {
-    std::lock_guard<std::mutex> Lock(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::Refc_
     logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
              (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
@@ -591,7 +591,7 @@ public:
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {
-    std::lock_guard<std::mutex> Lock(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::Refc_
     logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
              (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
@@ -1018,6 +1018,7 @@ protected:
   void **ArgsPointer_ = nullptr;
 
 public:
+  std::mutex ExecItemMtx;
   size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
   void **getArgsPointer() { return ArgsPointer_; }
   /**
@@ -1141,6 +1142,8 @@ public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
+
+  std::vector<CHIPQueue *> getQueuesNoLock() { return ChipQueues_; }
 
   CHIPQueue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
@@ -1630,7 +1633,6 @@ protected:
 public:
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
-  std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
@@ -1958,7 +1960,7 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
-    std::lock_guard<std::mutex> Lock(LastEventMtx);
+    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
