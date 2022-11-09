@@ -55,6 +55,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+#define DEFAULT_QUEUE_PRIORITY 1
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -569,7 +571,6 @@ public:
     std::lock_guard<std::mutex> Lock(EventMtx);
     DependsOnList.clear();
   }
-  void trackImpl();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
@@ -696,6 +697,12 @@ class CHIPProgram {
   /// Include headers.
   std::map<std::string, std::string> Headers_;
 
+  /// Name expressions added before compilation as key to the
+  /// map. After compilation they point to their lowered/mangled
+  /// names. The map value may also be empty meaning the lowered name
+  /// is unknown.
+  std::map<std::string, std::string> NameExpressions_;
+
   std::string ProgramLog_; ///< Captured compilation log.
   std::string Code_;       ///< Compiled program.
 
@@ -717,12 +724,28 @@ public:
 
   void addCode(std::string_view Code) { Code_.append(Code); }
 
+  void addNameExpression(std::string_view NameExpr) {
+    assert(!isAfterCompilation() &&
+           "Must not add name expressions after compilation!");
+    NameExpressions_.emplace(std::make_pair(NameExpr, ""));
+  }
+
   const std::map<std::string, std::string> &getHeaders() const {
     return Headers_;
   }
   const std::string &getSource() const { return ProgramSource_; }
   const std::string &getProgramLog() const { return ProgramLog_; }
   const std::string &getCode() const { return Code_; }
+
+  const std::map<std::string, std::string> &getNameExpressionMap() const {
+    return NameExpressions_;
+  }
+  std::map<std::string, std::string> &getNameExpressionMap() {
+    return NameExpressions_;
+  }
+
+  /// Return true if the program has been compiled.
+  bool isAfterCompilation() const { return !Code_.empty(); }
 };
 
 /**
@@ -1112,13 +1135,14 @@ protected:
   CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
+  bool PerThreadStreamUsed_ = false;
 
 public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
-  bool PerThreadStreamUsed = false;
+  std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
+  CHIPQueue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**
@@ -1135,6 +1159,10 @@ public:
    * @return CHIPQueue*
    */
   CHIPQueue *getPerThreadDefaultQueue();
+
+  bool isPerThreadStreamUsed();
+  void setPerThreadStreamUsed(bool Status);
+
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
    * was set during compilation, return PerThreadStream, otherwise return legacy
@@ -1151,7 +1179,8 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags, int Priority);
+  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
+                                    int Priority = DEFAULT_QUEUE_PRIORITY);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
@@ -1457,6 +1486,7 @@ public:
    * @return false upon failure
    */
   void addDevice(CHIPDevice *Dev);
+  void removeDevice(CHIPDevice *Dev);
 
   /**
    * @brief Get this context's CHIPDevices
@@ -1598,6 +1628,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   std::mutex BackendMtx;
@@ -1612,8 +1643,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<CHIPQueue *> ChipQueues;
-  std::vector<CHIPDevice *> ChipDevices;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1698,15 +1727,13 @@ public:
    * @brief
    *
    */
-  virtual void uninitialize();
+  virtual void uninitialize() = 0;
 
   /**
-   * @brief Get the Queues object
+   * @brief Wait for all per-thread queues to finish
    *
-   * @return std::vector<CHIPQueue*>&
    */
-  std::vector<CHIPQueue *> &getQueues();
-
+  void waitForThreadExit();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
@@ -1729,7 +1756,7 @@ public:
    */
   void setActiveDevice(CHIPDevice *ChipDevice);
 
-  std::vector<CHIPDevice *> &getDevices();
+  std::vector<CHIPDevice *> getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1748,18 +1775,8 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
-  /**
-   * @brief Add a queue to this backend.
-   *
-   * @param q_in
-   */
-  void addQueue(CHIPQueue *ChipQueue);
-  /**
-   * @brief  Add a device to this backend.
-   *
-   * @param dev_in
-   */
-  void addDevice(CHIPDevice *ChipDevice);
+  void removeContext(CHIPContext *ChipContext);
+
   /**
    * @brief
    *
@@ -1911,6 +1928,8 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
+  CHIPDevice *PerThreadQueueForDevice = nullptr;
+
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
@@ -2060,7 +2079,7 @@ public:
     if (!LastEvent_)
       return true;
 
-    if(LastEvent_->updateFinishStatus(false))
+    if (LastEvent_->updateFinishStatus(false))
       LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;

@@ -150,6 +150,7 @@ extern void CHIPInitialize() {
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
   Backend->uninitialize();
+  delete Backend;
 }
 
 extern void CHIPUninitialize() {

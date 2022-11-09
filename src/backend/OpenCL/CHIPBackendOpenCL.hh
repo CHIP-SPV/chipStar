@@ -91,7 +91,8 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
-                  CHIPEventFlags Flags = CHIPEventFlags(), bool UserEvent = false);
+                  CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false);
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   CHIPEventFlags Flags = CHIPEventFlags());
   virtual ~CHIPEventOpenCL() override;
@@ -101,8 +102,8 @@ public:
   float getElapsedTime(CHIPEvent *Other) override;
   virtual void hostSignal() override;
   virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
-  cl_event* getNativePtr() {return &ClEvent;}
-  cl_event& getNativeRef() {return ClEvent;}
+  cl_event *getNativePtr() { return &ClEvent; }
+  cl_event &getNativeRef() { return ClEvent; }
   uint64_t getFinishTime();
   size_t getRefCount();
 
@@ -191,7 +192,7 @@ public:
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
   CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
                   cl_command_queue Queue = nullptr);
-  ~CHIPQueueOpenCL();
+  virtual ~CHIPQueueOpenCL() override;
   virtual CHIPEventOpenCL *getLastEvent() override;
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,
@@ -260,6 +261,7 @@ public:
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
+  virtual void uninitialize() override { waitForThreadExit(); }
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;

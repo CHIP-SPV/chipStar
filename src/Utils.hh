@@ -75,4 +75,6 @@ std::string_view extractSPIRVModule(const void *ClangOffloadBundle,
 std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
                                                    const OCLFuncInfo &FuncInfo);
 
+std::string_view trim(std::string_view Str);
+
 #endif

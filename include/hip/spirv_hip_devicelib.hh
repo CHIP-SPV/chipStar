@@ -182,7 +182,6 @@ DEFOPENCL1F(expm1)
 DEFOPENCL1F(fabs)
 DEFOPENCL2F(fdim)
 DEFOPENCL1F(floor)
-DEFOPENCL2F(floor)
 
 EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
@@ -1217,11 +1216,11 @@ EXPORT OVLD float __shfl_up(float var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE) {
   return GEN_NAME2(shfl_up, f)(var, delta);
 };
-EXPORT OVLD int __shfl_down(int var, unsigned int delta, int width,
+EXPORT OVLD int __shfl_down(int var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE) {
   return GEN_NAME2(shfl_down, i)(var, delta);
 };
-EXPORT OVLD float __shfl_down(float var, unsigned int delta, int width,
+EXPORT OVLD float __shfl_down(float var, unsigned int delta,
                               int warpsize = DEFAULT_WARP_SIZE) {
   return GEN_NAME2(shfl_down, f)(var, delta);
 };
@@ -1245,9 +1244,9 @@ EXPORT OVLD int __shfl_up(int var, unsigned int delta,
 EXPORT OVLD float __shfl_up(float var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE);
 
-EXPORT OVLD int __shfl_down(int var, unsigned int delta, int width,
+EXPORT OVLD int __shfl_down(int var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE);
-EXPORT OVLD float __shfl_down(float var, unsigned int delta, int width,
+EXPORT OVLD float __shfl_down(float var, unsigned int delta,
                               int warpsize = DEFAULT_WARP_SIZE);
 
 EXPORT int __all(int predicate);

@@ -41,6 +41,10 @@ union FP32 {
     uint Exponent : 8;
     uint Sign : 1;
   };
+  struct {
+    uint ExpMant : 31;
+    uint Sign2 : 1;
+  };
 };
 
 union FP16 {
@@ -49,6 +53,10 @@ union FP16 {
     uint Mantissa : 10;
     uint Exponent : 5;
     uint Sign : 1;
+  };
+  struct {
+    uint ExpMant : 15;
+    uint Sign2 : 1;
   };
 };
 
@@ -84,7 +92,9 @@ static const half approx_float_to_half(float fl) {
 
 // from half->float code - just for verification.
 static float half_to_float(half hf) {
-  FP16 h = *((FP16 *)&hf);
+  _hip_f16 temp = static_cast<_hip_f16>(hf);
+  FP16 h;
+  h.u = temp;
 
   static const FP32 magic = {113 << 23};
   static const uint shifted_exp = 0x7c00 << 13; // exponent mask after shift
@@ -105,4 +115,34 @@ static float half_to_float(half hf) {
 
   o.u |= (h.u & 0x8000) << 16; // sign bit
   return o.f;
+}
+
+/* hopefully a more reasonable diff than testing by
+ *    std::fabs(a - b) > eps
+ * ...which compares absolute values to epsilon.
+ */
+static int compare_calculated(half h1, half h2) {
+  FP16 h_1, h_2;
+  _hip_f16 temp = static_cast<_hip_f16>(h1);
+  h_1.u = temp;
+  temp = static_cast<_hip_f16>(h2);
+  h_2.u = temp;
+
+  // also deliberately compares equal infs and equal-value nans
+  if (h_1.u == h_2.u)
+    return 0;
+
+  // compare nans equal if sign equals
+  if (h_1.Exponent == 0x1f || h_2.Exponent == 0x1f) {
+    return (h_1.Sign == h_2.Sign) ? 0 : INT32_MAX;
+  }
+
+  if (h_1.Sign != h_2.Sign)
+    return INT32_MAX;
+
+  // if sign & exponent are equal, this should return diff in ULP
+  if (h_1.ExpMant > h_2.ExpMant)
+    return h_1.ExpMant - h_2.ExpMant;
+  else
+    return h_2.ExpMant - h_1.ExpMant;
 }

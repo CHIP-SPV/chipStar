@@ -20,6 +20,7 @@
 #include "HipPrintf.h"
 #include "HipGlobalVariables.h"
 #include "HipTextureLowering.h"
+#include "HipEmitLoweredNames.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -75,6 +76,9 @@ public:
 };
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  /// For extracting name expression to lowered name expressions (hiprtc).
+  MPM.addPass(HipEmitLoweredNamesPass());
+
   // Remove attributes that may prevent the device code from being optimized.
   MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
 

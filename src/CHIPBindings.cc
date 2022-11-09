@@ -730,6 +730,8 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
+  std::lock_guard<std::mutex> LockBackend(
+      Backend->BackendMtx); // CHIPBackend::ChipExecStack
 
   auto *ExecItem = Backend->ChipExecStack.top();
   *GridDim = ExecItem->getGrid();
@@ -782,13 +784,24 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  for (auto Q : Backend->getActiveDevice()->getQueues()) {
-    Q->finish();
+  // prevents queues from being destryed while iterating
+  auto Dev = Backend->getActiveDevice();
+  {
+    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
+    for (auto Q : Dev->getQueues()) {
+      std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+      Q->finish();
+    }
   }
 
+  std::lock_guard<std::mutex> LockQueue(
+      Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->PerThreadStreamUsed)
+  if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
+    std::lock_guard<std::mutex> LockQueue(
+        Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1300,6 +1313,14 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
 
+  if (Stream == hipStreamPerThread)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
+                          hipErrorTbd);
+
+  if (Stream == hipStreamLegacy)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default legacy queue",
+                          hipErrorTbd);
+
   Stream = Backend->findQueue(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
@@ -1334,6 +1355,7 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
 
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->getContext()->syncQueues(Stream);
+  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
   Stream->finish();
   RETURN(hipSuccess);
 
@@ -3188,8 +3210,13 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->initializeDeviceVariables();
-  CHIPExecItem *ExecItem = Backend->ChipExecStack.top();
-  Backend->ChipExecStack.pop();
+  CHIPExecItem *ExecItem;
+  {
+    std::lock_guard<std::mutex> LockBackend(
+        Backend->BackendMtx); // CHIPBackend::ChipExecStack
+    ExecItem = Backend->ChipExecStack.top();
+    Backend->ChipExecStack.pop();
+  }
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {
