@@ -294,6 +294,9 @@ public:
     for (auto *K : ChipKernels_) // Kernels must be destroyed before the module.
       delete K;
     ChipKernels_.clear();
+    // The application must not call this function from
+    // simultaneous threads with the same module handle.
+    // Done via destructor should not be called from multiple threads
     auto Result = zeModuleDestroy(ZeModule_);
     assert(Result == ZE_RESULT_SUCCESS && "Double free?");
   }
@@ -329,6 +332,9 @@ public:
 
   virtual ~CHIPKernelLevel0() {
     logTrace("destroy CHIPKernelLevel0 {}", (void *)this);
+    // The application must not call this function from
+    // simultaneous threads with the same kernel handle.
+    // Done via destructor should not be called from multiple threads
     auto Result = zeKernelDestroy(ZeKernel_);
     assert(Result == ZE_RESULT_SUCCESS && "Double free?");
   }
@@ -363,12 +369,18 @@ public:
 
   // Destroy the LZ image object
   static void destroyImage(ze_image_handle_t Handle) {
+    // The application must not call this function from
+    // simultaneous threads with the same image handle.
+    // Done via destructor should not be called from multiple threads
     ze_result_t Status = zeImageDestroy(Handle);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
 
   // Destroy the LZ sampler object
   static void destroySampler(ze_sampler_handle_t Handle) {
+    // The application must not call this function
+    // from simultaneous threads with the same sampler handle.
+    // Done via destructor should not be called from multiple threads
     ze_result_t Status = zeSamplerDestroy(Handle);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
