@@ -986,6 +986,7 @@ CHIPContext::~CHIPContext() {
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
+  LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
   //LOCK(ContextMtx); // TODO MutexCleanup why is this mutex necessary
 
   auto DefaultQueue = Dev->getDefaultQueue();
@@ -1005,14 +1006,13 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 
   // The per-thread default stream is not a non-blocking stream and will
   // synchronize with the legacy default stream if both are used in a program
-  if (Dev->isPerThreadStreamUsed()) {
-    if (TargetQueue == Dev->getPerThreadDefaultQueue())
+  if (Dev->isPerThreadStreamUsedNoLock()) {
+    if (TargetQueue == Dev->getPerThreadDefaultQueueNoLock())
       QueuesToSyncWith.push_back(DefaultQueue);
     else if (TargetQueue == Dev->getLegacyDefaultQueue())
-      QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueue());
+      QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueueNoLock());
   }
 
-    LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
     // Always sycn with all blocking queues
     for (auto Queue : Dev->getQueuesNoLock()) {
       if (Queue->getQueueFlags().isBlocking())
