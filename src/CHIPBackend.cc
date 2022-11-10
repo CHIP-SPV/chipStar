@@ -1039,15 +1039,15 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
 }
 
 void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
-  LOCK(ContextMtx); // writing CHIPContext::ChipDevices
+  LOCK(ContextMtx); // CHIPContext::ChipDevices
   logDebug("{} CHIPContext::addDevice() {}", (void *)this, (void *)ChipDevice);
   ChipDevices_.push_back(ChipDevice);
 }
 
 void CHIPContext::removeDevice(CHIPDevice *ChipDevice) {
+  LOCK(ContextMtx); // CHIPContext::ChipDevices
   logDebug("{} CHIPContext.removeDevice() {}", (void *)this,
            (void *)ChipDevice);
-  LOCK(ContextMtx); // TODO MutexCleanup why?
 
   auto DeviceFound =
       std::find(ChipDevices_.begin(), ChipDevices_.end(), ChipDevice);
@@ -1322,7 +1322,7 @@ CHIPDevice *CHIPBackend::getActiveDevice() {
 std::vector<CHIPDevice *> CHIPBackend::getDevices() {
   std::vector<CHIPDevice *> Devices;
   for (auto Ctx : ChipContexts) {
-    LOCK(Ctx->ContextMtx); // TODO MutexCleanup
+    LOCK(Ctx->ContextMtx); // CHIPContext::ChipDevices_ via getDevices()
     for (auto Dev : Ctx->getDevices()) {
       Devices.push_back(Dev);
     }
