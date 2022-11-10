@@ -792,10 +792,8 @@ hipError_t hipDeviceSynchronize(void) {
     }
   }
 
-  LOCK(Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx); // TODO MutexCleanup
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
-    LOCK(Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx); // TODO MutexCleanup
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
   }
 
@@ -1351,7 +1349,6 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
 
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->getContext()->syncQueues(Stream);
-  LOCK(Stream->QueueMtx); // TODO MutexCleanup
   Stream->finish();
   RETURN(hipSuccess);
 
