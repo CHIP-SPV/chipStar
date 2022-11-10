@@ -130,12 +130,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # INSTALL DIRECTORY VARIABLES
-set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
-set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib)
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include)
-set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share)
-set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip)
-set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang)
+set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin CACHE PATH "binary install dir")
+set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib CACHE PATH "include install dir")
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include CACHE PATH "include install dir")
+set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install dir")
+set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
+set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
 # TODO: Add CHIP_ prefix
 option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
@@ -323,7 +323,7 @@ set(EXCLUDED_TESTS "${FAILING_TESTS_STR}$")
 # MULTI_TESTS_REPEAT=33 make multi_tests
 # Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
 set(FLAKY_TESTS_REPEAT 100)
-set(MULTI_TESTS_REPEAT 25)
+set(MULTI_TESTS_REPEAT 10)
 set(PARALLEL_TESTS 1)
 
 set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
