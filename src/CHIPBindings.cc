@@ -787,7 +787,6 @@ hipError_t hipDeviceSynchronize(void) {
   {
     LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
     for (auto Q : Dev->getQueuesNoLock()) {
-      LOCK(Q->QueueMtx); // TODO MutexCleanup
       Q->finish();
     }
   }
