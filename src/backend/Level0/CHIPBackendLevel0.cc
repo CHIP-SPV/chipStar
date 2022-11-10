@@ -419,8 +419,8 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
     EventStatusNew = getEventStatusStr();
   }
-  logTrace("CHIPEventLevel0::updateFinishStatus() {} Refc: {} {}: {} -> {}",
-           (void *)this, getCHIPRefc(), Msg, EventStatusOld, EventStatusNew);
+  // logTrace("CHIPEventLevel0::updateFinishStatus() {} Refc: {} {}: {} -> {}",
+  //          (void *)this, getCHIPRefc(), Msg, EventStatusOld, EventStatusNew);
   if (EventStatusNew != EventStatusOld) {
     return true;
   }
@@ -631,8 +631,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     LOCK(Backend->EventsMtx); // CHIPBackend::Events
     LOCK(                     // CHIPBackendLevel0::EventCommandListMap
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
-    logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
-             Backend->Events.size(), LzBackend->EventCommandListMap.size());
+    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
+    //          Backend->Events.size(), LzBackend->EventCommandListMap.size());
 
     auto EventCommandListMap =
         &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;

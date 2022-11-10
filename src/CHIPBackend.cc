@@ -457,6 +457,10 @@ bool CHIPDevice::isPerThreadStreamUsed() {
   return PerThreadStreamUsed_;
 }
 
+bool CHIPDevice::isPerThreadStreamUsedNoLock() {
+  return PerThreadStreamUsed_;
+}
+
 void CHIPDevice::setPerThreadStreamUsed(bool Status) {
   LOCK(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
   PerThreadStreamUsed_ = Status;
@@ -464,6 +468,10 @@ void CHIPDevice::setPerThreadStreamUsed(bool Status) {
 
 CHIPQueue *CHIPDevice::getPerThreadDefaultQueue() {
   LOCK(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
+  return getPerThreadDefaultQueueNoLock();
+}
+
+CHIPQueue *CHIPDevice::getPerThreadDefaultQueueNoLock() {
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
@@ -978,7 +986,7 @@ CHIPContext::~CHIPContext() {
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
-  LOCK(ContextMtx); // TODO MutexCleanup why is this mutex necessary
+  //LOCK(ContextMtx); // TODO MutexCleanup why is this mutex necessary
 
   auto DefaultQueue = Dev->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -1004,14 +1012,12 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
       QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueue());
   }
 
-  {
     LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
     // Always sycn with all blocking queues
     for (auto Queue : Dev->getQueuesNoLock()) {
       if (Queue->getQueueFlags().isBlocking())
         QueuesToSyncWith.push_back(Queue);
     }
-  }
 
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
@@ -1526,26 +1532,24 @@ CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
   auto Dev = Backend->getActiveDevice();
+  LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
 
   if (ChipQueue == hipStreamPerThread) {
-    return Dev->getPerThreadDefaultQueue();
+    return Dev->getPerThreadDefaultQueueNoLock();
   } else if (ChipQueue == hipStreamLegacy) {
     return Dev->getLegacyDefaultQueue();
   } else if (ChipQueue == nullptr) {
     return Dev->getDefaultQueue();
   }
-
   std::vector<CHIPQueue *> AllQueues;
-  {
-    LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueues()
-    // Safety Check to make sure that the requested queue is registereted
-    AllQueues = Dev->getQueuesNoLock();
-  }
-
+  if (Dev->isPerThreadStreamUsedNoLock())
+    AllQueues.push_back(Dev->getPerThreadDefaultQueueNoLock());
   AllQueues.push_back(Dev->getLegacyDefaultQueue());
 
-  if (Dev->isPerThreadStreamUsed())
-    AllQueues.push_back(Dev->getPerThreadDefaultQueue());
+  for(auto & Dev : Dev->getQueuesNoLock()) {
+    AllQueues.push_back(Dev);
+  }
+
 
   auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
   if (QueueFound == AllQueues.end())

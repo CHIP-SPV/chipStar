@@ -581,8 +581,8 @@ public:
   }
   virtual void decreaseRefCount(std::string Reason) {
     LOCK(EventMtx); // CHIPEvent::Refc_
-    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+    // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
     } else {
@@ -592,8 +592,8 @@ public:
   }
   virtual void increaseRefCount(std::string Reason) {
     LOCK(EventMtx); // CHIPEvent::Refc_
-    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+    // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
@@ -1162,8 +1162,10 @@ public:
    * @return CHIPQueue*
    */
   CHIPQueue *getPerThreadDefaultQueue();
+  CHIPQueue *getPerThreadDefaultQueueNoLock();
 
   bool isPerThreadStreamUsed();
+  bool isPerThreadStreamUsedNoLock();
   void setPerThreadStreamUsed(bool Status);
 
   /**
@@ -1631,7 +1633,7 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
-  std::mutex FinishSVMConflictMtx;
+  std::mutex UnexplainedLockOpenCL;
   std::mutex UnexplainedLockLevel0;
 
   int getPerThreadQueuesActive();
