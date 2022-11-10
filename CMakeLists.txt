@@ -562,7 +562,7 @@ install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
 
 # Copy over includes for hipcc to work in the build dir
 file(COPY ${CMAKE_SOURCE_DIR}/include DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${INCLUDE_INSTALL_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${CMAKE_BINARY_DIR}/include)
 
 # Copy hipconfig, hipvars, etc to bin
 install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
