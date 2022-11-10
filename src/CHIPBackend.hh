@@ -1631,6 +1631,9 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
+  std::mutex FinishSVMConflictMtx;
+  std::mutex UnexplainedLockLevel0;
+
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex BackendMtx;

@@ -957,6 +957,7 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
     auto Status = clEnqueueMarker(ClQueue_->get(), Event->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
+    LOCK(Backend->FinishSVMConflictMtx)
     auto Status = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src,
                                        Size, 0, nullptr, Event->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
@@ -965,6 +966,7 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
 }
 
 void CHIPQueueOpenCL::finish() {
+  LOCK(Backend->FinishSVMConflictMtx)
   auto Status = ClQueue_->finish();
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
@@ -1028,6 +1030,7 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 CHIPEvent *
 CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
+  LOCK(Backend->FinishSVMConflictMtx)
   CHIPEventOpenCL *Event =
       (CHIPEventOpenCL *)Backend->createCHIPEvent(this->ChipContext_);
   cl_int RefCount;

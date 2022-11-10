@@ -1576,13 +1576,13 @@ CHIPQueue::~CHIPQueue() {
 
 ///////// Enqueue Operations //////////
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
-  // Scope this so that we release mutex for finish()
-  CHIPEvent *ChipEvent;
-  {
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
-  LOCK(QueueMtx); // Prevent interupt in looped enqueues
+  CHIPEvent *ChipEvent;
+  // Scope this so that we release mutex for finish()
+  {
+    LOCK(QueueMtx); // Prevent interupt in looped enqueues
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);

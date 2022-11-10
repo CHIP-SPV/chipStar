@@ -647,9 +647,12 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
 
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
-  auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
-  Stream->finish();
+  CHIP_TRY
+  CHIPInitialize();
+  Stream = Backend->findQueue(Stream);
+  auto  Status = Stream->memCopy(Dst, Src, SizeBytes);
   RETURN(Status);
+  CHIP_CATCH
 };
 
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
