@@ -1008,7 +1008,6 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
     // Always sycn with all blocking queues
     for (auto Queue : Dev->getQueuesNoLock()) {
-      LOCK(Queue->QueueMtx); // TODO MutexCleanup
       if (Queue->getQueueFlags().isBlocking())
         QueuesToSyncWith.push_back(Queue);
     }
