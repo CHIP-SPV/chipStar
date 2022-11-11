@@ -673,7 +673,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           // The application must not call this function
           // from simultaneous threads with the same command list handle.
           // Done via this is the only thread that calls it
-          LOCK(Backend->UnexplainedLockLevel0) 
+          // LOCK(Backend->UnexplainedLockLevel0) 
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
@@ -765,7 +765,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
-  LOCK(Backend->UnexplainedLockLevel0) 
+  // LOCK(Backend->UnexplainedLockLevel0) 
   zeCommandQueueDestroy(ZeCmdQ_);
 }
 
@@ -792,7 +792,7 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
   return ZeCmdList_;
 #else
   ze_command_list_handle_t ZeCmdList;
-  LOCK(Backend->UnexplainedLockLevel0) 
+  // LOCK(Backend->UnexplainedLockLevel0) 
   auto Status =
       zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
@@ -848,7 +848,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ZeDev_ = ChipDevLz->get();
 
   logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
-  LOCK(Backend->UnexplainedLockLevel0) 
+  // LOCK(Backend->UnexplainedLockLevel0) 
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
@@ -1295,7 +1295,7 @@ void CHIPQueueLevel0::finish() {
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
   // buffers get flushed.
-  LOCK(Backend->UnexplainedLockLevel0) 
+  // LOCK(Backend->UnexplainedLockLevel0) 
   zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
 
   return;
@@ -1333,7 +1333,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     // Done via GET_COMMAND_LIST
     Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    LOCK(Backend->UnexplainedLockLevel0)
+    // LOCK(Backend->UnexplainedLockLevel0)
     Status =
         zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
