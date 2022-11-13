@@ -647,9 +647,12 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
 
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
-  auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
-  Stream->finish();
+  CHIP_TRY
+  CHIPInitialize();
+  Stream = Backend->findQueue(Stream);
+  auto Status = Stream->memCopy(Dst, Src, SizeBytes);
   RETURN(Status);
+  CHIP_CATCH
 };
 
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
@@ -730,8 +733,7 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
-  std::lock_guard<std::mutex> LockBackend(
-      Backend->BackendMtx); // CHIPBackend::ChipExecStack
+  LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
 
   auto *ExecItem = Backend->ChipExecStack.top();
   *GridDim = ExecItem->getGrid();
@@ -784,22 +786,16 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  // prevents queues from being destryed while iterating
   auto Dev = Backend->getActiveDevice();
   {
-    std::lock_guard<std::mutex> LockDevice(Dev->DeviceMtx);
-    for (auto Q : Dev->getQueues()) {
-      std::lock_guard<std::mutex> LockQueue(Q->QueueMtx);
+    LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
+    for (auto Q : Dev->getQueuesNoLock()) {
       Q->finish();
     }
   }
 
-  std::lock_guard<std::mutex> LockQueue(
-      Backend->getActiveDevice()->getLegacyDefaultQueue()->QueueMtx);
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
-    std::lock_guard<std::mutex> LockQueue(
-        Backend->getActiveDevice()->getPerThreadDefaultQueue()->QueueMtx);
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
   }
 
@@ -1355,7 +1351,6 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
 
   Stream = Backend->findQueue(Stream);
   Backend->getActiveDevice()->getContext()->syncQueues(Stream);
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
   Stream->finish();
   RETURN(hipSuccess);
 
@@ -2167,6 +2162,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   NULLCHECK(Dst);
   Stream = Backend->findQueue(Stream);
   hipError_t Res = hipSuccess;
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; i++) {
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
@@ -2231,7 +2227,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   // auto Depth = std::max<size_t>(1, Extent.depth);
   auto Pitch = PitchedDevPtr.pitch;
   auto Dst = PitchedDevPtr.ptr;
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   hipError_t Res = hipSuccess;
   for (size_t i = 0; i < Depth; i++)
     for (size_t j = 0; j < Height; j++) {
@@ -2426,7 +2422,7 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
 
   if (SPitch == 0 || DPitch == 0)
     RETURN(hipErrorInvalidValue);
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; ++i) {
     if (hipMemcpyAsync(Dst, Src, Width, Kind, Stream) != hipSuccess)
       RETURN(hipErrorLaunchFailure);
@@ -2492,7 +2488,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
 
   size_t SrcW = SPitch;
   size_t DstW = (Dst->width) * ByteSize;
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t Offset = HOffset; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
@@ -2555,7 +2551,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
 
   size_t DstW = DPitch;
   size_t SrcW = (Src->width) * ByteSize;
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
@@ -2712,7 +2708,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
     YSize = Params->srcPtr.ysize;
     DstPitch = Params->dstPtr.pitch;
   }
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
     return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
                      WidthInBytes * Height * Depth, Params->kind);
@@ -3212,8 +3208,7 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   Backend->getActiveDevice()->initializeDeviceVariables();
   CHIPExecItem *ExecItem;
   {
-    std::lock_guard<std::mutex> LockBackend(
-        Backend->BackendMtx); // CHIPBackend::ChipExecStack
+    LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
     ExecItem = Backend->ChipExecStack.top();
     Backend->ChipExecStack.pop();
   }

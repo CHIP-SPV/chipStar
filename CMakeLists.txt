@@ -130,12 +130,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # INSTALL DIRECTORY VARIABLES
-set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
-set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib)
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include)
-set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share)
-set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip)
-set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang)
+set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin CACHE PATH "binary install dir")
+set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib CACHE PATH "include install dir")
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include CACHE PATH "include install dir")
+set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install dir")
+set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
+set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
 # TODO: Add CHIP_ prefix
 option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
@@ -154,6 +154,7 @@ option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliab
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(BUILD_TESTS "Build Catch2 unit tests" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
+option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -168,6 +169,10 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
+if(DUBIOUS_LOCKS)
+  list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
+endif()
+
 if(MALLOC_SHARED_WORKAROUND)
   list(APPEND CHIP_SPV_DEFINITIONS MALLOC_SHARED_WORKAROUND)
 endif()
@@ -323,7 +328,7 @@ set(EXCLUDED_TESTS "${FAILING_TESTS_STR}$")
 # MULTI_TESTS_REPEAT=33 make multi_tests
 # Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
 set(FLAKY_TESTS_REPEAT 100)
-set(MULTI_TESTS_REPEAT 25)
+set(MULTI_TESTS_REPEAT 10)
 set(PARALLEL_TESTS 1)
 
 set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
