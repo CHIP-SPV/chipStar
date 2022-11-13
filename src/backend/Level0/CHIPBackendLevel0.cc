@@ -545,7 +545,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
     : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
-  LOCK(Backend->BackendMtx) // TODO MutexCleanup remove?
+  LOCK(Backend->BackendMtx) // ensure callback enqueues are submitted as one
 
   CHIPContext *Ctx = ChipQueue->getContext();
 
@@ -631,7 +631,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     LOCK(Backend->EventsMtx); // CHIPBackend::Events
     LOCK(                     // CHIPBackendLevel0::EventCommandListMap
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
-    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues {}",
+    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues
+    // {}",
     //          Backend->Events.size(), LzBackend->EventCommandListMap.size());
 
     auto EventCommandListMap =
