@@ -457,9 +457,7 @@ bool CHIPDevice::isPerThreadStreamUsed() {
   return PerThreadStreamUsed_;
 }
 
-bool CHIPDevice::isPerThreadStreamUsedNoLock() {
-  return PerThreadStreamUsed_;
-}
+bool CHIPDevice::isPerThreadStreamUsedNoLock() { return PerThreadStreamUsed_; }
 
 void CHIPDevice::setPerThreadStreamUsed(bool Status) {
   LOCK(DeviceMtx); // CHIPDevice::PerThreadStreamUsed
@@ -987,7 +985,6 @@ CHIPContext::~CHIPContext() {
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
   LOCK(Dev->DeviceMtx); // CHIPDevice::ChipQueues_ via getQueuesNoLock()
-  //LOCK(ContextMtx); // TODO MutexCleanup why is this mutex necessary
 
   auto DefaultQueue = Dev->getDefaultQueue();
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -1013,11 +1010,11 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
       QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueueNoLock());
   }
 
-    // Always sycn with all blocking queues
-    for (auto Queue : Dev->getQueuesNoLock()) {
-      if (Queue->getQueueFlags().isBlocking())
-        QueuesToSyncWith.push_back(Queue);
-    }
+  // Always sycn with all blocking queues
+  for (auto Queue : Dev->getQueuesNoLock()) {
+    if (Queue->getQueueFlags().isBlocking())
+      QueuesToSyncWith.push_back(Queue);
+  }
 
   // default stream waits on all blocking streams to complete
   std::vector<CHIPEvent *> EventsToWaitOn;
@@ -1546,10 +1543,9 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
     AllQueues.push_back(Dev->getPerThreadDefaultQueueNoLock());
   AllQueues.push_back(Dev->getLegacyDefaultQueue());
 
-  for(auto & Dev : Dev->getQueuesNoLock()) {
+  for (auto &Dev : Dev->getQueuesNoLock()) {
     AllQueues.push_back(Dev);
   }
-
 
   auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
   if (QueueFound == AllQueues.end())
@@ -1581,7 +1577,7 @@ CHIPQueue::~CHIPQueue() {
 ///////// Enqueue Operations //////////
 hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
-    ChipContext_->syncQueues(this);
+  ChipContext_->syncQueues(this);
 #endif
   CHIPEvent *ChipEvent;
   // Scope this so that we release mutex for finish()
@@ -1759,8 +1755,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(Backend->BackendMtx); // TODO MutexCleanup remove?
-
+  LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
   auto TotalThreadsPerBlock =
       ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
   auto DeviceProps = ExecItem->getQueue()->getDevice()->getDeviceProps();
