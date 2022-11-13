@@ -1030,7 +1030,7 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("Launching Kernel {}", ChipKernel->getName());
 
   {
-    LOCK(ExecItem->ExecItemMtx)
+    LOCK(ExecItem->ExecItemMtx) // required by zeKernelSetGroupSize
     // The application must not call this function from
     // simultaneous threads with the same kernel handle.
     // Done by locking ExecItemMtx
@@ -1619,7 +1619,7 @@ void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
 // ***********************************************************************
 
 void CHIPContextLevel0::freeImpl(void *Ptr) {
-  LOCK(this->ContextMtx);
+  LOCK(this->ContextMtx); // required by zeMemFree
   logTrace("{} CHIPContextLevel0::freeImpl({})", (void *)this, Ptr);
   // The application must not call this function from
   // simultaneous threads with the same pointer.
@@ -2169,7 +2169,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
 }
 
 void CHIPExecItem::setupAllArgs() {
-  LOCK(this->ExecItemMtx);
+  LOCK(this->ExecItemMtx); // required by zeKernelSetArgumentValue
   CHIPKernelLevel0 *Kernel = (CHIPKernelLevel0 *)ChipKernel_;
 
   OCLFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
