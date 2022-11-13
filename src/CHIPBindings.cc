@@ -650,7 +650,7 @@ hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
   CHIP_TRY
   CHIPInitialize();
   Stream = Backend->findQueue(Stream);
-  auto  Status = Stream->memCopy(Dst, Src, SizeBytes);
+  auto Status = Stream->memCopy(Dst, Src, SizeBytes);
   RETURN(Status);
   CHIP_CATCH
 };
@@ -2162,7 +2162,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   NULLCHECK(Dst);
   Stream = Backend->findQueue(Stream);
   hipError_t Res = hipSuccess;
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; i++) {
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
@@ -2227,7 +2227,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   // auto Depth = std::max<size_t>(1, Extent.depth);
   auto Pitch = PitchedDevPtr.pitch;
   auto Dst = PitchedDevPtr.ptr;
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // prevent interruptions
   hipError_t Res = hipSuccess;
   for (size_t i = 0; i < Depth; i++)
     for (size_t j = 0; j < Height; j++) {
@@ -2422,7 +2422,7 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
 
   if (SPitch == 0 || DPitch == 0)
     RETURN(hipErrorInvalidValue);
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; ++i) {
     if (hipMemcpyAsync(Dst, Src, Width, Kind, Stream) != hipSuccess)
       RETURN(hipErrorLaunchFailure);
@@ -2488,7 +2488,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
 
   size_t SrcW = SPitch;
   size_t DstW = (Dst->width) * ByteSize;
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t Offset = HOffset; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
@@ -2551,7 +2551,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
 
   size_t DstW = DPitch;
   size_t SrcW = (Src->width) * ByteSize;
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
@@ -2708,7 +2708,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
     YSize = Params->srcPtr.ysize;
     DstPitch = Params->dstPtr.pitch;
   }
-  std::lock_guard<std::mutex> LockQueue(Stream->QueueMtx);
+  LOCK(Stream->QueueMtx); // prevent interruptions
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
     return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
                      WidthInBytes * Height * Depth, Params->kind);
