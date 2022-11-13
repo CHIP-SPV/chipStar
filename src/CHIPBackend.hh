@@ -1633,8 +1633,10 @@ protected:
   CHIPDevice *ActiveDev_;
 
 public:
-  std::mutex UnexplainedLockOpenCL;
-  std::mutex UnexplainedLockLevel0;
+#ifdef DUBIOUS_LOCKS
+  std::mutex DubiousLockOpenCL;
+  std::mutex DubiousLockLevel0;
+#endif
 
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;

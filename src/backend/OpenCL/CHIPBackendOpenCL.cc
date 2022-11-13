@@ -607,7 +607,8 @@ void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
   auto status = clRetainEvent(this->ClEvent);
   if (!UserEvent_)
     assert(status == 0);
-  // logDebug("CHIPEventOpenCL::increaseRefCount() {} {} refc {}->{} REASON: {}",
+  // logDebug("CHIPEventOpenCL::increaseRefCount() {} {} refc {}->{} REASON:
+  // {}",
   //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
   (*Refc_)++;
   assert(*Refc_ = getRefCount() - 1);
@@ -619,7 +620,8 @@ void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   LOCK(EventMtx); // CHIPEvent::Refc_
   // logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
   //          (void *)this, getRefCount());
-  // logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+  // logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON:
+  // {}",
   //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
   if (*Refc_ > 0) {
     (*Refc_)--;
@@ -879,7 +881,9 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("Launch GLOBAL: {} {} {}", Global[0], Global[1], Global[2]);
 
   logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1], Local[2]);
-  // LOCK(Backend->UnexplainedLockOpenCL)
+#ifdef DUBIOUS_LOCKS
+  LOCK(Backend->DubiousLockOpenCL)
+#endif
   auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(),
                                        NumDims, GlobalOffset, Global, Local, 0,
                                        nullptr, LaunchEvent->getNativePtr());
@@ -957,7 +961,9 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
     auto Status = clEnqueueMarker(ClQueue_->get(), Event->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
-    // LOCK(Backend->UnexplainedLockOpenCL)
+#ifdef DUBIOUS_LOCKS
+    LOCK(Backend->DubiousLockOpenCL)
+#endif
     auto Status = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src,
                                        Size, 0, nullptr, Event->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
@@ -966,7 +972,9 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
 }
 
 void CHIPQueueOpenCL::finish() {
-  // LOCK(Backend->UnexplainedLockOpenCL)
+#ifdef DUBIOUS_LOCKS
+  LOCK(Backend->DubiousLockOpenCL)
+#endif
   auto Status = ClQueue_->finish();
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
@@ -1030,7 +1038,9 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 CHIPEvent *
 CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  // LOCK(Backend->UnexplainedLockOpenCL)
+#ifdef DUBIOUS_LOCKS
+  LOCK(Backend->DubiousLockOpenCL)
+#endif
   CHIPEventOpenCL *Event =
       (CHIPEventOpenCL *)Backend->createCHIPEvent(this->ChipContext_);
   cl_int RefCount;

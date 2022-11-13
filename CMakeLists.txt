@@ -154,6 +154,7 @@ option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliab
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(BUILD_TESTS "Build Catch2 unit tests" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
+option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -168,6 +169,10 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
+if(DUBIOUS_LOCKS)
+  list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
+endif()
+
 if(MALLOC_SHARED_WORKAROUND)
   list(APPEND CHIP_SPV_DEFINITIONS MALLOC_SHARED_WORKAROUND)
 endif()
