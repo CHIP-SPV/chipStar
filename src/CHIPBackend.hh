@@ -55,6 +55,8 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+#define DEFAULT_QUEUE_PRIORITY 1
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -487,7 +489,7 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
-    std::lock_guard<std::mutex> Lock(AllocationTrackerMtx);
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -566,22 +568,21 @@ public:
       Event->decreaseRefCount(
           "An event that depended on this one has finished");
     }
-    std::lock_guard<std::mutex> Lock(EventMtx);
+    LOCK(EventMtx); // CHIPEvent::DependsOnList
     DependsOnList.clear();
   }
-  void trackImpl();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc() {
-    std::lock_guard<std::mutex> Lock(this->EventMtx);
+    LOCK(this->EventMtx); // CHIPEvent::Refc_
     return *Refc_;
   }
   virtual void decreaseRefCount(std::string Reason) {
-    std::lock_guard<std::mutex> Lock(EventMtx);
-    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+    LOCK(EventMtx); // CHIPEvent::Refc_
+    // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
     } else {
@@ -590,9 +591,9 @@ public:
     // Destructor to be called by event monitor once backend is done using it
   }
   virtual void increaseRefCount(std::string Reason) {
-    std::lock_guard<std::mutex> Lock(EventMtx);
-    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+    LOCK(EventMtx); // CHIPEvent::Refc_
+    // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
     (*Refc_)++;
   }
   virtual ~CHIPEvent() = default;
@@ -689,6 +690,64 @@ public:
   virtual void hostSignal() = 0;
 };
 
+class CHIPProgram {
+  std::string ProgramName_;   ///< Program name.
+  std::string ProgramSource_; ///< Program source code.
+
+  /// Include headers.
+  std::map<std::string, std::string> Headers_;
+
+  /// Name expressions added before compilation as key to the
+  /// map. After compilation they point to their lowered/mangled
+  /// names. The map value may also be empty meaning the lowered name
+  /// is unknown.
+  std::map<std::string, std::string> NameExpressions_;
+
+  std::string ProgramLog_; ///< Captured compilation log.
+  std::string Code_;       ///< Compiled program.
+
+public:
+  CHIPProgram() = delete;
+  CHIPProgram(const std::string &ProgramName) : ProgramName_(ProgramName) {}
+
+  void setSource(const char *Source) {
+    if (Source)
+      ProgramSource_.assign(Source);
+  }
+
+  void addHeader(std::string_view IncludeName, std::string_view Contents) {
+    assert(!IncludeName.empty() && "Nameless include header!");
+    Headers_[std::string(IncludeName)].assign(Contents);
+  }
+
+  void appendToLog(const std::string &Log) { ProgramLog_.append(Log); }
+
+  void addCode(std::string_view Code) { Code_.append(Code); }
+
+  void addNameExpression(std::string_view NameExpr) {
+    assert(!isAfterCompilation() &&
+           "Must not add name expressions after compilation!");
+    NameExpressions_.emplace(std::make_pair(NameExpr, ""));
+  }
+
+  const std::map<std::string, std::string> &getHeaders() const {
+    return Headers_;
+  }
+  const std::string &getSource() const { return ProgramSource_; }
+  const std::string &getProgramLog() const { return ProgramLog_; }
+  const std::string &getCode() const { return Code_; }
+
+  const std::map<std::string, std::string> &getNameExpressionMap() const {
+    return NameExpressions_;
+  }
+  std::map<std::string, std::string> &getNameExpressionMap() {
+    return NameExpressions_;
+  }
+
+  /// Return true if the program has been compiled.
+  bool isAfterCompilation() const { return !Code_.empty(); }
+};
+
 /**
  * @brief Module abstraction. Contains global variables and kernels. Can be
  * extracted from FatBinary or loaded at runtime.
@@ -718,8 +777,8 @@ protected:
   std::vector<CHIPDeviceVar *> ChipVars_;
   // Kernels
   std::vector<CHIPKernel *> ChipKernels_;
-  /// Binary representation extracted from FatBinary
-  std::string Src_;
+  /// Binary representation extracted from FatBinary.
+  std::string *Src_;
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
 
@@ -747,12 +806,6 @@ public:
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
   CHIPModule(std::string *ModuleStr);
-  /**
-   * @brief Construct a new CHIPModule object using move semantics
-   *
-   * @param module_str string from which to move resources
-   */
-  CHIPModule(std::string &&ModuleStr);
 
   /**
    * @brief Add a CHIPKernel to this module.
@@ -806,7 +859,7 @@ public:
    * @param name name of the corresponding host function
    * @return CHIPKernel*
    */
-  CHIPKernel *getKernel(std::string Name);
+  CHIPKernel *getKernelByName(const std::string &Name);
 
   /**
    * @brief Checks if the module has a kernel with the given name.
@@ -853,6 +906,8 @@ public:
   void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 
   OCLFuncInfo *findFunctionInfo(const std::string &FName);
+
+  const std::string *getModuleSource() const { return Src_; }
 };
 
 /**
@@ -963,6 +1018,7 @@ protected:
   void **ArgsPointer_ = nullptr;
 
 public:
+  std::mutex ExecItemMtx;
   size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
   void **getArgsPointer() { return ArgsPointer_; }
   /**
@@ -1080,13 +1136,16 @@ protected:
   CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
+  bool PerThreadStreamUsed_ = false;
 
 public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
-  bool PerThreadStreamUsed = false;
+  std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::unique_ptr<CHIPQueue> LegacyDefaultQueue;
+  std::vector<CHIPQueue *> getQueuesNoLock() { return ChipQueues_; }
+
+  CHIPQueue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
 
   /**
@@ -1103,6 +1162,12 @@ public:
    * @return CHIPQueue*
    */
   CHIPQueue *getPerThreadDefaultQueue();
+  CHIPQueue *getPerThreadDefaultQueueNoLock();
+
+  bool isPerThreadStreamUsed();
+  bool isPerThreadStreamUsedNoLock();
+  void setPerThreadStreamUsed(bool Status);
+
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
    * was set during compilation, return PerThreadStream, otherwise return legacy
@@ -1119,7 +1184,8 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags, int Priority);
+  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
+                                    int Priority = DEFAULT_QUEUE_PRIORITY);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
@@ -1368,6 +1434,7 @@ public:
 
   virtual CHIPModule *addModule(std::string *ModuleStr) = 0;
   void addModule(const std::string *ModuleStr, CHIPModule *Module);
+  void eraseModule(CHIPModule *Module);
 
   virtual CHIPTexture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
@@ -1424,6 +1491,7 @@ public:
    * @return false upon failure
    */
   void addDevice(CHIPDevice *Dev);
+  void removeDevice(CHIPDevice *Dev);
 
   /**
    * @brief Get this context's CHIPDevices
@@ -1564,10 +1632,20 @@ protected:
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
 
+  // Keep hold on the default logger instance to make sure that it is
+  // not destructed before the backend finishes uninitialization.
+  std::shared_ptr<spdlog::logger> Logger;
+
 public:
+#ifdef DUBIOUS_LOCKS
+  std::mutex DubiousLockOpenCL;
+  std::mutex DubiousLockLevel0;
+#endif
+
+  int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
-  std::mutex BackendMtx;
+  mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<CHIPEvent *> Events;
   std::mutex EventsMtx;
@@ -1579,8 +1657,6 @@ public:
 
   std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
-  std::vector<CHIPQueue *> ChipQueues;
-  std::vector<CHIPDevice *> ChipDevices;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1665,15 +1741,13 @@ public:
    * @brief
    *
    */
-  virtual void uninitialize();
+  virtual void uninitialize() = 0;
 
   /**
-   * @brief Get the Queues object
+   * @brief Wait for all per-thread queues to finish
    *
-   * @return std::vector<CHIPQueue*>&
    */
-  std::vector<CHIPQueue *> &getQueues();
-
+  void waitForThreadExit();
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
@@ -1696,7 +1770,7 @@ public:
    */
   void setActiveDevice(CHIPDevice *ChipDevice);
 
-  std::vector<CHIPDevice *> &getDevices();
+  std::vector<CHIPDevice *> getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1715,18 +1789,8 @@ public:
    * @param ctx_in
    */
   void addContext(CHIPContext *ChipContext);
-  /**
-   * @brief Add a queue to this backend.
-   *
-   * @param q_in
-   */
-  void addQueue(CHIPQueue *ChipQueue);
-  /**
-   * @brief  Add a device to this backend.
-   *
-   * @param dev_in
-   */
-  void addDevice(CHIPDevice *ChipDevice);
+  void removeContext(CHIPContext *ChipContext);
+
   /**
    * @brief
    *
@@ -1739,6 +1803,10 @@ public:
    * @param mod_str
    */
   void unregisterModuleStr(std::string *ModuleStr);
+  size_t getNumRegisteredModules() const {
+    std::lock_guard<std::mutex> LockBackend(BackendMtx);
+    return ModulesStr_.size();
+  };
   /**
    * @brief Configure an upcoming kernel call
    *
@@ -1878,6 +1946,8 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
+  CHIPDevice *PerThreadQueueForDevice = nullptr;
+
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
@@ -1906,7 +1976,7 @@ public:
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(CHIPEvent *NewEvent) {
-    std::lock_guard<std::mutex> Lock(LastEventMtx);
+    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_, (void *)NewEvent);
     if (NewEvent == LastEvent_)
@@ -2027,7 +2097,7 @@ public:
     if (!LastEvent_)
       return true;
 
-    if(LastEvent_->updateFinishStatus(false))
+    if (LastEvent_->updateFinishStatus(false))
       LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;
@@ -2095,36 +2165,9 @@ public:
    * @param args
    * @param sharedMemBytes
    */
-  void launchHostFunc(const void *HostFunction, dim3 NumBlocks, dim3 DimBlocks,
-                      void **Args, size_t SharedMemBytes);
+  void launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks, dim3 DimBlocks,
+                    void **Args, size_t SharedMemBytes);
 
-  /**
-   * @brief
-   *
-   * @param grid
-   * @param block
-   * @param sharedMemBytes
-   * @param args
-   * @param kernel
-   * @return hipError_t
-   */
-  virtual void launchWithKernelParams(dim3 Grid, dim3 Block,
-                                      unsigned int SharedMemBytes, void **Args,
-                                      CHIPKernel *Kernel);
-
-  /**
-   * @brief
-   *
-   * @param grid
-   * @param block
-   * @param sharedMemBytes
-   * @param extra
-   * @param kernel
-   * @return hipError_t
-   */
-  virtual void launchWithExtraParams(dim3 Grid, dim3 Block,
-                                     unsigned int SharedMemBytes, void **Extra,
-                                     CHIPKernel *Kernel);
   /**
    * @brief returns Native backend handles for a stream
    *

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,36 +20,25 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+// Provides a namespace alias (fs) over std::filesystem-like module.
 
-#ifndef HIP_INCLUDE_DEVICELIB_HALF_MATH_H
-#define HIP_INCLUDE_DEVICELIB_HALF_MATH_H
+#ifndef SRC_FILESYSTEM_HH
+#define SRC_FILESYSTEM_HH
 
-#include <hip/devicelib/macros.hh>
+#include "Config.hh"
 
+#if defined(HAS_FILESYSTEM) && HAS_FILESYSTEM == 1
 
-extern "C++" {
+#include <filesystem>
+namespace fs = std::filesystem;
 
-extern __device__ api_half rint(api_half x);
+#elif defined(HAS_EXPERIMENTAL_FILESYSTEM) && HAS_EXPERIMENTAL_FILESYSTEM == 1
 
-}
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
 
-static inline __device__ api_half rint_h(api_half x) { return rint(x); }
+#else
+#error filesystem is not available!
+#endif
 
-
-//__device__ __half hceil ( const __half h )
-//__device__ __half hcos ( const __half a )
-//__device__ __half hexp ( const __half a )
-//__device__ __half hexp10 ( const __half a )
-//__device__ __half hexp2 ( const __half a )
-//__device__ __half hfloor ( const __half h )
-//__device__ __half hlog ( const __half a )
-//__device__ __half hlog10 ( const __half a )
-//__device__ __half hlog2 ( const __half a )
-//__device__ __half hrcp ( const __half a )
-//__device__ __half hrint ( const __half h )
-//__device__ __half hrsqrt ( const __half a )
-//__device__ __half hsin ( const __half a )
-//__device__ __half hsqrt ( const __half a )
-//__device__ __half htrunc ( const __half h )
-
-#endif // include guards
+#endif

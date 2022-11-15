@@ -1,27 +1,27 @@
-#=============================================================================
-#   CMake build system files
+# =============================================================================
+# CMake build system files
 #
-#   Copyright (c) 2021-22 CHIP-SPV developers
+# Copyright (c) 2021-22 CHIP-SPV developers
 #
-#   Permission is hereby granted, free of charge, to any person obtaining a copy
-#   of this software and associated documentation files (the "Software"), to deal
-#   in the Software without restriction, including without limitation the rights
-#   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#   copies of the Software, and to permit persons to whom the Software is
-#   furnished to do so, subject to the following conditions:
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-#   The above copyright notice and this permission notice shall be included in
-#   all copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-#   THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
-#=============================================================================
+# =============================================================================
 
 # temporary
 set(CMAKE_WARN_DEPRECATED OFF)
@@ -30,8 +30,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
 -Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
-# end temporary
 
+# end temporary
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(CHIP-SPV
   VERSION 1.0
@@ -42,9 +42,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(chip_spv_cmake_macros)
 enable_testing()
 
-###############################################################################
+# =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
-
 include(FindLLVM)
 
 if(NOT DEFINED OpenCL_LIBRARY)
@@ -73,10 +72,21 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 set(PTHREAD_LIBRARY Threads::Threads)
 
-# CHIP-SPV CMAKE DEPENDENCIES
-###############################################################################
+include(CheckIncludeFileCXX)
+check_include_file_cxx("filesystem" HAS_FILESYSTEM)
 
-###############################################################################
+if(NOT HAS_FILESYSTEM)
+  check_include_file_cxx("experimental/filesystem" HAS_EXPERIMENTAL_FILESYSTEM)
+endif()
+
+if(NOT HAS_FILESYSTEM AND NOT HAS_EXPERIMENTAL_FILESYSTEM)
+  message(FATAL_ERROR "<filesystem> was not found.")
+endif()
+
+# CHIP-SPV CMAKE DEPENDENCIES
+# =============================================================================
+
+# =============================================================================
 # CHIP-SPV CMAKE VARIABLBLES/OPTIONS
 set(CHIP_SRC
   src/spirv.cc
@@ -85,6 +95,7 @@ set(CHIP_SRC
   src/CHIPBackend.cc
   src/CHIPBindings.cc
   src/logging.cc
+  src/Utils.cc
 )
 
 if(OpenCL_LIBRARY)
@@ -119,12 +130,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # INSTALL DIRECTORY VARIABLES
-set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)
-set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib)
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include)
-set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share)
-set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip)
-set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang)
+set(BIN_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin CACHE PATH "binary install dir")
+set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib CACHE PATH "include install dir")
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include CACHE PATH "include install dir")
+set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install dir")
+set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
+set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
 # TODO: Add CHIP_ prefix
 option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
@@ -143,34 +154,41 @@ option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliab
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(BUILD_TESTS "Build Catch2 unit tests" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
+option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
 set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
+
 # FOR EXTERNAL USE
 set(HIP_OFFLOAD_COMPILE_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for generating offload code")
 set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for linking binaries with GPU offload")
-# CHIP-SPV CMAKE VARIABLBLES/OPTIONS
-###############################################################################
 
-###############################################################################
+# CHIP-SPV CMAKE VARIABLBLES/OPTIONS
+# =============================================================================
+
+# =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
+if(DUBIOUS_LOCKS)
+  list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
+endif()
 
 if(MALLOC_SHARED_WORKAROUND)
   list(APPEND CHIP_SPV_DEFINITIONS MALLOC_SHARED_WORKAROUND)
 endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
-if (NOT CLANG_VERSION_LESS_15)
+
+if(NOT CLANG_VERSION_LESS_15)
   # LLVM 15 switches to opaque pointer mode by default which
   # llvm-spirv currently does not support. Switch the mode off.
   #
   # NOTE: https://reviews.llvm.org/D130766 will disable the mode off
-  #       for SPIR-V targets but the patch has not yet landed on the
-  #       LLVM 15 branch.
+  # for SPIR-V targets but the patch has not yet landed on the
+  # LLVM 15 branch.
   #
   # NOTE: Bitcode library must be compiled with the same opaque
-  #       pointer setting.
+  # pointer setting.
   set(DISABLE_OPAQUE_PTRS_OPT -Xclang -no-opaque-pointers)
 endif()
 
@@ -202,6 +220,7 @@ if(VERBOSE)
 endif()
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+
 if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
   add_compile_options("-Wall")
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
@@ -224,6 +243,7 @@ else()
 endif()
 
 set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})
+
 if(OpenCL_LIBRARY)
   list(APPEND CHIP_SPV_DEFINITIONS HAVE_OPENCL)
   list(PREPEND CHIP_INTERFACE_LIBS ${OpenCL_LIBRARY})
@@ -235,23 +255,25 @@ if(LevelZero_LIBRARY)
 endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix" FORCE)
+  set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix")
 endif()
 
 message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
+
 # CHIP-SPV CMAKE OPTIONS PARSING
-###############################################################################
+# =============================================================================
 
-###############################################################################
+# =============================================================================
 # CHIP-SPV BINARIES & TESTS
-
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
 add_subdirectory(tests/cuda)
+add_subdirectory(tests/hiprtc)
 add_subdirectory(./samples samples)
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
+
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
@@ -262,55 +284,62 @@ add_dependencies(CHIP hipcc.bin hipconfig.bin)
 add_subdirectory(bin)
 
 # custom target to avoid tests that are known to fail
-# each entry in the regexp list must be without whitespace and end with "|\"
 #
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
-set(FLAKY_TESTS
-"Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
-Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
-Unit_hipStreamCreateWithPriority_ValidateWithEvents$"
-)
-add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" --repeat until-fail:1000 -j 10 -R ${FLAKY_TESTS} USES_TERMINAL VERBATIM)
 
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --timeout 120 "--output-on-failure" -E
-"Unit_hipDeviceGetCacheConfig_FuncTst$|\
-Unit_hipDeviceSynchronize_Functional$|\
-Unit_hipEventIpc$|\
-Unit_hipGetDeviceFlags_FuncTst$|\
-Unit_hipGraphAddDependencies_Functional$|\
-Unit_hipGraphAddEmptyNode_Functional$|\
-Unit_hipGraphAddMemcpyNode_Functional$|\
-Unit_hipGraph_BasicFunctional$|\
-Unit_hipGraph_SimpleGraphWithKernel$|\
-Unit_hipHostMalloc_Coherent$|\
-Unit_hiprtc_saxpy$|\
-Unit_hipHostMalloc_NonCoherent$|\
-Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - |\
-Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - |\
-Unit_hipMemPrefetchAsync_NonPageSz$|\
-Unit_hipMemsetAsync_SetMemoryWithOffset$|\
-Unit_hipMemset_SetMemoryWithOffset$|\
-Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative$|\
-Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation$|\
-Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation$|\
-Unit_hipStreamCreateWithPriority_ValidateWithEvents$|\
-Unit_AnyAll_CompileTest$|\
-Unit_ballot$|\
-Unit_deviceFunctions_CompileTest___fmaf_ieee|\
-Unit_deviceFunctions_CompileTest___funnelshift|\
-Unit_funnelshift$|\
-Unit_syncthreads_and$|\
-Unit_syncthreads_count$|\
-fp16_math$|\
-Unit_syncthreads_or$"
-USES_TERMINAL VERBATIM)
+# tests that fail only when run many times
+list(APPEND FLAKY_TESTS "Unit_hipStreamCreateWithPriority_ValidateWithEvents")
+
+list(APPEND FAILING_TESTS "Unit_hipDeviceGetCacheConfig_FuncTst")
+list(APPEND FAILING_TESTS "Unit_hipDeviceSynchronize_Functional")
+list(APPEND FAILING_TESTS "Unit_hipEventIpc")
+list(APPEND FAILING_TESTS "Unit_hipGetDeviceFlags_FuncTst")
+list(APPEND FAILING_TESTS "Unit_hipGraphAddDependencies_Functional")
+list(APPEND FAILING_TESTS "Unit_hipGraphAddEmptyNode_Functional")
+list(APPEND FAILING_TESTS "Unit_hipGraphAddMemcpyNode_Functional")
+list(APPEND FAILING_TESTS "Unit_hipGraph_BasicFunctional")
+list(APPEND FAILING_TESTS "Unit_hipGraph_SimpleGraphWithKernel")
+list(APPEND FAILING_TESTS "Unit_hipHostMalloc_Coherent")
+list(APPEND FAILING_TESTS "Unit_hipHostMalloc_NonCoherent")
+list(APPEND FAILING_TESTS "Unit_hipMemPrefetchAsync_NonPageSz")
+list(APPEND FAILING_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
+list(APPEND FAILING_TESTS "Unit_hipMemset_SetMemoryWithOffset")
+list(APPEND FAILING_TESTS "Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_Negative")
+list(APPEND FAILING_TESTS "Unit_hipOccupancyMaxActiveBlocksPerMultiprocessor_rangeValidation")
+list(APPEND FAILING_TESTS "Unit_hipOccupancyMaxPotentialBlockSize_rangeValidation")
+list(APPEND FAILING_TESTS "Unit_AnyAll_CompileTest")
+list(APPEND FAILING_TESTS "Unit_ballot")
+list(APPEND FAILING_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee.*")
+list(APPEND FAILING_TESTS "Unit_deviceFunctions_CompileTest___funnelshift.*")
+list(APPEND FAILING_TESTS "Unit_funnelshift")
+list(APPEND FAILING_TESTS "Unit_syncthreads_and")
+list(APPEND FAILING_TESTS "Unit_syncthreads_count")
+list(APPEND FAILING_TESTS "Unit_syncthreads_or")
+
+list(APPEND FAILING_TESTS ${FLAKY_TESTS})
+
+string(REGEX REPLACE ";" "\$|" FAILING_TESTS_STR "${FAILING_TESTS}")
+set(EXCLUDED_TESTS "${FAILING_TESTS_STR}$")
+
+# TODO fix-254 how do I make these read from the environment?
+# MULTI_TESTS_REPEAT=33 make multi_tests
+# Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
+set(FLAKY_TESTS_REPEAT 100)
+set(MULTI_TESTS_REPEAT 10)
+set(PARALLEL_TESTS 1)
+
+set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
+add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R ${FLAKY_TESTS} --repeat until-fail:${FLAKY_TESTS_REPEAT} USES_TERMINAL VERBATIM)
+add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread|[Ss]tream" --repeat until-fail:${MULTI_TESTS_REPEAT} USES_TERMINAL VERBATIM)
+
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${EXCLUDED_TESTS} VERBATIM)
 
 # CHIP-SPV BINARIES & TESTS
-###############################################################################
+# =============================================================================
 
-###############################################################################
+# =============================================================================
 # CHIP-SPV COMPILATION SETUP
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
@@ -318,39 +347,46 @@ target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 
+if(HAS_EXPERIMENTAL_FILESYSTEM)
+  target_link_libraries(CHIP PUBLIC stdc++fs)
+endif()
+
 # Previously these were set to SYSTEM which resulted in CMake picking up
 # OpenCL headers from the system where the version might differ resulting in errors.
 target_include_directories(CHIP
   PUBLIC
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-  "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cuspv>"
+  "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>"
+  "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}/cuspv>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_BINARY_DIR}"
 )
-# CHIP-SPV COMPILATION SETUP
-###############################################################################
 
-###############################################################################
+# CHIP-SPV COMPILATION SETUP
+# =============================================================================
+
+# =============================================================================
 # HIP OFFLOAD FLAGS
 set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu
   ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
 
-# hipDeviceLink sample requires --offload=spirv64 flag at link time. Why? 
+# hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
 if(NOT CLANG_VERSION_LESS_14)
   set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-      --offload=spirv64
-      # By default RocmInstallationDetector::AddHIPIncludeArgs in the
-      # HIP-Clang inserts include wrapper headers which cause compile
-      # errors when compiling HIP sources for SPIR-V target.  This flag
-      # excludes the wrappers.
-      "-nohipwrapperinc")
+    --offload=spirv64
+
+    # By default RocmInstallationDetector::AddHIPIncludeArgs in the
+    # HIP-Clang inserts include wrapper headers which cause compile
+    # errors when compiling HIP sources for SPIR-V target.  This flag
+    # excludes the wrappers.
+    "-nohipwrapperinc")
 endif()
 
-if(CLANG_VERSION_LESS_14 )
+if(CLANG_VERSION_LESS_14)
   set(HIP_LINK_DEVICELIB_BUILD --hip-device-lib-path=${CMAKE_BINARY_DIR}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes)
   set(HIP_LINK_DEVICELIB_INSTALL --hip-device-lib-path=${SHARE_INSTALL_DIR} --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm)
 else()
@@ -360,8 +396,8 @@ endif()
 
 # For use by hipcc
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
-  ${HIP_ENABLE_SPIRV} 
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_} 
+  ${HIP_ENABLE_SPIRV}
+  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_INSTALL})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
@@ -370,10 +406,19 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_LINK_DEVICELIB_BUILD})
 
 # HIP applications need to link against libCHIP.so; add it to rpath
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
-  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
-  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-L${OpenCL_DIR}" "-L${LevelZero_DIR}" "-lOpenCL" "-lze_loader")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${CMAKE_BINARY_DIR}" "-lCHIP")
+
+if(OpenCL_LIBRARY)
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${OpenCL_DIR}" "-lOpenCL")
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${OpenCL_DIR}" "-lOpenCL")
+endif()
+
+if(LevelZero_LIBRARY)
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LevelZero_DIR}" "-lze_loader")
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${LevelZero_DIR}" "-lze_loader")
+endif()
+
 if(SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")
@@ -392,36 +437,48 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # and device for external export. Have to do this because generator expressions don't seem to work here.
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
-target_compile_options(deviceInternal INTERFACE 
-  ${HIP_ENABLE_SPIRV} 
+target_compile_options(deviceInternal INTERFACE
+  ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_BUILD})
-target_link_options(deviceInternal INTERFACE 
+target_link_options(deviceInternal INTERFACE
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
-target_compile_options(device INTERFACE 
-  ${HIP_ENABLE_SPIRV} 
+target_compile_options(device INTERFACE
+  ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_INSTALL})
-target_link_options(device INTERFACE 
+target_link_options(device INTERFACE
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on CHIP-SPV but provides compatibility with AMD
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
-# HIP OFFLOAD FLAGS
-###############################################################################
 
-###############################################################################
+# HIP OFFLOAD FLAGS
+# =============================================================================
+
+# =============================================================================
+# PROJECT CONFIGURATION HEADER
+set(CHIP_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
+set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
+set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
+configure_file(Config.hh.in Config.hh @ONLY)
+
+# PROJECT CONFIGURATION HEADER
+# =============================================================================
+
+# =============================================================================
 # CHIP-SPV INSTALLATION AND PACKAGING
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-# Setup .hipVersion 
+# Setup .hipVersion
 # Install .hipVersion for hipcc. The file is used to detect a HIP
 # runtime and clang extracts HIP version from it.
 set(_versionInfo "# Auto-generated by cmake\n")
@@ -494,7 +551,7 @@ install(
   DESTINATION
   ${CONFIG_PACKAGE_INSTALL_DIR}
 )
-install ( EXPORT hip-targets  FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip  COMPONENT binary)
+install(EXPORT hip-targets FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip COMPONENT binary)
 
 # Generate .hipInfo
 file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install" ${_hipInfo_install})
@@ -505,6 +562,7 @@ install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
 # Copy over includes for hipcc to work in the build dir
 file(COPY ${CMAKE_SOURCE_DIR}/include DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${CMAKE_BINARY_DIR}/include)
+file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${INCLUDE_INSTALL_DIR})
 
 # Copy hipconfig, hipvars, etc to bin
 install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
@@ -529,12 +587,12 @@ install(EXPORT CHIPTargets
   DESTINATION cmake/CHIP)
 
 # CHIP-SPV INSTALLATION AND PACKAGING
-###############################################################################
+# =============================================================================
 #
 if(BUILD_TESTS)
   set(HIP_PATH ${CMAKE_BINARY_DIR})
   add_subdirectory(HIP/tests/catch catch)
-  add_dependencies(build_tests hipcc.bin)
+  add_dependencies(build_tests CHIP samples)
 endif()
 
 if(BUILD_DOCS)
@@ -544,5 +602,5 @@ if(BUILD_DOCS)
   set(DOXYGEN_OUTPUT_DIRECTORY doxygen)
   set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
   doxygen_add_docs(gendocs README.md src llvm_passes
-                  COMMENT "generate documentation for source")
+    COMMENT "generate documentation for source")
 endif()

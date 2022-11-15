@@ -44,15 +44,11 @@
 #include "CHIPDriver.hh"
 #include "CHIPException.hh"
 #include "common.hh"
-#include "hip/hip_fatbin.h"
 #include "hip/hip_interop.h"
 #include "hip/hip_runtime_api.h"
 #include "hip_conversions.hh"
 #include "macros.hh"
-
-#define SPIR_BUNDLE_ID "hip-spir64-unknown-unknown"
-
-static unsigned NumBinariesLoaded = 0;
+#include "Utils.hh"
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
@@ -864,9 +860,12 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
 
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
-  auto Status = hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
-  Stream->finish();
+  CHIP_TRY
+  CHIPInitialize();
+  Stream = Backend->findQueue(Stream);
+  auto Status = Stream->memCopy(Dst, Src, SizeBytes);
   RETURN(Status);
+  CHIP_CATCH
 };
 
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
@@ -947,6 +946,7 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
+  LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
 
   auto *ExecItem = Backend->ChipExecStack.top();
   *GridDim = ExecItem->getGrid();
@@ -999,13 +999,18 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  for (auto Q : Backend->getActiveDevice()->getQueues()) {
-    Q->finish();
+  auto Dev = Backend->getActiveDevice();
+  {
+    LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
+    for (auto Q : Dev->getQueuesNoLock()) {
+      Q->finish();
+    }
   }
 
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->PerThreadStreamUsed)
+  if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1517,9 +1522,20 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
 
+  if (Stream == hipStreamPerThread)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
+                          hipErrorTbd);
+
+  if (Stream == hipStreamLegacy)
+    CHIPERR_LOG_AND_THROW("Attemped to destroy default legacy queue",
+                          hipErrorTbd);
+
   Stream = Backend->findQueue(Stream);
 
   CHIPDevice *Dev = Backend->getActiveDevice();
+
+  // make sure nothing is pending in the stream
+  Stream->finish();
 
   if (Dev->removeQueue(Stream))
     RETURN(hipSuccess);
@@ -2424,8 +2440,7 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
                           hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst);
-  CHECK(Src);
+  NULLCHECK(Dst, Src);
 
   if (SizeBytes == 0)
     RETURN(hipSuccess);
@@ -2461,8 +2476,7 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst);
-  CHECK(Src);
+  NULLCHECK(Dst, Src);
 
   if (SizeBytes == 0)
     RETURN(hipSuccess);
@@ -2513,6 +2527,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   NULLCHECK(Dst);
   Stream = Backend->findQueue(Stream);
   hipError_t Res = hipSuccess;
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; i++) {
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
@@ -2577,7 +2592,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   // auto Depth = std::max<size_t>(1, Extent.depth);
   auto Pitch = PitchedDevPtr.pitch;
   auto Dst = PitchedDevPtr.ptr;
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   hipError_t Res = hipSuccess;
   for (size_t i = 0; i < Depth; i++)
     for (size_t j = 0; j < Height; j++) {
@@ -2772,7 +2787,7 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
 
   if (SPitch == 0 || DPitch == 0)
     RETURN(hipErrorInvalidValue);
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; ++i) {
     if (hipMemcpyAsync(Dst, Src, Width, Kind, Stream) != hipSuccess)
       RETURN(hipErrorLaunchFailure);
@@ -2838,7 +2853,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
 
   size_t SrcW = SPitch;
   size_t DstW = (Dst->width) * ByteSize;
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t Offset = HOffset; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
@@ -2901,7 +2916,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
 
   size_t DstW = DPitch;
   size_t SrcW = (Src->width) * ByteSize;
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
@@ -3058,7 +3073,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
     YSize = Params->srcPtr.ysize;
     DstPitch = Params->dstPtr.pitch;
   }
-
+  LOCK(Stream->QueueMtx); // prevent interruptions
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
     return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
                      WidthInBytes * Height * Depth, Params->kind);
@@ -3197,12 +3212,29 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
   CHIP_CATCH
 }
 
-hipError_t hipModuleLoadData(hipModule_t *Module, const void *Image) {
+hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Module, Image);
+  NULLCHECK(ModuleHandle, Image);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  std::string ErrorMsg;
+  // Image is expected to be a Clang offload bundle.
+  std::string_view Module = extractSPIRVModule(Image, ErrorMsg);
+  if (Module.empty()) {
+    logDebug("{}", ErrorMsg);
+    RETURN(hipErrorTbd);
+  }
+
+  auto FilteredModule = std::make_unique<std::string>();
+  if (!filterSPIRV(Module.data(), Module.size(), *FilteredModule)) {
+    logDebug("Encountered error in SPIR-V filtering.");
+    RETURN(hipErrorTbd);
+  }
+
+  auto *ChipModule =
+      Backend->getActiveDevice()->addModule(FilteredModule.get());
+  ChipModule->compileOnce(Backend->getActiveDevice());
+  *ModuleHandle = ChipModule;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -3229,7 +3261,8 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   auto *Device = Backend->getActiveDevice();
   Device->initializeDeviceVariables();
 
-  Stream->launchHostFunc(HostFunction, GridDim, BlockDim, Args, SharedMem);
+  CHIPKernel *ChipKernel = Device->findKernelByHostPtr(HostFunction);
+  Stream->launchKernel(ChipKernel, GridDim, BlockDim, Args, SharedMem);
 
   CHIPKernel *Kernel = Device->findKernelByHostPtr(HostFunction);
   if (!Kernel)
@@ -3405,7 +3438,9 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIPInitialize();
   NULLCHECK(Module);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  Backend->getActiveDevice()->eraseModule((CHIPModule *)Module);
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -3415,7 +3450,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
 
-  CHIPKernel *Kernel = Module->getKernel(Name);
+  CHIPKernel *Kernel = Module->getKernelByName(Name);
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);
 
@@ -3429,8 +3464,8 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
                                  unsigned int BlockDimX, unsigned int BlockDimY,
                                  unsigned int BlockDimZ,
                                  unsigned int SharedMemBytes,
-                                 hipStream_t Stream, void **KernelParams,
-                                 void **Extra) {
+                                 hipStream_t Stream, void *KernelParams[],
+                                 void *Extra[]) {
   CHIP_TRY
   CHIPInitialize();
   Stream = Backend->findQueue(Stream);
@@ -3439,21 +3474,95 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
     CHIPERR_LOG_AND_THROW("Dynamic shared memory not yet implemented",
                           hipErrorLaunchFailure);
 
-  if (KernelParams == nullptr && Extra == nullptr)
+  if (KernelParams == Extra)
     CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",
                           hipErrorLaunchFailure);
 
-  dim3 Gird(GridDimX, GridDimY, GridDimZ);
+  dim3 Grid(GridDimX, GridDimY, GridDimZ);
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
+
   if (KernelParams)
-    Stream->launchWithKernelParams(Gird, Block, SharedMemBytes, KernelParams,
-                                   Kernel);
-  else
-    Stream->launchWithExtraParams(Gird, Block, SharedMemBytes, Extra, Kernel);
+    Stream->launchKernel(Kernel, Grid, Block, KernelParams, SharedMemBytes);
+  else {
+    // Convert the "extra" argument passing style to KernelParams's
+    // format (an array of pointers to the argument data) for avoiding
+    // adding another argument processing logic in the downstream.
+
+    void *ExtraArgBuf = nullptr;
+    // Some limit to avoid a run away case (e.g. missing HIP_LAUNCH_PARAM_END).
+    constexpr unsigned ArgLimit = 100;
+    for (unsigned i = 0; Extra[i] != HIP_LAUNCH_PARAM_END && i < ArgLimit;
+         i++) {
+      if (Extra[i] == HIP_LAUNCH_PARAM_BUFFER_POINTER)
+        ExtraArgBuf = Extra[++i];
+      else if (Extra[i] == HIP_LAUNCH_PARAM_BUFFER_SIZE) {
+        i++; // Ignore setting value.
+        continue;
+      } else
+        RETURN(hipErrorInvalidValue);
+    }
+
+    if (!ExtraArgBuf) // Null argument pointer.
+      RETURN(hipErrorInvalidValue);
+
+    auto *FuncInfo = Kernel->getFuncInfo();
+    auto ParamBuffer = convertExtraArgsToPointerArray(ExtraArgBuf, *FuncInfo);
+
+    Stream->launchKernel(Kernel, Grid, Block, ParamBuffer.data(),
+                         SharedMemBytes);
+  }
+
   handleAbortRequest(*Stream, *Kernel->getModule());
   return hipSuccess;
+  CHIP_CATCH
+}
+
+hipError_t hipExtModuleLaunchKernel(
+    hipFunction_t Kernel,
+    // NOTE: Grid units are threads/work-items instead of blocks/workgroups.
+    uint32_t GlobalWorkSizeX, uint32_t GlobalWorkSizeY,
+    uint32_t GlobalWorkSizeZ, uint32_t LocalWorkSizeX, uint32_t LocalWorkSizeY,
+    uint32_t LocalWorkSizeZ, size_t SharedMemBytes, hipStream_t Stream,
+    void **KernelParams, void **Extra, hipEvent_t StartEvent,
+    hipEvent_t StopEvent, uint32_t Flags) {
+
+  CHIP_TRY
+  NULLCHECK(Kernel);
+  // Null checks on the KernelParams and Extra arguments are performed by
+  // hipModuleLaunchKernel().
+  CHIPInitialize();
+
+  // TODO: Process flags (hipExtAnyOrderLaunch).
+
+  // Check local sizes divide grids.
+  if (GlobalWorkSizeX % LocalWorkSizeX != 0 ||
+      GlobalWorkSizeY % LocalWorkSizeY != 0 ||
+      GlobalWorkSizeZ % LocalWorkSizeZ != 0)
+    RETURN(hipErrorInvalidValue);
+
+  auto GridBlocksX = GlobalWorkSizeX / LocalWorkSizeX;
+  auto GridBlocksY = GlobalWorkSizeY / LocalWorkSizeY;
+  auto GridBlocksZ = GlobalWorkSizeZ / LocalWorkSizeZ;
+
+  hipError_t Result = hipSuccess;
+
+  if (StartEvent)
+    Result = hipEventRecord(StartEvent, Stream);
+  if (Result != hipSuccess)
+    RETURN(Result);
+
+  Result = hipModuleLaunchKernel(Kernel, GridBlocksX, GridBlocksY, GridBlocksZ,
+                                 LocalWorkSizeX, LocalWorkSizeY, LocalWorkSizeZ,
+                                 SharedMemBytes, Stream, KernelParams, Extra);
+  if (Result != hipSuccess)
+    RETURN(Result);
+
+  if (StopEvent)
+    Result = hipEventRecord(StopEvent, Stream);
+
+  RETURN(Result);
   CHIP_CATCH
 }
 
@@ -3468,8 +3577,12 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->initializeDeviceVariables();
-  CHIPExecItem *ExecItem = Backend->ChipExecStack.top();
-  Backend->ChipExecStack.pop();
+  CHIPExecItem *ExecItem;
+  {
+    LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
+    ExecItem = Backend->ChipExecStack.top();
+    Backend->ChipExecStack.pop();
+  }
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {
@@ -3512,56 +3625,18 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
                           hipErrorInitializationError);
   }
 
-  const __ClangOffloadBundleHeader *Header = Wrapper->binary;
-  std::string Magic(reinterpret_cast<const char *>(Header),
-                    sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
-  if (Magic.compare(CLANG_OFFLOAD_BUNDLER_MAGIC)) {
-    CHIPERR_LOG_AND_THROW("The bundled binaries are not Clang bundled "
-                          "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)",
-                          hipErrorInitializationError);
-  }
-
   std::string *Module = new std::string;
   if (!Module) {
     CHIPERR_LOG_AND_THROW("Failed to allocate memory",
                           hipErrorInitializationError);
   }
 
-  const __ClangOffloadBundleDesc *Desc = &Header->desc[0];
-  bool Found = false;
+  std::string ErrorMsg;
+  auto SPIRVModuleSpan = extractSPIRVModule(Wrapper->binary, ErrorMsg);
+  if (SPIRVModuleSpan.empty())
+    CHIPERR_LOG_AND_THROW(ErrorMsg, hipErrorInitializationError);
 
-  for (uint64_t i = 0; i < Header->numBundles;
-       ++i, Desc = reinterpret_cast<const __ClangOffloadBundleDesc *>(
-                reinterpret_cast<uintptr_t>(&Desc->triple[0]) +
-                Desc->tripleSize)) {
-    std::string EntryID{&Desc->triple[0], Desc->tripleSize};
-    logDebug("Bundle entry ID {} is: '{}'\n", i, EntryID);
-
-    // SPIR-V bundle entry ID for HIP-Clang 14+. Additional components
-    // are ignored for now.
-    const std::string SPIRVBundleID = "hip-spirv64";
-    if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID) {
-      Found = true;
-      break;
-    }
-
-    if (EntryID == SPIR_BUNDLE_ID) {
-      Found = true;
-      break;
-    }
-
-    logDebug("not a SPIR-V triple, ignoring\n");
-  }
-
-  if (!Found) {
-    CHIPERR_LOG_AND_THROW("Didn't find any suitable compiled binary!",
-                          hipErrorInitializationError);
-  }
-
-  const char *StringData = reinterpret_cast<const char *>(
-      reinterpret_cast<uintptr_t>(Header) + (uintptr_t)Desc->offset);
-  size_t StringSize = Desc->size;
-  if (!filterSPIRV(StringData, StringSize, *Module)) {
+  if (!filterSPIRV(SPIRVModuleSpan.data(), SPIRVModuleSpan.size(), *Module)) {
     CHIPERR_LOG_AND_THROW("Error in filtering a SPIR-V module",
                           hipErrorInitializationError);
   }
@@ -3569,8 +3644,6 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   logDebug("Register module: {} \n", (void *)Module);
 
   Backend->registerModuleStr(Module);
-
-  ++NumBinariesLoaded;
 
   return (void **)Module;
   CHIP_CATCH_NO_RETURN
@@ -3585,12 +3658,11 @@ extern "C" void __hipUnregisterFatBinary(void *Data) {
   logDebug("Unregister module: {} \n", (void *)Module);
   Backend->unregisterModuleStr(Module);
 
-  --NumBinariesLoaded;
+  auto NumBinariesLoaded = Backend->getNumRegisteredModules();
   logDebug("__hipUnRegisterFatBinary {}\n", NumBinariesLoaded);
 
-  if (NumBinariesLoaded == 0) {
+  if (NumBinariesLoaded == 0)
     CHIPUninitialize();
-  }
 
   CHIP_CATCH_NO_RETURN
 }

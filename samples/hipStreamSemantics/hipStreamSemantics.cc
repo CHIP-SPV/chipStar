@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
- * Copyright (c) 2021-22 Paulius Velesko <pvelesko@pglc.io>
+ * Copyright (c) 2022-23 CHIP-SPV developers
+ * Copyright (c) 2022-23 Sarbojit Sarkar <sarkar.iitr@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,12 +21,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "hip/hip_runtime.h"
-
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
+#include <hip/hip_runtime.h>
+#include <unistd.h>
 
 #define CHECK(cmd)                                                             \
   {                                                                            \
@@ -43,82 +39,233 @@ __global__ void addOne(int *__restrict A) {
   A[i] = A[i] + 1;
 }
 
-template <typename T>
-__global__ void addCountReverse(const T *A_d, T *C_d, int64_t NELEM,
-                                int count) {
-  size_t offset = (blockIdx.x * blockDim.x + threadIdx.x);
-  size_t stride = blockDim.x * gridDim.x;
+void callback_sleep2(hipStream_t stream, hipError_t status, void *user_data) {
+  int *data = (int *)user_data;
+  printf("callback_sleep2: Going to sleep for 2sec\n");
+  sleep(2);
+  *data = 2;
+  printf("callback_sleep2: Exiting now\n");
+}
 
-  // Deliberately do this in an inefficient way to increase kernel runtime
-  for (int i = 0; i < count; i++) {
-    for (int64_t i = NELEM - stride + offset; i >= 0; i -= stride) {
-      C_d[i] = A_d[i] + (T)count;
-    }
+void callback_sleep10(hipStream_t stream, hipError_t status, void *user_data) {
+  int *data = (int *)user_data;
+  printf("callback_sleep10: Going to sleep for 10sec\n");
+  sleep(10);
+  *data = 2;
+  printf("callback_sleep10: Exiting now\n");
+}
+
+/*
+ * Intent : Verify hipStreamQuery returns right queue status
+ */
+bool TestStreamSemantics_1() {
+  printf(
+      "------------------------------------------------------------------\n");
+  int *stream2_shared_data = nullptr;
+  hipError_t status;
+  hipStream_t stream;
+  CHECK(hipStreamCreate(&stream));
+  stream2_shared_data = (int *)malloc(sizeof(int));
+  CHECK(hipStreamAddCallback(stream, callback_sleep10, stream2_shared_data, 0));
+  status = hipStreamQuery(stream);
+  bool testStatus = true;
+  printf("%s(stream query) : ", __FUNCTION__);
+  if (status != hipErrorNotReady) {
+    printf("%s%s%s\n", "\033[0;31m", "Failed", "\033[0m");
+    testStatus = false;
+    // printf("Failed, queue status is %s but expected is hipErrorNotReady\n",
+    // hipGetErrorName(status));
+  } else {
+    printf("PASSED\n");
   }
+
+  // Wait for all tasks to be finished
+  CHECK(hipDeviceSynchronize());
+  // Clean-up
+  CHECK(hipStreamDestroy(stream));
+  free(stream2_shared_data);
+
+  return testStatus;
+}
+
+/*
+ * Intent : Verify non-blocking stream is indeed non-blocking
+ */
+bool TestStreamSemantics_2() {
+  printf(
+      "------------------------------------------------------------------\n");
+  // Init
+  hipStream_t stream_non_blocking;
+  CHECK(hipStreamCreateWithFlags(&stream_non_blocking, hipStreamNonBlocking));
+  int *stream_shared_data = nullptr;
+  stream_shared_data = (int *)malloc(sizeof(int));
+  *stream_shared_data = 1;
+
+  int *host_ptr = nullptr;
+  int *dev_ptr = nullptr;
+  size_t size = sizeof(int);
+  CHECK(hipMalloc(&dev_ptr, size));
+  host_ptr = (int *)malloc(size);
+
+  // Push a 10sec long taks into the stream
+  CHECK(hipStreamAddCallback(stream_non_blocking, callback_sleep10,
+                             stream_shared_data, 0));
+
+  // printf("Starting task on null stream\n");
+  *host_ptr = 100; // init value
+  CHECK(hipMemcpy(dev_ptr, host_ptr, size, hipMemcpyDefault));
+  hipLaunchKernelGGL(addOne, 1, 1, 0, 0, dev_ptr);
+  CHECK(hipGetLastError());
+  CHECK(hipMemcpyAsync(host_ptr, dev_ptr, size, hipMemcpyDefault));
+  CHECK(hipStreamSynchronize(0));
+  // printf("End of null stream task\n");fflush(stdout);
+
+  bool testStatus = true;
+  printf("%s (non-blocking stream): ", __FUNCTION__);
+  if (*host_ptr == 101 && *stream_shared_data == 2) {
+    testStatus = false;
+    printf("%s %s %s\n", "\033[0;31m", "Failed", "\033[0m");
+    // printf("host_ptr = %d, stream_shared_data = %d\n", *host_ptr,
+    // *stream_shared_data);fflush(stdout);
+  } else {
+    printf("PASSED\n");
+  }
+
+  // Wait for all tasks to be finished
+  CHECK(hipDeviceSynchronize());
+
+  // Clean-up
+  CHECK(hipStreamDestroy(stream_non_blocking));
+  CHECK(hipFree(dev_ptr));
+  free(stream_shared_data);
+  free(host_ptr);
+  return testStatus;
+}
+
+/*
+ * Intent : Verify streams work independently
+ */
+bool TestStreamSemantics_3() {
+  printf(
+      "------------------------------------------------------------------\n");
+  int *stream1_shared_data = nullptr;
+  int *stream2_shared_data = nullptr;
+  stream1_shared_data = (int *)malloc(sizeof(int));
+  stream2_shared_data = (int *)malloc(sizeof(int));
+  hipStream_t stream1, stream2;
+  CHECK(hipStreamCreate(&stream1));
+  CHECK(hipStreamCreate(&stream2));
+
+  *stream1_shared_data = 1;
+  CHECK(hipStreamAddCallback(stream1, callback_sleep2, stream1_shared_data, 0));
+
+  int *dev_ptr = nullptr;
+  CHECK(hipMalloc(&dev_ptr, sizeof(int)));
+  hipLaunchKernelGGL(addOne, 1, 1, 0, 0, dev_ptr);
+  CHECK(hipGetLastError());
+
+  *stream2_shared_data = 1;
+  CHECK(
+      hipStreamAddCallback(stream2, callback_sleep10, stream2_shared_data, 0));
+
+  printf("Going to sync stream1\n");
+  CHECK(hipStreamSynchronize(stream1));
+  printf("Going to call query\n");
+
+  hipError_t status = hipStreamQuery(stream2);
+  bool testStatus = true;
+  printf("%s(independent execution) : ", __FUNCTION__);
+  if (status != hipErrorNotReady) {
+    printf("%s %s %s\n", "\033[0;31m", "Failed", "\033[0m");
+    testStatus = false;
+    // printf("Failed, queue status is %s but expected is hipErrorNotReady\n",
+    // hipGetErrorName(status));
+  } else {
+    printf("PASSED\n");
+  }
+
+  CHECK(hipDeviceSynchronize());
+
+  // clean-up
+  CHECK(hipStreamDestroy(stream1));
+  CHECK(hipStreamDestroy(stream2));
+  free(stream1_shared_data);
+  free(stream2_shared_data);
+
+  return testStatus;
+}
+
+/*
+ * Intent : Destroy a stream with pending task
+ * Expectation : Test should end gracefully, there should not be any hang or
+ * crash.
+ */
+bool TestStreamSemantics_4() {
+  printf(
+      "------------------------------------------------------------------\n");
+  int *stream_shared_data = nullptr;
+  stream_shared_data = (int *)malloc(sizeof(int));
+  *stream_shared_data = 1;
+
+  hipStream_t stream;
+  CHECK(hipStreamCreate(&stream));
+  CHECK(hipStreamAddCallback(stream, callback_sleep2, stream_shared_data, 0));
+  printf("Going to destroy a stream which has pending work\n");
+  CHECK(hipStreamDestroy(stream));
+
+  printf("Waiting for device to finish the task\n");
+  CHECK(hipDeviceSynchronize());
+
+  printf("%s (stream destroy): PASSED\n", __FUNCTION__);
+
+  free(stream_shared_data);
+  return true;
+}
+
+/*
+ * Intent : Synchronize between two streams using event
+ */
+bool TestStreamSemantics_5() {
+  printf(
+      "------------------------------------------------------------------\n");
+  int *stream_shared_data = nullptr;
+  stream_shared_data = (int *)malloc(sizeof(int));
+  *stream_shared_data = 1;
+
+  hipStream_t stream1, stream2;
+  hipEvent_t event;
+  CHECK(hipStreamCreate(&stream1));
+  CHECK(hipStreamCreate(&stream2));
+  CHECK(hipEventCreate(&event));
+
+  CHECK(hipStreamAddCallback(stream1, callback_sleep2, stream_shared_data, 0));
+  CHECK(hipEventRecord(event, stream1));
+
+  CHECK(hipStreamWaitEvent(stream2, event, 0));
+  CHECK(hipStreamSynchronize(stream2));
+
+  bool testStatus = true;
+  printf("%s (sync streams): ", __FUNCTION__);
+  if (*stream_shared_data != 2) {
+    testStatus = false;
+    printf("%s %s %s\n", "\033[0;31m", "Failed", "\033[0m");
+  } else {
+    printf("PASSED\n");
+  }
+
+  CHECK(hipDeviceSynchronize());
+
+  CHECK(hipStreamDestroy(stream1));
+  CHECK(hipStreamDestroy(stream2));
+  free(stream_shared_data);
+  return testStatus;
 }
 
 int main() {
-  int numBlocks = 512000;
-  int dimBlocks = 32;
-  const size_t NUM = numBlocks * dimBlocks;
-  int *A_h, *A_d, *Ref;
-  int *C_h, *C_d;
-
-  static int device = 0;
-  CHECK(hipSetDevice(device));
-  hipDeviceProp_t props;
-  CHECK(hipGetDeviceProperties(&props, device /*deviceID*/));
-  printf("info: running on device %s\n", props.name);
-
-  A_h = (int *)calloc(NUM, sizeof(int));
-  C_h = (int *)calloc(NUM, sizeof(int));
-  CHECK(hipMalloc((void **)&A_d, NUM * sizeof(int)));
-  CHECK(hipMalloc((void **)&C_d, NUM * sizeof(int)));
-  printf("info: copy Host2Device\n");
-  CHECK(hipMemcpy(A_d, A_h, NUM * sizeof(int), hipMemcpyHostToDevice));
-  CHECK(hipMemcpy(C_d, C_h, NUM * sizeof(int), hipMemcpyHostToDevice));
-
-  hipStream_t q;
-  uint32_t flags = hipStreamNonBlocking;
-  CHECK(hipStreamCreateWithFlags(&q, flags));
-
-  size_t sharedMem = 0;
-  hipEvent_t start, stop;
-  int count = 1000;
-
-  CHECK(hipEventCreate(&start));
-  CHECK(hipEventCreate(&stop));
-  CHECK(hipEventRecord(start));
-  std::cout << "Launching kernel\n";
-  hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
-                     sharedMem, 0, A_d, C_d, NUM, count);
-  CHECK(hipEventRecord(stop));
-  std::cout << "Kernel submitted to queue\n";
-  CHECK(hipGetLastError());
-  float t;
-  CHECK(hipDeviceSynchronize());
-  CHECK(hipEventElapsedTime(&t, start, stop));
-  std::cout << "Kernel time: " << t << "s\n";
-
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, q,
-                     A_d);
-  hipLaunchKernelGGL(addOne, dim3(numBlocks), dim3(dimBlocks), sharedMem, 0,
-                     A_d);
-  hipMemcpy(A_h, A_d, NUM * sizeof(int), hipMemcpyDeviceToHost);
-
-  bool pass = true;
-  int num_errors = 0;
-  for (int i = 0; i < NUM; i++) {
-    if (A_h[i] != 4) {
-      pass = false;
-      num_errors++;
-    }
-  }
-
-  std::cout << "Num Errors: " << num_errors << std::endl;
-  std::cout << (pass ? "PASSED!" : "FAIL") << std::endl;
+  TestStreamSemantics_1();
+  TestStreamSemantics_2();
+  TestStreamSemantics_3();
+  TestStreamSemantics_4();
+  TestStreamSemantics_5();
+  return 0;
 }

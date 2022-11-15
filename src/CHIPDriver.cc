@@ -35,6 +35,7 @@
 #include "CHIPDriver.hh"
 
 #include <string>
+#include <memory>
 
 #include "backend/backends.hh"
 
@@ -42,8 +43,22 @@ std::once_flag Initialized;
 std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
 bool UsingDefaultBackend;
-CHIPBackend *Backend;
+CHIPBackend *Backend = nullptr;
 std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
+
+// Uninitializes the backend when the application exits.
+void __attribute__((destructor)) uninitializeBackend() {
+  // Generally, __hipUnregisterFatBinary would uninitialize the
+  // backend when it finishes unregistration of all modules. However,
+  // there won't be hip(Un)registerFatBinary() calls if the HIP
+  // program does not have embedded kernels. This makes sure we
+  // uninitialize the backend at exit.
+  if (Backend && Backend->getNumRegisteredModules() == 0) {
+    CHIPUninitialize();
+    delete Backend;
+    Backend = nullptr;
+  }
+}
 
 std::string read_env_var(std::string EnvVar, bool Lower = true) {
   logDebug("Reading {} from env", EnvVar);
@@ -88,7 +103,7 @@ void CHIPReadEnvVars() {
 }
 
 static void createBackendObject() {
-
+  assert(Backend == nullptr);
   const std::string ChipBe = CHIPBackendType;
 
   if (!ChipBe.compare("opencl")) {
@@ -110,7 +125,6 @@ static void createBackendObject() {
                           hipErrorInitializationError);
 #endif
   } else if (!ChipBe.compare("default")) {
-    Backend = nullptr;
 #ifdef HAVE_LEVEL0
     if (!Backend) {
       logDebug("CHIPBE=default... trying Level0 Backend");
@@ -149,7 +163,11 @@ extern void CHIPInitialize() {
 
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
-  Backend->uninitialize();
+  if (Backend) {
+    Backend->uninitialize();
+    delete Backend;
+    Backend = nullptr;
+  }
 }
 
 extern void CHIPUninitialize() {
@@ -169,6 +187,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
     logDebug("uninitializing existing Backend object.");
     Backend->uninitialize();
     delete Backend;
+    Backend = nullptr;
   }
 
   createBackendObject();
@@ -176,6 +195,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   int RequiredHandles = Backend->ReqNumHandles();
   if (RequiredHandles != NumHandles) {
     delete Backend;
+    Backend = nullptr;
     CHIPERR_LOG_AND_THROW("Invalid number of native handles",
                           hipErrorInitializationError);
   }

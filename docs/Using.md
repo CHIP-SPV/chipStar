@@ -28,6 +28,10 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 /opt/rocm
 ```
 
+#### CHIP\_RTC\_SAVE\_TEMPS
+
+Preserves runtime temporary compilation files when this variable is set to `1`.
+
 ### Disabling GPU hangcheck
 
 Note that long-running GPU compute kernels can trigger hang detection mechanism in the GPU driver, which will cause the kernel execution to be terminated and the runtime will report an error. Consult the documentation of your GPU driver on how to disable this hangcheck.

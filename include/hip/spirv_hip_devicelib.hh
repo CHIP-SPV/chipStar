@@ -182,7 +182,6 @@ DEFOPENCL1F(expm1)
 DEFOPENCL1F(fabs)
 DEFOPENCL2F(fdim)
 DEFOPENCL1F(floor)
-DEFOPENCL2F(floor)
 
 EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
@@ -1171,6 +1170,19 @@ EXPORT unsigned atomicInc(unsigned *address, unsigned val);
 EXPORT unsigned atomicDec(unsigned *address, unsigned val);
 #endif
 
+// TODO: This is a temporary implementation of clock64(),
+//       in future it will be changed with more reliable implementation.
+__device__ static unsigned long long __chip_clk_counter = 0;
+EXPORT unsigned long long clock64() {
+  atomicAdd(&__chip_clk_counter, 1);
+  return __chip_clk_counter;
+}
+// TODO: This is a temporary implementation of clock(),
+//       in future it will be changed with more reliable implementation.
+//       It is encouraged to use clock64() over clock() so that chance of data
+//       loss can be avoided.
+EXPORT clock_t clock() { return (clock_t)clock64(); }
+
 /**********************************************************************/
 
 #if defined(__HIP_DEVICE_COMPILE__)
@@ -1210,11 +1222,11 @@ EXPORT OVLD float __shfl_up(float var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE) {
   return GEN_NAME2(shfl_up, f)(var, delta);
 };
-EXPORT OVLD int __shfl_down(int var, unsigned int delta, int width,
+EXPORT OVLD int __shfl_down(int var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE) {
   return GEN_NAME2(shfl_down, i)(var, delta);
 };
-EXPORT OVLD float __shfl_down(float var, unsigned int delta, int width,
+EXPORT OVLD float __shfl_down(float var, unsigned int delta,
                               int warpsize = DEFAULT_WARP_SIZE) {
   return GEN_NAME2(shfl_down, f)(var, delta);
 };
@@ -1238,9 +1250,9 @@ EXPORT OVLD int __shfl_up(int var, unsigned int delta,
 EXPORT OVLD float __shfl_up(float var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE);
 
-EXPORT OVLD int __shfl_down(int var, unsigned int delta, int width,
+EXPORT OVLD int __shfl_down(int var, unsigned int delta,
                             int warpsize = DEFAULT_WARP_SIZE);
-EXPORT OVLD float __shfl_down(float var, unsigned int delta, int width,
+EXPORT OVLD float __shfl_down(float var, unsigned int delta,
                               int warpsize = DEFAULT_WARP_SIZE);
 
 EXPORT int __all(int predicate);

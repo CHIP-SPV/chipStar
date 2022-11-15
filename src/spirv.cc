@@ -497,7 +497,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   for (size_t I = 0; I < NumWords; I += InsnSize) {
     SPIRVinst Insn(WordsPtr + I);
     InsnSize = Insn.size();
-    assert(InsnSize && "Invalis instruction size, will loop forever!");
+    assert(InsnSize && "Invalid instruction size, will loop forever!");
 
     // A workaround for https://github.com/CHIP-SPV/chip-spv/issues/48.
     //
