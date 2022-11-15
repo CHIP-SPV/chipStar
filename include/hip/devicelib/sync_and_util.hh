@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef HIP_INCLUDE_DEVICELIB_SYNC_AND_UTIL_H
 #define HIP_INCLUDE_DEVICELIB_SYNC_AND_UTIL_H
 
@@ -64,9 +63,6 @@ extern "C" {
 NON_OVLD void GEN_NAME(global_fence)();
 }
 EXPORT void __threadfence() { GEN_NAME(global_fence)(); }
-
-EXPORT clock_t clock() { return 0; }
-EXPORT unsigned long long clock64() { return 0; }
 
 extern "C" {
 NON_OVLD void *GEN_NAME(memset)(void *ptr, int value, size_t size);

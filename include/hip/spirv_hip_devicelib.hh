@@ -1170,6 +1170,19 @@ EXPORT unsigned atomicInc(unsigned *address, unsigned val);
 EXPORT unsigned atomicDec(unsigned *address, unsigned val);
 #endif
 
+// TODO: This is a temporary implementation of clock64(),
+//       in future it will be changed with more reliable implementation.
+__device__ static unsigned long long __chip_clk_counter = 0;
+EXPORT unsigned long long clock64() {
+  atomicAdd(&__chip_clk_counter, 1);
+  return __chip_clk_counter;
+}
+// TODO: This is a temporary implementation of clock(),
+//       in future it will be changed with more reliable implementation.
+//       It is encouraged to use clock64() over clock() so that chance of data
+//       loss can be avoided.
+EXPORT clock_t clock() { return (clock_t)clock64(); }
+
 /**********************************************************************/
 
 #if defined(__HIP_DEVICE_COMPILE__)
