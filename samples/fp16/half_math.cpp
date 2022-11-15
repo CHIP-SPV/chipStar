@@ -62,9 +62,9 @@ void check(std::string fn, const half *x, const half *y, const half *z, const in
     eq_oper = true;
 
   for (int i = 0; i < n; i++) {
-    float xx_computed = half_to_float(x[i]);
-    float yy_computed = half_to_float(y[i]);
-    float zz_computed = half_to_float(z[i]);
+    float xx_computed = x[i];
+    float yy_computed = y[i];
+    float zz_computed = z[i];
 
     float verify;
     if (fn == "sub") 
