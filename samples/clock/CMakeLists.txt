@@ -1,3 +1,3 @@
 # clock
 
-add_chip_test(clock clock PASSED clock.cc)
+add_chip_test(clock clock Passed clock.cc)
