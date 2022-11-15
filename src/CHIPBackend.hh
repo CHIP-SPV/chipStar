@@ -57,6 +57,58 @@
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
+class CHIPGraphNode {
+protected:
+  CHIPGraphNode* Parent_;
+  std::vector<CHIPGraphNode*> Children_;
+public:
+
+};
+
+class CHIPGraphNodeKernel : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeMemcpy : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeMemset : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeHost : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodesGraph : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeEmpty : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodesWaitEvent : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeEventRecord : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodesMemcpy1D : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeEmcpyFromSymbol : public CHIPGraphNode {
+
+};
+
+class CHIPGraphNodeEmcpyToSymbol : public CHIPGraphNode {
+
+};
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
