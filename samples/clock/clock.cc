@@ -34,24 +34,22 @@ __global__ void wait_kernel(int timeout) {
   };
 }
 
-void long_wait_kernel() {
-  wait_kernel<<<1,1>>>(10000);
-}
+void long_wait_kernel() { wait_kernel<<<1, 1>>>(10000); }
 
-void short_wait_kernel() {
-  wait_kernel<<<1,1>>>(100);
-}
+void short_wait_kernel() { wait_kernel<<<1, 1>>>(100); }
 
 int main() {
   std::chrono::time_point<std::chrono::system_clock> start, end;
   start = std::chrono::system_clock::now();
-  long_wait_kernel(); hipDeviceSynchronize();
+  long_wait_kernel();
+  hipDeviceSynchronize();
   end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_time_secs = end - start;
   auto time_spent_in_long_kernel = elapsed_time_secs.count();
 
   start = std::chrono::system_clock::now();
-  short_wait_kernel(); hipDeviceSynchronize();
+  short_wait_kernel();
+  hipDeviceSynchronize();
   end = std::chrono::system_clock::now();
   elapsed_time_secs = end - start;
   auto time_spent_in_short_kernel = elapsed_time_secs.count();

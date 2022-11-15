@@ -1179,10 +1179,9 @@ EXPORT unsigned long long clock64() {
 }
 // TODO: This is a temporary implementation of clock(),
 //       in future it will be changed with more reliable implementation.
-//       It is encouraged to use clock64() over clock() so that chance of data loss can be avoided.
-EXPORT clock_t clock() {
-  return (clock_t)clock64();
-}
+//       It is encouraged to use clock64() over clock() so that chance of data
+//       loss can be avoided.
+EXPORT clock_t clock() { return (clock_t)clock64(); }
 
 /**********************************************************************/
 
