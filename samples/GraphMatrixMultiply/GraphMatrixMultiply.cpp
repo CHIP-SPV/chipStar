@@ -101,11 +101,11 @@ int main(int argc, char **argv) {
   ERR_CHECK;
 
   // t1 = stream kernels
+  std::cout << "Running " << ITERS << " iterations of basic matrix multiply\n";
   auto tMatrixMultiplyBasic =
       matrixMultiplyBasic(gpuMatrix1, gpuMatrix2, Matrix1, Matrix2,
                           gpuMultiplyMatrix, MultiplyMatrix, events, ITERS);
   // t2 = graph kernels
-  std::cout << "Running " << ITERS << " iterations \n";
 
   minMs = 1e30f;
   for (i = 0; i < ITERS; ++i) {

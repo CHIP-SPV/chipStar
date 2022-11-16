@@ -87,3 +87,96 @@ float matrixMultiplyBasic(float *gpuMatrix1, float *gpuMatrix2, float *Matrix1,
   std::chrono::duration<float, std::milli> gpu_fp_ms = timeGPU2 - timeGPU1;
   return gpu_fp_ms.count();
 }
+
+float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
+                               float *Matrix1, float *Matrix2,
+                               float *gpuMultiplyMatrix, float *MultiplyMatrix,
+                               hipEvent_t *events, int ITERS) {
+  auto timeGPU1 = std::chrono::high_resolution_clock::now();
+
+  hipGraph_t graph;
+
+  err = hipGraphCreate(&graph, 0);
+  ERR_CHECK;
+
+  // Memory transfer from host to device
+  // err = hipMemcpy(gpuMatrix1, Matrix1, NUM * sizeof(float),
+  // hipMemcpyHostToDevice);
+  // ERR_CHECK;
+  hipGraphNode_t memcpyHostToDev1node;
+  err = hipGraphAddMemcpyNode1D(&memcpyHostToDev1node, graph, nullptr, 0,
+                                gpuMatrix1, Matrix1, NUM * sizeof(float),
+                                hipMemcpyHostToDevice);
+  ERR_CHECK;
+
+  // err = hipMemcpy(gpuMatrix2, Matrix2, NUM * sizeof(float),
+  //                 hipMemcpyHostToDevice);
+  // ERR_CHECK;
+  hipGraphNode_t memcpyHostToDev2node;
+  err = hipGraphAddMemcpyNode1D(&memcpyHostToDev2node, graph, nullptr, 0,
+                                gpuMatrix2, Matrix2, NUM * sizeof(float),
+                                hipMemcpyHostToDevice);
+  ERR_CHECK;
+
+  hipGraphNode_t kernelNodes[ITERS];
+  for (int i = 0; i < ITERS; ++i) {
+    // TODO
+    // err = hipEventRecord(events[i * 2], NULL);
+    // ERR_CHECK;
+
+    // Lauching kernel from host
+    // hipLaunchKernelGGL(
+    //     gpuMatrixMul,
+    //     dim3(WIDTH / THREADS_PER_BLOCK, WIDTH / THREADS_PER_BLOCK),
+    //     dim3(THREADS_PER_BLOCK, THREADS_PER_BLOCK), 0, 0, gpuMatrix1,
+    //     gpuMatrix2, gpuMultiplyMatrix, WIDTH, WIDTH, WIDTH);
+
+    uint width = WIDTH;
+    hipKernelNodeParams kernelParams;
+    kernelParams.func = (void *)gpuMultiplyMatrix;
+    kernelParams.gridDim =
+        dim3(WIDTH / THREADS_PER_BLOCK, WIDTH / THREADS_PER_BLOCK);
+    kernelParams.blockDim = dim3(THREADS_PER_BLOCK, THREADS_PER_BLOCK);
+    kernelParams.sharedMemBytes = 0;
+
+    void *kernelArgs[6] = {
+        (void *)gpuMatrix1, (void *)gpuMatrix2, (void *)gpuMultiplyMatrix,
+        (void *)width,      (void *)width,      (void *)width};
+    kernelParams.kernelParams = reinterpret_cast<void **>(kernelArgs);
+    kernelParams.extra = nullptr;
+
+    hipGraphNode_t kernelDependencies[2] = {memcpyHostToDev1node,
+                                            memcpyHostToDev2node};
+    
+    err = hipGraphAddKernelNode(&(kernelNodes[i]), graph, kernelDependencies, 2,
+                                &kernelParams);
+    ERR_CHECK;
+    // TODO
+    // err = hipEventRecord(events[i * 2 + 1], NULL);
+    // ERR_CHECK;
+  }
+
+  // Memory transfer from device to host
+  // err = hipMemcpy(MultiplyMatrix, gpuMultiplyMatrix, NUM * sizeof(float),
+  //                 hipMemcpyDeviceToHost);
+  // ERR_CHECK;
+  hipGraphNode_t memcpyDevToHostnode;
+  err = hipGraphAddMemcpyNode1D(&memcpyDevToHostnode, graph, kernelNodes, ITERS,
+                                MultiplyMatrix, gpuMultiplyMatrix, NUM * sizeof(float),
+                                hipMemcpyDeviceToHost);
+  ERR_CHECK;
+
+  err = hipDeviceSynchronize();
+  ERR_CHECK;
+
+  hipGraphExec_t instance;
+  err = hipGraphInstantiate(&instance, graph, nullptr, nullptr, 0);
+  ERR_CHECK;
+
+  err = hipGraphLaunch(instance, 0);
+  ERR_CHECK;
+
+  auto timeGPU2 = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<float, std::milli> gpu_fp_ms = timeGPU2 - timeGPU1;
+  return gpu_fp_ms.count();
+}
