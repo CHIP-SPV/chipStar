@@ -99,7 +99,7 @@ class CHIPGraphNodeHost : public CHIPGraphNode {
 
 };
 
-class CHIPGraphNodesGraph : public CHIPGraphNode {
+class CHIPGraphNodeGraph : public CHIPGraphNode {
 
 };
 
@@ -108,7 +108,7 @@ public:
   CHIPGraphNodeEmpty() {};
 };
 
-class CHIPGraphNodesWaitEvent : public CHIPGraphNode {
+class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
 
 };
 
@@ -116,8 +116,15 @@ class CHIPGraphNodeEventRecord : public CHIPGraphNode {
 
 };
 
-class CHIPGraphNodesMemcpy1D : public CHIPGraphNode {
-
+class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
+  private:
+  void *Dst_;
+  const void *Src_;
+  size_t Count_;
+  hipMemcpyKind Kind_;
+  public:
+  CHIPGraphNodeMemcpy1D(void* Dst, const void* Src, size_t Count, hipMemcpyKind Kind) : 
+  Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {}
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {

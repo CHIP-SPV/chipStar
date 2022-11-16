@@ -319,7 +319,11 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                    hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeMemcpy1D *Node = new CHIPGraphNodeMemcpy1D(dst, src, count, kind);
+  *pGraphNode = Node;
+  Node->addDependencies(pDependencies, numDependencies);
+  graph->addNode(Node);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
