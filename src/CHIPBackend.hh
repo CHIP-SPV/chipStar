@@ -119,11 +119,11 @@ class CHIPGraphNodesMemcpy1D : public CHIPGraphNode {
 
 };
 
-class CHIPGraphNodeEmcpyFromSymbol : public CHIPGraphNode {
+class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
 
 };
 
-class CHIPGraphNodeEmcpyToSymbol : public CHIPGraphNode {
+class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
 
 };
 
