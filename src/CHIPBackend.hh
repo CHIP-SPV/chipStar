@@ -60,12 +60,30 @@
 class CHIPGraphNode {
 protected:
   CHIPGraphNode* Parent_;
-  std::vector<CHIPGraphNode*> Children_;
+  std::vector<const CHIPGraphNode*> Dependencies_;
 public:
+  CHIPGraphNode() {};
+  virtual void execute(CHIPQueue* Queue) {};
+  void addDependency(const CHIPGraphNode* TheNode) {
+    Dependencies_.push_back(TheNode);
+  }
 
+  void addDependencies(CHIPGraphNode *const * Dependencies, int Count) {
+    for(int i = 0; i < Count; i++) {
+      addDependency(Dependencies[i]);
+    }
+  }
+
+  
 };
 
 class CHIPGraphNodeKernel : public CHIPGraphNode {
+  private:
+  const hipKernelNodeParams *Params_;
+  public:
+  CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode(), Params_(TheParams) {
+
+  }
 
 };
 
@@ -109,6 +127,22 @@ class CHIPGraphNodeEmcpyToSymbol : public CHIPGraphNode {
 
 };
 
+class CHIPGraph {
+  protected:
+  CHIPDevice* ChipDev_;
+  std::vector<CHIPGraphNode*> RootNodes_;
+  public:
+  CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
+  void addNode(CHIPGraphNode* TheNode) {}
+  void execute() {
+    // for(auto & Node : RootNodes_) {
+    //   // create stream
+    //   auto Queue = Backend->createCHIPQueue(ChipDev_); // TODO make this non-blocking?
+    //   Node->execute(Queue);
+    // }
+  }
+
+};
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.

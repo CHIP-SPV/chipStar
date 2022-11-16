@@ -32,6 +32,8 @@ class CHIPBackend;
 class CHIPEvent;
 class CHIPQueue;
 class CHIPTexture;
+class CHIPGraph;
+class CHIPGraphNode;
 /* implementation details */
 typedef CHIPEvent *hipEvent_t;
 typedef CHIPKernel *hipFunction_t;
@@ -43,5 +45,8 @@ typedef CHIPContext *hipCtx_t;
 // typedef CHIPDevice **hipDevice_t;
 typedef int hipDevice_t;
 typedef void *hipDeviceptr_t;
+
+typedef CHIPGraph *hipGraph_t;
+typedef CHIPGraphNode *hipGraphNode_t;
 
 #endif

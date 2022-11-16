@@ -244,7 +244,11 @@ hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeKernel* Node = new CHIPGraphNodeKernel{pNodeParams};
+  Node->addDependencies(pDependencies, numDependencies);
+  *pGraphNode = Node;
+  graph->addNode(Node);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
