@@ -509,7 +509,11 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                 size_t numDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
+  Node->addDependencies(pDependencies, numDependencies);
+  *pGraphNode = Node;
+  graph->addNode(Node);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

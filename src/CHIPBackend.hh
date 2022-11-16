@@ -104,7 +104,8 @@ class CHIPGraphNodesGraph : public CHIPGraphNode {
 };
 
 class CHIPGraphNodeEmpty : public CHIPGraphNode {
-
+public:
+  CHIPGraphNodeEmpty() {};
 };
 
 class CHIPGraphNodesWaitEvent : public CHIPGraphNode {
