@@ -302,7 +302,9 @@ hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
                                        hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  const hipMemcpy3DParms *Params = static_cast<CHIPGraphNodeMemcpy*>(node)->getParams();
+  *pNodeParams = *Params;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

@@ -105,6 +105,7 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   const hipMemcpy3DParms *Params_;
   public:
   CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params) : Params_(Params) {}
+  const hipMemcpy3DParms * getParams() {return Params_;}
 };
 
 class CHIPGraphNodeMemset : public CHIPGraphNode {
