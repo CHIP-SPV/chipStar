@@ -442,7 +442,9 @@ hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
                                        hipMemsetParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  const hipMemsetParams *Params = static_cast<CHIPGraphNodeMemset*>(node)->getParams();
+  *pNodeParams = *Params;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -450,7 +452,8 @@ hipError_t hipGraphMemsetNodeSetParams(hipGraphNode_t node,
                                        const hipMemsetParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  static_cast<CHIPGraphNodeMemset*>(node)->setParams(pNodeParams);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
