@@ -133,15 +133,15 @@ float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
 
     uint width = WIDTH;
     hipKernelNodeParams kernelParams;
-    kernelParams.func = (void *)gpuMultiplyMatrix;
+    kernelParams.func = (void *)gpuMatrixMul;
     kernelParams.gridDim =
         dim3(WIDTH / THREADS_PER_BLOCK, WIDTH / THREADS_PER_BLOCK);
     kernelParams.blockDim = dim3(THREADS_PER_BLOCK, THREADS_PER_BLOCK);
     kernelParams.sharedMemBytes = 0;
 
     void *kernelArgs[6] = {
-        (void *)gpuMatrix1, (void *)gpuMatrix2, (void *)gpuMultiplyMatrix,
-        (void *)width,      (void *)width,      (void *)width};
+        (void *)&gpuMatrix1, (void *)&gpuMatrix2, (void *)&gpuMultiplyMatrix,
+        (void *)&width,      (void *)&width,      (void *)&width};
     kernelParams.kernelParams = reinterpret_cast<void **>(kernelArgs);
     kernelParams.extra = nullptr;
 

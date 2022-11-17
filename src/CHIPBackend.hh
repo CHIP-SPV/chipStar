@@ -94,6 +94,7 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
   }
 
   virtual void execute(CHIPQueue* Queue) const override {
+    __hipPushCallConfiguration(Params_->gridDim, Params_->blockDim, Params_->sharedMemBytes, Queue);
     hipLaunchKernel(Params_->func, Params_->gridDim, Params_->blockDim, Params_->kernelParams, Params_->sharedMemBytes, Queue);
   }
 
