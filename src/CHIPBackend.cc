@@ -28,12 +28,12 @@
 //*************************************************************************************
 
 void CHIPGraph::addNode(CHIPGraphNode* Node) {
-  logWarn("{} CHIPGraph::addNode({})", (void*)this, (void*)Node);
+  logDebug("{} CHIPGraph::addNode({})", (void*)this, (void*)Node);
   Nodes_.push_back(Node);
 }
 
 void CHIPGraphExec::launch(CHIPQueue *Queue) {
-  logWarn("{} CHIPGraphExec::launch({})", (void*)this, (void*)Queue);
+  logDebug("{} CHIPGraphExec::launch({})", (void*)this, (void*)Queue);
   compile();
   auto ExecQueueCopy = ExecQueues_;
   while(ExecQueueCopy.size()) {
@@ -48,7 +48,7 @@ void CHIPGraphExec::launch(CHIPQueue *Queue) {
 }
 
 void CHIPGraphExec::compile() {
-  logWarn("{} CHIPGraphExec::compile()", (void*)this);
+  logDebug("{} CHIPGraphExec::compile()", (void*)this);
   // find nodes with no dependencies - root nodes
   std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
   std::set<const CHIPGraphNode*> RootNodes;
