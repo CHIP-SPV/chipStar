@@ -112,6 +112,14 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
 };
 
 class CHIPGraphNodeMemset : public CHIPGraphNode {
+  private:
+  const hipMemsetParams *Params_;
+  public:
+  CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(Params) {}
+  const hipMemsetParams * getParams() {return Params_;}
+  void setParams(const hipMemsetParams *Params) {
+    Params_ = Params;
+  } 
 
 };
 

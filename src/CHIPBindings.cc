@@ -430,7 +430,11 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipMemsetParams *pMemsetParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeMemset *Node = new CHIPGraphNodeMemset(pMemsetParams);
+  Node->addDependencies(pDependencies, numDependencies);
+  graph->addNode(Node);
+  *pGraphNode = Node;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
