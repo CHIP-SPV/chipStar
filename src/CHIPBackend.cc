@@ -24,6 +24,72 @@
 
 #include <utility>
 
+// CHIPGraph
+//*************************************************************************************
+
+void CHIPGraph::addNode(CHIPGraphNode* Node) {
+  logWarn("{} CHIPGraph::addNode({})", (void*)this, (void*)Node);
+  Nodes_.push_back(Node);
+}
+
+void CHIPGraphExec::launch(CHIPQueue *Queue) {
+  logWarn("{} CHIPGraphExec::launch({})", (void*)this, (void*)Queue);
+  compile();
+  auto ExecQueueCopy = ExecQueues_;
+  while(ExecQueueCopy.size()) {
+    auto Nodes = ExecQueueCopy.front();
+    for(auto Node : Nodes) {
+      logWarn("Executing {}", Node->Msg);
+    }
+    ExecQueueCopy.pop();
+  }
+}
+
+void CHIPGraphExec::compile() {
+  logWarn("{} CHIPGraphExec::compile()", (void*)this);
+  // find nodes with no dependencies - root nodes
+  std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
+  std::set<const CHIPGraphNode*> RootNodes;
+  auto NodeIter = Nodes.begin();
+  while(NodeIter != Nodes.end()) {
+    if((*NodeIter)->getDependencies().size() == 0) {
+      RootNodes.insert(*NodeIter);
+      Nodes.erase(NodeIter);
+    } else {
+      NodeIter++;
+    }
+  }
+  ExecQueues_.push(RootNodes);
+
+  // for each node, find the nodes that depend 
+  std::set<const CHIPGraphNode*> NextSet;
+  NodeIter = Nodes.begin();
+  while(Nodes.size()) { // while more unnasigned nodes available
+    /**
+     *  check if the nodes that this node depends on are the same nodes as what's in last level
+     */
+    const std::set<const CHIPGraphNode*> CurrentNodeDeps = (*NodeIter)->getDependencies();
+    const std::set<const CHIPGraphNode*> PrevLevelDeps = ExecQueues_.back();
+    if(CurrentNodeDeps == PrevLevelDeps) {
+      NextSet.insert(*NodeIter);
+      Nodes.erase(NodeIter);
+      NodeIter = Nodes.begin();
+    } else {
+      NodeIter++;
+    }
+
+    if(NodeIter == Nodes.end()) {
+      ExecQueues_.push(NextSet);
+      NextSet.clear();
+      NodeIter = Nodes.begin();
+    }
+  }
+
+}
+
+
+
+
 /// Queue a kernel for retrieving information about the device variable.
 static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
                         dim3 GridDim = dim3(1), dim3 BlockDim = dim3(1),

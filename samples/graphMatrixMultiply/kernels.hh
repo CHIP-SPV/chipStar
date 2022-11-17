@@ -166,8 +166,8 @@ float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
                                 hipMemcpyDeviceToHost);
   ERR_CHECK;
 
-  err = hipDeviceSynchronize();
-  ERR_CHECK;
+  // err = hipDeviceSynchronize();
+  // ERR_CHECK;
 
   hipGraphExec_t instance;
   err = hipGraphInstantiate(&instance, graph, nullptr, nullptr, 0);

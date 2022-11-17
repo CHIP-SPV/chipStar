@@ -44,6 +44,7 @@
 #include <vector>
 #include <queue>
 #include <stack>
+#include <set>
 
 #include "spirv.hh"
 #include "common.hh"
@@ -60,12 +61,13 @@
 class CHIPGraphNode {
 protected:
   CHIPGraphNode* Parent_;
-  std::vector<const CHIPGraphNode*> Dependencies_;
+  std::set<const CHIPGraphNode*> Dependencies_;
 public:
+  char Msg[50];
   CHIPGraphNode() {};
   virtual void execute(CHIPQueue* Queue) {};
   void addDependency(const CHIPGraphNode* TheNode) {
-    Dependencies_.push_back(TheNode);
+    Dependencies_.insert(TheNode);
   }
 
   void addDependencies(CHIPGraphNode *const * Dependencies, int Count) {
@@ -73,6 +75,12 @@ public:
       addDependency(Dependencies[i]);
     }
   }
+
+  const std::set<const CHIPGraphNode*> &getDependencies() {
+    return Dependencies_;
+  }
+
+
 
   
 };
@@ -138,19 +146,37 @@ class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
 class CHIPGraph {
   protected:
   CHIPDevice* ChipDev_;
-  std::vector<CHIPGraphNode*> RootNodes_;
+  std::vector<CHIPGraphNode*> Nodes_;
   public:
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
-  void addNode(CHIPGraphNode* TheNode) {}
-  void execute() {
-    // for(auto & Node : RootNodes_) {
-    //   // create stream
-    //   auto Queue = Backend->createCHIPQueue(ChipDev_); // TODO make this non-blocking?
-    //   Node->execute(Queue);
-    // }
-  }
+  void addNode(CHIPGraphNode* TheNode);
+  std::vector<CHIPGraphNode*> getNodes() {return Nodes_;} 
 
 };
+
+class CHIPGraphExec {
+  protected:
+  CHIPGraph* Graph_;
+  // each element in this queue represents represents a sequence of nodes that can be submitted to one or more queues
+  std::queue<std::set<const CHIPGraphNode*>> ExecQueues_;
+  public:
+  CHIPGraphExec(CHIPGraph *Graph) : Graph_(Graph) {}
+  void launch(CHIPQueue *Queue);
+  void compile();
+  /**
+   * @brief remove unnecessary dependencies
+   * for each node in graph:
+   *   for each dependency in node:
+   *     1. traverse from node to root, constructing a vector of nodes visited
+   *   for each traversal vector:
+   *     1. traverse from node to root, constructing a vector of nodes visited
+   *     
+   * 
+   */
+  void pruneGraph() {}
+
+};
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.

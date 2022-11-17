@@ -95,7 +95,9 @@ static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraph *Graph = new CHIPGraph(Backend->getActiveDevice());
+  *pGraph = Graph;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -202,7 +204,10 @@ hipError_t hipGraphInstantiate(hipGraphExec_t *pGraphExec, hipGraph_t graph,
                                size_t bufferSize) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphExec *GraphExec = new CHIPGraphExec(graph);
+  *pGraphExec = GraphExec;
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -218,7 +223,9 @@ hipError_t hipGraphInstantiateWithFlags(hipGraphExec_t *pGraphExec,
 hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  stream = Backend->findQueue(stream);
+  graphExec->launch(stream);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

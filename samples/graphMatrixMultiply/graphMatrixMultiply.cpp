@@ -101,20 +101,26 @@ int main(int argc, char **argv) {
   ERR_CHECK;
 
   // t1 = stream kernels
-  std::cout << "Running " << ITERS << " iterations of basic matrix multiply\n";
-  auto tMatrixMultiplyBasic =
-      matrixMultiplyBasic(gpuMatrix1, gpuMatrix2, Matrix1, Matrix2,
-                          gpuMultiplyMatrix, MultiplyMatrix, events, ITERS);
-  // t2 = graph kernels
+  // std::cout << "Running " << ITERS << " iterations of basic matrix multiply\n";
+  // auto tMatrixMultiplyBasic =
+  //     matrixMultiplyBasic(gpuMatrix1, gpuMatrix2, Matrix1, Matrix2,
+  //                         gpuMultiplyMatrix, MultiplyMatrix, events, ITERS);
+  // std::cout << "GPU real time taken(ms): " << tMatrixMultiplyBasic << "\n";
+
+  std::cout << "Running " << ITERS << " iterations of graph basic matrix multiply\n";
+  auto tMatrixMultiplyGraphBasic =
+    matrixMultiplyGraphBasic(gpuMatrix1, gpuMatrix2, Matrix1, Matrix2,
+                        gpuMultiplyMatrix, MultiplyMatrix, events, ITERS);
+  std::cout << "GPU real time taken(ms): " << tMatrixMultiplyGraphBasic << "\n";
 
   minMs = 1e30f;
-  for (i = 0; i < ITERS; ++i) {
-    err = hipEventElapsedTime(&tempMs, events[i * 2], events[i * 2 + 1]);
-    ERR_CHECK;
-    std::cout << "hipLaunchKernel " << i << " time taken: " << tempMs << "\n";
-    if (tempMs < minMs)
-      minMs = tempMs;
-  }
+  // for (i = 0; i < ITERS; ++i) {
+  //   err = hipEventElapsedTime(&tempMs, events[i * 2], events[i * 2 + 1]);
+  //   ERR_CHECK;
+  //   std::cout << "hipLaunchKernel " << i << " time taken: " << tempMs << "\n";
+  //   if (tempMs < minMs)
+  //     minMs = tempMs;
+  // }
 
   std::cout << "hipLaunchKernel BEST TIME: " << minMs << "\n";
 
@@ -123,7 +129,6 @@ int main(int argc, char **argv) {
     ERR_CHECK;
   }
 
-  std::cout << "GPU real time taken(ms): " << tMatrixMultiplyBasic << "\n";
 
   auto time1 = std::chrono::high_resolution_clock::now();
   // CPU MatrixTranspose computation
