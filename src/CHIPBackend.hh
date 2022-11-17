@@ -101,7 +101,10 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
 };
 
 class CHIPGraphNodeMemcpy : public CHIPGraphNode {
-
+  private:
+  const hipMemcpy3DParms *Params_;
+  public:
+  CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params) : Params_(Params) {}
 };
 
 class CHIPGraphNodeMemset : public CHIPGraphNode {
