@@ -65,7 +65,7 @@ protected:
 public:
   char Msg[50];
   CHIPGraphNode() {};
-  virtual void execute(CHIPQueue* Queue) {};
+  virtual void execute(CHIPQueue* Queue) const {};
   void addDependency(const CHIPGraphNode* TheNode) {
     Dependencies_.insert(TheNode);
   }
@@ -91,6 +91,10 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
   public:
   CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode(), Params_(TheParams) {
 
+  }
+
+  virtual void execute(CHIPQueue* Queue) const override {
+    hipLaunchKernel(Params_->func, Params_->gridDim, Params_->blockDim, Params_->kernelParams, Params_->sharedMemBytes, Queue);
   }
 
 };
@@ -133,6 +137,10 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
   public:
   CHIPGraphNodeMemcpy1D(void* Dst, const void* Src, size_t Count, hipMemcpyKind Kind) : 
   Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {}
+
+  virtual void execute(CHIPQueue* Queue) const override {
+    hipMemcpy(Dst_, Src_, Count_, Kind_);
+  }
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {

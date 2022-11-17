@@ -39,10 +39,12 @@ void CHIPGraphExec::launch(CHIPQueue *Queue) {
   while(ExecQueueCopy.size()) {
     auto Nodes = ExecQueueCopy.front();
     for(auto Node : Nodes) {
-      logWarn("Executing {}", Node->Msg);
+      // logWarn("Executing {}", Node->Msg);
+      Node->execute(Queue);
     }
     ExecQueueCopy.pop();
   }
+
 }
 
 void CHIPGraphExec::compile() {
