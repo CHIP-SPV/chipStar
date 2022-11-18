@@ -60,7 +60,13 @@ void VerifyResult(float *c_A, float *c_B) {
 }
 
 int main() {
-  std::string envVar = std::getenv("CHIP_BE");
+  const char* val = std::getenv("CHIP_BE");
+  // In case CHIP_BE is not present
+  if (!val) {
+    std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
+    exit(0);
+  }
+  std::string envVar(val);
   if (!envVar.compare("opencl")) {
     std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
     exit(0);
