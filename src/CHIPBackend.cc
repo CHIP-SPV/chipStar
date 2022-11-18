@@ -1211,12 +1211,7 @@ CHIPBackend::~CHIPBackend() {
       delete Dev;
     }
     Backend->removeContext(Ctx);
-    /**
-     * TODO fix-253 Why does cause a segfault? Especially for
-     * hip_sycl_interop where the context is given to oneAPI so it should still
-     * be owned by CHIP-SPV?
-     */
-    // delete Ctx;
+    delete Ctx;
   }
 
   for (auto &Mod : ModulesStr_)
