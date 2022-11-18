@@ -176,6 +176,23 @@ class CHIPGraph {
   void addNode(CHIPGraphNode* TheNode);
   std::vector<CHIPGraphNode*> getNodes() {return Nodes_;} 
 
+  /**
+   * @brief Verify/Find node in a graph.
+   * HIP API gives const handles to nodes. We can use this function to 
+   * verify that the node exists in this graph and return the non-const handle.
+   * 
+   * @param Node the node to find in this graph
+   * @return CHIPGraphNode*  the non-const handle of this found node.
+   */
+  CHIPGraphNode* findNode(const CHIPGraphNode* Node) {
+    auto FoundNode = std::find(Nodes_.begin(), Nodes_.end(), Node);
+    if(FoundNode != Nodes_.end()) {
+      return *FoundNode;
+    } else {
+      return nullptr;
+    }
+  }
+
 };
 
 class CHIPGraphExec {

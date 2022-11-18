@@ -104,7 +104,8 @@ hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
 hipError_t hipGraphDestroy(hipGraph_t graph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  delete graph;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -113,7 +114,12 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
                                    size_t numDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNode* FoundNode = graph->findNode(*from);
+  if(!FoundNode)
+    RETURN(hipErrorInvalidValue);
+
+  FoundNode->addDependencies(to, numDependencies);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -232,7 +238,8 @@ hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
 hipError_t hipGraphExecDestroy(hipGraphExec_t graphExec) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  delete graphExec;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
