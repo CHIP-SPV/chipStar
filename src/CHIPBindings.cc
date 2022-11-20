@@ -145,7 +145,10 @@ hipError_t hipGraphGetNodes(hipGraph_t graph, hipGraphNode_t *nodes,
                             size_t *numNodes) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto Nodes = graph->getNodes();
+  nodes = Nodes.data();
+  *numNodes = graph->getNodes().size();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
