@@ -1,9 +1,9 @@
 #include "hip/hip_runtime.h"
 
-#define ERR_CHECK                                                              \
+#define ERR_CHECK(x)                                                           \
   do {                                                                         \
-    if (err != hipSuccess) {                                                   \
-      std::cerr << "HIP API error\n";                                          \
-      return -1;                                                               \
+    if (x != hipSuccess) {                                                     \
+      std::cerr << "FAILED: HIP API error\n";                                  \
+      exit(1);                                                                 \
     }                                                                          \
   } while (0)

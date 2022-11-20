@@ -21,15 +21,29 @@
  */
 
 #include "CHIPBackend.hh"
-
+#include <unordered_set>
 #include <utility>
 
 // CHIPGraph
 //*************************************************************************************
 
+int NodeCounter = 1;
 void CHIPGraph::addNode(CHIPGraphNode* Node) {
   logDebug("{} CHIPGraph::addNode({})", (void*)this, (void*)Node);
+  Node->Msg = "M" + std::to_string(NodeCounter);
+  NodeCounter++;
   Nodes_.push_back(Node);
+}
+
+void CHIPGraph::removeNode(const CHIPGraphNode* Node) {
+  logDebug("{} CHIPGraph::removeNode({})", (void*)this, (void*)Node);
+
+  auto Found = std::find(Nodes_.begin(), Nodes_.end(), Node);
+  if (Found == Nodes_.end()) {
+    CHIPERR_LOG_AND_THROW("tried to remove the node which was not found in graph", hipErrorTbd);
+  } else {
+    Nodes_.erase(Found);
+  }
 }
 
 void CHIPGraphExec::launch(CHIPQueue *Queue) {
@@ -39,7 +53,7 @@ void CHIPGraphExec::launch(CHIPQueue *Queue) {
   while(ExecQueueCopy.size()) {
     auto Nodes = ExecQueueCopy.front();
     for(auto Node : Nodes) {
-      // logWarn("Executing {}", Node->Msg);
+      logWarn("Executing {}", Node->Msg);
       Node->execute(Queue);
     }
     ExecQueueCopy.pop();
@@ -47,32 +61,141 @@ void CHIPGraphExec::launch(CHIPQueue *Queue) {
 
 }
 
-void CHIPGraphExec::compile() {
-  logDebug("{} CHIPGraphExec::compile()", (void*)this);
-  // find nodes with no dependencies - root nodes
-  std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
-  std::set<const CHIPGraphNode*> RootNodes;
-  auto NodeIter = Nodes.begin();
-  while(NodeIter != Nodes.end()) {
-    if((*NodeIter)->getDependencies().size() == 0) {
-      RootNodes.insert(*NodeIter);
-      Nodes.erase(NodeIter);
-    } else {
-      NodeIter++;
+void unchainUnnecessaryDeps(std::vector<CHIPGraphNode*> Path, std::vector<CHIPGraphNode*> SubPath) {
+  assert(Path.size() > SubPath.size());
+  std::string PathStr = ""; 
+  for(auto Node : SubPath) {
+    PathStr += Node->Msg + " ";
+  }
+  std::string LongerPathStr = "";
+  for(auto Node : Path) {
+    LongerPathStr += Node->Msg + " ";
+  }
+  logDebug("unchainUnnecessaryDeps({}, {})", PathStr, LongerPathStr);
+
+  for (int i = 0; i < SubPath.size(); i++) {
+    if(SubPath[i] != Path[i]) {
+      SubPath[i-1]->removeDependency(SubPath[i]);
+      break;
     }
   }
-  ExecQueues_.push(RootNodes);
+}
 
-  // for each node, find the nodes that depend 
+std::vector<CHIPGraphNode*> CHIPGraph::getLeafNodes() {
+  std::vector<CHIPGraphNode*> LeafNodes;
+  for(auto Node : Nodes_) {
+    // no other node depends on leaf node.
+    bool LeafNode = true;
+    for(auto OtherNode : Nodes_) {
+      if (OtherNode->getDependenciesSet().count(Node)) {
+        LeafNode = false;
+        break;
+      }
+    }
+    if(LeafNode) {
+      LeafNodes.push_back(Node);
+    }
+  }
+
+  return LeafNodes;
+}
+
+void CHIPGraphExec::pruneGraph() {
+  Pruned_ = true;
+  std::vector<CHIPGraphNode*> LeafNodes_ = Graph_->getLeafNodes();
+
+  for(auto LeafNode : LeafNodes_) {
+  // Generate all paths from leaf to root
+  std::vector<CHIPGraphNode*> CurrPath;
+  std::vector<std::vector<CHIPGraphNode*>> Paths;
+  LeafNode->DFS(CurrPath, Paths);
+
+  if(Paths.size() < 2) {
+    continue;
+  }
+
+  std::sort(Paths.begin(), Paths.end(), [](std::vector<CHIPGraphNode*> PathA, std::vector<CHIPGraphNode*> PathB) {
+    return PathA.size() > PathB.size();
+  } );
+
+  for(auto Path : Paths){
+    // convert the current path to a set
+    std::set<const CHIPGraphNode*> PathSet(Path.begin(), Path.end());
+
+    // Check other paths to see if they are a subset of this (longer) path
+    for(auto SubPathIter = Paths.begin(); SubPathIter!= Paths.end(); SubPathIter++) {
+      auto SubPath = *SubPathIter;
+      // skip if subpath is longer than path
+      if (Path.size() <= SubPath.size() || Path == SubPath) {
+        continue;
+      }
+
+      // convert the other path to a set
+      std::set<const CHIPGraphNode*> SubPathSet(SubPath.begin(), SubPath.end());
+      std::string PathStr = "";
+      for(auto Node : Path) {
+        PathStr += Node->Msg + " ";
+      }
+      std::string SubPathStr = "";
+      for(auto Node : SubPath) {
+        SubPathStr += Node->Msg + " ";
+      }
+      logDebug("Path: {}", PathStr);
+      logDebug("OtherPath: {}", SubPathStr);
+      if(std::includes(PathSet.begin(), PathSet.end(), SubPathSet.begin(), SubPathSet.end())) {
+        unchainUnnecessaryDeps(Path, SubPath);
+      }
+    }
+  }
+  }
+
+
+}
+
+std::vector<CHIPGraphNode*> CHIPGraph::getRootNodes() {
+  std::vector<CHIPGraphNode*> RootNodes;
+  for(auto Node : Nodes_) {
+    if (Node->getDependenciesSet().size() == 0) {
+      RootNodes.push_back(Node);
+    }
+  }
+  return RootNodes;
+}
+
+void CHIPGraphExec::compile() {
+  pruneGraph();
+  logDebug("{} CHIPGraphExec::compile()", (void*)this);
+  std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
+  auto RootNodesVec = Graph_->getRootNodes();
+  std::set<const CHIPGraphNode*> RootNodes(RootNodesVec.begin(), RootNodesVec.end());
+  ExecQueues_.push(RootNodes);
+  //  Remove root nodes from the set of nodes
+  for(auto Node : RootNodes) {
+    Nodes.erase(std::find(Nodes.begin(), Nodes.end(), Node));
+  }
+
+  /**
+   * This piece of code will generate sets of nodes that can be executed in parallel.
+   * These sets are accumulated into the execution queue. The execution queue starts with the root nodes.
+   * To fill the execution queue, we find all the nodes that depend only the nodes in the back of the exec queue. 
+   */
   std::set<const CHIPGraphNode*> NextSet;
-  NodeIter = Nodes.begin();
+  auto NodeIter = Nodes.begin();
   while(Nodes.size()) { // while more unnasigned nodes available
-    /**
-     *  check if the nodes that this node depends on are the same nodes as what's in last level
-     */
-    const std::set<const CHIPGraphNode*> CurrentNodeDeps = (*NodeIter)->getDependencies();
-    const std::set<const CHIPGraphNode*> PrevLevelDeps = ExecQueues_.back();
-    if(CurrentNodeDeps == PrevLevelDeps) {
+    const std::set<const CHIPGraphNode*> CurrentNodeDeps = (*NodeIter)->getDependenciesSet();
+    std::string CurrentNodeDepsStr = "";
+    for(auto Node : CurrentNodeDeps) {
+      CurrentNodeDepsStr += Node->Msg + " ";
+    }
+    logDebug("CurrentNode {} Deps: {}", (*NodeIter)->Msg, CurrentNodeDepsStr);
+    std::string PrevLevelNodesStr = "";
+    for(auto Node : ExecQueues_.back()) {
+      PrevLevelNodesStr += Node->Msg + " ";
+    }
+    logDebug("PrevLevelNodes: {}", PrevLevelNodesStr);
+
+    const std::set<const CHIPGraphNode*> PrevLevelNodes = ExecQueues_.back();
+    if(std::includes(PrevLevelNodes.begin(), PrevLevelNodes.end(), CurrentNodeDeps.begin(), CurrentNodeDeps.end())) {
       NextSet.insert(*NodeIter);
       Nodes.erase(NodeIter);
       NodeIter = Nodes.begin();

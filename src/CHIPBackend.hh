@@ -63,11 +63,42 @@ protected:
   CHIPGraphNode* Parent_;
   std::set<const CHIPGraphNode*> Dependencies_;
 public:
-  char Msg[50];
+  std::string Msg;
   CHIPGraphNode() {};
+  /**
+   * @brief Depth-first search of the graph. 
+   * For each node, the function is called recursively on all of its dependencies.
+   * Returns all possible paths from this node to root node.
+   * 
+   * @param CurrPath space for the current path
+   * @param Paths space for the paths
+   */
+  void DFS(std::vector<CHIPGraphNode*> CurrPath, std::vector<std::vector<CHIPGraphNode*>> &Paths) {
+          CurrPath.push_back(this);
+      for (auto & Dep : Dependencies_) {
+          const_cast<CHIPGraphNode*>(Dep)->DFS(CurrPath, Paths);
+      }
+      
+      if (Dependencies_.size() == 0) {
+          Paths.push_back(CurrPath);
+          std::string PathStr = "";
+          for(auto & Node : CurrPath) {
+              PathStr += Node->Msg + ", ";
+          }
+          logDebug("PATH: {}", PathStr);
+      }
+      
+      CurrPath.pop_back();
+      return;
+  }
   virtual void execute(CHIPQueue* Queue) const {};
   void addDependency(const CHIPGraphNode* TheNode) {
     Dependencies_.insert(TheNode);
+  }
+
+  void removeDependency(const CHIPGraphNode* TheNode) {
+    logDebug("Removing dependency <{} depends on {}>", Msg, TheNode->Msg);
+    Dependencies_.erase(TheNode);
   }
 
   void addDependencies(CHIPGraphNode *const * Dependencies, int Count) {
@@ -76,10 +107,25 @@ public:
     }
   }
 
-  const std::set<const CHIPGraphNode*> &getDependencies() {
+  /**
+   * @brief get the nodes on which this node depends on.
+   * 
+   * @return const std::set<const CHIPGraphNode*>& 
+   */
+  const std::set<const CHIPGraphNode*> &getDependenciesSet() {
     return Dependencies_;
   }
 
+   std::vector<CHIPGraphNode*> getDependenciesVec() const {
+    std::vector<CHIPGraphNode *> Deps;
+    auto DepsIter = Dependencies_.begin();
+    while(DepsIter != Dependencies_.end()) {
+      CHIPGraphNode* DepNode = const_cast<CHIPGraphNode*>(*DepsIter);
+      Deps.push_back(DepNode);
+      DepsIter++;
+    }
+    return Deps;
+  }
 
 
   
@@ -174,6 +220,10 @@ class CHIPGraph {
   public:
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
   void addNode(CHIPGraphNode* TheNode);
+  void removeNode(const CHIPGraphNode *TheNode);
+  std::vector<CHIPGraphNode*> getLeafNodes();
+  std::vector<CHIPGraphNode*> getRootNodes();
+
   std::vector<CHIPGraphNode*> getNodes() {return Nodes_;} 
 
   /**
@@ -197,16 +247,39 @@ class CHIPGraph {
 
 class CHIPGraphExec {
   protected:
+  bool Pruned_ = false;
   CHIPGraph* Graph_;
   // each element in this queue represents represents a sequence of nodes that can be submitted to one or more queues
-  std::queue<std::set<const CHIPGraphNode*>> ExecQueues_;
+  std::queue<std::set<const CHIPGraphNode *>> ExecQueues_;
+  std::set<const CHIPGraphNode *> findRootNodesSet_() {
+    RootNodes_.clear();
+
+    std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
+    std::set<const CHIPGraphNode *> RootNodes;
+
+    auto NodeIter = Nodes.begin();
+    while (NodeIter != Nodes.end()) {
+      if ((*NodeIter)->getDependenciesSet().size() == 0) {
+        RootNodes.insert(*NodeIter);
+        RootNodes_.push_back(*NodeIter);
+        Nodes.erase(NodeIter);
+      } else {
+        NodeIter++;
+      }
+    }
+
+    Pruned_ = true;
+    return RootNodes;
+ }
+
+  std::vector<const CHIPGraphNode*> RootNodes_;
   public:
   CHIPGraphExec(CHIPGraph *Graph) : Graph_(Graph) {}
   void launch(CHIPQueue *Queue);
   void compile();
   /**
    * @brief remove unnecessary dependencies
-   * for each node in graph:
+   * for leaf node in graph:
    *   for each dependency in node:
    *     1. traverse from node to root, constructing a vector of nodes visited
    *   for each traversal vector:
@@ -214,7 +287,7 @@ class CHIPGraphExec {
    *     
    * 
    */
-  void pruneGraph() {}
+  void pruneGraph();
 
 };
 
