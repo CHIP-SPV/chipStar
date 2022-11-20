@@ -180,6 +180,7 @@ void CHIPGraphExec::compile() {
    * To fill the execution queue, we find all the nodes that depend only the nodes in the back of the exec queue. 
    */
   std::set<const CHIPGraphNode*> NextSet;
+  std::set<const CHIPGraphNode*> PrevLevelNodes = RootNodes;
   auto NodeIter = Nodes.begin();
   while(Nodes.size()) { // while more unnasigned nodes available
     const std::set<const CHIPGraphNode*> CurrentNodeDeps = (*NodeIter)->getDependenciesSet();
@@ -189,12 +190,11 @@ void CHIPGraphExec::compile() {
     }
     logDebug("CurrentNode {} Deps: {}", (*NodeIter)->Msg, CurrentNodeDepsStr);
     std::string PrevLevelNodesStr = "";
-    for(auto Node : ExecQueues_.back()) {
+    for(auto Node : PrevLevelNodes) {
       PrevLevelNodesStr += Node->Msg + " ";
     }
     logDebug("PrevLevelNodes: {}", PrevLevelNodesStr);
 
-    const std::set<const CHIPGraphNode*> PrevLevelNodes = ExecQueues_.back();
     if(std::includes(PrevLevelNodes.begin(), PrevLevelNodes.end(), CurrentNodeDeps.begin(), CurrentNodeDeps.end())) {
       NextSet.insert(*NodeIter);
       Nodes.erase(NodeIter);
@@ -204,6 +204,7 @@ void CHIPGraphExec::compile() {
     }
 
     if(NodeIter == Nodes.end()) {
+      PrevLevelNodes.insert(NextSet.begin(), NextSet.end());
       ExecQueues_.push(NextSet);
       NextSet.clear();
       NodeIter = Nodes.begin();

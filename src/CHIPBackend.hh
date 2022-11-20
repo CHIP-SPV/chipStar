@@ -93,11 +93,12 @@ public:
   }
   virtual void execute(CHIPQueue* Queue) const {};
   void addDependency(const CHIPGraphNode* TheNode) {
+    logDebug("{} addDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.insert(TheNode);
   }
 
   void removeDependency(const CHIPGraphNode* TheNode) {
-    logDebug("Removing dependency <{} depends on {}>", Msg, TheNode->Msg);
+    logDebug("{} removeDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.erase(TheNode);
   }
 

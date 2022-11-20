@@ -114,11 +114,11 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
                                    size_t numDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNode* FoundNode = graph->findNode(*from);
+  CHIPGraphNode* FoundNode = graph->findNode(*to);
   if(!FoundNode)
     RETURN(hipErrorInvalidValue);
 
-  FoundNode->addDependencies(to, numDependencies);
+  FoundNode->addDependencies(from, numDependencies);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
