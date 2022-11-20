@@ -156,7 +156,10 @@ hipError_t hipGraphGetRootNodes(hipGraph_t graph, hipGraphNode_t *pRootNodes,
                                 size_t *pNumRootNodes) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto Nodes = graph->getRootNodes();
+  pRootNodes = Nodes.data();
+  *pNumRootNodes = graph->getNodes().size();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
