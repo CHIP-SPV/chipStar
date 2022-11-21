@@ -268,6 +268,7 @@ hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   Node->addDependencies(pDependencies, numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
+  Node->Msg += "Kernel";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -307,6 +308,7 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   Node->addDependencies(pDependencies, numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
+  Node->Msg += "Memcpy";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -350,6 +352,7 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   *pGraphNode = Node;
   Node->addDependencies(pDependencies, numDependencies);
   graph->addNode(Node);
+  Node->Msg += "Memcpy1D";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -447,6 +450,7 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   Node->addDependencies(pDependencies, numDependencies);
   graph->addNode(Node);
   *pGraphNode = Node;
+  Node->Msg += "Memset";
   RETURN(hipSuccess);
   CHIP_CATCH
 }

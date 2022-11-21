@@ -134,15 +134,20 @@ public:
 
 class CHIPGraphNodeKernel : public CHIPGraphNode {
   private:
-  const hipKernelNodeParams *Params_;
+  hipKernelNodeParams Params_;
   public:
-  CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode(), Params_(TheParams) {
-
+  CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode() {
+  Params_.blockDim = TheParams->blockDim;
+  Params_.extra = TheParams->extra;
+  Params_.func = TheParams->func;
+  Params_.gridDim = TheParams->gridDim;
+  Params_.kernelParams = TheParams->kernelParams;
+  Params_.sharedMemBytes = TheParams->sharedMemBytes;
   }
 
   virtual void execute(CHIPQueue* Queue) const override {
-    __hipPushCallConfiguration(Params_->gridDim, Params_->blockDim, Params_->sharedMemBytes, Queue);
-    hipLaunchKernel(Params_->func, Params_->gridDim, Params_->blockDim, Params_->kernelParams, Params_->sharedMemBytes, Queue);
+    __hipPushCallConfiguration(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, Queue);
+    hipLaunchKernel(Params_.func, Params_.gridDim, Params_.blockDim, Params_.kernelParams, Params_.sharedMemBytes, Queue);
   }
 
 };
@@ -156,6 +161,8 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   void setParams(const hipMemcpy3DParms *Params) {
     Params_ = Params;
   }
+
+
 };
 
 class CHIPGraphNodeMemset : public CHIPGraphNode {

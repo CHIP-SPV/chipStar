@@ -52,10 +52,17 @@ void CHIPGraphExec::launch(CHIPQueue *Queue) {
   auto ExecQueueCopy = ExecQueues_;
   while(ExecQueueCopy.size()) {
     auto Nodes = ExecQueueCopy.front();
-    for(auto Node : Nodes) {
-      logWarn("Executing {}", Node->Msg);
-      Node->execute(Queue);
+    std::string NodesInThisLevel = "";
+    for (auto Node : Nodes) {
+      NodesInThisLevel += Node->Msg + " ";
     }
+    logDebug("Executing nodes: {}", NodesInThisLevel);
+    for(auto Node : Nodes) {
+      logDebug("Executing {}", Node->Msg);
+      Node->execute(Queue);
+      Queue->finish();
+    }
+    
     ExecQueueCopy.pop();
   }
 
