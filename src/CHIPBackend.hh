@@ -56,6 +56,12 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 
+// fw declares
+class CHIPExecItem;
+class CHIPQueue;
+class CHIPContext;
+class CHIPDevice;
+
 #define DEFAULT_QUEUE_PRIORITY 1
 
 class CHIPGraphNode {
@@ -135,21 +141,13 @@ public:
 class CHIPGraphNodeKernel : public CHIPGraphNode {
   private:
   hipKernelNodeParams Params_;
+  CHIPExecItem *ExecItem_;
   public:
-  CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode() {
-  Params_.blockDim = TheParams->blockDim;
-  Params_.extra = TheParams->extra;
-  Params_.func = TheParams->func;
-  Params_.gridDim = TheParams->gridDim;
-  Params_.kernelParams = TheParams->kernelParams;
-  Params_.sharedMemBytes = TheParams->sharedMemBytes;
-  }
+  CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) ;
 
-  virtual void execute(CHIPQueue* Queue) const override {
-    __hipPushCallConfiguration(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, Queue);
-    hipLaunchKernel(Params_.func, Params_.gridDim, Params_.blockDim, Params_.kernelParams, Params_.sharedMemBytes, Queue);
-  }
-
+  CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
+                           dim3 BlockDim, void **Args, size_t SharedMem) ;
+  virtual void execute(CHIPQueue* Queue) const override;
 };
 
 class CHIPGraphNodeMemcpy : public CHIPGraphNode {
@@ -772,11 +770,7 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-// fw declares
-class CHIPExecItem;
-class CHIPQueue;
-class CHIPContext;
-class CHIPDevice;
+
 
 class CHIPEvent {
 protected:
@@ -1260,6 +1254,7 @@ protected:
   void **ArgsPointer_ = nullptr;
 
 public:
+  void setQueue(CHIPQueue* Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
   void **getArgsPointer() { return ArgsPointer_; }
@@ -2167,7 +2162,12 @@ public:
  */
 class CHIPQueue {
 protected:
+  hipStreamCaptureStatus CaptureStatus_;
+  hipStreamCaptureMode CaptureMode_;
+  hipGraph_t CaptureGraph_;
   std::mutex LastEventMtx;
+  // TODO Graphs for now, every node depedns on previous.
+  CHIPGraphNode* LastNode_ = nullptr;
   int Priority_;
   /**
    * @brief Maximum priority that can be had by a queue is 0; Priority range is
@@ -2188,6 +2188,27 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
+  void updateLastNode(CHIPGraphNode* NewNode) {
+    if(LastNode_ != nullptr) {
+      NewNode->addDependency(LastNode_);
+    } 
+    LastNode_ = NewNode;
+  }
+
+  void initCaptureGraph() {
+    CaptureGraph_ = new CHIPGraph(this->ChipDevice_);
+  }
+  hipStreamCaptureStatus getCaptureStatus() const { return CaptureStatus_; }
+  void setCaptureStatus(hipStreamCaptureStatus CaptureMode) {
+    CaptureStatus_ = CaptureMode;
+  }
+  hipStreamCaptureMode getCaptureMode() const { return CaptureMode_; }
+  void setCaptureMode(hipStreamCaptureMode CaptureMode) {
+    CaptureMode_ = CaptureMode;
+  }
+  hipGraph_t getCaptureGraph() const { return CaptureGraph_; }
+
+
   CHIPDevice *PerThreadQueueForDevice = nullptr;
 
   // I want others to be able to lock this queue?

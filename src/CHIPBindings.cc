@@ -633,14 +633,19 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
                                  hipStreamCaptureMode mode) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  stream->initCaptureGraph();
+  stream->setCaptureMode(mode);
+  stream->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusActive);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
 hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  stream->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusNone);
+  *pGraph = stream->getCaptureGraph();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -2938,6 +2943,14 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
                            hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+
+  if(Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
+    auto Graph = Stream->getCaptureGraph();
+    auto Node = new CHIPGraphNodeKernel(HostFunction, GridDim, BlockDim, Args, SharedMem);
+    Stream->updateLastNode(Node);
+    Graph->addNode(Node);
+    RETURN(hipSuccess);
+  }
   logDebug("hipLaunchKernel()");
   NULLCHECK(HostFunction, Args);
   Stream = Backend->findQueue(Stream);

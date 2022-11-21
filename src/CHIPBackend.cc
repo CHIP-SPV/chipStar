@@ -27,6 +27,45 @@
 // CHIPGraph
 //*************************************************************************************
 
+void CHIPGraphNodeKernel::execute(CHIPQueue* Queue) const {
+    // __hipPushCallConfiguration(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, Queue);
+    // hipLaunchKernel(Params_.func, Params_.gridDim, Params_.blockDim, Params_.kernelParams, Params_.sharedMemBytes, Queue);
+    // ExecItem_->setQueue(Queue); // remove Queue from ExecItem constructor
+    Queue->launch(ExecItem_);
+  }
+
+CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode() {
+  Params_.blockDim = TheParams->blockDim;
+  Params_.extra = TheParams->extra;
+  Params_.func = TheParams->func;
+  Params_.gridDim = TheParams->gridDim;
+  Params_.kernelParams = TheParams->kernelParams;
+  Params_.sharedMemBytes = TheParams->sharedMemBytes;
+
+  auto Dev = Backend->getActiveDevice();
+  CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(Params_.func);
+  ExecItem_ = new CHIPExecItem(Params_.blockDim, Params_.gridDim, Params_.sharedMemBytes, nullptr);
+  ExecItem_->setArgPointer(Params_.kernelParams);
+  ExecItem_->setKernel(ChipKernel);
+  }
+
+CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
+                           dim3 BlockDim, void **Args, size_t SharedMem)  {
+  Params_.blockDim = BlockDim;
+  Params_.extra = nullptr;
+  Params_.func = const_cast<void*>(HostFunction); // TODO Graphs why can't I assign const void* to void*?
+  Params_.gridDim = GridDim;
+  Params_.kernelParams = Args;
+  Params_.sharedMemBytes = SharedMem;
+
+  // TODO Graphs use Graph object as factory and get the device this way
+  auto Dev = Backend->getActiveDevice();
+  CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(HostFunction);
+  ExecItem_ = new CHIPExecItem(BlockDim, GridDim, SharedMem, nullptr);
+  ExecItem_->setArgPointer(Args);
+  ExecItem_->setKernel(ChipKernel);
+  }
+
 int NodeCounter = 1;
 void CHIPGraph::addNode(CHIPGraphNode* Node) {
   logDebug("{} CHIPGraph::addNode({})", (void*)this, (void*)Node);
@@ -1956,7 +1995,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
   auto TotalThreadsPerBlock =
       ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
-  auto DeviceProps = ExecItem->getQueue()->getDevice()->getDeviceProps();
+  auto DeviceProps = getDevice()->getDeviceProps();
   auto MaxTotalThreadsPerBlock = DeviceProps.maxThreadsPerBlock;
 
   if (TotalThreadsPerBlock > MaxTotalThreadsPerBlock) {
