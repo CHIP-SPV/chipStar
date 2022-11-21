@@ -61,7 +61,8 @@ void matrixMultiplyCPUReference(const float *__restrict A,
 }
 
 int main() {
-  std::string envVar = std::getenv("CHIP_BE");
+  const char* val = hipGetBackendName();
+  std::string envVar(val);
   if (!envVar.compare("opencl")) {
     std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
     exit(0);

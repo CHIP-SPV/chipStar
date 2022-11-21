@@ -1584,6 +1584,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[2];
 
   CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Drv, Ctx);
+  ChipCtx->setZeContextOwnership(false);
   addContext(ChipCtx);
 
   CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
@@ -1632,7 +1633,9 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   // The application must not call this function from
   // simultaneous threads with the same context handle.
   // Done via destructor should not be called from multiple threads
-  zeContextDestroy(this->ZeCtx);
+  if (ownsZeContext) {
+    zeContextDestroy(this->ZeCtx);
+  }
 }
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
