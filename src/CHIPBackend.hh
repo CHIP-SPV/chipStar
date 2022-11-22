@@ -1239,6 +1239,7 @@ public:
  */
 class CHIPExecItem {
 protected:
+  bool ArgsSetup = false;
   size_t SharedMem_;
   // Structures for old HIP launch API.
   std::vector<uint8_t> ArgData_;
@@ -1251,13 +1252,15 @@ protected:
   CHIPQueue *ChipQueue_;
 
   // Structures for new HIP launch API.
-  void **ArgsPointer_ = nullptr;
+  void **ArgsPtr = nullptr;
+  std::vector<void*> Args_;
 
 public:
+  void copyArgs(void **Args);
   void setQueue(CHIPQueue* Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
-  void **getArgsPointer() { return ArgsPointer_; }
+  void **getArgsPointer() { return Args_.data(); }
   /**
    * @brief Deleted default constructor
    * Doesn't make sense for CHIPExecItem to exist without arguments
@@ -1333,7 +1336,7 @@ public:
    * @param args Pointer to a array of pointers, each pointing to an
    *             individual argument.
    */
-  void setArgPointer(void **Args) { ArgsPointer_ = Args; }
+  void setArgPointer(void **Args) { ArgsPtr = Args; }
 
   /**
    * @brief Sets up the kernel arguments via backend API calls.

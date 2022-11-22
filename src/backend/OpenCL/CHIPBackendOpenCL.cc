@@ -1111,7 +1111,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
   CHIPASSERT(NumLocals <= 1);
   int Err = 0;
 
-  if (ArgsPointer_) {
+  if (ArgsPtr) {
     logTrace("Setting up arguments NEW HIP API");
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
@@ -1120,15 +1120,15 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         if (Ai.Space == OCLSpace::Local)
           continue;
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
-                 Ai.Size, ArgsPointer_[InArgIdx]);
+                 Ai.Size, ArgsPtr[InArgIdx]);
         CHIPASSERT(Ai.Size == sizeof(void *));
-        const void *Argval = *(void **)ArgsPointer_[InArgIdx];
+        const void *Argval = *(void **)ArgsPtr[InArgIdx];
         Err =
             ::clSetKernelArgSVMPointer(Kernel->get()->get(), OutArgIdx, Argval);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else if (Ai.Type == OCLType::Image) {
-        auto *TexObj = *(CHIPTextureOpenCL **)ArgsPointer_[InArgIdx];
+        auto *TexObj = *(CHIPTextureOpenCL **)ArgsPtr[InArgIdx];
 
         // Set image argument.
         cl_mem Image = TexObj->getImage();
@@ -1150,9 +1150,9 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
             "clSetKernelArg failed for sampler argument.");
       } else {
         logTrace("clSetKernelArg {} SIZE {} to {}\n", OutArgIdx, Ai.Size,
-                 ArgsPointer_[InArgIdx]);
+                 ArgsPtr[InArgIdx]);
         Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, Ai.Size,
-                               ArgsPointer_[InArgIdx]);
+                               ArgsPtr[InArgIdx]);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
       }

@@ -2173,6 +2173,11 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
 
 void CHIPExecItem::setupAllArgs() {
   LOCK(this->ExecItemMtx); // required by zeKernelSetArgumentValue
+  if(!ArgsSetup) {
+    ArgsSetup = true;
+  } else {
+    return;
+  }
   CHIPKernelLevel0 *Kernel = (CHIPKernelLevel0 *)ChipKernel_;
 
   OCLFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
@@ -2188,7 +2193,8 @@ void CHIPExecItem::setupAllArgs() {
   assert(NumLocals <= 1);
 
   // Argument processing for the new HIP launch API.
-  if (ArgsPointer_) {
+  auto ArgsPtr = getArgsPointer();
+  if (ArgsPtr) {
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
       OCLArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[OutArgIdx];
@@ -2196,7 +2202,7 @@ void CHIPExecItem::setupAllArgs() {
       // Handle direct texture object passing. When we see an image
       // type we know it's derived from a texture object argument
       if (ArgTypeInfo.Type == OCLType::Image) {
-        auto *TexObj = *(CHIPTextureLevel0 **)ArgsPointer_[InArgIdx];
+        auto *TexObj = *(CHIPTextureLevel0 **)ArgsPtr[InArgIdx];
 
         // Set image argument.
         ze_image_handle_t ImageHandle = TexObj->getImage();
@@ -2223,9 +2229,9 @@ void CHIPExecItem::setupAllArgs() {
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
       } else {
         logTrace("setArg {} size {} addr {}\n", OutArgIdx, ArgTypeInfo.Size,
-                 ArgsPointer_[InArgIdx]);
+                 ArgsPtr[InArgIdx]);
         ze_result_t Status;
-        void **Ptr = (void **)ArgsPointer_[InArgIdx];
+        void **Ptr = (void **)ArgsPtr[InArgIdx];
         // NULL pointers as kernel argument require special handling
         if ((ArgTypeInfo.Type == OCLType::Pointer) &&
             (ArgTypeInfo.Space != OCLSpace::Local) && (*Ptr == nullptr)) {
@@ -2239,9 +2245,10 @@ void CHIPExecItem::setupAllArgs() {
           // The application must not call this function
           // from simultaneous threads with the same kernel handle.
           // Done via ExecItemMtx
+          auto ARG = ArgsPtr[InArgIdx];
           Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
                                             ArgTypeInfo.Size,
-                                            ArgsPointer_[InArgIdx]);
+                                            ARG);
         }
         CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
                                     "zeKernelSetArgumentValue failed");

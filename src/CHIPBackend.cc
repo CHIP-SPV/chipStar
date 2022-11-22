@@ -47,6 +47,8 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) 
   ExecItem_ = new CHIPExecItem(Params_.blockDim, Params_.gridDim, Params_.sharedMemBytes, nullptr);
   ExecItem_->setArgPointer(Params_.kernelParams);
   ExecItem_->setKernel(ChipKernel);
+
+  ExecItem_->copyArgs(TheParams->kernelParams);
   }
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
@@ -64,6 +66,9 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   ExecItem_ = new CHIPExecItem(BlockDim, GridDim, SharedMem, nullptr);
   ExecItem_->setArgPointer(Args);
   ExecItem_->setKernel(ChipKernel);
+
+  ExecItem_->copyArgs(Args);
+  ExecItem_->setupAllArgs();
   }
 
 int NodeCounter = 1;
@@ -638,6 +643,12 @@ void CHIPKernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 
 // CHIPExecItem
 //*************************************************************************************
+void CHIPExecItem::copyArgs(void **Args) { 
+  for (int i = 0; i < getNumArgs(); i++) {
+    Args_.push_back(Args[i]);
+  }
+}
+
 CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
@@ -2064,6 +2075,7 @@ void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
   CHIPExecItem ExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExecItem.setArgPointer(Args);
   ExecItem.setKernel(ChipKernel);
+  ExecItem.copyArgs(Args);
   launch(&ExecItem);
 }
 
