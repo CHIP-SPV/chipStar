@@ -23,6 +23,7 @@
 #include "CHIPBackend.hh"
 #include <unordered_set>
 #include <utility>
+#include <sstream>
 
 // CHIPGraph
 //*************************************************************************************
@@ -44,11 +45,12 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) 
 
   auto Dev = Backend->getActiveDevice();
   CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(Params_.func);
-  ExecItem_ = new CHIPExecItem(Params_.blockDim, Params_.gridDim, Params_.sharedMemBytes, nullptr);
+  ExecItem_ = new CHIPExecItem(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, nullptr);
   ExecItem_->setArgPointer(Params_.kernelParams);
   ExecItem_->setKernel(ChipKernel);
 
   ExecItem_->copyArgs(TheParams->kernelParams);
+  ExecItem_->setupAllArgs();
   }
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
@@ -63,7 +65,7 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   // TODO Graphs use Graph object as factory and get the device this way
   auto Dev = Backend->getActiveDevice();
   CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(HostFunction);
-  ExecItem_ = new CHIPExecItem(BlockDim, GridDim, SharedMem, nullptr);
+  ExecItem_ = new CHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setArgPointer(Args);
   ExecItem_->setKernel(ChipKernel);
 
@@ -2000,6 +2002,41 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
 }
 
 void CHIPQueue::launch(CHIPExecItem *ExecItem) {
+std::stringstream InfoStr;
+  InfoStr << "\nLaunching kernel " << ExecItem->getKernel()->getName() << "\n";
+  InfoStr << "GridDim: <" << ExecItem->getGrid().x << ", "
+          << ExecItem->getGrid().y << ", " << ExecItem->getGrid().z << ">";
+  InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", " << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";            
+  InfoStr << "NumArgs: " << ExecItem->getNumArgs() << "\n";
+  std::string ArgTypeStr;
+  for (int i = 0; i < ExecItem->getNumArgs(); i++) {
+    auto FuncInfo = ExecItem->getKernel()->getFuncInfo();
+    OCLType ArgType = FuncInfo->ArgTypeInfo[i].Type;
+    switch (ArgType) {
+      case OCLType::POD:
+        ArgTypeStr = "POD";
+        break;
+      case OCLType::Pointer:
+        ArgTypeStr = "Pointer";
+        break;
+      case OCLType::Image:
+        ArgTypeStr = "Image";
+        break;
+      case OCLType::Sampler:
+        ArgTypeStr = "Sampler";
+        break;
+      case OCLType::Opaque:
+        ArgTypeStr = "Opaque";
+        break;
+      default:
+        CHIPERR_LOG_AND_THROW("Unknown argument type", hipErrorTbd);
+    }
+      InfoStr << "Arg " << i << ": " << ArgTypeStr << " " << ExecItem->getArgsPointer()[i] << "\n";
+  }
+  logDebug("{}", InfoStr.str());
+
+
+
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
