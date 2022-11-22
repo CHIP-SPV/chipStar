@@ -28,6 +28,10 @@
 // CHIPGraph
 //*************************************************************************************
 
+void CHIPGraphNodeMemcpy::execute(CHIPQueue* Queue) const {
+  
+  hipMemcpy3DAsync(&Params_, Queue);
+}
 void CHIPGraphNodeKernel::execute(CHIPQueue* Queue) const {
     // __hipPushCallConfiguration(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, Queue);
     // hipLaunchKernel(Params_.func, Params_.gridDim, Params_.blockDim, Params_.kernelParams, Params_.sharedMemBytes, Queue);
@@ -2031,7 +2035,8 @@ std::stringstream InfoStr;
       default:
         CHIPERR_LOG_AND_THROW("Unknown argument type", hipErrorTbd);
     }
-      InfoStr << "Arg " << i << ": " << ArgTypeStr << " " << ExecItem->getArgsPointer()[i] << "\n";
+      if(ExecItem->getArgsPointer())
+        InfoStr << "Arg " << i << ": " << ArgTypeStr << " " << ExecItem->getArgsPointer()[i] << "\n";
   }
   logDebug("{}", InfoStr.str());
 

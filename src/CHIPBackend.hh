@@ -97,7 +97,9 @@ public:
       CurrPath.pop_back();
       return;
   }
-  virtual void execute(CHIPQueue* Queue) const {};
+  virtual void execute(CHIPQueue* Queue) const {
+  UNIMPLEMENTED(hipErrorTbd)
+  };
   void addDependency(const CHIPGraphNode* TheNode) {
     logDebug("{} addDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.insert(TheNode);
@@ -152,13 +154,29 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
 
 class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   private:
-  const hipMemcpy3DParms *Params_;
+  hipMemcpy3DParms Params_;
+  
   public:
-  CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params) : Params_(Params) {}
-  const hipMemcpy3DParms * getParams() {return Params_;}
-  void setParams(const hipMemcpy3DParms *Params) {
-    Params_ = Params;
+  CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params) {
+    setParams(Params);
   }
+  hipMemcpy3DParms getParams() {return Params_;}
+  void setParams(const hipMemcpy3DParms *Params) {
+    Params_.srcArray = Params->srcArray;
+    // if(Params->srcArray)
+      // memcpy(Params_.srcArray, Params->srcArray, sizeof(hipArray_t));
+    memcpy(&Params_.srcPos, &(Params->srcPos), sizeof(hipPos));
+    memcpy(&Params_.srcPtr, &(Params->srcPtr), sizeof(hipPitchedPtr));
+    Params_.dstArray = Params->dstArray;
+    // if(Params->dstArray)
+    //   memcpy(Params_.dstArray, Params->dstArray, sizeof(hipArray_t));
+    memcpy(&Params_.dstPos, &(Params->dstPos), sizeof(hipPos));
+    memcpy(&Params_.dstPtr, &(Params->dstPtr), sizeof(hipPitchedPtr));
+    memcpy(&Params_.extent, &(Params->extent), sizeof(hipExtent));
+    memcpy(&Params_.kind, &(Params->kind), sizeof(hipMemcpyKind));
+  }
+
+  virtual void execute(CHIPQueue* Queue) const override;
 
 
 };

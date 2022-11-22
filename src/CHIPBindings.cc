@@ -317,8 +317,8 @@ hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
                                        hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  const hipMemcpy3DParms *Params = static_cast<CHIPGraphNodeMemcpy*>(node)->getParams();
-  *pNodeParams = *Params;
+  hipMemcpy3DParms Params = static_cast<CHIPGraphNodeMemcpy*>(node)->getParams();
+  pNodeParams = &Params;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2706,7 +2706,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   const HIP_MEMCPY3D PDrvI = getDrvMemcpy3DDesc(*Params);
   const HIP_MEMCPY3D *PDrv = &PDrvI;
 
-  size_t ByteSize;
+  size_t ByteSize = 1;
   size_t Depth;
   size_t Height;
   size_t WidthInBytes;
@@ -2716,75 +2716,97 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   void *DstPtr;
   size_t YSize;
 
-  if (Params->dstArray != nullptr) {
-    if (Params->dstArray->isDrv == false) {
-      switch (Params->dstArray->desc.f) {
-      case hipChannelFormatKindSigned:
-        ByteSize = sizeof(int);
-        break;
-      case hipChannelFormatKindUnsigned:
-        ByteSize = sizeof(unsigned int);
-        break;
-      case hipChannelFormatKindFloat:
-        ByteSize = sizeof(float);
-        break;
-      case hipChannelFormatKindNone:
-        ByteSize = sizeof(size_t);
-        break;
-      }
-      Depth = Params->extent.depth;
-      Height = Params->extent.height;
-      WidthInBytes = Params->extent.width * ByteSize;
+  bool ArrayDst = Params->dstArray != nullptr ? true : false;
+  bool ArraySrc = Params->srcArray != nullptr ? true : false;
+  bool DrvSrc = false;
+  if(ArrayDst) 
+    DrvSrc = Params->dstArray->isDrv;
+
+  if(ArrayDst || ArraySrc) {
+    auto Desc = ArrayDst ? Params->dstArray->desc.f : Params->srcArray->desc.f;
+    switch (Desc) {
+    case hipChannelFormatKindSigned:
+      ByteSize = sizeof(int);
+      break;
+    case hipChannelFormatKindUnsigned:
+      ByteSize = sizeof(unsigned int);
+      break;
+    case hipChannelFormatKindFloat:
+      ByteSize = sizeof(float);
+      break;
+    case hipChannelFormatKindNone:
+      ByteSize = sizeof(size_t);
+      break;
+    }
+  } 
+
+
+
+  if (ArrayDst && DrvSrc) {
+
+
+    Depth = PDrv->Depth;
+    Height = PDrv->Height;
+    WidthInBytes = PDrv->WidthInBytes;
+    DstPitch = PDrv->dstArray->width * 4;
+    SrcPitch = PDrv->srcPitch;
+    SrcPtr = (void *)PDrv->srcHost;
+    YSize = PDrv->srcHeight;
+    DstPtr = PDrv->dstArray->data;
+  } else { // non Drc params
+    Depth = Params->extent.depth;
+    Height = Params->extent.height;
+    WidthInBytes = Params->extent.width * ByteSize;
+
+
+
+    if (ArraySrc) {
+      SrcPitch = PDrv->srcArray->width * ByteSize; // ???
+      SrcPtr = Params->srcArray->data;
+    } else {
       SrcPitch = Params->srcPtr.pitch;
       SrcPtr = Params->srcPtr.ptr;
+    }
+
+    if (ArraySrc) {
+      YSize = Params->srcArray->height;
+    } else {
       YSize = Params->srcPtr.ysize;
+    }
+
+    if (ArrayDst) {
       DstPitch = Params->dstArray->width * ByteSize;
       DstPtr = Params->dstArray->data;
     } else {
-      Depth = PDrv->Depth;
-      Height = PDrv->Height;
-      WidthInBytes = PDrv->WidthInBytes;
-      DstPitch = PDrv->dstArray->width * 4;
-      SrcPitch = PDrv->srcPitch;
-      SrcPtr = (void *)PDrv->srcHost;
-      YSize = PDrv->srcHeight;
-      DstPtr = PDrv->dstArray->data;
+      DstPitch = Params->dstPtr.pitch;
+      DstPtr = Params->dstPtr.ptr;
     }
-  } else {
-    // Non Array destination
-    Depth = Params->extent.depth;
-    Height = Params->extent.height;
-    WidthInBytes = Params->extent.width;
-    SrcPitch = Params->srcPtr.pitch;
-    SrcPtr = Params->srcPtr.ptr;
-    DstPtr = Params->dstPtr.ptr;
-    YSize = Params->srcPtr.ysize;
-    DstPitch = Params->dstPtr.pitch;
   }
-  LOCK(Stream->QueueMtx); // prevent interruptions
-  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-    return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
-                     WidthInBytes * Height * Depth, Params->kind);
-  } else {
-    for (size_t i = 0; i < Depth; i++) {
-      for (size_t j = 0; j < Height; j++) {
-        unsigned char *Src =
-            (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
-        unsigned char *Dst =
-            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        if (hipMemcpyAsync(Dst, Src, WidthInBytes, Params->kind, Stream) !=
-            hipSuccess)
-          RETURN(hipErrorLaunchFailure);
+    LOCK(Stream->QueueMtx); // prevent interruptions
+    if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
+      return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
+                       WidthInBytes * Height * Depth, Params->kind);
+    } else 
+    {
+      for (size_t i = 0; i < Depth; i++) {
+        for (size_t j = 0; j < Height; j++) {
+          unsigned char *Src =
+              (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
+          unsigned char *Dst =
+              (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
+          if (hipMemcpyAsync(Dst, Src, WidthInBytes, Params->kind, Stream) !=
+              hipSuccess)
+            RETURN(hipErrorLaunchFailure);
+        }
       }
+
+      Stream->finish();
+      RETURN(hipSuccess);
     }
-
-    Stream->finish();
     RETURN(hipSuccess);
-  }
-  RETURN(hipSuccess);
 
-  CHIP_CATCH
-}
+    CHIP_CATCH
+  }
 
 hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
                                 const void *HostFunction) {
