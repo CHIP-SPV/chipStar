@@ -129,7 +129,12 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
                                       size_t numDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNode* FoundNode = graph->findNode(*to);
+  if(!FoundNode)
+    RETURN(hipErrorInvalidValue);
+
+  FoundNode->removeDependencies(from, numDependencies);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

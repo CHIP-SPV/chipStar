@@ -116,6 +116,12 @@ public:
     }
   }
 
+  void removeDependencies(CHIPGraphNode *const * Dependencies, int Count) {
+    for(int i = 0; i < Count; i++) {
+      removeDependency(Dependencies[i]);
+    }
+  }
+
   /**
    * @brief get the nodes on which this node depends on.
    * 
