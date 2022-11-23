@@ -66,11 +66,13 @@ class CHIPDevice;
 
 class CHIPGraphNode {
 protected:
+  hipGraphNodeType Type_;
   // nodes which depend on this node
   std::set<const CHIPGraphNode*> Dependendants_;
   // nodes on which this node depends
   std::set<const CHIPGraphNode*> Dependencies_;
 public:
+  hipGraphNodeType getType() { return Type_; }
   std::string Msg;
   CHIPGraphNode() {};
   /**
@@ -193,6 +195,7 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   
   public:
   CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params) {
+    Type_ = hipGraphNodeTypeMemcpy;
     setParams(Params);
   }
   hipMemcpy3DParms getParams() {return Params_;}
@@ -220,7 +223,9 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
   private:
   hipMemsetParams Params_;
   public:
-  CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(*Params) {}
+  CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(*Params) {
+    Type_ = hipGraphNodeTypeMemset;
+  }
   hipMemsetParams getParams() {return Params_;}
   void setParams(const hipMemsetParams *Params) {
     Params_ = *Params;
@@ -240,7 +245,9 @@ class CHIPGraphNodeGraph : public CHIPGraphNode {
 
 class CHIPGraphNodeEmpty : public CHIPGraphNode {
 public:
-  CHIPGraphNodeEmpty() {};
+  CHIPGraphNodeEmpty() {
+    Type_ = hipGraphNodeTypeEmpty;
+  };
 
   virtual void execute(CHIPQueue* Queue) const override {
     logDebug("Executing empty node");
@@ -263,7 +270,9 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
   hipMemcpyKind Kind_;
   public:
   CHIPGraphNodeMemcpy1D(void* Dst, const void* Src, size_t Count, hipMemcpyKind Kind) : 
-  Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {}
+  Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {
+    Type_ = hipGraphNodeTypeMemcpy1D;
+  }
 
   virtual void execute(CHIPQueue* Queue) const override {
     hipMemcpy(Dst_, Src_, Count_, Kind_);

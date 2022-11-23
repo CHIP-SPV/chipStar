@@ -48,6 +48,7 @@ void CHIPGraphNodeKernel::execute(CHIPQueue* Queue) const {
   }
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) : CHIPGraphNode() {
+  Type_ = hipGraphNodeTypeKernel;
   Params_.blockDim = TheParams->blockDim;
   Params_.extra = TheParams->extra;
   Params_.func = TheParams->func;
@@ -67,6 +68,7 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) 
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
                            dim3 BlockDim, void **Args, size_t SharedMem)  {
+  Type_ = hipGraphNodeTypeKernel;
   Params_.blockDim = BlockDim;
   Params_.extra = nullptr;
   Params_.func = const_cast<void*>(HostFunction); // TODO Graphs why can't I assign const void* to void*?

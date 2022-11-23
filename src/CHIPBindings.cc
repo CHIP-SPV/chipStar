@@ -216,7 +216,7 @@ hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
 hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  *pType = node->getType();
   CHIP_CATCH
 }
 
