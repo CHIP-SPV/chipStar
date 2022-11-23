@@ -66,7 +66,9 @@ class CHIPDevice;
 
 class CHIPGraphNode {
 protected:
-  CHIPGraphNode* Parent_;
+  // nodes which depend on this node
+  std::set<const CHIPGraphNode*> Dependendants_;
+  // nodes on which this node depends
   std::set<const CHIPGraphNode*> Dependencies_;
 public:
   std::string Msg;
@@ -100,9 +102,16 @@ public:
   virtual void execute(CHIPQueue* Queue) const {
   UNIMPLEMENTED(hipErrorTbd)
   };
+
+  void addDependant(const CHIPGraphNode* TheNode) {
+    logDebug("{} addDependant() <{} depends on {}>", (void*)this, TheNode->Msg, Msg);
+    Dependendants_.insert(TheNode); 
+  }
+
   void addDependency(const CHIPGraphNode* TheNode) {
     logDebug("{} addDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.insert(TheNode);
+    const_cast<CHIPGraphNode*>(TheNode)->addDependant(this);
   }
 
   void removeDependency(const CHIPGraphNode* TheNode) {
@@ -135,6 +144,26 @@ public:
     std::vector<CHIPGraphNode *> Deps;
     auto DepsIter = Dependencies_.begin();
     while(DepsIter != Dependencies_.end()) {
+      CHIPGraphNode* DepNode = const_cast<CHIPGraphNode*>(*DepsIter);
+      Deps.push_back(DepNode);
+      DepsIter++;
+    }
+    return Deps;
+  }
+
+    /**
+   * @brief get the nodes on which this node depends on.
+   * 
+   * @return const std::set<const CHIPGraphNode*>& 
+   */
+  const std::set<const CHIPGraphNode*> &getDependantsSet() {
+    return Dependendants_;
+  }
+
+   std::vector<CHIPGraphNode*> getDependantsVec() const {
+    std::vector<CHIPGraphNode *> Deps;
+    auto DepsIter = Dependendants_.begin();
+    while(DepsIter != Dependendants_.end()) {
       CHIPGraphNode* DepNode = const_cast<CHIPGraphNode*>(*DepsIter);
       Deps.push_back(DepNode);
       DepsIter++;
