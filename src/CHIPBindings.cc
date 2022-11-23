@@ -223,7 +223,7 @@ hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
 hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  delete node;
   CHIP_CATCH
 }
 
