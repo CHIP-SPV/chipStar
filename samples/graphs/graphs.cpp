@@ -61,6 +61,7 @@ void case1() {
   kernelParams.blockDim = dim3(1, 1, 1);
   kernelParams.gridDim = dim3(1, 1, 1);
   kernelParams.func = (void *)&doNoting;
+  kernelParams.sharedMemBytes = 0;
   err = hipGraphAddKernelNode(&K1, Graph, (hipGraphNode_t[]){M1, M2}, 2,
                               &kernelParams);
   ERR_CHECK(err);

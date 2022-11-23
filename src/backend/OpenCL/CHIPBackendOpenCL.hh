@@ -254,13 +254,19 @@ private:
   cl::Kernel *ClKernel_;
 
 public:
+    CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
+                ChipQueue) {}
   OCLFuncInfo FuncInfo;
-  int setupAllArgs(CHIPKernelOpenCL *Kernel);
+  virtual void setupAllArgs() override;
   cl::Kernel *get();
 };
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
+    virtual CHIPExecItem* createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue) override;
+
   virtual void uninitialize() override { waitForThreadExit(); }
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,

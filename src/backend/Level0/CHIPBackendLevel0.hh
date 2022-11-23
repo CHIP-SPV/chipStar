@@ -43,6 +43,15 @@ class CHIPEventLevel0;
 class CHIPQueueLevel0;
 class LZCommandList;
 class LZEventPool;
+class CHIPExecItemLevel0;
+
+class CHIPExecItemLevel0 : public CHIPExecItem {
+  public:
+  CHIPExecItemLevel0(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
+                ChipQueue) {}
+  virtual void setupAllArgs() override;
+};
 
 class CHIPEventLevel0 : public CHIPEvent {
 private:
@@ -480,6 +489,9 @@ public:
 class CHIPBackendLevel0 : public CHIPBackend {
 
 public:
+    virtual CHIPExecItem* createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue) override;
+
   CHIPCallbackEventMonitorLevel0 *CallbackEventMonitor = nullptr;
   CHIPStaleEventMonitorLevel0 *StaleEventMonitor = nullptr;
 

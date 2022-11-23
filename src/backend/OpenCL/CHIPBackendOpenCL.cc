@@ -867,7 +867,7 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   assert(Kernel != nullptr);
   logTrace("Launching Kernel {}", Kernel->getName());
 
-  ChipOclExecItem->setupAllArgs(Kernel);
+  ChipOclExecItem->setupAllArgs();
 
   dim3 GridDim = ChipOclExecItem->getGrid();
   dim3 BlockDim = ChipOclExecItem->getBlock();
@@ -1100,12 +1100,13 @@ static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
 
 cl::Kernel *CHIPExecItemOpenCL::get() { return ClKernel_; }
 
-int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
+void CHIPExecItemOpenCL::setupAllArgs() {
   if(!ArgsSetup) {
     ArgsSetup = true;
   } else {
-    return 0;
+    return;
   }
+  CHIPKernelOpenCL* Kernel = (CHIPKernelOpenCL*)getKernel();
   OCLFuncInfo *FuncInfo = Kernel->getFuncInfo();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
@@ -1170,7 +1171,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
     }
 
     if (OffsetSizes_.size() == 0)
-      return CL_SUCCESS;
+      return ;
 
     std::sort(OffsetSizes_.begin(), OffsetSizes_.end());
     if ((std::get<0>(OffsetSizes_[0]) != 0) ||
@@ -1224,12 +1225,17 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
     }
   }
 
-  return setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
+  setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
+  return;
 }
 
 // CHIPBackendOpenCL
 //*************************************************************************
-
+  CHIPExecItem* CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue)  {
+                    CHIPExecItemOpenCL* ExecItem = new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
+                return ExecItem;            
+               };
 CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);

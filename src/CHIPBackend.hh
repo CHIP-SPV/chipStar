@@ -87,11 +87,11 @@ public:
       
       if (Dependencies_.size() == 0) {
           Paths.push_back(CurrPath);
-          std::string PathStr = "";
-          for(auto & Node : CurrPath) {
-              PathStr += Node->Msg + ", ";
-          }
-          logDebug("PATH: {}", PathStr);
+          // std::string PathStr = "";
+          // for(auto & Node : CurrPath) {
+          //     PathStr += Node->Msg + ", ";
+          // }
+          // logDebug("PATH: {}", PathStr);
       }
       
       CurrPath.pop_back();
@@ -1369,7 +1369,7 @@ public:
    * Or after hipLaunchKernel (new HIP kernel launch API)
    *
    */
-  void setupAllArgs();
+  virtual void setupAllArgs() = 0;
 
   void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
 };
@@ -1905,6 +1905,9 @@ public:
   std::mutex DubiousLockOpenCL;
   std::mutex DubiousLockLevel0;
 #endif
+
+  virtual CHIPExecItem* createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue) = 0;
 
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;

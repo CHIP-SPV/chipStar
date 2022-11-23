@@ -30,8 +30,10 @@
 
 void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
   const unsigned int Val = Params_.value;
-
-  Queue->memFillAsync(Params_.dst, Params_.height * Params_.pitch, (void*)&Val, Params_.elementSize);
+  size_t Height = std::max<size_t>(1, Params_.height);
+  size_t Width = std::max<size_t>(1, Params_.width); 
+  size_t Size = Height * Width; //  TODO Graphs Pitch?
+  Queue->memFillAsync(Params_.dst, Size, (void*)&Val, Params_.elementSize);
 }
 
 void CHIPGraphNodeMemcpy::execute(CHIPQueue* Queue) const {
@@ -55,7 +57,7 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) 
 
   auto Dev = Backend->getActiveDevice();
   CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(Params_.func);
-  ExecItem_ = new CHIPExecItem(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, nullptr);
+  ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, nullptr);
   ExecItem_->setArgPointer(Params_.kernelParams);
   ExecItem_->setKernel(ChipKernel);
 
@@ -75,7 +77,7 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   // TODO Graphs use Graph object as factory and get the device this way
   auto Dev = Backend->getActiveDevice();
   CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(HostFunction);
-  ExecItem_ = new CHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
+  ExecItem_ = Backend->createCHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setArgPointer(Args);
   ExecItem_->setKernel(ChipKernel);
 
@@ -195,16 +197,16 @@ void CHIPGraphExec::pruneGraph() {
 
       // convert the other path to a set
       std::set<const CHIPGraphNode*> SubPathSet(SubPath.begin(), SubPath.end());
-      std::string PathStr = "";
-      for(auto Node : Path) {
-        PathStr += Node->Msg + " ";
-      }
-      std::string SubPathStr = "";
-      for(auto Node : SubPath) {
-        SubPathStr += Node->Msg + " ";
-      }
-      logDebug("Path: {}", PathStr);
-      logDebug("OtherPath: {}", SubPathStr);
+      // std::string PathStr = "";
+      // for(auto Node : Path) {
+      //   PathStr += Node->Msg + " ";
+      // }
+      // std::string SubPathStr = "";
+      // for(auto Node : SubPath) {
+      //   SubPathStr += Node->Msg + " ";
+      // }
+      // logDebug("Path: {}", PathStr);
+      // logDebug("OtherPath: {}", SubPathStr);
       if(std::includes(PathSet.begin(), PathSet.end(), SubPathSet.begin(), SubPathSet.end())) {
         unchainUnnecessaryDeps(Path, SubPath);
       }
@@ -251,12 +253,12 @@ void CHIPGraphExec::compile() {
     for(auto Node : CurrentNodeDeps) {
       CurrentNodeDepsStr += Node->Msg + " ";
     }
-    logDebug("CurrentNode {} Deps: {}", (*NodeIter)->Msg, CurrentNodeDepsStr);
-    std::string PrevLevelNodesStr = "";
-    for(auto Node : PrevLevelNodes) {
-      PrevLevelNodesStr += Node->Msg + " ";
-    }
-    logDebug("PrevLevelNodes: {}", PrevLevelNodesStr);
+    // logDebug("CurrentNode {} Deps: {}", (*NodeIter)->Msg, CurrentNodeDepsStr);
+    // std::string PrevLevelNodesStr = "";
+    // for(auto Node : PrevLevelNodes) {
+    //   PrevLevelNodesStr += Node->Msg + " ";
+    // }
+    // logDebug("PrevLevelNodes: {}", PrevLevelNodesStr);
 
     if(std::includes(PrevLevelNodes.begin(), PrevLevelNodes.end(), CurrentNodeDeps.begin(), CurrentNodeDeps.end())) {
       NextSet.insert(*NodeIter);
@@ -287,17 +289,18 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
   assert(K);
   // FIXME: Should construct backend specific exec item or make the exec
   //        item a backend agnostic class.
-  CHIPExecItem EI(GridDim, BlockDim, SharedMemSize, Q);
-  EI.setArgPointer(Args);
-  EI.setKernel(K);
+  CHIPExecItem* EI = Backend->createCHIPExecItem(GridDim, BlockDim, SharedMemSize, Q);
+  EI->setArgPointer(Args);
+  EI->setKernel(K);
 
-  auto ChipQueue = EI.getQueue();
+  auto ChipQueue = EI->getQueue();
   if (!ChipQueue)
     CHIPERR_LOG_AND_THROW(
         "Tried to launch kernel for an ExecItem which has a null queue",
         hipErrorTbd);
 
-  ChipQueue->launch(&EI);
+  ChipQueue->launch(EI);
+  delete EI;
 }
 
 /// Queue a shadow kernel for binding a device variable (a pointer) to
@@ -1641,7 +1644,7 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
-  CHIPExecItem *ExecItem = new CHIPExecItem(Grid, Block, SharedMem, ChipQueue);
+  CHIPExecItem *ExecItem = Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
   ChipExecStack.push(ExecItem);
 
   return hipSuccess;
@@ -2120,11 +2123,12 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
 void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
                              dim3 DimBlocks, void **Args,
                              size_t SharedMemBytes) {
-  CHIPExecItem ExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
-  ExecItem.setArgPointer(Args);
-  ExecItem.setKernel(ChipKernel);
-  ExecItem.copyArgs(Args);
-  launch(&ExecItem);
+  CHIPExecItem* ExecItem = Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
+  ExecItem->setArgPointer(Args);
+  ExecItem->setKernel(ChipKernel);
+  ExecItem->copyArgs(Args);
+  launch(ExecItem);
+  delete ExecItem;
 }
 
 ///////// End Enqueue Operations //////////

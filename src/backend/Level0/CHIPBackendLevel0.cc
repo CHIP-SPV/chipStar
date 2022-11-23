@@ -1429,6 +1429,11 @@ void LZEventPool::returnSlot(int Slot) {
 
 // CHIPBackendLevel0
 // ***********************************************************************
+  CHIPExecItem* CHIPBackendLevel0::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+               hipStream_t ChipQueue) {
+                CHIPExecItemLevel0* ExecItem = new CHIPExecItemLevel0(GirdDim, BlockDim, SharedMem, ChipQueue);
+                return ExecItem;
+               };
 
 CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
@@ -2171,7 +2176,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
   }
 }
 
-void CHIPExecItem::setupAllArgs() {
+void CHIPExecItemLevel0::setupAllArgs() {
   LOCK(this->ExecItemMtx); // required by zeKernelSetArgumentValue
   if(!ArgsSetup) {
     ArgsSetup = true;
