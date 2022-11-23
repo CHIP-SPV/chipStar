@@ -2150,7 +2150,13 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
 
   Stream = Backend->findQueue(Stream);
-
+  if(Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
+    auto Graph = Stream->getCaptureGraph();
+    auto Node = new CHIPGraphNodeMemcpy1D(Dst, Src, SizeBytes, Kind);
+    Stream->updateLastNode(Node);
+    Graph->addNode(Node);
+    RETURN(hipSuccess);
+  }
   // Stream->getDevice()->initializeDeviceVariables();
   // auto TargetDevAllocTracker = Stream->getDevice()->AllocationTracker;
   // auto ActiveDevAllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -2981,7 +2987,9 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
                            hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+  NULLCHECK(HostFunction, Args);
 
+  Stream = Backend->findQueue(Stream);
   if(Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
     auto Graph = Stream->getCaptureGraph();
     auto Node = new CHIPGraphNodeKernel(HostFunction, GridDim, BlockDim, Args, SharedMem);
@@ -2990,8 +2998,6 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
     RETURN(hipSuccess);
   }
   logDebug("hipLaunchKernel()");
-  NULLCHECK(HostFunction, Args);
-  Stream = Backend->findQueue(Stream);
   auto *Device = Backend->getActiveDevice();
   Device->initializeDeviceVariables();
 
