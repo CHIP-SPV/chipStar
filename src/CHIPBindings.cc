@@ -459,8 +459,8 @@ hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
                                        hipMemsetParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  const hipMemsetParams *Params = static_cast<CHIPGraphNodeMemset*>(node)->getParams();
-  *pNodeParams = *Params;
+  hipMemsetParams Params = static_cast<CHIPGraphNodeMemset*>(node)->getParams();
+  *pNodeParams = Params;
   RETURN(hipSuccess);
   CHIP_CATCH
 }

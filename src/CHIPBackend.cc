@@ -28,6 +28,12 @@
 // CHIPGraph
 //*************************************************************************************
 
+void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
+  const unsigned int Val = Params_.value;
+
+  Queue->memFillAsync(Params_.dst, Params_.height * Params_.pitch, (void*)&Val, Params_.elementSize);
+}
+
 void CHIPGraphNodeMemcpy::execute(CHIPQueue* Queue) const {
   
   hipMemcpy3DAsync(&Params_, Queue);

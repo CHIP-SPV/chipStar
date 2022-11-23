@@ -1101,6 +1101,11 @@ static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
 cl::Kernel *CHIPExecItemOpenCL::get() { return ClKernel_; }
 
 int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
+  if(!ArgsSetup) {
+    ArgsSetup = true;
+  } else {
+    return 0;
+  }
   OCLFuncInfo *FuncInfo = Kernel->getFuncInfo();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {

@@ -183,13 +183,15 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
 
 class CHIPGraphNodeMemset : public CHIPGraphNode {
   private:
-  const hipMemsetParams *Params_;
+  hipMemsetParams Params_;
   public:
-  CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(Params) {}
-  const hipMemsetParams * getParams() {return Params_;}
+  CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(*Params) {}
+  hipMemsetParams getParams() {return Params_;}
   void setParams(const hipMemsetParams *Params) {
-    Params_ = Params;
+    Params_ = *Params;
   } 
+
+  virtual void execute(CHIPQueue* Queue) const override;
 
 };
 
@@ -204,6 +206,10 @@ class CHIPGraphNodeGraph : public CHIPGraphNode {
 class CHIPGraphNodeEmpty : public CHIPGraphNode {
 public:
   CHIPGraphNodeEmpty() {};
+
+  virtual void execute(CHIPQueue* Queue) const override {
+    logDebug("Executing empty node");
+  }
 };
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
