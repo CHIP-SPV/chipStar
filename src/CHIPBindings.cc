@@ -142,7 +142,20 @@ hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
                             hipGraphNode_t *to, size_t *numEdges) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto Edges = graph->getEdges();
+  if(!to && !from) {
+    *numEdges = Edges.size();
+    RETURN(hipSuccess);
+  }
+
+  for (int i  = 0; i < Edges.size(); i++) {
+    auto Edge = Edges[i];
+    auto FromNode = Edge.first;
+    auto ToNode = Edge.second;
+    from[i] = FromNode;
+    to[i] = ToNode;
+  }
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

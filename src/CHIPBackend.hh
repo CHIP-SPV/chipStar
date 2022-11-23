@@ -262,6 +262,18 @@ class CHIPGraph {
 
   std::vector<CHIPGraphNode*> getNodes() {return Nodes_;} 
 
+  std::vector<std::pair<CHIPGraphNode*, CHIPGraphNode*>> getEdges() {
+    std::set<std::pair<CHIPGraphNode*, CHIPGraphNode*>> Edges;
+    for(auto Node : Nodes_) {
+      for(auto Dep : Node->getDependenciesVec()) {
+        auto FromToPair = std::pair<CHIPGraphNode*, CHIPGraphNode*>(Node, Dep);
+        Edges.insert(FromToPair);
+      }
+    }
+
+    return std::vector<std::pair<CHIPGraphNode*, CHIPGraphNode*>>(Edges.begin(), Edges.end());
+  };
+
   /**
    * @brief Verify/Find node in a graph.
    * HIP API gives const handles to nodes. We can use this function to 
