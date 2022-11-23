@@ -89,7 +89,7 @@ inline void checkIfNullptr(std::string_view File, int Line,
   va_start(VaArgList, NumArgs);
   while (NumArgs--) {
     if (va_arg(VaArgList, const void *) == nullptr) {
-      auto Error = CHIPError("passed in nullptr", hipErrorInvalidHandle);
+      auto Error = CHIPError("passed in nullptr", hipErrorInvalidValue);
       logError("{} ({}) in {}:{}:{}\n", Error.getErrStr(), Error.getMsgStr(),
                File, Line, Function);
       throw Error;

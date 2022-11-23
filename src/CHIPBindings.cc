@@ -304,6 +304,22 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipMemcpy3DParms *pCopyParams) {
   CHIP_TRY
   CHIPInitialize();
+  NULLCHECK(graph, pGraphNode, pCopyParams);
+  if (pDependencies == nullptr & numDependencies > 0)
+    CHIPERR_LOG_AND_THROW("numDependencies is not 0 while pDependencies is null", hipErrorInvalidValue);
+
+  if(!pCopyParams->srcArray && !pCopyParams->srcPtr.ptr)
+    CHIPERR_LOG_AND_THROW( "all src are null", hipErrorInvalidValue);
+
+  if(!pCopyParams->dstArray && !pCopyParams->dstPtr.ptr)
+    CHIPERR_LOG_AND_THROW( "all dst are null", hipErrorInvalidValue);
+  
+  if((pCopyParams->dstArray && pCopyParams->srcArray) && (
+    (pCopyParams->dstArray->depth != pCopyParams->srcArray->depth)  ||
+    (pCopyParams->dstArray->height != pCopyParams->srcArray->height) ||
+    (pCopyParams->dstArray->width != pCopyParams->srcArray->width) 
+  ))
+    CHIPERR_LOG_AND_THROW("Passing different element size for hipMemcpy3DParms::srcArray and hipMemcpy3DParms::dstArray", hipErrorInvalidValue);
   CHIPGraphNodeMemcpy *Node = new CHIPGraphNodeMemcpy(pCopyParams);
   Node->addDependencies(pDependencies, numDependencies);
   *pGraphNode = Node;
