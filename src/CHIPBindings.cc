@@ -335,7 +335,14 @@ hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
                                 const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  // Graph obtained from hipGraphExec_t is a clone of the original
+  CHIPGraph* Graph = hGraphExec->getGraph();
+  // KernelNode here is a handle to the original 
+  CHIPGraphNodeKernel* KernelNode = ((CHIPGraphNodeKernel*)node);
+  CHIPGraphNodeKernel*  ExecKernelNode = ((CHIPGraphNodeKernel*)Graph->getClonedNodeFromOriginal(KernelNode));
+  
+  ExecKernelNode->setParams(*pNodeParams);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

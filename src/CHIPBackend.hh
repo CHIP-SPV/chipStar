@@ -496,7 +496,11 @@ class CHIPGraphExec {
 
   std::vector<const CHIPGraphNode*> RootNodes_;
   public:
-  CHIPGraphExec(CHIPGraph *Graph) : Graph_(Graph) {}
+  CHIPGraph* getGraph() const {return Graph_;}
+  CHIPGraphExec(CHIPGraph *Graph) {
+    Graph_ = new CHIPGraph(*Graph); // use copy constructor
+  }
+  // TODO Graphs - destructor
   void launch(CHIPQueue *Queue);
   void compile();
   /**
