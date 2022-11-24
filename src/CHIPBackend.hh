@@ -75,7 +75,7 @@ public:
   hipGraphNodeType getType() { return Type_; }
   std::string Msg;
   CHIPGraphNode() {}; // TODO Graphs Delete this?
-  virtual bool operator==(const CHIPGraphNode &Other) = 0;
+  virtual bool operator==(const CHIPGraphNode &Other) const = 0;
 
   /**
    * @brief Deleted Copy Constructor
@@ -127,6 +127,8 @@ public:
   void removeDependency(const CHIPGraphNode* TheNode) {
     logDebug("{} removeDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.erase(TheNode);
+    // TOCO Graphs remove dependant
+    //const_cast<CHIPGraphNode*>(TheNode)->addDependant(this);
   }
 
   void addDependencies(CHIPGraphNode *const * Dependencies, int Count) {
@@ -197,8 +199,27 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
                            dim3 BlockDim, void **Args, size_t SharedMem) ;
   virtual void execute(CHIPQueue* Queue) const override;
+
+  /**
+   * @brief Createa a copy of this node
+   * Must copy over all the arguments
+   * Must copy over all the dependencies. 
+   * Copying over the dependencies is important because CHIPGraph::clone() uses them to remap onto new nodes
+   * 
+   * @return CHIPGraphNode* 
+   */
   virtual CHIPGraphNode* clone() const override;
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+
+  /**
+   * @brief Comparison operator.
+   * Must check that data/arguments are the same between two nodes. 
+   * Must NOT check if the dependencies are the same.
+   * 
+   * @param Other 
+   * @return true 
+   * @return false 
+   */
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -232,7 +253,7 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 
@@ -254,33 +275,39 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
 
 class CHIPGraphNodeHost : public CHIPGraphNode {
 public:
+CHIPGraphNodeHost() {
+  // TODO Graphs
+}
 virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
 
 class CHIPGraphNodeGraph : public CHIPGraphNode {
 public:
+CHIPGraphNodeGraph() {
+  // TODO Graphs
+}
 virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -298,7 +325,7 @@ public:
     virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -311,7 +338,7 @@ virtual void execute(CHIPQueue* Queue) const override {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -324,7 +351,7 @@ virtual void execute(CHIPQueue* Queue) const override {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-  virtual bool operator==(const CHIPGraphNode &Other) override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -347,7 +374,7 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
     virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-    virtual bool operator==(const CHIPGraphNode &Other) override {
+    virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -361,7 +388,7 @@ virtual void execute(CHIPQueue* Queue) const override {
     // TODO Graphs
   }
 
-    virtual bool operator==(const CHIPGraphNode &Other) override {
+    virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -375,7 +402,7 @@ virtual void execute(CHIPQueue* Queue) const override {
     // TODO Graphs
   }
 
-    virtual bool operator==(const CHIPGraphNode &Other) override {
+    virtual bool operator==(const CHIPGraphNode &Other) const override {
     // TODO Graphs
   }
 };
@@ -384,23 +411,11 @@ class CHIPGraph {
   protected:
   CHIPDevice* ChipDev_;
   std::vector<CHIPGraphNode*> Nodes_;
+  // Map the pointers Original -> Clone
+  std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap_;
   public:
-  CHIPGraph* clone() {
-    // begin at 
-    CHIPGraph *NewGraph = new CHIPGraph(ChipDev_);
-    for (CHIPGraphNode* Node : Nodes_) {
-      CHIPGraphNode* NewNode = Node->clone();
-      NewGraph->addNode(NewNode);
-    }
 
-  }
-  CHIPGraph(const CHIPGraph &Other) : ChipDev_(Other.ChipDev_) {
-    for(auto Node : Other.getNodes()) {
-      // deduce the node type
-      auto NodeType = Node->getType();
-      // cheast t
-    }
-  };
+  CHIPGraph(const CHIPGraph &OriginalGraph);
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
   void addNode(CHIPGraphNode* TheNode);
   void removeNode(const CHIPGraphNode *TheNode);

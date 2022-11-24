@@ -232,7 +232,8 @@ hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
 hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
   CHIP_TRY
   CHIPInitialize();
-  *pGraphClone  = originalGraph->clone();
+  CHIPGraph* CloneGraph = new CHIPGraph(*originalGraph);
+  *pGraphClone  = CloneGraph;
   RETURN(hipSuccess);
   CHIP_CATCH
 }

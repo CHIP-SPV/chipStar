@@ -28,6 +28,36 @@
 // CHIPGraph
 //*************************************************************************************
 
+  CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
+    /**
+     * Create another Graph using the copy constructor. 
+     * This other graph will contain vectors/sets for dependencies/edges. 
+     * The edges, however, are pointers which point nodes in the original graph. 
+     * These edges must be remapped to this node. 
+
+     * 1. Use the overriden CHIPGraphNode operator==() to check if two nodes are identical
+     * 2. Create a map that maps pointers from old graph to new graph
+     * 3. Remap the cloned graph. 
+     * 
+     */
+    for (CHIPGraphNode* OriginalNode : OriginalGraph.Nodes_) {
+      CHIPGraphNode* CloneNode = OriginalNode->clone();
+      this->addNode(CloneNode);
+      CloneMap_.insert(std::make_pair(OriginalNode, CloneNode));
+    }
+
+    for(CHIPGraphNode* Node : Nodes_) {
+      for(const CHIPGraphNode* OriginalDep : Node->getDependenciesSet()) {
+        // TODO Graphs rethink const qualifier
+        CHIPGraphNode* CloneDep = CloneMap_[const_cast<CHIPGraphNode*>(OriginalDep)];
+        Node->removeDependency(OriginalDep);
+        Node->addDependency(CloneDep);
+      }
+    }
+
+
+  }
+
   CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other) {
     Params_ = Other.Params_;
     ExecItem_ = Other.ExecItem_->clone();
