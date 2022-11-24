@@ -266,6 +266,7 @@ hipError_t hipGraphInstantiateWithFlags(hipGraphExec_t *pGraphExec,
                                         unsigned long long flags) {
   CHIP_TRY
   CHIPInitialize();
+  // flags not yet defined in HIP API.
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
