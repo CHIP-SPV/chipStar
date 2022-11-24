@@ -243,7 +243,9 @@ hipError_t hipGraphNodeFindInClone(hipGraphNode_t *pNode,
                                    hipGraph_t clonedGraph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto Node = clonedGraph->getClonedNodeFromOriginal(originalNode);
+  *pNode = Node;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

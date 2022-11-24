@@ -96,7 +96,6 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) 
   Params_.gridDim = TheParams->gridDim;
   Params_.kernelParams = TheParams->kernelParams;
   Params_.sharedMemBytes = TheParams->sharedMemBytes;
-
   auto Dev = Backend->getActiveDevice();
   CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(Params_.func);
   ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, nullptr);

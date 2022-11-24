@@ -414,13 +414,19 @@ class CHIPGraph {
   // Map the pointers Original -> Clone
   std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap_;
   public:
-
   CHIPGraph(const CHIPGraph &OriginalGraph);
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
   void addNode(CHIPGraphNode* TheNode);
   void removeNode(const CHIPGraphNode *TheNode);
   std::vector<CHIPGraphNode*> getLeafNodes();
   std::vector<CHIPGraphNode*> getRootNodes();
+  CHIPGraphNode* getClonedNodeFromOriginal(CHIPGraphNode* OriginalNode) {
+    if (!CloneMap_.count(OriginalNode)) {
+      CHIPERR_LOG_AND_THROW("Failed to find the node in clone", hipErrorTbd);
+    } else {
+      return CloneMap_[OriginalNode];
+    } 
+  }
 
   std::vector<CHIPGraphNode*> getNodes() const {return Nodes_;} 
 
