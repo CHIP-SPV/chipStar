@@ -75,6 +75,7 @@ public:
   hipGraphNodeType getType() { return Type_; }
   std::string Msg;
   CHIPGraphNode() {}; // TODO Graphs Delete this?
+  virtual bool operator==(const CHIPGraphNode &Other) = 0;
 
   /**
    * @brief Deleted Copy Constructor
@@ -197,6 +198,9 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
                            dim3 BlockDim, void **Args, size_t SharedMem) ;
   virtual void execute(CHIPQueue* Queue) const override;
   virtual CHIPGraphNode* clone() const override;
+  virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeMemcpy : public CHIPGraphNode {
@@ -228,7 +232,9 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
-
+  virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 
 };
 
@@ -248,6 +254,9 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
+  virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeHost : public CHIPGraphNode {
@@ -258,6 +267,9 @@ virtual void execute(CHIPQueue* Queue) const override {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
+  virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeGraph : public CHIPGraphNode {
@@ -266,6 +278,9 @@ virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
+  virtual bool operator==(const CHIPGraphNode &Other) override {
     // TODO Graphs
   }
 };
@@ -283,6 +298,9 @@ public:
     virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
+  virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
@@ -293,6 +311,9 @@ virtual void execute(CHIPQueue* Queue) const override {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
+  virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeEventRecord : public CHIPGraphNode {
@@ -301,6 +322,9 @@ virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
+  virtual bool operator==(const CHIPGraphNode &Other) override {
     // TODO Graphs
   }
 };
@@ -323,6 +347,9 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
     virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
+    virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
@@ -333,6 +360,10 @@ virtual void execute(CHIPQueue* Queue) const override {
   virtual CHIPGraphNode* clone() const override {
     // TODO Graphs
   }
+
+    virtual bool operator==(const CHIPGraphNode &Other) override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
@@ -341,6 +372,10 @@ virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
+
+    virtual bool operator==(const CHIPGraphNode &Other) override {
     // TODO Graphs
   }
 };
