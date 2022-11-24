@@ -260,6 +260,9 @@ public:
   OCLFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl::Kernel *get();
+  virtual CHIPExecItem* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPBackendOpenCL : public CHIPBackend {

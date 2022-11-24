@@ -28,6 +28,17 @@
 // CHIPGraph
 //*************************************************************************************
 
+  CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other) {
+    Params_ = Other.Params_;
+    ExecItem_ = Other.ExecItem_->clone();
+  }
+
+    CHIPGraphNode* CHIPGraphNodeKernel::clone() const {
+    auto NewNode = new CHIPGraphNodeKernel(*this);
+    return NewNode;
+  }
+
+
 void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);

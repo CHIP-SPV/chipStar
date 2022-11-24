@@ -74,7 +74,17 @@ protected:
 public:
   hipGraphNodeType getType() { return Type_; }
   std::string Msg;
-  CHIPGraphNode() {};
+  CHIPGraphNode() {}; // TODO Graphs Delete this?
+
+  /**
+   * @brief Deleted Copy Constructor
+   * We want to keep this abstract.
+   *  The only place we need this is when cloning a graph/node but then it should call the derived type. 
+   * Since we can't override the constructor, we must make a pure virtual clone() instead.
+   */
+  CHIPGraphNode(const CHIPGraphNode&) = delete;
+
+  virtual CHIPGraphNode* clone() const = 0;
   /**
    * @brief Depth-first search of the graph. 
    * For each node, the function is called recursively on all of its dependencies.
@@ -101,10 +111,7 @@ public:
       CurrPath.pop_back();
       return;
   }
-  virtual void execute(CHIPQueue* Queue) const {
-  UNIMPLEMENTED(hipErrorTbd)
-  };
-
+  virtual void execute(CHIPQueue* Queue) const = 0;
   void addDependant(const CHIPGraphNode* TheNode) {
     logDebug("{} addDependant() <{} depends on {}>", (void*)this, TheNode->Msg, Msg);
     Dependendants_.insert(TheNode); 
@@ -182,11 +189,14 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
   hipKernelNodeParams Params_;
   CHIPExecItem *ExecItem_;
   public:
+  CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other) ;
+
   CHIPGraphNodeKernel(const hipKernelNodeParams * TheParams) ;
 
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
                            dim3 BlockDim, void **Args, size_t SharedMem) ;
   virtual void execute(CHIPQueue* Queue) const override;
+  virtual CHIPGraphNode* clone() const override;
 };
 
 class CHIPGraphNodeMemcpy : public CHIPGraphNode {
@@ -215,6 +225,9 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   }
 
   virtual void execute(CHIPQueue* Queue) const override;
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 
 
 };
@@ -232,15 +245,29 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
   } 
 
   virtual void execute(CHIPQueue* Queue) const override;
-
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeHost : public CHIPGraphNode {
-
+public:
+virtual void execute(CHIPQueue* Queue) const override {
+  // TODO Graphs
+}
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeGraph : public CHIPGraphNode {
-
+public:
+virtual void execute(CHIPQueue* Queue) const override {
+  // TODO Graphs
+}
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeEmpty : public CHIPGraphNode {
@@ -252,14 +279,30 @@ public:
   virtual void execute(CHIPQueue* Queue) const override {
     logDebug("Executing empty node");
   }
+
+    virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
-
+public:
+virtual void execute(CHIPQueue* Queue) const override {
+  // TODO Graphs
+}
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeEventRecord : public CHIPGraphNode {
-
+public:
+virtual void execute(CHIPQueue* Queue) const override {
+  // TODO Graphs
+}
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
@@ -277,14 +320,29 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
   virtual void execute(CHIPQueue* Queue) const override {
     hipMemcpy(Dst_, Src_, Count_, Kind_);
   }
+    virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
-
+public:
+virtual void execute(CHIPQueue* Queue) const override {
+  // TODO Graphs
+}
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
-
+public:
+virtual void execute(CHIPQueue* Queue) const override {
+  // TODO Graphs
+}
+  virtual CHIPGraphNode* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPGraph {
@@ -292,13 +350,29 @@ class CHIPGraph {
   CHIPDevice* ChipDev_;
   std::vector<CHIPGraphNode*> Nodes_;
   public:
+  CHIPGraph* clone() {
+    // begin at 
+    CHIPGraph *NewGraph = new CHIPGraph(ChipDev_);
+    for (CHIPGraphNode* Node : Nodes_) {
+      CHIPGraphNode* NewNode = Node->clone();
+      NewGraph->addNode(NewNode);
+    }
+
+  }
+  CHIPGraph(const CHIPGraph &Other) : ChipDev_(Other.ChipDev_) {
+    for(auto Node : Other.getNodes()) {
+      // deduce the node type
+      auto NodeType = Node->getType();
+      // cheast t
+    }
+  };
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
   void addNode(CHIPGraphNode* TheNode);
   void removeNode(const CHIPGraphNode *TheNode);
   std::vector<CHIPGraphNode*> getLeafNodes();
   std::vector<CHIPGraphNode*> getRootNodes();
 
-  std::vector<CHIPGraphNode*> getNodes() {return Nodes_;} 
+  std::vector<CHIPGraphNode*> getNodes() const {return Nodes_;} 
 
   std::vector<std::pair<CHIPGraphNode*, CHIPGraphNode*>> getEdges() {
     std::set<std::pair<CHIPGraphNode*, CHIPGraphNode*>> Edges;
@@ -1347,6 +1421,18 @@ public:
    *
    */
   CHIPExecItem() = delete;
+
+  /**
+   * @brief Deleted copy constructor
+   * Since this is an abstract class and derived classes might add their own
+   * members and overrides, we must request an implementation for clone()
+   * 
+   * @param Other 
+   */
+  CHIPExecItem(const CHIPExecItem &Other) = delete;
+
+  virtual CHIPExecItem* clone() const = 0;
+
   /**
    * @brief Construct a new CHIPExecItem object
    *

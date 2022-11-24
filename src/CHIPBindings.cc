@@ -217,20 +217,23 @@ hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
   CHIP_TRY
   CHIPInitialize();
   *pType = node->getType();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
 hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   CHIP_TRY
   CHIPInitialize();
-  delete node;
+  delete node; // TODO Graphs make virtual destructors
+  RETURN(hipSuccess); 
   CHIP_CATCH
 }
 
 hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  *pGraphClone  = originalGraph->clone();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 

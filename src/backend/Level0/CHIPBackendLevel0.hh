@@ -51,6 +51,9 @@ class CHIPExecItemLevel0 : public CHIPExecItem {
                hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
                 ChipQueue) {}
   virtual void setupAllArgs() override;
+  virtual CHIPExecItem* clone() const override {
+    // TODO Graphs
+  }
 };
 
 class CHIPEventLevel0 : public CHIPEvent {
