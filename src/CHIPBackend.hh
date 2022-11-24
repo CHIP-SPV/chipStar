@@ -72,18 +72,12 @@ protected:
   // nodes on which this node depends
   std::set<const CHIPGraphNode*> Dependencies_;
 public:
+  // Copy Constructor
+  CHIPGraphNode(const CHIPGraphNode& Other) : Type_(Other.Type_), Dependendants_(Other.Dependendants_) , Dependencies_(Other.Dependencies_) {}
   hipGraphNodeType getType() { return Type_; }
   std::string Msg;
   CHIPGraphNode() {}; // TODO Graphs Delete this?
   virtual bool operator==(const CHIPGraphNode &Other) const = 0;
-
-  /**
-   * @brief Deleted Copy Constructor
-   * We want to keep this abstract.
-   *  The only place we need this is when cloning a graph/node but then it should call the derived type. 
-   * Since we can't override the constructor, we must make a pure virtual clone() instead.
-   */
-  CHIPGraphNode(const CHIPGraphNode&) = delete;
 
   virtual CHIPGraphNode* clone() const = 0;
   /**
@@ -235,6 +229,8 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   hipMemcpy3DParms Params_;
   
   public:
+  CHIPGraphNodeMemcpy(const CHIPGraphNodeMemcpy& Other) : CHIPGraphNode(Other), Params_(Other.Params_) {}
+
   CHIPGraphNodeMemcpy(hipMemcpy3DParms Params) : Params_(Params) {
     Type_ = hipGraphNodeTypeMemcpy;
   }
@@ -259,8 +255,9 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
   }
 
   virtual void execute(CHIPQueue* Queue) const override;
+
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeMemcpy(Params_);
+    auto NewNode = new CHIPGraphNodeMemcpy(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -273,6 +270,7 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
   private:
   hipMemsetParams Params_;
   public:
+  CHIPGraphNodeMemset(const CHIPGraphNodeMemset& Other) : CHIPGraphNode(Other), Params_(Other.Params_) {}
   CHIPGraphNodeMemset(const hipMemsetParams Params) : Params_(Params) {
     Type_ = hipGraphNodeTypeMemset;
   }
@@ -286,7 +284,7 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
 
   virtual void execute(CHIPQueue* Queue) const override;
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeMemset(Params_);
+    auto NewNode = new CHIPGraphNodeMemset(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -296,6 +294,7 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
 
 class CHIPGraphNodeHost : public CHIPGraphNode {
 public:
+CHIPGraphNodeHost(const CHIPGraphNodeHost& Other) : CHIPGraphNode(Other) {}
 CHIPGraphNodeHost() {
   // TODO Graphs
 }
@@ -303,7 +302,7 @@ virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeHost();
+    auto NewNode = new CHIPGraphNodeHost(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -313,6 +312,8 @@ virtual void execute(CHIPQueue* Queue) const override {
 
 class CHIPGraphNodeGraph : public CHIPGraphNode {
 public:
+CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other) : CHIPGraphNode(Other) {}
+
 CHIPGraphNodeGraph() {
   // TODO Graphs
 }
@@ -320,7 +321,7 @@ virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeGraph();
+    auto NewNode = new CHIPGraphNodeGraph(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -330,6 +331,7 @@ virtual void execute(CHIPQueue* Queue) const override {
 
 class CHIPGraphNodeEmpty : public CHIPGraphNode {
 public:
+CHIPGraphNodeEmpty(const CHIPGraphNodeEmpty& Other) : CHIPGraphNode(Other) {}
   CHIPGraphNodeEmpty() {
     Type_ = hipGraphNodeTypeEmpty;
   };
@@ -339,7 +341,7 @@ public:
   }
 
     virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeEmpty();
+    auto NewNode = new CHIPGraphNodeEmpty(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -349,11 +351,12 @@ public:
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
 public:
+CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent& Other) : CHIPGraphNode(Other) {}
 virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeWaitEvent();
+    auto NewNode = new CHIPGraphNodeWaitEvent(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -363,11 +366,12 @@ virtual void execute(CHIPQueue* Queue) const override {
 
 class CHIPGraphNodeEventRecord : public CHIPGraphNode {
 public:
+CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord& Other) : CHIPGraphNode(Other) {}
 virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeEventRecord();
+    auto NewNode = new CHIPGraphNodeEventRecord(*this);
     return NewNode;
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -382,6 +386,8 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
   size_t Count_;
   hipMemcpyKind Kind_;
   public:
+  CHIPGraphNodeMemcpy1D(const CHIPGraphNodeMemcpy1D &Other) : CHIPGraphNode(Other) , Dst_(Other.Dst_), Src_(Other.Src_), Count_(Other.Count_), Kind_(Other.Kind_) {}
+
   CHIPGraphNodeMemcpy1D(void* Dst, const void* Src, size_t Count, hipMemcpyKind Kind) : 
   Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {
     Type_ = hipGraphNodeTypeMemcpy1D;
@@ -391,7 +397,7 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
     hipMemcpy(Dst_, Src_, Count_, Kind_);
   }
     virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeMemcpy1D(Dst_, Src_, Count_, Kind_);
+    auto NewNode = new CHIPGraphNodeMemcpy1D(*this);
     return NewNode;
   }
     virtual bool operator==(const CHIPGraphNode &Other) const override {
@@ -415,12 +421,13 @@ virtual void execute(CHIPQueue* Queue) const override {
 };
 
 class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
+  CHIPGraphNodeMemcpyToSymbol(const CHIPGraphNodeMemcpyToSymbol& Other) : CHIPGraphNode(Other) {}
 public:
 virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
 }
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeMemcpyToSymbol();
+    auto NewNode = new CHIPGraphNodeMemcpyToSymbol(*this);
     return NewNode;
   }
 
