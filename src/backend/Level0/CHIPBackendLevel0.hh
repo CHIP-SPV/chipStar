@@ -47,12 +47,18 @@ class CHIPExecItemLevel0;
 
 class CHIPExecItemLevel0 : public CHIPExecItem {
   public:
+    CHIPExecItemLevel0(const CHIPExecItemLevel0& Other) : CHIPExecItemLevel0(Other.GridDim_, Other.BlockDim_, Other.SharedMem_, Other.ChipQueue_) {
+    ChipKernel_ = Other.ChipKernel_;
+    this->ArgsSetup = Other.ArgsSetup;
+    this->Args_ = Other.Args_;
+   }
   CHIPExecItemLevel0(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
                 ChipQueue) {}
   virtual void setupAllArgs() override;
   virtual CHIPExecItem* clone() const override {
-    // TODO Graphs
+    auto NewExecItem = new CHIPExecItemLevel0(*this);
+    return NewExecItem;
   }
 };
 

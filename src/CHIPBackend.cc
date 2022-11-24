@@ -59,6 +59,7 @@
   }
 
   CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other) {
+    Type_ = hipGraphNodeTypeKernel;
     Params_ = Other.Params_;
     ExecItem_ = Other.ExecItem_->clone();
   }
@@ -78,13 +79,9 @@ void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
 }
 
 void CHIPGraphNodeMemcpy::execute(CHIPQueue* Queue) const {
-  
   hipMemcpy3DAsync(&Params_, Queue);
 }
 void CHIPGraphNodeKernel::execute(CHIPQueue* Queue) const {
-    // __hipPushCallConfiguration(Params_.gridDim, Params_.blockDim, Params_.sharedMemBytes, Queue);
-    // hipLaunchKernel(Params_.func, Params_.gridDim, Params_.blockDim, Params_.kernelParams, Params_.sharedMemBytes, Queue);
-    // ExecItem_->setQueue(Queue); // remove Queue from ExecItem constructor
     Queue->launch(ExecItem_);
   }
 
