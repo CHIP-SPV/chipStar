@@ -325,7 +325,8 @@ hipError_t hipGraphKernelNodeSetParams(hipGraphNode_t node,
                                        const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  ((CHIPGraphNodeKernel*)node)->setParams(*pNodeParams);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
