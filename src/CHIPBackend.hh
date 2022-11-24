@@ -199,7 +199,9 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
                            dim3 BlockDim, void **Args, size_t SharedMem) ;
   virtual void execute(CHIPQueue* Queue) const override;
-
+  hipKernelNodeParams getParams() {
+    return Params_;
+  } 
   /**
    * @brief Createa a copy of this node
    * Must copy over all the arguments
