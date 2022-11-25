@@ -35,21 +35,27 @@
 #include <iostream>
 #include "util.hh"
 
-__global__ void doNoting() {}
+__global__ void incrementOne(int *A) {
+  A[0] = A[0] + 1;
+  // printf("Hello!");
+}
 
 void case1() {
+  int A_h = 0;
+  int* A_d;
+  hipMalloc(&A_d, sizeof(int));
   hipError_t err;
   hipGraph_t Graph;
   err = hipGraphCreate(&Graph, 0);
   ERR_CHECK(err);
 
   hipGraphNode_t M1;
-  err = hipGraphAddMemcpyNode1D(&M1, Graph, nullptr, 0, nullptr, nullptr, 0,
+  err = hipGraphAddMemcpyNode1D(&M1, Graph, nullptr, 0, A_d, &A_h, sizeof(int),
                                 hipMemcpyHostToDevice);
   ERR_CHECK(err);
 
   hipGraphNode_t M2;
-  err = hipGraphAddMemcpyNode1D(&M2, Graph, nullptr, 0, nullptr, nullptr, 0,
+  err = hipGraphAddMemcpyNode1D(&M2, Graph, {&M1}, 1, A_d, &A_h, sizeof(int),
                                 hipMemcpyHostToDevice);
   ERR_CHECK(err);
 
@@ -60,8 +66,13 @@ void case1() {
   hipKernelNodeParams kernelParams;
   kernelParams.blockDim = dim3(1, 1, 1);
   kernelParams.gridDim = dim3(1, 1, 1);
-  kernelParams.func = (void *)&doNoting;
+  kernelParams.func = (void *)&incrementOne;
   kernelParams.sharedMemBytes = 0;
+  void *kernelArgs[1] = {(void*)&A_d};
+  kernelParams.kernelParams = reinterpret_cast<void **>(kernelArgs);
+  kernelParams.extra = nullptr;
+
+
   err = hipGraphAddKernelNode(&K1, Graph, (hipGraphNode_t[]){M1, M2}, 2,
                               &kernelParams);
   ERR_CHECK(err);
@@ -74,7 +85,7 @@ void case1() {
 
   hipGraphNode_t Mout;
   err = hipGraphAddMemcpyNode1D(&Mout, Graph, (hipGraphNode_t[]){K1, K2, K3}, 3,
-                                nullptr, nullptr, 0, hipMemcpyDeviceToHost);
+                                &A_h, A_d, sizeof(int), hipMemcpyDeviceToHost);
   ERR_CHECK(err);
 
   hipGraphExec_t GraphExec;
@@ -83,8 +94,13 @@ void case1() {
 
   err = hipGraphLaunch(GraphExec, 0);
   ERR_CHECK(err);
+  if(A_h != 3) {
+    std::cout << "A_h = " << A_h << std::endl;
+    std::cout << "FAILED\n";
+  } else {
+    std::cout << "PASSED\n";
+  }
 
-  std::cout << "PASSED\n";
 }
 
 void case2() {
@@ -124,5 +140,5 @@ void case2() {
 
 int main(int argc, char **argv) {
   case1();
-  case2();
+  // case2();
 }
