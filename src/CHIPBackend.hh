@@ -68,12 +68,12 @@ class CHIPGraphNode {
 protected:
   hipGraphNodeType Type_;
   // nodes which depend on this node
-  std::set<const CHIPGraphNode*> Dependendants_;
+  std::set<CHIPGraphNode*> Dependendants_;
   // nodes on which this node depends
-  std::set<const CHIPGraphNode*> Dependencies_;
+  std::set<CHIPGraphNode*> Dependencies_;
 public:
   // Copy Constructor
-  CHIPGraphNode(const CHIPGraphNode& Other) : Type_(Other.Type_), Dependendants_(Other.Dependendants_) , Dependencies_(Other.Dependencies_) {}
+  CHIPGraphNode(const CHIPGraphNode& Other) : Type_(Other.Type_), Dependendants_(Other.Dependendants_) , Dependencies_(Other.Dependencies_), Msg(Other.Msg) {}
   hipGraphNodeType getType() { return Type_; }
   std::string Msg;
   CHIPGraphNode() {}; // TODO Graphs Delete this?
@@ -91,7 +91,7 @@ public:
   void DFS(std::vector<CHIPGraphNode*> CurrPath, std::vector<std::vector<CHIPGraphNode*>> &Paths) {
           CurrPath.push_back(this);
       for (auto & Dep : Dependencies_) {
-          const_cast<CHIPGraphNode*>(Dep)->DFS(CurrPath, Paths);
+          Dep->DFS(CurrPath, Paths);
       }
       
       if (Dependencies_.size() == 0) {
@@ -107,42 +107,77 @@ public:
       return;
   }
   virtual void execute(CHIPQueue* Queue) const = 0;
-  void addDependant(const CHIPGraphNode* TheNode) {
+  void addDependant(CHIPGraphNode* TheNode) {
     logDebug("{} addDependant() <{} depends on {}>", (void*)this, TheNode->Msg, Msg);
     Dependendants_.insert(TheNode); 
   }
 
-  void addDependency(const CHIPGraphNode* TheNode) {
+  void addDependency(CHIPGraphNode* TheNode) {
     logDebug("{} addDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.insert(TheNode);
-    const_cast<CHIPGraphNode*>(TheNode)->addDependant(this);
+    TheNode->addDependant(this);
   }
 
-  void removeDependency(const CHIPGraphNode* TheNode) {
+  void removeDependency(CHIPGraphNode* TheNode) {
     logDebug("{} removeDependency() <{} depends on {}>", (void*)this, Msg, TheNode->Msg);
     Dependencies_.erase(TheNode);
     // TOCO Graphs remove dependant
     //const_cast<CHIPGraphNode*>(TheNode)->addDependant(this);
   }
 
-  void addDependencies(CHIPGraphNode *const * Dependencies, int Count) {
+  void addDependencies(CHIPGraphNode ** Dependencies, int Count) {
     for(int i = 0; i < Count; i++) {
       addDependency(Dependencies[i]);
     }
   }
 
-  void removeDependencies(CHIPGraphNode *const * Dependencies, int Count) {
+  void removeDependencies(CHIPGraphNode ** Dependencies, int Count) {
     for(int i = 0; i < Count; i++) {
       removeDependency(Dependencies[i]);
     }
   }
 
+  void updateDependencies(std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
+    for(int i = 0; i < Dependencies_.size(); i++) {
+      auto Iter = Dependencies_.begin();
+      std::advance(Iter, i);
+      constCHIPGraphNode* OriginalNode = *Iter;
+      auto Cloned = CloneMap[*Iter];
+      Dependencies_.erase()
+    }
+
+  }
+  // void updateDependant(CHIPGraphNode* OriginalNode, std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
+  //   auto FoundDep = std::find(Dependendants_.begin(), Dependendants_.end(), OriginalNode);
+  //   if (FoundDep == Dependendants_.end()) {
+  //     logWarn("Tried to update dependency which was not found in this node");
+  //     return;
+  //   }
+  //   Dependendants_.erase(FoundDep);
+  //   Dependendants_.insert(CloneMap[const_cast<CHIPGraphNode*>(OriginalNode)]);
+  // }
+
+  // void updateDependency(CHIPGraphNode* OriginalNode, std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
+  //   auto FoundDep = std::find(Dependencies_.begin(), Dependencies_.end(), OriginalNode);
+    
+  //   if (FoundDep == Dependencies_.end()) {
+  //     logWarn("Tried to update dependency which was not found in this node");
+  //     return;
+  //   }
+  //   auto ClonedNode = CloneMap[const_cast<CHIPGraphNode*>(OriginalNode)];
+  //   const_cast<CHIPGraphNode*>(ClonedNode)->updateDependant(const_cast<CHIPGraphNode*>(this), CloneMap);
+  //   Dependencies_.erase(FoundDep);
+  //   Dependencies_.insert(ClonedNode);
+
+
+  // }
+
   /**
    * @brief get the nodes on which this node depends on.
    * 
-   * @return const std::set<const CHIPGraphNode*>& 
+   * @return const std::set<CHIPGraphNode*>& 
    */
-  const std::set<const CHIPGraphNode*> &getDependenciesSet() {
+  const std::set<CHIPGraphNode*> &getDependenciesSet() {
     return Dependencies_;
   }
 
@@ -150,7 +185,7 @@ public:
     std::vector<CHIPGraphNode *> Deps;
     auto DepsIter = Dependencies_.begin();
     while(DepsIter != Dependencies_.end()) {
-      CHIPGraphNode* DepNode = const_cast<CHIPGraphNode*>(*DepsIter);
+      CHIPGraphNode* DepNode = *DepsIter;
       Deps.push_back(DepNode);
       DepsIter++;
     }
@@ -160,9 +195,9 @@ public:
     /**
    * @brief get the nodes on which this node depends on.
    * 
-   * @return const std::set<const CHIPGraphNode*>& 
+   * @return const std::set<CHIPGraphNode*>& 
    */
-  const std::set<const CHIPGraphNode*> &getDependantsSet() {
+  const std::set<CHIPGraphNode*> &getDependantsSet() {
     return Dependendants_;
   }
 
@@ -170,7 +205,7 @@ public:
     std::vector<CHIPGraphNode *> Deps;
     auto DepsIter = Dependendants_.begin();
     while(DepsIter != Dependendants_.end()) {
-      CHIPGraphNode* DepNode = const_cast<CHIPGraphNode*>(*DepsIter);
+      CHIPGraphNode* DepNode = *DepsIter;
       Deps.push_back(DepNode);
       DepsIter++;
     }
@@ -446,7 +481,7 @@ class CHIPGraph {
   CHIPGraph(const CHIPGraph &OriginalGraph);
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
   void addNode(CHIPGraphNode* TheNode);
-  void removeNode(const CHIPGraphNode *TheNode);
+  void removeNode(CHIPGraphNode *TheNode);
   std::vector<CHIPGraphNode*> getLeafNodes();
   std::vector<CHIPGraphNode*> getRootNodes();
   CHIPGraphNode* getClonedNodeFromOriginal(CHIPGraphNode* OriginalNode) {
@@ -479,7 +514,7 @@ class CHIPGraph {
    * @param Node the node to find in this graph
    * @return CHIPGraphNode*  the non-const handle of this found node.
    */
-  CHIPGraphNode* findNode(const CHIPGraphNode* Node) {
+  CHIPGraphNode* findNode(CHIPGraphNode* Node) {
     auto FoundNode = std::find(Nodes_.begin(), Nodes_.end(), Node);
     if(FoundNode != Nodes_.end()) {
       return *FoundNode;
@@ -495,12 +530,12 @@ class CHIPGraphExec {
   bool Pruned_ = false;
   CHIPGraph* Graph_;
   // each element in this queue represents represents a sequence of nodes that can be submitted to one or more queues
-  std::queue<std::set<const CHIPGraphNode *>> ExecQueues_;
-  std::set<const CHIPGraphNode *> findRootNodesSet_() {
+  std::queue<std::set<CHIPGraphNode *>> ExecQueues_;
+  std::set<CHIPGraphNode *> findRootNodesSet_() {
     RootNodes_.clear();
 
     std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
-    std::set<const CHIPGraphNode *> RootNodes;
+    std::set<CHIPGraphNode *> RootNodes;
 
     auto NodeIter = Nodes.begin();
     while (NodeIter != Nodes.end()) {
@@ -517,13 +552,13 @@ class CHIPGraphExec {
     return RootNodes;
  }
 
-  std::vector<const CHIPGraphNode*> RootNodes_;
+  std::vector<CHIPGraphNode*> RootNodes_;
   public:
   CHIPGraph* getGraph() const {return Graph_;}
   CHIPGraphExec(CHIPGraph *Graph) {
     // TODO Graphs CHIPExecItem copy constructor failing to copy
-    // Graph_ = new CHIPGraph(*Graph); // use copy constructor
-    Graph_ = Graph;
+    Graph_ = new CHIPGraph(*Graph); // use copy constructor
+    // Graph_ = Graph;
   }
   // TODO Graphs - destructor
   void launch(CHIPQueue *Queue);

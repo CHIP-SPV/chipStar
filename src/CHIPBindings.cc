@@ -118,7 +118,9 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
   if(!FoundNode)
     RETURN(hipErrorInvalidValue);
 
-  FoundNode->addDependencies(from, numDependencies);
+   
+  // TODO Graphs constness here?
+  FoundNode->addDependencies(const_cast<CHIPGraphNode**>(from), numDependencies);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -133,7 +135,7 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
   if(!FoundNode)
     RETURN(hipErrorInvalidValue);
 
-  FoundNode->removeDependencies(from, numDependencies);
+  FoundNode->removeDependencies(const_cast<CHIPGraphNode**>(from), numDependencies);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -304,7 +306,7 @@ hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeKernel* Node = new CHIPGraphNodeKernel{pNodeParams};
-  Node->addDependencies(pDependencies, numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   Node->Msg += "Kernel";
@@ -369,7 +371,7 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   ))
     CHIPERR_LOG_AND_THROW("Passing different element size for hipMemcpy3DParms::srcArray and hipMemcpy3DParms::dstArray", hipErrorInvalidValue);
   CHIPGraphNodeMemcpy *Node = new CHIPGraphNodeMemcpy(pCopyParams);
-  Node->addDependencies(pDependencies, numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   Node->Msg += "Memcpy";
@@ -414,7 +416,7 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIPInitialize();
   CHIPGraphNodeMemcpy1D *Node = new CHIPGraphNodeMemcpy1D(dst, src, count, kind);
   *pGraphNode = Node;
-  Node->addDependencies(pDependencies, numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
   graph->addNode(Node);
   Node->Msg += "Memcpy1D";
   RETURN(hipSuccess);
@@ -511,7 +513,7 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeMemset *Node = new CHIPGraphNodeMemset(pMemsetParams);
-  Node->addDependencies(pDependencies, numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
   graph->addNode(Node);
   *pGraphNode = Node;
   Node->Msg += "Memset";
@@ -616,7 +618,7 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
-  Node->addDependencies(pDependencies, numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   RETURN(hipSuccess);

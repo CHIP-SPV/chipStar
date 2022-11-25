@@ -40,18 +40,17 @@
      * 3. Remap the cloned graph. 
      * 
      */
+    std::cout << "\n\n";
     for (CHIPGraphNode* OriginalNode : OriginalGraph.Nodes_) {
       CHIPGraphNode* CloneNode = OriginalNode->clone();
-      this->addNode(CloneNode);
-      CloneMap_.insert(std::make_pair(OriginalNode, CloneNode));
+      Nodes_.push_back(CloneNode);
+      CloneMap_[OriginalNode] = CloneNode;
+      logDebug("Adding to CloneMap: Original {} {} -> Clone {} {}", OriginalNode->Msg, (void*)OriginalNode, CloneNode->Msg, (void*)CloneNode);
     }
 
     for(CHIPGraphNode* Node : Nodes_) {
-      for(const CHIPGraphNode* OriginalDep : Node->getDependenciesSet()) {
-        // TODO Graphs rethink const qualifier
-        CHIPGraphNode* CloneDep = CloneMap_[const_cast<CHIPGraphNode*>(OriginalDep)];
-        Node->removeDependency(OriginalDep);
-        Node->addDependency(CloneDep);
+      for(CHIPGraphNode* OriginalDep : Node->getDependenciesSet()) {
+        Node->updateDependencies(CloneMap_);
       }
     }
 
@@ -132,7 +131,7 @@ void CHIPGraph::addNode(CHIPGraphNode* Node) {
   Nodes_.push_back(Node);
 }
 
-void CHIPGraph::removeNode(const CHIPGraphNode* Node) {
+void CHIPGraph::removeNode(CHIPGraphNode* Node) {
   logDebug("{} CHIPGraph::removeNode({})", (void*)this, (void*)Node);
 
   auto Found = std::find(Nodes_.begin(), Nodes_.end(), Node);
@@ -224,7 +223,7 @@ void CHIPGraphExec::pruneGraph() {
 
   for(auto Path : Paths){
     // convert the current path to a set
-    std::set<const CHIPGraphNode*> PathSet(Path.begin(), Path.end());
+    std::set<CHIPGraphNode*> PathSet(Path.begin(), Path.end());
 
     // Check other paths to see if they are a subset of this (longer) path
     for(auto SubPathIter = Paths.begin(); SubPathIter!= Paths.end(); SubPathIter++) {
@@ -235,7 +234,7 @@ void CHIPGraphExec::pruneGraph() {
       }
 
       // convert the other path to a set
-      std::set<const CHIPGraphNode*> SubPathSet(SubPath.begin(), SubPath.end());
+      std::set<CHIPGraphNode*> SubPathSet(SubPath.begin(), SubPath.end());
       // std::string PathStr = "";
       // for(auto Node : Path) {
       //   PathStr += Node->Msg + " ";
@@ -271,7 +270,7 @@ void CHIPGraphExec::compile() {
   logDebug("{} CHIPGraphExec::compile()", (void*)this);
   std::vector<CHIPGraphNode*> Nodes = Graph_->getNodes();
   auto RootNodesVec = Graph_->getRootNodes();
-  std::set<const CHIPGraphNode*> RootNodes(RootNodesVec.begin(), RootNodesVec.end());
+  std::set<CHIPGraphNode*> RootNodes(RootNodesVec.begin(), RootNodesVec.end());
   ExecQueues_.push(RootNodes);
   //  Remove root nodes from the set of nodes
   for(auto Node : RootNodes) {
@@ -283,11 +282,11 @@ void CHIPGraphExec::compile() {
    * These sets are accumulated into the execution queue. The execution queue starts with the root nodes.
    * To fill the execution queue, we find all the nodes that depend only the nodes in the back of the exec queue. 
    */
-  std::set<const CHIPGraphNode*> NextSet;
-  std::set<const CHIPGraphNode*> PrevLevelNodes = RootNodes;
+  std::set<CHIPGraphNode*> NextSet;
+  std::set<CHIPGraphNode*> PrevLevelNodes = RootNodes;
   auto NodeIter = Nodes.begin();
   while(Nodes.size()) { // while more unnasigned nodes available
-    const std::set<const CHIPGraphNode*> CurrentNodeDeps = (*NodeIter)->getDependenciesSet();
+    const std::set<CHIPGraphNode*> CurrentNodeDeps = (*NodeIter)->getDependenciesSet();
     std::string CurrentNodeDepsStr = "";
     for(auto Node : CurrentNodeDeps) {
       CurrentNodeDepsStr += Node->Msg + " ";
