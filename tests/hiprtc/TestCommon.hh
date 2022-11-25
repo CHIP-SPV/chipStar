@@ -22,6 +22,9 @@
 
 #include <hip/hiprtc.h>
 #include <hip/hip_runtime_api.h>
+// TODO: Remove this header when it is included by the
+//       hip_runtime_api.h header.
+#include <hip/spirv_hip_host_defines.h>
 
 #include <iostream>
 #include <string>
