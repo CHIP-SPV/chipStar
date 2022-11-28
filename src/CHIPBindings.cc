@@ -295,7 +295,90 @@ hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
                               hipGraphExecUpdateResult *updateResult_out) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  /**
+   * cudaGraphExecUpdate sets updateResult_out to cudaGraphExecUpdateErrorTopologyChanged under the following conditions:
+    1. The count of nodes directly in hGraphExec and hGraph differ, in which case hErrorNode_out is NULL.
+    2. A node is deleted in hGraph but not not its pair from hGraphExec, in which case hErrorNode_out is NULL.
+    3. A node is deleted in hGraphExec but not its pair from hGraph, in which case hErrorNode_out is the pairless node from hGraph.
+    4. The dependent nodes of a pair differ, in which case hErrorNode_out is the node from hGraph.
+   */
+  auto ExecGraph = hGraphExec->getGraph();
+  // 1. 
+  if(ExecGraph->getNodes().size() != hGraph->getNodes().size()) {
+    *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
+    *hErrorNode_out = nullptr;
+    RETURN(hipErrorGraphExecUpdateFailure);
+  }
+  // 2.
+  if(ExecGraph->getNodes().size() > hGraph->getNodes().size() ) {
+    *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
+    *hErrorNode_out = nullptr;
+    RETURN(hipErrorGraphExecUpdateFailure);
+  }
+  // 3.
+  for(auto Node : hGraph->getNodes()) {
+    auto NodeFound = ExecGraph->nodeLookup(Node);
+    if (!NodeFound) {
+    *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
+    *hErrorNode_out = Node;
+    RETURN(hipErrorGraphExecUpdateFailure);
+    }
+  }
+
+  /**
+   Update Limitations:
+    a) Kernel nodes:
+        1. The owning context of the function cannot change.
+        2. A node whose function originally did not use CUDA dynamic parallelism cannot be updated to a function which uses CDP.
+        3. A cooperative node cannot be updated to a non-cooperative node, and vice-versa.
+        4. If the graph was instantiated with cudaGraphInstantiateFlagUseNodePriority, the priority attribute cannot change. Equality is checked on the originally requested priority values, before they are clamped to the device's supported range.
+
+    b) Memset and memcpy nodes:
+        1. The CUDA device(s) to which the operand(s) was allocated/mapped cannot change.
+        2. The source/destination memory must be allocated from the same contexts as the original source/destination memory.
+        3. Only 1D memsets can be changed.
+
+    c) Additional memcpy node restrictions:
+        1. Changing either the source or destination memory type(i.e. CU_MEMORYTYPE_DEVICE, CU_MEMORYTYPE_ARRAY, etc.) is not supported.
+   **/
+  // TODO Graphs
+
+
+/**
+ * cudaGraphExecUpdate sets updateResult_out to:
+    1. cudaGraphExecUpdateError if passed an invalid value.
+    2. cudaGraphExecUpdateErrorTopologyChanged if the graph topology changed
+    3. cudaGraphExecUpdateErrorNodeTypeChanged if the type of a node changed, in which case hErrorNode_out is set to the node from hGraph.
+    4. cudaGraphExecUpdateErrorFunctionChanged if the function of a kernel node changed (CUDA driver < 11.2)
+    5. cudaGraphExecUpdateErrorUnsupportedFunctionChange if the func field of a kernel changed in an unsupported way(see note above), in which case hErrorNode_out is set to the node from hGraph
+    cudaGraphExecUpdateErrorParametersChanged if any parameters to a node changed in a way that is not supported, in which case hErrorNode_out is set to the node from hGraph
+    cudaGraphExecUpdateErrorAttributesChanged if any attributes of a node changed in a way that is not supported, in which case hErrorNode_out is set to the node from hGraph
+    cudaGraphExecUpdateErrorNotSupported if something about a node is unsupported, like the node's type or configuration, in which case hErrorNode_out is set to the node from hGraph
+ **/
+  for(auto Node : hGraph->getNodes()) {
+    auto NodeFound = ExecGraph->nodeLookup(Node);
+    // 3.
+    if(Node->getType() != NodeFound->getType()) {
+      *updateResult_out = hipGraphExecUpdateErrorNodeTypeChanged;
+      *hErrorNode_out = Node;
+      RETURN(hipErrorGraphExecUpdateFailure);
+     }
+
+     // 4.
+      if(Node->getType() == hipGraphNodeType::hipGraphNodeTypeKernel && NodeFound->getType() == hipGraphNodeType::hipGraphNodeTypeKernel) {
+        auto NodeCast = static_cast<CHIPGraphNodeKernel*>(Node);
+        auto NodeFoundCast = static_cast<CHIPGraphNodeKernel*>(NodeFound);
+        if(NodeCast->getParams().func != NodeFoundCast->getParams().func) {
+          *updateResult_out = hipGraphExecUpdateErrorFunctionChanged;
+          *hErrorNode_out = Node;
+          RETURN(hipErrorGraphExecUpdateFailure);
+        }
+     }
+
+
+  }
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
