@@ -23,7 +23,8 @@
 #ifndef HIP_TO_CHIP_HH
 #define HIP_TO_CHIP_HH
 
-// Forward Declarations
+// Forward Declares
+class CHIPExecItem;
 class CHIPDevice;
 class CHIPContext;
 class CHIPModule;
@@ -32,9 +33,12 @@ class CHIPBackend;
 class CHIPEvent;
 class CHIPQueue;
 class CHIPTexture;
+
+/* HIP Graph API */
 class CHIPGraph;
 class CHIPGraphExec;
 class CHIPGraphNode;
+
 /* implementation details */
 typedef CHIPEvent *hipEvent_t;
 typedef CHIPKernel *hipFunction_t;
