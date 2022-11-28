@@ -419,6 +419,13 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
     Type_ = hipGraphNodeTypeMemcpy1D;
   }
 
+  void setParams(void* Dst, const void* Src, size_t Count, hipMemcpyKind Kind) {
+    Dst_ = Dst;
+    Src_ = Src;
+    Count_ = Count;
+    Kind_ = Kind;
+  }
+
   virtual void execute(CHIPQueue* Queue) const override {
     hipMemcpy(Dst_, Src_, Count_, Kind_);
   }

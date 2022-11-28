@@ -437,7 +437,12 @@ hipError_t hipGraphMemcpyNodeSetParams1D(hipGraphNode_t node, void *dst,
                                          hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy1D", hipErrorInvalidValue);
+  
+  CastNode->setParams(dst, src, count, kind);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -447,7 +452,16 @@ hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
                                              hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  if(!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
+  
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy1D", hipErrorInvalidValue);
+  
+  CastNode->setParams(dst, src, count, kind);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
