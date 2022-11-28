@@ -750,7 +750,12 @@ hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
                                     size_t numDependencies, hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeWaitEvent *Node = new CHIPGraphNodeWaitEvent(event);
+  *pGraphNode = Node;
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  graph->addNode(Node);
+  Node->Msg += "WaitEvent";
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -758,7 +763,12 @@ hipError_t hipGraphEventWaitNodeGetEvent(hipGraphNode_t node,
                                          hipEvent_t *event_out) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto CastNode = static_cast<CHIPGraphNodeWaitEvent*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeWaitEvent", hipErrorInvalidValue);
+  
+  *event_out = CastNode->getEvent();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -766,7 +776,12 @@ hipError_t hipGraphEventWaitNodeSetEvent(hipGraphNode_t node,
                                          hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto CastNode = static_cast<CHIPGraphNodeWaitEvent*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeWaitEvent", hipErrorInvalidValue);
+  
+  CastNode->setEvent(event);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -775,7 +790,17 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
                                              hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto ExecNode = hGraphExec->getGraph()->nodeLookup(hNode);
+  if(!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
+  
+  // TODO Grahs check all of these - somewhere using hNode instead of ExecNode
+  auto CastNode = static_cast<CHIPGraphNodeWaitEvent*>(ExecNode);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeWaitEvent", hipErrorInvalidValue);
+  
+  CastNode->setEvent(event);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 hipError_t hipStreamBeginCapture(hipStream_t stream,

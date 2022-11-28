@@ -376,10 +376,14 @@ CHIPGraphNodeEmpty(const CHIPGraphNodeEmpty& Other) : CHIPGraphNode(Other) {}
 };
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
+private:
+  CHIPEvent* Event_;
 public:
-CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent& Other) : CHIPGraphNode(Other) {}
+CHIPGraphNodeWaitEvent(CHIPEvent* Event) : Event_(Event) {}
+CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent& Other) : CHIPGraphNode(Other), Event_(Other.Event_) {}
 virtual void execute(CHIPQueue* Queue) const override {
-  // TODO Graphs
+  // TODO Graphs current HIP API requires this to be 0
+  hipStreamWaitEvent(Queue, Event_, 0);
 }
   virtual CHIPGraphNode* clone() const override {
     auto NewNode = new CHIPGraphNodeWaitEvent(*this);
@@ -387,6 +391,11 @@ virtual void execute(CHIPQueue* Queue) const override {
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
     UNIMPLEMENTED(false); // TODO Graphs
+  }
+
+  CHIPEvent* getEvent() { return Event_; }
+  void setEvent(CHIPEvent* Event) {
+    Event_ = Event;
   }
 };
 
