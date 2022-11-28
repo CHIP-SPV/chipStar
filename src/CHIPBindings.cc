@@ -114,13 +114,13 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
                                    size_t numDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNode* FoundNode = graph->findNode(*to);
-  if(!FoundNode)
+  CHIPGraphNode *FoundNode = graph->findNode(*to);
+  if (!FoundNode)
     RETURN(hipErrorInvalidValue);
 
-   
   // TODO Graphs constness here?
-  FoundNode->addDependencies(const_cast<CHIPGraphNode**>(from), numDependencies);
+  FoundNode->addDependencies(const_cast<CHIPGraphNode **>(from),
+                             numDependencies);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -131,11 +131,12 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
                                       size_t numDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNode* FoundNode = graph->findNode(*to);
-  if(!FoundNode)
+  CHIPGraphNode *FoundNode = graph->findNode(*to);
+  if (!FoundNode)
     RETURN(hipErrorInvalidValue);
 
-  FoundNode->removeDependencies(const_cast<CHIPGraphNode**>(from), numDependencies);
+  FoundNode->removeDependencies(const_cast<CHIPGraphNode **>(from),
+                                numDependencies);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -145,12 +146,12 @@ hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
   CHIP_TRY
   CHIPInitialize();
   auto Edges = graph->getEdges();
-  if(!to && !from) {
+  if (!to && !from) {
     *numEdges = Edges.size();
     RETURN(hipSuccess);
   }
 
-  for (int i  = 0; i < Edges.size(); i++) {
+  for (int i = 0; i < Edges.size(); i++) {
     auto Edge = Edges[i];
     auto FromNode = Edge.first;
     auto ToNode = Edge.second;
@@ -190,12 +191,12 @@ hipError_t hipGraphNodeGetDependencies(hipGraphNode_t node,
   CHIPInitialize();
   auto Deps = node->getDependenciesVec();
   *pNumDependencies = Deps.size();
-  if(!pDependencies) 
+  if (!pDependencies)
     RETURN(hipSuccess);
-  for(int i = 0; i < Deps.size(); i++) {
+  for (int i = 0; i < Deps.size(); i++) {
     pDependencies[i] = Deps[i];
   }
-  RETURN(hipSuccess); 
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -206,9 +207,9 @@ hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
   CHIPInitialize();
   auto Deps = node->getDependantsVec();
   *pNumDependentNodes = Deps.size();
-  if(!pDependentNodes)
+  if (!pDependentNodes)
     RETURN(hipSuccess);
-  for(int i = 0; i < Deps.size(); i ++) {
+  for (int i = 0; i < Deps.size(); i++) {
     pDependentNodes[i] = Deps[i];
   }
   RETURN(hipSuccess);
@@ -226,16 +227,57 @@ hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
 hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   CHIP_TRY
   CHIPInitialize();
-  delete node; // TODO Graphs make virtual destructors
-  RETURN(hipSuccess); 
+  /**
+   * have to resort to these shenanigans to call the proper derived destructor
+   */
+  auto NodeType = node->getType();
+  switch (NodeType) {
+  case hipGraphNodeTypeKernel:
+    delete static_cast<CHIPGraphNodeKernel*>(node);
+    break;
+  case hipGraphNodeTypeMemcpy:
+    delete static_cast<CHIPGraphNodeMemcpy*>(node);
+    break;
+  case hipGraphNodeTypeMemset:
+    delete static_cast<CHIPGraphNodeMemset*>(node);
+    break;
+  case hipGraphNodeTypeHost:
+    delete static_cast<CHIPGraphNodeHost*>(node);
+    break;
+  case hipGraphNodeTypeGraph:
+    delete static_cast<CHIPGraphNodeGraph*>(node);
+    break;
+  case hipGraphNodeTypeEmpty:
+    delete static_cast<CHIPGraphNodeEmpty*>(node);
+    break;
+  case hipGraphNodeTypeWaitEvent:
+    delete static_cast<CHIPGraphNodeWaitEvent*>(node);
+    break;
+  case hipGraphNodeTypeEventRecord:
+    delete static_cast<CHIPGraphNodeEventRecord*>(node);
+    break;
+  case hipGraphNodeTypeMemcpy1D:
+    delete static_cast<CHIPGraphNodeMemcpy1D*>(node);
+    break;
+  case hipGraphNodeTypeMemcpyFromSymbol:
+    delete static_cast<CHIPGraphNodeMemcpyFromSymbol*>(node);
+    break;
+  case hipGraphNodeTypeMemcpyToSymbol:
+    delete static_cast<CHIPGraphNodeMemcpyToSymbol*>(node);
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW("Unknown graph node type", hipErrorTbd);
+    break;
+  }
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
 hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraph* CloneGraph = new CHIPGraph(*originalGraph);
-  *pGraphClone  = CloneGraph;
+  CHIPGraph *CloneGraph = new CHIPGraph(*originalGraph);
+  *pGraphClone = CloneGraph;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -296,32 +338,37 @@ hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
   CHIP_TRY
   CHIPInitialize();
   /**
-   * cudaGraphExecUpdate sets updateResult_out to cudaGraphExecUpdateErrorTopologyChanged under the following conditions:
-    1. The count of nodes directly in hGraphExec and hGraph differ, in which case hErrorNode_out is NULL.
-    2. A node is deleted in hGraph but not not its pair from hGraphExec, in which case hErrorNode_out is NULL.
-    3. A node is deleted in hGraphExec but not its pair from hGraph, in which case hErrorNode_out is the pairless node from hGraph.
-    4. The dependent nodes of a pair differ, in which case hErrorNode_out is the node from hGraph.
+   * cudaGraphExecUpdate sets updateResult_out to
+   cudaGraphExecUpdateErrorTopologyChanged under the following conditions:
+    1. The count of nodes directly in hGraphExec and hGraph differ, in which
+   case hErrorNode_out is NULL.
+    2. A node is deleted in hGraph but not not its pair from hGraphExec, in
+   which case hErrorNode_out is NULL.
+    3. A node is deleted in hGraphExec but not its pair from hGraph, in which
+   case hErrorNode_out is the pairless node from hGraph.
+    4. The dependent nodes of a pair differ, in which case hErrorNode_out is the
+   node from hGraph.
    */
   auto ExecGraph = hGraphExec->getGraph();
-  // 1. 
-  if(ExecGraph->getNodes().size() != hGraph->getNodes().size()) {
+  // 1.
+  if (ExecGraph->getNodes().size() != hGraph->getNodes().size()) {
     *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
     *hErrorNode_out = nullptr;
     RETURN(hipErrorGraphExecUpdateFailure);
   }
   // 2.
-  if(ExecGraph->getNodes().size() > hGraph->getNodes().size() ) {
+  if (ExecGraph->getNodes().size() > hGraph->getNodes().size()) {
     *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
     *hErrorNode_out = nullptr;
     RETURN(hipErrorGraphExecUpdateFailure);
   }
   // 3.
-  for(auto Node : hGraph->getNodes()) {
+  for (auto Node : hGraph->getNodes()) {
     auto NodeFound = ExecGraph->nodeLookup(Node);
     if (!NodeFound) {
-    *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
-    *hErrorNode_out = Node;
-    RETURN(hipErrorGraphExecUpdateFailure);
+      *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
+      *hErrorNode_out = Node;
+      RETURN(hipErrorGraphExecUpdateFailure);
     }
   }
 
@@ -329,53 +376,68 @@ hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
    Update Limitations:
     a) Kernel nodes:
         1. The owning context of the function cannot change.
-        2. A node whose function originally did not use CUDA dynamic parallelism cannot be updated to a function which uses CDP.
-        3. A cooperative node cannot be updated to a non-cooperative node, and vice-versa.
-        4. If the graph was instantiated with cudaGraphInstantiateFlagUseNodePriority, the priority attribute cannot change. Equality is checked on the originally requested priority values, before they are clamped to the device's supported range.
+        2. A node whose function originally did not use CUDA dynamic parallelism
+   cannot be updated to a function which uses CDP.
+        3. A cooperative node cannot be updated to a non-cooperative node, and
+   vice-versa.
+        4. If the graph was instantiated with
+   cudaGraphInstantiateFlagUseNodePriority, the priority attribute cannot
+   change. Equality is checked on the originally requested priority values,
+   before they are clamped to the device's supported range.
 
     b) Memset and memcpy nodes:
-        1. The CUDA device(s) to which the operand(s) was allocated/mapped cannot change.
-        2. The source/destination memory must be allocated from the same contexts as the original source/destination memory.
+        1. The CUDA device(s) to which the operand(s) was allocated/mapped
+   cannot change.
+        2. The source/destination memory must be allocated from the same
+   contexts as the original source/destination memory.
         3. Only 1D memsets can be changed.
 
     c) Additional memcpy node restrictions:
-        1. Changing either the source or destination memory type(i.e. CU_MEMORYTYPE_DEVICE, CU_MEMORYTYPE_ARRAY, etc.) is not supported.
+        1. Changing either the source or destination memory type(i.e.
+   CU_MEMORYTYPE_DEVICE, CU_MEMORYTYPE_ARRAY, etc.) is not supported.
    **/
   // TODO Graphs
 
-
-/**
- * cudaGraphExecUpdate sets updateResult_out to:
-    1. cudaGraphExecUpdateError if passed an invalid value.
-    2. cudaGraphExecUpdateErrorTopologyChanged if the graph topology changed
-    3. cudaGraphExecUpdateErrorNodeTypeChanged if the type of a node changed, in which case hErrorNode_out is set to the node from hGraph.
-    4. cudaGraphExecUpdateErrorFunctionChanged if the function of a kernel node changed (CUDA driver < 11.2)
-    5. cudaGraphExecUpdateErrorUnsupportedFunctionChange if the func field of a kernel changed in an unsupported way(see note above), in which case hErrorNode_out is set to the node from hGraph
-    cudaGraphExecUpdateErrorParametersChanged if any parameters to a node changed in a way that is not supported, in which case hErrorNode_out is set to the node from hGraph
-    cudaGraphExecUpdateErrorAttributesChanged if any attributes of a node changed in a way that is not supported, in which case hErrorNode_out is set to the node from hGraph
-    cudaGraphExecUpdateErrorNotSupported if something about a node is unsupported, like the node's type or configuration, in which case hErrorNode_out is set to the node from hGraph
- **/
-  for(auto Node : hGraph->getNodes()) {
+  /**
+   * cudaGraphExecUpdate sets updateResult_out to:
+      1. cudaGraphExecUpdateError if passed an invalid value.
+      2. cudaGraphExecUpdateErrorTopologyChanged if the graph topology changed
+      3. cudaGraphExecUpdateErrorNodeTypeChanged if the type of a node changed,
+   in which case hErrorNode_out is set to the node from hGraph.
+      4. cudaGraphExecUpdateErrorFunctionChanged if the function of a kernel
+   node changed (CUDA driver < 11.2)
+      5. cudaGraphExecUpdateErrorUnsupportedFunctionChange if the func field of
+   a kernel changed in an unsupported way(see note above), in which case
+   hErrorNode_out is set to the node from hGraph
+      cudaGraphExecUpdateErrorParametersChanged if any parameters to a node
+   changed in a way that is not supported, in which case hErrorNode_out is set
+   to the node from hGraph cudaGraphExecUpdateErrorAttributesChanged if any
+   attributes of a node changed in a way that is not supported, in which case
+   hErrorNode_out is set to the node from hGraph
+      cudaGraphExecUpdateErrorNotSupported if something about a node is
+   unsupported, like the node's type or configuration, in which case
+   hErrorNode_out is set to the node from hGraph
+   **/
+  for (auto Node : hGraph->getNodes()) {
     auto NodeFound = ExecGraph->nodeLookup(Node);
     // 3.
-    if(Node->getType() != NodeFound->getType()) {
+    if (Node->getType() != NodeFound->getType()) {
       *updateResult_out = hipGraphExecUpdateErrorNodeTypeChanged;
       *hErrorNode_out = Node;
       RETURN(hipErrorGraphExecUpdateFailure);
-     }
+    }
 
-     // 4.
-      if(Node->getType() == hipGraphNodeType::hipGraphNodeTypeKernel && NodeFound->getType() == hipGraphNodeType::hipGraphNodeTypeKernel) {
-        auto NodeCast = static_cast<CHIPGraphNodeKernel*>(Node);
-        auto NodeFoundCast = static_cast<CHIPGraphNodeKernel*>(NodeFound);
-        if(NodeCast->getParams().func != NodeFoundCast->getParams().func) {
-          *updateResult_out = hipGraphExecUpdateErrorFunctionChanged;
-          *hErrorNode_out = Node;
-          RETURN(hipErrorGraphExecUpdateFailure);
-        }
-     }
-
-
+    // 4.
+    if (Node->getType() == hipGraphNodeType::hipGraphNodeTypeKernel &&
+        NodeFound->getType() == hipGraphNodeType::hipGraphNodeTypeKernel) {
+      auto NodeCast = static_cast<CHIPGraphNodeKernel *>(Node);
+      auto NodeFoundCast = static_cast<CHIPGraphNodeKernel *>(NodeFound);
+      if (NodeCast->getParams().func != NodeFoundCast->getParams().func) {
+        *updateResult_out = hipGraphExecUpdateErrorFunctionChanged;
+        *hErrorNode_out = Node;
+        RETURN(hipErrorGraphExecUpdateFailure);
+      }
+    }
   }
 
   RETURN(hipSuccess);
@@ -388,8 +450,9 @@ hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeKernel* Node = new CHIPGraphNodeKernel{pNodeParams};
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  CHIPGraphNodeKernel *Node = new CHIPGraphNodeKernel{pNodeParams};
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   Node->Msg += "Kernel";
@@ -401,7 +464,7 @@ hipError_t hipGraphKernelNodeGetParams(hipGraphNode_t node,
                                        hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  *pNodeParams = ((CHIPGraphNodeKernel*)node)->getParams();
+  *pNodeParams = ((CHIPGraphNodeKernel *)node)->getParams();
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -410,7 +473,7 @@ hipError_t hipGraphKernelNodeSetParams(hipGraphNode_t node,
                                        const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  ((CHIPGraphNodeKernel*)node)->setParams(*pNodeParams);
+  ((CHIPGraphNodeKernel *)node)->setParams(*pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -421,12 +484,13 @@ hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
   CHIP_TRY
   CHIPInitialize();
   // Graph obtained from hipGraphExec_t is a clone of the original
-  CHIPGraph* Graph = hGraphExec->getGraph();
-  // KernelNode here is a handle to the original 
-  CHIPGraphNodeKernel* KernelNode = ((CHIPGraphNodeKernel*)node);
+  CHIPGraph *Graph = hGraphExec->getGraph();
+  // KernelNode here is a handle to the original
+  CHIPGraphNodeKernel *KernelNode = ((CHIPGraphNodeKernel *)node);
   // TODO Graphs, use node lookup
-  CHIPGraphNodeKernel*  ExecKernelNode = ((CHIPGraphNodeKernel*)Graph->getClonedNodeFromOriginal(KernelNode));
-  
+  CHIPGraphNodeKernel *ExecKernelNode =
+      ((CHIPGraphNodeKernel *)Graph->getClonedNodeFromOriginal(KernelNode));
+
   ExecKernelNode->setParams(*pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -440,22 +504,27 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIPInitialize();
   NULLCHECK(graph, pGraphNode, pCopyParams);
   if (pDependencies == nullptr & numDependencies > 0)
-    CHIPERR_LOG_AND_THROW("numDependencies is not 0 while pDependencies is null", hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW(
+        "numDependencies is not 0 while pDependencies is null",
+        hipErrorInvalidValue);
 
-  if(!pCopyParams->srcArray && !pCopyParams->srcPtr.ptr)
-    CHIPERR_LOG_AND_THROW( "all src are null", hipErrorInvalidValue);
+  if (!pCopyParams->srcArray && !pCopyParams->srcPtr.ptr)
+    CHIPERR_LOG_AND_THROW("all src are null", hipErrorInvalidValue);
 
-  if(!pCopyParams->dstArray && !pCopyParams->dstPtr.ptr)
-    CHIPERR_LOG_AND_THROW( "all dst are null", hipErrorInvalidValue);
-  
-  if((pCopyParams->dstArray && pCopyParams->srcArray) && (
-    (pCopyParams->dstArray->depth != pCopyParams->srcArray->depth)  ||
-    (pCopyParams->dstArray->height != pCopyParams->srcArray->height) ||
-    (pCopyParams->dstArray->width != pCopyParams->srcArray->width) 
-  ))
-    CHIPERR_LOG_AND_THROW("Passing different element size for hipMemcpy3DParms::srcArray and hipMemcpy3DParms::dstArray", hipErrorInvalidValue);
+  if (!pCopyParams->dstArray && !pCopyParams->dstPtr.ptr)
+    CHIPERR_LOG_AND_THROW("all dst are null", hipErrorInvalidValue);
+
+  if ((pCopyParams->dstArray && pCopyParams->srcArray) &&
+      ((pCopyParams->dstArray->depth != pCopyParams->srcArray->depth) ||
+       (pCopyParams->dstArray->height != pCopyParams->srcArray->height) ||
+       (pCopyParams->dstArray->width != pCopyParams->srcArray->width)))
+    CHIPERR_LOG_AND_THROW(
+        "Passing different element size for hipMemcpy3DParms::srcArray and "
+        "hipMemcpy3DParms::dstArray",
+        hipErrorInvalidValue);
   CHIPGraphNodeMemcpy *Node = new CHIPGraphNodeMemcpy(pCopyParams);
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   Node->Msg += "Memcpy";
@@ -467,7 +536,8 @@ hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
                                        hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  hipMemcpy3DParms Params = static_cast<CHIPGraphNodeMemcpy*>(node)->getParams();
+  hipMemcpy3DParms Params =
+      static_cast<CHIPGraphNodeMemcpy *>(node)->getParams();
   pNodeParams = &Params;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -477,7 +547,7 @@ hipError_t hipGraphMemcpyNodeSetParams(hipGraphNode_t node,
                                        const hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  static_cast<CHIPGraphNodeMemcpy*>(node)->setParams(pNodeParams);
+  static_cast<CHIPGraphNodeMemcpy *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -488,13 +558,15 @@ hipError_t hipGraphExecMemcpyNodeSetParams(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
-  auto CastNode = static_cast<CHIPGraphNodeMemcpy*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy", hipErrorInvalidValue);
-  
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy",
+                          hipErrorInvalidValue);
+
   CastNode->setParams(const_cast<hipMemcpy3DParms *>(pNodeParams));
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -507,9 +579,11 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                    hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeMemcpy1D *Node = new CHIPGraphNodeMemcpy1D(dst, src, count, kind);
+  CHIPGraphNodeMemcpy1D *Node =
+      new CHIPGraphNodeMemcpy1D(dst, src, count, kind);
   *pGraphNode = Node;
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
   Node->Msg += "Memcpy1D";
   RETURN(hipSuccess);
@@ -521,10 +595,12 @@ hipError_t hipGraphMemcpyNodeSetParams1D(hipGraphNode_t node, void *dst,
                                          hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy1D", hipErrorInvalidValue);
-  
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeMemcpy1D",
+        hipErrorInvalidValue);
+
   CastNode->setParams(dst, src, count, kind);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -537,13 +613,16 @@ hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
-  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy1D", hipErrorInvalidValue);
-  
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeMemcpy1D",
+        hipErrorInvalidValue);
+
   CastNode->setParams(dst, src, count, kind);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -557,9 +636,11 @@ hipError_t hipGraphAddMemcpyNodeFromSymbol(hipGraphNode_t *pGraphNode,
                                            size_t offset, hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeMemcpyFromSymbol *Node = new CHIPGraphNodeMemcpyFromSymbol(dst, symbol, count, offset, kind);
+  CHIPGraphNodeMemcpyFromSymbol *Node =
+      new CHIPGraphNodeMemcpyFromSymbol(dst, symbol, count, offset, kind);
   *pGraphNode = Node;
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
   Node->Msg += "MemcpyNodeFromSymbol";
   RETURN(hipSuccess);
@@ -572,7 +653,8 @@ hipError_t hipGraphMemcpyNodeSetParamsFromSymbol(hipGraphNode_t node, void *dst,
                                                  hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  static_cast<CHIPGraphNodeMemcpyFromSymbol*>(node)->setParams(dst, symbol, count, offset, kind);
+  static_cast<CHIPGraphNodeMemcpyFromSymbol *>(node)->setParams(
+      dst, symbol, count, offset, kind);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -583,11 +665,14 @@ hipError_t hipGraphExecMemcpyNodeSetParamsFromSymbol(
   CHIP_TRY
   CHIPInitialize();
   // Graph obtained from hipGraphExec_t is a clone of the original
-  CHIPGraph* Graph = hGraphExec->getGraph();
-  // KernelNode here is a handle to the original 
-  CHIPGraphNodeMemcpyFromSymbol* KernelNode = ((CHIPGraphNodeMemcpyFromSymbol*)node);
-  CHIPGraphNodeMemcpyFromSymbol*  ExecKernelNode = ((CHIPGraphNodeMemcpyFromSymbol*)Graph->getClonedNodeFromOriginal(KernelNode));
-  
+  CHIPGraph *Graph = hGraphExec->getGraph();
+  // KernelNode here is a handle to the original
+  CHIPGraphNodeMemcpyFromSymbol *KernelNode =
+      ((CHIPGraphNodeMemcpyFromSymbol *)node);
+  CHIPGraphNodeMemcpyFromSymbol *ExecKernelNode =
+      ((CHIPGraphNodeMemcpyFromSymbol *)Graph->getClonedNodeFromOriginal(
+          KernelNode));
+
   ExecKernelNode->setParams(dst, symbol, count, offset, kind);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -602,9 +687,11 @@ hipError_t hipGraphAddMemcpyNodeToSymbol(hipGraphNode_t *pGraphNode,
                                          hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeMemcpyToSymbol *Node = new CHIPGraphNodeMemcpyToSymbol(const_cast<void*>(src), symbol, count, offset, kind);
+  CHIPGraphNodeMemcpyToSymbol *Node = new CHIPGraphNodeMemcpyToSymbol(
+      const_cast<void *>(src), symbol, count, offset, kind);
   *pGraphNode = Node;
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
   Node->Msg += "MemcpyNodeToSymbol";
   RETURN(hipSuccess);
@@ -618,7 +705,8 @@ hipError_t hipGraphMemcpyNodeSetParamsToSymbol(hipGraphNode_t node,
                                                hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  static_cast<CHIPGraphNodeMemcpyToSymbol*>(node)->setParams(const_cast<void*>(src), symbol, count, offset, kind);
+  static_cast<CHIPGraphNodeMemcpyToSymbol *>(node)->setParams(
+      const_cast<void *>(src), symbol, count, offset, kind);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -629,14 +717,17 @@ hipError_t hipGraphExecMemcpyNodeSetParamsToSymbol(
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
-  auto CastNode = static_cast<CHIPGraphNodeMemcpyToSymbol*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpyToSymbol", hipErrorInvalidValue);
-  
-  CastNode->setParams(const_cast<void*>(src), symbol, count, offset, kind);
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
+  auto CastNode = static_cast<CHIPGraphNodeMemcpyToSymbol *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeMemcpyToSymbol",
+        hipErrorInvalidValue);
+
+  CastNode->setParams(const_cast<void *>(src), symbol, count, offset, kind);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -648,7 +739,8 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeMemset *Node = new CHIPGraphNodeMemset(pMemsetParams);
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
   *pGraphNode = Node;
   Node->Msg += "Memset";
@@ -661,7 +753,8 @@ hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
   CHIP_TRY
   CHIPInitialize();
   // TODO Graphs check all set/get param static_casts for nullptr result
-  hipMemsetParams Params = static_cast<CHIPGraphNodeMemset*>(node)->getParams();
+  hipMemsetParams Params =
+      static_cast<CHIPGraphNodeMemset *>(node)->getParams();
   *pNodeParams = Params;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -671,7 +764,7 @@ hipError_t hipGraphMemsetNodeSetParams(hipGraphNode_t node,
                                        const hipMemsetParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  static_cast<CHIPGraphNodeMemset*>(node)->setParams(pNodeParams);
+  static_cast<CHIPGraphNodeMemset *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -682,13 +775,15 @@ hipError_t hipGraphExecMemsetNodeSetParams(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
-  auto CastNode = static_cast<CHIPGraphNodeMemset*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemset", hipErrorInvalidValue);
-  
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
+  auto CastNode = static_cast<CHIPGraphNodeMemset *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemset",
+                          hipErrorInvalidValue);
+
   CastNode->setParams(pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -701,7 +796,8 @@ hipError_t hipGraphAddHostNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeHost *Node = new CHIPGraphNodeHost(pNodeParams);
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
   *pGraphNode = Node;
   Node->Msg += "Memset";
@@ -714,7 +810,8 @@ hipError_t hipGraphHostNodeGetParams(hipGraphNode_t node,
   CHIP_TRY
   CHIPInitialize();
   // TODO Graphs check all set/get param static_casts for nullptr result
-  hipHostNodeParams Params = static_cast<CHIPGraphNodeHost*>(node)->getParams();
+  hipHostNodeParams Params =
+      static_cast<CHIPGraphNodeHost *>(node)->getParams();
   *pNodeParams = Params;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -724,7 +821,7 @@ hipError_t hipGraphHostNodeSetParams(hipGraphNode_t node,
                                      const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  static_cast<CHIPGraphNodeHost*>(node)->setParams(pNodeParams);
+  static_cast<CHIPGraphNodeHost *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -735,13 +832,15 @@ hipError_t hipGraphExecHostNodeSetParams(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
-  auto CastNode = static_cast<CHIPGraphNodeHost*>(ExecNode);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemset", hipErrorInvalidValue);
-  
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
+  auto CastNode = static_cast<CHIPGraphNodeHost *>(ExecNode);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemset",
+                          hipErrorInvalidValue);
+
   CastNode->setParams(pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -756,9 +855,11 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
   CHIPInitialize();
   CHIPGraphNodeGraph *Node = new CHIPGraphNodeGraph(childGraph);
   *pGraphNode = Node;
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
-  Node->Msg += "MemcpyNodeFromSymbol"; // TODO Graphs fix this and other instances
+  Node->Msg +=
+      "MemcpyNodeFromSymbol"; // TODO Graphs fix this and other instances
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -767,7 +868,8 @@ hipError_t hipGraphChildGraphNodeGetGraph(hipGraphNode_t node,
                                           hipGraph_t *pGraph) {
   CHIP_TRY
   CHIPInitialize();
-  *pGraph = static_cast<CHIPGraphNodeGraph*>(node)->getGraph(); // TODO Graphs check cast result
+  *pGraph = static_cast<CHIPGraphNodeGraph *>(node)
+                ->getGraph(); // TODO Graphs check cast result
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -777,7 +879,8 @@ hipError_t hipGraphExecChildGraphNodeSetParams(hipGraphExec_t hGraphExec,
                                                hipGraph_t childGraph) {
   CHIP_TRY
   CHIPInitialize();
-  static_cast<CHIPGraphNodeGraph*>(node)->setGraph(childGraph); // TODO Graphs check cast result
+  static_cast<CHIPGraphNodeGraph *>(node)->setGraph(
+      childGraph); // TODO Graphs check cast result
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -788,7 +891,8 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   RETURN(hipSuccess);
@@ -803,7 +907,8 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeEventRecord *Node = new CHIPGraphNodeEventRecord(event);
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   *pGraphNode = Node;
   graph->addNode(Node);
   RETURN(hipSuccess);
@@ -814,9 +919,10 @@ hipError_t hipGraphEventRecordNodeGetEvent(hipGraphNode_t node,
                                            hipEvent_t *event_out) {
   CHIP_TRY
   CHIPInitialize();
-  auto CastNode = static_cast<CHIPGraphNodeEventRecord*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord", hipErrorInvalidValue);
+  auto CastNode = static_cast<CHIPGraphNodeEventRecord *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord",
+                          hipErrorInvalidValue);
   *event_out = CastNode->getEvent();
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -826,9 +932,10 @@ hipError_t hipGraphEventRecordNodeSetEvent(hipGraphNode_t node,
                                            hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  auto CastNode = static_cast<CHIPGraphNodeEventRecord*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord", hipErrorInvalidValue);
+  auto CastNode = static_cast<CHIPGraphNodeEventRecord *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord",
+                          hipErrorInvalidValue);
   CastNode->setEvent(event);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -840,13 +947,16 @@ hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(hNode);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
-  auto CastNode = static_cast<CHIPGraphNodeEventRecord*>(hNode);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeEventRecord", hipErrorInvalidValue);
-  
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
+  auto CastNode = static_cast<CHIPGraphNodeEventRecord *>(hNode);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeEventRecord",
+        hipErrorInvalidValue);
+
   CastNode->setEvent(event);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -860,7 +970,8 @@ hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
   CHIPInitialize();
   CHIPGraphNodeWaitEvent *Node = new CHIPGraphNodeWaitEvent(event);
   *pGraphNode = Node;
-  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
+                        numDependencies);
   graph->addNode(Node);
   Node->Msg += "WaitEvent";
   RETURN(hipSuccess);
@@ -871,10 +982,12 @@ hipError_t hipGraphEventWaitNodeGetEvent(hipGraphNode_t node,
                                          hipEvent_t *event_out) {
   CHIP_TRY
   CHIPInitialize();
-  auto CastNode = static_cast<CHIPGraphNodeWaitEvent*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeWaitEvent", hipErrorInvalidValue);
-  
+  auto CastNode = static_cast<CHIPGraphNodeWaitEvent *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeWaitEvent",
+        hipErrorInvalidValue);
+
   *event_out = CastNode->getEvent();
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -884,10 +997,12 @@ hipError_t hipGraphEventWaitNodeSetEvent(hipGraphNode_t node,
                                          hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  auto CastNode = static_cast<CHIPGraphNodeWaitEvent*>(node);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeWaitEvent", hipErrorInvalidValue);
-  
+  auto CastNode = static_cast<CHIPGraphNodeWaitEvent *>(node);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeWaitEvent",
+        hipErrorInvalidValue);
+
   CastNode->setEvent(event);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -899,14 +1014,17 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   auto ExecNode = hGraphExec->getGraph()->nodeLookup(hNode);
-  if(!ExecNode)
-    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
-  
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
+                          hipErrorInvalidValue);
+
   // TODO Grahs check all of these - somewhere using hNode instead of ExecNode
-  auto CastNode = static_cast<CHIPGraphNodeWaitEvent*>(ExecNode);
-  if(!CastNode)
-    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeWaitEvent", hipErrorInvalidValue);
-  
+  auto CastNode = static_cast<CHIPGraphNodeWaitEvent *>(ExecNode);
+  if (!CastNode)
+    CHIPERR_LOG_AND_THROW(
+        "Node provided failed to cast to CHIPGraphNodeWaitEvent",
+        hipErrorInvalidValue);
+
   CastNode->setEvent(event);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -917,7 +1035,8 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
   CHIPInitialize();
   stream->initCaptureGraph();
   stream->setCaptureMode(mode);
-  stream->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusActive);
+  stream->setCaptureStatus(
+      hipStreamCaptureStatus::hipStreamCaptureStatusActive);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2416,7 +2535,7 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
 
   Stream = Backend->findQueue(Stream);
-  if(Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
+  if (Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
     auto Graph = Stream->getCaptureGraph();
     auto Node = new CHIPGraphNodeMemcpy1D(Dst, Src, SizeBytes, Kind);
     Stream->updateLastNode(Node);
@@ -2452,7 +2571,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  logDebug("\nExecuting memCopyAsync Dst {} Src {} Size {}", Dst, Src, SizeBytes);
+  logDebug("\nExecuting memCopyAsync Dst {} Src {} Size {}", Dst, Src,
+           SizeBytes);
 
   NULLCHECK(Dst, Src);
 
@@ -3009,10 +3129,10 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   bool ArrayDst = Params->dstArray != nullptr ? true : false;
   bool ArraySrc = Params->srcArray != nullptr ? true : false;
   bool DrvSrc = false;
-  if(ArrayDst) 
+  if (ArrayDst)
     DrvSrc = Params->dstArray->isDrv;
 
-  if(ArrayDst || ArraySrc) {
+  if (ArrayDst || ArraySrc) {
     auto Desc = ArrayDst ? Params->dstArray->desc.f : Params->srcArray->desc.f;
     switch (Desc) {
     case hipChannelFormatKindSigned:
@@ -3028,12 +3148,9 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
       ByteSize = sizeof(size_t);
       break;
     }
-  } 
-
-
+  }
 
   if (ArrayDst && DrvSrc) {
-
 
     Depth = PDrv->Depth;
     Height = PDrv->Height;
@@ -3047,8 +3164,6 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
     Depth = Params->extent.depth;
     Height = Params->extent.height;
     WidthInBytes = Params->extent.width * ByteSize;
-
-
 
     if (ArraySrc) {
       SrcPitch = PDrv->srcArray->width * ByteSize; // ???
@@ -3072,31 +3187,30 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
       DstPtr = Params->dstPtr.ptr;
     }
   }
-    LOCK(Stream->QueueMtx); // prevent interruptions
-    if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-      return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
-                       WidthInBytes * Height * Depth, Params->kind);
-    } else 
-    {
-      for (size_t i = 0; i < Depth; i++) {
-        for (size_t j = 0; j < Height; j++) {
-          unsigned char *Src =
-              (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
-          unsigned char *Dst =
-              (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-          if (hipMemcpyAsync(Dst, Src, WidthInBytes, Params->kind, Stream) !=
-              hipSuccess)
-            RETURN(hipErrorLaunchFailure);
-        }
+  LOCK(Stream->QueueMtx); // prevent interruptions
+  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
+    return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
+                     WidthInBytes * Height * Depth, Params->kind);
+  } else {
+    for (size_t i = 0; i < Depth; i++) {
+      for (size_t j = 0; j < Height; j++) {
+        unsigned char *Src =
+            (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
+        unsigned char *Dst =
+            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
+        if (hipMemcpyAsync(Dst, Src, WidthInBytes, Params->kind, Stream) !=
+            hipSuccess)
+          RETURN(hipErrorLaunchFailure);
       }
-
-      Stream->finish();
-      RETURN(hipSuccess);
     }
-    RETURN(hipSuccess);
 
-    CHIP_CATCH
+    Stream->finish();
+    RETURN(hipSuccess);
   }
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
+}
 
 hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
                                 const void *HostFunction) {
@@ -3260,9 +3374,10 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   NULLCHECK(HostFunction, Args);
 
   Stream = Backend->findQueue(Stream);
-  if(Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
+  if (Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
     auto Graph = Stream->getCaptureGraph();
-    auto Node = new CHIPGraphNodeKernel(HostFunction, GridDim, BlockDim, Args, SharedMem);
+    auto Node = new CHIPGraphNodeKernel(HostFunction, GridDim, BlockDim, Args,
+                                        SharedMem);
     Stream->updateLastNode(Node);
     Graph->addNode(Node);
     RETURN(hipSuccess);
