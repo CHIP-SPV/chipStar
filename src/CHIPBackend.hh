@@ -439,12 +439,34 @@ class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
+private:
+void *Dst_;
+void *Symbol_;
+size_t SizeBytes_;
+size_t Offset_;
+hipMemcpyKind Kind_;
+
 public:
+CHIPGraphNodeMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
+                               size_t Offset, hipMemcpyKind Kind) : Dst_(Dst), Symbol_(const_cast<void*>(Symbol)), SizeBytes_(SizeBytes), Offset_(Offset), Kind_(Kind) {}
+
+CHIPGraphNodeMemcpyFromSymbol(const CHIPGraphNodeMemcpyFromSymbol &Other) : CHIPGraphNode(Other), Dst_(Other.Dst_), Symbol_(Other.Symbol_), SizeBytes_(Other.SizeBytes_), Offset_(Other.Offset_), Kind_(Other.Kind_) {}
+
 virtual void execute(CHIPQueue* Queue) const override {
-  // TODO Graphs
+  hipMemcpyFromSymbol(Dst_, Symbol_, SizeBytes_, Offset_, Kind_);
 }
+
+void setParams(void *Dst, const void *Symbol, size_t SizeBytes,
+                               size_t Offset, hipMemcpyKind Kind) {
+                                Dst_ = Dst;
+                                Symbol_ = const_cast<void*>(Symbol);
+                                SizeBytes_ = SizeBytes;
+                                Offset_ = Offset;
+                                Kind = Kind_;
+                               }
+
   virtual CHIPGraphNode* clone() const override {
-    auto NewNode = new CHIPGraphNodeMemcpyFromSymbol();
+    auto NewNode = new CHIPGraphNodeMemcpyFromSymbol(*this);
     return NewNode;
   }
 
@@ -454,19 +476,40 @@ virtual void execute(CHIPQueue* Queue) const override {
 };
 
 class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
-  CHIPGraphNodeMemcpyToSymbol(const CHIPGraphNodeMemcpyToSymbol& Other) : CHIPGraphNode(Other) {}
+private:
+  void *Src_;
+  void *Symbol_;
+  size_t SizeBytes_;
+  size_t Offset_;
+  hipMemcpyKind Kind_;
+
 public:
+CHIPGraphNodeMemcpyToSymbol(void *Src, const void *Symbol, size_t SizeBytes,
+                               size_t Offset, hipMemcpyKind Kind) : Src_(Src), Symbol_(const_cast<void*>(Symbol)), SizeBytes_(SizeBytes), Offset_(Offset), Kind_(Kind) {}
+
+CHIPGraphNodeMemcpyToSymbol(const CHIPGraphNodeMemcpyToSymbol &Other) : CHIPGraphNode(Other), Src_(Other.Src_), Symbol_(Other.Symbol_), SizeBytes_(Other.SizeBytes_), Offset_(Other.Offset_), Kind_(Other.Kind_) {}
+
 virtual void execute(CHIPQueue* Queue) const override {
-  // TODO Graphs
+  hipMemcpyToSymbol(Symbol_, Src_, SizeBytes_, Offset_, Kind_);
 }
   virtual CHIPGraphNode* clone() const override {
     auto NewNode = new CHIPGraphNodeMemcpyToSymbol(*this);
     return NewNode;
   }
 
-    virtual bool operator==(const CHIPGraphNode &Other) const override {
+  virtual bool operator==(const CHIPGraphNode &Other) const override {
     UNIMPLEMENTED(false); // TODO Graphs
   }
+
+  void setParams(void *Src, const void *Symbol, size_t SizeBytes,
+                               size_t Offset, hipMemcpyKind Kind) {
+                                Src_ = Src;
+                                Symbol_ = const_cast<void*>(Symbol);
+                                SizeBytes_ = SizeBytes;
+                                Offset_ = Offset;
+                                Kind = Kind_;
+                               }
+
 };
 
 class CHIPGraph {
