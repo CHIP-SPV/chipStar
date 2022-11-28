@@ -28,36 +28,7 @@
 #include <stdint.h>
 
 #include <hip/driver_types.h>
-
-#if defined(__clang__) && defined(__HIP__)
-
-#define __host__ __attribute__((host))
-#define __device__ __attribute__((device))
-#define __global__ __attribute__((global))
-#define __shared__ __attribute__((shared))
-#define __constant__ __attribute__((constant))
-
-#define __noinline__ __attribute__((noinline))
-#define __forceinline__ inline __attribute__((always_inline))
-
-#define __launch_bounds__(...)
-#else
-
-/**
- * Function and kernel markers
- */
-#define __host__
-#define __device__
-#define __global__
-#define __shared__
-#define __constant__
-
-#define __noinline__
-#define __forceinline__ inline
-
-#define __launch_bounds__(...)
-
-#endif
+#include <hip/spirv_hip_host_defines.h>
 
 #if defined(__clang__) && defined(__HIP__)
 #include "spirv_hip_devicelib.hh"
