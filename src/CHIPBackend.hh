@@ -391,10 +391,14 @@ virtual void execute(CHIPQueue* Queue) const override {
 };
 
 class CHIPGraphNodeEventRecord : public CHIPGraphNode {
+private:
+CHIPEvent* Event_;
 public:
-CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord& Other) : CHIPGraphNode(Other) {}
+CHIPGraphNodeEventRecord(CHIPEvent* Event) : Event_(Event) {};
+
+CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord& Other) : CHIPGraphNode(Other), Event_(Other.Event_) {}
 virtual void execute(CHIPQueue* Queue) const override {
-  // TODO Graphs
+  hipEventRecord(Event_, Queue);
 }
   virtual CHIPGraphNode* clone() const override {
     auto NewNode = new CHIPGraphNodeEventRecord(*this);
@@ -403,6 +407,12 @@ virtual void execute(CHIPQueue* Queue) const override {
   virtual bool operator==(const CHIPGraphNode &Other) const override {
     UNIMPLEMENTED(false); // TODO Graphs
   }
+
+  void setEvent(CHIPEvent* NewEvent) {
+    Event_ = NewEvent;
+  }
+
+  CHIPEvent* getEvent() {return Event_;}
 };
 
 class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {

@@ -341,6 +341,7 @@ hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
   CHIPGraph* Graph = hGraphExec->getGraph();
   // KernelNode here is a handle to the original 
   CHIPGraphNodeKernel* KernelNode = ((CHIPGraphNodeKernel*)node);
+  // TODO Graphs, use node lookup
   CHIPGraphNodeKernel*  ExecKernelNode = ((CHIPGraphNodeKernel*)Graph->getClonedNodeFromOriginal(KernelNode));
   
   ExecKernelNode->setParams(*pNodeParams);
@@ -693,7 +694,11 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
                                       hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeEventRecord *Node = new CHIPGraphNodeEventRecord(event);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  *pGraphNode = Node;
+  graph->addNode(Node);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -701,7 +706,11 @@ hipError_t hipGraphEventRecordNodeGetEvent(hipGraphNode_t node,
                                            hipEvent_t *event_out) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto CastNode = static_cast<CHIPGraphNodeEventRecord*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord", hipErrorInvalidValue);
+  *event_out = CastNode->getEvent();
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -709,7 +718,11 @@ hipError_t hipGraphEventRecordNodeSetEvent(hipGraphNode_t node,
                                            hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto CastNode = static_cast<CHIPGraphNodeEventRecord*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord", hipErrorInvalidValue);
+  CastNode->setEvent(event);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -718,7 +731,16 @@ hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
                                                hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto ExecNode = hGraphExec->getGraph()->nodeLookup(hNode);
+  if(!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
+  
+  auto CastNode = static_cast<CHIPGraphNodeEventRecord*>(hNode);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeEventRecord", hipErrorInvalidValue);
+  
+  CastNode->setEvent(event);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
