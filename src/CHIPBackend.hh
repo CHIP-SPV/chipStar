@@ -473,6 +473,18 @@ class CHIPGraph {
   CHIPGraph(CHIPDevice* ChipDev) : ChipDev_(ChipDev) {}
   void addNode(CHIPGraphNode* TheNode);
   void removeNode(CHIPGraphNode *TheNode);
+  /**
+   * @brief Lookup a cloned(instantiated) node using a pointer to the original node
+   * 
+   * @param OriginalNode pointer to the node which was present in CHIPGraph at the time of instantiation of CHIPGraph to CHIPGraphExec
+   * @return CHIPGraphNode* pointer to the resulting node in CHIPGraphExec which corresponds to the original node
+   */
+  CHIPGraphNode* nodeLookup(CHIPGraphNode* OriginalNode) {
+    if(!CloneMap_.count(OriginalNode)) {
+      return nullptr;
+    }
+    return CloneMap_[OriginalNode];
+  }
   std::vector<CHIPGraphNode*> getLeafNodes();
   std::vector<CHIPGraphNode*> getRootNodes();
   CHIPGraphNode* getClonedNodeFromOriginal(CHIPGraphNode* OriginalNode) {

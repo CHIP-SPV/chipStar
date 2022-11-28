@@ -403,7 +403,16 @@ hipError_t hipGraphExecMemcpyNodeSetParams(hipGraphExec_t hGraphExec,
                                            hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  if(!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
+  
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy*>(node);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy", hipErrorInvalidValue);
+  
+  CastNode->setParams(const_cast<hipMemcpy3DParms *>(pNodeParams));
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
