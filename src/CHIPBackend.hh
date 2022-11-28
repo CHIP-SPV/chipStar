@@ -319,13 +319,16 @@ class CHIPGraphNodeMemset : public CHIPGraphNode {
 };
 
 class CHIPGraphNodeHost : public CHIPGraphNode {
+private:
+hipHostNodeParams Params_;
 public:
-CHIPGraphNodeHost(const CHIPGraphNodeHost& Other) : CHIPGraphNode(Other) {}
-CHIPGraphNodeHost() {
-  // TODO Graphs
+CHIPGraphNodeHost(const CHIPGraphNodeHost& Other) : CHIPGraphNode(Other), Params_(Other.Params_) {}
+CHIPGraphNodeHost(const hipHostNodeParams *Params) {
+  Params_ = *Params;
 }
 virtual void execute(CHIPQueue* Queue) const override {
   // TODO Graphs
+  UNIMPLEMENTED();
 }
   virtual CHIPGraphNode* clone() const override {
     auto NewNode = new CHIPGraphNodeHost(*this);
@@ -333,6 +336,14 @@ virtual void execute(CHIPQueue* Queue) const override {
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
     UNIMPLEMENTED(false); // TODO Graphs
+  }
+
+  void setParams(const hipHostNodeParams* Params) {
+    Params_ = *Params;
+  }
+
+  hipHostNodeParams getParams() {
+    return Params_;
   }
 };
 

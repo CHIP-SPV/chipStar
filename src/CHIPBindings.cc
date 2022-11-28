@@ -617,7 +617,12 @@ hipError_t hipGraphAddHostNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeHost *Node = new CHIPGraphNodeHost(pNodeParams);
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  graph->addNode(Node);
+  *pGraphNode = Node;
+  Node->Msg += "Memset";
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -625,7 +630,10 @@ hipError_t hipGraphHostNodeGetParams(hipGraphNode_t node,
                                      hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  // TODO Graphs check all set/get param static_casts for nullptr result
+  hipHostNodeParams Params = static_cast<CHIPGraphNodeHost*>(node)->getParams();
+  *pNodeParams = Params;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -633,7 +641,8 @@ hipError_t hipGraphHostNodeSetParams(hipGraphNode_t node,
                                      const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  static_cast<CHIPGraphNodeHost*>(node)->setParams(pNodeParams);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -642,7 +651,16 @@ hipError_t hipGraphExecHostNodeSetParams(hipGraphExec_t hGraphExec,
                                          const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  if(!ExecNode)
+    CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t", hipErrorInvalidValue);
+  
+  auto CastNode = static_cast<CHIPGraphNodeHost*>(ExecNode);
+  if(!CastNode)
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemset", hipErrorInvalidValue);
+  
+  CastNode->setParams(pNodeParams);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
