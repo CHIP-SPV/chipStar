@@ -138,39 +138,30 @@ public:
   }
 
   void updateDependencies(std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
-    for(int i = 0; i < Dependencies_.size(); i++) {
-      auto Iter = Dependencies_.begin();
-      std::advance(Iter, i);
-      constCHIPGraphNode* OriginalNode = *Iter;
-      auto Cloned = CloneMap[*Iter];
-      Dependencies_.erase()
+    std::set<CHIPGraphNode*> NewDeps;
+    for(auto Dep : Dependencies_) {
+      auto ClonedDep = CloneMap[Dep]; 
+      logDebug("{} {} Replacing dependency {} with {}", (void*)this, this->Msg, (void*)Dep, (void*)ClonedDep);
+      NewDeps.insert(ClonedDep);
     }
-
+    Dependencies_.clear();
+    Dependencies_ = NewDeps;
+    return;
   }
-  // void updateDependant(CHIPGraphNode* OriginalNode, std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
-  //   auto FoundDep = std::find(Dependendants_.begin(), Dependendants_.end(), OriginalNode);
-  //   if (FoundDep == Dependendants_.end()) {
-  //     logWarn("Tried to update dependency which was not found in this node");
-  //     return;
-  //   }
-  //   Dependendants_.erase(FoundDep);
-  //   Dependendants_.insert(CloneMap[const_cast<CHIPGraphNode*>(OriginalNode)]);
-  // }
-
-  // void updateDependency(CHIPGraphNode* OriginalNode, std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
-  //   auto FoundDep = std::find(Dependencies_.begin(), Dependencies_.end(), OriginalNode);
-    
-  //   if (FoundDep == Dependencies_.end()) {
-  //     logWarn("Tried to update dependency which was not found in this node");
-  //     return;
-  //   }
-  //   auto ClonedNode = CloneMap[const_cast<CHIPGraphNode*>(OriginalNode)];
-  //   const_cast<CHIPGraphNode*>(ClonedNode)->updateDependant(const_cast<CHIPGraphNode*>(this), CloneMap);
-  //   Dependencies_.erase(FoundDep);
-  //   Dependencies_.insert(ClonedNode);
 
 
-  // }
+  void updateDependants(std::map<CHIPGraphNode*, CHIPGraphNode*> CloneMap) {
+    std::set<CHIPGraphNode*> NewDeps;
+    for(auto Dep : Dependendants_) {
+      auto ClonedDep = CloneMap[Dep]; 
+      logDebug("{} {} Replacing dependant {} with {}", (void*)this, this->Msg, (void*)Dep, (void*)ClonedDep);
+      NewDeps.insert(ClonedDep);
+    }
+    Dependendants_.clear();
+    Dependendants_ = NewDeps;
+    return;
+  }
+
 
   /**
    * @brief get the nodes on which this node depends on.

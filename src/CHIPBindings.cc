@@ -2236,6 +2236,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
+  logDebug("\nExecuting memCopyAsync Dst {} Src {} Size {}", Dst, Src, SizeBytes);
+
   NULLCHECK(Dst, Src);
 
   if (SizeBytes == 0)

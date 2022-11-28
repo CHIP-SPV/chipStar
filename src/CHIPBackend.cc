@@ -49,16 +49,14 @@
     }
 
     for(CHIPGraphNode* Node : Nodes_) {
-      for(CHIPGraphNode* OriginalDep : Node->getDependenciesSet()) {
         Node->updateDependencies(CloneMap_);
+        Node->updateDependants(CloneMap_);
       }
-    }
 
 
   }
 
-  CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other) {
-    Type_ = hipGraphNodeTypeKernel;
+  CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other) : CHIPGraphNode(Other) {
     Params_ = Other.Params_;
     ExecItem_ = Other.ExecItem_->clone();
   }
