@@ -348,14 +348,15 @@ virtual void execute(CHIPQueue* Queue) const override {
 };
 
 class CHIPGraphNodeGraph : public CHIPGraphNode {
+private:
+  CHIPGraph *SubGraph_;
 public:
-CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other) : CHIPGraphNode(Other) {}
+CHIPGraphNodeGraph(CHIPGraph* Graph) : SubGraph_(Graph) {}
+CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other) : CHIPGraphNode(Other), SubGraph_(Other.SubGraph_) {}
 
-CHIPGraphNodeGraph() {
-  // TODO Graphs
-}
 virtual void execute(CHIPQueue* Queue) const override {
-  // TODO Graphs
+  // TODO Graphs - graph compile step should replace this node with subgraph nodes
+  UNIMPLEMENTED();
 }
   virtual CHIPGraphNode* clone() const override {
     auto NewNode = new CHIPGraphNodeGraph(*this);
@@ -363,6 +364,14 @@ virtual void execute(CHIPQueue* Queue) const override {
   }
   virtual bool operator==(const CHIPGraphNode &Other) const override {
     UNIMPLEMENTED(false); // TODO Graphs
+  }
+
+  void setGraph(CHIPGraph* Graph) {
+    SubGraph_ = Graph;
+  }
+
+  CHIPGraph* getGraph() {
+    return SubGraph_;
   }
 };
 

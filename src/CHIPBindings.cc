@@ -671,7 +671,12 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
                                      hipGraph_t childGraph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIPGraphNodeGraph *Node = new CHIPGraphNodeGraph(childGraph);
+  *pGraphNode = Node;
+  Node->addDependencies(const_cast<CHIPGraphNode**>(pDependencies), numDependencies);
+  graph->addNode(Node);
+  Node->Msg += "MemcpyNodeFromSymbol"; // TODO Graphs fix this and other instances
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -679,7 +684,8 @@ hipError_t hipGraphChildGraphNodeGetGraph(hipGraphNode_t node,
                                           hipGraph_t *pGraph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  *pGraph = static_cast<CHIPGraphNodeGraph*>(node)->getGraph(); // TODO Graphs check cast result
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -688,7 +694,8 @@ hipError_t hipGraphExecChildGraphNodeSetParams(hipGraphExec_t hGraphExec,
                                                hipGraph_t childGraph) {
   CHIP_TRY
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  static_cast<CHIPGraphNodeGraph*>(node)->setGraph(childGraph); // TODO Graphs check cast result
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
