@@ -1836,9 +1836,13 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   if(Stream->captureIntoGraph<CHIPGraphNodeWaitEvent>(Event)){
     RETURN(hipSuccess);
   } 
-
   ERROR_IF((Stream == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
+
+  // Unless the event is in recording state, we can't wait on it
+  if(Event->getEventStatus() == EVENT_STATUS_INIT) {
+    RETURN(hipSuccess);
+  }
 
   std::vector<CHIPEvent *> EventsToWaitOn = {Event};
   Stream->enqueueBarrier(&EventsToWaitOn);
