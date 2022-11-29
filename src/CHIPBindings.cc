@@ -1818,6 +1818,8 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIPInitialize();
 
   Stream = Backend->findQueue(Stream);
+  // TODO Graphs - is this something that should be captured?
+
   Backend->getActiveDevice()->getContext()->syncQueues(Stream);
   Stream->finish();
   RETURN(hipSuccess);
@@ -1831,6 +1833,10 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   CHIPInitialize();
 
   Stream = Backend->findQueue(Stream);
+  if(Stream->captureIntoGraph<CHIPGraphNodeWaitEvent>(Event)){
+    RETURN(hipSuccess);
+  } 
+
   ERROR_IF((Stream == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
 
@@ -1884,6 +1890,8 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
     CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
 
   Stream = Backend->findQueue(Stream);
+  // TODO Graphs - capture into host node
+
   Stream->addCallback(Callback, UserData);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1997,6 +2005,10 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   NULLCHECK(Event);
 
   Stream = Backend->findQueue(Stream);
+  if(Stream->captureIntoGraph<CHIPGraphNodeEventRecord>(Event)){
+    RETURN(hipSuccess);
+  }
+
   Event->recordStream(Stream);
   RETURN(hipSuccess);
 
@@ -2620,14 +2632,17 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
+
   Stream = Backend->findQueue(Stream);
+  // TODO Graphs - how should this be captures? via a single 3D node?
+
   hipError_t Res = hipSuccess;
   LOCK(Stream->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; i++) {
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    auto Res = hipMemset(DstP + Offset, Value, SizeBytes);
+    auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
     if (Res != hipSuccess)
       break;
   }
@@ -2655,7 +2670,19 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr.ptr);
+
   Stream = Backend->findQueue(Stream);
+  const hipMemsetParams Params =  {
+    /* Dst */ PitchedDevPtr.ptr, 
+    /* elementSize*/ sizeof(int),
+    /* height */ Extent.height,
+    /* pitch */ PitchedDevPtr.pitch,
+    /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for memset unsigned? */
+    /* width */ Extent.width
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemset>(Params)){
+    RETURN(hipSuccess);
+  }
 
   if (Extent.height * Extent.width * Extent.depth == 0)
     return hipSuccess;
@@ -2722,7 +2749,19 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
+
   Stream = Backend->findQueue(Stream);
+  const hipMemsetParams Params =  {
+    /* Dst */ Dst, 
+    /* elementSize*/ 1,
+    /* height */ 1,
+    /* pitch */ 1,
+    /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for memset unsigned? */
+    /* width */ SizeBytes
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemset>(Params)){
+    RETURN(hipSuccess);
+  }
 
   char CharVal = Value;
   Stream->memFillAsync(Dst, SizeBytes, &CharVal, 1);
@@ -2777,7 +2816,20 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dest);
+
   Stream = Backend->findQueue(Stream);
+  const hipMemsetParams Params =  {
+    /* Dst */ Dest, 
+    /* elementSize*/ 1,
+    /* height */ 1,
+    /* pitch */ 1,
+    /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for memset unsigned? */
+    /* width */ Count
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemset>(Params)){
+    RETURN(hipSuccess);
+  }
+
 
   Stream->getDevice()->initializeDeviceVariables();
   Stream->memFillAsync(Dest, 1 * Count, &Value, 1);
@@ -2795,7 +2847,19 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
                              size_t Count, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+  
   Stream = Backend->findQueue(Stream);
+  const hipMemsetParams Params =  {
+    /* Dst */ Dest, 
+    /* elementSize*/ 2,
+    /* height */ 1,
+    /* pitch */ 1,
+    /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for memset unsigned? */
+    /* width */ 2 * Count
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemset>(Params)){
+    RETURN(hipSuccess);
+  }
 
   Stream->getDevice()->initializeDeviceVariables();
   Stream->memFillAsync(Dest, 2 * Count, &Value, 2);
@@ -2821,7 +2885,19 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
                              hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+
   Stream = Backend->findQueue(Stream);
+  const hipMemsetParams Params =  {
+    /* Dst */ Dst, 
+    /* elementSize*/ 4,
+    /* height */ 1,
+    /* pitch */ 1,
+    /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for memset unsigned? */
+    /* width */ 4 * Count
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemset>(Params)){
+    RETURN(hipSuccess);
+  }
 
   Stream->getDevice()->initializeDeviceVariables();
   Stream->memFillAsync(Dst, 4 * Count, &Value, 4);
@@ -2873,6 +2949,19 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
 
   Stream = Backend->findQueue(Stream);
+  const hipMemcpy3DParms Params = {
+    /* hipArray_t srcArray */ nullptr,
+    /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
+    /* struct hipPitchedPtr srcPtr */ make_hipPitchedPtr(const_cast<void*>(Src), SPitch, Width, Height),
+    /* hipArray_t dstArray */ nullptr,
+    /* struct hipPos dstPos */ make_hipPos(1, 1, 1),
+    /* struct hipPitchedPtr dstPtr */ make_hipPitchedPtr(Dst, SPitch, Width, Height),
+    /* struct hipExtent extent */  make_hipExtent(Width, Height, 1),
+    /* enum hipMemcpyKind kind */ Kind
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)){
+    RETURN(hipSuccess);
+  }
   Backend->getActiveDevice()->initializeDeviceVariables();
 
   if (SPitch == 0)
@@ -2936,7 +3025,21 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
+
   Stream = Backend->findQueue(Stream);
+  const hipMemcpy3DParms Params = {
+    /* hipArray_t srcArray */ nullptr,
+    /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
+    /* struct hipPitchedPtr srcPtr */ make_hipPitchedPtr(const_cast<void*>(Src), SPitch, Width, Height),
+    /* hipArray_t dstArray */ Dst,
+    /* struct hipPos dstPos */ make_hipPos(WOffset, HOffset, 1),
+    /* struct hipPitchedPtr dstPtr */ make_hipPitchedPtr(nullptr, 0, 0, 0),
+    /* struct hipExtent extent */  make_hipExtent(Width, Height, 1),
+    /* enum hipMemcpyKind kind */ Kind
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)){
+    RETURN(hipSuccess);
+  }
 
   if (!Dst)
     RETURN(hipErrorUnknown);
@@ -2981,6 +3084,19 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   Stream = Backend->findQueue(Stream);
+  const hipMemcpy3DParms Params = {
+    /* hipArray_t srcArray */ const_cast<hipArray_t>(Src),
+    /* struct hipPos srcPos */ make_hipPos(WOffset, HOffset, 1),
+    /* struct hipPitchedPtr srcPtr */ make_hipPitchedPtr(nullptr, 0, 0, 0),
+    /* hipArray_t dstArray */ nullptr,
+    /* struct hipPos dstPos */ make_hipPos(1, 1, 1),
+    /* struct hipPitchedPtr dstPtr */ make_hipPitchedPtr(Dst, DPitch, Width, Height),
+    /* struct hipExtent extent */  make_hipExtent(Width, Height, 1),
+    /* enum hipMemcpyKind kind */ Kind
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)){
+    RETURN(hipSuccess);
+  }
 
   if (!Width || !Height)
     RETURN(hipSuccess);
@@ -3109,6 +3225,9 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   NULLCHECK(Params);
 
   Stream = Backend->findQueue(Stream);
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)){
+    RETURN(hipSuccess);
+  }
 
   const HIP_MEMCPY3D PDrvI = getDrvMemcpy3DDesc(*Params);
   const HIP_MEMCPY3D *PDrv = &PDrvI;
@@ -3274,7 +3393,13 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Symbol, Src);
+
   Stream = Backend->findQueue(Stream);
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpyToSymbol>(const_cast<void*>(Src), Symbol, SizeBytes,
+                              Offset, Kind)){
+    RETURN(hipSuccess);
+  }
+
   Backend->getActiveDevice()->initializeDeviceVariables();
 
   CHIPDeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
@@ -3313,7 +3438,12 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Symbol);
+
   Stream = Backend->findQueue(Stream);
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpyFromSymbol>(const_cast<void*>(Dst), Symbol, SizeBytes,
+                              Offset, Kind)){
+    RETURN(hipSuccess);
+  }
 
   Backend->getActiveDevice()->initializeDeviceVariables();
   CHIPDeviceVar *Var = Stream->getDevice()->getGlobalVar(Symbol);
@@ -3371,14 +3501,11 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   NULLCHECK(HostFunction, Args);
 
   Stream = Backend->findQueue(Stream);
-  if (Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
-    auto Graph = Stream->getCaptureGraph();
-    auto Node = new CHIPGraphNodeKernel(HostFunction, GridDim, BlockDim, Args,
-                                        SharedMem);
-    Stream->updateLastNode(Node);
-    Graph->addNode(Node);
+  if(Stream->captureIntoGraph<CHIPGraphNodeKernel>(HostFunction, GridDim,
+                           BlockDim, Args, SharedMem)){
     RETURN(hipSuccess);
   }
+
   logDebug("hipLaunchKernel()");
   auto *Device = Backend->getActiveDevice();
   Device->initializeDeviceVariables();
