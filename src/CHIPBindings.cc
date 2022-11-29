@@ -1033,6 +1033,9 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
                                  hipStreamCaptureMode mode) {
   CHIP_TRY
   CHIPInitialize();
+  if(stream == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
+    RETURN(hipErrorInvalidValue);
+  }
   stream->initCaptureGraph();
   stream->setCaptureMode(mode);
   stream->setCaptureStatus(
@@ -1044,6 +1047,12 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
 hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
   CHIP_TRY
   CHIPInitialize();
+  if(stream == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
+    RETURN(hipErrorInvalidValue);
+  }
+  if(stream->getCaptureStatus() != hipStreamCaptureStatus::hipStreamCaptureStatusActive) {
+    RETURN(hipErrorInvalidValue);
+  }
   stream->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusNone);
   *pGraph = stream->getCaptureGraph();
   RETURN(hipSuccess);
