@@ -30,7 +30,8 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
   assert(K);
   // FIXME: Should construct backend specific exec item or make the exec
   //        item a backend agnostic class.
-  CHIPExecItem* EI = Backend->createCHIPExecItem(GridDim, BlockDim, SharedMemSize, Q);
+  CHIPExecItem *EI =
+      Backend->createCHIPExecItem(GridDim, BlockDim, SharedMemSize, Q);
   EI->setArgPointer(Args);
   EI->setKernel(K);
 
@@ -399,7 +400,7 @@ void CHIPKernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 
 // CHIPExecItem
 //*************************************************************************************
-void CHIPExecItem::copyArgs(void **Args) { 
+void CHIPExecItem::copyArgs(void **Args) {
   for (int i = 0; i < getNumArgs(); i++) {
     Args_.push_back(Args[i]);
   }
@@ -1385,7 +1386,8 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
-  CHIPExecItem *ExecItem = Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
+  CHIPExecItem *ExecItem =
+      Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
   ChipExecStack.push(ExecItem);
 
   return hipSuccess;
@@ -1689,16 +1691,16 @@ void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
   ChipEvent->track();
 }
 
-  void CHIPQueue::updateLastNode(CHIPGraphNode* NewNode) {
-    if(LastNode_ != nullptr) {
-      NewNode->addDependency(LastNode_);
-    } 
-    LastNode_ = NewNode;
+void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
+  if (LastNode_ != nullptr) {
+    NewNode->addDependency(LastNode_);
   }
+  LastNode_ = NewNode;
+}
 
-    void CHIPQueue::initCaptureGraph() {
-    CaptureGraph_ = new CHIPGraph(this->ChipDevice_);
-  }
+void CHIPQueue::initCaptureGraph() {
+  CaptureGraph_ = new CHIPGraph(this->ChipDevice_);
+}
 
 CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         bool KernelSubmitted) {
@@ -1767,41 +1769,41 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
 }
 
 void CHIPQueue::launch(CHIPExecItem *ExecItem) {
-std::stringstream InfoStr;
+  std::stringstream InfoStr;
   InfoStr << "\nLaunching kernel " << ExecItem->getKernel()->getName() << "\n";
   InfoStr << "GridDim: <" << ExecItem->getGrid().x << ", "
           << ExecItem->getGrid().y << ", " << ExecItem->getGrid().z << ">";
-  InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", " << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";            
+  InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", "
+          << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";
   InfoStr << "NumArgs: " << ExecItem->getNumArgs() << "\n";
   std::string ArgTypeStr;
   for (int i = 0; i < ExecItem->getNumArgs(); i++) {
     auto FuncInfo = ExecItem->getKernel()->getFuncInfo();
     OCLType ArgType = FuncInfo->ArgTypeInfo[i].Type;
     switch (ArgType) {
-      case OCLType::POD:
-        ArgTypeStr = "POD";
-        break;
-      case OCLType::Pointer:
-        ArgTypeStr = "Pointer";
-        break;
-      case OCLType::Image:
-        ArgTypeStr = "Image";
-        break;
-      case OCLType::Sampler:
-        ArgTypeStr = "Sampler";
-        break;
-      case OCLType::Opaque:
-        ArgTypeStr = "Opaque";
-        break;
-      default:
-        CHIPERR_LOG_AND_THROW("Unknown argument type", hipErrorTbd);
+    case OCLType::POD:
+      ArgTypeStr = "POD";
+      break;
+    case OCLType::Pointer:
+      ArgTypeStr = "Pointer";
+      break;
+    case OCLType::Image:
+      ArgTypeStr = "Image";
+      break;
+    case OCLType::Sampler:
+      ArgTypeStr = "Sampler";
+      break;
+    case OCLType::Opaque:
+      ArgTypeStr = "Opaque";
+      break;
+    default:
+      CHIPERR_LOG_AND_THROW("Unknown argument type", hipErrorTbd);
     }
-      if(ExecItem->getArgsPointer())
-        InfoStr << "Arg " << i << ": " << ArgTypeStr << " " << ExecItem->getArgsPointer()[i] << "\n";
+    if (ExecItem->getArgsPointer())
+      InfoStr << "Arg " << i << ": " << ArgTypeStr << " "
+              << ExecItem->getArgsPointer()[i] << "\n";
   }
   logDebug("{}", InfoStr.str());
-
-
 
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
@@ -1875,7 +1877,8 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
 void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
                              dim3 DimBlocks, void **Args,
                              size_t SharedMemBytes) {
-  CHIPExecItem* ExecItem = Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
+  CHIPExecItem *ExecItem =
+      Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExecItem->setArgPointer(Args);
   ExecItem->setKernel(ChipKernel);
   ExecItem->copyArgs(Args);
