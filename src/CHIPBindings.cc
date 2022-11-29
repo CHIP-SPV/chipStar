@@ -189,7 +189,7 @@ hipError_t hipGraphNodeGetDependencies(hipGraphNode_t node,
                                        size_t *pNumDependencies) {
   CHIP_TRY
   CHIPInitialize();
-  auto Deps = node->getDependenciesVec();
+  auto Deps = node->getDependencies();
   *pNumDependencies = Deps.size();
   if (!pDependencies)
     RETURN(hipSuccess);
@@ -205,7 +205,7 @@ hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
                                          size_t *pNumDependentNodes) {
   CHIP_TRY
   CHIPInitialize();
-  auto Deps = node->getDependantsVec();
+  auto Deps = node->getDependants();
   *pNumDependentNodes = Deps.size();
   if (!pDependentNodes)
     RETURN(hipSuccess);

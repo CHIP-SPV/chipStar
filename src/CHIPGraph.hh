@@ -43,9 +43,9 @@ class CHIPGraphNode {
 protected:
   hipGraphNodeType Type_;
   // nodes which depend on this node
-  std::set<CHIPGraphNode *> Dependendants_;
+  std::vector<CHIPGraphNode *> Dependendants_;
   // nodes on which this node depends
-  std::set<CHIPGraphNode *> Dependencies_;
+  std::vector<CHIPGraphNode *> Dependencies_;
   /**
    * @brief Destroy the CHIPGraphNode object
    * Hidden virtual destructor. Should only be called through derived classes.
@@ -81,20 +81,25 @@ public:
   void addDependant(CHIPGraphNode *TheNode) {
     logDebug("{} addDependant() <{} depends on {}>", (void *)this, TheNode->Msg,
              Msg);
-    Dependendants_.insert(TheNode);
+    Dependendants_.push_back(TheNode);
   }
 
   void addDependency(CHIPGraphNode *TheNode) {
     logDebug("{} addDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
-    Dependencies_.insert(TheNode);
+    Dependencies_.push_back(TheNode);
     TheNode->addDependant(this);
   }
 
   void removeDependency(CHIPGraphNode *TheNode) {
     logDebug("{} removeDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
-    Dependencies_.erase(TheNode);
+    auto FoundNode = std::find(Dependencies_.begin(), Dependencies_.end(), TheNode);
+    if (FoundNode != Dependencies_.end()) {
+      Dependencies_.erase(FoundNode);
+    } else {
+      CHIPERR_LOG_AND_THROW("Failed to find", hipErrorTbd);
+    }
   }
 
   void addDependencies(CHIPGraphNode **Dependencies, int Count) {
@@ -110,12 +115,12 @@ public:
   }
 
   void updateDependencies(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
-    std::set<CHIPGraphNode *> NewDeps;
+    std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependencies_) {
       auto ClonedDep = CloneMap[Dep];
       logDebug("{} {} Replacing dependency {} with {}", (void *)this, this->Msg,
                (void *)Dep, (void *)ClonedDep);
-      NewDeps.insert(ClonedDep);
+      NewDeps.push_back(ClonedDep);
     }
     Dependencies_.clear();
     Dependencies_ = NewDeps;
@@ -123,12 +128,12 @@ public:
   }
 
   void updateDependants(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
-    std::set<CHIPGraphNode *> NewDeps;
+    std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependendants_) {
       auto ClonedDep = CloneMap[Dep];
       logDebug("{} {} Replacing dependant {} with {}", (void *)this, this->Msg,
                (void *)Dep, (void *)ClonedDep);
-      NewDeps.insert(ClonedDep);
+      NewDeps.push_back(ClonedDep);
     }
     Dependendants_.clear();
     Dependendants_ = NewDeps;
@@ -136,42 +141,23 @@ public:
   }
 
   /**
-   * @brief get the nodes on which this node depends on.
-   *
-   * @return const std::set<CHIPGraphNode*>&
+   * @brief Get the Dependencies object
+   *  nodes which depend on this node
+   * 
+   * @return std::vector<CHIPGraphNode *> 
    */
-  const std::set<CHIPGraphNode *> &
-  getDependenciesSet() { // TODO Graphs prob just use vectors
+  std::vector<CHIPGraphNode *> getDependencies() const {
     return Dependencies_;
   }
 
-  std::vector<CHIPGraphNode *> getDependenciesVec() const {
-    std::vector<CHIPGraphNode *> Deps;
-    auto DepsIter = Dependencies_.begin();
-    while (DepsIter != Dependencies_.end()) {
-      CHIPGraphNode *DepNode = *DepsIter;
-      Deps.push_back(DepNode);
-      DepsIter++;
-    }
-    return Deps;
-  }
-
   /**
-   * @brief get the nodes on which this node depends on.
-   *
-   * @return const std::set<CHIPGraphNode*>&
+   * @brief Get the Dependants object
+   * nodes on which this node depends
+   * 
+   * @return std::vector<CHIPGraphNode *> 
    */
-  const std::set<CHIPGraphNode *> &getDependantsSet() { return Dependendants_; }
-
-  std::vector<CHIPGraphNode *> getDependantsVec() const {
-    std::vector<CHIPGraphNode *> Deps;
-    auto DepsIter = Dependendants_.begin();
-    while (DepsIter != Dependendants_.end()) {
-      CHIPGraphNode *DepNode = *DepsIter;
-      Deps.push_back(DepNode);
-      DepsIter++;
-    }
-    return Deps;
+  std::vector<CHIPGraphNode *> getDependants() const {
+    return Dependendants_;
   }
 };
 
@@ -565,7 +551,7 @@ public:
   std::vector<std::pair<CHIPGraphNode *, CHIPGraphNode *>> getEdges() {
     std::set<std::pair<CHIPGraphNode *, CHIPGraphNode *>> Edges;
     for (auto Node : Nodes_) {
-      for (auto Dep : Node->getDependenciesVec()) {
+      for (auto Dep : Node->getDependencies()) {
         auto FromToPair =
             std::pair<CHIPGraphNode *, CHIPGraphNode *>(Node, Dep);
         Edges.insert(FromToPair);
@@ -609,7 +595,7 @@ protected:
 
     auto NodeIter = Nodes.begin();
     while (NodeIter != Nodes.end()) {
-      if ((*NodeIter)->getDependenciesSet().size() == 0) {
+      if ((*NodeIter)->getDependencies().size() == 0) {
         RootNodes.insert(*NodeIter);
         RootNodes_.push_back(*NodeIter);
         Nodes.erase(NodeIter);

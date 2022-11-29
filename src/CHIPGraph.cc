@@ -218,16 +218,8 @@ std::vector<CHIPGraphNode *> CHIPGraph::getLeafNodes() {
   std::vector<CHIPGraphNode *> LeafNodes;
   for (auto Node : Nodes_) {
     // no other node depends on leaf node.
-    bool LeafNode = true;
-    for (auto OtherNode : Nodes_) {
-      if (OtherNode->getDependenciesSet().count(Node)) {
-        LeafNode = false;
-        break;
-      }
-    }
-    if (LeafNode) {
+    if (Node->getDependants().size() == 0)
       LeafNodes.push_back(Node);
-    }
   }
 
   return LeafNodes;
@@ -290,7 +282,7 @@ void CHIPGraphExec::pruneGraph() {
 std::vector<CHIPGraphNode *> CHIPGraph::getRootNodes() {
   std::vector<CHIPGraphNode *> RootNodes;
   for (auto Node : Nodes_) {
-    if (Node->getDependenciesSet().size() == 0) {
+    if (Node->getDependencies().size() == 0) {
       RootNodes.push_back(Node);
     }
   }
@@ -320,19 +312,21 @@ void CHIPGraphExec::compile() {
   std::set<CHIPGraphNode *> PrevLevelNodes = RootNodes;
   auto NodeIter = Nodes.begin();
   while (Nodes.size()) { // while more unnasigned nodes available
-    const std::set<CHIPGraphNode *> CurrentNodeDeps =
-        (*NodeIter)->getDependenciesSet();
+    auto CurrentNodeDeps = (*NodeIter)->getDependencies();
     std::string CurrentNodeDepsStr = "";
     for (auto Node : CurrentNodeDeps) {
       CurrentNodeDepsStr += Node->Msg + " ";
     }
-    // logDebug("CurrentNode {} Deps: {}", (*NodeIter)->Msg,
-    // CurrentNodeDepsStr); std::string PrevLevelNodesStr = ""; for(auto Node :
-    // PrevLevelNodes) {
-    //   PrevLevelNodesStr += Node->Msg + " ";
-    // }
-    // logDebug("PrevLevelNodes: {}", PrevLevelNodesStr);
+    logDebug("CurrentNode {} Deps: {}", (*NodeIter)->Msg, CurrentNodeDepsStr);
+    std::string PrevLevelNodesStr = "";
+    for (auto Node : PrevLevelNodes) {
+      PrevLevelNodesStr += Node->Msg + " ";
+    }
+    logDebug("PrevLevelNodes: {}", PrevLevelNodesStr);
 
+    // std::includes requires sorted ranges. Since PrevLevelNodes is a sorted
+    // set, we only need to sort the CurrentNodeDeps
+    std::sort(CurrentNodeDeps.begin(), CurrentNodeDeps.end());
     if (std::includes(PrevLevelNodes.begin(), PrevLevelNodes.end(),
                       CurrentNodeDeps.begin(), CurrentNodeDeps.end())) {
       NextSet.insert(*NodeIter);
