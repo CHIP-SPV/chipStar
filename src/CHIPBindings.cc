@@ -2535,26 +2535,9 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
 
   Stream = Backend->findQueue(Stream);
-  if (Stream->getCaptureStatus() == hipStreamCaptureStatusActive) {
-    auto Graph = Stream->getCaptureGraph();
-    auto Node = new CHIPGraphNodeMemcpy1D(Dst, Src, SizeBytes, Kind);
-    Stream->updateLastNode(Node);
-    Graph->addNode(Node);
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpy1D>(Dst, Src, SizeBytes, Kind)){
     RETURN(hipSuccess);
   }
-  // Stream->getDevice()->initializeDeviceVariables();
-  // auto TargetDevAllocTracker = Stream->getDevice()->AllocationTracker;
-  // auto ActiveDevAllocTracker = Backend->getActiveDevice()->AllocationTracker;
-
-  // if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyDeviceToHost)) {
-  //   if (!TargetDevAllocTracker->getByHostPtr(Src))
-  //     RETURN(hipErrorInvalidDevicePointer);
-  // }
-
-  // if ((Kind == hipMemcpyDeviceToDevice) || (Kind == hipMemcpyHostToDevice)) {
-  //   if (!ActiveDevAllocTracker->getByHostPtr(Dst))
-  //     RETURN(hipErrorInvalidDevicePointer);
-  // }
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);

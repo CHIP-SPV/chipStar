@@ -30,7 +30,7 @@
  *
  */
 
-#include "CHIPGraph.hh"
+#include "CHIPBackend.hh"
 // CHIPGraph
 //*************************************************************************************
 void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,

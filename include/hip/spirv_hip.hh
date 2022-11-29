@@ -181,8 +181,6 @@ extern "C" __device__ void abort();
 
 /*************************************************************************************************/
 
-#include "hip_to_chip.hh"
-
 typedef enum {
   EVENT_STATUS_INIT = 5,
   EVENT_STATUS_RECORDING,
