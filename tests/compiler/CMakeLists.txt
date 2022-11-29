@@ -34,3 +34,4 @@ function(add_hipcc_test MAIN_SOURCE)
 endfunction()
 
 add_hipcc_test(TestNoinlineAttrs.hip HIPCC_OPTIONS -c)
+add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)

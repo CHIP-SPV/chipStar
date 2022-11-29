@@ -536,7 +536,7 @@ class CHIPQueue;
 class CHIPContext;
 class CHIPDevice;
 
-class CHIPEvent {
+class CHIPEvent : public ihipEvent_t {
 protected:
   bool UserEvent_ = false;
   bool TrackCalled_ = false;

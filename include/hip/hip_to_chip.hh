@@ -32,8 +32,9 @@ class CHIPBackend;
 class CHIPEvent;
 class CHIPQueue;
 class CHIPTexture;
+
 /* implementation details */
-typedef CHIPEvent *hipEvent_t;
+typedef struct ihipEvent_t *hipEvent_t;
 typedef CHIPKernel *hipFunction_t;
 typedef CHIPModule *hipModule_t;
 typedef CHIPQueue *hipStream_t;

@@ -1364,7 +1364,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   ERROR_IF((Stream == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
 
-  std::vector<CHIPEvent *> EventsToWaitOn = {Event};
+  std::vector<CHIPEvent *> EventsToWaitOn = {(CHIPEvent *)Event};
   Stream->enqueueBarrier(&EventsToWaitOn);
 
   RETURN(hipSuccess);
@@ -1514,7 +1514,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 
   *Event =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
-  (*Event)->increaseRefCount("hipEventCreateWithFlags");
+  ((CHIPEvent *)*Event)->increaseRefCount("hipEventCreateWithFlags");
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1527,7 +1527,7 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   NULLCHECK(Event);
 
   Stream = Backend->findQueue(Stream);
-  Event->recordStream(Stream);
+  ((CHIPEvent *)Event)->recordStream(Stream);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1538,8 +1538,9 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  Event->decreaseRefCount("hipEventDestroy");
-  if (Event->getCHIPRefc() != 0) {
+  auto *ChipEvent = (CHIPEvent *)Event;
+  ChipEvent->decreaseRefCount("hipEventDestroy");
+  if (ChipEvent->getCHIPRefc() != 0) {
     logError("hipEventDestroy was called but remaining refcount is not 0");
   }
   RETURN(hipSuccess);
@@ -1552,7 +1553,7 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  Event->wait();
+  ((CHIPEvent *)Event)->wait();
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1565,16 +1566,21 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
   NULLCHECK(Start, Stop);
 
-  if (!Start->isRecordingOrRecorded() || !Stop->isRecordingOrRecorded()) {
+  auto ChipEvStart = (CHIPEvent *)Start;
+  auto ChipEvStop = (CHIPEvent *)Stop;
+
+  if (!ChipEvStart->isRecordingOrRecorded() ||
+      !ChipEvStop->isRecordingOrRecorded()) {
     CHIPERR_LOG_AND_THROW("One of the events was not recorded",
                           hipErrorInvalidHandle);
   }
-  if (Start->getFlags().isDisableTiming() || Stop->getFlags().isDisableTiming())
+  if (ChipEvStart->getFlags().isDisableTiming() ||
+      ChipEvStop->getFlags().isDisableTiming())
     CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
                           "Unable to return elasped time",
                           hipErrorInvalidResourceHandle);
 
-  *Ms = Start->getElapsedTime(Stop);
+  *Ms = ChipEvStart->getElapsedTime((CHIPEvent *)Stop);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -1585,8 +1591,9 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIPInitialize();
   NULLCHECK(Event);
 
-  Event->updateFinishStatus();
-  if (Event->isFinished())
+  auto ChipEvent = (CHIPEvent *)Event;
+  ChipEvent->updateFinishStatus();
+  if (ChipEvent->isFinished())
     RETURN(hipSuccess);
 
   RETURN(hipErrorNotReady);
