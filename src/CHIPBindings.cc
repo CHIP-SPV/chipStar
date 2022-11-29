@@ -1112,7 +1112,12 @@ hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+
   Stream = Backend->findQueue(Stream);
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemcpy1D>(Dst, Src, SizeBytes, Kind)){
+    RETURN(hipSuccess);
+  }
+
   auto Status = Stream->memCopy(Dst, Src, SizeBytes);
   RETURN(Status);
   CHIP_CATCH
@@ -1169,9 +1174,9 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
       (PCopy->WidthInBytes > PCopy->srcPitch))
     CHIPERR_LOG_AND_THROW("Width > src/dest pitches", hipErrorTbd);
 
-  return hipMemcpy2D(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
+  return hipMemcpy2DAsync(PCopy->dstArray->data, PCopy->WidthInBytes, PCopy->srcHost,
                      PCopy->srcPitch, PCopy->WidthInBytes, PCopy->Height,
-                     hipMemcpyDefault);
+                     hipMemcpyDefault, Stream);
   CHIP_CATCH
 }
 
