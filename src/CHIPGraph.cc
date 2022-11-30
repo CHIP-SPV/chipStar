@@ -103,8 +103,9 @@ void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
 
 void CHIPGraphNodeMemcpy::execute(CHIPQueue *Queue) const {
   auto Status = hipMemcpy3DAsync(&Params_, Queue);
-      if(Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node", hipErrorTbd);
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
 }
 void CHIPGraphNodeKernel::execute(CHIPQueue *Queue) const {
   Queue->launch(ExecItem_);
@@ -131,12 +132,12 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
                                          dim3 BlockDim, void **Args,
-                                         size_t SharedMem) : CHIPGraphNode(hipGraphNodeTypeKernel) {
+                                         size_t SharedMem)
+    : CHIPGraphNode(hipGraphNodeTypeKernel) {
   Type_ = hipGraphNodeTypeKernel;
   Params_.blockDim = BlockDim;
   Params_.extra = nullptr;
-  Params_.func = const_cast<void *>(
-      HostFunction); // TODO Graphs why can't I assign const void* to void*?
+  Params_.func = const_cast<void *>(HostFunction);
   Params_.gridDim = GridDim;
   Params_.kernelParams = Args;
   Params_.sharedMemBytes = SharedMem;

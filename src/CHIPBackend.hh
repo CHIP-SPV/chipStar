@@ -1028,7 +1028,7 @@ public:
 
   /**
    * @brief Destroy the CHIPExecItem object
-   * 
+   *
    */
   virtual ~CHIPExecItem() {}
 
@@ -1044,8 +1044,6 @@ public:
    */
   CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue);
-
-
 
   /**
    * @brief Get the Kernel object
@@ -1936,7 +1934,8 @@ protected:
   hipStreamCaptureMode CaptureMode_;
   hipGraph_t CaptureGraph_;
   std::mutex LastEventMtx;
-  /// @brief  node for creating a dependency chain between subsequent record events when in graph capture mode
+  /// @brief  node for creating a dependency chain between subsequent record
+  /// events when in graph capture mode
   CHIPGraphNode *LastNode_ = nullptr;
   int Priority_;
   /**
@@ -1960,12 +1959,14 @@ protected:
 public:
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.
-   * 
+   *
    * @tparam GraphNodeType the type of graph node to create
    * @tparam ArgTypes variadic template parameter
    * @param ArgsPack graph node type constructor arguments
-   * @return true stream was in capture mode and a graph node was created - caller should return from whatever HIP API function was invoking this
-   * @return false stream was not in capture mode, proceed with executing the HIP API call.
+   * @return true stream was in capture mode and a graph node was created -
+   * caller should return from whatever HIP API function was invoking this
+   * @return false stream was not in capture mode, proceed with executing the
+   * HIP API call.
    */
   template <class GraphNodeType, class... ArgTypes>
   bool captureIntoGraph(ArgTypes... ArgsPack) {
