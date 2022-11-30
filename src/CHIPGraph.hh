@@ -262,7 +262,11 @@ public:
 
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim, dim3 BlockDim,
                       void **Args, size_t SharedMem);
+
+  virtual ~CHIPGraphNodeKernel() override {}
+
   virtual void execute(CHIPQueue *Queue) const override;
+
   hipKernelNodeParams getParams() const { return Params_; }
 
   void setParams(const hipKernelNodeParams Params) { Params_ = Params; }
@@ -293,6 +297,9 @@ public:
     Type_ = hipGraphNodeTypeMemcpy;
     setParams(Params);
   }
+
+  virtual ~CHIPGraphNodeMemcpy() override {}
+
   hipMemcpy3DParms getParams() { return Params_; }
   void setParams(const hipMemcpy3DParms *Params) {
     Params_.srcArray = Params->srcArray;
@@ -324,12 +331,17 @@ private:
 public:
   CHIPGraphNodeMemset(const CHIPGraphNodeMemset &Other)
       : CHIPGraphNode(Other), Params_(Other.Params_) {}
+
   CHIPGraphNodeMemset(const hipMemsetParams Params) : Params_(Params) {
     Type_ = hipGraphNodeTypeMemset;
   }
+
   CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(*Params) {
     Type_ = hipGraphNodeTypeMemset;
   }
+
+  virtual ~CHIPGraphNodeMemset() override {}
+
   hipMemsetParams getParams() { return Params_; }
   void setParams(const hipMemsetParams *Params) { Params_ = *Params; }
 
@@ -350,6 +362,8 @@ public:
 
   CHIPGraphNodeHost(const hipHostNodeParams *Params) { Params_ = *Params; }
 
+  virtual ~CHIPGraphNodeHost() override {}
+
   virtual void execute(CHIPQueue *Queue) const override;
 
   virtual CHIPGraphNode *clone() const override {
@@ -368,8 +382,11 @@ private:
 
 public:
   CHIPGraphNodeGraph(CHIPGraph *Graph) : SubGraph_(Graph) {}
+
   CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other)
       : CHIPGraphNode(Other), SubGraph_(Other.SubGraph_) {}
+
+  virtual ~CHIPGraphNodeGraph() override {}
 
   virtual void execute(CHIPQueue *Queue) const override {
     CHIPERR_LOG_AND_THROW("Attemped to execute GraphNode", hipErrorTbd);
@@ -387,7 +404,10 @@ public:
 class CHIPGraphNodeEmpty : public CHIPGraphNode {
 public:
   CHIPGraphNodeEmpty(const CHIPGraphNodeEmpty &Other) : CHIPGraphNode(Other) {}
+
   CHIPGraphNodeEmpty() { Type_ = hipGraphNodeTypeEmpty; };
+
+  virtual ~CHIPGraphNodeEmpty() override {}
 
   virtual void execute(CHIPQueue *Queue) const override {
     logDebug("Executing empty node");
@@ -405,8 +425,12 @@ private:
 
 public:
   CHIPGraphNodeWaitEvent(CHIPEvent *Event) : Event_(Event) {}
+
   CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent &Other)
       : CHIPGraphNode(Other), Event_(Other.Event_) {}
+
+  virtual ~CHIPGraphNodeWaitEvent() override {}
+
   virtual void execute(CHIPQueue *Queue) const override {
     // TODO Graphs current HIP API requires this to be 0
     hipStreamWaitEvent(Queue, Event_, 0);
@@ -429,6 +453,9 @@ public:
 
   CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord &Other)
       : CHIPGraphNode(Other), Event_(Other.Event_) {}
+
+  virtual ~CHIPGraphNodeEventRecord() override {}
+
   virtual void execute(CHIPQueue *Queue) const override {
     hipEventRecord(Event_, Queue);
   }
@@ -459,6 +486,8 @@ public:
       : Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {
     Type_ = hipGraphNodeTypeMemcpy1D;
   }
+
+  virtual ~CHIPGraphNodeMemcpy1D() override {}
 
   void setParams(void *Dst, const void *Src, size_t Count, hipMemcpyKind Kind) {
     Dst_ = Dst;
@@ -494,6 +523,8 @@ public:
       : CHIPGraphNode(Other), Dst_(Other.Dst_), Symbol_(Other.Symbol_),
         SizeBytes_(Other.SizeBytes_), Offset_(Other.Offset_),
         Kind_(Other.Kind_) {}
+
+  virtual ~CHIPGraphNodeMemcpyFromSymbol() override {}
 
   virtual void execute(CHIPQueue *Queue) const override {
     hipMemcpyFromSymbol(Dst_, Symbol_, SizeBytes_, Offset_, Kind_);
@@ -532,6 +563,8 @@ public:
       : CHIPGraphNode(Other), Src_(Other.Src_), Symbol_(Other.Symbol_),
         SizeBytes_(Other.SizeBytes_), Offset_(Other.Offset_),
         Kind_(Other.Kind_) {}
+
+  virtual ~CHIPGraphNodeMemcpyToSymbol() override {}
 
   virtual void execute(CHIPQueue *Queue) const override {
     hipMemcpyToSymbol(Symbol_, Src_, SizeBytes_, Offset_, Kind_);
@@ -675,7 +708,6 @@ public:
    *
    */
   void compile();
-
 };
 
 #endif // include guard
