@@ -148,11 +148,25 @@ public:
    *
    * Visualizing the graph, add an edge going down.
    *
-   * @param TheNode
+   * @param Dependencies
+   * @param Count
    */
   void addDependencies(CHIPGraphNode **Dependencies, int Count) {
     for (int i = 0; i < Count; i++) {
       addDependency(Dependencies[i]);
+    }
+  }
+
+  /**
+   * @brief  Add a dependency from a node.
+   *
+   * Visualizing the graph, add an edge going down.
+   *
+   * @param Dependencies
+   */
+  void addDependencies(std::vector<CHIPGraphNode *>Dependencies) {
+    for (auto Node : Dependencies) {
+      addDependency(Node);
     }
   }
 

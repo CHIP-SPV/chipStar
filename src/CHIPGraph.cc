@@ -364,8 +364,7 @@ void CHIPGraphExec::ExtractSubGraphs_() {
       if (i > 0) {
         // 2. make them dependants of prev nodes
         auto PrevNode = Nodes[i - 1];
-        PrevNode->addDependencies(RootNodes.data(),
-                                  RootNodes.size()); // TODO Graphs
+        PrevNode->addDependencies(RootNodes);
       }
 
       // 3. get all the leaf nodes
