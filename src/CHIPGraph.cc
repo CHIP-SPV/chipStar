@@ -31,7 +31,7 @@
  */
 
 #include "CHIPBackend.hh"
-// CHIPGraph
+// CHIPGraphNode
 //*************************************************************************************
 void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
                         std::vector<std::vector<CHIPGraphNode *>> &Paths) {
@@ -343,4 +343,9 @@ void CHIPGraphExec::compile() {
       NodeIter = Nodes.begin();
     }
   }
+}
+
+void CHIPGraphNodeHost::execute(CHIPQueue *Queue) const {
+  Queue->finish();
+  Params_.fn(Params_.userData);
 }

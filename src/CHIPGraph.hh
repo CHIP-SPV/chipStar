@@ -75,14 +75,35 @@ public:
    */
   void DFS(std::vector<CHIPGraphNode *> CurrPath,
            std::vector<std::vector<CHIPGraphNode *>> &Paths);
+
+  /**
+   * @brief Pure virtual method to be overriden by derived classes. This method
+   * gets called during graph execution.
+   *
+   * @param Queue Queue in which to execute this node
+   */
   virtual void execute(CHIPQueue *Queue) const = 0;
 
+  /**
+   * @brief Add a dependant to a node.
+   *
+   * Visualizing the graph, add an edge going up.
+   *
+   * @param TheNode
+   */
   void addDependant(CHIPGraphNode *TheNode) {
     logDebug("{} addDependant() <{} depends on {}>", (void *)this, TheNode->Msg,
              Msg);
     Dependendants_.push_back(TheNode);
   }
 
+  /**
+   * @brief Add a dependency to a node.
+   *
+   * Visualizing the graph, add an edge going down.
+   *
+   * @param TheNode
+   */
   void addDependency(CHIPGraphNode *TheNode) {
     logDebug("{} addDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
@@ -90,10 +111,18 @@ public:
     TheNode->addDependant(this);
   }
 
+  /**
+   * @brief  Remove a dependency from a node.
+   *
+   * Visualizing the graph, remove an edge going down.
+   *
+   * @param TheNode
+   */
   void removeDependency(CHIPGraphNode *TheNode) {
     logDebug("{} removeDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
-    auto FoundNode = std::find(Dependencies_.begin(), Dependencies_.end(), TheNode);
+    auto FoundNode =
+        std::find(Dependencies_.begin(), Dependencies_.end(), TheNode);
     if (FoundNode != Dependencies_.end()) {
       Dependencies_.erase(FoundNode);
     } else {
@@ -101,18 +130,44 @@ public:
     }
   }
 
+  /**
+   * @brief  Add a dependency from a node.
+   *
+   * Visualizing the graph, add an edge going down.
+   *
+   * @param TheNode
+   */
   void addDependencies(CHIPGraphNode **Dependencies, int Count) {
     for (int i = 0; i < Count; i++) {
       addDependency(Dependencies[i]);
     }
   }
 
+  /**
+   * @brief  Remove multiple dependencies from a node.
+   *
+   * Visualizing the graph, remove edges going down.
+   *
+   * @param TheNode
+   */
   void removeDependencies(CHIPGraphNode **Dependencies, int Count) {
     for (int i = 0; i < Count; i++) {
       removeDependency(Dependencies[i]);
     }
   }
 
+  /**
+   * @brief Remap dependencies of this graph.
+   *
+   * When a graph gets cloned, all nodes are cloned from this original graph.
+   * After the clone, these nodes are identical which includes the fact that all
+   * the dependencies(edges) are poiting to nodes in the original graph. Given a
+   * map, remap these dependencies to nodes in this graph instead. CloneMap gets
+   * generated when CHIPGraph::clone() is executed.
+   *
+   * @param CloneMap  the map containing relationships of which original node
+   * does each cloned node correspond to.
+   */
   void updateDependencies(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
     std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependencies_) {
@@ -126,6 +181,18 @@ public:
     return;
   }
 
+  /**
+   * @brief Remap dependants of this graph.
+   *
+   * When a graph gets cloned, all nodes are cloned from this original graph.
+   * After the clone, these nodes are identical which includes the fact that all
+   * the dependencies(edges) are poiting to nodes in the original graph. Given a
+   * map, remap these dependants to nodes in this graph instead. CloneMap gets
+   * generated when CHIPGraph::clone() is executed.
+   *
+   * @param CloneMap  the map containing relationships of which original node
+   * does each cloned node correspond to.
+   */
   void updateDependants(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
     std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependendants_) {
@@ -142,22 +209,18 @@ public:
   /**
    * @brief Get the Dependencies object
    *  nodes which depend on this node
-   * 
-   * @return std::vector<CHIPGraphNode *> 
+   *
+   * @return std::vector<CHIPGraphNode *>
    */
-  std::vector<CHIPGraphNode *> getDependencies() const {
-    return Dependencies_;
-  }
+  std::vector<CHIPGraphNode *> getDependencies() const { return Dependencies_; }
 
   /**
    * @brief Get the Dependants object
    * nodes on which this node depends
-   * 
-   * @return std::vector<CHIPGraphNode *> 
+   *
+   * @return std::vector<CHIPGraphNode *>
    */
-  std::vector<CHIPGraphNode *> getDependants() const {
-    return Dependendants_;
-  }
+  std::vector<CHIPGraphNode *> getDependants() const { return Dependendants_; }
 };
 
 class CHIPGraphNodeKernel : public CHIPGraphNode {
@@ -186,7 +249,6 @@ public:
    * @return CHIPGraphNode*
    */
   virtual CHIPGraphNode *clone() const override;
-
 };
 
 class CHIPGraphNodeMemcpy : public CHIPGraphNode {
@@ -226,7 +288,6 @@ public:
     auto NewNode = new CHIPGraphNodeMemcpy(*this);
     return NewNode;
   }
-
 };
 
 class CHIPGraphNodeMemset : public CHIPGraphNode {
@@ -250,7 +311,6 @@ public:
     auto NewNode = new CHIPGraphNodeMemset(*this);
     return NewNode;
   }
-
 };
 
 class CHIPGraphNodeHost : public CHIPGraphNode {
@@ -260,11 +320,11 @@ private:
 public:
   CHIPGraphNodeHost(const CHIPGraphNodeHost &Other)
       : CHIPGraphNode(Other), Params_(Other.Params_) {}
+
   CHIPGraphNodeHost(const hipHostNodeParams *Params) { Params_ = *Params; }
-  virtual void execute(CHIPQueue *Queue) const override {
-    // TODO Graphs
-    UNIMPLEMENTED();
-  }
+
+  virtual void execute(CHIPQueue *Queue) const override;
+
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeHost(*this);
     return NewNode;
@@ -312,7 +372,6 @@ public:
     auto NewNode = new CHIPGraphNodeEmpty(*this);
     return NewNode;
   }
-
 };
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
@@ -390,7 +449,6 @@ public:
     auto NewNode = new CHIPGraphNodeMemcpy1D(*this);
     return NewNode;
   }
-
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
@@ -429,7 +487,6 @@ public:
     auto NewNode = new CHIPGraphNodeMemcpyFromSymbol(*this);
     return NewNode;
   }
-
 };
 
 class CHIPGraphNodeMemcpyToSymbol : public CHIPGraphNode {
