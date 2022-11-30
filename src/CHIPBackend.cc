@@ -1697,9 +1697,7 @@ void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
   LastNode_ = NewNode;
 }
 
-void CHIPQueue::initCaptureGraph() {
-  CaptureGraph_ = new CHIPGraph();
-}
+void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
 CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         bool KernelSubmitted) {

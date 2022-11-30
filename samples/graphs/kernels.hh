@@ -147,7 +147,7 @@ float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
 
     hipGraphNode_t kernelDependencies[2] = {memcpyHostToDev1node,
                                             memcpyHostToDev2node};
-    
+
     err = hipGraphAddKernelNode(&(kernelNodes[i]), graph, kernelDependencies, 2,
                                 &kernelParams);
     ERR_CHECK;
@@ -162,8 +162,8 @@ float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
   // ERR_CHECK;
   hipGraphNode_t memcpyDevToHostnode;
   err = hipGraphAddMemcpyNode1D(&memcpyDevToHostnode, graph, kernelNodes, ITERS,
-                                MultiplyMatrix, gpuMultiplyMatrix, NUM * sizeof(float),
-                                hipMemcpyDeviceToHost);
+                                MultiplyMatrix, gpuMultiplyMatrix,
+                                NUM * sizeof(float), hipMemcpyDeviceToHost);
   ERR_CHECK;
 
   // err = hipDeviceSynchronize();

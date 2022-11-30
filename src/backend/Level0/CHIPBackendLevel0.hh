@@ -46,25 +46,26 @@ class LZEventPool;
 class CHIPExecItemLevel0;
 
 class CHIPExecItemLevel0 : public CHIPExecItem {
-  public:
-    CHIPExecItemLevel0(const CHIPExecItemLevel0& Other) : CHIPExecItemLevel0(Other.GridDim_, Other.BlockDim_, Other.SharedMem_, Other.ChipQueue_) {
+public:
+  CHIPExecItemLevel0(const CHIPExecItemLevel0 &Other)
+      : CHIPExecItemLevel0(Other.GridDim_, Other.BlockDim_, Other.SharedMem_,
+                           Other.ChipQueue_) {
     ChipKernel_ = Other.ChipKernel_;
     this->ArgsSetup = Other.ArgsSetup;
     this->Args_ = Other.Args_;
-   }
+  }
 
   CHIPExecItemLevel0(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-               hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
-                ChipQueue) {}
+                     hipStream_t ChipQueue)
+      : CHIPExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemLevel0() override {}
 
   virtual void setupAllArgs() override;
-  virtual CHIPExecItem* clone() const override {
+  virtual CHIPExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemLevel0(*this);
     return NewExecItem;
   }
-
 };
 
 class CHIPEventLevel0 : public CHIPEvent {
@@ -503,8 +504,9 @@ public:
 class CHIPBackendLevel0 : public CHIPBackend {
 
 public:
-    virtual CHIPExecItem* createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-               hipStream_t ChipQueue) override;
+  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+                                           size_t SharedMem,
+                                           hipStream_t ChipQueue) override;
 
   CHIPCallbackEventMonitorLevel0 *CallbackEventMonitor = nullptr;
   CHIPStaleEventMonitorLevel0 *StaleEventMonitor = nullptr;

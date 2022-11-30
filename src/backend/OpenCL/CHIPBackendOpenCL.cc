@@ -1101,12 +1101,12 @@ static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
 cl::Kernel *CHIPExecItemOpenCL::get() { return ClKernel_; }
 
 void CHIPExecItemOpenCL::setupAllArgs() {
-  if(!ArgsSetup) {
+  if (!ArgsSetup) {
     ArgsSetup = true;
   } else {
     return;
   }
-  CHIPKernelOpenCL* Kernel = (CHIPKernelOpenCL*)getKernel();
+  CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)getKernel();
   OCLFuncInfo *FuncInfo = Kernel->getFuncInfo();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
@@ -1171,7 +1171,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     }
 
     if (OffsetSizes_.size() == 0)
-      return ;
+      return;
 
     std::sort(OffsetSizes_.begin(), OffsetSizes_.end());
     if ((std::get<0>(OffsetSizes_[0]) != 0) ||
@@ -1231,11 +1231,13 @@ void CHIPExecItemOpenCL::setupAllArgs() {
 
 // CHIPBackendOpenCL
 //*************************************************************************
-  CHIPExecItem* CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-               hipStream_t ChipQueue)  {
-                    CHIPExecItemOpenCL* ExecItem = new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
-                return ExecItem;            
-               };
+CHIPExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+                                                    size_t SharedMem,
+                                                    hipStream_t ChipQueue) {
+  CHIPExecItemOpenCL *ExecItem =
+      new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
+  return ExecItem;
+};
 CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
