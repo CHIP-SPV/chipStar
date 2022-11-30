@@ -118,7 +118,6 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
   if (!FoundNode)
     RETURN(hipErrorInvalidValue);
 
-  // TODO Graphs constness here?
   FoundNode->addDependencies(const_cast<CHIPGraphNode **>(from),
                              numDependencies);
   RETURN(hipSuccess);
@@ -486,10 +485,11 @@ hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
   // Graph obtained from hipGraphExec_t is a clone of the original
   CHIPGraph *Graph = hGraphExec->getGraph();
   // KernelNode here is a handle to the original
-  CHIPGraphNodeKernel *KernelNode = ((CHIPGraphNodeKernel *)node);
-  // TODO Graphs, use node lookup
-  CHIPGraphNodeKernel *ExecKernelNode =
-      ((CHIPGraphNodeKernel *)Graph->getClonedNodeFromOriginal(KernelNode));
+  CHIPGraphNodeKernel *KernelNode = static_cast<CHIPGraphNodeKernel*>(node);
+  assert(KernelNode);
+
+  CHIPGraphNodeKernel *ExecKernelNode = static_cast<CHIPGraphNodeKernel*>(Graph->getClonedNodeFromOriginal(KernelNode));
+  assert(ExecKernelNode);
 
   ExecKernelNode->setParams(*pNodeParams);
   RETURN(hipSuccess);
@@ -752,7 +752,6 @@ hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
                                        hipMemsetParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  // TODO Graphs check all set/get param static_casts for nullptr result
   hipMemsetParams Params =
       static_cast<CHIPGraphNodeMemset *>(node)->getParams();
   *pNodeParams = Params;
@@ -800,7 +799,7 @@ hipError_t hipGraphAddHostNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                         numDependencies);
   graph->addNode(Node);
   *pGraphNode = Node;
-  Node->Msg += "Memset";
+  Node->Msg += "Host";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -809,7 +808,6 @@ hipError_t hipGraphHostNodeGetParams(hipGraphNode_t node,
                                      hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  // TODO Graphs check all set/get param static_casts for nullptr result
   hipHostNodeParams Params =
       static_cast<CHIPGraphNodeHost *>(node)->getParams();
   *pNodeParams = Params;
@@ -859,7 +857,7 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
                         numDependencies);
   graph->addNode(Node);
   Node->Msg +=
-      "MemcpyNodeFromSymbol"; // TODO Graphs fix this and other instances
+      "ChildGraph";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -869,7 +867,7 @@ hipError_t hipGraphChildGraphNodeGetGraph(hipGraphNode_t node,
   CHIP_TRY
   CHIPInitialize();
   *pGraph = static_cast<CHIPGraphNodeGraph *>(node)
-                ->getGraph(); // TODO Graphs check cast result
+                ->getGraph();
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -880,7 +878,7 @@ hipError_t hipGraphExecChildGraphNodeSetParams(hipGraphExec_t hGraphExec,
   CHIP_TRY
   CHIPInitialize();
   static_cast<CHIPGraphNodeGraph *>(node)->setGraph(
-      childGraph); // TODO Graphs check cast result
+      childGraph); 
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2638,7 +2636,17 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   NULLCHECK(Dst);
 
   Stream = Backend->findQueue(Stream);
-  // TODO Graphs - how should this be captures? via a single 3D node?
+  const hipMemsetParams Params = {
+    /* Dst */ Dst, 
+    /* elementSize*/ sizeof(int),
+    /* height */ Height,
+    /* pitch */ Pitch,
+    /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for memset unsigned? */
+    /* width */ Width
+  };
+  if(Stream->captureIntoGraph<CHIPGraphNodeMemset>(Params)){
+    RETURN(hipSuccess);
+  }
 
   hipError_t Res = hipSuccess;
   LOCK(Stream->QueueMtx); // prevent interruptions
@@ -3378,7 +3386,6 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Symbol, Src);
-  // TODO Graphs capture
   auto Stream = Backend->getActiveDevice()->getDefaultQueue();
 
   hipError_t Res =
@@ -3421,8 +3428,6 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Symbol);
-
-  // TODO Graphs capture
 
   auto Stream = Backend->getActiveDevice()->getDefaultQueue();
 

@@ -1934,7 +1934,7 @@ protected:
   hipStreamCaptureMode CaptureMode_;
   hipGraph_t CaptureGraph_;
   std::mutex LastEventMtx;
-  // TODO Graphs for now, every node depedns on previous.
+  /// @brief  node for creating a dependency chain between subsequent record events when in graph capture mode
   CHIPGraphNode *LastNode_ = nullptr;
   int Priority_;
   /**
