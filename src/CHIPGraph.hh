@@ -553,14 +553,13 @@ public:
 
 class CHIPGraph {
 protected:
-  CHIPDevice *ChipDev_;
   std::vector<CHIPGraphNode *> Nodes_;
   // Map the pointers Original -> Clone
   std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap_;
 
 public:
   CHIPGraph(const CHIPGraph &OriginalGraph);
-  CHIPGraph(CHIPDevice *ChipDev) : ChipDev_(ChipDev) {}
+  CHIPGraph() {}
   void addNode(CHIPGraphNode *TheNode);
   void removeNode(CHIPGraphNode *TheNode);
   /**

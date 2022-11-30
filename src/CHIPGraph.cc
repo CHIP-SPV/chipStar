@@ -140,7 +140,6 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   Params_.kernelParams = Args;
   Params_.sharedMemBytes = SharedMem;
 
-  // TODO Graphs use Graph object as factory and get the device this way
   auto Dev = Backend->getActiveDevice();
   CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(HostFunction);
   ExecItem_ =

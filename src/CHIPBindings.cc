@@ -95,7 +95,7 @@ static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraph *Graph = new CHIPGraph(Backend->getActiveDevice());
+  CHIPGraph *Graph = new CHIPGraph();
   *pGraph = Graph;
   RETURN(hipSuccess);
   CHIP_CATCH
