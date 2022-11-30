@@ -98,6 +98,19 @@ public:
   }
 
   /**
+   * @brief Add a dependant to a node.
+   *
+   * Visualizing the graph, add an edge going up.
+   *
+   * @param TheNode
+   */
+  void addDependants(std::vector<CHIPGraphNode *> Nodes) {
+    for (auto Node : Nodes) {
+      addDependant(Node);
+    }
+  }
+
+  /**
    * @brief Add a dependency to a node.
    *
    * Visualizing the graph, add an edge going down.
@@ -345,9 +358,7 @@ public:
       : CHIPGraphNode(Other), SubGraph_(Other.SubGraph_) {}
 
   virtual void execute(CHIPQueue *Queue) const override {
-    // TODO Graphs - graph compile step should replace this node with subgraph
-    // nodes
-    UNIMPLEMENTED();
+    CHIPERR_LOG_AND_THROW("Attemped to execute GraphNode", hipErrorTbd);
   }
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeGraph(*this);
@@ -563,7 +574,7 @@ public:
     }
   }
 
-  std::vector<CHIPGraphNode *> getNodes() const { return Nodes_; }
+  std::vector<CHIPGraphNode *> &getNodes() { return Nodes_; }
 
   std::vector<std::pair<CHIPGraphNode *, CHIPGraphNode *>> getEdges() {
     std::set<std::pair<CHIPGraphNode *, CHIPGraphNode *>> Edges;
@@ -600,41 +611,43 @@ public:
 class CHIPGraphExec {
 protected:
   bool Pruned_ = false;
-  CHIPGraph *Graph_;
-  // each element in this queue represents represents a sequence of nodes that
-  // can be submitted to one or more queues
+  CHIPGraph *OriginalGraph_;
+  CHIPGraph CompiledGraph_;
+  
+  /**
+   * @brief each element in this queue represents represents a sequence of nodes that can be submitted to one or more queues
+   * 
+   */
   std::queue<std::set<CHIPGraphNode *>> ExecQueues_;
-  std::set<CHIPGraphNode *> findRootNodesSet_() {
-    RootNodes_.clear();
-
-    std::vector<CHIPGraphNode *> Nodes = Graph_->getNodes();
-    std::set<CHIPGraphNode *> RootNodes;
-
-    auto NodeIter = Nodes.begin();
-    while (NodeIter != Nodes.end()) {
-      if ((*NodeIter)->getDependencies().size() == 0) {
-        RootNodes.insert(*NodeIter);
-        RootNodes_.push_back(*NodeIter);
-        Nodes.erase(NodeIter);
-      } else {
-        NodeIter++;
-      }
-    }
-
-    Pruned_ = true;
-    return RootNodes;
-  }
 
   std::vector<CHIPGraphNode *> RootNodes_;
 
+  /**
+   * @brief For every CHIPGraphNodeGraph in CompiledGraph_, replace this node with its contents. 
+   * 
+   */
+  void ExtractSubGraphs_();
+
 public:
-  CHIPGraph *getGraph() const { return Graph_; }
-  CHIPGraphExec(CHIPGraph *Graph) {
-    Graph_ = new CHIPGraph(*Graph); // use copy constructor
-  }
+  CHIPGraph *getGraph() const { return OriginalGraph_; }
+  CHIPGraphExec(CHIPGraph *Graph) : 
+  OriginalGraph_(Graph), /* Copy the pointer to the original graph */
+  CompiledGraph_(CHIPGraph(*Graph)) /* invoke the copy constructor to make a clone of the graph */
+  {}
   // TODO Graphs - destructor
   void launch(CHIPQueue *Queue);
+
+  /**
+   * @brief Optimize and generate ExecQueues_
+   *
+   * This method will first call PruneGraph and then generate an executable
+   * queue. Executable queue is made up of sets of nodes. All members of the
+   * aforementioned set can be executed simultanously in no particular order.
+   * @see PruneGraph
+   *
+   */
   void compile();
+
   /**
    * @brief remove unnecessary dependencies
    * for leaf node in graph:
