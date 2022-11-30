@@ -55,9 +55,9 @@ int main() {
   auto time_spent_in_short_kernel = elapsed_time_secs.count();
 
   if (time_spent_in_short_kernel > time_spent_in_long_kernel) {
-    printf("Failed\n");
+    printf("FAILED\n");
   } else {
-    printf("Passed\n");
+    printf("PASSED\n");
   }
   return 0;
 }
