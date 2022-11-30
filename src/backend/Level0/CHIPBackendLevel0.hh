@@ -52,14 +52,19 @@ class CHIPExecItemLevel0 : public CHIPExecItem {
     this->ArgsSetup = Other.ArgsSetup;
     this->Args_ = Other.Args_;
    }
+
   CHIPExecItemLevel0(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
                 ChipQueue) {}
+
+  virtual ~CHIPExecItemLevel0() override {}
+
   virtual void setupAllArgs() override;
   virtual CHIPExecItem* clone() const override {
     auto NewExecItem = new CHIPExecItemLevel0(*this);
     return NewExecItem;
   }
+
 };
 
 class CHIPEventLevel0 : public CHIPEvent {

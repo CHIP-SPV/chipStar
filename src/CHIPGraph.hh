@@ -164,7 +164,7 @@ public:
    *
    * @param Dependencies
    */
-  void addDependencies(std::vector<CHIPGraphNode *>Dependencies) {
+  void addDependencies(std::vector<CHIPGraphNode *> Dependencies) {
     for (auto Node : Dependencies) {
       addDependency(Node);
     }
@@ -623,32 +623,47 @@ public:
 
 class CHIPGraphExec {
 protected:
-  bool Pruned_ = false;
   CHIPGraph *OriginalGraph_;
   CHIPGraph CompiledGraph_;
-  
+
   /**
-   * @brief each element in this queue represents represents a sequence of nodes that can be submitted to one or more queues
-   * 
+   * @brief each element in this queue represents represents a sequence of nodes
+   * that can be submitted to one or more queues
+   *
    */
   std::queue<std::set<CHIPGraphNode *>> ExecQueues_;
 
-  std::vector<CHIPGraphNode *> RootNodes_;
-
   /**
-   * @brief For every CHIPGraphNodeGraph in CompiledGraph_, replace this node with its contents. 
-   * 
+   * @brief For every CHIPGraphNodeGraph in CompiledGraph_, replace this node
+   * with its contents.
+   *
    */
   void ExtractSubGraphs_();
 
+  /**
+   * @brief remove unnecessary dependencies
+   * for leaf node in graph:
+   *   for each dependency in node:
+   *     1. traverse from node to root, constructing a vector of nodes visited
+   *   for each traversal vector:
+   *     1. traverse from node to root, constructing a vector of nodes visited
+   *
+   *
+   */
+  void pruneGraph_();
+
 public:
-  CHIPGraph *getGraph() const { return OriginalGraph_; }
-  CHIPGraphExec(CHIPGraph *Graph) : 
-  OriginalGraph_(Graph), /* Copy the pointer to the original graph */
-  CompiledGraph_(CHIPGraph(*Graph)) /* invoke the copy constructor to make a clone of the graph */
+  CHIPGraphExec(CHIPGraph *Graph)
+      : OriginalGraph_(Graph), /* Copy the pointer to the original graph */
+        CompiledGraph_(CHIPGraph(*Graph)) /* invoke the copy constructor to make
+                                             a clone of the graph */
   {}
-  // TODO Graphs - destructor
+
+  ~CHIPGraphExec() {}
+
   void launch(CHIPQueue *Queue);
+
+  CHIPGraph *getOriginalGraphPtr() const { return OriginalGraph_; }
 
   /**
    * @brief Optimize and generate ExecQueues_
@@ -661,17 +676,6 @@ public:
    */
   void compile();
 
-  /**
-   * @brief remove unnecessary dependencies
-   * for leaf node in graph:
-   *   for each dependency in node:
-   *     1. traverse from node to root, constructing a vector of nodes visited
-   *   for each traversal vector:
-   *     1. traverse from node to root, constructing a vector of nodes visited
-   *
-   *
-   */
-  void pruneGraph();
 };
 
 #endif // include guard

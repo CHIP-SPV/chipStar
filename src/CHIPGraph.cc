@@ -224,8 +224,7 @@ std::vector<CHIPGraphNode *> CHIPGraph::getLeafNodes() {
   return LeafNodes;
 }
 
-void CHIPGraphExec::pruneGraph() {
-  Pruned_ = true;
+void CHIPGraphExec::pruneGraph_() {
   std::vector<CHIPGraphNode *> LeafNodes_ = OriginalGraph_->getLeafNodes();
 
   for (auto LeafNode : LeafNodes_) {
@@ -290,7 +289,7 @@ std::vector<CHIPGraphNode *> CHIPGraph::getRootNodes() {
 
 void CHIPGraphExec::compile() {
   ExtractSubGraphs_();
-  pruneGraph();
+  pruneGraph_();
   logDebug("{} CHIPGraphExec::compile()", (void *)this);
   std::vector<CHIPGraphNode *> Nodes = OriginalGraph_->getNodes();
   auto RootNodesVec = OriginalGraph_->getRootNodes();

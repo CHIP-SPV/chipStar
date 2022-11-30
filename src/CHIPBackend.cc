@@ -410,7 +410,6 @@ CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
       ChipQueue_(ChipQueue){};
-CHIPExecItem::~CHIPExecItem(){};
 
 std::vector<uint8_t> CHIPExecItem::getArgData() { return ArgData_; }
 

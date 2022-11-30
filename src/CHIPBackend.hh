@@ -1026,6 +1026,12 @@ public:
    */
   CHIPExecItem(const CHIPExecItem &Other) = delete;
 
+  /**
+   * @brief Destroy the CHIPExecItem object
+   * 
+   */
+  virtual ~CHIPExecItem() {}
+
   virtual CHIPExecItem *clone() const = 0;
 
   /**
@@ -1039,11 +1045,7 @@ public:
   CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue);
 
-  /**
-   * @brief Destroy the CHIPExecItem object
-   *
-   */
-  ~CHIPExecItem();
+
 
   /**
    * @brief Get the Kernel object

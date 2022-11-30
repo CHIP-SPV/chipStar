@@ -254,20 +254,26 @@ private:
   cl::Kernel *ClKernel_;
 
 public:
-   CHIPExecItemOpenCL(const CHIPExecItemOpenCL& Other) : CHIPExecItemOpenCL(Other.GridDim_, Other.BlockDim_, Other.SharedMem_, Other.ChipQueue_) {
+  CHIPExecItemOpenCL(const CHIPExecItemOpenCL &Other)
+      : CHIPExecItemOpenCL(Other.GridDim_, Other.BlockDim_, Other.SharedMem_,
+                           Other.ChipQueue_) {
     // TOOD Graphs Is this safe?
     ClKernel_ = Other.ClKernel_;
     ChipKernel_ = Other.ChipKernel_;
     this->ArgsSetup = Other.ArgsSetup;
     this->Args_ = Other.Args_;
-   }
-    CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-               hipStream_t ChipQueue) : CHIPExecItem(GirdDim, BlockDim,  SharedMem, 
-                ChipQueue) {}
+  }
+  CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+                     hipStream_t ChipQueue)
+      : CHIPExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
+
+  virtual ~CHIPExecItemOpenCL() override {
+    // TODO delete ClKernel_?
+  }
   OCLFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl::Kernel *get();
-  virtual CHIPExecItem* clone() const override {
+  virtual CHIPExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemOpenCL(*this);
     return NewExecItem;
   }
@@ -275,8 +281,9 @@ public:
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
-    virtual CHIPExecItem* createCHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-               hipStream_t ChipQueue) override;
+  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+                                           size_t SharedMem,
+                                           hipStream_t ChipQueue) override;
 
   virtual void uninitialize() override { waitForThreadExit(); }
   virtual void initializeImpl(std::string CHIPPlatformStr,

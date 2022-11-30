@@ -349,7 +349,7 @@ hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
     4. The dependent nodes of a pair differ, in which case hErrorNode_out is the
    node from hGraph.
    */
-  auto ExecGraph = hGraphExec->getGraph();
+  auto ExecGraph = hGraphExec->getOriginalGraphPtr();
   // 1.
   if (ExecGraph->getNodes().size() != hGraph->getNodes().size()) {
     *updateResult_out = hipGraphExecUpdateErrorTopologyChanged;
@@ -483,7 +483,7 @@ hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
   CHIP_TRY
   CHIPInitialize();
   // Graph obtained from hipGraphExec_t is a clone of the original
-  CHIPGraph *Graph = hGraphExec->getGraph();
+  CHIPGraph *Graph = hGraphExec->getOriginalGraphPtr();
   // KernelNode here is a handle to the original
   CHIPGraphNodeKernel *KernelNode = static_cast<CHIPGraphNodeKernel *>(node);
   assert(KernelNode);
@@ -558,7 +558,7 @@ hipError_t hipGraphExecMemcpyNodeSetParams(hipGraphExec_t hGraphExec,
                                            hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(node);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
@@ -613,7 +613,7 @@ hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
                                              hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(node);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
@@ -666,7 +666,7 @@ hipError_t hipGraphExecMemcpyNodeSetParamsFromSymbol(
   CHIP_TRY
   CHIPInitialize();
   // Graph obtained from hipGraphExec_t is a clone of the original
-  CHIPGraph *Graph = hGraphExec->getGraph();
+  CHIPGraph *Graph = hGraphExec->getOriginalGraphPtr();
   // KernelNode here is a handle to the original
   CHIPGraphNodeMemcpyFromSymbol *KernelNode =
       ((CHIPGraphNodeMemcpyFromSymbol *)node);
@@ -717,7 +717,7 @@ hipError_t hipGraphExecMemcpyNodeSetParamsToSymbol(
     const void *src, size_t count, size_t offset, hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(node);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
@@ -774,7 +774,7 @@ hipError_t hipGraphExecMemsetNodeSetParams(hipGraphExec_t hGraphExec,
                                            const hipMemsetParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(node);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
@@ -830,7 +830,7 @@ hipError_t hipGraphExecHostNodeSetParams(hipGraphExec_t hGraphExec,
                                          const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(node);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(node);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
@@ -942,7 +942,7 @@ hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
                                                hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(hNode);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(hNode);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
@@ -1009,7 +1009,7 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
                                              hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  auto ExecNode = hGraphExec->getGraph()->nodeLookup(hNode);
+  auto ExecNode = hGraphExec->getOriginalGraphPtr()->nodeLookup(hNode);
   if (!ExecNode)
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
