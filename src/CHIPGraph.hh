@@ -55,9 +55,10 @@ protected:
     Dependencies_.clear();
   }
 
+  CHIPGraphNode(hipGraphNodeType Type) : Type_(Type) {}
+
 public:
   std::string Msg; // TODO Graphs cleanup
-  CHIPGraphNode() {}
   CHIPGraphNode(const CHIPGraphNode &Other)
       : Type_(Other.Type_), Dependendants_(Other.Dependendants_),
         Dependencies_(Other.Dependencies_), Msg(Other.Msg) {}
@@ -290,11 +291,10 @@ public:
   CHIPGraphNodeMemcpy(const CHIPGraphNodeMemcpy &Other)
       : CHIPGraphNode(Other), Params_(Other.Params_) {}
 
-  CHIPGraphNodeMemcpy(hipMemcpy3DParms Params) : Params_(Params) {
-    Type_ = hipGraphNodeTypeMemcpy;
-  }
-  CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params) {
-    Type_ = hipGraphNodeTypeMemcpy;
+  CHIPGraphNodeMemcpy(hipMemcpy3DParms Params)
+      : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params) {}
+  CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params)
+      : CHIPGraphNode(hipGraphNodeTypeMemcpy) {
     setParams(Params);
   }
 
@@ -332,13 +332,11 @@ public:
   CHIPGraphNodeMemset(const CHIPGraphNodeMemset &Other)
       : CHIPGraphNode(Other), Params_(Other.Params_) {}
 
-  CHIPGraphNodeMemset(const hipMemsetParams Params) : Params_(Params) {
-    Type_ = hipGraphNodeTypeMemset;
-  }
+  CHIPGraphNodeMemset(const hipMemsetParams Params)
+      : CHIPGraphNode(hipGraphNodeTypeMemset), Params_(Params) {}
 
-  CHIPGraphNodeMemset(const hipMemsetParams *Params) : Params_(*Params) {
-    Type_ = hipGraphNodeTypeMemset;
-  }
+  CHIPGraphNodeMemset(const hipMemsetParams *Params)
+      : CHIPGraphNode(hipGraphNodeTypeMemset), Params_(*Params) {}
 
   virtual ~CHIPGraphNodeMemset() override {}
 
@@ -360,7 +358,8 @@ public:
   CHIPGraphNodeHost(const CHIPGraphNodeHost &Other)
       : CHIPGraphNode(Other), Params_(Other.Params_) {}
 
-  CHIPGraphNodeHost(const hipHostNodeParams *Params) { Params_ = *Params; }
+  CHIPGraphNodeHost(const hipHostNodeParams *Params)
+      : CHIPGraphNode(hipGraphNodeTypeHost), Params_(*Params) {}
 
   virtual ~CHIPGraphNodeHost() override {}
 
@@ -381,7 +380,8 @@ private:
   CHIPGraph *SubGraph_;
 
 public:
-  CHIPGraphNodeGraph(CHIPGraph *Graph) : SubGraph_(Graph) {}
+  CHIPGraphNodeGraph(CHIPGraph *Graph)
+      : CHIPGraphNode(hipGraphNodeTypeGraph), SubGraph_(Graph) {}
 
   CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other)
       : CHIPGraphNode(Other), SubGraph_(Other.SubGraph_) {}
@@ -405,7 +405,7 @@ class CHIPGraphNodeEmpty : public CHIPGraphNode {
 public:
   CHIPGraphNodeEmpty(const CHIPGraphNodeEmpty &Other) : CHIPGraphNode(Other) {}
 
-  CHIPGraphNodeEmpty() { Type_ = hipGraphNodeTypeEmpty; };
+  CHIPGraphNodeEmpty() : CHIPGraphNode(hipGraphNodeTypeEmpty) {}
 
   virtual ~CHIPGraphNodeEmpty() override {}
 
@@ -424,7 +424,8 @@ private:
   CHIPEvent *Event_;
 
 public:
-  CHIPGraphNodeWaitEvent(CHIPEvent *Event) : Event_(Event) {}
+  CHIPGraphNodeWaitEvent(CHIPEvent *Event)
+      : CHIPGraphNode(hipGraphNodeTypeWaitEvent), Event_(Event) {}
 
   CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent &Other)
       : CHIPGraphNode(Other), Event_(Other.Event_) {}
@@ -449,7 +450,8 @@ private:
   CHIPEvent *Event_;
 
 public:
-  CHIPGraphNodeEventRecord(CHIPEvent *Event) : Event_(Event){};
+  CHIPGraphNodeEventRecord(CHIPEvent *Event)
+      : CHIPGraphNode(hipGraphNodeTypeEventRecord), Event_(Event){};
 
   CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord &Other)
       : CHIPGraphNode(Other), Event_(Other.Event_) {}
@@ -477,15 +479,14 @@ private:
   hipMemcpyKind Kind_;
 
 public:
+  CHIPGraphNodeMemcpy1D(void *Dst, const void *Src, size_t Count,
+                        hipMemcpyKind Kind)
+      : CHIPGraphNode(hipGraphNodeTypeMemcpy1D), Dst_(Dst), Src_(Src),
+        Count_(Count), Kind_(Kind) {}
+
   CHIPGraphNodeMemcpy1D(const CHIPGraphNodeMemcpy1D &Other)
       : CHIPGraphNode(Other), Dst_(Other.Dst_), Src_(Other.Src_),
         Count_(Other.Count_), Kind_(Other.Kind_) {}
-
-  CHIPGraphNodeMemcpy1D(void *Dst, const void *Src, size_t Count,
-                        hipMemcpyKind Kind)
-      : Dst_(Dst), Src_(Src), Count_(Count), Kind_(Kind) {
-    Type_ = hipGraphNodeTypeMemcpy1D;
-  }
 
   virtual ~CHIPGraphNodeMemcpy1D() override {}
 
@@ -516,7 +517,8 @@ private:
 public:
   CHIPGraphNodeMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
                                 size_t Offset, hipMemcpyKind Kind)
-      : Dst_(Dst), Symbol_(const_cast<void *>(Symbol)), SizeBytes_(SizeBytes),
+      : CHIPGraphNode(hipGraphNodeTypeMemcpyFromSymbol), Dst_(Dst),
+        Symbol_(const_cast<void *>(Symbol)), SizeBytes_(SizeBytes),
         Offset_(Offset), Kind_(Kind) {}
 
   CHIPGraphNodeMemcpyFromSymbol(const CHIPGraphNodeMemcpyFromSymbol &Other)
@@ -556,7 +558,8 @@ private:
 public:
   CHIPGraphNodeMemcpyToSymbol(void *Src, const void *Symbol, size_t SizeBytes,
                               size_t Offset, hipMemcpyKind Kind)
-      : Src_(Src), Symbol_(const_cast<void *>(Symbol)), SizeBytes_(SizeBytes),
+      : CHIPGraphNode(hipGraphNodeTypeMemcpyToSymbol), Src_(Src),
+        Symbol_(const_cast<void *>(Symbol)), SizeBytes_(SizeBytes),
         Offset_(Offset), Kind_(Kind) {}
 
   CHIPGraphNodeMemcpyToSymbol(const CHIPGraphNodeMemcpyToSymbol &Other)
