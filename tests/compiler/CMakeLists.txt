@@ -22,16 +22,33 @@
 #=============================================================================
 
 # add_hipcc_test(<main-source>
+#  [TEST_NAME <name>]
 #  [HIPCC_OPTIONS <option>...])
 function(add_hipcc_test MAIN_SOURCE)
+  set(oneValueArgs TEST_NAME)
   set(multiValueArgs HIPCC_OPTIONS)
-  cmake_parse_arguments(TEST "" "" "${multiValueArgs}" ${ARGN} )
-  get_filename_component(MAIN_NAME ${MAIN_SOURCE} NAME_WLE)
-  add_test(NAME "hipcc-${MAIN_NAME}"
+  cmake_parse_arguments(TESTOPT
+    "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  if(TESTOPT_TEST_NAME)
+    set(TEST_NAME ${TESTOPT_TEST_NAME})
+  else()
+    get_filename_component(MAIN_NAME ${MAIN_SOURCE} NAME_WLE)
+    set(TEST_NAME "hipcc-${MAIN_NAME}")
+  endif()
+
+  add_test(NAME "${TEST_NAME}"
     COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
-    ${TEST_HIPCC_OPTIONS}
+    ${TESTOPT_HIPCC_OPTIONS}
     ${CMAKE_CURRENT_SOURCE_DIR}/${MAIN_SOURCE} -o /dev/null)
 endfunction()
 
 add_hipcc_test(TestNoinlineAttrs.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
+
+# Test the hip_runtime.h header compiles in C++ mode. If the test
+# passes - the header probably is compilable by other regular C++
+# compilers too (e.g. g++).
+add_hipcc_test(TestHipRuntimeHeaderInclude.cpp
+  TEST_NAME hip-runtime-header-cpp-mode
+  HIPCC_OPTIONS -x c++ -fsyntax-only)
