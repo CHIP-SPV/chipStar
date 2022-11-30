@@ -82,5 +82,5 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
 std::string read_env_var(std::string EnvVar, bool Lower);
 
-const char* CHIPGetBackendName();
+const char *CHIPGetBackendName();
 #endif

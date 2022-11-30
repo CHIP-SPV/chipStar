@@ -267,7 +267,9 @@ public:
   }
 
   bool ownsZeContext = true;
-  void setZeContextOwnership(bool keepOwnership) {ownsZeContext = keepOwnership;}
+  void setZeContextOwnership(bool keepOwnership) {
+    ownsZeContext = keepOwnership;
+  }
   ze_context_handle_t ZeCtx;
   ze_driver_handle_t ZeDriver;
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t &&ZeCtx)

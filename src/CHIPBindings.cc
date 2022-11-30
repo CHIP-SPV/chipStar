@@ -3508,7 +3508,7 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   return E;
 }
 
-const char* hipGetBackendName() {
+const char *hipGetBackendName() {
   logDebug("hipGetCHIPBackend");
   return CHIPGetBackendName();
 }
