@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2023 CHIP-SPV developers
+ * Copyright (c) 2015 - 2021 Advanced Micro Devices, Inc. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +21,22 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+// A header for hosting host side math functions.
 
-#ifndef HIP_INCLUDE_DEVICELIB_HALF2_MATH_H
-#define HIP_INCLUDE_DEVICELIB_HALF2_MATH_H
+#ifndef HIP_SPIRV_HIP_HOST_MATH_H
+#define HIP_SPIRV_HIP_HOST_MATH_H
 
-#include <hip/devicelib/macros.hh>
+#if defined(__clang__) && defined(__HIP__)
 
-extern "C++" {
-extern __device__ api_half2 ceil(api_half2 x);
-extern __device__ api_half2 cos(api_half2 x);
-extern __device__ api_half2 exp(api_half2 x);
-extern __device__ api_half2 floor(api_half2 x);
-extern __device__ api_half2 log(api_half2 x);
-extern __device__ api_half2 log10(api_half2 x);
-extern __device__ api_half2 log2(api_half2 x);
-extern __device__ api_half2 rint(api_half2 x);
-extern __device__ api_half2 sin(api_half2 x);
-extern __device__ api_half2 sqrt(api_half2 x);
-extern __device__ api_half2 trunc(api_half2 x);
-} // extern "C++"
+#if !defined(__HIPCC_RTC__)
+__host__ inline static int min(int arg1, int arg2) {
+  return std::min(arg1, arg2);
+}
 
-#endif // include guards
+__host__ inline static int max(int arg1, int arg2) {
+  return std::max(arg1, arg2);
+}
+#endif
+
+#endif // defined(__clang__) && defined(__HIP__)
+#endif // HIP_SPIRV_HIP_HOST_MATH_H

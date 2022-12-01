@@ -24,10 +24,17 @@
 #define HIP_INCLUDE_DEVICELIB_SP_INTRINSICS_H
 
 #include <hip/devicelib/macros.hh>
+#include <hip/devicelib/single_precision/sp_math.hh>
 
-// __device__​ float __cosf ( float  x )
+static inline __device__ float __cosf(float x) { return ::cos(x); }
+static inline __device__ float __expf(float x) { return ::expf(x); }
+static inline __device__ float __log10f(float x) { return ::log10(x); }
+static inline __device__ float __log2f(float x) { return ::log2(x); }
+static inline __device__ float __logf(float x) { return ::log(x); }
+static inline __device__ float __sinf(float x) { return ::sin(x); }
+static inline __device__ float __tanf(float x) { return ::tan(x); }
+
 // __device__​ float __exp10f ( float  x )
-// __device__​ float __expf ( float  x )
 // __device__​ float __fadd_rd ( float  x, float  y )
 // __device__​ float __fadd_rn ( float  x, float  y )
 // __device__​ float __fadd_ru ( float  x, float  y )
@@ -62,13 +69,8 @@ __device__ float __fdividef(float x, float y);
 // __device__​ float __fsub_rn ( float  x, float  y )
 // __device__​ float __fsub_ru ( float  x, float  y )
 // __device__​ float __fsub_rz ( float  x, float  y )
-// __device__​ float __log10f ( float  x )
-// __device__​ float __log2f ( float  x )
-// __device__​ float __logf ( float  x )
 // __device__​ float __powf ( float  x, float  y )
 // __device__​ float __saturatef ( float  x )
 // __device__​ void __sincosf ( float  x, float* sptr, float* cptr )
-// __device__​ float __sinf ( float  x )
-// __device__​ float __tanf ( float  x )
 
 #endif // include guard

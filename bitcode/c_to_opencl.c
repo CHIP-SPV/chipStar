@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2023 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,24 +20,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+// See c_to_opencl.def for details.
 
-#ifndef HIP_INCLUDE_DEVICELIB_HALF2_MATH_H
-#define HIP_INCLUDE_DEVICELIB_HALF2_MATH_H
-
-#include <hip/devicelib/macros.hh>
-
-extern "C++" {
-extern __device__ api_half2 ceil(api_half2 x);
-extern __device__ api_half2 cos(api_half2 x);
-extern __device__ api_half2 exp(api_half2 x);
-extern __device__ api_half2 floor(api_half2 x);
-extern __device__ api_half2 log(api_half2 x);
-extern __device__ api_half2 log10(api_half2 x);
-extern __device__ api_half2 log2(api_half2 x);
-extern __device__ api_half2 rint(api_half2 x);
-extern __device__ api_half2 sin(api_half2 x);
-extern __device__ api_half2 sqrt(api_half2 x);
-extern __device__ api_half2 trunc(api_half2 x);
-} // extern "C++"
-
-#endif // include guards
+#define DEF_UNARY_FN_MAP(NAME_, TYPE_)                                         \
+  extern TYPE_ MAP_PREFIX##NAME_(TYPE_);                                       \
+  TYPE_ NAME_(TYPE_ x) { return MAP_PREFIX##NAME_(x); }
+#define DEF_BINARY_FN_MAP(NAME_, TYPE_)                                        \
+  extern TYPE_ MAP_PREFIX##NAME_(TYPE_, TYPE_);                                \
+  TYPE_ NAME_(TYPE_ x, TYPE_ y) { return MAP_PREFIX##NAME_(x, y); }
+#include "c_to_opencl.def"
+#undef UNARY_FN
+#undef BINARY_FN

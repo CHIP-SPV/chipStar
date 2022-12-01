@@ -109,5 +109,11 @@ static inline __device__ long long int llmin(const long long int a, const long l
   return min((long)a, (long)b);
 }
 
+namespace std {
+// Clang does provide device side std::abs via HIP include wrappers
+// but, alas, the wrappers won't compile on CHIP-SPV due to AMD
+// specific built-ins.
+using ::abs;
+} // namespace std
 
 #endif // include guard

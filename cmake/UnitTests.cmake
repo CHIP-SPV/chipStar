@@ -770,6 +770,8 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+ # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1975,6 +1977,8 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS
   "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
 list(APPEND IGPU_LEVEL0_FAILED_TESTS
   "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float") # Flaky. An event related issue.
+ # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed

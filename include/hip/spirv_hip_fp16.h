@@ -33,26 +33,26 @@ THE SOFTWARE.
 #define __ocml_fabs_f16(__X) fabs_h(__X)
 #define __ocml_fabs_2f16(__X) fabs_2h(__X)
 
-#define __ocml_trunc_f16(__X) trunc_h(__X)
-#define __ocml_trunc_2f16(__X) trunc_2h(__X)
+#define __ocml_trunc_f16(__X) trunc(__X)
+#define __ocml_trunc_2f16(__X) trunc(__X)
 
-#define __ocml_ceil_f16(__X) ceil_h(__X)
-#define __ocml_ceil_2f16(__X) ceil_2h(__X)
+#define __ocml_ceil_f16(__X) ceil(__X)
+#define __ocml_ceil_2f16(__X) ceil(__X)
 
-#define __ocml_floor_f16(__X) floor_h(__X)
-#define __ocml_floor_2f16(__X) floor_2h(__X)
+#define __ocml_floor_f16(__X) floor(__X)
+#define __ocml_floor_2f16(__X) floor(__X)
 
-#define __ocml_rint_f16(__X) rint_h(__X)
-#define __ocml_rint_2f16(__X) rint_2h(__X)
+#define __ocml_rint_f16(__X) rint(__X)
+#define __ocml_rint_2f16(__X) rint(__X)
 
-#define __ocml_sin_f16(__X) sin_h(__X)
-#define __ocml_sin_2f16(__X) sin_2h(__X)
+#define __ocml_sin_f16(__X) sin(__X)
+#define __ocml_sin_2f16(__X) sin(__X)
 
-#define __ocml_cos_f16(__X) cos_h(__X)
-#define __ocml_cos_2f16(__X) cos_2h(__X)
+#define __ocml_cos_f16(__X) cos(__X)
+#define __ocml_cos_2f16(__X) cos(__X)
 
-#define __ocml_exp_f16(__X) exp_h(__X)
-#define __ocml_exp_2f16(__X) exp_2h(__X)
+#define __ocml_exp_f16(__X) exp(__X)
+#define __ocml_exp_2f16(__X) exp(__X)
 
 #define __ocml_exp2_f16(__X) exp2_h(__X)
 #define __ocml_exp2_2f16(__X) exp2_2h(__X)
@@ -60,14 +60,14 @@ THE SOFTWARE.
 #define __ocml_exp10_f16(__X) exp10_h(__X)
 #define __ocml_exp10_2f16(__X) exp10_2h(__X)
 
-#define __ocml_log2_f16(__X) log2_h(__X)
-#define __ocml_log2_2f16(__X) log2_2h(__X)
+#define __ocml_log2_f16(__X) log2(__X)
+#define __ocml_log2_2f16(__X) log2(__X)
 
-#define __ocml_log_f16(__X) log_h(__X)
-#define __ocml_log_2f16(__X) log_2h(__X)
+#define __ocml_log_f16(__X) log(__X)
+#define __ocml_log_2f16(__X) log(__X)
 
-#define __ocml_log10_f16(__X) log10_h(__X)
-#define __ocml_log10_2f16(__X) log10_2h(__X)
+#define __ocml_log10_f16(__X) log10(__X)
+#define __ocml_log10_2f16(__X) log10(__X)
 
 #define __llvm_amdgcn_rcp_f16(__X) ((__half)1.0f / (__half)__X)
 #define __llvm_amdgcn_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
@@ -75,8 +75,8 @@ THE SOFTWARE.
 #define __ocml_rsqrt_f16(__X) rsqrt_h(__X)
 #define __ocml_rsqrt_2f16(__X) rsqrt_2h(__X)
 
-#define __ocml_sqrt_f16(__X) sqrt_h(__X)
-#define __ocml_sqrt_2f16(__X) sqrt_2h(__X)
+#define __ocml_sqrt_f16(__X) sqrt(__X)
+#define __ocml_sqrt_2f16(__X) sqrt(__X)
 
 #define __ocml_isinf_f16(__X) isinf_h(__X)
 #define __ocml_isinf_2f16(__X) isinf_2h(__X)

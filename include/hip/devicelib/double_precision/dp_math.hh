@@ -26,54 +26,96 @@
 #include <hip/devicelib/macros.hh>
 
 extern "C++" {
-
-extern __device__ double rint(double x);
-extern __device__ double round(double x);
+extern __device__ double acos(double x);
+extern __device__ double asin(double x);
+extern __device__ double atan(double x);
+extern __device__ double ceil(double x);
 extern __device__ long int convert_long(double x);
-
+extern __device__ double copysign(double x, double y);
+extern __device__ double cos(double x);
+extern __device__ double cosh(double x);
+extern __device__ double erf(double x);
+extern __device__ double erfc(double x);
+extern __device__ double exp(double x);
+extern __device__ double expm1(double x);
+extern __device__ double floor(double x);
+extern __device__ double lgamma(double x);
+extern __device__ double log(double x);
+extern __device__ double log10(double x);
+extern __device__ double log1p(double x);
+extern __device__ double log2(double x);
+extern __device__ double nextafter(double x, double y);
+extern __device__ double rint(double x);
 extern __device__ double rnorm3d(double a, double b, double c);
 extern __device__ double rnorm4d(double a, double b, double c, double d);
+extern __device__ double round(double x);
+extern __device__ double sin(double x);
+extern __device__ double sinh(double x);
+extern __device__ double sqrt(double x);
+extern __device__ double tan(double x);
+extern __device__ double tanh(double x);
+extern __device__ double trunc(double x);
 
-extern __device__ double lgamma(double x);
+static inline __device__ double nearbyint(double x) {
+  return __builtin_nearbyint(x);
 }
-
 static inline __device__ long int lrint(double x) {
   return convert_long(rint(x));
 }
 static inline __device__ long int lround(double x) {
   return convert_long(round(x));
 }
-
 static inline __device__ long long int llrint(double x) { return lrint(x); }
 static inline __device__ long long int llround(double x) { return lround(x); }
 
-// __device__ double acos(double x)
+} // extern "C++"
+
+namespace std {
+// Clang does provide device side std:: functions via HIP include
+// wrappers but, alas, the wrappers won't compile on CHIP-SPV due to
+// presence of AMD specific built-ins.
+using ::acos;
+using ::asin;
+using ::atan;
+using ::ceil;
+using ::copysign;
+using ::cos;
+using ::cosh;
+using ::erf;
+using ::erfc;
+using ::exp;
+using ::expm1;
+using ::floor;
+using ::lgamma;
+using ::log;
+using ::log10;
+using ::log1p;
+using ::log2;
+using ::nearbyint;
+using ::nextafter;
+using ::sin;
+using ::sinh;
+using ::sqrt;
+using ::tan;
+using ::tanh;
+using ::trunc;
+} // namespace std
+
 // __device__​ double acosh ( double  x )
-// __device__​ double asin ( double  x )
 // __device__​ double asinh ( double  x )
-// __device__​ double atan ( double  x )
 // __device__​ double atan2 ( double  y, double  x )
 // __device__​ double atanh ( double  x )
 // __device__​ double cbrt ( double  x )
-// __device__​ double ceil ( double  x )
-// __device__​ double copysign ( double  x, double  y )
-// __device__​ double cos ( double  x )
-// __device__​ double cosh ( double  x )
 // __device__​ double cospi ( double  x )
 // __device__​ double cyl_bessel_i0 ( double  x )
 // __device__​ double cyl_bessel_i1 ( double  x )
-// __device__​ double erf ( double  x )
-// __device__​ double erfc ( double  x )
 // __device__​ double erfcinv ( double  x )
 // __device__​ double erfcx ( double  x )
 // __device__​ double erfinv ( double  x )
-// __device__​ double exp ( double  x )
 // __device__​ double exp10 ( double  x )
 // __device__​ double exp2 ( double  x )
-// __device__​ double expm1 ( double  x )
 // __device__​ double fabs ( double  x )
 // __device__​ double fdim ( double  x, double  y )
-// __device__​ double floor ( double  x )
 // __device__​ double fma ( double  x, double  y, double  z )
 // __device__​ double fmax ( double , double )
 // __device__​ double fmin ( double  x, double  y )
@@ -88,10 +130,6 @@ static inline __device__ long long int llround(double x) { return lround(x); }
 // __device__​ double j1 ( double  x )
 // __device__​ double jn ( int  n, double  x )
 // __device__​ double ldexp ( double  x, int  exp )
-// __device__​ double log ( double  x )
-// __device__​ double log10 ( double  x )
-// __device__​ double log1p ( double  x )
-// __device__​ double log2 ( double  x )
 // __device__​ double logb ( double  x )
 // __device__​ double max ( const double  a, const float  b )
 // __device__​ double max ( const float  a, const double  b )
@@ -101,8 +139,6 @@ static inline __device__ long long int llround(double x) { return lround(x); }
 // __device__​ double min ( const double  a, const double  b )
 // __device__​ double modf ( double  x, double* iptr )
 // __device__​ double nan ( const char* tagp )
-// __device__​ double nearbyint ( double  x )
-// __device__​ double nextafter ( double  x, double  y )
 // __device__​ double norm ( int  dim, const double* p )
 // __device__​ double norm3d ( double  a, double  b, double  c )
 // __device__​ double norm4d ( double  a, double  b, double  c, double  d)
@@ -118,16 +154,10 @@ static inline __device__ long long int llround(double x) { return lround(x); }
 // __device__​ double scalbln ( double  x, long int  n )
 // __device__​ double scalbn ( double  x, int  n )
 // __device__​ __RETURN_TYPE 	signbit ( double  a )
-// __device__​ double sin ( double  x )
 // __device__​ void sincos ( double  x, double* sptr, double* cptr )
 // __device__​ void sincospi ( double  x, double* sptr, double* cptr )
-// __device__​ double sinh ( double  x )
 // __device__​ double sinpi ( double  x )
-// __device__​ double sqrt ( double  x )
-// __device__​ double tan ( double  x )
-// __device__​ double tanh ( double  x )
 // __device__​ double tgamma ( double  x )
-// __device__​ double trunc ( double  x )
 // __device__​ double y0 ( double  x )
 // __device__​ double y1 ( double  x )
 // __device__​ double yn ( int  n, double  x )

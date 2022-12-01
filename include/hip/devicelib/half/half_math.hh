@@ -26,30 +26,18 @@
 
 #include <hip/devicelib/macros.hh>
 
-
 extern "C++" {
-
+extern __device__ api_half ceil(api_half x);
+extern __device__ api_half cos(api_half x);
+extern __device__ api_half exp(api_half x);
+extern __device__ api_half floor(api_half x);
+extern __device__ api_half log(api_half x);
+extern __device__ api_half log10(api_half x);
+extern __device__ api_half log2(api_half x);
 extern __device__ api_half rint(api_half x);
-
-}
-
-static inline __device__ api_half rint_h(api_half x) { return rint(x); }
-
-
-//__device__ __half hceil ( const __half h )
-//__device__ __half hcos ( const __half a )
-//__device__ __half hexp ( const __half a )
-//__device__ __half hexp10 ( const __half a )
-//__device__ __half hexp2 ( const __half a )
-//__device__ __half hfloor ( const __half h )
-//__device__ __half hlog ( const __half a )
-//__device__ __half hlog10 ( const __half a )
-//__device__ __half hlog2 ( const __half a )
-//__device__ __half hrcp ( const __half a )
-//__device__ __half hrint ( const __half h )
-//__device__ __half hrsqrt ( const __half a )
-//__device__ __half hsin ( const __half a )
-//__device__ __half hsqrt ( const __half a )
-//__device__ __half htrunc ( const __half h )
+extern __device__ api_half sin(api_half x);
+extern __device__ api_half sqrt(api_half x);
+extern __device__ api_half trunc(api_half x);
+} // extern "C++"
 
 #endif // include guards
