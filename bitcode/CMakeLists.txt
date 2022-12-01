@@ -49,9 +49,13 @@ else()
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
-set(BITCODE_COMPILE_FLAGS
+set(BITCODE_CL_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
-  --target=${BC_TRIPLE} -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm ${EXTRA_FLAGS})
+  --target=${BC_TRIPLE} -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm
+  ${EXTRA_FLAGS})
+set(BITCODE_C_COMPILE_FLAGS
+  --target=${BC_TRIPLE} -O2 -x c -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE}
+  -emit-llvm ${EXTRA_FLAGS})
 
 # non-OCML sources
 set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture") # "printf_support"
@@ -60,7 +64,7 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
-    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
+    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
     -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     -c "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     COMMENT "Building ${SOURCE}.bc"
@@ -84,13 +88,23 @@ foreach(SOURCE IN LISTS OCML_SOURCES)
   add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
-    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_COMPILE_FLAGS}
+    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
     -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
     -c "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
     COMMENT "Building ${SOURCE}.bc"
     VERBATIM)
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
 endforeach()
+
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
+  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
+  -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  COMMENT "Building c_to_opencl.bc"
+  VERBATIM)
+list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
 
 # devicelib
 add_custom_command(

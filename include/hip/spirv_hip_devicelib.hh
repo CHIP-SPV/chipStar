@@ -148,38 +148,25 @@ EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
 EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
                                      unsigned int shift);
 
-DEFOPENCL1F(acos)
-DEFOPENCL1F(asin)
 DEFOPENCL1F(acosh)
 DEFOPENCL1F(asinh)
-DEFOPENCL1F(atan)
 DEFOPENCL2F(atan2)
 DEFOPENCL1F(atanh)
 DEFOPENCL1F(cbrt)
-DEFOPENCL1F(ceil)
 
-DEFOPENCL2F(copysign)
-
-DEFOPENCL1F(cos)
-DEFOPENCL1F(cosh)
 DEFOPENCL1F(cospi)
 
 DEFOPENCL1F(cyl_bessel_i1)
 DEFOPENCL1F(cyl_bessel_i0)
 
-DEFOPENCL1F(erfc)
-DEFOPENCL1F(erf)
 DEFOPENCL1F(erfcinv)
 DEFOPENCL1F(erfcx)
 DEFOPENCL1F(erfinv)
 
 DEFOPENCL1F(exp10)
 DEFOPENCL1F(exp2)
-DEFOPENCL1F(exp)
-DEFOPENCL1F(expm1)
 DEFOPENCL1F(fabs)
 DEFOPENCL2F(fdim)
-DEFOPENCL1F(floor)
 
 EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
@@ -268,11 +255,7 @@ EXPORT float ldexpf(float x, int k);
 EXPORT double ldexp(double x, int k);
 #endif
 
-DEFOPENCL1F(log10)
-DEFOPENCL1F(log1p)
-DEFOPENCL1F(log2)
 DEFOPENCL1F(logb)
-DEFOPENCL1F(log)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 extern "C" {
@@ -285,9 +268,6 @@ EXPORT double modf(double f, double *i) { return GEN_NAME2(modf, d)(f, i); }
 EXPORT float modff(float f, float *i);
 EXPORT double modf(double f, double *i);
 #endif
-
-DEFOPENCL1F(nearbyint)
-DEFOPENCL2F(nextafter)
 
 DEFOPENCL3F(norm3d)
 DEFOPENCL4F(norm4d)
@@ -345,14 +325,8 @@ EXPORT double scalbn(double x, int n);
 
 DEFOPENCL1B(signbit)
 
-DEFOPENCL1F(sin)
-DEFOPENCL1F(sinh)
 DEFOPENCL1F(sinpi)
-DEFOPENCL1F(sqrt)
-DEFOPENCL1F(tan)
-DEFOPENCL1F(tanh)
 DEFOPENCL1F(tgamma)
-DEFOPENCL1F(trunc)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 // float normf ( int dim, const float *a )
@@ -365,7 +339,7 @@ float normf(int dim,
     ++a;
   }
 
-  return GEN_NAME2(sqrt, f)(r);
+  return ::sqrtf(r);
 }
 
 // float rnormf ( int  dim, const float* t )
@@ -378,7 +352,7 @@ float rnormf(int dim,
     ++a;
   }
 
-  return GEN_NAME2(sqrt, f)(r);
+  return ::sqrtf(r);
 }
 
 EXPORT
@@ -390,7 +364,7 @@ double norm(int dim,
     ++a;
   }
 
-  return GEN_NAME2(sqrt, d)(r);
+  return ::sqrt(r);
 }
 
 EXPORT
@@ -402,7 +376,7 @@ double rnorm(int dim,
     ++a;
   }
 
-  return GEN_NAME2(sqrt, d)(r);
+  return ::sqrt(r);
 }
 
 // sincos
@@ -497,26 +471,16 @@ FAKE_ROUNDINGS2(div, x / y)
 FAKE_ROUNDINGS2(mul, x *y)
 
 FAKE_ROUNDINGS1(rcp, (1.0f / x))
-FAKE_ROUNDINGS1(sqrt, GEN_NAME2(sqrt, f)(x))
+FAKE_ROUNDINGS1(sqrt, ::sqrt(x))
 FAKE_ROUNDINGS1(rsqrt, GEN_NAME2(rsqrt, f)(x))
 
 FAKE_ROUNDINGS3(fma, GEN_NAME2(fma, f)(x, y, z))
 // FAKE_ROUNDINGS3(fmaf_ieee, GEN_NAME2(fmaf_ieee, f)(x, y, z))
 
-DEFOPENCL1F_NATIVE(cos)
-DEFOPENCL1F_NATIVE(sin)
-DEFOPENCL1F_NATIVE(tan)
-
 DEFOPENCL1F_NATIVE(exp10)
 DEFOPENCL1F_NATIVE(exp2)
-DEFOPENCL1F_NATIVE(exp)
-
-DEFOPENCL1F_NATIVE(log10)
-DEFOPENCL1F_NATIVE(log2)
-DEFOPENCL1F_NATIVE(log)
 
 DEFOPENCL1F_NATIVE(recip)
-DEFOPENCL1F_NATIVE(sqrt)
 DEFOPENCL1F_NATIVE(rsqrt)
 
 DEFOPENCL2F_NATIVE(divide)
@@ -529,8 +493,8 @@ EXPORT float __saturatef(float x) {
 }
 
 EXPORT void __sincosf(float x, float *sptr, float *cptr) {
-  *sptr = GEN_NAME2(sin_native, f)(x);
-  *cptr = GEN_NAME2(cos_native, f)(x);
+  *sptr = sin(x);
+  *cptr = cos(x);
 }
 
 /**********************************************************************/
@@ -954,26 +918,14 @@ template <class __T> struct __hip_enable_if<true, __T> { typedef __T type; };
   float func(float x, float y) { return func##f(x, y); }                       \
   __HIP_OVERLOAD2(retty, func)
 
-__DEF_FUN1(double, acos)
 __DEF_FUN1(double, acosh)
-__DEF_FUN1(double, asin)
 __DEF_FUN1(double, asinh)
-__DEF_FUN1(double, atan)
 __DEF_FUN2(double, atan2);
 __DEF_FUN1(double, atanh)
 __DEF_FUN1(double, cbrt)
-__DEF_FUN1(double, ceil)
-__DEF_FUN2(double, copysign);
-__DEF_FUN1(double, cos)
-__DEF_FUN1(double, cosh)
-__DEF_FUN1(double, erf)
-__DEF_FUN1(double, erfc)
-__DEF_FUN1(double, exp)
 __DEF_FUN1(double, exp2)
-__DEF_FUN1(double, expm1)
 __DEF_FUN1(double, fabs)
 __DEF_FUN2(double, fdim);
-__DEF_FUN1(double, floor)
 __DEF_FUN2(double, fmax);
 __DEF_FUN2(double, fmin);
 __DEF_FUN2(double, fmod);
@@ -990,23 +942,11 @@ __HIP_OVERLOAD2(bool, islessgreater);
 __HIP_OVERLOAD1(bool, isnan);
 //__HIP_OVERLOAD1(bool, isnormal)
 __HIP_OVERLOAD2(bool, isunordered);
-__DEF_FUN1(double, log)
-__DEF_FUN1(double, log10)
-__DEF_FUN1(double, log1p)
-__DEF_FUN1(double, log2)
 __DEF_FUN1(double, logb)
-__DEF_FUN1(double, nearbyint);
-__DEF_FUN2(double, nextafter);
 __DEF_FUN2(double, pow);
 __DEF_FUN2(double, remainder);
 __HIP_OVERLOAD1(bool, signbit)
-__DEF_FUN1(double, sin)
-__DEF_FUN1(double, sinh)
-__DEF_FUN1(double, sqrt)
-__DEF_FUN1(double, tan)
-__DEF_FUN1(double, tanh)
 __DEF_FUN1(double, tgamma)
-__DEF_FUN1(double, trunc);
 
 // define cmath functions with a float and an integer argument.
 #define __DEF_FLOAT_FUN2I(func)                                                \
@@ -1024,6 +964,10 @@ EXPORT double min(double x, double y) { return fmin(x, y); }
 
 __HIP_OVERLOAD2(double, max)
 __HIP_OVERLOAD2(double, min)
+
+namespace std {
+__HIP_OVERLOAD1(long, lrint);
+}
 
 #pragma pop_macro("__DEF_FLOAT_FUN")
 #pragma pop_macro("__DEF_FLOAT_FUN2")

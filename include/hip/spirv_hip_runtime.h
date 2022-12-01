@@ -45,6 +45,7 @@ THE SOFTWARE.
 #include <hip/spirv_hip_vector_types.h>
 
 #include <hip/spirv_math_fwd.h>
+#include <hip/spirv_hip_host_math.h>
 
 #include <hip/spirv_texture_functions.h>
 
