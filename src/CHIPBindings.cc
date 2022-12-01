@@ -503,7 +503,11 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipMemcpy3DParms *pCopyParams) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(graph, pGraphNode, pCopyParams);
+
+  // graphs test seems wrong - normally we expect hipErrorInvalidHandle
+  // NULLCHECK(graph, pGraphNode, pCopyParams);
+  if(!graph || !pGraphNode || !pCopyParams)
+    RETURN(hipErrorInvalidValue);
   if (pDependencies == nullptr & numDependencies > 0)
     CHIPERR_LOG_AND_THROW(
         "numDependencies is not 0 while pDependencies is null",
