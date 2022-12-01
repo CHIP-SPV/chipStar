@@ -35,6 +35,9 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
   EI->setArgPointer(Args);
   EI->setKernel(K);
 
+  EI->copyArgs(Args);
+  EI->setupAllArgs();
+
   auto ChipQueue = EI->getQueue();
   if (!ChipQueue)
     CHIPERR_LOG_AND_THROW(
@@ -1879,6 +1882,7 @@ void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
   ExecItem->setArgPointer(Args);
   ExecItem->setKernel(ChipKernel);
   ExecItem->copyArgs(Args);
+  ExecItem->setupAllArgs();
   launch(ExecItem);
   delete ExecItem;
 }
