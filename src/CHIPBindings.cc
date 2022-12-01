@@ -2407,7 +2407,7 @@ hipError_t hipMalloc3DArray(hipArray **Array,
   void **Ptr = &Array[0]->data;
 
   size_t AllocSize =
-      Width * std::max<size_t>(Height, 1) * Depth * getChannelByteSize(*Desc);
+      Width * std::max<size_t>(Height, 1) * std::max<size_t>(Depth, 1) * getChannelByteSize(*Desc);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       AllocSize, hipMemoryType::hipMemoryTypeDevice);
