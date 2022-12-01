@@ -1775,11 +1775,6 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
 
-  if (Stream->getCaptureStatus() != hipStreamCaptureStatusNone) {
-    Stream->setCaptureStatus(hipStreamCaptureStatusInvalidated);
-    RETURN(hipErrorStreamCaptureInvalidated);
-  }
-
   if (Stream == hipStreamPerThread)
     CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
                           hipErrorTbd);
@@ -1789,6 +1784,10 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
                           hipErrorTbd);
 
   Stream = Backend->findQueue(Stream);
+  if (Stream->getCaptureStatus() != hipStreamCaptureStatusNone) {
+    Stream->setCaptureStatus(hipStreamCaptureStatusInvalidated);
+    RETURN(hipErrorStreamCaptureInvalidated);
+  }
 
   CHIPDevice *Dev = Backend->getActiveDevice();
 
