@@ -1930,8 +1930,8 @@ public:
  */
 class CHIPQueue {
 protected:
-  hipStreamCaptureStatus CaptureStatus_;
-  hipStreamCaptureMode CaptureMode_;
+  hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
+  hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
   hipGraph_t CaptureGraph_;
   std::mutex LastEventMtx;
   /// @brief  node for creating a dependency chain between subsequent record
