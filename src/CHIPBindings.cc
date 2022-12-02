@@ -506,7 +506,7 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
 
   // graphs test seems wrong - normally we expect hipErrorInvalidHandle
   // NULLCHECK(graph, pGraphNode, pCopyParams);
-  if(!graph || !pGraphNode || !pCopyParams)
+  if (!graph || !pGraphNode || !pCopyParams)
     RETURN(hipErrorInvalidValue);
   if (pDependencies == nullptr & numDependencies > 0)
     CHIPERR_LOG_AND_THROW(
@@ -2331,7 +2331,8 @@ static hipError_t hipMallocPitch3D(void **Ptr, size_t *Pitch, size_t Width,
   NULLCHECK(Ptr, Pitch);
 
   *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
-  const size_t SizeBytes = (*Pitch) * std::max<size_t>(1, Height) * std::max<size_t>(1, Depth);
+  const size_t SizeBytes =
+      (*Pitch) * std::max<size_t>(1, Height) * std::max<size_t>(1, Depth);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       SizeBytes, hipMemoryType::hipMemoryTypeDevice);
@@ -2409,8 +2410,8 @@ hipError_t hipMalloc3DArray(hipArray **Array,
   (*Array)->textureType = TexType;
   void **Ptr = &Array[0]->data;
 
-  size_t AllocSize =
-      Width * std::max<size_t>(Height, 1) * std::max<size_t>(Depth, 1) * getChannelByteSize(*Desc);
+  size_t AllocSize = Width * std::max<size_t>(Height, 1) *
+                     std::max<size_t>(Depth, 1) * getChannelByteSize(*Desc);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       AllocSize, hipMemoryType::hipMemoryTypeDevice);
