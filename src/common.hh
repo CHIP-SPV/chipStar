@@ -20,16 +20,25 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef HIP_COMMON_H
-#define HIP_COMMON_H
+#ifndef HIP_COMMON_HH
+#define HIP_COMMON_HH
 
 #include "Config.hh"
 
 #include <map>
+#include <set>
 #include <vector>
 #include <stdint.h>
 #include <string>
 #include <memory>
+#include <unordered_set>
+#include <utility>
+#include <sstream>
+#include <algorithm>
+#include <iostream>
+#include <mutex>
+#include <queue>
+#include <stack>
 
 enum class OCLType : unsigned {
   POD,

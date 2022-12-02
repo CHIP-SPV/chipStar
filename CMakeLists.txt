@@ -93,6 +93,7 @@ set(CHIP_SRC
   src/spirv_hiprtc.cc
   src/CHIPDriver.cc
   src/CHIPBackend.cc
+  src/CHIPGraph.cc
   src/CHIPBindings.cc
   src/logging.cc
   src/Utils.cc
@@ -297,11 +298,6 @@ list(APPEND FAILING_TESTS "Unit_hipDeviceGetCacheConfig_FuncTst")
 list(APPEND FAILING_TESTS "Unit_hipDeviceSynchronize_Functional")
 list(APPEND FAILING_TESTS "Unit_hipEventIpc")
 list(APPEND FAILING_TESTS "Unit_hipGetDeviceFlags_FuncTst")
-list(APPEND FAILING_TESTS "Unit_hipGraphAddDependencies_Functional")
-list(APPEND FAILING_TESTS "Unit_hipGraphAddEmptyNode_Functional")
-list(APPEND FAILING_TESTS "Unit_hipGraphAddMemcpyNode_Functional")
-list(APPEND FAILING_TESTS "Unit_hipGraph_BasicFunctional")
-list(APPEND FAILING_TESTS "Unit_hipGraph_SimpleGraphWithKernel")
 list(APPEND FAILING_TESTS "Unit_hipHostMalloc_Coherent")
 list(APPEND FAILING_TESTS "Unit_hipHostMalloc_NonCoherent")
 list(APPEND FAILING_TESTS "Unit_hipMemPrefetchAsync_NonPageSz")

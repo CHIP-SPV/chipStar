@@ -867,7 +867,7 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   assert(Kernel != nullptr);
   logTrace("Launching Kernel {}", Kernel->getName());
 
-  ChipOclExecItem->setupAllArgs(Kernel);
+  ChipOclExecItem->setupAllArgs();
 
   dim3 GridDim = ChipOclExecItem->getGrid();
   dim3 BlockDim = ChipOclExecItem->getBlock();
@@ -1100,7 +1100,13 @@ static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
 
 cl::Kernel *CHIPExecItemOpenCL::get() { return ClKernel_; }
 
-int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
+void CHIPExecItemOpenCL::setupAllArgs() {
+  if (!ArgsSetup) {
+    ArgsSetup = true;
+  } else {
+    return;
+  }
+  CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)getKernel();
   OCLFuncInfo *FuncInfo = Kernel->getFuncInfo();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
@@ -1111,7 +1117,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
   CHIPASSERT(NumLocals <= 1);
   int Err = 0;
 
-  if (ArgsPointer_) {
+  if (ArgsPtr) {
     logTrace("Setting up arguments NEW HIP API");
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
@@ -1120,15 +1126,15 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
         if (Ai.Space == OCLSpace::Local)
           continue;
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
-                 Ai.Size, ArgsPointer_[InArgIdx]);
+                 Ai.Size, ArgsPtr[InArgIdx]);
         CHIPASSERT(Ai.Size == sizeof(void *));
-        const void *Argval = *(void **)ArgsPointer_[InArgIdx];
+        const void *Argval = *(void **)ArgsPtr[InArgIdx];
         Err =
             ::clSetKernelArgSVMPointer(Kernel->get()->get(), OutArgIdx, Argval);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
       } else if (Ai.Type == OCLType::Image) {
-        auto *TexObj = *(CHIPTextureOpenCL **)ArgsPointer_[InArgIdx];
+        auto *TexObj = *(CHIPTextureOpenCL **)ArgsPtr[InArgIdx];
 
         // Set image argument.
         cl_mem Image = TexObj->getImage();
@@ -1150,9 +1156,9 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
             "clSetKernelArg failed for sampler argument.");
       } else {
         logTrace("clSetKernelArg {} SIZE {} to {}\n", OutArgIdx, Ai.Size,
-                 ArgsPointer_[InArgIdx]);
+                 ArgsPtr[InArgIdx]);
         Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, Ai.Size,
-                               ArgsPointer_[InArgIdx]);
+                               ArgsPtr[InArgIdx]);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArg failed");
       }
@@ -1165,7 +1171,7 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
     }
 
     if (OffsetSizes_.size() == 0)
-      return CL_SUCCESS;
+      return;
 
     std::sort(OffsetSizes_.begin(), OffsetSizes_.end());
     if ((std::get<0>(OffsetSizes_[0]) != 0) ||
@@ -1219,12 +1225,19 @@ int CHIPExecItemOpenCL::setupAllArgs(CHIPKernelOpenCL *Kernel) {
     }
   }
 
-  return setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
+  setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
+  return;
 }
 
 // CHIPBackendOpenCL
 //*************************************************************************
-
+CHIPExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+                                                    size_t SharedMem,
+                                                    hipStream_t ChipQueue) {
+  CHIPExecItemOpenCL *ExecItem =
+      new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
+  return ExecItem;
+};
 CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
