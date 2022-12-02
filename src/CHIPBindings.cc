@@ -2331,7 +2331,7 @@ static hipError_t hipMallocPitch3D(void **Ptr, size_t *Pitch, size_t Width,
   NULLCHECK(Ptr, Pitch);
 
   *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
-  const size_t SizeBytes = (*Pitch) * Height * ((Depth == 0) ? 1 : Depth);
+  const size_t SizeBytes = (*Pitch) * std::max<size_t>(1, Height) * std::max<size_t>(1, Depth);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       SizeBytes, hipMemoryType::hipMemoryTypeDevice);

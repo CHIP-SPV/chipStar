@@ -1808,7 +1808,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
+
   auto TotalThreadsPerBlock =
       ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
   auto DeviceProps = getDevice()->getDeviceProps();
@@ -1877,6 +1877,7 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
 void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
                              dim3 DimBlocks, void **Args,
                              size_t SharedMemBytes) {
+  LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
   CHIPExecItem *ExecItem =
       Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExecItem->setArgPointer(Args);
