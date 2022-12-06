@@ -3467,6 +3467,7 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
 int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
                                int *NumHandles) {
   CHIP_TRY
+  CHIPInitialize();
   logDebug("hipGetBackendNativeHandles");
   CHIPQueue *HipStream = Backend->findQueue((hipStream_t)Stream);
   RETURN(HipStream->getBackendHandles(NativeHandles, NumHandles));
