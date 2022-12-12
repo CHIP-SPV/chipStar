@@ -753,12 +753,15 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
-  finish(); // must finish the queue because it's possible that that there are
-            // outstanding operations which have an associated CHIPEvent. If we
-            // do not finish we risk the chance of StaleEventMonitor of
-            // deadlocking while waiting for queue completion and subsequent
-            // event status change
-
+  // From destructor post query only when queue is owned by CHIP
+  // Non-owned command queues can be destroyed independently by the owner
+  if (zeCmdQOwnership_) {
+    finish(); // must finish the queue because it's possible that that there are
+              // outstanding operations which have an associated CHIPEvent. If we
+              // do not finish we risk the chance of StaleEventMonitor of
+              // deadlocking while waiting for queue completion and subsequent
+              // event status change
+  }
   updateLastEvent(
       nullptr); // Just in case that unique_ptr destructor calls this, the
                 // generic ~CHIPQueue() (which calls updateLastEvent(nullptr))
@@ -771,7 +774,11 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 #ifdef DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
-  zeCommandQueueDestroy(ZeCmdQ_);
+  if (zeCmdQOwnership_) {
+    zeCommandQueueDestroy(ZeCmdQ_);
+  } else {
+    logTrace("CHIP does not own cmd queue");
+  }
 }
 
 void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
@@ -1600,6 +1607,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   LOCK(Backend->BackendMtx); // CHIPBackendLevel0::StaleEventMonitor
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
 
+
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
   CallbackEventMonitor =
@@ -1907,6 +1915,10 @@ CHIPQueue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
     NewQ = new CHIPQueueLevel0(this, 0, 0);
   } else {
     NewQ = new CHIPQueueLevel0(this, CmdQ);
+    // In this case CHIP does not own the queue hence setting right ownership
+    if (NewQ != nullptr) {
+      NewQ->setCmdQueueOwnership(false);
+    }
   }
 
   return NewQ;

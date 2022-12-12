@@ -181,6 +181,9 @@ protected:
   // The shared memory buffer
   void *SharedBuf_;
 
+  // In case of interop queue may or may not be owned by CHIP-SPV
+  // Ownership indicator helps during teardown
+  bool zeCmdQOwnership_{true};
   /**
    * @brief Command queue handle
    * CHIP-SPV Uses the immediate command list for all its operations. However,
@@ -264,6 +267,9 @@ public:
     UNIMPLEMENTED(nullptr);
   }
 
+  virtual void setCmdQueueOwnership(bool isOwnedByChip) {
+    zeCmdQOwnership_ = isOwnedByChip;
+  }
 }; // end CHIPQueueLevel0
 
 class CHIPContextLevel0 : public CHIPContext {
