@@ -4170,4 +4170,18 @@ const char *hipGetBackendName() {
   return CHIPGetBackendName();
 }
 
+hipError_t hipProfilerStart() {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
+hipError_t hipProfilerStop() {
+  CHIP_TRY
+  CHIPInitialize();
+  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_CATCH
+}
+
 #endif
