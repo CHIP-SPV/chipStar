@@ -431,9 +431,6 @@ hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   case hipGraphNodeTypeEventRecord:
     delete static_cast<CHIPGraphNodeEventRecord *>(node);
     break;
-  case hipGraphNodeTypeMemcpy1D:
-    delete static_cast<CHIPGraphNodeMemcpy1D *>(node);
-    break;
   case hipGraphNodeTypeMemcpyFromSymbol:
     delete static_cast<CHIPGraphNodeMemcpyFromSymbol *>(node);
     break;
@@ -760,8 +757,8 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                    hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeMemcpy1D *Node =
-      new CHIPGraphNodeMemcpy1D(dst, src, count, kind);
+  CHIPGraphNodeMemcpy *Node =
+      new CHIPGraphNodeMemcpy(dst, src, count, kind);
   *pGraphNode = Node;
   Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
                         numDependencies);
@@ -776,10 +773,10 @@ hipError_t hipGraphMemcpyNodeSetParams1D(hipGraphNode_t node, void *dst,
                                          hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D *>(node);
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy *>(node);
   if (!CastNode)
     CHIPERR_LOG_AND_THROW(
-        "Node provided failed to cast to CHIPGraphNodeMemcpy1D",
+        "Node provided failed to cast to CHIPGraphNodeMemcpy",
         hipErrorInvalidValue);
 
   CastNode->setParams(dst, src, count, kind);
@@ -798,10 +795,10 @@ hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
     CHIPERR_LOG_AND_THROW("Failed to find the node in hipGraphExec_t",
                           hipErrorInvalidValue);
 
-  auto CastNode = static_cast<CHIPGraphNodeMemcpy1D *>(node);
+  auto CastNode = static_cast<CHIPGraphNodeMemcpy *>(node);
   if (!CastNode)
     CHIPERR_LOG_AND_THROW(
-        "Node provided failed to cast to CHIPGraphNodeMemcpy1D",
+        "Node provided failed to cast to CHIPGraphNodeMemcpy",
         hipErrorInvalidValue);
 
   CastNode->setParams(dst, src, count, kind);
@@ -2960,7 +2957,7 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
     RETURN(hipSuccess);
 
   Stream = Backend->findQueue(Stream);
-  if (Stream->captureIntoGraph<CHIPGraphNodeMemcpy1D>(Dst, Src, SizeBytes,
+  if (Stream->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
                                                       Kind)) {
     RETURN(hipSuccess);
   }
