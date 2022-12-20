@@ -757,8 +757,8 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   // Non-owned command queues can be destroyed independently by the owner
   if (zeCmdQOwnership_) {
     finish(); // must finish the queue because it's possible that that there are
-              // outstanding operations which have an associated CHIPEvent. If we
-              // do not finish we risk the chance of StaleEventMonitor of
+              // outstanding operations which have an associated CHIPEvent. If
+              // we do not finish we risk the chance of StaleEventMonitor of
               // deadlocking while waiting for queue completion and subsequent
               // event status change
   }
@@ -1606,7 +1606,6 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   LOCK(Backend->BackendMtx); // CHIPBackendLevel0::StaleEventMonitor
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
-
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();
