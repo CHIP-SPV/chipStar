@@ -22,7 +22,7 @@ THE SOFTWARE.
 */
 
 #include <hip/hiprtc.h>
-#include "macros.hh"
+// #include "macros.hh"
 #include "logging.hh"
 #include "CHIPBackend.hh"
 #include "Utils.hh"

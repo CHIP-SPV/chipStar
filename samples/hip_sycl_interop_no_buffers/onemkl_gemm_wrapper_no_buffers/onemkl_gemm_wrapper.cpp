@@ -83,6 +83,7 @@ int oneMKLGemmTest(uintptr_t* nativeHandlers, float* A, float* B, float* C,
   ze_command_queue_handle_t hQueue =
       (ze_command_queue_handle_t)nativeHandlers[3];
 
+  auto keep_ownership = static_cast<sycl::ext::oneapi::level_zero::ownership>(1);
   sycl::platform sycl_platform =
       sycl::level_zero::make<sycl::platform>(hDriver);
 
@@ -92,7 +93,7 @@ int oneMKLGemmTest(uintptr_t* nativeHandlers, float* A, float* B, float* C,
   std::vector<sycl::device> devices;
   devices.push_back(sycl_device);
   sycl::context sycl_context =
-      sycl::level_zero::make<sycl::context>(devices, hContext);
+      sycl::level_zero::make<sycl::context>(devices, hContext, keep_ownership);
   sycl::queue queue = sycl::level_zero::make<sycl::queue>(sycl_context, hQueue);
 
   // Test the oneMKL

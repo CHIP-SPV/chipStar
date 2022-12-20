@@ -35,16 +35,6 @@
 #ifndef CHIP_BACKEND_H
 #define CHIP_BACKEND_H
 
-#include <algorithm>
-#include <iostream>
-#include <map>
-#include <set>
-#include <mutex>
-#include <string>
-#include <vector>
-#include <queue>
-#include <stack>
-
 #include "spirv.hh"
 #include "common.hh"
 #include "hip/hip_runtime_api.h"
@@ -54,6 +44,7 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
+#include "CHIPGraph.hh"
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
@@ -530,12 +521,6 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-// fw declares
-class CHIPExecItem;
-class CHIPQueue;
-class CHIPContext;
-class CHIPDevice;
-
 class CHIPEvent {
 protected:
   bool UserEvent_ = false;
@@ -1003,6 +988,7 @@ public:
  */
 class CHIPExecItem {
 protected:
+  bool ArgsSetup = false;
   size_t SharedMem_;
   // Structures for old HIP launch API.
   std::vector<uint8_t> ArgData_;
@@ -1015,18 +1001,39 @@ protected:
   CHIPQueue *ChipQueue_;
 
   // Structures for new HIP launch API.
-  void **ArgsPointer_ = nullptr;
+  void **ArgsPtr = nullptr;
+  std::vector<void *> Args_;
 
 public:
+  void copyArgs(void **Args);
+  void setQueue(CHIPQueue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
-  void **getArgsPointer() { return ArgsPointer_; }
+  void **getArgsPointer() { return Args_.data(); }
   /**
    * @brief Deleted default constructor
    * Doesn't make sense for CHIPExecItem to exist without arguments
    *
    */
   CHIPExecItem() = delete;
+
+  /**
+   * @brief Deleted copy constructor
+   * Since this is an abstract class and derived classes might add their own
+   * members and overrides, we must request an implementation for clone()
+   *
+   * @param Other
+   */
+  CHIPExecItem(const CHIPExecItem &Other) = delete;
+
+  /**
+   * @brief Destroy the CHIPExecItem object
+   *
+   */
+  virtual ~CHIPExecItem() {}
+
+  virtual CHIPExecItem *clone() const = 0;
+
   /**
    * @brief Construct a new CHIPExecItem object
    *
@@ -1037,12 +1044,6 @@ public:
    */
   CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue);
-
-  /**
-   * @brief Destroy the CHIPExecItem object
-   *
-   */
-  ~CHIPExecItem();
 
   /**
    * @brief Get the Kernel object
@@ -1096,7 +1097,7 @@ public:
    * @param args Pointer to a array of pointers, each pointing to an
    *             individual argument.
    */
-  void setArgPointer(void **Args) { ArgsPointer_ = Args; }
+  void setArgPointer(void **Args) { ArgsPtr = Args; }
 
   /**
    * @brief Sets up the kernel arguments via backend API calls.
@@ -1105,7 +1106,7 @@ public:
    * Or after hipLaunchKernel (new HIP kernel launch API)
    *
    */
-  void setupAllArgs();
+  virtual void setupAllArgs() = 0;
 
   void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
 };
@@ -1642,6 +1643,10 @@ public:
   std::mutex DubiousLockLevel0;
 #endif
 
+  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+                                           size_t SharedMem,
+                                           hipStream_t ChipQueue) = 0;
+
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
@@ -1925,7 +1930,13 @@ public:
  */
 class CHIPQueue {
 protected:
+  hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
+  hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
+  hipGraph_t CaptureGraph_;
   std::mutex LastEventMtx;
+  /// @brief  node for creating a dependency chain between subsequent record
+  /// events when in graph capture mode
+  CHIPGraphNode *LastNode_ = nullptr;
   int Priority_;
   /**
    * @brief Maximum priority that can be had by a queue is 0; Priority range is
@@ -1946,6 +1957,42 @@ protected:
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
 public:
+  /**
+   * @brief Check the stream to see if it's in capture mode and if so, capture.
+   *
+   * @tparam GraphNodeType the type of graph node to create
+   * @tparam ArgTypes variadic template parameter
+   * @param ArgsPack graph node type constructor arguments
+   * @return true stream was in capture mode and a graph node was created -
+   * caller should return from whatever HIP API function was invoking this
+   * @return false stream was not in capture mode, proceed with executing the
+   * HIP API call.
+   */
+  template <class GraphNodeType, class... ArgTypes>
+  bool captureIntoGraph(ArgTypes... ArgsPack) {
+    if (getCaptureStatus() == hipStreamCaptureStatusActive) {
+      auto Graph = getCaptureGraph();
+      auto Node = new GraphNodeType(ArgsPack...);
+      updateLastNode(Node);
+      Graph->addNode(Node);
+      return true;
+    }
+    return false;
+  }
+
+  void updateLastNode(CHIPGraphNode *NewNode);
+  void initCaptureGraph();
+
+  hipStreamCaptureStatus getCaptureStatus() const { return CaptureStatus_; }
+  void setCaptureStatus(hipStreamCaptureStatus CaptureMode) {
+    CaptureStatus_ = CaptureMode;
+  }
+  hipStreamCaptureMode getCaptureMode() const { return CaptureMode_; }
+  void setCaptureMode(hipStreamCaptureMode CaptureMode) {
+    CaptureMode_ = CaptureMode;
+  }
+  hipGraph_t getCaptureGraph() const { return CaptureGraph_; }
+
   CHIPDevice *PerThreadQueueForDevice = nullptr;
 
   // I want others to be able to lock this queue?
