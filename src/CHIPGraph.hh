@@ -287,9 +287,15 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
 private:
   hipMemcpy3DParms Params_;
 
+  void *Dst_;
+  const void *Src_;
+  size_t Count_;
+  hipMemcpyKind Kind_;
+
 public:
   CHIPGraphNodeMemcpy(const CHIPGraphNodeMemcpy &Other)
-      : CHIPGraphNode(Other), Params_(Other.Params_) {}
+      : CHIPGraphNode(Other), Params_(Other.Params_), Dst_(Other.Dst_), Src_(Other.Src_),
+        Count_(Other.Count_), Kind_(Other.Kind_) {}
 
   CHIPGraphNodeMemcpy(hipMemcpy3DParms Params)
       : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params) {}
@@ -298,9 +304,24 @@ public:
     setParams(Params);
   }
 
+  // 1D MemCpy
+  CHIPGraphNodeMemcpy(void *Dst, const void *Src, size_t Count,
+                        hipMemcpyKind Kind)
+      : CHIPGraphNode(hipGraphNodeTypeMemcpy), Dst_(Dst), Src_(Src),
+        Count_(Count), Kind_(Kind) {}
+
   virtual ~CHIPGraphNodeMemcpy() override {}
 
   hipMemcpy3DParms getParams() { return Params_; }
+
+  // 1D MemCpy
+  void setParams(void *Dst, const void *Src, size_t Count, hipMemcpyKind Kind) {
+    Dst_ = Dst;
+    Src_ = Src;
+    Count_ = Count;
+    Kind_ = Kind;
+  }
+
   void setParams(const hipMemcpy3DParms *Params) {
     Params_.srcArray = Params->srcArray;
     // if(Params->srcArray)
@@ -478,43 +499,43 @@ public:
   CHIPEvent *getEvent() { return Event_; }
 };
 
-class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
-private:
-  void *Dst_;
-  const void *Src_;
-  size_t Count_;
-  hipMemcpyKind Kind_;
+// class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
+// private:
+//   void *Dst_;
+//   const void *Src_;
+//   size_t Count_;
+//   hipMemcpyKind Kind_;
 
-public:
-  CHIPGraphNodeMemcpy1D(void *Dst, const void *Src, size_t Count,
-                        hipMemcpyKind Kind)
-      : CHIPGraphNode(hipGraphNodeTypeMemcpy1D), Dst_(Dst), Src_(Src),
-        Count_(Count), Kind_(Kind) {}
+// public:
+//   CHIPGraphNodeMemcpy1D(void *Dst, const void *Src, size_t Count,
+//                         hipMemcpyKind Kind)
+//       : CHIPGraphNode(hipGraphNodeTypeMemcpy1D), Dst_(Dst), Src_(Src),
+//         Count_(Count), Kind_(Kind) {}
 
-  CHIPGraphNodeMemcpy1D(const CHIPGraphNodeMemcpy1D &Other)
-      : CHIPGraphNode(Other), Dst_(Other.Dst_), Src_(Other.Src_),
-        Count_(Other.Count_), Kind_(Other.Kind_) {}
+//   CHIPGraphNodeMemcpy1D(const CHIPGraphNodeMemcpy1D &Other)
+//       : CHIPGraphNode(Other), Dst_(Other.Dst_), Src_(Other.Src_),
+//         Count_(Other.Count_), Kind_(Other.Kind_) {}
 
-  virtual ~CHIPGraphNodeMemcpy1D() override {}
+//   virtual ~CHIPGraphNodeMemcpy1D() override {}
 
-  void setParams(void *Dst, const void *Src, size_t Count, hipMemcpyKind Kind) {
-    Dst_ = Dst;
-    Src_ = Src;
-    Count_ = Count;
-    Kind_ = Kind;
-  }
+//   void setParams(void *Dst, const void *Src, size_t Count, hipMemcpyKind Kind) {
+//     Dst_ = Dst;
+//     Src_ = Src;
+//     Count_ = Count;
+//     Kind_ = Kind;
+//   }
 
-  virtual void execute(CHIPQueue *Queue) const override {
-    auto Status = hipMemcpy(Dst_, Src_, Count_, Kind_);
-    if (Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                            hipErrorTbd);
-  }
-  virtual CHIPGraphNode *clone() const override {
-    auto NewNode = new CHIPGraphNodeMemcpy1D(*this);
-    return NewNode;
-  }
-};
+//   virtual void execute(CHIPQueue *Queue) const override {
+//     auto Status = hipMemcpy(Dst_, Src_, Count_, Kind_);
+//     if (Status != hipSuccess)
+//       CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+//                             hipErrorTbd);
+//   }
+//   virtual CHIPGraphNode *clone() const override {
+//     auto NewNode = new CHIPGraphNodeMemcpy1D(*this);
+//     return NewNode;
+//   }
+// };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
 private:
