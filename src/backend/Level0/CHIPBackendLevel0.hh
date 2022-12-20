@@ -267,7 +267,7 @@ public:
     UNIMPLEMENTED(nullptr);
   }
 
-  virtual void setCmdQueueOwnership(bool isOwnedByChip) {
+  void setCmdQueueOwnership(bool isOwnedByChip) {
     zeCmdQOwnership_ = isOwnedByChip;
   }
 }; // end CHIPQueueLevel0
