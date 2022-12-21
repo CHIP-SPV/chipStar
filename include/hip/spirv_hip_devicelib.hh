@@ -562,7 +562,6 @@ EXPORT unsigned __activemask()
 
 // native(fast) approximations
 EXPORT float __powf(float x, float y) { return __exp2f(y * __log2f(x)); }
-EXPORT float __fdividef(float x, float y) { return __dividef(x, y); }
 
 // NAN/NANF
 
