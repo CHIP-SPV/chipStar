@@ -1149,6 +1149,10 @@ NON_OVLD unsigned GEN_NAME2(atomic_dec2, u)(unsigned *address, unsigned val);
 EXPORT float atomicAdd(float *address, float val) {
   return GEN_NAME2(atomic_add, f)(address, val);
 }
+// Undocumented atomicAdd variant without return value.
+EXPORT void atomicAddNoRet(float *address, float val) {
+  (void)GEN_NAME2(atomic_add, f)(address, val);
+}
 EXPORT double atomicAdd(double *address, double val) {
   return GEN_NAME2(atomic_add, d)(address, val);
 }
