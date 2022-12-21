@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Scalar/SROA.h"
+#include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 
 
 using namespace llvm;
@@ -72,6 +73,7 @@ public:
     // Altering OpenCL metadata probably does not invalidate any analyses.
     return PreservedAnalyses::all();
   }
+
   static bool isRequired() { return true; }
 };
 
@@ -114,6 +116,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
   MPM.addPass(GlobalDCEPass());
 
+  MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)));
   MPM.addPass(HipFixOpenCLMDPass());
 }
 
