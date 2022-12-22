@@ -1305,7 +1305,8 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   }
 
   cl::Platform SelectedPlatform = Platforms[SelectedPlatformIdx];
-  logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx, SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
+  logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
+           SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
 
   StrStream.str("");
 
@@ -1332,7 +1333,8 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   }
 
   auto Device = SpirvDevices[SelectedDeviceIdx];
-  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", SelectedDeviceIdx, Device.getInfo<CL_DEVICE_NAME>());
+  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", SelectedDeviceIdx,
+           Device.getInfo<CL_DEVICE_NAME>());
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
