@@ -1297,42 +1297,58 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
     StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
   logTrace("{}", StrStream.str());
+  int SelectedPlatformIdx = atoi(CHIPPlatformStr.c_str());
+  if (SelectedPlatformIdx >= Platforms.size()) {
+    logCritical("Selected OpenCL platform {} is out of range",
+                SelectedPlatformIdx);
+    std::exit(1);
+  }
+
+  cl::Platform SelectedPlatform = Platforms[SelectedPlatformIdx];
+  logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
+           SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
+
   StrStream.str("");
 
   StrStream << "OpenCL Devices of type " << CHIPDeviceTypeStr
             << " with SPIR-V_1 support:\n";
-  std::vector<cl::Device> Devices;
-  for (auto Plat : Platforms) {
-    std::vector<cl::Device> Dev;
-    Err = Plat.getDevices(SelectedDevType, &Dev);
-    CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
-    for (auto D : Dev) {
-      std::string Ver = D.getInfo<CL_DEVICE_IL_VERSION>(&Err);
-      if ((Err == CL_SUCCESS) && (Ver.rfind("SPIR-V_1.", 0) == 0)) {
-        std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
-        StrStream << DeviceName << "\n";
-        Devices.push_back(D);
-      }
+  std::vector<cl::Device> SpirvDevices;
+  std::vector<cl::Device> Dev;
+  Err = SelectedPlatform.getDevices(SelectedDevType, &Dev);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+  for (auto D : Dev) {
+    std::string Ver = D.getInfo<CL_DEVICE_IL_VERSION>(&Err);
+    if ((Err == CL_SUCCESS) && (Ver.rfind("SPIR-V_1.", 0) == 0)) {
+      std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
+      StrStream << DeviceName << "\n";
+      SpirvDevices.push_back(D);
     }
   }
   logTrace("{}", StrStream.str());
 
+  int SelectedDeviceIdx = atoi(CHIPDeviceStr.c_str());
+  if (SelectedDeviceIdx >= SpirvDevices.size()) {
+    logCritical("Selected OpenCL device {} is out of range", SelectedDeviceIdx);
+    std::exit(1);
+  }
+
+  auto Device = SpirvDevices[SelectedDeviceIdx];
+  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", SelectedDeviceIdx,
+           Device.getInfo<CL_DEVICE_NAME>());
+
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
   // TODO Change this to spirv_enabled_devices
-  cl::Context *Ctx = new cl::Context(Devices);
+  cl::Context *Ctx = new cl::Context(SpirvDevices);
   CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
   Backend->addContext(ChipContext);
-  for (int i = 0; i < Devices.size(); i++) {
-    cl::Device *Dev = new cl::Device(Devices[i]);
-    CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, i);
 
-    logTrace("CHIPDeviceOpenCL {}",
-             ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
+  // TODO for now only a single device is supported.
+  cl::Device *clDev = new cl::Device(Device);
+  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(clDev, ChipContext, 0);
 
-    // Add device to context & backend
-    ChipContext->addDevice(ChipDev);
-  }
+  // Add device to context & backend
+  ChipContext->addDevice(ChipDev);
   logTrace("OpenCL Context Initialized.");
 };
 
