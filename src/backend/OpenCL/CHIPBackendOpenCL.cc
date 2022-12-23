@@ -514,13 +514,15 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   logTrace("CHIPEventOpenCL::takeOver");
-  if (*Refc_ > 1)
-    decreaseRefCount("takeOver");
-  auto *Other = (CHIPEventOpenCL *)OtherIn;
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  this->ClEvent = Other->ClEvent;
-  this->Refc_ = Other->Refc_;
-  this->Msg = Other->Msg;
+  decreaseRefCount("takeOver");
+  {
+    auto *Other = (CHIPEventOpenCL *)OtherIn;
+    LOCK(EventMtx); // CHIPEvent::Refc_
+    this->ClEvent = Other->ClEvent;
+    this->Refc_ = Other->Refc_;
+    this->Msg = Other->Msg;
+  }
+  increaseRefCount("takeOver");
 }
 
 bool CHIPEventOpenCL::wait() {
