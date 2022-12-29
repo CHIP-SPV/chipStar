@@ -49,6 +49,7 @@
 #include "hip_conversions.hh"
 #include "macros.hh"
 #include "Utils.hh"
+#include "SPVRegister.hh"
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
@@ -2862,8 +2863,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
     RETURN(hipSuccess);
-  } else
-    Backend->getActiveDevice()->initializeDeviceVariables();
+  }
+
   RETURN(Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src,
                                                                 SizeBytes));
 
@@ -3057,7 +3058,6 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   NULLCHECK(Dst);
 
   char CharVal = Value;
-  Backend->getActiveDevice()->initializeDeviceVariables();
 
   // Check if this pointer is registered
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
@@ -3111,7 +3111,6 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
     RETURN(hipSuccess);
   }
 
-  ChipQueue->getDevice()->initializeDeviceVariables();
   ChipQueue->memFillAsync(Dest, 1 * Count, &Value, 1);
   RETURN(hipSuccess);
 
@@ -3141,7 +3140,6 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
     RETURN(hipSuccess);
   }
 
-  ChipQueue->getDevice()->initializeDeviceVariables();
   ChipQueue->memFillAsync(Dest, 2 * Count, &Value, 2);
   RETURN(hipSuccess);
 
@@ -3153,7 +3151,6 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
   CHIPInitialize();
   NULLCHECK(Dest);
 
-  Backend->getActiveDevice()->initializeDeviceVariables();
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dest, 2 * Count,
                                                          &Value, 2);
   RETURN(hipSuccess);
@@ -3179,7 +3176,6 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
     RETURN(hipSuccess);
   }
 
-  ChipQueue->getDevice()->initializeDeviceVariables();
   ChipQueue->memFillAsync(Dst, 4 * Count, &Value, 4);
   RETURN(hipSuccess);
 
@@ -3191,7 +3187,6 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   CHIPInitialize();
   NULLCHECK(Dst);
 
-  Backend->getActiveDevice()->initializeDeviceVariables();
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, 4 * Count, &Value,
                                                          4);
   RETURN(hipSuccess);
@@ -3243,7 +3238,6 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
     RETURN(hipSuccess);
   }
-  Backend->getActiveDevice()->initializeDeviceVariables();
 
   if (SPitch == 0)
     SPitch = Width;
@@ -3615,7 +3609,9 @@ hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
   CHIPInitialize();
 
   CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPKernel *Kernel = Dev->findKernelByHostPtr(HostFunction);
+  CHIPKernel *Kernel = Dev->findKernel(HostPtr(HostFunction));
+  if (!Kernel)
+    RETURN(hipErrorInvalidDeviceFunction);
   hipError_t Res = Kernel->getAttributes(Attr);
   RETURN(Res);
 
@@ -3681,7 +3677,7 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
     RETURN(hipSuccess);
   }
 
-  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
 
   CHIPDeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
@@ -3724,7 +3720,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
     RETURN(hipSuccess);
   }
 
-  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
   CHIPDeviceVar *Var = ChipQueue->getDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   void *DevPtr = Var->getDevAddr();
@@ -3741,21 +3737,15 @@ hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
 
   std::string ErrorMsg;
   // Image is expected to be a Clang offload bundle.
-  std::string_view Module = extractSPIRVModule(Image, ErrorMsg);
-  if (Module.empty()) {
+  std::string_view ModuleCode = extractSPIRVModule(Image, ErrorMsg);
+  if (ModuleCode.empty()) {
     logDebug("{}", ErrorMsg);
     RETURN(hipErrorTbd);
   }
 
-  auto FilteredModule = std::make_unique<std::string>();
-  if (!filterSPIRV(Module.data(), Module.size(), *FilteredModule)) {
-    logDebug("Encountered error in SPIR-V filtering.");
-    RETURN(hipErrorTbd);
-  }
-
-  auto *ChipModule =
-      Backend->getActiveDevice()->addModule(FilteredModule.get());
-  ChipModule->compileOnce(Backend->getActiveDevice());
+  auto Entry = getSPVRegister().registerSource(ModuleCode);
+  auto *SrcMod = getSPVRegister().getSource(Entry);
+  auto *ChipModule = Backend->getActiveDevice()->getOrCreateModule(*SrcMod);
   *ModuleHandle = ChipModule;
 
   RETURN(hipSuccess);
@@ -3787,17 +3777,14 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
 
   logDebug("hipLaunchKernel()");
   auto *Device = Backend->getActiveDevice();
-  Device->initializeDeviceVariables();
+  Device->prepareDeviceVariables(HostPtr(HostFunction));
 
-  CHIPKernel *ChipKernel = Device->findKernelByHostPtr(HostFunction);
-  ChipQueue->launchKernel(ChipKernel, GridDim, BlockDim, Args, SharedMem);
-
-  CHIPKernel *Kernel = Device->findKernelByHostPtr(HostFunction);
-  if (!Kernel)
-    // A kernel we just launched was not found?
+  auto *ChipKernel = Device->findKernel(HostPtr(HostFunction));
+  if (!ChipKernel)
     CHIPERR_LOG_AND_THROW("Unexpected error: could not find a kernel.",
                           hipErrorTbd);
-  handleAbortRequest(*ChipQueue, *Kernel->getModule());
+  ChipQueue->launchKernel(ChipKernel, GridDim, BlockDim, Args, SharedMem);
+  handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -3934,6 +3921,10 @@ hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
   CHIPInitialize();
   NULLCHECK(Module, FuncName);
 
+#if 0
+  // TODO: This is likely bit-rotted (due to lack of testing).
+  //       Reimplement this again.
+
   std::ifstream ModuleFile(FuncName,
                            std::ios::in | std::ios::binary | std::ios::ate);
   ERROR_IF((ModuleFile.fail()), hipErrorFileNotFound);
@@ -3949,6 +3940,7 @@ hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
   // CHIPModule *chip_module = new CHIPModule(std::move(content));
   for (auto &Dev : Backend->getDevices())
     Dev->addModule(&Content);
+#endif
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -3958,7 +3950,10 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIPInitialize();
   NULLCHECK(Module);
 
-  Backend->getActiveDevice()->eraseModule((CHIPModule *)Module);
+  auto *ChipModule = reinterpret_cast<CHIPModule *>(Module);
+  const auto &SrcMod = ChipModule->getSourceModule();
+  Backend->getActiveDevice()->eraseModule(ChipModule);
+  getSPVRegister().unregisterSource(&SrcMod);
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -4001,8 +3996,9 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
   dim3 Grid(GridDimX, GridDimY, GridDimZ);
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
-  Backend->getActiveDevice()->initializeDeviceVariables();
   auto ChipKernel = static_cast<CHIPKernel *>(Kernel);
+  Backend->getActiveDevice()->prepareDeviceVariables(
+      HostPtr(ChipKernel->getHostPtr()));
 
   if (KernelParams)
     ChipQueue->launchKernel(ChipKernel, Grid, Block, KernelParams,
@@ -4100,7 +4096,7 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   NULLCHECK(HostFunction);
 
   logTrace("hipLaunchByPtr");
-  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(HostFunction));
   CHIPExecItem *ExecItem;
   {
     LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
@@ -4114,8 +4110,8 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
     CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
   }
 
-  auto ChipDev = ChipQueue->getDevice();
-  auto ChipKernel = ChipDev->findKernelByHostPtr(HostFunction);
+  auto *ChipDev = ChipQueue->getDevice();
+  auto *ChipKernel = ChipDev->findKernel(HostPtr(HostFunction));
   ExecItem->setKernel(ChipKernel);
 
   ChipQueue->launch(ExecItem);
@@ -4138,9 +4134,11 @@ hipError_t hipConfigureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
 }
 extern "C" void **__hipRegisterFatBinary(const void *Data) {
   CHIP_TRY
-  CHIPInitialize();
-
   logDebug("__hipRegisterFatBinary");
+  // NOTE: CHIP backend initialization is undesired here. This is done
+  //       for avoiding start-up lag and other unexpected issues that
+  //       may come from the backend before a client makes any HIP API
+  //       function call.
 
   const __CudaFatBinaryWrapper *Wrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(Data);
@@ -4149,27 +4147,17 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
                           hipErrorInitializationError);
   }
 
-  std::string *Module = new std::string;
-  if (!Module) {
-    CHIPERR_LOG_AND_THROW("Failed to allocate memory",
-                          hipErrorInitializationError);
-  }
-
   std::string ErrorMsg;
   auto SPIRVModuleSpan = extractSPIRVModule(Wrapper->binary, ErrorMsg);
   if (SPIRVModuleSpan.empty())
     CHIPERR_LOG_AND_THROW(ErrorMsg, hipErrorInitializationError);
 
-  if (!filterSPIRV(SPIRVModuleSpan.data(), SPIRVModuleSpan.size(), *Module)) {
-    CHIPERR_LOG_AND_THROW("Error in filtering a SPIR-V module",
-                          hipErrorInitializationError);
-  }
+  auto ModHandle = getSPVRegister().registerSource(SPIRVModuleSpan);
+  logDebug("Registered SPIR-V module {}, source-binary={}",
+           static_cast<const void *>(ModHandle.Module),
+           static_cast<const void *>(SPIRVModuleSpan.data()));
+  return (void **)ModHandle.Module;
 
-  logDebug("Register module: {} \n", (void *)Module);
-
-  Backend->registerModuleStr(Module);
-
-  return (void **)Module;
   CHIP_CATCH_NO_RETURN
   return nullptr;
 }
@@ -4177,13 +4165,13 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
 extern "C" void __hipUnregisterFatBinary(void *Data) {
   CHIP_TRY
   CHIPInitialize();
-  std::string *Module = reinterpret_cast<std::string *>(Data);
 
-  logDebug("Unregister module: {} \n", (void *)Module);
-  Backend->unregisterModuleStr(Module);
+  logDebug("Unregister module: {}", Data);
+  SPVRegister::Handle ModHandle{Data};
+  getSPVRegister().unregisterSource(ModHandle);
 
-  auto NumBinariesLoaded = Backend->getNumRegisteredModules();
-  logDebug("__hipUnRegisterFatBinary {}\n", NumBinariesLoaded);
+  auto NumBinariesLoaded = getSPVRegister().getNumSources();
+  logDebug("Modules left: {}", NumBinariesLoaded);
 
   if (NumBinariesLoaded == 0)
     CHIPUninitialize();
@@ -4198,14 +4186,14 @@ extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
                                       void *Bid, dim3 *BlockDim, dim3 *GridDim,
                                       int *WSize) {
   CHIP_TRY
-  CHIPInitialize();
-  std::string *ModuleStr = reinterpret_cast<std::string *>(Data);
+  // NOTE: CHIP backend initialization is undesired here. See the
+  //       rationale in __hipRegisterFatBinary().
 
-  std::string DevFunc = DeviceFunction;
-  logDebug("RegisterFunction on module {}\n", (void *)ModuleStr);
-
-  logDebug("RegisterFunction on {} devices", Backend->getNumDevices());
-  Backend->registerFunctionAsKernel(ModuleStr, HostFunction, DeviceName);
+  logDebug("Module {}: register function ({}) {}",
+           static_cast<const void *>(Data),
+           static_cast<const void *>(HostFunction), DeviceName);
+  SPVRegister::Handle ModHandle{reinterpret_cast<void *>(Data)};
+  getSPVRegister().bindFunction(ModHandle, HostPtr(HostFunction), DeviceName);
   CHIP_CATCH_NO_RETURN
 }
 
@@ -4235,13 +4223,14 @@ __hipRegisterVar(void **Data,
   assert(std::string(HostName) == std::string(DeviceName));
 
   CHIP_TRY
-  CHIPInitialize();
+  // NOTE: CHIP backend initialization is undesired here. See the
+  //       rationale in __hipRegisterFatBinary().
 
-  logTrace("Module {}: Register variable '{}' Size={} host-addr={}",
-           (void *)Data, DeviceName, Size, (void *)Var);
+  logDebug("Module {}: Register variable ({}) size={}, name={}", (void *)Data,
+           (void *)Var, Size, DeviceName);
 
-  std::string *ModuleStr = reinterpret_cast<std::string *>(Data);
-  Backend->registerDeviceVariable(ModuleStr, Var, DeviceName, Size);
+  SPVRegister::Handle ModHandle{reinterpret_cast<void *>(Data)};
+  getSPVRegister().bindVariable(ModHandle, HostPtr(Var), DeviceName, Size);
 
   CHIP_CATCH_NO_RETURN
 }
@@ -4262,7 +4251,7 @@ hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
   CHIPInitialize();
   NULLCHECK(DevPtr, Symbol);
 
-  Backend->getActiveDevice()->initializeDeviceVariables();
+  Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
   CHIPDeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   *DevPtr = Var->getDevAddr();

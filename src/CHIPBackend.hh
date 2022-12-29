@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,6 +45,7 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 #include "CHIPGraph.hh"
+#include "SPVRegister.hh"
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
@@ -489,11 +490,8 @@ public:
 
 class CHIPDeviceVar {
 private:
-  std::string Name_; /// Device side variable name.
-                     /// Address to variable's storage. Note that the address is
-                     /// a pointer given by CHIPContext::allocate.
+  const SPVVariable *SrcVar_ = nullptr;
   void *DevAddr_ = nullptr;
-  size_t Size_ = 0;
   /// The alignment requirement of the variable.
   // NOTE: The alignment infromation is not carried in __hipRegisterVar() calls
   // It have to be queried via shadow kernels.
@@ -503,13 +501,13 @@ private:
   bool HasInitializer_ = false;
 
 public:
-  CHIPDeviceVar(std::string Name, size_t Size);
+  CHIPDeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
   ~CHIPDeviceVar();
 
   void *getDevAddr() const { return DevAddr_; }
   void setDevAddr(void *Addr) { DevAddr_ = Addr; }
-  std::string getName() const { return Name_; }
-  size_t getSize() const { return Size_; }
+  std::string_view getName() const { return SrcVar_->Name; }
+  size_t getSize() const { return SrcVar_->Size; }
   size_t getAlignment() const { return Alignment_; }
   void setAlignment(size_t TheAlignment) {
     assert(Alignment_ && "Invalid alignment");
@@ -736,7 +734,7 @@ protected:
   // Kernels
   std::vector<CHIPKernel *> ChipKernels_;
   /// Binary representation extracted from FatBinary.
-  std::string *Src_;
+  const SPVModule *Src_;
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
 
@@ -763,7 +761,7 @@ public:
    *
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
-  CHIPModule(std::string *ModuleStr);
+  CHIPModule(const SPVModule &Src) : Src_(&Src) {}
 
   /**
    * @brief Add a CHIPKernel to this module.
@@ -859,13 +857,13 @@ public:
 
   hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
                                            CHIPQueue *Queue);
-  void initializeDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
+  void prepareDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
   void invalidateDeviceVariablesNoLock();
   void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 
   OCLFuncInfo *findFunctionInfo(const std::string &FName);
 
-  const std::string *getModuleSource() const { return Src_; }
+  const SPVModule &getSourceModule() const { return *Src_; }
 };
 
 /**
@@ -1088,6 +1086,19 @@ public:
  * @brief Compute device class
  */
 class CHIPDevice {
+
+  // A bundle for CHIPReinitialize.
+  class ModuleState {
+    friend class CHIPDevice;
+    std::unordered_map<const SPVModule *, CHIPModule *> SrcModToCompiledMod_;
+    std::unordered_map<const void *, CHIPModule *> HostPtrToCompiledMod_;
+  };
+
+  /// Modules compiled so far.
+  std::unordered_map<const SPVModule *, CHIPModule *> SrcModToCompiledMod_;
+  /// Host pointer mapping to modules.
+  std::unordered_map<const void *, CHIPModule *> HostPtrToCompiledMod_;
+
 protected:
   std::string DeviceName_;
   CHIPContext *Ctx_;
@@ -1169,13 +1180,21 @@ public:
       CHIPERR_LOG_AND_THROW("MaxMallocSize was not set", hipErrorTbd);
     return MaxMallocSize_;
   }
-  /// Registered modules and a mapping from module binary blob pointers
-  /// to the associated CHIPModule.
-  std::unordered_map<const std::string *, CHIPModule *> ChipModules;
 
   CHIPAllocationTracker *AllocationTracker = nullptr;
 
   virtual ~CHIPDevice();
+
+  /// Return kernel the host-pointer 'Ptr' is associated with, if
+  /// found. Otherwise return nullptr.
+  CHIPKernel *findKernel(HostPtr Ptr) {
+    if (auto *Mod = getOrCreateModule(Ptr))
+      return Mod->getKernel(Ptr);
+    return nullptr;
+  }
+
+  CHIPModule *getOrCreateModule(HostPtr Ptr);
+  CHIPModule *getOrCreateModule(const SPVModule &SrcMod);
 
   /**
    * @brief Get the Kernels object
@@ -1184,12 +1203,19 @@ public:
    */
   std::vector<CHIPKernel *> getKernels();
 
-  /**
-   * @brief Get the Modules object
-   *
-   * @return std::vector<CHIPModule*>&
-   */
-  std::unordered_map<const std::string *, CHIPModule *> &getModules();
+  ModuleState getModuleState() const {
+    ModuleState State;
+    State.SrcModToCompiledMod_ = SrcModToCompiledMod_;
+    State.HostPtrToCompiledMod_ = HostPtrToCompiledMod_;
+    return State;
+  }
+
+  void addFromModuleState(ModuleState &State) {
+    for (auto &kv : State.SrcModToCompiledMod_)
+      SrcModToCompiledMod_.insert(kv);
+    for (auto &kv : State.HostPtrToCompiledMod_)
+      HostPtrToCompiledMod_.insert(kv);
+  }
 
   /**
    * @brief Use a backend to populate device properties such as memory
@@ -1203,14 +1229,6 @@ public:
    * @param prop
    */
   void copyDeviceProperties(hipDeviceProp_t *Prop);
-
-  /**
-   * @brief Use the host function pointer to retrieve the kernel
-   *
-   * @param hostPtr
-   * @return CHIPKernel* CHIPKernel associated with this host pointer
-   */
-  CHIPKernel *findKernelByHostPtr(const void *HostPtr);
 
   /**
    * @brief Get the context object
@@ -1392,22 +1410,6 @@ public:
    */
   CHIPDeviceVar *getGlobalVar(const void *Var);
 
-  /**
-   * @brief Take the module source, compile the kernels and associate the host
-   * function pointer with a kernel whose name matches host function name
-   *
-   * @param module_str Binary representation of the SPIR-V module
-   * @param host_f_ptr host function pointer
-   * @param host_f_name host function name
-   */
-  void registerFunctionAsKernel(std::string *ModuleStr, const void *HostFPtr,
-                                const char *HostFName);
-
-  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
-                              const char *Name, size_t Size);
-
-  virtual CHIPModule *addModule(std::string *ModuleStr) = 0;
-  void addModule(const std::string *ModuleStr, CHIPModule *Module);
   void eraseModule(CHIPModule *Module);
 
   virtual CHIPTexture *
@@ -1416,8 +1418,7 @@ public:
 
   virtual void destroyTexture(CHIPTexture *TextureObject) = 0;
 
-  hipError_t allocateDeviceVariables();
-  void initializeDeviceVariables();
+  void prepareDeviceVariables(HostPtr Ptr);
   void invalidateDeviceVariables();
   void deallocateDeviceVariables();
 
@@ -1426,6 +1427,9 @@ protected:
    * @brief The backend hook for reset().
    */
   virtual void resetImpl() = 0;
+
+  /// Compile the source (SPIR-V) to native/backend code.
+  virtual CHIPModule *compile(const SPVModule &Src) = 0;
 };
 
 /**
@@ -1805,23 +1809,6 @@ public:
    * @return hipError_t
    */
   hipError_t setArg(const void *Arg, size_t Size, size_t Offset);
-
-  /**
-   * @brief Register this function as a kernel for all devices initialized
-   * in this backend
-   *
-   * @param module_str
-   * @param host_f_ptr
-   * @param host_f_name
-   * @return true
-   * @return false
-   */
-  virtual bool registerFunctionAsKernel(std::string *ModuleStr,
-                                        const void *HostFPtr,
-                                        const char *HostFName);
-
-  void registerDeviceVariable(std::string *ModuleStr, const void *HostPtr,
-                              const char *Name, size_t Size);
 
   /**
    * @brief Return a device which meets or exceeds the requirements

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +54,8 @@ static void queueVariableInfoShadowKernel(CHIPQueue *Q, CHIPModule *M,
                                           const CHIPDeviceVar *Var,
                                           void *InfoBuffer) {
   assert(M && Var && InfoBuffer);
-  auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) + Var->getName());
+  auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) +
+                               std::string(Var->getName()));
   assert(K && "Module is missing a shadow kernel?");
   void *Args[] = {&InfoBuffer};
   queueKernel(Q, K, Args);
@@ -65,7 +66,8 @@ static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
   assert(M && Var);
   auto *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Space has not be allocated for a variable.");
-  auto *K = M->getKernelByName(std::string(ChipVarBindPrefix) + Var->getName());
+  auto *K = M->getKernelByName(std::string(ChipVarBindPrefix) +
+                               std::string(Var->getName()));
   assert(K && "Module is missing a shadow kernel?");
   void *Args[] = {&DevPtr};
   queueKernel(Q, K, Args);
@@ -74,7 +76,8 @@ static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
 static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
                                           const CHIPDeviceVar *Var) {
   assert(M && Var);
-  auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) + Var->getName());
+  auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
+                               std::string(Var->getName()));
   assert(K && "Module is missing a shadow kernel?");
   queueKernel(Q, K);
 }
@@ -91,9 +94,6 @@ void CHIPCallbackData::execute(hipError_t ResultFromDependency) {
 
 // CHIPDeviceVar
 // ************************************************************************
-CHIPDeviceVar::CHIPDeviceVar(std::string TheName, size_t TheSize)
-    : Name_(TheName), Size_(TheSize) {}
-
 CHIPDeviceVar::~CHIPDeviceVar() { assert(!DevAddr_ && "Memory leak?"); }
 
 // CHIPAllocationTracker
@@ -233,8 +233,8 @@ size_t CHIPEvent::getCHIPRefc() {
 // CHIPModuleflags_
 //*************************************************************************************
 void CHIPModule::consumeSPIRV() {
-  FuncIL_ = (uint8_t *)Src_->data();
-  IlSize_ = Src_->length();
+  FuncIL_ = (uint8_t *)Src_->getBinary().data();
+  IlSize_ = Src_->getBinary().size();
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
@@ -246,11 +246,6 @@ void CHIPModule::consumeSPIRV() {
   if (!Res) {
     CHIPERR_LOG_AND_THROW("SPIR-V parsing failed", hipErrorUnknown);
   }
-}
-
-CHIPModule::CHIPModule(std::string *ModuleStr) {
-  Src_ = ModuleStr;
-  consumeSPIRV();
 }
 
 CHIPModule::~CHIPModule() {}
@@ -366,8 +361,8 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
   return hipSuccess;
 }
 
-void CHIPModule::initializeDeviceVariablesNoLock(CHIPDevice *Device,
-                                                 CHIPQueue *Queue) {
+void CHIPModule::prepareDeviceVariablesNoLock(CHIPDevice *Device,
+                                              CHIPQueue *Queue) {
   auto Err = allocateDeviceVariablesNoLock(Device, Queue);
   (void)Err;
 
@@ -526,17 +521,11 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueueNoLock() {
 
 std::vector<CHIPKernel *> CHIPDevice::getKernels() {
   std::vector<CHIPKernel *> ChipKernels;
-  for (auto ModuleIt : ChipModules) {
-    auto *Module = ModuleIt.second;
-    for (CHIPKernel *Kernel : Module->getKernels())
+  for (auto &Kv : SrcModToCompiledMod_) {
+    for (CHIPKernel *Kernel : Kv.second->getKernels())
       ChipKernels.push_back(Kernel);
   }
   return ChipKernels;
-}
-
-std::unordered_map<const std::string *, CHIPModule *> &
-CHIPDevice::getModules() {
-  return ChipModules;
 }
 
 std::string CHIPDevice::getName() { return std::string(HipDeviceProps_.name); }
@@ -558,36 +547,6 @@ void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *Prop) {
   logDebug("CHIPDevice->copy_device_properties()");
   if (Prop)
     std::memcpy(Prop, &this->HipDeviceProps_, sizeof(hipDeviceProp_t));
-}
-
-CHIPKernel *CHIPDevice::findKernelByHostPtr(const void *HostPtr) {
-  logDebug("CHIPDevice::findKernelByHostPtr({})", HostPtr);
-  std::vector<CHIPKernel *> ChipKernels = getKernels();
-  if (ChipKernels.size() == 0) {
-    CHIPERR_LOG_AND_THROW("chip_kernels is empty for this device",
-                          hipErrorLaunchFailure);
-  }
-  logDebug("Listing Kernels for device {}", getName());
-  for (auto &Kernel : ChipKernels) {
-    logDebug("Kernel name: {} host_f_ptr: {}", Kernel->getName(),
-             Kernel->getHostPtr());
-  }
-
-  auto KernelFound = std::find_if(ChipKernels.begin(), ChipKernels.end(),
-                                  [&HostPtr](CHIPKernel *Kernel) {
-                                    return Kernel->getHostPtr() == HostPtr;
-                                  });
-
-  if (KernelFound == ChipKernels.end()) {
-    std::string Msg =
-        "Tried to find kernel by host pointer but kernel was not found";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
-  } else {
-    logDebug("Found kernel {} with host pointer {}", (*KernelFound)->getName(),
-             (*KernelFound)->getHostPtr());
-  }
-
-  return *KernelFound;
 }
 
 CHIPContext *CHIPDevice::getContext() { return Ctx_; }
@@ -799,73 +758,14 @@ int CHIPDevice::getAttr(hipDeviceAttribute_t Attr) {
 
 size_t CHIPDevice::getGlobalMemSize() { return HipDeviceProps_.totalGlobalMem; }
 
-void CHIPDevice::addModule(const std::string *ModuleStr, CHIPModule *Module) {
-  this->ChipModules[ModuleStr] = Module;
-}
-
 void CHIPDevice::eraseModule(CHIPModule *Module) {
-  LOCK(DeviceMtx); // writing CHIPDevice::ChipModules
-  auto *ModSrc = Module->getModuleSource();
-  if (auto It = ChipModules.find(ModSrc); It != ChipModules.end()) {
-    delete It->second;
-    ChipModules.erase(It);
-  }
-}
-
-void CHIPDevice::registerFunctionAsKernel(std::string *ModuleStr,
-                                          const void *HostFPtr,
-                                          const char *HostFName) {
-  CHIPModule *Module = nullptr;
-  if (ChipModules.count(ModuleStr)) {
-    Module = ChipModules[ModuleStr];
-  } else {
-    Module = addModule(ModuleStr);
-    Module->compileOnce(this);
-  }
-
-  CHIPKernel *Kernel = Module->getKernelByName(HostFName);
-  if (!Kernel) {
-    std::string Msg = "Device " + getName() +
-                      " tried to register host function " + HostFName +
-                      " but failed to find kernel with a matching name";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
-  }
-
-  Kernel->setHostPtr(HostFPtr);
-
-  logDebug("Device {}: successfully registered function {} as kernel {}",
-           getName(), HostFName, Kernel->getName().c_str());
-  return;
-}
-
-void CHIPDevice::registerDeviceVariable(std::string *ModuleStr,
-                                        const void *HostPtr, const char *Name,
-                                        size_t Size) {
-  if (!ChipModules.count(ModuleStr)) {
-    auto *NewModule = addModule(ModuleStr);
-    NewModule->compileOnce(this);
-  }
-  if (!ChipModules.count(ModuleStr))
-    CHIPERR_LOG_AND_THROW(
-        "Broken expectation: could not find a module by name,", hipErrorTbd);
-  CHIPModule *Module = ChipModules[ModuleStr];
-
-  std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + Name;
-  if (!Module->hasKernel(VarInfoKernelName)) {
-    // The kernel compilation pipe is allowed to remove device-side unused
-    // global variables from the device modules. This is utilized in the abort
-    // implementation to signal that abort is not called in the module. The
-    // lack of the variable in the device module is used as a quick (and dirty)
-    // way to not query for the global flag value after each kernel execution
-    // (reading of which requires kernel launches).
-    logTrace("Device variable {} not found in the module -- removed as unused?",
-             Name);
-    return;
-  }
-
-  auto *Var = new CHIPDeviceVar(Name, Size);
-  Module->addDeviceVariable(Var);
-  DeviceVarLookup_.insert(std::make_pair(HostPtr, Var));
+  LOCK(DeviceMtx); // SrcModToCompiledMod_
+  for (auto &Kv : SrcModToCompiledMod_)
+    if (Kv.second == Module) {
+      delete Module;
+      SrcModToCompiledMod_.erase(Kv.first);
+      break;
+    }
 }
 
 void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
@@ -980,37 +880,118 @@ bool CHIPDevice::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
   return (T1 && T2 && T3);
 }
 
-hipError_t CHIPDevice::allocateDeviceVariables() {
-  LOCK(DeviceVarMtx); // CHIPDevice::ChipModules
-  logTrace("Allocate storage for device variables.");
-  for (auto I : ChipModules) {
-    auto Status =
-        I.second->allocateDeviceVariablesNoLock(this, getDefaultQueue());
-    if (Status != hipSuccess)
-      return Status;
+/// Prepares device variables for a module for which the host pointer
+/// is member of.
+void CHIPDevice::prepareDeviceVariables(HostPtr Ptr) {
+  if (auto *Mod = getOrCreateModule(Ptr)) {
+    LOCK(DeviceVarMtx); // CHIPModule::prepareDeviceVariablesNoLock()
+    logDebug("Prepare variables in module {}", static_cast<const void *>(Mod));
+    Mod->prepareDeviceVariablesNoLock(this, getDefaultQueue());
   }
-  return hipSuccess;
-}
-
-void CHIPDevice::initializeDeviceVariables() {
-  LOCK(DeviceVarMtx); // CHIPDevice::ChipModules
-  logTrace("Initialize device variables.");
-  for (auto Module : ChipModules)
-    Module.second->initializeDeviceVariablesNoLock(this, getDefaultQueue());
 }
 
 void CHIPDevice::invalidateDeviceVariables() {
-  LOCK(DeviceVarMtx); // CHIPDevice::ChipModules
+  // CHIPDevice::SrcModToCompiledMod_
+  // CHIPModule::invalidateDeviceVariablesNoLock()
+  LOCK(DeviceVarMtx);
   logTrace("invalidate device variables.");
-  for (auto Module : ChipModules)
-    Module.second->invalidateDeviceVariablesNoLock();
+  for (auto &Kv : SrcModToCompiledMod_)
+    Kv.second->invalidateDeviceVariablesNoLock();
 }
 
 void CHIPDevice::deallocateDeviceVariables() {
-  LOCK(DeviceVarMtx); // CHIPDevice::ChipModules
+  // CHIPDevice::SrcModToCompiledMod_
+  // CHIPModule::deallocateDeviceVariablesNoLock()
+  LOCK(DeviceVarMtx);
   logTrace("Deallocate storage for device variables.");
-  for (auto Module : ChipModules)
-    Module.second->deallocateDeviceVariablesNoLock(this);
+  for (auto &Kv : SrcModToCompiledMod_)
+    Kv.second->deallocateDeviceVariablesNoLock(this);
+}
+
+/// Get compiled module associated with the host pointer 'Ptr'. Return
+/// nullptr if 'Ptr' is not associated with any module.
+CHIPModule *CHIPDevice::getOrCreateModule(HostPtr Ptr) {
+  {
+    LOCK(DeviceVarMtx); // CHIPDevice::HostPtrToCompiledMod_
+    if (HostPtrToCompiledMod_.count(Ptr))
+      return HostPtrToCompiledMod_[Ptr];
+  }
+
+  // The module, which the 'Ptr' is member of, might not be compiled yet.
+  auto *SrcMod = getSPVRegister().getSource(Ptr);
+  if (!SrcMod) // Client gave an invalid pointer?
+    return nullptr;
+
+  // Found the source module, now compile it.
+  auto *Mod = getOrCreateModule(*SrcMod);
+
+#ifndef NDEBUG
+  {
+    LOCK(DeviceVarMtx); // CHIPDevice::HostPtrToCompiledMod_
+    assert((!Mod || (HostPtrToCompiledMod_.count(Ptr) &&
+                     HostPtrToCompiledMod_[Ptr] == Mod)) &&
+           "Forgot to map the host pointers");
+  }
+#endif
+
+  return Mod;
+}
+
+/// Get compiled module for the source module 'SrcMod'.
+CHIPModule *CHIPDevice::getOrCreateModule(const SPVModule &SrcMod) {
+  // CHIPDevice::SrcModToCompiledMod_
+  // CHIPDevice::HostPtrToCompiledMod_
+  // CHIPDevice::DeviceVarLookup_
+  LOCK(DeviceVarMtx);
+
+  // Check if we have already created the module for the source.
+  if (SrcModToCompiledMod_.count(&SrcMod))
+    return SrcModToCompiledMod_[&SrcMod];
+
+  logDebug("Compile module {}", static_cast<const void *>(&SrcMod));
+
+  auto *Module = compile(SrcMod);
+  if (!Module) // Probably a compile error.
+    return nullptr;
+
+  // Bind host pointers to their backend counterparts.
+  for (const auto &Info : SrcMod.Kernels) {
+    std::string NameTmp(Info.Name.begin(), Info.Name.end());
+    CHIPKernel *Kernel = Module->getKernelByName(NameTmp);
+    assert(Kernel && "Kernel went missing?");
+    Kernel->setHostPtr(Info.Ptr);
+    HostPtrToCompiledMod_[Info.Ptr] = Module;
+  }
+
+  for (const auto &Info : SrcMod.Variables) {
+    // Global device variables in the original HIP sources have been
+    // converted by a global variable pass (HipGlobalVariables.cpp)
+    // and they are accessible through specially named shadow
+    // kernels.
+    std::string NameTmp(Info.Name.begin(), Info.Name.end());
+    std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + NameTmp;
+
+    if (!Module->hasKernel(VarInfoKernelName)) {
+      // The kernel compilation pipe is allowed to remove device-side unused
+      // global variables from the device modules. This is utilized in the
+      // abort implementation to signal that abort is not called in the
+      // module. The lack of the variable in the device module is used as a
+      // quick (and dirty) way to not query for the global flag value after
+      // each kernel execution (reading of which requires kernel launches).
+      logTrace(
+          "Device variable {} not found in the module -- removed as unused?",
+          Info.Name);
+      continue;
+    }
+    auto *Var = new CHIPDeviceVar(&Info);
+    Module->addDeviceVariable(Var);
+
+    DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+    HostPtrToCompiledMod_[Info.Ptr] = Module;
+  }
+
+  SrcModToCompiledMod_.insert(std::make_pair(&SrcMod, Module));
+  return Module;
 }
 
 // CHIPContext
@@ -1437,35 +1418,6 @@ hipError_t CHIPBackend::setArg(const void *Arg, size_t Size, size_t Offset) {
   ExecItem->setArg(Arg, Size, Offset);
 
   return hipSuccess;
-}
-
-/**
- * @brief Register this function as a kernel for all devices initialized in
- * this backend
- *
- * @param module_str
- * @param HostFunctionPtr
- * @param FunctionName
- * @return true
- * @return false
- */
-
-bool CHIPBackend::registerFunctionAsKernel(std::string *ModuleStr,
-                                           const void *HostFPtr,
-                                           const char *HostFName) {
-  logDebug("CHIPBackend.registerFunctionAsKernel()");
-  for (auto &Ctx : ChipContexts)
-    for (auto &Dev : Ctx->getDevices())
-      Dev->registerFunctionAsKernel(ModuleStr, HostFPtr, HostFName);
-  return true;
-}
-
-void CHIPBackend::registerDeviceVariable(std::string *ModuleStr,
-                                         const void *HostPtr, const char *Name,
-                                         size_t Size) {
-  for (auto *Ctx : ChipContexts)
-    for (auto *Dev : Ctx->getDevices())
-      Dev->registerDeviceVariable(ModuleStr, HostPtr, Name, Size);
 }
 
 CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
