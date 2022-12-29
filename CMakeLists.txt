@@ -93,6 +93,7 @@ set(CHIP_SRC
   src/spirv_hiprtc.cc
   src/CHIPDriver.cc
   src/CHIPBackend.cc
+  src/SPVRegister.cc
   src/CHIPGraph.cc
   src/CHIPBindings.cc
   src/logging.cc
