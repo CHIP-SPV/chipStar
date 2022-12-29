@@ -21,9 +21,15 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <oneapi/mkl.hpp>
+#if INTEL_MKL_VERSION >= 20230000
+#include <sycl/ext/oneapi/backend/level_zero.hpp>
+#else
+#include <CL/sycl/backend/level_zero.hpp>
+#endif
+
 #include "../../../include/ze_api.h"
-#include "CL/sycl/backend/level_zero.hpp"
-#include "oneapi/mkl.hpp"
+
 #include <stdlib.h>
 #include <vector>
 #include <string.h>
