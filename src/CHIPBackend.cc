@@ -1744,6 +1744,11 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       continue;
     }
 
+    if (AllocInfo->MemoryType == hipMemoryTypeHost) {
+      logDebug("MemoryType: host -> skipping");
+      continue;
+    }
+
     if (HostPtr) {
       auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
 
