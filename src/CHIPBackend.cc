@@ -1237,9 +1237,6 @@ CHIPBackend::~CHIPBackend() {
     Backend->removeContext(Ctx);
     delete Ctx;
   }
-
-  for (auto &Mod : ModulesStr_)
-    delete Mod;
 }
 
 void CHIPBackend::waitForThreadExit() {
@@ -1363,7 +1360,6 @@ size_t CHIPBackend::getNumDevices() {
   }
   return NumDevices;
 }
-std::vector<std::string *> &CHIPBackend::getModulesStr() { return ModulesStr_; }
 
 void CHIPBackend::removeContext(CHIPContext *ChipContext) {
   auto ContextFound =
@@ -1375,26 +1371,6 @@ void CHIPBackend::removeContext(CHIPContext *ChipContext) {
 
 void CHIPBackend::addContext(CHIPContext *ChipContext) {
   ChipContexts.push_back(ChipContext);
-}
-
-void CHIPBackend::registerModuleStr(std::string *ModuleStr) {
-  LOCK(BackendMtx) // writing  CHIPBackend::ModulesStr_
-  logDebug("CHIPBackend->register_module()");
-  ModulesStr_.push_back(ModuleStr);
-}
-
-void CHIPBackend::unregisterModuleStr(std::string *ModuleStr) {
-  LOCK(BackendMtx) // writing CHIPBackend::ModulesStr_
-  logDebug("CHIPBackend->unregister_module()");
-  auto ModuleFound =
-      std::find(ModulesStr_.begin(), ModulesStr_.end(), ModuleStr);
-  if (ModuleFound != ModulesStr_.end()) {
-    ModulesStr_.erase(ModuleFound);
-  } else {
-    logWarn("Module {} not found in CHIPBackend.modules_str while trying to "
-            "unregister",
-            (void *)ModuleStr);
-  }
 }
 
 hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,

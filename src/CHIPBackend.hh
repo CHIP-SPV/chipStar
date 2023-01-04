@@ -1602,14 +1602,6 @@ protected:
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
 
-  /**
-   * @brief ChipModules stored in binary representation.
-   * During compilation each translation unit is parsed for functions that are
-   * marked for execution on the device. These functions are then compiled to
-   * device code and stored in binary representation.
-   *  */
-  std::vector<std::string *> ModulesStr_;
-
   CHIPContext *ActiveCtx_;
   CHIPDevice *ActiveDev_;
 
@@ -1763,12 +1755,6 @@ public:
    */
   size_t getNumDevices();
   /**
-   * @brief Get the vector of registered modules (in string/binary format)
-   *
-   * @return std::vector<std::string*>&
-   */
-  std::vector<std::string *> &getModulesStr();
-  /**
    * @brief Add a context to this backend.
    *
    * @param ctx_in
@@ -1776,22 +1762,6 @@ public:
   void addContext(CHIPContext *ChipContext);
   void removeContext(CHIPContext *ChipContext);
 
-  /**
-   * @brief
-   *
-   * @param mod_str
-   */
-  void registerModuleStr(std::string *ModuleStr);
-  /**
-   * @brief
-   *
-   * @param mod_str
-   */
-  void unregisterModuleStr(std::string *ModuleStr);
-  size_t getNumRegisteredModules() const {
-    std::lock_guard<std::mutex> LockBackend(BackendMtx);
-    return ModulesStr_.size();
-  };
   /**
    * @brief Configure an upcoming kernel call
    *
