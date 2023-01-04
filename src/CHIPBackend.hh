@@ -1196,6 +1196,9 @@ public:
   CHIPModule *getOrCreateModule(HostPtr Ptr);
   CHIPModule *getOrCreateModule(const SPVModule &SrcMod);
 
+  /// Return the number of currently compiled modules on this device.
+  size_t getNumCompiledModules() const { return SrcModToCompiledMod_.size(); }
+
   /**
    * @brief Get the Kernels object
    *
