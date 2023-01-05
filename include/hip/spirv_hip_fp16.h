@@ -20,9 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
-#error Include this file after including hip/hip_runtime.h
-#endif
 
 #ifndef HIP_INCLUDE_HIP_FP16_H
 #define HIP_INCLUDE_HIP_FP16_H
