@@ -22,11 +22,18 @@
  */
 
 
+#include <oneapi/mkl.hpp>
+#if INTEL_MKL_VERSION >= 20230000
+#include <sycl/ext/oneapi/backend/level_zero.hpp>
+#include <sycl/stl.hpp>
+#else
+#include <CL/sycl/backend/level_zero.hpp>
+#include <CL/sycl/stl.hpp>
+#endif
+
 #include <stdint.h>
 #include "../../../include/ze_api.h"
 #include <CL/sycl.hpp>
-#include <CL/sycl/stl.hpp>
-#include "CL/sycl/backend/level_zero.hpp"
 
 #include "sycl_chip_interop.h"
 
@@ -102,10 +109,10 @@ int main() {
     // Initialize CHIP-SPV Level-Zero Backend via providing native runtime
     // information
     uintptr_t Args[] = {
-        (uintptr_t)Plt.template get_native<sycl::backend::level_zero>(),
-        (uintptr_t)Devs[0].template get_native<sycl::backend::level_zero>(),
-        (uintptr_t)Ctx.template get_native<sycl::backend::level_zero>(),
-        (uintptr_t)myQueue.template get_native<sycl::backend::level_zero>()};
+        (uintptr_t)get_native<sycl::backend::level_zero>(Plt),
+        (uintptr_t)get_native<sycl::backend::level_zero>(Devs[0]),
+        (uintptr_t)get_native<sycl::backend::level_zero>(Ctx),
+        (uintptr_t)get_native<sycl::backend::level_zero>(myQueue)};
     hipInitFromNativeHandles(Args, 4);
 
 #ifdef USM
