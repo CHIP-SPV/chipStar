@@ -587,7 +587,7 @@ install(EXPORT CHIPTargets
 # =============================================================================
 #
 if(BUILD_TESTS)
-  add_subdirectory(HIP/tests/catch catch)
+  add_subdirectory(hip-tests/catch catch)
   add_dependencies(build_tests CHIP samples)
 endif()
 
