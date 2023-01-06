@@ -40,12 +40,6 @@ class CHIPGraphExec;
 class CHIPGraphNode;
 
 /* implementation details */
-typedef CHIPKernel *hipFunction_t;
-typedef CHIPModule *hipModule_t;
-// typedef CHIPTexture *hipTextureObject_t;
-// typedef CHIPContext *hipCtx_t;
-// TODO HIP tests assume this is int
-// typedef CHIPDevice **hipDevice_t;
 typedef int hipDevice_t;
 typedef void *hipDeviceptr_t;
 

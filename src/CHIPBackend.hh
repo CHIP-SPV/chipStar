@@ -714,7 +714,7 @@ public:
  * ROCclr - amd::Program
  * CUDA - CUmodule
  */
-class CHIPModule {
+class CHIPModule : public ihipModule_t {
   /// Flag for the allocation state of the device variables. True if
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that
@@ -871,7 +871,7 @@ public:
 /**
  * @brief Contains information about the function on the host and device
  */
-class CHIPKernel {
+class CHIPKernel : public ihipModuleSymbol_t {
 protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be

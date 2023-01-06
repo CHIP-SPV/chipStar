@@ -45,6 +45,9 @@
 struct ihipEvent_t {};
 struct ihipCtx_t {};
 struct ihipStream_t {};
+struct ihipModule_t {};
+struct ihipModuleSymbol_t {};
+// struct hipFunction_t {};
 
 enum class OCLType : unsigned {
   POD,

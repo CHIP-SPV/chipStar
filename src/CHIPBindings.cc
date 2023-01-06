@@ -3443,8 +3443,9 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dptr, Bytes, Hmod, Name);
+  auto ChipModule = static_cast<CHIPModule *>(Hmod);
 
-  CHIPDeviceVar *Var = Hmod->getGlobalVar(Name);
+  CHIPDeviceVar *Var = ChipModule->getGlobalVar(Name);
   *Dptr = Var->getDevAddr();
 
   RETURN(hipSuccess);
@@ -3784,8 +3785,8 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
-
-  CHIPKernel *Kernel = Module->getKernelByName(Name);
+  auto ChipModule = (CHIPModule *)Module;
+  CHIPKernel *Kernel = ChipModule->getKernelByName(Name);
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);
 
@@ -3817,9 +3818,10 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
   Backend->getActiveDevice()->initializeDeviceVariables();
+  auto ChipKernel = static_cast<CHIPKernel*>(Kernel);
 
   if (KernelParams)
-    ChipQueue->launchKernel(Kernel, Grid, Block, KernelParams, SharedMemBytes);
+    ChipQueue->launchKernel(ChipKernel, Grid, Block, KernelParams, SharedMemBytes);
   else {
     // Convert the "extra" argument passing style to KernelParams's
     // format (an array of pointers to the argument data) for avoiding
@@ -3842,14 +3844,16 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
     if (!ExtraArgBuf) // Null argument pointer.
       RETURN(hipErrorInvalidValue);
 
-    auto *FuncInfo = Kernel->getFuncInfo();
+    auto ChipKernel = static_cast<CHIPKernel*>(Kernel);
+
+    auto *FuncInfo = ChipKernel->getFuncInfo();
     auto ParamBuffer = convertExtraArgsToPointerArray(ExtraArgBuf, *FuncInfo);
 
-    ChipQueue->launchKernel(Kernel, Grid, Block, ParamBuffer.data(),
+    ChipQueue->launchKernel(ChipKernel, Grid, Block, ParamBuffer.data(),
                          SharedMemBytes);
   }
 
-  handleAbortRequest(*ChipQueue, *Kernel->getModule());
+  handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
   return hipSuccess;
   CHIP_CATCH
 }
