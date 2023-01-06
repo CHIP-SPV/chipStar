@@ -39,7 +39,7 @@
 #include "logging.hh"
 #include "macros.hh"
 
-class CHIPGraphNode {
+class CHIPGraphNode : public hipGraphNode {
 protected:
   hipGraphNodeType Type_;
   // nodes which depend on this node
@@ -577,7 +577,7 @@ public:
   }
 };
 
-class CHIPGraph {
+class CHIPGraph : public ihipGraph {
 protected:
   std::vector<CHIPGraphNode *> Nodes_;
   // Map the pointers Original -> Clone
@@ -647,7 +647,7 @@ public:
   }
 };
 
-class CHIPGraphExec {
+class CHIPGraphExec : public hipGraphExec {
 protected:
   CHIPGraph *OriginalGraph_;
   CHIPGraph CompiledGraph_;

@@ -43,8 +43,4 @@ class CHIPGraphNode;
 typedef int hipDevice_t;
 typedef void *hipDeviceptr_t;
 
-typedef CHIPGraph *hipGraph_t;
-typedef CHIPGraphNode *hipGraphNode_t;
-typedef CHIPGraphExec *hipGraphExec_t;
-
 #endif
