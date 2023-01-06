@@ -52,6 +52,48 @@
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
+hipError_t hipLaunchHostFunc(hipStream_t stream, hipHostFn_t fn,
+                             void *userData) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipStreamIsCapturing(hipStream_t stream,
+                                hipStreamCaptureStatus *pCaptureStatus) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipStreamGetCaptureInfo(hipStream_t stream,
+                                   hipStreamCaptureStatus *pCaptureStatus,
+                                   unsigned long long *pId) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipStreamGetCaptureInfo_v2(hipStream_t stream,
+                                      hipStreamCaptureStatus *captureStatus_out,
+                                      unsigned long long *id_out,
+                                      hipGraph_t *graph_out,
+                                      const hipGraphNode_t **dependencies_out,
+                                      size_t *numDependencies_out) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipUserObjectCreate(hipUserObject_t *object_out, void *ptr,
+                               hipHostFn_t destroy,
+                               unsigned int initialRefcount,
+                               unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipUserObjectRelease(hipUserObject_t object, unsigned int count) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipUserObjectRetain(hipUserObject_t object, unsigned int count) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipGraphRetainUserObject(hipGraph_t graph, hipUserObject_t object,
+                                    unsigned int count, unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipGraphReleaseUserObject(hipGraph_t graph, hipUserObject_t object,
+                                     unsigned int count) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
 hipError_t hipInit(unsigned int flags) { return hipSuccess; };
 
 // Handles device side abort() call by checking the abort flag global
