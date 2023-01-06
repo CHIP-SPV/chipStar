@@ -44,6 +44,7 @@
 /// ihipEvent_t pointers may carry CHIPEvent instances.
 struct ihipEvent_t {};
 struct ihipCtx_t {};
+struct ihipStream_t {};
 
 enum class OCLType : unsigned {
   POD,

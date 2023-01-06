@@ -289,9 +289,7 @@ public:
   CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
                    CHIPQueue *ChipQueue);
 
-  void execute(hipError_t ResultFromDependency) {
-    CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
-  }
+  void execute(hipError_t ResultFromDependency);
 };
 
 class CHIPEventMonitor {
@@ -1903,7 +1901,7 @@ public:
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class CHIPQueue {
+class CHIPQueue : public ihipStream_t {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;

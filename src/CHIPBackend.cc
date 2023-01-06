@@ -85,6 +85,10 @@ CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t TheCallbackF,
     : ChipQueue(TheChipQueue), CallbackArgs(TheCallbackArgs),
       CallbackF(TheCallbackF) {}
 
+  void CHIPCallbackData::execute(hipError_t ResultFromDependency) {
+    CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
+  }
+
 // CHIPDeviceVar
 // ************************************************************************
 CHIPDeviceVar::CHIPDeviceVar(std::string TheName, size_t TheSize)
@@ -443,7 +447,7 @@ void CHIPExecItem::copyArgs(void **Args) {
 CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
-      ChipQueue_(ChipQueue){};
+      ChipQueue_(static_cast<CHIPQueue*>(ChipQueue)){};
 
 std::vector<uint8_t> CHIPExecItem::getArgData() { return ArgData_; }
 
