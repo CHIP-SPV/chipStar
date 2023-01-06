@@ -40,7 +40,6 @@ class CHIPGraphExec;
 class CHIPGraphNode;
 
 /* implementation details */
-typedef CHIPEvent *hipEvent_t;
 typedef CHIPKernel *hipFunction_t;
 typedef CHIPModule *hipModule_t;
 typedef CHIPQueue *hipStream_t;

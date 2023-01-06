@@ -40,6 +40,10 @@
 #include <queue>
 #include <stack>
 
+/// The implementation of ihipEvent_t. The CHIPEvent class inherits this so
+/// ihipEvent_t pointers may carry CHIPEvent instances.
+struct ihipEvent_t {};
+
 enum class OCLType : unsigned {
   POD,
   Pointer,

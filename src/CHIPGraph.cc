@@ -384,3 +384,19 @@ void CHIPGraphExec::ExtractSubGraphs_() {
     }
   }
 }
+
+void CHIPGraphNodeEventRecord::execute(CHIPQueue *Queue) const {
+  auto Status = hipEventRecord(Event_, Queue);
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
+}
+
+void CHIPGraphNodeWaitEvent::execute(CHIPQueue *Queue) const {
+  // current HIP API requires Flags
+  unsigned int Flags = 0;
+  auto Status = hipStreamWaitEvent(Queue, Event_, Flags);
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
+}

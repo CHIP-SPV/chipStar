@@ -294,8 +294,8 @@ private:
 
 public:
   CHIPGraphNodeMemcpy(const CHIPGraphNodeMemcpy &Other)
-      : CHIPGraphNode(Other), Params_(Other.Params_), Dst_(Other.Dst_), Src_(Other.Src_),
-        Count_(Other.Count_), Kind_(Other.Kind_) {}
+      : CHIPGraphNode(Other), Params_(Other.Params_), Dst_(Other.Dst_),
+        Src_(Other.Src_), Count_(Other.Count_), Kind_(Other.Kind_) {}
 
   CHIPGraphNodeMemcpy(hipMemcpy3DParms Params)
       : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params) {}
@@ -306,7 +306,7 @@ public:
 
   // 1D MemCpy
   CHIPGraphNodeMemcpy(void *Dst, const void *Src, size_t Count,
-                        hipMemcpyKind Kind)
+                      hipMemcpyKind Kind)
       : CHIPGraphNode(hipGraphNodeTypeMemcpy), Dst_(Dst), Src_(Src),
         Count_(Count), Kind_(Kind) {}
 
@@ -453,14 +453,8 @@ public:
 
   virtual ~CHIPGraphNodeWaitEvent() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override {
-    // current HIP API requires Flags
-    unsigned int Flags = 0;
-    auto Status = hipStreamWaitEvent(Queue, Event_, Flags);
-    if (Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                            hipErrorTbd);
-  }
+  virtual void execute(CHIPQueue *Queue) const override;
+
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeWaitEvent(*this);
     return NewNode;
@@ -483,12 +477,8 @@ public:
 
   virtual ~CHIPGraphNodeEventRecord() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override {
-    auto Status = hipEventRecord(Event_, Queue);
-    if (Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                            hipErrorTbd);
-  }
+  virtual void execute(CHIPQueue *Queue) const override;
+
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeEventRecord(*this);
     return NewNode;
@@ -498,44 +488,6 @@ public:
 
   CHIPEvent *getEvent() { return Event_; }
 };
-
-// class CHIPGraphNodeMemcpy1D : public CHIPGraphNode {
-// private:
-//   void *Dst_;
-//   const void *Src_;
-//   size_t Count_;
-//   hipMemcpyKind Kind_;
-
-// public:
-//   CHIPGraphNodeMemcpy1D(void *Dst, const void *Src, size_t Count,
-//                         hipMemcpyKind Kind)
-//       : CHIPGraphNode(hipGraphNodeTypeMemcpy1D), Dst_(Dst), Src_(Src),
-//         Count_(Count), Kind_(Kind) {}
-
-//   CHIPGraphNodeMemcpy1D(const CHIPGraphNodeMemcpy1D &Other)
-//       : CHIPGraphNode(Other), Dst_(Other.Dst_), Src_(Other.Src_),
-//         Count_(Other.Count_), Kind_(Other.Kind_) {}
-
-//   virtual ~CHIPGraphNodeMemcpy1D() override {}
-
-//   void setParams(void *Dst, const void *Src, size_t Count, hipMemcpyKind Kind) {
-//     Dst_ = Dst;
-//     Src_ = Src;
-//     Count_ = Count;
-//     Kind_ = Kind;
-//   }
-
-//   virtual void execute(CHIPQueue *Queue) const override {
-//     auto Status = hipMemcpy(Dst_, Src_, Count_, Kind_);
-//     if (Status != hipSuccess)
-//       CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-//                             hipErrorTbd);
-//   }
-//   virtual CHIPGraphNode *clone() const override {
-//     auto NewNode = new CHIPGraphNodeMemcpy1D(*this);
-//     return NewNode;
-//   }
-// };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
 private:

@@ -521,7 +521,7 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-class CHIPEvent {
+class CHIPEvent : public ihipEvent_t {
 protected:
   bool UserEvent_ = false;
   bool TrackCalled_ = false;
@@ -548,39 +548,14 @@ protected:
 public:
   bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
-  void releaseDependencies() {
-    for (auto Event : DependsOnList) {
-      Event->decreaseRefCount(
-          "An event that depended on this one has finished");
-    }
-    LOCK(EventMtx); // CHIPEvent::DependsOnList
-    DependsOnList.clear();
-  }
+  void releaseDependencies();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc() {
-    LOCK(this->EventMtx); // CHIPEvent::Refc_
-    return *Refc_;
-  }
-  virtual void decreaseRefCount(std::string Reason) {
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-    if (*Refc_ > 0) {
-      (*Refc_)--;
-    } else {
-      logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-    }
-    // Destructor to be called by event monitor once backend is done using it
-  }
-  virtual void increaseRefCount(std::string Reason) {
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-    (*Refc_)++;
-  }
+  size_t getCHIPRefc();
+  virtual void decreaseRefCount(std::string Reason);
+  virtual void increaseRefCount(std::string Reason);
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**

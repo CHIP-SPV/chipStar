@@ -195,6 +195,37 @@ CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
       ChipContext_(Ctx), Msg("") {}
 
+void CHIPEvent::releaseDependencies() {
+  for (auto Event : DependsOnList) {
+    Event->decreaseRefCount("An event that depended on this one has finished");
+  }
+  LOCK(EventMtx); // CHIPEvent::DependsOnList
+  DependsOnList.clear();
+}
+
+void CHIPEvent::decreaseRefCount(std::string Reason) {
+  LOCK(EventMtx); // CHIPEvent::Refc_
+  // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+  if (*Refc_ > 0) {
+    (*Refc_)--;
+  } else {
+    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
+  }
+  // Destructor to be called by event monitor once backend is done using it
+}
+void CHIPEvent::increaseRefCount(std::string Reason) {
+  LOCK(EventMtx); // CHIPEvent::Refc_
+  // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+  (*Refc_)++;
+}
+
+size_t CHIPEvent::getCHIPRefc() {
+  LOCK(this->EventMtx); // CHIPEvent::Refc_
+  return *Refc_;
+}
+
 // CHIPModuleflags_
 //*************************************************************************************
 void CHIPModule::consumeSPIRV() {

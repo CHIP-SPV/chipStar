@@ -623,8 +623,7 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                    hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeMemcpy *Node =
-      new CHIPGraphNodeMemcpy(dst, src, count, kind);
+  CHIPGraphNodeMemcpy *Node = new CHIPGraphNodeMemcpy(dst, src, count, kind);
   *pGraphNode = Node;
   Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
                         numDependencies);
@@ -641,9 +640,8 @@ hipError_t hipGraphMemcpyNodeSetParams1D(hipGraphNode_t node, void *dst,
   CHIPInitialize();
   auto CastNode = static_cast<CHIPGraphNodeMemcpy *>(node);
   if (!CastNode)
-    CHIPERR_LOG_AND_THROW(
-        "Node provided failed to cast to CHIPGraphNodeMemcpy",
-        hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy",
+                          hipErrorInvalidValue);
 
   CastNode->setParams(dst, src, count, kind);
   RETURN(hipSuccess);
@@ -663,9 +661,8 @@ hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
 
   auto CastNode = static_cast<CHIPGraphNodeMemcpy *>(node);
   if (!CastNode)
-    CHIPERR_LOG_AND_THROW(
-        "Node provided failed to cast to CHIPGraphNodeMemcpy",
-        hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW("Node provided failed to cast to CHIPGraphNodeMemcpy",
+                          hipErrorInvalidValue);
 
   CastNode->setParams(dst, src, count, kind);
   RETURN(hipSuccess);
@@ -945,7 +942,7 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
                                       hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeEventRecord *Node = new CHIPGraphNodeEventRecord(event);
+  CHIPGraphNodeEventRecord *Node = new CHIPGraphNodeEventRecord(static_cast<CHIPEvent*>(event));
   Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
                         numDependencies);
   *pGraphNode = Node;
@@ -975,7 +972,7 @@ hipError_t hipGraphEventRecordNodeSetEvent(hipGraphNode_t node,
   if (!CastNode)
     CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord",
                           hipErrorInvalidValue);
-  CastNode->setEvent(event);
+  CastNode->setEvent(static_cast<CHIPEvent*>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -996,7 +993,7 @@ hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
         "Node provided failed to cast to CHIPGraphNodeEventRecord",
         hipErrorInvalidValue);
 
-  CastNode->setEvent(event);
+  CastNode->setEvent(static_cast<CHIPEvent*>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1007,7 +1004,7 @@ hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
                                     size_t numDependencies, hipEvent_t event) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraphNodeWaitEvent *Node = new CHIPGraphNodeWaitEvent(event);
+  CHIPGraphNodeWaitEvent *Node = new CHIPGraphNodeWaitEvent(static_cast<CHIPEvent*>(event));
   *pGraphNode = Node;
   Node->addDependencies(const_cast<CHIPGraphNode **>(pDependencies),
                         numDependencies);
@@ -1042,7 +1039,7 @@ hipError_t hipGraphEventWaitNodeSetEvent(hipGraphNode_t node,
         "Node provided failed to cast to CHIPGraphNodeWaitEvent",
         hipErrorInvalidValue);
 
-  CastNode->setEvent(event);
+  CastNode->setEvent(static_cast<CHIPEvent*>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1064,7 +1061,7 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
         "Node provided failed to cast to CHIPGraphNodeWaitEvent",
         hipErrorInvalidValue);
 
-  CastNode->setEvent(event);
+  CastNode->setEvent(static_cast<CHIPEvent*>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1884,20 +1881,21 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
                               unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
+  auto ChipEvent = static_cast<CHIPEvent *>(Event);
 
   Stream = Backend->findQueue(Stream);
-  if (Stream->captureIntoGraph<CHIPGraphNodeWaitEvent>(Event)) {
+  if (Stream->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
     RETURN(hipSuccess);
   }
   ERROR_IF((Stream == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
 
   // Unless the event is in recording state, we can't wait on it
-  if (Event->getEventStatus() == EVENT_STATUS_INIT) {
+  if (static_cast<CHIPEvent*>(Event)->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
 
-  std::vector<CHIPEvent *> EventsToWaitOn = {Event};
+  std::vector<CHIPEvent *> EventsToWaitOn = {static_cast<CHIPEvent*>(Event)};
   Stream->enqueueBarrier(&EventsToWaitOn);
 
   RETURN(hipSuccess);
@@ -2059,9 +2057,11 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 
   CHIPEventFlags EventFlags{Flags};
 
-  *Event =
+  auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
-  (*Event)->increaseRefCount("hipEventCreateWithFlags");
+  ChipEvent->increaseRefCount("hipEventCreateWithFlags");
+
+  *Event = ChipEvent;
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2072,13 +2072,14 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIPInitialize();
   // TODO: Why does this check fail for OpenCL but not for Level0
   NULLCHECK(Event);
+  auto ChipEvent = static_cast<CHIPEvent *>(Event);
 
   Stream = Backend->findQueue(Stream);
-  if (Stream->captureIntoGraph<CHIPGraphNodeEventRecord>(Event)) {
+  if (Stream->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
     RETURN(hipSuccess);
   }
 
-  Event->recordStream(Stream);
+  ChipEvent->recordStream(Stream);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2088,9 +2089,10 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
+  CHIPEvent *ChipEvent = static_cast<CHIPEvent*>(Event);
 
-  Event->decreaseRefCount("hipEventDestroy");
-  if (Event->getCHIPRefc() != 0) {
+  ChipEvent->decreaseRefCount("hipEventDestroy");
+  if (ChipEvent->getCHIPRefc() != 0) {
     logError("hipEventDestroy was called but remaining refcount is not 0");
   }
   RETURN(hipSuccess);
@@ -2102,8 +2104,9 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
+  CHIPEvent *ChipEvent = static_cast<CHIPEvent*>(Event);
 
-  Event->wait();
+  ChipEvent->wait();
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2115,17 +2118,18 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   if (!Ms)
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
   NULLCHECK(Start, Stop);
-
-  if (!Start->isRecordingOrRecorded() || !Stop->isRecordingOrRecorded()) {
+  CHIPEvent *ChipEventStart = static_cast<CHIPEvent*>(Start);
+  CHIPEvent *ChipEventStop = static_cast<CHIPEvent*>(Stop);
+  if (!ChipEventStart->isRecordingOrRecorded() || !ChipEventStop->isRecordingOrRecorded()) {
     CHIPERR_LOG_AND_THROW("One of the events was not recorded",
                           hipErrorInvalidHandle);
   }
-  if (Start->getFlags().isDisableTiming() || Stop->getFlags().isDisableTiming())
+  if (ChipEventStart->getFlags().isDisableTiming() || ChipEventStop->getFlags().isDisableTiming())
     CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
                           "Unable to return elasped time",
                           hipErrorInvalidResourceHandle);
 
-  *Ms = Start->getElapsedTime(Stop);
+  *Ms = ChipEventStart->getElapsedTime(ChipEventStop);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2135,9 +2139,10 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
+  CHIPEvent *ChipEvent = static_cast<CHIPEvent*>(Event);
 
-  Event->updateFinishStatus();
-  if (Event->isFinished())
+  ChipEvent->updateFinishStatus();
+  if (ChipEvent->isFinished())
     RETURN(hipSuccess);
 
   RETURN(hipErrorNotReady);
@@ -2633,7 +2638,7 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
 
   Stream = Backend->findQueue(Stream);
   if (Stream->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
-                                                      Kind)) {
+                                                    Kind)) {
     RETURN(hipSuccess);
   }
 
