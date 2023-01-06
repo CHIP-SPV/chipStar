@@ -1436,7 +1436,7 @@ protected:
  * multiple devices. Provides for creation of additional queues, events, and
  * interaction with devices.
  */
-class CHIPContext {
+class CHIPContext : public ihipCtx_t {
 protected:
   std::vector<CHIPDevice *> ChipDevices_;
   std::vector<void *> AllocatedPtrs_;
