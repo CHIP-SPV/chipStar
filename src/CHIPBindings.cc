@@ -357,7 +357,7 @@ hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
   CHIP_TRY
   CHIPInitialize();
   auto ChipQueue = static_cast<CHIPQueue *>(stream);
-  stream = Backend->findQueue(ChipQueue);
+  ChipQueue = Backend->findQueue(ChipQueue);
   graphExec->launch(ChipQueue);
   RETURN(hipSuccess);
   CHIP_CATCH
