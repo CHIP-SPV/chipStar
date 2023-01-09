@@ -122,7 +122,10 @@ set(SAMPLES
     hip_async_interop
     hip-cuda
     printf
-    texture
+
+    # Disabled because conflicts with unit tests
+    # texture
+
     simple_kernel
     clock
     graphMatrixMultiply
