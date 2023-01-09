@@ -155,6 +155,7 @@ option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" O
 option(BUILD_TESTS "Build Catch2 unit tests" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
+option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" ON)
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -589,7 +590,11 @@ install(EXPORT CHIPTargets
 #
 if(BUILD_TESTS)
   SET(HIP_PATH ${CMAKE_BINARY_DIR})
-  add_subdirectory(hip-tests/catch catch)
+  if(USE_EXTERNAL_HIP_TESTS)
+    add_subdirectory(hip-tests/catch catch)
+  else()
+    add_subdirectory(HIP/tests/catch catch)
+  endif()
   add_dependencies(build_tests CHIP samples)
 endif()
 
