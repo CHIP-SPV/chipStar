@@ -66,6 +66,173 @@
 #define DECONST_NODES(x) reinterpret_cast<CHIPGraphNode **>( \
   const_cast<hipGraphNode_t *>(x))
 
+hipError_t hipDeviceGetP2PAttribute(int* value, hipDeviceP2PAttr attr,
+                                    int srcDevice, int dstDevice) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGetChannelDesc(
+    hipChannelFormatDesc* desc,
+    hipArray_const_t array) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDeviceGetUuid(hipUUID* uuid, hipDevice_t device){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipDeviceSetLimit ( enum hipLimit_t limit, size_t value ){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipExtStreamCreateWithCUMask(hipStream_t* stream, uint32_t cuMaskSize, const uint32_t* cuMask){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipExtStreamGetCUMask(hipStream_t stream, uint32_t cuMaskSize, uint32_t* cuMask){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxCreate(hipCtx_t* ctx, unsigned int flags, hipDevice_t device){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxDestroy(hipCtx_t ctx){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxPopCurrent(hipCtx_t* ctx){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxPushCurrent(hipCtx_t ctx){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxSetCurrent(hipCtx_t ctx){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxGetCurrent(hipCtx_t* ctx){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxGetDevice(hipDevice_t* device){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxGetApiVersion(hipCtx_t ctx, int* apiVersion){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxGetCacheConfig(hipFuncCache_t* cacheConfig){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxSetCacheConfig(hipFuncCache_t cacheConfig){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxSetSharedMemConfig(hipSharedMemConfig config){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxGetSharedMemConfig(hipSharedMemConfig* pConfig){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxSynchronize(void){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxGetFlags(unsigned int* flags){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxEnablePeerAccess(hipCtx_t peerCtx, unsigned int flags){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipCtxDisablePeerAccess(hipCtx_t peerCtx){
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDrvMemcpy3D(const HIP_MEMCPY3D* pCopy)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDrvPointerGetAttributes(unsigned int numAttributes, hipPointer_attribute* attributes,
+                                      void** data, hipDeviceptr_t ptr) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemRangeGetAttributes(void** data,
+                                    size_t* data_sizes,
+                                    hipMemRangeAttribute* attributes,
+                                    size_t num_attributes,
+                                    const void* dev_ptr,
+                                    size_t count) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+
+hipError_t hipPointerGetAttribute(void* data, hipPointer_attribute attribute,
+                                  hipDeviceptr_t ptr)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDrvMemcpy3DAsync(const HIP_MEMCPY3D* pCopy, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDeviceGetDefaultMemPool(hipMemPool_t* mem_pool, int device)   {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipArrayDestroy(hipArray* array) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipArray3DCreate(hipArray** array, const HIP_ARRAY3D_DESCRIPTOR* pAllocateArray)   {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemAllocPitch(hipDeviceptr_t* dptr, size_t* pitch, size_t widthInBytes, size_t height, unsigned int elementSizeBytes)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipDeviceSetMemPool(int device, hipMemPool_t mem_pool)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipDeviceGetMemPool(hipMemPool_t* mem_pool, int device)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMallocAsync(void** dev_ptr, size_t size, hipStream_t stream)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipFreeAsync(void* dev_ptr, hipStream_t stream)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolSetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr, void* value)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolTrimTo(hipMemPool_t mem_pool, size_t min_bytes_to_hold)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolGetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr, void* value)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolSetAccess(hipMemPool_t mem_pool, const hipMemAccessDesc* desc_list, size_t count)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolGetAccess(hipMemAccessFlags* flags, hipMemPool_t mem_pool, hipMemLocation* location)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolCreate(hipMemPool_t* mem_pool, const hipMemPoolProps* pool_props)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMallocFromPoolAsync(void** dev_ptr, size_t size, hipMemPool_t mem_pool, hipStream_t stream)  {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+hipError_t hipMemPoolDestroy(hipMemPool_t mem_pool) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
 hipError_t hipLaunchHostFunc(hipStream_t stream, hipHostFn_t fn,
                              void *userData) {
   UNIMPLEMENTED(hipErrorNotSupported);
