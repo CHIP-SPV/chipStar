@@ -1964,7 +1964,9 @@ public:
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {
     CaptureMode_ = CaptureMode;
   }
-  CHIPGraph* getCaptureGraph() const { return static_cast<CHIPGraph*>(CaptureGraph_); }
+  CHIPGraph *getCaptureGraph() const {
+    return static_cast<CHIPGraph *>(CaptureGraph_);
+  }
 
   CHIPDevice *PerThreadQueueForDevice = nullptr;
 
