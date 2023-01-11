@@ -23,6 +23,7 @@ THE SOFTWARE.
 #ifndef SPIRV_HIP_TEXTURE_FUNCTIONS_H
 #define SPIRV_HIP_TEXTURE_FUNCTIONS_H
 
+#ifdef __cplusplus
 #include "spirv_hip_vector_types.h"
 #include "spirv_hip_texture_types.h"
 
@@ -327,4 +328,5 @@ DEF_TEXREF(int4, float4);
 DEF_TEXREF(uint4, float4);
 DEF_TEXREF(float4, float4);
 
-#endif
+#endif // cplusplus
+#endif // include guard
