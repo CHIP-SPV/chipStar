@@ -27,8 +27,10 @@ THE SOFTWARE.
 #define __HIP_PLATFORM_SPIRV__
 #endif
 
+#ifdef __cplusplus
 #include <cmath>
 #include <cstdint>
+#endif
 
 #include <hip/hip_runtime_api.h>
 

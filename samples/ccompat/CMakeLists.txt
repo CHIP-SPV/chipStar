@@ -1,1 +1,1 @@
-add_chip_binary(ccompat ccompat.cpp)
+add_chip_binary(ccompat ccompat.c)
