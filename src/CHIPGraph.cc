@@ -102,10 +102,17 @@ void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
 }
 
 void CHIPGraphNodeMemcpy::execute(CHIPQueue *Queue) const {
-  auto Status = hipMemcpy3DAsync(&Params_, Queue);
-  if (Status != hipSuccess)
-    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                          hipErrorTbd);
+  if (Dst_ && Src_) {
+    auto Status = hipMemcpy(Dst_, Src_, Count_, Kind_);
+    if (Status != hipSuccess)
+      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                            hipErrorTbd);
+  } else {
+    auto Status = hipMemcpy3DAsync(&Params_, Queue);
+    if (Status != hipSuccess)
+      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                            hipErrorTbd);
+  }
 }
 void CHIPGraphNodeKernel::execute(CHIPQueue *Queue) const {
   Queue->launch(ExecItem_);
@@ -383,4 +390,20 @@ void CHIPGraphExec::ExtractSubGraphs_() {
       }
     }
   }
+}
+
+void CHIPGraphNodeEventRecord::execute(CHIPQueue *Queue) const {
+  auto Status = hipEventRecord(Event_, Queue);
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
+}
+
+void CHIPGraphNodeWaitEvent::execute(CHIPQueue *Queue) const {
+  // current HIP API requires Flags
+  unsigned int Flags = 0;
+  auto Status = hipStreamWaitEvent(Queue, Event_, Flags);
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
 }

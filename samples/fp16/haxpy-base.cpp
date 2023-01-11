@@ -31,7 +31,7 @@
 #include <random>
 
 #include <hip/hip_runtime.h>
-//#include <hip/hip_fp16.h>
+#include <hip/hip_fp16.h>
 
 #include "fp16_conversion.hpp"
 

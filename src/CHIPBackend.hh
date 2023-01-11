@@ -289,9 +289,7 @@ public:
   CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
                    CHIPQueue *ChipQueue);
 
-  void execute(hipError_t ResultFromDependency) {
-    CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
-  }
+  void execute(hipError_t ResultFromDependency);
 };
 
 class CHIPEventMonitor {
@@ -521,7 +519,7 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-class CHIPEvent {
+class CHIPEvent : public ihipEvent_t {
 protected:
   bool UserEvent_ = false;
   bool TrackCalled_ = false;
@@ -548,39 +546,14 @@ protected:
 public:
   bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
-  void releaseDependencies() {
-    for (auto Event : DependsOnList) {
-      Event->decreaseRefCount(
-          "An event that depended on this one has finished");
-    }
-    LOCK(EventMtx); // CHIPEvent::DependsOnList
-    DependsOnList.clear();
-  }
+  void releaseDependencies();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc() {
-    LOCK(this->EventMtx); // CHIPEvent::Refc_
-    return *Refc_;
-  }
-  virtual void decreaseRefCount(std::string Reason) {
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-    if (*Refc_ > 0) {
-      (*Refc_)--;
-    } else {
-      logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-    }
-    // Destructor to be called by event monitor once backend is done using it
-  }
-  virtual void increaseRefCount(std::string Reason) {
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-    (*Refc_)++;
-  }
+  size_t getCHIPRefc();
+  virtual void decreaseRefCount(std::string Reason);
+  virtual void increaseRefCount(std::string Reason);
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
@@ -741,7 +714,7 @@ public:
  * ROCclr - amd::Program
  * CUDA - CUmodule
  */
-class CHIPModule {
+class CHIPModule : public ihipModule_t {
   /// Flag for the allocation state of the device variables. True if
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that
@@ -898,7 +871,7 @@ public:
 /**
  * @brief Contains information about the function on the host and device
  */
-class CHIPKernel {
+class CHIPKernel : public ihipModuleSymbol_t {
 protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be
@@ -1461,7 +1434,7 @@ protected:
  * multiple devices. Provides for creation of additional queues, events, and
  * interaction with devices.
  */
-class CHIPContext {
+class CHIPContext : public ihipCtx_t {
 protected:
   std::vector<CHIPDevice *> ChipDevices_;
   std::vector<void *> AllocatedPtrs_;
@@ -1928,7 +1901,7 @@ public:
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class CHIPQueue {
+class CHIPQueue : public ihipStream_t {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
@@ -1991,7 +1964,9 @@ public:
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {
     CaptureMode_ = CaptureMode;
   }
-  hipGraph_t getCaptureGraph() const { return CaptureGraph_; }
+  CHIPGraph *getCaptureGraph() const {
+    return static_cast<CHIPGraph *>(CaptureGraph_);
+  }
 
   CHIPDevice *PerThreadQueueForDevice = nullptr;
 

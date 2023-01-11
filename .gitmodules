@@ -14,3 +14,6 @@
 [submodule "HIPCC"]
 	path = HIPCC
 	url = https://github.com/CHIP-SPV/HIPCC.git
+[submodule "hip-tests"]
+	path = hip-tests
+	url = git@github.com:ROCm-Developer-Tools/hip-tests.git

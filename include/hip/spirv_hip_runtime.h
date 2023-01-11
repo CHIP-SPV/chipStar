@@ -36,7 +36,6 @@ THE SOFTWARE.
 
 #include <hip/spirv_hip_vector_types.h>
 
-#include <hip/spirv_hip_fp16.h>
 #include <hip/spirv_hip_ldg.h>
 #include <hip/spirv_math_fwd.h>
 
