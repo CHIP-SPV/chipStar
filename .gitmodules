@@ -1,13 +1,9 @@
 [submodule "HIP"]
 	path = HIP
 	url = https://github.com/CHIP-SPV/HIP.git
-[submodule "Catch2"]
-	path = Catch2
-	url = https://github.com/catchorg/Catch2.git
 [submodule "hip-testsuite"]
 	path = hip-testsuite
 	url = https://github.com/CHIP-SPV/hip-testsuite.git
-
 [submodule "bitcode/ROCm-Device-Libs"]
 	path = bitcode/ROCm-Device-Libs
 	url = https://github.com/RadeonOpenCompute/ROCm-Device-Libs.git
@@ -16,4 +12,4 @@
 	url = https://github.com/CHIP-SPV/HIPCC.git
 [submodule "hip-tests"]
 	path = hip-tests
-	url = git@github.com:ROCm-Developer-Tools/hip-tests.git
+	url = https://github.com/ROCm-Developer-Tools/hip-tests.git
