@@ -4,3 +4,4 @@ add_custom_command(OUTPUT ccompat.o DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/
 add_custom_target(ccompat DEPENDS saxpy.o ccompat.o COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin ./ccompat.o ./saxpy.o -o ccompat -g)
 
 add_dependencies(ccompat hipcc.bin CHIP)
+add_test(NAME ccompat COMMAND ${CMAKE_BINARY_DIR}/samples/ccompat/ccompat)
