@@ -1215,10 +1215,6 @@ CHIPBackend::CHIPBackend() {
 
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  while (!ChipExecStack.empty())
-    ChipExecStack.pop();
-  while (!CallbackQueue.empty())
-    CallbackQueue.pop();
 
   Events.clear();
   // for (auto &Ctx : ChipContexts) {
@@ -1375,7 +1371,6 @@ void CHIPBackend::addContext(CHIPContext *ChipContext) {
 
 hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
                                       hipStream_t ChipQueue) {
-  LOCK(BackendMtx) // writing CHIPBackend::ChipExecStack
   logDebug("CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
@@ -1388,7 +1383,6 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
 }
 
 hipError_t CHIPBackend::setArg(const void *Arg, size_t Size, size_t Offset) {
-  LOCK(BackendMtx) // reading CHIPBackend::ChipExecStack
   logDebug("CHIPBackend->set_arg()");
   CHIPExecItem *ExecItem = ChipExecStack.top();
   ExecItem->setArg(Arg, Size, Offset);

@@ -1429,14 +1429,13 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
   logDebug("__hipPopCallConfiguration()");
   CHIP_TRY
   CHIPInitialize();
-  LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
 
-  auto *ExecItem = Backend->ChipExecStack.top();
+  auto *ExecItem = ChipExecStack.top();
+  ChipExecStack.pop();
   *GridDim = ExecItem->getGrid();
   *BlockDim = ExecItem->getBlock();
   *SharedMem = ExecItem->getSharedMem();
   *Stream = ExecItem->getQueue();
-  Backend->ChipExecStack.pop();
   delete ExecItem;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -4097,12 +4096,8 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(HostFunction));
-  CHIPExecItem *ExecItem;
-  {
-    LOCK(Backend->BackendMtx); // CHIPBackend::ChipExecStack
-    ExecItem = Backend->ChipExecStack.top();
-    Backend->ChipExecStack.pop();
-  }
+  CHIPExecItem *ExecItem = ChipExecStack.top();
+  ChipExecStack.pop();
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {

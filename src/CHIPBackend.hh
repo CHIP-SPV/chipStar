@@ -49,6 +49,8 @@
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
+inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -1632,7 +1634,6 @@ public:
   // Adds -std=c++17 requirement
   inline static thread_local hipError_t TlsLastError;
 
-  std::stack<CHIPExecItem *> ChipExecStack;
   std::vector<CHIPContext *> ChipContexts;
 
   /**
