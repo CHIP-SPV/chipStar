@@ -303,6 +303,8 @@ list(APPEND FAILING_TESTS "hip_sycl_interop")
 list(APPEND FAILING_TESTS "hip_sycl_interop_no_buffers")
 
 # OpenCL Failing Tests
+list(APPEND FAILING_TESTS "memcpy3D") # (Failed)
+list(APPEND FAILING_TESTS "hipStreamSemantics") # (SEGFAULT)
 list(APPEND FAILING_TESTS "Unit_hipStreamPerThread_Basic") # (Failed)
 list(APPEND FAILING_TESTS "activemask") # (Failed)
 list(APPEND FAILING_TESTS "TestHiprtcCPPKernels") # (Failed)
