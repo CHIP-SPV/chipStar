@@ -4135,6 +4135,13 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   //       may come from the backend before a client makes any HIP API
   //       function call.
 
+  // FIXME: There are segfaults that occur sometimes at program exit
+  //        in some cases (e.g. in Unit_hipStreamPerThread_DeviceReset_1 test
+  //        case) and they go away if we have the CHIP runtime initialized
+  //        early. Should find the causes, fix them and then and then remove the
+  //        CHIPInitialize() call.
+  CHIPInitialize();
+
   const __CudaFatBinaryWrapper *Wrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(Data);
   if (Wrapper->magic != __hipFatMAGIC2 || Wrapper->version != 1) {
