@@ -27,8 +27,10 @@ THE SOFTWARE.
 #define __HIP_PLATFORM_SPIRV__
 #endif
 
+#ifdef __cplusplus
 #include <cmath>
 #include <cstdint>
+#endif
 
 #include <hip/hip_runtime_api.h>
 
@@ -36,7 +38,6 @@ THE SOFTWARE.
 
 #include <hip/spirv_hip_vector_types.h>
 
-#include <hip/spirv_hip_ldg.h>
 #include <hip/spirv_math_fwd.h>
 
 #include <hip/spirv_texture_functions.h>

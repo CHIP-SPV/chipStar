@@ -37,6 +37,22 @@
 #include <iostream>
 #include <mutex>
 
+// Forward Declares
+class CHIPExecItem;
+class CHIPDevice;
+class CHIPContext;
+class CHIPModule;
+class CHIPKernel;
+class CHIPBackend;
+class CHIPEvent;
+class CHIPQueue;
+class CHIPTexture;
+
+/* HIP Graph API */
+class CHIPGraph;
+class CHIPGraphExec;
+class CHIPGraphNode;
+
 #include "CHIPBackend.hh"
 
 /**
