@@ -150,10 +150,6 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 extern "C" __device__ int printf(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
 extern "C" __device__ void abort();
-#else
-extern __device__ int printf(const char *fmt, ...)
-    __attribute__((format(printf, 1, 2)));
-extern __device__ void abort();
 #endif
 /*************************************************************************************************/
 
