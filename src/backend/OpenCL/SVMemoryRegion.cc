@@ -32,7 +32,7 @@ SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
 }
 
 void *SVMemoryRegion::allocate(size_t Size) {
-  void *Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, SVM_ALIGNMENT);
+  void *Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, 0);
   if (Ptr) {
     logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
     SvmAllocations_.emplace(Ptr, Size);

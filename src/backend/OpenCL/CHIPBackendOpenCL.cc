@@ -841,7 +841,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // this one to finish)
 
   auto CallbackCompleted = enqueueBarrier(nullptr);
-  updateLastEvent(CallbackCompleted);
+  // updateLastEvent(CallbackCompleted);
   return;
 };
 

@@ -2120,7 +2120,7 @@ public:
       return true;
 
     if (LastEvent_->updateFinishStatus(false))
-      LastEvent_->decreaseRefCount("query(): event became ready");
+      // LastEvent_->decreaseRefCount("query(): event became ready");
     if (LastEvent_->isFinished())
       return true;
 
