@@ -2860,6 +2860,11 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
 
   if (SizeBytes == 0)
     RETURN(hipSuccess);
+  
+  if (Dst == Src) {
+    logWarn("Src and Dst are same. Skipping the copy");
+    RETURN(hipSuccess);
+  }
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
