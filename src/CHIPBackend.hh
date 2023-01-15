@@ -222,31 +222,37 @@ public:
 
     if (FlagsRaw & hipHostMallocPortable) {
       Portable_ = true;
+      Default_ = false;
       FlagsRaw = FlagsRaw & (~hipHostMallocPortable);
     }
 
     if (FlagsRaw & hipHostMallocMapped) {
       Mapped_ = true;
+      Default_ = false;
       FlagsRaw = FlagsRaw & (~hipHostMallocMapped);
     }
 
     if (FlagsRaw & hipHostMallocWriteCombined) {
       WriteCombined_ = true;
+      Default_ = false;
       FlagsRaw = FlagsRaw & (~hipHostMallocWriteCombined);
     }
 
     if (FlagsRaw & hipHostMallocNumaUser) {
       NumaUser_ = true;
+      Default_ = false;
       FlagsRaw = FlagsRaw & (~hipHostMallocNumaUser);
     }
 
     if (FlagsRaw & hipHostMallocCoherent) {
       Coherent_ = true;
+      Default_ = false;
       FlagsRaw = FlagsRaw & (~hipHostMallocCoherent);
     }
 
     if (FlagsRaw & hipHostMallocNonCoherent) {
       NonCoherent_ = true;
+      Default_ = false;
       FlagsRaw = FlagsRaw & (~hipHostMallocNonCoherent);
     }
 
@@ -402,6 +408,7 @@ public:
     auto AllocInfo = this->getAllocInfo(DevPtr);
     AllocInfo->HostPtr = HostPtr;
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
+    AllocInfo->MemoryType = hipMemoryTypeManaged;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -1927,12 +1934,24 @@ protected:
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent *LastEvent_ = nullptr;
 
-  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
+enum class MANAGED_MEM_STATE {
+  PRE_KERNEL,
+  POST_KERNEL
+};
 
-  virtual void MemMap(AllocationInfo *AllocInfo) {}
-  virtual void MemUnmap(AllocationInfo *AllocInfo) {}
+  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, MANAGED_MEM_STATE ExecState);
+
+
 
 public:
+
+  enum MEM_MAP_TYPE {
+    HOST_READ,
+    HOST_WRITE,
+  };
+  virtual void MemMap(AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
+  virtual void MemUnmap(AllocationInfo *AllocInfo) {}
+
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.
    *

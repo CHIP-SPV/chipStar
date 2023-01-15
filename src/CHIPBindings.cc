@@ -2523,6 +2523,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   CHIPInitialize();
   NULLCHECK(HostPtr);
 
+  // TODO fixOpenCLTests - make this a class
   if (Flags)
     switch (Flags) {
     case hipHostRegisterDefault:
@@ -2542,6 +2543,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();
+  // TODO fixOpenCLTests - use recordAllocation() 
   Device->AllocationTracker->registerHostPointer(HostPtr, DevPtr);
 
   RETURN(hipSuccess);
@@ -3063,31 +3065,34 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto AllocInfo = AllocTracker->getAllocInfo(Dst);
 
-  if (AllocInfo) {
-    logDebug("Found associated alloc info");
-
-    Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
-                                                           &CharVal, 1);
-    auto RegisterMemDst = AllocInfo->HostPtr;
-    if (RegisterMemDst)
-      memset(RegisterMemDst, Value, SizeBytes);
-    RETURN(hipSuccess);
-  } else {
-    logDebug("Unregistered pointer");
-    // Unregistered pointer, so it's either not a device pointer or it's a
-    // Unified Memory pointer allocated with host malloc() which could be
-    // accessible directly by the device or not, depending on its UM
-    // capabilities.
-    if (Backend->getActiveDevice()->getContext()->isAllocatedPtrMappedToVM(
-            Dst)) {
-      logDebug("Pointer mapped to VM.");
-      Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
-                                                             &CharVal, 1);
-      RETURN(hipSuccess);
-    } else {
-      RETURN(hipErrorInvalidValue);
-    }
+  if(!AllocInfo) {
+    CHIPERR_LOG_AND_THROW("AllocInfo not found for the given pointer", hipErrorInvalidValue);
   }
+
+  Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
+                                                          &CharVal, 1);
+
+  if (AllocInfo->HostPtr) {
+    logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr, AllocInfo->HostPtr);
+    if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
+      logDebug("AllocInfo->MemoryType == hipMemoryTypeUnified - skipping memset on host");
+    } else if (AllocInfo->MemoryType == hipMemoryTypeHost) {
+      logDebug("AllocInfo->MemoryType == hipMemoryTypeHost - executing memset on host");
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+      memset(AllocInfo->HostPtr, Value, SizeBytes);
+      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
+    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged) {
+      UNIMPLEMENTED(hipErrorTbd);
+    } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
+      CHIPERR_LOG_AND_THROW("hipMemoryTypeDevice can't have an associated HostPtr", hipErrorTbd);
+    } else if (AllocInfo->MemoryType == hipMemoryTypeArray) {
+      CHIPERR_LOG_AND_THROW("hipMemoryTypeArray can't have an associated HostPtr", hipErrorTbd);
+    } else {
+      CHIPERR_LOG_AND_THROW("Unknown MemoryType", hipErrorTbd);
+    }
+
+  }
+  RETURN(hipSuccess);
 
   CHIP_CATCH
 }
