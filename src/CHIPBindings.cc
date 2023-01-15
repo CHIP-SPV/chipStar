@@ -37,7 +37,7 @@
  */
 #ifndef CHIP_BINDINGS_H
 #define CHIP_BINDINGS_H
-
+#include <sys/mman.h>
 #include <fstream>
 
 #include "CHIPBackend.hh"
@@ -2418,6 +2418,9 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
       Size, 0x1000, hipMemoryType::hipMemoryTypeHost, FlagsParsed);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
+  int PageLockSuccess = mlock(RetVal, Size);
+  assert(PageLockSuccess == 0 && "Failed to page lock memory");
+
   *Ptr = RetVal;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2441,7 +2444,11 @@ hipError_t hipFree(void *Ptr) {
   CHIP_CATCH
 }
 
-hipError_t hipHostFree(void *Ptr) { RETURN(hipFree(Ptr)); }
+hipError_t hipHostFree(void *Ptr) { 
+  int Status = munlock(Ptr, 0);
+  assert(Status == 0 && "Failed to unlock page-locked memory");
+  RETURN(hipFree(Ptr)); 
+  }
 
 DEPRECATED("use hipHostFree instead")
 hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
