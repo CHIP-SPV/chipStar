@@ -160,8 +160,11 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
   LOCK(AllocationTrackerMtx); // writing CHIPAllocationTracker::PtrToAllocInfo_
   // TODO AllocInfo turned into class and constructor take care of this
-  if (MemoryType == hipMemoryTypeHost)
+  if (MemoryType == hipMemoryTypeHost) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
+    // Map onto host so that the data can be potentially initialized on host
+    Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+  }
 
   if (MemoryType == hipMemoryTypeUnified)
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -1110,11 +1113,14 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
     if (Flags.isCoherent())
       UNIMPLEMENTED(nullptr);
     if (Flags.isNonCoherent())
-      UNIMPLEMENTED(nullptr);
+      // UNIMPLEMENTED(nullptr);
     if (Flags.isNumaUser())
       UNIMPLEMENTED(nullptr);
     if (Flags.isPortable())
       UNIMPLEMENTED(nullptr);
+    if (Flags.isWriteCombined())
+      logWarn("hipHostAllocWriteCombined is not supported. Ignoring.");
+      //UNIMPLEMENTED(nullptr);
   }
 
   if (Size > ChipDev->getMaxMallocSize()) {
@@ -1134,11 +1140,6 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   if (AllocatedPtr == nullptr)
     ChipDev->AllocationTracker->releaseMemReservation(Size);
 
-  if (MemType == hipMemoryTypeUnified ||
-      isAllocatedPtrMappedToVM(AllocatedPtr)) {
-    HostPtr = AllocatedPtr;
-    MemType = hipMemoryTypeUnified;
-  }
   ChipDev->AllocationTracker->recordAllocation(
       AllocatedPtr, HostPtr, ChipDev->getDeviceId(), Size, Flags, MemType);
 
@@ -1539,7 +1540,20 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   CHIPEvent *ChipEvent;
   // Scope this so that we release mutex for finish()
   {
+    auto AllocInfoDst = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Dst);
+    auto AllocInfoSrc = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Src);
+    if(AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoDst);
+    if(AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
+
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+
+    if(AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+    if(AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
     this->finish();
@@ -1651,8 +1665,10 @@ void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
 
 void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
+
+
 CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
-                                        bool KernelSubmitted) {
+                                        MANAGED_MEM_STATE ExecState) {
 
   CHIPEvent *RegisterVarEvent = nullptr;
   auto &ArgTyInfos = ExecItem->getKernel()->getFuncInfo()->ArgTypeInfo;
@@ -1664,14 +1680,15 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       // An argument inserted by HipDynMemExternReplaceNewPass hence
       // there is no corresponding value in argument list.
       continue;
-    if (ArgTyInfos[OutArgI].Type == OCLType::Sampler) {
+    if (ArgTyInfos[OutArgI].Type != OCLType::Pointer) {
       // Texture lowering pass splits hipTextureObject_t arguments to
       // image and sampler arguments so there are additional
       // arguments. Don't bump the InArgI when we see an additional
       // argument.
       continue;
     }
-    void **k = reinterpret_cast<void **>(Args[InArgI++]);
+
+    void **k = reinterpret_cast<void **>(Args[OutArgI]);
     if (!k)
       // HIP program provided (Clang generated) argument list should
       // not have NULLs in it.
@@ -1680,7 +1697,7 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
     void *DevPtr = reinterpret_cast<void *>(*k);
     auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
     if (!AllocInfo)
-      continue;
+      assert(0 && "Unexcepted internal error: allocation info not found");
     // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but
     // "
     //                       "it was not registered",
@@ -1693,19 +1710,29 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       continue;
     }
 
-    if (HostPtr) {
+    // required for OpenCL when fine-grain SVM is not availbale
+    if (AllocInfo->MemoryType == hipMemoryTypeHost) {
+      if(ExecState == MANAGED_MEM_STATE::PRE_KERNEL) {
+        MemUnmap(AllocInfo);
+      } else {
+        MemMap(AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE); // TODO fixOpenCLTests - print ptr
+      }
+      continue;
+    }
+
+    if (HostPtr && AllocInfo->MemoryType == hipMemoryTypeManaged) {
       auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
 
-      if (!KernelSubmitted) {
+      if (ExecState == MANAGED_MEM_STATE::PRE_KERNEL) {
         logDebug("A hipHostRegister argument was found. Appending a mem copy "
-                 "Host -> Device {} -> {}",
+                 "Host {} -> Device {}",
                  DevPtr, HostPtr);
         RegisterVarEvent =
             this->memCopyAsyncImpl(DevPtr, HostPtr, AllocInfo->Size);
         RegisterVarEvent->Msg = "hipHostRegisterMemCpyHostToDev";
       } else {
         logDebug("A hipHostRegister argument was found. Appending a mem copy "
-                 "back to the host {} -> {}",
+                 "Device {} -> Host {}",
                  DevPtr, HostPtr);
         RegisterVarEvent =
             this->memCopyAsyncImpl(HostPtr, DevPtr, AllocInfo->Size);
@@ -1782,9 +1809,9 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
                           hipErrorLaunchFailure);
   }
 
-  auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, false);
+  auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
   auto LaunchEvent = launchImpl(ExecItem);
-  auto RegisteredVarOutEvent = RegisteredVarCopy(ExecItem, true);
+  auto RegisteredVarOutEvent = RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
 
   RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
                         : updateLastEvent(LaunchEvent);

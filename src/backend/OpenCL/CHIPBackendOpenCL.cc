@@ -790,7 +790,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemType,
                                       CHIPHostAllocFlags Flags) {
   void *Retval;
-  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
+  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemoryS
   Retval = SvmMemory.allocate(Size);
   return Retval;
 }

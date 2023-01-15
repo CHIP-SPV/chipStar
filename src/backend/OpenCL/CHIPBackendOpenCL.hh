@@ -191,6 +191,32 @@ class CHIPQueueOpenCL : public CHIPQueue {
 protected:
   // Any reason to make these private/protected?
   cl::CommandQueue *ClQueue_;
+  virtual void MemMap(AllocationInfo *AllocInfo,
+                      CHIPQueue::MEM_MAP_TYPE Type) override {
+    cl_int Status;
+    if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ) {
+      logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
+      Status =
+          clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
+                          AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+    } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_WRITE) {
+      logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
+      Status =
+          clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
+                          AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+    } else {
+      assert(0 && "Invalid MemMap Type");
+    }
+    assert(Status == CL_SUCCESS);
+  }
+
+  virtual void MemUnmap(AllocationInfo *AllocInfo) override {
+    logDebug("CHIPQueueOpenCL::MemUnmap");
+
+    auto Status =
+        clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, NULL);
+    assert(Status == CL_SUCCESS);
+  }
 
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
