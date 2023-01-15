@@ -1929,6 +1929,9 @@ protected:
 
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, bool KernelSubmitted);
 
+  virtual void MemMap(AllocationInfo *AllocInfo) {}
+  virtual void MemUnmap(AllocationInfo *AllocInfo) {}
+
 public:
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.

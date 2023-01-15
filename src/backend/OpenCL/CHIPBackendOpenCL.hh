@@ -187,6 +187,20 @@ protected:
   // Any reason to make these private/protected?
   cl::CommandQueue *ClQueue_;
 
+  virtual void MemMap(AllocationInfo *AllocInfo) override {
+    logDebug("CHIPQueueOpenCL::MemMap");
+    
+    auto Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ, AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL); 
+    assert(Status == CL_SUCCESS);
+  }
+
+  virtual void MemUnmap(AllocationInfo *AllocInfo) override {
+    logDebug("CHIPQueueOpenCL::MemUnmap");
+    
+    auto Status = clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, NULL); 
+    assert(Status == CL_SUCCESS);
+  }
+
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;

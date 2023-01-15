@@ -1779,6 +1779,17 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       continue;
     }
 
+    // required for OpenCL when fine-grain SVM is not availbale
+    if (AllocInfo->MemoryType == hipMemoryTypeHost) {
+      logDebug("MemoryType: host -> MAP/UNMAP");
+      if(!KernelSubmitted) {
+        MemUnmap(AllocInfo);
+      } else {
+        MemMap(AllocInfo);
+      }
+      continue;
+    }
+
     if (HostPtr) {
       auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
 
