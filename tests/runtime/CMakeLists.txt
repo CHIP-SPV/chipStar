@@ -39,3 +39,4 @@ function(add_hip_runtime_test MAIN_SOURCE)
 endfunction()
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
+add_hip_runtime_test(TestKernelArgs.hip)
