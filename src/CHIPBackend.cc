@@ -1628,16 +1628,16 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   {
     auto AllocInfoDst = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Dst);
     auto AllocInfoSrc = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Src);
-    if(AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    if(AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoDst);
-    if(AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    if(AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
 
-    if(AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    if(AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
-    if(AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    if(AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
 
     ChipEvent->Msg = "memCopy";
