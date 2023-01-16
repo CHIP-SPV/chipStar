@@ -258,8 +258,8 @@ public:
 
     if (FlagsRaw > 0)
       CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
-    
-    if(Coherent_ && NonCoherent_)
+
+    if (Coherent_ && NonCoherent_)
       CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
   }
   unsigned int getRaw() { return FlagsRaw_; }
@@ -347,22 +347,45 @@ class CHIPEventFlags {
   bool BlockingSync_ = false;
   bool DisableTiming_ = false;
   bool Interprocess_ = false;
+  bool ReleaseToDevice_ = false;
+  bool ReleaseToSystem_ = false;
 
 public:
   CHIPEventFlags() = default;
   CHIPEventFlags(unsigned Flags) {
 
-    if (Flags > (hipEventDefault | hipEventBlockingSync |
-                 hipEventDisableTiming | hipEventInterprocess))
+    if (Flags & hipEventBlockingSync) {
+      Flags = Flags & (~hipEventBlockingSync);
+      BlockingSync_ = true;
+    }
+    if (Flags & hipEventDisableTiming) {
+      Flags = Flags & (~hipEventDisableTiming);
+      DisableTiming_ = true;
+    }
+    if (Flags & hipEventInterprocess) {
+      Flags = Flags & (~hipEventInterprocess);
+      logWarn("hipEventInterprocess is not supported on CHIP-SPV");
+      Interprocess_ = true;
+    }
+    if (Flags & hipEventReleaseToDevice) {
+      Flags = Flags & (~hipEventReleaseToDevice);
+      logWarn("hipEventReleaseToDevice is not supported on CHIP-SPV");
+      ReleaseToDevice_ = true;
+    }
+    if (Flags & hipEventReleaseToSystem) {
+      Flags = Flags & (~hipEventReleaseToSystem);
+      logWarn("hipEventReleaseToSystem is not supported on CHIP-SPV");
+      ReleaseToSystem_ = true;
+    }
+
+    if (Interprocess_ && !DisableTiming_) {
+      CHIPERR_LOG_AND_THROW(
+          "hipEventInterprocess requires hipEventDisableTiming",
+          hipErrorInvalidValue);
+    }
+    if (Flags > 0)
       CHIPERR_LOG_AND_THROW("Invalid hipEvent flag combination",
                             hipErrorInvalidValue);
-
-    if (Flags & hipEventBlockingSync)
-      BlockingSync_ = true;
-    if (Flags & hipEventDisableTiming)
-      DisableTiming_ = true;
-    if (Flags & hipEventInterprocess)
-      Interprocess_ = true;
   }
 
   bool isDefault() {
@@ -1937,17 +1960,12 @@ protected:
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent *LastEvent_ = nullptr;
 
-enum class MANAGED_MEM_STATE {
-  PRE_KERNEL,
-  POST_KERNEL
-};
+  enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
-  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem, MANAGED_MEM_STATE ExecState);
-
-
+  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem,
+                               MANAGED_MEM_STATE ExecState);
 
 public:
-
   enum MEM_MAP_TYPE {
     HOST_READ,
     HOST_WRITE,
@@ -2146,8 +2164,8 @@ public:
 
     if (LastEvent_->updateFinishStatus(false))
       // LastEvent_->decreaseRefCount("query(): event became ready");
-    if (LastEvent_->isFinished())
-      return true;
+      if (LastEvent_->isFinished())
+        return true;
 
     return false;
   };
