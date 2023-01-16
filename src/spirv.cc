@@ -35,6 +35,10 @@
 
 const std::string OpenCLStd{"OpenCL.std"};
 
+static int32_t getSPVVersion(int Major, int Minor) {
+  return (Major << 16) | (Minor << 8);
+}
+
 class SPIRVtype {
   int32_t Id_;
   size_t Size_;
@@ -89,19 +93,19 @@ public:
   SPIRVtypePointer(int32_t Id, int32_t StorClass, size_t PointerSize)
       : SPIRVtype(Id, PointerSize) {
     switch (StorClass) {
-    case (int32_t)spv::StorageClass::CrossWorkgroup:
+    case (int32_t)spv::StorageClassCrossWorkgroup:
       ASpace_ = OCLSpace::Global;
       break;
 
-    case (int32_t)spv::StorageClass::Workgroup:
+    case (int32_t)spv::StorageClassWorkgroup:
       ASpace_ = OCLSpace::Local;
       break;
 
-    case (int32_t)spv::StorageClass::UniformConstant:
+    case (int32_t)spv::StorageClassUniformConstant:
       ASpace_ = OCLSpace::Constant;
       break;
 
-    case (int32_t)spv::StorageClass::Function:
+    case (int32_t)spv::StorageClassFunction:
       assert(0 && "should have been handled elsewhere!");
       break;
 
@@ -125,7 +129,7 @@ static bool parseHeader(const int32_t *&WordBuffer, size_t &NumWords) {
   }
   ++WordBuffer;
 
-  if (*WordBuffer < spv::Version10 || *WordBuffer > spv::Version12) {
+  if (*WordBuffer < getSPVVersion(1, 0) || *WordBuffer > getSPVVersion(1, 2)) {
     logError("Unsupported SPIR-V version.");
     return false;
   }
@@ -192,27 +196,27 @@ public:
 
   bool isKernelCapab() const {
     return (Opcode_ == spv::Op::OpCapability) &&
-           (Word1_ == (int32_t)spv::Capability::Kernel);
+           (Word1_ == (int32_t)spv::CapabilityKernel);
   }
   bool isExtIntOpenCL() const { return Extra_ == OpenCLStd; }
   bool isMemModelOpenCL() const {
     return (Opcode_ == spv::Op::OpMemoryModel) &&
-           (Word2_ == (int32_t)spv::MemoryModel::OpenCL);
+           (Word2_ == (int32_t)spv::MemoryModelOpenCL);
   }
   size_t getPointerSize() const {
     if (Opcode_ != spv::Op::OpMemoryModel)
       return 0;
-    return (Word1_ == (int32_t)spv::AddressingModel::Physical64) ? 8 : 4;
+    return (Word1_ == (int32_t)spv::AddressingModelPhysical64) ? 8 : 4;
   }
   bool isLangOpenCL() const {
     return (Opcode_ == spv::Op::OpSource) &&
-           ((Word1_ == (int32_t)spv::SourceLanguage::OpenCL_C) ||
-            (Word1_ == (int32_t)spv::SourceLanguage::OpenCL_CPP));
+           ((Word1_ == (int32_t)spv::SourceLanguageOpenCL_C) ||
+            (Word1_ == (int32_t)spv::SourceLanguageOpenCL_CPP));
   }
 
   bool isEntryPoint() {
     return (Opcode_ == spv::Op::OpEntryPoint) &&
-           (Word1_ == (int32_t)spv::ExecutionModel::Kernel);
+           (Word1_ == (int32_t)spv::ExecutionModelKernel);
   }
   int32_t entryPointID() { return Word2_; }
   std::string &&entryPointName() { return std::move(Extra_); }
@@ -312,7 +316,7 @@ public:
     if (Opcode_ == spv::Op::OpTypePointer) {
       // structs or vectors passed by value are represented in LLVM IR / SPIRV
       // by a pointer with "byval" keyword; handle them here
-      if (Word2_ == (int32_t)spv::StorageClass::Function) {
+      if (Word2_ == (int32_t)spv::StorageClassFunction) {
         int32_t Pointee = Word3_;
         auto Type = TypeMap[Pointee];
         if (!Type) {
@@ -509,7 +513,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     // attribute OpDecorations from the binary. OpNames do not have
     // semantical meaning and we are not currently linking the SPIR-V
     // modules with anything else.
-    if (Insn.isName() || Insn.isDecoration(spv::Decoration::LinkageAttributes))
+    if (Insn.isName() || Insn.isDecoration(spv::DecorationLinkageAttributes))
       continue;
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(int32_t));
