@@ -32,6 +32,7 @@
 #include "common.hh"
 #include "spirv.hh"
 #include "logging.hh"
+#include "Utils.hh"
 
 const std::string OpenCLStd{"OpenCL.std"};
 
@@ -39,14 +40,37 @@ static int32_t getSPVVersion(int Major, int Minor) {
   return (Major << 16) | (Minor << 8);
 }
 
+/// Represents alignment value which is non-zero 2**N integer.
+class Alignment {
+  size_t Val_ = 1;
+
+public:
+  Alignment() = default;
+  Alignment(size_t Val) : Val_(Val) {
+    assert(Val > 0 && "Must be non-zero");
+    assert(((Val - 1) & Val) == 0 && "Not power of two.");
+  }
+  operator size_t() const { return Val_; }
+};
+
 class SPIRVtype {
   int32_t Id_;
   size_t Size_;
+  /// Required alignment. For primitive types it is smallest
+  /// power-of-two => Size_. For aggregates, it is the largest
+  /// required alignment of its members.
+  Alignment Align_;
 
 public:
-  SPIRVtype(int32_t Id, size_t Size) : Id_(Id), Size_(Size) {}
+  /// Type with requested alignment.
+  SPIRVtype(int32_t Id, size_t Size, Alignment AlignVal)
+      : Id_(Id), Size_(Size), Align_(AlignVal) {}
+  /// Type with a power-of-tow alignment deducted from 'Size'.
+  SPIRVtype(int32_t Id, size_t Size)
+      : SPIRVtype(Id, Size, roundUpToPowerOfTwo(Size)) {}
   virtual ~SPIRVtype(){};
   size_t size() { return Size_; }
+  size_t alignment() const { return Align_; }
   int32_t id() { return Id_; }
   virtual OCLType ocltype() = 0;
   virtual OCLSpace getAS() { return OCLSpace::Private; }
@@ -56,6 +80,8 @@ typedef std::map<int32_t, SPIRVtype *> SPIRTypeMap;
 
 class SPIRVtypePOD : public SPIRVtype {
 public:
+  SPIRVtypePOD(int32_t Id, size_t Size, Alignment AlignVal)
+      : SPIRVtype(Id, Size, AlignVal) {}
   SPIRVtypePOD(int32_t Id, size_t Size) : SPIRVtype(Id, Size) {}
   virtual ~SPIRVtypePOD(){};
   virtual OCLType ocltype() override { return OCLType::POD; }
@@ -117,6 +143,32 @@ public:
   virtual OCLType ocltype() override { return OCLType::Pointer; }
   OCLSpace getAS() override { return ASpace_; }
 };
+
+class SPIRVConstant {
+  std::vector<int32_t> ConstantWords_;
+
+public:
+  SPIRVConstant(SPIRVtype *Type, size_t NumConstWords,
+                const int32_t *ConstWords) {
+    ConstantWords_.insert(ConstantWords_.end(), ConstWords,
+                          ConstWords + NumConstWords);
+  }
+
+  template <typename T> T interpretAs() const {
+    assert(false && "Undefined accessor!");
+  };
+
+  template <> uint64_t interpretAs() const {
+    assert(ConstantWords_.size() > 0 && "Invalid constant word count.");
+    assert(ConstantWords_.size() <= 2 && "Constant may not fit to uint64_t.");
+    if (ConstantWords_.size() == 1)
+      return static_cast<uint32_t>(ConstantWords_[0]);
+    // Copy the value in order to satisfy alignment requirement of the type.
+    return copyAs<uint64_t>(ConstantWords_.data());
+  }
+};
+
+typedef std::map<int32_t, SPIRVConstant *> SPIRVConstMap;
 
 // Parses and checks SPIR-V header. Sets word buffer pointer to poin
 // past the header and updates NumWords count to exclude header words.
@@ -236,8 +288,27 @@ public:
     assert(isType());
     return Word1_;
   }
+
+  bool hasResultType() const {
+    bool Ignored, HasType;
+    spv::HasResultAndType(Opcode_, &Ignored, &HasType);
+    return HasType;
+  }
+
+  bool hasResultID() const {
+    bool HasResult, Ignored;
+    spv::HasResultAndType(Opcode_, &HasResult, &Ignored);
+    return HasResult;
+  }
+
+  int32_t getResultID() const {
+    assert(hasResultID() && "Instruction does not have a result operand!");
+    return hasResultType() ? Word2_ : Word1_;
+  }
+
   bool isFunctionType() const { return (Opcode_ == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (Opcode_ == spv::Op::OpFunction); }
+  bool isConstant() const { return (Opcode_ == spv::Op::OpConstant); }
 
   // Return true if the instruction is an OpName.
   bool isName() const { return Opcode_ == spv::Op::OpName; }
@@ -247,7 +318,8 @@ public:
     return Opcode_ == spv::Op::OpDecorate && Word2_ == (int32_t)Dec;
   }
 
-  SPIRVtype *decodeType(SPIRTypeMap &TypeMap, size_t PointerSize) {
+  SPIRVtype *decodeType(SPIRTypeMap &TypeMap, SPIRVConstMap &ConstMap,
+                        size_t PointerSize) {
     if (Opcode_ == spv::Op::OpTypeVoid) {
       return new SPIRVtypePOD(Word1_, 0);
     }
@@ -275,17 +347,31 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpTypeArray) {
-      auto Type = TypeMap[Word2_];
-      if (!Type) {
+      auto EltType = TypeMap[Word2_];
+      if (!EltType) {
         logWarn("SPIR-V Parser: Word2_ {} not found in type map", Word2_);
         return nullptr;
       }
-      size_t TypeSize = Type->size();
-      return new SPIRVtypePOD(Word1_, TypeSize * Word3_);
+      // Compute actual element size due padding for meeting the
+      // alignment requirements.  C analogy as example: 'struct {int
+      // a; char b; }' takes 8 bytes per element in the array.
+      //
+      auto *EltCountOperand = ConstMap[Word3_];
+      if (!EltCountOperand) {
+        logWarn("SPIR-V Parser: Could not parse OpConstant "
+                "operand.");
+        return nullptr;
+      }
+      auto EltCount = EltCountOperand->interpretAs<uint64_t>();
+      auto TypeSize = roundUp(EltType->size(), EltType->alignment());
+      // TODO: Should padding in the tail be discounted?
+      return new SPIRVtypePOD(Word1_, TypeSize * EltCount,
+                              EltType->alignment());
     }
 
     if (Opcode_ == spv::Op::OpTypeStruct) {
       size_t TotalSize = 0;
+      Alignment MaxAlignment;
       for (size_t i = 2; i < WordCount_; ++i) {
         int32_t MemberId = OrigStream_[i];
 
@@ -294,11 +380,16 @@ public:
           logWarn("SPIR-V Parser: MemberId {} not found in type map", MemberId);
           continue;
         }
-        size_t TypeSize = Type->size();
-
-        TotalSize += TypeSize;
+        // Compute actual size as in spv::Op::OpTypeArray branch
+        // except don't account the tail padding. C analogy as
+        // example: 'struct { char a; int b; char c}' takes 9 bytes.
+        size_t MemberAlignment = Type->alignment();
+        TotalSize = roundUp(TotalSize, MemberAlignment);
+        TotalSize += Type->size();
+        if (MemberAlignment > MaxAlignment)
+          MaxAlignment = MemberAlignment;
       }
-      return new SPIRVtypePOD(Word1_, TotalSize);
+      return new SPIRVtypePOD(Word1_, TotalSize, MaxAlignment);
     }
 
     if (Opcode_ == spv::Op::OpTypeOpaque) {
@@ -335,6 +426,17 @@ public:
     return nullptr;
   }
 
+  SPIRVConstant *decodeConstant(SPIRTypeMap &TypeMap) const {
+    assert(isConstant());
+    assert(WordCount_ >= 4 && "Invalid OpConstant word count!");
+
+    if (auto *Type = TypeMap[Word1_])
+      return new SPIRVConstant(Type, WordCount_ - 3, &OrigStream_[3]);
+
+    logWarn("SPIR-V Parser: Missing type declaration for a constant");
+    return nullptr;
+  }
+
   OCLFuncInfo *decodeFunctionType(SPIRTypeMap &TypeMap, size_t PointerSize) {
     assert(Opcode_ == spv::Op::OpTypeFunction);
 
@@ -367,6 +469,7 @@ public:
 class SPIRVmodule {
   std::map<int32_t, std::string> EntryPoints_;
   SPIRTypeMap TypeMap_;
+  SPIRVConstMap ConstMap_;
   OCLFuncInfoMap FunctionTypeMap_;
   std::map<int32_t, int32_t> EntryToFunctionTypeIDMap_;
 
@@ -378,9 +481,10 @@ class SPIRVmodule {
 
 public:
   ~SPIRVmodule() {
-    for (auto I : TypeMap_) {
+    for (auto I : TypeMap_)
       delete I.second;
-    }
+    for (auto I : ConstMap_)
+      delete I.second;
   }
 
   bool valid() {
@@ -463,7 +567,8 @@ private:
                              Inst.decodeFunctionType(TypeMap_, PointerSize)));
         else
           TypeMap_.emplace(std::make_pair(
-              Inst.getTypeID(), Inst.decodeType(TypeMap_, PointerSize)));
+              Inst.getTypeID(),
+              Inst.decodeType(TypeMap_, ConstMap_, PointerSize)));
       }
 
       if (Inst.isFunction() &&
@@ -475,6 +580,11 @@ private:
 
         EntryToFunctionTypeIDMap_.emplace(
             std::make_pair(Inst.getFunctionID(), Inst.getFunctionTypeID()));
+      }
+
+      if (Inst.isConstant()) {
+        auto *Const = Inst.decodeConstant(TypeMap_);
+        ConstMap_.emplace(std::make_pair(Inst.getResultID(), Const));
       }
 
       NumWords -= Inst.size();

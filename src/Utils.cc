@@ -27,13 +27,6 @@
 #include <fstream>
 #include <random>
 
-template <class T>
-static T copyAs(const void *BaseAddr, size_t ByteOffset = 0) {
-  T Res;
-  std::memcpy(&Res, (const char *)BaseAddr + ByteOffset, sizeof(T));
-  return Res;
-}
-
 /// Returns true if the file can be executed.
 static bool canExecute(const fs::path &Path) {
   if (!fs::exists(Path))
