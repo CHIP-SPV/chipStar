@@ -2406,7 +2406,8 @@ hipError_t hipMallocHost(void **Ptr, size_t Size) {
 hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Ptr);
+  if(Ptr == nullptr)
+    CHIPERR_LOG_AND_THROW("Ptr is null", hipErrorInvalidValue);
   if (Size == 0) {
     *Ptr = nullptr;
     RETURN(hipSuccess);

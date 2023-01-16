@@ -1132,7 +1132,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
     if (Flags.isCoherent())
       UNIMPLEMENTED(nullptr);
     if (Flags.isNonCoherent())
-      UNIMPLEMENTED(nullptr);
+      // UNIMPLEMENTED(nullptr);
     if (Flags.isNumaUser())
       UNIMPLEMENTED(nullptr);
     if (Flags.isPortable())

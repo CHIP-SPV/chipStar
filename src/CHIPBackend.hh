@@ -258,6 +258,9 @@ public:
 
     if (FlagsRaw > 0)
       CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
+    
+    if(Coherent_ && NonCoherent_)
+      CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
   }
   unsigned int getRaw() { return FlagsRaw_; }
   bool isDefault() { return Default_; }
