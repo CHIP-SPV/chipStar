@@ -178,6 +178,13 @@ option(STANDALONE_TESTS "Create a separate executable for each test instead of c
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
 
+# Warpsize would optimally be a device-specific, queried and made
+# effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
+# to be portable across multiple devices. It should be more portable to
+# fix it to 32 instead of 64, with a trade-off of potential underutilization
+# with GPUs with 64 wide warps.
+set(DEFAULT_WARP_SIZE 32 CACHE INTEGER "The warp size to use.")
+
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
 set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
@@ -337,6 +344,7 @@ target_include_directories(CHIP
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
   "${CMAKE_BINARY_DIR}"
+  "${CMAKE_BINARY_DIR}/include"
 )
 
 # CHIP-SPV COMPILATION SETUP
@@ -440,7 +448,8 @@ set(CHIP_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
 set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
-configure_file(Config.hh.in Config.hh @ONLY)
+set(CHIP_DEFAULT_WARP_SIZE ${DEFAULT_WARP_SIZE})
+configure_file(CHIPSPVConfig.hh.in include/CHIPSPVConfig.hh @ONLY)
 
 # PROJECT CONFIGURATION HEADER
 # =============================================================================
@@ -552,6 +561,7 @@ install(TARGETS CHIP
   INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
 )
 
+install(FILES ${CMAKE_BINARY_DIR}/include/CHIPSPVConfig.hh DESTINATION ${INCLUDE_INSTALL_DIR})
 install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS)

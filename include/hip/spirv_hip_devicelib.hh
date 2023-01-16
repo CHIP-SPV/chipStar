@@ -64,8 +64,6 @@ THE SOFTWARE.
 #include <hip/devicelib/integer/int_intrinsics.hh>
 #include <hip/devicelib/integer/int_math.hh>
 
-#define DEFAULT_WARP_SIZE 32
-
 // BEGIN INTRINSICS
 #if defined OCML_BASIC_ROUNDED_OPERATIONS
 __DEVICE__
@@ -1190,77 +1188,12 @@ EXPORT clock_t clock() { return (clock_t)clock64(); }
 
 #if defined(__HIP_DEVICE_COMPILE__)
 extern "C" {
-NON_OVLD int GEN_NAME2(shfl, i)(int var, int srcLane);
-NON_OVLD float GEN_NAME2(shfl, f)(float var, int srcLane);
-NON_OVLD int GEN_NAME2(shfl_xor, i)(int var, int laneMask);
-NON_OVLD float GEN_NAME2(shfl_xor, f)(float var, int laneMask);
-NON_OVLD int GEN_NAME2(shfl_up, i)(int var, unsigned int delta);
-NON_OVLD float GEN_NAME2(shfl_up, f)(float var, unsigned int delta);
-NON_OVLD int GEN_NAME2(shfl_down, i)(int var, unsigned int delta);
-NON_OVLD float GEN_NAME2(shfl_down, f)(float var, unsigned int delta);
 NON_OVLD int GEN_NAME(group_all)(int pred);
 NON_OVLD int GEN_NAME(group_any)(int pred);
 NON_OVLD uint64_t GEN_NAME(group_ballot)(int pred);
 }
 
-EXPORT OVLD int __shfl(int var, int srcLane) {
-  return GEN_NAME2(shfl, i)(var, srcLane);
-};
-EXPORT OVLD float __shfl(float var, int srcLane) {
-  return GEN_NAME2(shfl, f)(var, srcLane);
-};
-EXPORT OVLD int __shfl_xor(int var, int laneMask,
-                           int warpsize = DEFAULT_WARP_SIZE) {
-  return GEN_NAME2(shfl_xor, i)(var, laneMask);
-};
-EXPORT OVLD float __shfl_xor(float var, int laneMask,
-                             int warpsize = DEFAULT_WARP_SIZE) {
-  return GEN_NAME2(shfl_xor, f)(var, laneMask);
-};
-EXPORT OVLD int __shfl_up(int var, unsigned int delta,
-                          int warpsize = DEFAULT_WARP_SIZE) {
-  return GEN_NAME2(shfl_up, i)(var, delta);
-};
-EXPORT OVLD float __shfl_up(float var, unsigned int delta,
-                            int warpsize = DEFAULT_WARP_SIZE) {
-  return GEN_NAME2(shfl_up, f)(var, delta);
-};
-EXPORT OVLD int __shfl_down(int var, unsigned int delta,
-                            int warpsize = DEFAULT_WARP_SIZE) {
-  return GEN_NAME2(shfl_down, i)(var, delta);
-};
-EXPORT OVLD float __shfl_down(float var, unsigned int delta,
-                              int warpsize = DEFAULT_WARP_SIZE) {
-  return GEN_NAME2(shfl_down, f)(var, delta);
-};
-EXPORT int __all(int predicate) { return GEN_NAME(group_all)(predicate); };
-EXPORT int __any(int predicate) { return GEN_NAME(group_any)(predicate); };
-EXPORT uint64_t __ballot(int predicate) {
-  return GEN_NAME(group_ballot)(predicate);
-};
 #else
-
-EXPORT OVLD int __shfl(int var, int srcLane);
-EXPORT OVLD float __shfl(float var, int srcLane);
-
-EXPORT OVLD int __shfl_xor(int var, int laneMask,
-                           int warpsize = DEFAULT_WARP_SIZE);
-EXPORT OVLD float __shfl_xor(float var, int laneMask,
-                             int warpsize = DEFAULT_WARP_SIZE);
-
-EXPORT OVLD int __shfl_up(int var, unsigned int delta,
-                          int warpsize = DEFAULT_WARP_SIZE);
-EXPORT OVLD float __shfl_up(float var, unsigned int delta,
-                            int warpsize = DEFAULT_WARP_SIZE);
-
-EXPORT OVLD int __shfl_down(int var, unsigned int delta,
-                            int warpsize = DEFAULT_WARP_SIZE);
-EXPORT OVLD float __shfl_down(float var, unsigned int delta,
-                              int warpsize = DEFAULT_WARP_SIZE);
-
-EXPORT int __all(int predicate);
-EXPORT int __any(int predicate);
-EXPORT uint64_t __ballot(int predicate);
 
 #endif
 

@@ -749,50 +749,90 @@ EXPORT uint CL_NAME_MANGLED_ATOM(dec2, u)(DEFAULT_AS uint *address,
 }
 /**********************************************************************/
 
-int OVLD intel_sub_group_shuffle(int var, uint srcLane);
-float OVLD intel_sub_group_shuffle(float var, uint srcLane);
-int OVLD intel_sub_group_shuffle_xor(int var, uint value);
-float OVLD intel_sub_group_shuffle_xor(float var, uint value);
-int OVLD intel_sub_group_shuffle_up(int prev, int curr, uint delta);
-float OVLD intel_sub_group_shuffle_up(float prev, float curr, uint delta);
-int OVLD intel_sub_group_shuffle_down(int prev, int curr, uint delta);
-float OVLD intel_sub_group_shuffle_down(float prev, float curr, uint delta);
+// Use the Intel versions for now by default, since the Intel OpenCL CPU
+// driver still implements only them, not the KHR versions.
+#define sub_group_shuffle intel_sub_group_shuffle
+#define sub_group_shuffle_xor intel_sub_group_shuffle_xor
 
-EXPORT int CL_NAME2(shfl, i)(int var, int srcLane) {
-  return intel_sub_group_shuffle(var, srcLane);
-};
-EXPORT float CL_NAME2(shfl, f)(float var, int srcLane) {
-  return intel_sub_group_shuffle(var, srcLane);
-};
+int OVLD sub_group_shuffle(int var, uint srcLane);
+float OVLD sub_group_shuffle(float var, uint srcLane);
+int OVLD sub_group_shuffle_xor(int var, uint value);
+float OVLD sub_group_shuffle_xor(float var, uint value);
 
-EXPORT int CL_NAME2(shfl_xor, i)(int var, int value) {
-  return intel_sub_group_shuffle_xor(var, value);
-};
-EXPORT float CL_NAME2(shfl_xor, f)(float var, int value) {
-  return intel_sub_group_shuffle_xor(var, value);
-};
+// Compute the full warp lane id given a subwarp of size wSize and
+// a "logical" lane id within it.
+//
+// Assumes that each subwarp behaves as a separate entity
+// with a starting logical lane ID of 0.
+__attribute__((always_inline))
+static int warpLaneId(int subWarpLaneId, int wSize) {
+  if (wSize == DEFAULT_WARP_SIZE)
+    return subWarpLaneId;
+  unsigned laneId = get_sub_group_local_id();
+  unsigned logicalSubWarp = laneId / wSize;
+  return logicalSubWarp * wSize + subWarpLaneId;
+}
 
-EXPORT int CL_NAME2(shfl_up, i)(int var, uint delta) {
-  int tmp = 0;
-  int tmp2 = intel_sub_group_shuffle_down(tmp, var, delta);
-  return intel_sub_group_shuffle_up(tmp2, var, delta);
-};
-EXPORT float CL_NAME2(shfl_up, f)(float var, uint delta) {
-  float tmp = 0;
-  float tmp2 = intel_sub_group_shuffle_down(tmp, var, delta);
-  return intel_sub_group_shuffle_up(tmp2, var, delta);
-};
+EXPORT OVLD int __shfl(int var, int srcLane, int wSize) {
+  int laneId = get_sub_group_local_id();
+  return sub_group_shuffle(var, warpLaneId(srcLane, wSize));
+}
+EXPORT OVLD float __shfl(float var, int srcLane, int wSize) {
+  return sub_group_shuffle(var, warpLaneId(srcLane, wSize));
+}
 
-EXPORT int CL_NAME2(shfl_down, i)(int var, uint delta) {
-  int tmp = 0;
-  int tmp2 = intel_sub_group_shuffle_up(var, tmp, delta);
-  return intel_sub_group_shuffle_down(var, tmp2, delta);
-};
-EXPORT float CL_NAME2(shfl_down, f)(float var, uint delta) {
-  float tmp = 0;
-  float tmp2 = intel_sub_group_shuffle_up(var, tmp, delta);
-  return intel_sub_group_shuffle_down(var, tmp2, delta);
-};
+EXPORT OVLD int __shfl_xor(int var, int value, int warpSizeOverride) {
+  return sub_group_shuffle_xor(var, value);
+}
+EXPORT OVLD float __shfl_xor(float var, int value, int warpSizeOverride) {
+  return sub_group_shuffle_xor(var, value);
+}
+
+
+#define __SHFL_UP(T)							\
+  EXPORT OVLD T __shfl_up(T var, uint delta, int wSize) {		\
+    int laneId = get_sub_group_local_id();				\
+    int logicalSubWarp = laneId / wSize;				\
+    int logicalSubWarpLaneId = laneId % wSize;				\
+    int subWarpSrcId = logicalSubWarpLaneId - delta;			\
+    if (subWarpSrcId < 0)						\
+      subWarpSrcId = logicalSubWarpLaneId;				\
+    return sub_group_shuffle(var, logicalSubWarp * wSize + subWarpSrcId); \
+}
+
+__SHFL_UP(int);
+__SHFL_UP(float);
+
+#define __SHFL_DOWN(T)							\
+EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {		\
+  int laneId = get_sub_group_local_id();				\
+  int logicalSubWarp = laneId / wSize;					\
+  int logicalSubWarpLaneId = laneId % wSize;				\
+  int subWarpSrcId = logicalSubWarpLaneId + delta;			\
+  if (subWarpSrcId >= wSize)						\
+    subWarpSrcId = logicalSubWarpLaneId;				\
+  return sub_group_shuffle(var, logicalSubWarp * wSize + subWarpSrcId); \
+}
+
+__SHFL_DOWN(int);
+__SHFL_DOWN(float);
+
+EXPORT OVLD ulong __ballot(int predicate) {
+#if DEFAULT_WARP_SIZE <= 32
+  return sub_group_ballot(predicate).x;
+#else
+  return sub_group_ballot(predicate).x |
+    (sub_group_ballot(predicate).y << 32);
+#endif
+}
+
+EXPORT OVLD int __all(int predicate) {
+  return __ballot(predicate) == ~0;
+}
+
+EXPORT OVLD int __any(int predicate) {
+  return __ballot(predicate) != 0;
+}
 
 typedef struct {
   intptr_t  image;
