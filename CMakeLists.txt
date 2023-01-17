@@ -295,29 +295,23 @@ add_subdirectory(bin)
 
 # tests that fail only when run many times
 list(APPEND FLAKY_TESTS "Unit_hipStreamCreateWithPriority_ValidateWithEvents")
-list(APPEND FLAKY_TESTS "cuda-simpleCallback")
-list(APPEND FLAKY_TESTS "hipMultiThreadAddCallback")
-# 24 - hipStreamSemantics (Timeout)
-# 669 - Unit_hipStreamAddCallback_WithCreatedStream (Timeout)
 
 # Failing Interop tests
 list(APPEND FAILING_TESTS "hip_sycl_interop")
 list(APPEND FAILING_TESTS "hip_sycl_interop_no_buffers")
 
 # Tests that timeout
-list(APPEND TIMEOUT_TESTS "Unit_hipMemset2DAsync_MultiThread")
+list(APPEND TIMEOUT_TESTS "hipMultiThreadAddCallback")
+list(APPEND TIMEOUT_TESTS "cuda-simpleCallback")
 list(APPEND TIMEOUT_TESTS "Unit_hipMemset3DASyncMulti")
 list(APPEND TIMEOUT_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun")
 list(APPEND TIMEOUT_TESTS "Unit_hipGraphAddEventWaitNode_MultipleRun")
-# list(APPEND TIMEOUT_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_diffprio")
 list(APPEND TIMEOUT_TESTS "Unit_hipStreamBeginCapture_CapturingMultGraphsFrom1Strm")
 list(APPEND TIMEOUT_TESTS "Unit_hipMemset2DAsync_MultiThread")
-# list(APPEND TIMEOUT_TESTS "Unit_hipMemsetFunctional_PartialSet_3D")
 list(APPEND TIMEOUT_TESTS "Unit_hipStreamCreate_MultistreamBasicFunctionalities")
 list(APPEND TIMEOUT_TESTS "Unit_hipDeviceGetStreamPriorityRange_Default")
 list(APPEND TIMEOUT_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming")
 list(APPEND TIMEOUT_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive")
-# list(APPEND TIMEOUT_TESTS "Unit_hipHostMalloc_CoherentAccess")
 list(APPEND TIMEOUT_TESTS "Unit_hipStreamAddCallback_MultipleThreads")
 
 # Unimplemented devicelib functions
@@ -498,9 +492,13 @@ list(APPEND FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr")
 list(APPEND FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr")
 list(APPEND FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes")
 list(APPEND FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds")
-list(APPEND FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset")
-list(APPEND FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
-# list(APPEND FAILED_TESTS "Unit_hipHostMalloc_ArgValidation")
+
+list(APPEND LEVEL0_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Level Zero Only
+list(APPEND FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Level Zero Only
+
+list(APPEND LEVEL0_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Level Zero Only
+list(APPEND FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Level Zero Only
+
 list(APPEND FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz")
 list(APPEND SEGFAULT_TESTS "Unit_hipMemcpyFromToSymbol_Negative")
 list(APPEND FAILED_TESTS "Unit_hipPtrGetAttribute_Simple")
@@ -511,10 +509,6 @@ list(APPEND FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse")
 list(APPEND FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic")
 list(APPEND FAILED_TESTS "Unit_hipMemPoolApi_Default")
 list(APPEND FAILED_TESTS "Unit_hipMalloc_ArgumentValidation")
-# list(APPEND FAILED_TESTS "Unit_hipHostMalloc_Basic")
-# list(APPEND FAILED_TESTS "Unit_hipHostMalloc_NonCoherent")
-# list(APPEND FAILED_TESTS "Unit_hipHostMalloc_Coherent")
-# list(APPEND FAILED_TESTS "Unit_hipHostMalloc_Default")
 list(APPEND FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck")
 list(APPEND FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset")
 list(APPEND FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32")
@@ -605,12 +599,14 @@ list(APPEND FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t")
 list(APPEND FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t")
 list(APPEND FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t")
 list(APPEND FAILED_TESTS "Unit_hipMemset2DASyncMulti")
-list(APPEND ABORTED_TESTS "Unit_HMM_OverSubscriptionTst")
+
+list(APPEND LEVEL0_FAILED_TESTS "Unit_HMM_OverSubscriptionTst") # Level Zero only
+list(APPEND ABORTED_TESTS "Unit_HMM_OverSubscriptionTst") # Level Zero only
+
 list(APPEND FAILED_TESTS "Unit_hipStreamGetFlags_Negative")
 list(APPEND FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy")
 list(APPEND FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream")
 list(APPEND FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream")
-# list(APPEND FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags")
 list(APPEND FAILED_TESTS "Unit_hipEventRecord")
 list(APPEND FAILED_TESTS "Unit_hipEventIpc")
 list(APPEND FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive")
@@ -677,25 +673,35 @@ list(APPEND ABORTED_TESTS "Unit_hipGetLastError_Positive_Threaded")
 list(APPEND FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic")
 list(APPEND ABORTED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded")
 
-list(APPEND ALL_FAILED_TESTS ${FAILED_TESTS})
-list(APPEND ALL_FAILED_TESTS ${TIMEOUT_TESTS})
-list(APPEND ALL_FAILED_TESTS ${FLAKY_TESTS})
-list(APPEND ALL_FAILED_TESTS ${SEGFAULT_TESTS})
-list(APPEND ALL_FAILED_TESTS ${ABORTED_TESTS})
+# All failed tests except timeout tests
+list(APPEND ALL_FAILED_TESTS_NO_TIMEOUT ${FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS_NO_TIMEOUT ${FLAKY_TESTS})
+list(APPEND ALL_FAILED_TESTS_NO_TIMEOUT ${SEGFAULT_TESTS})
+list(APPEND ALL_FAILED_TESTS_NO_TIMEOUT ${ABORTED_TESTS})
 
+# All failed tests
+list(APPEND ALL_FAILED_TESTS ${ALL_FAILED_TESTS_NO_TIMEOUT})
+list(APPEND ALL_FAILED_TESTS ${TIMEOUT_TESTS})
+
+string(REGEX REPLACE ";" "\$|" LEVEL0_FAILED_TESTS_STR "${LEVEL0_FAILED_TESTS}")
+string(REGEX REPLACE ";" "\$|" OPENCL_FAILED_TESTS_STR "${OPENCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" FAILED_TESTS_STR "${FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" TIMEOUT_TESTS_STR "${TIMEOUT_TESTS}")
 string(REGEX REPLACE ";" "\$|" FLAKY_TESTS_STR "${FLAKY_TESTS}")
 string(REGEX REPLACE ";" "\$|" SEGFAULT_TESTS_STR "${SEGFAULT_TESTS}")
 string(REGEX REPLACE ";" "\$|" ABORTED_TESTS_STR "${ABORTED_TESTS}")
+string(REGEX REPLACE ";" "\$|" ALL_FAILED_TESTS_NO_TIMEOUT_STR "${ALL_FAILED_TESTS_NO_TIMEOUT}")
 string(REGEX REPLACE ";" "\$|" ALL_FAILED_TESTS_STR "${ALL_FAILED_TESTS}")
 
-FILE(WRITE "${CMAKE_BINARY_DIR}/failed_tests.txt" "\"${FAILED_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/timeout_tests.txt" "\"${TIMEOUT_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/flaky_tests.txt" "\"${FLAKY_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/segfault_tests.txt" "\"${SEGFAULT_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/aborted_tests.txt" "\"${ABORTED_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/level0_failed_tests.txt" "\"${LEVEL0_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/opencl_failed_tests.txt" "\"${OPENCL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/failed_tests.txt" "\"${FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/timeout_tests.txt" "\"${TIMEOUT_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/flaky_tests.txt" "\"${FLAKY_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/segfault_tests.txt" "\"${SEGFAULT_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/aborted_tests.txt" "\"${ABORTED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests_no_timeout.txt" "\"${ALL_FAILED_TESTS_NO_TIMEOUT_STR}\"")
 
 set(EXCLUDED_TESTS "${ALL_FAILED_TESTS_STR}$")
 
