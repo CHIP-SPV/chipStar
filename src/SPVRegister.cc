@@ -45,7 +45,7 @@ THE SOFTWARE.
 /// lifetime must last until the unregistration.
 SPVRegister::Handle SPVRegister::registerSource(std::string_view SourceModule) {
   assert(SourceModule.size() && "Source module must be non-empty.");
-  LOCK(Mtx_);
+  LOCK(Mtx_); // SPVRegister::Sources_
   auto Ins = Sources_.emplace(std::make_unique<SPVModule>());
   SPVModule *SrcMod = Ins.first->get();
   SrcMod->OriginalBinary_ = SourceModule;
@@ -56,7 +56,7 @@ SPVRegister::Handle SPVRegister::registerSource(std::string_view SourceModule) {
 /// source module (Handle).
 void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
                                std::string_view Name) {
-  LOCK(Mtx_);
+  LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
 
@@ -81,7 +81,7 @@ void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
 /// source module (Handle).
 void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
                                std::string_view Name, size_t Size) {
-  LOCK(Mtx_);
+  LOCK(Mtx_); // SPVRegister::Sources_ 
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
   // Host pointer should be associated with one source module and variable.
@@ -100,7 +100,7 @@ void SPVRegister::unregisterSource(SPVRegister::Handle Handle) {
 
 /// Same as unregisterSource(SPVRegister::Handle)
 void SPVRegister::unregisterSource(const SPVModule *ConstSrcMod) {
-  LOCK(Mtx_);
+  LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = const_cast<SPVModule *>(ConstSrcMod);
 
   auto SrcIt = Sources_.find(SrcMod);
@@ -117,7 +117,7 @@ void SPVRegister::unregisterSource(const SPVModule *ConstSrcMod) {
 
 /// Get finalized source module associated with the given host pointer.
 const SPVModule *SPVRegister::getSource(HostPtr Ptr) {
-  LOCK(Mtx_);
+  LOCK(Mtx_); // SPVRegister::HostPtrLookup_
   auto IT = HostPtrLookup_.find(Ptr);
   if (IT == HostPtrLookup_.end())
     return nullptr;

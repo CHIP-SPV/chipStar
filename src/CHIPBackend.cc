@@ -112,8 +112,8 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
   {
-    LOCK(
-        AllocationTrackerMtx); // reading CHIPAllocationTracker::PtrToAllocInfo_
+    LOCK( // CHIPAllocationTracker::PtrToAllocInfo_
+        AllocationTrackerMtx); 
     // In case that Ptr is the base of the allocation, check hash map directly
     auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
     if (Found)
@@ -278,6 +278,7 @@ CHIPKernel *CHIPModule::getKernelByName(const std::string &Name) {
 bool CHIPModule::hasKernel(std::string Name) { return findKernel(Name); }
 
 CHIPKernel *CHIPModule::getKernel(const void *HostFPtr) {
+  logDebug("{} CHIPModule::getKernel({})", (void *)this, HostFPtr);
   for (auto &Kernel : ChipKernels_)
     logDebug("chip kernel: {} {}", Kernel->getHostPtr(), Kernel->getName());
   auto KernelFound = std::find_if(ChipKernels_.begin(), ChipKernels_.end(),
@@ -893,7 +894,7 @@ void CHIPDevice::prepareDeviceVariables(HostPtr Ptr) {
 void CHIPDevice::invalidateDeviceVariables() {
   // CHIPDevice::SrcModToCompiledMod_
   // CHIPModule::invalidateDeviceVariablesNoLock()
-  LOCK(DeviceVarMtx);
+  LOCK(DeviceVarMtx); // CHIPDevice::SrcModToCompiledMod_
   logTrace("invalidate device variables.");
   for (auto &Kv : SrcModToCompiledMod_)
     Kv.second->invalidateDeviceVariablesNoLock();
@@ -902,7 +903,7 @@ void CHIPDevice::invalidateDeviceVariables() {
 void CHIPDevice::deallocateDeviceVariables() {
   // CHIPDevice::SrcModToCompiledMod_
   // CHIPModule::deallocateDeviceVariablesNoLock()
-  LOCK(DeviceVarMtx);
+  LOCK(DeviceVarMtx); // CHIPDevice::SrcModToCompiledMod_
   logTrace("Deallocate storage for device variables.");
   for (auto &Kv : SrcModToCompiledMod_)
     Kv.second->deallocateDeviceVariablesNoLock(this);
@@ -939,10 +940,9 @@ CHIPModule *CHIPDevice::getOrCreateModule(HostPtr Ptr) {
 
 /// Get compiled module for the source module 'SrcMod'.
 CHIPModule *CHIPDevice::getOrCreateModule(const SPVModule &SrcMod) {
-  // CHIPDevice::SrcModToCompiledMod_
-  // CHIPDevice::HostPtrToCompiledMod_
-  // CHIPDevice::DeviceVarLookup_
-  LOCK(DeviceVarMtx);
+  LOCK(DeviceVarMtx); // CHIPDevice::SrcModToCompiledMod_
+                      // CHIPDevice::HostPtrToCompiledMod_
+                      // CHIPDevice::DeviceVarLookup_
 
   // Check if we have already created the module for the source.
   if (SrcModToCompiledMod_.count(&SrcMod))
@@ -1289,14 +1289,6 @@ void CHIPBackend::waitForThreadExit() {
        * freed.
        *
        */
-      // for (auto Q : Dev->getQueues()) {
-      //   // LOCK(Q->QueueMtx);
-      //   //  Q->finish(); these are user queues. Mostly likely allocated on
-      //   the
-      //   //  stack in the main. Ideally, the user would have called sync. We
-      //   //  should just remove these queues.
-      //   Q->updateLastEvent(nullptr);
-      // }
     }
   }
 }
