@@ -113,7 +113,7 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
   {
     LOCK( // CHIPAllocationTracker::PtrToAllocInfo_
-        AllocationTrackerMtx); 
+        AllocationTrackerMtx);
     // In case that Ptr is the base of the allocation, check hash map directly
     auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
     if (Found)
