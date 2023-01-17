@@ -240,12 +240,6 @@ void CHIPEventMonitorOpenCL::monitor() {
 // CHIPDeviceOpenCL
 // ************************************************************************
 
-CHIPModuleOpenCL *CHIPDeviceOpenCL::addModule(std::string *ModuleStr) {
-  CHIPModuleOpenCL *Module = new CHIPModuleOpenCL(ModuleStr);
-  ChipModules.insert(std::make_pair(ModuleStr, Module));
-  return Module;
-}
-
 CHIPTexture *
 CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
                                 const hipTextureDesc *TexDesc,
@@ -636,8 +630,8 @@ void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
 // CHIPModuleOpenCL
 //*************************************************************************
 
-CHIPModuleOpenCL::CHIPModuleOpenCL(std::string *ModuleStr)
-    : CHIPModule(ModuleStr){};
+CHIPModuleOpenCL::CHIPModuleOpenCL(const SPVModule &SrcMod)
+    : CHIPModule(SrcMod) {}
 
 cl::Program *CHIPModuleOpenCL::get() { return &Program_; }
 
@@ -651,7 +645,8 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       (CHIPContextOpenCL *)(ChipDevOcl->getContext());
 
   int Err;
-  std::vector<char> BinaryVec(Src_->begin(), Src_->end());
+  auto SrcBin = Src_->getBinary();
+  std::vector<char> BinaryVec(SrcBin.begin(), SrcBin.end());
   auto Program = cl::Program(*(ChipCtxOcl->get()), BinaryVec, false, &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 

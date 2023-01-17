@@ -1,5 +1,7 @@
 #=============================================================================
-#  Copyright (c) 2022 CHIP-SPV developers
+#  CMake build system files
+#
+#  Copyright (c) 2023 CHIP-SPV developers
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -21,17 +23,19 @@
 #
 #=============================================================================
 
-# add_hipcc_test(<main-source>
-#  [HIPCC_OPTIONS <option>...])
-function(add_hipcc_test MAIN_SOURCE)
-  set(multiValueArgs HIPCC_OPTIONS)
-  cmake_parse_arguments(TEST "" "" "${multiValueArgs}" ${ARGN} )
-  get_filename_component(MAIN_NAME ${MAIN_SOURCE} NAME_WLE)
-  add_test(NAME "hipcc-${MAIN_NAME}"
-    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
-    ${TEST_HIPCC_OPTIONS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/${MAIN_SOURCE} -o /dev/null)
+function(add_hip_runtime_test MAIN_SOURCE)
+  get_filename_component(EXEC_NAME ${MAIN_SOURCE} NAME_WLE)
+  set_source_files_properties(${MAIN_SOURCE} PROPERTIES LANGUAGE CXX)
+  add_executable("${EXEC_NAME}" ${MAIN_SOURCE})
+  set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
+  target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
+
+  # Inherit all include directories of the CHIP including the private
+  # ones for internal testing purposes only.
+  target_include_directories("${EXEC_NAME}"
+    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+  add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
 endfunction()
 
-add_hipcc_test(TestNoinlineAttrs.hip HIPCC_OPTIONS -c)
-add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
+add_hip_runtime_test(TestLazyModuleInit.cpp)
