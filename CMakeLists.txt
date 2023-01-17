@@ -93,6 +93,7 @@ set(CHIP_SRC
   src/spirv_hiprtc.cc
   src/CHIPDriver.cc
   src/CHIPBackend.cc
+  src/SPVRegister.cc
   src/CHIPGraph.cc
   src/CHIPBindings.cc
   src/logging.cc
@@ -272,6 +273,7 @@ add_subdirectory(bitcode)
 add_subdirectory(tests/cuda)
 add_subdirectory(tests/hiprtc)
 add_subdirectory(tests/compiler)
+add_subdirectory(tests/runtime)
 add_subdirectory(./samples samples)
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)

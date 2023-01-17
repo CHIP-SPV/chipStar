@@ -77,4 +77,28 @@ std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
 
 std::string_view trim(std::string_view Str);
 
+// A less comparator for comparing mixed raw and smart pointers.
+//
+// From https://stackoverflow.com/questions/18939882. Formatted for
+// CHIP-SPV.
+template <class T> struct PointerCmp {
+  typedef std::true_type is_transparent;
+  struct Helper {
+    T *Ptr;
+    Helper() : Ptr(nullptr) {}
+    Helper(Helper const &) = default;
+    Helper(T *p) : Ptr(p) {}
+    // template <class U, class... Ts>
+    // Helper(std::shared_ptr<U, Ts...> const &Sp) : Ptr(Sp.get()) {}
+    template <class U, class... Ts>
+    Helper(std::unique_ptr<U, Ts...> const &Up) : Ptr(Up.get()) {}
+    // && optional: enforces rvalue use only
+    bool operator<(Helper o) const { return std::less<T *>()(Ptr, o.Ptr); }
+  };
+
+  bool operator()(Helper const &&lhs, Helper const &&rhs) const {
+    return lhs < rhs;
+  }
+};
+
 #endif

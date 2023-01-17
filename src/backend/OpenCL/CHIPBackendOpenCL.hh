@@ -116,7 +116,7 @@ protected:
   cl::Program Program_;
 
 public:
-  CHIPModuleOpenCL(std::string *ModuleStr);
+  CHIPModuleOpenCL(const SPVModule &SrcMod);
   virtual ~CHIPModuleOpenCL() {}
   virtual void compile(CHIPDevice *ChipDevice) override;
   cl::Program *get();
@@ -168,7 +168,6 @@ public:
   cl::Device *get() { return ClDevice; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
-  virtual CHIPModuleOpenCL *addModule(std::string *ModuleStr) override;
   virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
@@ -179,6 +178,12 @@ public:
   virtual void destroyTexture(CHIPTexture *ChipTexture) override {
     logTrace("CHIPDeviceOpenCL::destroyTexture");
     delete ChipTexture;
+  }
+
+  CHIPModuleOpenCL *compile(const SPVModule &SrcMod) override {
+    auto CompiledModule = std::make_unique<CHIPModuleOpenCL>(SrcMod);
+    CompiledModule->compile(this);
+    return CompiledModule.release();
   }
 };
 

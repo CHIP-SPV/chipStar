@@ -53,7 +53,7 @@ void __attribute__((destructor)) uninitializeBackend() {
   // there won't be hip(Un)registerFatBinary() calls if the HIP
   // program does not have embedded kernels. This makes sure we
   // uninitialize the backend at exit.
-  if (Backend && Backend->getNumRegisteredModules() == 0) {
+  if (Backend && getSPVRegister().getNumSources() == 0) {
     CHIPUninitialize();
     delete Backend;
     Backend = nullptr;
@@ -179,9 +179,9 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   CHIPReadEnvVars();
   logDebug("CHIPDriver REInitialize");
 
-  // Kernel compilation already took place so we need save these modules and
-  // pass them to re-initialization function
-  auto Modules = Backend->getActiveDevice()->getModules();
+  // Kernel compilation may have already taken place so we need save
+  // these modules and pass them to re-initialization function
+  auto ModuleState = Backend->getActiveDevice()->getModuleState();
 
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
@@ -201,9 +201,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   }
 
   Backend->initializeFromNative(NativeHandles, NumHandles);
-  for (auto ModulePair : Modules) {
-    Backend->getActiveDevice()->addModule(ModulePair.first, ModulePair.second);
-  }
+  Backend->getActiveDevice()->addFromModuleState(ModuleState);
 
   return hipSuccess;
 }

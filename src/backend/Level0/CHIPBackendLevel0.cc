@@ -2019,6 +2019,12 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
   return nullptr;
 }
 
+CHIPModuleLevel0 *CHIPDeviceLevel0::compile(const SPVModule &SrcMod) {
+  auto CompiledModule = std::make_unique<CHIPModuleLevel0>(SrcMod);
+  CompiledModule->compile(this);
+  return CompiledModule.release();
+}
+
 // Other
 // ***********************************************************************
 std::string resultToString(ze_result_t Status) {

@@ -321,7 +321,7 @@ class CHIPModuleLevel0 : public CHIPModule {
   ze_module_handle_t ZeModule_;
 
 public:
-  CHIPModuleLevel0(std::string *ModuleStr) : CHIPModule(ModuleStr) {}
+  CHIPModuleLevel0(const SPVModule &Src) : CHIPModule(Src) {}
 
   virtual ~CHIPModuleLevel0() {
     logTrace("destroy CHIPModuleLevel0 {}", (void *)this);
@@ -479,12 +479,6 @@ public:
   ze_device_handle_t &get() { return ZeDev_; }
 
   virtual void resetImpl() override;
-  virtual CHIPModuleLevel0 *addModule(std::string *ModuleStr) override {
-    logTrace("CHIPModuleLevel0::addModule()");
-    CHIPModuleLevel0 *Mod = new CHIPModuleLevel0(ModuleStr);
-    ChipModules.insert(std::make_pair(ModuleStr, Mod));
-    return Mod;
-  }
 
   virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
@@ -505,6 +499,8 @@ public:
     logTrace("CHIPDeviceLevel0::destroyTexture");
     delete TextureObject;
   }
+
+  CHIPModuleLevel0 *compile(const SPVModule &Src) override;
 };
 
 class CHIPBackendLevel0 : public CHIPBackend {

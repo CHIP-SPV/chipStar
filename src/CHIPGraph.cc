@@ -127,7 +127,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
   Params_.kernelParams = TheParams->kernelParams;
   Params_.sharedMemBytes = TheParams->sharedMemBytes;
   auto Dev = Backend->getActiveDevice();
-  CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(Params_.func);
+  CHIPKernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
+  if (!ChipKernel)
+    CHIPERR_LOG_AND_THROW("Could not find requested kernel",
+                          hipErrorInvalidDeviceFunction);
   ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim,
                                           Params_.sharedMemBytes, nullptr);
   ExecItem_->setArgPointer(Params_.kernelParams);
@@ -150,7 +153,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   Params_.sharedMemBytes = SharedMem;
 
   auto Dev = Backend->getActiveDevice();
-  CHIPKernel *ChipKernel = Dev->findKernelByHostPtr(HostFunction);
+  CHIPKernel *ChipKernel = Dev->findKernel(HostPtr(HostFunction));
+  if (!ChipKernel)
+    CHIPERR_LOG_AND_THROW("Could not find requested kernel",
+                          hipErrorInvalidDeviceFunction);
   ExecItem_ =
       Backend->createCHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setArgPointer(Args);
