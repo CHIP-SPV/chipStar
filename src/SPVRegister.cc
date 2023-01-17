@@ -81,7 +81,7 @@ void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
 /// source module (Handle).
 void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
                                std::string_view Name, size_t Size) {
-  LOCK(Mtx_); // SPVRegister::Sources_ 
+  LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
   // Host pointer should be associated with one source module and variable.
