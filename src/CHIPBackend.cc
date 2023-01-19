@@ -1688,7 +1688,7 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       continue;
     }
 
-    void **k = reinterpret_cast<void **>(Args[InArgI++]);
+    void **k = reinterpret_cast<void **>(Args[OutArgI]);
     if (!k)
       // HIP program provided (Clang generated) argument list should
       // not have NULLs in it.
