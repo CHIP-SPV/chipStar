@@ -98,4 +98,21 @@ EXPORT float __ull2float_rn(unsigned long long int x);
 EXPORT float __ull2float_ru(unsigned long long int x);
 EXPORT float __ull2float_rz(unsigned long long int x);
 
+#if defined(__HIP_DEVICE_COMPILE__)
+EXPORT long long int __double_as_longlong(double x) {
+  static_assert(sizeof(long long) == sizeof(double), "");
+  long long Tmp;
+  __builtin_memcpy(&Tmp, &x, sizeof(Tmp));
+  return Tmp;
+}
+
+EXPORT double __longlong_as_double(long long int x) {
+  static_assert(sizeof(double) == sizeof(long long), "");
+  double Tmp;
+  __builtin_memcpy(&Tmp, &x, sizeof(Tmp));
+  return Tmp;
+}
+
+#endif
+
 #endif // include guard
