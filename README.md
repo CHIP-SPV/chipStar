@@ -13,22 +13,24 @@ For a list of (un)supported features in CHIP-SPV, read [this.](docs/Features.md)
 
 ## Prerequisites
 
-* Cmake >= 3.18.0
+* Cmake >= 3.16.0
 * Clang 14 or 15
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'. *NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`.
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
 * For Level Zero Backend
-  * [Intel Compute Runtime](https://github.com/intel/compute-runtime) and
+  * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
 * For OpenCL Backend
   * OpenCL 2.0 or 3.0 implementation with coarse grained Shared Virtual Memory and SPIR-V input supported.
+* For HIP-SYCL and HIP-MKL Interoperability
+  * [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
 
 ## Downloading Sources
 
 ```bash
-git clone https://github.com/CHIP-SPV/chip-spv.git -b Release-0.9
+git clone https://github.com/CHIP-SPV/chip-spv.git
 cd chip-spv
 git submodule update --init --recursive
 ```
@@ -38,23 +40,15 @@ git submodule update --init --recursive
 ```bash
 mkdir build
 cd build
-
-cmake .. \
- -DCMAKE_CXX_COMPILER=clang++ \
- -DCMAKE_C_COMPILER=clang \
- -DCMAKE_INSTALL_PREFIX=<install location>
-
+cmake .. \ 
+    -DLLVM_CONFIG=/path/to/llvm-config # optional, if not in PATH or if only versioned binary is available i.e. llvm-config-15
+    -DCMAKE_INSTALL_PREFIX=/path/to/install # optional, default is <build_dir>/install
 make
 make install
 ```
 
-Note: At the moment the build assumes it finds the following LLVM project binaries
-with the given names 'clang++', 'clang' and 'llvm-link'. Thus, make sure you have
-symlinks setup to the correct versions before building chip-spv. See [Issue 133](https://github.com/CHIP-SPV/chip-spv/issues/133)).
-
 Useful options:
- * -DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>
- * to provide a path to separately built SPIRV-LLVM translator, use -DLLVM_SPIRV_BINARY=/path
+ * `-DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>`
 
 The documentation will be placed in `doxygen/html`.
 
