@@ -14,15 +14,15 @@ make -j
 make build_tests -j
 
 # Test OpenCL iGPU
-CHIP_PLATFORM=4 CHIP_DEVICE_TYPE=gpu CHIP_BE=opencl make check | tee igpu_opencl_make_check_result.txt
+IGPU_OPENCL ctest --timeout 180 -j 16 -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 # Test OpenCL dGPU
-CHIP_PLATFORM=3 CHIP_DEVICE_TYPE=gpu CHIP_BE=opencl make check | tee dgpu_opencl_make_check_result.txt
+DGPU_OPENCL ctest --timeout 180 -j 16 -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 # Test OpenCL CPU
-CHIP_PLATFORM=1 CHIP_DEVICE_TYPE=cpu CHIP_BE=opencl make check | tee cpu_opencl_make_check_result.txt
+CPU_OPENCL ctest --timeout 180 -j 16 -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
 # Test Level Zero iGPU
-CHIP_DEVICE_TYPE=gpu CHIP_DEVICE=1 CHIP_BE=level0 make check | tee igpu_level0_make_check_result.txt
+IGPU_OPENCL ctest --timeout 180 -j 1 -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 # Test Level Zero dGPU
-CHIP_DEVICE_TYPE=gpu CHIP_DEVICE=0 CHIP_BE=level0 make check | tee dgpu_level0_make_check_result.txt
+DGPU_OPENCL ctest --timeout 180 -j 1 -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 
 
 if [[ `cat igpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
