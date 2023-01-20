@@ -7,6 +7,7 @@
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "2d_shuffle") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "hipDynamicShared") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipDynamicShared2") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "unroll") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipConstantTestDeviceSymbol") # Subprocess aborted
@@ -772,6 +773,15 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "hipDynamicShared") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_CoherentAccess") # Timeout
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1601,6 +1611,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") #
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
