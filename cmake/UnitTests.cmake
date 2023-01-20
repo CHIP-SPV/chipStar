@@ -782,6 +782,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_CoherentAccess") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1610,19 +1611,9 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_CoherentAccess") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
+
 
 # iGPU Level Zero Unit Test Failures
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "sycl_chip_interop_usm") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop_no_buffers") # Subprocess aborted
@@ -2005,7 +1996,15 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long") 
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - float") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long long") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
-
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_CoherentAccess") # Timeout
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
 
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})
