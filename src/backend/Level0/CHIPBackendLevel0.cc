@@ -1515,6 +1515,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     std::exit(1);
   }
 
+  int SelectedDeviceIdx = atoi(CHIPDeviceStr.c_str());
+
   bool AnyDeviceType = false;
   ze_device_type_t ZeDeviceType;
   if (!CHIPDeviceTypeStr.compare("gpu")) {
@@ -1567,20 +1569,17 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
   // Filter in only devices of selected type and add them to the
   // backend as derivates of CHIPDevice
-  for (uint32_t i = 0; i < DeviceCount; i++) {
-    auto Dev = ZeDevices[i];
-    ze_device_properties_t DeviceProperties{};
-    DeviceProperties.pNext = nullptr;
-    DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+  auto Dev = ZeDevices[SelectedDeviceIdx];
+  ze_device_properties_t DeviceProperties{};
+  DeviceProperties.pNext = nullptr;
+  DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
 
-    auto Status = zeDeviceGetProperties(Dev, &DeviceProperties);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
-      CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, i);
-      ChipL0Ctx->addDevice(ChipL0Dev);
-      break; // For now don't add more than one device
-    }
-  } // End adding CHIPDevices
+  Status = zeDeviceGetProperties(Dev, &DeviceProperties);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
+    CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, 0);
+    ChipL0Ctx->addDevice(ChipL0Dev);
+  }
 
   StaleEventMonitor =
       (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor();

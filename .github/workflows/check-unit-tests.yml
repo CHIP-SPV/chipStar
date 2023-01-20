@@ -1,20 +1,24 @@
 # Workflow syntax:
 # https://help.github.com/en/articles/workflow-syntax-for-github-actions
-# name: unit-test-checker
+name: unit-test-checker
 
-# on:
-#   pull_request:
-#     paths-ignore: "docs/**"
+on:
+  pull_request:
+    paths-ignore: "docs/**"
 
-# jobs:
-#   unit-test-checker:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v2
-#         with:
-#           ref: ${{ github.event.pull_request.head.sha }}
-#           fetch-depth: 0
-#       - name: Run unit test checking script
-#         run: ./.github/scripts/check_unit_tests.sh `git log -1 HEAD~1 | awk 'NR==1{print $2}'`
-#         shell: bash
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-test-checker:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Run unit test checking script
+        run: ./.github/scripts/check_unit_tests.sh
+        shell: bash
 
