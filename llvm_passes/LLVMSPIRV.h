@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 // LLVM definitions for SPIR-V
 //
+// (c) 2023 CHIP-SPV developers
 // (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
 //===----------------------------------------------------------------------===//
 
@@ -24,6 +25,7 @@
 #define OCL_GLOBAL_AS SPIRV_CROSSWORKGROUP_AS
 #define OCL_GENERIC_AS SPIRV_GENERIC_AS
 #define OCL_CONSTANT_AS SPIRV_UNIFORMCONSTANT_AS
+#define OCL_LOCAL_AS SPIRV_WORKGROUP_AS
 #define OCL_IMAGE_AS OCL_GLOBAL_AS
 #define OCL_SAMPLER_AS OCL_CONSTANT_AS
 
