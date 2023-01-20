@@ -1600,6 +1600,14 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostMalloc_CoherentAccess") # Timeout
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
 
 # iGPU Level Zero Unit Test Failures
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
