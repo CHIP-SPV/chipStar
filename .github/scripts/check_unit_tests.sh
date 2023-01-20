@@ -4,6 +4,12 @@ export OverrideDefaultFP64Settings=1
 
 source /opt/intel/oneapi/setvars.sh intel64
 
+alias DGPU_OPENCL="CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0"
+alias IGPU_OPENCL="CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0"
+alias  CPU_OPENCL="CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0"
+alias DGPU_LEVEL0="CHIP_BE=level0 CHIP_DEVICE=0"
+alias IGPU_LEVEL0="CHIP_BE=level0 CHIP_DEVICE=1"
+
 git submodule update --init
 mkdir build
 cd build
