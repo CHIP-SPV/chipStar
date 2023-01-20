@@ -126,6 +126,9 @@ extern __device__ int __shfl_down(int var, unsigned int delta,
 
 extern __device__ float __shfl_down(float var, unsigned int delta,
 				    int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ unsigned __lane_id();
+
 }
 
 

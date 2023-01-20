@@ -834,6 +834,10 @@ EXPORT OVLD int __any(int predicate) {
   return __ballot(predicate) != 0;
 }
 
+EXPORT OVLD unsigned __lane_id() {
+  return get_sub_group_local_id();
+}
+
 typedef struct {
   intptr_t  image;
   intptr_t  sampler;
