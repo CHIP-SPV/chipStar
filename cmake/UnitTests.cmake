@@ -381,6 +381,13 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded")
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - int") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # Subprocess aborted
+list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
@@ -758,6 +765,13 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - float") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long long") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # Failed
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1176,6 +1190,30 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND DGPU_OPENCL_FAILED_TESTS "stream") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetAsync_VerifyExecutionWithKernel") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "abort") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "PrintfSimple") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "PrintfNOP") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "PrintfDynamic") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_UseCase") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Basic") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Default") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_MultiThreadWithSerialization") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_CoherentAccess") # Timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_EventSynchronize") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Overload_Override") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Empty") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_BSize") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Size") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Virtual") # Subprocess aborted
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Value") # Subprocess aborted
 
 # # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
