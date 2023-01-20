@@ -52,6 +52,8 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "..." FORCE)
 endif()
 
+execute_process(COMMAND git submodule update --init)
+
 # =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
 include(FindLLVM)

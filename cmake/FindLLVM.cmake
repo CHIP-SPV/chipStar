@@ -48,10 +48,16 @@ execute_process(COMMAND "${LLVM_CONFIG}" "--version"
 message(STATUS "Using LLVM_VERSION: ${LLVM_VERSION}")
 
 # Set the compilers
-find_program(CMAKE_CXX_COMPILER_PATH NAMES clang++ NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} REQUIRED)
+find_program(CMAKE_CXX_COMPILER_PATH NAMES clang++ NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN})
+if(NOT CMAKE_CXX_COMPILER_PATH)
+  message(FATAL_ERROR "Could not find clang++ in ${CLANG_ROOT_PATH_BIN}. Please provide CMake argument -DCMAKE_CXX_COMPILER_PATH=/path/to/clang++<-version>")
+endif()
 message(STATUS "Using CMAKE_CXX_COMPILER_PATH: ${CMAKE_CXX_COMPILER_PATH}")
 
-find_program(CMAKE_C_COMPILER_PATH NAMES clang NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} REQUIRED)
+find_program(CMAKE_C_COMPILER_PATH NAMES clang NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN})
+if(NOT CMAKE_C_COMPILER_PATH)
+  message(FATAL_ERROR "Could not find clang in ${CLANG_ROOT_PATH_BIN}. Please provide CMake argument -DCMAKE_C_COMPILER_PATH=/path/to/clang<-version>")
+endif()
 message(STATUS "Using CMAKE_C_COMPILER_PATH: ${CMAKE_C_COMPILER_PATH}")
 
 if(NOT CMAKE_CXX_COMPILER EQUAL ${CMAKE_CXX_COMPILER_PATH})
