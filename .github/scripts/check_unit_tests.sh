@@ -4,12 +4,6 @@ export OverrideDefaultFP64Settings=1
 
 source /opt/intel/oneapi/setvars.sh intel64
 
-alias DGPU_OPENCL="CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0"
-alias IGPU_OPENCL="CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0"
-alias  CPU_OPENCL="CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0"
-alias DGPU_LEVEL0="CHIP_BE=level0 CHIP_DEVICE=0"
-alias IGPU_LEVEL0="CHIP_BE=level0 CHIP_DEVICE=1"
-
 git submodule update --init
 mkdir build
 cd build
@@ -20,15 +14,15 @@ make -j
 make build_tests -j
 
 # Test OpenCL iGPU
-IGPU_OPENCL ctest --timeout 180 -j 16 -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0 ctest --timeout 180 -j 16 -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 # Test OpenCL dGPU
-DGPU_OPENCL ctest --timeout 180 -j 16 -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0 ctest --timeout 180 -j 16 -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 # Test OpenCL CPU
-CPU_OPENCL ctest --timeout 180 -j 16 -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0 ctest --timeout 180 -j 16 -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
 # Test Level Zero iGPU
-IGPU_OPENCL ctest --timeout 180 -j 1 -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+CHIP_BE=level0 CHIP_DEVICE=1 ctest --timeout 180 -j 1 -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 # Test Level Zero dGPU
-DGPU_OPENCL ctest --timeout 180 -j 1 -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+CHIP_BE=level0 CHIP_DEVICE=0 ctest --timeout 180 -j 1 -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 
 
 if [[ `cat igpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
