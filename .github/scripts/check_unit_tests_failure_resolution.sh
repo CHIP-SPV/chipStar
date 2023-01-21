@@ -76,24 +76,29 @@ echo "\"" >> dgpu_level0_passed.txt
 echo "begin igpu_opencl_passed_tests"
 ctest -N -R "`cat ./igpu_opencl_passed.txt`" | tee igpu_opencl_resolved_failures.txt
 CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --repeat until-fail:100 -R "`cat ./igpu_opencl_passed.txt`" | tee igpu_opencl_resolved_failures.txt
+cat igpu_opencl_resolved_failures.txt | grep Passed | awk  '{ print $4 }' > igpu_opencl_confirmed_passed.txt
 echo "end igpu_opencl_passed_tests"
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_passed_tests"
 ctest -N -R "`cat ./dgpu_opencl_passed.txt`" | tee dgpu_opencl_resolved_failures.txt
 CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --repeat until-fail:100 -R "`cat ./dgpu_opencl_passed.txt`" | tee dgpu_opencl_resolved_failures.txt
+cat dgpu_opencl_resolved_failures.txt | grep Passed | awk  '{ print $4 }' > dgpu_opencl_confirmed_passed.txt
 echo "end dgpu_opencl_passed_tests"
 # Test OpenCL CPU
 echo "begin cpu_opencl_passed_tests"
 ctest -N -R "`cat ./cpu_opencl_passed.txt`" | tee cpu_opencl_resolved_failures.txt
 CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --repeat until-fail:100 -R "`cat ./cpu_opencl_passed.txt`" | tee cpu_opencl_resolved_failures.txt
+cat  cpu_opencl_resolved_failures.txt | grep Passed | awk  '{ print $4 }' >  cpu_opencl_confirmed_passed.txt
 echo "end cpu_opencl_passed_tests"
 # Test Level Zero iGPU
 echo "begin igpu_level0_passed_tests"
 ctest -N -R "`cat ./igpu_level0_passed.txt`" | tee igpu_level0_resolved_failures.txt
 CHIP_BE=level0 CHIP_DEVICE=1 ctest --timeout 180 -j 1 --repeat until-fail:100 -R "`cat ./igpu_level0_passed.txt`" | tee igpu_level0_resolved_failures.txt
+cat igpu_level0_resolved_failures.txt | grep Passed | awk  '{ print $4 }' > igpu_level0_confirmed_passed.txt
 echo "end igpu_level0_passed_tests"
 # Test Level Zero dGPU
 echo "begin dgpu_level0_passed_tests"
 ctest -N -R "`cat ./dgpu_level0_passed.txt`" | tee dgpu_level0_resolved_failures.txt
 CHIP_BE=level0 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --repeat until-fail:100 -R "`cat ./dgpu_level0_passed.txt`" | tee dgpu_level0_resolved_failures.txt
+cat dgpu_level0_resolved_failures.txt | grep Passed | awk  '{ print $4 }' > dgpu_level0_confirmed_passed.txt
 echo "end dgpu_level0_passed_tests"
