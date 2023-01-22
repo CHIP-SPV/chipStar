@@ -1,0 +1,23 @@
+# Workflow syntax:
+# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+name: unit-test-resolution
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-test-checker:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Run unit test checking script
+        run: .github/scripts/check_for_resolved_tests.py ./build
+        shell: bash
