@@ -1699,8 +1699,11 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
           "Unexcepted internal error: Argument list has NULLs.", hipErrorTbd);
     void *DevPtr = reinterpret_cast<void *>(*k);
     auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
-    if (!AllocInfo)
-      assert(0 && "Unexcepted internal error: allocation info not found");
+    if (!AllocInfo) {
+      logWarn("Allocation info not found. Unregistered outside USM allocation?");
+      continue;
+    }
+      // assert(0 && "Unexcepted internal error: allocation info not found");
     // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but
     // "
     //                       "it was not registered",
