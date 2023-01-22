@@ -1665,8 +1665,6 @@ void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
 
 void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
-
-
 CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         MANAGED_MEM_STATE ExecState) {
 
