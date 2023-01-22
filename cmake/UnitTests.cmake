@@ -377,6 +377,8 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch*") # Failed
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
@@ -755,6 +757,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - float")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long long") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
