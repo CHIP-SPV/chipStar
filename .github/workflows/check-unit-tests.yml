@@ -19,6 +19,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./.github/scripts/check_unit_tests.sh
+        run: .github/scripts/check_unit_tests.sh
+        shell: bash
+      - name: Check for resolved tests
+        run: .github/scripts/check_for_resolved_tests.py ./build
         shell: bash
 
