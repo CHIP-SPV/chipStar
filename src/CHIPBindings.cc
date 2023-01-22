@@ -2406,7 +2406,7 @@ hipError_t hipMallocHost(void **Ptr, size_t Size) {
 hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  if(Ptr == nullptr)
+  if (Ptr == nullptr)
     CHIPERR_LOG_AND_THROW("Ptr is null", hipErrorInvalidValue);
   if (Size == 0) {
     *Ptr = nullptr;
@@ -2445,11 +2445,11 @@ hipError_t hipFree(void *Ptr) {
   CHIP_CATCH
 }
 
-hipError_t hipHostFree(void *Ptr) { 
+hipError_t hipHostFree(void *Ptr) {
   int Status = munlock(Ptr, 0);
   assert(Status == 0 && "Failed to unlock page-locked memory");
-  RETURN(hipFree(Ptr)); 
-  }
+  RETURN(hipFree(Ptr));
+}
 
 DEPRECATED("use hipHostFree instead")
 hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
@@ -2551,7 +2551,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();
-  // TODO fixOpenCLTests - use recordAllocation() 
+  // TODO fixOpenCLTests - use recordAllocation()
   Device->AllocationTracker->registerHostPointer(HostPtr, DevPtr);
 
   RETURN(hipSuccess);
@@ -2868,7 +2868,7 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
 
   if (SizeBytes == 0)
     RETURN(hipSuccess);
-  
+
   if (Dst == Src) {
     logWarn("Src and Dst are same. Skipping the copy");
     RETURN(hipSuccess);
@@ -3077,32 +3077,38 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto AllocInfo = AllocTracker->getAllocInfo(Dst);
 
-  if(!AllocInfo) {
-    CHIPERR_LOG_AND_THROW("AllocInfo not found for the given pointer", hipErrorInvalidValue);
+  if (!AllocInfo) {
+    CHIPERR_LOG_AND_THROW("AllocInfo not found for the given pointer",
+                          hipErrorInvalidValue);
   }
 
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
-                                                          &CharVal, 1);
+                                                         &CharVal, 1);
 
   if (AllocInfo->HostPtr) {
-    logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr, AllocInfo->HostPtr);
+    logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr,
+             AllocInfo->HostPtr);
     if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
-      logDebug("AllocInfo->MemoryType == hipMemoryTypeUnified - skipping memset on host");
+      logDebug("AllocInfo->MemoryType == hipMemoryTypeUnified - skipping "
+               "memset on host");
     } else if (AllocInfo->MemoryType == hipMemoryTypeHost) {
-      logDebug("AllocInfo->MemoryType == hipMemoryTypeHost - executing memset on host");
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+      logDebug("AllocInfo->MemoryType == hipMemoryTypeHost - executing memset "
+               "on host");
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+          AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
       memset(AllocInfo->HostPtr, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
     } else if (AllocInfo->MemoryType == hipMemoryTypeManaged) {
       UNIMPLEMENTED(hipErrorTbd);
     } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
-      CHIPERR_LOG_AND_THROW("hipMemoryTypeDevice can't have an associated HostPtr", hipErrorTbd);
+      CHIPERR_LOG_AND_THROW(
+          "hipMemoryTypeDevice can't have an associated HostPtr", hipErrorTbd);
     } else if (AllocInfo->MemoryType == hipMemoryTypeArray) {
-      CHIPERR_LOG_AND_THROW("hipMemoryTypeArray can't have an associated HostPtr", hipErrorTbd);
+      CHIPERR_LOG_AND_THROW(
+          "hipMemoryTypeArray can't have an associated HostPtr", hipErrorTbd);
     } else {
       CHIPERR_LOG_AND_THROW("Unknown MemoryType", hipErrorTbd);
     }
-
   }
   RETURN(hipSuccess);
 

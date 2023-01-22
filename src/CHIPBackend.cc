@@ -163,7 +163,8 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (MemoryType == hipMemoryTypeHost) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
     // Map onto host so that the data can be potentially initialized on host
-    Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+    Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+        AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
   }
 
   if (MemoryType == hipMemoryTypeUnified)
@@ -1114,13 +1115,13 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
       UNIMPLEMENTED(nullptr);
     if (Flags.isNonCoherent())
       // UNIMPLEMENTED(nullptr);
-    if (Flags.isNumaUser())
-      UNIMPLEMENTED(nullptr);
+      if (Flags.isNumaUser())
+        UNIMPLEMENTED(nullptr);
     if (Flags.isPortable())
       UNIMPLEMENTED(nullptr);
     if (Flags.isWriteCombined())
       logWarn("hipHostAllocWriteCombined is not supported. Ignoring.");
-      //UNIMPLEMENTED(nullptr);
+    // UNIMPLEMENTED(nullptr);
   }
 
   if (Size > ChipDev->getMaxMallocSize()) {
@@ -1540,19 +1541,23 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
   CHIPEvent *ChipEvent;
   // Scope this so that we release mutex for finish()
   {
-    auto AllocInfoDst = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Dst);
-    auto AllocInfoSrc = Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Src);
-    if(AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    auto AllocInfoDst =
+        Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Dst);
+    auto AllocInfoSrc =
+        Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Src);
+    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoDst);
-    if(AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
 
-    if(AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
-    if(AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
 
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
@@ -1710,10 +1715,12 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
 
     // required for OpenCL when fine-grain SVM is not availbale
     if (AllocInfo->MemoryType == hipMemoryTypeHost) {
-      if(ExecState == MANAGED_MEM_STATE::PRE_KERNEL) {
+      if (ExecState == MANAGED_MEM_STATE::PRE_KERNEL) {
         MemUnmap(AllocInfo);
       } else {
-        MemMap(AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE); // TODO fixOpenCLTests - print ptr
+        MemMap(AllocInfo,
+               CHIPQueue::MEM_MAP_TYPE::HOST_WRITE); // TODO fixOpenCLTests -
+                                                     // print ptr
       }
       continue;
     }
@@ -1807,9 +1814,11 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
                           hipErrorLaunchFailure);
   }
 
-  auto RegisteredVarInEvent = RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
+  auto RegisteredVarInEvent =
+      RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
   auto LaunchEvent = launchImpl(ExecItem);
-  auto RegisteredVarOutEvent = RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
+  auto RegisteredVarOutEvent =
+      RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
 
   RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
                         : updateLastEvent(LaunchEvent);
