@@ -2,7 +2,7 @@
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
-source /opt/intel/oneapi/setvars.sh intel64
+source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 
 git submodule update --init
 mkdir build
@@ -101,3 +101,15 @@ echo "begin dgpu_level0_passed_tests"
 ctest -N -R "`cat ./dgpu_level0_passed.txt`" | tee dgpu_level0_flaky_tests.txt
 CHIP_BE=level0 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --repeat until-fail:100 -R "`cat ./dgpu_level0_passed.txt`" | tee dgpu_level0_flaky_tests.txt
 echo "end dgpu_level0_passed_tests"
+
+echo "Flaky: " >> igpu_opencl_maybe_passed.txt
+echo "Flaky: " >> dgpu_opencl_maybe_passed.txt
+echo "Flaky: " >>  cpu_opencl_maybe_passed.txt
+echo "Flaky: " >> igpu_level0_maybe_passed.txt
+echo "Flaky: " >> dgpu_level0_maybe_passed.txt
+
+sed -n 's/[0-9]* - //p' dgpu_opencl_flaky_tests.txt >> igpu_opencl_maybe_passed.txt
+sed -n 's/[0-9]* - //p' dgpu_opencl_flaky_tests.txt >> dgpu_opencl_maybe_passed.txt
+sed -n 's/[0-9]* - //p' dgpu_opencl_flaky_tests.txt >> cpu_opencl_maybe_passed.txt
+sed -n 's/[0-9]* - //p' dgpu_opencl_flaky_tests.txt >> igpu_level0_maybe_passed.txt
+sed -n 's/[0-9]* - //p' dgpu_opencl_flaky_tests.txt >> dgpu_level0_maybe_passed.txt
