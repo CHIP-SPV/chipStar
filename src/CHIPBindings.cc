@@ -2420,6 +2420,8 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   int PageLockSuccess = mlock(RetVal, Size);
+  if(PageLockSuccess != 0)
+    logCritical("Page Lock failure {}", PageLockSuccess);
   assert(PageLockSuccess == 0 && "Failed to page lock memory");
 
   *Ptr = RetVal;
