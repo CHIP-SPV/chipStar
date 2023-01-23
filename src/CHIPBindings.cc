@@ -38,6 +38,7 @@
 #ifndef CHIP_BINDINGS_H
 #define CHIP_BINDINGS_H
 #include <sys/mman.h>
+#include <errno.h> 
 #include <fstream>
 
 #include "CHIPBackend.hh"
@@ -2421,7 +2422,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
 
   int PageLockSuccess = mlock(RetVal, Size);
   if (PageLockSuccess != 0)
-    logCritical("Page Lock failure {}", PageLockSuccess);
+    logCritical("Page Lock failure {}", errno);
   assert(PageLockSuccess == 0 && "Failed to page lock memory");
 
   *Ptr = RetVal;
