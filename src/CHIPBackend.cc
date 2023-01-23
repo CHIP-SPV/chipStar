@@ -1700,14 +1700,13 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
     void *DevPtr = reinterpret_cast<void *>(*k);
     auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
     if (!AllocInfo) {
-      logWarn("Allocation info not found. Unregistered outside USM allocation?");
+      logWarn(
+          "Allocation info not found. Unregistered outside USM allocation?");
+      // Previously, we used to assert here. However, this will fail for the USM
+      // where a pointer is allocated using USM outside of CHIP-SPV. assert(0 &&
+      // "Unexcepted internal error: allocation info not found");
       continue;
     }
-      // assert(0 && "Unexcepted internal error: allocation info not found");
-    // CHIPERR_LOG_AND_THROW("A pointer argument was passed to the kernel but
-    // "
-    //                       "it was not registered",
-    //                       hipErrorTbd);
     void *HostPtr = AllocInfo->HostPtr;
 
     // If this is a shared pointer then we don't need to transfer data back
