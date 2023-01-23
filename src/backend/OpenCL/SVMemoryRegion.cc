@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #include "CHIPBackendOpenCL.hh"
 
 #define SVM_ALIGNMENT 128
@@ -32,6 +31,8 @@ SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
 }
 
 void *SVMemoryRegion::allocate(size_t Size) {
+  // 0 passed for the alignment will use the default alignment which is equal to
+  // the largest data type supported.
   void *Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, 0);
   if (Ptr) {
     logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
