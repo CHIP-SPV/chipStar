@@ -191,32 +191,29 @@ class CHIPQueueOpenCL : public CHIPQueue {
 protected:
   // Any reason to make these private/protected?
   cl::CommandQueue *ClQueue_;
+
+  /**
+   * @brief Map memory to device.
+   *
+   * All OpenCL allocations are done using SVM allocator. On systems with only
+   * coarse-grain SVM, we need to map the memory before performing any
+   * operations on the host. If the device supports fine-grain SVM, then no
+   * mapping will be done.
+   *
+   * @param AllocInfo AllocationInfo object to be mapped for the host
+   * @param Type Type of mapping to be performed. Either READ or WRITE
+   */
   virtual void MemMap(AllocationInfo *AllocInfo,
-                      CHIPQueue::MEM_MAP_TYPE Type) override {
-    cl_int Status;
-    if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ) {
-      logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
-      Status =
-          clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
-                          AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
-    } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_WRITE) {
-      logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
-      Status =
-          clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
-                          AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
-    } else {
-      assert(0 && "Invalid MemMap Type");
-    }
-    assert(Status == CL_SUCCESS);
-  }
+                      CHIPQueue::MEM_MAP_TYPE Type) override;
 
-  virtual void MemUnmap(AllocationInfo *AllocInfo) override {
-    logDebug("CHIPQueueOpenCL::MemUnmap");
-
-    auto Status =
-        clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, NULL);
-    assert(Status == CL_SUCCESS);
-  }
+  /**
+   * @brief Unmap memory from host.
+   * Once the memory is unmapped from the host, the device will get updated data
+   * and be able to perform operations on it.
+   *
+   * @param AllocInfo
+   */
+  virtual void MemUnmap(AllocationInfo *AllocInfo) override;
 
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
