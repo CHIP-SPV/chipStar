@@ -790,7 +790,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemType,
                                       CHIPHostAllocFlags Flags) {
   void *Retval;
-  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemoryS
+  LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
   Retval = SvmMemory.allocate(Size);
   return Retval;
 }
@@ -836,7 +836,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // this one to finish)
 
   auto CallbackCompleted = enqueueBarrier(nullptr);
-  // updateLastEvent(CallbackCompleted);
   return;
 };
 
