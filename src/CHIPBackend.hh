@@ -412,6 +412,7 @@ struct AllocationInfo {
   hipDevice_t Device;
   bool Managed = false;
   enum hipMemoryType MemoryType;
+  bool RequiresMapUnmap = false;
 };
 
 /**

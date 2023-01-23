@@ -123,6 +123,7 @@ public:
 };
 
 class SVMemoryRegion {
+  enum SVM_ALLOC_GRANULARITY { COARSE_GRAIN, FINE_GRAIN };
   // ContextMutex should be enough
 
   std::map<void *, size_t> SvmAllocations_;
@@ -131,7 +132,7 @@ class SVMemoryRegion {
 public:
   void init(cl::Context &C) { Context_ = C; }
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
-  void *allocate(size_t Size);
+  void *allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity = COARSE_GRAIN);
   bool free(void *P);
   bool hasPointer(const void *Ptr);
   bool pointerSize(void *Ptr, size_t *Size);
@@ -144,6 +145,7 @@ public:
 
 class CHIPContextOpenCL : public CHIPContext {
 public:
+  bool allDevicesSupportFineGrainSVM();
   SVMemoryRegion SvmMemory;
   cl::Context *ClContext;
   CHIPContextOpenCL(cl::Context *ClContext);
@@ -157,6 +159,8 @@ public:
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
+private:
+  bool SupportsFineGrainSVM = false;
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
                    int Idx);
 
@@ -166,6 +170,7 @@ public:
   cl::Device *ClDevice;
   cl::Context *ClContext;
   cl::Device *get() { return ClDevice; }
+  bool supportsFineGrainSVM() { return SupportsFineGrainSVM; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
   virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
