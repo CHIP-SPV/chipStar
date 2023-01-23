@@ -30,16 +30,15 @@ SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
   return *this;
 }
 
-
-
 void *SVMemoryRegion::allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity) {
   // 0 passed for the alignment will use the default alignment which is equal to
   // the largest data type supported.
   void *Ptr;
-  if(Granularity == COARSE_GRAIN) {
+  if (Granularity == COARSE_GRAIN) {
     Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, 0);
   } else {
-    Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER, Size, 0);
+    Ptr = ::clSVMAlloc(
+        Context_(), CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER, Size, 0);
   }
   if (Ptr) {
     logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
