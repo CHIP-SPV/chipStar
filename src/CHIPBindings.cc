@@ -38,7 +38,7 @@
 #ifndef CHIP_BINDINGS_H
 #define CHIP_BINDINGS_H
 #include <sys/mman.h>
-#include <errno.h> 
+#include <errno.h>
 #include <fstream>
 
 #include "CHIPBackend.hh"
