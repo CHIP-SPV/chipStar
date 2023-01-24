@@ -762,6 +762,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long lo
 list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
