@@ -317,6 +317,17 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
     : CHIPDevice(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
+  cl_device_svm_capabilities DeviceSVMCapabilities;
+  auto Status =
+      DevIn->getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  this->SupportsFineGrainSVM =
+      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
+  if (this->SupportsFineGrainSVM) {
+    logTrace("Device supports fine grain SVM");
+  } else {
+    logTrace("Device does not support fine grain SVM");
+  }
 }
 
 CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
@@ -774,6 +785,17 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 // CHIPContextOpenCL
 //*************************************************************************
 
+bool CHIPContextOpenCL::allDevicesSupportFineGrainSVM() {
+  bool allFineGrainSVM = true;
+  for (auto &D : ChipDevices_) {
+    if (!static_cast<CHIPDeviceOpenCL *>(D)->supportsFineGrainSVM()) {
+      allFineGrainSVM = false;
+      break;
+    }
+  }
+  return allFineGrainSVM;
+}
+
 void CHIPContextOpenCL::freeImpl(void *Ptr) {
   LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
   SvmMemory.free(Ptr);
@@ -791,6 +813,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       CHIPHostAllocFlags Flags) {
   void *Retval;
   LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
+
   Retval = SvmMemory.allocate(Size);
   return Retval;
 }
@@ -815,6 +838,41 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   delete Cbo;
 }
 
+void CHIPQueueOpenCL::MemMap(AllocationInfo *AllocInfo,
+                             CHIPQueue::MEM_MAP_TYPE Type) {
+  if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
+          ->supportsFineGrainSVM()) {
+    logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
+  }
+  cl_int Status;
+  if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ) {
+    logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
+    Status =
+        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
+                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+  } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_WRITE) {
+    logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
+    Status =
+        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
+                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+  } else {
+    assert(0 && "Invalid MemMap Type");
+  }
+  assert(Status == CL_SUCCESS);
+}
+
+void CHIPQueueOpenCL::MemUnmap(AllocationInfo *AllocInfo) {
+  if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
+          ->supportsFineGrainSVM()) {
+    logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
+  }
+  logDebug("CHIPQueueOpenCL::MemUnmap");
+
+  auto Status =
+      clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, NULL);
+  assert(Status == CL_SUCCESS);
+}
+
 cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
 
 void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
@@ -836,7 +894,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // this one to finish)
 
   auto CallbackCompleted = enqueueBarrier(nullptr);
-  updateLastEvent(CallbackCompleted);
   return;
 };
 
