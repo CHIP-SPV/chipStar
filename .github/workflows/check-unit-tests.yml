@@ -21,7 +21,9 @@ jobs:
       - name: Run unit test checking script
         run: .github/scripts/check_unit_tests.sh
         shell: bash
-      - name: Check for resolved tests
-        run: .github/scripts/check_for_resolved_tests.py ./build
-        shell: bash
+
+      # Failing tests tend to crash the driver to better just to run them manually
+      # - name: Check for resolved tests
+      #   run: .github/scripts/check_for_resolved_tests.py ./build
+      #   shell: bash
 
