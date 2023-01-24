@@ -761,11 +761,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - int") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - float") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long long") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
@@ -1945,11 +1940,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - int") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - float") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long long") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
 
