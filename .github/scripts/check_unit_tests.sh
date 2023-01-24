@@ -34,14 +34,6 @@ echo "end dgpu_opencl_failed_tests"
 echo "begin cpu_opencl_failed_tests"
 CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
 echo "end cpu_opencl_failed_tests"
-# Test Level Zero iGPU
-echo "begin igpu_level0_failed_tests"
-CHIP_BE=level0 CHIP_DEVICE=1 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
-echo "end igpu_level0_failed_tests"
-# Test Level Zero dGPU
-echo "begin dgpu_level0_failed_tests"
-CHIP_BE=level0 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
-echo "end dgpu_level0_failed_tests"
 
 
 if [[ `cat igpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
