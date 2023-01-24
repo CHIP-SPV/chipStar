@@ -1197,7 +1197,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-simpleTemplates") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-dwtHaar1D") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-qrng") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_rd_float") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_rn_float") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_ru_float") # SEGFAULT
@@ -1491,7 +1490,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Bus error
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_HMM_OverSubscriptionTst") # Timeout
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiStream_multimeDevice") # Timeout
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
@@ -1566,7 +1564,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Fai
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
@@ -1582,7 +1579,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleTemplates") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-dwtHaar1D") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-qrng") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_rd_float") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_rn_float") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_ru_float") # SEGFAULT
@@ -1657,7 +1653,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_Negat
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventWaitNodeGetEvent_Negative") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Negative") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_BasicFunctional") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_hipStreamPerThread") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Negative") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Basic") # Failed
@@ -1946,7 +1941,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Fai
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
