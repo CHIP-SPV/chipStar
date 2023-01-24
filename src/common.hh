@@ -53,7 +53,7 @@ struct hipGraphNode {};
 struct hipGraphExec {};
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
-bool parseSPIR(int32_t *Stream, size_t NumWords,
+bool parseSPIR(uint32_t *Stream, size_t NumWords,
                OpenCLFunctionInfoMap &FuncInfoMap);
 
 /// A prefix given to lowered global scope device variables.

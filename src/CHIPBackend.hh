@@ -802,7 +802,7 @@ protected:
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
 
-  int32_t *BinaryData_;
+  uint32_t *BinaryData_;
 
   /**
    * @brief hidden default constuctor. Only derived type constructor should be

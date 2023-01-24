@@ -241,7 +241,7 @@ void CHIPModule::consumeSPIRV() {
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
-  BinaryData_ = new int32_t[NumWords + 1];
+  BinaryData_ = new uint32_t[NumWords + 1];
   std::memcpy(BinaryData_, FuncIL_, IlSize_);
   // Extract kernel function information
   bool Res = parseSPIR(BinaryData_, NumWords, FuncInfos_);
