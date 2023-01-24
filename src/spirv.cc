@@ -28,6 +28,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <memory>
 
 #include "common.hh"
 #include "spirv.hh"
@@ -465,6 +467,7 @@ class SPIRVmodule {
   SPIRVConstMap ConstMap_;
   SPVFuncInfoMap FunctionTypeMap_;
   std::map<InstWord, InstWord> EntryToFunctionTypeIDMap_;
+  std::unordered_map<InstWord, std::unique_ptr<SPIRVinst>> IdToInstMap_;
 
   bool MemModelCL_;
   bool KernelCapab_;
@@ -534,54 +537,60 @@ private:
     const InstWord *StreamIntPtr = Stream;
     size_t PointerSize = 0;
     while (NumWords > 0) {
-      SPIRVinst Inst(StreamIntPtr);
+      SPIRVinst TempInst(StreamIntPtr);
+      auto *Inst = &TempInst;
 
-      if (Inst.isKernelCapab())
+      if (Inst->hasResultID()) {
+        Inst = new SPIRVinst(StreamIntPtr);
+        IdToInstMap_[Inst->getResultID()].reset(Inst);
+      }
+
+      if (Inst->isKernelCapab())
         KernelCapab_ = true;
 
-      if (Inst.isExtIntOpenCL())
+      if (Inst->isExtIntOpenCL())
         ExtIntOpenCL_ = true;
 
-      if (Inst.isMemModelOpenCL()) {
+      if (Inst->isMemModelOpenCL()) {
         MemModelCL_ = true;
-        PointerSize = Inst.getPointerSize();
+        PointerSize = Inst->getPointerSize();
         assert(PointerSize > 0);
       }
 
-      if (Inst.isEntryPoint()) {
+      if (Inst->isEntryPoint()) {
         EntryPoints_.emplace(
-            std::make_pair(Inst.entryPointID(), Inst.entryPointName()));
+            std::make_pair(Inst->entryPointID(), Inst->entryPointName()));
       }
 
-      if (Inst.isType()) {
-        if (Inst.isFunctionType())
+      if (Inst->isType()) {
+        if (Inst->isFunctionType())
           FunctionTypeMap_.emplace(
-              std::make_pair(Inst.getTypeID(),
-                             Inst.decodeFunctionType(TypeMap_, PointerSize)));
+              std::make_pair(Inst->getTypeID(),
+                             Inst->decodeFunctionType(TypeMap_, PointerSize)));
         else
           TypeMap_.emplace(std::make_pair(
-              Inst.getTypeID(),
-              Inst.decodeType(TypeMap_, ConstMap_, PointerSize)));
+              Inst->getTypeID(),
+              Inst->decodeType(TypeMap_, ConstMap_, PointerSize)));
       }
 
-      if (Inst.isFunction() &&
-          (EntryPoints_.find(Inst.getFunctionID()) != EntryPoints_.end())) {
+      if (Inst->isFunction() &&
+          (EntryPoints_.find(Inst->getFunctionID()) != EntryPoints_.end())) {
         // ret type must be void
-        auto Retty = TypeMap_.find(Inst.getFunctionRetType());
+        auto Retty = TypeMap_.find(Inst->getFunctionRetType());
         assert(Retty != TypeMap_.end());
-        assert(TypeMap_[Inst.getFunctionRetType()]->size() == 0);
+        assert(TypeMap_[Inst->getFunctionRetType()]->size() == 0);
 
         EntryToFunctionTypeIDMap_.emplace(
-            std::make_pair(Inst.getFunctionID(), Inst.getFunctionTypeID()));
+            std::make_pair(Inst->getFunctionID(), Inst->getFunctionTypeID()));
       }
 
-      if (Inst.isConstant()) {
-        auto *Const = Inst.decodeConstant(TypeMap_);
-        ConstMap_.emplace(std::make_pair(Inst.getResultID(), Const));
+      if (Inst->isConstant()) {
+        auto *Const = Inst->decodeConstant(TypeMap_);
+        ConstMap_.emplace(std::make_pair(Inst->getResultID(), Const));
       }
 
-      NumWords -= Inst.size();
-      StreamIntPtr += Inst.size();
+      NumWords -= Inst->size();
+      StreamIntPtr += Inst->size();
     }
 
     return true;
