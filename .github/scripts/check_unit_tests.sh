@@ -4,20 +4,24 @@ export OverrideDefaultFP64Settings=1
 
 source /opt/intel/oneapi/setvars.sh intel64
 
-# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-export CHIP_BE=opencl 
-export CHIP_DEVICE_TYPE=gpu 
-export CHIP_PLATFORM=4
-
 git submodule update --init
 mkdir build
 cd build
 
 # TODO check Release as well 
+# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 cmake ../ -DLLVM_CONFIG=/usr/bin/llvm-config-15
-make -j
-make build_tests -j
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0  make -j
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0  make build_tests -j
 
+# Test Level Zero iGPU
+echo "begin igpu_level0_failed_tests"
+CHIP_BE=level0 CHIP_DEVICE=1 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+echo "end igpu_level0_failed_tests"
+# Test Level Zero dGPU
+echo "begin dgpu_level0_failed_tests"
+CHIP_BE=level0 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+echo "end dgpu_level0_failed_tests"
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
 CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
