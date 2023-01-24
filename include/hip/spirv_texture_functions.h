@@ -26,6 +26,9 @@ THE SOFTWARE.
 #ifdef __cplusplus
 #include "spirv_hip_vector_types.h"
 #include "spirv_hip_texture_types.h"
+#endif
+
+#if defined(__clang__) && defined(__HIP__)
 
 #define __TEXTURE_FUNCTIONS_DECL__ static inline __device__
 
@@ -328,5 +331,5 @@ DEF_TEXREF(int4, float4);
 DEF_TEXREF(uint4, float4);
 DEF_TEXREF(float4, float4);
 
-#endif // cplusplus
-#endif // include guard
+#endif // defined(__clang__) && defined(__HIP__)
+#endif

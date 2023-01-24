@@ -30,7 +30,7 @@ THE SOFTWARE.
 #include <type_traits>
 #include <utility>
 
-#if defined(__clang__)
+#if defined(__clang__) && defined(__HIP__)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 typedef _Float16 _hip_f16;
