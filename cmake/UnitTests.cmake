@@ -3,6 +3,12 @@
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
+#  Necessary for some reason
+list(APPEND  CPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND DGPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND IGPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND IGPU_LEVEL0_FAILED_TESTS " ")
+list(APPEND DGPU_LEVEL0_FAILED_TESTS " ") 
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
