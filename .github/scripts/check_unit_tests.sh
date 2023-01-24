@@ -4,6 +4,11 @@ export OverrideDefaultFP64Settings=1
 
 source /opt/intel/oneapi/setvars.sh intel64
 
+# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
+export CHIP_BE=opencl 
+export CHIP_DEVICE_TYPE=gpu 
+export CHIP_PLATFORM=4
+
 git submodule update --init
 mkdir build
 cd build
@@ -15,15 +20,15 @@ make build_tests -j
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
-CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=4 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 echo "end igpu_opencl_failed_tests"
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_failed_tests"
-CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=3 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 echo "end dgpu_opencl_failed_tests"
 # Test OpenCL CPU
 echo "begin cpu_opencl_failed_tests"
-CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu CHIP_PLATFORM=1 CHIP_DEVICE=0 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
 echo "end cpu_opencl_failed_tests"
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
