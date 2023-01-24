@@ -32,17 +32,45 @@
 #include "common.hh"
 #include "spirv.hh"
 #include "logging.hh"
+#include "Utils.hh"
 
 const std::string OpenCLStd{"OpenCL.std"};
+
+static int32_t getSPVVersion(int Major, int Minor) {
+  return (Major << 16) | (Minor << 8);
+}
+
+/// Represents alignment value which is non-zero 2**N integer.
+class Alignment {
+  size_t Val_ = 1;
+
+public:
+  Alignment() = default;
+  Alignment(size_t Val) : Val_(Val) {
+    assert(Val > 0 && "Must be non-zero");
+    assert(((Val - 1) & Val) == 0 && "Not power of two.");
+  }
+  operator size_t() const { return Val_; }
+};
 
 class SPIRVtype {
   int32_t Id_;
   size_t Size_;
+  /// Required alignment. For primitive types it is smallest
+  /// power-of-two => Size_. For aggregates, it is the largest
+  /// required alignment of its members.
+  Alignment Align_;
 
 public:
-  SPIRVtype(int32_t Id, size_t Size) : Id_(Id), Size_(Size) {}
+  /// Type with requested alignment.
+  SPIRVtype(int32_t Id, size_t Size, Alignment AlignVal)
+      : Id_(Id), Size_(Size), Align_(AlignVal) {}
+  /// Type with a power-of-tow alignment deducted from 'Size'.
+  SPIRVtype(int32_t Id, size_t Size)
+      : SPIRVtype(Id, Size, roundUpToPowerOfTwo(Size)) {}
   virtual ~SPIRVtype(){};
   size_t size() { return Size_; }
+  size_t alignment() const { return Align_; }
   int32_t id() { return Id_; }
   virtual OCLType ocltype() = 0;
   virtual OCLSpace getAS() { return OCLSpace::Private; }
@@ -52,6 +80,8 @@ typedef std::map<int32_t, SPIRVtype *> SPIRTypeMap;
 
 class SPIRVtypePOD : public SPIRVtype {
 public:
+  SPIRVtypePOD(int32_t Id, size_t Size, Alignment AlignVal)
+      : SPIRVtype(Id, Size, AlignVal) {}
   SPIRVtypePOD(int32_t Id, size_t Size) : SPIRVtype(Id, Size) {}
   virtual ~SPIRVtypePOD(){};
   virtual OCLType ocltype() override { return OCLType::POD; }
@@ -89,19 +119,19 @@ public:
   SPIRVtypePointer(int32_t Id, int32_t StorClass, size_t PointerSize)
       : SPIRVtype(Id, PointerSize) {
     switch (StorClass) {
-    case (int32_t)spv::StorageClass::CrossWorkgroup:
+    case (int32_t)spv::StorageClassCrossWorkgroup:
       ASpace_ = OCLSpace::Global;
       break;
 
-    case (int32_t)spv::StorageClass::Workgroup:
+    case (int32_t)spv::StorageClassWorkgroup:
       ASpace_ = OCLSpace::Local;
       break;
 
-    case (int32_t)spv::StorageClass::UniformConstant:
+    case (int32_t)spv::StorageClassUniformConstant:
       ASpace_ = OCLSpace::Constant;
       break;
 
-    case (int32_t)spv::StorageClass::Function:
+    case (int32_t)spv::StorageClassFunction:
       assert(0 && "should have been handled elsewhere!");
       break;
 
@@ -114,6 +144,32 @@ public:
   OCLSpace getAS() override { return ASpace_; }
 };
 
+class SPIRVConstant {
+  std::vector<int32_t> ConstantWords_;
+
+public:
+  SPIRVConstant(SPIRVtype *Type, size_t NumConstWords,
+                const int32_t *ConstWords) {
+    ConstantWords_.insert(ConstantWords_.end(), ConstWords,
+                          ConstWords + NumConstWords);
+  }
+
+  template <typename T> T interpretAs() const {
+    assert(false && "Undefined accessor!");
+  };
+
+  template <> uint64_t interpretAs() const {
+    assert(ConstantWords_.size() > 0 && "Invalid constant word count.");
+    assert(ConstantWords_.size() <= 2 && "Constant may not fit to uint64_t.");
+    if (ConstantWords_.size() == 1)
+      return static_cast<uint32_t>(ConstantWords_[0]);
+    // Copy the value in order to satisfy alignment requirement of the type.
+    return copyAs<uint64_t>(ConstantWords_.data());
+  }
+};
+
+typedef std::map<int32_t, SPIRVConstant *> SPIRVConstMap;
+
 // Parses and checks SPIR-V header. Sets word buffer pointer to poin
 // past the header and updates NumWords count to exclude header words.
 // Return false if there is an error in the header. Otherwise, return
@@ -125,7 +181,7 @@ static bool parseHeader(const int32_t *&WordBuffer, size_t &NumWords) {
   }
   ++WordBuffer;
 
-  if (*WordBuffer < spv::Version10 || *WordBuffer > spv::Version12) {
+  if (*WordBuffer < getSPVVersion(1, 0) || *WordBuffer > getSPVVersion(1, 2)) {
     logError("Unsupported SPIR-V version.");
     return false;
   }
@@ -192,27 +248,27 @@ public:
 
   bool isKernelCapab() const {
     return (Opcode_ == spv::Op::OpCapability) &&
-           (Word1_ == (int32_t)spv::Capability::Kernel);
+           (Word1_ == (int32_t)spv::CapabilityKernel);
   }
   bool isExtIntOpenCL() const { return Extra_ == OpenCLStd; }
   bool isMemModelOpenCL() const {
     return (Opcode_ == spv::Op::OpMemoryModel) &&
-           (Word2_ == (int32_t)spv::MemoryModel::OpenCL);
+           (Word2_ == (int32_t)spv::MemoryModelOpenCL);
   }
   size_t getPointerSize() const {
     if (Opcode_ != spv::Op::OpMemoryModel)
       return 0;
-    return (Word1_ == (int32_t)spv::AddressingModel::Physical64) ? 8 : 4;
+    return (Word1_ == (int32_t)spv::AddressingModelPhysical64) ? 8 : 4;
   }
   bool isLangOpenCL() const {
     return (Opcode_ == spv::Op::OpSource) &&
-           ((Word1_ == (int32_t)spv::SourceLanguage::OpenCL_C) ||
-            (Word1_ == (int32_t)spv::SourceLanguage::OpenCL_CPP));
+           ((Word1_ == (int32_t)spv::SourceLanguageOpenCL_C) ||
+            (Word1_ == (int32_t)spv::SourceLanguageOpenCL_CPP));
   }
 
   bool isEntryPoint() {
     return (Opcode_ == spv::Op::OpEntryPoint) &&
-           (Word1_ == (int32_t)spv::ExecutionModel::Kernel);
+           (Word1_ == (int32_t)spv::ExecutionModelKernel);
   }
   int32_t entryPointID() { return Word2_; }
   std::string &&entryPointName() { return std::move(Extra_); }
@@ -232,8 +288,27 @@ public:
     assert(isType());
     return Word1_;
   }
+
+  bool hasResultType() const {
+    bool Ignored, HasType;
+    spv::HasResultAndType(Opcode_, &Ignored, &HasType);
+    return HasType;
+  }
+
+  bool hasResultID() const {
+    bool HasResult, Ignored;
+    spv::HasResultAndType(Opcode_, &HasResult, &Ignored);
+    return HasResult;
+  }
+
+  int32_t getResultID() const {
+    assert(hasResultID() && "Instruction does not have a result operand!");
+    return hasResultType() ? Word2_ : Word1_;
+  }
+
   bool isFunctionType() const { return (Opcode_ == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (Opcode_ == spv::Op::OpFunction); }
+  bool isConstant() const { return (Opcode_ == spv::Op::OpConstant); }
 
   // Return true if the instruction is an OpName.
   bool isName() const { return Opcode_ == spv::Op::OpName; }
@@ -243,7 +318,8 @@ public:
     return Opcode_ == spv::Op::OpDecorate && Word2_ == (int32_t)Dec;
   }
 
-  SPIRVtype *decodeType(SPIRTypeMap &TypeMap, size_t PointerSize) {
+  SPIRVtype *decodeType(SPIRTypeMap &TypeMap, SPIRVConstMap &ConstMap,
+                        size_t PointerSize) {
     if (Opcode_ == spv::Op::OpTypeVoid) {
       return new SPIRVtypePOD(Word1_, 0);
     }
@@ -271,17 +347,31 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpTypeArray) {
-      auto Type = TypeMap[Word2_];
-      if (!Type) {
+      auto EltType = TypeMap[Word2_];
+      if (!EltType) {
         logWarn("SPIR-V Parser: Word2_ {} not found in type map", Word2_);
         return nullptr;
       }
-      size_t TypeSize = Type->size();
-      return new SPIRVtypePOD(Word1_, TypeSize * Word3_);
+      // Compute actual element size due padding for meeting the
+      // alignment requirements.  C analogy as example: 'struct {int
+      // a; char b; }' takes 8 bytes per element in the array.
+      //
+      auto *EltCountOperand = ConstMap[Word3_];
+      if (!EltCountOperand) {
+        logWarn("SPIR-V Parser: Could not parse OpConstant "
+                "operand.");
+        return nullptr;
+      }
+      auto EltCount = EltCountOperand->interpretAs<uint64_t>();
+      auto TypeSize = roundUp(EltType->size(), EltType->alignment());
+      // TODO: Should padding in the tail be discounted?
+      return new SPIRVtypePOD(Word1_, TypeSize * EltCount,
+                              EltType->alignment());
     }
 
     if (Opcode_ == spv::Op::OpTypeStruct) {
       size_t TotalSize = 0;
+      Alignment MaxAlignment;
       for (size_t i = 2; i < WordCount_; ++i) {
         int32_t MemberId = OrigStream_[i];
 
@@ -290,11 +380,16 @@ public:
           logWarn("SPIR-V Parser: MemberId {} not found in type map", MemberId);
           continue;
         }
-        size_t TypeSize = Type->size();
-
-        TotalSize += TypeSize;
+        // Compute actual size as in spv::Op::OpTypeArray branch
+        // except don't account the tail padding. C analogy as
+        // example: 'struct { char a; int b; char c}' takes 9 bytes.
+        size_t MemberAlignment = Type->alignment();
+        TotalSize = roundUp(TotalSize, MemberAlignment);
+        TotalSize += Type->size();
+        if (MemberAlignment > MaxAlignment)
+          MaxAlignment = MemberAlignment;
       }
-      return new SPIRVtypePOD(Word1_, TotalSize);
+      return new SPIRVtypePOD(Word1_, TotalSize, MaxAlignment);
     }
 
     if (Opcode_ == spv::Op::OpTypeOpaque) {
@@ -312,7 +407,7 @@ public:
     if (Opcode_ == spv::Op::OpTypePointer) {
       // structs or vectors passed by value are represented in LLVM IR / SPIRV
       // by a pointer with "byval" keyword; handle them here
-      if (Word2_ == (int32_t)spv::StorageClass::Function) {
+      if (Word2_ == (int32_t)spv::StorageClassFunction) {
         int32_t Pointee = Word3_;
         auto Type = TypeMap[Pointee];
         if (!Type) {
@@ -328,6 +423,17 @@ public:
         return new SPIRVtypePointer(Word1_, Word2_, PointerSize);
     }
 
+    return nullptr;
+  }
+
+  SPIRVConstant *decodeConstant(SPIRTypeMap &TypeMap) const {
+    assert(isConstant());
+    assert(WordCount_ >= 4 && "Invalid OpConstant word count!");
+
+    if (auto *Type = TypeMap[Word1_])
+      return new SPIRVConstant(Type, WordCount_ - 3, &OrigStream_[3]);
+
+    logWarn("SPIR-V Parser: Missing type declaration for a constant");
     return nullptr;
   }
 
@@ -363,6 +469,7 @@ public:
 class SPIRVmodule {
   std::map<int32_t, std::string> EntryPoints_;
   SPIRTypeMap TypeMap_;
+  SPIRVConstMap ConstMap_;
   OCLFuncInfoMap FunctionTypeMap_;
   std::map<int32_t, int32_t> EntryToFunctionTypeIDMap_;
 
@@ -374,9 +481,10 @@ class SPIRVmodule {
 
 public:
   ~SPIRVmodule() {
-    for (auto I : TypeMap_) {
+    for (auto I : TypeMap_)
       delete I.second;
-    }
+    for (auto I : ConstMap_)
+      delete I.second;
   }
 
   bool valid() {
@@ -459,7 +567,8 @@ private:
                              Inst.decodeFunctionType(TypeMap_, PointerSize)));
         else
           TypeMap_.emplace(std::make_pair(
-              Inst.getTypeID(), Inst.decodeType(TypeMap_, PointerSize)));
+              Inst.getTypeID(),
+              Inst.decodeType(TypeMap_, ConstMap_, PointerSize)));
       }
 
       if (Inst.isFunction() &&
@@ -471,6 +580,11 @@ private:
 
         EntryToFunctionTypeIDMap_.emplace(
             std::make_pair(Inst.getFunctionID(), Inst.getFunctionTypeID()));
+      }
+
+      if (Inst.isConstant()) {
+        auto *Const = Inst.decodeConstant(TypeMap_);
+        ConstMap_.emplace(std::make_pair(Inst.getResultID(), Const));
       }
 
       NumWords -= Inst.size();
@@ -509,7 +623,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     // attribute OpDecorations from the binary. OpNames do not have
     // semantical meaning and we are not currently linking the SPIR-V
     // modules with anything else.
-    if (Insn.isName() || Insn.isDecoration(spv::Decoration::LinkageAttributes))
+    if (Insn.isName() || Insn.isDecoration(spv::DecorationLinkageAttributes))
       continue;
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(int32_t));

@@ -29,6 +29,16 @@
 #include "hip/hip_fatbin.h"
 
 #include <optional>
+#include <cstring>
+
+/// Reinterpret the pointed region, starting from BaseAddr +
+/// ByteOffset, as a value of the given type.
+template <class T>
+static T copyAs(const void *BaseAddr, size_t ByteOffset = 0) {
+  T Res;
+  std::memcpy(&Res, (const char *)BaseAddr + ByteOffset, sizeof(T));
+  return Res;
+}
 
 /// Clamps 'Val' to [0, INT_MAX] range.
 static inline int clampToInt(size_t Val) {

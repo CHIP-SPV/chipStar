@@ -1763,6 +1763,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   for (int i = 0; i < ExecItem->getNumArgs(); i++) {
     auto FuncInfo = ExecItem->getKernel()->getFuncInfo();
     OCLType ArgType = FuncInfo->ArgTypeInfo[i].Type;
+    auto ArgSize = FuncInfo->ArgTypeInfo[i].Size;
     switch (ArgType) {
     case OCLType::POD:
       ArgTypeStr = "POD";
@@ -1783,7 +1784,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
       CHIPERR_LOG_AND_THROW("Unknown argument type", hipErrorTbd);
     }
     if (ExecItem->getArgsPointer())
-      InfoStr << "Arg " << i << ": " << ArgTypeStr << " "
+      InfoStr << "Arg " << i << ": " << ArgTypeStr << " " << ArgSize << " "
               << ExecItem->getArgsPointer()[i] << "\n";
   }
   logDebug("{}", InfoStr.str());
