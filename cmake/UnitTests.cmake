@@ -3,6 +3,12 @@
 # Note that this list only contains tests external to CHIP-SPV,
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
+#  Necessary for some reason
+list(APPEND  CPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND DGPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND IGPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND IGPU_LEVEL0_FAILED_TESTS " ")
+list(APPEND DGPU_LEVEL0_FAILED_TESTS " ") 
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
@@ -1189,9 +1195,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") #
 # # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "sycl_chip_interop_usm") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop_no_buffers") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-simpleTemplates") # SEGFAULT
@@ -1571,9 +1574,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 
 # iGPU Level Zero Unit Test Failures
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "sycl_chip_interop_usm") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop_no_buffers") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleTemplates") # SEGFAULT
