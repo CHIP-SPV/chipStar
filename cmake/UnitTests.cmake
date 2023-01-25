@@ -1958,6 +1958,9 @@ string(REGEX REPLACE ";" "\$|" DGPU_LEVEL0_FAILED_TESTS_STR "${DGPU_LEVEL0_FAILE
 string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_FAILED_TESTS_STR "${IGPU_LEVEL0_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" ALL_FAILED_TESTS_STR "${ALL_FAILED_TESTS}")
 
+
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${ALL_FAILED_TESTS_STR} VERBATIM)
+
 string(CONCAT DGPU_OPENCL_FAILED_TESTS_STR ${DGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT IGPU_OPENCL_FAILED_TESTS_STR ${IGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT CPU_OPENCL_FAILED_TESTS_STR ${CPU_OPENCL_FAILED_TESTS_STR} "\$|")
@@ -1972,8 +1975,6 @@ FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_tests.txt" "\"${DG
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_tests.txt" "\"${IGPU_LEVEL0_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")
 
-set(EXCLUDED_TESTS "${ALL_FAILED_TESTS_STR}$")
-
 # TODO fix-254 how do I make these read from the environment?
 # MULTI_TESTS_REPEAT=33 make multi_tests
 # Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
@@ -1984,5 +1985,3 @@ set(PARALLEL_TESTS 1)
 set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
 add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R ${FLAKY_TESTS} --repeat until-fail:${FLAKY_TESTS_REPEAT} USES_TERMINAL VERBATIM)
 add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread|[Ss]tream" --repeat until-fail:${MULTI_TESTS_REPEAT} USES_TERMINAL VERBATIM)
-
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${EXCLUDED_TESTS} VERBATIM)
