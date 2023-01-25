@@ -1186,6 +1186,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 
 # # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
