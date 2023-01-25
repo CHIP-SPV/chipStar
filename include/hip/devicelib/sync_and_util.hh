@@ -104,32 +104,30 @@ extern __device__ int __all(int predicate);
 extern __device__ int __any(int predicate);
 
 extern __device__ int __shfl(int var, int srcLane,
-			     int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                             int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ float __shfl(float var, int srcLane,
-			       int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                               int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ int __shfl_xor(int var, int laneMask,
-				 int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                                 int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ float __shfl_xor(float var, int laneMask,
-				 int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                                   int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ int __shfl_up(int var, unsigned int delta,
-				int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                                int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ float __shfl_up(float var, unsigned int delta,
-				  int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                                  int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ int __shfl_down(int var, unsigned int delta,
-				  int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                                  int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ float __shfl_down(float var, unsigned int delta,
-				    int warpsize = CHIP_DEFAULT_WARP_SIZE);
+                                    int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ unsigned __lane_id();
-
 }
-
 
 #endif // include guard

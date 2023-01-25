@@ -55,9 +55,7 @@ __global__ void shfl_float(float *In, float *Out, int Lane, int Width) {
   Out[threadIdx.x] = __shfl(In[threadIdx.x], Lane, Width);
 }
 
-__global__ void test_lane_id(unsigned *Out) {
-  Out[threadIdx.x] = __lane_id();
-}
+__global__ void test_lane_id(unsigned *Out) { Out[threadIdx.x] = __lane_id(); }
 
 #define LAUNCH_CASE_T(TYPE, KERNEL, DELTA, WIDTH)                              \
   std::iota(Input, Input + Threads, (TYPE)0);                                  \
@@ -107,8 +105,8 @@ int main(int argc, char *argv[]) {
 
   std::fill(Output, Output + Threads, 0);
 
-  hipLaunchKernelGGL(test_lane_id, dim3(CHIP_DEFAULT_WARP_SIZE),
-                     dim3(Threads), 0, 0, (unsigned int*)Output);
+  hipLaunchKernelGGL(test_lane_id, dim3(CHIP_DEFAULT_WARP_SIZE), dim3(Threads),
+                     0, 0, (unsigned int *)Output);
   hipStreamSynchronize(0);
 
   std::cout << "lane_id_test: " << std::endl;
