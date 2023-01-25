@@ -59,10 +59,14 @@ struct SPVArgTypeInfo {
 };
 
 class SPVFuncInfo {
-  friend class SPIRVModule;
+  friend class SPIRVmodule;
   friend class SPIRVinst;
 
   std::vector<SPVArgTypeInfo> ArgTypeInfo_;
+
+  /// Spilled argument annotations represented as pairs of argument
+  /// index (key) and argument size (value).
+  std::map<uint16_t, uint16_t> SpilledArgs_;
 
 public:
   /// A structure for argument info passed by the visitor methods.

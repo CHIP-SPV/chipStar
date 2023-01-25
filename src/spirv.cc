@@ -38,6 +38,8 @@
 
 const std::string OpenCLStd{"OpenCL.std"};
 
+// TODO: Refactor. Separate type for ID values for avoiding mixing up
+//       them with instruction words.
 using InstWord = uint32_t;
 
 static InstWord getSPVVersion(int Major, int Minor) {
@@ -89,6 +91,18 @@ public:
   SPIRVtypePOD(InstWord Id, size_t Size) : SPIRVtype(Id, Size) {}
   virtual ~SPIRVtypePOD(){};
   virtual SPVTypeKind typeKind() override { return SPVTypeKind::POD; }
+};
+
+class SPIRVtypeArray : public SPIRVtypePOD {
+  size_t EltCount_;
+
+public:
+  SPIRVtypeArray(InstWord Id, SPIRVtype *EltType, size_t ElementCount)
+      : SPIRVtypePOD(
+            Id, ElementCount * roundUp(EltType->size(), EltType->alignment()),
+            EltType->alignment()),
+        EltCount_(ElementCount) {}
+  size_t elementCount() const { return EltCount_; }
 };
 
 class SPIRVtypeOpaque : public SPIRVtype {
@@ -290,6 +304,11 @@ public:
     return HasType;
   }
 
+  InstWord getResultTypeID() const {
+    assert(hasResultType() && "Instruction does not have a result type!");
+    return getWord(1);
+  }
+
   bool hasResultID() const {
     bool HasResult, Ignored;
     spv::HasResultAndType(Opcode_, &HasResult, &Ignored);
@@ -304,6 +323,13 @@ public:
   bool isFunctionType() const { return (Opcode_ == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (Opcode_ == spv::Op::OpFunction); }
   bool isConstant() const { return (Opcode_ == spv::Op::OpConstant); }
+
+  bool isGlobalVariable() const {
+    if (getOpcode() == spv::OpVariable &&
+        getWord(3) != spv::StorageClassFunction)
+      return true;
+    return false;
+  }
 
   // Return true if the instruction is an OpName.
   bool isName() const { return Opcode_ == spv::Op::OpName; }
@@ -365,10 +391,7 @@ public:
         return nullptr;
       }
       auto EltCount = EltCountOperand->interpretAs<uint64_t>();
-      auto TypeSize = roundUp(EltType->size(), EltType->alignment());
-      // TODO: Should padding in the tail be discounted?
-      return new SPIRVtypePOD(getWord(1), TypeSize * EltCount,
-                              EltType->alignment());
+      return new SPIRVtypeArray(getWord(1), EltType, EltCount);
     }
 
     if (Opcode_ == spv::Op::OpTypeStruct) {
@@ -461,6 +484,33 @@ public:
   }
 };
 
+static std::string_view parseLiteralString(const InstWord *WordBegin,
+                                           size_t NumWords) {
+  const auto *ByteBegin = (const char *)WordBegin;
+  const auto *LastWord = ByteBegin + (NumWords - 1) * sizeof(InstWord);
+  auto LastByte = LastWord[3];
+  // String literals are nul-terminated [SPIR-V 2.2.1 Instructions].
+  assert(LastByte == '\0' && "Missing nul-termination.");
+  return std::string_view(ByteBegin);
+}
+
+static std::string_view parseLinkageAttributeName(const SPIRVinst &Inst) {
+  assert(Inst.isDecoration(spv::DecorationLinkageAttributes));
+  auto StrSize = Inst.size() -
+                 /* offset to the string: */ 3 -
+                 /* linkage type: */ 1;
+  return parseLiteralString(&Inst.getWord(3), StrSize);
+}
+
+static std::string_view parseLinkageAttributeName(const SPIRVinst *Inst) {
+  return parseLinkageAttributeName(*Inst);
+}
+
+static IteratorRange<const InstWord *> getWordRange(const InstWord *Begin,
+                                                    size_t NumWords) {
+  return IteratorRange<const InstWord *>(Begin, Begin + NumWords);
+}
+
 class SPIRVmodule {
   std::map<InstWord, std::string> EntryPoints_;
   SPIRTypeMap TypeMap_;
@@ -468,6 +518,10 @@ class SPIRVmodule {
   SPVFuncInfoMap FunctionTypeMap_;
   std::map<InstWord, InstWord> EntryToFunctionTypeIDMap_;
   std::unordered_map<InstWord, std::unique_ptr<SPIRVinst>> IdToInstMap_;
+  /// Names of globals and functions.
+  std::map<InstWord, std::string_view> LinkNames_;
+  std::map<std::string_view, std::vector<std::pair<uint16_t, uint16_t>>>
+      SpilledArgAnnotations_;
 
   bool MemModelCL_;
   bool KernelCapab_;
@@ -521,11 +575,18 @@ public:
 
     for (auto i : EntryPoints_) {
       InstWord EntryPointID = i.first;
+      std::string_view KernelName = i.second;
       auto Ft = EntryToFunctionTypeIDMap_.find(EntryPointID);
       assert(Ft != EntryToFunctionTypeIDMap_.end());
       auto Fi = FunctionTypeMap_.find(Ft->second);
       assert(Fi != FunctionTypeMap_.end());
-      ModuleMap.emplace(std::make_pair(i.second, Fi->second));
+      auto FnInfo = Fi->second;
+
+      if (SpilledArgAnnotations_.count(KernelName))
+        for (auto &Kv : SpilledArgAnnotations_[KernelName])
+          FnInfo->SpilledArgs_.insert(Kv);
+
+      ModuleMap.emplace(std::make_pair(i.second, FnInfo));
     }
     FunctionTypeMap_.clear();
 
@@ -533,6 +594,19 @@ public:
   }
 
 private:
+  std::string_view getLinkNameOr(const SPIRVinst *Inst,
+                                 std::string_view OrValue) const {
+    if (!Inst->hasResultID())
+      return OrValue;
+    auto It = LinkNames_.find(Inst->getResultID());
+    return It != LinkNames_.end() ? It->second : OrValue;
+  }
+
+  const SPIRVinst *getInstruction(InstWord ID) const {
+    auto It = IdToInstMap_.find(ID);
+    return It != IdToInstMap_.end() ? It->second.get() : nullptr;
+  }
+
   bool parseInstructionStream(const InstWord *Stream, size_t NumWords) {
     const InstWord *StreamIntPtr = Stream;
     size_t PointerSize = 0;
@@ -589,6 +663,38 @@ private:
         ConstMap_.emplace(std::make_pair(Inst->getResultID(), Const));
       }
 
+      if (Inst->isDecoration(spv::DecorationLinkageAttributes)) {
+        auto TargetID = Inst->getWord(1);
+        auto LinkName = parseLinkageAttributeName(Inst);
+        LinkNames_[TargetID] = LinkName;
+      }
+
+      if (Inst->isGlobalVariable()) {
+        auto Name = getLinkNameOr(Inst, "");
+        auto SpillArgAnnotation = std::string_view(ChipSpilledArgsVarPrefix);
+        if (startsWith(Name, SpillArgAnnotation)) {
+          auto KernelName = Name.substr(SpillArgAnnotation.size());
+          auto &SpillAnnotation = SpilledArgAnnotations_[KernelName];
+          // Get initializer operand.
+          auto *Init = getInstruction(Inst->getWord(4));
+          assert(Init && "Annotation variable is missing an initializer.");
+          // Init is known to be OpConstantComposite of char array.
+          auto *Type = TypeMap_[Init->getResultTypeID()];
+          assert(Type && dynamic_cast<SPIRVtypeArray *>(Type) &&
+                 "Could not type for result ID.");
+          auto *ArrayType = static_cast<SPIRVtypeArray *>(Type);
+          auto ArrLen = ArrayType->elementCount();
+          // Iterate constituents.
+          for (auto EltID : getWordRange(&Init->getWord(3), ArrLen)) {
+            auto *ConstInt = getInstruction(EltID); // OpConstant
+            uint32_t Annotation = ConstInt->getWord(3);
+            uint16_t ArgIndex = Annotation & 0xffff;
+            uint16_t ArgSize = Annotation >> 16u;
+            SpillAnnotation.push_back(std::make_pair(ArgIndex, ArgSize));
+          }
+        }
+      }
+
       NumWords -= Inst->size();
       StreamIntPtr += Inst->size();
     }
@@ -627,11 +733,13 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     //
     // This workaround drops OpName instructions, whose string matches one of
     // the OpEntryPoint names, and all linkage attribute OpDecorations from the
-    // binary. OpNames do not have semantical meaning and we are not currently
-    // linking the SPIR-V modules with anything else.
+    // binary we don't need to preserve. OpNames do not have semantical meaning
+    // and we are not currently linking the SPIR-V modules with anything else.
     if (Insn.isName() && EntryPoints.count(Insn.getName()))
       continue;
-    if (Insn.isDecoration(spv::DecorationLinkageAttributes))
+    if (Insn.isDecoration(spv::DecorationLinkageAttributes) &&
+        // Preserved for later analysis.
+        !startsWith(parseLinkageAttributeName(Insn), ChipSpilledArgsVarPrefix))
       continue;
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));

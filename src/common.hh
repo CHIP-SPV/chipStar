@@ -77,4 +77,11 @@ using CHIPVarInfo = int64_t[3];
 /// global device variables (e.g. static local variables in device code).
 constexpr char ChipNonSymbolResetKernelName[] = "__chip_reset_non_symbols";
 
+/// The prefix for global-scope variables in SPIR-V modules for carrying
+/// information about "spilled" arguments
+///
+/// see HipKernelArgSpiller.cpp for details. Full name of such
+/// variables is '<ChipSpilledArgsVarPrefix><kernel-name>'
+constexpr char ChipSpilledArgsVarPrefix[] = "__chip_spilled_args_";
+
 #endif
