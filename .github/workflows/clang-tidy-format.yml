@@ -5,8 +5,6 @@ name: cpp-linter
 on:
   push:
     paths-ignore: "docs/**"
-  pull_request:
-    paths-ignore: "docs/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
