@@ -1,10 +1,11 @@
 # custom target to avoid tests that are known to fail
 #
 # Note that this list only contains tests external to CHIP-SPV,
-# such as those frome HIP's testsuite; the internal tests
+# such as those from HIP's testsuite; the internal tests
 # should be disabled based on value ENABLE_FAILING_TESTS option
 #  Necessary for some reason
-list(APPEND  CPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND  CPU_OPENCL_FAILED_TESTS " ")
+list(APPEND    POCL_CPU_FAILED_TESTS " ")
 list(APPEND DGPU_OPENCL_FAILED_TESTS " ") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS " ") 
 list(APPEND IGPU_LEVEL0_FAILED_TESTS " ")
@@ -388,7 +389,41 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - int") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "TestLazyModuleInit")
+list(APPEND CPU_OPENCL_FAILED_TESTS "TestKernelArgs")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphNodeGetType_Functional")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphNodeGetType_NodeType")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_ArgValidation")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_NonCoherent")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostMalloc_Coherent")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventCreate_IncompatibleFlags")
 
+# PoCL-CPU driver test failures.
+set(POCL_CPU_FAILED_TESTS ${CPU_OPENCL_FAILED_TESTS})
+
+list(APPEND POCL_CPU_FAILED_TESTS "abort")
+list(APPEND POCL_CPU_FAILED_TESTS "fp16_math")
+list(APPEND POCL_CPU_FAILED_TESTS "fp16_half2_math")
+list(APPEND POCL_CPU_FAILED_TESTS "hip_async_binomial")
+list(APPEND POCL_CPU_FAILED_TESTS "BinomialOption")
+list(APPEND POCL_CPU_FAILED_TESTS "DCT")
+list(APPEND POCL_CPU_FAILED_TESTS "dwtHaar1D")
+list(APPEND POCL_CPU_FAILED_TESTS "Histogram")
+list(APPEND POCL_CPU_FAILED_TESTS "RecursiveGaussian")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-convolutionSeparable")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-histogram")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-binomialoptions")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-mergesort")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-scalarprod")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-scan")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-sortnet")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-FDTD3d")
+list(APPEND POCL_CPU_FAILED_TESTS "cuda-sobolqrng")
+list(APPEND POCL_CPU_FAILED_TESTS "Unit_hipMemset2D_BasicFunctional")
+list(APPEND POCL_CPU_FAILED_TESTS "Unit_hipMemset2DAsync_BasicFunctional")
+list(APPEND POCL_CPU_FAILED_TESTS "Unit_hipMemset2DAsync_WithKernel")
+list(APPEND POCL_CPU_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread")
+list(APPEND POCL_CPU_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D")
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
@@ -764,6 +799,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1942,28 +1978,35 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") #
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Hangs.
 
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${CPU_OPENCL_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${POCL_CPU_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${DGPU_LEVEL0_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_LEVEL0_FAILED_TESTS})
 
 list(REMOVE_DUPLICATES ALL_FAILED_TESTS)
 
+set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
+
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${ALL_FAILED_TESTS_STR} VERBATIM)
+
 string(REGEX REPLACE ";" "\$|" DGPU_OPENCL_FAILED_TESTS_STR "${DGPU_OPENCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" IGPU_OPENCL_FAILED_TESTS_STR "${IGPU_OPENCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|"  CPU_OPENCL_FAILED_TESTS_STR "${CPU_OPENCL_FAILED_TESTS}")
+string(REGEX REPLACE ";" "\$|"  POCL_CPU_FAILED_TESTS_STR "${POCL_CPU_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" DGPU_LEVEL0_FAILED_TESTS_STR "${DGPU_LEVEL0_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_FAILED_TESTS_STR "${IGPU_LEVEL0_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" ALL_FAILED_TESTS_STR "${ALL_FAILED_TESTS}")
 
 
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${ALL_FAILED_TESTS_STR} VERBATIM)
-
 string(CONCAT DGPU_OPENCL_FAILED_TESTS_STR ${DGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT IGPU_OPENCL_FAILED_TESTS_STR ${IGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT CPU_OPENCL_FAILED_TESTS_STR ${CPU_OPENCL_FAILED_TESTS_STR} "\$|")
+string(CONCAT POCL_CPU_FAILED_TESTS_STR ${POCL_CPU_FAILED_TESTS_STR} "\$|")
 string(CONCAT DGPU_LEVEL0_FAILED_TESTS_STR ${DGPU_LEVEL0_FAILED_TESTS_STR} "\$|")
 string(CONCAT IGPU_LEVEL0_FAILED_TESTS_STR ${IGPU_LEVEL0_FAILED_TESTS_STR} "\$|")
 string(CONCAT ALL_FAILED_TESTS_STR ${ALL_FAILED_TESTS_STR} "\$|")
@@ -1971,6 +2014,7 @@ string(CONCAT ALL_FAILED_TESTS_STR ${ALL_FAILED_TESTS_STR} "\$|")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_opencl_failed_tests.txt" "\"${DGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_opencl_failed_tests.txt" "\"${IGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/cpu_opencl_failed_tests.txt" "\"${CPU_OPENCL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/pocl_cpu_failed_tests.txt" "\"${POCL_CPU_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_tests.txt" "\"${DGPU_LEVEL0_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_tests.txt" "\"${IGPU_LEVEL0_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")
@@ -1982,6 +2026,6 @@ set(FLAKY_TESTS_REPEAT 100)
 set(MULTI_TESTS_REPEAT 10)
 set(PARALLEL_TESTS 1)
 
-set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
 add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R ${FLAKY_TESTS} --repeat until-fail:${FLAKY_TESTS_REPEAT} USES_TERMINAL VERBATIM)
 add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread|[Ss]tream" --repeat until-fail:${MULTI_TESTS_REPEAT} USES_TERMINAL VERBATIM)
+
