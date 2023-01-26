@@ -30,7 +30,7 @@ sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 # Test PoCL CPU
 echo "begin pocl_opencl_failed_tests"
 module swap opencl opencl/pocl-cpu
-CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/pocl_opencl_failed_tests.txt`" | tee pocl_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
 echo "end pocl_opencl_failed_tests"
 
 # Test Level Zero iGPU
@@ -49,6 +49,7 @@ echo "end dgpu_level0_failed_tests"
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
+module swap opencl opencl/intel-gpu
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
 CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
@@ -113,18 +114,18 @@ else
     dGPU_LevelZero=0
 fi
 
-if [[ `cat pocl_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
+if [[ `cat cpu_pocl_make_check_result.txt | grep "0 tests failed out of"` ]]
 then
     echo "PoCL OpenCL PASS"
-    PoCL_OpenCL=1
+    CPU_PoCL=1
 else
     echo "PoCL OpenCL FAIL"
-    PoCL_OpenCL=0
+    CPU_PoCL=0
 fi
 
 if [[ "$iGPU_OpenCL" -eq "1" && \
       "$dGPU_OpenCL" -eq "1" && \
-      "$PoCL_OpenCL" -eq "1" && \
+      "$CPU_PoCL" -eq "1" && \
       "$CPU_OpenCL" -eq "1" && \
       "$iGPU_LevelZero" -eq "1" && \
       "$dGPU_LevelZero" -eq "1" ]]
