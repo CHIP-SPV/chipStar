@@ -1,4 +1,5 @@
 #!/bin/bash
+source /etc/profile.d/modules.sh
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
