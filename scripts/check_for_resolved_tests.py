@@ -31,7 +31,7 @@ print("Checking for tests that have been resolved in " ,sys.argv[1])
 os.chdir(sys.argv[1])
 for env_vars, case in test_cases:
     if "opencl" in case:
-        num_threads = 8
+        num_threads = 1
     else:
         num_threads = 1
     out = test_cmd("{env_vars} ctest --timeout 180 -j {num_threads}  -R \"`cat ./test_lists/{case}_failed_tests.txt`\"".format(num_threads=num_threads, env_vars=env_vars, case=case))
