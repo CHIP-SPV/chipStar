@@ -25,6 +25,10 @@
 
 #include <hip/devicelib/macros.hh>
 
+#include "CHIPSPVConfig.hh"
+
+__device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
+
 #if defined(__HIP_DEVICE_COMPILE__)
 
 extern "C" {
@@ -92,5 +96,38 @@ EXPORT unsigned long long clock64();
 EXPORT void *memset(void *ptr, int value, size_t size);
 EXPORT void *memcpy(void *dest, const void *src, size_t n);
 #endif
+
+extern "C++" {
+
+extern __device__ uint64_t __ballot(int predicate);
+extern __device__ int __all(int predicate);
+extern __device__ int __any(int predicate);
+
+extern __device__ int __shfl(int var, int srcLane,
+                             int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ float __shfl(float var, int srcLane,
+                               int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ int __shfl_xor(int var, int laneMask,
+                                 int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ float __shfl_xor(float var, int laneMask,
+                                   int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ int __shfl_up(int var, unsigned int delta,
+                                int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ float __shfl_up(float var, unsigned int delta,
+                                  int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ int __shfl_down(int var, unsigned int delta,
+                                  int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ float __shfl_down(float var, unsigned int delta,
+                                    int warpsize = CHIP_DEFAULT_WARP_SIZE);
+
+extern __device__ unsigned __lane_id();
+}
 
 #endif // include guard

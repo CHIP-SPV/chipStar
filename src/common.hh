@@ -23,7 +23,7 @@
 #ifndef HIP_COMMON_HH
 #define HIP_COMMON_HH
 
-#include "Config.hh"
+#include "CHIPSPVConfig.hh"
 
 #include <map>
 #include <set>

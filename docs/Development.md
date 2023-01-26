@@ -65,7 +65,7 @@ Found HIP installation: /home/michal/0/build/b_chip_sycl, version 5.1.0
 
 This is a library which contains HIP device-side functions (math, workgroup and others) which either don't exist in OpenCL at all, or have different implementation (different name, function signature etc), and implements these by using OpenCL device-side functions (or OpenCL extensions where possible).
 
-For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_LOCAL_MEM_FENCE)`, `rhypot()` has no equivalent in OpenCL so it's implemented via OCML, and shuffle functions are implemented using intel's `cl_intel_subgroups` extension (there is now a khronos subgroup extension, `cl_khr_subgroup_shuffle`, but it did not exist at the time).
+For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_LOCAL_MEM_FENCE)`, `rhypot()` has no equivalent in OpenCL so it's implemented via OCML, and shuffle functions are implemented using cl_khr_subgroup_shuffle and cl_khr_subgroup_shuffle_relative extensions. Kernels that call cross-lane intrinsics that are sensitive to the fixed warp width are handled by annotating them with cl_intel_reqd_sub_group_size.
 
 ### CHIP-SPV-specific LLVM passes
 
@@ -79,6 +79,7 @@ There are several transformations (LLVM passes) done on the LLVM IR of the devic
 * HipPrintf.cpp - pass to convert calls to the CUDA/HIP printf() to OpenCL/SPIR-V compatible printf() calls.
 * HipStripUsedIntrinsics.cpp - pass to remove llvm.used and llvm.compiler.used intrinsic variables.
 * HipTextureLowering.cpp - pass that transforms kernels (and texturing functions) with `hipTextureObject_t` argument to kernels with actual opencl image+sampler arguments.
+* HipWarps.cpp - pass that handles warp-sensitive kernels
 
 ### Support for straight-from-CUDA-sources compilation
 
