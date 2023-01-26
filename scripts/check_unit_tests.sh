@@ -1,5 +1,6 @@
 #!/bin/bash
 source /etc/profile.d/modules.sh
+export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
