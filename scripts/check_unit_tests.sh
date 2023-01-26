@@ -28,10 +28,10 @@ make build_tests -j
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
 # Test PoCL CPU
-echo "begin cpu_opencl_failed_tests"
+echo "begin pocl_opencl_failed_tests"
 module swap opencl opencl/pocl-cpu
 CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/pocl_opencl_failed_tests.txt`" | tee pocl_opencl_make_check_result.txt
-echo "end cpu_opencl_failed_tests"
+echo "end pocl_opencl_failed_tests"
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"

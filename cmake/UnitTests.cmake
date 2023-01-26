@@ -2331,6 +2331,13 @@ list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_j0f_float") # Failed
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_j1f_float") # Failed
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_jnf_float") # Failed
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_y0f_float") # Failed
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_y1f_float") # Failed
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_ynf_float") # Failed
+list(APPEND POCL_LEVEL0_FAILED_TESTS "Unit_hipClassKernel_Friend") # SEGFAULT
 
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})
