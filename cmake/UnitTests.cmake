@@ -1568,6 +1568,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") #
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 
 # iGPU Level Zero Unit Test Failures
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
