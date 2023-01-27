@@ -1,4 +1,5 @@
 #!/bin/bash
+source /opt/intel/oneapi/setvars.sh intel64
 source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
