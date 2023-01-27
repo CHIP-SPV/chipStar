@@ -9,7 +9,8 @@
 // Define a pass plugin that runs a collection of HIP passes.
 //
 // (c) 2021 Parmance for Argonne National Laboratory and
-//     2022 Pekka Jääskeläinen / Intel
+// (c) 2022 Pekka Jääskeläinen / Intel
+// (c) 2023 CHIP-SPV developers
 //===----------------------------------------------------------------------===//
 
 
@@ -97,8 +98,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(ModuleInlinerWrapperPass(getInlineParams(1000)));
 #if LLVM_VERSION_MAJOR < 14
   MPM.addPass(createModuleToFunctionPassAdaptor(SROA()));
-#else
+#elif LLVM_VERSION_MAJOR < 16
   MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass()));
+#else
+  MPM.addPass(
+      createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::PreserveCFG)));
 #endif
 
   MPM.addPass(HipTextureLoweringPass());

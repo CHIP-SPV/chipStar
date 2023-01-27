@@ -10,6 +10,7 @@
 // compatible ones.
 //
 // (c) 2021-2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
+// (c) 2023 CHIP-SPV developers
 //===----------------------------------------------------------------------===//
 //
 // This pass moves the format string from global to the OpenCL constant address
@@ -228,7 +229,9 @@ HipPrintfToOpenCLPrintfPass::getOrCreateStrLiteralArg(const std::string &Str,
     return LiteralArg;
 
 #if LLVM_VERSION_MAJOR >= 15
+#if LLVM_VERSION_MAJOR == 15
   assert(B.getContext().hasSetOpaquePointersValue());
+#endif
 
   if (B.getContext().supportsTypedPointers()) {
 #endif
@@ -241,7 +244,7 @@ HipPrintfToOpenCLPrintfPass::getOrCreateStrLiteralArg(const std::string &Str,
 
     LiteralArg = llvm::ConstantExpr::getGetElementPtr(
                LiteralStr->getValueType(), LiteralStr, Indices);
-#if LLVM_VERSION_MAJOR == 15
+#if LLVM_VERSION_MAJOR >= 15
   } else {
     LiteralArg = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
                               SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
@@ -282,7 +285,9 @@ static Function* getCalledFunction(CallInst *CI, const LLVMContext &Ctx) {
   // A call with mismatched call signature.
 
 #if LLVM_VERSION_MAJOR > 14
+#if LLVM_VERSION_MAJOR == 15
   assert(Ctx.hasSetOpaquePointersValue());
+#endif
 
   if (!Ctx.supportsTypedPointers())
     return cast<Function>(CI->getCalledOperand());

@@ -13,6 +13,7 @@
 // (c) 2021 Paulius Velesko for Argonne National Laboratory
 // (c) 2020 Michal Babej for TUNI
 // (c) 2022 Michal Babej for Argonne National Laboratory
+// (c) 2023 CHIP-SPV developers
 //===----------------------------------------------------------------------===//
 
 
@@ -124,7 +125,7 @@ private:
   }
 
   // will not compile after typed pointer removal
-#if LLVM_VERSION_MAJOR <= 15
+#if LLVM_VERSION_MAJOR <= 16
   static void recursivelyReplaceArrayWithPointer(Value *DestV, Value *SrcV, Type *ElemType, IRBuilder<> &B) {
     SmallVector<Instruction *> InstsToDelete;
 
@@ -191,6 +192,58 @@ private:
       I->eraseFromParent();
     }
 
+  }
+#endif
+
+#if LLVM_VERSION_MAJOR >= 16
+  static bool lowerZeroEltArrayTypes(BasicBlock &BB) {
+    SmallVector<Instruction *> InstsToDelete;
+    bool Modified = false;
+    for (auto &I : BB) {
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+        auto *SrcATy = dyn_cast<ArrayType>(GEP->getSourceElementType());
+        if (!SrcATy || SrcATy->getNumElements() > 0)
+          continue;
+
+        // Transform 'GEP [0 x Ty], %p, 0, %idx, ...' -> 'GEP Ty, %p, %idx, ...'
+        SmallVector<Value *> NewIndices;
+        for (auto I = GEP->idx_begin() + 1, E = GEP->idx_end(); I != E; I++)
+          NewIndices.push_back(*I);
+
+        GetElementPtrInst *NewGEP = nullptr;
+        if (GEP->isInBounds())
+          NewGEP = GetElementPtrInst::CreateInBounds(SrcATy->getElementType(),
+                                                     GEP->getPointerOperand(),
+                                                     NewIndices, "", GEP);
+        else
+          NewGEP = GetElementPtrInst::Create(SrcATy->getElementType(),
+                                             GEP->getPointerOperand(),
+                                             NewIndices, "", GEP);
+        assert(NewGEP->getType() == GEP->getType());
+        GEP->replaceAllUsesWith(NewGEP);
+        InstsToDelete.push_back(GEP);
+        Modified = true;
+        continue;
+      }
+    }
+
+    for (auto I : InstsToDelete)
+      I->eraseFromParent();
+
+    return Modified;
+  }
+
+  // Replaces [0 x Ty] types, which llvm-spirv does not support, with a plain
+  // pointer to element type Ty.
+  static bool lowerZeroEltArrayTypes(Module &M) {
+    // Implementation is designed for opaque pointers.
+    assert(!M.getContext().supportsTypedPointers());
+    bool Modified = false;
+    for (auto &F : M)
+      for (auto &BB : F)
+        Modified |= lowerZeroEltArrayTypes(BB);
+
+    return Modified;
   }
 #endif
 
@@ -370,8 +423,10 @@ private:
     if (isGVarUsedInFunction(GV, NewF)) {
       B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
 
+#if LLVM_VERSION_MAJOR >= 15
 #if LLVM_VERSION_MAJOR == 15
       assert(M.getContext().hasSetOpaquePointersValue());
+#endif
 
       if (M.getContext().supportsTypedPointers()) {
 #endif
@@ -391,7 +446,7 @@ private:
         // the bitcast to [N x Type] should now be unused
         if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
         LastArgBitcast->eraseFromParent();
-#if LLVM_VERSION_MAJOR == 15
+#if LLVM_VERSION_MAJOR >= 15
       } else {
         // replace GVar references with the argument
         replaceGVarUsesWith(GV, NewF, last_arg);
@@ -494,6 +549,10 @@ private:
       }
       GV->eraseFromParent();
     }
+
+#if LLVM_VERSION_MAJOR >= 16
+    Modified = lowerZeroEltArrayTypes(M);
+#endif
 
     return Modified;
   }

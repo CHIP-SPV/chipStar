@@ -222,13 +222,15 @@ endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 
-if(NOT CLANG_VERSION_LESS_15)
+if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
   # LLVM 15 switches to opaque pointer mode by default which
   # llvm-spirv currently does not support. Switch the mode off.
   #
   # NOTE: https://reviews.llvm.org/D130766 will disable the mode off
   # for SPIR-V targets but the patch has not yet landed on the
   # LLVM 15 branch.
+  #
+  # For LLVM 16+ we swtich to use opaque pointers.
   #
   # NOTE: Bitcode library must be compiled with the same opaque
   # pointer setting.
