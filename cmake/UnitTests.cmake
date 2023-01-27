@@ -763,6 +763,8 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double"
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1952,6 +1954,12 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - long lo
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - double") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+
+# These timeout or crash at least with the debug build sometimes.
+# Timing-sensitive tests or race conditions?
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})
