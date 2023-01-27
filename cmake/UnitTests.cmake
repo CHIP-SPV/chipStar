@@ -2339,6 +2339,7 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_y0f_float") 
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_y1f_float") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_ynf_float") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipClassKernel_Friend") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})

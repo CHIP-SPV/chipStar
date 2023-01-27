@@ -35,8 +35,6 @@ echo "end cpu_pocl_failed_tests"
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
-module unload mkl
-module load mkl
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
@@ -44,8 +42,6 @@ echo "end igpu_level0_failed_tests"
 
 # Test Level Zero dGPU
 echo "begin dgpu_level0_failed_tests"
-module unload mkl
-module load mkl
 sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
