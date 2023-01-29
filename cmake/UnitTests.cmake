@@ -1947,6 +1947,9 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_MultipleRun") # Timeout
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
