@@ -19,7 +19,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./.github/scripts/check_unit_tests.sh
+        run: .github/scripts/check_unit_tests.sh
         shell: bash
 
       # Failing tests tend to crash the driver to better just to run them manually
