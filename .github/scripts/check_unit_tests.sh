@@ -28,6 +28,22 @@ make -j
 make build_tests -j
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
+# Test Level Zero iGPU
+echo "begin igpu sycl test"
+sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
+clinfo -l
+CHIP_BE=level0 ctest /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
+sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+echo "end igpu sycl test"
+
+echo "begin dgpu sycl test"
+sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
+clinfo -l
+CHIP_BE=level0 ctest /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
+sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+echo "end dgpu sycl test"
+
+
 # Test PoCL CPU
 echo "begin cpu_pocl_failed_tests"
 module swap opencl opencl/pocl-cpu
