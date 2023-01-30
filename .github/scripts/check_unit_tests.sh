@@ -5,7 +5,7 @@ export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modul
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
-ulimit -s unlimited
+ulimit -a
 
 git submodule update --init
 mkdir build
@@ -42,8 +42,10 @@ echo "begin igpu_level0_failed_tests"
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
 clinfo -l
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -R "hip_sycl_interop$"
+CHIP_BE=level0 /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -R "hip_sycl_interop$"
+CHIP_BE=level0 /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 echo "end igpu_level0_failed_tests"
 
@@ -52,8 +54,10 @@ echo "begin dgpu_level0_failed_tests"
 sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
 clinfo -l
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -R "hip_sycl_interop$"
+CHIP_BE=level0 /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -R "hip_sycl_interop$"
+CHIP_BE=level0 /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 echo "end dgpu_level0_failed_tests"
 
