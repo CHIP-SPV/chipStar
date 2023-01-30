@@ -5,6 +5,8 @@ export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modul
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
+ulimit -s unlimited
+
 git submodule update --init
 mkdir build
 cd build
