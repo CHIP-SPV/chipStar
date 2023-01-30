@@ -40,3 +40,4 @@ endfunction()
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
+add_hip_runtime_test(RegressionTest302.hip)

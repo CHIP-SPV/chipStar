@@ -850,3 +850,7 @@ EXPORT float CL_NAME2(tex2D, f)(hipTextureObject_t textureObject,
     __builtin_astype(textureObject->sampler, sampler_t),
     (float2)(x, y)).x;
 }
+
+// In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
+EXPORT long __double_as_longlong(double x) { return as_long(x); }
+EXPORT double __longlong_as_double(long int x) { return as_double(x); }
