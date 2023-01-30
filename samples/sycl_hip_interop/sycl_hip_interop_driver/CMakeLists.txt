@@ -3,6 +3,7 @@ set(CMAKE_CXX_FLAGS "")
 
 add_executable(sycl_chip_interop sycl_chip_interop.cpp)
 add_dependencies(sycl_chip_interop CHIP hipMatrixMul)
+target_include_directories(sycl_chip_interop PRIVATE ${MKL_INCLUDE})
 
 # Warning the use of manual linking here using -lCHIP is on purpose due to conflicting opencl headers that get loaded otherwise.
 target_link_options(sycl_chip_interop PRIVATE -fsycl -L${CMAKE_BINARY_DIR} -Wl,-rpath=${CMAKE_BINARY_DIR}:${ICPX_CORE_LIBDIR})
@@ -23,6 +24,7 @@ set_tests_properties("sycl_chip_interop" PROPERTIES
 
 add_executable(sycl_chip_interop_usm sycl_chip_interop.cpp)
 add_dependencies(sycl_chip_interop_usm CHIP hipMatrixMul)
+target_include_directories(sycl_chip_interop_usm PRIVATE ${MKL_INCLUDE})
 
 # Warning the use of manual linking here using -lCHIP is on purpose due to conflicting opencl headers that get loaded otherwise.
 target_link_options(sycl_chip_interop_usm PRIVATE -fsycl -L${CMAKE_BINARY_DIR} -Wl,-rpath=${CMAKE_BINARY_DIR}:${ICPX_CORE_LIBDIR})
