@@ -28,29 +28,12 @@ make -j
 make build_tests -j
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
-# Test Level Zero iGPU
-echo "begin igpu sycl test"
-sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
+# Test PoCL CPU
+echo "begin cpu_pocl_failed_tests"
+module swap opencl opencl/pocl-cpu
 clinfo -l
-CHIP_BE=level0 ctest -R hip_sycl_interop
-CHIP_BE=level0 /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
-sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
-echo "end igpu sycl test"
-
-echo "begin dgpu sycl test"
-sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
-clinfo -l
-CHIP_BE=level0 ctest -R hip_sycl_interop
-CHIP_BE=level0 /home/pvelesko/CHIP-SPV/chip-spv/build/samples/hip_sycl_interop/hip_sycl_interop
-sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
-echo "end dgpu sycl test"
-
-# # Test PoCL CPU
-# echo "begin cpu_pocl_failed_tests"
-# module swap opencl opencl/pocl-cpu
-# clinfo -l
-# CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
-# echo "end cpu_pocl_failed_tests"
+CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+echo "end cpu_pocl_failed_tests"
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
@@ -72,29 +55,29 @@ CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -R "hip_sycl_interop
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 echo "end dgpu_level0_failed_tests"
 
-# # Test OpenCL iGPU
-# echo "begin igpu_opencl_failed_tests"
-# module swap opencl opencl/intel-gpu
-# sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
-# clinfo -l
-# CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
-# sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
-# echo "end igpu_opencl_failed_tests"
+# Test OpenCL iGPU
+echo "begin igpu_opencl_failed_tests"
+module swap opencl opencl/intel-gpu
+sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
+clinfo -l
+CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+echo "end igpu_opencl_failed_tests"
 
-# # Test OpenCL dGPU
-# echo "begin dgpu_opencl_failed_tests"
-# sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
-# clinfo -l
-# CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
-# sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
-# echo "end dgpu_opencl_failed_tests"
+# Test OpenCL dGPU
+echo "begin dgpu_opencl_failed_tests"
+sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
+clinfo -l
+CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+echo "end dgpu_opencl_failed_tests"
 
-# # Test OpenCL CPU
-# echo "begin cpu_opencl_failed_tests"
-# module swap opencl opencl/intel-cpu
-# clinfo -l
-# CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
-# echo "end cpu_opencl_failed_tests"
+# Test OpenCL CPU
+echo "begin cpu_opencl_failed_tests"
+module swap opencl opencl/intel-cpu
+clinfo -l
+CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+echo "end cpu_opencl_failed_tests"
 
 if [[ `cat igpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
 then
