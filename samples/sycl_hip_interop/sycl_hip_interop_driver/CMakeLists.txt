@@ -6,7 +6,7 @@ add_dependencies(sycl_chip_interop CHIP hipMatrixMul)
 target_include_directories(sycl_chip_interop PRIVATE ${MKL_INCLUDE})
 
 # Warning the use of manual linking here using -lCHIP is on purpose due to conflicting opencl headers that get loaded otherwise.
-target_link_options(sycl_chip_interop PRIVATE -fsycl -L${CMAKE_BINARY_DIR} -Wl,-rpath=${CMAKE_BINARY_DIR}:${ICPX_CORE_LIBDIR})
+target_link_options(sycl_chip_interop PRIVATE -fsycl -L${CMAKE_BINARY_DIR} ${INTEL_LIBS} -Wl,-rpath=${CMAKE_BINARY_DIR}:${ICPX_CORE_LIBDIR}:${ICPX_SYCL_LIBDIR})
 target_link_libraries(sycl_chip_interop PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../libhipMatrixMul.a -L${CMAKE_BINARY_DIR} -lCHIP ${OpenCL_LIBRARY} ${LevelZero_LIBRARY} -pthread)
 target_compile_options(sycl_chip_interop PRIVATE -fsycl -Wno-deprecated-declarations)
 install(TARGETS sycl_chip_interop
@@ -27,7 +27,7 @@ add_dependencies(sycl_chip_interop_usm CHIP hipMatrixMul)
 target_include_directories(sycl_chip_interop_usm PRIVATE ${MKL_INCLUDE})
 
 # Warning the use of manual linking here using -lCHIP is on purpose due to conflicting opencl headers that get loaded otherwise.
-target_link_options(sycl_chip_interop_usm PRIVATE -fsycl -L${CMAKE_BINARY_DIR} -Wl,-rpath=${CMAKE_BINARY_DIR}:${ICPX_CORE_LIBDIR})
+target_link_options(sycl_chip_interop_usm PRIVATE -fsycl -L${CMAKE_BINARY_DIR} ${INTEL_LIBS} -Wl,-rpath=${CMAKE_BINARY_DIR}:${ICPX_CORE_LIBDIR}:${ICPX_SYCL_LIBDIR})
 target_link_libraries(sycl_chip_interop_usm PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../libhipMatrixMul.a -lCHIP ${OpenCL_LIBRARY} ${LevelZero_LIBRARY} -pthread)
 target_compile_options(sycl_chip_interop_usm PRIVATE -fsycl -DUSM -Wno-deprecated-declarations)
 install(TARGETS sycl_chip_interop_usm
