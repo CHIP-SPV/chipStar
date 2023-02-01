@@ -184,7 +184,7 @@ option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OF
 # to be portable across multiple devices. It should be more portable to
 # fix it to 32 instead of 64, with a trade-off of potential underutilization
 # with GPUs with 64 wide warps.
-set(DEFAULT_WARP_SIZE 32 CACHE INTEGER "The warp size to use.")
+set(DEFAULT_WARP_SIZE 32 CACHE STRING "The warp size to use.")
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
