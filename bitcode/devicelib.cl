@@ -817,7 +817,7 @@ EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {		\
 __SHFL_DOWN(int);
 __SHFL_DOWN(float);
 
-uint4 sub_group_ballot( int predicate );
+uint4 sub_group_ballot(int predicate);
 EXPORT OVLD ulong __ballot(int predicate) {
 #if DEFAULT_WARP_SIZE <= 32
   return sub_group_ballot(predicate).x;
