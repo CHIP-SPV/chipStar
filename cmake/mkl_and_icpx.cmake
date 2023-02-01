@@ -17,6 +17,7 @@ find_package(MKL CONFIG
 	PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
 
 # message(STATUS "ICPX : ${ICPX_EXECUTABLE} MKL: ${MKL_FOUND} ")
+set(INTEL_LIBS -L${ICPX_SYCL_LIBDIR} -L${ICPX_CORE_LIBDIR} -lsvml -lintlc -lirng -limf -lsycl)
 
 if(ICPX_EXECUTABLE AND MKL_FOUND)
   message(STATUS "Found both MLK and ICPX")
