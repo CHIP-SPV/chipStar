@@ -48,7 +48,7 @@ endif()
 
 add_definitions(${LLVM_DEFINITIONS})
 
-include_directories(${LLVM_INCLUDE_DIRS} ${CMAKE_BINARY_DIR})
+include_directories(${LLVM_INCLUDE_DIRS} ${CMAKE_BINARY_DIR}/include)
 
 if(NOT LLVM_ENABLE_RTTI)
   add_compile_options("-fno-rtti")
@@ -93,7 +93,7 @@ add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
-    HipEmitLoweredNames.cpp ${EXTRA_OBJS})
+    HipEmitLoweredNames.cpp HipWarps.cpp ${EXTRA_OBJS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES

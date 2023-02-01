@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 // Define a pass plugin that runs a collection of HIP passes.
 //
-// (c) 2021 Parmance for Argonne National Laboratory
+// (c) 2021 Parmance for Argonne National Laboratory and
+//     2022 Pekka Jääskeläinen / Intel
 //===----------------------------------------------------------------------===//
 
 
@@ -17,6 +18,7 @@
 #include "HipDefrost.h"
 #include "HipDynMem.h"
 #include "HipStripUsedIntrinsics.h"
+#include "HipWarps.h"
 #include "HipPrintf.h"
 #include "HipGlobalVariables.h"
 #include "HipTextureLowering.h"
@@ -109,6 +111,8 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipAbortPass());
   // This pass must appear after HipDynMemExternReplaceNewPass.
   MPM.addPass(HipGlobalVariablesPass());
+
+  MPM.addPass(HipWarpsPass());
 
   // Remove dead code left over by HIP lowering passes and kept alive by
   // llvm.used and llvm.compiler.used intrinsic variable.

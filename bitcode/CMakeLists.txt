@@ -23,8 +23,6 @@
 #
 #=============================================================================
 
-
-
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/BC")
 
 set(EXTRA_FLAGS)
@@ -53,7 +51,7 @@ endif()
 
 set(BITCODE_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
-  --target=${BC_TRIPLE} -emit-llvm ${EXTRA_FLAGS})
+  --target=${BC_TRIPLE} -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm ${EXTRA_FLAGS})
 
 # non-OCML sources
 set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture") # "printf_support"

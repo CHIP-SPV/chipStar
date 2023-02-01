@@ -1828,8 +1828,18 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // as per gen architecture doc
   HipDeviceProps_.regsPerBlock = 4096;
 
-  HipDeviceProps_.warpSize =
-      DeviceComputeProps.subGroupSizes[DeviceComputeProps.numSubGroupSizes - 1];
+  HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE;
+  if (std::find(DeviceComputeProps.subGroupSizes,
+                DeviceComputeProps.subGroupSizes +
+                    DeviceComputeProps.numSubGroupSizes,
+                CHIP_DEFAULT_WARP_SIZE) !=
+      DeviceComputeProps.subGroupSizes + DeviceComputeProps.numSubGroupSizes) {
+  } else {
+    logWarn(
+        "The device might not support subgroup size {}, warp-size sensitive "
+        "kernels might not work correctly.",
+        CHIP_DEFAULT_WARP_SIZE);
+  }
 
   // Replicate from OpenCL implementation
 

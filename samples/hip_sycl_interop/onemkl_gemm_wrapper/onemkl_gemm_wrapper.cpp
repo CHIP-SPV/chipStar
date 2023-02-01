@@ -93,17 +93,13 @@ int oneMKLGemmTest(uintptr_t* nativeHandlers, float* A, float* B, float* C,
       (ze_command_queue_handle_t)nativeHandlers[3];
 
   auto keep_ownership = static_cast<sycl::ext::oneapi::level_zero::ownership>(1);
-  sycl::platform sycl_platform =
-      sycl::level_zero::make<sycl::platform>(hDriver);
+  sycl::platform sycl_platform = sycl::ext::oneapi::level_zero::make_platform((pi_native_handle)hDriver);
+  sycl::device sycl_device = sycl::ext::oneapi::level_zero::make_device(sycl_platform, (pi_native_handle)hDevice);
 
-  // make devices from converted platform and L0 device
-  sycl::device sycl_device =
-      sycl::level_zero::make<sycl::device>(sycl_platform, hDevice);
-  std::vector<sycl::device> devices;
-  devices.push_back(sycl_device);
-  sycl::context sycl_context =
-      sycl::level_zero::make<sycl::context>(devices, hContext, keep_ownership);
-  sycl::queue queue = sycl::level_zero::make<sycl::queue>(sycl_context, hQueue);
+  std::vector<sycl::device> sycl_devices(1);
+  sycl_devices[0] = sycl_device;
+  sycl::context sycl_context = sycl::ext::oneapi::level_zero::make_context(sycl_devices, (pi_native_handle)hContext, 1);
+  sycl::queue queue = sycl::ext::oneapi::level_zero::make_queue(sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
 
   // Test the oneMKL
   return onemkl_gemm(queue, A, B, C, M, N, K, ldA, ldB, ldC, alpha, beta);

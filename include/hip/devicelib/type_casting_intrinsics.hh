@@ -48,7 +48,6 @@ EXPORT unsigned long long int __double2ull_rd(double x);
 EXPORT unsigned long long int __double2ull_rn(double x);
 EXPORT unsigned long long int __double2ull_ru(double x);
 EXPORT unsigned long long int __double2ull_rz(double x);
-EXPORT long long int __double_as_longlong(double x);
 EXPORT int __float2int_rd(float x);
 EXPORT int __float2int_rn(float x);
 EXPORT int __float2int_ru(float);
@@ -82,7 +81,6 @@ EXPORT float __ll2float_rd(long long int x);
 EXPORT float __ll2float_rn(long long int x);
 EXPORT float __ll2float_ru(long long int x);
 EXPORT float __ll2float_rz(long long int x);
-EXPORT double __longlong_as_double(long long int x);
 EXPORT double __uint2double_rn(unsigned int x);
 EXPORT float __uint2float_rd(unsigned int x);
 EXPORT float __uint2float_rn(unsigned int x);
@@ -97,5 +95,10 @@ EXPORT float __ull2float_rd(unsigned long long int x);
 EXPORT float __ull2float_rn(unsigned long long int x);
 EXPORT float __ull2float_ru(unsigned long long int x);
 EXPORT float __ull2float_rz(unsigned long long int x);
+
+extern "C" {
+__device__ long long int __double_as_longlong(double x);
+__device__ double __longlong_as_double(long long int x);
+}
 
 #endif // include guard

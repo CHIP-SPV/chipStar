@@ -235,15 +235,9 @@ public:
       Extra_ = Pp;
     }
 
-    if (Opcode_ == spv::Op::OpExtInstImport) {
-      const char *Pp = (const char *)(Stream + 2);
-      Extra_ = Pp;
-    }
-
-    if (Opcode_ == spv::Op::OpTypeOpaque) {
-      const char *Pp = (const char *)(Stream + 2);
-      Extra_ = Pp;
-    }
+    if (Opcode_ == spv::Op::OpExtInstImport ||
+        Opcode_ == spv::Op::OpTypeOpaque || Opcode_ == spv::Op::OpName)
+      Extra_ = (const char *)(Stream + 2);
   }
 
   bool isKernelCapab() const {
@@ -312,6 +306,11 @@ public:
 
   // Return true if the instruction is an OpName.
   bool isName() const { return Opcode_ == spv::Op::OpName; }
+
+  std::string_view getName() const {
+    assert(isName() && "Not an OpName!");
+    return Extra_;
+  }
 
   // Return true if the instruction is the given Decoration.
   bool isDecoration(spv::Decoration Dec) const {
@@ -607,11 +606,15 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   Dst.reserve(NumBytes);
   Dst.append(Bytes, (const char *)WordsPtr); // Copy the header.
 
+  std::set<std::string_view> EntryPoints;
   size_t InsnSize = 0;
   for (size_t I = 0; I < NumWords; I += InsnSize) {
     SPIRVinst Insn(WordsPtr + I);
     InsnSize = Insn.size();
     assert(InsnSize && "Invalid instruction size, will loop forever!");
+
+    if (Insn.isEntryPoint())
+      EntryPoints.insert(Insn.entryPointName());
 
     // A workaround for https://github.com/CHIP-SPV/chip-spv/issues/48.
     //
@@ -619,11 +622,13 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     // modules correctly on OpenCL if there are OpEntryPoints and
     // functions or export linkage attributes by the same name.
     //
-    // This workaround just simply drops all OpName and linkage
-    // attribute OpDecorations from the binary. OpNames do not have
-    // semantical meaning and we are not currently linking the SPIR-V
-    // modules with anything else.
-    if (Insn.isName() || Insn.isDecoration(spv::DecorationLinkageAttributes))
+    // This workaround drops OpName instructions, whose string matches one of
+    // the OpEntryPoint names, and all linkage attribute OpDecorations from the
+    // binary. OpNames do not have semantical meaning and we are not currently
+    // linking the SPIR-V modules with anything else.
+    if (Insn.isName() && EntryPoints.count(Insn.getName()))
+      continue;
+    if (Insn.isDecoration(spv::DecorationLinkageAttributes))
       continue;
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(int32_t));
