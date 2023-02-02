@@ -774,9 +774,6 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 
   if (NumArgs > 0) {
     logTrace("Kernel {} numArgs: {} \n", Name_, NumArgs);
-    logTrace("  RET_TYPE: {} {} {}\n", FuncInfo_->RetTypeInfo.Size,
-             (unsigned)FuncInfo_->RetTypeInfo.StorageClass,
-             (unsigned)FuncInfo_->RetTypeInfo.Kind);
     for (auto &Argty : FuncInfo_->ArgTypeInfo) {
       logTrace("  ARG: SIZE {} SPACE {} KIND {}\n", Argty.Size,
                (unsigned)Argty.StorageClass, (unsigned)Argty.Kind);

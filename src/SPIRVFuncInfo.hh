@@ -52,7 +52,6 @@ struct SPVArgTypeInfo {
 
 struct SPVFuncInfo {
   std::vector<SPVArgTypeInfo> ArgTypeInfo;
-  SPVArgTypeInfo RetTypeInfo;
 };
 
 typedef std::map<int32_t, std::shared_ptr<SPVFuncInfo>> SPVFuncInfoMap;

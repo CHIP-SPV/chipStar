@@ -444,13 +444,6 @@ public:
 
     SPVFuncInfo *Fi = new SPVFuncInfo;
 
-    int32_t RetId = Word2_;
-    auto It = TypeMap.find(RetId);
-    assert(It != TypeMap.end());
-    Fi->RetTypeInfo.Kind = It->second->typeKind();
-    Fi->RetTypeInfo.Size = It->second->size();
-    Fi->RetTypeInfo.StorageClass = It->second->getSC();
-
     size_t NumArgs = WordCount_ - 3;
     if (NumArgs > 0) {
       Fi->ArgTypeInfo.resize(NumArgs);
