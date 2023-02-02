@@ -879,7 +879,7 @@ public:
   CHIPKernel *getKernel(const void *HostFPtr);
 
   /**
-   * @brief consume SPIRV and fill in OCLFuncINFO
+   * @brief consume SPIRV and fill in SPVFuncINFO
    *
    */
   void consumeSPIRV();
@@ -899,7 +899,7 @@ public:
   void invalidateDeviceVariablesNoLock();
   void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
 
-  OCLFuncInfo *findFunctionInfo(const std::string &FName);
+  SPVFuncInfo *findFunctionInfo(const std::string &FName);
 
   const SPVModule &getSourceModule() const { return *Src_; }
 };
@@ -914,7 +914,7 @@ protected:
    * called.
    *
    */
-  CHIPKernel(std::string HostFName, OCLFuncInfo *FuncInfo);
+  CHIPKernel(std::string HostFName, SPVFuncInfo *FuncInfo);
   /// Name of the function
   std::string HostFName_;
   /// Pointer to the host function
@@ -922,7 +922,7 @@ protected:
   /// Pointer to the device function
   const void *DevFPtr_;
 
-  OCLFuncInfo *FuncInfo_;
+  SPVFuncInfo *FuncInfo_;
 
 public:
   virtual ~CHIPKernel();
@@ -937,9 +937,9 @@ public:
   /**
    * @brief Get the Func Info object
    *
-   * @return OCLFuncInfo&
+   * @return SPVFuncInfo&
    */
-  OCLFuncInfo *getFuncInfo();
+  SPVFuncInfo *getFuncInfo();
   /**
    * @brief Get the associated host pointer to a host function
    *

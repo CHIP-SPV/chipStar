@@ -417,20 +417,20 @@ void CHIPModule::deallocateDeviceVariablesNoLock(CHIPDevice *Device) {
   DeviceVariablesAllocated_ = false;
 }
 
-OCLFuncInfo *CHIPModule::findFunctionInfo(const std::string &FName) {
+SPVFuncInfo *CHIPModule::findFunctionInfo(const std::string &FName) {
   return FuncInfos_.count(FName) ? FuncInfos_.at(FName).get() : nullptr;
 }
 
 // CHIPKernel
 //*************************************************************************************
-CHIPKernel::CHIPKernel(std::string HostFName, OCLFuncInfo *FuncInfo)
+CHIPKernel::CHIPKernel(std::string HostFName, SPVFuncInfo *FuncInfo)
     : HostFName_(HostFName), FuncInfo_(FuncInfo) {}
 CHIPKernel::~CHIPKernel(){};
 std::string CHIPKernel::getName() { return HostFName_; }
 const void *CHIPKernel::getHostPtr() { return HostFPtr_; }
 const void *CHIPKernel::getDevPtr() { return DevFPtr_; }
 
-OCLFuncInfo *CHIPKernel::getFuncInfo() { return FuncInfo_; }
+SPVFuncInfo *CHIPKernel::getFuncInfo() { return FuncInfo_; }
 
 void CHIPKernel::setName(std::string HostFName) { HostFName_ = HostFName; }
 void CHIPKernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
@@ -1630,11 +1630,11 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
   auto Args = ExecItem->getArgsPointer();
   unsigned InArgI = 0;
   for (unsigned OutArgI = 0; OutArgI < ExecItem->getNumArgs(); OutArgI++) {
-    if (ArgTyInfos[OutArgI].Space == OCLSpace::Local)
+    if (ArgTyInfos[OutArgI].StorageClass == SPVStorageClass::Workgroup)
       // An argument inserted by HipDynMemExternReplaceNewPass hence
       // there is no corresponding value in argument list.
       continue;
-    if (ArgTyInfos[OutArgI].Type != OCLType::Pointer) {
+    if (ArgTyInfos[OutArgI].Kind != SPVTypeKind::Pointer) {
       // Texture lowering pass splits hipTextureObject_t arguments to
       // image and sampler arguments so there are additional
       // arguments. Don't bump the InArgI when we see an additional
@@ -1713,22 +1713,22 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   std::string ArgTypeStr;
   for (int i = 0; i < ExecItem->getNumArgs(); i++) {
     auto FuncInfo = ExecItem->getKernel()->getFuncInfo();
-    OCLType ArgType = FuncInfo->ArgTypeInfo[i].Type;
+    SPVTypeKind ArgType = FuncInfo->ArgTypeInfo[i].Kind;
     auto ArgSize = FuncInfo->ArgTypeInfo[i].Size;
     switch (ArgType) {
-    case OCLType::POD:
+    case SPVTypeKind::POD:
       ArgTypeStr = "POD";
       break;
-    case OCLType::Pointer:
+    case SPVTypeKind::Pointer:
       ArgTypeStr = "Pointer";
       break;
-    case OCLType::Image:
+    case SPVTypeKind::Image:
       ArgTypeStr = "Image";
       break;
-    case OCLType::Sampler:
+    case SPVTypeKind::Sampler:
       ArgTypeStr = "Sampler";
       break;
-    case OCLType::Opaque:
+    case SPVTypeKind::Opaque:
       ArgTypeStr = "Opaque";
       break;
     default:

@@ -140,7 +140,7 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
 }
 
 std::vector<void *>
-convertExtraArgsToPointerArray(void *ExtraArgBuf, const OCLFuncInfo &FuncInfo) {
+convertExtraArgsToPointerArray(void *ExtraArgBuf, const SPVFuncInfo &FuncInfo) {
   auto *BaseAddr = (uint8_t *)ExtraArgBuf;
   std::vector<void *> PointerArray;
   PointerArray.reserve(FuncInfo.ArgTypeInfo.size());
@@ -150,24 +150,24 @@ convertExtraArgsToPointerArray(void *ExtraArgBuf, const OCLFuncInfo &FuncInfo) {
     // Default argument size and alignment.
     size_t Size = ArgInfo.Size;
     size_t Alignment = roundUpToPowerOfTwo(Size);
-    switch (ArgInfo.Type) {
+    switch (ArgInfo.Kind) {
     default:
       assert(false && "Unknown OpenCL type!");
       // FALLTHROUGH.
-    case OCLType::Pointer:
-      if (ArgInfo.Space == OCLSpace::Local)
+    case SPVTypeKind::Pointer:
+      if (ArgInfo.StorageClass == SPVStorageClass::Workgroup)
         // Not passed by the client. The parameter is created when
         // there is dynamic shared memory references in the kernel.
         continue;
       // FALLTHROUGH.
-    case OCLType::POD:
+    case SPVTypeKind::POD:
       break; // Use default size & alignment.
 
-    case OCLType::Sampler:
+    case SPVTypeKind::Sampler:
       // Not passed by the client. HipTextureLoweringPass creates these.
       continue;
 
-    case OCLType::Image:
+    case SPVTypeKind::Image:
       // In device code texture objects are presented as image types.
       Size = Alignment = 8; // Texture objects are pointers.
       break;

@@ -708,7 +708,7 @@ ze_kernel_handle_t CHIPKernelLevel0::get() { return ZeKernel_; }
 
 CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
                                    CHIPDeviceLevel0 *Dev, std::string HostFName,
-                                   OCLFuncInfo *FuncInfo,
+                                   SPVFuncInfo *FuncInfo,
                                    CHIPModuleLevel0 *Parent)
     : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Module(Parent),
       Device(Dev) {
@@ -2213,12 +2213,12 @@ void CHIPExecItemLevel0::setupAllArgs() {
   }
   CHIPKernelLevel0 *Kernel = (CHIPKernelLevel0 *)ChipKernel_;
 
-  OCLFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
+  SPVFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
 
   size_t NumLocals = 0;
 
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].Space == OCLSpace::Local) {
+    if (FuncInfo->ArgTypeInfo[i].StorageClass == SPVStorageClass::Workgroup) {
       ++NumLocals;
     }
   }
@@ -2230,11 +2230,11 @@ void CHIPExecItemLevel0::setupAllArgs() {
   if (ArgsPtr) {
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
-      OCLArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[OutArgIdx];
+      SPVArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[OutArgIdx];
 
       // Handle direct texture object passing. When we see an image
       // type we know it's derived from a texture object argument
-      if (ArgTypeInfo.Type == OCLType::Image) {
+      if (ArgTypeInfo.Kind == SPVTypeKind::Image) {
         auto *TexObj = *(CHIPTextureLevel0 **)ArgsPtr[InArgIdx];
 
         // Set image argument.
@@ -2266,8 +2266,9 @@ void CHIPExecItemLevel0::setupAllArgs() {
         ze_result_t Status;
         void **Ptr = (void **)ArgsPtr[InArgIdx];
         // NULL pointers as kernel argument require special handling
-        if ((ArgTypeInfo.Type == OCLType::Pointer) &&
-            (ArgTypeInfo.Space != OCLSpace::Local) && (*Ptr == nullptr)) {
+        if ((ArgTypeInfo.Kind == SPVTypeKind::Pointer) &&
+            (ArgTypeInfo.StorageClass != SPVStorageClass::Workgroup) &&
+            (*Ptr == nullptr)) {
           logTrace("setArg was given NULL");
           // The application must not call this function
           // from simultaneous threads with the same kernel handle.
@@ -2316,17 +2317,18 @@ void CHIPExecItemLevel0::setupAllArgs() {
 
     const unsigned char *Start = ArgData_.data();
     for (size_t i = 0; i < OffsetSizes_.size(); ++i) {
-      OCLArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[i];
-      logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
-               i, std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
-               (unsigned)ArgTypeInfo.Type, (unsigned)ArgTypeInfo.Space,
-               ArgTypeInfo.Size);
+      SPVArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[i];
+      logTrace(
+          "ARG {}: OS[0]: {} OS[1]: {} \n      KIND {} STORAGE {} SIZE {}\n", i,
+          std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
+          (unsigned)ArgTypeInfo.Kind, (unsigned)ArgTypeInfo.StorageClass,
+          ArgTypeInfo.Size);
 
-      CHIPASSERT(ArgTypeInfo.Type != OCLType::Image &&
+      CHIPASSERT(ArgTypeInfo.Kind != SPVTypeKind::Image &&
                  "UNIMPLEMENTED: texture object arguments for old HIP kernel "
                  "launch API.");
 
-      if (ArgTypeInfo.Type == OCLType::Pointer) {
+      if (ArgTypeInfo.Kind == SPVTypeKind::Pointer) {
         // TODO: sync with ExecItem's solution
         assert(ArgTypeInfo.Size == sizeof(void *));
         assert(std::get<1>(OffsetSizes_[i]) == ArgTypeInfo.Size);

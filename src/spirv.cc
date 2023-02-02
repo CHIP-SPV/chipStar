@@ -72,8 +72,8 @@ public:
   size_t size() { return Size_; }
   size_t alignment() const { return Align_; }
   int32_t id() { return Id_; }
-  virtual OCLType ocltype() = 0;
-  virtual OCLSpace getAS() { return OCLSpace::Private; }
+  virtual SPVTypeKind typeKind() = 0;
+  virtual SPVStorageClass getSC() { return SPVStorageClass::Private; }
 };
 
 typedef std::map<int32_t, SPIRVtype *> SPIRTypeMap;
@@ -84,7 +84,7 @@ public:
       : SPIRVtype(Id, Size, AlignVal) {}
   SPIRVtypePOD(int32_t Id, size_t Size) : SPIRVtype(Id, Size) {}
   virtual ~SPIRVtypePOD(){};
-  virtual OCLType ocltype() override { return OCLType::POD; }
+  virtual SPVTypeKind typeKind() override { return SPVTypeKind::POD; }
 };
 
 class SPIRVtypeOpaque : public SPIRVtype {
@@ -94,42 +94,44 @@ public:
   SPIRVtypeOpaque(int32_t Id, std::string_view Name)
       : SPIRVtype(Id, 0), Name_(Name) {} // Opaque types are unsized.
   virtual ~SPIRVtypeOpaque(){};
-  virtual OCLType ocltype() override { return OCLType::Opaque; }
+  virtual SPVTypeKind typeKind() override { return SPVTypeKind::Opaque; }
 };
 
 class SPIRVtypeImage : public SPIRVtype {
 public:
   SPIRVtypeImage(int32_t Id) : SPIRVtype(Id, 0) {}
   virtual ~SPIRVtypeImage(){};
-  virtual OCLType ocltype() override { return OCLType::Image; }
-  virtual OCLSpace getAS() override { return OCLSpace::Unknown; }
+  virtual SPVTypeKind typeKind() override { return SPVTypeKind::Image; }
+  virtual SPVStorageClass getSC() override { return SPVStorageClass::Unknown; }
 };
 
 class SPIRVtypeSampler : public SPIRVtype {
 public:
   SPIRVtypeSampler(int32_t Id) : SPIRVtype(Id, 0) {}
   virtual ~SPIRVtypeSampler(){};
-  virtual OCLType ocltype() override { return OCLType::Sampler; }
-  virtual OCLSpace getAS() override { return OCLSpace::Constant; }
+  virtual SPVTypeKind typeKind() override { return SPVTypeKind::Sampler; }
+  virtual SPVStorageClass getSC() override {
+    return SPVStorageClass::UniformConstant;
+  }
 };
 
 class SPIRVtypePointer : public SPIRVtype {
-  OCLSpace ASpace_;
+  SPVStorageClass StorageClass_;
 
 public:
   SPIRVtypePointer(int32_t Id, int32_t StorClass, size_t PointerSize)
       : SPIRVtype(Id, PointerSize) {
     switch (StorClass) {
     case (int32_t)spv::StorageClassCrossWorkgroup:
-      ASpace_ = OCLSpace::Global;
+      StorageClass_ = SPVStorageClass::CrossWorkgroup;
       break;
 
     case (int32_t)spv::StorageClassWorkgroup:
-      ASpace_ = OCLSpace::Local;
+      StorageClass_ = SPVStorageClass::Workgroup;
       break;
 
     case (int32_t)spv::StorageClassUniformConstant:
-      ASpace_ = OCLSpace::Constant;
+      StorageClass_ = SPVStorageClass::UniformConstant;
       break;
 
     case (int32_t)spv::StorageClassFunction:
@@ -137,12 +139,12 @@ public:
       break;
 
     default:
-      ASpace_ = OCLSpace::Unknown;
+      StorageClass_ = SPVStorageClass::Unknown;
     }
   }
   virtual ~SPIRVtypePointer(){};
-  virtual OCLType ocltype() override { return OCLType::Pointer; }
-  OCLSpace getAS() override { return ASpace_; }
+  virtual SPVTypeKind typeKind() override { return SPVTypeKind::Pointer; }
+  SPVStorageClass getSC() override { return StorageClass_; }
 };
 
 class SPIRVConstant {
@@ -437,17 +439,17 @@ public:
     return nullptr;
   }
 
-  OCLFuncInfo *decodeFunctionType(SPIRTypeMap &TypeMap, size_t PointerSize) {
+  SPVFuncInfo *decodeFunctionType(SPIRTypeMap &TypeMap, size_t PointerSize) {
     assert(Opcode_ == spv::Op::OpTypeFunction);
 
-    OCLFuncInfo *Fi = new OCLFuncInfo;
+    SPVFuncInfo *Fi = new SPVFuncInfo;
 
     int32_t RetId = Word2_;
     auto It = TypeMap.find(RetId);
     assert(It != TypeMap.end());
-    Fi->RetTypeInfo.Type = It->second->ocltype();
+    Fi->RetTypeInfo.Kind = It->second->typeKind();
     Fi->RetTypeInfo.Size = It->second->size();
-    Fi->RetTypeInfo.Space = It->second->getAS();
+    Fi->RetTypeInfo.StorageClass = It->second->getSC();
 
     size_t NumArgs = WordCount_ - 3;
     if (NumArgs > 0) {
@@ -456,9 +458,9 @@ public:
         int32_t TypeId = OrigStream_[i + 3];
         auto It = TypeMap.find(TypeId);
         assert(It != TypeMap.end());
-        Fi->ArgTypeInfo[i].Type = It->second->ocltype();
+        Fi->ArgTypeInfo[i].Kind = It->second->typeKind();
         Fi->ArgTypeInfo[i].Size = It->second->size();
-        Fi->ArgTypeInfo[i].Space = It->second->getAS();
+        Fi->ArgTypeInfo[i].StorageClass = It->second->getSC();
       }
     }
 
@@ -470,7 +472,7 @@ class SPIRVmodule {
   std::map<int32_t, std::string> EntryPoints_;
   SPIRTypeMap TypeMap_;
   SPIRVConstMap ConstMap_;
-  OCLFuncInfoMap FunctionTypeMap_;
+  SPVFuncInfoMap FunctionTypeMap_;
   std::map<int32_t, int32_t> EntryToFunctionTypeIDMap_;
 
   bool MemModelCL_;

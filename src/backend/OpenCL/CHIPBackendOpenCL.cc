@@ -721,7 +721,7 @@ CHIPQueue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
 // CHIPKernelOpenCL
 //*************************************************************************
 
-OCLFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
+SPVFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
 cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
 size_t CHIPKernelOpenCL::getTotalArgSize() const { return TotalArgSize_; };
@@ -747,7 +747,7 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
                                    CHIPDeviceOpenCL *Dev, std::string HostFName,
-                                   OCLFuncInfo *FuncInfo,
+                                   SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
     : CHIPKernel(HostFName, FuncInfo), Module(Parent), TotalArgSize_(0),
       Device(Dev) {
@@ -775,11 +775,11 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
   if (NumArgs > 0) {
     logTrace("Kernel {} numArgs: {} \n", Name_, NumArgs);
     logTrace("  RET_TYPE: {} {} {}\n", FuncInfo_->RetTypeInfo.Size,
-             (unsigned)FuncInfo_->RetTypeInfo.Space,
-             (unsigned)FuncInfo_->RetTypeInfo.Type);
+             (unsigned)FuncInfo_->RetTypeInfo.StorageClass,
+             (unsigned)FuncInfo_->RetTypeInfo.Kind);
     for (auto &Argty : FuncInfo_->ArgTypeInfo) {
-      logTrace("  ARG: SIZE {} SPACE {} TYPE {}\n", Argty.Size,
-               (unsigned)Argty.Space, (unsigned)Argty.Type);
+      logTrace("  ARG: SIZE {} SPACE {} KIND {}\n", Argty.Size,
+               (unsigned)Argty.StorageClass, (unsigned)Argty.Kind);
       TotalArgSize_ += Argty.Size;
     }
   }
@@ -1126,7 +1126,7 @@ CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   return Event;
 }
 
-static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
+static int setLocalSize(size_t Shared, SPVFuncInfo *FuncInfo,
                         cl_kernel Kernel) {
   logTrace("setLocalSize");
   int Err = CL_SUCCESS;
@@ -1134,7 +1134,8 @@ static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
   if (Shared > 0) {
     logTrace("setLocalMemSize to {}\n", Shared);
     size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
-    if (FuncInfo->ArgTypeInfo[LastArgIdx].Space != OCLSpace::Local) {
+    if (FuncInfo->ArgTypeInfo[LastArgIdx].StorageClass !=
+        SPVStorageClass::Workgroup) {
       // this can happen if for example the llvm optimizes away
       // the dynamic local variable
       logWarn("Can't set the dynamic local size, "
@@ -1162,10 +1163,10 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     return;
   }
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)getKernel();
-  OCLFuncInfo *FuncInfo = Kernel->getFuncInfo();
+  SPVFuncInfo *FuncInfo = Kernel->getFuncInfo();
   size_t NumLocals = 0;
   for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].Space == OCLSpace::Local)
+    if (FuncInfo->ArgTypeInfo[i].StorageClass == SPVStorageClass::Workgroup)
       ++NumLocals;
   }
   // there can only be one dynamic shared mem variable, per cuda spec
@@ -1176,9 +1177,9 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     logTrace("Setting up arguments NEW HIP API");
     for (size_t InArgIdx = 0, OutArgIdx = 0;
          OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
-      OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[OutArgIdx];
-      if (Ai.Type == OCLType::Pointer) {
-        if (Ai.Space == OCLSpace::Local)
+      SPVArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[OutArgIdx];
+      if (Ai.Kind == SPVTypeKind::Pointer) {
+        if (Ai.StorageClass == SPVStorageClass::Workgroup)
           continue;
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
                  Ai.Size, ArgsPtr[InArgIdx]);
@@ -1188,7 +1189,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
             ::clSetKernelArgSVMPointer(Kernel->get()->get(), OutArgIdx, Argval);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
-      } else if (Ai.Type == OCLType::Image) {
+      } else if (Ai.Kind == SPVTypeKind::Image) {
         auto *TexObj = *(CHIPTextureOpenCL **)ArgsPtr[InArgIdx];
 
         // Set image argument.
@@ -1251,12 +1252,13 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     void *P;
     int Err;
     for (cl_uint i = 0; i < OffsetSizes_.size(); ++i) {
-      OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[i];
-      logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
-               i, std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
-               (unsigned)Ai.Type, (unsigned)Ai.Space, Ai.Size);
+      SPVArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[i];
+      logTrace(
+          "ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} STORAGE {} SIZE {}\n", i,
+          std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
+          (unsigned)Ai.Kind, (unsigned)Ai.StorageClass, Ai.Size);
 
-      if (Ai.Type == OCLType::Pointer) {
+      if (Ai.Kind == SPVTypeKind::Pointer) {
         // TODO other than global AS ?
         assert(Ai.Size == sizeof(void *));
         assert(std::get<1>(OffsetSizes_[i]) == Ai.Size);
@@ -1265,7 +1267,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
         Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), i, P);
         CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                     "clSetKernelArgSVMPointer failed");
-      } else if (Ai.Type == OCLType::Image) {
+      } else if (Ai.Kind == SPVTypeKind::Image) {
         CHIPASSERT(false && "UNIMPLMENTED: Texture argument handling for the "
                             "old HIP kernel ABI.");
       } else {

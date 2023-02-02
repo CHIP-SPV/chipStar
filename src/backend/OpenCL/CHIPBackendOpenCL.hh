@@ -271,10 +271,10 @@ private:
 
 public:
   CHIPKernelOpenCL(const cl::Kernel &&ClKernel, CHIPDeviceOpenCL *Dev,
-                   std::string HostFName, OCLFuncInfo *FuncInfo,
+                   std::string HostFName, SPVFuncInfo *FuncInfo,
                    CHIPModuleOpenCL *Parent);
   virtual ~CHIPKernelOpenCL() {}
-  OCLFuncInfo *getFuncInfo() const;
+  SPVFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();
   size_t getTotalArgSize() const;
@@ -305,7 +305,7 @@ public:
   virtual ~CHIPExecItemOpenCL() override {
     // TODO delete ClKernel_?
   }
-  OCLFuncInfo FuncInfo;
+  SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl::Kernel *get();
   virtual CHIPExecItem *clone() const override {
