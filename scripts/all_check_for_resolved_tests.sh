@@ -7,6 +7,16 @@ export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
 module load mkl opencl/intel-gpu
+# Ensure that only igpu is active for build/test discovery and OpenCL is used
+sudo /opt/ocl-icd/scripts/dgpu_unbind 
+sudo /opt/ocl-icd/scripts/igpu_unbind 
+sudo /opt/ocl-icd/scripts/igpu_bind 
+export CHIP_BE=opencl
+
+# Build 
+make -j
+make build_tests -j
+sudo /opt/ocl-icd/scripts/igpu_unbind 
 
 # Ensure that only igpu is active for build/test discovery and OpenCL is used
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
