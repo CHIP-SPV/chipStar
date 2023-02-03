@@ -33,7 +33,7 @@
 #include <hip/hip_runtime.h>
 #include <hip/hip_fp16.h>
 
-#include "fp16_conversion.hpp"
+//#include "fp16_conversion.hpp"
 
 // This is a simple example of using FP16 types and arithmetic on
 // GPUs that support it. The code computes an AXPY (A * X + Y) operation
@@ -55,12 +55,12 @@ void check(const half *x, const half *y, const int n) {
   errors = 0;
   float eps = 2.0f;
   for (int i = 0; i < n; i++) {
-    float gpu_computed = half_to_float(y[i]);
-    float verify = half_to_float(x[i]) * 5.0f;
+    float gpu_computed = y[i];
+    float verify = (float)x[i] * 5.0f;
     if (std::fabs(gpu_computed - verify) > eps) {
       ++errors;
       if (errors < 32) {
-        std::cerr << "Error at N: " << i << " x[i]: " << half_to_float(x[i])
+        std::cerr << "Error at N: " << i << " x[i]: " << (float)x[i]
                   << " GPU: " << gpu_computed << " CPU: " << verify << "\n";
       }
     }
@@ -93,15 +93,15 @@ int main(void) {
   std::mt19937 gen(SEED);
   auto rnd = std::bind(std::uniform_int_distribution<short>{100, 1000}, gen);
 
-  const half a = approx_float_to_half(5.0f);
+  const half a = 5.0f;
 
   half *x, *y, *d_x, *d_y;
   x = (half *)malloc(n * sizeof(half));
   y = (half *)malloc(n * sizeof(half));
 
   for (int i = 0; i < n; i++) {
-    x[i] = approx_float_to_half(rnd());
-    y[i] = approx_float_to_half(16.0f);
+    x[i] = rnd();
+    y[i] = 16.0f;
   }
 
   checkCuda(hipMalloc((void **)&d_x, n * sizeof(half)));

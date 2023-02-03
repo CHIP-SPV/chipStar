@@ -65,9 +65,9 @@ void check(std::string fn, const half2 *x, const half2 *y, const half2 *z, const
     half xx = (j == 0) ? __low2half(x[i]) : __high2half(x[i]);
     half yy = (j == 0) ? __low2half(y[i]) : __high2half(y[i]);
     half zz = (j == 0) ? __low2half(z[i]) : __high2half(z[i]);
-    float xx_computed = half_to_float(xx);
-    float yy_computed = half_to_float(yy);
-    float zz_computed = half_to_float(zz);
+    float xx_computed = xx;
+    float yy_computed = yy;
+    float zz_computed = zz;
 
     float verify;
     if (fn == "sub")
@@ -195,8 +195,8 @@ int main(void) {
   z = (half2 *)malloc(n * sizeof(half2));
 
   for (int i = 0; i < n; i++) {
-    x[i] = __half2(static_cast<_hip_f16_2>(rnd()));
-    y[i] = __half2(static_cast<_hip_f16_2>(rnd()));
+    x[i] = __half2(static_cast<__half2>(rnd()));
+    y[i] = __half2(static_cast<__half2>(rnd()));
   }
 
   checkCuda(hipMalloc((void **)&d_x, n * sizeof(half2)));

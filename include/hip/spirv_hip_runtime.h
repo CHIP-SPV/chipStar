@@ -32,6 +32,12 @@ THE SOFTWARE.
 #include <cstdint>
 #endif
 
+#if defined(__clang__) && defined(__HIP__)
+#define __HIP_CLANG_ONLY__ 1
+#else
+#define __HIP_CLANG_ONLY__ 0
+#endif
+
 #include <hip/hip_runtime_api.h>
 
 #include <hip/spirv_hip.hh>

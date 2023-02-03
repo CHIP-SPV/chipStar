@@ -92,7 +92,7 @@ static const half approx_float_to_half(float fl) {
 
 // from half->float code - just for verification.
 static float half_to_float(half hf) {
-  _hip_f16 temp = static_cast<_hip_f16>(hf);
+  __half temp = static_cast<__half>(hf);
   FP16 h;
   h.u = temp;
 
@@ -123,9 +123,9 @@ static float half_to_float(half hf) {
  */
 static int compare_calculated(half h1, half h2) {
   FP16 h_1, h_2;
-  _hip_f16 temp = static_cast<_hip_f16>(h1);
+  __half temp = static_cast<__half>(h1);
   h_1.u = temp;
-  temp = static_cast<_hip_f16>(h2);
+  temp = static_cast<__half>(h2);
   h_2.u = temp;
 
   // also deliberately compares equal infs and equal-value nans
