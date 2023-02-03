@@ -183,7 +183,6 @@ hipError_t hipDevicePrimaryCtxRelease(hipDevice_t Device) {
 
   // HIP_RETURN(hipSuccess);
 
-
   CHIP_TRY
   CHIPInitialize();
 

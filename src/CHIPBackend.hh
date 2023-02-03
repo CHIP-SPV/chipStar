@@ -49,7 +49,7 @@
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
-inline CHIPContext* PrimaryContext = nullptr;
+inline CHIPContext *PrimaryContext = nullptr;
 inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
 inline thread_local std::stack<CHIPContext *> ChipCtxStack;
 
@@ -1162,7 +1162,6 @@ protected:
   bool PerThreadStreamUsed_ = false;
 
 public:
-
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
@@ -1513,9 +1512,7 @@ public:
 
   virtual void syncQueues(CHIPQueue *TargetQueue);
 
-  void setDevice(CHIPDevice *Device) {
-    ChipDevice_ = Device;
-  }
+  void setDevice(CHIPDevice *Device) { ChipDevice_ = Device; }
 
   /**
    * @brief Get this context's CHIPDevices
@@ -1634,9 +1631,7 @@ public:
    *
    * @return CHIPContext*
    */
-  void retain() {
-    ++RefCount_;
-  }
+  void retain() { ++RefCount_; }
 
   void release() {
     --RefCount_;

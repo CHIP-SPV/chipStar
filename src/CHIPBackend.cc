@@ -844,9 +844,7 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
   UNIMPLEMENTED(hipSharedMemBankSizeDefault);
 }
 
-void CHIPDevice::removeContext(CHIPContext *CHIPContext) {
-  
-}
+void CHIPDevice::removeContext(CHIPContext *CHIPContext) {}
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   /**
@@ -1267,7 +1265,8 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
   }
 
   PrimaryContext = ChipContexts[0];
-  setActiveContext(ChipContexts[0]); // pushes primary context to context stack for thread 0
+  setActiveContext(
+      ChipContexts[0]); // pushes primary context to context stack for thread 0
 }
 
 void CHIPBackend::setActiveContext(CHIPContext *ChipContext) {
@@ -1279,8 +1278,8 @@ void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
 }
 
 CHIPContext *CHIPBackend::getActiveContext() {
-  //assert(ChipCtxStack.size() > 0 && "Context stack is empty");
-  if(ChipCtxStack.size() == 0) {
+  // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
+  if (ChipCtxStack.size() == 0) {
     logDebug("Context stack is empty for thread {}", pthread_self());
     ChipCtxStack.push(PrimaryContext);
   }
