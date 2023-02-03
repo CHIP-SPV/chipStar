@@ -28,6 +28,7 @@ export CHIP_BE=opencl
 # Build 
 make -j
 make build_tests -j
+cd ../
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
 # dgpu
