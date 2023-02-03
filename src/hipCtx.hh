@@ -130,22 +130,27 @@ hipError_t hipCtxGetDevice(hipDevice_t *device) {
 }
 
 hipError_t hipCtxGetApiVersion(hipCtx_t ctx, int *apiVersion) {
+  // Unimplemented in hipamd
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipCtxGetCacheConfig(hipFuncCache_t *cacheConfig) {
+  // Unimplemented in hipamd
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipCtxSetCacheConfig(hipFuncCache_t cacheConfig) {
+  // Unimplemented in hipamd
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipCtxSetSharedMemConfig(hipSharedMemConfig config) {
+  // Unimplemented in hipamd
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipCtxGetSharedMemConfig(hipSharedMemConfig *pConfig) {
+  // Unimplemented in hipamd
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
@@ -161,15 +166,18 @@ hipError_t hipCtxSynchronize(void) {
 }
 
 hipError_t hipCtxGetFlags(unsigned int *flags) {
+  // Unimplemented in hipamd
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipCtxEnablePeerAccess(hipCtx_t peerCtx, unsigned int flags) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  // hipamd implementation
+  RETURN(hipSuccess);
 }
 
 hipError_t hipCtxDisablePeerAccess(hipCtx_t peerCtx) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  // hipamd implementation
+  RETURN(hipSuccess);
 }
 
 hipError_t hipDevicePrimaryCtxRelease(hipDevice_t Device) {
