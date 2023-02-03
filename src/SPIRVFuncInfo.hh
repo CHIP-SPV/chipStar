@@ -26,13 +26,16 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <functional>
+#include <string_view>
 
 enum class SPVTypeKind : unsigned {
-  POD,
-  Pointer,
-  Image,
-  Sampler,
-  Opaque,
+  Unknown = 0,
+  POD,     // The type is a non-pointer, primitive value or an aggregate.
+  Pointer, // The type is a pointer of any storage class.
+  Image,   // The type is a image.
+  Sampler, // The type is a sample.
+  Opaque,  // The type is an unresolved, special SPIR-V type.
 };
 
 // TODO: Redundant. Could use SPV::StorageClass instead.
@@ -48,10 +51,60 @@ struct SPVArgTypeInfo {
   SPVTypeKind Kind;
   SPVStorageClass StorageClass;
   size_t Size;
+
+  bool isWorkgroupPtr() const {
+    return Kind == SPVTypeKind::Pointer &&
+           StorageClass == SPVStorageClass::Workgroup;
+  }
 };
 
-struct SPVFuncInfo {
-  std::vector<SPVArgTypeInfo> ArgTypeInfo;
+class SPVFuncInfo {
+  friend class SPIRVModule;
+  friend class SPIRVinst;
+
+  std::vector<SPVArgTypeInfo> ArgTypeInfo_;
+
+public:
+  /// A structure for argument info passed by the visitor methods.
+  struct Arg : SPVArgTypeInfo {
+    size_t Index;
+    /// Argument data (an address to argument value). In case of
+    /// isWorkgroupPtr()==true this member is nullptr.
+    const void *Data;
+
+    /// Return SPVArgTypeInfo::Kind as a string
+    std::string_view getKindAsString() const;
+  };
+  struct KernelArg : public Arg {};
+  // Represetns an Argument visible to the HIP client. This only
+  // includes source code defined arguments (e.g. excludes samplers,
+  // images and pointers with workgroup storage class).
+  struct ClientArg : public Arg {};
+
+  using ClientArgVisitor = std::function<void(const ClientArg &)>;
+  using KernelArgVisitor = std::function<void(const KernelArg &)>;
+
+  void visitClientArgs(ClientArgVisitor Fn) const;
+  void visitClientArgs(const std::vector<void *> &ArgList,
+                       ClientArgVisitor Fn) const;
+  void visitKernelArgs(KernelArgVisitor Fn) const;
+  void visitKernelArgs(const std::vector<void *> &ArgList,
+                       KernelArgVisitor Fn) const;
+
+  /// Return visible kernel argument count.
+  ///
+  /// The count only accounts arguments defined in the HIP source code.
+  unsigned getNumClientArgs() const;
+
+  /// Return actual kernel argument count (includes arguments not
+  /// defined in HIP source code)
+  unsigned getNumKernelArgs() const { return ArgTypeInfo_.size(); }
+
+private:
+  void visitClientArgsImpl(const std::vector<void *> &ArgList,
+                           ClientArgVisitor Fn) const;
+  void visitKernelArgsImpl(const std::vector<void *> &ArgList,
+                           KernelArgVisitor Fn) const;
 };
 
 typedef std::map<int32_t, std::shared_ptr<SPVFuncInfo>> SPVFuncInfoMap;

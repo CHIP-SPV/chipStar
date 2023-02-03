@@ -446,14 +446,14 @@ public:
 
     size_t NumArgs = WordCount_ - 3;
     if (NumArgs > 0) {
-      Fi->ArgTypeInfo.resize(NumArgs);
+      Fi->ArgTypeInfo_.resize(NumArgs);
       for (size_t i = 0; i < NumArgs; ++i) {
         int32_t TypeId = OrigStream_[i + 3];
         auto It = TypeMap.find(TypeId);
         assert(It != TypeMap.end());
-        Fi->ArgTypeInfo[i].Kind = It->second->typeKind();
-        Fi->ArgTypeInfo[i].Size = It->second->size();
-        Fi->ArgTypeInfo[i].StorageClass = It->second->getSC();
+        Fi->ArgTypeInfo_[i].Kind = It->second->typeKind();
+        Fi->ArgTypeInfo_[i].Size = It->second->size();
+        Fi->ArgTypeInfo_[i].StorageClass = It->second->getSC();
       }
     }
 
