@@ -40,7 +40,7 @@ sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 
 # igpu
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
-./scripts/check_for_resolved_tests.py ./build idgpu opencl 1 100
+./scripts/check_for_resolved_tests.py ./build igpu opencl 1 100
 ./scripts/check_for_resolved_tests.py ./build igpu level0 1 100
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
