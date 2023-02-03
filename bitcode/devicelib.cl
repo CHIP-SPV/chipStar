@@ -839,6 +839,12 @@ EXPORT OVLD unsigned __lane_id() {
   return get_sub_group_local_id();
 }
 
+EXPORT OVLD void __syncwarp() {
+  // CUDA docs speaks only about "memory". It's not specifying that it would
+  // only flush local memory.
+  return sub_group_barrier(CLK_GLOBAL_MEM_FENCE);
+}
+
 typedef struct {
   intptr_t  image;
   intptr_t  sampler;
