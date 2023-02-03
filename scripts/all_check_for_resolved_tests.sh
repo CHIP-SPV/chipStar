@@ -1,12 +1,24 @@
 #!/bin/bash
-
-source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
+source /opt/intel/oneapi/setvars.sh intel64
 source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
-module load mkl opencl/intel-gpu
+ulimit -a
+
+git submodule update --init
+mkdir build
+cd build
+
+# TODO check Release as well 
+# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
+cmake ../ -DLLVM_CONFIG=/usr/bin/llvm-config-15
+
+module load mkl
+# Load ocl-icd and intel-gpu
+module load opencl/intel-gpu
+
 # Ensure that only igpu is active for build/test discovery and OpenCL is used
 sudo /opt/ocl-icd/scripts/dgpu_unbind 
 sudo /opt/ocl-icd/scripts/igpu_unbind 
@@ -16,10 +28,6 @@ export CHIP_BE=opencl
 # Build 
 make -j
 make build_tests -j
-sudo /opt/ocl-icd/scripts/igpu_unbind 
-
-# Ensure that only igpu is active for build/test discovery and OpenCL is used
-sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
 # dgpu
