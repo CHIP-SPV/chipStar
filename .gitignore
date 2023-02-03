@@ -8,3 +8,4 @@ test_build_iris.sh
 test_find_cmake/*
 report.*
 test_logs/*
+*.pyc
