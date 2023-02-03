@@ -1,10 +1,9 @@
 # Workflow syntax:
 # https://help.github.com/en/articles/workflow-syntax-for-github-actions
-name: unit-test-checker
+name: check-for-resolved-tests
 
 on:
-  pull_request:
-    paths-ignore: "docs/**"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,5 +18,5 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh
+        run: ./scripts/all_check_for_resolved_tests.sh
         shell: bash
