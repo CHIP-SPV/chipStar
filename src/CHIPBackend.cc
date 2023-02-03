@@ -844,6 +844,8 @@ hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
   UNIMPLEMENTED(hipSharedMemBankSizeDefault);
 }
 
+void CHIPDevice::removeContext(CHIPContext *CHIPContext) {}
+
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   /**
    * If commands are still executing on the specified stream, some may complete
@@ -1002,12 +1004,8 @@ CHIPModule *CHIPDevice::getOrCreateModule(const SPVModule &SrcMod) {
 //*************************************************************************************
 CHIPContext::CHIPContext() {}
 CHIPContext::~CHIPContext() {
-  LOCK(ContextMtx); // CHIPContext::ChipDevices_
   logDebug("~CHIPContext() {}", (void *)this);
-  while (ChipDevices_.size() > 0) {
-    delete ChipDevices_[0];
-    ChipDevices_.erase(ChipDevices_.begin());
-  }
+  delete ChipDevice_;
 }
 
 void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
@@ -1068,31 +1066,9 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   SyncQueuesEvent->track();
 }
 
-void CHIPContext::addDevice(CHIPDevice *ChipDevice) {
-  LOCK(ContextMtx); // CHIPContext::ChipDevices
-  logDebug("{} CHIPContext::addDevice() {}", (void *)this, (void *)ChipDevice);
-  ChipDevices_.push_back(ChipDevice);
-}
-
-void CHIPContext::removeDevice(CHIPDevice *ChipDevice) {
-  LOCK(ContextMtx); // CHIPContext::ChipDevices
-  logDebug("{} CHIPContext.removeDevice() {}", (void *)this,
-           (void *)ChipDevice);
-
-  auto DeviceFound =
-      std::find(ChipDevices_.begin(), ChipDevices_.end(), ChipDevice);
-  if (DeviceFound != ChipDevices_.end()) {
-    ChipDevices_.erase(DeviceFound);
-  } else {
-    std::abort();
-  }
-  return;
-}
-
-std::vector<CHIPDevice *> &CHIPContext::getDevices() {
-  if (ChipDevices_.size() == 0)
-    logWarn("CHIPContext.get_devices() was called but chip_devices is empty");
-  return ChipDevices_;
+CHIPDevice *CHIPContext::getDevice() {
+  assert(this->ChipDevice_);
+  return ChipDevice_;
 }
 
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
@@ -1107,6 +1083,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, CHIPHostAllocFlags Flags) {
   void *AllocatedPtr, *HostPtr = nullptr;
+  // TOOD hipCtx - use the device with which this context is associated
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   if (!Flags.isDefault()) {
     if (Flags.isMapped())
@@ -1156,19 +1133,15 @@ void CHIPContext::reset() {
   // Free all allocations in this context
   for (auto &Ptr : AllocatedPtrs_)
     freeImpl(Ptr);
+
+  auto Dev = getDevice();
   // Free all the memory reservations on each device
-  for (auto &Dev : ChipDevices_)
-    Dev->AllocationTracker->releaseMemReservation(
-        Dev->AllocationTracker->TotalMemSize);
+  Dev->AllocationTracker->releaseMemReservation(
+      Dev->AllocationTracker->TotalMemSize);
   AllocatedPtrs_.clear();
 
-  for (auto *Dev : ChipDevices_)
-    Dev->reset();
-
-  // TODO Is all the state reset?
+  getDevice()->reset();
 }
-
-CHIPContext *CHIPContext::retain() { UNIMPLEMENTED(nullptr); }
 
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
@@ -1219,19 +1192,7 @@ CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
 
   Events.clear();
-  // for (auto &Ctx : ChipContexts) {
-  //   delete Ctx;
-  // }
-
   for (auto &Ctx : ChipContexts) {
-    for (auto &Dev : Ctx->getDevices()) {
-      for (auto &Q : Dev->getQueuesNoLock()) {
-        Dev->removeQueue(Q);
-        delete Q;
-      }
-      Ctx->removeDevice(Dev);
-      delete Dev;
-    }
     Backend->removeContext(Ctx);
     delete Ctx;
   }
@@ -1303,53 +1264,43 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
   }
 
-  setActiveDevice(ChipContexts[0]->getDevices()[0]);
+  PrimaryContext = ChipContexts[0];
+  setActiveContext(
+      ChipContexts[0]); // pushes primary context to context stack for thread 0
+}
+
+void CHIPBackend::setActiveContext(CHIPContext *ChipContext) {
+  ChipCtxStack.push(ChipContext);
 }
 
 void CHIPBackend::setActiveDevice(CHIPDevice *ChipDevice) {
-  LOCK(Backend->SetActiveMtx); // CHIPDevice::ActiveDev_
-
-  ActiveDev_ = ChipDevice;
-  ActiveCtx_ = ChipDevice->getContext();
+  Backend->setActiveContext(ChipDevice->getContext());
 }
+
 CHIPContext *CHIPBackend::getActiveContext() {
-  LOCK(Backend->SetActiveMtx); // CHIPBackend::ActiveDev_
-  if (ActiveCtx_ == nullptr) {
-    std::string Msg = "Active context is null";
-    CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
+  // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
+  if (ChipCtxStack.size() == 0) {
+    logDebug("Context stack is empty for thread {}", pthread_self());
+    ChipCtxStack.push(PrimaryContext);
   }
-  return ActiveCtx_;
+  return ChipCtxStack.top();
 };
 
 CHIPDevice *CHIPBackend::getActiveDevice() {
-  LOCK(Backend->SetActiveMtx); // CHIPBackend::ActiveDev_
-  if (ActiveDev_ == nullptr) {
-    CHIPERR_LOG_AND_THROW(
-        "CHIPBackend.getActiveDevice() was called but active_ctx is null",
-        hipErrorUnknown);
-  }
-  return ActiveDev_;
+  CHIPContext *Ctx = getActiveContext();
+  return Ctx->getDevice();
 };
 
 std::vector<CHIPDevice *> CHIPBackend::getDevices() {
   std::vector<CHIPDevice *> Devices;
   for (auto Ctx : ChipContexts) {
-    LOCK(Ctx->ContextMtx); // CHIPContext::ChipDevices_ via getDevices()
-    for (auto Dev : Ctx->getDevices()) {
-      Devices.push_back(Dev);
-    }
+    Devices.push_back(Ctx->getDevice());
   }
 
   return Devices;
 }
 
-size_t CHIPBackend::getNumDevices() {
-  int NumDevices = 0;
-  for (auto Ctx : ChipContexts) {
-    NumDevices += Ctx->getDevices().size();
-  }
-  return NumDevices;
-}
+size_t CHIPBackend::getNumDevices() { return ChipContexts.size(); }
 
 void CHIPBackend::removeContext(CHIPContext *ChipContext) {
   auto ContextFound =

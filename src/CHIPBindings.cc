@@ -51,6 +51,7 @@
 #include "macros.hh"
 #include "Utils.hh"
 #include "SPVRegister.hh"
+#include "hipCtx.hh"
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
@@ -92,66 +93,6 @@ hipError_t hipExtStreamCreateWithCUMask(hipStream_t *stream,
 }
 hipError_t hipExtStreamGetCUMask(hipStream_t stream, uint32_t cuMaskSize,
                                  uint32_t *cuMask) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxCreate(hipCtx_t *ctx, unsigned int flags, hipDevice_t device) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxDestroy(hipCtx_t ctx) { UNIMPLEMENTED(hipErrorNotSupported); }
-
-hipError_t hipCtxPopCurrent(hipCtx_t *ctx) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxSetCurrent(hipCtx_t ctx) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxGetCurrent(hipCtx_t *ctx) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxGetDevice(hipDevice_t *device) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxGetApiVersion(hipCtx_t ctx, int *apiVersion) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxGetCacheConfig(hipFuncCache_t *cacheConfig) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxSetCacheConfig(hipFuncCache_t cacheConfig) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxSetSharedMemConfig(hipSharedMemConfig config) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxGetSharedMemConfig(hipSharedMemConfig *pConfig) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxSynchronize(void) { UNIMPLEMENTED(hipErrorNotSupported); }
-
-hipError_t hipCtxGetFlags(unsigned int *flags) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxEnablePeerAccess(hipCtx_t peerCtx, unsigned int flags) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
-
-hipError_t hipCtxDisablePeerAccess(hipCtx_t peerCtx) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
@@ -2180,70 +2121,6 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
   *Size = AllocInfo->Size;
 
   RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxGetState(hipDevice_t Device, unsigned int *Flags,
-                                       int *Active) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Flags, Active);
-  ERROR_CHECK_DEVNUM(Device);
-
-  CHIPContext *CurrCtx = Backend->getActiveContext();
-
-  // Currently device only has 1 context
-  CHIPContext *PrimaryCtx = (Backend->getDevices()[Device])->getContext();
-
-  *Active = (PrimaryCtx == CurrCtx) ? 1 : 0;
-  *Flags = PrimaryCtx->getFlags();
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxRelease(hipDevice_t Device) {
-  CHIP_TRY
-  CHIPInitialize();
-  ERROR_CHECK_DEVNUM(Device);
-  UNIMPLEMENTED(hipErrorNotSupported);
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *Context, hipDevice_t Device) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Context);
-  ERROR_CHECK_DEVNUM(Device);
-
-  UNIMPLEMENTED(hipErrorNotSupported);
-  *Context = (Backend->getDevices()[Device])->getContext()->retain();
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxReset(hipDevice_t Device) {
-  CHIP_TRY
-  CHIPInitialize();
-  ERROR_CHECK_DEVNUM(Device);
-
-  (Backend->getDevices()[Device])->getContext()->reset();
-
-  RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t Device, unsigned int Flags) {
-  CHIP_TRY
-  CHIPInitialize();
-  ERROR_CHECK_DEVNUM(Device);
-
-  UNIMPLEMENTED(hipErrorNotSupported);
-  (Backend->getDevices()[Device])->getContext()->setFlags(Flags);
-  RETURN(hipSuccess);
-
   CHIP_CATCH
 }
 

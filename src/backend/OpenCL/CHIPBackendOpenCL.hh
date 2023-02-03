@@ -165,6 +165,8 @@ private:
                    int Idx);
 
 public:
+  virtual CHIPContextOpenCL *createContext() override {}
+
   static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
                                   CHIPContextOpenCL *ChipContext, int Idx);
   cl::Device *ClDevice;

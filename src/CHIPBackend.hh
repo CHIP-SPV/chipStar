@@ -49,7 +49,9 @@
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
+inline CHIPContext *PrimaryContext = nullptr;
 inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
+inline thread_local std::stack<CHIPContext *> ChipCtxStack;
 
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
@@ -1211,6 +1213,13 @@ public:
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
 
+  void removeContext(CHIPContext *Ctx);
+  virtual CHIPContext *createContext() = 0;
+  CHIPContext *createContextAndRegister() {
+    Ctx_ = createContext();
+    return Ctx_;
+  }
+
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
       CHIPERR_LOG_AND_THROW("MaxMallocSize was not set", hipErrorTbd);
@@ -1479,19 +1488,22 @@ protected:
  */
 class CHIPContext : public ihipCtx_t {
 protected:
-  std::vector<CHIPDevice *> ChipDevices_;
+  int RefCount_;
+  CHIPDevice *ChipDevice_;
   std::vector<void *> AllocatedPtrs_;
 
   unsigned int Flags_;
 
-public:
-  std::vector<CHIPEvent *> Events;
-  std::mutex ContextMtx;
   /**
    * @brief Construct a new CHIPContext object
    *
    */
   CHIPContext();
+
+public:
+  std::vector<CHIPEvent *> Events;
+  std::mutex ContextMtx;
+
   /**
    * @brief Destroy the CHIPContext object
    *
@@ -1500,22 +1512,14 @@ public:
 
   virtual void syncQueues(CHIPQueue *TargetQueue);
 
-  /**
-   * @brief Add a device to this context
-   *
-   * @param dev pointer to CHIPDevice object
-   * @return true if device was added successfully
-   * @return false upon failure
-   */
-  void addDevice(CHIPDevice *Dev);
-  void removeDevice(CHIPDevice *Dev);
+  void setDevice(CHIPDevice *Device) { ChipDevice_ = Device; }
 
   /**
    * @brief Get this context's CHIPDevices
    *
-   * @return std::vector<CHIPDevice*>&
+   * @return CHIPDevice *
    */
-  std::vector<CHIPDevice *> &getDevices();
+  CHIPDevice *getDevice();
 
   /**
    * @brief Allocate data.
@@ -1627,7 +1631,14 @@ public:
    *
    * @return CHIPContext*
    */
-  CHIPContext *retain();
+  void retain() { ++RefCount_; }
+
+  void release() {
+    --RefCount_;
+    if (RefCount_ == 0) {
+      // TODO hipCtx - shuold call overlaoded destructor
+    }
+  }
 };
 
 /**
@@ -1780,6 +1791,7 @@ public:
    *
    * @param chip_dev
    */
+  void setActiveContext(CHIPContext *ChipContext);
   void setActiveDevice(CHIPDevice *ChipDevice);
 
   std::vector<CHIPDevice *> getDevices();
