@@ -2215,173 +2215,63 @@ void CHIPExecItemLevel0::setupAllArgs() {
 
   SPVFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
 
-  size_t NumLocals = 0;
+  auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    ze_result_t Status;
+    switch (Arg.Kind) {
+    default:
+      CHIPERR_LOG_AND_THROW("Internal CHIP-SPV error: Unknown argument kind.",
+                            hipErrorTbd);
 
-  for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].StorageClass == SPVStorageClass::Workgroup) {
-      ++NumLocals;
+    case SPVTypeKind::Image: {
+      auto *TexObj =
+          *reinterpret_cast<const CHIPTextureLevel0 *const *>(Arg.Data);
+      ze_image_handle_t ImageHandle = TexObj->getImage();
+      logTrace("setImageArg {} size {}\n", Arg.Index,
+               sizeof(ze_image_handle_t));
+      Status = zeKernelSetArgumentValue(
+          Kernel->get(), Arg.Index, sizeof(ze_image_handle_t), &ImageHandle);
+      break;
     }
-  }
-  // there can only be one dynamic shared mem variable, per cuda spec
-  assert(NumLocals <= 1);
-
-  // Argument processing for the new HIP launch API.
-  auto ArgsPtr = getArgsPointer();
-  if (ArgsPtr) {
-    for (size_t InArgIdx = 0, OutArgIdx = 0;
-         OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
-      SPVArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[OutArgIdx];
-
-      // Handle direct texture object passing. When we see an image
-      // type we know it's derived from a texture object argument
-      if (ArgTypeInfo.Kind == SPVTypeKind::Image) {
-        auto *TexObj = *(CHIPTextureLevel0 **)ArgsPtr[InArgIdx];
-
-        // Set image argument.
-        ze_image_handle_t ImageHandle = TexObj->getImage();
-        logTrace("setImageArg {} size {}\n", OutArgIdx,
-                 sizeof(ze_image_handle_t));
-        // The application must not call this function
-        // from simultaneous threads with the same kernel handle.
-        // Done via ExecItemMtx
-        ze_result_t Status = zeKernelSetArgumentValue(
-            Kernel->get(), OutArgIdx, sizeof(ze_image_handle_t), &ImageHandle);
-        CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-        // Set sampler argument.
-        OutArgIdx++;
-        ze_sampler_handle_t SamplerHandle = TexObj->getSampler();
-        logTrace("setSamplerArg {} size {}\n", OutArgIdx,
-                 sizeof(ze_sampler_handle_t));
-        // The application must not call this function
-        // from simultaneous threads with the same kernel handle.
-        // Done via ExecItemMtx
-        Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
-                                          sizeof(ze_sampler_handle_t),
-                                          &SamplerHandle);
-        CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-      } else {
-        logTrace("setArg {} size {} addr {}\n", OutArgIdx, ArgTypeInfo.Size,
-                 ArgsPtr[InArgIdx]);
-        ze_result_t Status;
-        void **Ptr = (void **)ArgsPtr[InArgIdx];
-        // NULL pointers as kernel argument require special handling
-        if ((ArgTypeInfo.Kind == SPVTypeKind::Pointer) &&
-            (ArgTypeInfo.StorageClass != SPVStorageClass::Workgroup) &&
-            (*Ptr == nullptr)) {
-          logTrace("setArg was given NULL");
-          // The application must not call this function
-          // from simultaneous threads with the same kernel handle.
-          // Done via ExecItemMtx
-          Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
-                                            ArgTypeInfo.Size, nullptr);
-        } else {
-          // The application must not call this function
-          // from simultaneous threads with the same kernel handle.
-          // Done via ExecItemMtx
-          auto ARG = ArgsPtr[InArgIdx];
-          Status = zeKernelSetArgumentValue(Kernel->get(), OutArgIdx,
-                                            ArgTypeInfo.Size, ARG);
-        }
-        CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                                    "zeKernelSetArgumentValue failed");
-      }
+    case SPVTypeKind::Sampler: {
+      auto *TexObj =
+          *reinterpret_cast<const CHIPTextureLevel0 *const *>(Arg.Data);
+      ze_sampler_handle_t SamplerHandle = TexObj->getSampler();
+      logTrace("setSamplerArg {} size {}\n", Arg.Index,
+               sizeof(ze_sampler_handle_t));
+      Status =
+          zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
+                                   sizeof(ze_sampler_handle_t), &SamplerHandle);
+      break;
     }
-  } else {
-    // Argument processing for the old HIP launch API.
-    if ((OffsetSizes_.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
-      CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
-    }
+    case SPVTypeKind::POD:
+    case SPVTypeKind::Pointer: {
+      const auto *ArgData = Arg.Data;
+      auto ArgSize = Arg.Size;
 
-    if (OffsetSizes_.size() == 0)
-      return;
-
-    std::sort(OffsetSizes_.begin(), OffsetSizes_.end());
-    if ((std::get<0>(OffsetSizes_[0]) != 0) ||
-        (std::get<1>(OffsetSizes_[0]) == 0)) {
-      CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
-    }
-
-    // check args are set
-    if (OffsetSizes_.size() > 1) {
-      for (size_t i = 1; i < OffsetSizes_.size(); ++i) {
-        if ((std::get<0>(OffsetSizes_[i]) == 0) ||
-            (std::get<1>(OffsetSizes_[i]) == 0) ||
-            ((std::get<0>(OffsetSizes_[i - 1]) +
-              std::get<1>(OffsetSizes_[i - 1])) >
-             std::get<0>(OffsetSizes_[i]))) {
-          CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
+      if (Arg.Kind == SPVTypeKind::Pointer) {
+        if (Arg.isWorkgroupPtr()) {
+          // Undocumented way to allocate Workgroup memory (which is
+          // similar to OpenCL's way to allocate __local memory).
+          ArgData = nullptr;
+          ArgSize = SharedMem_;
+        } else if (*(const void **)Arg.Data == nullptr) {
+          // zeKernelSetArgumentValue does not accept nullptrs as
+          // pointer argument values.  Work-around this by allocating a small
+          // piece of Workgroup memory (via nullptr magic).
+          ArgData = nullptr;
+          ArgSize = 0;
         }
       }
+
+      logTrace("setArg {} size {} addr {}\n", Arg.Index, ArgSize, ArgData);
+      Status =
+          zeKernelSetArgumentValue(Kernel->get(), Arg.Index, ArgSize, ArgData);
+      break;
     }
-
-    const unsigned char *Start = ArgData_.data();
-    for (size_t i = 0; i < OffsetSizes_.size(); ++i) {
-      SPVArgTypeInfo &ArgTypeInfo = FuncInfo->ArgTypeInfo[i];
-      logTrace(
-          "ARG {}: OS[0]: {} OS[1]: {} \n      KIND {} STORAGE {} SIZE {}\n", i,
-          std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
-          (unsigned)ArgTypeInfo.Kind, (unsigned)ArgTypeInfo.StorageClass,
-          ArgTypeInfo.Size);
-
-      CHIPASSERT(ArgTypeInfo.Kind != SPVTypeKind::Image &&
-                 "UNIMPLEMENTED: texture object arguments for old HIP kernel "
-                 "launch API.");
-
-      if (ArgTypeInfo.Kind == SPVTypeKind::Pointer) {
-        // TODO: sync with ExecItem's solution
-        assert(ArgTypeInfo.Size == sizeof(void *));
-        assert(std::get<1>(OffsetSizes_[i]) == ArgTypeInfo.Size);
-        size_t Size = std::get<1>(OffsetSizes_[i]);
-        size_t Offset = std::get<0>(OffsetSizes_[i]);
-        const void *Value = (void *)(Start + Offset);
-        logTrace("setArg SVM {} to {}\n", i, (void *)Value);
-        // The application must not call this function
-        // from simultaneous threads with the same kernel handle.
-        // Done via ExecItemMtx
-        ze_result_t Status =
-            zeKernelSetArgumentValue(Kernel->get(), i, Size, Value);
-
-        CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                                    "zeKernelSetArgumentValue failed");
-
-        logTrace("LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
-                 "{} ",
-                 Status);
-      } else {
-        size_t Size = std::get<1>(OffsetSizes_[i]);
-        size_t Offset = std::get<0>(OffsetSizes_[i]);
-        const void *Value = (void *)(Start + Offset);
-        logTrace("setArg {} size {} offs {}\n", i, Size, Offset);
-        // The application must not call this function
-        // from simultaneous threads with the same kernel handle.
-        // Done via ExecItemMtx
-        ze_result_t Status =
-            zeKernelSetArgumentValue(Kernel->get(), i, Size, Value);
-
-        CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                                    "zeKernelSetArgumentValue failed");
-
-        logTrace("LZ SET ARGUMENT VALUE via calling zeKernelSetArgumentValue "
-                 "{} ",
-                 Status);
-      }
     }
-  }
-
-  // Setup the kernel argument's value related to dynamically sized share
-  // memory
-  if (NumLocals == 1) {
-    // The application must not call this function
-    // from simultaneous threads with the same kernel handle.
-    // Done via ExecItemMtx
-    ze_result_t Status = zeKernelSetArgumentValue(
-        Kernel->get(), FuncInfo->ArgTypeInfo.size() - 1, SharedMem_, nullptr);
-    logTrace("LZ set dynamically sized share memory related argument via "
-             "calling "
-             "zeKernelSetArgumentValue {} ",
-             Status);
-  }
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  };
+  FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
 
   return;
 }

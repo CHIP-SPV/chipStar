@@ -259,7 +259,6 @@ public:
 class CHIPKernelOpenCL : public CHIPKernel {
 private:
   std::string Name_;
-  size_t TotalArgSize_;
   cl::Kernel OclKernel_;
   size_t MaxDynamicLocalSize_;
   size_t MaxWorkGroupSize_;
@@ -277,7 +276,6 @@ public:
   SPVFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();
-  size_t getTotalArgSize() const;
 
   CHIPModuleOpenCL *getModule() override { return Module; }
   const CHIPModuleOpenCL *getModule() const override { return Module; }

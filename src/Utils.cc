@@ -143,42 +143,24 @@ std::vector<void *>
 convertExtraArgsToPointerArray(void *ExtraArgBuf, const SPVFuncInfo &FuncInfo) {
   auto *BaseAddr = (uint8_t *)ExtraArgBuf;
   std::vector<void *> PointerArray;
-  PointerArray.reserve(FuncInfo.ArgTypeInfo.size());
+  PointerArray.reserve(FuncInfo.getNumClientArgs());
   unsigned Offset = 0;
-  unsigned i = 0;
-  for (const auto &ArgInfo : FuncInfo.ArgTypeInfo) {
+
+  auto ArgVisitor = [&](const SPVFuncInfo::ClientArg &Arg) {
+    assert((Arg.Kind == SPVTypeKind::POD || Arg.Kind == SPVTypeKind::Pointer) &&
+           "Unexpected argument kind.");
+
     // Default argument size and alignment.
-    size_t Size = ArgInfo.Size;
+    size_t Size = Arg.Size;
     size_t Alignment = roundUpToPowerOfTwo(Size);
-    switch (ArgInfo.Kind) {
-    default:
-      assert(false && "Unknown OpenCL type!");
-      // FALLTHROUGH.
-    case SPVTypeKind::Pointer:
-      if (ArgInfo.StorageClass == SPVStorageClass::Workgroup)
-        // Not passed by the client. The parameter is created when
-        // there is dynamic shared memory references in the kernel.
-        continue;
-      // FALLTHROUGH.
-    case SPVTypeKind::POD:
-      break; // Use default size & alignment.
-
-    case SPVTypeKind::Sampler:
-      // Not passed by the client. HipTextureLoweringPass creates these.
-      continue;
-
-    case SPVTypeKind::Image:
-      // In device code texture objects are presented as image types.
-      Size = Alignment = 8; // Texture objects are pointers.
-      break;
-    }
-
     assert(Size && Alignment && "Couldn't determine arg size or alignment!");
     Offset = roundUp(Offset, Alignment);
-    logDebug("Extra arg {} offset: {}", i++, Offset);
+    logDebug("Extra arg {} offset: {}", Arg.Index, Offset);
     PointerArray.push_back(BaseAddr + Offset);
     Offset += Size;
-  }
+  };
+  FuncInfo.visitClientArgs(ArgVisitor);
+
   return PointerArray;
 }
 

@@ -999,9 +999,6 @@ class CHIPExecItem {
 protected:
   bool ArgsSetup = false;
   size_t SharedMem_;
-  // Structures for old HIP launch API.
-  std::vector<uint8_t> ArgData_;
-  std::vector<std::tuple<size_t, size_t>> OffsetSizes_;
 
   dim3 GridDim_;
   dim3 BlockDim_;
@@ -1009,16 +1006,22 @@ protected:
   CHIPKernel *ChipKernel_;
   CHIPQueue *ChipQueue_;
 
-  // Structures for new HIP launch API.
-  void **ArgsPtr = nullptr;
   std::vector<void *> Args_;
 
 public:
   void copyArgs(void **Args);
   void setQueue(CHIPQueue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
-  size_t getNumArgs() { return getKernel()->getFuncInfo()->ArgTypeInfo.size(); }
-  void **getArgsPointer() { return Args_.data(); }
+  size_t getNumArgs() {
+    assert(getKernel() && "Kernel was not set! (call setKernel() first)");
+    return getKernel()->getFuncInfo()->getNumClientArgs();
+  }
+
+  /**
+   * @brief Return argument list.
+   */
+  const std::vector<void *> &getArgs() const { return Args_; }
+
   /**
    * @brief Deleted default constructor
    * Doesn't make sense for CHIPExecItem to exist without arguments
@@ -1067,8 +1070,6 @@ public:
    */
   CHIPQueue *getQueue();
 
-  std::vector<uint8_t> getArgData();
-
   /**
    * @brief Get the Grid object
    *
@@ -1089,24 +1090,6 @@ public:
    * @return size_t
    */
   size_t getSharedMem();
-
-  /**
-   * @brief Setup a single argument.
-   * gets called by hipSetupArgument calls to which are emitted by hip-clang.
-   *
-   * @param arg
-   * @param size
-   * @param offset
-   */
-  void setArg(const void *Arg, size_t Size, size_t Offset);
-
-  /**
-   * @brief Set the Arg Pointer object for launching kernels via new HIP API
-   *
-   * @param args Pointer to a array of pointers, each pointing to an
-   *             individual argument.
-   */
-  void setArgPointer(void **Args) { ArgsPtr = Args; }
 
   /**
    * @brief Sets up the kernel arguments via backend API calls.
@@ -1820,15 +1803,6 @@ public:
    */
   hipError_t configureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue);
-  /**
-   * @brief Set the Arg object
-   *
-   * @param arg
-   * @param size
-   * @param offset
-   * @return hipError_t
-   */
-  hipError_t setArg(const void *Arg, size_t Size, size_t Offset);
 
   /**
    * @brief Return a device which meets or exceeds the requirements

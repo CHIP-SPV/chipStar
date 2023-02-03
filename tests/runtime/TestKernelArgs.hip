@@ -20,10 +20,12 @@ template <typename T> T passThroughKernel(T ArgIn) {
   assert(ChipKernel && "Could not find the kernel defined in the source.");
   const auto *FnInfo = ChipKernel->getFuncInfo();
   assert(FnInfo && "Kernel does not have function info!");
-  assert(FnInfo->ArgTypeInfo.size() == 2 &&
+  assert(FnInfo->getNumClientArgs() == 2 &&
          "Disagreement on the kernel argument count.");
-  auto Arg1Size = FnInfo->ArgTypeInfo[1].Size;
-  assert(Arg1Size == sizeof(T) && "Disagreement on the argument's size.");
+  FnInfo->visitClientArgs([&](const SPVFuncInfo::ClientArg &Arg) -> void {
+    assert(Arg.Index != 1 ||
+           Arg.Size == sizeof(T) && "Disagreement on the argument's size.");
+  });
 
   passArgs<T><<<1, 1>>>(ArgOutD, ArgIn);
   T ArgOutH;
