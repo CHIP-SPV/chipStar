@@ -450,14 +450,14 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
 uint32_t CHIPEventLevel0::getValidTimestampBits() {
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
-  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevices()[0];
+  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevice();
   auto Props = ChipDevLz->getDeviceProps();
   return Props->timestampValidBits;
 }
 
 unsigned long CHIPEventLevel0::getFinishTime() {
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
-  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevices()[0];
+  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevice();
   auto Props = ChipDevLz->getDeviceProps();
 
   uint64_t TimerResolution = Props->timerResolution;
@@ -1578,7 +1578,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
     CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, 0);
-    ChipL0Ctx->addDevice(ChipL0Dev);
+    ChipL0Ctx->setDevice(ChipL0Dev);
   }
 
   StaleEventMonitor =
@@ -1601,7 +1601,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   addContext(ChipCtx);
 
   CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
-  ChipCtx->addDevice(ChipDev);
+  ChipCtx->setDevice(ChipDev);
 
   LOCK(Backend->BackendMtx); // CHIPBackendLevel0::StaleEventMonitor
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);

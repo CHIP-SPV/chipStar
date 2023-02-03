@@ -790,11 +790,9 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 
 bool CHIPContextOpenCL::allDevicesSupportFineGrainSVM() {
   bool allFineGrainSVM = true;
-  for (auto &D : ChipDevices_) {
-    if (!static_cast<CHIPDeviceOpenCL *>(D)->supportsFineGrainSVM()) {
-      allFineGrainSVM = false;
-      break;
-    }
+  if (!static_cast<CHIPDeviceOpenCL *>(this->ChipDevice_)
+           ->supportsFineGrainSVM()) {
+    allFineGrainSVM = false;
   }
   return allFineGrainSVM;
 }
@@ -1405,7 +1403,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(clDev, ChipContext, 0);
 
   // Add device to context & backend
-  ChipContext->addDevice(ChipDev);
+  ChipContext->setDevice(ChipDev);
   logTrace("OpenCL Context Initialized.");
 };
 
@@ -1426,7 +1424,7 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
   // Add device to context & backend
-  ChipContext->addDevice(ChipDev);
+  ChipContext->setDevice(ChipDev);
 
   setActiveDevice(ChipDev);
 
