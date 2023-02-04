@@ -34,19 +34,19 @@ sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
 # dgpu
 sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
-./scripts/check_for_resolved_tests.py ./build dgpu opencl 1 100
-./scripts/check_for_resolved_tests.py ./build dgpu level0 1 100
+./scripts/check_for_resolved_tests.py ./build dgpu opencl 1 500
+./scripts/check_for_resolved_tests.py ./build dgpu level0 1 500
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 
 # igpu
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
-./scripts/check_for_resolved_tests.py ./build igpu opencl 1 100
-./scripts/check_for_resolved_tests.py ./build igpu level0 1 100
+./scripts/check_for_resolved_tests.py ./build igpu opencl 1 500
+./scripts/check_for_resolved_tests.py ./build igpu level0 1 500
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 
 # cpu
-./scripts/check_for_resolved_tests.py ./build cpu opencl 1 100
-./scripts/check_for_resolved_tests.py ./build cpu pocl 1 100
+./scripts/check_for_resolved_tests.py ./build cpu opencl 1 500
+./scripts/check_for_resolved_tests.py ./build cpu pocl 1 500
 
 echo "dgpu opencl"
 cat ./build/dgpu_opencl_resolved_tests.txt
