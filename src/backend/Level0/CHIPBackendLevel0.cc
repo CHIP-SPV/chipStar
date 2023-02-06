@@ -664,6 +664,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         if (E->EventPool)
           E->EventPool->returnSlot(E->EventPoolIndex);
 
+        E->doActions();
+
         // Check if this event is associated with a CommandList
         bool CommandListFound = EventCommandListMap->count(E);
         if (CommandListFound) {
@@ -1072,6 +1074,13 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
     logCritical("KernelLaunch event immediately ready!");
   }
   executeCommandList(CommandList);
+
+  if (std::shared_ptr<CHIPArgSpillBuffer> SpillBuf =
+          ExecItem->getArgSpillBuffer())
+    // Use an event action to prolong the lifetime of the spill buffer
+    // in case the exec item gets destroyed before the kernel
+    // completes (may happen when called from CHIPQueue::launchKernel()).
+    LaunchEvent->addAction([=]() -> void { auto Tmp = SpillBuf; });
 
   LaunchEvent->track();
   return LaunchEvent;
@@ -2222,6 +2231,12 @@ void CHIPExecItemLevel0::setupAllArgs() {
 
   SPVFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
 
+  if (FuncInfo->hasByRefArgs()) {
+    ArgSpillBuffer_ =
+        std::make_shared<CHIPArgSpillBuffer>(ChipQueue_->getContext());
+    ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
+  }
+
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     ze_result_t Status;
     switch (Arg.Kind) {
@@ -2275,10 +2290,22 @@ void CHIPExecItemLevel0::setupAllArgs() {
           zeKernelSetArgumentValue(Kernel->get(), Arg.Index, ArgSize, ArgData);
       break;
     }
+    case SPVTypeKind::PODByRef: {
+      auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
+      assert(SpillSlot);
+      Status = zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
+                                        sizeof(void *), &SpillSlot);
+      break;
+    }
     }
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
+
+  if (FuncInfo->hasByRefArgs())
+    ChipQueue_->memCopyAsync(ArgSpillBuffer_->getDeviceBuffer(),
+                             ArgSpillBuffer_->getHostBuffer(),
+                             ArgSpillBuffer_->getSize());
 
   return;
 }
