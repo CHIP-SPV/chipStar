@@ -84,6 +84,9 @@ public:
   using ClientArgVisitor = std::function<void(const ClientArg &)>;
   using KernelArgVisitor = std::function<void(const KernelArg &)>;
 
+  SPVFuncInfo() = default;
+  SPVFuncInfo(const std::vector<SPVArgTypeInfo> &Info) : ArgTypeInfo_(Info) {}
+
   void visitClientArgs(ClientArgVisitor Fn) const;
   void visitClientArgs(const std::vector<void *> &ArgList,
                        ClientArgVisitor Fn) const;
