@@ -31,11 +31,22 @@
 
 enum class SPVTypeKind : unsigned {
   Unknown = 0,
-  POD,     // The type is a non-pointer, primitive value or an aggregate.
+
+  // Kinds that may appear in both SPVFuncInfo::ClientArg and
+  // SPVFuncInfo::KernelArg:
+  POD,     // The type is a non-pointer, primitive value or an
+           // aggregate passed-by-value.
   Pointer, // The type is a pointer of any storage class.
-  Image,   // The type is a image.
-  Sampler, // The type is a sample.
-  Opaque,  // The type is an unresolved, special SPIR-V type.
+
+  // Kinds that may only appear in SPVFuncInfo::KernelArg.
+  PODByRef, // Same as PODB except the value is passed in an
+            // intermediate device buffer and a pointer to its
+            // location given to the kernel.
+  Image,    // The type is a image.
+  Sampler,  // The type is a sample.
+
+  // Should not appear in kernel parameter lists.
+  Opaque, // The type is an unresolved, special SPIR-V type.
 };
 
 // TODO: Redundant. Could use SPV::StorageClass instead.
@@ -107,11 +118,16 @@ public:
   /// defined in HIP source code)
   unsigned getNumKernelArgs() const { return ArgTypeInfo_.size(); }
 
+  /// Return true is any argument is passed via intermediate buffer.
+  bool hasByRefArgs() const { return SpilledArgs_.size(); }
+
 private:
   void visitClientArgsImpl(const std::vector<void *> &ArgList,
                            ClientArgVisitor Fn) const;
   void visitKernelArgsImpl(const std::vector<void *> &ArgList,
                            KernelArgVisitor Fn) const;
+  bool isSpilledArg(unsigned KernelArgIndex) const;
+  unsigned getSpilledArgSize(unsigned KernelArgIndex) const;
 };
 
 typedef std::map<int32_t, std::shared_ptr<SPVFuncInfo>> SPVFuncInfoMap;
