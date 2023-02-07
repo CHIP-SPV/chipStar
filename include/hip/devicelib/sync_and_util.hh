@@ -128,6 +128,12 @@ extern __device__ float __shfl_down(float var, unsigned int delta,
                                     int warpsize = CHIP_DEFAULT_WARP_SIZE);
 
 extern __device__ unsigned __lane_id();
+
+// Note, CUDA has a thread mask parameter which is ignored for now due
+// to implementing with cl_khr_subgroups which has only a whole warp
+// sync. We omit the argument to produce a compile time error, if a
+// non-default all-ones mask is passed.
+extern __device__ void __syncwarp();
 }
 
 #endif // include guard
