@@ -22,6 +22,7 @@
 
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
+#include <stdint.h>
 
 /**
  *  CHIPQueueLevel0::getCmdList() will return an immediate command list handle
@@ -41,6 +42,71 @@
   ze_command_list_handle_t CommandList;                                        \
   CommandList = Queue->getCmdList();
 #endif
+LZCommandListPool::LZCommandListPool(CHIPDeviceLevel0 *TheDevice)
+    : ChipDev_(TheDevice),
+      ZeCtx_(static_cast<CHIPContextLevel0 *>(TheDevice->getContext())->get()),
+      ZeDev_(TheDevice->get()) {}
+
+LZCommandListPool::~LZCommandListPool() {
+  std::lock_guard<std::mutex> Lock(
+      ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+  auto CmdListMap = ((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
+  for (auto List : AllLists) {
+    // check if this list is in the tracker
+    // untrack
+    // destroy
+  }
+}
+
+LZCommandList *LZCommandListPool::getCompute() {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  if (ComputeLists.empty()) {
+    auto List =
+        new LZCommandList(ZeCtx_, ZeDev_, ChipDev_->getCommandListComputeDesc(),
+                          LZCommandListType::ComputeList, this);
+    AllLists.insert(List);
+    return List;
+
+  } else {
+    auto List = ComputeLists.front();
+    ComputeLists.pop();
+    return List;
+  }
+}
+
+LZCommandList *LZCommandListPool::getCopy() {
+  std::lock_guard<std::mutex> Lock(Mtx);
+  if (CopyLists.empty()) {
+    auto List =
+        new LZCommandList(ZeCtx_, ZeDev_, ChipDev_->getCommandListComputeDesc(),
+                          LZCommandListType::CopyList, this);
+    AllLists.insert(List);
+    return List;
+
+  } else {
+    auto List = CopyLists.front();
+    CopyLists.pop();
+    return List;
+  }
+}
+
+void LZCommandList::reset() {
+  // // 1. Check if the origin queue is still registered.
+  // //     b. If so, return the event
+  // //     c. Otherwise destroy the event.
+  // CHIPQueueLevel0 *ChipQueue = Origin_->getQueue();
+  // auto QueueFound = std::find(Bckend->getQueues().begin(),
+  //                             Backend->getQueues().end(), ChipQueue); // 1.
+  // if (QueueFound != Backend->getQueues().end()) {                     // b.
+  //   auto Status = zeCommandListReset(Handle_);
+  //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  //   Origin_->returnList(this);
+  // } else { // c.
+  //   auto Status = zeCommandListDestroy(Handle_);
+  //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  //   delete this;
+  // }
+}
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
@@ -353,23 +419,25 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
 
   CHIPQueueLevel0 *Q = (CHIPQueueLevel0 *)ChipQueue;
-  GET_COMMAND_LIST(Q)
+  // GET_COMMAND_LIST(Q)
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
+  auto CommandList = Q->getCommandListCompute();
+  Status = zeCommandListAppendBarrier(CommandList->get(), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)(Q->getSharedBufffer()), nullptr, 0, nullptr);
+      CommandList->get(), (uint64_t *)(Q->getSharedBufffer()), nullptr, 0,
+      nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
+  Status = zeCommandListAppendBarrier(CommandList->get(), nullptr, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendMemoryCopy(CommandList, &Timestamp_,
+  Status = zeCommandListAppendMemoryCopy(CommandList->get(), &Timestamp_,
                                          Q->getSharedBufffer(),
                                          sizeof(uint64_t), Event_, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -381,7 +449,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
   Status = zeCommandListAppendBarrier(
-      CommandList, DestoyCommandListEvent->peek(), 0, nullptr);
+      CommandList->get(), DestoyCommandListEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   Q->executeCommandList(CommandList);
@@ -674,11 +742,9 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 #ifdef DUBIOUS_LOCKS
           LOCK(Backend->DubiousLockLevel0)
 #endif
-          // The application must not call this function
-          // from simultaneous threads with the same command list handle.
-          // Done via this is the only thread that calls it
-          auto Status = zeCommandListDestroy(CommandList);
-          CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+          // std::lock_guard<std::mutex> LockQueues(
+          //     Backend->QueueCreateDestroyMtx);
+          CommandList->reset();
         }
       }
 
@@ -799,19 +865,27 @@ CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
   return (CHIPEventLevel0 *)LastEvent_;
 }
 
-ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
+LZCommandList *CHIPQueueLevel0::getCommandListCompute() {
 #ifdef L0_IMM_QUEUES
-  return ZeCmdList_;
+  return ZeCmdListCopyImm_;
 #else
-  ze_command_list_handle_t ZeCmdList;
-#ifdef DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
+  ze_command_list_handle_t CommandList;
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
+  auto CmdList = CommandListPool.getCompute();
+
+  return CmdList;
 #endif
-  auto Status =
-      zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  return ZeCmdList;
+}
+
+LZCommandList *CHIPQueueLevel0::getCommandListCopy() {
+#ifdef L0_IMM_QUEUES
+  return ZeCmdListComputeImm_;
+#else
+  ze_command_list_handle_t CommandList;
+  std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
+  auto CmdList = CommandListPool.getCopy();
+
+  return CmdList;
 #endif
 }
 
@@ -831,7 +905,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  CHIPQueueFlags Flags, int Priority,
                                  LevelZeroQueueType TheType)
-    : CHIPQueue(ChipDev, Flags, Priority) {
+    : CHIPQueue(ChipDev, Flags, Priority), CommandListPool(ChipDev) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
@@ -845,7 +919,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   } else if (TheType == Copy) {
     QueueProperties_ = ChipDev->getCopyQueueProps();
     QueueDescriptor_ = ChipDev->getNextCopyQueueDesc(Priority);
-    CommandListDesc_ = ChipDev->getCommandListCopyDesc();
+    CommandListDesc_ = ChipDev->getCommandListComputeDesc();
 
   } else {
     CHIPERR_LOG_AND_THROW("Unknown queue type requested", hipErrorTbd);
@@ -876,7 +950,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  ze_command_queue_handle_t ZeCmdQ)
-    : CHIPQueue(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {
+    : CHIPQueue(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY),
+      CommandListPool(ChipDev) {
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();
   auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
@@ -971,6 +1046,7 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
     };
   }
 }
+
 ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
   ze_command_queue_desc_t QueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                        nullptr, // pNext
@@ -1052,12 +1128,10 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-  GET_COMMAND_LIST(this);
-  // This function may not be called from simultaneous threads with the same
-  // command list handle.
-  // Done via GET_COMMAND_LIST
-  auto Status = zeCommandListAppendLaunchKernel(
-      CommandList, KernelZe, &LaunchArgs, LaunchEvent->peek(), 0, nullptr);
+  auto CommandList = getCommandListCompute();
+  ze_result_t Status =
+      zeCommandListAppendLaunchKernel(CommandList->get(), KernelZe, &LaunchArgs,
+                                      LaunchEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   auto StatusReadyCheck = zeEventQueryStatus(LaunchEvent->peek());
@@ -1093,12 +1167,16 @@ CHIPEvent *CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size,
                           hipErrorTbd);
   }
 
-  GET_COMMAND_LIST(this);
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via GET_COMMAND_LIST
-  ze_result_t Status = zeCommandListAppendMemoryFill(
-      CommandList, Dst, Pattern, PatternSize, Size, Ev->peek(), 0, nullptr);
+  if (std::ceil(log2(PatternSize)) != std::floor(log2(PatternSize))) {
+    logCritical("PatternSize: {} Max: {}", PatternSize,
+                MaxMemoryFillPatternSize);
+    CHIPERR_LOG_AND_THROW("MemFill PatternSize is not a power of 2",
+                          hipErrorTbd);
+  }
+  auto CommandList = getCommandListCompute();
+  ze_result_t Status =
+      zeCommandListAppendMemoryFill(CommandList->get(), Dst, Pattern,
+                                    PatternSize, Size, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 
@@ -1134,13 +1212,10 @@ CHIPEvent *CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
   SrcRegion.width = Width;
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
-  GET_COMMAND_LIST(this);
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via GET_COMMAND_LIST
+  auto CommandList = getCommandListCompute();
   ze_result_t Status = zeCommandListAppendMemoryCopyRegion(
-      CommandList, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
-      Sspitch, Ev->peek(), 0, nullptr);
+      CommandList->get(), Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion,
+      Spitch, Sspitch, Ev->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 
@@ -1157,12 +1232,9 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
   Ev->Msg = "memCopyToImage";
 
   if (!SrcRegion.isPitched()) {
-    GET_COMMAND_LIST(this)
-    // The application must not call this function from
-    // simultaneous threads with the same command list handle.
-    // Done via GET_COMMAND_LIST
+    auto CommandList = getCommandListCompute();
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-        CommandList, Image, Src, 0,
+        CommandList->get(), Image, Src, 0,
         Ev->get("zeCommandListAppendImageCopyFromMemory"), 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     executeCommandList(CommandList);
@@ -1183,13 +1255,9 @@ CHIPEvent *CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image,
     DstZeRegion.width = SrcRegion.Size[0];
     DstZeRegion.height = 1;
     DstZeRegion.depth = 1;
-
-    GET_COMMAND_LIST(this)
-    // The application must not call this function from
-    // simultaneous threads with the same command list handle.
-    // Done via GET_COMMAND_LIST
+    auto CommandList = getCommandListCompute();
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
-        CommandList, Image, SrcRow, &DstZeRegion,
+        CommandList->get(), Image, SrcRow, &DstZeRegion,
         LastRow ? Ev->get("zeCommandListAppendImageCopyFromMemory") : nullptr,
         0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -1230,12 +1298,9 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
 
   MarkerEvent->Msg = "marker";
-  GET_COMMAND_LIST(this)
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via GET_COMMAND_LIST
+  auto CommandList = getCommandListCompute();
   auto Status = zeCommandListAppendSignalEvent(
-      CommandList,
+      CommandList->get(),
       MarkerEvent->get("MarkerEvent: zeCommandListAppendSignalEvent"));
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
@@ -1269,12 +1334,12 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   } // done gather Event_ handles to wait on
 
   // TODO Should this be memory or compute?
-  GET_COMMAND_LIST(this)
+    auto CommandList = getCommandListCompute();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
-  auto Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
-                                           NumEventsToWaitFor, EventHandles);
+  auto Status = zeCommandListAppendBarrier(
+      CommandList->get(), SignalEventHandle, NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 
@@ -1293,11 +1358,8 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
 
   ze_result_t Status;
   CHIPASSERT(MemCopyEvent->peek());
-  GET_COMMAND_LIST(this);
-  // The application must not call this function from simultaneous threads with
-  // the same command list handle
-  // Done via GET_COMMAND_LIST
-  Status = zeCommandListAppendMemoryCopy(CommandList, Dst, Src, Size,
+  auto CommandList = getCommandListCompute();
+  Status = zeCommandListAppendMemoryCopy(CommandList->get(), Dst, Src, Size,
                                          MemCopyEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
@@ -1319,10 +1381,9 @@ void CHIPQueueLevel0::finish() {
   return;
 }
 
-void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
+void CHIPQueueLevel0::executeCommandList(LZCommandList *CommandList) {
 #ifdef L0_IMM_QUEUES
 #else
-
   auto LastCmdListEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
@@ -1340,22 +1401,17 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     ((CHIPBackendLevel0 *)Backend)
         ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent] =
         CommandList;
-    // The application must not call this function from
-    // simultaneous threads with the same command list handle.
-    // Done via GET_COMMAND_LIST
-    Status = zeCommandListAppendBarrier(CommandList, LastCmdListEvent->peek(),
-                                        0, nullptr);
+
+    Status = zeCommandListAppendBarrier(CommandList->get(),
+                                        LastCmdListEvent->peek(), 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    // The application must not call this function from
-    // simultaneous threads with the same command list handle.
-    // Done via GET_COMMAND_LIST
-    Status = zeCommandListClose(CommandList);
+
+    Status = zeCommandListClose(CommandList->get());
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-#ifdef DUBIOUS_LOCKS
-    LOCK(Backend->DubiousLockLevel0)
-#endif
-    Status =
-        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+    std::lock_guard<std::mutex> LockQueues(Backend->QueueCreateDestroyMtx);
+
+    ze_command_list_handle_t Handle = CommandList->get();
+    Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &Handle, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
 
@@ -1369,7 +1425,6 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 // ***********************************************************************
 LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
     : Ctx_(Ctx), Size_(Size) {
-
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
   // if (!flags.isDisableTiming())
   //   pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;

@@ -30,6 +30,7 @@
 #include "../../CHIPBackend.hh"
 #include "../include/ze_api.h"
 #include "../src/common.hh"
+#include <unordered_set>
 
 std::string resultToString(ze_result_t Status);
 
@@ -42,6 +43,7 @@ class CHIPTextureLevel0;
 class CHIPEventLevel0;
 class CHIPQueueLevel0;
 class LZCommandList;
+class LZCommandListPool;
 class LZEventPool;
 class CHIPExecItemLevel0;
 
@@ -66,6 +68,61 @@ public:
     auto NewExecItem = new CHIPExecItemLevel0(*this);
     return NewExecItem;
   }
+};
+
+enum LZCommandListType { ComputeList = 0, CopyList };
+
+class LZCommandList {
+private:
+  LZCommandList() {}
+  LZCommandListPool *Origin_;
+
+protected:
+  ze_command_list_handle_t Handle_;
+
+public:
+  std::mutex Mtx;
+  LZCommandListType Type;
+  LZCommandList(ze_context_handle_t ZeCtx, ze_device_handle_t ZeDev,
+                ze_command_list_desc_t Desc, LZCommandListType TheType,
+                LZCommandListPool *TheOrigin)
+      : Type(TheType), Origin_(TheOrigin) {
+    auto Status = zeCommandListCreate(ZeCtx, ZeDev, &Desc, &Handle_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
+  }
+
+  ze_command_list_handle_t get() { return Handle_; }
+  void reset();
+};
+
+class LZCommandListPool {
+private:
+  CHIPDeviceLevel0 *ChipDev_;
+  ze_context_handle_t ZeCtx_;
+  ze_device_handle_t ZeDev_;
+
+public:
+  std::mutex Mtx;
+  std::queue<LZCommandList *> ComputeLists;
+  std::queue<LZCommandList *> CopyLists;
+  std::unordered_set<LZCommandList *> AllLists;
+
+  LZCommandListPool(CHIPDeviceLevel0 *TheDevice);
+  ~LZCommandListPool();
+
+  LZCommandList *getCompute();
+  LZCommandList *getCopy();
+
+  void returnList(LZCommandList *TheList) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    if (TheList->Type == ComputeList) {
+      ComputeLists.push(TheList);
+    } else {
+      CopyLists.push(TheList);
+    }
+  }
+
 };
 
 class CHIPEventLevel0 : public CHIPEvent {
@@ -174,10 +231,19 @@ enum LevelZeroQueueType {
 };
 
 class CHIPQueueLevel0 : public CHIPQueue {
-protected:
+public:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
+  LZCommandListPool CommandListPool;
 
+protected:
+  // Queues need ot be created on separate queue group indices in order to be
+  // independent from one another. Use this variable to do round-robin
+  // distribution across queues every time you create a queue.
+  unsigned int NextCopyQueueIndex_ = 0;
+  unsigned int NextComputeQueueIndex_ = 0;
+
+  size_t MaxMemoryFillPatternSize = 0;
   // The shared memory buffer
   void *SharedBuf_;
 
@@ -205,6 +271,8 @@ public:
     return QueueProperties_.maxMemoryFillPatternSize;
   }
   LevelZeroQueueType QueueType = LevelZeroQueueType::Unknown;
+  void initializeCopyListImm();
+  void initializeComputeListImm();
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags,
@@ -228,11 +296,26 @@ public:
                                       size_t Size) override;
 
   /**
+   * @brief Get a copy list handle. Using not using immediate command lists,
+   * create a new copy list
+   *
+   * @return ze_command_list_handle_t
+   */
+  LZCommandList *getCommandListCopy();
+  /**
+   * @brief Get a compute list handle. Using not using immediate command lists,
+   * create a new compute list
+   *
+   * @return ze_command_list_handle_t
+   */
+  LZCommandList *getCommandListCompute();
+
+  /**
    * @brief Execute a given command list
    *
    * @param CommandList a handle to either a compute or copy command list
    */
-  void executeCommandList(ze_command_list_handle_t CommandList);
+  void executeCommandList(LZCommandList *CommandList);
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
@@ -517,7 +600,7 @@ public:
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 
-  std::map<CHIPEventLevel0 *, ze_command_list_handle_t> EventCommandListMap;
+  std::map<CHIPEventLevel0 *, LZCommandList *> EventCommandListMap;
 
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,

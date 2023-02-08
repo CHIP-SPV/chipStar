@@ -25,11 +25,12 @@
 
 # temporary
 set(CMAKE_WARN_DEPRECATED OFF)
-add_compile_options(-Wno-format-extra-args)
+add_compile_options(-Wno-format-extra-args -mf16c)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
 -Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 # end temporary
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
@@ -60,7 +61,7 @@ include(FindLLVM)
 
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ )
   if(OpenCL_LIBRARY)
     get_filename_component(OpenCL_DIR ${OpenCL_LIBRARY} DIRECTORY CACHE)
     message(STATUS "Setting OpenCL_DIR to ${OpenCL_DIR}")
@@ -71,7 +72,7 @@ endif()
 
 if(NOT DEFINED LevelZero_LIBRARY)
   message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
-  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./ )
   if(LevelZero_LIBRARY)
     get_filename_component(LevelZero_DIR ${LevelZero_LIBRARY} DIRECTORY CACHE)
     message(STATUS "Setting LevelZero_DIR to ${LevelZero_DIR}")
@@ -401,8 +402,9 @@ if(LevelZero_LIBRARY)
 endif()
 
 if(SET_RPATH)
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}:${LevelZero_DIR}:${OpenCL_DIR}")
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}:${LevelZero_DIR}:${OpenCL_DIR}")
+  target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR}:${OpenCL_DIR}:${CMAKE_BINARY_DIR}:${CMAKE_INSTALL_PREFIX}/lib)
   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 endif()
 

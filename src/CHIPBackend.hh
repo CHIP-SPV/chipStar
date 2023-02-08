@@ -1284,7 +1284,7 @@ public:
    * @return CHIPContext* pointer to the CHIPContext object this CHIPDevice
    * was created with
    */
-  CHIPContext *getContext();
+  virtual CHIPContext *getContext();
 
   /**
    * @brief Construct an additional queue for this device
