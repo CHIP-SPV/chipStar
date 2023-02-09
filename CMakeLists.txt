@@ -418,10 +418,14 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # Must separate these targets into deviceInteral to be used for building samples,etc.
 # and device for external export. Have to do this because generator expressions don't seem to work here.
 # TODO: Is there a better way to do this?
+
+set(CHIP_SPV_OFFLOAD_COMPILE_OPTIONS  -x hip --target=x86_64-linux-gnu)
+
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
+  ${CHIP_SPV_OFFLOAD_COMPILE_OPTIONS}
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_options(deviceInternal INTERFACE
   ${HIP_LINK_DEVICELIB_BUILD})
@@ -431,6 +435,7 @@ add_library(device INTERFACE)
 target_compile_options(device INTERFACE
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
+  ${CHIP_SPV_OFFLOAD_COMPILE_OPTIONS}
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE
   ${HIP_LINK_DEVICELIB_INSTALL})
