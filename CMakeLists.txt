@@ -353,7 +353,7 @@ target_include_directories(CHIP
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ 
   ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
 
 # hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
