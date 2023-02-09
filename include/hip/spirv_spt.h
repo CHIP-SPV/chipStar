@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,13 +23,11 @@
 /**
  * @file spirv_spt.h
  * @author Paulius Velesko (pvelesko@pglc.io)
- * @brief Header defining global CHIP classes and functions such as
- * CHIPBackend type pointer Backend which gets initialized at the start of
- * execution.
+ * @brief Header defining the SPIRV per-thread stream API
  * @version 0.1
- * @date 2021-08-19
+ * @date 2023-02-09
  *
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2023
  *
  */
 #ifndef SPIRV_SPT_H
