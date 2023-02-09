@@ -147,9 +147,6 @@ hipError_t hipLaunchCooperativeKernel_spt(const void *f, dim3 gridDim,
                                           uint32_t sharedMemBytes,
                                           hipStream_t hStream) {
   UNIMPLEMENTED(hipErrorNotSupported);
-  // auto Queue = hStream ? hStream : hipStreamPerThread;
-  // hipLaunchCooperativeKernel(f, gridDim, blockDim, kernelParams, sharedMemBytes,
-  //                            Queue);
 }
 #ifdef __cplusplus
 extern "C" {
