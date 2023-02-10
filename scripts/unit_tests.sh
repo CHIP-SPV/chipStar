@@ -7,6 +7,12 @@ export OverrideDefaultFP64Settings=1
 
 ulimit -a
 
+rm -rf HIPCC
+rm -rf HIP
+rm -rf bitcode/ROCm-Device-Libs
+rm -rf hip-tests
+rm -rf hip-testsuite
+
 git submodule update --init
 mkdir build
 cd build

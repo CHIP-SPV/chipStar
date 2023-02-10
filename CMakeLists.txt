@@ -184,7 +184,7 @@ option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OF
 # to be portable across multiple devices. It should be more portable to
 # fix it to 32 instead of 64, with a trade-off of potential underutilization
 # with GPUs with 64 wide warps.
-set(DEFAULT_WARP_SIZE 32 CACHE INTEGER "The warp size to use.")
+set(DEFAULT_WARP_SIZE 32 CACHE STRING "The warp size to use.")
 
 set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
@@ -353,7 +353,7 @@ target_include_directories(CHIP
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ -x hip --target=x86_64-linux-gnu
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ 
   ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
 
 # hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
@@ -377,28 +377,35 @@ else()
 endif()
 
 # For use by hipcc
+execute_process(COMMAND ${LLVM_CONFIG} --host-target OUTPUT_VARIABLE HOST_ARCH)
+set(HOST_ARCH "--target=${HOST_ARCH}")
+
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL})
+  ${HIP_LINK_DEVICELIB_INSTALL}
+  ${HOST_ARCH})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD})
+  ${HIP_LINK_DEVICELIB_BUILD}
+  ${HOST_ARCH})
 
 # HIP applications need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${CMAKE_BINARY_DIR}" "-lCHIP")
 
 if(OpenCL_LIBRARY)
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${OpenCL_DIR}" "-lOpenCL")
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${OpenCL_DIR}" "-lOpenCL")
+  target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+  target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
+  target_link_libraries(CHIP PUBLIC OpenCL)
 endif()
 
 if(LevelZero_LIBRARY)
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LevelZero_DIR}" "-lze_loader")
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${LevelZero_DIR}" "-lze_loader")
+  target_compile_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR})
+  target_link_directories(CHIP PUBLIC ${LevelZero_DIR})
+  target_link_libraries(CHIP PUBLIC ze_loader)
 endif()
 
 if(SET_RPATH)
@@ -420,6 +427,7 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
+  -x hip
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_BUILD})
@@ -429,6 +437,7 @@ target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
+  -x hip
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_INSTALL})
