@@ -214,6 +214,12 @@ static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
 
+static void CL_CALLBACK releaseSpillBufferCallback(cl_event Event,
+                                                   cl_int CommandExecStatus,
+                                                   void *UserData) {
+  delete reinterpret_cast<std::shared_ptr<CHIPArgSpillBuffer> *>(UserData);
+}
+
 // CHIPCallbackDataLevel0
 // ************************************************************************
 
@@ -939,6 +945,21 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
                                        nullptr, LaunchEvent->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
+  if (std::shared_ptr<CHIPArgSpillBuffer> SpillBuf =
+          ExecItem->getArgSpillBuffer()) {
+    // Use an event call back to prolong the lifetime of the spill buffer
+    // in case the exec item gets destroyed before the kernel
+    // is launched/completed (may happen when called from
+    // CHIPQueue::launchKernel()).
+    auto *CBData = new decltype(SpillBuf)(SpillBuf);
+    Status = clSetEventCallback(LaunchEvent->getNativeRef(), CL_COMPLETE,
+                                releaseSpillBufferCallback, CBData);
+    if (Status != CL_SUCCESS) {
+      delete CBData;
+      CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+    }
+  }
+
   LaunchEvent->Msg = "KernelLaunch";
   return LaunchEvent;
 }
@@ -1136,6 +1157,12 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   SPVFuncInfo *FuncInfo = Kernel->getFuncInfo();
   int Err = 0;
 
+  if (FuncInfo->hasByRefArgs()) {
+    ArgSpillBuffer_ =
+        std::make_shared<CHIPArgSpillBuffer>(ChipQueue_->getContext());
+    ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
+  }
+
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     switch (Arg.Kind) {
     default:
@@ -1192,9 +1219,23 @@ void CHIPExecItemOpenCL::setupAllArgs() {
                                   "clSetKernelArgSVMPointer failed");
       break;
     }
+    case SPVTypeKind::PODByRef: {
+      auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
+      assert(SpillSlot);
+      Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), Arg.Index,
+                                       SpillSlot);
+      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
+                                  "clSetKernelArgSVMPointer failed");
+      break;
+    }
     }
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
+
+  if (FuncInfo->hasByRefArgs())
+    ChipQueue_->memCopyAsync(ArgSpillBuffer_->getDeviceBuffer(),
+                             ArgSpillBuffer_->getHostBuffer(),
+                             ArgSpillBuffer_->getSize());
 
   return;
 }
