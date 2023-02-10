@@ -377,15 +377,20 @@ else()
 endif()
 
 # For use by hipcc
+execute_process(COMMAND ${LLVM_CONFIG} --host-target OUTPUT_VARIABLE HOST_ARCH)
+set(HOST_ARCH "--target=${HOST_ARCH}")
+
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL})
+  ${HIP_LINK_DEVICELIB_INSTALL}
+  ${HOST_ARCH})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD})
+  ${HIP_LINK_DEVICELIB_BUILD}
+  ${HOST_ARCH})
 
 # HIP applications need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
@@ -420,14 +425,11 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # Must separate these targets into deviceInteral to be used for building samples,etc.
 # and device for external export. Have to do this because generator expressions don't seem to work here.
 # TODO: Is there a better way to do this?
-
-set(CHIP_SPV_OFFLOAD_COMPILE_OPTIONS  -x hip --target=x86_64-linux-gnu)
-
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
+  -x hip
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${CHIP_SPV_OFFLOAD_COMPILE_OPTIONS}
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_options(deviceInternal INTERFACE
   ${HIP_LINK_DEVICELIB_BUILD})
@@ -435,9 +437,9 @@ target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
+  -x hip
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${CHIP_SPV_OFFLOAD_COMPILE_OPTIONS}
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_options(device INTERFACE
   ${HIP_LINK_DEVICELIB_INSTALL})
