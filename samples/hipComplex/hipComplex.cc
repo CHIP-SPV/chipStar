@@ -8,6 +8,11 @@ int main(int argc, char ** argv) {
     y = y * x;
 
     printf("%f%+fi\n", hipCreal(y), hipCimag(y));
+    if(hipCreal(y) == 2.0 && hipCimag(y) == 16.0) {
+        printf("PASSED"); 
+    } else {
+        printf("FAILED");
+    }
 
     return 0;
 }
