@@ -88,10 +88,11 @@ public:
 };
 
 class SPIRVtypeOpaque : public SPIRVtype {
-  std::string Name;
+  std::string Name_;
+
 public:
-  SPIRVtypeOpaque(int32_t Id, std::string &&Name)
-      : SPIRVtype(Id, 0), Name(Name) {} // Opaque types are unsized.
+  SPIRVtypeOpaque(int32_t Id, std::string_view Name)
+      : SPIRVtype(Id, 0), Name_(Name) {} // Opaque types are unsized.
   virtual ~SPIRVtypeOpaque(){};
   virtual OCLType ocltype() override { return OCLType::Opaque; }
 };
@@ -211,7 +212,7 @@ class SPIRVinst {
   int32_t Word1_;
   int32_t Word2_;
   int32_t Word3_;
-  std::string Extra_;
+  std::string_view Extra_;
   const int32_t *OrigStream_;
 
 public:
@@ -265,7 +266,7 @@ public:
            (Word1_ == (int32_t)spv::ExecutionModelKernel);
   }
   int32_t entryPointID() { return Word2_; }
-  std::string &&entryPointName() { return std::move(Extra_); }
+  std::string_view entryPointName() const { return Extra_; }
 
   size_t size() const { return WordCount_; }
   spv::Op getOpcode() const { return Opcode_; }
@@ -392,7 +393,7 @@ public:
     }
 
     if (Opcode_ == spv::Op::OpTypeOpaque) {
-      return new SPIRVtypeOpaque(Word1_, std::move(Extra_));
+      return new SPIRVtypeOpaque(Word1_, Extra_);
     }
 
     if (Opcode_ == spv::Op::OpTypeImage) {
