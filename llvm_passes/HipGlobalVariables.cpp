@@ -37,6 +37,7 @@
 
 #include "HipGlobalVariables.h"
 
+#include "LLVMSPIRV.h"
 #include "../src/common.hh"
 
 #include "llvm/ADT/SmallPtrSet.h"
@@ -56,7 +57,8 @@ using GVarMapT = std::map<GlobalVariable *, GlobalVariable *>;
 using Const2InstMapT = std::map<Constant *, Instruction *>;
 
 // SPIR-V address spaces.
-constexpr unsigned SpirvCrossWorkGroupAS = 1;
+constexpr unsigned SpirvCrossWorkGroupAS = SPIRV_CROSSWORKGROUP_AS;
+constexpr unsigned SpirvUniformConstantAS = SPIRV_UNIFORMCONSTANT_AS;
 
 // Create kernel function stub, returns its return instruction.
 static Instruction *createKernelStub(Module &M, StringRef Name,
@@ -77,13 +79,20 @@ static Instruction *createKernelStub(Module &M, StringRef Name,
 // Emit a shadow kernel for relaying properties about the original variable.
 static void emitGlobalVarInfoShadowKernel(Module &M,
                                           const GlobalVariable *GVar) {
+  // For original global variable in pseudo code:
+  //
+  //   SomeType Foo = SomeInit;
+  //
   // Emit the following shadow kernel in pseudo code:
   //
-  // void <ChipVarInfoPrefix><GVar-name>(int64_t *info) {
-  //   info[0] = <GVar-size>;      // In bytes.
-  //   info[1] = <GVar-alignment>; // In bytes.
-  //   info[2] = <HasInitializer>; // [0, 1].
-  // }
+  //   SomeType* <ChipVarPrefix>Foo; // *1
+  //   void <ChipVarInfoPrefix>Foo(int64_t *info) {
+  //     info[0] = sizeof(Foo);      // In bytes.
+  //     info[1] = alignof(Foo);     // In bytes.
+  //     info[2] = <HasInitializer>; // [0, 1].
+  //   }
+  //
+  // *1: Emitted by emitIndirectGlobalVariable().
 
   auto Name = std::string(ChipVarInfoPrefix) + GVar->getName().str();
   IRBuilder<> Builder(createKernelStub(
@@ -92,11 +101,11 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
   const auto &DL = M.getDataLayout();
   auto *InfoArg = Builder.GetInsertBlock()->getParent()->getArg(0);
 
-  // info[0] = <GVar-size>;
+  // info[0] = sizeof(Foo);
   auto Size = DL.getTypeStoreSize(GVar->getValueType());
   Builder.CreateStore(Builder.getInt64(Size), InfoArg);
 
-  // info[1] = <GVar-alignment>;
+  // info[1] = alignof(Foo);
   uint64_t Alignment = GVar->getAlign().valueOrOne().value();
   Value *Ptr =
       Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 1);
@@ -111,11 +120,18 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
 // the actual allocation.
 static void emitGlobalVarBindShadowKernel(Module &M, GlobalVariable *GVar,
                                           const GlobalVariable *OriginalGVar) {
+  // For original global variable in pseudo code:
+  //
+  //   SomeType Foo = SomeInit;
+  //
   // Emit the following shadow kernel in pseudo code:
   //
+  //   SomeType* <ChipVarPrefix>Foo; // *1
   //   void<ChipVarBindPrefix><GVar-name>(void *buffer) {
-  //     <ChipVarPrefix><GVar-name> = (<GVar-type>)buffer;
+  //     <ChipVarPrefix>Foo = (SomeType *)buffer;
   //   }
+  //
+  // *1: Emitted by emitIndirectGlobalVariable().
 
   auto Name = std::string(ChipVarBindPrefix) + OriginalGVar->getName().str();
   IRBuilder<> Builder(createKernelStub(
@@ -173,15 +189,74 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
   llvm_unreachable("Unexpected constant kind.");
 }
 
+/// Create initializer value for emitGlobalVarInitShadowKernel that can be
+/// used as source (a pointer) for memcpy.
+static Value *createCopyableValue(Module &M, Constant *Initializer) {
+  // Name does not really matter but having <ChipVarPrefix> prefix in it we can
+  // distinguish CHIP-SPV emitted values from source code originated ones and
+  // handle them correctly.
+  auto Name = std::string(ChipVarPrefix) + "_initializer";
+  auto *InitValue = new GlobalVariable(
+      M, Initializer->getType(), /* IsConstant = */ true,
+      GlobalValue::PrivateLinkage, Initializer, Name, nullptr,
+      GlobalValue::NotThreadLocal, SpirvUniformConstantAS);
+  return InitValue;
+}
+
+static bool hasNoRuntimeConstants(Constant *C, const GVarMapT &GVarMap) {
+  if (auto *GVar = dyn_cast<GlobalVariable>(C))
+    // Is it a global variable to be lowered here?
+    return GVarMap.count(GVar) == 0;
+
+  if (C->isManifestConstant())
+    return true;
+
+  if (auto *CE = dyn_cast<ConstantExpr>(C)) {
+    for (Value *Op : CE->operand_values())
+      if (!hasNoRuntimeConstants(cast<Constant>(Op), GVarMap))
+        return false;
+    return true;
+  }
+
+  if (auto *CA = dyn_cast<ConstantAggregate>(C)) {
+    for (Value *Op : CA->operand_values())
+      if (!hasNoRuntimeConstants(cast<Constant>(Op), GVarMap))
+        return false;
+    return true;
+  }
+
+  return false; // Default answer if we can't fully analyze the constant.
+}
+
 // Emit a shadow kernel for initialing the global variable.
 static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
                                           GlobalVariable *OriginalGVar,
                                           GVarMapT GVarMap) {
-  // Emit the following shadow kernel in pseudo code:
+  // For original global variable in pseudo code:
   //
-  //  void <ChipVarInitPrefix><GVar-name>() {
-  //    *<GVar> = <initializer>;
-  //  }
+  //   SomeType Foo = SomeInit;
+  //
+  // A) Emit the following shadow kernel in pseudo code:
+  //
+  //   SomeType* <ChipVarPrefix>Foo; // *1
+  //   void <ChipVarInitPrefix>Foo() {
+  //     memcpy(<ChipVarPrefix>Foo, &Foo, sizeof(SomeType));
+  //   }
+  //
+  // B) Emit the following shadow kernel in pseudo code:
+  //
+  //   SomeType* <ChipVarPrefix>Foo; // *1
+  //   void <ChipVarInitPrefix>Foo() {
+  //     *<ChipVarPrefix>Foo = SomeInit;
+  //   }
+  //
+  // This alternative should be avoided as it may lead to bad native code-gen.
+  // This is used as fallback for variables with references to other variables
+  // whose addresses are resolved at runtime (aka. the variables being lowered
+  // in this pass).
+  //
+  // *1: Emitted by emitIndirectGlobalVariable().
+  //
 
   assert(GVar->getValueType()->isPointerTy());
   assert(OriginalGVar->hasInitializer());
@@ -189,17 +264,32 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
   auto Name = std::string(ChipVarInitPrefix) + OriginalGVar->getName().str();
   IRBuilder<> Builder(createKernelStub(M, Name, {}));
 
+  if (hasNoRuntimeConstants(OriginalGVar->getInitializer(), GVarMap)) {
+    // Emit A)
+    // <ChipVarPrefix>Foo
+    Value *Ptr = Builder.CreateLoad(GVar->getValueType(), GVar);
+
+    auto *InitSrc = createCopyableValue(M, OriginalGVar->getInitializer());
+    auto Alignment = OriginalGVar->getAlign();
+    auto Size = M.getDataLayout().getTypeStoreSize(GVar->getValueType());
+    Builder.CreateMemCpy(Ptr, Alignment, InitSrc, MaybeAlign(1), Size);
+    return;
+  }
+
+  // Emit B)
+
   // Initializers are constant expressions.  If they have references to a global
-  // variables we are going to replace with load instructions we need to rewrite
-  // the constant expression as instructions.
+  // variables we are going to replace with load instructions so we need to
+  // rewrite the constant expression as a sequence of instructions.
+  LLVM_DEBUG(dbgs() << "May have runtime constants: " << *OriginalGVar << "\n");
   Const2InstMapT Cache;
   Value *Init =
       expandConstant(OriginalGVar->getInitializer(), GVarMap, Builder, Cache);
 
-  // *<GVar>
+  // *<ChipVarPrefix>Foo
   Value *Ptr = Builder.CreateLoad(GVar->getValueType(), GVar);
 
-  // *<GVar> = <initializer>;
+  // *<ChipVarPrefix>Foo = SomeInit;
   Builder.CreateStore(Init, Ptr);
 }
 
