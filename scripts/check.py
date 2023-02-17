@@ -44,6 +44,11 @@ def process_args():
 
 resolved_tests = {}
 
+if (device_type == "cpu"):
+    timeout = 400
+else:
+    timeout = 180
+
 
 work_dir, device_type, backend, num_threads, num_tries = process_args()
 os.chdir(work_dir)
@@ -52,5 +57,5 @@ if(backend == "pocl" or backend == "opencl"):
 else:
     env_vars = "CHIP_BE=level0 CHIP_DEVICE_TYPE={device_type} CHIP_DEVICE_NUM=0".format(backend=backend, device_type=device_type)
 
-cmd = "{env_vars} ctest --timeout 180 --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`\"".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend)
+cmd = "{env_vars} ctest --timeout {timeout} --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`\"".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend, timeout=timeout)
 run_cmd(cmd)
