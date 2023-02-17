@@ -318,7 +318,7 @@ public:
 }; // CHIPContextLevel0
 
 class CHIPModuleLevel0 : public CHIPModule {
-  ze_module_handle_t ZeModule_;
+  ze_module_handle_t ZeModule_ = nullptr;
 
 public:
   CHIPModuleLevel0(const SPVModule &Src) : CHIPModule(Src) {}
@@ -328,11 +328,13 @@ public:
     for (auto *K : ChipKernels_) // Kernels must be destroyed before the module.
       delete K;
     ChipKernels_.clear();
-    // The application must not call this function from
-    // simultaneous threads with the same module handle.
-    // Done via destructor should not be called from multiple threads
-    auto Result = zeModuleDestroy(ZeModule_);
-    assert(Result == ZE_RESULT_SUCCESS && "Double free?");
+    if (ZeModule_) {
+      // The application must not call this function from
+      // simultaneous threads with the same module handle.
+      // Done via destructor should not be called from multiple threads
+      auto Result = zeModuleDestroy(ZeModule_);
+      assert(Result == ZE_RESULT_SUCCESS && "Double free?");
+    }
   }
 
   /**
