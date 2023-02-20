@@ -44,13 +44,12 @@ def process_args():
 
 resolved_tests = {}
 
+work_dir, device_type, backend, num_threads, num_tries = process_args()
 if (device_type == "cpu"):
     timeout = 400
 else:
     timeout = 180
 
-
-work_dir, device_type, backend, num_threads, num_tries = process_args()
 os.chdir(work_dir)
 if(backend == "pocl" or backend == "opencl"):
     env_vars = "CHIP_BE=opencl CHIP_DEVICE_TYPE={device_type}".format(backend=backend, device_type=device_type)
