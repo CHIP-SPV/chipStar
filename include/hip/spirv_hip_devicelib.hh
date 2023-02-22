@@ -1164,6 +1164,7 @@ EXPORT unsigned atomicDec(unsigned *address, unsigned val) {
   return GEN_NAME2(atomic_dec2, u)(address, val);
 }
 #else
+EXPORT void atomicAddNoRet(float *address, float val);
 EXPORT float atomicAdd(float *address, float val);
 EXPORT double atomicAdd(double *address, double val);
 EXPORT float atomicExch(float *address, float val);

@@ -52,3 +52,5 @@ add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHipRuntimeHeaderInclude.cpp
   TEST_NAME hip-runtime-header-cpp-mode
   HIPCC_OPTIONS -x c++ -fsyntax-only)
+
+add_hipcc_test(TestAtomicAddNoRet.hip HIPCC_OPTIONS -fsyntax-only)
