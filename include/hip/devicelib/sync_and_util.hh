@@ -103,29 +103,39 @@ extern __device__ uint64_t __ballot(int predicate);
 extern __device__ int __all(int predicate);
 extern __device__ int __any(int predicate);
 
-extern __device__ int __shfl(int var, int srcLane,
-                             int warpsize = CHIP_DEFAULT_WARP_SIZE);
+#define DECL_SHFL_OPS(TYPE_)                                                   \
+  extern __device__ TYPE_ __shfl(TYPE_ var, int srcLane,                       \
+                                 int warpsize = CHIP_DEFAULT_WARP_SIZE);       \
+  extern __device__ TYPE_ __shfl_xor(TYPE_ var, int laneMask,                  \
+                                     int warpsize = CHIP_DEFAULT_WARP_SIZE);   \
+  extern __device__ TYPE_ __shfl_up(TYPE_ var, unsigned int delta,             \
+                                    int warpsize = CHIP_DEFAULT_WARP_SIZE);    \
+  extern __device__ TYPE_ __shfl_down(TYPE_ var, unsigned int delta,           \
+                                      int warpsize = CHIP_DEFAULT_WARP_SIZE)
 
-extern __device__ float __shfl(float var, int srcLane,
-                               int warpsize = CHIP_DEFAULT_WARP_SIZE);
+DECL_SHFL_OPS(int);
+DECL_SHFL_OPS(unsigned int);
+DECL_SHFL_OPS(long);
+DECL_SHFL_OPS(unsigned long);
+DECL_SHFL_OPS(float);
+DECL_SHFL_OPS(double);
 
-extern __device__ int __shfl_xor(int var, int laneMask,
-                                 int warpsize = CHIP_DEFAULT_WARP_SIZE);
+// Shuffle declarations for cases where sizeof(long long) == sizeof(int64_t).
+#define DECL_LONGLONG_SHFL(OP_, LANE_SEL_TYPE_)                                \
+  inline __device__ long long OP_(long long var, LANE_SEL_TYPE_ selector,      \
+                                  int warpsize = CHIP_DEFAULT_WARP_SIZE) {     \
+    return OP_(static_cast<long>(var), selector, warpsize);                    \
+  }                                                                            \
+  inline __device__ unsigned long long OP_(                                    \
+      unsigned long long var, LANE_SEL_TYPE_ selector,                         \
+      int warpsize = CHIP_DEFAULT_WARP_SIZE) {                                 \
+    return OP_(static_cast<unsigned long>(var), selector, warpsize);           \
+  }
 
-extern __device__ float __shfl_xor(float var, int laneMask,
-                                   int warpsize = CHIP_DEFAULT_WARP_SIZE);
-
-extern __device__ int __shfl_up(int var, unsigned int delta,
-                                int warpsize = CHIP_DEFAULT_WARP_SIZE);
-
-extern __device__ float __shfl_up(float var, unsigned int delta,
-                                  int warpsize = CHIP_DEFAULT_WARP_SIZE);
-
-extern __device__ int __shfl_down(int var, unsigned int delta,
-                                  int warpsize = CHIP_DEFAULT_WARP_SIZE);
-
-extern __device__ float __shfl_down(float var, unsigned int delta,
-                                    int warpsize = CHIP_DEFAULT_WARP_SIZE);
+DECL_LONGLONG_SHFL(__shfl, int);
+DECL_LONGLONG_SHFL(__shfl_xor, int);
+DECL_LONGLONG_SHFL(__shfl_up, unsigned int);
+DECL_LONGLONG_SHFL(__shfl_down, unsigned int);
 
 extern __device__ unsigned __lane_id();
 

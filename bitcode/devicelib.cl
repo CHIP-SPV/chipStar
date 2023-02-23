@@ -773,21 +773,30 @@ static int warpLaneId(int subWarpLaneId, int wSize) {
   return logicalSubWarp * wSize + subWarpLaneId;
 }
 
-EXPORT OVLD int __shfl(int var, int srcLane, int wSize) {
-  int laneId = get_sub_group_local_id();
-  return sub_group_shuffle(var, warpLaneId(srcLane, wSize));
-}
-EXPORT OVLD float __shfl(float var, int srcLane, int wSize) {
-  return sub_group_shuffle(var, warpLaneId(srcLane, wSize));
-}
+#define __SHFL(T)                                                              \
+  EXPORT OVLD T __shfl(T var, int srcLane, int wSize) {                        \
+    int laneId = get_sub_group_local_id();                                     \
+    return sub_group_shuffle(var, warpLaneId(srcLane, wSize));                 \
+  }
 
-EXPORT OVLD int __shfl_xor(int var, int value, int warpSizeOverride) {
-  return sub_group_shuffle_xor(var, value);
-}
-EXPORT OVLD float __shfl_xor(float var, int value, int warpSizeOverride) {
-  return sub_group_shuffle_xor(var, value);
-}
+__SHFL(int);
+__SHFL(uint);
+__SHFL(long);
+__SHFL(ulong);
+__SHFL(float);
+__SHFL(double);
 
+#define __SHFL_XOR(T)                                                          \
+  EXPORT OVLD T __shfl_xor(T var, int value, int warpSizeOverride) {           \
+    return sub_group_shuffle_xor(var, value);                                  \
+  }
+
+__SHFL_XOR(int);
+__SHFL_XOR(uint);
+__SHFL_XOR(long);
+__SHFL_XOR(ulong);
+__SHFL_XOR(float);
+__SHFL_XOR(double);
 
 #define __SHFL_UP(T)							\
   EXPORT OVLD T __shfl_up(T var, uint delta, int wSize) {		\
@@ -801,7 +810,11 @@ EXPORT OVLD float __shfl_xor(float var, int value, int warpSizeOverride) {
 }
 
 __SHFL_UP(int);
+__SHFL_UP(uint);
+__SHFL_UP(long);
+__SHFL_UP(ulong);
 __SHFL_UP(float);
+__SHFL_UP(double);
 
 #define __SHFL_DOWN(T)							\
 EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {		\
@@ -815,7 +828,11 @@ EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {		\
 }
 
 __SHFL_DOWN(int);
+__SHFL_DOWN(uint);
+__SHFL_DOWN(long);
+__SHFL_DOWN(ulong);
 __SHFL_DOWN(float);
+__SHFL_DOWN(double);
 
 __attribute__((overloadable)) uint4 sub_group_ballot(int predicate);
 EXPORT OVLD ulong __ballot(int predicate) {
