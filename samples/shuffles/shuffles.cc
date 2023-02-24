@@ -78,6 +78,8 @@ __global__ void test_lane_id(unsigned *Out) { Out[threadIdx.x] = __lane_id(); }
   LAUNCH_CASE_T(long long, KERNEL, DELTA, WIDTH);                              \
   LAUNCH_CASE_T(unsigned long long, KERNEL, DELTA, WIDTH);                     \
   LAUNCH_CASE_T(float, KERNEL, DELTA, WIDTH);
+// Skipping testing for double type as the CI fails on shuffles with
+// double argument.
 
 int main(int argc, char *argv[]) {
 
