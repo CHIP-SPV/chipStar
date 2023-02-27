@@ -133,7 +133,6 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
                           hipErrorInvalidDeviceFunction);
   ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim,
                                           Params_.sharedMemBytes, nullptr);
-  ExecItem_->setArgPointer(Params_.kernelParams);
   ExecItem_->setKernel(ChipKernel);
 
   ExecItem_->copyArgs(TheParams->kernelParams);
@@ -159,7 +158,6 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
                           hipErrorInvalidDeviceFunction);
   ExecItem_ =
       Backend->createCHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
-  ExecItem_->setArgPointer(Args);
   ExecItem_->setKernel(ChipKernel);
 
   ExecItem_->copyArgs(Args);

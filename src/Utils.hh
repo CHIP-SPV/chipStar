@@ -83,7 +83,7 @@ std::string_view extractSPIRVModule(const void *ClangOffloadBundle,
 /// Convert "extra" kernel argument passing style to pointer array
 /// style (an array of pointers to the arguments).
 std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
-                                                   const OCLFuncInfo &FuncInfo);
+                                                   const SPVFuncInfo &FuncInfo);
 
 std::string_view trim(std::string_view Str);
 

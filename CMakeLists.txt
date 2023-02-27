@@ -119,6 +119,7 @@ set(CHIP_SRC
   src/CHIPBindings_spt.cc
   src/logging.cc
   src/Utils.cc
+  src/SPIRVFuncInfo.cc
 )
 
 if(OpenCL_LIBRARY)
