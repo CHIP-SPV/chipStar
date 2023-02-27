@@ -128,6 +128,7 @@ set(SAMPLES
     graphMatrixMultiply
     graphs
     ccompat
+    hipComplex
     hipHostMallocSample
     # DISABLED for LLVM 15. Fails due to clang inserting -lamdhip64
     # into the linking phase.
