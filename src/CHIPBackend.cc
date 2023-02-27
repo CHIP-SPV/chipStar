@@ -32,7 +32,6 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
   //        item a backend agnostic class.
   CHIPExecItem *EI =
       Backend->createCHIPExecItem(GridDim, BlockDim, SharedMemSize, Q);
-  EI->setArgPointer(Args);
   EI->setKernel(K);
 
   EI->copyArgs(Args);
@@ -417,20 +416,20 @@ void CHIPModule::deallocateDeviceVariablesNoLock(CHIPDevice *Device) {
   DeviceVariablesAllocated_ = false;
 }
 
-OCLFuncInfo *CHIPModule::findFunctionInfo(const std::string &FName) {
+SPVFuncInfo *CHIPModule::findFunctionInfo(const std::string &FName) {
   return FuncInfos_.count(FName) ? FuncInfos_.at(FName).get() : nullptr;
 }
 
 // CHIPKernel
 //*************************************************************************************
-CHIPKernel::CHIPKernel(std::string HostFName, OCLFuncInfo *FuncInfo)
+CHIPKernel::CHIPKernel(std::string HostFName, SPVFuncInfo *FuncInfo)
     : HostFName_(HostFName), FuncInfo_(FuncInfo) {}
 CHIPKernel::~CHIPKernel(){};
 std::string CHIPKernel::getName() { return HostFName_; }
 const void *CHIPKernel::getHostPtr() { return HostFPtr_; }
 const void *CHIPKernel::getDevPtr() { return DevFPtr_; }
 
-OCLFuncInfo *CHIPKernel::getFuncInfo() { return FuncInfo_; }
+SPVFuncInfo *CHIPKernel::getFuncInfo() { return FuncInfo_; }
 
 void CHIPKernel::setName(std::string HostFName) { HostFName_ = HostFName; }
 void CHIPKernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
@@ -448,18 +447,6 @@ CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
       ChipQueue_(static_cast<CHIPQueue *>(ChipQueue)){};
-
-std::vector<uint8_t> CHIPExecItem::getArgData() { return ArgData_; }
-
-void CHIPExecItem::setArg(const void *Arg, size_t Size, size_t Offset) {
-  if ((Offset + Size) > ArgData_.size())
-    ArgData_.resize(Offset + Size + 1024);
-
-  std::memcpy(ArgData_.data() + Offset, Arg, Size);
-  logDebug("CHIPExecItem.setArg() on {} size {} offset {}\n", (void *)this,
-           Size, Offset);
-  OffsetSizes_.push_back(std::make_tuple(Offset, Size));
-}
 
 dim3 CHIPExecItem::getBlock() { return BlockDim_; }
 dim3 CHIPExecItem::getGrid() { return GridDim_; }
@@ -1327,14 +1314,6 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
   return hipSuccess;
 }
 
-hipError_t CHIPBackend::setArg(const void *Arg, size_t Size, size_t Offset) {
-  logDebug("CHIPBackend->set_arg()");
-  CHIPExecItem *ExecItem = ChipExecStack.top();
-  ExecItem->setArg(Arg, Size, Offset);
-
-  return hipSuccess;
-}
-
 CHIPDevice *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
   CHIPDevice *MatchedDevice = nullptr;
   int MaxMatchedCount = 0;
@@ -1625,30 +1604,15 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         MANAGED_MEM_STATE ExecState) {
 
   CHIPEvent *RegisterVarEvent = nullptr;
-  auto &ArgTyInfos = ExecItem->getKernel()->getFuncInfo()->ArgTypeInfo;
+  const auto &FuncInfo = ExecItem->getKernel()->getFuncInfo();
   auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
-  auto Args = ExecItem->getArgsPointer();
-  unsigned InArgI = 0;
-  for (unsigned OutArgI = 0; OutArgI < ExecItem->getNumArgs(); OutArgI++) {
-    if (ArgTyInfos[OutArgI].Space == OCLSpace::Local)
-      // An argument inserted by HipDynMemExternReplaceNewPass hence
-      // there is no corresponding value in argument list.
-      continue;
-    if (ArgTyInfos[OutArgI].Type != OCLType::Pointer) {
-      // Texture lowering pass splits hipTextureObject_t arguments to
-      // image and sampler arguments so there are additional
-      // arguments. Don't bump the InArgI when we see an additional
-      // argument.
-      continue;
-    }
 
-    void **k = reinterpret_cast<void **>(Args[OutArgI]);
-    if (!k)
-      // HIP program provided (Clang generated) argument list should
-      // not have NULLs in it.
-      CHIPERR_LOG_AND_THROW(
-          "Unexcepted internal error: Argument list has NULLs.", hipErrorTbd);
-    void *DevPtr = reinterpret_cast<void *>(*k);
+  auto ArgVisitor = [&](const SPVFuncInfo::ClientArg &Arg) -> void {
+    if (Arg.Kind != SPVTypeKind::Pointer)
+      return;
+
+    auto *PtrArgValue = const_cast<void *>(Arg.Data);
+    auto *DevPtr = *reinterpret_cast<void **>(PtrArgValue);
     auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
     if (!AllocInfo) {
       logWarn(
@@ -1656,14 +1620,14 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       // Previously, we used to assert here. However, this will fail for the USM
       // where a pointer is allocated using USM outside of CHIP-SPV. assert(0 &&
       // "Unexcepted internal error: allocation info not found");
-      continue;
+      return;
     }
     void *HostPtr = AllocInfo->HostPtr;
 
     // If this is a shared pointer then we don't need to transfer data back
     if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
       logDebug("MemoryType: unified -> skipping");
-      continue;
+      return;
     }
 
     // required for OpenCL when fine-grain SVM is not availbale
@@ -1675,7 +1639,7 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                CHIPQueue::MEM_MAP_TYPE::HOST_WRITE); // TODO fixOpenCLTests -
                                                      // print ptr
       }
-      continue;
+      return;
     }
 
     if (HostPtr && AllocInfo->MemoryType == hipMemoryTypeManaged) {
@@ -1698,7 +1662,9 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       }
       updateLastEvent(RegisterVarEvent);
     }
-  }
+  };
+  FuncInfo->visitClientArgs(ExecItem->getArgs(), ArgVisitor);
+
   return RegisterVarEvent;
 }
 
@@ -1709,35 +1675,15 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
           << ExecItem->getGrid().y << ", " << ExecItem->getGrid().z << ">";
   InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", "
           << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";
-  InfoStr << "NumArgs: " << ExecItem->getNumArgs() << "\n";
-  std::string ArgTypeStr;
-  for (int i = 0; i < ExecItem->getNumArgs(); i++) {
-    auto FuncInfo = ExecItem->getKernel()->getFuncInfo();
-    OCLType ArgType = FuncInfo->ArgTypeInfo[i].Type;
-    auto ArgSize = FuncInfo->ArgTypeInfo[i].Size;
-    switch (ArgType) {
-    case OCLType::POD:
-      ArgTypeStr = "POD";
-      break;
-    case OCLType::Pointer:
-      ArgTypeStr = "Pointer";
-      break;
-    case OCLType::Image:
-      ArgTypeStr = "Image";
-      break;
-    case OCLType::Sampler:
-      ArgTypeStr = "Sampler";
-      break;
-    case OCLType::Opaque:
-      ArgTypeStr = "Opaque";
-      break;
-    default:
-      CHIPERR_LOG_AND_THROW("Unknown argument type", hipErrorTbd);
-    }
-    if (ExecItem->getArgsPointer())
-      InfoStr << "Arg " << i << ": " << ArgTypeStr << " " << ArgSize << " "
-              << ExecItem->getArgsPointer()[i] << "\n";
-  }
+
+  const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
+  InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
+  auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    InfoStr << "Arg " << Arg.Index << ": " << Arg.getKindAsString() << " "
+            << Arg.Size << " " << Arg.Data << "\n";
+  };
+  FuncInfo.visitKernelArgs(ExecItem->getArgs(), Visitor);
+
   logDebug("{}", InfoStr.str());
 
 #ifdef ENFORCE_QUEUE_SYNC
@@ -1817,7 +1763,6 @@ void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
   LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
   CHIPExecItem *ExecItem =
       Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
-  ExecItem->setArgPointer(Args);
   ExecItem->setKernel(ChipKernel);
   ExecItem->copyArgs(Args);
   ExecItem->setupAllArgs();

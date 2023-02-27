@@ -24,6 +24,7 @@
 #define HIP_COMMON_HH
 
 #include "CHIPSPVConfig.hh"
+#include "SPIRVFuncInfo.hh"
 
 #include <map>
 #include <set>
@@ -50,38 +51,6 @@ struct ihipModuleSymbol_t {};
 struct ihipGraph {};
 struct hipGraphNode {};
 struct hipGraphExec {};
-
-enum class OCLType : unsigned {
-  POD,
-  Pointer,
-  Image,
-  Sampler,
-  Opaque,
-};
-
-enum class OCLSpace : unsigned {
-  Private = 0,
-  Global = 1,
-  Constant = 2,
-  Local = 3,
-  Unknown = 1000
-};
-
-struct OCLArgTypeInfo {
-  OCLType Type;
-  OCLSpace Space;
-  size_t Size;
-};
-
-struct OCLFuncInfo {
-  std::vector<OCLArgTypeInfo> ArgTypeInfo;
-  OCLArgTypeInfo RetTypeInfo;
-};
-
-typedef std::map<int32_t, std::shared_ptr<OCLFuncInfo>> OCLFuncInfoMap;
-
-typedef std::map<std::string, std::shared_ptr<OCLFuncInfo>>
-    OpenCLFunctionInfoMap;
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(int32_t *Stream, size_t NumWords,

@@ -4113,12 +4113,11 @@ extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
 }
 
 hipError_t hipSetupArgument(const void *Arg, size_t Size, size_t Offset) {
-  logDebug("hipSetupArgument");
-
   CHIP_TRY
   CHIPInitialize();
-  RETURN(Backend->setArg(Arg, Size, Offset));
-  RETURN(hipSuccess);
+  // Development focus has been on the new HIP launch API so this path
+  // is likely bitrotted.
+  UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 
