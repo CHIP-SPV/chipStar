@@ -52,3 +52,6 @@ add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHipRuntimeHeaderInclude.cpp
   TEST_NAME hip-runtime-header-cpp-mode
   HIPCC_OPTIONS -x c++ -fsyntax-only)
+
+add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
+  HIPCC_OPTIONS -std=gnu++14 -fsyntax-only)
