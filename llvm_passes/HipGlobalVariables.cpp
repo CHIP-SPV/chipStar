@@ -271,7 +271,8 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
 
     auto *InitSrc = createCopyableValue(M, OriginalGVar->getInitializer());
     auto Alignment = OriginalGVar->getAlign();
-    auto Size = M.getDataLayout().getTypeStoreSize(GVar->getValueType());
+    auto Size =
+        M.getDataLayout().getTypeStoreSize(OriginalGVar->getValueType());
     Builder.CreateMemCpy(Ptr, Alignment, InitSrc, MaybeAlign(1), Size);
     return;
   }
