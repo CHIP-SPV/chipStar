@@ -54,3 +54,6 @@ add_hipcc_test(TestHipRuntimeHeaderInclude.cpp
   HIPCC_OPTIONS -x c++ -fsyntax-only)
 
 add_hipcc_test(TestAtomicAddNoRet.hip HIPCC_OPTIONS -fsyntax-only)
+add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
+  HIPCC_OPTIONS -std=gnu++14 -fsyntax-only)
+  

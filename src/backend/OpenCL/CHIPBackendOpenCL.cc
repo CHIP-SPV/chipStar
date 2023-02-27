@@ -721,10 +721,9 @@ CHIPQueue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
 // CHIPKernelOpenCL
 //*************************************************************************
 
-OCLFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
+SPVFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
 cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
-size_t CHIPKernelOpenCL::getTotalArgSize() const { return TotalArgSize_; };
 
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
@@ -747,10 +746,9 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
                                    CHIPDeviceOpenCL *Dev, std::string HostFName,
-                                   OCLFuncInfo *FuncInfo,
+                                   SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
-    : CHIPKernel(HostFName, FuncInfo), Module(Parent), TotalArgSize_(0),
-      Device(Dev) {
+    : CHIPKernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
   OclKernel_ = ClKernel;
   int Err = 0;
@@ -758,7 +756,7 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
   cl_uint NumArgs = OclKernel_.getInfo<CL_KERNEL_NUM_ARGS>(&Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                               "Failed to get num args for kernel");
-  assert(FuncInfo_->ArgTypeInfo.size() == NumArgs);
+  assert(FuncInfo_->getNumKernelArgs() == NumArgs);
 
   MaxWorkGroupSize_ =
       OclKernel_.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*Device->get());
@@ -774,14 +772,11 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
 
   if (NumArgs > 0) {
     logTrace("Kernel {} numArgs: {} \n", Name_, NumArgs);
-    logTrace("  RET_TYPE: {} {} {}\n", FuncInfo_->RetTypeInfo.Size,
-             (unsigned)FuncInfo_->RetTypeInfo.Space,
-             (unsigned)FuncInfo_->RetTypeInfo.Type);
-    for (auto &Argty : FuncInfo_->ArgTypeInfo) {
-      logTrace("  ARG: SIZE {} SPACE {} TYPE {}\n", Argty.Size,
-               (unsigned)Argty.Space, (unsigned)Argty.Type);
-      TotalArgSize_ += Argty.Size;
-    }
+    auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+      logTrace("  ARG: SIZE {} SPACE {} KIND {}\n", Arg.Size,
+               (unsigned)Arg.StorageClass, (unsigned)Arg.Kind);
+    };
+    FuncInfo_->visitKernelArgs(ArgVisitor);
   }
 }
 
@@ -1126,30 +1121,6 @@ CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   return Event;
 }
 
-static int setLocalSize(size_t Shared, OCLFuncInfo *FuncInfo,
-                        cl_kernel Kernel) {
-  logTrace("setLocalSize");
-  int Err = CL_SUCCESS;
-
-  if (Shared > 0) {
-    logTrace("setLocalMemSize to {}\n", Shared);
-    size_t LastArgIdx = FuncInfo->ArgTypeInfo.size() - 1;
-    if (FuncInfo->ArgTypeInfo[LastArgIdx].Space != OCLSpace::Local) {
-      // this can happen if for example the llvm optimizes away
-      // the dynamic local variable
-      logWarn("Can't set the dynamic local size, "
-              "because the kernel doesn't use any local memory.\n");
-    } else {
-      Err = ::clSetKernelArg(Kernel, LastArgIdx, Shared, nullptr);
-      CHIPERR_CHECK_LOG_AND_THROW(
-          Err, CL_SUCCESS, hipErrorTbd,
-          "clSetKernelArg() failed to set dynamic local size");
-    }
-  }
-
-  return Err;
-}
-
 // CHIPExecItemOpenCL
 //*************************************************************************
 
@@ -1162,125 +1133,69 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     return;
   }
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)getKernel();
-  OCLFuncInfo *FuncInfo = Kernel->getFuncInfo();
-  size_t NumLocals = 0;
-  for (size_t i = 0; i < FuncInfo->ArgTypeInfo.size(); ++i) {
-    if (FuncInfo->ArgTypeInfo[i].Space == OCLSpace::Local)
-      ++NumLocals;
-  }
-  // there can only be one dynamic shared mem variable, per cuda spec
-  CHIPASSERT(NumLocals <= 1);
+  SPVFuncInfo *FuncInfo = Kernel->getFuncInfo();
   int Err = 0;
 
-  if (ArgsPtr) {
-    logTrace("Setting up arguments NEW HIP API");
-    for (size_t InArgIdx = 0, OutArgIdx = 0;
-         OutArgIdx < FuncInfo->ArgTypeInfo.size(); ++OutArgIdx, ++InArgIdx) {
-      OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[OutArgIdx];
-      if (Ai.Type == OCLType::Pointer) {
-        if (Ai.Space == OCLSpace::Local)
-          continue;
-        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", OutArgIdx,
-                 Ai.Size, ArgsPtr[InArgIdx]);
-        CHIPASSERT(Ai.Size == sizeof(void *));
-        const void *Argval = *(void **)ArgsPtr[InArgIdx];
-        Err =
-            ::clSetKernelArgSVMPointer(Kernel->get()->get(), OutArgIdx, Argval);
-        CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                    "clSetKernelArgSVMPointer failed");
-      } else if (Ai.Type == OCLType::Image) {
-        auto *TexObj = *(CHIPTextureOpenCL **)ArgsPtr[InArgIdx];
-
-        // Set image argument.
-        cl_mem Image = TexObj->getImage();
-        logTrace("set image arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
-        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, sizeof(cl_mem),
-                               &Image);
-        CHIPERR_CHECK_LOG_AND_THROW(
-            Err, CL_SUCCESS, hipErrorTbd,
-            "clSetKernelArg failed for image argument.");
-
-        // Set sampler argument.
-        OutArgIdx++;
-        cl_sampler Sampler = TexObj->getSampler();
-        logTrace("set sampler arg {} for tex {}\n", OutArgIdx, (void *)TexObj);
-        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx,
-                               sizeof(cl_sampler), &Sampler);
-        CHIPERR_CHECK_LOG_AND_THROW(
-            Err, CL_SUCCESS, hipErrorTbd,
-            "clSetKernelArg failed for sampler argument.");
+  auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    switch (Arg.Kind) {
+    default:
+      CHIPERR_LOG_AND_THROW("Internal CHIP-SPV error: Unknown argument kind",
+                            hipErrorTbd);
+    case SPVTypeKind::Image: {
+      auto *TexObj =
+          *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
+      cl_mem Image = TexObj->getImage();
+      logTrace("set image arg {} for tex {}\n", Arg.Index, (void *)TexObj);
+      Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, sizeof(cl_mem),
+                             &Image);
+      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
+                                  "clSetKernelArg failed for image argument.");
+      break;
+    }
+    case SPVTypeKind::Sampler: {
+      auto *TexObj =
+          *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
+      cl_sampler Sampler = TexObj->getSampler();
+      logTrace("set sampler arg {} for tex {}\n", Arg.Index, (void *)TexObj);
+      Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index,
+                             sizeof(cl_sampler), &Sampler);
+      CHIPERR_CHECK_LOG_AND_THROW(
+          Err, CL_SUCCESS, hipErrorTbd,
+          "clSetKernelArg failed for sampler argument.");
+      break;
+    }
+    case SPVTypeKind::POD: {
+      logTrace("clSetKernelArg {} SIZE {} to {}\n", Arg.Index, Arg.Size,
+               Arg.Data);
+      Err =
+          ::clSetKernelArg(Kernel->get()->get(), Arg.Index, Arg.Size, Arg.Data);
+      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
+                                  "clSetKernelArg failed");
+      break;
+    }
+    case SPVTypeKind::Pointer: {
+      CHIPASSERT(Arg.Size == sizeof(void *));
+      if (Arg.isWorkgroupPtr()) {
+        logTrace("setLocalMemSize to {}\n", SharedMem_);
+        Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, SharedMem_,
+                               nullptr);
       } else {
-        logTrace("clSetKernelArg {} SIZE {} to {}\n", OutArgIdx, Ai.Size,
-                 ArgsPtr[InArgIdx]);
-        Err = ::clSetKernelArg(Kernel->get()->get(), OutArgIdx, Ai.Size,
-                               ArgsPtr[InArgIdx]);
-        CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                    "clSetKernelArg failed");
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", Arg.Index,
+                 Arg.Size, Arg.Data);
+        Err = ::clSetKernelArgSVMPointer(
+            Kernel->get()->get(), Arg.Index,
+            // Unlike clSetKernelArg() which takes address to the argument,
+            // this function takes the argument value directly.
+            *(const void **)Arg.Data);
       }
+      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
+                                  "clSetKernelArgSVMPointer failed");
+      break;
     }
-  } else {
-    logTrace("Setting up arguments OLD HIP API");
-
-    if ((OffsetSizes_.size() + NumLocals) != FuncInfo->ArgTypeInfo.size()) {
-      CHIPERR_LOG_AND_THROW("Some arguments are still unset", hipErrorTbd);
     }
+  };
+  FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
 
-    if (OffsetSizes_.size() == 0)
-      return;
-
-    std::sort(OffsetSizes_.begin(), OffsetSizes_.end());
-    if ((std::get<0>(OffsetSizes_[0]) != 0) ||
-        (std::get<1>(OffsetSizes_[0]) == 0)) {
-      CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
-    }
-
-    // check args are set
-    if (OffsetSizes_.size() > 1) {
-      for (size_t i = 1; i < OffsetSizes_.size(); ++i) {
-        if ((std::get<0>(OffsetSizes_[i]) == 0) ||
-            (std::get<1>(OffsetSizes_[i]) == 0) ||
-            ((std::get<0>(OffsetSizes_[i - 1]) +
-              std::get<1>(OffsetSizes_[i - 1])) >
-             std::get<0>(OffsetSizes_[i]))) {
-          CHIPERR_LOG_AND_THROW("Invalid offset/size", hipErrorTbd);
-        }
-      }
-    }
-
-    const unsigned char *Start = ArgData_.data();
-    void *P;
-    int Err;
-    for (cl_uint i = 0; i < OffsetSizes_.size(); ++i) {
-      OCLArgTypeInfo &Ai = FuncInfo->ArgTypeInfo[i];
-      logTrace("ARG {}: OS[0]: {} OS[1]: {} \n      TYPE {} SPAC {} SIZE {}\n",
-               i, std::get<0>(OffsetSizes_[i]), std::get<1>(OffsetSizes_[i]),
-               (unsigned)Ai.Type, (unsigned)Ai.Space, Ai.Size);
-
-      if (Ai.Type == OCLType::Pointer) {
-        // TODO other than global AS ?
-        assert(Ai.Size == sizeof(void *));
-        assert(std::get<1>(OffsetSizes_[i]) == Ai.Size);
-        P = *(void **)(Start + std::get<0>(OffsetSizes_[i]));
-        logTrace("setArg SVM {} to {}\n", i, P);
-        Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), i, P);
-        CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                    "clSetKernelArgSVMPointer failed");
-      } else if (Ai.Type == OCLType::Image) {
-        CHIPASSERT(false && "UNIMPLMENTED: Texture argument handling for the "
-                            "old HIP kernel ABI.");
-      } else {
-        size_t Size = std::get<1>(OffsetSizes_[i]);
-        size_t Offs = std::get<0>(OffsetSizes_[i]);
-        void *Value = (void *)(Start + Offs);
-        logTrace("setArg {} size {} offs {}\n", i, Size, Offs);
-        Err = ::clSetKernelArg(Kernel->get()->get(), i, Size, Value);
-        CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                    "clSetKernelArg failed");
-      }
-    }
-  }
-
-  setLocalSize(SharedMem_, FuncInfo, Kernel->get()->get());
   return;
 }
 

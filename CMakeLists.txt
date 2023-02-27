@@ -119,6 +119,7 @@ set(CHIP_SRC
   src/CHIPBindings_spt.cc
   src/logging.cc
   src/Utils.cc
+  src/SPIRVFuncInfo.cc
 )
 
 if(OpenCL_LIBRARY)
@@ -376,21 +377,30 @@ else()
   set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
 endif()
 
+# Include a header for applying fixups before any user or system includes.
+set(HIP_FIXUPS_HEADER_BUILD
+  -include ${CMAKE_BINARY_DIR}/include/hip/spirv_fixups.h)
+set(HIP_FIXUPS_HEADER_INSTALL
+  -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
+
 # For use by hipcc
-execute_process(COMMAND ${LLVM_CONFIG} --host-target OUTPUT_VARIABLE HOST_ARCH)
+execute_process(COMMAND ${LLVM_CONFIG} --host-target
+  OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_INSTALL}
-  ${HOST_ARCH})
+  ${HOST_ARCH}
+  ${HIP_FIXUPS_HEADER_INSTALL})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   ${HIP_LINK_DEVICELIB_BUILD}
-  ${HOST_ARCH})
+  ${HOST_ARCH}
+  ${HIP_FIXUPS_HEADER_BUILD})
 
 # HIP applications need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
@@ -430,7 +440,8 @@ target_compile_options(deviceInternal INTERFACE
   -x hip
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD})
+  ${HIP_LINK_DEVICELIB_BUILD}
+  ${HIP_FIXUPS_HEADER_BUILD})
 target_link_options(deviceInternal INTERFACE
   ${HIP_LINK_DEVICELIB_BUILD})
 target_link_libraries(deviceInternal INTERFACE CHIP)
@@ -440,7 +451,8 @@ target_compile_options(device INTERFACE
   -x hip
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL})
+  ${HIP_LINK_DEVICELIB_INSTALL}
+  ${HIP_FIXUPS_HEADER_INSTALL})
 target_link_options(device INTERFACE
   ${HIP_LINK_DEVICELIB_INSTALL})
 target_link_libraries(device INTERFACE CHIP)

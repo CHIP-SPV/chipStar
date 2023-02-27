@@ -376,7 +376,7 @@ public:
   }
 
   CHIPKernelLevel0(ze_kernel_handle_t ZeKernel, CHIPDeviceLevel0 *Dev,
-                   std::string FuncName, OCLFuncInfo *FuncInfo,
+                   std::string FuncName, SPVFuncInfo *FuncInfo,
                    CHIPModuleLevel0 *Parent);
   ze_kernel_handle_t get();
 
