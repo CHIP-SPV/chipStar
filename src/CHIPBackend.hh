@@ -327,10 +327,19 @@ public:
   virtual void monitor(){};
 
   void start() {
+    logDebug("Starting Event Monitor Thread");
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
     logDebug("Thread Created with ID : {}", Thread_);
+  }
+
+  void stop() {
+    LOCK(EventMonitorMtx) // Lock the mutex to ensure that the thread is not
+                         // executing the monitor function
+    logDebug("Stopping Event Monitor Thread");
+    Stop = true;
+    join();
   }
 };
 
@@ -1629,6 +1638,11 @@ public:
  */
 class CHIPBackend {
 protected:
+
+  CHIPEventMonitor *CallbackEventMonitor_ = nullptr;
+  CHIPEventMonitor *StaleEventMonitor_ = nullptr;
+
+
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
 
@@ -1871,8 +1885,8 @@ public:
                                                void *UserData,
                                                CHIPQueue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor *createCallbackEventMonitor() = 0;
-  virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
+  virtual CHIPEventMonitor *createCallbackEventMonitor_() = 0;
+  virtual CHIPEventMonitor *createStaleEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;

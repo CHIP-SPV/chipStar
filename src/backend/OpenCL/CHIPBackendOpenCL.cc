@@ -1219,13 +1219,13 @@ CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
   UNIMPLEMENTED(nullptr);
 }
 
-CHIPEventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor() {
+CHIPEventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor_() {
   auto Evm = new CHIPEventMonitorOpenCL();
   Evm->start();
   return Evm;
 }
 
-CHIPEventMonitor *CHIPBackendOpenCL::createStaleEventMonitor() {
+CHIPEventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
   UNIMPLEMENTED(nullptr);
 }
 

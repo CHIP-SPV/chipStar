@@ -336,8 +336,8 @@ public:
   virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQueue) override;
-  virtual CHIPEventMonitor *createCallbackEventMonitor() override;
-  virtual CHIPEventMonitor *createStaleEventMonitor() override;
+  virtual CHIPEventMonitor *createCallbackEventMonitor_() override;
+  virtual CHIPEventMonitor *createStaleEventMonitor_() override;
 
   virtual hipEvent_t getHipEvent(void *NativeEvent) override;
   virtual void *getNativeEvent(hipEvent_t HipEvent) override;
