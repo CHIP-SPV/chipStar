@@ -223,14 +223,9 @@ if(NOT CLANG_VERSION_LESS_15)
   set(DISABLE_OPAQUE_PTRS_OPT -Xclang -no-opaque-pointers)
 endif()
 
+set(SPIRV_EMITTER_OPTS "")
 if(LLVM_USE_INTERGRATED_SPIRV)
-  if(CLANG_VERSION_LESS_14)
-    message(FATAL_ERROR "-DLLVM_USE_INTERGRATED_SPIRV=On is not supported for LLVM 13 and less")
-  else()
-    set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
-  endif()
-else()
-  set(SPIRV_EMITTER_OPTS "")
+  set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
@@ -359,24 +354,17 @@ set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
   ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
 
 # hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
-if(NOT CLANG_VERSION_LESS_14)
-  set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-    --offload=spirv64
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
+  --offload=spirv64
 
-    # By default RocmInstallationDetector::AddHIPIncludeArgs in the
-    # HIP-Clang inserts include wrapper headers which cause compile
-    # errors when compiling HIP sources for SPIR-V target.  This flag
-    # excludes the wrappers.
-    "-nohipwrapperinc")
-endif()
+  # By default RocmInstallationDetector::AddHIPIncludeArgs in the
+  # HIP-Clang inserts include wrapper headers which cause compile
+  # errors when compiling HIP sources for SPIR-V target.  This flag
+  # excludes the wrappers.
+  "-nohipwrapperinc")
 
-if(CLANG_VERSION_LESS_14)
-  set(HIP_LINK_DEVICELIB_BUILD --hip-device-lib-path=${CMAKE_BINARY_DIR}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes)
-  set(HIP_LINK_DEVICELIB_INSTALL --hip-device-lib-path=${SHARE_INSTALL_DIR} --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm)
-else()
-  set(HIP_LINK_DEVICELIB_BUILD --hip-path=${CMAKE_BINARY_DIR})
-  set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
-endif()
+set(HIP_LINK_DEVICELIB_BUILD --hip-path=${CMAKE_BINARY_DIR})
+set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
 
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
