@@ -1177,8 +1177,10 @@ CHIPBackend::CHIPBackend() {
 
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  StaleEventMonitor_->stop();
-  CallbackEventMonitor_->stop();
+  if (StaleEventMonitor_)
+    StaleEventMonitor_->stop();
+  if (CallbackEventMonitor_)
+    CallbackEventMonitor_->stop();
   Events.clear();
   for (auto &Ctx : ChipContexts) {
     Backend->removeContext(Ctx);
