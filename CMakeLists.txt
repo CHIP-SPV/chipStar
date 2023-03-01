@@ -350,21 +350,13 @@ target_include_directories(CHIP
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ 
-  ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
-
-# hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  --offload=spirv64
-
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
+  --offload=spirv64 ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
   # By default RocmInstallationDetector::AddHIPIncludeArgs in the
   # HIP-Clang inserts include wrapper headers which cause compile
   # errors when compiling HIP sources for SPIR-V target.  This flag
   # excludes the wrappers.
-  "-nohipwrapperinc")
-
-set(HIP_LINK_DEVICELIB_BUILD --hip-path=${CMAKE_BINARY_DIR})
-set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
+  -nohipwrapperinc)
 
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
@@ -380,14 +372,14 @@ set(HOST_ARCH "--target=${HOST_ARCH}")
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL}
+  --hip-path=${CMAKE_INSTALL_PREFIX}
   ${HOST_ARCH}
   ${HIP_FIXUPS_HEADER_INSTALL})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD}
+  --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
   ${HIP_FIXUPS_HEADER_BUILD})
 
@@ -426,24 +418,12 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
-  -x hip
-  ${HIP_ENABLE_SPIRV}
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD}
-  ${HIP_FIXUPS_HEADER_BUILD})
-target_link_options(deviceInternal INTERFACE
-  ${HIP_LINK_DEVICELIB_BUILD})
+  -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
-  -x hip
-  ${HIP_ENABLE_SPIRV}
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL}
-  ${HIP_FIXUPS_HEADER_INSTALL})
-target_link_options(device INTERFACE
-  ${HIP_LINK_DEVICELIB_INSTALL})
+  -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on CHIP-SPV but provides compatibility with AMD
