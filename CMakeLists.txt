@@ -364,6 +364,22 @@ set(HIP_FIXUPS_HEADER_BUILD
 set(HIP_FIXUPS_HEADER_INSTALL
   -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
 
+# Flags needed additionally for linking phase with -fgpu-rdc.
+set(HIP_RDC_SUPPLEMENT_LINK_FLAGS
+  # Infors clang the type of the code object inputs (which are different than
+  # in regular host C/C++ linking)
+  --hip-link
+  # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
+  --offload=spirv64
+  # --hip-path is also needed but not included here (different option
+  # value is needed for build and installation).
+)
+
+if (NOT CLANG_VERSION_LESS_15)
+  list(APPEND HIP_RDC_SUPPLEMENT_LINK_FLAGS
+    -no-hip-rt) # Clang 15+: Prevents linking amdhip64 library.
+endif()
+
 # For use by hipcc
 execute_process(COMMAND ${LLVM_CONFIG} --host-target
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
@@ -429,6 +445,20 @@ target_link_libraries(device INTERFACE CHIP)
 # same as device on CHIP-SPV but provides compatibility with AMD
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
+
+# Interface libraries for compiling HIP sources conveniently in RDC
+# (relocatable device code) mode.
+add_library(deviceRDCInternal INTERFACE)
+target_compile_options(deviceRDCInternal INTERFACE -fgpu-rdc)
+target_link_options(deviceRDCInternal INTERFACE
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR})
+target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
+
+add_library(deviceRDC INTERFACE)
+target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
+target_link_options(deviceRDC INTERFACE
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_INSTALL_PREFIX})
+target_link_libraries(deviceRDC INTERFACE device)
 
 # HIP OFFLOAD FLAGS
 # =============================================================================

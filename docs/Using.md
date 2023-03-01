@@ -144,3 +144,10 @@ CHIP-SPV provides a `FindHIP.cmake` module so you can verify that HIP is install
 list(APPEND CMAKE_MODULES_PREFIX <CHIP-SPV install location>/cmake)
 find_package(HIP REQUIRED)
 ```
+
+### Compiling HIP sources in relocatable device mode (RDC) with CMake
+
+```bash
+addLibrary(yourLib <sources>)
+target_link_libraries(yourLib hip::deviceRDC)
+```
