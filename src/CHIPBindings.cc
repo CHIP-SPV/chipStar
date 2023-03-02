@@ -2244,6 +2244,7 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
+  logInfo("hipMalloc(ptr={}, size={})", (void*)RetVal, Size);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2324,6 +2325,7 @@ hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
 hipError_t hipFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
+  logInfo("hipFree(ptr={})", (void*)Ptr);
 
   auto Status = hipDeviceSynchronize();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
@@ -2746,13 +2748,29 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
 
   CHIP_CATCH
 }
+std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
+  switch (Kind) {
+  case hipMemcpyHostToHost:
+    return "hipMemcpyHostToHost";
+  case hipMemcpyHostToDevice:
+    return "hipMemcpyHostToDevice";
+  case hipMemcpyDeviceToHost:
+    return "hipMemcpyDeviceToHost";
+  case hipMemcpyDeviceToDevice:
+    return "hipMemcpyDeviceToDevice";
+  case hipMemcpyDefault:
+    return "hipMemcpyDefault";
+  default:
+    return "hipMemcpyUnknown";
+  }
+}
 
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  logDebug("\nExecuting memCopyAsync Dst {} Src {} Size {}", Dst, Src,
-           SizeBytes);
+  logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
+          hipMemcpyKindToString(Kind));
 
   NULLCHECK(Dst, Src);
 
@@ -2960,6 +2978,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
+  logInfo("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
 
   char CharVal = Value;
 
@@ -3681,6 +3700,8 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(HostFunction, Args);
+  // logInfo("hipLaunchKernel( HostFunction = {}, GridDim = {}, BlockDim = {}, "
+          // "Args = {}, SharedMem = {}, Stream = {})", HostFunction, GridDim, BlockDim, Args, SharedMem, Stream);
 
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeKernel>(
@@ -3688,7 +3709,6 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
     RETURN(hipSuccess);
   }
 
-  logDebug("hipLaunchKernel()");
   auto *Device = Backend->getActiveDevice();
   Device->prepareDeviceVariables(HostPtr(HostFunction));
 
@@ -3862,6 +3882,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Module);
+  logInfo("hipModuleUnload(Module={}", (void*)Module);
 
   auto *ChipModule = reinterpret_cast<CHIPModule *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();

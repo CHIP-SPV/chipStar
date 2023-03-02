@@ -1687,7 +1687,8 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   };
   FuncInfo.visitKernelArgs(ExecItem->getArgs(), Visitor);
 
-  logDebug("{}", InfoStr.str());
+  // Making this log info since hipLaunchKernel doesn't know enough about args
+  logInfo("{}", InfoStr.str());
 
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
@@ -1731,6 +1732,8 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   LaunchEvent->track();
   if (RegisteredVarOutEvent)
     RegisteredVarOutEvent->track();
+
+  finish();
 }
 
 CHIPEvent *
