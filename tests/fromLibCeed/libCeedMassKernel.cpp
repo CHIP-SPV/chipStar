@@ -8,19 +8,9 @@ typedef struct {
   CeedScalar *outputs[CEED_HIP_NUMBER_FIELDS];
 } Fields_Hip;
 
-inline __device__ int mass(void *ctx, const CeedInt Q,
+inline __device__ __host__ int mass(void *ctx, const CeedInt Q,
                            const CeedScalar *const *in,
                            CeedScalar *const *out) {
-  const CeedScalar *rho = in[0], *u = in[1];
-  CeedScalar *v = out[0];
-  for (CeedInt i = 0; i < Q; i++) {
-    v[i] = rho[i] * u[i];
-  }
-  return 0;
-}
-
-inline int mass(void *ctx, const CeedInt Q, const CeedScalar *const *in,
-                CeedScalar *const *out) {
   const CeedScalar *rho = in[0], *u = in[1];
   CeedScalar *v = out[0];
   for (CeedInt i = 0; i < Q; i++) {
@@ -33,16 +23,8 @@ inline int mass(void *ctx, const CeedInt Q, const CeedScalar *const *in,
 // Read from quadrature points
 //------------------------------------------------------------------------------
 template <int SIZE>
-inline __device__ void readQuads(const CeedInt quad, const CeedInt num_qpts,
+inline __device__ __host__ void readQuads(const CeedInt quad, const CeedInt num_qpts,
                                  const CeedScalar *d_u, CeedScalar *r_u) {
-  for (CeedInt comp = 0; comp < SIZE; comp++) {
-    r_u[comp] = d_u[quad + num_qpts * comp];
-  }
-}
-
-template <int SIZE>
-inline void readQuads(const CeedInt quad, const CeedInt num_qpts,
-                      const CeedScalar *d_u, CeedScalar *r_u) {
   for (CeedInt comp = 0; comp < SIZE; comp++) {
     r_u[comp] = d_u[quad + num_qpts * comp];
   }
@@ -52,22 +34,14 @@ inline void readQuads(const CeedInt quad, const CeedInt num_qpts,
 // Write at quadrature points
 //------------------------------------------------------------------------------
 template <int SIZE>
-inline __device__ void writeQuads(const CeedInt quad, const CeedInt num_qpts,
+inline __device__ __host__ void writeQuads(const CeedInt quad, const CeedInt num_qpts,
                                   const CeedScalar *r_v, CeedScalar *d_v) {
   for (CeedInt comp = 0; comp < SIZE; comp++) {
     d_v[quad + num_qpts * comp] = r_v[comp];
   }
 }
 
-template <int SIZE>
-inline void writeQuads(const CeedInt quad, const CeedInt num_qpts,
-                       const CeedScalar *r_v, CeedScalar *d_v) {
-  for (CeedInt comp = 0; comp < SIZE; comp++) {
-    d_v[quad + num_qpts * comp] = r_v[comp];
-  }
-}
-
-extern "C" __launch_bounds__(BLOCK_SIZE) __global__
+extern "C" __launch_bounds__(BLOCK_SIZE) __global__ 
     void CeedKernelHipRefQFunction_mass(void *ctx, CeedInt Q,
                                         Fields_Hip fields) {
   // Input fields
@@ -86,8 +60,10 @@ extern "C" __launch_bounds__(BLOCK_SIZE) __global__
   outputs[0] = output_0;
 
   // Loop over quadrature points
-  for (CeedInt q = blockIdx.x * blockDim.x + threadIdx.x; q < Q;
-       q += blockDim.x * gridDim.x) {
+  // for (CeedInt q = blockIdx.x * blockDim.x + threadIdx.x; q < Q;
+  //      q += blockDim.x * gridDim.x)
+       for (CeedInt q = 0; q < Q; q++)
+        {
     // -- Load inputs
     readQuads<size_input_0>(q, Q, fields.inputs[0], input_0);
     readQuads<size_input_1>(q, Q, fields.inputs[1], input_1);
@@ -191,11 +167,26 @@ int main() {
     fields.outputs[0][i] = 0;
   }
 
-  
-  // hipLaunchKernelGGL(CeedKernelHipRefQFunction_mass, dim3(1), dim3(256), 0, 0,
-  //                    ctx, Q, fields);
-  CeedKernelHipRefQFunction_mass_cpu(ctx, Q, fields);
+   CeedKernelHipRefQFunction_mass_cpu(ctx, Q, fields);
+  float cpu_sum = 0;
+  for (int i = 0; i < Q; i++) {
+    cpu_sum += fields.outputs[0][i];
+    fields.outputs[0][i] = 0;
+  }
+
+  hipLaunchKernelGGL(CeedKernelHipRefQFunction_mass, dim3(1), dim3(1), 0, 0,
+                     ctx, Q, fields);
   hipDeviceSynchronize();
-  printFields(fields, Q);
+  float gpu_sum = 0;
+  for (int i = 0; i < Q; i++) {
+    gpu_sum += fields.outputs[0][i];
+  }
+
+  if(abs(cpu_sum - gpu_sum) > 1e-6) {
+    printf("FAILED\n");
+  } else {
+    printf("PASSED\n");
+  }
+  // printFields(fields, Q);
   return 0;
 }
