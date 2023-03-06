@@ -1,16 +1,9 @@
 #include "hip/hip_runtime.h"
-#define CEED_HIP_NUMBER_FIELDS 16
-
-typedef float CeedScalar;
-typedef int32_t CeedInt;
-typedef struct {
-  CeedScalar *inputs[CEED_HIP_NUMBER_FIELDS];
-  CeedScalar *outputs[CEED_HIP_NUMBER_FIELDS];
-} Fields_Hip;
+#include "common.h"
 
 inline __device__ __host__ int mass(void *ctx, const CeedInt Q,
-                           const CeedScalar *const *in,
-                           CeedScalar *const *out) {
+                                    const CeedScalar *const *in,
+                                    CeedScalar *const *out) {
   const CeedScalar *rho = in[0], *u = in[1];
   CeedScalar *v = out[0];
   for (CeedInt i = 0; i < Q; i++) {
@@ -23,8 +16,9 @@ inline __device__ __host__ int mass(void *ctx, const CeedInt Q,
 // Read from quadrature points
 //------------------------------------------------------------------------------
 template <int SIZE>
-inline __device__ __host__ void readQuads(const CeedInt quad, const CeedInt num_qpts,
-                                 const CeedScalar *d_u, CeedScalar *r_u) {
+inline __device__ __host__ void
+readQuads(const CeedInt quad, const CeedInt num_qpts, const CeedScalar *d_u,
+          CeedScalar *r_u) {
   for (CeedInt comp = 0; comp < SIZE; comp++) {
     r_u[comp] = d_u[quad + num_qpts * comp];
   }
@@ -34,14 +28,15 @@ inline __device__ __host__ void readQuads(const CeedInt quad, const CeedInt num_
 // Write at quadrature points
 //------------------------------------------------------------------------------
 template <int SIZE>
-inline __device__ __host__ void writeQuads(const CeedInt quad, const CeedInt num_qpts,
-                                  const CeedScalar *r_v, CeedScalar *d_v) {
+inline __device__ __host__ void
+writeQuads(const CeedInt quad, const CeedInt num_qpts, const CeedScalar *r_v,
+           CeedScalar *d_v) {
   for (CeedInt comp = 0; comp < SIZE; comp++) {
     d_v[quad + num_qpts * comp] = r_v[comp];
   }
 }
 
-extern "C" __launch_bounds__(BLOCK_SIZE) __global__ 
+extern "C" __launch_bounds__(BLOCK_SIZE) __global__
     void CeedKernelHipRefQFunction_mass(void *ctx, CeedInt Q,
                                         Fields_Hip fields) {
   // Input fields
@@ -62,8 +57,7 @@ extern "C" __launch_bounds__(BLOCK_SIZE) __global__
   // Loop over quadrature points
   // for (CeedInt q = blockIdx.x * blockDim.x + threadIdx.x; q < Q;
   //      q += blockDim.x * gridDim.x)
-       for (CeedInt q = 0; q < Q; q++)
-        {
+  for (CeedInt q = 0; q < Q; q++) {
     // -- Load inputs
     readQuads<size_input_0>(q, Q, fields.inputs[0], input_0);
     readQuads<size_input_1>(q, Q, fields.inputs[1], input_1);
@@ -77,7 +71,7 @@ extern "C" __launch_bounds__(BLOCK_SIZE) __global__
 }
 
 void CeedKernelHipRefQFunction_mass_cpu(void *ctx, CeedInt Q,
-                                               Fields_Hip fields) {
+                                        Fields_Hip fields) {
   // Input fields
   const CeedInt size_input_0 = 1;
   CeedScalar input_0[size_input_0];
@@ -101,7 +95,9 @@ void CeedKernelHipRefQFunction_mass_cpu(void *ctx, CeedInt Q,
   // Loop over quadrature points
   for (CeedInt q = 0; q < Q; q++) {
     // -- Load inputs
-    readQuads<size_input_0>(q, Q, fields.inputs[0], input_0); // r_u[comp] = d_u[quad + num_qpts * comp];
+    readQuads<size_input_0>(
+        q, Q, fields.inputs[0],
+        input_0); // r_u[comp] = d_u[quad + num_qpts * comp];
     readQuads<size_input_1>(q, Q, fields.inputs[1], input_1);
 
     // -- Call QFunction
@@ -109,34 +105,6 @@ void CeedKernelHipRefQFunction_mass_cpu(void *ctx, CeedInt Q,
 
     // -- Write outputs
     writeQuads<size_output_0>(q, Q, output_0, fields.outputs[0]);
-  }
-}
-
-void printFields(Fields_Hip fields, int Q) {
-  printf("field.inputs[0]:\n");
-  for(int i = 0; i < Q; i++) {
-    printf("  %d: %f\n", i, fields.inputs[0][i]);
-  }
-
-  printf("field.inputs[0]:\n");
-  for(int i = 0; i < Q; i++) {
-    printf("  %d: %f\n", i, fields.inputs[1][i]);
-  }
-
-  printf("field.outputs:\n");
-  for(int i = 0; i < Q; i++) {
-    printf("  %d: %f\n", i, fields.outputs[0][i]);
-  }
-}
-
-void initFields(Fields_Hip fields) {
-  printf("field.inputs:\n");
-  for(int i = 0; i < CEED_HIP_NUMBER_FIELDS; i++) {
-    fields.inputs[i][0] = i;
-  }
-  printf("field.outputs:\n");
-  for(int i = 0; i < CEED_HIP_NUMBER_FIELDS; i++) {
-    fields.outputs[i][0] = 1;
   }
 }
 
@@ -161,13 +129,13 @@ int main() {
 
   hipHostMalloc(&fields.outputs[0], Q * sizeof(CeedScalar), 0);
 
-  for(int i = 0; i < Q; i++){
+  for (int i = 0; i < Q; i++) {
     fields.inputs[0][i] = i;
     fields.inputs[1][i] = i;
     fields.outputs[0][i] = 0;
   }
 
-   CeedKernelHipRefQFunction_mass_cpu(ctx, Q, fields);
+  CeedKernelHipRefQFunction_mass_cpu(ctx, Q, fields);
   float cpu_sum = 0;
   for (int i = 0; i < Q; i++) {
     cpu_sum += fields.outputs[0][i];
@@ -182,7 +150,7 @@ int main() {
     gpu_sum += fields.outputs[0][i];
   }
 
-  if(abs(cpu_sum - gpu_sum) > 1e-6) {
+  if (abs(cpu_sum - gpu_sum) > 1e-6) {
     printf("FAILED\n");
   } else {
     printf("PASSED\n");
