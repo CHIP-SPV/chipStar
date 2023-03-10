@@ -1678,6 +1678,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
           << ExecItem->getGrid().y << ", " << ExecItem->getGrid().z << ">";
   InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", "
           << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";
+  InfoStr << "SharedMem: " << ExecItem->getSharedMem() << "\n";
 
   const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
   InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
