@@ -527,7 +527,7 @@ add_to_config(_hipInfo_build
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_BUILD}")
 
-INSTALL(TARGETS CHIP host device
+INSTALL(TARGETS CHIP host device deviceRDC
   EXPORT hip-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION lib
