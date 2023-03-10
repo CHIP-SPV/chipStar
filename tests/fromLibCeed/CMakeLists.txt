@@ -38,3 +38,4 @@ endfunction()
 
 add_hip_test(libCeedMassKernel.cpp)
 add_hip_test(libCeedFields.cpp)
+add_hip_test(dynamicSLM.cpp)
