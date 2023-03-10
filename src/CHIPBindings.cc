@@ -3919,9 +3919,6 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
   CHIPInitialize();
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
 
-  if (SharedMemBytes > 0)
-    CHIPERR_LOG_AND_THROW("Dynamic shared memory not yet implemented",
-                          hipErrorLaunchFailure);
 
   if (KernelParams == Extra)
     CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",
