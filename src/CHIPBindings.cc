@@ -2245,6 +2245,8 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
 
   *Ptr = RetVal;
   logInfo("hipMalloc(ptr={}, size={})", (void*)RetVal, Size);
+  int firstTouch;
+  hipMemcpy(RetVal, &firstTouch, sizeof(int), hipMemcpyHostToDevice);
   RETURN(hipSuccess);
 
   CHIP_CATCH
