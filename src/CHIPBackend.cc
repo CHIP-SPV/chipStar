@@ -1733,8 +1733,6 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   LaunchEvent->track();
   if (RegisteredVarOutEvent)
     RegisteredVarOutEvent->track();
-
-  finish();
 }
 
 CHIPEvent *
