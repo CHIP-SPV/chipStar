@@ -3686,8 +3686,6 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(HostFunction, Args);
-  // logInfo("hipLaunchKernel( HostFunction = {}, GridDim = {}, BlockDim = {}, "
-          // "Args = {}, SharedMem = {}, Stream = {})", HostFunction, GridDim, BlockDim, Args, SharedMem, Stream);
 
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeKernel>(
