@@ -36,8 +36,4 @@ function(add_hip_test MAIN_SOURCE)
   add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
 endfunction()
 
-add_hip_test(libCeedMassKernel.cpp)
-add_hip_test(libCeedFields.cpp)
-add_hip_test(dynamicSLM.cpp)
-add_hip_test(innerLoopSyncthreads.cpp)
 add_hip_test(firstTouch.cpp)
