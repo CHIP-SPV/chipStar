@@ -53,7 +53,7 @@ void __attribute__((destructor)) uninitializeBackend() {
   // there won't be hip(Un)registerFatBinary() calls if the HIP
   // program does not have embedded kernels. This makes sure we
   // uninitialize the backend at exit.
-  if (Backend /* && getSPVRegister().getNumSources() == 0 */) {
+  if (Backend) {
     CHIPUninitialize();
     delete Backend;
     Backend = nullptr;
