@@ -53,6 +53,23 @@ inline CHIPContext *PrimaryContext = nullptr;
 inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
 inline thread_local std::stack<CHIPContext *> ChipCtxStack;
 
+inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
+  switch (Kind) {
+  case hipMemcpyHostToHost:
+    return "hipMemcpyHostToHost";
+  case hipMemcpyHostToDevice:
+    return "hipMemcpyHostToDevice";
+  case hipMemcpyDeviceToHost:
+    return "hipMemcpyDeviceToHost";
+  case hipMemcpyDeviceToDevice:
+    return "hipMemcpyDeviceToDevice";
+  case hipMemcpyDefault:
+    return "hipMemcpyDefault";
+  default:
+    return "hipMemcpyUnknown";
+  }
+}
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.

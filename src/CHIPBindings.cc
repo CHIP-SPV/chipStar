@@ -2750,22 +2750,6 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
 
   CHIP_CATCH
 }
-std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
-  switch (Kind) {
-  case hipMemcpyHostToHost:
-    return "hipMemcpyHostToHost";
-  case hipMemcpyHostToDevice:
-    return "hipMemcpyHostToDevice";
-  case hipMemcpyDeviceToHost:
-    return "hipMemcpyDeviceToHost";
-  case hipMemcpyDeviceToDevice:
-    return "hipMemcpyDeviceToDevice";
-  case hipMemcpyDefault:
-    return "hipMemcpyDefault";
-  default:
-    return "hipMemcpyUnknown";
-  }
-}
 
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
