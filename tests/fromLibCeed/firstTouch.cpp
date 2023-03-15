@@ -4,9 +4,7 @@ struct Data {
   int *A_d;
 } typedef Data;
 
-__global__ void setOne(Data datain) {
-  datain.A_d[0] = 1;
-}
+__global__ void setOne(Data datain) { datain.A_d[0] = 1; }
 
 int main() {
   Data data;

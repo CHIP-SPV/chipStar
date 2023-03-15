@@ -2038,7 +2038,7 @@ int hipGetStreamDeviceId(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
   CHIPDevice *Device =
-    Backend->findQueue(static_cast<CHIPQueue *>(Stream))->getDevice();
+      Backend->findQueue(static_cast<CHIPQueue *>(Stream))->getDevice();
   return Device->getDeviceId();
   CHIP_CATCH
 }
@@ -2244,7 +2244,7 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
-  logInfo("hipMalloc(ptr={}, size={})", (void*)RetVal, Size);
+  logInfo("hipMalloc(ptr={}, size={})", (void *)RetVal, Size);
   int firstTouch;
   hipMemcpy(RetVal, &firstTouch, sizeof(int), hipMemcpyHostToDevice);
   RETURN(hipSuccess);
@@ -2327,7 +2327,7 @@ hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
 hipError_t hipFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
-  logInfo("hipFree(ptr={})", (void*)Ptr);
+  logInfo("hipFree(ptr={})", (void *)Ptr);
 
   auto Status = hipDeviceSynchronize();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
@@ -3866,7 +3866,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Module);
-  logInfo("hipModuleUnload(Module={}", (void*)Module);
+  logInfo("hipModuleUnload(Module={}", (void *)Module);
 
   auto *ChipModule = reinterpret_cast<CHIPModule *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();
@@ -3902,7 +3902,6 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
   CHIP_TRY
   CHIPInitialize();
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
-
 
   if (KernelParams == Extra)
     CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",

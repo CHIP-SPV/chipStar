@@ -353,7 +353,7 @@ public:
 
   void stop() {
     LOCK(EventMonitorMtx) // Lock the mutex to ensure that the thread is not
-                         // executing the monitor function
+                          // executing the monitor function
     logDebug("Stopping Event Monitor Thread");
     Stop = true;
     join();
@@ -1655,10 +1655,8 @@ public:
  */
 class CHIPBackend {
 protected:
-
   CHIPEventMonitor *CallbackEventMonitor_ = nullptr;
   CHIPEventMonitor *StaleEventMonitor_ = nullptr;
-
 
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;

@@ -513,7 +513,6 @@ public:
                                            size_t SharedMem,
                                            hipStream_t ChipQueue) override;
 
-
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 

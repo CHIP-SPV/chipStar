@@ -580,7 +580,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
             "CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting thread");
         if (Backend->CallbackQueue.size())
           logError("Callback thread exiting while there are still active "
-                  "callbacks in the queue");
+                   "callbacks in the queue");
         pthread_exit(0);
       }
 
@@ -701,7 +701,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
             "CHIPStaleEventMonitorLevel0 stop was called and all events have "
             "been cleared");
       }
-        pthread_exit(0);
+      pthread_exit(0);
     }
 
   } // endless loop
