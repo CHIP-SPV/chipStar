@@ -995,6 +995,11 @@ __HIP_OVERLOAD1(long, lrint);
                                            unsigned int val) {                 \
     return GEN_NAME2(atomic_##CLNAME, u)(address, val);                        \
   }                                                                            \
+  EXPORT OVLD unsigned long atomic##HIPNAME(unsigned long *address,            \
+                                            unsigned long val) {               \
+    return GEN_NAME2(atomic_##CLNAME, l)((unsigned long long *)address,        \
+                                         (unsigned long long)val);             \
+  }                                                                            \
   EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address,  \
                                                  unsigned long long val) {     \
     return GEN_NAME2(atomic_##CLNAME, l)(address, val);                        \
@@ -1048,6 +1053,8 @@ __HIP_OVERLOAD1(long, lrint);
   EXPORT OVLD int atomic##HIPNAME(int *address, int val);                      \
   EXPORT OVLD unsigned int atomic##HIPNAME(unsigned int *address,              \
                                            unsigned int val);                  \
+  EXPORT OVLD unsigned long atomic##HIPNAME(unsigned long *address,            \
+                                            unsigned long val);                \
   EXPORT OVLD unsigned long long atomic##HIPNAME(unsigned long long *address,  \
                                                  unsigned long long val);
 
