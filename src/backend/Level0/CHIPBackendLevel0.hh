@@ -128,19 +128,19 @@ public:
   }
 };
 
-class CHIPCallbackEventMonitor_Level0 : public CHIPEventMonitor {
+class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  ~CHIPCallbackEventMonitor_Level0() {
-    logTrace("CHIPCallbackEventMonitor_Level0 DEST");
+  ~CHIPCallbackEventMonitorLevel0() {
+    logTrace("CHIPCallbackEventMonitorLevel0 DEST");
     join();
   };
   virtual void monitor() override;
 };
 
-class CHIPStaleEventMonitor_Level0 : public CHIPEventMonitor {
+class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
 public:
-  ~CHIPStaleEventMonitor_Level0() {
-    logTrace("CHIPStaleEventMonitor_Level0 DEST");
+  ~CHIPStaleEventMonitorLevel0() {
+    logTrace("CHIPStaleEventMonitorLevel0 DEST");
     join();
   };
   virtual void monitor() override;
@@ -514,7 +514,6 @@ public:
                                            hipStream_t ChipQueue) override;
 
 
-
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 
@@ -549,13 +548,13 @@ public:
   }
 
   virtual CHIPEventMonitor *createCallbackEventMonitor_() override {
-    auto Evm = new CHIPCallbackEventMonitor_Level0();
+    auto Evm = new CHIPCallbackEventMonitorLevel0();
     Evm->start();
     return Evm;
   }
 
   virtual CHIPEventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitor_Level0();
+    auto Evm = new CHIPStaleEventMonitorLevel0();
     Evm->start();
     return Evm;
   }

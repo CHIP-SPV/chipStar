@@ -568,7 +568,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // CHIPEventMonitorLevel0
 // ***********************************************************************
 
-void CHIPCallbackEventMonitor_Level0::monitor() {
+void CHIPCallbackEventMonitorLevel0::monitor() {
   CHIPCallbackDataLevel0 *CallbackData;
   while (true) {
     usleep(20000);
@@ -577,7 +577,7 @@ void CHIPCallbackEventMonitor_Level0::monitor() {
 
       if (Stop) {
         logTrace(
-            "CHIPCallbackEventMonitor_Level0 out of callbacks. Exiting thread");
+            "CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting thread");
         if (Backend->CallbackQueue.size())
           logError("Callback thread exiting while there are still active "
                   "callbacks in the queue");
@@ -599,7 +599,7 @@ void CHIPCallbackEventMonitor_Level0::monitor() {
       Backend->CallbackQueue.pop();
 
       // Update Status
-      logTrace("CHIPCallbackEventMonitor_Level0::monitor() checking event "
+      logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
                "status for {}",
                (void *)CallbackData->GpuReady);
       CallbackData->GpuReady->updateFinishStatus(false);
@@ -619,20 +619,19 @@ void CHIPCallbackEventMonitor_Level0::monitor() {
   }
 }
 
-void CHIPStaleEventMonitor_Level0::monitor() {
+void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (true) {
     usleep(20000);
     LOCK(EventMonitorMtx); // CHIPEventMonitor::Stop
-
-    auto LzBackend = (CHIPBackendLevel0 *)Backend;
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
     LOCK(Backend->EventsMtx); // CHIPBackend::Events
     LOCK(                     // CHIPBackendLevel0::EventCommandListMap
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
-    // logTrace("CHIPStaleEventMonitor_Level0::monitor() # events {} # queues
+    // auto LzBackend = (CHIPBackendLevel0 *)Backend;
+    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues
     // {}",
     //          Backend->Events.size(), LzBackend->EventCommandListMap.size());
 
@@ -656,7 +655,7 @@ void CHIPStaleEventMonitor_Level0::monitor() {
         auto Found =
             std::find(Backend->Events.begin(), Backend->Events.end(), E);
         if (Found == Backend->Events.end())
-          CHIPERR_LOG_AND_THROW("StaleEventMonitor_ is trying to destroy an "
+          CHIPERR_LOG_AND_THROW("StaleEventMonitor is trying to destroy an "
                                 "event which is already "
                                 "removed from backend event list",
                                 hipErrorTbd);
@@ -691,14 +690,15 @@ void CHIPStaleEventMonitor_Level0::monitor() {
      * CHIPBackend::waitForThreadExit() but CHIPBackend has no knowledge of
      * EventCommandListMap
      */
+    // TODO libCEED - re-enable this check
     if (Stop /* && !EventCommandListMap->size() */) {
       if (!Backend->Events.size()) {
         logError(
-            "CHIPStaleEventMonitor_Level0 stop was called but not all events "
+            "CHIPStaleEventMonitorLevel0 stop was called but not all events "
             "have been cleared");
       } else {
         logTrace(
-            "CHIPStaleEventMonitor_Level0 stop was called and all events have "
+            "CHIPStaleEventMonitorLevel0 stop was called and all events have "
             "been cleared");
       }
         pthread_exit(0);
@@ -765,7 +765,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   if (zeCmdQOwnership_) {
     finish(); // must finish the queue because it's possible that that there are
               // outstanding operations which have an associated CHIPEvent. If
-              // we do not finish we risk the chance of StaleEventMonitor_ of
+              // we do not finish we risk the chance of StaleEventMonitor of
               // deadlocking while waiting for queue completion and subsequent
               // event status change
   }
@@ -1480,14 +1480,14 @@ void CHIPBackendLevel0::uninitialize() {
            "user-created queues");
 
   if (CallbackEventMonitor_) {
-    logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor_");
+    logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
     LOCK(CallbackEventMonitor_->EventMonitorMtx); // CHIPEventMonitor::Stop
     CallbackEventMonitor_->Stop = true;
   }
   CallbackEventMonitor_->join();
 
   {
-    logTrace("CHIPBackend::uninitialize(): Killing StaleEventMonitor_");
+    logTrace("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
     LOCK(StaleEventMonitor_->EventMonitorMtx); // CHIPEventMonitor::Stop
     StaleEventMonitor_->Stop = true;
   }
@@ -1589,9 +1589,9 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   }
 
   StaleEventMonitor_ =
-      (CHIPStaleEventMonitor_Level0 *)Backend->createStaleEventMonitor_();
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor_();
   CallbackEventMonitor_ =
-      (CHIPCallbackEventMonitor_Level0 *)Backend->createCallbackEventMonitor_();
+      (CHIPCallbackEventMonitorLevel0 *)Backend->createCallbackEventMonitor_();
 }
 
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
@@ -1610,13 +1610,13 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   CHIPDeviceLevel0 *ChipDev = CHIPDeviceLevel0::create(Dev, ChipCtx, 0);
   ChipCtx->setDevice(ChipDev);
 
-  LOCK(Backend->BackendMtx); // CHIPBackendLevel0::StaleEventMonitor_
+  LOCK(Backend->BackendMtx); // CHIPBackendLevel0::StaleEventMonitor
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
 
   StaleEventMonitor_ =
-      (CHIPStaleEventMonitor_Level0 *)Backend->createStaleEventMonitor_();
+      (CHIPStaleEventMonitorLevel0 *)Backend->createStaleEventMonitor_();
   CallbackEventMonitor_ =
-      (CHIPCallbackEventMonitor_Level0 *)Backend->createCallbackEventMonitor_();
+      (CHIPCallbackEventMonitorLevel0 *)Backend->createCallbackEventMonitor_();
   setActiveDevice(ChipDev);
 }
 
