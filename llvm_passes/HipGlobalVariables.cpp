@@ -59,6 +59,7 @@ using Const2InstMapT = std::map<Constant *, Instruction *>;
 // SPIR-V address spaces.
 constexpr unsigned SpirvCrossWorkGroupAS = SPIRV_CROSSWORKGROUP_AS;
 constexpr unsigned SpirvUniformConstantAS = SPIRV_UNIFORMCONSTANT_AS;
+constexpr unsigned SpirvWorkgroupAS = SPIRV_WORKGROUP_AS;
 
 // Create kernel function stub, returns its return instruction.
 static Instruction *createKernelStub(Module &M, StringRef Name,
@@ -448,7 +449,10 @@ static std::vector<GlobalVariable *> findResettableNonSymbolGVs(Module &M) {
     // section or lacks the externally_initialized attribute.
     if (GV.isExternallyInitialized() && !GV.hasComdat())
       continue;
-    if (!GV.hasInitializer() || GV.isConstant())
+    if (GV.isConstant() || !GV.hasInitializer() ||
+        isa<UndefValue>(GV.getInitializer()))
+      continue;
+    if (GV.getAddressSpace() == SpirvWorkgroupAS)
       continue;
     LLVM_DEBUG(dbgs() << "Host-inaccessible resettable GV: " << GV);
     Result.push_back(&GV);
