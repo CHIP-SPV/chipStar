@@ -17,6 +17,7 @@
 // LLVM address space numbers for SPIR-V storage classes.
 #define SPIRV_CROSSWORKGROUP_AS 1
 #define SPIRV_UNIFORMCONSTANT_AS 2
+#define SPIRV_WORKGROUP_AS 3
 #define SPIRV_GENERIC_AS 4
 
 // Address space numbers for OpenCL memory regions and objects.
