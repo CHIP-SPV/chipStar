@@ -691,7 +691,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
      * EventCommandListMap
      */
     // TODO libCEED - re-enable this check
-    if (Stop /* && !EventCommandListMap->size() */) {
+    if (Stop && !EventCommandListMap->size()) {
       if (Backend->Events.size() > 0) {
         logError(
             "CHIPStaleEventMonitorLevel0 stop was called but not all events "
