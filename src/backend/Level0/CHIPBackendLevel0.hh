@@ -513,9 +513,6 @@ public:
                                            size_t SharedMem,
                                            hipStream_t ChipQueue) override;
 
-  CHIPCallbackEventMonitorLevel0 *CallbackEventMonitor = nullptr;
-  CHIPStaleEventMonitorLevel0 *StaleEventMonitor = nullptr;
-
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 
@@ -549,13 +546,13 @@ public:
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 
-  virtual CHIPEventMonitor *createCallbackEventMonitor() override {
+  virtual CHIPEventMonitor *createCallbackEventMonitor_() override {
     auto Evm = new CHIPCallbackEventMonitorLevel0();
     Evm->start();
     return Evm;
   }
 
-  virtual CHIPEventMonitor *createStaleEventMonitor() override {
+  virtual CHIPEventMonitor *createStaleEventMonitor_() override {
     auto Evm = new CHIPStaleEventMonitorLevel0();
     Evm->start();
     return Evm;

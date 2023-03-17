@@ -2038,7 +2038,7 @@ int hipGetStreamDeviceId(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
   CHIPDevice *Device =
-    Backend->findQueue(static_cast<CHIPQueue *>(Stream))->getDevice();
+      Backend->findQueue(static_cast<CHIPQueue *>(Stream))->getDevice();
   return Device->getDeviceId();
   CHIP_CATCH
 }
@@ -2244,6 +2244,13 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
+  logInfo("hipMalloc(ptr={}, size={})", (void *)RetVal, Size);
+
+  // currently required by both OpenCL and Level Zero when passing in SoA
+  bool firstTouch;
+  auto Status = Backend->getActiveDevice()->getDefaultQueue()->memCopy(
+      RetVal, &firstTouch, 1);
+  assert(Status == hipSuccess);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2324,11 +2331,13 @@ hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
 hipError_t hipFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
+  logInfo("hipFree(ptr={})", (void *)Ptr);
 
   auto Status = hipDeviceSynchronize();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
 
-  ERROR_IF((Ptr == nullptr), hipSuccess);
+  if (Ptr == nullptr)
+    RETURN(hipSuccess);
   RETURN(Backend->getActiveContext()->free(Ptr));
 
   CHIP_CATCH
@@ -2750,8 +2759,8 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  logDebug("\nExecuting memCopyAsync Dst {} Src {} Size {}", Dst, Src,
-           SizeBytes);
+  logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
+          hipMemcpyKindToString(Kind));
 
   NULLCHECK(Dst, Src);
 
@@ -2959,6 +2968,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
+  logInfo("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
 
   char CharVal = Value;
 
@@ -3687,7 +3697,6 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
     RETURN(hipSuccess);
   }
 
-  logDebug("hipLaunchKernel()");
   auto *Device = Backend->getActiveDevice();
   Device->prepareDeviceVariables(HostPtr(HostFunction));
 
@@ -3861,6 +3870,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Module);
+  logInfo("hipModuleUnload(Module={}", (void *)Module);
 
   auto *ChipModule = reinterpret_cast<CHIPModule *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();
@@ -3896,10 +3906,6 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
   CHIP_TRY
   CHIPInitialize();
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
-
-  if (SharedMemBytes > 0)
-    CHIPERR_LOG_AND_THROW("Dynamic shared memory not yet implemented",
-                          hipErrorLaunchFailure);
 
   if (KernelParams == Extra)
     CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",

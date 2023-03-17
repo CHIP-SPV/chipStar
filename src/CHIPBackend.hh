@@ -53,6 +53,23 @@ inline CHIPContext *PrimaryContext = nullptr;
 inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
 inline thread_local std::stack<CHIPContext *> ChipCtxStack;
 
+inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
+  switch (Kind) {
+  case hipMemcpyHostToHost:
+    return "hipMemcpyHostToHost";
+  case hipMemcpyHostToDevice:
+    return "hipMemcpyHostToDevice";
+  case hipMemcpyDeviceToHost:
+    return "hipMemcpyDeviceToHost";
+  case hipMemcpyDeviceToDevice:
+    return "hipMemcpyDeviceToDevice";
+  case hipMemcpyDefault:
+    return "hipMemcpyDefault";
+  default:
+    return "hipMemcpyUnknown";
+  }
+}
+
 static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   unsigned TotalNumBits = Desc.x + Desc.y + Desc.z + Desc.w;
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
@@ -327,10 +344,19 @@ public:
   virtual void monitor(){};
 
   void start() {
+    logDebug("Starting Event Monitor Thread");
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
     logDebug("Thread Created with ID : {}", Thread_);
+  }
+
+  void stop() {
+    LOCK(EventMonitorMtx) // Lock the mutex to ensure that the thread is not
+                          // executing the monitor function
+    logDebug("Stopping Event Monitor Thread");
+    Stop = true;
+    join();
   }
 };
 
@@ -1629,6 +1655,9 @@ public:
  */
 class CHIPBackend {
 protected:
+  CHIPEventMonitor *CallbackEventMonitor_ = nullptr;
+  CHIPEventMonitor *StaleEventMonitor_ = nullptr;
+
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
 
@@ -1871,8 +1900,8 @@ public:
                                                void *UserData,
                                                CHIPQueue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor *createCallbackEventMonitor() = 0;
-  virtual CHIPEventMonitor *createStaleEventMonitor() = 0;
+  virtual CHIPEventMonitor *createCallbackEventMonitor_() = 0;
+  virtual CHIPEventMonitor *createStaleEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;

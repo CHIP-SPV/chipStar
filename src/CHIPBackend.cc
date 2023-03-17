@@ -1177,7 +1177,10 @@ CHIPBackend::CHIPBackend() {
 
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-
+  if (StaleEventMonitor_)
+    StaleEventMonitor_->stop();
+  if (CallbackEventMonitor_)
+    CallbackEventMonitor_->stop();
   Events.clear();
   for (auto &Ctx : ChipContexts) {
     Backend->removeContext(Ctx);
@@ -1675,6 +1678,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
           << ExecItem->getGrid().y << ", " << ExecItem->getGrid().z << ">";
   InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", "
           << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";
+  InfoStr << "SharedMem: " << ExecItem->getSharedMem() << "\n";
 
   const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
   InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
@@ -1684,7 +1688,8 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   };
   FuncInfo.visitKernelArgs(ExecItem->getArgs(), Visitor);
 
-  logDebug("{}", InfoStr.str());
+  // Making this log info since hipLaunchKernel doesn't know enough about args
+  logInfo("{}", InfoStr.str());
 
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
