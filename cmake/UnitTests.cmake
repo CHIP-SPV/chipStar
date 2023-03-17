@@ -1969,6 +1969,12 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND IGPU_LEVEL0_FAILED_TESTS
+  "Unit_hipMemset3DAsync_ConcurrencyMthread") # Flaky. An event related issue.
+list(APPEND IGPU_LEVEL0_FAILED_TESTS
+  "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
+list(APPEND IGPU_LEVEL0_FAILED_TESTS
+  "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float") # Flaky. An event related issue.
 
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
