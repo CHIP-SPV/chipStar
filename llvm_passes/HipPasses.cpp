@@ -23,6 +23,7 @@
 #include "HipGlobalVariables.h"
 #include "HipTextureLowering.h"
 #include "HipEmitLoweredNames.h"
+#include "HipKernelArgSpiller.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -113,6 +114,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipGlobalVariablesPass());
 
   MPM.addPass(HipWarpsPass());
+
+  // This pass must be last one that modifies kernel parameter list.
+  MPM.addPass(HipKernelArgSpillerPass());
 
   // Remove dead code left over by HIP lowering passes and kept alive by
   // llvm.used and llvm.compiler.used intrinsic variable.

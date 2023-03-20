@@ -802,7 +802,7 @@ protected:
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
 
-  int32_t *BinaryData_;
+  uint32_t *BinaryData_;
 
   /**
    * @brief hidden default constuctor. Only derived type constructor should be
@@ -1013,6 +1013,30 @@ public:
   virtual const CHIPModule *getModule() const = 0;
 };
 
+class CHIPArgSpillBuffer {
+  CHIPContext *Ctx_; ///< A context to allocate device space from.
+  std::unique_ptr<char[]> HostBuffer_;
+  char *DeviceBuffer_ = nullptr;
+  std::map<size_t, size_t> ArgIndexToOffset_;
+  size_t Size_ = 0;
+
+public:
+  CHIPArgSpillBuffer() = delete;
+  CHIPArgSpillBuffer(CHIPContext *Ctx) : Ctx_(Ctx) {}
+  ~CHIPArgSpillBuffer();
+  void computeAndReserveSpace(const SPVFuncInfo &KernelInfo);
+  void *allocate(const SPVFuncInfo::Arg &Arg);
+  size_t getSize() const { return Size_; }
+  const void *getHostBuffer() const {
+    assert(HostBuffer_.get());
+    return HostBuffer_.get();
+  }
+  void *getDeviceBuffer() {
+    assert(DeviceBuffer_);
+    return DeviceBuffer_;
+  }
+};
+
 /**
  * @brief Contains kernel arguments and a queue on which to execute.
  * Prior to kernel launch, the arguments are setup via
@@ -1033,6 +1057,8 @@ protected:
   CHIPQueue *ChipQueue_;
 
   std::vector<void *> Args_;
+
+  std::shared_ptr<CHIPArgSpillBuffer> ArgSpillBuffer_;
 
 public:
   void copyArgs(void **Args);
@@ -1127,6 +1153,10 @@ public:
   virtual void setupAllArgs() = 0;
 
   void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
+
+  std::shared_ptr<CHIPArgSpillBuffer> getArgSpillBuffer() const {
+    return ArgSpillBuffer_;
+  };
 };
 
 /**

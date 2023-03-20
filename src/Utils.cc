@@ -172,3 +172,12 @@ std::string_view trim(std::string_view Str) {
     Str.remove_suffix(1);
   return Str;
 }
+
+/// Return true if the 'Str' string starts with the 'WithStr' string.
+bool startsWith(std::string_view Str, std::string_view WithStr) {
+  // NOTE: With C++20 this function could be deprecated in favor of
+  //       std::string_view::starts_with().
+
+  return Str.size() >= WithStr.size() &&
+         Str.substr(0, WithStr.size()) == WithStr;
+}

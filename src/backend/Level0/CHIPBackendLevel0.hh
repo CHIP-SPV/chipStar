@@ -69,6 +69,9 @@ public:
 };
 
 class CHIPEventLevel0 : public CHIPEvent {
+public:
+  using ActionFn = std::function<void()>;
+
 private:
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
@@ -79,6 +82,8 @@ private:
 
   // The timestamp value
   uint64_t Timestamp_;
+
+  std::vector<ActionFn> Actions_;
 
 public:
   uint32_t getValidTimestampBits();
@@ -110,6 +115,18 @@ public:
 
   ze_event_handle_t peek();
   ze_event_handle_t get(std::string Msg);
+
+  /// Bind an action which is promised to be executed when the event is
+  /// finished.
+  void addAction(ActionFn Action) { Actions_.emplace_back(Action); }
+
+  /// Execute the actions. The event must be finished.
+  void doActions() {
+    assert(isFinished() && "Event must be finished first!");
+    for (auto &Action : Actions_)
+      Action();
+    Actions_.clear();
+  }
 };
 
 class CHIPCallbackDataLevel0 : public CHIPCallbackData {

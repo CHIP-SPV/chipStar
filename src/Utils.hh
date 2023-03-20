@@ -86,6 +86,22 @@ std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
                                                    const SPVFuncInfo &FuncInfo);
 
 std::string_view trim(std::string_view Str);
+bool startsWith(std::string_view Str, std::string_view WithStr);
+
+/// A class for forming a iterator range which can be used in
+/// 'for (auto E : C) ...' expressions.
+template <typename IteratorT> class IteratorRange {
+  // The implemention is copied from LLVM.
+  IteratorT Begin_;
+  IteratorT End_;
+
+public:
+  IteratorRange(IteratorT Begin, IteratorT End) : Begin_(Begin), End_(End) {}
+
+  IteratorT begin() const { return Begin_; }
+  IteratorT end() const { return End_; }
+  bool empty() const { return Begin_ == End_; }
+};
 
 // A less comparator for comparing mixed raw and smart pointers.
 //

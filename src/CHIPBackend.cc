@@ -241,7 +241,7 @@ void CHIPModule::consumeSPIRV() {
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
-  BinaryData_ = new int32_t[NumWords + 1];
+  BinaryData_ = new uint32_t[NumWords + 1];
   std::memcpy(BinaryData_, FuncIL_, IlSize_);
   // Extract kernel function information
   bool Res = parseSPIR(BinaryData_, NumWords, FuncInfos_);
@@ -434,6 +434,44 @@ SPVFuncInfo *CHIPKernel::getFuncInfo() { return FuncInfo_; }
 void CHIPKernel::setName(std::string HostFName) { HostFName_ = HostFName; }
 void CHIPKernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
 void CHIPKernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
+
+// CHIPArgSpillBuffer
+//*****************************************************************************
+
+CHIPArgSpillBuffer::~CHIPArgSpillBuffer() { (void)Ctx_->free(DeviceBuffer_); }
+
+void CHIPArgSpillBuffer::computeAndReserveSpace(const SPVFuncInfo &KernelInfo) {
+  size_t Offset = 0;
+  size_t MaxAlignment = 1;
+  auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    if (Arg.Kind != SPVTypeKind::PODByRef)
+      return;
+    // FIXME: Extract alignment requirement for the argument value
+    //        from SPIR-V, store it in FuncInfo and read it
+    //        here. Using now an arbitrarily chosen value.
+    size_t Alignment = 32; // Chose sizeof(double4) as the alignment.
+    Offset = roundUp(Offset, Alignment);
+    ArgIndexToOffset_.insert(std::make_pair(Arg.Index, Offset));
+    MaxAlignment = std::max<size_t>(MaxAlignment, Alignment);
+    Offset += Arg.Size;
+  };
+  KernelInfo.visitKernelArgs(Visitor);
+
+  Size_ = Offset;
+  HostBuffer_ = std::make_unique<char[]>(Size_);
+  DeviceBuffer_ = static_cast<char *>(
+      Ctx_->allocate(Size_, MaxAlignment, hipMemoryTypeDevice));
+}
+
+void *CHIPArgSpillBuffer::allocate(const SPVFuncInfo::Arg &Arg) {
+  assert(HostBuffer_ && DeviceBuffer_ &&
+         "Forgot to call computeAndReserveSpace()?");
+  auto Offset = ArgIndexToOffset_[Arg.Index];
+  auto *HostPtr = HostBuffer_.get() + Offset;
+  assert(Arg.Data);
+  std::memcpy(HostPtr, Arg.Data, Arg.Size);
+  return DeviceBuffer_ + Offset;
+}
 
 // CHIPExecItem
 //*************************************************************************************
