@@ -1301,13 +1301,25 @@ void CHIPExecItemOpenCL::setupAllArgs() {
         Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, SharedMem_,
                                nullptr);
       } else {
-        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", Arg.Index,
-                 Arg.Size, Arg.Data);
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {} (value {})\n",
+                 Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
         Err = ::clSetKernelArgSVMPointer(
             Kernel->get()->get(), Arg.Index,
             // Unlike clSetKernelArg() which takes address to the argument,
             // this function takes the argument value directly.
             *(const void **)Arg.Data);
+        if (Err != CL_SUCCESS) {
+          // ROCm seems to allow passing invalid pointers to kernels if they are
+          // not derefenced (see test_device_adjacent_difference of rocPRIM).
+          // If the setting of the arg fails, let's assume this might be such a
+          // case and convert it to a null pointer.
+          logWarn(
+              "clSetKernelArgSVMPointer {} SIZE {} to {} (value {}) returned "
+              "error, setting the arg to nullptr\n",
+              Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
+          Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), Arg.Index,
+                                           nullptr);
+        }
       }
       CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                   "clSetKernelArgSVMPointer failed");
