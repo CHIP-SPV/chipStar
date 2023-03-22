@@ -28,6 +28,8 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_HCC_DETAIL_HIP_VECTOR_TYPES_H
 #define HIP_INCLUDE_HIP_HCC_DETAIL_HIP_VECTOR_TYPES_H
 
+#include <hip/spirv_hip_host_defines.h>
+
 #if defined(__cplusplus) && defined(__has_attribute) &&                        \
     __has_attribute(ext_vector_type)
 #define __NATIVE_VECTOR__(n, T) T __attribute__((ext_vector_type(n)))
