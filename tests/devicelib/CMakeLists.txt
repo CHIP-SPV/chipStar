@@ -37,3 +37,4 @@ function(add_hip_test MAIN_SOURCE)
 endfunction()
 
 add_hip_test(deviceMalloc.cpp)
+add_hip_test(implicitCasts.cpp)
