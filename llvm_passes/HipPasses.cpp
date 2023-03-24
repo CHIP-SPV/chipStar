@@ -25,6 +25,7 @@
 #include "HipTextureLowering.h"
 #include "HipEmitLoweredNames.h"
 #include "HipKernelArgSpiller.h"
+#include "HipLowerZeroLengthArrays.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -90,6 +91,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Run a collection of passes run at device link time.
   MPM.addPass(HipDynMemExternReplaceNewPass());
+  // Should be after the HipDynMemExternReplaceNewPass which relies on detecting
+  // dynamic shared memories being modeled as zero length arrays.
+  MPM.addPass(HipLowerZeroLengthArraysPass());
 
   // Prepare device code for texture function lowering which does not yet work
   // on non-inlined code and local variables of hipTextureObject_t type.

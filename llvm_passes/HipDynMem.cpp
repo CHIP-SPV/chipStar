@@ -195,58 +195,6 @@ private:
   }
 #endif
 
-#if LLVM_VERSION_MAJOR >= 16
-  static bool lowerZeroEltArrayTypes(BasicBlock &BB) {
-    SmallVector<Instruction *> InstsToDelete;
-    bool Modified = false;
-    for (auto &I : BB) {
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
-        auto *SrcATy = dyn_cast<ArrayType>(GEP->getSourceElementType());
-        if (!SrcATy || SrcATy->getNumElements() > 0)
-          continue;
-
-        // Transform 'GEP [0 x Ty], %p, 0, %idx, ...' -> 'GEP Ty, %p, %idx, ...'
-        SmallVector<Value *> NewIndices;
-        for (auto I = GEP->idx_begin() + 1, E = GEP->idx_end(); I != E; I++)
-          NewIndices.push_back(*I);
-
-        GetElementPtrInst *NewGEP = nullptr;
-        if (GEP->isInBounds())
-          NewGEP = GetElementPtrInst::CreateInBounds(SrcATy->getElementType(),
-                                                     GEP->getPointerOperand(),
-                                                     NewIndices, "", GEP);
-        else
-          NewGEP = GetElementPtrInst::Create(SrcATy->getElementType(),
-                                             GEP->getPointerOperand(),
-                                             NewIndices, "", GEP);
-        assert(NewGEP->getType() == GEP->getType());
-        GEP->replaceAllUsesWith(NewGEP);
-        InstsToDelete.push_back(GEP);
-        Modified = true;
-        continue;
-      }
-    }
-
-    for (auto I : InstsToDelete)
-      I->eraseFromParent();
-
-    return Modified;
-  }
-
-  // Replaces [0 x Ty] types, which llvm-spirv does not support, with a plain
-  // pointer to element type Ty.
-  static bool lowerZeroEltArrayTypes(Module &M) {
-    // Implementation is designed for opaque pointers.
-    assert(!M.getContext().supportsTypedPointers());
-    bool Modified = false;
-    for (auto &F : M)
-      for (auto &BB : F)
-        Modified |= lowerZeroEltArrayTypes(BB);
-
-    return Modified;
-  }
-#endif
-
   // get Function metadata "MDName" and append NN to it
   static void appendMD(Function *F, StringRef MDName, MDNode *NN) {
     unsigned MDKind = F->getContext().getMDKindID(MDName);
@@ -549,10 +497,6 @@ private:
       }
       GV->eraseFromParent();
     }
-
-#if LLVM_VERSION_MAJOR >= 16
-    Modified = lowerZeroEltArrayTypes(M);
-#endif
 
     return Modified;
   }
