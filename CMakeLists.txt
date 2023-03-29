@@ -175,7 +175,8 @@ option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emi
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
-option(BUILD_TESTS "Build Catch2 unit tests" ON)
+option(BUILD_TESTS "Build Catch2 unit tests" OFF)
+option(BUILD_SAMPLES "Build samples" OFF)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
@@ -299,12 +300,8 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-add_subdirectory(tests/cuda)
-add_subdirectory(tests/hiprtc)
-add_subdirectory(tests/fromLibCeed)
-add_subdirectory(tests/compiler)
-add_subdirectory(tests/runtime)
-add_subdirectory(./samples samples)
+
+
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 
@@ -312,7 +309,6 @@ add_subdirectory(HIPCC)
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
-add_dependencies(samples CHIP)
 add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 add_subdirectory(bin)
@@ -344,10 +340,9 @@ target_include_directories(CHIP
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
+  "${CMAKE_BINARY_DIR}/include" # for CHIPSPVConfig.hh, should be first
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
-  "${CMAKE_BINARY_DIR}"
-  "${CMAKE_BINARY_DIR}/include"
 )
 
 # CHIP-SPV COMPILATION SETUP
@@ -597,14 +592,25 @@ install(EXPORT CHIPTargets
 # CHIP-SPV INSTALLATION AND PACKAGING
 # =============================================================================
 #
+# enable the build_tests target
+SET(HIP_PATH ${CMAKE_BINARY_DIR})
+if(USE_EXTERNAL_HIP_TESTS)
+  add_subdirectory(hip-tests/catch catch)
+else()
+  add_subdirectory(HIP/tests/catch catch)
+endif()
+
 if(BUILD_TESTS)
-  SET(HIP_PATH ${CMAKE_BINARY_DIR})
-  if(USE_EXTERNAL_HIP_TESTS)
-    add_subdirectory(hip-tests/catch catch)
-  else()
-    add_subdirectory(HIP/tests/catch catch)
-  endif()
-  add_dependencies(build_tests CHIP samples)
+  add_subdirectory(tests/cuda)
+  add_subdirectory(tests/hiprtc)
+  add_subdirectory(tests/fromLibCeed)
+  add_subdirectory(tests/compiler)
+  add_subdirectory(tests/runtime)
+endif()
+
+if(BUILD_SAMPLES)
+  add_subdirectory(samples)
+  add_dependencies(samples CHIP)
 endif()
 
 if(BUILD_DOCS)
