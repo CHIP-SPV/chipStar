@@ -148,60 +148,15 @@ EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
 EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
                                      unsigned int shift);
 
-DEFOPENCL1F(acosh)
-DEFOPENCL1F(asinh)
-DEFOPENCL2F(atan2)
-DEFOPENCL1F(atanh)
-DEFOPENCL1F(cbrt)
-
-DEFOPENCL1F(cospi)
-
-DEFOPENCL1F(cyl_bessel_i1)
-DEFOPENCL1F(cyl_bessel_i0)
-
-DEFOPENCL1F(erfcinv)
-DEFOPENCL1F(erfcx)
-DEFOPENCL1F(erfinv)
-
-DEFOPENCL1F(exp10)
-DEFOPENCL1F(exp2)
-DEFOPENCL1F(fabs)
-DEFOPENCL2F(fdim)
-
-EXPORT float fdividef(float x, float y) { return x / y; }
 EXPORT double fdivide(double x, double y) { return x / y; }
 EXPORT float __fmaf_ieee_rd(float x, float y, float z);
 EXPORT float __fmaf_ieee_rn(float x, float y, float z);
 EXPORT float __fmaf_ieee_ru(float x, float y, float z);
 EXPORT float __fmaf_ieee_rz(float x, float y, float z);
 
-DEFOPENCL3F(fma)
-
-DEFOPENCL2F(fmax)
-DEFOPENCL2F(fmin)
-DEFOPENCL2F(fmod)
-
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-float NON_OVLD GEN_NAME2(frexp, f)(float f, int *i);
-double NON_OVLD GEN_NAME2(frexp, d)(double f, int *i);
-}
-EXPORT float frexpf(float f, int *i) { return GEN_NAME2(frexp, f)(f, i); }
-EXPORT double frexp(double f, int *i) { return GEN_NAME2(frexp, d)(f, i); }
-#else
-EXPORT float frexpf(float f, int *i);
-EXPORT double frexp(double f, int *i);
-#endif
-
-DEFOPENCL2F(hypot)
-DEFOPENCL1INT(ilogb)
-
 DEFOPENCL1B(isfinite)
 DEFOPENCL1B(isinf)
 DEFOPENCL1B(isnan)
-
-DEFOPENCL1F(j0)
-DEFOPENCL1F(j1)
 
 EXPORT float jnf(int n, float x) { // TODO: we could use Ahmes multiplication
                                    // and the Miller & Brown algorithm
@@ -255,8 +210,6 @@ EXPORT float ldexpf(float x, int k);
 EXPORT double ldexp(double x, int k);
 #endif
 
-DEFOPENCL1F(logb)
-
 #if defined(__HIP_DEVICE_COMPILE__)
 extern "C" {
 NON_OVLD float GEN_NAME2(modf, f)(float f, float *i);
@@ -268,15 +221,6 @@ EXPORT double modf(double f, double *i) { return GEN_NAME2(modf, d)(f, i); }
 EXPORT float modff(float f, float *i);
 EXPORT double modf(double f, double *i);
 #endif
-
-DEFOPENCL3F(norm3d)
-DEFOPENCL4F(norm4d)
-DEFOPENCL1F(normcdf)
-DEFOPENCL1F(normcdfinv)
-
-DEFOPENCL2F(pow)
-DEFOPENCL2F(remainder)
-DEFOPENCL1F(rcbrt)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 extern "C" {
@@ -293,10 +237,6 @@ EXPORT double remquo(double x, double y, int *quo) {
 EXPORT float remquof(float x, float y, int *quo);
 EXPORT double remquo(double x, double y, int *quo);
 #endif
-
-DEFOPENCL2F(rhypot)
-
-DEFOPENCL1F(rsqrt)
 
 #if defined(__HIP_DEVICE_COMPILE__)
 extern "C" {
@@ -325,103 +265,6 @@ EXPORT double scalbn(double x, int n);
 
 DEFOPENCL1B(signbit)
 
-DEFOPENCL1F(sinpi)
-DEFOPENCL1F(tgamma)
-
-#if defined(__HIP_DEVICE_COMPILE__)
-// float normf ( int dim, const float *a )
-EXPORT
-float normf(int dim,
-            const float *a) { // TODO: placeholder until OCML adds support.
-  float r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return ::sqrtf(r);
-}
-
-// float rnormf ( int  dim, const float* t )
-EXPORT
-float rnormf(int dim,
-             const float *a) { // TODO: placeholder until OCML adds support.
-  float r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return ::sqrtf(r);
-}
-
-EXPORT
-double norm(int dim,
-            const double *a) { // TODO: placeholder until OCML adds support.
-  double r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return ::sqrt(r);
-}
-
-EXPORT
-double rnorm(int dim,
-             const double *a) { // TODO: placeholder until OCML adds support.
-  double r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return ::sqrt(r);
-}
-
-// sincos
-extern "C" {
-NON_OVLD float GEN_NAME2(sincos, f)(float x, float *cos);
-NON_OVLD double GEN_NAME2(sincos, d)(double x, double *cos);
-}
-EXPORT
-void sincosf(float x, float *sptr, float *cptr) {
-  float tmp;
-  *sptr = GEN_NAME2(sincos, f)(x, &tmp);
-  *cptr = tmp;
-}
-EXPORT
-void sincos(double x, double *sptr, double *cptr) {
-  double tmp;
-  *sptr = GEN_NAME2(sincos, d)(x, &tmp);
-  *cptr = tmp;
-}
-
-// sincospi
-EXPORT
-void sincospif(float x, float *sptr, float *cptr) {
-  *sptr = GEN_NAME2(sinpi, f)(x);
-  *cptr = GEN_NAME2(cospi, f)(x);
-}
-
-EXPORT
-void sincospi(double x, double *sptr, double *cptr) {
-  *sptr = GEN_NAME2(sinpi, d)(x);
-  *cptr = GEN_NAME2(cospi, d)(x);
-}
-#else
-EXPORT float normf(int dim, const float *a);
-EXPORT float rnormf(int dim, const float *a);
-EXPORT double norm(int dim, const double *a);
-EXPORT double rnorm(int dim, const double *a);
-EXPORT void sincosf(float x, float *sptr, float *cptr);
-EXPORT void sincos(double x, double *sptr, double *cptr);
-EXPORT void sincospif(float x, float *sptr, float *cptr);
-EXPORT void sincospi(double x, double *sptr, double *cptr);
-#endif
-
-DEFOPENCL1F(y0)
-DEFOPENCL1F(y1)
 EXPORT float ynf(int n, float x) { // TODO: we could use Ahmes multiplication
                                    // and the Miller & Brown algorithm
   //       for linear recurrences to get O(log n) steps, but it's unclear if
@@ -472,9 +315,9 @@ FAKE_ROUNDINGS2(mul, x *y)
 
 FAKE_ROUNDINGS1(rcp, (1.0f / x))
 FAKE_ROUNDINGS1(sqrt, ::sqrt(x))
-FAKE_ROUNDINGS1(rsqrt, GEN_NAME2(rsqrt, f)(x))
+FAKE_ROUNDINGS1(rsqrt, ::rsqrtf(x))
 
-FAKE_ROUNDINGS3(fma, GEN_NAME2(fma, f)(x, y, z))
+FAKE_ROUNDINGS3(fma, ::fmaf(x, y, z))
 // FAKE_ROUNDINGS3(fmaf_ieee, GEN_NAME2(fmaf_ieee, f)(x, y, z))
 
 DEFOPENCL1F_NATIVE(exp10)
@@ -859,11 +702,11 @@ EXPORT unsigned int __usad(unsigned int x, unsigned int y, unsigned int z) {
 #define CHAR_BIT 8
 #endif
 
-EXPORT float fma(float x, float y, float z) { return fmaf(x, y, z); }
-
-EXPORT api_half fma(api_half x, api_half y, api_half z) {
-  return fma_h(x, y, z);
-}
+// TODO
+// EXPORT api_half fma(api_half x, api_half y, api_half z) {
+//   // TODO
+//   // return fma_h(x, y, z);
+// }
 
 #pragma push_macro("__DEF_FLOAT_FUN")
 #pragma push_macro("__DEF_FLOAT_FUN2")
@@ -918,20 +761,16 @@ template <class __T> struct __hip_enable_if<true, __T> { typedef __T type; };
   float func(float x, float y) { return func##f(x, y); }                       \
   __HIP_OVERLOAD2(retty, func)
 
-__DEF_FUN1(double, acosh)
-__DEF_FUN1(double, asinh)
-__DEF_FUN2(double, atan2);
-__DEF_FUN1(double, atanh)
-__DEF_FUN1(double, cbrt)
-__DEF_FUN1(double, exp2)
-__DEF_FUN1(double, fabs)
-__DEF_FUN2(double, fdim);
-__DEF_FUN2(double, fmax);
-__DEF_FUN2(double, fmin);
-__DEF_FUN2(double, fmod);
+// __DEF_FUN1(double, cbrt)
+// __DEF_FUN1(double, exp2)
+// __DEF_FUN1(double, fabs)
+// __DEF_FUN2(double, fdim);
+// __DEF_FUN2(double, fmax);
+// __DEF_FUN2(double, fmin);
+// __DEF_FUN2(double, fmod);
 //__HIP_OVERLOAD1(int, fpclassify)
-__DEF_FUN2(double, hypot);
-__DEF_FUNI(int, ilogb)
+// __DEF_FUN2(double, hypot);
+// __DEF_FUNI(int, ilogb)
 __HIP_OVERLOAD1(bool, isfinite)
 __HIP_OVERLOAD2(bool, isgreater);
 __HIP_OVERLOAD2(bool, isgreaterequal);
@@ -953,14 +792,6 @@ __DEF_FUN1(double, tgamma)
   EXPORT                                                                       \
   float func(float x, int y) { return func##f(x, y); }
 __DEF_FLOAT_FUN2I(scalbn)
-
-EXPORT float max(float x, float y) { return fmaxf(x, y); }
-
-EXPORT double max(double x, double y) { return fmax(x, y); }
-
-EXPORT float min(float x, float y) { return fminf(x, y); }
-
-EXPORT double min(double x, double y) { return fmin(x, y); }
 
 __HIP_OVERLOAD2(double, max)
 __HIP_OVERLOAD2(double, min)
