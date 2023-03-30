@@ -1101,7 +1101,6 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
     // completes (may happen when called from CHIPQueue::launchKernel()).
     LaunchEvent->addAction([=]() -> void { auto Tmp = SpillBuf; });
 
-  LaunchEvent->track();
   return LaunchEvent;
 }
 
