@@ -20,39 +20,251 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef HIP_INCLUDE_DEVICELIB_DP_INTRINSICS_H
 #define HIP_INCLUDE_DEVICELIB_DP_INTRINSICS_H
 
 #include <hip/devicelib/macros.hh>
 
-// __device__​ double __dadd_rd ( double  x, double  y )
-// __device__​ double __dadd_rn ( double  x, double  y )
-// __device__​ double __dadd_ru ( double  x, double  y )
-// __device__​ double __dadd_rz ( double  x, double  y )
-// __device__​ double __ddiv_rd ( double  x, double  y )
-// __device__​ double __ddiv_rn ( double  x, double  y )
-// __device__​ double __ddiv_ru ( double  x, double  y )
-// __device__​ double __ddiv_rz ( double  x, double  y )
-// __device__​ double __dmul_rd ( double  x, double  y )
-// __device__​ double __dmul_rn ( double  x, double  y )
-// __device__​ double __dmul_ru ( double  x, double  y )
-// __device__​ double __dmul_rz ( double  x, double  y )
-// __device__​ double __drcp_rd ( double  x )
-// __device__​ double __drcp_rn ( double  x )
-// __device__​ double __drcp_ru ( double  x )
-// __device__​ double __drcp_rz ( double  x )
-// __device__​ double __dsqrt_rd ( double  x )
-// __device__​ double __dsqrt_rn ( double  x )
-// __device__​ double __dsqrt_ru ( double  x )
-// __device__​ double __dsqrt_rz ( double  x )
-// __device__​ double __dsub_rd ( double  x, double  y )
-// __device__​ double __dsub_rn ( double  x, double  y )
-// __device__​ double __dsub_ru ( double  x, double  y )
-// __device__​ double __dsub_rz ( double  x, double  y )
-// __device__​ double __fma_rd ( double  x, double  y, double  z )
-// __device__​ double __fma_rn ( double  x, double  y, double  z )
-// __device__​ double __fma_ru ( double  x, double  y, double  z )
-// __device__​ double __fma_rz ( double  x, double  y, double  z )
+// #define FAKE_ROUNDINGS
+#define OCML_BASIC_ROUNDED_OPERATIONS
+
+#if defined(FAKE_ROUNDINGS) and defined(OCML_BASIC_ROUNDED_OPERATIONS)
+#error                                                                         \
+    "Both OCML_BASIC_ROUNDED_OPERATIONS and FAKE_ROUNDINGS are defined. Only one of these should be defined."
+#elif !defined(FAKE_ROUNDINGS) and !defined(OCML_BASIC_ROUNDED_OPERATIONS)
+#error                                                                         \
+    "No rounding mode defined. Either OCML_BASIC_ROUNDED_OPERATIONS or FAKE_ROUNDINGS must be defined."
+#endif
+
+/**
+ * @brief Declare as extern - we state that these funcitons are implemented and
+ * will be found at link time
+ *
+ * The format is as follows:
+ * 1. Declare the external function which will be executed with the appropriate
+ * linkage. Inline comment specifying where the implementation is coming from.
+ * (OpenCL, OCML, custom) note: some of these declarations are not strictly
+ * necesary but are included for completeness.
+ * 2. If necessary, define the type specific function and bind it to the
+ * function declared in 1. cosf(x) -> cos(x)
+ */
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ double __ocml_add_rtn_f64(double x, double y);
+extern "C++" inline __device__ double __dadd_rd(double x, double y) {
+  return __ocml_add_rtn_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_add_rte_f64(double x, double y);
+extern "C++" inline __device__ double __dadd_rn(double x, double y) {
+  return __ocml_add_rte_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_add_rtp_f64(double x, double y);
+extern "C++" inline __device__ double __dadd_ru(double x, double y) {
+  return __ocml_add_rtp_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_add_rtz_f64(double x, double y);
+extern "C++" inline __device__ double __dadd_rz(double x, double y) {
+  return __ocml_add_rtz_f64(x, y);
+}
+#else
+extern "C++" inline __device__ double __dadd_rd(double x, double y) {
+  return x + y;
+}
+extern "C++" inline __device__ double __dadd_rn(double x, double y) {
+  return x + y;
+}
+extern "C++" inline __device__ double __dadd_ru(double x, double y) {
+  return x + y;
+}
+extern "C++" inline __device__ double __dadd_rz(double x, double y) {
+  return x + y;
+}
+#endif
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ double __ocml_div_rtn_f64(double x, double y);
+extern "C++" inline __device__ double __ddiv_rd(double x, double y) {
+  return __ocml_div_rtn_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_div_rte_f64(double x, double y);
+extern "C++" inline __device__ double __ddiv_rn(double x, double y) {
+  return __ocml_div_rte_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_div_rtp_f64(double x, double y);
+extern "C++" inline __device__ double __ddiv_ru(double x, double y) {
+  return __ocml_div_rtp_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_div_rtz_f64(double x, double y);
+extern "C++" inline __device__ double __ddiv_rz(double x, double y) {
+  return __ocml_div_rtz_f64(x, y);
+}
+#else
+extern "C++" inline __device__ double __ddiv_rd(double x, double y) {
+  return x / y;
+}
+extern "C++" inline __device__ double __ddiv_rn(double x, double y) {
+  return x / y;
+}
+extern "C++" inline __device__ double __ddiv_ru(double x, double y) {
+  return x / y;
+}
+extern "C++" inline __device__ double __ddiv_rz(double x, double y) {
+  return x / y;
+}
+#endif
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ double __ocml_mul_rtn_f64(double x, double y);
+extern "C++" inline __device__ double __dmul_rd(double x, double y) {
+  return __ocml_mul_rtn_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_mul_rte_f64(double x, double y);
+extern "C++" inline __device__ double __dmul_rn(double x, double y) {
+  return __ocml_mul_rte_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_mul_rtp_f64(double x, double y);
+extern "C++" inline __device__ double __dmul_ru(double x, double y) {
+  return __ocml_mul_rtp_f64(x, y);
+}
+
+extern "C++" inline __device__ double __ocml_mul_rtz_f64(double x, double y);
+extern "C++" inline __device__ double __dmul_rz(double x, double y) {
+  return __ocml_mul_rtz_f64(x, y);
+}
+#else
+extern "C++" inline __device__ double __dmul_rd(double x, double y) {
+  return x * y;
+}
+extern "C++" inline __device__ double __dmul_rn(double x, double y) {
+  return x * y;
+}
+extern "C++" inline __device__ double __dmul_ru(double x, double y) {
+  return x * y;
+}
+extern "C++" inline __device__ double __dmul_rz(double x, double y) {
+  return x * y;
+}
+#endif
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ double __drcp_rd(double x);
+extern "C++" inline __device__ double __drcp_rn(double x);
+extern "C++" inline __device__ double __drcp_ru(double x);
+extern "C++" inline __device__ double __drcp_rz(double x);
+#else
+extern "C++" inline __device__ double __drcp_rd(double x) { 1.0f / x; }
+extern "C++" inline __device__ double __drcp_rn(double x) { 1.0f / x; }
+extern "C++" inline __device__ double __drcp_ru(double x) { 1.0f / x; }
+extern "C++" inline __device__ double __drcp_rz(double x) { 1.0f / x; }
+#endif
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ double __ocml_sqrt_rtn_f64(double x);
+extern "C++" inline __device__ double __dsqrt_rd(double x) {
+  return __ocml_sqrt_rtn_f64(x);
+}
+
+extern "C++" inline __device__ double __ocml_sqrt_rte_f64(double x);
+extern "C++" inline __device__ double __dsqrt_rn(double x) {
+  return __ocml_sqrt_rte_f64(x);
+}
+
+extern "C++" inline __device__ double __ocml_sqrt_rtp_f64(double x);
+extern "C++" inline __device__ double __dsqrt_ru(double x) {
+  return __ocml_sqrt_rtp_f64(x);
+}
+
+extern "C++" inline __device__ double __ocml_sqrt_rtz_f64(double x);
+extern "C++" inline __device__ double __dsqrt_rz(double x) {
+  return __ocml_sqrt_rtz_f64(x);
+}
+#else
+extern "C++" inline __device__ double __dsqrt_rd(double x) { sqrt(x); }
+extern "C++" inline __device__ double __dsqrt_rn(double x) { sqrt(x); }
+extern "C++" inline __device__ double __dsqrt_ru(double x) { sqrt(x); }
+extern "C++" inline __device__ double __dsqrt_rz(double x) { sqrt(x); }
+#endif
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ float __ocml_sub_rtn_f64(float x, float y);
+extern "C++" inline __device__ double __dsub_rd(double x, double y) {
+  return __ocml_sub_rtn_f64(x, y);
+}
+
+extern "C++" inline __device__ float __ocml_sub_rte_f64(float x, float y);
+extern "C++" inline __device__ double __dsub_rn(double x, double y) {
+  return __ocml_sub_rte_f64(x, y);
+}
+
+extern "C++" inline __device__ float __ocml_sub_rtp_f64(float x, float y);
+extern "C++" inline __device__ double __dsub_ru(double x, double y) {
+  return __ocml_sub_rtp_f64(x, y);
+}
+
+extern "C++" inline __device__ float __ocml_sub_rtz_f64(float x, float y);
+extern "C++" inline __device__ double __dsub_rz(double x, double y) {
+  return __ocml_sub_rtz_f64(x, y);
+}
+#else
+extern "C++" inline __device__ double __dsub_rd(double x, double y) {
+  return x - y;
+}
+extern "C++" inline __device__ double __dsub_rn(double x, double y) {
+  return x - y;
+}
+extern "C++" inline __device__ double __dsub_ru(double x, double y) {
+  return x - y;
+}
+extern "C++" inline __device__ double __dsub_rz(double x, double y) {
+  return x - y;
+}
+#endif
+
+#if defined(OCML_BASIC_ROUNDED_OPERATIONS)
+extern "C++" inline __device__ double __ocml_fma_rtn_f64(double x, double y,
+                                                         double z);
+extern "C++" inline __device__ double __fma_rd(double x, double y, double z) {
+  return __ocml_fma_rtn_f64(x, y, z);
+}
+
+extern "C++" inline __device__ double __ocml_fma_rte_f64(double x, double y,
+                                                         double z);
+extern "C++" inline __device__ double __fma_rn(double x, double y, double z) {
+  return __ocml_fma_rte_f64(x, y, z);
+}
+
+extern "C++" inline __device__ double __ocml_fma_rtp_f64(double x, double y,
+                                                         double z);
+extern "C++" inline __device__ double __fma_ru(double x, double y, double z) {
+  return __ocml_fma_rtp_f64(x, y, z);
+}
+
+extern "C++" inline __device__ double __ocml_fma_rtz_f64(double x, double y,
+                                                         double z);
+extern "C++" inline __device__ double __fma_rz(double x, double y, double z) {
+  return __ocml_fma_rtz_f64(x, y, z);
+}
+#else
+extern "C++" inline __device__ double __fma_rd(double x, double y, double z) {
+  return fma(x, y, z);
+}
+extern "C++" inline __device__ double __fma_rn(double x, double y, double z) {
+  return fma(x, y, z);
+}
+extern "C++" inline __device__ double __fma_ru(double x, double y, double z) {
+  return fma(x, y, z);
+}
+extern "C++" inline __device__ double __fma_rz(double x, double y, double z) {
+  return fma(x, y, z);
+}
+#endif
 
 #endif // include guard
