@@ -455,29 +455,6 @@ extern "C++" inline __device__ float ynf(int n, float x) {
   return x1;
 }
 
-/**
- * @brief TODO
- *
- * OpenCL’s native_ math built-ins map to the same CUDA built-in as the
-equivalent non-native_ OpenCL built-in and the precision is
-implementation-defined:
-
-native_cos
-native_divide
-native_exp
-native_exp2
-native_exp10
-native_log
-native_log2
-native_log10
-native_powr
-native_recip
-native_rsqrt
-native_sin
-native_sqrt
-native_tan
-**/
-
 namespace std {
 // Clang does provide device side std:: functions via HIP include
 // wrappers but, alas, the wrappers won't compile on CHIP-SPV due to

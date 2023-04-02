@@ -90,24 +90,24 @@ extern "C++" inline __device__ float __fadd_rz(float x, float y) { return x + y;
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" inline __device__ float __ocml_fdiv_rd(float x, float y);
+extern "C++" inline __device__ float __ocml_div_rtn_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_rd(float x, float y) {
-  return __ocml_fdiv_rd(x, y);
+  return __ocml_div_rtn_f32(x, y);
 }
 
-extern "C++" inline __device__ float __ocml_fdiv_rn(float x, float y);
+extern "C++" inline __device__ float __ocml_div_rte_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_rn(float x, float y) { 
-  return __ocml_fdiv_rn(x, y);
+  return __ocml_div_rte_f32(x, y);
 }
 
-extern "C++" inline __device__ float __ocml_fdiv_ru(float x, float y);
+extern "C++" inline __device__ float __ocml_div_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_ru(float x, float y) { 
-  return __ocml_fdiv_ru(x, y);
+  return __ocml_div_rtp_f32(x, y);
 }
 
-extern "C++" inline __device__ float __ocml_fdiv_rz(float x, float y);
+extern "C++" inline __device__ float __ocml_div_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_rz(float x, float y) {
-  return __ocml_fdiv_rz(x, y);
+  return __ocml_div_rtz_f32(x, y);
 }
 #else
 extern "C++" inline __device__ float __fdiv_rd(float x, float y) { return x / y;}
