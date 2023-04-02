@@ -60,22 +60,22 @@ extern "C++" inline __device__ float native_exp(float x); // OpenCL
 extern "C++" inline __device__ float __expf(float x) { return native_exp(x); }
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" inline __device__ float __ocml_fadd_rd(float x, float y);
+extern "C++" inline __device__ float __ocml_add_rtn_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rd(float x, float y)  {
-  return __ocml_fadd_rd(x, y);
+  return __ocml_add_rtn_f32(x, y);
 }
 
-extern "C++" inline __device__ float __ocml_fadd_rn(float x, float y);
+extern "C++" inline __device__ float __ocml_add_rte_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rn(float x, float y) {
-  return __ocml_fadd_rn(x, y);
+  return __ocml_add_rte_f32(x, y);
 }
 
-extern "C++" inline __device__ float __ocml_fadd_ru(float x, float y);
+extern "C++" inline __device__ float __ocml_add_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_ru(float x, float y) {
-  return __ocml_fadd_ru(x, y);
+  return __ocml_add_rtp_f32(x, y);
 }
 
-extern "C++" inline __device__ float __ocml_fadd_rz(float x, float y);
+extern "C++" inline __device__ float __ocml_add_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rz(float x, float y) {
   return __ocml_fadd_rz(x, y);
 }
@@ -148,9 +148,11 @@ extern "C++" inline __device__ float __fmaf_rd(float x, float y, float z) {
    return __ocml_fma_rtn_f32(x, y, z); 
 }
 
+extern "C++" inline __device__ float __ocml_fma_rte_f32(float, float, float);
 extern "C++" inline __device__ float __fmaf_rn(float x, float y, float z) {
-
+  return __ocml_fma_rte_f32(x, y, z);
 }
+
 extern "C++" inline __device__ float __ocml_fma_rtp_f32(float x, float y, float z);
 extern "C++" inline __device__ float __fmaf_ru(float x, float y, float z) {
   return __ocml_fma_rtp_f32(x, y, z);
@@ -176,7 +178,10 @@ extern "C++" inline __device__ float __fmul_rd(float x, float y) {
   return __ocml_mul_rtn_f32(x, y);
 }
 
-extern "C++" inline __device__ float __fmul_rn(float x, float y);
+extern "C++" inline __device__ float __ocml_mul_rte_f32(float x, float y);
+extern "C++" inline __device__ float __fmul_rn(float x, float y) {
+  return __ocml_mul_rte_f32(x, y);
+}
 
 extern "C++" inline __device__ float __ocml_mul_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fmul_ru(float x, float y) {
@@ -227,7 +232,10 @@ extern "C++" inline __device__ float __fsqrt_rd(float x) {
   return __ocml_sqrt_rtn_f32(x);
 }
 
-extern "C++" inline __device__ float __fsqrt_rn(float x);
+extern "C++" inline __device__ float __ocml_sqrt_rte_f32(float x);
+extern "C++" inline __device__ float __fsqrt_rn(float x) {
+  return __ocml_sqrt_rte_f32(x);
+}
 
 extern "C++" inline __device__ float __ocml_sqrt_rtp_f32(float x);
 extern "C++" inline __device__ float __fsqrt_ru(float x) {
@@ -254,7 +262,10 @@ extern "C++" inline __device__ float __fsub_rd(float x, float y) {
   return __ocml_sub_rtn_f32(x, y); 
 }
 
-extern "C++" inline __device__ float __fsub_rn(float x, float y);
+extern "C++" inline __device__ float __ocml_sub_rte_f32(float x, float y);
+extern "C++" inline __device__ float __fsub_rn(float x, float y) {
+  return __ocml_sub_rte_f32(x, y);
+}
 
 extern "C++" inline __device__ float __ocml_sub_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fsub_ru(float x, float y) {
@@ -275,7 +286,7 @@ extern "C++" inline __device__ float __fsub_ru(float x, float y) { return x - y;
 extern "C++" inline __device__ float __fsub_rz(float x, float y) { return x - y; }
 #endif
 
-extern "C++" inline __device__ float native_log10(float x);
+extern "C++" inline __device__ float native_log10(float x); // OpenCL
 extern "C++" inline __device__ float __log10f(float x) {
   return native_log10(x);
 }
@@ -298,7 +309,6 @@ extern "C++" inline __device__ float __powf(float x, float y) {
 // TODO move to devicelib.cl
 // extern "C++" inline __device__ float __saturatef ( float  x ); // custom
 extern "C++" inline __device__ float __saturatef(float x) {
-  // TODO check OCML
   return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
 }
 
@@ -311,7 +321,7 @@ extern "C++" inline __device__ void __sincosf(float x, float *sptr,
   *cptr = native_cos(x);
 }
 
-// extern "C++" inline __device__ float native_sin(float x); // OpenCL
+// extern "C++" inline __device__ float native_sin(float x); // OpenCL (already declared)
 extern "C++" inline __device__ float __sinf(float x) { return native_sin(x); }
 
 extern "C++" inline __device__ float native_tan(float x); // OpenCL
