@@ -376,6 +376,21 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
 
         IRBuilder<> B(&I);
 
+        if (TotalFmtSpecCount > OrigCall.arg_size() - 1) {
+          // More specifiers than format arguments. Either the user forgot
+          // arguments or the format string has invalid specifiers - in either
+          // case this triggers UB.
+          LLVM_DEBUG(dbgs()
+                     << "  Invalid format string or missing arguments?\n");
+          Value *ErrorFmt = getOrCreateStrLiteralArg(
+              "Error: Invalid printf format string\n", B);
+          CallInst::Create(OpenCLPrintfF, ArrayRef(ErrorFmt), "", &OrigCall);
+          auto *PoisonInt = PoisonValue::get(Type::getInt32Ty(Ctx));
+          OrigCall.replaceAllUsesWith(PoisonInt);
+          EraseList.insert(&OrigCall);
+          continue;
+        }
+
         auto OrigCallArgs = OrigCall.args();
         auto OrigCallArgI = OrigCallArgs.begin();
         // Skip the original format string arg and recreate it.
