@@ -13,11 +13,8 @@ int main() {
   hipLaunchKernelGGL(setOne, dim3(1), dim3(1), 0, 0, data);
   hipDeviceSynchronize();
   hipMemcpy(A_h, data.A_d, sizeof(int), hipMemcpyDeviceToHost);
-  if (A_h[0] == 1) {
-    printf("PASSED\n");
-  } else {
-    printf("FAILED\n");
-  }
+  bool Failed = A_h[0] != 1;
+  printf(Failed ? "FAILED\n" : "PASSED\n");
   hipFree(data.A_d);
-  return 0;
+  return Failed;
 }
