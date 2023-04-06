@@ -25,8 +25,8 @@
 
 #include <hip/devicelib/macros.hh>
 
-// #define FAKE_ROUNDINGS
-#define OCML_BASIC_ROUNDED_OPERATIONS
+#define FAKE_ROUNDINGS
+// #define OCML_BASIC_ROUNDED_OPERATIONS
 
 #if defined(FAKE_ROUNDINGS) and defined(OCML_BASIC_ROUNDED_OPERATIONS)
 #error                                                                         \
@@ -253,6 +253,7 @@ extern "C++" inline __device__ double __fma_rz(double x, double y, double z) {
   return __ocml_fma_rtz_f64(x, y, z);
 }
 #else
+extern "C++" inline __device__ double fma(double x, double y, double z);
 extern "C++" inline __device__ double __fma_rd(double x, double y, double z) {
   return fma(x, y, z);
 }

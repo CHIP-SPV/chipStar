@@ -121,9 +121,9 @@ extern "C++" inline __device__ float fdimf(float x, float y) {
   return ::fdim(x, y);
 }
 
-extern "C++" inline __device__ float fdividef(float x, float y); // OpenCL
-extern "C++" inline __device__ float fdividef(float x, float y) {
   // TODO If --use_fast_math is specified, use __fdividef() for higher
+// extern "C++" inline __device__ float native_divide(float x, float y); // OpenCL
+extern "C++" inline __device__ float fdividef(float x, float y) {
   // performance, otherwise use normal division.
   return x / y;
 }
@@ -176,25 +176,9 @@ extern "C++" inline __device__ float j0f(float x) { return ::j0(x); }
 extern "C++" inline __device__ float j1(float x); // OCML
 extern "C++" inline __device__ float j1f(float x) { return ::j1(x); }
 
-// TODO
-// extern "C++" inline __device__ float jnf(int n, float x); // Custom
+extern "C++" inline __device__ float __chip_jn_f(int n, float x); // Custom
 extern "C++" inline __device__ float jnf(int n, float x) {
-  // TODO check if OCML available
-  // TODO move to devicelib.cl
-  if (n == 0)
-    return j0f(x);
-  if (n == 1)
-    return j1f(x);
-
-  float x0 = j0f(x);
-  float x1 = j1f(x);
-  for (int i = 1; i < n; ++i) {
-    float x2 = (2 * i) / x * x1 - x0;
-    x0 = x1;
-    x1 = x2;
-  }
-
-  return x1;
+  return __chip_jn_f(n, x);
 }
 
 extern "C++" inline __device__ float ldexp(float x, int exp); // OpenCL
@@ -205,16 +189,14 @@ extern "C++" inline __device__ float ldexpf(float x, int exp) {
 extern "C++" inline __device__ float lgamma(float x); // OCML
 extern "C++" inline __device__ float lgammaf(float x) { return (lgamma(x)); };
 
-// TODO
-// extern "C++" inline __device__ long long int rint(float x); // OpenCL
+extern "C++" inline __device__ long long int __chip_llrint_f(float x); // Custom
 extern "C++" inline __device__ long long int llrintf(float x) {
-  return static_cast<long long int>(rint(x));
+  return __chip_llrint_f(x);
 }
 
-// TODO
-// extern "C++" inline __device__ long long int round(float x); // OpenCL
+extern "C++" inline __device__ long long int __chip_llround_f(float x); // Custom
 extern "C++" inline __device__ long long int llroundf(float x) {
-  return static_cast<long long int>(::round(x));
+  return __chip_llround_f(x);
 }
 
 extern "C++" inline __device__ float log10(float x); // OpenCL
@@ -232,22 +214,17 @@ extern "C++" inline __device__ float logbf(float x) { return ::logb(x); }
 extern "C++" inline __device__ float log(float x); // OpenCL
 extern "C++" inline __device__ float logf(float x) { return ::log(x); }
 
-// TODO
-// extern "C++" inline __device__ long int lrintf(float x); // OpenCL
+extern "C++" inline __device__ long int __chip_lrint_f(float x); // Custom
 extern "C++" inline __device__ long int lrintf(float x) {
-  return static_cast<long int>(rint(x));
+  return __chip_lrint_f(x);
 }
-
-// TODO
-// extern "C++" inline __device__ long int lrintf(float x); // OpenCL
 extern "C++" inline __device__ long int lrint(float x) {
-  return static_cast<long int>(rint(x));
+  return __chip_lrint_f(x);
 }
 
-// TODO
-// extern "C++" inline __device__ long int round(float x); // OpenCL
+extern "C++" inline __device__ long int __chip_lround_f(float x); // Custom
 extern "C++" inline __device__ long int lroundf(float x) {
-  return static_cast<long int>(::round(x));
+  return __chip_lround_f(x);
 }
 
 // extern "C++" inline __device__ float fmax(const float a, const float b); //
@@ -262,8 +239,15 @@ extern "C++" inline __device__ float min(const float a, const float b) {
   return ::fmin(a, b);
 }
 
-// extern "C++" inline __device__ float modff(float x, float *iptr); // TODO
-// extern "C++" inline __device__ float nanf(const char *tagp); // TODO
+extern "C++" inline __device__ float modf(float x, float *iptr); // OpenCL
+extern "C++" inline __device__ float modff(float x, float *iptr) {
+  return ::modf(x, iptr);
+}
+
+extern "C++" inline __device__ float nan(const char *tagp); // OpenCL
+extern "C++" inline __device__ float nanf(const char *tagp) {
+  return ::nan(tagp);
+}
 
 // extern "C++" inline __device__ float __builtin_nearbyintf(float x); // LLVM
 // (already declared)
@@ -281,21 +265,19 @@ extern "C++" inline __device__ float nextafterf(float x, float y) {
   return ::nextafter(x, y);
 }
 
-// TODO rename in devicelib.cl
-extern "C" inline __device__ float opencl_norm3d_f(float a, float b,
-                                                   float c); // custom
+extern "C" inline __device__ float __chip_norm3d_f(float a, float b,
+                                                  float c); // custom
 extern "C++" inline __device__ float norm3df(float a, float b, float c) {
   // TODO check for OCML
-  return ::opencl_norm3d_f(a, b, c);
+  return __chip_norm3d_f(a, b, c);
 }
 
-// TODO rename in devicelib.cl
-extern "C" inline __device__ float opencl_norm4d_f(float a, float b, float c,
-                                                   float d); // use OCML
+extern "C" inline __device__ float __chip_norm4d_f(float a, float b, float c,
+                                                  float d); // custom
 extern "C++" inline __device__ float norm4df(float a, float b, float c,
                                              float d) {
   // TODO check for OCML
-  return ::opencl_norm4d_f(a, b, c, d);
+  return __chip_norm4d_f(a, b, c, d);
 }
 
 extern "C++" inline __device__ float normcdf(float x); // OCML
@@ -306,20 +288,13 @@ extern "C++" inline __device__ float normcdfinvf(float x) {
   return ::normcdfinv(x);
 }
 
-// TODO move to devicelib.cl
-extern "C++" inline __device__ float normf(int dim, const float *a); // custom
+extern "C++" inline __device__ float __chip_norm_f(int dim,
+                                                  const float *a); // custom
 extern "C++" inline __device__ float normf(int dim, const float *a) {
-  // TODO move to devicelib.cl  or use OCML
-  float r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return ::sqrt(r);
+  return ::__chip_norm_f(dim, a);
 }
 extern "C++" inline __device__ float norm(int dim, const float *p) {
-  return ::normf(dim, p);
+  return ::__chip_norm_f(dim, p);
 }
 
 extern "C++" inline __device__ float pow(float x, float y); // OpenCL
@@ -336,7 +311,10 @@ extern "C++" inline __device__ float remainderf(float x, float y) {
   return ::remainder(x, y);
 }
 
-// extern "C++" inline __device__ float remquof(float x, float y, int *quo);
+extern "C++" inline __device__ float remquo(float x, float y, int *quo); // OpenCL
+extern "C++" inline __device__ float remquof(float x, float y, int *quo) {
+  return ::remquo(x, y, quo);
+}
 
 extern "C++" inline __device__ float rhypot(float x, float y); // OCML
 extern "C++" inline __device__ float rhypotf(float x, float y) {
@@ -352,18 +330,10 @@ extern "C++" inline __device__ float rnorm3df(float a, float b,
 extern "C++" inline __device__ float rnorm4df(float a, float b, float c,
                                               float d); /// OCML
 
-// TODO move to devicelib.cl
-// extern "C++" inline __device__ float rnorm(int dim, const float *a); //
-// custom
-extern "C++" inline __device__ float
-rnormf(int dim, const float *a) { // TODO switch to OCML
-  float r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return ::sqrt(r);
+extern "C++" inline __device__ float __chip_rnorm_f(int dim,
+                                                   const float *a); //// custom
+extern "C++" inline __device__ float rnormf(int dim, const float *a) {
+  return ::__chip_rnorm_f(dim, a);
 }
 extern "C++" inline __device__ float rnorm(int dim, const float *p) {
   return ::rnormf(dim, p);
@@ -396,13 +366,11 @@ extern "C++" inline __device__ void sincosf(float x, float *sptr, float *cptr) {
   *cptr = tmp;
 }
 
-// extern "C++" inline __device__ void sincospi(float x, float *sptr, float
-// *cptr) // OCML
+extern "C++" inline __device__ void __chip_sincospi_f(float x, float *sptr,
+                                                    float *cptr); // OCML
 extern "C++" inline __device__ void sincospif(float x, float *sptr,
                                               float *cptr) {
-  // TODO call OCML
-  // *sptr = ::sinpif(x);
-  // *cptr = ::sincosf(x);
+  return ::__chip_sincospi_f(x, sptr, cptr);
 }
 
 extern "C++" inline __device__ float sin(float x); // OpenCL
@@ -435,24 +403,9 @@ extern "C++" inline __device__ float y0f(float x) { return ::y0(x); }
 extern "C++" inline __device__ float y1f(float x); // OCML
 extern "C++" inline __device__ float y1f(float x) { return ::y1(x); }
 
-// TODO
-// extern "C++" inline __device__ float ynf(int n, float x); // custom
+extern "C++" inline __device__ float __chip_yn_f(int n, float x); // custom
 extern "C++" inline __device__ float ynf(int n, float x) {
-  // TODO move to devicelib.cl
-  if (n == 0)
-    return y0f(x);
-  if (n == 1)
-    return y1f(x);
-
-  float x0 = y0f(x);
-  float x1 = y1f(x);
-  for (int i = 1; i < n; ++i) {
-    float x2 = (2 * i) / x * x1 - x0;
-    x0 = x1;
-    x1 = x2;
-  }
-
-  return x1;
+  return ::__chip_yn_f(n, x);
 }
 
 namespace std {

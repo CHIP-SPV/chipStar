@@ -26,8 +26,8 @@
 #include <hip/devicelib/macros.hh>
 #include <hip/devicelib/single_precision/sp_math.hh>
 
-// #define FAKE_ROUNDINGS
-#define OCML_BASIC_ROUNDED_OPERATIONS
+#define FAKE_ROUNDINGS
+// #define OCML_BASIC_ROUNDED_OPERATIONS
 
 #if defined(FAKE_ROUNDINGS) and defined(OCML_BASIC_ROUNDED_OPERATIONS)
 #error "Both OCML_BASIC_ROUNDED_OPERATIONS and FAKE_ROUNDINGS are defined. Only one of these should be defined."
@@ -77,7 +77,7 @@ extern "C++" inline __device__ float __fadd_ru(float x, float y) {
 
 extern "C++" inline __device__ float __ocml_add_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rz(float x, float y) {
-  return __ocml_fadd_rz(x, y);
+  return __ocml_add_rtz_f32(x, y);
 }
 #else
 extern "C++" inline __device__ float __fadd_rd(float x, float y) { return x + y;}
@@ -306,10 +306,9 @@ extern "C++" inline __device__ float __powf(float x, float y) {
   return native_exp2(y * native_log2(x));
 }
 
-// TODO move to devicelib.cl
-// extern "C++" inline __device__ float __saturatef ( float  x ); // custom
+extern "C++" inline __device__ float __chip_saturate_f ( float  x ); // custom
 extern "C++" inline __device__ float __saturatef(float x) {
-  return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
+  return __chip_saturate_f(x);
 }
 
 // extern "C++" inline __device__ float native_cos(float x); // OpenCL (already

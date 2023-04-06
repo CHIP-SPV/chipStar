@@ -32,10 +32,18 @@
  *   float @_Z6sincosfPf(float, float *)
 */
 
+#include "OCML/ocml.h"
 #define NON_OVLD
 #define OVLD __attribute__((overloadable))
 //#define AI __attribute__((always_inline))
 #define EXPORT NON_OVLD
+
+#define DEFAULT_AS __generic
+
+#define CHIP_MANGLE(N) __chip_##N
+#define CHIP_MANGLE2(N, S) __chip_##N##_##S
+
+#define CHIP_MANGLE_ATOMIC(NAME, S) CHIP_MANGLE2(atomic_##NAME, S)
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
@@ -46,285 +54,169 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
-#define DEFAULT_AS __generic
+OVLD float CHIP_MANGLE2(saturate, f)(float x) {
+  return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
+}
 
-#define CL_NAME(N) opencl_##N
-#define CL_NAME2(N, S) opencl_##N##_##S
+OVLD float CHIP_MANGLE2(jn, f)(int n, float x) {
+  // TODO check if OCML available
+  if (n == 0)
+    return __ocml_j0_f32(x);
+  if (n == 1)
+    return __ocml_j1_f32(x);
 
-#define CL_NAME_MANGLED_ATOM(NAME, S) CL_NAME2(atomic_##NAME, S)
+  float x0 = __ocml_j0_f32(x);
+  float x1 = __ocml_j1_f32(x);
+  for (int i = 1; i < n; ++i) {
+    float x2 = (2 * i) / x * x1 - x0;
+    x0 = x1;
+    x1 = x2;
+  }
 
-#define DEFOCML_OPENCL1F(NAME) \
-float OVLD NAME(float f); \
-double OVLD NAME(double f); \
-half OVLD NAME(half f); \
-half2 OVLD NAME(half2 f); \
-EXPORT float CL_NAME2(NAME, f)(float x) { return NAME(x); } \
-EXPORT double CL_NAME2(NAME, d)(double x) { return NAME(x); } \
-EXPORT half CL_NAME2(NAME, h)(half x) { return NAME(x); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x) { return NAME(x); }
+  return x1;
+}
 
+OVLD float CHIP_MANGLE2(yn, f)(int n, float x) {
+  if (n == 0)
+    return __ocml_y0_f32(x);
+  if (n == 1)
+    return __ocml_y1_f32(x);
 
-#define DEFOCML_OPENCL2F(NAME) \
-float OVLD NAME(float x, float y); \
-double OVLD NAME(double x, double y); \
-half OVLD NAME(half x, half y); \
-half2 OVLD NAME(half2 x, half2 y); \
-EXPORT float CL_NAME2(NAME, f)(float x, float y) { return NAME(x, y); } \
-EXPORT double CL_NAME2(NAME, d)(double x, double y) { return NAME(x, y); } \
-EXPORT half CL_NAME2(NAME, h)(half x, half y) { return NAME(x, y); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x, half2 y) { return NAME(x, y); }
+  float x0 = __ocml_y0_f32(x);
+  float x1 = __ocml_y1_f32(x);
+  for (int i = 1; i < n; ++i) {
+    float x2 = (2 * i) / x * x1 - x0;
+    x0 = x1;
+    x1 = x2;
+  }
 
-/*****************************************************************/
+  return x1;
+}
 
-#define DEF_OPENCL1F(NAME) \
-EXPORT float CL_NAME2(NAME, f)(float x) { return NAME(x); } \
-EXPORT double CL_NAME2(NAME, d)(double x) { return NAME(x); } \
-EXPORT half CL_NAME2(NAME, h)(half x) { return NAME(x); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x) { return NAME(x); }
+OVLD long long int CHIP_MANGLE2(llrint, f)(float x) {
+  return (long long int)(rint(x));
+}
 
-#define DEF_OPENCL2F(NAME) \
-EXPORT float CL_NAME2(NAME, f)(float x, float y) { return NAME(x, y); } \
-EXPORT double CL_NAME2(NAME, d)(double x, double y) { return NAME(x, y); } \
-EXPORT half CL_NAME2(NAME, h)(half x, half y) { return NAME(x, y); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x, half2 y) { return NAME(x, y); }
+OVLD long long int CHIP_MANGLE2(llround, f)(float x) {
+  return (long long int)(round(x));
+}
 
-#define DEF_OPENCL3F(NAME) \
-EXPORT float CL_NAME2(NAME, f)(float x, float y, float z) { return NAME(x, y, z); } \
-EXPORT double CL_NAME2(NAME, d)(double x, double y, double z) { return NAME(x, y, z); } \
-EXPORT half CL_NAME2(NAME, h)(half x, half y, half z) { return NAME(x, y, z); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x, half2 y, half2 z) { return NAME(x, y, z); }
+OVLD long int CHIP_MANGLE2(lrint, f)(float x) {
+  return (long int)(rint(x));
+}
 
-#define DEF_OPENCL4F(NAME) \
-EXPORT float CL_NAME2(NAME, f)(float x, float y, float z, float w) { return NAME(x, y, z, w); } \
-EXPORT double CL_NAME2(NAME, d)(double x, double y, double z, double w) { return NAME(x, y, z, w); } \
-EXPORT half CL_NAME2(NAME, h)(half x, half y, half z, half w) { return NAME(x, y, z, w); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x, half2 y, half2 z, half2 w) { return NAME(x, y, z, w); }
-
-#define DEF_OPENCL1B(NAME) \
-EXPORT int CL_NAME2(NAME, f)(float x) { return NAME(x); } \
-EXPORT long CL_NAME2(NAME, d)(double x) { return NAME(x); } \
-EXPORT half CL_NAME2(NAME, h)(half x) { return as_half(convert_short(NAME(x))); } \
-EXPORT half2 CL_NAME2(NAME, h2)(half2 x) { return as_half2(NAME(x)); }
+OVLD long int CHIP_MANGLE2(lround, f)(float x) {
+  return (long int)(round(x));
+}
 
 
-#define DEF_OPENCL1INT(NAME) \
-EXPORT int CL_NAME2(NAME, f)(float x) { return NAME(x); } \
-EXPORT int CL_NAME2(NAME, d)(double x) { return NAME(x); } \
-EXPORT int CL_NAME2(NAME, h)(half x) { return NAME(x); }
-//EXPORT int CL_NAME(NAME, h2)(half2 x) { return NAME(x); }
+OVLD float length(float4 f);
+OVLD double length(double4 f);
+EXPORT float  CHIP_MANGLE2(norm4d, f)(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return length(temp); }
+EXPORT double CHIP_MANGLE2(norm4d, d)(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return length(temp); }
+EXPORT float  CHIP_MANGLE2(norm3d, f)(float x, float y, float z) { float4 temp = (float4)(x, y, z, 0.0f); return length(temp); }
+EXPORT double CHIP_MANGLE2(norm3d, d)(double x, double y, double z) { double4 temp = (double4)(x, y, z, 0.0); return length(temp); }
 
+OVLD float CHIP_MANGLE2(norm, f)(int dim, const float *a) {
+  float r = 0;
+  while (dim--) {
+    r += a[0] * a[0];
+    ++a;
+  }
 
-#ifdef CHIP_NONPORTABLE_MATH_INTRISINCS
+  return sqrt(r);
+  }
 
-// The OpenCL native_* functions have no accuracy quarantees whatsoever
-// whereas the __* math intrinsics of CUDA do. Thus, we cannot use the
-// native functions by default if we want to retain portable correctness
-// in the produced SPIR-Vs.
+  OVLD double CHIP_MANGLE2(norm, d)(int dim, const double *a) {
+  float r = 0;
+  while (dim--) {
+    r += a[0] * a[0];
+    ++a;
+  }
 
-#define DEF_OPENCL1F_NATIVE(NAME) \
-float OVLD native_##NAME(float x); \
-double OVLD native_##NAME(double x); \
-EXPORT float CL_NAME2(NAME##_native, f)(float x) { return native_##NAME(x); } \
-EXPORT double CL_NAME2(NAME##_native, d)(double x) { return native_##NAME(x); }
+  return sqrt(r);
+  }
 
-#define DEF_OPENCL2F_NATIVE(NAME) \
-float OVLD native_##NAME(float x, float y); \
-double OVLD native_##NAME(double x, double y); \
-EXPORT float CL_NAME2(NAME##_native, f)(float x, float y) { return native_##NAME(x, y); } \
-EXPORT double CL_NAME2(NAME##_native, d)(double x, double y) { return native_##NAME(x, y); }
+  OVLD float
+CHIP_MANGLE2(rnorm, f)(int dim, const float *a) { // TODO switch to OCML
+  float r = 0;
+  while (dim--) {
+    r += a[0] * a[0];
+    ++a;
+  }
 
-#else
+  return sqrt(r);
+}
 
-#define DEF_OPENCL1F_NATIVE(NAME) \
-float OVLD native_##NAME(float x); \
-double OVLD native_##NAME(double x); \
-EXPORT float CL_NAME2(NAME##_native, f)(float x) { return NAME(x); } \
-EXPORT double CL_NAME2(NAME##_native, d)(double x) { return NAME(x); }
+OVLD void CHIP_MANGLE2(sincospi, f)(float x, float *sptr,
+                                              float *cptr) {
+  *sptr = sinpi(x);
+  *cptr = cospi(x);
+}
 
-#define DEF_OPENCL2F_NATIVE(NAME) \
-float OVLD native_##NAME(float x, float y); \
-double OVLD native_##NAME(double x, double y); \
-EXPORT float CL_NAME2(NAME##_native, f)(float x, float y) { return NAME(x, y); } \
-EXPORT double CL_NAME2(NAME##_native, d)(double x, double y) { return NAME(x, y); }
-
-#endif
-
-DEF_OPENCL1F(atanh)
-DEF_OPENCL1F(cbrt)
-DEF_OPENCL1F(cospi)
-
-// OCML
-float OVLD i0(float f);
-double OVLD i0(double f);
-EXPORT float CL_NAME2(cyl_bessel_i0, f)(float x) { return i0(x); }
-EXPORT double CL_NAME2(cyl_bessel_i0, d)(double x) { return i0(x); }
-float OVLD i1(float f);
-double OVLD i1(double f);
-EXPORT float CL_NAME2(cyl_bessel_i1, f)(float x) { return i1(x); }
-EXPORT double CL_NAME2(cyl_bessel_i1, d)(double x) { return i1(x); }
-
-
-// OCML
-DEFOCML_OPENCL1F(erfcinv)
-DEFOCML_OPENCL1F(erfcx)
-DEFOCML_OPENCL1F(erfinv)
-
-DEF_OPENCL1F(exp10)
-DEF_OPENCL1F(exp2)
-DEF_OPENCL1F(exp)
-DEF_OPENCL1F(expm1)
-DEF_OPENCL1F(fabs)
-DEF_OPENCL2F(fdim)
-DEF_OPENCL1F(floor)
-
-DEF_OPENCL3F(fma)
-
-DEF_OPENCL2F(fmax)
-DEF_OPENCL2F(fmin)
-DEF_OPENCL2F(fmod)
-
-EXPORT float CL_NAME2(frexp, f)(float x, DEFAULT_AS int *i) {
+EXPORT float CHIP_MANGLE2(frexp, f)(float x, DEFAULT_AS int *i) {
   int tmp;
   float ret = frexp(x, &tmp);
   *i = tmp;
   return ret;
 }
-EXPORT double CL_NAME2(frexp, d)(double x, DEFAULT_AS int *i) {
+EXPORT double CHIP_MANGLE2(frexp, d)(double x, DEFAULT_AS int *i) {
   int tmp;
   double ret = frexp(x, &tmp);
   *i = tmp;
   return ret;
 }
 
-DEF_OPENCL2F(hypot)
-DEF_OPENCL1INT(ilogb)
+EXPORT float CHIP_MANGLE2(ldexp, f)(float x, int k) { return ldexp(x, k); }
+EXPORT double CHIP_MANGLE2(ldexp, d)(double x, int k) { return ldexp(x, k); }
 
-DEF_OPENCL1B(isfinite)
-DEF_OPENCL1B(isinf)
-DEF_OPENCL1B(isnan)
-
-EXPORT float CL_NAME2(ldexp, f)(float x, int k) { return ldexp(x, k); }
-EXPORT double CL_NAME2(ldexp, d)(double x, int k) { return ldexp(x, k); }
-
-
-DEF_OPENCL1F(log10)
-DEF_OPENCL1F(log1p)
-DEF_OPENCL1F(log2)
-DEF_OPENCL1F(logb)
-DEF_OPENCL1F(log)
-
-EXPORT float CL_NAME2(modf, f)(float x, DEFAULT_AS float *i) {
+EXPORT float CHIP_MANGLE2(modf, f)(float x, DEFAULT_AS float *i) {
   float tmp;
   float ret = modf(x, &tmp);
   *i = tmp;
   return ret;
 }
-EXPORT double CL_NAME2(modf, d)(double x, DEFAULT_AS double *i) {
+EXPORT double CHIP_MANGLE2(modf, d)(double x, DEFAULT_AS double *i) {
   double tmp;
   double ret = modf(x, &tmp);
   *i = tmp;
   return ret;
 }
 
-// OCML
-DEFOCML_OPENCL1F(nearbyint)
-DEFOCML_OPENCL2F(nextafter)
-
-float OVLD length(float4 f);
-double OVLD length(double4 f);
-EXPORT float CL_NAME2(norm4d, f)(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return length(temp); }
-EXPORT double CL_NAME2(norm4d, d)(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return length(temp); }
-EXPORT float CL_NAME2(norm3d, f)(float x, float y, float z) { float4 temp = (float4)(x, y, z, 0.0f); return length(temp); }
-EXPORT double CL_NAME2(norm3d, d)(double x, double y, double z) { double4 temp = (double4)(x, y, z, 0.0); return length(temp); }
-
-
-// OCML ncdf / ncdfinv
-DEFOCML_OPENCL1F(normcdf)
-DEFOCML_OPENCL1F(normcdfinv)
-
-DEF_OPENCL2F(remainder)
-// OCML
-DEFOCML_OPENCL1F(rcbrt)
 
 // remquo
-EXPORT float CL_NAME2(remquo, f)(float x, float y, DEFAULT_AS int *quo) {
+EXPORT float CHIP_MANGLE2(remquo, f)(float x, float y, DEFAULT_AS int *quo) {
   int tmp;
   float rem = remquo(x, y, &tmp);
   *quo = tmp;
   return rem;
 }
-EXPORT double CL_NAME2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
+EXPORT double CHIP_MANGLE2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
   int tmp;
   double rem = remquo(x, y, &tmp);
   *quo = tmp;
   return rem;
 }
 
-// OCML
-DEFOCML_OPENCL2F(rhypot)
-
-DEF_OPENCL1F(rsqrt)
-
-// OCML
-float OVLD scalbn(float f, int k);
-double OVLD scalbn(double f, int k);
-EXPORT float CL_NAME2(scalbn, f)(float x, int k) { return scalbn(x, k); }
-EXPORT double CL_NAME2(scalbn, d)(double x, int k) { return scalbn(x, k); }
-// OCML
-DEFOCML_OPENCL2F(scalb)
-
-DEF_OPENCL1B(signbit)
-
-DEF_OPENCL1F(sinpi)
-DEF_OPENCL1F(tgamma)
-
-
-
 // sincos
-EXPORT float CL_NAME2(sincos, f)(float x, DEFAULT_AS float *cos) {
+EXPORT float CHIP_MANGLE2(sincos, f)(float x, DEFAULT_AS float *cos) {
   float tmp;
   float sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }
 
-EXPORT double CL_NAME2(sincos, d)(double x, DEFAULT_AS double *cos) {
+EXPORT double CHIP_MANGLE2(sincos, d)(double x, DEFAULT_AS double *cos) {
   double tmp;
   double sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }
 
-// OCML
-DEFOCML_OPENCL1F(y0)
-DEFOCML_OPENCL1F(y1)
-
-DEFOCML_OPENCL1F(j0)
-DEFOCML_OPENCL1F(j1)
-
-/* native */
-
-// DEF_OPENCL1F_NATIVE(cos)
-DEF_OPENCL1F_NATIVE(sin)
-DEF_OPENCL1F_NATIVE(tan)
-
-DEF_OPENCL1F_NATIVE(exp10)
-DEF_OPENCL1F_NATIVE(exp2)
-DEF_OPENCL1F_NATIVE(exp)
-
-DEF_OPENCL1F_NATIVE(log10)
-DEF_OPENCL1F_NATIVE(log2)
-DEF_OPENCL1F_NATIVE(log)
-
-DEF_OPENCL1F_NATIVE(rsqrt)
-DEF_OPENCL1F_NATIVE(sqrt)
-
-DEF_OPENCL2F_NATIVE(powr)
-
 #ifdef CHIP_NONPORTABLE_MATH_INTRISINCS
 
-DEF_OPENCL1F_NATIVE(recip)
-DEF_OPENCL2F_NATIVE(divide)
+// DEF_OPENCL1F_NATIVE(recip)
+// DEF_OPENCL2F_NATIVE(divide)
 
 #else
 
@@ -335,18 +227,18 @@ EXPORT float OVLD __fdividef(float x, float y) { return x / y; }
 
 /* other */
 
-EXPORT void CL_NAME(local_barrier)() { barrier(CLK_LOCAL_MEM_FENCE); }
+EXPORT void CHIP_MANGLE(local_barrier)() { barrier(CLK_LOCAL_MEM_FENCE); }
 
-EXPORT void CL_NAME(local_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
+EXPORT void CHIP_MANGLE(local_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
-EXPORT void CL_NAME(global_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+EXPORT void CHIP_MANGLE(global_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 
-EXPORT void CL_NAME(system_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+EXPORT void CHIP_MANGLE(system_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value
 // interpret ptr as a unsigned char so that it writes as bytes
-EXPORT void* CL_NAME(memset)(DEFAULT_AS void* ptr, int value, size_t size) {
+EXPORT void* CHIP_MANGLE(memset)(DEFAULT_AS void* ptr, int value, size_t size) {
   volatile unsigned char* temporary = ptr;
 
   for(int i=0;i<size;i++)
@@ -355,7 +247,7 @@ EXPORT void* CL_NAME(memset)(DEFAULT_AS void* ptr, int value, size_t size) {
     return ptr;
 }
 
-EXPORT void* CL_NAME(memcpy)(DEFAULT_AS void *dest, DEFAULT_AS const void * src, size_t n) {
+EXPORT void* CHIP_MANGLE(memcpy)(DEFAULT_AS void *dest, DEFAULT_AS const void * src, size_t n) {
   volatile unsigned char* temporary_dest = dest;
   volatile const unsigned char* temporary_src = src;
 
@@ -367,71 +259,71 @@ EXPORT void* CL_NAME(memcpy)(DEFAULT_AS void *dest, DEFAULT_AS const void * src,
 
 /**********************************************************************/
 
-EXPORT uint CL_NAME2(popcount, ui)(uint var) {
+EXPORT uint CHIP_MANGLE2(popcount, ui)(uint var) {
   return popcount(var);
 }
 
-EXPORT ulong CL_NAME2(popcount, ul)(ulong var) {
+EXPORT ulong CHIP_MANGLE2(popcount, ul)(ulong var) {
   return popcount(var);
 }
 
 
-EXPORT int CL_NAME2(clz, i)(int var) {
+EXPORT int CHIP_MANGLE2(clz, i)(int var) {
   return clz(var);
 }
 
-EXPORT long CL_NAME2(clz, li)(long var) {
+EXPORT long CHIP_MANGLE2(clz, li)(long var) {
   return clz(var);
 }
 
-EXPORT int CL_NAME2(ctz, i)(int var) {
+EXPORT int CHIP_MANGLE2(ctz, i)(int var) {
   return ctz(var);
 }
 
-EXPORT long CL_NAME2(ctz, li)(long var) {
+EXPORT long CHIP_MANGLE2(ctz, li)(long var) {
   return ctz(var);
 }
 
 
-EXPORT int CL_NAME2(hadd, i)(int x, int y) {
+EXPORT int CHIP_MANGLE2(hadd, i)(int x, int y) {
   return hadd(x, y);
 }
 
-EXPORT int CL_NAME2(rhadd, i)(int x, int y) {
+EXPORT int CHIP_MANGLE2(rhadd, i)(int x, int y) {
   return hadd(x, y);
 }
 
-EXPORT uint CL_NAME2(uhadd, ui)(uint x, uint y) {
+EXPORT uint CHIP_MANGLE2(uhadd, ui)(uint x, uint y) {
   return hadd(x, y);
 }
 
-EXPORT uint CL_NAME2(urhadd, ui)(uint x, uint y) {
+EXPORT uint CHIP_MANGLE2(urhadd, ui)(uint x, uint y) {
   return hadd(x, y);
 }
 
 
-EXPORT int CL_NAME2(mul24, i)(int x, int y) {
+EXPORT int CHIP_MANGLE2(mul24, i)(int x, int y) {
   return mul24(x, y);
 }
 
-EXPORT int CL_NAME2(mulhi, i)(int x, int y) {
+EXPORT int CHIP_MANGLE2(mulhi, i)(int x, int y) {
   return mul_hi(x, y);
 }
 
-EXPORT long CL_NAME2(mul64hi, li)(long x, long y) {
+EXPORT long CHIP_MANGLE2(mul64hi, li)(long x, long y) {
   return mul_hi(x, y);
 }
 
 
-EXPORT uint CL_NAME2(umul24, ui)(uint x, uint y) {
+EXPORT uint CHIP_MANGLE2(umul24, ui)(uint x, uint y) {
   return mul24(x, y);
 }
 
-EXPORT uint CL_NAME2(umulhi, ui)(uint x, uint y) {
+EXPORT uint CHIP_MANGLE2(umulhi, ui)(uint x, uint y) {
   return mul_hi(x, y);
 }
 
-EXPORT ulong CL_NAME2(umul64hi, uli)(ulong x, ulong y) {
+EXPORT ulong CHIP_MANGLE2(umul64hi, uli)(ulong x, ulong y) {
   return mul_hi(x, y);
 }
 
@@ -441,7 +333,7 @@ EXPORT ulong CL_NAME2(umul64hi, uli)(ulong x, ulong y) {
 /**********************************************************************/
 
 #define DEF_OPENCL_ATOMIC2(NAME)                                               \
-  int CL_NAME_MANGLED_ATOM(NAME, i)(DEFAULT_AS int *address, int i) {          \
+  int CHIP_MANGLE_ATOMIC(NAME, i)(DEFAULT_AS int *address, int i) {          \
     volatile global int *gi = to_global(address);                              \
     if (gi)                                                                    \
       return atomic_##NAME(gi, i);                                             \
@@ -453,7 +345,7 @@ EXPORT ulong CL_NAME2(umul64hi, uli)(ulong x, ulong y) {
         return 0;                                                              \
     }                                                                          \
   };                                                                           \
-  uint CL_NAME_MANGLED_ATOM(NAME, u)(                                          \
+  uint CHIP_MANGLE_ATOMIC(NAME, u)(                                          \
       DEFAULT_AS uint *address, uint ui) {                                     \
     volatile global uint *gi = to_global(address);                             \
     if (gi)                                                                    \
@@ -466,7 +358,7 @@ EXPORT ulong CL_NAME2(umul64hi, uli)(ulong x, ulong y) {
         return 0;                                                              \
     }                                                                          \
   };                                                                           \
-  ulong CL_NAME_MANGLED_ATOM(NAME, l)(                                         \
+  ulong CHIP_MANGLE_ATOMIC(NAME, l)(                                         \
       DEFAULT_AS ulong *address,                                               \
       ulong ull) {                                                             \
     volatile global ulong *gi =                                                \
@@ -493,7 +385,7 @@ DEF_OPENCL_ATOMIC2(or)
 DEF_OPENCL_ATOMIC2(xor)
 
 #define DEF_OPENCL_ATOMIC1(NAME)                                               \
-  int CL_NAME_MANGLED_ATOM(NAME, i)(DEFAULT_AS int *address) {                 \
+  int CHIP_MANGLE_ATOMIC(NAME, i)(DEFAULT_AS int *address) {                 \
     volatile global int *gi = to_global(address);                              \
     if (gi)                                                                    \
       return atomic_##NAME(gi);                                                \
@@ -502,7 +394,7 @@ DEF_OPENCL_ATOMIC2(xor)
       return atomic_##NAME(li);                                                \
     return 0;                                                                  \
   };                                                                           \
-  uint CL_NAME_MANGLED_ATOM(NAME, u)(                                          \
+  uint CHIP_MANGLE_ATOMIC(NAME, u)(                                          \
       DEFAULT_AS uint *address) {                                              \
     volatile global uint *gi = to_global(address);                             \
     if (gi)                                                                    \
@@ -512,7 +404,7 @@ DEF_OPENCL_ATOMIC2(xor)
       return atomic_##NAME(li);                                                \
     return 0;                                                                  \
   };                                                                           \
-  ulong CL_NAME_MANGLED_ATOM(NAME, l)(                                         \
+  ulong CHIP_MANGLE_ATOMIC(NAME, l)(                                         \
       DEFAULT_AS ulong *address) {                                             \
     volatile global ulong *gi =                                                \
         to_global((DEFAULT_AS ulong *)address);                                \
@@ -528,7 +420,7 @@ DEF_OPENCL_ATOMIC1(inc)
 DEF_OPENCL_ATOMIC1(dec)
 
 #define DEF_OPENCL_ATOMIC3(NAME)                                               \
-  int CL_NAME_MANGLED_ATOM(NAME, i)(                                           \
+  int CHIP_MANGLE_ATOMIC(NAME, i)(                                           \
       DEFAULT_AS int *address, int cmp, int val) {                             \
     volatile global int *gi = to_global(address);                              \
     if (gi)                                                                    \
@@ -538,7 +430,7 @@ DEF_OPENCL_ATOMIC1(dec)
       return atomic_##NAME(li, cmp, val);                                      \
     return 0;                                                                  \
   };                                                                           \
-  uint CL_NAME_MANGLED_ATOM(NAME, u)(                                          \
+  uint CHIP_MANGLE_ATOMIC(NAME, u)(                                          \
       DEFAULT_AS uint *address, uint cmp,                                      \
       uint val) {                                                              \
     volatile global uint *gi = to_global(address);                             \
@@ -549,7 +441,7 @@ DEF_OPENCL_ATOMIC1(dec)
       return atomic_##NAME(li, cmp, val);                                      \
     return 0;                                                                  \
   };                                                                           \
-  ulong CL_NAME_MANGLED_ATOM(NAME, l)(                                         \
+  ulong CHIP_MANGLE_ATOMIC(NAME, l)(                                         \
       DEFAULT_AS ulong *address, ulong cmp,                                    \
       ulong val) {                                                             \
     volatile global ulong *gi =                                                \
@@ -670,7 +562,7 @@ static OVLD uint atomic_dec2_u(volatile global uint *address, uint val) {
   return r;
 }
 
-EXPORT float CL_NAME_MANGLED_ATOM(add, f)(DEFAULT_AS float *address,
+EXPORT float CHIP_MANGLE_ATOMIC(add, f)(DEFAULT_AS float *address,
                                  float val) {
   volatile global float *gi = to_global(address);
   if (gi)
@@ -681,7 +573,7 @@ EXPORT float CL_NAME_MANGLED_ATOM(add, f)(DEFAULT_AS float *address,
   return 0;
 }
 
-EXPORT double CL_NAME_MANGLED_ATOM(add, d)(DEFAULT_AS double *address,
+EXPORT double CHIP_MANGLE_ATOMIC(add, d)(DEFAULT_AS double *address,
                                   double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi)
@@ -692,7 +584,7 @@ EXPORT double CL_NAME_MANGLED_ATOM(add, d)(DEFAULT_AS double *address,
   return 0;
 }
 
-EXPORT float CL_NAME_MANGLED_ATOM(exch, f)(DEFAULT_AS float *address,
+EXPORT float CHIP_MANGLE_ATOMIC(exch, f)(DEFAULT_AS float *address,
                                  float val) {
   volatile global float *gi = to_global(address);
   if (gi)
@@ -703,7 +595,7 @@ EXPORT float CL_NAME_MANGLED_ATOM(exch, f)(DEFAULT_AS float *address,
   return 0;
 }
 
-EXPORT uint CL_NAME_MANGLED_ATOM(inc2, u)(DEFAULT_AS uint *address,
+EXPORT uint CHIP_MANGLE_ATOMIC(inc2, u)(DEFAULT_AS uint *address,
                                  uint val) {
   volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
   if (gi)
@@ -714,7 +606,7 @@ EXPORT uint CL_NAME_MANGLED_ATOM(inc2, u)(DEFAULT_AS uint *address,
   return 0;
 }
 
-EXPORT uint CL_NAME_MANGLED_ATOM(dec2, u)(DEFAULT_AS uint *address,
+EXPORT uint CHIP_MANGLE_ATOMIC(dec2, u)(DEFAULT_AS uint *address,
                                  uint val) {
   volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
   if (gi)
@@ -844,7 +736,7 @@ typedef struct {
   intptr_t  sampler;
 } *hipTextureObject_t;
 
-EXPORT float CL_NAME2(tex2D, f)(hipTextureObject_t textureObject,
+EXPORT float CHIP_MANGLE2(tex2D, f)(hipTextureObject_t textureObject,
 				float x, float y) {
   return read_imagef(
     __builtin_astype(textureObject->image, read_only image2d_t),

@@ -64,81 +64,6 @@ THE SOFTWARE.
 #include <hip/devicelib/integer/int_intrinsics.hh>
 #include <hip/devicelib/integer/int_math.hh>
 
-// BEGIN INTRINSICS
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fadd_rd(float x, float y) { return __ocml_add_rtn_f32(x, y); }
-__DEVICE__
-inline float __fadd_ru(float x, float y) { return __ocml_add_rtp_f32(x, y); }
-__DEVICE__
-inline float __fadd_rz(float x, float y) { return __ocml_add_rtz_f32(x, y); }
-__DEVICE__
-inline float __fdiv_rd(float x, float y) { return __ocml_div_rtn_f32(x, y); }
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fdiv_ru(float x, float y) { return __ocml_div_rtp_f32(x, y); }
-__DEVICE__
-inline float __fdiv_rz(float x, float y) { return __ocml_div_rtz_f32(x, y); }
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fmaf_rd(float x, float y, float z) {
-  return __ocml_fma_rtn_f32(x, y, z);
-}
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fmaf_ru(float x, float y, float z) {
-  return __ocml_fma_rtp_f32(x, y, z);
-}
-__DEVICE__
-inline float __fmaf_rz(float x, float y, float z) {
-  return __ocml_fma_rtz_f32(x, y, z);
-}
-__DEVICE__
-inline float __fmul_rd(float x, float y) { return __ocml_mul_rtn_f32(x, y); }
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fmul_ru(float x, float y) { return __ocml_mul_rtp_f32(x, y); }
-__DEVICE__
-inline float __fmul_rz(float x, float y) { return __ocml_mul_rtz_f32(x, y); }
-__DEVICE__
-inline float __frcp_rd(float x) {
-  // return __llvm_amdgcn_rcp_f32(x);
-  return 1;
-}
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __frcp_ru(float x) {
-  // return __llvm_amdgcn_rcp_f32(x);
-  return 1;
-}
-__DEVICE__
-inline float __frcp_rz(float x) {
-  // return __llvm_amdgcn_rcp_f32(x);
-  return 1;
-}
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fsqrt_rd(float x) { return __ocml_sqrt_rtn_f32(x); }
-#endif
-#if defined OCML_BASIC_ROUNDED_OPERATIONS
-__DEVICE__
-inline float __fsqrt_ru(float x) { return __ocml_sqrt_rtp_f32(x); }
-__DEVICE__
-inline float __fsqrt_rz(float x) { return __ocml_sqrt_rtz_f32(x); }
-__DEVICE__
-inline float __fsub_rd(float x, float y) { return __ocml_sub_rtn_f32(x, y); }
-__DEVICE__
-inline float __fsub_ru(float x, float y) { return __ocml_sub_rtp_f32(x, y); }
-__DEVICE__
-inline float __fsub_rz(float x, float y) { return __ocml_sub_rtz_f32(x, y); }
-#endif
-
 EXPORT unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
                                     unsigned int shift);
 EXPORT unsigned int __funnelshift_lc(unsigned int lo, unsigned int hi,
@@ -148,197 +73,16 @@ EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
 EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
                                      unsigned int shift);
 
-EXPORT double fdivide(double x, double y) { return x / y; }
-EXPORT float __fmaf_ieee_rd(float x, float y, float z);
-EXPORT float __fmaf_ieee_rn(float x, float y, float z);
-EXPORT float __fmaf_ieee_ru(float x, float y, float z);
-EXPORT float __fmaf_ieee_rz(float x, float y, float z);
 
-DEFOPENCL1B(isfinite)
-DEFOPENCL1B(isinf)
-DEFOPENCL1B(isnan)
-
-EXPORT float jnf(int n, float x) { // TODO: we could use Ahmes multiplication
-                                   // and the Miller & Brown algorithm
-  //       for linear recurrences to get O(log n) steps, but it's unclear if
-  //       it'd be beneficial in this case.
-  if (n == 0)
-    return j0f(x);
-  if (n == 1)
-    return j1f(x);
-
-  float x0 = j0f(x);
-  float x1 = j1f(x);
-  for (int i = 1; i < n; ++i) {
-    float x2 = (2 * i) / x * x1 - x0;
-    x0 = x1;
-    x1 = x2;
-  }
-
-  return x1;
-}
-EXPORT double jn(int n, double x) { // TODO: we could use Ahmes multiplication
-                                    // and the Miller & Brown algorithm
-  //       for linear recurrences to get O(log n) steps, but it's unclear if
-  //       it'd be beneficial in this case. Placeholder until OCML adds
-  //       support.
-  if (n == 0)
-    return j0(x);
-  if (n == 1)
-    return j1(x);
-
-  double x0 = j0(x);
-  double x1 = j1(x);
-  for (int i = 1; i < n; ++i) {
-    double x2 = (2 * i) / x * x1 - x0;
-    x0 = x1;
-    x1 = x2;
-  }
-
-  return x1;
-}
-
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-NON_OVLD float GEN_NAME2(ldexp, f)(float f, int k);
-NON_OVLD double GEN_NAME2(ldexp, d)(double f, int k);
-}
-EXPORT float ldexpf(float x, int k) { return GEN_NAME2(ldexp, f)(x, k); }
-EXPORT double ldexp(double x, int k) { return GEN_NAME2(ldexp, d)(x, k); }
-#else
-EXPORT float ldexpf(float x, int k);
-EXPORT double ldexp(double x, int k);
-#endif
-
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-NON_OVLD float GEN_NAME2(modf, f)(float f, float *i);
-NON_OVLD double GEN_NAME2(modf, d)(double f, double *i);
-}
-EXPORT float modff(float f, float *i) { return GEN_NAME2(modf, f)(f, i); }
-EXPORT double modf(double f, double *i) { return GEN_NAME2(modf, d)(f, i); }
-#else
-EXPORT float modff(float f, float *i);
-EXPORT double modf(double f, double *i);
-#endif
-
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-NON_OVLD float GEN_NAME2(remquo, f)(float x, float y, int *quo);
-NON_OVLD double GEN_NAME2(remquo, d)(double x, double y, int *quo);
-}
-EXPORT float remquof(float x, float y, int *quo) {
-  return GEN_NAME2(remquo, f)(x, y, quo);
-}
-EXPORT double remquo(double x, double y, int *quo) {
-  return GEN_NAME2(remquo, d)(x, y, quo);
-}
-#else
-EXPORT float remquof(float x, float y, int *quo);
-EXPORT double remquo(double x, double y, int *quo);
-#endif
-
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-float NON_OVLD GEN_NAME2(scalbn, f)(float f, int k);
-double NON_OVLD GEN_NAME2(scalbn, d)(double f, int k);
-float NON_OVLD GEN_NAME2(scalb, f)(float x, float y);
-double NON_OVLD GEN_NAME2(scalb, d)(double x, double y);
-}
-
-EXPORT float scalblnf(float x, long int n) {
-  return (n < INT_MAX) ? GEN_NAME2(scalbn, f)(x, (int)n)
-                       : GEN_NAME2(scalb, f)(x, (float)n);
-}
-EXPORT float scalbnf(float x, int n) { return GEN_NAME2(scalbn, f)(x, n); }
-EXPORT double scalbln(double x, long int n) {
-  return (n < INT_MAX) ? GEN_NAME2(scalbn, d)(x, (int)n)
-                       : GEN_NAME2(scalb, d)(x, (double)n);
-}
-EXPORT double scalbn(double x, int n) { return GEN_NAME2(scalbn, d)(x, n); }
-#else
-EXPORT float scalblnf(float x, long int n);
-EXPORT float scalbnf(float x, int n);
-EXPORT double scalbln(double x, long int n);
-EXPORT double scalbn(double x, int n);
-#endif
-
-DEFOPENCL1B(signbit)
-
-EXPORT float ynf(int n, float x) { // TODO: we could use Ahmes multiplication
-                                   // and the Miller & Brown algorithm
-  //       for linear recurrences to get O(log n) steps, but it's unclear if
-  //       it'd be beneficial in this case. Placeholder until OCML adds
-  //       support.
-  if (n == 0)
-    return y0f(x);
-  if (n == 1)
-    return y1f(x);
-
-  float x0 = y0f(x);
-  float x1 = y1f(x);
-  for (int i = 1; i < n; ++i) {
-    float x2 = (2 * i) / x * x1 - x0;
-    x0 = x1;
-    x1 = x2;
-  }
-
-  return x1;
-}
-EXPORT double yn(int n, double x) { // TODO: we could use Ahmes multiplication
-                                    // and the Miller & Brown algorithm
-  //       for linear recurrences to get O(log n) steps, but it's unclear if
-  //       it'd be beneficial in this case. Placeholder until OCML adds
-  //       support.
-  if (n == 0)
-    return j0(x);
-  if (n == 1)
-    return j1(x);
-
-  double x0 = j0(x);
-  double x1 = j1(x);
-  for (int i = 1; i < n; ++i) {
-    double x2 = (2 * i) / x * x1 - x0;
-    x0 = x1;
-    x1 = x2;
-  }
-
-  return x1;
-}
 
 /**********************************************************************/
 
-FAKE_ROUNDINGS2(add, x + y)
-FAKE_ROUNDINGS2(sub, x - y)
-FAKE_ROUNDINGS2(div, x / y)
-FAKE_ROUNDINGS2(mul, x *y)
-
-FAKE_ROUNDINGS1(rcp, (1.0f / x))
-FAKE_ROUNDINGS1(sqrt, ::sqrt(x))
-FAKE_ROUNDINGS1(rsqrt, ::rsqrtf(x))
-
-FAKE_ROUNDINGS3(fma, ::fmaf(x, y, z))
-// FAKE_ROUNDINGS3(fmaf_ieee, GEN_NAME2(fmaf_ieee, f)(x, y, z))
-
-DEFOPENCL1F_NATIVE(exp10)
-DEFOPENCL1F_NATIVE(exp2)
-
-DEFOPENCL1F_NATIVE(recip)
-DEFOPENCL1F_NATIVE(rsqrt)
-
-DEFOPENCL2F_NATIVE(divide)
-DEFOPENCL2F_NATIVE(powr)
-
 #if defined(__HIP_DEVICE_COMPILE__)
 
-EXPORT float __saturatef(float x) {
-  return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
-}
-
-EXPORT void __sincosf(float x, float *sptr, float *cptr) {
-  *sptr = sin(x);
-  *cptr = cos(x);
-}
+// EXPORT void __sincosf(float x, float *sptr, float *cptr) {
+//   *sptr = sin(x);
+//   *cptr = cos(x);
+// }
 
 /**********************************************************************/
 
@@ -357,18 +101,12 @@ unsigned __activemask()
 /**********************************************************************/
 
 #else
-EXPORT float __saturatef(float x);
-EXPORT void __sincosf(float x, float *sptr, float *cptr);
+// EXPORT void __sincosf(float x, float *sptr, float *cptr);
 
 EXPORT unsigned __activemask()
     __attribute__((unavailable("unsupported in CHIP-SPV.")));
 
 #endif
-
-// native(fast) approximations
-EXPORT float __powf(float x, float y) { return __exp2f(y * __log2f(x)); }
-
-// NAN/NANF
 
 EXPORT
 uint64_t __make_mantissa_base8(const char *tagp) {
@@ -442,48 +180,48 @@ uint64_t __make_mantissa(const char *tagp) {
   return __make_mantissa_base10(tagp);
 }
 
-EXPORT
-float nanf(const char *tagp) {
-  union {
-    float val;
-    struct ieee_float {
-      uint32_t mantissa : 22;
-      uint32_t quiet : 1;
-      uint32_t exponent : 8;
-      uint32_t sign : 1;
-    } bits;
+// EXPORT
+// float nanf(const char *tagp) {
+//   union {
+//     float val;
+//     struct ieee_float {
+//       uint32_t mantissa : 22;
+//       uint32_t quiet : 1;
+//       uint32_t exponent : 8;
+//       uint32_t sign : 1;
+//     } bits;
 
-    static_assert(sizeof(float) == sizeof(ieee_float), "");
-  } tmp;
+//     static_assert(sizeof(float) == sizeof(ieee_float), "");
+//   } tmp;
 
-  tmp.bits.sign = 0u;
-  tmp.bits.exponent = ~0u;
-  tmp.bits.quiet = 1u;
-  tmp.bits.mantissa = __make_mantissa(tagp);
+//   tmp.bits.sign = 0u;
+//   tmp.bits.exponent = ~0u;
+//   tmp.bits.quiet = 1u;
+//   tmp.bits.mantissa = __make_mantissa(tagp);
 
-  return tmp.val;
-}
+//   return tmp.val;
+// }
 
-EXPORT
-double nan(const char *tagp) {
-  union {
-    double val;
-    struct ieee_double {
-      uint64_t mantissa : 51;
-      uint32_t quiet : 1;
-      uint32_t exponent : 11;
-      uint32_t sign : 1;
-    } bits;
-    static_assert(sizeof(double) == sizeof(ieee_double), "");
-  } tmp;
+// EXPORT
+// double nan(const char *tagp) {
+//   union {
+//     double val;
+//     struct ieee_double {
+//       uint64_t mantissa : 51;
+//       uint32_t quiet : 1;
+//       uint32_t exponent : 11;
+//       uint32_t sign : 1;
+//     } bits;
+//     static_assert(sizeof(double) == sizeof(ieee_double), "");
+//   } tmp;
 
-  tmp.bits.sign = 0u;
-  tmp.bits.exponent = ~0u;
-  tmp.bits.quiet = 1u;
-  tmp.bits.mantissa = __make_mantissa(tagp);
+//   tmp.bits.sign = 0u;
+//   tmp.bits.exponent = ~0u;
+//   tmp.bits.quiet = 1u;
+//   tmp.bits.mantissa = __make_mantissa(tagp);
 
-  return tmp.val;
-}
+//   return tmp.val;
+// }
 
 /**********************************************************************/
 
@@ -710,7 +448,6 @@ EXPORT unsigned int __usad(unsigned int x, unsigned int y, unsigned int z) {
 
 #pragma push_macro("__DEF_FLOAT_FUN")
 #pragma push_macro("__DEF_FLOAT_FUN2")
-#pragma push_macro("__DEF_FLOAT_FUN2I")
 #pragma push_macro("__HIP_OVERLOAD")
 #pragma push_macro("__HIP_OVERLOAD2")
 
@@ -761,37 +498,7 @@ template <class __T> struct __hip_enable_if<true, __T> { typedef __T type; };
   float func(float x, float y) { return func##f(x, y); }                       \
   __HIP_OVERLOAD2(retty, func)
 
-// __DEF_FUN1(double, cbrt)
-// __DEF_FUN1(double, exp2)
-// __DEF_FUN1(double, fabs)
-// __DEF_FUN2(double, fdim);
-// __DEF_FUN2(double, fmax);
-// __DEF_FUN2(double, fmin);
-// __DEF_FUN2(double, fmod);
-//__HIP_OVERLOAD1(int, fpclassify)
-// __DEF_FUN2(double, hypot);
-// __DEF_FUNI(int, ilogb)
-__HIP_OVERLOAD1(bool, isfinite)
-__HIP_OVERLOAD2(bool, isgreater);
-__HIP_OVERLOAD2(bool, isgreaterequal);
-__HIP_OVERLOAD1(bool, isinf);
-__HIP_OVERLOAD2(bool, isless);
-__HIP_OVERLOAD2(bool, islessequal);
-__HIP_OVERLOAD2(bool, islessgreater);
-__HIP_OVERLOAD1(bool, isnan);
-//__HIP_OVERLOAD1(bool, isnormal)
 __HIP_OVERLOAD2(bool, isunordered);
-__DEF_FUN1(double, logb)
-__DEF_FUN2(double, pow);
-__DEF_FUN2(double, remainder);
-__HIP_OVERLOAD1(bool, signbit)
-__DEF_FUN1(double, tgamma)
-
-// define cmath functions with a float and an integer argument.
-#define __DEF_FLOAT_FUN2I(func)                                                \
-  EXPORT                                                                       \
-  float func(float x, int y) { return func##f(x, y); }
-__DEF_FLOAT_FUN2I(scalbn)
 
 __HIP_OVERLOAD2(double, max)
 __HIP_OVERLOAD2(double, min)
@@ -802,7 +509,6 @@ __HIP_OVERLOAD1(long, lrint);
 
 #pragma pop_macro("__DEF_FLOAT_FUN")
 #pragma pop_macro("__DEF_FLOAT_FUN2")
-#pragma pop_macro("__DEF_FLOAT_FUN2I")
 #pragma pop_macro("__HIP_OVERLOAD")
 #pragma pop_macro("__HIP_OVERLOAD2")
 

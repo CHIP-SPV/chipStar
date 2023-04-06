@@ -38,7 +38,7 @@ endif()
 
 if("${LLVM_VERSION}" VERSION_LESS 14.0)
   # Definitions for pre-upstreamed HIP-Clang.
-  set(BC_TRIPLE "spir64-unknown-unknown")
+  set(BC_TRIPLE "spirv64")
   set(BC_FILE "devicelib.bc")
   set(BC_DESTINATION share)
 else()
@@ -72,29 +72,32 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
 endforeach()
 
-# OCML sources
-set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF
-    i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF
-    nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD
-    rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF
-    tables y0D y0F y1D y1F ba0F ba0D ba1F ba1D bp0F bp0D bp1F bp1D
-    cosbF cosbD sinbF sinbD
-    trigredD trigredF
-    sincosred2D sincosred2F sincosredD sincosredF
-    trigredlargeD trigredlargeF trigredsmallD trigredsmallF
-    trig_preop64)
+add_subdirectory(ROCm-Device-Libs EXCLUDE_FROM_ALL)
+# list(APPEND DEPEND_LIST "${CMAKE_BI/bitcode/ROCm-Device-Libs/amdgcn/bitcode/ocml.bc")
 
-foreach(SOURCE IN LISTS OCML_SOURCES)
-  add_custom_command(
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
-    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
-    -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
-    -c "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
-    COMMENT "Building ${SOURCE}.bc"
-    VERBATIM)
-  list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
-endforeach()
+# # OCML sources
+# set(OCML_SOURCES erfcinvD erfcinvF erfcxD erfcxF erfinvD erfinvF
+#     i0D i0F i1D i1F j0D j0F j1D j1F ncdfD ncdfF ncdfinvD ncdfinvF
+#     nearbyintD nearbyintF rcbrtD rcbrtF rhypotF rhypotD
+#     rlen3D rlen3F rlen4D rlen4F scalbD scalbF scalbnD scalbnF
+#     tables y0D y0F y1D y1F ba0F ba0D ba1F ba1D bp0F bp0D bp1F bp1D
+#     cosbF cosbD sinbF sinbD
+#     trigredD trigredF
+#     sincosred2D sincosred2F sincosredD sincosredF
+#     trigredlargeD trigredlargeF trigredsmallD trigredsmallF
+#     trig_preop64)
+
+# foreach(SOURCE IN LISTS OCML_SOURCES)
+#   add_custom_command(
+#     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
+#     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
+#     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
+#     -o "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc"
+#     -c "${CMAKE_CURRENT_SOURCE_DIR}/OCML/${SOURCE}.cl"
+#     COMMENT "Building ${SOURCE}.bc"
+#     VERBATIM)
+#   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
+# endforeach()
 
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
@@ -109,12 +112,12 @@ list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
 # devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  DEPENDS ${DEPEND_LIST}
+  DEPENDS ${DEPEND_LIST} ocml
   COMMAND ${CMAKE_COMMAND} -E make_directory
   "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
   COMMAND "${LLVM_LINK}"
   -o "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  ${DEPEND_LIST}
+  ${DEPEND_LIST} ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/amdgcn/bitcode/ocml.bc
   COMMENT "Linking device library bitcode '${BC_FILE}'"
   VERBATIM)
 

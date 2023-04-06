@@ -50,18 +50,18 @@
 #define DEF_BINARY_FN_MAP
 #endif
 
-DEF_UNARY_FN_MAP(lgamma, double)
-DEF_UNARY_FN_MAP(tan, double)
-DEF_UNARY_FN_MAP(asin, double)
-DEF_UNARY_FN_MAP(acos, double)
-DEF_UNARY_FN_MAP(atan, double)
-DEF_UNARY_FN_MAP(sinh, double)
-DEF_UNARY_FN_MAP(cosh, double)
-DEF_UNARY_FN_MAP(tanh, double)
-DEF_UNARY_FN_MAP(erf, double)
-DEF_UNARY_FN_MAP(erfc, double)
+// DEF_UNARY_FN_MAP(lgamma, double)
+// DEF_UNARY_FN_MAP(tan, double)
+// DEF_UNARY_FN_MAP(asin, double)
+// DEF_UNARY_FN_MAP(acos, double)
+// DEF_UNARY_FN_MAP(atan, double)
+// DEF_UNARY_FN_MAP(sinh, double)
+// DEF_UNARY_FN_MAP(cosh, double)
+// DEF_UNARY_FN_MAP(tanh, double)
+// DEF_UNARY_FN_MAP(erf, double)
+// DEF_UNARY_FN_MAP(erfc, double)
 
-DEF_BINARY_FN_MAP(copysign, double)
-DEF_BINARY_FN_MAP(nextafter, double)
+// DEF_BINARY_FN_MAP(copysign, double)
+// DEF_BINARY_FN_MAP(nextafter, double)
 
 #undef MAPPING_PREFIX

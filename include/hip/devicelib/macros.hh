@@ -35,8 +35,8 @@
 #define EXPORT static inline __device__
 #define OVLD __attribute__((overloadable)) __device__
 #define NON_OVLD __device__
-#define GEN_NAME(N) opencl_##N
-#define GEN_NAME2(N, S) opencl_##N##_##S
+#define GEN_NAME(N) __chip_##N
+#define GEN_NAME2(N, S) __chip_##N##_##S
 #else
 #define __DEVICE__ extern __device__
 #define EXPORT extern __device__

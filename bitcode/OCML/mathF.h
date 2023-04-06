@@ -110,29 +110,8 @@ static inline uint BUILTIN_BITALIGN_B32(uint x, uint y, uint shift) {
 #define CLASS_NZER 256
 
 
-static inline int CONSTATTR BUILTIN_CLASS_F32(float x, int klass)
-{
-  if ((klass & CLASS_PINF) && (as_int(x) == PINFBITPATT_SP32))
-    return -1;
-  if ((klass & CLASS_NINF) && (as_int(x) == NINFBITPATT_SP32))
-    return -1;
 
-  if ((klass & (CLASS_QNAN|CLASS_SNAN)) && (as_int(x) & QNANBITPATT_SP32))
-    return -1;
 
-  if ((klass & (CLASS_NZER|CLASS_PZER)) && ((as_int(x) & (~SIGNBIT_SP32)) == 0) )
-    return -1;
-
-  if (
-        (klass & (CLASS_NSUB|CLASS_PSUB)) &&
-        (
-            ((as_int(x) & EXPBITS_SP32) == 0) && ((as_int(x) & MANTBITS_SP32) != 0)
-        )
-     )
-    return -1;
-
-  return 0;
-}
 
 // types
 struct redret;
