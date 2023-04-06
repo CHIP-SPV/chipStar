@@ -1578,7 +1578,7 @@ protected:
 
 public:
   std::vector<CHIPEvent *> Events;
-  std::mutex ContextMtx;
+  mutable std::mutex ContextMtx;
 
   /**
    * @brief Destroy the CHIPContext object
@@ -2014,8 +2014,8 @@ public:
     HOST_READ,
     HOST_WRITE,
   };
-  virtual void MemMap(AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
-  virtual void MemUnmap(AllocationInfo *AllocInfo) {}
+  virtual void MemMap(const AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
+  virtual void MemUnmap(const AllocationInfo *AllocInfo) {}
 
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.

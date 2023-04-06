@@ -131,6 +131,9 @@ class SVMemoryRegion {
   cl::Context Context_;
 
 public:
+  using const_svm_alloc_iterator = ConstMapKeyIterator<
+      std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
+
   void init(cl::Context &C) { Context_ = C; }
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
   void *allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity = COARSE_GRAIN);
@@ -142,6 +145,13 @@ public:
   int memFill(void *Dst, size_t Size, const void *Pattern, size_t PatternSize,
               cl::CommandQueue &Queue);
   void clear();
+
+  size_t getNumAllocations() const { return SvmAllocations_.size(); }
+  IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
+    return IteratorRange<const_svm_alloc_iterator>(
+        const_svm_alloc_iterator(SvmAllocations_.begin()),
+        const_svm_alloc_iterator(SvmAllocations_.end()));
+  }
 };
 
 class CHIPContextOpenCL : public CHIPContext {
@@ -211,7 +221,7 @@ protected:
    * @param AllocInfo AllocationInfo object to be mapped for the host
    * @param Type Type of mapping to be performed. Either READ or WRITE
    */
-  virtual void MemMap(AllocationInfo *AllocInfo,
+  virtual void MemMap(const AllocationInfo *AllocInfo,
                       CHIPQueue::MEM_MAP_TYPE Type) override;
 
   /**
@@ -221,7 +231,7 @@ protected:
    *
    * @param AllocInfo
    */
-  virtual void MemUnmap(AllocationInfo *AllocInfo) override;
+  virtual void MemUnmap(const AllocationInfo *AllocInfo) override;
 
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor

@@ -1081,6 +1081,19 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
   GET_COMMAND_LIST(this);
+
+  // Do we need to annotate indirect buffer accesses?
+  auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
+  if (!LzDev->hasOnDemandPaging()) {
+    // The baseline answer is yes (unless we would know that the
+    // kernel won't access buffers indirectly).
+    auto Status = zeKernelSetIndirectAccess(
+        KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
+                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
+  }
+
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via GET_COMMAND_LIST
@@ -2261,6 +2274,12 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     ze_kernel_desc_t KernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
                                    0, // flags
                                    HostFName.c_str()};
+
+    if (!LzDev->hasOnDemandPaging())
+      // TODO: This is not needed if the kernel does not access allocations
+      //       indirectly. This requires kernel code inspection.
+      KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
+
     Status = zeKernelCreate(ZeModule_, &KernelDesc, &ZeKernel);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", Status);
