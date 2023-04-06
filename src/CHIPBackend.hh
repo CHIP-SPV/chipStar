@@ -451,10 +451,12 @@ class CHIPAllocationTracker {
 private:
   std::string Name_;
 
+  std::unordered_set<AllocationInfo *> AllocInfos_;
   std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
 
 public:
-  std::mutex AllocationTrackerMtx;
+  mutable std::mutex AllocationTrackerMtx;
+
   /**
    * @brief Associate a host pointer with a device pointer. @see hipHostRegister
    *
@@ -543,13 +545,29 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
+    assert(AllocInfos_.count(AllocInfo) &&
+           "Not a member of the allocation tracker!");
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
+                                // CHIPAllocationTracker::AllocInfos_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
-
+    AllocInfos_.erase(AllocInfo);
     delete AllocInfo;
   }
+
+  /**
+   * @brief Visit tracked allocations.
+   *
+   * The visitor is called with 'const AllocationInfo&' argument.
+   */
+  template <typename VisitorT> void visitAllocations(VisitorT Visitor) const {
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::AllocInfos_
+    for (const auto *Info : AllocInfos_)
+      Visitor(*Info);
+  }
+
+  size_t getNumAllocations() const { return AllocInfos_.size(); }
 };
 
 class CHIPDeviceVar {

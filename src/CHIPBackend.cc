@@ -102,11 +102,10 @@ CHIPAllocationTracker::CHIPAllocationTracker(size_t GlobalMemSize,
     : GlobalMemSize(GlobalMemSize), TotalMemSize(0), MaxMemUsed(0) {
   Name_ = Name;
 }
+
 CHIPAllocationTracker::~CHIPAllocationTracker() {
-  for (auto &Member : PtrToAllocInfo_) {
-    AllocationInfo *AllocInfo = Member.second;
-    delete AllocInfo;
-  }
+  for (auto *Member : AllocInfos_)
+    delete Member;
 }
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
@@ -158,6 +157,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
   LOCK(AllocationTrackerMtx); // writing CHIPAllocationTracker::PtrToAllocInfo_
+                              // CHIPAllocationTracker::AllocInfos_
   // TODO AllocInfo turned into class and constructor take care of this
   if (MemoryType == hipMemoryTypeHost) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -169,10 +169,17 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (MemoryType == hipMemoryTypeUnified)
     AllocInfo->HostPtr = AllocInfo->DevPtr;
 
-  if (DevPtr)
+  AllocInfos_.insert(AllocInfo);
+
+  if (DevPtr) {
+    assert(!PtrToAllocInfo_.count(DevPtr) &&
+           "Device pointer already recorded!");
     PtrToAllocInfo_[DevPtr] = AllocInfo;
-  if (HostPtr)
+  }
+  if (HostPtr) {
+    assert(!PtrToAllocInfo_.count(DevPtr) && "Host pointer already recorded!");
     PtrToAllocInfo_[HostPtr] = AllocInfo;
+  }
 
   logDebug(
       "CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
