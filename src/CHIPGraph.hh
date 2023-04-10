@@ -54,7 +54,7 @@ protected:
     Dependendants_.clear();
     Dependencies_.clear();
   }
-
+  CHIPQueue *LaunchQueue_;
   CHIPGraphNode(hipGraphNodeType Type) : Type_(Type) {}
 
 public:
@@ -65,6 +65,9 @@ public:
 
   hipGraphNodeType getType() { return Type_; }
   virtual CHIPGraphNode *clone() const = 0;
+
+  void setLaunchQueue(CHIPQueue *ChipQueue) {LaunchQueue_ = ChipQueue; }
+  CHIPQueue *getLaunchQueue() { return LaunchQueue_; }
 
   /**
    * @brief Depth-first search of the graph.

@@ -1541,6 +1541,7 @@ protected:
 
 public:
   std::vector<CHIPEvent *> Events;
+  std::unordered_map<CHIPEvent * , std::pair<CHIPQueue * , CHIPGraphNode * >> EventsQueueMap;
   std::mutex ContextMtx;
 
   /**
@@ -1967,6 +1968,8 @@ protected:
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   CHIPEvent *LastEvent_ = nullptr;
 
+  CHIPGraphNode *ForkedFromNode_ = nullptr;
+
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
   CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem,
@@ -1996,6 +1999,7 @@ public:
     if (getCaptureStatus() == hipStreamCaptureStatusActive) {
       auto Graph = getCaptureGraph();
       auto Node = new GraphNodeType(ArgsPack...);
+      Node->setLaunchQueue(this);
       updateLastNode(Node);
       Graph->addNode(Node);
       return true;
@@ -2017,6 +2021,13 @@ public:
   CHIPGraph *getCaptureGraph() const {
     return static_cast<CHIPGraph *>(CaptureGraph_);
   }
+
+  CHIPGraphNode *getLastNode() {return LastNode_;}
+
+  void setForkedFromNode(CHIPGraphNode *ForkedFromNode) {
+    ForkedFromNode_ = ForkedFromNode;
+  }
+  CHIPGraphNode *getForkedFromNode() const {return ForkedFromNode_; }
 
   CHIPDevice *PerThreadQueueForDevice = nullptr;
 
