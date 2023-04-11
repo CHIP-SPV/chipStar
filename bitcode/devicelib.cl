@@ -32,7 +32,7 @@
  *   float @_Z6sincosfPf(float, float *)
 */
 
-#include "OCML/ocml.h"
+#include "ROCm-Device-Libs/ocml/inc/ocml.h"
 #define NON_OVLD
 #define OVLD __attribute__((overloadable))
 //#define AI __attribute__((always_inline))
