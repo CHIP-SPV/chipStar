@@ -54,11 +54,11 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
-OVLD float CHIP_MANGLE2(saturate, f)(float x) {
+EXPORT float CHIP_MANGLE2(saturate, f32)(float x) {
   return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
 }
 
-OVLD float CHIP_MANGLE2(jn, f)(int n, float x) {
+EXPORT float CHIP_MANGLE2(jn, f32)(int n, float x) {
   // TODO check if OCML available
   if (n == 0)
     return __ocml_j0_f32(x);
@@ -76,7 +76,24 @@ OVLD float CHIP_MANGLE2(jn, f)(int n, float x) {
   return x1;
 }
 
-OVLD float CHIP_MANGLE2(yn, f)(int n, float x) {
+EXPORT double CHIP_MANGLE2(jn, f64)(int n, double x) {
+  if (n == 0)
+    return __ocml_j0_f64(x);
+  if (n == 1)
+    return __ocml_j1_f64(x);
+
+  double x0 = __ocml_j0_f64(x);
+  double x1 = __ocml_j1_f64(x);
+  for (int i = 1; i < n; ++i) {
+    double x2 = (2 * i) / x * x1 - x0;
+    x0 = x1;
+    x1 = x2;
+  }
+
+  return x1;
+}
+
+EXPORT float CHIP_MANGLE2(yn, f32)(int n, float x) {
   if (n == 0)
     return __ocml_y0_f32(x);
   if (n == 1)
@@ -93,31 +110,62 @@ OVLD float CHIP_MANGLE2(yn, f)(int n, float x) {
   return x1;
 }
 
-OVLD long long int CHIP_MANGLE2(llrint, f)(float x) {
+// TODO get rid of CHIP_MANGLE
+EXPORT double CHIP_MANGLE2(yn, f64)(int n, double x) {
+  if (n == 0)
+    return __ocml_y0_f64(x);
+  if (n == 1)
+    return __ocml_y1_f64(x);
+
+  double x0 = __ocml_y0_f64(x);
+  double x1 = __ocml_y1_f64(x);
+  for (int i = 1; i < n; ++i) {
+    double x2 = (2 * i) / x * x1 - x0;
+    x0 = x1;
+    x1 = x2;
+  }
+
+  return x1;
+}
+
+
+EXPORT long long int CHIP_MANGLE2(llrint, f32)(float x) {
+  return (long long int)(rint(x));
+}
+EXPORT long long int CHIP_MANGLE2(llrint, f64)(double x) {
   return (long long int)(rint(x));
 }
 
-OVLD long long int CHIP_MANGLE2(llround, f)(float x) {
+EXPORT long long int CHIP_MANGLE2(llround, f32)(float x) {
+  return (long long int)(round(x));
+}
+EXPORT long long int CHIP_MANGLE2(llround, f64)(double x) {
   return (long long int)(round(x));
 }
 
-OVLD long int CHIP_MANGLE2(lrint, f)(float x) {
+EXPORT long int CHIP_MANGLE2(lrint, f32)(float x) {
+  return (long int)(rint(x));
+}
+EXPORT long int CHIP_MANGLE2(lrint, f64)(double x) {
   return (long int)(rint(x));
 }
 
-OVLD long int CHIP_MANGLE2(lround, f)(float x) {
+EXPORT long int CHIP_MANGLE2(lround, f32)(float x) {
+  return (long int)(round(x));
+}
+EXPORT long int CHIP_MANGLE2(lround, f64)(double x) {
   return (long int)(round(x));
 }
 
 
 OVLD float length(float4 f);
 OVLD double length(double4 f);
-EXPORT float  CHIP_MANGLE2(norm4d, f)(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return length(temp); }
-EXPORT double CHIP_MANGLE2(norm4d, d)(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return length(temp); }
-EXPORT float  CHIP_MANGLE2(norm3d, f)(float x, float y, float z) { float4 temp = (float4)(x, y, z, 0.0f); return length(temp); }
-EXPORT double CHIP_MANGLE2(norm3d, d)(double x, double y, double z) { double4 temp = (double4)(x, y, z, 0.0); return length(temp); }
+EXPORT float  CHIP_MANGLE2(norm4d, f32)(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return length(temp); }
+EXPORT double CHIP_MANGLE2(norm4d, f64)(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return length(temp); }
+EXPORT float  CHIP_MANGLE2(norm3d, f32)(float x, float y, float z) { float4 temp = (float4)(x, y, z, 0.0f); return length(temp); }
+EXPORT double CHIP_MANGLE2(norm3d, f64)(double x, double y, double z) { double4 temp = (double4)(x, y, z, 0.0); return length(temp); }
 
-OVLD float CHIP_MANGLE2(norm, f)(int dim, const float *a) {
+EXPORT float CHIP_MANGLE2(norm, f32)(int dim, const float *a) {
   float r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -127,7 +175,7 @@ OVLD float CHIP_MANGLE2(norm, f)(int dim, const float *a) {
   return sqrt(r);
   }
 
-  OVLD double CHIP_MANGLE2(norm, d)(int dim, const double *a) {
+  EXPORT double CHIP_MANGLE2(norm, f64)(int dim, const double *a) {
   float r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -137,8 +185,7 @@ OVLD float CHIP_MANGLE2(norm, f)(int dim, const float *a) {
   return sqrt(r);
   }
 
-  OVLD float
-CHIP_MANGLE2(rnorm, f)(int dim, const float *a) { // TODO switch to OCML
+  EXPORT float CHIP_MANGLE2(rnorm, f32)(int dim, const float *a) { 
   float r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -148,35 +195,45 @@ CHIP_MANGLE2(rnorm, f)(int dim, const float *a) { // TODO switch to OCML
   return sqrt(r);
 }
 
-OVLD void CHIP_MANGLE2(sincospi, f)(float x, float *sptr,
+  EXPORT float CHIP_MANGLE2(rnorm, f64)(int dim, const double *a) { 
+  double r = 0;
+  while (dim--) {
+    r += a[0] * a[0];
+    ++a;
+  }
+
+  return sqrt(r);
+}
+
+EXPORT void CHIP_MANGLE2(sincospi, f32)(float x, float *sptr,
                                               float *cptr) {
   *sptr = sinpi(x);
   *cptr = cospi(x);
 }
 
-EXPORT float CHIP_MANGLE2(frexp, f)(float x, DEFAULT_AS int *i) {
+EXPORT float CHIP_MANGLE2(frexp, f32)(float x, DEFAULT_AS int *i) {
   int tmp;
   float ret = frexp(x, &tmp);
   *i = tmp;
   return ret;
 }
-EXPORT double CHIP_MANGLE2(frexp, d)(double x, DEFAULT_AS int *i) {
+EXPORT double CHIP_MANGLE2(frexp, f64)(double x, DEFAULT_AS int *i) {
   int tmp;
   double ret = frexp(x, &tmp);
   *i = tmp;
   return ret;
 }
 
-EXPORT float CHIP_MANGLE2(ldexp, f)(float x, int k) { return ldexp(x, k); }
-EXPORT double CHIP_MANGLE2(ldexp, d)(double x, int k) { return ldexp(x, k); }
+EXPORT float CHIP_MANGLE2(ldexp, f32)(float x, int k) { return ldexp(x, k); }
+EXPORT double CHIP_MANGLE2(ldexp, f64)(double x, int k) { return ldexp(x, k); }
 
-EXPORT float CHIP_MANGLE2(modf, f)(float x, DEFAULT_AS float *i) {
+EXPORT float CHIP_MANGLE2(modf, f32)(float x, DEFAULT_AS float *i) {
   float tmp;
   float ret = modf(x, &tmp);
   *i = tmp;
   return ret;
 }
-EXPORT double CHIP_MANGLE2(modf, d)(double x, DEFAULT_AS double *i) {
+EXPORT double CHIP_MANGLE2(modf, f64)(double x, DEFAULT_AS double *i) {
   double tmp;
   double ret = modf(x, &tmp);
   *i = tmp;
@@ -185,13 +242,13 @@ EXPORT double CHIP_MANGLE2(modf, d)(double x, DEFAULT_AS double *i) {
 
 
 // remquo
-EXPORT float CHIP_MANGLE2(remquo, f)(float x, float y, DEFAULT_AS int *quo) {
+EXPORT float CHIP_MANGLE2(remquo, f32)(float x, float y, DEFAULT_AS int *quo) {
   int tmp;
   float rem = remquo(x, y, &tmp);
   *quo = tmp;
   return rem;
 }
-EXPORT double CHIP_MANGLE2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
+EXPORT double CHIP_MANGLE2(remquo, f64)(double x, double y, DEFAULT_AS int *quo) {
   int tmp;
   double rem = remquo(x, y, &tmp);
   *quo = tmp;
@@ -199,14 +256,14 @@ EXPORT double CHIP_MANGLE2(remquo, d)(double x, double y, DEFAULT_AS int *quo) {
 }
 
 // sincos
-EXPORT float CHIP_MANGLE2(sincos, f)(float x, DEFAULT_AS float *cos) {
+EXPORT float CHIP_MANGLE2(sincos, f32)(float x, DEFAULT_AS float *cos) {
   float tmp;
   float sin = sincos(x, &tmp);
   *cos = tmp;
   return sin;
 }
 
-EXPORT double CHIP_MANGLE2(sincos, d)(double x, DEFAULT_AS double *cos) {
+EXPORT double CHIP_MANGLE2(sincos, f64)(double x, DEFAULT_AS double *cos) {
   double tmp;
   double sin = sincos(x, &tmp);
   *cos = tmp;
@@ -220,7 +277,7 @@ EXPORT double CHIP_MANGLE2(sincos, d)(double x, DEFAULT_AS double *cos) {
 
 #else
 
-EXPORT float OVLD __fdividef(float x, float y) { return x / y; }
+EXPORT float __fdividef(float x, float y) { return x / y; }
 
 #endif
 
@@ -562,7 +619,7 @@ static OVLD uint atomic_dec2_u(volatile global uint *address, uint val) {
   return r;
 }
 
-EXPORT float CHIP_MANGLE_ATOMIC(add, f)(DEFAULT_AS float *address,
+EXPORT float CHIP_MANGLE_ATOMIC(add, f32)(DEFAULT_AS float *address,
                                  float val) {
   volatile global float *gi = to_global(address);
   if (gi)
@@ -573,7 +630,7 @@ EXPORT float CHIP_MANGLE_ATOMIC(add, f)(DEFAULT_AS float *address,
   return 0;
 }
 
-EXPORT double CHIP_MANGLE_ATOMIC(add, d)(DEFAULT_AS double *address,
+EXPORT double CHIP_MANGLE_ATOMIC(add, f64)(DEFAULT_AS double *address,
                                   double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi)
@@ -584,7 +641,7 @@ EXPORT double CHIP_MANGLE_ATOMIC(add, d)(DEFAULT_AS double *address,
   return 0;
 }
 
-EXPORT float CHIP_MANGLE_ATOMIC(exch, f)(DEFAULT_AS float *address,
+EXPORT float CHIP_MANGLE_ATOMIC(exch, f32)(DEFAULT_AS float *address,
                                  float val) {
   volatile global float *gi = to_global(address);
   if (gi)
@@ -736,7 +793,7 @@ typedef struct {
   intptr_t  sampler;
 } *hipTextureObject_t;
 
-EXPORT float CHIP_MANGLE2(tex2D, f)(hipTextureObject_t textureObject,
+EXPORT float CHIP_MANGLE2(tex2D, f32)(hipTextureObject_t textureObject,
 				float x, float y) {
   return read_imagef(
     __builtin_astype(textureObject->image, read_only image2d_t),
