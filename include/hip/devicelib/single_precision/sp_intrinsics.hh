@@ -306,9 +306,9 @@ extern "C++" inline __device__ float __powf(float x, float y) {
   return native_exp2(y * native_log2(x));
 }
 
-extern "C++" inline __device__ float __chip_saturate_f ( float  x ); // custom
+extern "C" inline __device__ float __chip_saturate_f32 ( float  x ); // custom
 extern "C++" inline __device__ float __saturatef(float x) {
-  return __chip_saturate_f(x);
+  return __chip_saturate_f32(x);
 }
 
 // extern "C++" inline __device__ float native_cos(float x); // OpenCL (already
