@@ -54,6 +54,36 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
+EXPORT unsigned int __chip_funnelshift_l(unsigned int lo, unsigned int hi,
+                                         unsigned int shift) {
+  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned int shifted = concat << (shift & 31);
+  return shifted >> 32;
+}
+
+EXPORT unsigned int __chip_funnelshift_lc(unsigned int lo, unsigned int hi,
+                                          unsigned int shift) {
+  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned int shifted = concat << (shift & 31);
+  unsigned int clamped_shift = shift < 32 ? shift : 32;
+  return shifted >> (32 - clamped_shift);
+}
+
+EXPORT unsigned int __chip_funnelshift_r(unsigned int lo, unsigned int hi,
+                                         unsigned int shift) {
+  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned int shifted = concat >> (shift & 31);
+  return shifted;
+}
+
+EXPORT unsigned int __chip_funnelshift_rc(unsigned int lo, unsigned int hi,
+                                          unsigned int shift) {
+  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned int shifted = concat >> (shift & 31);
+  unsigned int clamped_shift = shift < 32 ? shift : 32;
+  return shifted << (32 - clamped_shift);
+}
+
 EXPORT float CHIP_MANGLE2(saturate, f32)(float x) {
   return (x < 0.0f) ? 0.0f : ((x > 1.0f) ? 1.0f : x);
 }

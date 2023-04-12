@@ -64,25 +64,9 @@ THE SOFTWARE.
 #include <hip/devicelib/integer/int_intrinsics.hh>
 #include <hip/devicelib/integer/int_math.hh>
 
-EXPORT unsigned int __funnelshift_l(unsigned int lo, unsigned int hi,
-                                    unsigned int shift);
-EXPORT unsigned int __funnelshift_lc(unsigned int lo, unsigned int hi,
-                                     unsigned int shift);
-EXPORT unsigned int __funnelshift_r(unsigned int lo, unsigned int hi,
-                                    unsigned int shift);
-EXPORT unsigned int __funnelshift_rc(unsigned int lo, unsigned int hi,
-                                     unsigned int shift);
-
-
-
 /**********************************************************************/
 
 #if defined(__HIP_DEVICE_COMPILE__)
-
-// EXPORT void __sincosf(float x, float *sptr, float *cptr) {
-//   *sptr = sin(x);
-//   *cptr = cos(x);
-// }
 
 /**********************************************************************/
 
@@ -101,7 +85,6 @@ unsigned __activemask()
 /**********************************************************************/
 
 #else
-// EXPORT void __sincosf(float x, float *sptr, float *cptr);
 
 EXPORT unsigned __activemask()
     __attribute__((unavailable("unsupported in CHIP-SPV.")));
