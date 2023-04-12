@@ -305,12 +305,8 @@ extern "C++" inline __device__ float powf(float x, float y) {
   return ::pow(x, y);
 }
 
-extern "C" inline __device__ float TODO__ocml_rcbrt_f32(float x); // OCML
-/*
-InvalidFunctionCall: Unexpected llvm intrinsic:
- llvm.canonicalize.f3
-*/
-extern "C++" inline __device__ float rcbrtf(float x) { return ::TODO__ocml_rcbrt_f32(x); }
+extern "C" inline __device__ float __ocml_rcbrt_f32(float x); // OCML
+extern "C++" inline __device__ float rcbrtf(float x) { return ::__ocml_rcbrt_f32(x); }
 
 extern "C++" inline __device__ float remainder(float x, float y); // OpenCL
 extern "C++" inline __device__ float remainderf(float x, float y) {

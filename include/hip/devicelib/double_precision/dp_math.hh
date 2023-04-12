@@ -181,7 +181,11 @@ extern "C++" inline __device__ double normcdfinv(double x) {
   return ::__ocml_ncdfinv_f64(x);
 }
 
-extern "C++" inline __device__ double rcbrt(double x);
+extern "C" inline __device__ double __ocml_rcbrt_f64(double x); // OCML
+extern "C++" inline __device__ double rcbrt(double x) {
+  return ::__ocml_rcbrt_f64(x);
+}
+
 extern "C++" inline __device__ double remainder(double x, double y);
 extern "C++" inline __device__ double remquo(double x, double y, int *quo);
 
