@@ -45,6 +45,8 @@
 
 #define CHIP_MANGLE_ATOMIC(NAME, S) CHIP_MANGLE2(atomic_##NAME, S)
 
+#define NOOPT __attribute__((optnone))
+
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
@@ -53,6 +55,144 @@
 #pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
+
+EXPORT unsigned long long int __chip_umul64hi(unsigned long long int x, unsigned long long int y) {
+    unsigned long long int mul = (unsigned long long int)x * (unsigned long long int)y;
+    return (unsigned long long int)(mul >> 64);
+}
+
+EXPORT long long int __chip_mul64hi(long long int x, long long int y) {
+    unsigned long long int mul = (unsigned long long int)x * (unsigned long long int)y;
+    return (long long int)(mul >> 64);
+}
+
+EXPORT unsigned int __chip_sad(int x, int y, unsigned int z) {
+    unsigned int result = 0;
+    for (int i = 0; i < sizeof(int) * 8; i++) {
+        int x_bit = (x >> i) & 1;
+        int y_bit = (y >> i) & 1;
+        unsigned int diff = abs(x_bit - y_bit);
+        result += (diff << i);
+    }
+    return result + z;
+}
+
+EXPORT unsigned int __chip_usad(unsigned int x, unsigned int y, unsigned int z) {
+    unsigned int result = 0;
+    for (int i = 0; i < sizeof(unsigned int) * 8; i++) {
+        unsigned int x_bit = (x >> i) & 1;
+        unsigned int y_bit = (y >> i) & 1;
+        unsigned int diff = abs((int)x_bit - (int)y_bit);
+        result += (diff << i);
+    }
+    return result + z;
+}
+
+// optimization tries to use llvm intrinsics here, but we don't want that
+EXPORT NOOPT unsigned int __chip_brev(unsigned int a) {
+  unsigned int m;
+  a = (a >> 16) | (a << 16); // swap halfwords
+  m = 0x00FF00FFU;
+  a = ((a >> 8) & m) | ((a << 8) & ~m); // swap bytes
+  m = m ^ (m << 4);
+  a = ((a >> 4) & m) | ((a << 4) & ~m); // swap nibbles
+  m = m ^ (m << 2);
+  a = ((a >> 2) & m) | ((a << 2) & ~m);
+  m = m ^ (m << 1);
+  a = ((a >> 1) & m) | ((a << 1) & ~m);
+  return a;
+}
+
+EXPORT NOOPT unsigned long long int __chip_brevll(unsigned long long int a) {
+  unsigned long long int m;
+  a = (a >> 32) | (a << 32); // swap words
+  m = 0x0000FFFF0000FFFFUL;
+  a = ((a >> 16) & m) | ((a << 16) & ~m); // swap halfwords
+  m = m ^ (m << 8);
+  a = ((a >> 8) & m) | ((a << 8) & ~m); // swap bytes
+  m = m ^ (m << 4);
+  a = ((a >> 4) & m) | ((a << 4) & ~m); // swap nibbles
+  m = m ^ (m << 2);
+  a = ((a >> 2) & m) | ((a << 2) & ~m);
+  m = m ^ (m << 1);
+  a = ((a >> 1) & m) | ((a << 1) & ~m);
+  return a;
+}
+
+struct ucharHolder {
+  union {
+    unsigned char c[4];
+    unsigned int ui;
+  };
+};
+
+struct uchar2Holder {
+  union {
+    unsigned int ui[2];
+    unsigned char c[8];
+  };
+};
+
+EXPORT unsigned int __chip_byte_perm(unsigned int x, unsigned int y,
+                                unsigned int s) {
+  struct uchar2Holder cHoldVal;
+  struct ucharHolder cHoldKey;
+  struct ucharHolder cHoldOut;
+  cHoldKey.ui = s;
+  cHoldVal.ui[0] = x;
+  cHoldVal.ui[1] = y;
+  cHoldOut.c[0] = cHoldVal.c[cHoldKey.c[0]];
+  cHoldOut.c[1] = cHoldVal.c[cHoldKey.c[1]];
+  cHoldOut.c[2] = cHoldVal.c[cHoldKey.c[2]];
+  cHoldOut.c[3] = cHoldVal.c[cHoldKey.c[3]];
+  return cHoldOut.ui;
+}
+
+EXPORT unsigned int __chip_ffs(unsigned int input) {
+  return (input == 0 ? -1 : ctz(input)) + 1;
+}
+
+EXPORT int __chip_ctzll(long long int x) {
+    if (x == 0) {
+        return sizeof(long long int) * 8;
+    }
+    int count = 0;
+    while ((x & 1LL) == 0) {
+        x >>= 1;
+        count++;
+    }
+    return count;
+}
+
+EXPORT unsigned int __chip_ffsll(long long int input) {
+  return (input == 0 ? -1 : __chip_ctzll(input)) + 1;
+}
+
+EXPORT unsigned int __lastbit_u32_u64(unsigned long long input) {
+  return input == 0 ? -1 : __chip_ctzll(input);
+}
+
+EXPORT unsigned int __bitextract_u32(unsigned int src0, unsigned int src1,
+                                     unsigned int src2) {
+  unsigned long offset = src1 & 31;
+  unsigned long width = src2 & 31;
+  return width == 0 ? 0 : (src0 << (32 - offset - width)) >> (32 - width);
+}
+
+EXPORT unsigned long long __bitextract_u64(unsigned long long src0, unsigned int src1,
+                                 unsigned int src2) {
+  unsigned long long offset = src1 & 63;
+  unsigned long long width = src2 & 63;
+  return width == 0 ? 0 : (src0 << (64 - offset - width)) >> (64 - width);
+}
+
+EXPORT unsigned int __bitinsert_u32(unsigned int src0, unsigned int src1,
+                                    unsigned int src2, unsigned int src3) {
+  unsigned long offset = src2 & 31;
+  unsigned long width = src3 & 31;
+  unsigned long mask = (1 << width) - 1;
+  return ((src0 & ~(mask << offset)) | ((src1 & mask) << offset));
+}
 
 EXPORT unsigned int __chip_funnelshift_l(unsigned int lo, unsigned int hi,
                                          unsigned int shift) {
@@ -346,13 +486,13 @@ EXPORT void* CHIP_MANGLE(memcpy)(DEFAULT_AS void *dest, DEFAULT_AS const void * 
 
 /**********************************************************************/
 
-EXPORT uint CHIP_MANGLE2(popcount, ui)(uint var) {
-  return popcount(var);
-}
+// EXPORT uint CHIP_MANGLE2(popcount, ui)(uint var) {
+//   return popcount(var);
+// }
 
-EXPORT ulong CHIP_MANGLE2(popcount, ul)(ulong var) {
-  return popcount(var);
-}
+// EXPORT ulong CHIP_MANGLE2(popcount, ul)(ulong var) {
+//   return popcount(var);
+// }
 
 
 EXPORT int CHIP_MANGLE2(clz, i)(int var) {
@@ -372,47 +512,47 @@ EXPORT long CHIP_MANGLE2(ctz, li)(long var) {
 }
 
 
-EXPORT int CHIP_MANGLE2(hadd, i)(int x, int y) {
-  return hadd(x, y);
-}
+// EXPORT int CHIP_MANGLE2(hadd, i)(int x, int y) {
+//   return hadd(x, y);
+// }
 
-EXPORT int CHIP_MANGLE2(rhadd, i)(int x, int y) {
-  return hadd(x, y);
-}
+// EXPORT int CHIP_MANGLE2(rhadd, i)(int x, int y) {
+//   return hadd(x, y);
+// }
 
-EXPORT uint CHIP_MANGLE2(uhadd, ui)(uint x, uint y) {
-  return hadd(x, y);
-}
+// EXPORT uint CHIP_MANGLE2(uhadd, ui)(uint x, uint y) {
+//   return hadd(x, y);
+// }
 
-EXPORT uint CHIP_MANGLE2(urhadd, ui)(uint x, uint y) {
-  return hadd(x, y);
-}
-
-
-EXPORT int CHIP_MANGLE2(mul24, i)(int x, int y) {
-  return mul24(x, y);
-}
-
-EXPORT int CHIP_MANGLE2(mulhi, i)(int x, int y) {
-  return mul_hi(x, y);
-}
-
-EXPORT long CHIP_MANGLE2(mul64hi, li)(long x, long y) {
-  return mul_hi(x, y);
-}
+// EXPORT uint CHIP_MANGLE2(urhadd, ui)(uint x, uint y) {
+//   return hadd(x, y);
+// }
 
 
-EXPORT uint CHIP_MANGLE2(umul24, ui)(uint x, uint y) {
-  return mul24(x, y);
-}
+// EXPORT int CHIP_MANGLE2(mul24, i)(int x, int y) {
+//   return mul24(x, y);
+// }
 
-EXPORT uint CHIP_MANGLE2(umulhi, ui)(uint x, uint y) {
-  return mul_hi(x, y);
-}
+// EXPORT int CHIP_MANGLE2(mulhi, i)(int x, int y) {
+//   return mul_hi(x, y);
+// }
 
-EXPORT ulong CHIP_MANGLE2(umul64hi, uli)(ulong x, ulong y) {
-  return mul_hi(x, y);
-}
+// EXPORT long CHIP_MANGLE2(mul64hi, li)(long x, long y) {
+//   return mul_hi(x, y);
+// }
+
+
+// EXPORT uint CHIP_MANGLE2(umul24, ui)(uint x, uint y) {
+//   return mul24(x, y);
+// }
+
+// EXPORT uint CHIP_MANGLE2(umulhi, ui)(uint x, uint y) {
+//   return mul_hi(x, y);
+// }
+
+// EXPORT ulong CHIP_MANGLE2(umul64hi, uli)(ulong x, ulong y) {
+//   return mul_hi(x, y);
+// }
 
 
 
