@@ -109,15 +109,36 @@ add_custom_command(
   VERBATIM)
 list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
 
+# ROCm-Device-Libs provides OCML and its dependencies (OCLC, OCKL, etc.)
+# Since these targets don't seem to get exported as normal targets, we have to link this way.
+set(OCML_LIBS
+  ocml
+  oclc_finite_only_off
+  oclc_unsafe_math_off
+  oclc_correctly_rounded_sqrt_off
+  oclc_daz_opt_off
+  oclc_isa_version_803
+)
+
+set(OCML_LIB_PATHS
+  ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/ocml/ocml.lib.bc 
+  ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_finite_only_off.lib.bc
+  ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_unsafe_math_off.lib.bc
+  ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_correctly_rounded_sqrt_off.lib.bc
+  ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_daz_opt_off.lib.bc
+  ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_isa_version_803.lib.bc
+)
+
 # devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  DEPENDS ${DEPEND_LIST} ocml
+  DEPENDS ${DEPEND_LIST} ${OCML_LIBS}
   COMMAND ${CMAKE_COMMAND} -E make_directory
   "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
   COMMAND "${LLVM_LINK}"
   -o "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  ${DEPEND_LIST} ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/amdgcn/bitcode/ocml.bc
+  ${DEPEND_LIST} 
+  ${OCML_LIB_PATHS}
   COMMENT "Linking device library bitcode '${BC_FILE}'"
   VERBATIM)
 
