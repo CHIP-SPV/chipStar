@@ -29,22 +29,22 @@
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
-extern "C" __device__  uint64_t __chip_ballot(int predicate); // Custom
+extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
 extern "C++" inline __device__ uint64_t __ballot(int predicate) {
   return __chip_ballot(predicate);
 }
 
-extern "C" __device__  int __chip_all(int predicate); // Custom
+extern "C++" __device__  int __chip_all(int predicate); // Custom
 extern "C++" inline __device__ int __all(int predicate) {
   return __chip_all(predicate);
 }
 
-extern "C" __device__  int __chip_any(int predicate); // Custom
+extern "C++" __device__  int __chip_any(int predicate); // Custom
 extern "C++" inline __device__ int __any(int predicate) {
   return __chip_any(predicate);
 }
 
-extern "C" __device__  unsigned __chip_lane_id(); // Custom
+extern "C++" __device__  unsigned __chip_lane_id(); // Custom
 extern "C++" inline __device__ unsigned __lane_id() {
   return __chip_lane_id();
 }
@@ -53,7 +53,7 @@ extern "C++" inline __device__ unsigned __lane_id() {
 // to implementing with cl_khr_subgroups which has only a whole warp
 // sync. We omit the argument to produce a compile time error, if a
 // non-default all-ones mask is passed.
-extern "C" __device__  void __chip_syncwarp();  // Custom
+extern "C++" __device__  void __chip_syncwarp();  // Custom
 extern "C++" inline __device__ void __syncwarp() {
   __chip_syncwarp();
 }

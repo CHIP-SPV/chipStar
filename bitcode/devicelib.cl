@@ -440,36 +440,36 @@ EXPORT double CHIP_MANGLE2(sincos, f64)(double x, DEFAULT_AS double *cos) {
   return sin;
 }
 
-#ifdef CHIP_NONPORTABLE_MATH_INTRISINCS
+// #ifdef CHIP_NONPORTABLE_MATH_INTRISINCS
 
-// DEF_OPENCL1F_NATIVE(recip)
-// DEF_OPENCL2F_NATIVE(divide)
+// // DEF_OPENCL1F_NATIVE(recip)
+// // DEF_OPENCL2F_NATIVE(divide)
 
-#else
+// #else
 
-EXPORT float __fdividef(float x, float y) { return x / y; }
+// EXPORT float __fdividef(float x, float y) { return x / y; }
 
-#endif
+// #endif
 
 
 /* other */
 
 // local_barrier
-EXPORT void CHIP_MANGLE(syncthreads)() { barrier(CLK_LOCAL_MEM_FENCE); }
+EXPORT void __chip_syncthreads() { barrier(CLK_LOCAL_MEM_FENCE); }
 
 // local_fence
-EXPORT void CHIP_MANGLE(threadfence_block)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
+EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
 // global_fence
-EXPORT void CHIP_MANGLE(threadfence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+EXPORT void __chip_threadfence() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 
 // system_fence
-EXPORT void CHIP_MANGLE(threadfence_system)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+EXPORT void __chip_threadfence_system() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value
 // interpret ptr as a unsigned char so that it writes as bytes
-EXPORT void* CHIP_MANGLE(memset)(DEFAULT_AS void* ptr, int value, size_t size) {
+EXPORT void* __chip_memset(DEFAULT_AS void* ptr, int value, size_t size) {
   volatile unsigned char* temporary = ptr;
 
   for(int i=0;i<size;i++)
@@ -478,7 +478,7 @@ EXPORT void* CHIP_MANGLE(memset)(DEFAULT_AS void* ptr, int value, size_t size) {
     return ptr;
 }
 
-EXPORT void* CHIP_MANGLE(memcpy)(DEFAULT_AS void *dest, DEFAULT_AS const void * src, size_t n) {
+EXPORT void* __chip_memcpy(DEFAULT_AS void *dest, DEFAULT_AS const void * src, size_t n) {
   volatile unsigned char* temporary_dest = dest;
   volatile const unsigned char* temporary_src = src;
 
@@ -935,7 +935,7 @@ __SHFL_DOWN(float);
 __SHFL_DOWN(double);
 
 __attribute__((overloadable)) uint4 sub_group_ballot(int predicate);
-EXPORT OVLD ulong __ballot(int predicate) {
+EXPORT OVLD ulong __chip_ballot(int predicate) {
 #if DEFAULT_WARP_SIZE <= 32
   return sub_group_ballot(predicate).x;
 #else
@@ -944,19 +944,19 @@ EXPORT OVLD ulong __ballot(int predicate) {
 #endif
 }
 
-EXPORT OVLD int __all(int predicate) {
-  return __ballot(predicate) == ~0;
+EXPORT OVLD int __chip_all(int predicate) {
+  return __chip_ballot(predicate) == ~0;
 }
 
-EXPORT OVLD int __any(int predicate) {
-  return __ballot(predicate) != 0;
+EXPORT OVLD int __chip_any(int predicate) {
+  return __chip_ballot(predicate) != 0;
 }
 
-EXPORT OVLD unsigned __lane_id() {
+EXPORT OVLD unsigned __chip_lane_id() {
   return get_sub_group_local_id();
 }
 
-EXPORT OVLD void __syncwarp() {
+EXPORT OVLD void __chip_syncwarp() {
   // CUDA docs speaks only about "memory". It's not specifying that it would
   // only flush local memory.
   return sub_group_barrier(CLK_GLOBAL_MEM_FENCE);
