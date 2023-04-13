@@ -29,22 +29,22 @@
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
-extern "C" inline __device__ uint64_t __chip_ballot(int predicate); // Custom
+extern "C" __device__  uint64_t __chip_ballot(int predicate); // Custom
 extern "C++" inline __device__ uint64_t __ballot(int predicate) {
   return __chip_ballot(predicate);
 }
 
-extern "C" inline __device__ int __chip_all(int predicate); // Custom
+extern "C" __device__  int __chip_all(int predicate); // Custom
 extern "C++" inline __device__ int __all(int predicate) {
   return __chip_all(predicate);
 }
 
-extern "C" inline __device__ int __chip_any(int predicate); // Custom
+extern "C" __device__  int __chip_any(int predicate); // Custom
 extern "C++" inline __device__ int __any(int predicate) {
   return __chip_any(predicate);
 }
 
-extern "C" inline __device__ unsigned __chip_lane_id(); // Custom
+extern "C" __device__  unsigned __chip_lane_id(); // Custom
 extern "C++" inline __device__ unsigned __lane_id() {
   return __chip_lane_id();
 }
@@ -53,20 +53,20 @@ extern "C++" inline __device__ unsigned __lane_id() {
 // to implementing with cl_khr_subgroups which has only a whole warp
 // sync. We omit the argument to produce a compile time error, if a
 // non-default all-ones mask is passed.
-extern "C" inline __device__ void __chip_syncwarp();  // Custom
+extern "C" __device__  void __chip_syncwarp();  // Custom
 extern "C++" inline __device__ void __syncwarp() {
   __chip_syncwarp();
 }
 
 
-extern "C" inline __device__ void __chip_syncthreads(); // Custom
-extern "C" inline __device__ void __chip_threadfence_block(); // Custom
-extern "C" inline __device__ void __chip_threadfence(); // Custom
-extern "C" inline __device__ void __chip_threadfence_system(); // Custom
+extern "C" __device__  void __chip_syncthreads(); // Custom
+extern "C" __device__  void __chip_threadfence_block(); // Custom
+extern "C" __device__  void __chip_threadfence(); // Custom
+extern "C" __device__  void __chip_threadfence_system(); // Custom
 
-extern "C" inline __device__ int __chip_group_all(int predicate); // Custom
-extern "C" inline __device__ int __chip_group_any(int predicate); // Custom
-extern "C" inline __device__ ulong __chip_group_ballot(int predicate); // Custom
+extern "C" __device__  int __chip_group_all(int predicate); // Custom
+extern "C" __device__  int __chip_group_any(int predicate); // Custom
+extern "C" __device__  ulong __chip_group_ballot(int predicate); // Custom
 
 extern "C++" inline __device__ void __syncthreads() { __chip_syncthreads(); }
 
@@ -98,12 +98,12 @@ extern "C++" inline __device__ void __threadfence() {
 }
 
 
-extern "C" inline __device__ void *__chip_memset(void *ptr, int value, size_t size);
+extern "C" __device__  void *__chip_memset(void *ptr, int value, size_t size);
 extern "C++" inline __device__ void *memset(void *ptr, int value, size_t size) {
   return __chip_memset(ptr, value, size);
 }
 
-extern "C" inline __device__ void *__chip_memcpy(void *dest, const void *src, size_t n);
+extern "C" __device__  void *__chip_memcpy(void *dest, const void *src, size_t n);
 extern "C++" inline __device__ void *memcpy(void *dest, const void *src, size_t n) {
   return __chip_memcpy(dest, src, n);
 }
@@ -116,7 +116,7 @@ extern "C++" inline __device__ unsigned __activemask()
 // TODO: This is a temporary implementation of clock64(),
 //       in future it will be changed with more reliable implementation.
 // __device__ static unsigned long __chip_clk_counter = 0;
-// extern "C" inline __device__ unsigned long __chip_atomic_add_l(unsigned long *address, unsigned long val); // Custom
+// extern "C" __device__  unsigned long __chip_atomic_add_l(unsigned long *address, unsigned long val); // Custom
 // extern "C++" inline __device__ clock_t clock() { 
 //   __chip_atomic_add_l(&__chip_clk_counter, 1);
 //   return __chip_clk_counter;
