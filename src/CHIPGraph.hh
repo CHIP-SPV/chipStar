@@ -66,7 +66,8 @@ public:
   hipGraphNodeType getType() { return Type_; }
   virtual CHIPGraphNode *clone() const = 0;
 
-  void setLaunchQueue(CHIPQueue *ChipQueue) {LaunchQueue_ = ChipQueue; }
+
+  void setLaunchQueue(CHIPQueue *ChipQueue) { LaunchQueue_ = ChipQueue; }
   CHIPQueue *getLaunchQueue() { return LaunchQueue_; }
 
   /**

@@ -2021,23 +2021,31 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
 
   // fork condition
   // the event belongs to different stream under capture mode
-  if (ChipQueueofEvent != ChipQueue && ChipQueueofEvent->getCaptureStatus() == hipStreamCaptureStatusActive)
-  {
+  if (ChipQueueofEvent != ChipQueue &&
+      ChipQueueofEvent->getCaptureStatus() == hipStreamCaptureStatusActive) {
     auto eventGraph = ChipQueueofEvent->getCaptureGraph();
-    if ( ChipQueue->getCaptureStatus() == hipStreamCaptureStatusNone) {
+    if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusNone) {
       // fork and capture events into subgraph
       ChipQueue->initCaptureGraph();
-      ChipQueue->setCaptureMode(ChipQueueofEvent->getCaptureMode());
-      ChipQueue->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusActive);
-      ChipQueue->setForkedFromNode(ctx->EventsQueueMap[ChipEvent].second);
-      logDebug("setting forked from to {}", (void*)ctx->EventsQueueMap[ChipEvent].second);
+      ChipQueue->setCaptureMode(
+          ChipQueueofEvent->getCaptureMode());
+      ChipQueue->setCaptureStatus(
+          hipStreamCaptureStatus::hipStreamCaptureStatusActive);
+      ChipQueue->setForkedFromNode(
+          ctx->EventsQueueMap[ChipEvent].second);
+      logDebug(
+        "setting forked from to {}",
+        (void*)ctx->EventsQueueMap[ChipEvent].second);
    }
 
-    if ( ChipQueue->getCaptureStatus() == hipStreamCaptureStatusActive && (eventGraph->findNode(ChipQueue->getForkedFromNode()) != nullptr) ) {
+    if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusActive &&
+        (eventGraph->findNode(ChipQueue->getForkedFromNode()) != nullptr)) {
       ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent);
 
       auto depNode = ctx->EventsQueueMap[ChipEvent].second;
-      logDebug("adding fork dependency. {} ({}) depends on {} ({})", (void *)ChipQueue->getLastNode(), ChipQueue->getLastNode()->Msg, (void*)depNode, depNode->Msg);
+      logDebug("adding fork dependency. {} ({}) depends on {} ({})",
+        (void *)ChipQueue->getLastNode(), ChipQueue->getLastNode()->Msg,
+        (void*)depNode, depNode->Msg);
       ChipQueue->getLastNode()->addDependency(depNode);
       RETURN(hipSuccess);
     }
@@ -2046,19 +2054,23 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
     //join if forked
     auto currChipQueueGraph = ChipQueue->getCaptureGraph();
-    if (ChipQueueofEvent != ChipQueue && ChipQueueofEvent->getCaptureStatus() == hipStreamCaptureStatusActive &&
-         currChipQueueGraph->findNode(ChipQueueofEvent->getForkedFromNode()) != nullptr) {
+    if (ChipQueueofEvent != ChipQueue &&
+      ChipQueueofEvent->getCaptureStatus() == hipStreamCaptureStatusActive &&
+      currChipQueueGraph->findNode(ChipQueueofEvent->getForkedFromNode()) != nullptr) {
           auto graph = ChipQueueofEvent->getCaptureGraph();
           auto nodes = graph->getNodes();
 
           auto depNode = ctx->EventsQueueMap[ChipEvent].second;
           ChipQueue->getLastNode()->addDependency(depNode);
-          logDebug("adding join dependency. {} ({}) depends on {} ({})", (void *)ChipQueue->getLastNode(), ChipQueue->getLastNode()->Msg, (void*)depNode, depNode->Msg);
+          logDebug("adding join dependency. {} ({}) depends on {} ({})",
+            (void *)ChipQueue->getLastNode(), ChipQueue->getLastNode()->Msg,
+            (void*)depNode, depNode->Msg);
+
           for(auto node:nodes)
-          {
            currChipQueueGraph->addNode(node);
-          }
-          ChipQueueofEvent->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusNone);
+
+          ChipQueueofEvent->setCaptureStatus(
+            hipStreamCaptureStatus::hipStreamCaptureStatusNone);
         }
     RETURN(hipSuccess);
   }
@@ -2199,7 +2211,8 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
     auto ctx = ChipEvent->getContext();
     auto Graph = ChipQueue->getCaptureGraph();
-    ctx->EventsQueueMap[ChipEvent] = std::make_pair(ChipQueue, ChipQueue->getLastNode());
+    ctx->EventsQueueMap[ChipEvent] =
+      std::make_pair(ChipQueue, ChipQueue->getLastNode());
   }
 
   ChipEvent->recordStream(ChipQueue);

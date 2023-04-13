@@ -1541,7 +1541,7 @@ protected:
 
 public:
   std::vector<CHIPEvent *> Events;
-  std::unordered_map<CHIPEvent * , std::pair<CHIPQueue * , CHIPGraphNode * >> EventsQueueMap;
+  std::unordered_map<CHIPEvent *, std::pair<CHIPQueue*, CHIPGraphNode*>> EventsQueueMap;
   std::mutex ContextMtx;
 
   /**
@@ -2022,12 +2022,13 @@ public:
     return static_cast<CHIPGraph *>(CaptureGraph_);
   }
 
-  CHIPGraphNode *getLastNode() {return LastNode_;}
+  CHIPGraphNode *getLastNode() { return LastNode_; }
 
   void setForkedFromNode(CHIPGraphNode *ForkedFromNode) {
     ForkedFromNode_ = ForkedFromNode;
   }
-  CHIPGraphNode *getForkedFromNode() const {return ForkedFromNode_; }
+
+  CHIPGraphNode *getForkedFromNode() const { return ForkedFromNode_; }
 
   CHIPDevice *PerThreadQueueForDevice = nullptr;
 
