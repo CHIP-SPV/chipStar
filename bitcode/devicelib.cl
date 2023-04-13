@@ -56,14 +56,14 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
-EXPORT unsigned long long int __chip_umul64hi(unsigned long long int x, unsigned long long int y) {
-    unsigned long long int mul = (unsigned long long int)x * (unsigned long long int)y;
-    return (unsigned long long int)(mul >> 64);
+EXPORT unsigned /* long */ long int __chip_umul64hi(unsigned /* long */ long int x, unsigned /* long */ long int y) {
+    unsigned /* long */ long int mul = (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
+    return (unsigned /* long */ long int)(mul >> 64);
 }
 
-EXPORT long long int __chip_mul64hi(long long int x, long long int y) {
-    unsigned long long int mul = (unsigned long long int)x * (unsigned long long int)y;
-    return (long long int)(mul >> 64);
+EXPORT /* long */ long int __chip_mul64hi(/* long */ long int x, /* long */ long int y) {
+    unsigned /* long */ long int mul = (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
+    return (/* long */ long int)(mul >> 64);
 }
 
 EXPORT unsigned int __chip_sad(int x, int y, unsigned int z) {
@@ -103,8 +103,8 @@ EXPORT NOOPT unsigned int __chip_brev(unsigned int a) {
   return a;
 }
 
-EXPORT NOOPT unsigned long long int __chip_brevll(unsigned long long int a) {
-  unsigned long long int m;
+EXPORT NOOPT unsigned /* long */ long int __chip_brevll(unsigned /* long */ long int a) {
+  unsigned /* long */ long int m;
   a = (a >> 32) | (a << 32); // swap words
   m = 0x0000FFFF0000FFFFUL;
   a = ((a >> 16) & m) | ((a << 16) & ~m); // swap halfwords
@@ -152,9 +152,9 @@ EXPORT unsigned int __chip_ffs(unsigned int input) {
   return (input == 0 ? -1 : ctz(input)) + 1;
 }
 
-EXPORT int __chip_ctzll(long long int x) {
+EXPORT int __chip_ctzll(/* long */ long int x) {
     if (x == 0) {
-        return sizeof(long long int) * 8;
+        return sizeof(/* long */ long int) * 8;
     }
     int count = 0;
     while ((x & 1LL) == 0) {
@@ -164,11 +164,11 @@ EXPORT int __chip_ctzll(long long int x) {
     return count;
 }
 
-EXPORT unsigned int __chip_ffsll(long long int input) {
+EXPORT unsigned int __chip_ffsll(/* long */ long int input) {
   return (input == 0 ? -1 : __chip_ctzll(input)) + 1;
 }
 
-EXPORT unsigned int __lastbit_u32_u64(unsigned long long input) {
+EXPORT unsigned int __lastbit_u32_u64(unsigned /* long */ long input) {
   return input == 0 ? -1 : __chip_ctzll(input);
 }
 
@@ -179,10 +179,10 @@ EXPORT unsigned int __bitextract_u32(unsigned int src0, unsigned int src1,
   return width == 0 ? 0 : (src0 << (32 - offset - width)) >> (32 - width);
 }
 
-EXPORT unsigned long long __bitextract_u64(unsigned long long src0, unsigned int src1,
+EXPORT unsigned /* long */ long __bitextract_u64(unsigned /* long */ long src0, unsigned int src1,
                                  unsigned int src2) {
-  unsigned long long offset = src1 & 63;
-  unsigned long long width = src2 & 63;
+  unsigned /* long */ long offset = src1 & 63;
+  unsigned /* long */ long width = src2 & 63;
   return width == 0 ? 0 : (src0 << (64 - offset - width)) >> (64 - width);
 }
 
@@ -196,14 +196,14 @@ EXPORT unsigned int __bitinsert_u32(unsigned int src0, unsigned int src1,
 
 EXPORT unsigned int __chip_funnelshift_l(unsigned int lo, unsigned int hi,
                                          unsigned int shift) {
-  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
   unsigned int shifted = concat << (shift & 31);
   return shifted >> 32;
 }
 
 EXPORT unsigned int __chip_funnelshift_lc(unsigned int lo, unsigned int hi,
                                           unsigned int shift) {
-  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
   unsigned int shifted = concat << (shift & 31);
   unsigned int clamped_shift = shift < 32 ? shift : 32;
   return shifted >> (32 - clamped_shift);
@@ -211,14 +211,14 @@ EXPORT unsigned int __chip_funnelshift_lc(unsigned int lo, unsigned int hi,
 
 EXPORT unsigned int __chip_funnelshift_r(unsigned int lo, unsigned int hi,
                                          unsigned int shift) {
-  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
   unsigned int shifted = concat >> (shift & 31);
   return shifted;
 }
 
 EXPORT unsigned int __chip_funnelshift_rc(unsigned int lo, unsigned int hi,
                                           unsigned int shift) {
-  unsigned long long concat = ((unsigned long long)hi << 32) | lo;
+  unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
   unsigned int shifted = concat >> (shift & 31);
   unsigned int clamped_shift = shift < 32 ? shift : 32;
   return shifted << (32 - clamped_shift);
@@ -299,18 +299,18 @@ EXPORT double CHIP_MANGLE2(yn, f64)(int n, double x) {
 }
 
 
-EXPORT long long int CHIP_MANGLE2(llrint, f32)(float x) {
-  return (long long int)(rint(x));
+EXPORT /* long */ long int CHIP_MANGLE2(llrint, f32)(float x) {
+  return (/* long */ long int)(rint(x));
 }
-EXPORT long long int CHIP_MANGLE2(llrint, f64)(double x) {
-  return (long long int)(rint(x));
+EXPORT /* long */ long int CHIP_MANGLE2(llrint, f64)(double x) {
+  return (/* long */ long int)(rint(x));
 }
 
-EXPORT long long int CHIP_MANGLE2(llround, f32)(float x) {
-  return (long long int)(round(x));
+EXPORT /* long */ long int CHIP_MANGLE2(llround, f32)(float x) {
+  return (/* long */ long int)(round(x));
 }
-EXPORT long long int CHIP_MANGLE2(llround, f64)(double x) {
-  return (long long int)(round(x));
+EXPORT /* long */ long int CHIP_MANGLE2(llround, f64)(double x) {
+  return (/* long */ long int)(round(x));
 }
 
 EXPORT long int CHIP_MANGLE2(lrint, f32)(float x) {
@@ -975,7 +975,7 @@ EXPORT float CHIP_MANGLE2(tex2D, f32)(hipTextureObject_t textureObject,
     (float2)(x, y)).x;
 }
 
-// In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
+// In HIP /* long */ long is 64-bit integer. In OpenCL it's 128-bit integer.
 EXPORT long __double_as_longlong(double x) { return as_long(x); }
 EXPORT double __longlong_as_double(long int x) { return as_double(x); }
 
