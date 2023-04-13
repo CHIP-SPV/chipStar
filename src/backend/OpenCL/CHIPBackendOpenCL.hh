@@ -51,6 +51,7 @@
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
+#include "Utils.hh"
 
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
 
@@ -126,7 +127,7 @@ class SVMemoryRegion {
   enum SVM_ALLOC_GRANULARITY { COARSE_GRAIN, FINE_GRAIN };
   // ContextMutex should be enough
 
-  std::map<void *, size_t> SvmAllocations_;
+  std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> SvmAllocations_;
   cl::Context Context_;
 
 public:

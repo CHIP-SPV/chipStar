@@ -126,8 +126,7 @@ template <class T> struct PointerCmp {
     Helper() : Ptr(nullptr) {}
     Helper(Helper const &) = default;
     Helper(T *p) : Ptr(p) {}
-    // template <class U, class... Ts>
-    // Helper(std::shared_ptr<U, Ts...> const &Sp) : Ptr(Sp.get()) {}
+    template <class U> Helper(std::shared_ptr<U> const &Sp) : Ptr(Sp.get()) {}
     template <class U, class... Ts>
     Helper(std::unique_ptr<U, Ts...> const &Up) : Ptr(Up.get()) {}
     // && optional: enforces rvalue use only
