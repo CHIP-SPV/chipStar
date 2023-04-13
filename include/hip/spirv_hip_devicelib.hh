@@ -66,30 +66,30 @@ THE SOFTWARE.
 
 /**********************************************************************/
 
-#if defined(__HIP_DEVICE_COMPILE__)
+// #if defined(__HIP_DEVICE_COMPILE__)
 
-/**********************************************************************/
+// /**********************************************************************/
 
-extern "C" {
-NON_OVLD void GEN_NAME(local_barrier)();
-NON_OVLD int GEN_NAME(group_all)(int predicate);
-NON_OVLD int GEN_NAME(group_any)(int predicate);
-NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
-}
+// // extern "C" {
+// // NON_OVLD void GEN_NAME(local_barrier)();
+// // NON_OVLD int GEN_NAME(group_all)(int predicate);
+// // NON_OVLD int GEN_NAME(group_any)(int predicate);
+// // NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
+// // }
 
-unsigned __activemask()
-    __attribute__((unavailable("unsupported in CHIP-SPV.")));
+// // unsigned __activemask()
+// //     __attribute__((unavailable("unsupported in CHIP-SPV.")));
 
-// memory routines
+// // memory routines
 
-/**********************************************************************/
+// /**********************************************************************/
 
-#else
+// #else
 
-EXPORT unsigned __activemask()
-    __attribute__((unavailable("unsupported in CHIP-SPV.")));
+// // EXPORT unsigned __activemask()
+// //     __attribute__((unavailable("unsupported in CHIP-SPV.")));
 
-#endif
+// #endif
 
 EXPORT
 uint64_t __make_mantissa_base8(const char *tagp) {
@@ -404,16 +404,16 @@ EXPORT clock_t clock() { return (clock_t)clock64(); }
 
 /**********************************************************************/
 
-#if defined(__HIP_DEVICE_COMPILE__)
-extern "C" {
-NON_OVLD int GEN_NAME(group_all)(int pred);
-NON_OVLD int GEN_NAME(group_any)(int pred);
-NON_OVLD uint64_t GEN_NAME(group_ballot)(int pred);
-}
+// #if defined(__HIP_DEVICE_COMPILE__)
+// extern "C" {
+// NON_OVLD int GEN_NAME(group_all)(int pred);
+// NON_OVLD int GEN_NAME(group_any)(int pred);
+// NON_OVLD uint64_t GEN_NAME(group_ballot)(int pred);
+// }
 
-#else
+// #else
 
-#endif
+// #endif
 
 #include <hip/spirv_hip_runtime.h>
 

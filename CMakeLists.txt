@@ -176,7 +176,7 @@ option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executa
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(BUILD_TESTS "Build Catch2 unit tests" OFF)
-option(BUILD_SAMPLES "Build samples" OFF)
+option(BUILD_SAMPLES "Build samples" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)

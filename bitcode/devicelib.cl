@@ -454,13 +454,17 @@ EXPORT float __fdividef(float x, float y) { return x / y; }
 
 /* other */
 
-EXPORT void CHIP_MANGLE(local_barrier)() { barrier(CLK_LOCAL_MEM_FENCE); }
+// local_barrier
+EXPORT void CHIP_MANGLE(syncthreads)() { barrier(CLK_LOCAL_MEM_FENCE); }
 
-EXPORT void CHIP_MANGLE(local_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
+// local_fence
+EXPORT void CHIP_MANGLE(threadfence_block)() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
-EXPORT void CHIP_MANGLE(global_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+// global_fence
+EXPORT void CHIP_MANGLE(threadfence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 
-EXPORT void CHIP_MANGLE(system_fence)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+// system_fence
+EXPORT void CHIP_MANGLE(threadfence_system)() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value

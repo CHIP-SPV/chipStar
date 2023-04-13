@@ -101,7 +101,7 @@ set(SAMPLES
     hiptest
     bit_extract
     hcc_dialects
-    fp16
+    # fp16  WIP
     0_MatrixTranspose
     0_MatrixMultiply
     1_hipEvent
