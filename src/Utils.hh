@@ -103,6 +103,18 @@ public:
   bool empty() const { return Begin_ == End_; }
 };
 
+/// An iterator adaptor for map-like containers for iterating its keys only.
+template <typename MapT>
+class ConstMapKeyIterator : public MapT::const_iterator {
+public:
+  ConstMapKeyIterator(typename MapT::const_iterator It)
+      : MapT::const_iterator(std::move(It)) {}
+
+  const typename MapT::key_type &operator*() const {
+    return MapT::const_iterator::operator*().first;
+  }
+};
+
 // A less comparator for comparing mixed raw and smart pointers.
 //
 // From https://stackoverflow.com/questions/18939882. Formatted for
