@@ -27,9 +27,9 @@ module load mkl
 module load opencl/intel-gpu
 
 # Ensure that only igpu is active for build/test discovery and OpenCL is used
-sudo /opt/ocl-icd/scripts/dgpu_unbind 
-sudo /opt/ocl-icd/scripts/igpu_unbind 
-sudo /opt/ocl-icd/scripts/igpu_bind 
+sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+sudo /opt/ocl-icd/scripts/igpu_bind   &> /dev/null
 export CHIP_BE=opencl
 
 # Build 
