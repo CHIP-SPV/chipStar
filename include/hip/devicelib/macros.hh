@@ -50,12 +50,7 @@
 #define INT_MAX 2147483647
 #endif
 
-#if defined(__HIP_DEVICE_COMPILE__)
 typedef _Float16 api_half;
 typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
-#else
-typedef _Float16 api_half;
-typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
-#endif // __HIP_DEVICE_COMPILE__
 
 #endif // include guard

@@ -64,116 +64,9 @@ THE SOFTWARE.
 #include <hip/devicelib/integer/int_intrinsics.hh>
 #include <hip/devicelib/integer/int_math.hh>
 
-/**********************************************************************/
-
-// #if defined(__HIP_DEVICE_COMPILE__)
-
-// /**********************************************************************/
-
-// // extern "C" {
-// // NON_OVLD void GEN_NAME(local_barrier)();
-// // NON_OVLD int GEN_NAME(group_all)(int predicate);
-// // NON_OVLD int GEN_NAME(group_any)(int predicate);
-// // NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
-// // }
-
-// // unsigned __activemask()
-// //     __attribute__((unavailable("unsupported in CHIP-SPV.")));
-
-// // memory routines
-
-// /**********************************************************************/
-
-// #else
-
-// // EXPORT unsigned __activemask()
-// //     __attribute__((unavailable("unsupported in CHIP-SPV.")));
-
-// #endif
-
-EXPORT
-uint64_t __make_mantissa_base8(const char *tagp) {
-  uint64_t r = 0;
-  while (tagp) {
-    char tmp = *tagp;
-
-    if (tmp >= '0' && tmp <= '7')
-      r = (r * 8u) + tmp - '0';
-    else
-      return 0;
-
-    ++tagp;
-  }
-
-  return r;
-}
-
-EXPORT
-uint64_t __make_mantissa_base10(const char *tagp) {
-  uint64_t r = 0;
-  while (tagp) {
-    char tmp = *tagp;
-
-    if (tmp >= '0' && tmp <= '9')
-      r = (r * 10u) + tmp - '0';
-    else
-      return 0;
-
-    ++tagp;
-  }
-
-  return r;
-}
-
-EXPORT
-uint64_t __make_mantissa_base16(const char *tagp) {
-  uint64_t r = 0;
-  while (tagp) {
-    char tmp = *tagp;
-
-    if (tmp >= '0' && tmp <= '9')
-      r = (r * 16u) + tmp - '0';
-    else if (tmp >= 'a' && tmp <= 'f')
-      r = (r * 16u) + tmp - 'a' + 10;
-    else if (tmp >= 'A' && tmp <= 'F')
-      r = (r * 16u) + tmp - 'A' + 10;
-    else
-      return 0;
-
-    ++tagp;
-  }
-
-  return r;
-}
-
-EXPORT
-uint64_t __make_mantissa(const char *tagp) {
-  if (!tagp)
-    return 0u;
-
-  if (*tagp == '0') {
-    ++tagp;
-
-    if (*tagp == 'x' || *tagp == 'X')
-      return __make_mantissa_base16(tagp);
-    else
-      return __make_mantissa_base8(tagp);
-  }
-
-  return __make_mantissa_base10(tagp);
-}
-
-/**********************************************************************/
-
 #ifndef CHAR_BIT
 #define CHAR_BIT 8
 #endif
-
-// TODO
-// EXPORT api_half fma(api_half x, api_half y, api_half z) {
-//   // TODO
-//   // return fma_h(x, y, z);
-// }
 
 #pragma push_macro("__DEF_FLOAT_FUN")
 #pragma push_macro("__DEF_FLOAT_FUN2")
@@ -401,19 +294,6 @@ EXPORT unsigned long long clock64() {
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
 EXPORT clock_t clock() { return (clock_t)clock64(); }
-
-/**********************************************************************/
-
-// #if defined(__HIP_DEVICE_COMPILE__)
-// extern "C" {
-// NON_OVLD int GEN_NAME(group_all)(int pred);
-// NON_OVLD int GEN_NAME(group_any)(int pred);
-// NON_OVLD uint64_t GEN_NAME(group_ballot)(int pred);
-// }
-
-// #else
-
-// #endif
 
 #include <hip/spirv_hip_runtime.h>
 
