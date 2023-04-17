@@ -1740,7 +1740,12 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
   auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     InfoStr << "Arg " << Arg.Index << ": " << Arg.getKindAsString() << " "
-            << Arg.Size << " " << Arg.Data << "\n";
+            << Arg.Size << " " << Arg.Data;
+    if (Arg.Kind == SPVTypeKind::Pointer && !Arg.isWorkgroupPtr()) {
+      void *PtrVal = *static_cast<void **>(const_cast<void *>(Arg.Data));
+      InfoStr << " (" << PtrVal << ")";
+    }
+    InfoStr << "\n";
   };
   FuncInfo.visitKernelArgs(ExecItem->getArgs(), Visitor);
 
