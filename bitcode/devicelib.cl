@@ -613,7 +613,7 @@ DEF_CHIP_ATOMIC3(cmpxchg)
 
 /* This code adapted from AMD's HIP sources */
 
-static OVLD float atomic_add_f(volatile local float *address, float val) {
+static OVLD float __chip_atomic_add_f32(volatile local float *address, float val) {
   volatile local uint *uaddr = (volatile local uint *)address;
   uint old = *uaddr;
   uint r;
@@ -626,7 +626,7 @@ static OVLD float atomic_add_f(volatile local float *address, float val) {
   return as_float(r);
 }
 
-static OVLD double atom_add_d(volatile local double *address, double val) {
+static OVLD double __chip_atom_add_f64(volatile local double *address, double val) {
   volatile local ulong *uaddr = (volatile local ulong *)address;
   ulong old = *uaddr;
   ulong r;
@@ -639,11 +639,11 @@ static OVLD double atom_add_d(volatile local double *address, double val) {
   return as_double(r);
 }
 
-static OVLD float atomic_exch_f(volatile local float *address, float val) {
+static OVLD float __chip_atomic_exch_f32(volatile local float *address, float val) {
   return as_float(atomic_xchg((volatile local uint *)(address), as_uint(val)));
 }
 
-static OVLD float atomic_add_f(volatile global float *address, float val) {
+static OVLD float __chip_atomic_add_f32(volatile global float *address, float val) {
   volatile global uint *uaddr = (volatile global uint *)address;
   uint old = *uaddr;
   uint r;
@@ -656,7 +656,7 @@ static OVLD float atomic_add_f(volatile global float *address, float val) {
   return as_float(r);
 }
 
-static OVLD double atom_add_d(volatile global double *address, double val) {
+static OVLD double __chip_atom_add_f64(volatile global double *address, double val) {
   volatile global ulong *uaddr = (volatile global ulong *)address;
   ulong old = *uaddr;
   ulong r;
@@ -669,11 +669,11 @@ static OVLD double atom_add_d(volatile global double *address, double val) {
   return as_double(r);
 }
 
-static OVLD float atomic_exch_f(volatile global float *address, float val) {
+static OVLD float __chip_atomic_exch_f32(volatile global float *address, float val) {
   return as_float(atomic_xchg((volatile global uint *)(address), as_uint(val)));
 }
 
-static OVLD uint atomic_inc2_u(volatile local uint *address, uint val) {
+static OVLD uint __chip_atomic_inc2_u(volatile local uint *address, uint val) {
   uint old = *address;
   uint r;
   do {
@@ -684,7 +684,7 @@ static OVLD uint atomic_inc2_u(volatile local uint *address, uint val) {
   return r;
 }
 
-static OVLD uint atomic_dec2_u(volatile local uint *address, uint val) {
+static OVLD uint __chip_atomic_dec2_u(volatile local uint *address, uint val) {
   uint old = *address;
   uint r;
   do {
@@ -695,7 +695,7 @@ static OVLD uint atomic_dec2_u(volatile local uint *address, uint val) {
   return r;
 }
 
-static OVLD uint atomic_inc2_u(volatile global uint *address, uint val) {
+static OVLD uint __chip_atomic_inc2_u(volatile global uint *address, uint val) {
   uint old = *address;
   uint r;
   do {
@@ -706,7 +706,7 @@ static OVLD uint atomic_inc2_u(volatile global uint *address, uint val) {
   return r;
 }
 
-static OVLD uint atomic_dec2_u(volatile global uint *address, uint val) {
+static OVLD uint __chip_atomic_dec2_u(volatile global uint *address, uint val) {
   uint old = *address;
   uint r;
   do {
@@ -721,10 +721,10 @@ EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address,
                                  float val) {
   volatile global float *gi = to_global(address);
   if (gi)
-    return atomic_add_f(gi, val);
+    return __chip_atomic_add_f32(gi, val);
   volatile local float *li = to_local(address);
   if (li)
-    return atomic_add_f(li, val);
+    return __chip_atomic_add_f32(li, val);
   return 0;
 }
 
@@ -732,10 +732,10 @@ EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address,
                                   double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi)
-    return atom_add_d(gi, val);
+    return __chip_atom_add_f64(gi, val);
   volatile local double *li = to_local((DEFAULT_AS double *)address);
   if (li)
-    return atom_add_d(li, val);
+    return __chip_atom_add_f64(li, val);
   return 0;
 }
 
@@ -743,10 +743,10 @@ EXPORT float __chip_atomic_exch_f32(DEFAULT_AS float *address,
                                  float val) {
   volatile global float *gi = to_global(address);
   if (gi)
-    return atomic_exch_f(gi, val);
+    return __chip_atomic_exch_f32(gi, val);
   volatile local float *li = to_local(address);
   if (li)
-    return atomic_exch_f(li, val);
+    return __chip_atomic_exch_f32(li, val);
   return 0;
 }
 
@@ -754,10 +754,10 @@ EXPORT uint __chip_atomic_inc2_u(DEFAULT_AS uint *address,
                                  uint val) {
   volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
   if (gi)
-    return atomic_inc2_u(gi, val);
+    return __chip_atomic_inc2_u(gi, val);
   volatile local uint *li = to_local((DEFAULT_AS uint *)address);
   if (li)
-    return atomic_inc2_u(li, val);
+    return __chip_atomic_inc2_u(li, val);
   return 0;
 }
 
@@ -765,10 +765,10 @@ EXPORT uint __chip_atomic_dec2_u(DEFAULT_AS uint *address,
                                  uint val) {
   volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
   if (gi)
-    return atomic_dec2_u(gi, val);
+    return __chip_atomic_dec2_u(gi, val);
   volatile local uint *li = to_local((DEFAULT_AS uint *)address);
   if (li)
-    return atomic_dec2_u(li, val);
+    return __chip_atomic_dec2_u(li, val);
   return 0;
 }
 /**********************************************************************/
@@ -900,6 +900,6 @@ EXPORT float __chip_tex2D_f32(hipTextureObject_t textureObject,
 }
 
 // In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
-EXPORT long __double_as_longlong(double x) { return as_long(x); }
-EXPORT double __longlong_as_double(long int x) { return as_double(x); }
+EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
+EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
