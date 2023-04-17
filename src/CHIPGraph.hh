@@ -57,6 +57,8 @@ protected:
 
   CHIPGraphNode(hipGraphNodeType Type) : Type_(Type) {}
 
+  void checkDependencies(size_t numDependencies, CHIPGraphNode **pDependencies);
+
 public:
   std::string Msg; // TODO Graphs cleanup
   CHIPGraphNode(const CHIPGraphNode &Other)
@@ -119,6 +121,10 @@ public:
    * @param TheNode
    */
   void addDependency(CHIPGraphNode *TheNode) {
+    if (TheNode == nullptr) {
+      CHIPERR_LOG_AND_THROW("addDependency called with nullptr",
+                            hipErrorInvalidValue);
+    }
     logDebug("{} addDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
     Dependencies_.push_back(TheNode);
@@ -133,6 +139,10 @@ public:
    * @param TheNode
    */
   void removeDependency(CHIPGraphNode *TheNode) {
+    if (TheNode == nullptr) {
+      CHIPERR_LOG_AND_THROW("removeDependency called with nullptr",
+                            hipErrorInvalidValue);
+    }
     logDebug("{} removeDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
     auto FoundNode =
@@ -140,7 +150,7 @@ public:
     if (FoundNode != Dependencies_.end()) {
       Dependencies_.erase(FoundNode);
     } else {
-      CHIPERR_LOG_AND_THROW("Failed to find", hipErrorTbd);
+      CHIPERR_LOG_AND_THROW("Failed to find", hipErrorInvalidValue);
     }
   }
 
@@ -152,9 +162,9 @@ public:
    * @param Dependencies
    * @param Count
    */
-  void addDependencies(CHIPGraphNode **Dependencies, int Count) {
-
-    for (int i = 0; i < Count; i++) {
+  void addDependencies(CHIPGraphNode **Dependencies, size_t Count) {
+    checkDependencies(Count, Dependencies);
+    for (size_t i = 0; i < Count; i++) {
       addDependency(Dependencies[i]);
     }
   }
@@ -179,8 +189,9 @@ public:
    *
    * @param TheNode
    */
-  void removeDependencies(CHIPGraphNode **Dependencies, int Count) {
-    for (int i = 0; i < Count; i++) {
+  void removeDependencies(CHIPGraphNode **Dependencies, size_t Count) {
+    checkDependencies(Count, Dependencies);
+    for (size_t i = 0; i < Count; i++) {
       removeDependency(Dependencies[i]);
     }
   }
@@ -315,8 +326,8 @@ public:
         Src_(Other.Src_), Count_(Other.Count_), Kind_(Other.Kind_) {}
 
   CHIPGraphNodeMemcpy(hipMemcpy3DParms Params)
-      : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params), Src_(nullptr),
-        Dst_(nullptr), Count_(0), Kind_(hipMemcpyKind::hipMemcpyDefault) {}
+      : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params), Dst_(nullptr),
+        Src_(nullptr), Count_(0), Kind_(hipMemcpyKind::hipMemcpyDefault) {}
   CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params)
       : CHIPGraphNode(hipGraphNodeTypeMemcpy) {
     setParams(Params);
@@ -651,7 +662,8 @@ public:
   std::vector<CHIPGraphNode *> getRootNodes();
   CHIPGraphNode *getClonedNodeFromOriginal(CHIPGraphNode *OriginalNode) {
     if (!CloneMap_.count(OriginalNode)) {
-      CHIPERR_LOG_AND_THROW("Failed to find the node in clone", hipErrorTbd);
+      CHIPERR_LOG_AND_THROW("Failed to find the node in clone",
+                            hipErrorInvalidValue);
     } else {
       return CloneMap_[OriginalNode];
     }
@@ -757,6 +769,7 @@ public:
   ~CHIPGraphExec() {}
 
   void launch(CHIPQueue *Queue);
+  bool tryLaunchNative(CHIPQueue *Queue);
 
   CHIPGraph *getOriginalGraphPtr() const { return OriginalGraph_; }
 };

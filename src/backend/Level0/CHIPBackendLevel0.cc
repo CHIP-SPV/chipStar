@@ -226,7 +226,7 @@ void CHIPEventLevel0::reset() {
   LOCK(EventMtx); // CHIPEvent::TrackCalled_
   TrackCalled_ = false;
   EventStatus_ = EVENT_STATUS_INIT;
-  *Refc_ = 1;
+  Refc_ = 1;
 #ifndef NDEBUG
   markDeleted(false);
 #endif

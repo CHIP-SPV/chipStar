@@ -117,6 +117,7 @@ protected:
 
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
+  cl::Program &get() { return Program_; }
   virtual ~CHIPModuleOpenCL() {}
   virtual void compile(CHIPDevice *ChipDevice) override;
 };
@@ -193,6 +194,7 @@ public:
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
+  const SVMemoryRegion &getRegion() const { return SvmMemory; }
   virtual void freeImpl(void *Ptr) override;
   cl::Context &get() { return ClContext; }
   bool supportsCommandBuffers() { return SupportsCommandBuffers; }

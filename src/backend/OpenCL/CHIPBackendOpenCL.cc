@@ -234,12 +234,12 @@ annotateSvmPointers(const CHIPContextOpenCL &Ctx, cl_kernel KernelAPIHandle) {
   std::vector<void *> SvmAnnotationList;
   std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
   LOCK(Ctx.ContextMtx); // CHIPContextOpenCL::SvmMemory
-  auto NumSvmAllocations = Ctx.SvmMemory.getNumAllocations();
+  auto NumSvmAllocations = Ctx.getRegion().getNumAllocations();
   if (NumSvmAllocations) {
     SvmAnnotationList.reserve(NumSvmAllocations);
     SvmKeepAlives.reset(new std::vector<std::shared_ptr<void>>());
     SvmKeepAlives->reserve(NumSvmAllocations);
-    for (std::shared_ptr<void> Ptr : Ctx.SvmMemory.getSvmPointers()) {
+    for (std::shared_ptr<void> Ptr : Ctx.getRegion().getSvmPointers()) {
       SvmAnnotationList.push_back(Ptr.get());
       SvmKeepAlives->push_back(Ptr);
     }
@@ -765,10 +765,9 @@ CHIPKernelOpenCL *CHIPKernelOpenCL::clone() {
   // NOTE: clCloneKernel is not used here due to its experience on
   // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
   // called on the original cl_kernel.
-  auto Cloned = clCreateKernel(Module->get()->get(), Name_.c_str(), &Err);
+  auto Kernel = cl::Kernel(Module->get(), Name_.c_str(), &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  return new CHIPKernelOpenCL(cl::Kernel(Cloned, false), Device, Name_,
-                              getFuncInfo(), Module);
+  return new CHIPKernelOpenCL(Kernel, Device, Name_, getFuncInfo(), Module);
 }
 
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
@@ -851,6 +850,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
   SupportsCommandBuffers =
       DevExts.find("cl_khr_command_buffer") != std::string::npos;
   if (SupportsCommandBuffers) {
+    logDebug("Device supports cl_khr_command_buffer");
     Exts.clCreateCommandBufferKHR =
         (clCreateCommandBufferKHR_fn)::clGetExtensionFunctionAddressForPlatform(
             Plat(), "clCreateCommandBufferKHR");
@@ -887,6 +887,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
   SupportsCommandBuffersSVM =
       DevExts.find("cl_pocl_command_buffer_svm") != std::string::npos;
   if (SupportsCommandBuffersSVM) {
+    logDebug("Device supports cl_pocl_command_buffer_svm");
     Exts.clCommandSVMMemcpyPOCL =
         (clCommandSVMMemcpyPOCL_fn)::clGetExtensionFunctionAddressForPlatform(
             Plat(), "clCommandSVMMemcpyPOCL");
@@ -905,6 +906,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
   SupportsCommandBuffersHost =
       DevExts.find("cl_pocl_command_buffer_host_exec") != std::string::npos;
   if (SupportsCommandBuffersHost) {
+    logDebug("Device supports cl_pocl_command_buffer_host_exec");
     Exts.clCommandHostFuncPOCL =
         (clCommandHostFuncPOCL_fn)::clGetExtensionFunctionAddressForPlatform(
             Plat(), "clCommandHostFuncPOCL");
@@ -1329,8 +1331,11 @@ CHIPGraphNative *CHIPQueueOpenCL::createNativeGraph() {
   int err = CL_SUCCESS;
   cl_command_buffer_khr Res =
       Ctx->exts()->clCreateCommandBufferKHR(1, &CQ, 0, &err);
-  if (Res == nullptr || err != CL_SUCCESS)
+  if (Res == nullptr || err != CL_SUCCESS) {
+    logError("clCreateCommandBufferKHR FAILED with status {}",
+             resultToString(err));
     return nullptr;
+  }
 
   return new CHIPGraphNativeOpenCL(Res, CQ, Ctx->exts());
 }
@@ -1346,7 +1351,7 @@ CHIPEvent *CHIPQueueOpenCL::enqueueNativeGraph(CHIPGraphNative *NativeGraph) {
   if (NativeGraph == nullptr)
     return nullptr;
   cl_command_queue CQ = ClQueue.get();
-  cl_event TmpEv;
+  cl_event TmpEv = nullptr;
   int Status = Ctx->exts()->clEnqueueCommandBufferKHR(1, &CQ, G->get(), 0,
                                                       nullptr, &TmpEv);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -1435,14 +1440,19 @@ bool CHIPGraphNativeOpenCL::finalize() {
   if (Status == CL_SUCCESS) {
     Finalized = true;
     return true;
+  } else {
+    logError("clFinalizeCommandBufferKHR FAILED with status {}",
+             resultToString(Status));
+    return false;
   }
-  return false;
 }
 
 CHIPGraphNativeOpenCL::~CHIPGraphNativeOpenCL() {
   if (Handle == nullptr)
     return;
   int Err = Exts->clReleaseCommandBufferKHR(Handle);
+  logError("clReleaseCommandBufferKHR FAILED with status {}",
+           resultToString(Err));
   assert(Err == CL_SUCCESS);
 }
 
@@ -1475,7 +1485,7 @@ bool CHIPGraphNativeOpenCL::addKernelNode(
 
   assert(Exts->clCommandNDRangeKernelKHR);
   Status = Exts->clCommandNDRangeKernelKHR(
-      Handle, CmdQ, Properties,
+      Handle, nullptr, Properties,
       CLK->get().get(), // cl_kernel
       WorkDim,          // cl_uint work_dim
       nullptr,          // const size_t* global_work_offset,
@@ -1504,7 +1514,7 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
   // Intel GPU OpenCL driver seems to do also so for clEnqueueSVMMemcpy, which
   // makes/ it pass, but Intel CPU OpenCL returns CL_​MEM_​COPY_​OVERLAP
   // like it should. To unify the behavior, let's convert the special case to
-  // a maker here, so we can return an event.
+  // a marker here, so we can return an event.
 
   Node->getParams(Dst, Src, Size, Kind);
   Params = Node->getParams();
@@ -1549,21 +1559,21 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
     size_t dst_slice_pitch = dst_row_pitch * Params.dstPtr.ysize;
 
     Status = Exts->clCommandSVMMemcpyRectPOCL(
-        Handle, CmdQ, Dst, Src, dst_origin, src_origin, region, dst_row_pitch,
-        dst_slice_pitch, src_row_pitch, src_slice_pitch, SyncPointDeps.size(),
-        SyncPointDeps.data(), SyncPoint, nullptr);
+        Handle, nullptr, Dst, Src, dst_origin, src_origin, region,
+        dst_row_pitch, dst_slice_pitch, src_row_pitch, src_slice_pitch,
+        SyncPointDeps.size(), SyncPointDeps.data(), SyncPoint, nullptr);
   } else {
     // 1D copy
     if (!Exts->clCommandSVMMemcpyPOCL)
       return false;
     if (Dst == Src) {
       Status = Exts->clCommandBarrierWithWaitListKHR(
-          Handle, CmdQ, SyncPointDeps.size(), SyncPointDeps.data(), SyncPoint,
-          nullptr);
+          Handle, nullptr, SyncPointDeps.size(), SyncPointDeps.data(),
+          SyncPoint, nullptr);
       CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
     } else {
       Status = Exts->clCommandSVMMemcpyPOCL(
-          Handle, CmdQ, Dst, Src, Size, SyncPointDeps.size(),
+          Handle, nullptr, Dst, Src, Size, SyncPointDeps.size(),
           SyncPointDeps.data(), SyncPoint, nullptr);
     }
   }
@@ -1593,7 +1603,7 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
     return false;
 
   int Status = Exts->clCommandSVMMemcpyPOCL(
-      Handle, CmdQ, Dst, (const char *)Src + Offset, SizeBytes,
+      Handle, nullptr, Dst, (const char *)Src + Offset, SizeBytes,
       SyncPointDeps.size(), SyncPointDeps.data(), SyncPoint, nullptr);
 
   return Status == CL_SUCCESS;
@@ -1620,8 +1630,8 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
     return false;
 
   int Status = Exts->clCommandSVMMemcpyPOCL(
-      Handle, CmdQ, (char *)Dst + Offset, Src, SizeBytes, SyncPointDeps.size(),
-      SyncPointDeps.data(), SyncPoint, nullptr);
+      Handle, nullptr, (char *)Dst + Offset, Src, SizeBytes,
+      SyncPointDeps.size(), SyncPointDeps.data(), SyncPoint, nullptr);
   return Status == CL_SUCCESS;
 }
 
@@ -1637,7 +1647,7 @@ bool CHIPGraphNativeOpenCL::addMemsetNode(
   int Status;
   size_t Region[3] = {Params.width, Params.height, 1};
   Status = Exts->clCommandSVMMemfillRectPOCL(
-      Handle, CmdQ, Params.dst,
+      Handle, nullptr, Params.dst,
       nullptr,      // origin
       Region,       // region
       Params.pitch, // row pitch
@@ -1661,7 +1671,7 @@ bool CHIPGraphNativeOpenCL::addHostNode(
 
   int Status;
   Status = Exts->clCommandHostFuncPOCL(
-      Handle, CmdQ, Params.fn, Params.userData, SyncPointDeps.size(),
+      Handle, nullptr, Params.fn, Params.userData, SyncPointDeps.size(),
       SyncPointDeps.data(), SyncPoint, nullptr);
   return Status == CL_SUCCESS;
 }
@@ -1679,8 +1689,8 @@ bool CHIPGraphNativeOpenCL::addEventRecordNode(
 
   int Status;
   // TODO BROKEN
-  Status =
-      Exts->clCommandSignalEventPOCL(Handle, CmdQ, nullptr, SyncPoint, nullptr);
+  Status = Exts->clCommandSignalEventPOCL(Handle, nullptr, nullptr, SyncPoint,
+                                          nullptr);
   return Status == CL_SUCCESS;
 }
 
@@ -1695,7 +1705,7 @@ bool CHIPGraphNativeOpenCL::addEventWaitNode(
   CHIPEventOpenCL *CLE = static_cast<CHIPEventOpenCL *>(E);
 
   int Status;
-  Status = Exts->clCommandWaitForEventPOCL(Handle, CmdQ, CLE->get().get(),
+  Status = Exts->clCommandWaitForEventPOCL(Handle, nullptr, CLE->get().get(),
                                            SyncPoint, nullptr);
   return Status == CL_SUCCESS;
 }
