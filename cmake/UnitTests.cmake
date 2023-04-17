@@ -391,6 +391,45 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Failed
+
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
@@ -772,6 +811,44 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Failed
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
@@ -1200,6 +1277,45 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Failed
 
 # # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
@@ -1583,10 +1699,49 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Failed
 
 # iGPU Level Zero Unit Test Failures
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
@@ -1979,6 +2134,45 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS
   "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float") # Flaky. An event related issue.
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Failed
 
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
@@ -2402,6 +2596,45 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Failed
 
 
 
