@@ -20,18 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-/*
- * This is counterpart to hipcl_mathlib.hh
- * ATM it can't be used right after compilation because of a problem with mangling.
- *
- * HIP with default AS set to 4 mangles functions with pointer args to:
- *   float @_Z13opencl_sincosfPf(float, float addrspace(4)*)
- * while OpenCL code compiled for SPIR mangles to either
- *   float @_Z6sincosfPU3AS4f(float, float addrspace(4)*)
- * or
- *   float @_Z6sincosfPf(float, float *)
-*/
-
 #include "ROCm-Device-Libs/ocml/inc/ocml.h"
 #define NON_OVLD
 #define OVLD __attribute__((overloadable))
@@ -224,7 +212,6 @@ EXPORT float __chip_saturate_f32(float x) {
 }
 
 EXPORT float __chip_jn_f32(int n, float x) {
-  // TODO check if OCML available
   if (n == 0)
     return __ocml_j0_f32(x);
   if (n == 1)
@@ -275,7 +262,6 @@ EXPORT float __chip_yn_f32(int n, float x) {
   return x1;
 }
 
-// TODO get rid of CHIP_MANGLE
 EXPORT double __chip_yn_f64(int n, double x) {
   if (n == 0)
     return __ocml_y0_f64(x);
@@ -406,7 +392,6 @@ EXPORT double __chip_modf_f64(double x, DEFAULT_AS double *i) {
 }
 
 
-// remquo
 EXPORT float __chip_remquo_f32(float x, float y, DEFAULT_AS int *quo) {
   int tmp;
   float rem = remquo(x, y, &tmp);
@@ -420,7 +405,6 @@ EXPORT double __chip_remquo_f64(double x, double y, DEFAULT_AS int *quo) {
   return rem;
 }
 
-// sincos
 EXPORT float __chip_sincos_f32(float x, DEFAULT_AS float *cos) {
   float tmp;
   float sin = sincos(x, &tmp);
@@ -485,15 +469,6 @@ EXPORT void* __chip_memcpy(DEFAULT_AS void *dest, DEFAULT_AS const void * src, s
 
 /**********************************************************************/
 
-// EXPORT uint __chip_popcount_ui(uint var) {
-//   return popcount(var);
-// }
-
-// EXPORT ulong __chip_popcount_ul(ulong var) {
-//   return popcount(var);
-// }
-
-
 EXPORT int __chip_clz_i(int var) {
   return clz(var);
 }
@@ -509,52 +484,6 @@ EXPORT int __chip_ctz_i(int var) {
 EXPORT long __chip_ctz_li(long var) {
   return ctz(var);
 }
-
-
-// EXPORT int __chip_hadd_i(int x, int y) {
-//   return hadd(x, y);
-// }
-
-// EXPORT int __chip_rhadd_i(int x, int y) {
-//   return hadd(x, y);
-// }
-
-// EXPORT uint __chip_uhadd_ui(uint x, uint y) {
-//   return hadd(x, y);
-// }
-
-// EXPORT uint __chip_urhadd_ui(uint x, uint y) {
-//   return hadd(x, y);
-// }
-
-
-// EXPORT int __chip_mul24_i(int x, int y) {
-//   return mul24(x, y);
-// }
-
-// EXPORT int __chip_mulhi_i(int x, int y) {
-//   return mul_hi(x, y);
-// }
-
-// EXPORT long __chip_mul64hi_li(long x, long y) {
-//   return mul_hi(x, y);
-// }
-
-
-// EXPORT uint __chip_umul24_ui(uint x, uint y) {
-//   return mul24(x, y);
-// }
-
-// EXPORT uint __chip_umulhi_ui(uint x, uint y) {
-//   return mul_hi(x, y);
-// }
-
-// EXPORT ulong __chip_umul64hi_uli(ulong x, ulong y) {
-//   return mul_hi(x, y);
-// }
-
-
-
 
 /**********************************************************************/
 
