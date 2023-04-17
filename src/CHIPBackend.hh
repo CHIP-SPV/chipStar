@@ -1090,7 +1090,6 @@ protected:
   dim3 GridDim_;
   dim3 BlockDim_;
 
-  CHIPKernel *ChipKernel_;
   CHIPQueue *ChipQueue_;
 
   std::vector<void *> Args_;
@@ -1147,16 +1146,25 @@ public:
                hipStream_t ChipQueue);
 
   /**
+   * @brief Set the Kernel object
+   *
+   * @return CHIPKernel* Kernel to be executed
+   */
+  virtual void setKernel(CHIPKernel *Kernel) = 0;
+
+  /**
    * @brief Get the Kernel object
    *
    * @return CHIPKernel* Kernel to be executed
    */
-  CHIPKernel *getKernel();
+  virtual CHIPKernel *getKernel() = 0;
+
   /**
    * @brief Get the Queue object
    *
    * @return CHIPQueue*
    */
+
   CHIPQueue *getQueue();
 
   /**
@@ -1188,8 +1196,6 @@ public:
    *
    */
   virtual void setupAllArgs() = 0;
-
-  void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
 
   std::shared_ptr<CHIPArgSpillBuffer> getArgSpillBuffer() const {
     return ArgSpillBuffer_;

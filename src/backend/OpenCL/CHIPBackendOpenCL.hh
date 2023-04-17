@@ -280,13 +280,15 @@ private:
   CHIPDeviceOpenCL *Device;
 
 public:
-  CHIPKernelOpenCL(const cl::Kernel &&ClKernel, CHIPDeviceOpenCL *Dev,
+  CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
                    std::string HostFName, SPVFuncInfo *FuncInfo,
                    CHIPModuleOpenCL *Parent);
+
   virtual ~CHIPKernelOpenCL() {}
   SPVFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();
+  CHIPKernelOpenCL *clone();
 
   CHIPModuleOpenCL *getModule() override { return Module; }
   const CHIPModuleOpenCL *getModule() const override { return Module; }
@@ -295,6 +297,7 @@ public:
 
 class CHIPExecItemOpenCL : public CHIPExecItem {
 private:
+  std::unique_ptr<CHIPKernelOpenCL> ChipKernel_;
   cl::Kernel *ClKernel_;
 
 public:
@@ -303,8 +306,10 @@ public:
                            Other.ChipQueue_) {
     // TOOD Graphs Is this safe?
     ClKernel_ = Other.ClKernel_;
-    ChipKernel_ = Other.ChipKernel_;
-    this->ArgsSetup = Other.ArgsSetup;
+    ChipKernel_.reset(Other.ChipKernel_->clone());
+    // ChipKernel cloning currently does not copy the argument setup
+    // of the cl_kernel, therefore, mark arguments being unset.
+    this->ArgsSetup = false;
     this->Args_ = Other.Args_;
   }
   CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
@@ -317,10 +322,14 @@ public:
   SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl::Kernel *get();
+
   virtual CHIPExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemOpenCL(*this);
     return NewExecItem;
   }
+
+  void setKernel(CHIPKernel *Kernel) override;
+  CHIPKernelOpenCL *getKernel() override { return ChipKernel_.get(); }
 };
 
 class CHIPBackendOpenCL : public CHIPBackend {

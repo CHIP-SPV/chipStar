@@ -44,8 +44,11 @@ class CHIPQueueLevel0;
 class LZCommandList;
 class LZEventPool;
 class CHIPExecItemLevel0;
+class CHIPKernelLevel0;
 
 class CHIPExecItemLevel0 : public CHIPExecItem {
+  CHIPKernelLevel0 *ChipKernel_ = nullptr;
+
 public:
   CHIPExecItemLevel0(const CHIPExecItemLevel0 &Other)
       : CHIPExecItemLevel0(Other.GridDim_, Other.BlockDim_, Other.SharedMem_,
@@ -66,6 +69,9 @@ public:
     auto NewExecItem = new CHIPExecItemLevel0(*this);
     return NewExecItem;
   }
+
+  void setKernel(CHIPKernel *Kernel) override;
+  CHIPKernel *getKernel() override;
 };
 
 class CHIPEventLevel0 : public CHIPEvent {

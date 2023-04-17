@@ -2378,3 +2378,9 @@ void CHIPExecItemLevel0::setupAllArgs() {
 
   return;
 }
+
+void CHIPExecItemLevel0::setKernel(CHIPKernel *Kernel) {
+  ChipKernel_ = static_cast<CHIPKernelLevel0 *>(Kernel);
+}
+
+CHIPKernel *CHIPExecItemLevel0::getKernel() { return ChipKernel_; }

@@ -505,7 +505,6 @@ CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
 
 dim3 CHIPExecItem::getBlock() { return BlockDim_; }
 dim3 CHIPExecItem::getGrid() { return GridDim_; }
-CHIPKernel *CHIPExecItem::getKernel() { return ChipKernel_; }
 size_t CHIPExecItem::getSharedMem() { return SharedMem_; }
 CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
 // CHIPDevice

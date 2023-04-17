@@ -770,10 +770,12 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       // OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
-    CHIPKernelOpenCL *ChipKernel = new CHIPKernelOpenCL(
-        std::move(Kernel), ChipDevOcl, HostFName, FuncInfo, this);
+    CHIPKernelOpenCL *ChipKernel =
+        new CHIPKernelOpenCL(Kernel, ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
+
+  Program_ = Program;
 }
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(CHIPQueueFlags Flags, int Priority) {
@@ -797,6 +799,18 @@ SPVFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
 cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
 
+/// Clones the instance but with separate cl_kernel handle.
+CHIPKernelOpenCL *CHIPKernelOpenCL::clone() {
+  cl_int Err;
+  // NOTE: clCloneKernel is not used here due to its experience on
+  // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
+  // called on the original cl_kernel.
+  auto Cloned = clCreateKernel(Module->get()->get(), Name_.c_str(), &Err);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  return new CHIPKernelOpenCL(cl::Kernel(Cloned, false), Device, Name_,
+                              getFuncInfo(), Module);
+}
+
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
   Attr->binaryVersion = 10;
@@ -816,9 +830,8 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
   return hipSuccess;
 }
 
-CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
-                                   CHIPDeviceOpenCL *Dev, std::string HostFName,
-                                   SPVFuncInfo *FuncInfo,
+CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
+                                   std::string HostFName, SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
     : CHIPKernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
@@ -982,11 +995,12 @@ CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
+  auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   CHIPEventOpenCL *LaunchEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
-  assert(Kernel != nullptr);
+  assert(Kernel && "Kernel in ExecItem is NULL!");
   logTrace("Launching Kernel {}", Kernel->getName());
 
   ChipOclExecItem->setupAllArgs();
@@ -1318,6 +1332,18 @@ void CHIPExecItemOpenCL::setupAllArgs() {
                              ArgSpillBuffer_->getSize());
 
   return;
+}
+
+void CHIPExecItemOpenCL::setKernel(CHIPKernel *Kernel) {
+  assert(Kernel && "Kernel is nullptr!");
+  // Make a clone of the kernel so the its cl_kernel object is not
+  // shared among other threads (sharing cl_kernel is discouraged by
+  // the OpenCL spec).
+  auto *Clone = static_cast<CHIPKernelOpenCL *>(Kernel)->clone();
+  ChipKernel_.reset(Clone);
+
+  // Arguments set on the original cl_kernel are not copied.
+  ArgsSetup = false;
 }
 
 // CHIPBackendOpenCL
