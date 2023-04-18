@@ -11,6 +11,25 @@ The headers for device-side functions can be found in `CHIP-SPV/include/hip/devi
 Most of the function implementations come from OpenCL. For other cases, we use the OCML library. The OCML library is provided by AMD and can be found in the [ROCm-Device-Libs](https://github.com/RadeonOpenCompute/ROCm-Device-Libs) repo. 
 If a function is not provided by OpenCL or OCML, we provide our own implementation which lives in `CHIP-SPV/bitcode/devicelib.cl`.
 
+# ROCm-Device-Library
+This library provides function implmementations that can be compiled into LLVM IR bitcode. Unfortunately, it was implemented to for AMD architectures which results in the use of admgcn intrinsics which won't compile to SPIR-V. For this reason, we had to modify some of the implementations and correctness of these implementations is poorly tested. 
+
+In order to link a functioning bitcode library, we must link in some control libraries which modify the behavior of the device-side functions. These libraries are OCLC and OCKL
+`CHIP-SPV/bitcode/CMakeLists.txt`:
+```
+# ROCm-Device-Libs provides OCML and its dependencies (OCLC, OCKL, etc.)
+# Since these targets don't seem to get exported as normal targets, we have to link this way.
+set(OCML_LIBS
+  ocml
+  oclc_finite_only_off
+  oclc_unsafe_math_off
+  oclc_correctly_rounded_sqrt_off
+  oclc_daz_opt_off
+  oclc_isa_version_803
+)
+```
+Note: Some amdgcn intrinsics still don't have generic equivalents so for example `oclc_daz_opt_off` is mandatory.
+
 # Develper Notes
 * Don't change the order of the headers.
 * If there are missing headers, add them to the end of the list with a comment that they're undocumented. The missing documentationt should be reported to AMD or NVIDIA. 
