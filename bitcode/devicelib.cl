@@ -419,18 +419,6 @@ EXPORT double __chip_sincos_f64(double x, DEFAULT_AS double *cos) {
   return sin;
 }
 
-// #ifdef CHIP_NONPORTABLE_MATH_INTRISINCS
-
-// // DEF_OPENCL1F_NATIVE(recip)
-// // DEF_OPENCL2F_NATIVE(divide)
-
-// #else
-
-// EXPORT float __fdividef(float x, float y) { return x / y; }
-
-// #endif
-
-
 /* other */
 
 // local_barrier
@@ -530,14 +518,14 @@ EXPORT long __chip_ctz_li(long var) {
     }                                                                          \
   };
 
-DEF_CHIP_ATOMIC2(add)
-DEF_CHIP_ATOMIC2(sub)
-DEF_CHIP_ATOMIC2(xchg)
-DEF_CHIP_ATOMIC2(min)
-DEF_CHIP_ATOMIC2(max)
-DEF_CHIP_ATOMIC2(and)
-DEF_CHIP_ATOMIC2(or)
-DEF_CHIP_ATOMIC2(xor)
+DEF_CHIP_ATOMIC2(add) // __chip_atomic_add_i, __chip_atomic_add_u, __chip_atomic_add_l
+DEF_CHIP_ATOMIC2(sub) // __chip_atomic_sub_i, __chip_atomic_sub_u, __chip_atomic_sub_l
+DEF_CHIP_ATOMIC2(xchg) // __chip_atomic_xchg_i, __chip_atomic_xchg_u, __chip_atomic_xchg_l
+DEF_CHIP_ATOMIC2(min) // __chip_atomic_min_i, __chip_atomic_min_u, __chip_atomic_min_l
+DEF_CHIP_ATOMIC2(max) // __chip_atomic_max_i, __chip_atomic_max_u, __chip_atomic_max_l
+DEF_CHIP_ATOMIC2(and) // __chip_atomic_and_i, __chip_atomic_and_u, __chip_atomic_and_l
+DEF_CHIP_ATOMIC2(or) // __chip_atomic_or_i, __chip_atomic_or_u, __chip_atomic_or_l
+DEF_CHIP_ATOMIC2(xor) // __chip_atomic_xor_i, __chip_atomic_xor_u, __chip_atomic_xor_l
 
 #define DEF_CHIP_ATOMIC1(NAME)                                               \
   int __chip_atomic_##NAME##_i(DEFAULT_AS int *address) {                 \
@@ -571,8 +559,8 @@ DEF_CHIP_ATOMIC2(xor)
     return 0;                                                                  \
   };
 
-DEF_CHIP_ATOMIC1(inc)
-DEF_CHIP_ATOMIC1(dec)
+DEF_CHIP_ATOMIC1(inc) // __chip_atomic_inc_i, __chip_atomic_inc_u, __chip_atomic_inc_l
+DEF_CHIP_ATOMIC1(dec) // __chip_atomic_dec_i, __chip_atomic_dec_u, __chip_atomic_dec_l
 
 #define DEF_CHIP_ATOMIC3(NAME)                                               \
   int __chip_atomic_##NAME##_i(                                           \
@@ -609,7 +597,7 @@ DEF_CHIP_ATOMIC1(dec)
     return 0;                                                                  \
   };
 
-DEF_CHIP_ATOMIC3(cmpxchg)
+DEF_CHIP_ATOMIC3(cmpxchg) // __chip_atomic_cmpxchg_i, __chip_atomic_cmpxchg_u, __chip_atomic_cmpxchg_l
 
 /* This code adapted from AMD's HIP sources */
 
