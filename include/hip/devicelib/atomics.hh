@@ -188,24 +188,22 @@ extern "C++" inline __device__ unsigned int atomicMax_system(unsigned int* addre
   return __chip_atomic_max_system_u(address, val);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_inc_u(unsigned int* address);
-extern "C++" inline __device__ unsigned int atomicInc(unsigned int* address) {
-  return __chip_atomic_inc_u(address);
+extern "C" __device__ unsigned int __chip_atomic_inc2_u(unsigned int* address, unsigned int val );
+extern "C++" inline __device__ unsigned atomicInc(unsigned* address) {
+  return __chip_atomic_inc2_u(address, 1);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_inc_u(unsigned *address, unsigned val); 
-extern "C++" inline __device__ unsigned int atomicInc(unsigned *address, unsigned val) { // Undocumented
-  return __chip_atomic_inc_u(address);
+extern "C++" inline __device__ unsigned atomicInc(unsigned *address, unsigned val) { // Undocumented
+  return __chip_atomic_inc2_u(address, val);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_dec_u(unsigned int* address);
+extern "C" __device__ unsigned int __chip_atomic_dec2_u(unsigned int* address, unsigned int val);
 extern "C++" inline __device__ unsigned int atomicDec(unsigned int* address) {
-  return __chip_atomic_dec_u(address);
+  return __chip_atomic_dec2_u(address, 1);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_dec_u(unsigned *address, unsigned val);
 extern "C++" inline __device__ unsigned int atomicDec(unsigned *address, unsigned val) {  // Undocumented
-  return __chip_atomic_dec_u(address);
+  return __chip_atomic_dec2_u(address, val);
 }
 
 extern "C" __device__ int __chip_atomic_cmpxchg_i(int* address, int compare, int val);
