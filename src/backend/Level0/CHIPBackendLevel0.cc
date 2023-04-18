@@ -1948,6 +1948,30 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // clients should follow.
   HipDeviceProps_.textureAlignment = 1;
   HipDeviceProps_.texturePitchAlignment = 1;
+
+  // Level0 devices support basic CUDA managed memory via USM,
+  // but some of the functions such as prefetch and advice are unimplemented
+  // in CHIP-SPV.
+  HipDeviceProps_.managedMemory = 0;
+  // TODO: Populate these from SVM/USM properties. Advertise the safe
+  // defaults for now. Uninitialized properties cause undeterminism.
+  HipDeviceProps_.directManagedMemAccessFromHost = 0;
+  HipDeviceProps_.concurrentManagedAccess = 0;
+  HipDeviceProps_.pageableMemoryAccess = 0;
+  HipDeviceProps_.pageableMemoryAccessUsesHostPageTables = 0;
+
+  HipDeviceProps_.cooperativeLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedFunc = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedGridDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedBlockDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedSharedMem = 0;
+  HipDeviceProps_.memPitch = 1;
+  HipDeviceProps_.textureAlignment = 1;
+  HipDeviceProps_.texturePitchAlignment = 1;
+  HipDeviceProps_.kernelExecTimeoutEnabled = 0;
+  HipDeviceProps_.ECCEnabled = 0;
+  HipDeviceProps_.asicRevision = 1;
 }
 
 CHIPQueue *CHIPDeviceLevel0::createQueue(CHIPQueueFlags Flags, int Priority) {
