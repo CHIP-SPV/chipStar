@@ -108,9 +108,9 @@ extern "C++" inline __device__ unsigned int atomicExch(unsigned int* address,uns
   return __chip_atomic_exch_u(address, val);
 }
 
-extern "C" __device__ unsigned long long __chip_atomic_exch_l(unsigned long long int* address,unsigned long long int val);
+extern "C" __device__ unsigned long long __chip_atomic_exch_ul(unsigned long long int* address,unsigned long long int val);
 extern "C++" inline __device__ unsigned long long atomicExch(unsigned long long int* address,unsigned long long int val) {
-  return __chip_atomic_exch_l(address, val);
+  return __chip_atomic_exch_ul(address, val);
 }
 
 extern "C" __device__ float __chip_atomic_exch_f32(float* address, float val);

@@ -627,9 +627,73 @@ static OVLD double __chip_atom_add_f64(volatile local double *address, double va
   return as_double(r);
 }
 
-static OVLD float __chip_atomic_exch_f32(volatile local float *address, float val) {
-  return as_float(atomic_xchg((volatile local uint *)(address), as_uint(val)));
-}
+  static OVLD float __chip_atomic_exch_f32(volatile local float *address, float val) { 
+    return as_float(atomic_xchg((volatile local uint *)(address), as_uint(val))); 
+  } 
+  static OVLD float __chip_atomic_exch_f32(volatile global float *address, float val) { 
+    return as_float(atomic_xchg((volatile global uint *)(address), as_uint(val))); 
+  } 
+  EXPORT float __chip_atomic_exch_f32(DEFAULT_AS float *address, 
+                                 float val) { 
+  volatile global float *gi = to_global(address); 
+  if (gi) 
+    return __chip_atomic_exch_f32(gi, val); 
+  volatile local float *li = to_local(address); 
+  if (li) 
+    return __chip_atomic_exch_f32(li, val); 
+  return 0; 
+  } 
+  static OVLD int __chip_atomic_exch_i(volatile local int *address, int val)  { 
+    return as_int(atomic_xchg((volatile local uint *)(address), as_uint(val))); 
+  } 
+  static OVLD int __chip_atomic_exch_i(volatile global int *address, int val)  { 
+    return as_int(atomic_xchg((volatile global uint *)(address), as_uint(val))); 
+  } 
+  EXPORT int __chip_atomic_exch_i(DEFAULT_AS int *address, 
+                                 int val) { 
+  volatile global int *gi = to_global(address); 
+  if (gi) 
+    return __chip_atomic_exch_i(gi, val); 
+  volatile local int *li = to_local(address); 
+  if (li) 
+    return __chip_atomic_exch_i(li, val); 
+  return 0; 
+  } 
+  static OVLD unsigned int __chip_atomic_exch_u(volatile local unsigned int *address, unsigned int val)  { 
+    return as_uint(atomic_xchg((volatile local uint *)(address), as_uint(val))); 
+  } 
+  static OVLD unsigned int __chip_atomic_exch_u(volatile global unsigned int *address, unsigned int val)  { 
+    return as_uint(atomic_xchg((volatile global uint *)(address), as_uint(val))); 
+  }  
+  EXPORT unsigned int __chip_atomic_exch_u(DEFAULT_AS unsigned int *address, 
+                                 unsigned int val) { 
+  volatile global unsigned int *gi = to_global(address); 
+  if (gi) 
+    return __chip_atomic_exch_u(gi, val); 
+  volatile local unsigned int *li = to_local(address); 
+  if (li) 
+    return __chip_atomic_exch_u(li, val); 
+  return 0; 
+  } 
+
+  // TODO devicelibCleanup - for some reason these headers are not getting picked up. 
+  //   static OVLD unsigned long int __chip_atomic_exch_ul(volatile local unsigned long int *address, unsigned long int val)  { 
+  //   return as_ulong(atomic_xchg((volatile local unsigned long *)(address), as_ulong(val))); 
+  // } 
+  // static OVLD unsigned long int __chip_atomic_exch_ul(volatile global unsigned long int *address, unsigned long int val)  { 
+  //   return as_ulong(atomic_xchg((volatile global unsigned long *)(address), as_ulong(val))); 
+  // }  
+  // EXPORT unsigned long int __chip_atomic_exch_ul(DEFAULT_AS unsigned long int *address, 
+  //                                unsigned long int val) { 
+  // volatile global unsigned long int *gi = to_global(address); 
+  // if (gi) 
+  //   return __chip_atomic_exch_ul(gi, val); 
+  // volatile local unsigned long int *li = to_local(address); 
+  // if (li) 
+  //   return __chip_atomic_exch_ul(li, val); 
+  // return 0;
+  // }
+
 
 static OVLD float __chip_atomic_add_f32(volatile global float *address, float val) {
   volatile global uint *uaddr = (volatile global uint *)address;
@@ -657,9 +721,6 @@ static OVLD double __chip_atom_add_f64(volatile global double *address, double v
   return as_double(r);
 }
 
-static OVLD float __chip_atomic_exch_f32(volatile global float *address, float val) {
-  return as_float(atomic_xchg((volatile global uint *)(address), as_uint(val)));
-}
 
 static OVLD uint __chip_atomic_inc2_u(volatile local uint *address, uint val) {
   uint old = *address;
@@ -724,17 +785,6 @@ EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address,
   volatile local double *li = to_local((DEFAULT_AS double *)address);
   if (li)
     return __chip_atom_add_f64(li, val);
-  return 0;
-}
-
-EXPORT float __chip_atomic_exch_f32(DEFAULT_AS float *address,
-                                 float val) {
-  volatile global float *gi = to_global(address);
-  if (gi)
-    return __chip_atomic_exch_f32(gi, val);
-  volatile local float *li = to_local(address);
-  if (li)
-    return __chip_atomic_exch_f32(li, val);
   return 0;
 }
 
