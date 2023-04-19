@@ -42,10 +42,11 @@ int main() {
       10, 2, [] __device__(auto *x, auto y) { return atomicAdd(x, y); });
   assert(Res3 == 18);
 
-  auto Res4 = launchAtomicOp<4, unsigned long>(
-      0x10000000, 2,
-      [] __device__(auto *x, auto y) { return atomicAdd(x, y); });
-  assert(Res4 == 0x10000000 + 8);
+  // not part of either HIP or CUDA APIs
+  // auto Res4 = launchAtomicOp<4, unsigned long>(
+  //     0x10000000, 2,
+  //     [] __device__(auto *x, auto y) { return atomicAdd(x, y); });
+  // assert(Res4 == 0x10000000 + 8);
 
   auto Res5 = launchAtomicOp<23, unsigned long long>(
       0x10000000000ll, 1,
