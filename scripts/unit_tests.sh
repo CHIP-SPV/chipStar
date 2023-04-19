@@ -1,4 +1,21 @@
 #!/bin/bash
+
+# Check if the argument is provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <debug|release>"
+    exit 1
+fi
+
+# Check if the argument is either "debug" or "release"
+if [ "$1" != "debug" ] && [ "$1" != "release" ]; then
+    echo "Error: Invalid argument. Must be either 'debug' or 'release'."
+    exit 1
+fi
+
+# Set the build type based on the argument
+build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+
+
 source /opt/intel/oneapi/setvars.sh intel64
 source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
@@ -20,7 +37,7 @@ cd build
 # TODO check Release as well 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module load clang/clang15-spirv-omp
-cmake ../ 
+cmake ../ -DCMAKE_BUILD_TYPE="$build_type"
 
 module load mkl
 # Load ocl-icd and intel-gpu
