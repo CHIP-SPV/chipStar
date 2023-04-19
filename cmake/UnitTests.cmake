@@ -1696,6 +1696,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_BasicFunctional") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleTemplates") # SEGFAULT

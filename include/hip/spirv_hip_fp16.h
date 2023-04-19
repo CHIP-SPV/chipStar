@@ -27,62 +27,62 @@ THE SOFTWARE.
 */
 
 /* CHIP-SPV defines start */
-#define __ocml_fma_f16(__X, __Y, __Z) fma_h(__X, __Y, __Z)
-#define __ocml_fma_2f16(__X, __Y, __Z) fma_2h(__X, __Y, __Z)
+// #define __ocml_fma_f16(__X, __Y, __Z) fma_h(__X, __Y, __Z)
+// #define __ocml_fma_2f16(__X, __Y, __Z) fma_2h(__X, __Y, __Z)
 
-#define __ocml_fabs_f16(__X) fabs_h(__X)
-#define __ocml_fabs_2f16(__X) fabs_2h(__X)
+// #define __ocml_fabs_f16(__X) fabs_h(__X)
+// #define __ocml_fabs_2f16(__X) fabs_2h(__X)
 
-#define __ocml_trunc_f16(__X) trunc(__X)
-#define __ocml_trunc_2f16(__X) trunc(__X)
+// #define __ocml_trunc_f16(__X) trunc(__X)
+// #define __ocml_trunc_2f16(__X) trunc(__X)
 
-#define __ocml_ceil_f16(__X) ceil(__X)
-#define __ocml_ceil_2f16(__X) ceil(__X)
+// #define __ocml_ceil_f16(__X) ceil(__X)
+// #define __ocml_ceil_2f16(__X) ceil(__X)
 
-#define __ocml_floor_f16(__X) floor(__X)
-#define __ocml_floor_2f16(__X) floor(__X)
+// #define __ocml_floor_f16(__X) floor(__X)
+// #define __ocml_floor_2f16(__X) floor(__X)
 
-#define __ocml_rint_f16(__X) rint(__X)
-#define __ocml_rint_2f16(__X) rint(__X)
+// #define __ocml_rint_f16(__X) rint(__X)
+// #define __ocml_rint_2f16(__X) rint(__X)
 
-#define __ocml_sin_f16(__X) sin(__X)
-#define __ocml_sin_2f16(__X) sin(__X)
+// #define __ocml_sin_f16(__X) sin(__X)
+// #define __ocml_sin_2f16(__X) sin(__X)
 
-#define __ocml_cos_f16(__X) cos(__X)
-#define __ocml_cos_2f16(__X) cos(__X)
+// #define __ocml_cos_f16(__X) cos(__X)
+// #define __ocml_cos_2f16(__X) cos(__X)
 
-#define __ocml_exp_f16(__X) exp(__X)
-#define __ocml_exp_2f16(__X) exp(__X)
+// #define __ocml_exp_f16(__X) exp(__X)
+// #define __ocml_exp_2f16(__X) exp(__X)
 
-#define __ocml_exp2_f16(__X) exp2_h(__X)
-#define __ocml_exp2_2f16(__X) exp2_2h(__X)
+// #define __ocml_exp2_f16(__X) exp2_h(__X)
+// #define __ocml_exp2_2f16(__X) exp2_2h(__X)
 
-#define __ocml_exp10_f16(__X) exp10_h(__X)
-#define __ocml_exp10_2f16(__X) exp10_2h(__X)
+// #define __ocml_exp10_f16(__X) exp10_h(__X)
+// #define __ocml_exp10_2f16(__X) exp10_2h(__X)
 
-#define __ocml_log2_f16(__X) log2(__X)
-#define __ocml_log2_2f16(__X) log2(__X)
+// #define __ocml_log2_f16(__X) log2(__X)
+// #define __ocml_log2_2f16(__X) log2(__X)
 
-#define __ocml_log_f16(__X) log(__X)
-#define __ocml_log_2f16(__X) log(__X)
+// #define __ocml_log_f16(__X) log(__X)
+// #define __ocml_log_2f16(__X) log(__X)
 
-#define __ocml_log10_f16(__X) log10(__X)
-#define __ocml_log10_2f16(__X) log10(__X)
+// #define __ocml_log10_f16(__X) log10(__X)
+// #define __ocml_log10_2f16(__X) log10(__X)
 
 #define __llvm_amdgcn_rcp_f16(__X) ((__half)1.0f / (__half)__X)
 #define __llvm_amdgcn_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
 
-#define __ocml_rsqrt_f16(__X) rsqrt_h(__X)
-#define __ocml_rsqrt_2f16(__X) rsqrt_2h(__X)
+// #define __ocml_rsqrt_f16(__X) rsqrt_h(__X)
+// #define __ocml_rsqrt_2f16(__X) rsqrt_2h(__X)
 
-#define __ocml_sqrt_f16(__X) sqrt(__X)
-#define __ocml_sqrt_2f16(__X) sqrt(__X)
+// #define __ocml_sqrt_f16(__X) sqrt(__X)
+// #define __ocml_sqrt_2f16(__X) sqrt(__X)
 
-#define __ocml_isinf_f16(__X) isinf_h(__X)
-#define __ocml_isinf_2f16(__X) isinf_2h(__X)
+// #define __ocml_isinf_f16(__X) isinf_h(__X)
+// #define __ocml_isinf_2f16(__X) isinf_2h(__X)
 
-#define __ocml_isnan_f16(__X) isnan_h(__X)
-#define __ocml_isnan_2f16(__X) isnan_2h(__X)
+// #define __ocml_isnan_f16(__X) isnan_h(__X)
+// #define __ocml_isnan_2f16(__X) isnan_2h(__X)
 
 /* CHIP-SPV defines end */
 
@@ -587,6 +587,67 @@ THE SOFTWARE.
             #endif // !defined(__HIP_NO_HALF_OPERATORS__)
         };
         // END STRUCT __HALF2
+
+//         /* CHIP-SPV defines start */
+//         #define half __half
+//         #define half2 __half2
+// extern "C" __device__ __attribute__((const)) __half __ocml_fma_f16(half, half, half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_fma_2f16(half2, half2, half2);
+
+
+// extern "C" __device__ __attribute__((const)) half __ocml_fabs_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_fabs_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_trunc_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_trunc_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_ceil_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_ceil_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_floor_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_floor_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_rint_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_rint_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_sin_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_sin_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_cos_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_cos_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_exp_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_exp_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_exp2_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_exp2_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_exp10_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_exp10_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_log2_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_log2_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_log_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_log_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_log10_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_log10_2f16(half2);
+
+// #define __llvm_amdgcn_rcp_f16(__X) ((__half)1.0f / (__half)__X)
+// #define __llvm_amdgcn_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
+
+// extern "C" __device__ __attribute__((const)) half __ocml_rsqrt_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_rsqrt_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) half __ocml_sqrt_f16(half);
+// extern "C" __device__ __attribute__((const)) half2 __ocml_sqrt_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) int __ocml_isinf_f16(half);
+// extern "C" __device__ __attribute__((const)) short2 __ocml_isinf_2f16(half2);
+
+// extern "C" __device__ __attribute__((const)) int __ocml_isnan_f16(half);
+// extern "C" __device__ __attribute__((const)) short2 __ocml_isnan_2f16(half2);
 
         namespace
         {
@@ -1489,9 +1550,10 @@ THE SOFTWARE.
             inline
             __device__
             float amd_mixed_dot(__half2 a, __half2 b, float c, bool saturate) {
-                return __ockl_fdot2(static_cast<__half2_raw>(a).data,
-                                    static_cast<__half2_raw>(b).data,
-                                    c, saturate);
+                // TODO devicelib - seems like AMD-specific function?
+                // return __ockl_fdot2(static_cast<__half2_raw>(a).data,
+                //                     static_cast<__half2_raw>(b).data,
+                //                     c, saturate);
             }
             #endif
             inline
