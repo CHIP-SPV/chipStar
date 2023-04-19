@@ -676,23 +676,22 @@ static OVLD double __chip_atom_add_f64(volatile local double *address, double va
   return 0; 
   } 
 
-  // TODO devicelibCleanup - for some reason these headers are not getting picked up. 
-  //   static OVLD unsigned long int __chip_atomic_exch_ul(volatile local unsigned long int *address, unsigned long int val)  { 
-  //   return as_ulong(atomic_xchg((volatile local unsigned long *)(address), as_ulong(val))); 
-  // } 
-  // static OVLD unsigned long int __chip_atomic_exch_ul(volatile global unsigned long int *address, unsigned long int val)  { 
-  //   return as_ulong(atomic_xchg((volatile global unsigned long *)(address), as_ulong(val))); 
-  // }  
-  // EXPORT unsigned long int __chip_atomic_exch_ul(DEFAULT_AS unsigned long int *address, 
-  //                                unsigned long int val) { 
-  // volatile global unsigned long int *gi = to_global(address); 
-  // if (gi) 
-  //   return __chip_atomic_exch_ul(gi, val); 
-  // volatile local unsigned long int *li = to_local(address); 
-  // if (li) 
-  //   return __chip_atomic_exch_ul(li, val); 
-  // return 0;
-  // }
+  static OVLD unsigned long int __chip_atomic_exch_ul(volatile local unsigned long int *address, unsigned long int val)  { 
+    return as_ulong(atom_xchg((volatile local unsigned long *)(address), as_ulong(val))); 
+  } 
+  static OVLD unsigned long int __chip_atomic_exch_ul(volatile global unsigned long int *address, unsigned long int val)  { 
+    return as_ulong(atom_xchg((volatile global unsigned long *)(address), as_ulong(val))); 
+  }  
+  EXPORT unsigned long int __chip_atomic_exch_ul(DEFAULT_AS unsigned long int *address, 
+                                 unsigned long int val) { 
+    volatile global unsigned long int *gi = to_global(address); 
+    if (gi) 
+      return __chip_atomic_exch_ul(gi, val); 
+    volatile local unsigned long int *li = to_local(address); 
+    if (li) 
+      return __chip_atomic_exch_ul(li, val); 
+    return 0;
+  }
 
 
 static OVLD float __chip_atomic_add_f32(volatile global float *address, float val) {
