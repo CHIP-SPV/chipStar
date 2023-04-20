@@ -68,3 +68,11 @@ add_test(NAME "TestHipccNeedsDashO"
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
 
 add_hipcc_test(TestHipVersion.cc HIPCC_OPTIONS)
+
+add_test(NAME "TestHipccHalfConversions"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -D__HIP_NO_HALF_CONVERSIONS__=1
+  ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccHalfConversions.cc)
+
+add_test(NAME "TestHipccHalfOperators"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -D__HIP_NO_HALF_OPERATORS__=1
+  ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccHalfConversions.cc)
