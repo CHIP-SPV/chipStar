@@ -59,3 +59,6 @@ add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
 
 add_hipcc_test(TestDoubleShuffleOverloads.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
+
+add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
+add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
