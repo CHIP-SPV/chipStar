@@ -24,7 +24,6 @@
 #ifndef HIP_INCLUDE_DEVICELIB_MACROS_H
 #define HIP_INCLUDE_DEVICELIB_MACROS_H
 
-#include <hip/spirv_math_fwd.h>
 #include <algorithm>
 #include <limits>
 

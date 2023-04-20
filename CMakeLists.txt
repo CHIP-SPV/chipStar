@@ -175,11 +175,12 @@ option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emi
 option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
-option(BUILD_TESTS "Build Catch2 unit tests" OFF)
+option(BUILD_TESTS "Build Catch2 unit tests" ON)
 option(BUILD_SAMPLES "Build samples" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -201,6 +202,10 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
+if(USE_OCML_ROUNDED_OPS)
+  set(OCML_BASIC_ROUNDED_OPERATIONS ON)
+endif()
+
 if(DUBIOUS_LOCKS)
   list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
 endif()
@@ -300,8 +305,6 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-
-
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 
@@ -346,8 +349,6 @@ target_include_directories(CHIP
   "${CMAKE_SOURCE_DIR}/include"
 )
 
-# CHIP-SPV COMPILATION SETUP
-# =============================================================================
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
@@ -381,7 +382,7 @@ set(HIP_FIXUPS_HEADER_INSTALL
   -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
 
 # For use by hipcc
-execute_process(COMMAND ${LLVM_CONFIG} --host-target
+execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
@@ -611,7 +612,7 @@ endif()
 
 if(BUILD_SAMPLES)
   add_subdirectory(./samples samples)
-  add_dependencies(samples CHIP)
+  add_dependencies(samples CHIP devicelib_bc)
 endif()
 
 if(BUILD_DOCS)

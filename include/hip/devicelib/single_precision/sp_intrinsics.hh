@@ -25,15 +25,7 @@
 
 #include <hip/devicelib/macros.hh>
 #include <hip/devicelib/single_precision/sp_math.hh>
-
-#define FAKE_ROUNDINGS
-// #define OCML_BASIC_ROUNDED_OPERATIONS
-
-#if defined(FAKE_ROUNDINGS) and defined(OCML_BASIC_ROUNDED_OPERATIONS)
-#error "Both OCML_BASIC_ROUNDED_OPERATIONS and FAKE_ROUNDINGS are defined. Only one of these should be defined."
-#elif  !defined(FAKE_ROUNDINGS) and !defined(OCML_BASIC_ROUNDED_OPERATIONS)
-#error "No rounding mode defined. Either OCML_BASIC_ROUNDED_OPERATIONS or FAKE_ROUNDINGS must be defined."
-#endif
+#include "CHIPSPVConfig.hh"
 
 /**
  * @brief Declare as extern - we state that these funcitons are implemented and
@@ -60,22 +52,22 @@ extern "C++" __device__ float native_exp(float x); // OpenCL
 extern "C++" inline __device__ float __expf(float x) { return native_exp(x); }
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" __device__ float __ocml_add_rtn_f32(float x, float y);
+// extern "C++" __device__ float __ocml_add_rtn_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rd(float x, float y)  {
   return __ocml_add_rtn_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_add_rte_f32(float x, float y);
+// extern "C++" __device__ float __ocml_add_rte_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rn(float x, float y) {
   return __ocml_add_rte_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_add_rtp_f32(float x, float y);
+// extern "C++" __device__ float __ocml_add_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_ru(float x, float y) {
   return __ocml_add_rtp_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_add_rtz_f32(float x, float y);
+// extern "C++" __device__ float __ocml_add_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fadd_rz(float x, float y) {
   return __ocml_add_rtz_f32(x, y);
 }
@@ -90,22 +82,22 @@ extern "C++" inline __device__ float __fadd_rz(float x, float y) { return x + y;
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" __device__ float __ocml_div_rtn_f32(float x, float y);
+// extern "C++" __device__ float __ocml_div_rtn_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_rd(float x, float y) {
   return __ocml_div_rtn_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_div_rte_f32(float x, float y);
+// extern "C++" __device__ float __ocml_div_rte_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_rn(float x, float y) { 
   return __ocml_div_rte_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_div_rtp_f32(float x, float y);
+// extern "C++" __device__ float __ocml_div_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_ru(float x, float y) { 
   return __ocml_div_rtp_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_div_rtz_f32(float x, float y);
+// extern "C++" __device__ float __ocml_div_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fdiv_rz(float x, float y) {
   return __ocml_div_rtz_f32(x, y);
 }
@@ -143,22 +135,22 @@ extern "C++" inline __device__ float __fmaf_ieee_rz(float x, float y, float z) {
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" __device__ float __ocml_fma_rtn_f32(float x, float y, float z);
+// extern "C++" __device__ float __ocml_fma_rtn_f32(float x, float y, float z);
 extern "C++" inline __device__ float __fmaf_rd(float x, float y, float z) {
    return __ocml_fma_rtn_f32(x, y, z); 
 }
 
-extern "C++" __device__ float __ocml_fma_rte_f32(float, float, float);
+// extern "C++" __device__ float __ocml_fma_rte_f32(float, float, float);
 extern "C++" inline __device__ float __fmaf_rn(float x, float y, float z) {
   return __ocml_fma_rte_f32(x, y, z);
 }
 
-extern "C++" __device__ float __ocml_fma_rtp_f32(float x, float y, float z);
+// extern "C++" __device__ float __ocml_fma_rtp_f32(float x, float y, float z);
 extern "C++" inline __device__ float __fmaf_ru(float x, float y, float z) {
   return __ocml_fma_rtp_f32(x, y, z);
 }
 
-extern "C++" __device__ float __ocml_fma_rtz_f32(float x, float y, float z);
+// extern "C++" __device__ float __ocml_fma_rtz_f32(float x, float y, float z);
 extern "C++" inline __device__ float __fmaf_rz(float x, float y, float z) {
     return __ocml_fma_rtz_f32(x, y, z);
 }
@@ -173,22 +165,22 @@ extern "C++" inline __device__ float __fmaf_rz(float x, float y, float z) { retu
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" __device__ float __ocml_mul_rtn_f32(float x, float y);
+// extern "C++" __device__ float __ocml_mul_rtn_f32(float x, float y);
 extern "C++" inline __device__ float __fmul_rd(float x, float y) {
   return __ocml_mul_rtn_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_mul_rte_f32(float x, float y);
+// extern "C++" __device__ float __ocml_mul_rte_f32(float x, float y);
 extern "C++" inline __device__ float __fmul_rn(float x, float y) {
   return __ocml_mul_rte_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_mul_rtp_f32(float x, float y);
+// extern "C++" __device__ float __ocml_mul_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fmul_ru(float x, float y) {
   return __ocml_mul_rtp_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_mul_rtz_f32(float x, float y);
+// extern "C++" __device__ float __ocml_mul_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fmul_rz(float x, float y) {
   return __ocml_mul_rtz_f32(x, y);
 }
@@ -227,22 +219,22 @@ extern "C++" inline __device__ float __frsqrt_rn(float x) { return rsqrt(x); }
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" __device__ float __ocml_sqrt_rtn_f32(float x);
+// extern "C++" __device__ float __ocml_sqrt_rtn_f32(float x);
 extern "C++" inline __device__ float __fsqrt_rd(float x) {
   return __ocml_sqrt_rtn_f32(x);
 }
 
-extern "C++" __device__ float __ocml_sqrt_rte_f32(float x);
+// extern "C++" __device__ float __ocml_sqrt_rte_f32(float x);
 extern "C++" inline __device__ float __fsqrt_rn(float x) {
   return __ocml_sqrt_rte_f32(x);
 }
 
-extern "C++" __device__ float __ocml_sqrt_rtp_f32(float x);
+// extern "C++" __device__ float __ocml_sqrt_rtp_f32(float x);
 extern "C++" inline __device__ float __fsqrt_ru(float x) {
   return __ocml_sqrt_rtp_f32(x);
 }
 
-extern "C++" __device__ float __ocml_sqrt_rtz_f32(float x);
+// extern "C++" __device__ float __ocml_sqrt_rtz_f32(float x);
 extern "C++" inline __device__ float __fsqrt_rz(float x) {
   return __ocml_sqrt_rtz_f32(x); 
 }
@@ -257,22 +249,22 @@ extern "C++" inline __device__ float __fsqrt_rz(float x) { return sqrt(x); }
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
-extern "C++" __device__ float __ocml_sub_rtn_f32(float x, float y);
+// extern "C++" __device__ float __ocml_sub_rtn_f32(float x, float y);
 extern "C++" inline __device__ float __fsub_rd(float x, float y) {
   return __ocml_sub_rtn_f32(x, y); 
 }
 
-extern "C++" __device__ float __ocml_sub_rte_f32(float x, float y);
+// extern "C++" __device__ float __ocml_sub_rte_f32(float x, float y);
 extern "C++" inline __device__ float __fsub_rn(float x, float y) {
   return __ocml_sub_rte_f32(x, y);
 }
 
-extern "C++" __device__ float __ocml_sub_rtp_f32(float x, float y);
+// extern "C++" __device__ float __ocml_sub_rtp_f32(float x, float y);
 extern "C++" inline __device__ float __fsub_ru(float x, float y) {
   return __ocml_sub_rtp_f32(x, y); 
 }
 
-extern "C++" __device__ float __ocml_sub_rtz_f32(float x, float y);
+// extern "C++" __device__ float __ocml_sub_rtz_f32(float x, float y);
 extern "C++" inline __device__ float __fsub_rz(float x, float y) {
   return __ocml_sub_rtz_f32(x, y);
 }
