@@ -326,4 +326,9 @@ extern "C++" inline __device__ unsigned long long atomicXor_system(unsigned long
   return __chip_atomic_xor_system_l(address, val);
 }
 
-#endif // HIP_INCLUDE_DEVICELIB_ATOMICS 
+// Undocumented
+extern "C++" inline __device__ void atomicAddNoRet(float *address, float val) {
+  (void)__chip_atomic_add_f32(address, val);
+}
+
+#endif // HIP_INLUDE_DEVICELIB_ATOMICS 
