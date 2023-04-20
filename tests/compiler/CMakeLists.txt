@@ -66,3 +66,5 @@ add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
+
+add_hipcc_test(TestHipVersion.cc HIPCC_OPTIONS)
