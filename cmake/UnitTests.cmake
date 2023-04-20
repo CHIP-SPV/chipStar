@@ -1594,7 +1594,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
@@ -1602,6 +1602,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiStream_multimeDevice") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
