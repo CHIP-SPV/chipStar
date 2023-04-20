@@ -98,21 +98,4 @@ message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
 # required by ROCm-Device-Libs
 # list(APPEND CMAKE_MODULE_PATH ${LLVM_CONFIG_DIR}/../lib/cmake/llvm)
 find_package(LLVM REQUIRED PATHS ${LLVM_CONFIG_DIR}/../lib/cmake/llvm)
-message(WARNING "Using LLVM_DIR: ${LLVM_DIR}")
 find_package(Clang HINTS ${LLVM_DIR}/../clang)
-
-# if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-#   set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE INTERNAL "Prefix prepended to install directories")
-# endif()
-
-# include(AddLLVM)
-
-# find_program(LLVM_LINK_EXECUTABLE NAMES llvm-link PATHS ${LLVM_CONFIG_DIR} NO_DEFAULT_PATH)
-# if(NOT LLVM_LINK_EXECUTABLE)
-#   message(FATAL_ERROR "llvm-link not found")
-# endif()
-
-
-
-# add_executable(llvm-link IMPORTED)
-# set_target_properties(llvm-link PROPERTIES IMPORTED_LOCATION ${LLVM_LINK_EXECUTABLE})

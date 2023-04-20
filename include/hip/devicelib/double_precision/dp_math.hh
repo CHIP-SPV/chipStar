@@ -25,8 +25,6 @@
 
 #include <hip/devicelib/macros.hh>
 
-// Declare as extern - we state that these funcitons are implemented and will be
-// found at link time
 extern "C++" __device__ double acos(double x); // OpenCL
 
 extern "C++" __device__ double acosh(double x); // OpenCL
