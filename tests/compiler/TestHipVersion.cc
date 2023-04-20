@@ -1,9 +1,9 @@
 #include <hip/hip_runtime.h>
 
 __global__ void kernel() {
-    printf(HIP_VERSION_MAJOR);
-    printf(HIP_VERSION_MINOR);
-    printf(HIP_VERSION_PATCH);
+    printf("%d", HIP_VERSION_MAJOR);
+    printf("%d", HIP_VERSION_MINOR);
+    printf("%d", HIP_VERSION_PATCH);
 }
 
 int main() {
