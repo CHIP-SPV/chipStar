@@ -14,7 +14,7 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 
 
 # CPU OpenCL Unit Test Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLinkCMD") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "2d_shuffle") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipDynamicShared2") # Failed
@@ -397,7 +397,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # iGPU OpenCL Unit Test Failures
-list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLinkCMD") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-qrng") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fmaf_ieee_rd_float") # Failed
@@ -781,7 +781,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # dGPU OpenCL Unit Test Failures
-list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLinkCMD") # Failed
+list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "FloydWarshall") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-asyncAPI") # Failed
@@ -1212,7 +1212,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # # dGPU Level Zero Unit Test Failures
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLinkCMD") # Failed
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
@@ -1602,7 +1602,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # iGPU Level Zero Unit Test Failures
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLinkCMD") # Failed
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-clock") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleTemplates") # SEGFAULT
@@ -1996,7 +1996,7 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
-list(APPEND CPU_POCL_FAILED_TESTS "TestHipccCompileAndLinkCMD") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_half2_math") # Subprocess aborted

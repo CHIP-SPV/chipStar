@@ -88,7 +88,7 @@ add_test(NAME "TestHipccCompileThenLink" COMMAND ${TestHipccCompileThenLinkCMD})
 
 # Test the case where there's a mix of object files & source files
 set(TestHipccCompileAndLinkCMD 
-  ${CMAKE_BINARY_DIR}/bin/hipcc.bin -c ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/TestHipccCompileThenLinkKernel.cc.o &&
-  ${CMAKE_BINARY_DIR}/bin/hipcc.bin  ${CMAKE_CURRENT_BINARY_DIR}/TestHipccCompileAndLinkKernel.cc.o ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp -o TestHipccCompileAndLink 
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin -c ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccCompileThenLinkKernel.cc.o &&
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin  TestHipccCompileThenLinkKernel.cc.o ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp -o TestHipccCompileAndLink 
 )
 add_test(NAME "TestHipccCompileAndLink" COMMAND ${TestHipccCompileAndLinkCMD})
