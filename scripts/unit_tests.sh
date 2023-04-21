@@ -19,7 +19,8 @@ cd build
 
 # TODO check Release as well 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-cmake ../ -DLLVM_CONFIG=/usr/bin/llvm-config-15
+module load clang/clang15-spirv-omp
+cmake ../ 
 
 module load mkl
 # Load ocl-icd and intel-gpu

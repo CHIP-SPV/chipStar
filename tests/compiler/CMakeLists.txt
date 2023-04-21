@@ -59,3 +59,36 @@ add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
 
 add_hipcc_test(TestDoubleShuffleOverloads.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
+
+add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
+add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
+
+add_test(NAME "TestHipccNeedsDashO"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+  ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
+
+add_hipcc_test(TestHipVersion.cc HIPCC_OPTIONS)
+
+add_test(NAME "TestHipccHalfConversions"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -D__HIP_NO_HALF_CONVERSIONS__=1
+  ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccHalfConversions.cc)
+
+add_test(NAME "TestHipccHalfOperators"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -D__HIP_NO_HALF_OPERATORS__=1
+  ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccHalfConversions.cc)
+
+# Test the case where object files are compiled separately and then linked 
+set(TestHipccCompileThenLinkCMD 
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin -c ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/TestHipccCompileThenLinkKernel.cc.o  &&
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin -c ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp -o ${CMAKE_CURRENT_BINARY_DIR}/TestHipccCompileThenLinkMain.cc.o &&
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin  ${CMAKE_CURRENT_BINARY_DIR}/TestHipccCompileThenLinkKernel.cc.o  ${CMAKE_CURRENT_BINARY_DIR}/TestHipccCompileThenLinkMain.cc.o  -o TestHipccCompileThenLink 
+)
+add_test(NAME "TestHipccCompileThenLink" COMMAND ${TestHipccCompileThenLinkCMD})
+
+
+# Test the case where there's a mix of object files & source files
+set(TestHipccCompileAndLinkCMD 
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin -c ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccCompileThenLinkKernel.cc.o &&
+  ${CMAKE_BINARY_DIR}/bin/hipcc.bin  TestHipccCompileThenLinkKernel.cc.o ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp -o TestHipccCompileAndLink 
+)
+add_test(NAME "TestHipccCompileAndLink" COMMAND ${TestHipccCompileAndLinkCMD})
