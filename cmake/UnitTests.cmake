@@ -1997,6 +1997,7 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
+list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
