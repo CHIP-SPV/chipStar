@@ -27,6 +27,8 @@ export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modul
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
+icpx --version
+
 ulimit -a
 
 rm -rf HIPCC
