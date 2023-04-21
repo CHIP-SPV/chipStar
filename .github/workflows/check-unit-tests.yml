@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-test-checker:
+  unit-tests-llvm-15-debug:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
@@ -19,5 +19,36 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh
+        run: ./scripts/unit_tests.sh debug clang/clang15-spirv-omp
         shell: bash
+  unit-tests-llvm-15-release:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh release clang/clang15-spirv-omp
+        shell: bash
+  # TODO: Enable in llvm16 branch
+  # unit-tests-llvm-16-debug:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh debug clang/clang16-spirv-omp
+  #       shell: bash
+  # unit-tests-llvm-16-release:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh release clang/clang16-spirv-omp
+  #       shell: bash

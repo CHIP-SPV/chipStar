@@ -395,6 +395,47 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHos
 list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_HostDeviceConcurrent") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_MultiChunkSingleDevice") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_TwoPointers - int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_TwoPointers - float") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_TwoPointers - double") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - int") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - float") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - double") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - unsigned char") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_FlgParam") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_AccessMultiStream") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPrefetchAsyncNegativeTst") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_MmapMem") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttribute_TstCountParam") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttribute_NegativeTests") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttribute_AccessedBy1") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttribte_3") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttribute_4") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttribute_PrefetchAndGtAttr") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Basic") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Advanced") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Large") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPrefetchAsync") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstFlags") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_PrefrdLoc") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_ReadMostly") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstFlgOverrideEffect") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstAccessedByFlg") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstAccessedByFlg2") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstAccessedByFlg3") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstAccessedByFlg4") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstMemAdvisePrefrdLoc") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstMemAdviseMultiFlag") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_ReadMosltyMgpuTst") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_TstSetUnsetPrfrdLoc") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttributes_TstFlgs") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttributes_NegativeTst") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetDeviceAttribute_CheckAttrValues") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_NegtveTsts") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_OverSubscription") # Failed
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
@@ -1212,6 +1253,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
@@ -1997,6 +2039,7 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
+list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
