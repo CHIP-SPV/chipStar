@@ -114,7 +114,7 @@ function check_tests {
     return 0
   else
     echo "FAIL"
-    grep -oP '\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{7}Z\s+\d+\s+-\s+\K[^()]+' "$file"
+    grep -E "The following tests FAILED:" -A 1000 "$file" | sed '/^$/q' | tail -n +2
     return 1
   fi
 }
