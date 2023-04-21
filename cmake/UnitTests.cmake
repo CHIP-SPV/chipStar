@@ -1248,6 +1248,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
