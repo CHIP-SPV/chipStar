@@ -37,6 +37,7 @@ rm -rf hip-testsuite
 
 git submodule update --init
 rm -rf build
+rm -rf *_result.txt
 mkdir build
 cd build
 
