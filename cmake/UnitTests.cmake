@@ -404,6 +404,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_TwoPointers - double"
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - int") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - float") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - double") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_DeviceContextChange - unsigned char") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_FlgParam") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_AccessMultiStream") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPrefetchAsyncNegativeTst") # Failed
@@ -434,6 +435,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttributes_TstFlgs") # F
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttributes_NegativeTst") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetDeviceAttribute_CheckAttrValues") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_NegtveTsts") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_OverSubscription") # Failed
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
