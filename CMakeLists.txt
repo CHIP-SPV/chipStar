@@ -223,14 +223,9 @@ if(NOT CLANG_VERSION_LESS_15)
   set(DISABLE_OPAQUE_PTRS_OPT -Xclang -no-opaque-pointers)
 endif()
 
+set(SPIRV_EMITTER_OPTS "")
 if(LLVM_USE_INTERGRATED_SPIRV)
-  if(CLANG_VERSION_LESS_14)
-    message(FATAL_ERROR "-DLLVM_USE_INTERGRATED_SPIRV=On is not supported for LLVM 13 and less")
-  else()
-    set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
-  endif()
-else()
-  set(SPIRV_EMITTER_OPTS "")
+  set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
@@ -355,34 +350,35 @@ target_include_directories(CHIP
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ 
-  ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
-
-# hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
-if(NOT CLANG_VERSION_LESS_14)
-  set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-    --offload=spirv64
-
-    # By default RocmInstallationDetector::AddHIPIncludeArgs in the
-    # HIP-Clang inserts include wrapper headers which cause compile
-    # errors when compiling HIP sources for SPIR-V target.  This flag
-    # excludes the wrappers.
-    "-nohipwrapperinc")
-endif()
-
-if(CLANG_VERSION_LESS_14)
-  set(HIP_LINK_DEVICELIB_BUILD --hip-device-lib-path=${CMAKE_BINARY_DIR}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes)
-  set(HIP_LINK_DEVICELIB_INSTALL --hip-device-lib-path=${SHARE_INSTALL_DIR} --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm)
-else()
-  set(HIP_LINK_DEVICELIB_BUILD --hip-path=${CMAKE_BINARY_DIR})
-  set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
-endif()
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
+  --offload=spirv64 ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
+  # By default RocmInstallationDetector::AddHIPIncludeArgs in the
+  # HIP-Clang inserts include wrapper headers which cause compile
+  # errors when compiling HIP sources for SPIR-V target.  This flag
+  # excludes the wrappers.
+  -nohipwrapperinc)
 
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
   -include ${CMAKE_BINARY_DIR}/include/hip/spirv_fixups.h)
 set(HIP_FIXUPS_HEADER_INSTALL
   -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
+
+# Flags needed additionally for linking phase with -fgpu-rdc.
+set(HIP_RDC_SUPPLEMENT_LINK_FLAGS
+  # Infors clang the type of the code object inputs (which are different than
+  # in regular host C/C++ linking)
+  --hip-link
+  # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
+  --offload=spirv64
+  # --hip-path is also needed but not included here (different option
+  # value is needed for build and installation).
+)
+
+if (NOT CLANG_VERSION_LESS_15)
+  list(APPEND HIP_RDC_SUPPLEMENT_LINK_FLAGS
+    -no-hip-rt) # Clang 15+: Prevents linking amdhip64 library.
+endif()
 
 # For use by hipcc
 execute_process(COMMAND ${LLVM_CONFIG} --host-target
@@ -392,14 +388,14 @@ set(HOST_ARCH "--target=${HOST_ARCH}")
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL}
+  --hip-path=${CMAKE_INSTALL_PREFIX}
   ${HOST_ARCH}
   ${HIP_FIXUPS_HEADER_INSTALL})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD}
+  --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
   ${HIP_FIXUPS_HEADER_BUILD})
 
@@ -438,29 +434,31 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
-  -x hip
-  ${HIP_ENABLE_SPIRV}
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD}
-  ${HIP_FIXUPS_HEADER_BUILD})
-target_link_options(deviceInternal INTERFACE
-  ${HIP_LINK_DEVICELIB_BUILD})
+  -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
-  -x hip
-  ${HIP_ENABLE_SPIRV}
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL}
-  ${HIP_FIXUPS_HEADER_INSTALL})
-target_link_options(device INTERFACE
-  ${HIP_LINK_DEVICELIB_INSTALL})
+  -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on CHIP-SPV but provides compatibility with AMD
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
+
+# Interface libraries for compiling HIP sources conveniently in RDC
+# (relocatable device code) mode.
+add_library(deviceRDCInternal INTERFACE)
+target_compile_options(deviceRDCInternal INTERFACE -fgpu-rdc)
+target_link_options(deviceRDCInternal INTERFACE
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR})
+target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
+
+add_library(deviceRDC INTERFACE)
+target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
+target_link_options(deviceRDC INTERFACE
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_INSTALL_PREFIX})
+target_link_libraries(deviceRDC INTERFACE device)
 
 # HIP OFFLOAD FLAGS
 # =============================================================================
@@ -529,7 +527,7 @@ add_to_config(_hipInfo_build
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_BUILD}")
 
-INSTALL(TARGETS CHIP host device
+INSTALL(TARGETS CHIP host device deviceRDC
   EXPORT hip-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION lib

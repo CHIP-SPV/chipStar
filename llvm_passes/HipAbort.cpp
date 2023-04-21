@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 // LLVM IR pass to handle kernels with abort() calls.
 //
-// (c) 2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
+// (c) 2023 CHIP-SPV developers
+//     2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
 //===----------------------------------------------------------------------===//
 //
 // HIP supports an abort() that is specified as
@@ -45,6 +46,8 @@
 
 #include "HipAbort.h"
 
+#include "../src/common.hh"
+
 #include <set>
 #include <iostream>
 
@@ -59,7 +62,7 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
     // Mark modules that do not call abort by just the global flag variable.
     // Ugly, but should allow avoiding the kernel call to check the global
     // variable.
-    GlobalVariable *AbortFlag = Mod.getGlobalVariable(CHIPSPV_ABORT_FLAG_NAME);
+    GlobalVariable *AbortFlag = Mod.getGlobalVariable(ChipDeviceAbortFlagName);
     if (AbortFlag != nullptr) {
       AbortFlag->replaceAllUsesWith(
           Constant::getNullValue(AbortFlag->getType()));
@@ -74,7 +77,7 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
   auto *Int32Ty = IntegerType::get(Ctx, 32);
   auto *Int32OneConst = ConstantInt::get(Int32Ty, 1);
 
-  GlobalVariable *AbortFlag = Mod.getGlobalVariable(CHIPSPV_ABORT_FLAG_NAME);
+  GlobalVariable *AbortFlag = Mod.getGlobalVariable(ChipDeviceAbortFlagName);
   assert(AbortFlag != nullptr);
 
   bool Modified = false;

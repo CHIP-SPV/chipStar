@@ -84,4 +84,8 @@ constexpr char ChipNonSymbolResetKernelName[] = "__chip_reset_non_symbols";
 /// variables is '<ChipSpilledArgsVarPrefix><kernel-name>'
 constexpr char ChipSpilledArgsVarPrefix[] = "__chip_spilled_args_";
 
+/// The name of a global variable which indicates, when non-zero, if
+/// the abort() function was called by a kernel.
+constexpr char ChipDeviceAbortFlagName[] = "__chipspv_abort_called";
+
 #endif

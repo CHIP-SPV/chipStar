@@ -27,9 +27,7 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/BC")
 
 set(EXTRA_FLAGS)
 # Ugly fix for interactions between clang13+ and igc
-if(NOT CLANG_VERSION_LESS_13)
-  list(APPEND EXTRA_FLAGS "-cl-no-stdinc")
-endif()
+list(APPEND EXTRA_FLAGS "-cl-no-stdinc")
 
 # disable opaque pointers for LLVM 15 only
 if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
