@@ -52,7 +52,19 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "..." FORCE)
 endif()
 
-execute_process(COMMAND git submodule update --init)
+set(REQUIRED_DIRECTORIES
+    HIPCC
+    HIP
+    bitcode/ROCm-Device-Libs
+    hip-tests
+    hip-testsuite
+)
+
+foreach(dir ${REQUIRED_DIRECTORIES})
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/${dir}")
+        message(FATAL_ERROR "Directory '${dir}' is missing. Please execute: git submodule update --init")
+    endif()
+endforeach()
 
 # =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
