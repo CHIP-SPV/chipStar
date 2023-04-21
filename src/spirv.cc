@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,7 +19,6 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-
 
 #include <algorithm>
 #include <cassert>
@@ -506,6 +505,11 @@ static std::string_view parseLinkageAttributeName(const SPIRVinst *Inst) {
   return parseLinkageAttributeName(*Inst);
 }
 
+static spv::LinkageType parseLinkageAttributeType(const SPIRVinst &Inst) {
+  assert(Inst.isDecoration(spv::DecorationLinkageAttributes));
+  return static_cast<spv::LinkageType>(Inst.getWord(Inst.size() - 1));
+}
+
 static IteratorRange<const InstWord *> getWordRange(const InstWord *Begin,
                                                     size_t NumWords) {
   return IteratorRange<const InstWord *>(Begin, Begin + NumWords);
@@ -737,10 +741,21 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     // and we are not currently linking the SPIR-V modules with anything else.
     if (Insn.isName() && EntryPoints.count(Insn.getName()))
       continue;
-    if (Insn.isDecoration(spv::DecorationLinkageAttributes) &&
-        // Preserved for later analysis.
-        !startsWith(parseLinkageAttributeName(Insn), ChipSpilledArgsVarPrefix))
-      continue;
+    if (Insn.isDecoration(spv::DecorationLinkageAttributes)) {
+      auto LinkName = parseLinkageAttributeName(Insn);
+      if (parseLinkageAttributeType(Insn) == spv::LinkageTypeImport) {
+        // We are currently supposed to receive only fully linked
+        // device code (from the user perspective). The user probably
+        // forgot a definition. Otherwise, preserve the attribute as
+        // removal of it would confuse some backend drivers.
+        //
+        // Issue warning unless it's a magic CHIP-SPV or llvm-spirv symbol.
+        if (!startsWith(LinkName, "__spirv_"))
+          logWarn("Missing definition for '{}'", LinkName);
+      } else if (!startsWith(LinkName, ChipSpilledArgsVarPrefix))
+        // Some specially named variables are preserved for later analysis.
+        continue;
+    }
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
   }
