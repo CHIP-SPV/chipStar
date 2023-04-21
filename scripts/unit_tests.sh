@@ -53,6 +53,7 @@ module load opencl/intel-gpu
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 sudo /opt/ocl-icd/scripts/igpu_bind   &> /dev/null
+export CHIP_LOGLEVEL=warn
 export CHIP_BE=opencl
 
 # Build 
@@ -72,7 +73,7 @@ echo "begin igpu_level0_failed_tests"
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
 clinfo -l
 echo "Testing hip_sycl_interop"
-CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+CHIP_BE=level0 CHIP_DEVICE_TYPE=gpu ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 echo "end igpu_level0_failed_tests"
 
@@ -81,7 +82,7 @@ echo "begin dgpu_level0_failed_tests"
 sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
 clinfo -l
 echo "Testing hip_sycl_interop"
-CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+CHIP_BE=level0 CHIP_DEVICE_TYPE=gpu ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 echo "end dgpu_level0_failed_tests"
 
@@ -90,7 +91,7 @@ echo "begin igpu_opencl_failed_tests"
 module swap opencl opencl/intel-gpu
 sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
 clinfo -l
-CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 echo "end igpu_opencl_failed_tests"
 
@@ -98,7 +99,7 @@ echo "end igpu_opencl_failed_tests"
 echo "begin dgpu_opencl_failed_tests"
 sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
 clinfo -l
-CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 echo "end dgpu_opencl_failed_tests"
 
