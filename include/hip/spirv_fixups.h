@@ -27,17 +27,25 @@
 #ifndef SPIRV_COMPILER_FIXUPS_H
 #define SPIRV_COMPILER_FIXUPS_H
 
-// A workaround for device side compilation when using -std=gnu++##. Clang
-// incorrectly defines these macros which enable unsupported float128
-// code in some libraries (e.g. in libstdc++).
-//
-// AFAIK, these macros leak from the host target. Clang bundles target specific
-// macro defines for both the device and host target together and passes them to
-// both the host and device compilation pipelines. SPIR-V target does not define
-// the macros but x86_64 does.
 #ifdef __HIP_DEVICE_COMPILE__
+// Undefine clang builtin defines (as a workaround) which cause
+// errors in the device side compilations.
+//
+// The troublesome defines "leak" from the host target into the device
+// compilation. AFAIK, Clang fuses host and offload target specific
+// defines together and passes them both the host side and device side
+// compilation. This is known to cause inclusion of code with
+// unsupported features (such as __float128 and __bf16 for SPIR-V
+// offload target).
+
+// x86_64 target defines these which cause device compilation errors
+// with -std=gnu++## and libstdc++ version 12.
 #undef __FLOAT128__
 #undef __SIZEOF_FLOAT128__
-#endif
+
+// This define is known to include code with unsupported __bf16 type.
+#undef __SSE2__
+
+#endif // __HIP_DEVICE_COMPILE__
 
 #endif // SPIRV_COMPILER_FIXUPS_H

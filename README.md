@@ -14,7 +14,7 @@ For a list of (un)supported features in CHIP-SPV, read [this.](docs/Features.md)
 ## Prerequisites
 
 * Cmake >= 3.16.0
-* Clang 14 or 15
+* Clang 14, 15 or 16
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'. *NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`.
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)

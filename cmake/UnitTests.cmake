@@ -436,6 +436,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemRangeGetAttributes_NegativeTst")
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetDeviceAttribute_CheckAttrValues") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_NegtveTsts") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_OverSubscription") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_MultiChunkMultiDevice") # Failed (not getting skipped unlike all other platforms)
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed

@@ -60,8 +60,7 @@ __global__ void testKernel(float *g_idata, float *g_odata) {
   // the size is determined by the host application
 
   // FIXME: HipDynMemExternReplacePass does not yet recognize this:
-  //extern __shared__ float sdata[];
-  __shared__ float sdata[4294967295]; // TEMPORARY
+  extern __shared__ float sdata[];
 
   // access thread id
   const unsigned int tid = threadIdx.x;
