@@ -36,5 +36,9 @@ function(add_hip_test MAIN_SOURCE)
   add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
 endfunction()
 
-add_hip_test(deviceMalloc.cpp)
 add_hip_test(implicitCasts.cpp)
+
+# Add this as a hipcc otherwise the `make all` will fail which is not convenient indicator for test failure
+add_test(NAME "deviceMallocCompile"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+  ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
