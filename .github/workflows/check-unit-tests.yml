@@ -19,7 +19,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug clang/clang15-spirv-omp
+        run: ./scripts/unit_tests.sh debug llvm-15
         shell: bash
   unit-tests-llvm-15-release:
     runs-on: self-hosted
@@ -29,7 +29,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release clang/clang15-spirv-omp
+        run: ./scripts/unit_tests.sh release llvm-15
         shell: bash
   unit-tests-llvm-16-debug:
     runs-on: self-hosted
@@ -39,7 +39,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug clang/clang16-spirv-omp
+        run: ./scripts/unit_tests.sh debug llvm-16
         shell: bash
   unit-tests-llvm-16-release:
     runs-on: self-hosted
@@ -49,5 +49,5 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release clang/clang16-spirv-omp
+        run: ./scripts/unit_tests.sh release llvm-16
         shell: bash
