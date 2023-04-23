@@ -76,7 +76,7 @@ echo "end igpu_level0_failed_tests"
 
 # Test Level Zero dGPU
 echo "begin dgpu_level0_failed_tests"
-module load levelzedro/dgpu
+module load levelzero/dgpu
 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 module unload levelzero
 echo "end dgpu_level0_failed_tests"
