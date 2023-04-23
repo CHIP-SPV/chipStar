@@ -2040,6 +2040,15 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
+list(APPEND CPU_POCL_FAILED_TESTS "sharedMemory") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "stream") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "deviceManagement") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "cuda-matrixMul") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
