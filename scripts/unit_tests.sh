@@ -35,6 +35,8 @@ export OverrideDefaultFP64Settings=1
 
 # icpx --version
 # ulimit -a
+sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 
 rm -rf HIPCC
 rm -rf HIP
