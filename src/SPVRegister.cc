@@ -84,8 +84,14 @@ void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
-  // Host pointer should be associated with one source module and variable.
-  assert(!HostPtrLookup_.count(Ptr) && "Host-pointer is already mapped.");
+  assert(
+      // Host pointer should be associated with one source module and variable
+      // at most.
+      (!HostPtrLookup_.count(Ptr)) ||
+      // A variable made for abort() implementation is an exception to this due
+      // to the way it's modeled.
+      (Name == ChipDeviceAbortFlagName && HostPtrLookup_[Ptr]->Name == Name) &&
+          "Host-pointer is already mapped.");
 
   SrcMod->Variables.emplace_back(SPVVariable{{SrcMod, Ptr, Name}, Size});
   HostPtrLookup_.emplace(std::make_pair(Ptr, &SrcMod->Variables.back()));

@@ -221,16 +221,24 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // ***********************************************************************
 
 void CHIPEventLevel0::reset() {
-  auto Status = zeEventHostReset(get("zeEventHostReset"));
+  auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   LOCK(EventMtx); // CHIPEvent::TrackCalled_
   TrackCalled_ = false;
   EventStatus_ = EVENT_STATUS_INIT;
+  *Refc_ = 1;
+#ifndef NDEBUG
+  markDeleted(false);
+#endif
 }
 
-ze_event_handle_t CHIPEventLevel0::peek() { return Event_; }
+ze_event_handle_t CHIPEventLevel0::peek() {
+  assert(!Deleted_ && "Event use after delete!");
+  return Event_;
+}
 
 ze_event_handle_t CHIPEventLevel0::get(std::string Msg) {
+  assert(!Deleted_ && "Event use after delete!");
   if (Msg.size() > 0) {
     increaseRefCount(Msg);
   } else {
@@ -393,6 +401,7 @@ void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
 }
 
 bool CHIPEventLevel0::wait() {
+  assert(!Deleted_ && "Event use after delete!");
   logTrace("CHIPEventLevel0::wait() {} msg={}", (void *)this, Msg);
 
   ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
@@ -404,6 +413,7 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
+  assert(!Deleted_ && "Event use after delete!");
   std::string EventStatusOld, EventStatusNew;
   {
     LOCK(EventMtx); // CHIPEvent::EventStatus_
@@ -528,6 +538,7 @@ float CHIPEventLevel0::getElapsedTime(CHIPEvent *OtherIn) {
 }
 
 void CHIPEventLevel0::hostSignal() {
+  assert(!Deleted_ && "Event use after delete!");
   logTrace("CHIPEventLevel0::hostSignal()");
   auto Status = zeEventHostSignal(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -652,6 +663,11 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
       // delete the event if refcount reached 0
       if (E->getCHIPRefc() == 0) {
+        // Purpose of the stale event monitor is to release events
+        // when it's safe to do so which is indicated by their ready
+        // status.
+        assert(E->isFinished() &&
+               "Event refcount reached zero while it's not ready!");
         auto Found =
             std::find(Backend->Events.begin(), Backend->Events.end(), E);
         if (Found == Backend->Events.end())
@@ -660,9 +676,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "removed from backend event list",
                                 hipErrorTbd);
         Backend->Events.erase(Found); // TODO fix-251 segfault here
-
-        if (E->EventPool)
-          E->EventPool->returnSlot(E->EventPoolIndex);
 
         E->doActions();
 
@@ -682,6 +695,12 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           auto Status = zeCommandListDestroy(CommandList);
           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
         }
+
+        if (E->EventPool)
+          E->EventPool->returnSlot(E->EventPoolIndex);
+#ifndef NDEBUG
+        E->markDeleted();
+#endif
       }
 
     } // done collecting events to delete
@@ -1082,7 +1101,6 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
     // completes (may happen when called from CHIPQueue::launchKernel()).
     LaunchEvent->addAction([=]() -> void { auto Tmp = SpillBuf; });
 
-  LaunchEvent->track();
   return LaunchEvent;
 }
 
@@ -1505,9 +1523,17 @@ void CHIPBackendLevel0::uninitialize() {
   if (Backend->Events.size()) {
     logTrace("Remaining {} events that haven't been collected:",
              Backend->Events.size());
-    for (auto *E : Backend->Events)
+    for (auto *E : Backend->Events) {
       logTrace("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
                E->getCHIPRefc());
+      if (!E->isUserEvent()) {
+        // A strong indicator that we are missing decreaseRefCount() call
+        // for events which are solely managed by the CHIP-SPV.
+        assert(!(E->isFinished() && E->getCHIPRefc() > 0) &&
+               "Missed decreaseRefCount()?");
+        assert(E->isFinished() && "Uncollected non-user events!");
+      }
+    }
     logTrace("Remaining {} command lists that haven't been collected:",
              ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
   }
@@ -1922,6 +1948,30 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // clients should follow.
   HipDeviceProps_.textureAlignment = 1;
   HipDeviceProps_.texturePitchAlignment = 1;
+
+  // Level0 devices support basic CUDA managed memory via USM,
+  // but some of the functions such as prefetch and advice are unimplemented
+  // in CHIP-SPV.
+  HipDeviceProps_.managedMemory = 0;
+  // TODO: Populate these from SVM/USM properties. Advertise the safe
+  // defaults for now. Uninitialized properties cause undeterminism.
+  HipDeviceProps_.directManagedMemAccessFromHost = 0;
+  HipDeviceProps_.concurrentManagedAccess = 0;
+  HipDeviceProps_.pageableMemoryAccess = 0;
+  HipDeviceProps_.pageableMemoryAccessUsesHostPageTables = 0;
+
+  HipDeviceProps_.cooperativeLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedFunc = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedGridDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedBlockDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedSharedMem = 0;
+  HipDeviceProps_.memPitch = 1;
+  HipDeviceProps_.textureAlignment = 1;
+  HipDeviceProps_.texturePitchAlignment = 1;
+  HipDeviceProps_.kernelExecTimeoutEnabled = 0;
+  HipDeviceProps_.ECCEnabled = 0;
+  HipDeviceProps_.asicRevision = 1;
 }
 
 CHIPQueue *CHIPDeviceLevel0::createQueue(CHIPQueueFlags Flags, int Priority) {

@@ -200,9 +200,12 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
-      ChipContext_(Ctx), Msg("") {}
+      ChipContext_(Ctx), Msg("") {
+  *Refc_ = 1;
+}
 
 void CHIPEvent::releaseDependencies() {
+  assert(!Deleted_ && "Event use after delete!");
   for (auto Event : DependsOnList) {
     Event->decreaseRefCount("An event that depended on this one has finished");
   }
@@ -212,24 +215,31 @@ void CHIPEvent::releaseDependencies() {
 
 void CHIPEvent::decreaseRefCount(std::string Reason) {
   LOCK(EventMtx); // CHIPEvent::Refc_
+  assert(!Deleted_ && "Event use after delete!");
   // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
   //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
   if (*Refc_ > 0) {
     (*Refc_)--;
   } else {
+    assert(false && "CHIPEvent::decreaseRefCount() called when refc == 0");
     logError("CHIPEvent::decreaseRefCount() called when refc == 0");
   }
   // Destructor to be called by event monitor once backend is done using it
 }
 void CHIPEvent::increaseRefCount(std::string Reason) {
   LOCK(EventMtx); // CHIPEvent::Refc_
+  assert(!Deleted_ && "Event use after delete!");
   // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
   //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+
+  // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
+  assert(*Refc_ > 0 && "Increasing refcount from zero!");
   (*Refc_)++;
 }
 
 size_t CHIPEvent::getCHIPRefc() {
   LOCK(this->EventMtx); // CHIPEvent::Refc_
+  assert(!Deleted_ && "Event use after delete!");
   return *Refc_;
 }
 
@@ -820,6 +830,7 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
 void CHIPEvent::track() {
   LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
   LOCK(EventMtx);           // writing bool CHIPEvent::TrackCalled_
+  assert(!Deleted_ && "Event use after delete!");
   if (!TrackCalled_) {
     Backend->Events.push_back(this);
     TrackCalled_ = true;

@@ -32,8 +32,13 @@ multiple Threads.
 #include <iostream>
 #include "hip/hip_runtime.h"
 
+#ifndef NDEBUG
 #define HIPCHECK(x) assert(x == hipSuccess)
 #define HIP_CHECK(x) assert(x == hipSuccess)
+#else
+#define HIPCHECK(x) x
+#define HIP_CHECK(x) x
+#endif
 
 static constexpr size_t N = 4096;
 static constexpr int numThreads = 1000;

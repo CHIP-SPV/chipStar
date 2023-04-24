@@ -403,7 +403,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.major = 2;
   HipDeviceProps_.minor = 0;
 
-  HipDeviceProps_.maxThreadsPerMultiProcessor = 10;
+  HipDeviceProps_.maxThreadsPerMultiProcessor = HipDeviceProps_.maxGridSize[0];
 
   HipDeviceProps_.computeMode = 0;
   HipDeviceProps_.arch = {};
@@ -432,6 +432,8 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   else
     HipDeviceProps_.arch.hasDoubles = 0;
 
+  // TODO: OpenCL lacks queries for these. Generate best guesses which are
+  // unlikely breaking the program logic.
   HipDeviceProps_.clockInstructionRate = 2465;
   HipDeviceProps_.concurrentKernels = 1;
   HipDeviceProps_.pciDomainID = 0;
@@ -441,7 +443,31 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.canMapHostMemory = 1;
   HipDeviceProps_.gcnArch = 0;
   HipDeviceProps_.integrated = 0;
-  HipDeviceProps_.maxSharedMemoryPerMultiProcessor = 0;
+  HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
+      HipDeviceProps_.sharedMemPerBlock * 16;
+  HipDeviceProps_.cooperativeLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedFunc = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedGridDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedBlockDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedSharedMem = 0;
+  HipDeviceProps_.memPitch = 1;
+  HipDeviceProps_.textureAlignment = 1;
+  HipDeviceProps_.texturePitchAlignment = 1;
+  HipDeviceProps_.kernelExecTimeoutEnabled = 0;
+  HipDeviceProps_.ECCEnabled = 0;
+  HipDeviceProps_.asicRevision = 1;
+
+  // OpenCL 3.0 devices support basic CUDA managed memory via coarse-grain SVM,
+  // but some of the functions such as prefetch and advice are unimplemented
+  // in CHIP-SPV.
+  HipDeviceProps_.managedMemory = 0;
+  // TODO: Populate these from SVM/USM properties. Advertise the safe
+  // defaults for now. Uninitialized properties cause undeterminism.
+  HipDeviceProps_.directManagedMemAccessFromHost = 0;
+  HipDeviceProps_.concurrentManagedAccess = 0;
+  HipDeviceProps_.pageableMemoryAccess = 0;
+  HipDeviceProps_.pageableMemoryAccessUsesHostPageTables = 0;
 
   auto Max1D2DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>();
   auto Max2DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>();
@@ -458,11 +484,6 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.maxTexture3D[0] = clampToInt(Max3DWidth);
   HipDeviceProps_.maxTexture3D[1] = clampToInt(Max3DHeight);
   HipDeviceProps_.maxTexture3D[2] = clampToInt(Max3DDepth);
-
-  // OpenCL does not have alignment requirements for images that
-  // clients should follow.
-  HipDeviceProps_.textureAlignment = 1;
-  HipDeviceProps_.texturePitchAlignment = 1;
 }
 
 void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }

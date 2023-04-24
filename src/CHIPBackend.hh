@@ -589,6 +589,11 @@ protected:
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
 
+#ifndef NDEBUG
+  // A debug flag for cathing use-after-delete.
+  bool Deleted_ = false;
+#endif
+
   // reference count
   size_t *Refc_;
 
@@ -607,7 +612,10 @@ protected:
 
 public:
   bool isUserEvent() { return UserEvent_; }
-  void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
+  void addDependency(CHIPEvent *Event) {
+    assert(!Deleted_ && "Event use after delete!");
+    DependsOnList.push_back(Event);
+  }
   void releaseDependencies();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
@@ -628,7 +636,10 @@ public:
    *
    * @return CHIPContext* pointer to context on which this event was created
    */
-  CHIPContext *getContext() { return ChipContext_; }
+  CHIPContext *getContext() {
+    assert(!Deleted_ && "Event use after delete!");
+    return ChipContext_;
+  }
 
   /**
    * @brief Query the state of this event and update it's status
@@ -647,6 +658,7 @@ public:
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
+    assert(!Deleted_ && "Event use after delete!");
     return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
@@ -656,7 +668,10 @@ public:
    * @return true recoded
    * @return false not recorded
    */
-  bool isFinished() { return (EventStatus_ == EVENT_STATUS_RECORDED); }
+  bool isFinished() {
+    assert(!Deleted_ && "Event use after delete!");
+    return (EventStatus_ == EVENT_STATUS_RECORDED);
+  }
 
   /**
    * @brief Get the Event Status object
@@ -708,6 +723,10 @@ public:
    *
    */
   virtual void hostSignal() = 0;
+
+#ifndef NDEBUG
+  void markDeleted(bool State = true) { Deleted_ = State; }
+#endif
 };
 
 class CHIPProgram {
