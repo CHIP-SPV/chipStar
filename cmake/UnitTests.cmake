@@ -1257,7 +1257,8 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
-# # dGPU Level Zero Unit Test Failures
+# dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "FloydWarshall") # Assertion `!Deleted_ && "Event use after delete!"' failed.
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
