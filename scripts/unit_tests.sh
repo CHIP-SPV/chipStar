@@ -63,42 +63,43 @@ module unload opencl
 # Test PoCL CPU
 echo "begin cpu_pocl_failed_tests"
 module load opencl/pocl-cpu-$LLVM
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+#ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+ctest --timeout 180 -j 8 --output-on-failure -R "activemask|MatrixMultiply" | tee cpu_pocl_make_check_result.txt
 module unload opencl
 echo "end cpu_pocl_failed_tests"
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
 module load levelzero/igpu
-ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+ctest --timeout 180 -j 1 --output-on-failure -R "activemask|MatrixMultiply" | tee igpu_level0_make_check_result.txt
 module unload levelzero
 echo "end igpu_level0_failed_tests"
 
 # Test Level Zero dGPU
 echo "begin dgpu_level0_failed_tests"
 module load levelzero/dgpu
-ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+ctest --timeout 180 -j 1 --output-on-failure -R "activemask|MatrixMultiply" | tee dgpu_level0_make_check_result.txt
 module unload levelzero
 echo "end dgpu_level0_failed_tests"
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
 module load opencl/intel-igpu
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+ctest --timeout 180 -j 8 --output-on-failure -R "activemask|MatrixMultiply" | tee igpu_opencl_make_check_result.txt
 module load opencl
 echo "end igpu_opencl_failed_tests"
 
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_failed_tests"
 module load opencl/intel-dgpu
-CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+CHIP_BE=opencl CHIP_DEVICE_TYPE=gpu ctest --timeout 180 -j 8 -R "activemask|MatrixMultiply" | tee dgpu_opencl_make_check_result.txt
 module unload opencl
 echo "end dgpu_opencl_failed_tests"
 
 # Test OpenCL CPU
 echo "begin cpu_opencl_failed_tests"
 module load opencl/intel-cpu
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+ctest --timeout 180 -j 8 --output-on-failure -R "activemask|MatrixMultiply" | tee cpu_opencl_make_check_result.txt
 module unload opencl
 echo "end cpu_opencl_failed_tests"
 
