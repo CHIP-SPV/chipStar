@@ -96,3 +96,4 @@ add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
   HIPCC_OPTIONS -O0 -c)
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O1
   HIPCC_OPTIONS -O1 -c)
+add_hipcc_test(TestPrintfLonePercent.hip HIPCC_OPTIONS -c)
