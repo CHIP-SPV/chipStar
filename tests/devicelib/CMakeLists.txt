@@ -42,3 +42,7 @@ add_hip_test(implicitCasts.cpp)
 add_test(NAME "deviceMallocCompile"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
   ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
+
+add_test(NAME "sincospifSpotTest"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+  ${CMAKE_CURRENT_SOURCE_DIR}/sincospif.cc -o sincospif && ./sincospif)
