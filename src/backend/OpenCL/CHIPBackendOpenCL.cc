@@ -214,10 +214,55 @@ static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
 
-static void CL_CALLBACK releaseSpillBufferCallback(cl_event Event,
-                                                   cl_int CommandExecStatus,
-                                                   void *UserData) {
-  delete reinterpret_cast<std::shared_ptr<CHIPArgSpillBuffer> *>(UserData);
+/// Annotate SVM pointers to the OpenCL driver via clSetKernelExecInfo
+///
+/// This is needed for HIP applications which pass allocations
+/// indirectly to kernels (e.g. within an aggregate kernel argument or
+/// within another allocation). Without the annotation the allocations
+/// may not be properly synchronized.
+///
+/// Returns the list of annotated pointers.
+static std::unique_ptr<std::vector<std::shared_ptr<void>>>
+annotateSvmPointers(const CHIPContextOpenCL &Ctx, cl_kernel KernelAPIHandle) {
+  // By default we pass every allocated SVM pointer at this point to
+  // the clSetKernelExecInfo() since any of them could be potentially
+  // be accessed indirectly by the kernel.
+  //
+  // TODO: Optimization. Don't call clSetKernelExecInfo() if the
+  //       kernel is known not to access any buffer indirectly
+  //       discovered through kernel code inspection.
+  std::vector<void *> SvmAnnotationList;
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
+  LOCK(Ctx.ContextMtx); // CHIPContextOpenCL::SvmMemory
+  auto NumSvmAllocations = Ctx.SvmMemory.getNumAllocations();
+  if (NumSvmAllocations) {
+    SvmAnnotationList.reserve(NumSvmAllocations);
+    SvmKeepAlives.reset(new std::vector<std::shared_ptr<void>>());
+    SvmKeepAlives->reserve(NumSvmAllocations);
+    for (std::shared_ptr<void> Ptr : Ctx.SvmMemory.getSvmPointers()) {
+      SvmAnnotationList.push_back(Ptr.get());
+      SvmKeepAlives->push_back(Ptr);
+    }
+
+    // TODO: Optimization. Don't call this function again if we know the
+    //       SvmAnnotationList hasn't changed since the last call.
+    auto Status = clSetKernelExecInfo(
+        KernelAPIHandle, CL_KERNEL_EXEC_INFO_SVM_PTRS,
+        SvmAnnotationList.size() * sizeof(void *), SvmAnnotationList.data());
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  }
+
+  return SvmKeepAlives;
+}
+
+struct KernelEventCallbackData {
+  std::shared_ptr<CHIPArgSpillBuffer> ArgSpillBuffer;
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
+};
+static void CL_CALLBACK kernelEventCallback(cl_event Event,
+                                            cl_int CommandExecStatus,
+                                            void *UserData) {
+  delete static_cast<KernelEventCallbackData *>(UserData);
 }
 
 // CHIPCallbackDataLevel0
@@ -725,10 +770,12 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       // OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
-    CHIPKernelOpenCL *ChipKernel = new CHIPKernelOpenCL(
-        std::move(Kernel), ChipDevOcl, HostFName, FuncInfo, this);
+    CHIPKernelOpenCL *ChipKernel =
+        new CHIPKernelOpenCL(Kernel, ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
+
+  Program_ = Program;
 }
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(CHIPQueueFlags Flags, int Priority) {
@@ -752,6 +799,18 @@ SPVFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
 cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
 
+/// Clones the instance but with separate cl_kernel handle.
+CHIPKernelOpenCL *CHIPKernelOpenCL::clone() {
+  cl_int Err;
+  // NOTE: clCloneKernel is not used here due to its experience on
+  // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
+  // called on the original cl_kernel.
+  auto Cloned = clCreateKernel(Module->get()->get(), Name_.c_str(), &Err);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  return new CHIPKernelOpenCL(cl::Kernel(Cloned, false), Device, Name_,
+                              getFuncInfo(), Module);
+}
+
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
   Attr->binaryVersion = 10;
@@ -771,9 +830,8 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
   return hipSuccess;
 }
 
-CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
-                                   CHIPDeviceOpenCL *Dev, std::string HostFName,
-                                   SPVFuncInfo *FuncInfo,
+CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
+                                   std::string HostFName, SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
     : CHIPKernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
@@ -861,7 +919,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   delete Cbo;
 }
 
-void CHIPQueueOpenCL::MemMap(AllocationInfo *AllocInfo,
+void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
                              CHIPQueue::MEM_MAP_TYPE Type) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
@@ -884,7 +942,7 @@ void CHIPQueueOpenCL::MemMap(AllocationInfo *AllocInfo,
   assert(Status == CL_SUCCESS);
 }
 
-void CHIPQueueOpenCL::MemUnmap(AllocationInfo *AllocInfo) {
+void CHIPQueueOpenCL::MemUnmap(const AllocationInfo *AllocInfo) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
@@ -937,11 +995,12 @@ CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
+  auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   CHIPEventOpenCL *LaunchEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
-  assert(Kernel != nullptr);
+  assert(Kernel && "Kernel in ExecItem is NULL!");
   logTrace("Launching Kernel {}", Kernel->getName());
 
   ChipOclExecItem->setupAllArgs();
@@ -959,22 +1018,36 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
 
   logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1], Local[2]);
 #ifdef DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockOpenCL)
+  LOCK(Backend->DubiousLockOpenCL);
 #endif
+
+  auto SvmAllocationsToKeepAlive =
+      annotateSvmPointers(*OclContext, Kernel->get()->get());
+
   auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(),
                                        NumDims, GlobalOffset, Global, Local, 0,
                                        nullptr, LaunchEvent->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  if (std::shared_ptr<CHIPArgSpillBuffer> SpillBuf =
-          ExecItem->getArgSpillBuffer()) {
-    // Use an event call back to prolong the lifetime of the spill buffer
-    // in case the exec item gets destroyed before the kernel
-    // is launched/completed (may happen when called from
-    // CHIPQueue::launchKernel()).
-    auto *CBData = new decltype(SpillBuf)(SpillBuf);
+  std::shared_ptr<CHIPArgSpillBuffer> SpillBuf = ExecItem->getArgSpillBuffer();
+
+  if (SpillBuf || SvmAllocationsToKeepAlive) {
+    // Use an event call back to prolong the lifetimes of the
+    // following objects until the kernel terminates.
+    //
+    // * SpillBuffer holds an allocation referenced by the kernel
+    //   shared by exec item, which might get destroyed before the
+    //   kernel is launched/completed
+    //
+    // * Annotated SVM pointers may need to outlive the kernel
+    //   execution. The OpenCL spec does not clearly specify how long
+    //   the pointers, annotated via clSetKernelExecInfo(), needs to
+    //   live.
+    auto *CBData = new KernelEventCallbackData;
+    CBData->ArgSpillBuffer = SpillBuf;
+    CBData->SvmKeepAlives = std::move(SvmAllocationsToKeepAlive);
     Status = clSetEventCallback(LaunchEvent->getNativeRef(), CL_COMPLETE,
-                                releaseSpillBufferCallback, CBData);
+                                kernelEventCallback, CBData);
     if (Status != CL_SUCCESS) {
       delete CBData;
       CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -1259,6 +1332,18 @@ void CHIPExecItemOpenCL::setupAllArgs() {
                              ArgSpillBuffer_->getSize());
 
   return;
+}
+
+void CHIPExecItemOpenCL::setKernel(CHIPKernel *Kernel) {
+  assert(Kernel && "Kernel is nullptr!");
+  // Make a clone of the kernel so the its cl_kernel object is not
+  // shared among other threads (sharing cl_kernel is discouraged by
+  // the OpenCL spec).
+  auto *Clone = static_cast<CHIPKernelOpenCL *>(Kernel)->clone();
+  ChipKernel_.reset(Clone);
+
+  // Arguments set on the original cl_kernel are not copied.
+  ArgsSetup = false;
 }
 
 // CHIPBackendOpenCL

@@ -154,6 +154,8 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerif
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # LLVM-16 Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # LLVM-16 Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # LLVM-16 Failures
+list(APPEND CPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
+list(APPEND CPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "2d_shuffle") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipDynamicShared2") # Failed
@@ -572,6 +574,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_MultiChunkMultiDevice
 
 
 # iGPU OpenCL Unit Test Failures
+list(APPEND IGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-qrng") # Subprocess aborted
@@ -948,6 +951,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # dGPU OpenCL Unit Test Failures
+list(APPEND DGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipTestDeviceSymbol") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "FloydWarshall") # Timeout
@@ -1373,6 +1377,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "FloydWarshall") # Assertion `!Deleted_ && "Event use after delete!"' failed.
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
@@ -1756,6 +1761,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiStream_multimeDevice") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-template") # SEGFAULT
@@ -2143,15 +2149,12 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
-list(APPEND CPU_POCL_FAILED_TESTS "sharedMemory") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "stream") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "deviceManagement") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "cuda-matrixMul") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # failing for LLVM16
+list(APPEND CPU_POCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccCompileAndLink") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
@@ -2533,6 +2536,8 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") #
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipClassKernel_Friend") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop") # #terminate called after throwing an instance of 'sycl::_V1::runtime_error' what():  No device of requested type available
+list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # #terminate called after throwing an instance of 'sycl::_V1::runtime_error' what():  No device of requested type available
 # broken tests, they all try to write outside allocated memory;
 # valgrind + pocl shows:
 #

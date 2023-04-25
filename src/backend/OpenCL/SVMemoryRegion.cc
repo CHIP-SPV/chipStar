@@ -41,23 +41,24 @@ void *SVMemoryRegion::allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity) {
         Context_(), CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER, Size, 0);
   }
   if (Ptr) {
-    logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
-    SvmAllocations_.emplace(Ptr, Size);
+    auto Deleter = [Ctx = this->Context_](void *PtrToFree) -> void {
+      logTrace("clSVMFree on: {}\n", PtrToFree);
+      clSVMFree(Ctx(), PtrToFree);
+    };
+    auto SPtr = std::shared_ptr<void>(Ptr, Deleter);
+    SvmAllocations_.emplace(SPtr, Size);
   } else
     CHIPERR_LOG_AND_THROW("clSVMAlloc failed", hipErrorMemoryAllocation);
+
+  logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
   return Ptr;
 }
 
 bool SVMemoryRegion::free(void *Ptr) {
   auto I = SvmAllocations_.find(Ptr);
-  if (I != SvmAllocations_.end()) {
-    void *Ptr = I->first;
-    logTrace("clSVMFree on: {}\n", Ptr);
+  if (I != SvmAllocations_.end())
     SvmAllocations_.erase(I);
-    ::clSVMFree(Context_(), Ptr);
-    return true;
-  } else
-    CHIPERR_LOG_AND_THROW("clSVMFree failure", hipErrorRuntimeMemory);
+  return true;
 }
 
 bool SVMemoryRegion::hasPointer(const void *Ptr) {
@@ -79,9 +80,10 @@ bool SVMemoryRegion::pointerSize(void *Ptr, size_t *Size) {
 bool SVMemoryRegion::pointerInfo(void *Ptr, void **Base, size_t *Size) {
   logTrace("pointerInfo on: {}\n", Ptr);
   for (auto I : SvmAllocations_) {
-    if ((I.first <= Ptr) && (Ptr < ((const char *)I.first + I.second))) {
+    if ((I.first.get() <= Ptr) &&
+        (Ptr < ((const char *)I.first.get() + I.second))) {
       if (Base)
-        *Base = I.first;
+        *Base = I.first.get();
       if (Size)
         *Size = I.second;
       return true;
@@ -90,9 +92,4 @@ bool SVMemoryRegion::pointerInfo(void *Ptr, void **Base, size_t *Size) {
   return false;
 }
 
-void SVMemoryRegion::clear() {
-  for (auto I : SvmAllocations_) {
-    ::clSVMFree(Context_(), I.first);
-  }
-  SvmAllocations_.clear();
-}
+void SVMemoryRegion::clear() { SvmAllocations_.clear(); }

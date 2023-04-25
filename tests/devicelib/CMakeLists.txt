@@ -1,7 +1,7 @@
 #=============================================================================
 #  CMake build system files
 #
-#  Copyright (c) 2023 CHIP-SPV developers
+#  Copyright (c) 2022 CHIP-SPV developers
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -23,34 +23,22 @@
 #
 #=============================================================================
 
-function(add_hip_runtime_test MAIN_SOURCE)
+function(add_hip_test MAIN_SOURCE)
   get_filename_component(EXEC_NAME ${MAIN_SOURCE} NAME_WLE)
   set_source_files_properties(${MAIN_SOURCE} PROPERTIES LANGUAGE CXX)
   add_executable("${EXEC_NAME}" ${MAIN_SOURCE})
   set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
-  target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
 
-  # Inherit all include directories of the CHIP including the private
-  # ones for internal testing purposes only.
+  target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
   target_include_directories("${EXEC_NAME}"
-    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+    PUBLIC ${CMAKE_SOURCE_DIR}/HIP/include ${CMAKE_SOURCE_DIR}/include)
 
   add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
-
-  set_tests_properties("${EXEC_NAME}" PROPERTIES
-    SKIP_REGULAR_EXPRESSION "SKIP")
 endfunction()
 
-add_hip_runtime_test(TestLazyModuleInit.cpp)
-add_hip_runtime_test(TestKernelArgs.hip)
-add_hip_runtime_test(RegressionTest302.hip)
-add_hip_runtime_test(TestLargeGlobalVar.hip)
-add_hip_runtime_test(TestCompileError.hip)
-add_hip_runtime_test(TestGlobalVarInit.hip)
-add_hip_runtime_test(TestArgVisitors.cpp)
-add_hip_runtime_test(TestLargeKernelArgLists.hip)
-add_hip_runtime_test(TestStlFunctions.hip)
-add_hip_runtime_test(TestStlFunctionsDouble.hip)
-add_hip_runtime_test(TestHIPMathFunctions.hip)
-add_hip_runtime_test(TestAtomics.hip)
-add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)
+add_hip_test(implicitCasts.cpp)
+
+# Add this as a hipcc otherwise the `make all` will fail which is not convenient indicator for test failure
+add_test(NAME "deviceMallocCompile"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+  ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)

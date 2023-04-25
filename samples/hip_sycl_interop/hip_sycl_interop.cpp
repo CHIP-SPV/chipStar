@@ -61,13 +61,8 @@ void VerifyResult(float *c_A, float *c_B) {
 }
 
 int main() {
-  const char* val = hipGetBackendName();
-  std::string envVar(val);
-  std::cout << "HIP backend: " << envVar << std::endl;
-  if (!envVar.compare("opencl")) {
-    std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
-    exit(0);
-  }
+  const char* hip_backend = hipGetBackendName();
+
   float *A = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *B = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C = (float *)malloc(WIDTH * WIDTH * sizeof(float));
@@ -122,7 +117,7 @@ int main() {
   CHECK(error);
 
   // Invoke oneMKL GEEM
-  oneMKLGemmTest(nativeHandlers, A, B, C, m, m, k, ldA, ldB, ldC, alpha, beta);
+  oneMKLGemmTest(nativeHandlers, hip_backend, A, B, C, m, m, k, ldA, ldB, ldC, alpha, beta);
 
   // check results
   std::cout << "Verify results between OneMKL & Serial: ";
