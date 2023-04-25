@@ -82,25 +82,40 @@ int onemkl_gemm(sycl::queue& my_queue, float* A, float* B, float* C, int m,
 }
 
 // Run GEMM test via oneMKL
-int oneMKLGemmTest(uintptr_t* nativeHandlers, float* A, float* B, float* C,
+int oneMKLGemmTest(uintptr_t* nativeHandlers, const char* hip_backend, float* A, float* B, float* C,
                    int M, int N, int K, int ldA, int ldB, int ldC, float alpha,
                    float beta) {
-  // Extract the native information
-  ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[0];
-  ze_device_handle_t hDevice = (ze_device_handle_t)nativeHandlers[1];
-  ze_context_handle_t hContext = (ze_context_handle_t)nativeHandlers[2];
-  ze_command_queue_handle_t hQueue =
-      (ze_command_queue_handle_t)nativeHandlers[3];
+  std::string hipBackend(hip_backend);
+  sycl::queue sycl_queue;
+  if (!hipBackend.compare("opencl")){
+    // handle openCl case here
+    cl_platform_id hPlatformId = (cl_platform_id)nativeHandlers[0];
+    cl_device_id hDeviceId = (cl_device_id)nativeHandlers[1];
+    cl_context hContext = (cl_context)nativeHandlers[2];
+    cl_command_queue hQueue = (cl_command_queue)nativeHandlers[3];
+    sycl::platform sycl_platform = sycl::opencl::make_platform((pi_native_handle)hPlatformId);
+    sycl::device sycl_device = sycl::opencl::make_device((pi_native_handle)hDeviceId);
+    sycl::context sycl_context = sycl::opencl::make_context((pi_native_handle)hContext);
+    sycl_queue = sycl::opencl::make_queue(sycl_context, (pi_native_handle)hQueue);
+  } else {
+    // handle L0 here
+    // Extract the native information
+    ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[0];
+    ze_device_handle_t hDevice = (ze_device_handle_t)nativeHandlers[1];
+    ze_context_handle_t hContext = (ze_context_handle_t)nativeHandlers[2];
+    ze_command_queue_handle_t hQueue =
+        (ze_command_queue_handle_t)nativeHandlers[3];
 
-  auto keep_ownership = static_cast<sycl::ext::oneapi::level_zero::ownership>(1);
-  sycl::platform sycl_platform = sycl::ext::oneapi::level_zero::make_platform((pi_native_handle)hDriver);
-  sycl::device sycl_device = sycl::ext::oneapi::level_zero::make_device(sycl_platform, (pi_native_handle)hDevice);
+    auto keep_ownership = static_cast<sycl::ext::oneapi::level_zero::ownership>(1);
+    sycl::platform sycl_platform = sycl::ext::oneapi::level_zero::make_platform((pi_native_handle)hDriver);
+    sycl::device sycl_device = sycl::ext::oneapi::level_zero::make_device(sycl_platform, (pi_native_handle)hDevice);
 
-  std::vector<sycl::device> sycl_devices(1);
-  sycl_devices[0] = sycl_device;
-  sycl::context sycl_context = sycl::ext::oneapi::level_zero::make_context(sycl_devices, (pi_native_handle)hContext, 1);
-  sycl::queue queue = sycl::ext::oneapi::level_zero::make_queue(sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
+    std::vector<sycl::device> sycl_devices(1);
+    sycl_devices[0] = sycl_device;
+    sycl::context sycl_context = sycl::ext::oneapi::level_zero::make_context(sycl_devices, (pi_native_handle)hContext, 1);
+    sycl_queue = sycl::ext::oneapi::level_zero::make_queue(sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
+  }
 
   // Test the oneMKL
-  return onemkl_gemm(queue, A, B, C, M, N, K, ldA, ldB, ldC, alpha, beta);
+  return onemkl_gemm(sycl_queue, A, B, C, M, N, K, ldA, ldB, ldC, alpha, beta);
 }
