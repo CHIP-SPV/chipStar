@@ -130,7 +130,7 @@ set(SAMPLES
     ccompat
     hipComplex
     hipHostMallocSample
-    hipDeviceLink
+    # hipDeviceLink
 )
 
 include(mkl_and_icpx)
