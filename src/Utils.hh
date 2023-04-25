@@ -103,6 +103,18 @@ public:
   bool empty() const { return Begin_ == End_; }
 };
 
+/// An iterator adaptor for map-like containers for iterating its keys only.
+template <typename MapT>
+class ConstMapKeyIterator : public MapT::const_iterator {
+public:
+  ConstMapKeyIterator(typename MapT::const_iterator It)
+      : MapT::const_iterator(std::move(It)) {}
+
+  const typename MapT::key_type &operator*() const {
+    return MapT::const_iterator::operator*().first;
+  }
+};
+
 // A less comparator for comparing mixed raw and smart pointers.
 //
 // From https://stackoverflow.com/questions/18939882. Formatted for
@@ -114,8 +126,7 @@ template <class T> struct PointerCmp {
     Helper() : Ptr(nullptr) {}
     Helper(Helper const &) = default;
     Helper(T *p) : Ptr(p) {}
-    // template <class U, class... Ts>
-    // Helper(std::shared_ptr<U, Ts...> const &Sp) : Ptr(Sp.get()) {}
+    template <class U> Helper(std::shared_ptr<U> const &Sp) : Ptr(Sp.get()) {}
     template <class U, class... Ts>
     Helper(std::unique_ptr<U, Ts...> const &Up) : Ptr(Up.get()) {}
     // && optional: enforces rvalue use only

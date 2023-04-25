@@ -102,11 +102,10 @@ CHIPAllocationTracker::CHIPAllocationTracker(size_t GlobalMemSize,
     : GlobalMemSize(GlobalMemSize), TotalMemSize(0), MaxMemUsed(0) {
   Name_ = Name;
 }
+
 CHIPAllocationTracker::~CHIPAllocationTracker() {
-  for (auto &Member : PtrToAllocInfo_) {
-    AllocationInfo *AllocInfo = Member.second;
-    delete AllocInfo;
-  }
+  for (auto *Member : AllocInfos_)
+    delete Member;
 }
 
 AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
@@ -158,6 +157,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
   LOCK(AllocationTrackerMtx); // writing CHIPAllocationTracker::PtrToAllocInfo_
+                              // CHIPAllocationTracker::AllocInfos_
   // TODO AllocInfo turned into class and constructor take care of this
   if (MemoryType == hipMemoryTypeHost) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -169,10 +169,17 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (MemoryType == hipMemoryTypeUnified)
     AllocInfo->HostPtr = AllocInfo->DevPtr;
 
-  if (DevPtr)
+  AllocInfos_.insert(AllocInfo);
+
+  if (DevPtr) {
+    assert(!PtrToAllocInfo_.count(DevPtr) &&
+           "Device pointer already recorded!");
     PtrToAllocInfo_[DevPtr] = AllocInfo;
-  if (HostPtr)
+  }
+  if (HostPtr) {
+    assert(!PtrToAllocInfo_.count(DevPtr) && "Host pointer already recorded!");
     PtrToAllocInfo_[HostPtr] = AllocInfo;
+  }
 
   logDebug(
       "CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
@@ -498,7 +505,6 @@ CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
 
 dim3 CHIPExecItem::getBlock() { return BlockDim_; }
 dim3 CHIPExecItem::getGrid() { return GridDim_; }
-CHIPKernel *CHIPExecItem::getKernel() { return ChipKernel_; }
 size_t CHIPExecItem::getSharedMem() { return SharedMem_; }
 CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
 // CHIPDevice
@@ -1655,69 +1661,42 @@ void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         MANAGED_MEM_STATE ExecState) {
 
-  CHIPEvent *RegisterVarEvent = nullptr;
-  const auto &FuncInfo = ExecItem->getKernel()->getFuncInfo();
-  auto AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  // TODO: Inspect kernel code for indirect allocation accesses. If
+  //       the kernel does not have any, we only need inspect kernels
+  //       pointer arguments for allocations to be synchronized.
 
-  auto ArgVisitor = [&](const SPVFuncInfo::ClientArg &Arg) -> void {
-    if (Arg.Kind != SPVTypeKind::Pointer)
-      return;
-
-    auto *PtrArgValue = const_cast<void *>(Arg.Data);
-    auto *DevPtr = *reinterpret_cast<void **>(PtrArgValue);
-    auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
-    if (!AllocInfo) {
-      logWarn(
-          "Allocation info not found. Unregistered outside USM allocation?");
-      // Previously, we used to assert here. However, this will fail for the USM
-      // where a pointer is allocated using USM outside of CHIP-SPV. assert(0 &&
-      // "Unexcepted internal error: allocation info not found");
-      return;
-    }
-    void *HostPtr = AllocInfo->HostPtr;
-
-    // If this is a shared pointer then we don't need to transfer data back
-    if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
-      logDebug("MemoryType: unified -> skipping");
-      return;
-    }
-
-    // required for OpenCL when fine-grain SVM is not availbale
-    if (AllocInfo->MemoryType == hipMemoryTypeHost) {
-      if (ExecState == MANAGED_MEM_STATE::PRE_KERNEL) {
-        MemUnmap(AllocInfo);
-      } else {
-        MemMap(AllocInfo,
+  std::vector<CHIPEvent *> CopyEvents;
+  auto PreKernel = ExecState == MANAGED_MEM_STATE::PRE_KERNEL;
+  auto &AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto ArgVisitor = [&](const AllocationInfo &AllocInfo) -> void {
+    if (AllocInfo.MemoryType == hipMemoryTypeHost) {
+      logDebug("Sync host memory {} ({})", AllocInfo.HostPtr,
+               (PreKernel ? "Unmap" : "Map"));
+      if (PreKernel)
+        MemUnmap(&AllocInfo);
+      else
+        MemMap(&AllocInfo,
                CHIPQueue::MEM_MAP_TYPE::HOST_WRITE); // TODO fixOpenCLTests -
                                                      // print ptr
-      }
-      return;
-    }
-
-    if (HostPtr && AllocInfo->MemoryType == hipMemoryTypeManaged) {
-      auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
-
-      if (ExecState == MANAGED_MEM_STATE::PRE_KERNEL) {
-        logDebug("A hipHostRegister argument was found. Appending a mem copy "
-                 "Host {} -> Device {}",
-                 DevPtr, HostPtr);
-        RegisterVarEvent =
-            this->memCopyAsyncImpl(DevPtr, HostPtr, AllocInfo->Size);
-        RegisterVarEvent->Msg = "hipHostRegisterMemCpyHostToDev";
-      } else {
-        logDebug("A hipHostRegister argument was found. Appending a mem copy "
-                 "Device {} -> Host {}",
-                 DevPtr, HostPtr);
-        RegisterVarEvent =
-            this->memCopyAsyncImpl(HostPtr, DevPtr, AllocInfo->Size);
-        RegisterVarEvent->Msg = "hipHostRegisterMemCpyDevToHost";
-      }
-      updateLastEvent(RegisterVarEvent);
+    } else if (AllocInfo.HostPtr &&
+               AllocInfo.MemoryType == hipMemoryTypeManaged) {
+      void *Src = PreKernel ? AllocInfo.HostPtr : AllocInfo.DevPtr;
+      void *Dst = PreKernel ? AllocInfo.DevPtr : AllocInfo.HostPtr;
+      logDebug("Sync managed memory {} -> {} ({})", Src, Dst,
+               (PreKernel ? "host-to-device" : "device-to-host"));
+      CopyEvents.push_back(this->memCopyAsyncImpl(Dst, Src, AllocInfo.Size));
     }
   };
-  FuncInfo->visitClientArgs(ExecItem->getArgs(), ArgVisitor);
+  AllocTracker->visitAllocations(ArgVisitor);
 
-  return RegisterVarEvent;
+  if (CopyEvents.empty())
+    return nullptr;
+
+  updateLastEvent(CopyEvents.back());
+  for (auto *Ev : CopyEvents)
+    Ev->track();
+
+  return CopyEvents.back();
 }
 
 void CHIPQueue::launch(CHIPExecItem *ExecItem) {
@@ -1733,7 +1712,12 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
   auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     InfoStr << "Arg " << Arg.Index << ": " << Arg.getKindAsString() << " "
-            << Arg.Size << " " << Arg.Data << "\n";
+            << Arg.Size << " " << Arg.Data;
+    if (Arg.Kind == SPVTypeKind::Pointer && !Arg.isWorkgroupPtr()) {
+      void *PtrVal = *static_cast<void **>(const_cast<void *>(Arg.Data));
+      InfoStr << " (" << PtrVal << ")";
+    }
+    InfoStr << "\n";
   };
   FuncInfo.visitKernelArgs(ExecItem->getArgs(), Visitor);
 

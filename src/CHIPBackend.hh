@@ -451,10 +451,12 @@ class CHIPAllocationTracker {
 private:
   std::string Name_;
 
+  std::unordered_set<AllocationInfo *> AllocInfos_;
   std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
 
 public:
-  std::mutex AllocationTrackerMtx;
+  mutable std::mutex AllocationTrackerMtx;
+
   /**
    * @brief Associate a host pointer with a device pointer. @see hipHostRegister
    *
@@ -543,13 +545,29 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
+    assert(AllocInfos_.count(AllocInfo) &&
+           "Not a member of the allocation tracker!");
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
+                                // CHIPAllocationTracker::AllocInfos_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
-
+    AllocInfos_.erase(AllocInfo);
     delete AllocInfo;
   }
+
+  /**
+   * @brief Visit tracked allocations.
+   *
+   * The visitor is called with 'const AllocationInfo&' argument.
+   */
+  template <typename VisitorT> void visitAllocations(VisitorT Visitor) const {
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::AllocInfos_
+    for (const auto *Info : AllocInfos_)
+      Visitor(*Info);
+  }
+
+  size_t getNumAllocations() const { return AllocInfos_.size(); }
 };
 
 class CHIPDeviceVar {
@@ -1072,7 +1090,6 @@ protected:
   dim3 GridDim_;
   dim3 BlockDim_;
 
-  CHIPKernel *ChipKernel_;
   CHIPQueue *ChipQueue_;
 
   std::vector<void *> Args_;
@@ -1129,16 +1146,25 @@ public:
                hipStream_t ChipQueue);
 
   /**
+   * @brief Set the Kernel object
+   *
+   * @return CHIPKernel* Kernel to be executed
+   */
+  virtual void setKernel(CHIPKernel *Kernel) = 0;
+
+  /**
    * @brief Get the Kernel object
    *
    * @return CHIPKernel* Kernel to be executed
    */
-  CHIPKernel *getKernel();
+  virtual CHIPKernel *getKernel() = 0;
+
   /**
    * @brief Get the Queue object
    *
    * @return CHIPQueue*
    */
+
   CHIPQueue *getQueue();
 
   /**
@@ -1170,8 +1196,6 @@ public:
    *
    */
   virtual void setupAllArgs() = 0;
-
-  void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
 
   std::shared_ptr<CHIPArgSpillBuffer> getArgSpillBuffer() const {
     return ArgSpillBuffer_;
@@ -1560,7 +1584,7 @@ protected:
 
 public:
   std::vector<CHIPEvent *> Events;
-  std::mutex ContextMtx;
+  mutable std::mutex ContextMtx;
 
   /**
    * @brief Destroy the CHIPContext object
@@ -1996,8 +2020,8 @@ public:
     HOST_READ,
     HOST_WRITE,
   };
-  virtual void MemMap(AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
-  virtual void MemUnmap(AllocationInfo *AllocInfo) {}
+  virtual void MemMap(const AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
+  virtual void MemUnmap(const AllocationInfo *AllocInfo) {}
 
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.
