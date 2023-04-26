@@ -616,6 +616,7 @@ endif()
 
 if(BUILD_TESTS)
   add_subdirectory(tests/cuda)
+  add_subdirectory(tests/devicelib)
   add_subdirectory(tests/hiprtc)
   add_subdirectory(tests/fromLibCeed)
   add_subdirectory(tests/compiler)
