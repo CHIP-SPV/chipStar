@@ -743,9 +743,12 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
   std::string Log =
       Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
-  if (ErrBuild != CL_SUCCESS)
+  if (ErrBuild != CL_SUCCESS) {
     logError("Program BUILD LOG for device #{}:{}:\n{}\n",
              ChipDevOcl->getDeviceId(), Name, Log);
+    dumpSpirv(Src_->getBinary());
+  }
+
   CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,
                               hipErrorInitializationError);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);

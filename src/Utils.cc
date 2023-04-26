@@ -27,6 +27,14 @@
 #include <fstream>
 #include <random>
 
+
+/// Dump the SPIR-V to a file
+void dumpSpirv(std::string_view Spirv) {
+  std::ofstream SpirvFile("hip-spirv-failed.spv", std::ios::binary);
+  SpirvFile.write(Spirv.data(), Spirv.size());
+  SpirvFile.close();
+}
+
 /// Returns true if the file can be executed.
 static bool canExecute(const fs::path &Path) {
   if (!fs::exists(Path))

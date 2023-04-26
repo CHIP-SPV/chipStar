@@ -2235,6 +2235,8 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     // Done via this function is only invoked via call_once
     Status = zeModuleBuildLogDestroy(Log);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    // dump the SPIR-V source into current directory
+    dumpSpirv(Src_->getBinary());
   }
   CHIPERR_CHECK_LOG_AND_THROW(BuildStatus, ZE_RESULT_SUCCESS, hipErrorTbd);
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
