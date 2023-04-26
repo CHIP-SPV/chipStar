@@ -2149,6 +2149,7 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # failing for LLVM16
