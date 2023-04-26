@@ -32,6 +32,7 @@
 #include <cstring>
 #include <string_view>
 
+std::string readEnvVar(std::string EnvVar, bool Lower = true);
 void dumpSpirv(std::string_view Spirv);
 
 /// Reinterpret the pointed region, starting from BaseAddr +

@@ -27,9 +27,26 @@
 #include <fstream>
 #include <random>
 
+/// Read an environment variable and return its value as a string.
+std::string readEnvVar(std::string EnvVar, bool Lower) {
+  logDebug("Reading {} from env", EnvVar);
+  const char *EnvVarIn = std::getenv(EnvVar.c_str());
+  if (EnvVarIn == nullptr) {
+    return std::string();
+  }
+  std::string Var = std::string(EnvVarIn);
+  if (Lower)
+    std::transform(Var.begin(), Var.end(), Var.begin(),
+                   [](unsigned char Ch) { return std::tolower(Ch); });
+
+  return Var;
+}
 
 /// Dump the SPIR-V to a file
 void dumpSpirv(std::string_view Spirv) {
+  auto dump = readEnvVar("CHIP_DUMP_SPIRV");
+  if(dump.empty())
+    return;
   std::ofstream SpirvFile("hip-spirv-failed.spv", std::ios::binary);
   SpirvFile.write(Spirv.data(), Spirv.size());
   SpirvFile.close();

@@ -266,6 +266,8 @@ void CHIPModule::consumeSPIRV() {
   if (!Res) {
     CHIPERR_LOG_AND_THROW("SPIR-V parsing failed", hipErrorUnknown);
   }
+  // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
+  dumpSpirv(Src_->getBinary());
 }
 
 CHIPModule::~CHIPModule() {}
@@ -1303,7 +1305,7 @@ void CHIPBackend::waitForThreadExit() {
 void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
                              std::string DeviceIdStr) {
   initializeImpl(PlatformStr, DeviceTypeStr, DeviceIdStr);
-  CustomJitFlags = read_env_var("CHIP_JIT_FLAGS", false);
+  CustomJitFlags = readEnvVar("CHIP_JIT_FLAGS", false);
   if (ChipContexts.size() == 0) {
     std::string Msg = "No CHIPContexts were initialized";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);

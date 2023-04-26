@@ -746,7 +746,6 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   if (ErrBuild != CL_SUCCESS) {
     logError("Program BUILD LOG for device #{}:{}:\n{}\n",
              ChipDevOcl->getDeviceId(), Name, Log);
-    dumpSpirv(Src_->getBinary());
   }
 
   CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,

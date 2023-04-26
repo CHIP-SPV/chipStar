@@ -38,6 +38,7 @@
 #include <memory>
 
 #include "backend/backends.hh"
+#include "Utils.hh"
 
 std::once_flag Initialized;
 std::once_flag EnvInitialized;
@@ -60,34 +61,20 @@ void __attribute__((destructor)) uninitializeBackend() {
   }
 }
 
-std::string read_env_var(std::string EnvVar, bool Lower = true) {
-  logDebug("Reading {} from env", EnvVar);
-  const char *EnvVarIn = std::getenv(EnvVar.c_str());
-  if (EnvVarIn == nullptr) {
-    return std::string();
-  }
-  std::string Var = std::string(EnvVarIn);
-  if (Lower)
-    std::transform(Var.begin(), Var.end(), Var.begin(),
-                   [](unsigned char Ch) { return std::tolower(Ch); });
-
-  return Var;
-}
-
 void CHIPReadEnvVarsCallOnce() {
-  CHIPPlatformStr = read_env_var("CHIP_PLATFORM");
+  CHIPPlatformStr = readEnvVar("CHIP_PLATFORM");
   if (CHIPPlatformStr.size() == 0)
     CHIPPlatformStr = "0";
 
-  CHIPDeviceTypeStr = read_env_var("CHIP_DEVICE_TYPE");
+  CHIPDeviceTypeStr = readEnvVar("CHIP_DEVICE_TYPE");
   if (CHIPDeviceTypeStr.size() == 0)
     CHIPDeviceTypeStr = "gpu";
 
-  CHIPDeviceStr = read_env_var("CHIP_DEVICE");
+  CHIPDeviceStr = readEnvVar("CHIP_DEVICE");
   if (CHIPDeviceStr.size() == 0)
     CHIPDeviceStr = "0";
 
-  CHIPBackendType = read_env_var("CHIP_BE");
+  CHIPBackendType = readEnvVar("CHIP_BE");
   if (CHIPBackendType.size() == 0) {
     CHIPBackendType = "default";
   }
@@ -208,7 +195,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
 const char *CHIPGetBackendName() {
   if (CHIPBackendType.size() == 0) {
-    CHIPBackendType = read_env_var("CHIP_BE");
+    CHIPBackendType = readEnvVar("CHIP_BE");
   }
   return CHIPBackendType.c_str();
 }
