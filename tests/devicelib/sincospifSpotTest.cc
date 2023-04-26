@@ -7,4 +7,10 @@ __global__ void sincospif_kernel() {
 int main() {
   // run the sincospif kernel
   sincospif_kernel<<<1, 1>>>();
+  hipError_t err = hipGetLastError();
+  if(err != hipSuccess) {
+    printf("sincospif_kernel failed\n");
+    return -1;
+  }
+  return 0;
 }
