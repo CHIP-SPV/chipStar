@@ -165,13 +165,13 @@ extern "C++" __device__ int ilogb(float x); // OpenCL
 extern "C++" inline __device__ int ilogbf(float x) { return ::ilogb(x); }
 
 extern "C" __device__  int __ocml_isfinite_f32(float a); // OCML
-extern "C" __device__  int isfinite(float a) { return __ocml_isfinite_f32(a); }
+extern "C++" inline  __device__  int isfinite(float a) { return __ocml_isfinite_f32(a); }
 
 extern "C" __device__  int __ocml_isinf_f32(float a); // OCML
-extern "C" __device__  int isinf(float a) { return __ocml_isinf_f32(a); }
+extern "C++" inline __device__  int isinf(float a) { return __ocml_isinf_f32(a); }
 
 extern "C" __device__  int __ocml_isnan_f32(float a); // OCML
-extern "C" __device__  int isnan(float a) { return __ocml_isnan_f32(a); }
+extern "C++" inline __device__  int isnan(float a) { return __ocml_isnan_f32(a); }
 
 extern "C" __device__  float __ocml_j0_f32(float x); // OCML
 extern "C++" inline __device__ float j0f(float x) { return ::__ocml_j0_f32(x); }
