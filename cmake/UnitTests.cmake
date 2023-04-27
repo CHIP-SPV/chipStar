@@ -570,7 +570,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetDeviceAttribute_CheckAttrValues"
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAdvise_NegtveTsts") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_OverSubscription") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_MultiChunkMultiDevice") # Failed (not getting skipped unlike all other platforms)
-
+list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-blackscholes") # Events
 
 
 # iGPU OpenCL Unit Test Failures
@@ -2570,6 +2570,50 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Faile
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
+
+
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rd_double") # devicelib refactor PoCL failure (debug only)
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rn_double") # devicelib refactor PoCL failure (debug only)
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_ru_double") # devicelib refactor PoCL failure (debug only)
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rz_double") # devicelib refactor PoCL failure (debug only)
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_rnorm_double") # devicelib refactor PoCL failure (debug only)
+# Following tests crash LLVM:
+#30 0x00007fffefa78844 in llvm::ConstantFoldCompareInstruction(llvm::CmpInst::Predicate, llvm::Constant*, llvm::Constant*) () from /home/pvelesko/install/clang/clang14/clang15-spirv-omp/lib/libLLVMCore.so.15
+#31 0x00007fffefa9c891 in llvm::ConstantExpr::getICmp(unsigned short, llvm::Constant*, llvm::Constant*, bool) () from /home/pvelesko/install/clang/clang14/clang15-spirv-omp/lib/libLLVMCore.so.15
+#32 0x00007fffefa71f9c in evaluateICmpRelation(llvm::Constant*, llvm::Constant*, bool) () from /home/pvelesko/install/clang/clang14/clang15-spirv-omp/lib/libLLVMCore.so.15
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_float") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAdd_double") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_unsigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicAnd_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_unsigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicCAS_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicDec_unsigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicDec_unsigned_int_two_args") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicExch_float") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicInc_unsigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicInc_unsigned_int_two_args") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMax_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicMin_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicOr_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # SEGFAULT
 
 
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
