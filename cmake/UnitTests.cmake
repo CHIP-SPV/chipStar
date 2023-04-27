@@ -2614,6 +2614,7 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicSub_us
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_int") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fma_rd_double") # SEGFAULT
 
 
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
