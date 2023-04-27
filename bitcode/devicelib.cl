@@ -362,6 +362,12 @@ EXPORT void __chip_sincospi_f32(float x, float *sptr,
   *cptr = cospi(x);
 }
 
+EXPORT void __chip_sincospi_f64(double x, double *sptr,
+                                              double *cptr) {
+  *sptr = sinpi(x);
+  *cptr = cospi(x);
+}
+
 EXPORT float __chip_frexp_f32(float x, DEFAULT_AS int *i) {
   int tmp;
   float ret = frexp(x, &tmp);

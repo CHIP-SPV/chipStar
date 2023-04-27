@@ -235,11 +235,11 @@ extern "C++" inline __device__ void sincos(double x, double *sptr,
   *cptr = tmp;
 }
 
-extern "C" __device__ void __ocml_sincospi_f64(double x, double *sptr,
+extern "C" __device__ void __chip_sincospi_f64(double x, double *sptr,
                                                     double *cptr); // OCML
 extern "C++" inline __device__ void sincospi(double x, double *sptr,
                                              double *cptr) {
- return ::__ocml_sincospi_f64(x, sptr, cptr);
+ return ::__chip_sincospi_f64(x, sptr, cptr);
 }
 
 extern "C++" __device__ double sinh(double x); // OpenCL

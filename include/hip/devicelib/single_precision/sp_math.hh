@@ -375,11 +375,10 @@ extern "C++" inline __device__ void sincosf(float x, float *sptr, float *cptr) {
   *cptr = tmp;
 }
 
-extern "C" __device__ void __ocml_sincospi_f32(float x, float *sptr,
-                                                    float *cptr); // OCML
+extern "C" __device__ void __chip_sincospi_f32(float x, float *sptr, float *cptr); // Custom
 extern "C++" inline __device__ void sincospif(float x, float *sptr,
                                               float *cptr) {
-  return ::__ocml_sincospi_f32(x, sptr, cptr);
+  return __chip_sincospi_f32(x, sptr, cptr);
 }
 
 extern "C++" __device__ float sin(float x); // OpenCL
