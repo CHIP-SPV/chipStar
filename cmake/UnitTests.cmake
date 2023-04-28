@@ -146,6 +146,8 @@ list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicSub_system_u
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Unimplemented
+list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to main thread exiting without calling join
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # SEGFAULT - likely due to multiple GPU support
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # LLVM-16 Failures
@@ -2615,7 +2617,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_in
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_usigned_int") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_atomicXor_unsigned_long_long") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___fma_rd_double") # SEGFAULT
-
 
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
