@@ -26,8 +26,12 @@
 if(NOT DEFINED LLVM_CONFIG_BIN)
   find_program(LLVM_CONFIG_BIN NAMES llvm-config)
   if(NOT LLVM_CONFIG_BIN)
-      message(FATAL_ERROR "Can't find llvm-config. Please provide CMake argument -DLLVM_CONFIG=/path/to/llvm-config<-version>")
+      message(FATAL_ERROR "Can't find llvm-config. Please provide CMake argument -DLLVM_CONFIG_BIN=/path/to/llvm-config<-version>")
   endif()
+else() # check that LLVM_CONFIG_BIN points to existing binary
+    if(NOT EXISTS ${LLVM_CONFIG_BIN})
+        message(FATAL_ERROR "Provided LLVM_CONFIG_BIN (${LLVM_CONFIG_BIN}) does not exist")
+    endif()
 endif()
 message(STATUS "Using llvm-config: ${LLVM_CONFIG_BIN}")
 
@@ -95,10 +99,10 @@ if(NOT DEFINED CLANG_OFFLOAD_BUNDLER)
 endif()
 message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
 
-# required by ROCm-Device-Libs
-# list(APPEND CMAKE_MODULE_PATH ${LLVM_CONFIG_DIR}/../lib/cmake/llvm)
-find_package(LLVM REQUIRED PATHS ${LLVM_CONFIG_DIR}/../lib/cmake/llvm)
-find_package(Clang HINTS ${LLVM_DIR}/../clang)
-
-enable_language(C)
-enable_language(CXX)
+# required because using LLVM-16, llvm-spirv requires LD_LIBRARY_PATH to be set
+message(WARNING ${CLANG_ROOT_PATH}/lib)
+set(CMAKE_INSTALL_RPATH $CLANG_ROOT_PATH/lib)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+enable_language(C CXX)
+# required by ROCm-Device-Libs, must be after project() call
+find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH}/lib/cmake/llvm)

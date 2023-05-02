@@ -40,7 +40,7 @@ project(CHIP-SPV
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES NONE)
 
-include(FindLLVM)
+include(FindLLVM) # Enables C, CXX
 include(LLVMCheck)
 include(chip_spv_cmake_macros)
 enable_testing()
@@ -65,8 +65,6 @@ endforeach()
 
 # =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
-include(FindLLVM)
-
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)

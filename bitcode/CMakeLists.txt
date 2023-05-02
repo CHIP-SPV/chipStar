@@ -70,6 +70,8 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
 endforeach()
 
+# required by ROCm-Device-Libs
+set(ROCM_DEVICELIB_STANDALONE_BUILD ON) 
 add_subdirectory(ROCm-Device-Libs EXCLUDE_FROM_ALL)
 
 # ROCm-Device-Libs provides OCML and its dependencies (OCLC, OCKL, etc.)
