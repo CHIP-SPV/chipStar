@@ -99,3 +99,6 @@ message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
 # list(APPEND CMAKE_MODULE_PATH ${LLVM_CONFIG_DIR}/../lib/cmake/llvm)
 find_package(LLVM REQUIRED PATHS ${LLVM_CONFIG_DIR}/../lib/cmake/llvm)
 find_package(Clang HINTS ${LLVM_DIR}/../clang)
+
+enable_language(C)
+enable_language(CXX)

@@ -33,17 +33,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 
 # end temporary
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
-# Skip the compiler check for now since we will select the compiler later based on llvm-config
-set(CMAKE_C_COMPILER_WORKS 1)
-set(CMAKE_CXX_COMPILER_WORKS 1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-include(FindLLVM)
 
 project(CHIP-SPV
   VERSION 1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
-  LANGUAGES C CXX)
+  LANGUAGES NONE)
 
+include(FindLLVM)
 include(LLVMCheck)
 include(chip_spv_cmake_macros)
 enable_testing()
