@@ -1,3 +1,0 @@
-#!/bin/bash
-
-${CMAKE_BINARY_DIR}/bin/hipcc.bin TestHipccCompileThenLinkMain.cpp -c -o TestHipccCompileThenLinkMain.cc.o; ${CMAKE_BINARY_DIR}/bin/hipcc.bin TestHipccCompileThenLinkKernel.cpp -c -o TestHipccCompileThenLinkKernel.cc.o; ${CMAKE_BINARY_DIR}/bin/hipcc.bin TestHipccCompileThenLinkKernel.cc.o TestHipccCompileThenLinkMain.cc.o  -o TestHipccCompileThenLinkKernel.exe;
