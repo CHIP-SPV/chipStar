@@ -633,10 +633,12 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
     CHIPERR_LOG_AND_THROW("Event not yet ready", hipErrorNotReady);
   }
 
-  if (UpdatedStatus <= CL_COMPLETE)
+  if (UpdatedStatus <= CL_COMPLETE) {
     EventStatus_ = EVENT_STATUS_RECORDED;
-
-  return true;
+    return false;
+  } else {
+    return true;
+  }
 }
 
 float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
@@ -907,6 +909,7 @@ struct HipStreamCallbackData {
   hipError_t Status;
   void *UserData;
   hipStreamCallback_t Callback;
+  CHIPEventOpenCL *CallbackFinishEvent;
 };
 
 void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
@@ -917,6 +920,10 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   if (Cbo->Callback == nullptr)
     return;
   Cbo->Callback(Cbo->Stream, Cbo->Status, Cbo->UserData);
+  if (Cbo->CallbackFinishEvent != nullptr) {
+    clSetUserEventStatus(Cbo->CallbackFinishEvent->ClEvent, CL_COMPLETE);
+    Cbo->CallbackFinishEvent->decreaseRefCount("Notified finished.");
+  }
   delete Cbo;
 }
 
@@ -960,22 +967,59 @@ cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
 void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   logTrace("CHIPQueueOpenCL::addCallback()");
-  auto Ev = getLastEvent();
-  if (Ev == nullptr) {
-    Ev = (CHIPEventOpenCL *)enqueueMarker();
-  }
 
-  HipStreamCallbackData *Cb =
-      new HipStreamCallbackData{this, hipSuccess, UserData, Callback};
+  cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
+  cl_int Err;
 
-  auto Status =
-      clSetEventCallback(Ev->getNativeRef(), CL_COMPLETE, pfn_notify, Cb);
+  CHIPEventOpenCL *HoldBackEvent =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+
+  HoldBackEvent->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
+
+  std::vector<CHIPEvent *> WaitForEvents{HoldBackEvent};
+  auto LastEvent = getLastEvent();
+  if (LastEvent != nullptr)
+    WaitForEvents.push_back(LastEvent);
+
+  // Enqueue a barrier used to ensure the callback is not called too early,
+  // otherwise it would be (at worst) executed in this host thread when
+  // setting it, blocking the execution, while the clients might expect
+  // parallel execution.
+  auto HoldbackBarrierCompletedEv =
+      (CHIPEventOpenCL *)enqueueBarrier(&WaitForEvents);
+
+  // OpenCL event callbacks have undefined execution ordering/finishing
+  // guarantees. We need to enforce CUDA ordering using user events.
+
+  CHIPEventOpenCL *CallbackEvent =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+
+  CallbackEvent->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+
+  // Make the succeeding commands wait for the user event which will be
+  // set CL_COMPLETE by the callback trampoline function pfn_notify after
+  // finishing the user CB's execution.
+
+  HipStreamCallbackData *Cb = new HipStreamCallbackData{
+      this, hipSuccess, UserData, Callback, CallbackEvent};
+
+  std::vector<CHIPEvent *> WaitForEventsCBB{CallbackEvent};
+  auto CallbackCompleted = enqueueBarrier(&WaitForEventsCBB);
+
+  // We know that the callback won't be yet launched since it's depending
+  // on the barrier which waits for the user event.
+  auto Status = clSetEventCallback(HoldbackBarrierCompletedEv->ClEvent,
+                                   CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  // enqueue barrier with no dependencies (all further enqueues will wait for
-  // this one to finish)
+  updateLastEvent(CallbackCompleted);
+  ClQueue_->flush();
 
-  auto CallbackCompleted = enqueueBarrier(nullptr);
+  // Now the CB can start executing in the background:
+  clSetUserEventStatus(HoldBackEvent->ClEvent, CL_COMPLETE);
+  HoldBackEvent->decreaseRefCount("Notified finished.");
+
   return;
 };
 
@@ -991,6 +1035,8 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
 
 CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
   LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+  // TODO: shouldn't we increment the ref count here, assuming it will be
+  // needed to be kept alive for the client?
   return (CHIPEventOpenCL *)LastEvent_;
 }
 
