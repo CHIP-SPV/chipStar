@@ -602,7 +602,7 @@ install(EXPORT CHIPTargets
 # =============================================================================
 #
 # enable the build_tests target
-SET(HIP_PATH ${CMAKE_SOURCE_DIR}) # pick up build sources, not install sources
+SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
 if(USE_EXTERNAL_HIP_TESTS)
   add_subdirectory(hip-tests/catch catch)
 else()
