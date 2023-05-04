@@ -99,11 +99,22 @@ if(NOT DEFINED CLANG_OFFLOAD_BUNDLER)
 endif()
 message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
 
-# clang calls llvm-spirv, which needs to have access to libLLVMSPIRVLib.so in LD_LIBRARY_PATH
-find_library(LLVM_SPIRV_LIB NAMES LLVMSPIRVLib PATHS ENV LD_LIBRARY_PATH NO_DEFAULT_PATH)
-if(NOT LLVM_SPIRV_LIB)
-  message(FATAL_ERROR "Can't find libLLVMSPIRVLib.so in default paths. Please add LLVM libraries to LD_LIBRARY_PATH")
+# Execute llvm-spirv and check for errors
+execute_process(
+    COMMAND ${LLVM_SPIRV} --version
+    RESULT_VARIABLE LLVM_SPIRV_ERROR
+    OUTPUT_VARIABLE LLVM_SPIRV_OUTPUT
+)
+
+if(LLVM_SPIRV_ERROR)
+    message(FATAL_ERROR "Error executing llvm-config: ${LLVM_CONFIG_ERROR}."
+    "If 'error while loading shared libraries' error is thrown, you might have to add LLVM libs to LD_LIBRARY_PATH"
+    "If file is not found, you might have a versioned version (llvm-spirv-16 instead of llvm-spirv). Pass the path to the full binary via -DLLVM_SPIRV="
+)
+else()
+    message(STATUS "llvm-spirv version: ${LLVM_SPIRV_OUTPUT}")
 endif()
+
 enable_language(C CXX)
 # required by ROCm-Device-Libs, must be after project() call
 find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH}/lib/cmake/llvm)
