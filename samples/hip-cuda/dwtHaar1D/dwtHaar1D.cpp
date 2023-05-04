@@ -423,7 +423,7 @@ int DwtHaar1D::runDwtHaar1DKernel()
 
     hipEventElapsedTime(&eventMs, start, stop);
 
-    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
+//    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
 
     hipMemcpy(dOutData, dout, signalLength * sizeof(float), hipMemcpyDeviceToHost);
     hipMemcpy(dPartialOutData, dpart, signalLength * sizeof(float), hipMemcpyDeviceToHost);

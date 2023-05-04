@@ -349,7 +349,7 @@ BitonicSort::runKernels(void)
 
         hipEventElapsedTime(&eventMs, start, stop);
 
-        printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
+//        printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
         }
     }
         hipMemcpy(input, din,length * sizeof(unsigned int), hipMemcpyDeviceToHost);

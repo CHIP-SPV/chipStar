@@ -217,7 +217,7 @@ FastWalshTransform::runKernels(void)
 
     hipEventElapsedTime(&eventMs, start, stop);
 
-    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
+//    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
   }
 
     hipMemcpy(output, din, length * sizeof(float), hipMemcpyDeviceToHost);
