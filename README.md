@@ -1,16 +1,15 @@
-# hipstar
+# CHIP-SPV
 
-hipstar makes HIP and CUDA applications portable to platforms which support
-SPIR-V as the device intermediate representation. Currently hipstar supports
+CHIP-SPV makes HIP and CUDA applications portable to platforms which support
+SPIR-V as the device intermediate representation. Currently it supports
 OpenCL and Level Zero as the low-level runtime alternatives.
 
-For hipstar User documentation, read [this.](docs/Using.md)
-For hipstar Developer documentation, read [this.](docs/Development.md)
-For a list of (un)supported features in hipstar, read [this.](docs/Features.md)
+For User documentation, read [this.](docs/Using.md)
+For Developer documentation, read [this.](docs/Development.md)
+For a list of (un)supported features, read [this.](docs/Features.md)
 
 This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
-[HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects and was previously known 
-as CHIP-SPV.
+[HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
 
 ## Prerequisites
 
