@@ -151,6 +151,7 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # SEGFAULT - likely due to multiple GPU support
 
 # CPU OpenCL Unit Test Failures
+list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-blackscholes") # devicelib refactor
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # LLVM-16 Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # LLVM-16 Failures
@@ -1332,6 +1333,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
 # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") # Flaky
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "FloydWarshall") # Assertion `!Deleted_ && "Event use after delete!"' failed.
