@@ -75,6 +75,7 @@ class DCT
         double        totalKernelTime;    /**< Time for kernel execution */
         double       totalProgramTime;    /**< Time for program execution */
         double    referenceKernelTime;    /**< Time for reference implementation */
+        float bestIterTimeMS;
         int                     width;    /**< Width of the input array */
         int                    height;    /**< height of the input array */
         float                  *input;    /**< Input array */
@@ -112,6 +113,7 @@ class DCT
             inverse = 0;
             setupTime = 0;
             totalKernelTime = 0;
+            bestIterTimeMS = std::numeric_limits<float>::max();
             iterations  = 1;
             sampleArgs = new HIPCommandArgs() ;
             sampleTimer = new SDKTimer();
@@ -385,7 +387,7 @@ int
 DCT::runKernels(void)
 {
     hipEvent_t start, stop;
-    float eventMs = 1.0f;
+    float eventMs = 1000000.0f;
 
     hipEventCreate(&start);
     hipEventCreate(&stop);
@@ -399,15 +401,18 @@ DCT::runKernels(void)
                   0, 0,
                   outputBuffer ,inputBuffer ,dctBuffer, dct_transBuffer, width, blockWidth, inverse );
 
+    hipMemcpy(output, dout, sizeof(float) * width * height,
+              hipMemcpyDeviceToHost);
+
     hipEventRecord(stop, NULL);
     hipEventSynchronize(stop);
 
-
     hipEventElapsedTime(&eventMs, start, stop);
+    if (eventMs < bestIterTimeMS)
+        bestIterTimeMS = eventMs;
 
 //    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
 
-    hipMemcpy(output, dout,sizeof(float) * width * height, hipMemcpyDeviceToHost);
 
     return SDK_SUCCESS;
 }
@@ -656,8 +661,14 @@ void DCT::printStats()
 {
     if(sampleArgs->timing)
     {
-        std::string strArray[4] = {"Width", "Height", "Time(sec)", "[Transfer+Kernel]Time(sec)"};
-        std::string stats[4];
+        std::string strArray[5] = {
+            "Width",
+            "Height",
+            "Time(sec)",
+            "[Transfer+Kernel]Time(sec)",
+            "Best Iter. time (msec)",
+        };
+        std::string stats[5];
 
         sampleTimer->totalTime = setupTime + totalKernelTime;
 
@@ -665,10 +676,12 @@ void DCT::printStats()
         stats[1]  = toString(height   , std::dec);
         stats[2]  = toString(sampleTimer->totalTime, std::dec);
         stats[3]  = toString(totalKernelTime, std::dec);
+        stats[4] = toString(bestIterTimeMS, std::dec);
 
-        printStatistics(strArray, stats, 4);
+        printStatistics(strArray, stats, 5);
     }
 }
+
 int DCT::cleanup()
 {
 

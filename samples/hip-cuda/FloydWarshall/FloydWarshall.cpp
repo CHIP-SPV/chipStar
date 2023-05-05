@@ -50,6 +50,7 @@ class FloydWarshall
         double                        setupTime;  /**< Time for setting up Open*/
         double                  totalKernelTime;  /**< Time for kernel execution */
         double                 totalProgramTime;  /**< Time for program execution */
+        float bestIterTimeMS;
         double              referenceKernelTime;  /**< Time for reference implementation */
         unsigned int                   numNodes;  /**< Number of nodes in the graph */
         unsigned int        *pathDistanceMatrix;  /**< path distance array */
@@ -82,6 +83,7 @@ class FloydWarshall
             verificationPathMatrix         = NULL;
             setupTime = 0;
             totalKernelTime = 0;
+            bestIterTimeMS = std::numeric_limits<float>::max();
             iterations = 1;
             blockSize = 16;
             sampleArgs = new HIPCommandArgs() ;
@@ -354,39 +356,39 @@ FloydWarshall::runKernels(void)
 
     float *din, *di;
 
-    hipHostGetDevicePointer((void**)&din, pathDistanceBuffer,0);
-    hipHostGetDevicePointer((void**)&di, pathBuffer,0);
-
-    hipMemcpy(din, pathDistanceMatrix, sizeof(unsigned int) * numNodes * numNodes,    hipMemcpyHostToDevice);
-
     hipEvent_t start, stop;
 
     hipEventCreate(&start);
     hipEventCreate(&stop);
-    float eventMs = 1.0f;
+    float eventMs = 1000000.0f;
 
-    for(unsigned int i = 0; i < numPasses; i += 1)
-    {
     // Record the start event
     hipEventRecord(start, NULL);
 
-    hipLaunchKernelGGL(floydWarshallPass,
-                  dim3(globalThreads[0]/localThreads[0],globalThreads[1]/localThreads[1]),
-                  dim3(localThreads[0],localThreads[1]),
-                  0, 0,
-                  pathDistanceBuffer,pathBuffer,numNodes ,i);
+    hipHostGetDevicePointer((void **)&din, pathDistanceBuffer, 0);
+    hipHostGetDevicePointer((void **)&di, pathBuffer, 0);
+
+    hipMemcpy(din, pathDistanceMatrix,
+              sizeof(unsigned int) * numNodes * numNodes,
+              hipMemcpyHostToDevice);
+
+    for (unsigned int i = 0; i < numPasses; i += 1) {
+        hipLaunchKernelGGL(floydWarshallPass,
+                           dim3(globalThreads[0] / localThreads[0],
+                                globalThreads[1] / localThreads[1]),
+                           dim3(localThreads[0], localThreads[1]), 0, 0,
+                           pathDistanceBuffer, pathBuffer, numNodes, i);
+    }
+
+    hipMemcpy(pathDistanceMatrix, din,numNodes * numNodes * sizeof(unsigned int), hipMemcpyDeviceToHost);
+    hipMemcpy(pathMatrix, di,numNodes * numNodes * sizeof(unsigned int), hipMemcpyDeviceToHost);
 
     hipEventRecord(stop, NULL);
     hipEventSynchronize(stop);
 
     hipEventElapsedTime(&eventMs, start, stop);
-
-    //printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
-    }
-
-
-    hipMemcpy(pathDistanceMatrix, din,numNodes * numNodes * sizeof(unsigned int), hipMemcpyDeviceToHost);
-    hipMemcpy(pathMatrix, di,numNodes * numNodes * sizeof(unsigned int), hipMemcpyDeviceToHost);
+    if (eventMs < bestIterTimeMS)
+        bestIterTimeMS = eventMs;
 
     return SDK_SUCCESS;
 }
@@ -602,16 +604,22 @@ void FloydWarshall::printStats()
 {
     if(sampleArgs->timing)
     {
-        std::string strArray[3] = {"Nodes", "Time(sec)", "[Transfer+Kernel]Time(sec)"};
-        std::string stats[3];
+        std::string strArray[4] = {
+            "Nodes",
+            "Time(sec)",
+            "[Transfer+Kernel]Time(sec)",
+            "Best Iter. time (msec)",
+        };
+        std::string stats[4];
 
         sampleTimer->totalTime = setupTime + totalKernelTime;
 
         stats[0] = toString(numNodes, std::dec);
         stats[1] = toString(sampleTimer->totalTime, std::dec);
         stats[2] = toString(totalKernelTime, std::dec);
+        stats[3] = toString(bestIterTimeMS, std::dec);
 
-        printStatistics(strArray, stats, 3);
+        printStatistics(strArray, stats, 4);
     }
 }
 

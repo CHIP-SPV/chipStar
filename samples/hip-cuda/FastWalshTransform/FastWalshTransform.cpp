@@ -44,6 +44,7 @@ class FastWalshTransform
         double           setupTime;       /**< Time for setting up OpenCL */
         double     totalKernelTime;       /**< Time for kernel execution */
         double    totalProgramTime;       /**< Time for program execution */
+        float bestIterTimeMS;
         double referenceKernelTime;       /**< Time for reference implementation */
         int                 length;       /**< Length of the input array */
         float               *input;       /**< Input array */
@@ -70,6 +71,7 @@ class FastWalshTransform
             verificationInput = NULL;
             setupTime = 0;
             totalKernelTime = 0;
+            bestIterTimeMS = std::numeric_limits<float>::max();
             iterations = 1;
             sampleArgs = new HIPCommandArgs() ;
             sampleTimer = new SDKTimer();
@@ -191,7 +193,10 @@ FastWalshTransform::runKernels(void)
 
     hipEventCreate(&start);
     hipEventCreate(&stop);
-    float eventMs = 1.0f;
+    float eventMs = 10000000.0f;
+
+    // Record the start event
+    hipEventRecord(start, NULL);
 
     float *din;
     hipHostGetDevicePointer((void**)&din, inputBuffer,0);
@@ -201,28 +206,24 @@ FastWalshTransform::runKernels(void)
     int globalThreads = length / 2;
     int localThreads  = 256;
 
-     for(int step = 1; step < length; step <<= 1)
-  {
-    // Record the start event
-    hipEventRecord(start, NULL);
+    for(int step = 1; step < length; step <<= 1) {
+      hipLaunchKernelGGL(fastWalshTransform,
+                         dim3(globalThreads/localThreads),
+                         dim3(localThreads),
+                         0, 0,
+                         inputBuffer ,step);
+    }
 
-    hipLaunchKernelGGL(fastWalshTransform,
-                    dim3(globalThreads/localThreads),
-                    dim3(localThreads),
-                    0, 0,
-                    inputBuffer ,step);
+    hipMemcpy(output, din, length * sizeof(float), hipMemcpyDeviceToHost);
 
     hipEventRecord(stop, NULL);
     hipEventSynchronize(stop);
 
     hipEventElapsedTime(&eventMs, start, stop);
+    if (eventMs < bestIterTimeMS)
+        bestIterTimeMS = eventMs;
 
-//    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
-  }
-
-    hipMemcpy(output, din, length * sizeof(float), hipMemcpyDeviceToHost);
-
-    return SDK_SUCCESS;
+     return SDK_SUCCESS;
 }
 
 /*
@@ -408,16 +409,22 @@ FastWalshTransform::printStats()
 {
     if(sampleArgs->timing)
     {
-        std::string strArray[3] = {"Length", "Time(sec)", "[Transfer+Kernel]Time(sec)"};
-        std::string stats[3];
+        std::string strArray[4] = {
+            "Length",
+            "Time(sec)",
+            "[Transfer+Kernel]Time(sec)",
+            "Best Iter. time (msec)",
+        };
+        std::string stats[4];
 
-        sampleTimer->totalTime = setupTime + totalKernelTime ;
+        sampleTimer->totalTime = setupTime + totalKernelTime;
 
         stats[0] = toString(length, std::dec);
         stats[1] = toString(sampleTimer->totalTime, std::dec);
         stats[2] = toString(totalKernelTime, std::dec);
+        stats[3] = toString(bestIterTimeMS, std::dec);
 
-        printStatistics(strArray, stats, 3);
+        printStatistics(strArray, stats, 4);
     }
 }
 int

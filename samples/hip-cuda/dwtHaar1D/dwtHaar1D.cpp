@@ -50,6 +50,7 @@ class DwtHaar1D
         float *hOutData;                     /**< output data calculated on host */
         double setupTime;                    /**< time taken to setup resources and building kernel */
         double kernelTime;                   /**< time taken to run kernel and read result back */
+        float bestIterTimeMS;
         float* inDataBuf;                    /**< memory buffer for input data */
         float* dOutDataBuf;                  /**< memory buffer for output data */
         float* dPartialOutDataBuf;           /**< memory buffer for paritial decomposed signal */
@@ -69,19 +70,13 @@ class DwtHaar1D
          * @param name name of sample (string)
          */
         DwtHaar1D()
-            :
-            signalLength(SIGNAL_LENGTH),
-            setupTime(0),
-            kernelTime(0),
-            inData(NULL),
-            dOutData(NULL),
-            dPartialOutData(NULL),
-            hOutData(NULL),
-            iterations(1)
-        {
-            sampleArgs = new HIPCommandArgs() ;
-            sampleTimer = new SDKTimer();
-            sampleArgs->sampleVerStr = SAMPLE_VERSION;
+            : signalLength(SIGNAL_LENGTH), setupTime(0), kernelTime(0),
+              bestIterTimeMS(std::numeric_limits<float>::max()), inData(NULL),
+              dOutData(NULL), dPartialOutData(NULL), hOutData(NULL),
+              iterations(1) {
+          sampleArgs = new HIPCommandArgs();
+          sampleTimer = new SDKTimer();
+          sampleArgs->sampleVerStr = SAMPLE_VERSION;
         }
 
         inline long long get_time()
@@ -403,25 +398,11 @@ int DwtHaar1D::runDwtHaar1DKernel()
 
     hipMemcpy(din, inData, sizeof(float) * curSignalLength, hipMemcpyHostToDevice);
 
-    hipEvent_t start, stop;
-
-    hipEventCreate(&start);
-    hipEventCreate(&stop);
-    float eventMs = 1.0f;
-
-    // Record the start event
-    hipEventRecord(start, NULL);
-
     hipLaunchKernelGGL(dwtHaar1D,
                   dim3(globalThreads/localThreads),
                   dim3(localThreads),
                   0, 0,
                   inDataBuf ,dOutDataBuf ,dPartialOutDataBuf, totalLevels,     curSignalLength,levelsDone, maxLevelsOnDevice);
-
-    hipEventRecord(stop, NULL);
-    hipEventSynchronize(stop);
-
-    hipEventElapsedTime(&eventMs, start, stop);
 
 //    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
 
@@ -452,6 +433,15 @@ DwtHaar1D::runKernels(void)
 
     float* temp = (float*)malloc(signalLength * sizeof(float));
     memcpy(temp, inData, signalLength * sizeof(float));
+
+    hipEvent_t start, stop;
+
+    hipEventCreate(&start);
+    hipEventCreate(&stop);
+    float eventMs = 10000000.0f;
+
+    // Record the start event
+    hipEventRecord(start, NULL);
 
     levelsDone = 0;
     int one = 1;
@@ -493,6 +483,12 @@ DwtHaar1D::runKernels(void)
 
     }
 
+    hipEventRecord(stop, NULL);
+    hipEventSynchronize(stop);
+
+    hipEventElapsedTime(&eventMs, start, stop);
+    if (eventMs < bestIterTimeMS)
+        bestIterTimeMS = eventMs;
 
     memcpy(inData, temp, signalLength * sizeof(float));
     free(temp);
@@ -642,15 +638,18 @@ void DwtHaar1D::printStats()
 {
     if(sampleArgs->timing)
     {
-        std::string strArray[3] = {"SignalLength", "Time(sec)", "[Transfer+Kernel]Time(sec)"};
+        std::string strArray[4] = {"SignalLength", "Time(sec)",
+                                   "[Transfer+Kernel]Time(sec)",
+                                   "Best Iter. time (msec)"};
         sampleTimer->totalTime = setupTime + kernelTime;
 
-        std::string stats[3];
+        std::string stats[4];
         stats[0] = toString(signalLength, std::dec);
         stats[1] = toString(sampleTimer->totalTime, std::dec);
         stats[2] = toString(kernelTime, std::dec);
+        stats[3] = toString(bestIterTimeMS, std::dec);
 
-        printStatistics(strArray, stats, 3);
+        printStatistics(strArray, stats, 4);
     }
 }
 

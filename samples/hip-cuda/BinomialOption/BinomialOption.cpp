@@ -53,6 +53,7 @@ class BinomialOption
 {
         double setupTime;                     /**< Time taken to setup resources and building kernel */
         double kernelTime;                    /**< Time taken to run kernel and read result back */
+        float bestIterTimeMS;
         int numSamples;                       /**< No. of  samples*/
         unsigned int samplesPerVectorWidth;   /**< No. of samples per vector width */
         unsigned int numSteps;                /**< No. of time steps*/
@@ -75,18 +76,14 @@ class BinomialOption
          * Initialize member variables
          */
         BinomialOption()
-          : setupTime(0),
-            kernelTime(0),
-            randArray(NULL),
-            output(NULL),
-            refOutput(NULL),
-            iterations(1)
-        {
-            numSamples = 256;
-            numSteps = 254;
-            sampleArgs = new HIPCommandArgs() ;
-            sampleTimer = new SDKTimer();
-            sampleArgs->sampleVerStr = SAMPLE_VERSION;
+            : setupTime(0), kernelTime(0),
+              bestIterTimeMS(std::numeric_limits<float>::max()),
+              randArray(NULL), output(NULL), refOutput(NULL), iterations(1) {
+          numSamples = 256;
+          numSteps = 254;
+          sampleArgs = new HIPCommandArgs();
+          sampleTimer = new SDKTimer();
+          sampleArgs->sampleVerStr = SAMPLE_VERSION;
         }
 
         inline long long get_time()
@@ -347,7 +344,7 @@ BinomialOption::runKernels()
 
     hipEventCreate(&start);
     hipEventCreate(&stop);
-    float eventMs = 1.0f;
+    float eventMs = 1000000.0f;
 
     unsigned int localThreads = {numSteps + 1};
 
@@ -360,14 +357,15 @@ BinomialOption::runKernels()
                   0, 0,
                   numSteps ,(float4*)randBuffer ,(float4*)outBuffer);
 
+    hipMemcpy(output, dout, samplesPerVectorWidth * sizeof(float4),
+              hipMemcpyDeviceToHost);
+
     hipEventRecord(stop, NULL);
     hipEventSynchronize(stop);
 
     hipEventElapsedTime(&eventMs, start, stop);
-
-//    printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
-
-    hipMemcpy(output, dout, samplesPerVectorWidth * sizeof(float4), hipMemcpyDeviceToHost);
+    if (eventMs < bestIterTimeMS)
+        bestIterTimeMS = eventMs;
 
     return SDK_SUCCESS;
 }
@@ -539,8 +537,8 @@ int BinomialOption::run()
 
     if(!sampleArgs->quiet)
     {
-	printArray<float>("input", randArray, numSamples, 1);
-	printArray<float>("Output", output, numSamples, 1);
+        printArray<float>("input", randArray, numSamples, 1);
+        printArray<float>("Output", output, numSamples, 1);
     }
 
     return SDK_SUCCESS;
@@ -589,23 +587,20 @@ void BinomialOption::printStats()
 {
     if(sampleArgs->timing)
     {
-        std::string strArray[4] =
-        {
-            "Option Samples",
-            "Time(sec)",
-            "Transfer+kernel(sec)" ,
-            "Options/sec"
-        };
+        std::string strArray[5] = {"Option Samples", "Time(sec)",
+                                   "Transfer+kernel(sec)",
+                                   "Best Iter. time (msec)", "Options/sec"};
 
         sampleTimer->totalTime = setupTime + kernelTime;
 
-        std::string stats[4];
+        std::string stats[5];
         stats[0] = toString(numSamples, std::dec);
         stats[1] = toString(sampleTimer->totalTime, std::dec);
         stats[2] = toString(kernelTime, std::dec);
-        stats[3] = toString(numSamples / sampleTimer->totalTime, std::dec);
+        stats[3] = toString(bestIterTimeMS, std::dec);
+        stats[4] = toString(numSamples / sampleTimer->totalTime, std::dec);
 
-        printStatistics(strArray, stats, 4);
+        printStatistics(strArray, stats, 5);
     }
 }
 

@@ -44,6 +44,7 @@ class BitonicSort
         double              totalKernelTime;    /**< Time for kernel execution */
         double             totalProgramTime;    /**< Time for program execution */
         double          referenceKernelTime;    /**< Time for reference implementation */
+        float bestIterTimeMS;
         unsigned int               sortFlag;    /**< Flag to indicate sorting order */
         std::string               sortOrder;    /**< Argument to indicate sorting order */
         unsigned int                 *input;    /**< Input array */
@@ -69,6 +70,7 @@ class BitonicSort
             length = 32768;
             setupTime = 0;
             totalKernelTime = 0;
+            bestIterTimeMS = std::numeric_limits<float>::max();
             iterations = 1;
             sampleArgs = new HIPCommandArgs() ;
             sampleTimer = new SDKTimer();
@@ -270,7 +272,7 @@ BitonicSort::runKernels(void)
 
     hipEventCreate(&start);
     hipEventCreate(&stop);
-    float eventMs = 1.0f;
+    float eventMs = 1000000.0f;
 
     unsigned int numStages = 0;
     unsigned int temp;
@@ -331,12 +333,12 @@ BitonicSort::runKernels(void)
         sortFlag = 0;
     }
 
+    hipEventRecord(start, NULL);
     for(stage = 0; stage < numStages; ++stage)
     {
 
         for(passOfStage = 0; passOfStage < stage + 1; ++passOfStage)
         {
-        hipEventRecord(start, NULL);
 
         hipLaunchKernelGGL(bitonicSort,
                         dim3(globalThreads/localThreads),
@@ -344,15 +346,18 @@ BitonicSort::runKernels(void)
                         0, 0,
                         inputBuffer ,stage, passOfStage ,sortFlag);
 
-        hipEventRecord(stop, NULL);
-        hipEventSynchronize(stop);
-
-        hipEventElapsedTime(&eventMs, start, stop);
-
 //        printf ("kernel_time (hipEventElapsedTime) =%6.3fms\n", eventMs);
         }
     }
-        hipMemcpy(input, din,length * sizeof(unsigned int), hipMemcpyDeviceToHost);
+    hipMemcpy(input, din, length * sizeof(unsigned int), hipMemcpyDeviceToHost);
+
+    hipEventRecord(stop, NULL);
+    hipEventSynchronize(stop);
+
+    hipEventElapsedTime(&eventMs, start, stop);
+    if (eventMs < bestIterTimeMS)
+        bestIterTimeMS = eventMs;
+
     return SDK_SUCCESS;
 }
 
@@ -586,17 +591,20 @@ void BitonicSort::printStats()
 {
     if(sampleArgs->timing)
     {
-        std::string strArray[4] = {"Elements", "Setup Time (sec)", "Avg. Kernel Time (sec)", "Elements/sec"};
-        std::string stats[4];
+        std::string strArray[5] = {"Elements", "Setup Time (sec)",
+                                   "Avg. Kernel Time (sec)",
+                                   "Best Iter. Time (msec)", "Elements/sec"};
+        std::string stats[5];
 
         sampleTimer->totalTime = ( totalKernelTime/ iterations );
 
         stats[0]  = toString(length, std::dec);
         stats[1]  = toString(setupTime, std::dec);
         stats[2]  = toString(sampleTimer->totalTime, std::dec);
-        stats[3]  = toString(( length/sampleTimer->totalTime ), std::dec);
+        stats[3] = toString(bestIterTimeMS, std::dec);
+        stats[4] = toString((length / sampleTimer->totalTime), std::dec);
 
-        printStatistics(strArray, stats, 4);
+        printStatistics(strArray, stats, 5);
     }
 }
 int BitonicSort::cleanup()
