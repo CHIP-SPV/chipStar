@@ -2358,6 +2358,12 @@ void CHIPExecItemLevel0::setupAllArgs() {
       logTrace("setArg {} size {} addr {}\n", Arg.Index, ArgSize, ArgData);
       Status =
           zeKernelSetArgumentValue(Kernel->get(), Arg.Index, ArgSize, ArgData);
+
+      if (Status != ZE_RESULT_SUCCESS) {
+        logWarn("zeKernelSetArgumentValue returned error, "
+                "setting the ptr arg to nullptr");
+        Status = zeKernelSetArgumentValue(Kernel->get(), Arg.Index, 0, nullptr);
+      }
       break;
     }
     case SPVTypeKind::PODByRef: {

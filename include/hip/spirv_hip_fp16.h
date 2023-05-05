@@ -1430,7 +1430,7 @@ THE SOFTWARE.
             }
 
             // Math functions
-            #if __HIP_CLANG_ONLY__
+#if __HIP_CLANG_ONLY__ && !defined(__HIP_PLATFORM_SPIRV__)
             inline
             __device__
             float amd_mixed_dot(__half2 a, __half2 b, float c, bool saturate) {
@@ -1439,7 +1439,7 @@ THE SOFTWARE.
                 //                     static_cast<__half2_raw>(b).data,
                 //                     c, saturate);
             }
-            #endif
+#endif
             inline
             __device__
             __half htrunc(__half x)
@@ -1525,12 +1525,14 @@ THE SOFTWARE.
                     __ocml_log10_f16(static_cast<__half_raw>(x).data)};
             }
             inline
+#if !defined(__HIP_PLATFORM_SPIRV__)
             __device__
             __half hrcp(__half x)
             {
                 return __half_raw{
                     __llvm_amdgcn_rcp_f16(static_cast<__half_raw>(x).data)};
             }
+#endif
             inline
             __device__
             __half hrsqrt(__half x)
