@@ -1,0 +1,67 @@
+/*
+ * Copyright (c) 2023 CHIP-SPV developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+// Some libstd++ math calls results in non-overloaded (and non-mangled)
+// C math function calls that do not link with the overloaded (and
+// mangled) math builtin functions in OpenCL.
+//
+// We can't define non-overloaded function that would call the builtin
+// by the same in OpenCL in the same translation unit. To get around
+// it we define the former in C source file, for example:
+//
+//   double lgamma(double) { return <MAP_PREFIX>lgamma(x); }
+//
+// And on the OpenCL side we call the corresponding OpenCL builtin:
+//
+//   double <MAP_PREFIX>lgamma(double x) { return tan(x); }
+//
+// In this file we define the functions which receive this treatment.
+
+// Note: Include guards are not desired here.
+
+#define MAP_PREFIX _chip_spv_c_to_opencl_
+
+// DEF_UNARY_FN_MAP(NAME, TYPE)
+#ifndef DEF_UNARY_FN_MAP
+#define DEF_UNARY_FN_MAP
+#endif
+
+// DEF_BINARY_FN_MAP(NAME, TYPE)
+#ifndef DEF_BINARY_FN_MAP
+#define DEF_BINARY_FN_MAP
+#endif
+
+DEF_UNARY_FN_MAP(lgamma, double)
+DEF_UNARY_FN_MAP(tan, double)
+DEF_UNARY_FN_MAP(asin, double)
+DEF_UNARY_FN_MAP(acos, double)
+DEF_UNARY_FN_MAP(atan, double)
+DEF_UNARY_FN_MAP(sinh, double)
+DEF_UNARY_FN_MAP(cosh, double)
+DEF_UNARY_FN_MAP(tanh, double)
+DEF_UNARY_FN_MAP(erf, double)
+DEF_UNARY_FN_MAP(erfc, double)
+
+DEF_BINARY_FN_MAP(copysign, double)
+DEF_BINARY_FN_MAP(nextafter, double)
+
+#undef MAPPING_PREFIX

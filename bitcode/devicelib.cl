@@ -946,3 +946,13 @@ EXPORT float __chip_tex2D_f32(hipTextureObject_t textureObject,
 EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
 EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
+#ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+// See c_to_opencl.def for details.
+#define DEF_UNARY_FN_MAP(NAME_, TYPE_)                                         \
+  TYPE_ MAP_PREFIX##NAME_(TYPE_ x) { return NAME_(x); }
+#define DEF_BINARY_FN_MAP(NAME_, TYPE_)                                        \
+  TYPE_ MAP_PREFIX##NAME_(TYPE_ x, TYPE_ y) { return NAME_(x, y); }
+#include "c_to_opencl.def"
+#undef UNARY_FN
+#undef BINARY_FN
+#endif
