@@ -1,6 +1,6 @@
 # CHIP-SPV Device Library
 
-This directory contains the source code for the CHIP-SPV Device Library. The header files declare math functions and intrinsics that can be used inside kernel code with C++ linkage and call un underlaying device-side function. The device-side function implementations are provided either by OpenCL, OCML, or our own custom implementation. 
+This directory contains the source code for the CHIP-SPV Device Library. The header files declare math functions and intrinsics that can be used inside kernel code with C++ linkage and call an underlaying device-side function. The device-side function implementations are provided either by OpenCL, OCML, or our own custom implementation. 
 
 ## Device-side Function Headers
 The headers for device-side functions can be found in `CHIP-SPV/include/hip/devicelib`. The header files are not provided by HIP-COMMON so instead these headers file were assmebled by hand from the official CUDA and HIP documentation:

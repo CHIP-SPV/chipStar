@@ -125,7 +125,7 @@ extern "C++" inline __device__ double __dmul_ru(double x, double y) {
   return __ocml_mul_rtp_f64(x, y);
 }
 
-// extern "C++" __device__ double __ocml_mul_rtz_f64(double x, double y); // TODO why do these have C++ linkeage? 
+// extern "C++" __device__ double __ocml_mul_rtz_f64(double x, double y);
 extern "C++" inline __device__ double __dmul_rz(double x, double y) {
   return __ocml_mul_rtz_f64(x, y);
 }
