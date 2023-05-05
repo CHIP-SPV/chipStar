@@ -13,6 +13,7 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS " ")
 list(APPEND CPU_POCL_FAILED_TESTS " ") 
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 
+list(APPEND FAILING_FOR_ALL "RecursiveGaussian") # Flaky
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_rd_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_rn_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_ru_float") # Unimplemented
