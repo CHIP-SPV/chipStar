@@ -121,11 +121,13 @@ extern "C++" inline __device__ float fdimf(float x, float y) {
   return ::fdim(x, y);
 }
 
-// TODO If --use_fast_math is specified, use __fdividef() for higher
 // extern "C++" __device__ float native_divide(float x, float y); // OpenCL
 extern "C++" inline __device__ float fdividef(float x, float y) {
-  // performance, otherwise use normal division.
-  return x / y;
+#ifdef CHIP_FAST_MATH
+  return native_divide(x, y);
+#else
+    return x / y;
+#endif
 }
 
 extern "C++" __device__ float floor(float x); // OpenCL
