@@ -2530,6 +2530,16 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Fail
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccHalfConversions") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "TestHipccHalfOperators") # Failed
 
+# The following tests fail for LLVM 15 Debug & Release : Cannot find symbol _Z4sqrtDh in kernel library
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rd_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rn_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_ru_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rz_double") # Failed
+
+# Fails for LLVM 15 Debug: SPIR-V Parser: Failed to find size for type id 83
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_rnorm_double") # Failed
+
+
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})
