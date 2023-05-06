@@ -43,6 +43,14 @@ function(add_hipcc_test MAIN_SOURCE)
     ${CMAKE_CURRENT_SOURCE_DIR}/${MAIN_SOURCE} -o /dev/null)
 endfunction()
 
+# add_shell_test(<script-file>)
+function(add_shell_test SCRIPT)
+  get_filename_component(TEST_NAME ${SCRIPT} NAME_WLE)
+  configure_file(${SCRIPT} ${SCRIPT} @ONLY)
+  add_test(NAME ${TEST_NAME}
+    COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
+endfunction()
+
 add_hipcc_test(TestNoinlineAttrs.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
 
@@ -98,6 +106,10 @@ add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O1
   HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestPrintfLonePercent.hip HIPCC_OPTIONS -c)
+
+add_shell_test(TestRDCWithSingleHipccCmd.bash)
+add_shell_test(TestRDCWithMultipleHipccCmds.bash)
+add_shell_test(TestWholeProgramCompilation.bash)
 
 add_test(NAME "TestHipccMultiSource" COMMAND 
   ${CMAKE_BINARY_DIR}/bin/hipcc.bin ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)

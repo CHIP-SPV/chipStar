@@ -151,3 +151,21 @@ find_package(HIP REQUIRED)
 addLibrary(yourLib <sources>)
 target_link_libraries(yourLib hip::deviceRDC)
 ```
+
+### Compiling HIP sources in relocatable device mode (RDC) with hipcc
+
+With single command:
+
+```bash
+hipcc -fgpu-gpu a.hip b.hip c.hip -o abc
+
+```
+
+Or separately:
+
+```bash
+hipcc -fgpu-rdc -c a.hip -o a.o
+hipcc -fgpu-rdc -c b.hip -o b.o
+hipcc -fgpu-rdc -c c.hip -o c.o
+hipcc -fgpu-rdc a.o b.o c.o -o abc
+```
