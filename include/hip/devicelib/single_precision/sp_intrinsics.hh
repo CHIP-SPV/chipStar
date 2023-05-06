@@ -351,7 +351,7 @@ extern "C++" inline __device__ float __log10f(float x) {
 #ifdef CHIP_FAST_MATH
     return native_log10(x);
 #else
-   log10(x);
+   return log10(x);
 #endif
 }
 
@@ -360,7 +360,7 @@ extern "C++" inline __device__ float __log2f(float x) {
 #ifdef CHIP_FAST_MATH
     return native_log2(x);
 #else
-    log2(x);
+    return log2(x);
 #endif
 }
 
@@ -380,7 +380,7 @@ extern "C++" inline __device__ float __powf(float x, float y) {
 #ifdef CHIP_FAST_MATH
     return native_exp2(y * native_log2(x));
 #else
-    pow(x, y);
+    return pow(x, y);
 #endif
 }
 
@@ -413,7 +413,7 @@ extern "C++" inline __device__ float __tanf(float x) {
 #ifdef CHIP_FAST_MATH
     return native_tan(x);
 #else
-    tan(x);
+    return tan(x);
 #endif
 }
 
