@@ -131,6 +131,7 @@ __device__ double __ocml_j0_f64(double);
 __device__ double __ocml_j1_f64(double);
 __device__ __attribute__((const)) double __ocml_ldexp_f64(double, int);
 __device__ double __ocml_lgamma_f64(double);
+__device__ __attribute__((pure)) double __ocml_log10_f32(double);
 __device__ __attribute__((pure)) double __ocml_log10_f64(double);
 __device__ __attribute__((pure)) double __ocml_log1p_f64(double);
 __device__ __attribute__((pure)) double __ocml_log2_f64(double);

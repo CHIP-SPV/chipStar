@@ -123,7 +123,7 @@ extern "C++" inline __device__ float fdimf(float x, float y) {
 
 // extern "C++" __device__ float native_divide(float x, float y); // OpenCL
 extern "C++" inline __device__ float fdividef(float x, float y) {
-#ifdef CHIP_FAST_MATH
+#ifdef CHIP_FAST_MATH // TODO check if this is correct
   return native_divide(x, y);
 #else
     return x / y;
