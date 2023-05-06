@@ -425,7 +425,7 @@ if(OpenCL_LIBRARY)
 endif()
 
 if(LevelZero_LIBRARY)
-  target_compile_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR})
+  target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR})
   target_link_directories(CHIP PUBLIC ${LevelZero_DIR})
   target_link_libraries(CHIP PUBLIC ze_loader)
 endif()
