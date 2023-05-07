@@ -26,38 +26,97 @@
 
 #include <hip/devicelib/macros.hh>
 
-// __device__​ unsigned int 	__brev ( unsigned int  x )
-// __device__​ unsigned long long int 	__brevll ( unsigned long long
-// int x)
-// __device__​ unsigned int 	__byte_perm ( unsigned int  x, unsigned int y,
-// unsigned int  s )
-// __device__​ int __clz ( int  x )
-// __device__​ int __clzll ( long long int x )
-// __device__​ int __ffs ( int  x )
-// __device__​ int __ffsll ( long long int x )
-// __device__​ unsigned int 	__funnelshift_l ( unsigned int  lo, unsigned int
-// hi, unsigned int  shift )
-// __device__​ unsigned int 	__funnelshift_lc ( unsigned int  lo, unsigned
-// int  hi, unsigned int  shift )
-// __device__​ unsigned int 	__funnelshift_r ( unsigned int  lo, unsigned int
-// hi, unsigned int  shift )
-// __device__​ unsigned int 	__funnelshift_rc ( unsigned int  lo, unsigned
-// int  hi, unsigned int  shift )
-// __device__​ int __hadd ( int  x, int  y )
-// __device__​ int __mul24 ( int  x, int  y )
-// __device__​ long long int 	__mul64hi ( long long int x, long long int y )
-// __device__​ int __mulhi ( int  x, int  y )
-// __device__​ int __popc ( unsigned int  x )
-// __device__​ int __popcll ( unsigned long long int x )
-// __device__​ int __rhadd ( int  x, int  y )
-// __device__​ unsigned int 	__sad ( int  x, int  y, unsigned int  z )
-// __device__​ unsigned int 	__uhadd ( unsigned int  x, unsigned int  y )
-// __device__​ unsigned int 	__umul24 ( unsigned int  x, unsigned int  y )
-// __device__​ unsigned long long int 	__umul64hi ( unsigned long long
-// int x, unsigned long long int y )
-// __device__​ unsigned int 	__umulhi ( unsigned int  x, unsigned int  y )
-// __device__​ unsigned int 	__urhadd ( unsigned int  x, unsigned int  y )
-// __device__​ unsigned int 	__usad ( unsigned int  x, unsigned int  y,
-// unsigned int  z )
+extern "C" __device__  unsigned int 	__chip_brev ( unsigned int  x ); // Custom
+extern "C++" inline __device__ unsigned int 	__brev ( unsigned int  x ) { return __chip_brev(x); }
+
+extern "C" __device__  unsigned long long int 	__chip_brevll ( unsigned long long int x); // Custom
+extern "C++" inline __device__ unsigned long long int 	__brevll ( unsigned long long int x) { return __chip_brevll(x); }
+
+extern "C" __device__  unsigned int 	__chip_byte_perm ( unsigned int  x, unsigned int y, unsigned int  s ); // Custom
+extern "C++" inline __device__ unsigned int 	__byte_perm ( unsigned int  x, unsigned int y, unsigned int  s ) { return __chip_byte_perm(x, y, s); }
+
+extern "C++" __device__ int clz ( int  x ); // OpenCL
+extern "C++" inline __device__ int __clz ( int  x ) { return clz(x); }
+
+extern "C++" __device__ int clz ( long long int x ); // OpenCL
+extern "C++" inline __device__ int __clzll ( long long int x ) {
+  return clz(x);
+}
+
+extern "C" __device__  int __chip_ffs ( int  x ); // Custom
+extern "C++" inline __device__ int __ffs ( int  x ) { return __chip_ffs(x); }
+
+extern "C" __device__  int __chip_ffsll ( long long int x ); // Custom
+extern "C++" inline __device__ int __ffsll ( long long int x ) { return __chip_ffsll(x); }
+
+extern "C" __device__ unsigned int
+__chip_funnelshift_l(unsigned int lo, unsigned int hi, unsigned int shift); // Custom
+extern "C++" inline __device__ unsigned int
+__funnelshift_l(unsigned int lo, unsigned int hi, unsigned int shift) {
+  return __chip_funnelshift_l(lo, hi, shift);
+}
+
+extern "C" __device__ unsigned int
+__chip_funnelshift_lc(unsigned int lo, unsigned int hi, unsigned int shift); // Custom
+extern "C++" inline __device__ unsigned int
+__funnelshift_lc(unsigned int lo, unsigned int hi, unsigned int shift) {
+  return __chip_funnelshift_lc(lo, hi, shift);
+}
+
+extern "C" __device__ unsigned int
+__chip_funnelshift_r(unsigned int lo, unsigned int hi, unsigned int shift); // Custom
+extern "C++" inline __device__ unsigned int
+__funnelshift_r(unsigned int lo, unsigned int hi, unsigned int shift) {
+  return __chip_funnelshift_r(lo, hi, shift);
+}
+
+extern "C" __device__ unsigned int
+__chip_funnelshift_rc(unsigned int lo, unsigned int hi, unsigned int shift); // Custom
+extern "C++" inline __device__ unsigned int
+__funnelshift_rc(unsigned int lo, unsigned int hi, unsigned int shift) {
+  return __chip_funnelshift_rc(lo, hi, shift);
+}
+
+extern "C++" __device__ int hadd ( int  x, int  y ); // OpenCL
+extern "C++" inline __device__ int __hadd ( int  x, int  y ) { return hadd(x, y); }
+
+extern "C++" __device__ int mul24 ( int  x, int  y ); // OpenCL
+extern "C++" inline __device__ int __mul24 ( int  x, int  y ) { return mul24(x, y); }
+
+extern "C" __device__  long long int 	__chip_mul64hi ( long long int x, long long int y ); // Custom
+extern "C++" inline __device__ long long int 	__mul64hi ( long long int x, long long int y ) { return __chip_mul64hi(x, y); }
+
+extern "C++" __device__ int mul_hi ( int  x, int  y ); // OpenCL
+extern "C++" inline __device__ int __mulhi ( int  x, int  y ) { return mul_hi(x, y); }
+
+extern "C++" __device__ int popcount ( unsigned int  x ); // OpenCL
+extern "C++" inline __device__ int __popc ( unsigned int  x ) { return popcount(x); }
+
+extern "C++" __device__ int popcount ( unsigned long long int x ); // OpenCL
+extern "C++" inline __device__ int __popcll ( unsigned long long int x ) { return popcount(x); }
+
+extern "C++" __device__ int rhadd ( int  x, int  y ); // OpenCL
+extern "C++" inline __device__ int __rhadd ( int  x, int  y ) { return rhadd(x, y); }
+
+extern "C" __device__  unsigned int 	__chip_sad ( int  x, int  y, unsigned int  z ); //Custom
+extern "C++" inline __device__ unsigned int 	__sad ( int  x, int  y, unsigned int  z ) { return __chip_sad(x, y, z); }
+
+extern "C++" __device__ unsigned int 	hadd ( unsigned int  x, unsigned int  y ); // OpenCL
+extern "C++" inline __device__ unsigned int 	__uhadd ( unsigned int  x, unsigned int  y ) { return hadd(x, y); }
+
+extern "C++" __device__ unsigned int 	mul24 ( unsigned int  x, unsigned int  y ); // OpenCL
+extern "C++" inline __device__ unsigned int 	__umul24 ( unsigned int  x, unsigned int  y ) { return mul24(x, y); }
+
+extern "C" __device__  unsigned long long int 	__chip_umul64hi ( unsigned long long int x, unsigned long long int y ); // Custom
+extern "C++" inline __device__ unsigned long long int 	__umul64hi ( unsigned long long int x, unsigned long long int y ) { return __chip_umul64hi(x, y); }
+
+extern "C++" __device__ unsigned int 	mul_hi ( unsigned int  x, unsigned int  y ); // OpenCL
+extern "C++" inline __device__ unsigned int 	__umulhi ( unsigned int  x, unsigned int  y ) { return mul_hi(x, y); }
+
+extern "C++" __device__ unsigned int 	hadd ( unsigned int  x, unsigned int  y ); // OpenCL
+extern "C++" inline __device__ unsigned int 	__urhadd ( unsigned int  x, unsigned int  y ) { return rhadd(x, y); }
+
+extern "C" __device__  unsigned int 	__chip_usad ( unsigned int  x, unsigned int  y, unsigned int  z ); // Custom
+extern "C++" inline __device__ unsigned int 	__usad ( unsigned int  x, unsigned int  y, unsigned int  z ) { return __chip_usad(x, y, z); }
 
 #endif // include guard

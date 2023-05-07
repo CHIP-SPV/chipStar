@@ -29,79 +29,91 @@
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
-#if defined(__HIP_DEVICE_COMPILE__)
-
-extern "C" {
-NON_OVLD void GEN_NAME(local_barrier)();
-NON_OVLD int GEN_NAME(group_all)(int predicate);
-NON_OVLD int GEN_NAME(group_any)(int predicate);
-NON_OVLD ulong GEN_NAME(group_ballot)(int predicate);
+extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
+extern "C++" inline __device__ uint64_t __ballot(int predicate) {
+  return __chip_ballot(predicate);
 }
 
-EXPORT void __syncthreads() { GEN_NAME(local_barrier)(); }
-
-EXPORT int __syncthreads_and(int predicate) {
-  GEN_NAME(local_barrier)();
-  return GEN_NAME(group_all)(!!predicate);
-}
-EXPORT int __syncthreads_or(int predicate) {
-  GEN_NAME(local_barrier)();
-  return GEN_NAME(group_any)(!!predicate);
-}
-EXPORT ulong __syncthreads_count(int predicate) {
-  GEN_NAME(local_barrier)();
-  return GEN_NAME(group_ballot)(!!predicate);
+extern "C++" __device__  int __chip_all(int predicate); // Custom
+extern "C++" inline __device__ int __all(int predicate) {
+  return __chip_all(predicate);
 }
 
-extern "C" {
-NON_OVLD void GEN_NAME(local_fence)();
-}
-EXPORT void __threadfence_block() { GEN_NAME(local_fence)(); }
-
-extern "C" {
-NON_OVLD void GEN_NAME(system_fence)();
-}
-EXPORT void __threadfence_system() { GEN_NAME(system_fence)(); }
-
-extern "C" {
-NON_OVLD void GEN_NAME(global_fence)();
-}
-EXPORT void __threadfence() { GEN_NAME(global_fence)(); }
-
-extern "C" {
-NON_OVLD void *GEN_NAME(memset)(void *ptr, int value, size_t size);
-}
-EXPORT void *memset(void *ptr, int value, size_t size) {
-  return GEN_NAME(memset)(ptr, value, size);
+extern "C++" __device__  int __chip_any(int predicate); // Custom
+extern "C++" inline __device__ int __any(int predicate) {
+  return __chip_any(predicate);
 }
 
-extern "C" {
-NON_OVLD void *GEN_NAME(memcpy)(void *dest, const void *src, size_t n);
-}
-EXPORT void *memcpy(void *dest, const void *src, size_t n) {
-  return GEN_NAME(memcpy)(dest, src, n);
+extern "C++" __device__  unsigned __chip_lane_id(); // Custom
+extern "C++" inline __device__ unsigned __lane_id() {
+  return __chip_lane_id();
 }
 
-#else
+// Note, CUDA has a thread mask parameter which is ignored for now due
+// to implementing with cl_khr_subgroups which has only a whole warp
+// sync. We omit the argument to produce a compile time error, if a
+// non-default all-ones mask is passed.
+extern "C++" __device__  void __chip_syncwarp();  // Custom
+extern "C++" inline __device__ void __syncwarp() {
+  __chip_syncwarp();
+}
 
-EXPORT void __syncthreads();
-EXPORT int __syncthreads_and(int predicate);
-EXPORT int __syncthreads_or(int predicate);
-EXPORT int __syncthreads_count(int predicate);
-EXPORT void __threadfence_block();
-EXPORT void __threadfence_system();
-EXPORT void __threadfence();
-EXPORT clock_t clock();
-EXPORT unsigned long long clock64();
-EXPORT void *memset(void *ptr, int value, size_t size);
-EXPORT void *memcpy(void *dest, const void *src, size_t n);
-#endif
+
+extern "C" __device__  void __chip_syncthreads(); // Custom
+extern "C" __device__  void __chip_threadfence_block(); // Custom
+extern "C" __device__  void __chip_threadfence(); // Custom
+extern "C" __device__  void __chip_threadfence_system(); // Custom
+
+extern "C" __device__  int __chip_group_all(int predicate); // Custom
+extern "C" __device__  int __chip_group_any(int predicate); // Custom
+extern "C" __device__  ulong __chip_group_ballot(int predicate); // Custom
+
+extern "C++" inline __device__ void __syncthreads() { __chip_syncthreads(); }
+
+extern "C++" inline __device__ int __syncthreads_and(int predicate) {
+  __chip_syncthreads();
+  return __chip_group_all(!!predicate);
+}
+
+extern "C++" inline __device__ int __syncthreads_or(int predicate) {
+  __chip_syncthreads();
+  return __chip_group_any(!!predicate);
+}
+
+extern "C++" inline __device__ int __syncthreads_count(int predicate) {
+  __chip_syncthreads();
+  return __chip_group_ballot(!!predicate);
+}
+
+extern "C++" inline __device__ void __threadfence_block() {
+  __chip_threadfence_block();
+}
+
+extern "C++" inline __device__ void __threadfence_system() {
+  __chip_threadfence_system();
+}
+
+extern "C++" inline __device__ void __threadfence() {
+  __chip_threadfence();
+}
+
+
+extern "C" __device__  void *__chip_memset(void *ptr, int value, size_t size);
+extern "C++" inline __device__ void *memset(void *ptr, int value, size_t size) {
+  return __chip_memset(ptr, value, size);
+}
+
+extern "C" __device__  void *__chip_memcpy(void *dest, const void *src, size_t n);
+extern "C++" inline __device__ void *memcpy(void *dest, const void *src, size_t n) {
+  return __chip_memcpy(dest, src, n);
+}
+
+extern "C++" inline __device__ unsigned __activemask()
+    __attribute__((unavailable("unsupported in CHIP-SPV.")));
+
 
 extern "C++" {
 
-extern __device__ uint64_t __ballot(int predicate);
-extern __device__ int __all(int predicate);
-extern __device__ int __any(int predicate);
 
 #define DECL_SHFL_OPS(TYPE_)                                                   \
   extern __device__ TYPE_ __shfl(TYPE_ var, int srcLane,                       \
@@ -137,13 +149,7 @@ DECL_LONGLONG_SHFL(__shfl_xor, int);
 DECL_LONGLONG_SHFL(__shfl_up, unsigned int);
 DECL_LONGLONG_SHFL(__shfl_down, unsigned int);
 
-extern __device__ unsigned __lane_id();
 
-// Note, CUDA has a thread mask parameter which is ignored for now due
-// to implementing with cl_khr_subgroups which has only a whole warp
-// sync. We omit the argument to produce a compile time error, if a
-// non-default all-ones mask is passed.
-extern __device__ void __syncwarp();
 }
 
 #endif // include guard

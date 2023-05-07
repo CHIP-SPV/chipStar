@@ -27,13 +27,13 @@
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-execute_process(COMMAND "${LLVM_CONFIG}" "--cmakedir"
+execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--cmakedir"
 		OUTPUT_VARIABLE LLVM_DIR
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 		RESULT_VARIABLE RES)
 
 if(NOT RES EQUAL 0)
-  message(FATAL_ERROR "failed to run llvm-config (${LLVM_CONFIG})")
+  message(FATAL_ERROR "failed to run llvm-config (${LLVM_CONFIG_BIN})")
 endif()
 
 message(STATUS "LLVM CMake directory: ${LLVM_DIR}")

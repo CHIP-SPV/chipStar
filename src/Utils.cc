@@ -27,6 +27,52 @@
 #include <fstream>
 #include <random>
 
+/// Read an environment variable and return its value as a string.
+std::string readEnvVar(std::string EnvVar, bool Lower) {
+  logDebug("Reading {} from env", EnvVar);
+  const char *EnvVarIn = std::getenv(EnvVar.c_str());
+  if (EnvVarIn == nullptr) {
+    return std::string();
+  }
+  std::string Var = std::string(EnvVarIn);
+  if (Lower)
+    std::transform(Var.begin(), Var.end(), Var.begin(),
+                   [](unsigned char Ch) { return std::tolower(Ch); });
+
+  return Var;
+}
+
+std::string generateShortHash(std::string_view input, size_t length) {
+  std::hash<std::string_view> hasher;
+  std::size_t hashValue = hasher(input);
+
+  std::stringstream ss;
+  ss << std::hex << std::setw(length) << std::setfill('0') << hashValue;
+
+  return ss.str().substr(0, length);
+}
+
+/// Dump the SPIR-V to a file
+void dumpSpirv(std::string_view Spirv) {
+  auto dump = readEnvVar("CHIP_DUMP_SPIRV");
+  if (dump.empty()) {
+    return;
+  }
+
+  std::string hashSum = generateShortHash(Spirv, 6);
+  std::string fileName = "hip-spirv-" + hashSum + ".spv";
+  std::ofstream SpirvFile(fileName, std::ios::binary);
+
+  if (!SpirvFile) {
+    std::cerr << "Error: Could not open file " << fileName << " for writing"
+              << std::endl;
+    return;
+  }
+
+  SpirvFile.write(Spirv.data(), Spirv.size());
+  SpirvFile.close();
+}
+
 /// Returns true if the file can be executed.
 static bool canExecute(const fs::path &Path) {
   if (!fs::exists(Path))

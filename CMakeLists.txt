@@ -33,17 +33,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 
 # end temporary
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
-# Skip the compiler check for now since we will select the compiler later based on llvm-config
-set(CMAKE_C_COMPILER_WORKS 1)
-set(CMAKE_CXX_COMPILER_WORKS 1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-include(FindLLVM)
 
 project(CHIP-SPV
   VERSION 1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
-  LANGUAGES C CXX)
+  LANGUAGES NONE)
 
+include(FindLLVM) # Enables C, CXX
 include(LLVMCheck)
 include(chip_spv_cmake_macros)
 enable_testing()
@@ -68,8 +65,6 @@ endforeach()
 
 # =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
-include(FindLLVM)
-
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
@@ -188,9 +183,13 @@ option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executa
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(BUILD_TESTS "Build Catch2 unit tests" ON)
+option(BUILD_SAMPLES "Build samples" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
+option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
+option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -212,8 +211,20 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
+if(USE_OCML_ROUNDED_OPS)
+  set(OCML_BASIC_ROUNDED_OPERATIONS ON)
+endif()
+
 if(DUBIOUS_LOCKS)
   list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
+endif()
+
+if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+endif()
+
+if(CHIP_FAST_MATH)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_FAST_MATH)
 endif()
 
 if(MALLOC_SHARED_WORKAROUND)
@@ -308,13 +319,6 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-add_subdirectory(tests/cuda)
-add_subdirectory(tests/hiprtc)
-add_subdirectory(tests/fromLibCeed)
-add_subdirectory(tests/devicelib)
-add_subdirectory(tests/compiler)
-add_subdirectory(tests/runtime)
-add_subdirectory(./samples samples)
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 
@@ -322,7 +326,6 @@ add_subdirectory(HIPCC)
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
-add_dependencies(samples CHIP)
 add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 add_subdirectory(bin)
@@ -350,18 +353,16 @@ target_include_directories(CHIP
   PUBLIC
   "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>"
   "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}/cuspv>"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/bitcode>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
+  "${CMAKE_BINARY_DIR}/include" # for CHIPSPVConfig.hh, should be first
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
-  "${CMAKE_BINARY_DIR}"
-  "${CMAKE_BINARY_DIR}/include"
 )
 
-# CHIP-SPV COMPILATION SETUP
-# =============================================================================
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
@@ -396,7 +397,7 @@ if (NOT CLANG_VERSION_LESS_15)
 endif()
 
 # For use by hipcc
-execute_process(COMMAND ${LLVM_CONFIG} --host-target
+execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
@@ -619,14 +620,26 @@ install(EXPORT CHIPTargets
 # CHIP-SPV INSTALLATION AND PACKAGING
 # =============================================================================
 #
+# enable the build_tests target
+SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
+if(USE_EXTERNAL_HIP_TESTS)
+  add_subdirectory(hip-tests/catch catch)
+else()
+  add_subdirectory(HIP/tests/catch catch)
+endif()
+
 if(BUILD_TESTS)
-  SET(HIP_PATH ${CMAKE_BINARY_DIR})
-  if(USE_EXTERNAL_HIP_TESTS)
-    add_subdirectory(hip-tests/catch catch)
-  else()
-    add_subdirectory(HIP/tests/catch catch)
-  endif()
-  add_dependencies(build_tests CHIP samples)
+  add_subdirectory(tests/cuda)
+  add_subdirectory(tests/devicelib)
+  add_subdirectory(tests/hiprtc)
+  add_subdirectory(tests/fromLibCeed)
+  add_subdirectory(tests/compiler)
+  add_subdirectory(tests/runtime)
+endif()
+
+if(BUILD_SAMPLES)
+  add_subdirectory(./samples samples)
+  add_dependencies(samples CHIP devicelib_bc)
 endif()
 
 if(BUILD_DOCS)

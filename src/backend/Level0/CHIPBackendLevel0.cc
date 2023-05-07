@@ -2201,6 +2201,7 @@ std::string resultToString(ze_result_t Status) {
 void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
   logTrace("CHIPModuleLevel0.compile()");
   consumeSPIRV();
+
   ze_result_t Status;
 
   // Create module with global address aware
