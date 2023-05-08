@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -942,6 +942,10 @@ EXPORT float __chip_tex2D_f32(hipTextureObject_t textureObject,
     (float2)(x, y)).x;
 }
 
+OVLD float __int_as_float(int x) { return as_float(x); }
+OVLD int __float_as_int(float x) { return as_int(x); }
+OVLD float __uint_as_float(uint x) { return as_float(x); }
+OVLD uint __float_as_uint(float x) { return as_uint(x); }
 // In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
 EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
 EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
