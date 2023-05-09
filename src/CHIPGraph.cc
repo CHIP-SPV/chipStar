@@ -22,7 +22,7 @@
 /**
  * @file CHIPGraph.cc
  * @author Paulius Velesko (pvelesko@pglc.io)
- * @brief CHIPGraph Implementation File
+ * @brief Graph Implementation File
  * @version 0.1
  * @date 2022-11-28
  *
@@ -32,10 +32,13 @@
 
 #include "CHIPBackend.hh"
 #include "CHIPBindingsInternal.hh"
-// CHIPGraphNode
+
+using namespace chipstar;
+
+// GraphNode
 //*************************************************************************************
-void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
-                        std::vector<std::vector<CHIPGraphNode *>> &Paths) {
+void GraphNode::DFS(std::vector<GraphNode *> CurrPath,
+                    std::vector<std::vector<GraphNode *>> &Paths) {
   CurrPath.push_back(this);
   for (auto &Dep : Dependencies_) {
     Dep->DFS(CurrPath, Paths);
@@ -54,22 +57,32 @@ void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
   return;
 }
 
-CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
+void GraphNode::checkDependencies(size_t numDependencies,
+                                  GraphNode **pDependencies) {
+  if (numDependencies > 0 && pDependencies == nullptr)
+    CHIPERR_LOG_AND_THROW("numDependencies > 0 && pDependencies == nullptr",
+                          hipErrorInvalidValue);
+  if (numDependencies == 0 && pDependencies != nullptr)
+    CHIPERR_LOG_AND_THROW("numDependencies == 0 && pDependencies != nullptr",
+                          hipErrorInvalidValue);
+}
+
+Graph::Graph(const Graph &OriginalGraph) {
   /**
    * Create another Graph using the copy constructor.
    * This other graph will contain vectors/sets for dependencies/edges.
    * The edges, however, are pointers which point nodes in the original graph.
    * These edges must be remapped to this node.
 
-   * 1. Use the overriden CHIPGraphNode operator==() to check if two nodes are
+   * 1. Use the overriden GraphNode operator==() to check if two nodes are
    identical
    * 2. Create a map that maps pointers from old graph to new graph
    * 3. Remap the cloned graph.
    *
    */
   std::cout << "\n\n";
-  for (CHIPGraphNode *OriginalNode : OriginalGraph.Nodes_) {
-    CHIPGraphNode *CloneNode = OriginalNode->clone();
+  for (GraphNode *OriginalNode : OriginalGraph.Nodes_) {
+    GraphNode *CloneNode = OriginalNode->clone();
     Nodes_.push_back(CloneNode);
     CloneMap_[OriginalNode] = CloneNode;
     logDebug("Adding to CloneMap: Original {} {} -> Clone {} {}",
@@ -77,24 +90,18 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
              (void *)CloneNode);
   }
 
-  for (CHIPGraphNode *Node : Nodes_) {
+  for (GraphNode *Node : Nodes_) {
     Node->updateDependencies(CloneMap_);
     Node->updateDependants(CloneMap_);
   }
 }
 
-CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other)
-    : CHIPGraphNode(Other) {
-  Params_ = Other.Params_;
-  ExecItem_ = Other.ExecItem_->clone();
-}
-
-CHIPGraphNode *CHIPGraphNodeKernel::clone() const {
-  auto NewNode = new CHIPGraphNodeKernel(*this);
+GraphNode *GraphNodeKernel::clone() const {
+  auto NewNode = new GraphNodeKernel(*this);
   return NewNode;
 }
 
-void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
+void GraphNodeMemset::execute(chipstar::Queue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
@@ -102,7 +109,7 @@ void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   Queue->memFillAsync(Params_.dst, Size, (void *)&Val, Params_.elementSize);
 }
 
-void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
+void GraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
   if (Dst_ && Src_) {
     auto Status = hipMemcpyInternal(Dst_, Src_, Count_, Kind_);
     if (Status != hipSuccess)
@@ -115,35 +122,52 @@ void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
                             hipErrorTbd);
   }
 }
-void CHIPGraphNodeKernel::execute(chipstar::Queue *Queue) const {
+
+void GraphNodeKernel::setupKernelArgs() const {
+  ExecItem_->copyArgs(Params_.kernelParams);
+  ExecItem_->setupAllArgs();
+}
+
+GraphNodeKernel::~GraphNodeKernel() { delete ExecItem_; }
+
+void GraphNodeKernel::execute(chipstar::Queue *Queue) const {
+  // need to call this b/c launchImpl only
+  // calls ChipOclExecItem->setupAllArgs() without calling copyArgs() first
+  setupKernelArgs();
   Queue->launch(ExecItem_);
 }
 
-CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
-    : CHIPGraphNode(hipGraphNodeTypeKernel) {
+GraphNodeKernel::GraphNodeKernel(const GraphNodeKernel &Other)
+    : GraphNode(Other) {
+  Params_ = Other.Params_;
+  Kernel_ = Other.Kernel_;
+  ExecItem_ = ::Backend->createExecItem(Params_.gridDim, Params_.blockDim,
+                                        Params_.sharedMemBytes, nullptr);
+  ExecItem_->setKernel(Kernel_);
+}
+
+GraphNodeKernel::GraphNodeKernel(const hipKernelNodeParams *TheParams)
+    : GraphNode(hipGraphNodeTypeKernel) {
   Params_.blockDim = TheParams->blockDim;
   Params_.extra = TheParams->extra;
   Params_.func = TheParams->func;
   Params_.gridDim = TheParams->gridDim;
   Params_.kernelParams = TheParams->kernelParams;
   Params_.sharedMemBytes = TheParams->sharedMemBytes;
-  auto Dev = Backend->getActiveDevice();
-  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
-  if (!ChipKernel)
+  auto Dev = ::Backend->getActiveDevice();
+
+  Kernel_ = Dev->findKernel(HostPtr(Params_.func));
+  if (!Kernel_)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
-  ExecItem_ = Backend->createExecItem(Params_.gridDim, Params_.blockDim,
-                                      Params_.sharedMemBytes, nullptr);
-  ExecItem_->setKernel(ChipKernel);
-
-  ExecItem_->copyArgs(TheParams->kernelParams);
-  ExecItem_->setupAllArgs();
+  ExecItem_ = ::Backend->createExecItem(Params_.gridDim, Params_.blockDim,
+                                        Params_.sharedMemBytes, nullptr);
+  ExecItem_->setKernel(Kernel_);
 }
 
-CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
-                                         dim3 BlockDim, void **Args,
-                                         size_t SharedMem)
-    : CHIPGraphNode(hipGraphNodeTypeKernel) {
+GraphNodeKernel::GraphNodeKernel(const void *HostFunction, dim3 GridDim,
+                                 dim3 BlockDim, void **Args, size_t SharedMem)
+    : GraphNode(hipGraphNodeTypeKernel) {
   Type_ = hipGraphNodeTypeKernel;
   Params_.blockDim = BlockDim;
   Params_.extra = nullptr;
@@ -151,29 +175,27 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   Params_.gridDim = GridDim;
   Params_.kernelParams = Args;
   Params_.sharedMemBytes = SharedMem;
+  auto Dev = ::Backend->getActiveDevice();
 
-  auto Dev = Backend->getActiveDevice();
-  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(HostFunction));
-  if (!ChipKernel)
+  Kernel_ = Dev->findKernel(HostPtr(Params_.func));
+  if (!Kernel_)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
-  ExecItem_ = Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
-  ExecItem_->setKernel(ChipKernel);
-
-  ExecItem_->copyArgs(Args);
-  ExecItem_->setupAllArgs();
+  ExecItem_ = ::Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
+  ExecItem_->setKernel(Kernel_);
 }
 
-int NodeCounter = 1;
-void CHIPGraph::addNode(CHIPGraphNode *Node) {
-  logDebug("{} CHIPGraph::addNode({})", (void *)this, (void *)Node);
+static unsigned NodeCounter = 1;
+
+void Graph::addNode(GraphNode *Node) {
+  logDebug("{} Graph::addNode({})", (void *)this, (void *)Node);
   Node->Msg = "M" + std::to_string(NodeCounter);
   NodeCounter++;
   Nodes_.push_back(Node);
 }
 
-void CHIPGraph::removeNode(CHIPGraphNode *Node) {
-  logDebug("{} CHIPGraph::removeNode({})", (void *)this, (void *)Node);
+void Graph::removeNode(GraphNode *Node) {
+  logDebug("{} Graph::removeNode({})", (void *)this, (void *)Node);
 
   auto Found = std::find(Nodes_.begin(), Nodes_.end(), Node);
   if (Found == Nodes_.end()) {
@@ -184,29 +206,71 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
   }
 }
 
-void CHIPGraphExec::launch(chipstar::Queue *Queue) {
-  logDebug("{} CHIPGraphExec::launch({})", (void *)this, (void *)Queue);
-  compile();
-  auto ExecQueueCopy = ExecQueues_;
-  while (ExecQueueCopy.size()) {
-    auto Nodes = ExecQueueCopy.front();
-    std::string NodesInThisLevel = "";
-    for (auto Node : Nodes) {
-      NodesInThisLevel += Node->Msg + " ";
+bool GraphExec::tryLaunchNative(chipstar::Queue *Queue) {
+  bool UsedNativeGraph = false;
+  if (NativeGraph) {
+    if (NativeGraph->isFinalized())
+      logDebug("NativeGraph: launching existing graph");
+    else {
+      logDebug("NativeGraph: constructed but failed to finalize");
+      return false;
     }
-    logDebug("Executing nodes: {}", NodesInThisLevel);
-    for (auto Node : Nodes) {
-      logDebug("Executing {}", Node->Msg);
-      Node->execute(Queue);
-      Queue->finish();
-    }
+  } else {
+    logDebug("NativeGraph: trying to construct");
+    NativeGraph.reset(Queue->createNativeGraph());
+    if (!NativeGraph)
+      return false;
 
-    ExecQueueCopy.pop();
+    for (auto &Node : OriginalGraph_->getNodes())
+      if (!NativeGraph->addNode(Node)) {
+        logError("NativeGraph: failed to add node of type: {}",
+                 Node->getType());
+        return false;
+      }
+
+    if (!NativeGraph->finalize()) {
+      logDebug("NativeGraph: failed to finalize");
+      return false;
+    }
+  }
+
+  assert(NativeGraph->isFinalized());
+  if (Queue->enqueueNativeGraph(NativeGraph.get())) {
+    logDebug("NativeGraph: launched");
+    Queue->finish();
+    return true;
+  }
+  return false;
+}
+
+void GraphExec::launch(chipstar::Queue *Queue) {
+  logDebug("{} GraphExec::launch({})", (void *)this, (void *)Queue);
+  bool UsedNativeGraph = tryLaunchNative(Queue);
+
+  if (!UsedNativeGraph) {
+    logDebug("NativeGraph: failed to construct/finalize/launch, using the "
+             "original code path");
+    compile();
+    auto ExecQueueCopy = ExecQueues_;
+    while (ExecQueueCopy.size()) {
+      auto Nodes = ExecQueueCopy.front();
+      std::string NodesInThisLevel = "";
+      for (auto Node : Nodes)
+        NodesInThisLevel += Node->Msg + " ";
+      logDebug("Executing nodes: {}", NodesInThisLevel);
+      for (auto Node : Nodes) {
+        logDebug("Executing {}", Node->Msg);
+        Node->execute(Queue);
+        Queue->finish();
+      }
+
+      ExecQueueCopy.pop();
+    }
   }
 }
 
-void unchainUnnecessaryDeps(std::vector<CHIPGraphNode *> Path,
-                            std::vector<CHIPGraphNode *> SubPath) {
+void unchainUnnecessaryDeps(std::vector<GraphNode *> Path,
+                            std::vector<GraphNode *> SubPath) {
   assert(Path.size() > SubPath.size());
   std::string PathStr = "";
   for (auto Node : SubPath) {
@@ -218,7 +282,7 @@ void unchainUnnecessaryDeps(std::vector<CHIPGraphNode *> Path,
   }
   logDebug("unchainUnnecessaryDeps({}, {})", PathStr, LongerPathStr);
 
-  for (int i = 0; i < SubPath.size(); i++) {
+  for (size_t i = 0; i < SubPath.size(); i++) {
     if (SubPath[i] != Path[i]) {
       SubPath[i - 1]->removeDependency(SubPath[i]);
       break;
@@ -226,8 +290,8 @@ void unchainUnnecessaryDeps(std::vector<CHIPGraphNode *> Path,
   }
 }
 
-std::vector<CHIPGraphNode *> CHIPGraph::getLeafNodes() {
-  std::vector<CHIPGraphNode *> LeafNodes;
+std::vector<GraphNode *> Graph::getLeafNodes() {
+  std::vector<GraphNode *> LeafNodes;
   for (auto Node : Nodes_) {
     // no other node depends on leaf node.
     if (Node->getDependants().size() == 0)
@@ -237,28 +301,28 @@ std::vector<CHIPGraphNode *> CHIPGraph::getLeafNodes() {
   return LeafNodes;
 }
 
-void CHIPGraphExec::pruneGraph_() {
-  std::vector<CHIPGraphNode *> LeafNodes_ = OriginalGraph_->getLeafNodes();
+void GraphExec::pruneGraph_() {
+  std::vector<GraphNode *> LeafNodes_ = OriginalGraph_->getLeafNodes();
 
   for (auto LeafNode : LeafNodes_) {
     // Generate all paths from leaf to root
-    std::vector<CHIPGraphNode *> CurrPath;
-    std::vector<std::vector<CHIPGraphNode *>> Paths;
+    std::vector<GraphNode *> CurrPath;
+    std::vector<std::vector<GraphNode *>> Paths;
     LeafNode->DFS(CurrPath, Paths);
 
     if (Paths.size() < 2) {
       continue;
     }
 
-    std::sort(Paths.begin(), Paths.end(),
-              [](std::vector<CHIPGraphNode *> PathA,
-                 std::vector<CHIPGraphNode *> PathB) {
-                return PathA.size() > PathB.size();
-              });
+    std::sort(
+        Paths.begin(), Paths.end(),
+        [](std::vector<GraphNode *> PathA, std::vector<GraphNode *> PathB) {
+          return PathA.size() > PathB.size();
+        });
 
     for (auto Path : Paths) {
       // convert the current path to a set
-      std::set<CHIPGraphNode *> PathSet(Path.begin(), Path.end());
+      std::set<GraphNode *> PathSet(Path.begin(), Path.end());
 
       // Check other paths to see if they are a subset of this (longer) path
       for (auto SubPathIter = Paths.begin(); SubPathIter != Paths.end();
@@ -270,7 +334,7 @@ void CHIPGraphExec::pruneGraph_() {
         }
 
         // convert the other path to a set
-        std::set<CHIPGraphNode *> SubPathSet(SubPath.begin(), SubPath.end());
+        std::set<GraphNode *> SubPathSet(SubPath.begin(), SubPath.end());
         // std::string PathStr = "";
         // for(auto Node : Path) {
         //   PathStr += Node->Msg + " ";
@@ -290,8 +354,8 @@ void CHIPGraphExec::pruneGraph_() {
   }
 }
 
-std::vector<CHIPGraphNode *> CHIPGraph::getRootNodes() {
-  std::vector<CHIPGraphNode *> RootNodes;
+std::vector<GraphNode *> Graph::getRootNodes() {
+  std::vector<GraphNode *> RootNodes;
   for (auto Node : Nodes_) {
     if (Node->getDependencies().size() == 0) {
       RootNodes.push_back(Node);
@@ -300,13 +364,13 @@ std::vector<CHIPGraphNode *> CHIPGraph::getRootNodes() {
   return RootNodes;
 }
 
-void CHIPGraphExec::compile() {
+void GraphExec::compile() {
   ExtractSubGraphs_();
   pruneGraph_();
-  logDebug("{} CHIPGraphExec::compile()", (void *)this);
-  std::vector<CHIPGraphNode *> Nodes = OriginalGraph_->getNodes();
+  logDebug("{} GraphExec::compile()", (void *)this);
+  std::vector<GraphNode *> Nodes = OriginalGraph_->getNodes();
   auto RootNodesVec = OriginalGraph_->getRootNodes();
-  std::set<CHIPGraphNode *> RootNodes(RootNodesVec.begin(), RootNodesVec.end());
+  std::set<GraphNode *> RootNodes(RootNodesVec.begin(), RootNodesVec.end());
   ExecQueues_.push(RootNodes);
   //  Remove root nodes from the set of nodes
   for (auto Node : RootNodes) {
@@ -320,8 +384,8 @@ void CHIPGraphExec::compile() {
    * find all the nodes that depend only the nodes in the back of the exec
    * queue.
    */
-  std::set<CHIPGraphNode *> NextSet;
-  std::set<CHIPGraphNode *> PrevLevelNodes = RootNodes;
+  std::set<GraphNode *> NextSet;
+  std::set<GraphNode *> PrevLevelNodes = RootNodes;
   auto NodeIter = Nodes.begin();
   while (Nodes.size()) { // while more unnasigned nodes available
     auto CurrentNodeDeps = (*NodeIter)->getDependencies();
@@ -357,17 +421,17 @@ void CHIPGraphExec::compile() {
   }
 }
 
-void CHIPGraphNodeHost::execute(chipstar::Queue *Queue) const {
+void GraphNodeHost::execute(chipstar::Queue *Queue) const {
   Queue->finish();
   Params_.fn(Params_.userData);
 }
 
-void CHIPGraphExec::ExtractSubGraphs_() {
+void GraphExec::ExtractSubGraphs_() {
   auto Nodes = CompiledGraph_.getNodes();
-  for (int i = 0; i < Nodes.size(); i++) {
+  for (size_t i = 0; i < Nodes.size(); i++) {
     auto Node = Nodes[i];
     if (Node->getType() == hipGraphNodeTypeGraph) {
-      auto SubGraphNode = static_cast<CHIPGraphNodeGraph *>(Node);
+      auto SubGraphNode = static_cast<GraphNodeGraph *>(Node);
       auto SubGraph = SubGraphNode->getGraph();
 
       // 1. get all the root nodes
@@ -396,7 +460,7 @@ void CHIPGraphExec::ExtractSubGraphs_() {
   }
 }
 
-void CHIPGraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
+void GraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Event_);
   auto Status = hipEventRecordInternal(Event_, Queue);
   if (Status != hipSuccess)
@@ -404,9 +468,9 @@ void CHIPGraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
                           hipErrorTbd);
 }
 
-void CHIPGraphNodeMemcpyFromSymbol::execute(chipstar::Queue *Queue) const {
+void GraphNodeMemcpyFromSymbol::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Dst_, Symbol_);
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  auto ChipQueue = ::Backend->getActiveDevice()->getDefaultQueue();
   auto Status = hipMemcpyFromSymbolAsyncInternal(Dst_, Symbol_, SizeBytes_,
                                                  Offset_, Kind_, ChipQueue);
   if (Status == hipSuccess)
@@ -416,9 +480,9 @@ void CHIPGraphNodeMemcpyFromSymbol::execute(chipstar::Queue *Queue) const {
                           hipErrorTbd);
 }
 
-void CHIPGraphNodeMemcpyToSymbol::execute(chipstar::Queue *Queue) const {
+void GraphNodeMemcpyToSymbol::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Symbol_, Src_);
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  auto ChipQueue = ::Backend->getActiveDevice()->getDefaultQueue();
   auto Status = hipMemcpyToSymbolAsyncInternal(Symbol_, Src_, SizeBytes_,
                                                Offset_, Kind_, ChipQueue);
   if (Status == hipSuccess)
@@ -428,7 +492,7 @@ void CHIPGraphNodeMemcpyToSymbol::execute(chipstar::Queue *Queue) const {
                           hipErrorTbd);
 }
 
-void CHIPGraphNodeWaitEvent::execute(chipstar::Queue *Queue) const {
+void GraphNodeWaitEvent::execute(chipstar::Queue *Queue) const {
   // current HIP API requires Flags
   unsigned int Flags = 0;
   auto Status = hipStreamWaitEventInternal(Queue, Event_, Flags);

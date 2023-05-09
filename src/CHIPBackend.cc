@@ -1771,14 +1771,14 @@ void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
   ::Backend->trackEvent(ChipEvent);
 }
 
-void chipstar::Queue::updateLastNode(CHIPGraphNode *NewNode) {
+void chipstar::Queue::updateLastNode(chipstar::GraphNode *NewNode) {
   if (LastNode_ != nullptr) {
     NewNode->addDependency(LastNode_);
   }
   LastNode_ = NewNode;
 }
 
-void chipstar::Queue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
+void chipstar::Queue::initCaptureGraph() { CaptureGraph_ = new Graph(); }
 
 std::shared_ptr<chipstar::Event>
 chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
@@ -1971,6 +1971,6 @@ void chipstar::Queue::addCallback(hipStreamCallback_t Callback,
 //     return false;
 //   }
 
-CHIPGraph *chipstar::Queue::getCaptureGraph() const {
-  return static_cast<CHIPGraph *>(CaptureGraph_);
+chipstar::Graph *chipstar::Queue::getCaptureGraph() const {
+  return static_cast<chipstar::Graph *>(CaptureGraph_);
 }

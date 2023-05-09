@@ -73,8 +73,6 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
 
 template <class T> std::string resultToString(T Err);
 
-// class CHIPGraph;
-// class CHIPGraphNode;
 #include "CHIPGraph.hh"
 
 /// Describes a memory region to copy from/to.
@@ -88,6 +86,8 @@ class Device;
 class EventMonitor;
 class Texture;
 class Context;
+class GraphNode;
+class GraphNative;
 
 class RegionDesc {
 public:
@@ -1188,6 +1188,10 @@ public:
   ExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
            hipStream_t ChipQueue);
 
+  void setupDims(dim3 GridDim, dim3 BlockDim) {
+    GridDim_ = GridDim;
+    BlockDim_ = BlockDim;
+  };
   /**
    * @brief Set the chipstar::Kernel object
    *
@@ -2043,7 +2047,7 @@ protected:
   std::mutex LastEventMtx;
   /// @brief  node for creating a dependency chain between subsequent record
   /// events when in graph capture mode
-  CHIPGraphNode *LastNode_ = nullptr;
+  GraphNode *LastNode_ = nullptr;
   int Priority_;
   /**
    * @brief Maximum priority that can be had by a queue is 0; Priority range is
@@ -2095,7 +2099,7 @@ public:
     return false;
   }
 
-  void updateLastNode(CHIPGraphNode *NewNode);
+  void updateLastNode(chipstar::GraphNode *NewNode);
   void initCaptureGraph();
 
   hipStreamCaptureStatus getCaptureStatus() const { return CaptureStatus_; }
@@ -2106,9 +2110,16 @@ public:
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {
     CaptureMode_ = CaptureMode;
   }
-  CHIPGraph *getCaptureGraph() const;
+  Graph *getCaptureGraph() const;
 
   chipstar::Device *PerThreadQueueForDevice = nullptr;
+
+  virtual std::shared_ptr<chipstar::Event>
+  enqueueNativeGraph(chipstar::GraphNative *NativeGraph) {
+    return nullptr;
+  }
+  virtual chipstar::GraphNative *createNativeGraph() { return nullptr; }
+  virtual void destroyNativeGraph(chipstar::GraphNative *) { return; }
 
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
