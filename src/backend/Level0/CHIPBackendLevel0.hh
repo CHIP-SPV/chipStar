@@ -305,8 +305,10 @@ public:
     // go through all pools and try to get an allocated event
     for (size_t i = 0; i < EventPools_.size(); i++) {
       CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
-      if (Event)
+      if (Event) {
+        Event->Deleted_ = false;
         return Event;
+      }
     }
 
     // no events available, create new pool, get event from there and return

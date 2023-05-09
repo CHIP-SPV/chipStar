@@ -607,10 +607,7 @@ protected:
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
 
-#ifndef NDEBUG
-  // A debug flag for cathing use-after-delete.
-  bool Deleted_ = false;
-#endif
+
 
   // reference count
   size_t *Refc_;
@@ -629,6 +626,10 @@ protected:
   CHIPEvent() = default;
 
 public:
+#ifndef NDEBUG
+  // A debug flag for cathing use-after-delete.
+  bool Deleted_ = false;
+#endif
   bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) {
     assert(!Deleted_ && "Event use after delete!");
