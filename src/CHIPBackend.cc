@@ -1544,10 +1544,10 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
+          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
 
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
@@ -1561,12 +1561,33 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  auto ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
-  ChipEvent->Msg = "memCopyAsync";
-  updateLastEvent(ChipEvent);
+  CHIPEvent *ChipEvent;
+  // Scope this so that we release mutex for finish()
+  {
+    auto AllocInfoDst =
+        Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Dst);
+    auto AllocInfoSrc =
+        Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Src);
+    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoDst);
+    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
+
+    ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+
+    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
+    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
+
+    ChipEvent->Msg = "memCopyAsync";
+    updateLastEvent(ChipEvent);
+  }
   ChipEvent->track();
-  return;
 }
+
 void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
                         size_t PatternSize) {
   {
