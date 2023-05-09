@@ -117,7 +117,6 @@ bool TestStreamSemantics_2() {
   hipLaunchKernelGGL(addOne, 1, 1, 0, 0, dev_ptr);
   CHECK(hipGetLastError());
   CHECK(hipMemcpyAsync(host_ptr, dev_ptr, size, hipMemcpyDefault));
-  CHECK(hipStreamSynchronize(0));
   // printf("End of null stream task\n");fflush(stdout);
 
   bool testStatus = true;
