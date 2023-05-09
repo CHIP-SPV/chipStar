@@ -206,10 +206,8 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 // ************************************************************************
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
-    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
-      ChipContext_(Ctx), Msg("") {
-  *Refc_ = 1;
-}
+    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
+      Msg("") {}
 
 void CHIPEvent::releaseDependencies() {
   assert(!Deleted_ && "Event use after delete!");
@@ -218,36 +216,6 @@ void CHIPEvent::releaseDependencies() {
   }
   LOCK(EventMtx); // CHIPEvent::DependsOnList
   DependsOnList.clear();
-}
-
-void CHIPEvent::decreaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-  if (*Refc_ > 0) {
-    (*Refc_)--;
-  } else {
-    assert(false && "CHIPEvent::decreaseRefCount() called when refc == 0");
-    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-  }
-  // Destructor to be called by event monitor once backend is done using it
-}
-void CHIPEvent::increaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-
-  // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
-  assert(*Refc_ > 0 && "Increasing refcount from zero!");
-  (*Refc_)++;
-}
-
-size_t CHIPEvent::getCHIPRefc() {
-  LOCK(this->EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  return *Refc_;
 }
 
 // CHIPModuleflags_
@@ -495,6 +463,8 @@ void *CHIPArgSpillBuffer::allocate(const SPVFuncInfo::Arg &Arg) {
 // CHIPExecItem
 //*************************************************************************************
 void CHIPExecItem::copyArgs(void **Args) {
+  // args need to be set up again
+  ArgsSetup = false;
   for (int i = 0; i < getNumArgs(); i++) {
     Args_.push_back(Args[i]);
   }
@@ -887,8 +857,6 @@ hipFuncCache_t CHIPDevice::getCacheConfig() {
 hipSharedMemConfig CHIPDevice::getSharedMemConfig() {
   UNIMPLEMENTED(hipSharedMemBankSizeDefault);
 }
-
-void CHIPDevice::removeContext(CHIPContext *CHIPContext) {}
 
 bool CHIPDevice::removeQueue(CHIPQueue *ChipQueue) {
   /**

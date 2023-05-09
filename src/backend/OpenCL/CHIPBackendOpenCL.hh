@@ -39,8 +39,6 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 210
 #define CL_HPP_MINIMUM_OPENCL_VERSION 200
 
-#pragma OPENCL EXTENSION cl_khr_priority_hints : enable
-
 #include <CL/opencl.h>
 
 #pragma GCC diagnostic push
@@ -86,9 +84,8 @@ public:
 };
 
 class CHIPEventOpenCL : public CHIPEvent {
-public:
-  cl_event ClEvent;
-  friend class CHIPEventOpenCL;
+private:
+  cl::Event ClEvent;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
@@ -96,20 +93,22 @@ public:
                   bool UserEvent = false);
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   CHIPEventFlags Flags = CHIPEventFlags());
-  virtual ~CHIPEventOpenCL() override;
+  virtual ~CHIPEventOpenCL() override{};
   virtual void recordStream(CHIPQueue *ChipQueue) override;
-  void takeOver(CHIPEvent *Other);
+  virtual size_t getCHIPRefc() override;
   bool wait() override;
   float getElapsedTime(CHIPEvent *Other) override;
-  virtual void hostSignal() override;
-  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
-  cl_event *getNativePtr() { return &ClEvent; }
-  cl_event &getNativeRef() { return ClEvent; }
-  uint64_t getFinishTime();
-  size_t getRefCount();
 
-  virtual void increaseRefCount(std::string Reason) override;
-  virtual void decreaseRefCount(std::string Reason) override;
+  // not needed anywhere
+  virtual void hostSignal() override{};
+
+  virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
+  cl::Event &get() { return ClEvent; }
+  void reset(cl::Event &&Ev) { ClEvent = Ev; }
+  void reset(cl_event Ev) { ClEvent = Ev; }
+
+  // for elapsedTime
+  uint64_t getFinishTime();
 };
 
 class CHIPModuleOpenCL : public CHIPModule {
@@ -120,7 +119,6 @@ public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
   virtual ~CHIPModuleOpenCL() {}
   virtual void compile(CHIPDevice *ChipDevice) override;
-  cl::Program *get();
 };
 
 class SVMemoryRegion {
@@ -134,7 +132,7 @@ public:
   using const_svm_alloc_iterator = ConstMapKeyIterator<
       std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
 
-  void init(cl::Context &C) { Context_ = C; }
+  void init(cl::Context C) { Context_ = C; }
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
   void *allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity = COARSE_GRAIN);
   bool free(void *P);
@@ -179,7 +177,8 @@ typedef struct {
 } CHIPContextClExts;
 
 class CHIPContextOpenCL : public CHIPContext {
-  cl::Context *ClContext;
+private:
+  cl::Context ClContext;
   bool SupportsCommandBuffers;
   bool SupportsCommandBuffersSVM;
   bool SupportsCommandBuffersHost;
@@ -188,14 +187,14 @@ class CHIPContextOpenCL : public CHIPContext {
 
 public:
   bool allDevicesSupportFineGrainSVM();
-  CHIPContextOpenCL(cl::Context *ClContext, cl::Device Dev, cl::Platform Plat);
+  CHIPContextOpenCL(cl::Context ClContext, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {}
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   virtual void freeImpl(void *Ptr) override;
-  cl::Context *get();
+  cl::Context &get() { return ClContext; }
   bool supportsCommandBuffers() { return SupportsCommandBuffers; }
   bool supportsCommandBuffersSVM() { return SupportsCommandBuffersSVM; }
   bool supportsCommandBuffersHost() { return SupportsCommandBuffersHost; }
@@ -205,20 +204,18 @@ public:
 class CHIPDeviceOpenCL : public CHIPDevice {
 private:
   bool SupportsFineGrainSVM = false;
-  CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
+  CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device ClDevice,
                    int Idx);
+  cl::Device ClDevice;
 
 public:
-  virtual CHIPContextOpenCL *createContext() override { return nullptr; }
-
-  static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
+  static CHIPDeviceOpenCL *create(cl::Device ClDevice,
                                   CHIPContextOpenCL *ChipContext, int Idx);
-  cl::Device *ClDevice;
-  cl::Context *ClContext;
-  cl::Device *get() { return ClDevice; }
+  cl::Device &get() { return ClDevice; }
   bool supportsFineGrainSVM() { return SupportsFineGrainSVM; }
   virtual void populateDevicePropertiesImpl() override;
-  virtual void resetImpl() override;
+  // unused
+  virtual void resetImpl() override{};
   virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
@@ -241,7 +238,7 @@ public:
 class CHIPQueueOpenCL : public CHIPQueue {
 protected:
   // Any reason to make these private/protected?
-  cl::CommandQueue *ClQueue_;
+  cl::CommandQueue ClQueue;
 
   /**
    * @brief Map memory to device.
@@ -279,7 +276,7 @@ public:
   virtual void finish() override;
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
-  cl::CommandQueue *get();
+  cl::CommandQueue &get() { return ClQueue; }
   virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
                                       const void *Pattern,
                                       size_t PatternSize) override;
@@ -322,9 +319,10 @@ public:
                    CHIPModuleOpenCL *Parent);
 
   virtual ~CHIPKernelOpenCL() {}
-  SPVFuncInfo *getFuncInfo() const;
-  std::string getName();
-  cl::Kernel *get();
+
+  SPVFuncInfo *getFuncInfo() const { return FuncInfo_; }
+  std::string getName() { return Name_; }
+  cl::Kernel &get() { return OclKernel_; }
   CHIPKernelOpenCL *clone();
 
   CHIPModuleOpenCL *getModule() override { return Module; }
@@ -335,7 +333,7 @@ public:
 class CHIPExecItemOpenCL : public CHIPExecItem {
 private:
   std::unique_ptr<CHIPKernelOpenCL> ChipKernel_;
-  cl::Kernel *ClKernel_;
+  cl::Kernel ClKernel_;
 
 public:
   CHIPExecItemOpenCL(const CHIPExecItemOpenCL &Other)
@@ -353,13 +351,11 @@ public:
                      hipStream_t ChipQueue)
       : CHIPExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
-  virtual ~CHIPExecItemOpenCL() override {
-    // TODO delete ClKernel_?
-  }
+  virtual ~CHIPExecItemOpenCL() override {}
   SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
-  cl::Kernel *get();
 
+  cl::Kernel &get() { return ClKernel_; }
   virtual CHIPExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemOpenCL(*this);
     return NewExecItem;

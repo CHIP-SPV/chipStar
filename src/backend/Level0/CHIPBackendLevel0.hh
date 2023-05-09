@@ -89,6 +89,9 @@ private:
   // The timestamp value
   uint64_t Timestamp_;
 
+  // reference count
+  size_t Refc_ = 1;
+
   std::vector<ActionFn> Actions_;
 
 public:
@@ -121,6 +124,10 @@ public:
 
   ze_event_handle_t peek();
   ze_event_handle_t get(std::string Msg);
+  virtual size_t getCHIPRefc() override;
+
+  virtual void decreaseRefCount(std::string Reason) override;
+  virtual void increaseRefCount(std::string Reason) override;
 
   /// Bind an action which is promised to be executed when the event is
   /// finished.
@@ -479,7 +486,6 @@ class CHIPDeviceLevel0 : public CHIPDevice {
   ze_command_queue_desc_t getQueueDesc_(int Priority);
 
 public:
-  virtual CHIPContextLevel0 *createContext() override {}
   bool copyQueueIsAvailable() { return CopyQueueAvailable_; }
   ze_command_list_desc_t getCommandListComputeDesc() {
     return CommandListComputeDesc_;

@@ -265,7 +265,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  unsigned int ThePoolIndex,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), Timestamp_(0) {
+      EventPoolHandle_(nullptr), Timestamp_(0), Refc_(1) {
   LOCK(TheEventPool->EventPoolMtx); // CHIPEventPool::EventPool_ via get()
   EventPool = TheEventPool;
   EventPoolIndex = ThePoolIndex;
@@ -291,7 +291,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  CHIPEventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
+      EventPoolHandle_(nullptr), Timestamp_(0), Refc_(1), EventPoolIndex(0),
       EventPool(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
@@ -331,7 +331,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : CHIPEvent((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
-      EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
+      EventPoolHandle_(nullptr), Timestamp_(0), Refc_(1), EventPoolIndex(0),
       EventPool(nullptr) {}
 
 // Must use this for now - Level Zero hangs when events are host visible +
@@ -545,6 +545,37 @@ void CHIPEventLevel0::hostSignal() {
 
   LOCK(EventMtx); // CHIPEvent::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDED;
+}
+
+void CHIPEventLevel0::decreaseRefCount(std::string Reason) {
+  LOCK(EventMtx); // CHIPEvent::Refc_
+  assert(!Deleted_ && "Event use after delete!");
+  // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+  if (Refc_ > 0) {
+    Refc_--;
+  } else {
+    assert(false && "CHIPEvent::decreaseRefCount() called when refc == 0");
+    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
+  }
+  // Destructor to be called by event monitor once backend is done using it
+}
+
+void CHIPEventLevel0::increaseRefCount(std::string Reason) {
+  LOCK(EventMtx); // CHIPEvent::Refc_
+  assert(!Deleted_ && "Event use after delete!");
+  // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+
+  // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
+  assert(Refc_ > 0 && "Increasing refcount from zero!");
+  Refc_++;
+}
+
+size_t CHIPEventLevel0::getCHIPRefc() {
+  LOCK(this->EventMtx);
+  assert(!Deleted_ && "Event use after delete!");
+  return Refc_;
 }
 
 // End CHIPEventLevel0
