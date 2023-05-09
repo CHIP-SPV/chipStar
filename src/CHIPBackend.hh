@@ -1145,6 +1145,10 @@ public:
   CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue);
 
+  void setupDims(dim3 GridDim, dim3 BlockDim) {
+    GridDim_ = GridDim;
+    BlockDim_ = BlockDim;
+  };
   /**
    * @brief Set the Kernel object
    *
@@ -2059,6 +2063,12 @@ public:
   }
 
   CHIPDevice *PerThreadQueueForDevice = nullptr;
+
+  virtual CHIPEvent *enqueueNativeGraph(CHIPGraphNative *NativeGraph) {
+    return nullptr;
+  }
+  virtual CHIPGraphNative *createNativeGraph() { return nullptr; }
+  virtual void destroyNativeGraph(CHIPGraphNative *) { return; }
 
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;

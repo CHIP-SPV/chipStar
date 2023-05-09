@@ -196,7 +196,8 @@ public:
    * @param CloneMap  the map containing relationships of which original node
    * does each cloned node correspond to.
    */
-  void updateDependencies(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
+  void
+  updateDependencies(std::map<CHIPGraphNode *, CHIPGraphNode *> &CloneMap) {
     std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependencies_) {
       auto ClonedDep = CloneMap[Dep];
@@ -255,6 +256,7 @@ class CHIPGraphNodeKernel : public CHIPGraphNode {
 private:
   hipKernelNodeParams Params_;
   CHIPExecItem *ExecItem_;
+  CHIPKernel *Kernel_;
 
 public:
   CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other);
@@ -264,13 +266,27 @@ public:
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim, dim3 BlockDim,
                       void **Args, size_t SharedMem);
 
-  virtual ~CHIPGraphNodeKernel() override {}
-
+  virtual ~CHIPGraphNodeKernel() override;
   virtual void execute(CHIPQueue *Queue) const override;
 
   hipKernelNodeParams getParams() const { return Params_; }
 
-  void setParams(const hipKernelNodeParams Params) { Params_ = Params; }
+  /// the Kernel arguments have to be setup either just before launch (when
+  /// using the execute() path), or if using the CHIPGraphNative then
+  /// just before calling their graph construction APIs.
+  ///
+  /// This is because Kernels in both LevelZero and OpenCL are stateful,
+  /// and users can add multiple nodes with the same kernel into a Graph.
+  /// Setting up arguments in CHIPGraphNodeKernel ctor would then
+  /// lead to all nodes using the same (those set up last) arguments.
+  void setupKernelArgs() const;
+  CHIPKernel *getKernel() const { return Kernel_; }
+
+  void setParams(const hipKernelNodeParams Params) {
+    // dont allow changing kernel, needs refactoring
+    CHIPASSERT(Params.func == Params_.func);
+    Params_ = Params;
+  }
   /**
    * @brief Createa a copy of this node
    * Must copy over all the arguments
@@ -298,7 +314,8 @@ public:
         Src_(Other.Src_), Count_(Other.Count_), Kind_(Other.Kind_) {}
 
   CHIPGraphNodeMemcpy(hipMemcpy3DParms Params)
-      : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params) {}
+      : CHIPGraphNode(hipGraphNodeTypeMemcpy), Params_(Params), Src_(nullptr),
+        Dst_(nullptr), Count_(0), Kind_(hipMemcpyKind::hipMemcpyDefault) {}
   CHIPGraphNodeMemcpy(const hipMemcpy3DParms *Params)
       : CHIPGraphNode(hipGraphNodeTypeMemcpy) {
     setParams(Params);
@@ -320,6 +337,14 @@ public:
     Src_ = Src;
     Count_ = Count;
     Kind_ = Kind;
+  }
+
+  void getParams(void *&Dst, const void *&Src, size_t &Count,
+                 hipMemcpyKind &Kind) {
+    Dst = Dst_;
+    Src = Src_;
+    Count = Count_;
+    Kind = Kind_;
   }
 
   void setParams(const hipMemcpy3DParms *Params) {
@@ -525,6 +550,15 @@ public:
     Symbol_ = const_cast<void *>(Symbol);
     SizeBytes_ = SizeBytes;
     Offset_ = Offset;
+    Kind_ = Kind;
+  }
+
+  void getParams(void *&Dst, const void *&Symbol, size_t &SizeBytes,
+                 size_t &Offset, hipMemcpyKind &Kind) {
+    Dst = Dst_;
+    Symbol = Symbol_;
+    SizeBytes = SizeBytes_;
+    Offset = Offset_;
     Kind = Kind_;
   }
 
@@ -573,6 +607,15 @@ public:
     Symbol_ = const_cast<void *>(Symbol);
     SizeBytes_ = SizeBytes;
     Offset_ = Offset;
+    Kind_ = Kind;
+  }
+
+  void getParams(void *&Src, const void *&Symbol, size_t &SizeBytes,
+                 size_t &Offset, hipMemcpyKind &Kind) {
+    Src = Src_;
+    Symbol = Symbol_;
+    SizeBytes = SizeBytes_;
+    Offset = Offset_;
     Kind = Kind_;
   }
 };
@@ -647,10 +690,24 @@ public:
   }
 };
 
+class CHIPGraphNative {
+protected:
+  bool Finalized;
+
+public:
+  CHIPGraphNative() : Finalized(false){};
+  virtual ~CHIPGraphNative() {}
+  bool isFinalized() { return Finalized; }
+  virtual bool finalize() { return false; }
+  virtual bool addNode(CHIPGraphNode *NewNode) { return false; }
+};
+
 class CHIPGraphExec : public hipGraphExec {
 protected:
   CHIPGraph *OriginalGraph_;
   CHIPGraph CompiledGraph_;
+
+  std::unique_ptr<CHIPGraphNative> NativeGraph;
 
   /**
    * @brief each element in this queue represents represents a sequence of nodes
@@ -678,6 +735,17 @@ protected:
    */
   void pruneGraph_();
 
+  /**
+   * @brief Optimize and generate ExecQueues_
+   *
+   * This method will first call PruneGraph and then generate an executable
+   * queue. Executable queue is made up of sets of nodes. All members of the
+   * aforementioned set can be executed simultanously in no particular order.
+   * @see PruneGraph
+   *
+   */
+  void compile();
+
 public:
   CHIPGraphExec(CHIPGraph *Graph)
       : OriginalGraph_(Graph), /* Copy the pointer to the original graph */
@@ -690,17 +758,6 @@ public:
   void launch(CHIPQueue *Queue);
 
   CHIPGraph *getOriginalGraphPtr() const { return OriginalGraph_; }
-
-  /**
-   * @brief Optimize and generate ExecQueues_
-   *
-   * This method will first call PruneGraph and then generate an executable
-   * queue. Executable queue is made up of sets of nodes. All members of the
-   * aforementioned set can be executed simultanously in no particular order.
-   * @see PruneGraph
-   *
-   */
-  void compile();
 };
 
 #endif // include guard

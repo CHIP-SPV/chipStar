@@ -82,12 +82,6 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
   }
 }
 
-CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other)
-    : CHIPGraphNode(Other) {
-  Params_ = Other.Params_;
-  ExecItem_ = Other.ExecItem_->clone();
-}
-
 CHIPGraphNode *CHIPGraphNodeKernel::clone() const {
   auto NewNode = new CHIPGraphNodeKernel(*this);
   return NewNode;
@@ -114,8 +108,28 @@ void CHIPGraphNodeMemcpy::execute(CHIPQueue *Queue) const {
                             hipErrorTbd);
   }
 }
+
+void CHIPGraphNodeKernel::setupKernelArgs() const {
+  ExecItem_->copyArgs(Params_.kernelParams);
+  ExecItem_->setupAllArgs();
+}
+
+CHIPGraphNodeKernel::~CHIPGraphNodeKernel() { delete ExecItem_; }
+
 void CHIPGraphNodeKernel::execute(CHIPQueue *Queue) const {
+  // need to call this b/c launchImpl only
+  // calls ChipOclExecItem->setupAllArgs() without calling copyArgs() first
+  setupKernelArgs();
   Queue->launch(ExecItem_);
+}
+
+CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other)
+    : CHIPGraphNode(Other) {
+  Params_ = Other.Params_;
+  Kernel_ = Other.Kernel_;
+  ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim,
+                                          Params_.sharedMemBytes, nullptr);
+  ExecItem_->setKernel(Kernel_);
 }
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
@@ -127,16 +141,13 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
   Params_.kernelParams = TheParams->kernelParams;
   Params_.sharedMemBytes = TheParams->sharedMemBytes;
   auto Dev = Backend->getActiveDevice();
-  CHIPKernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
-  if (!ChipKernel)
+  CHIPKernel *Kernel_ = Dev->findKernel(HostPtr(Params_.func));
+  if (!Kernel_)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
   ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim,
                                           Params_.sharedMemBytes, nullptr);
-  ExecItem_->setKernel(ChipKernel);
-
-  ExecItem_->copyArgs(TheParams->kernelParams);
-  ExecItem_->setupAllArgs();
+  ExecItem_->setKernel(Kernel_);
 }
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
@@ -150,21 +161,18 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   Params_.gridDim = GridDim;
   Params_.kernelParams = Args;
   Params_.sharedMemBytes = SharedMem;
-
   auto Dev = Backend->getActiveDevice();
-  CHIPKernel *ChipKernel = Dev->findKernel(HostPtr(HostFunction));
-  if (!ChipKernel)
+  CHIPKernel *Kernel_ = Dev->findKernel(HostPtr(Params_.func));
+  if (!Kernel_)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
-  ExecItem_ =
-      Backend->createCHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
-  ExecItem_->setKernel(ChipKernel);
-
-  ExecItem_->copyArgs(Args);
-  ExecItem_->setupAllArgs();
+  ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim,
+                                          Params_.sharedMemBytes, nullptr);
+  ExecItem_->setKernel(Kernel_);
 }
 
-int NodeCounter = 1;
+static unsigned NodeCounter = 1;
+
 void CHIPGraph::addNode(CHIPGraphNode *Node) {
   logDebug("{} CHIPGraph::addNode({})", (void *)this, (void *)Node);
   Node->Msg = "M" + std::to_string(NodeCounter);
@@ -186,22 +194,51 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
 
 void CHIPGraphExec::launch(CHIPQueue *Queue) {
   logDebug("{} CHIPGraphExec::launch({})", (void *)this, (void *)Queue);
-  compile();
-  auto ExecQueueCopy = ExecQueues_;
-  while (ExecQueueCopy.size()) {
-    auto Nodes = ExecQueueCopy.front();
-    std::string NodesInThisLevel = "";
-    for (auto Node : Nodes) {
-      NodesInThisLevel += Node->Msg + " ";
-    }
-    logDebug("Executing nodes: {}", NodesInThisLevel);
-    for (auto Node : Nodes) {
-      logDebug("Executing {}", Node->Msg);
-      Node->execute(Queue);
+  bool UsedNativeGraph = false;
+  Queue->getContext();
+  if (NativeGraph && NativeGraph->isFinalized()) {
+    // launch existing native graph
+    UsedNativeGraph = Queue->enqueueNativeGraph(NativeGraph.get());
+    if (UsedNativeGraph)
       Queue->finish();
+  } else if (!NativeGraph) {
+    // construct native graph
+    bool FailedToAddNode = false;
+    NativeGraph.reset(Queue->createNativeGraph());
+    for (auto &Node : OriginalGraph_->getNodes()) {
+      if (!NativeGraph->addNode(Node)) {
+        FailedToAddNode = true;
+        break;
+      }
     }
+    if (!FailedToAddNode) {
+      UsedNativeGraph = NativeGraph->finalize() &&
+                        Queue->enqueueNativeGraph(NativeGraph.get());
+      if (UsedNativeGraph)
+        Queue->finish();
+    }
+  }
 
-    ExecQueueCopy.pop();
+  if (!UsedNativeGraph) {
+    // NativeGraph constructed but failed to finalize.
+    // Use the original code path
+    compile();
+    auto ExecQueueCopy = ExecQueues_;
+    while (ExecQueueCopy.size()) {
+      auto Nodes = ExecQueueCopy.front();
+      std::string NodesInThisLevel = "";
+      for (auto Node : Nodes) {
+        NodesInThisLevel += Node->Msg + " ";
+      }
+      logDebug("Executing nodes: {}", NodesInThisLevel);
+      for (auto Node : Nodes) {
+        logDebug("Executing {}", Node->Msg);
+        Node->execute(Queue);
+        Queue->finish();
+      }
+
+      ExecQueueCopy.pop();
+    }
   }
 }
 
