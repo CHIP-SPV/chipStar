@@ -1299,8 +1299,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffe
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_Basic") # Timeout
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MemcpyAsync") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
