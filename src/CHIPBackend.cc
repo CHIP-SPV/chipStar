@@ -1678,7 +1678,7 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
         MemUnmap(&AllocInfo);
       else
         MemMap(&AllocInfo,
-               CHIPQueue::MEM_MAP_TYPE::HOST_WRITE); // TODO fixOpenCLTests -
+               CHIPQueue::MEM_MAP_TYPE::HOST_READ); // TODO fixOpenCLTests -
                                                      // print ptr
     } else if (AllocInfo.HostPtr &&
                AllocInfo.MemoryType == hipMemoryTypeManaged) {
