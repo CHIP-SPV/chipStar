@@ -60,7 +60,6 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
              PASS_REGULAR_EXPRESSION "${TEST_PASS}"
              LABELS internal)
 
-
 endfunction()
 
 
