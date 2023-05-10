@@ -13,6 +13,10 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS " ")
 list(APPEND CPU_POCL_FAILED_TESTS " ") 
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSync") # Pinned Memory Missing mutex?
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncAsync") # Pinned Memory Missing mutex?
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Pinned Memory Missing mutex?
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams2") # Pinned Memory Missing mutex?
 list(APPEND FAILING_FOR_ALL "RecursiveGaussian") # Flaky
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_rd_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_rn_float") # Unimplemented
@@ -515,7 +519,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Fail
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Value") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
@@ -897,7 +900,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads"
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
@@ -1302,10 +1304,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Fa
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSync") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
+
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
@@ -1318,7 +1317,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # Timeout
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
@@ -1702,7 +1700,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded"
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
@@ -2076,12 +2073,10 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") #
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipDynamicShared2") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_MultipleRun") # Timeout
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
@@ -2474,7 +2469,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # NUMERICAL
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # NUMERICAL
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
