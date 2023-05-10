@@ -626,10 +626,10 @@ protected:
   CHIPEvent() = default;
 
 public:
-#ifndef NDEBUG
+// #ifndef NDEBUG
   // A debug flag for cathing use-after-delete.
   bool Deleted_ = false;
-#endif
+// #endif
   bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) {
     assert(!Deleted_ && "Event use after delete!");
