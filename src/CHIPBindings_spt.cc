@@ -39,7 +39,7 @@
 hipError_t hipMemcpy_spt(void *dst, const void *src, size_t sizeBytes,
                          hipMemcpyKind kind) {
   hipMemcpyAsync(dst, src, sizeBytes, kind, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpyToSymbol_spt(const void *symbol, const void *src,
@@ -47,7 +47,7 @@ hipError_t hipMemcpyToSymbol_spt(const void *symbol, const void *src,
                                  hipMemcpyKind kind) {
   hipMemcpyToSymbolAsync(symbol, src, sizeBytes, offset, kind,
                          hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
@@ -55,7 +55,7 @@ hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
                                    hipMemcpyKind kind) {
   hipMemcpyFromSymbolAsync(dst, symbol, sizeBytes, offset, kind,
                            hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpy2D_spt(void *dst, size_t dpitch, const void *src,
@@ -63,7 +63,7 @@ hipError_t hipMemcpy2D_spt(void *dst, size_t dpitch, const void *src,
                            hipMemcpyKind kind) {
   hipMemcpy2DAsync(dst, dpitch, src, spitch, width, height, kind,
                    hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpy2DToArray_spt(hipArray *dst, size_t wOffset, size_t hOffset,
@@ -71,7 +71,7 @@ hipError_t hipMemcpy2DToArray_spt(hipArray *dst, size_t wOffset, size_t hOffset,
                                   size_t height, hipMemcpyKind kind) {
   hipMemcpy2DToArrayAsync(dst, wOffset, hOffset, src, spitch, width, height,
                           kind, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpy2DFromArray_spt(void *dst, size_t dpitch,
@@ -80,66 +80,66 @@ hipError_t hipMemcpy2DFromArray_spt(void *dst, size_t dpitch,
                                     hipMemcpyKind kind) {
   hipMemcpy2DFromArrayAsync(dst, dpitch, src, wOffset, hOffset, width, height,
                             kind, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms *p) {
   hipMemcpy3DAsync(p, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemset_spt(void *dst, int value, size_t sizeBytes) {
   hipMemsetAsync(dst, value, sizeBytes, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemset2D_spt(void *dst, size_t pitch, int value, size_t width,
                            size_t height) {
   hipMemset2DAsync(dst, pitch, value, width, height, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int value,
                            hipExtent extent) {
   hipMemset3DAsync(pitchedDevPtr, value, extent, hipStreamPerThread);
-  hipStreamSynchronize(hipStreamPerThread);
+  return hipStreamSynchronize(hipStreamPerThread);
 }
 
 hipError_t hipMemcpyAsync_spt(void *dst, const void *src, size_t sizeBytes,
                               hipMemcpyKind kind, hipStream_t stream) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipMemcpyAsync(dst, src, sizeBytes, kind, Queue);
+  return hipMemcpyAsync(dst, src, sizeBytes, kind, Queue);
 }
 
 hipError_t hipStreamQuery_spt(hipStream_t stream) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipStreamQuery(Queue);
+  return hipStreamQuery(Queue);
 }
 
 hipError_t hipStreamSynchronize_spt(hipStream_t stream) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipStreamSynchronize(Queue);
+  return hipStreamSynchronize(Queue);
 }
 
 hipError_t hipStreamGetPriority_spt(hipStream_t stream, int *priority) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipStreamGetPriority(Queue, priority);
+  return hipStreamGetPriority(Queue, priority);
 }
 
 hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event,
                                   unsigned int flags) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipStreamWaitEvent(Queue, event, flags);
+  return hipStreamWaitEvent(Queue, event, flags);
 }
 
 hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
   auto Queue = Stream ? Stream : hipStreamPerThread;
-  hipEventRecord(Event, Queue);
+  return hipEventRecord(Event, Queue);
 }
 
 hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int *flags) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipStreamGetFlags(Queue, flags);
+  return hipStreamGetFlags(Queue, flags);
 }
 
 hipError_t hipLaunchCooperativeKernel_spt(const void *f, dim3 gridDim,
@@ -155,8 +155,8 @@ hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
                                size_t sharedMemBytes, hipStream_t stream) {
   auto Queue = stream ? stream : hipStreamPerThread;
-  hipLaunchKernel(function_address, numBlocks, dimBlocks, args, sharedMemBytes,
-                  Queue);
+  return hipLaunchKernel(function_address, numBlocks, dimBlocks, args,
+                         sharedMemBytes, Queue);
 }
 #ifdef __cplusplus
 }
