@@ -90,7 +90,8 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
           continue;
         CallInst *Call = cast<CallInst>(&I);
         CallsToHandle.insert(Call);
-        if (Call->getCalledFunction()->getName() == "__chipspv_abort")
+        if (Call->getCalledFunction() &&
+            Call->getCalledFunction()->getName() == "__chipspv_abort")
           AbortCallsToHandle.insert(Call);
       }
     }
