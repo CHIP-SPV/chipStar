@@ -119,20 +119,32 @@ public:
   cl::Program *get();
 };
 
+typedef struct {
+  clSharedMemAllocINTEL_fn clSharedMemAllocINTEL;
+  clDeviceMemAllocINTEL_fn clDeviceMemAllocINTEL;
+  clHostMemAllocINTEL_fn clHostMemAllocINTEL;
+  clMemFreeINTEL_fn clMemFreeINTEL;
+} CHIPContextUSMExts;
+
+using const_svm_alloc_iterator = ConstMapKeyIterator<
+    std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
+
 class SVMemoryRegion {
-  enum SVM_ALLOC_GRANULARITY { COARSE_GRAIN, FINE_GRAIN };
   // ContextMutex should be enough
 
   std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> SvmAllocations_;
   cl::Context Context_;
+  cl::Device Device_;
+
+  CHIPContextUSMExts USM;
+  bool UseSVMFineGrain;
+  bool UseIntelUSM;
 
 public:
-  using const_svm_alloc_iterator = ConstMapKeyIterator<
-      std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
-
-  void init(cl::Context &C) { Context_ = C; }
+  void init(cl::Context C, cl::Device D, CHIPContextUSMExts &U, bool FineGrain,
+            bool IntelUSM);
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
-  void *allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity = COARSE_GRAIN);
+  void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType);
   bool free(void *P);
   bool hasPointer(const void *Ptr);
   bool pointerSize(void *Ptr, size_t *Size);
@@ -151,11 +163,16 @@ public:
 };
 
 class CHIPContextOpenCL : public chipstar::Context {
-public:
-  bool allDevicesSupportFineGrainSVM();
+private:
+  cl::Context ClContext;
+  bool SupportsIntelUSM;
+  bool SupportsFineGrainSVM;
+  CHIPContextUSMExts USM;
   SVMemoryRegion SvmMemory;
-  cl::Context *ClContext;
-  CHIPContextOpenCL(cl::Context *ClContext);
+
+public:
+  bool allDevicesSupportFineGrainSVMorUSM();
+  CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {}
   void *allocateImpl(
       size_t Size, size_t Alignment, hipMemoryType MemType,
@@ -164,11 +181,15 @@ public:
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();
+
+  size_t getNumAllocations() const { return SvmMemory.getNumAllocations(); }
+  IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
+    return SvmMemory.getSvmPointers();
+  }
 };
 
 class CHIPDeviceOpenCL : public chipstar::Device {
 private:
-  bool SupportsFineGrainSVM = false;
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
                    int Idx);
 
@@ -180,7 +201,6 @@ public:
   cl::Device *ClDevice;
   cl::Context *ClContext;
   cl::Device *get() { return ClDevice; }
-  bool supportsFineGrainSVM() { return SupportsFineGrainSVM; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
   virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags,
