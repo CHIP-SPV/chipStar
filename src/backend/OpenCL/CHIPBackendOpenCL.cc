@@ -367,17 +367,6 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx, cl::Device DevIn,
     : CHIPDevice(ChipCtx, Idx), ClDevice(DevIn) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
-  cl_device_svm_capabilities DeviceSVMCapabilities;
-  auto Status =
-      DevIn.getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
-  this->SupportsFineGrainSVM =
-      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
-  if (this->SupportsFineGrainSVM) {
-    logTrace("Device supports fine grain SVM");
-  } else {
-    logTrace("Device does not support fine grain SVM");
-  }
 }
 
 CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device ClDevice,
@@ -827,13 +816,8 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
 // CHIPContextOpenCL
 //*************************************************************************
 
-bool CHIPContextOpenCL::allDevicesSupportFineGrainSVM() {
-  bool allFineGrainSVM = true;
-  if (!static_cast<CHIPDeviceOpenCL *>(this->ChipDevice_)
-           ->supportsFineGrainSVM()) {
-    allFineGrainSVM = false;
-  }
-  return allFineGrainSVM;
+bool CHIPContextOpenCL::allDevicesSupportFineGrainSVMorUSM() {
+  return SupportsFineGrainSVM || SupportsIntelUSM;
 }
 
 void CHIPContextOpenCL::freeImpl(void *Ptr) {
@@ -919,8 +903,39 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
   }
 #endif
 
+  SupportsIntelUSM =
+      DevExts.find("cl_intel_unified_shared_memory") != std::string::npos;
+  if (SupportsIntelUSM) {
+    logDebug("Device supports Intel USM");
+    Exts.USM.clSharedMemAllocINTEL =
+        (clSharedMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clSharedMemAllocINTEL");
+    Exts.USM.clDeviceMemAllocINTEL =
+        (clDeviceMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clDeviceMemAllocINTEL");
+    Exts.USM.clHostMemAllocINTEL =
+        (clHostMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clHostMemAllocINTEL");
+    Exts.USM.clMemFreeINTEL =
+        (clMemFreeINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clMemFreeINTEL");
+  } else {
+    logDebug("Device does not support Intel USM");
+  }
+
+  cl_device_svm_capabilities DeviceSVMCapabilities;
+  int Err = Dev.getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  SupportsFineGrainSVM =
+      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
+  if (SupportsFineGrainSVM) {
+    logTrace("Device supports fine grain SVM");
+  } else {
+    logTrace("Device does not support fine grain SVM");
+  }
+
   ClContext = CtxIn;
-  SvmMemory.init(CtxIn);
+  SvmMemory.init(CtxIn, Dev, Exts.USM, SupportsFineGrainSVM, SupportsIntelUSM);
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
@@ -929,7 +944,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
   void *Retval;
   LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
 
-  Retval = SvmMemory.allocate(Size);
+  Retval = SvmMemory.allocate(Size, Alignment, MemType);
   return Retval;
 }
 
@@ -960,9 +975,10 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 
 void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
                              CHIPQueue::MEM_MAP_TYPE Type) {
-  if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
-          ->supportsFineGrainSVM()) {
-    logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
+  CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
+  if (C->allDevicesSupportFineGrainSVMorUSM()) {
+    logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
+    return;
   }
   cl_int Status;
   // TODO why does this code use blocking = true ??
@@ -986,9 +1002,10 @@ void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
 }
 
 void CHIPQueueOpenCL::MemUnmap(const AllocationInfo *AllocInfo) {
-  if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
-          ->supportsFineGrainSVM()) {
-    logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
+  CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
+  if (C->allDevicesSupportFineGrainSVMorUSM()) {
+    logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
+    return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
 

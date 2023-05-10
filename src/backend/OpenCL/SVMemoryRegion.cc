@@ -24,33 +24,70 @@
 
 #define SVM_ALIGNMENT 128
 
+void SVMemoryRegion::init(cl::Context C, cl::Device D, CHIPContextUSMExts U,
+                          bool FineGrain, bool IntelUSM) {
+  Device_ = D;
+  Context_ = C;
+  USM = U;
+  SupportsFineGrain = FineGrain;
+  SupportsIntelUSM = IntelUSM;
+}
+
 SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
   SvmAllocations_ = std::move(Rhs.SvmAllocations_);
   Context_ = std::move(Rhs.Context_);
+  Device_ = std::move(Rhs.Device_);
+  USM = std::move(Rhs.USM);
+  SupportsFineGrain = Rhs.SupportsFineGrain;
+  SupportsIntelUSM = Rhs.SupportsIntelUSM;
   return *this;
 }
 
-void *SVMemoryRegion::allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity) {
+void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
+                               hipMemoryType MemType) {
   // 0 passed for the alignment will use the default alignment which is equal to
   // the largest data type supported.
   void *Ptr;
-  if (Granularity == COARSE_GRAIN) {
-    Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, 0);
-  } else {
+  int Err;
+  if (SupportsIntelUSM) {
+    switch (MemType) {
+    case hipMemoryTypeHost:
+      Ptr = USM.clHostMemAllocINTEL(Context_(), NULL, Size, Alignment, &Err);
+      break;
+    case hipMemoryTypeDevice:
+      Ptr = USM.clDeviceMemAllocINTEL(Context_(), Device_(), NULL, Size,
+                                      Alignment, &Err);
+      break;
+    case hipMemoryTypeManaged:
+    case hipMemoryTypeUnified:
+    default:
+      Ptr = USM.clSharedMemAllocINTEL(Context_(), Device_(), NULL, Size,
+                                      Alignment, &Err);
+      break;
+    }
+  } else if (SupportsFineGrain) {
     Ptr = ::clSVMAlloc(
         Context_(), CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER, Size, 0);
+  } else {
+    Ptr = ::clSVMAlloc(Context_(), CL_MEM_READ_WRITE, Size, 0);
   }
+
   if (Ptr) {
-    auto Deleter = [Ctx = this->Context_](void *PtrToFree) -> void {
+    auto Deleter = [Ctx = this->Context_, SupportsUSM = this->SupportsIntelUSM,
+                    clMemFreeINTEL =
+                        this->USM.clMemFreeINTEL](void *PtrToFree) -> void {
       logTrace("clSVMFree on: {}\n", PtrToFree);
-      clSVMFree(Ctx(), PtrToFree);
+      if (SupportsUSM)
+        clMemFreeINTEL(Ctx(), PtrToFree);
+      else
+        clSVMFree(Ctx(), PtrToFree);
     };
     auto SPtr = std::shared_ptr<void>(Ptr, Deleter);
+    logTrace("Memory allocated: {} / {}\n", Ptr, Size);
     SvmAllocations_.emplace(SPtr, Size);
   } else
     CHIPERR_LOG_AND_THROW("clSVMAlloc failed", hipErrorMemoryAllocation);
 
-  logTrace("clSVMAlloc allocated: {} / {}\n", Ptr, Size);
   return Ptr;
 }
 

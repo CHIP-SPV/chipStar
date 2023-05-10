@@ -122,20 +122,32 @@ public:
   virtual void compile(CHIPDevice *ChipDevice) override;
 };
 
+typedef struct {
+  clSharedMemAllocINTEL_fn clSharedMemAllocINTEL;
+  clDeviceMemAllocINTEL_fn clDeviceMemAllocINTEL;
+  clHostMemAllocINTEL_fn clHostMemAllocINTEL;
+  clMemFreeINTEL_fn clMemFreeINTEL;
+} CHIPContextUSMExts;
+
 class SVMemoryRegion {
-  enum SVM_ALLOC_GRANULARITY { COARSE_GRAIN, FINE_GRAIN };
   // ContextMutex should be enough
 
   std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> SvmAllocations_;
   cl::Context Context_;
+  cl::Device Device_;
+
+  CHIPContextUSMExts USM;
+  bool SupportsFineGrain;
+  bool SupportsIntelUSM;
 
 public:
   using const_svm_alloc_iterator = ConstMapKeyIterator<
       std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
 
-  void init(cl::Context C) { Context_ = C; }
+  void init(cl::Context C, cl::Device D, CHIPContextUSMExts U, bool FineGrain,
+            bool IntelUSM);
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
-  void *allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity = COARSE_GRAIN);
+  void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType);
   bool free(void *P);
   bool hasPointer(const void *Ptr);
   bool pointerSize(void *Ptr, size_t *Size);
@@ -175,6 +187,8 @@ typedef struct {
   clCommandSignalEventPOCL_fn clCommandSignalEventPOCL;
 #endif
 
+  CHIPContextUSMExts USM;
+
 } CHIPContextClExts;
 
 class CHIPContextOpenCL : public CHIPContext {
@@ -183,11 +197,13 @@ private:
   bool SupportsCommandBuffers;
   bool SupportsCommandBuffersSVM;
   bool SupportsCommandBuffersHost;
+  bool SupportsIntelUSM;
+  bool SupportsFineGrainSVM;
   CHIPContextClExts Exts;
   SVMemoryRegion SvmMemory;
 
 public:
-  bool allDevicesSupportFineGrainSVM();
+  bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context ClContext, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {}
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
@@ -205,7 +221,6 @@ public:
 
 class CHIPDeviceOpenCL : public CHIPDevice {
 private:
-  bool SupportsFineGrainSVM = false;
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device ClDevice,
                    int Idx);
   cl::Device ClDevice;
@@ -214,7 +229,6 @@ public:
   static CHIPDeviceOpenCL *create(cl::Device ClDevice,
                                   CHIPContextOpenCL *ChipContext, int Idx);
   cl::Device &get() { return ClDevice; }
-  bool supportsFineGrainSVM() { return SupportsFineGrainSVM; }
   virtual void populateDevicePropertiesImpl() override;
   // unused
   virtual void resetImpl() override{};
