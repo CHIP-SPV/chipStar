@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,12 +20,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef HIP_H
 #define HIP_H
 
 #include <stddef.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include <hip/driver_types.h>
 #include <hip/spirv_hip_host_defines.h>
@@ -142,15 +142,35 @@ extern const __device__ __attribute__((weak)) __hip_builtin_gridDim_t gridDim;
 #define hipGridDim_y gridDim.y
 #define hipGridDim_z gridDim.z
 
-#endif // defined(__clang__) && defined(__HIP__)
-
-/* FIXME: Is this the best place for these declarations? */
-
-#ifdef __cplusplus
 extern "C" __device__ int printf(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
 extern "C" __device__ void abort();
-#endif
+
+// The assert part mimiced from amd_device_functions.h of amdhip.
+// We assume assert.h defines assert such that it calls __assert_fail
+// when it fails.
+
+extern "C" {
+#if defined(_WIN32) || defined(_WIN64)
+__device__ __attribute__((noinline)) __attribute__((weak)) void
+_wassert(const wchar_t *_msg, const wchar_t *_file, unsigned _line)
+    __attribute__((
+        warning("device side assert is not supported on Windows yet"))) {
+  // FIXME: Need `wchar_t` support to generate assertion message.
+  abort();
+}
+#else  // defined(_WIN32) || defined(_WIN64)
+__device__ __attribute__((noinline)) __attribute__((weak)) void
+__assert_fail(const char *assertion, const char *file, unsigned int line,
+              const char *function) {
+  printf("%s:%u: %s: Device-side assertion `%s' failed.\n", file, line,
+         function, assertion);
+  abort();
+}
+#endif // defined(_WIN32) || defined(_WIN64)
+} // extern "C"
+#endif // defined(__clang__) && defined(__HIP__)
+
 /*************************************************************************************************/
 
 typedef enum {
