@@ -1544,10 +1544,10 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
+          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
+          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
@@ -1577,10 +1577,10 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
+          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ);
+          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopyAsync";
     updateLastEvent(ChipEvent);
@@ -1699,8 +1699,7 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
         MemUnmap(&AllocInfo);
       else
         MemMap(&AllocInfo,
-               CHIPQueue::MEM_MAP_TYPE::HOST_READ); // TODO fixOpenCLTests -
-                                                     // print ptr
+               CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE); 
     } else if (AllocInfo.HostPtr &&
                AllocInfo.MemoryType == hipMemoryTypeManaged) {
       void *Src = PreKernel ? AllocInfo.HostPtr : AllocInfo.DevPtr;
