@@ -2019,6 +2019,7 @@ public:
   enum MEM_MAP_TYPE {
     HOST_READ,
     HOST_WRITE,
+    HOST_READ_WRITE
   };
   virtual void MemMap(const AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
   virtual void MemUnmap(const AllocationInfo *AllocInfo) {}
