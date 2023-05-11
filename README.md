@@ -15,10 +15,12 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 
 * Cmake >= 3.16.0
 * Clang 14, 15 or 16
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'. *NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`.
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'. *NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`. 
+  * Some functionalities currently require patches that are not yet upstreamed to LLVM. They are on top of the branch [here](https://github.com/CHIP-SPV/llvm-project/tree/chipspv-llvm-15-patches).
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)
-  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
+  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
+  * For best results, install [CHIP-SPV's LLVM 15 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-15-patches) or [CHIP-SPV's LLVM 16 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which have fixes that are not yet in upstream.
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
@@ -30,8 +32,8 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 ## Downloading Sources
 
 ```bash
-git clone https://github.com/CHIP-SPV/hipstar.git
-cd hipstar
+git clone https://github.com/CHIP-SPV/chip-spv.git
+cd chip-spv
 git submodule update --init --recursive
 ```
 
