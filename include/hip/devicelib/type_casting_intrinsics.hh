@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef HIP_INCLUDE_DEVICELIB_TYPE_CASTING_INTRINSICS_H
 #define HIP_INCLUDE_DEVICELIB_TYPE_CASTING_INTRINSICS_H
 
@@ -71,14 +70,14 @@ extern "C++" inline __device__ unsigned long long int __float2ull_rn(float x);
 extern "C++" inline __device__ unsigned long long int __float2ull_ru(float x);
 extern "C++" inline __device__ unsigned long long int __float2ull_rz(float x);
 
-extern "C" inline __device__ int __chip_float_as_int(float x);
+extern "C" __device__ int __chip_float_as_int(float x);
 extern "C++" inline __device__ int __float_as_int(float x) {
-    return __chip_float_as_int(x);
+  return __chip_float_as_int(x);
 }
 
-extern "C" inline __device__ uint __chip_float_as_uint(float x);
+extern "C" __device__ uint __chip_float_as_uint(float x);
 extern "C++" inline __device__ unsigned int __float_as_uint(float x) {
-    return __chip_float_as_uint(x);
+  return __chip_float_as_uint(x);
 }
 
 extern "C++" inline __device__ double __hiloint2double(int hi, int lo);
@@ -88,9 +87,9 @@ extern "C++" inline __device__ float __int2float_rn(int x);
 extern "C++" inline __device__ float __int2float_ru(int x);
 extern "C++" inline __device__ float __int2float_rz(int x);
 
-extern "C" inline __deivce__ float __chip_int_as_float(int x);
+extern "C" __device__ float __chip_int_as_float(int x);
 extern "C++" inline __device__ float __int_as_float(int x) {
-    return __chip_int_as_float(x);
+  return __chip_int_as_float(x);
 }
 
 extern "C++" inline __device__ double __ll2double_rd(long long int x);
@@ -113,9 +112,9 @@ extern "C++" inline __device__ float __uint2float_rn(unsigned int x);
 extern "C++" inline __device__ float __uint2float_ru(unsigned int x);
 extern "C++" inline __device__ float __uint2float_rz(unsigned int x);
 
-extern "C" inline __device__ float __chip_uint_as_float(uint x);
+extern "C" __device__ float __chip_uint_as_float(uint x);
 extern "C++" inline __device__ float __uint_as_float(unsigned int x) {
-    return __chip_uint_as_float(x);
+  return __chip_uint_as_float(x);
 }
 
 extern "C++" inline __device__ double __ull2double_rd(unsigned long long int x);
