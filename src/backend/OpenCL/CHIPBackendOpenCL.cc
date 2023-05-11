@@ -942,7 +942,7 @@ void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
   } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
     Status =
-        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
+        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
                         AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
   } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
