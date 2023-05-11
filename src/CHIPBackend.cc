@@ -1569,17 +1569,17 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
     auto AllocInfoSrc =
         Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Src);
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoDst);
+      this->MemUnmap(AllocInfoDst);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
+      this->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+      this->MemMap(
           AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+      this->MemMap(
           AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopyAsync";
