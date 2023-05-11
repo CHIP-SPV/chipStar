@@ -967,7 +967,9 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
     return;
   Cbo->Callback(Cbo->Stream, Cbo->Status, Cbo->UserData);
   if (Cbo->CallbackFinishEvent != nullptr) {
-    static_cast<cl::UserEvent &>(Cbo->CallbackFinishEvent->get()).setStatus(CL_COMPLETE);
+    logTrace("Cbo->CallbackFinishEvent: {}", (void *)Cbo->CallbackFinishEvent);
+    cl_event Ev = Cbo->CallbackFinishEvent->get().get();
+    clSetUserEventStatus(Ev, CL_COMPLETE);
     Cbo->CallbackFinishEvent->decreaseRefCount("Notified finished.");
   }
   delete Cbo;
@@ -1016,7 +1018,6 @@ void CHIPQueueOpenCL::MemUnmap(const AllocationInfo *AllocInfo) {
 
 void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
-  logTrace("CHIPQueueOpenCL::addCallback()");
 
   cl::Context &ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
   cl_int Err;
@@ -1025,7 +1026,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
   cl::UserEvent HoldBackClEvent(ClContext_, &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  HoldBackEvent->reset(HoldBackClEvent());
+  HoldBackEvent->reset(std::move(HoldBackClEvent));
 
   std::vector<CHIPEvent *> WaitForEvents{HoldBackEvent};
   auto LastEvent = getLastEvent();
@@ -1046,7 +1047,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
   cl::UserEvent CallbackClEvent(ClContext_, &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  CallbackEvent->reset(CallbackClEvent());
+  CallbackEvent->reset(std::move(CallbackClEvent));
 
   // Make the succeeding commands wait for the user event which will be
   // set CL_COMPLETE by the callback trampoline function pfn_notify after
@@ -1067,7 +1068,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   ClQueue.flush();
 
   // Now the CB can start executing in the background:
-  HoldBackClEvent.setStatus(CL_COMPLETE);
+  HoldBackEvent->getAsUserEv().setStatus(CL_COMPLETE);
 
   return;
 };

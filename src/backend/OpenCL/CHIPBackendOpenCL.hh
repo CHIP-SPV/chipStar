@@ -104,8 +104,23 @@ public:
 
   virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
   cl::Event &get() { return ClEvent; }
-  void reset(cl::Event &&Ev) { ClEvent = Ev; }
-  void reset(cl_event Ev) { ClEvent = Ev; }
+  cl::UserEvent &getAsUserEv() { return static_cast<cl::UserEvent &>(ClEvent); }
+  void reset(cl::UserEvent &&Ev) {
+    ClEvent = Ev;
+    logTrace("UserEvent {} Moved into {} || NOW: {}", (void *)Ev.get(),
+             (void *)this, (void *)ClEvent.get());
+  }
+
+  void reset(cl::Event &&Ev) {
+    ClEvent = Ev;
+    logTrace("Event {} Moved into {} || NOW: {}", (void *)Ev.get(),
+             (void *)this, (void *)ClEvent.get());
+  }
+  void reset(cl_event Ev) {
+    ClEvent = Ev;
+    logTrace("Event {} Moved into {} ||| NOW: {}", (void *)Ev, (void *)this,
+             (void *)ClEvent.get());
+  }
 
   // for elapsedTime
   uint64_t getFinishTime();
