@@ -1576,11 +1576,9 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      this->MemMap(
-          AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
+      this->MemMap(AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      this->MemMap(
-          AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
+      this->MemMap(AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopyAsync";
     updateLastEvent(ChipEvent);
@@ -1698,8 +1696,7 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
       if (PreKernel)
         MemUnmap(&AllocInfo);
       else
-        MemMap(&AllocInfo,
-               CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE); 
+        MemMap(&AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
     } else if (AllocInfo.HostPtr &&
                AllocInfo.MemoryType == hipMemoryTypeManaged) {
       void *Src = PreKernel ? AllocInfo.HostPtr : AllocInfo.DevPtr;
