@@ -56,15 +56,12 @@ list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___float2ull_rd_ulo
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___float2ull_rn_ulonglong") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___float2ull_ru_ulonglong") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___float2ull_rz_ulonglong") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___float_as_int_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___float_as_uint_unsigned") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___hiloint2double_double") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___int2double_rn_double") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___int2float_rd_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___int2float_rn_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___int2float_ru_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___int2float_rz_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___int_as_float_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ll2double_rd_double") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ll2double_rn_double") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ll2double_ru_double") # Unimplemented
@@ -78,7 +75,6 @@ list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___uint2float_rd_fl
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___uint2float_rn_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___uint2float_ru_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___uint2float_rz_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___uint_as_float_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2double_rd_double") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2double_rn_double") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2double_ru_double") # Unimplemented
