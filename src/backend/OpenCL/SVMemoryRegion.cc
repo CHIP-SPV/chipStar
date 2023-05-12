@@ -51,6 +51,10 @@ void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
   int Err;
   if (SupportsIntelUSM) {
     switch (MemType) {
+
+    // TODO: investigate. Uncommenting this code makes
+    // a bunch of Unit_hipTexture tests fail with segfault.
+    /*
     case hipMemoryTypeHost:
       Ptr = USM.clHostMemAllocINTEL(Context_(), NULL, Size, Alignment, &Err);
       break;
@@ -60,6 +64,7 @@ void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
       break;
     case hipMemoryTypeManaged:
     case hipMemoryTypeUnified:
+    */
     default:
       Ptr = USM.clSharedMemAllocINTEL(Context_(), Device_(), NULL, Size,
                                       Alignment, &Err);
