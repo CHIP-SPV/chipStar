@@ -42,4 +42,6 @@
 // Non-zero integer if the chipStar is built in debug mode.
 #cmakedefine CHIP_DEBUG_BUILD @CHIP_DEBUG_BUILD@
 
+#cmakedefine CHIP_USE_INTEL_USM
+
 #endif
