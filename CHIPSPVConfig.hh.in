@@ -47,4 +47,6 @@
 
 #cmakedefine CHIP_DEFAULT_WARP_SIZE @DEFAULT_WARP_SIZE@
 
+#cmakedefine INTEL_USM_SUPPORT
+
 #endif

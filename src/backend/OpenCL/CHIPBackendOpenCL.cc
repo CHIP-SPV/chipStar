@@ -903,8 +903,12 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
   }
 #endif
 
+#ifdef INTEL_USM_SUPPORT
   SupportsIntelUSM =
       DevExts.find("cl_intel_unified_shared_memory") != std::string::npos;
+#else
+  SupportsIntelUSM = false;
+#endif
   if (SupportsIntelUSM) {
     logDebug("Device supports Intel USM");
     Exts.USM.clSharedMemAllocINTEL =
