@@ -28,7 +28,7 @@ jobs:
           - name: Compile llvm-15 debug
             run: ./scripts/compile.sh debug llvm-15
             shell: bash
-      unit-tests-llvm-15-debug-pocl-cpu:
+    unit-tests-llvm-15-debug-pocl-cpu:
         needs: build-llvm-15-debug
         runs-on: dgpu
         steps:

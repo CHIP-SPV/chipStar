@@ -1,6 +1,18 @@
 #!/bin/bash
 
-# Check if at least one argument is provided
+function check_tests {
+  file="$1"
+  if grep -q "0 tests failed out of" "$file"; then
+    echo "PASS"
+    return 0
+  else
+    echo "FAIL"
+    grep -E "The following tests FAILED:" -A 1000 "$file" | sed '/^$/q' | tail -n +2
+    return 1
+  fi
+}
+
+# Check num args
 if [ "$#" -lt 1 ]; then
     echo "Usage: $0 <debug|release> <llvm-15|llvm-16> ..."
     exit 1
@@ -60,6 +72,7 @@ export OverrideDefaultFP64Settings=1
 # echo "build complete." 
 # module unload opencl/pocl-cpu-$LLVM
 
+
 # Test PoCL CPU
 arg=$3
 
@@ -72,6 +85,7 @@ case $arg in
         ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
         module unload opencl/pocl-cpu-$LLVM
         echo "end cpu_pocl_failed_tests"
+
         ;;
     "opencl-igpu")
         # Test OpenCL iGPU
@@ -124,21 +138,14 @@ case $arg in
         ;;
 esac
 
-function check_tests {
-  file="$1"
-  if grep -q "0 tests failed out of" "$file"; then
-    echo "PASS"
-    return 0
-  else
-    echo "FAIL"
-    grep -E "The following tests FAILED:" -A 1000 "$file" | sed '/^$/q' | tail -n +2
-    return 1
-  fi
-}
+check_tests "${test_result}"
+test_status=$?
+exit $test_status
+
 
 overall_status=0
 
-echo "RESULTS:"
+# echo "RESULTS:"
 # for test_result in igpu_opencl_make_check_result.txt \
 #                    dgpu_opencl_make_check_result.txt \
 #                    cpu_opencl_make_check_result.txt \
