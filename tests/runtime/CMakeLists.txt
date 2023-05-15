@@ -64,4 +64,5 @@ add_hip_runtime_test(TestHIPMathFunctions.hip)
 add_hip_runtime_test(TestAtomics.hip)
 add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)
 
+add_shell_test(TestAssert.bash)
 add_shell_test(TestAssertFail.bash)
