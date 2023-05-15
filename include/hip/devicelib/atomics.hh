@@ -28,20 +28,31 @@
 // Copied from HIP programming guide:
 // https://docs.amd.com/bundle/HIP-Programming-Guide-v5.0/page/Programming_with_HIP.html
 // Slightly modified to group operations
-extern "C" __device__ int __chip_atomic_add_i(int* address, int val);
-extern "C++" inline __device__ int atomicAdd(int* address, int val) {
+extern "C" __device__ int __chip_atomic_add_i(int *address, int val);
+extern "C++" inline __device__ int atomicAdd(int *address, int val) {
   return __chip_atomic_add_i(address, val);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_add_u(unsigned int* address,unsigned int val);
-extern "C++" inline __device__ unsigned int atomicAdd(unsigned int* address,unsigned int val) {
+extern "C" __device__ unsigned int __chip_atomic_add_u(unsigned int *address,
+                                                       unsigned int val);
+extern "C++" inline __device__ unsigned int atomicAdd(unsigned int *address,
+                                                      unsigned int val) {
   return __chip_atomic_add_u(address, val);
 }
 
-extern "C" __device__ unsigned long long __chip_atomic_add_l(unsigned long long* address,unsigned long long val);
-extern "C++" inline __device__ unsigned long long atomicAdd(unsigned long long* address,unsigned long long val) {
+extern "C" __device__ unsigned long __chip_atomic_add_l(unsigned long *address,
+                                                        unsigned long val);
+
+#ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+// At least rocPRIM tests call the unsigned long variant although it's not
+// listed in the user manual. Annoyingly, size_t is typically defined as
+// unsigned long.
+// FIXME: We should check that unsigned long is 64bits for the host.
+extern "C++" inline __device__ unsigned long atomicAdd(unsigned long *address,
+                                                       unsigned long val) {
   return __chip_atomic_add_l(address, val);
 }
+#endif
 
 extern "C" __device__ float __chip_atomic_add_f32(float* address, float val);
 extern "C++" inline __device__ float atomicAdd(float* address, float val) {
