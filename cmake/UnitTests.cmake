@@ -13,6 +13,10 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS " ")
 list(APPEND CPU_POCL_FAILED_TESTS " ") 
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 
+# This test gets enabled only if LLVM' FileCheck tool is found in PATH.
+# It fails with "error: cannot find ROCm device library;
+#  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
+#  '-nogpulib' to build without ROCm device library"
 list(APPEND FAILING_FOR_ALL "constant_fold_lgamma_r") # Unknown
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSync") # Pinned Memory Missing mutex?
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncAsync") # Pinned Memory Missing mutex?
