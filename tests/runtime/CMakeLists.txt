@@ -36,6 +36,9 @@ function(add_hip_runtime_test MAIN_SOURCE)
     PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
 
   add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+
+  set_tests_properties("${EXEC_NAME}" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "SKIP")
 endfunction()
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
@@ -50,3 +53,4 @@ add_hip_runtime_test(TestStlFunctions.hip)
 add_hip_runtime_test(TestStlFunctionsDouble.hip)
 add_hip_runtime_test(TestHIPMathFunctions.hip)
 add_hip_runtime_test(TestAtomics.hip)
+add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)

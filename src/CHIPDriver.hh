@@ -37,6 +37,8 @@
 #include <iostream>
 #include <mutex>
 
+#include "Utils.hh"
+
 // Forward Declares
 class CHIPExecItem;
 class CHIPDevice;
@@ -96,7 +98,6 @@ void CHIPUninitializeCallOnce();
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles);
 
-std::string read_env_var(std::string EnvVar, bool Lower);
 
 const char *CHIPGetBackendName();
 #endif

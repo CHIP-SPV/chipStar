@@ -1,11 +1,42 @@
 #!/bin/bash
-source /opt/intel/oneapi/setvars.sh intel64
+
+# Check if at least one argument is provided
+if [ "$#" -lt 1 ]; then
+    echo "Usage: $0 <debug|release> <llvm-15|llvm-16> ..."
+    exit 1
+fi
+
+# Check if the first argument is either "debug" or "release"
+if [ "$1" != "debug" ] && [ "$1" != "release" ]; then
+    echo "Error: Invalid argument. Must be either 'debug' or 'release'."
+    exit 1
+fi
+
+# Set the build type based on the argument
+build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+
+if [ "$2" == "llvm-15" ]; then
+    LLVM=llvm-15
+    CLANG=clang/clang15-spirv-omp
+elif [ "$2" == "llvm-16" ]; then
+    LLVM=llvm-16
+    CLANG=clang/clang16-spirv-omp
+else
+  echo "$2"
+  echo "Invalid 2nd argument. Use either 'llvm-15' or 'llvm-16'."
+  exit 1
+fi
+
+source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 
-ulimit -a
+# icpx --version
+# ulimit -a
+sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 
 rm -rf HIPCC
 rm -rf HIP
@@ -14,143 +45,101 @@ rm -rf hip-tests
 rm -rf hip-testsuite
 
 git submodule update --init
+rm -rf build
+rm -rf *_result.txt
 mkdir build
 cd build
 
-# TODO check Release as well 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-cmake ../ -DLLVM_CONFIG=/usr/bin/llvm-config-15
+module load $CLANG
+module load opencl/pocl-cpu-$LLVM
 
-module load mkl
-# Load ocl-icd and intel-gpu
-module load opencl/intel-gpu
-
-# Ensure that only igpu is active for build/test discovery and OpenCL is used
-sudo /opt/ocl-icd/scripts/dgpu_unbind 
-sudo /opt/ocl-icd/scripts/igpu_unbind 
-sudo /opt/ocl-icd/scripts/igpu_bind 
-export CHIP_BE=opencl
-
-# Build 
-make -j
-make build_tests -j
-sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+echo "building with $CLANG"
+cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
+make all build_tests -j &> /dev/null
+echo "build complete." 
+module unload opencl/pocl-cpu-$LLVM
 
 # Test PoCL CPU
 echo "begin cpu_pocl_failed_tests"
-module swap opencl opencl/pocl-cpu
-clinfo -l
-CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+module load opencl/pocl-cpu-$LLVM
+module list
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+module unload opencl/pocl-cpu-$LLVM
 echo "end cpu_pocl_failed_tests"
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
-sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
-clinfo -l
-echo "Testing hip_sycl_interop"
-CHIP_BE=level0 ./samples/hip_sycl_interop/hip_sycl_interop
-CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
-sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+module load levelzero/igpu
+module list
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+module unload levelzero/igpu
 echo "end igpu_level0_failed_tests"
 
 # Test Level Zero dGPU
 echo "begin dgpu_level0_failed_tests"
-sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
-clinfo -l
-echo "Testing hip_sycl_interop"
-CHIP_BE=level0 ./samples/hip_sycl_interop/hip_sycl_interop
-CHIP_BE=level0 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
-sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+module load levelzero/dgpu
+module list
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+module unload levelzero/dgpu
 echo "end dgpu_level0_failed_tests"
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
-module swap opencl opencl/intel-gpu
-sudo /opt/ocl-icd/scripts/igpu_bind &> /dev/null
-clinfo -l
-CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
-sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
+module load opencl/intel-igpu
+module list
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+module unload opencl/intel-igpu
 echo "end igpu_opencl_failed_tests"
 
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_failed_tests"
-sudo /opt/ocl-icd/scripts/dgpu_bind &> /dev/null
-clinfo -l
-CHIP_BE=opencl ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
-sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+module load opencl/intel-dgpu
+module list
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+module unload opencl/intel-dgpu
 echo "end dgpu_opencl_failed_tests"
 
 # Test OpenCL CPU
 echo "begin cpu_opencl_failed_tests"
-module swap opencl opencl/intel-cpu
-clinfo -l
-CHIP_BE=opencl CHIP_DEVICE_TYPE=cpu ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+module load opencl/intel-cpu
+module list
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+module unload opencl/intel-cpu
 echo "end cpu_opencl_failed_tests"
 
-if [[ `cat igpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
-then
-    echo "iGPU OpenCL PASS"
-    iGPU_OpenCL=1
-else
-    echo "iGPU OpenCL FAIL"
-    iGPU_OpenCL=0
-fi
+function check_tests {
+  file="$1"
+  if grep -q "0 tests failed out of" "$file"; then
+    echo "PASS"
+    return 0
+  else
+    echo "FAIL"
+    grep -E "The following tests FAILED:" -A 1000 "$file" | sed '/^$/q' | tail -n +2
+    return 1
+  fi
+}
 
-if [[ `cat dgpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
-then
-    echo "dGPU OpenCL PASS"
-    dGPU_OpenCL=1
-else
-    echo "dGPU OpenCL FAIL"
-    dGPU_OpenCL=0
-fi
+overall_status=0
 
-if [[ `cat cpu_opencl_make_check_result.txt | grep "0 tests failed out of"` ]]
-then
-    echo "CPU OpenCL PASS"
-    CPU_OpenCL=1
-else
-    echo "CPU OpenCL FAIL"
-    CPU_OpenCL=0
-fi
+echo "RESULTS:"
+for test_result in igpu_opencl_make_check_result.txt \
+                   dgpu_opencl_make_check_result.txt \
+                   cpu_opencl_make_check_result.txt \
+                   igpu_level0_make_check_result.txt \
+                   dgpu_level0_make_check_result.txt \
+                   cpu_pocl_make_check_result.txt
+do
+  echo -n "${test_result}: "
+  check_tests "${test_result}"
+  test_status=$?
+  if [ $test_status -eq 1 ]; then
+    overall_status=1
+  fi
+done
 
-if [[ `cat igpu_level0_make_check_result.txt | grep "0 tests failed out of"` ]]
-then
-    echo "iGPU OpenCL PASS"
-    iGPU_LevelZero=1
+if [ $overall_status -eq 0 ]; then
+  exit 0
 else
-    echo "iGPU OpenCL FAIL"
-    iGPU_LevelZero=0
-fi
-
-if [[ `cat dgpu_level0_make_check_result.txt | grep "0 tests failed out of"` ]]
-then
-    echo "dGPU Level zero PASS"
-    dGPU_LevelZero=1
-else
-    echo "dGPU Level Zero FAIL"
-    dGPU_LevelZero=0
-fi
-
-if [[ `cat cpu_pocl_make_check_result.txt | grep "0 tests failed out of"` ]]
-then
-    echo "PoCL OpenCL PASS"
-    CPU_PoCL=1
-else
-    echo "PoCL OpenCL FAIL"
-    CPU_PoCL=0
-fi
-
-if [[ "$iGPU_OpenCL" -eq "1" && \
-      "$dGPU_OpenCL" -eq "1" && \
-      "$CPU_PoCL" -eq "1" && \
-      "$CPU_OpenCL" -eq "1" && \
-      "$iGPU_LevelZero" -eq "1" && \
-      "$dGPU_LevelZero" -eq "1" ]]
-then
-    echo "ALL PASS"
-    exit 0
-else
-    echo "ALL FAIL"
-    exit 1
+  exit 1
 fi

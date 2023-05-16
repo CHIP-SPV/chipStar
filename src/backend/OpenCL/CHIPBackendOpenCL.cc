@@ -214,10 +214,55 @@ static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
 
-static void CL_CALLBACK releaseSpillBufferCallback(cl_event Event,
-                                                   cl_int CommandExecStatus,
-                                                   void *UserData) {
-  delete reinterpret_cast<std::shared_ptr<CHIPArgSpillBuffer> *>(UserData);
+/// Annotate SVM pointers to the OpenCL driver via clSetKernelExecInfo
+///
+/// This is needed for HIP applications which pass allocations
+/// indirectly to kernels (e.g. within an aggregate kernel argument or
+/// within another allocation). Without the annotation the allocations
+/// may not be properly synchronized.
+///
+/// Returns the list of annotated pointers.
+static std::unique_ptr<std::vector<std::shared_ptr<void>>>
+annotateSvmPointers(const CHIPContextOpenCL &Ctx, cl_kernel KernelAPIHandle) {
+  // By default we pass every allocated SVM pointer at this point to
+  // the clSetKernelExecInfo() since any of them could be potentially
+  // be accessed indirectly by the kernel.
+  //
+  // TODO: Optimization. Don't call clSetKernelExecInfo() if the
+  //       kernel is known not to access any buffer indirectly
+  //       discovered through kernel code inspection.
+  std::vector<void *> SvmAnnotationList;
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
+  LOCK(Ctx.ContextMtx); // CHIPContextOpenCL::SvmMemory
+  auto NumSvmAllocations = Ctx.SvmMemory.getNumAllocations();
+  if (NumSvmAllocations) {
+    SvmAnnotationList.reserve(NumSvmAllocations);
+    SvmKeepAlives.reset(new std::vector<std::shared_ptr<void>>());
+    SvmKeepAlives->reserve(NumSvmAllocations);
+    for (std::shared_ptr<void> Ptr : Ctx.SvmMemory.getSvmPointers()) {
+      SvmAnnotationList.push_back(Ptr.get());
+      SvmKeepAlives->push_back(Ptr);
+    }
+
+    // TODO: Optimization. Don't call this function again if we know the
+    //       SvmAnnotationList hasn't changed since the last call.
+    auto Status = clSetKernelExecInfo(
+        KernelAPIHandle, CL_KERNEL_EXEC_INFO_SVM_PTRS,
+        SvmAnnotationList.size() * sizeof(void *), SvmAnnotationList.data());
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  }
+
+  return SvmKeepAlives;
+}
+
+struct KernelEventCallbackData {
+  std::shared_ptr<CHIPArgSpillBuffer> ArgSpillBuffer;
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
+};
+static void CL_CALLBACK kernelEventCallback(cl_event Event,
+                                            cl_int CommandExecStatus,
+                                            void *UserData) {
+  delete static_cast<KernelEventCallbackData *>(UserData);
 }
 
 // CHIPCallbackDataLevel0
@@ -403,7 +448,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.major = 2;
   HipDeviceProps_.minor = 0;
 
-  HipDeviceProps_.maxThreadsPerMultiProcessor = 10;
+  HipDeviceProps_.maxThreadsPerMultiProcessor = HipDeviceProps_.maxGridSize[0];
 
   HipDeviceProps_.computeMode = 0;
   HipDeviceProps_.arch = {};
@@ -432,6 +477,8 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   else
     HipDeviceProps_.arch.hasDoubles = 0;
 
+  // TODO: OpenCL lacks queries for these. Generate best guesses which are
+  // unlikely breaking the program logic.
   HipDeviceProps_.clockInstructionRate = 2465;
   HipDeviceProps_.concurrentKernels = 1;
   HipDeviceProps_.pciDomainID = 0;
@@ -441,7 +488,31 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.canMapHostMemory = 1;
   HipDeviceProps_.gcnArch = 0;
   HipDeviceProps_.integrated = 0;
-  HipDeviceProps_.maxSharedMemoryPerMultiProcessor = 0;
+  HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
+      HipDeviceProps_.sharedMemPerBlock * 16;
+  HipDeviceProps_.cooperativeLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceLaunch = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedFunc = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedGridDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedBlockDim = 0;
+  HipDeviceProps_.cooperativeMultiDeviceUnmatchedSharedMem = 0;
+  HipDeviceProps_.memPitch = 1;
+  HipDeviceProps_.textureAlignment = 1;
+  HipDeviceProps_.texturePitchAlignment = 1;
+  HipDeviceProps_.kernelExecTimeoutEnabled = 0;
+  HipDeviceProps_.ECCEnabled = 0;
+  HipDeviceProps_.asicRevision = 1;
+
+  // OpenCL 3.0 devices support basic CUDA managed memory via coarse-grain SVM,
+  // but some of the functions such as prefetch and advice are unimplemented
+  // in CHIP-SPV.
+  HipDeviceProps_.managedMemory = 0;
+  // TODO: Populate these from SVM/USM properties. Advertise the safe
+  // defaults for now. Uninitialized properties cause undeterminism.
+  HipDeviceProps_.directManagedMemAccessFromHost = 0;
+  HipDeviceProps_.concurrentManagedAccess = 0;
+  HipDeviceProps_.pageableMemoryAccess = 0;
+  HipDeviceProps_.pageableMemoryAccessUsesHostPageTables = 0;
 
   auto Max1D2DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>();
   auto Max2DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>();
@@ -458,11 +529,6 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.maxTexture3D[0] = clampToInt(Max3DWidth);
   HipDeviceProps_.maxTexture3D[1] = clampToInt(Max3DHeight);
   HipDeviceProps_.maxTexture3D[2] = clampToInt(Max3DDepth);
-
-  // OpenCL does not have alignment requirements for images that
-  // clients should follow.
-  HipDeviceProps_.textureAlignment = 1;
-  HipDeviceProps_.texturePitchAlignment = 1;
 }
 
 void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
@@ -567,10 +633,12 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
     CHIPERR_LOG_AND_THROW("Event not yet ready", hipErrorNotReady);
   }
 
-  if (UpdatedStatus <= CL_COMPLETE)
+  if (UpdatedStatus <= CL_COMPLETE) {
     EventStatus_ = EVENT_STATUS_RECORDED;
-
-  return true;
+    return false;
+  } else {
+    return true;
+  }
 }
 
 float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
@@ -680,6 +748,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   if (ErrBuild != CL_SUCCESS)
     logError("Program BUILD LOG for device #{}:{}:\n{}\n",
              ChipDevOcl->getDeviceId(), Name, Log);
+
   CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,
                               hipErrorInitializationError);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
@@ -704,10 +773,12 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       // OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
-    CHIPKernelOpenCL *ChipKernel = new CHIPKernelOpenCL(
-        std::move(Kernel), ChipDevOcl, HostFName, FuncInfo, this);
+    CHIPKernelOpenCL *ChipKernel =
+        new CHIPKernelOpenCL(Kernel, ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
+
+  Program_ = Program;
 }
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(CHIPQueueFlags Flags, int Priority) {
@@ -731,6 +802,18 @@ SPVFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
 cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
 
+/// Clones the instance but with separate cl_kernel handle.
+CHIPKernelOpenCL *CHIPKernelOpenCL::clone() {
+  cl_int Err;
+  // NOTE: clCloneKernel is not used here due to its experience on
+  // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
+  // called on the original cl_kernel.
+  auto Cloned = clCreateKernel(Module->get()->get(), Name_.c_str(), &Err);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  return new CHIPKernelOpenCL(cl::Kernel(Cloned, false), Device, Name_,
+                              getFuncInfo(), Module);
+}
+
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
   Attr->binaryVersion = 10;
@@ -750,9 +833,8 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
   return hipSuccess;
 }
 
-CHIPKernelOpenCL::CHIPKernelOpenCL(const cl::Kernel &&ClKernel,
-                                   CHIPDeviceOpenCL *Dev, std::string HostFName,
-                                   SPVFuncInfo *FuncInfo,
+CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
+                                   std::string HostFName, SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
     : CHIPKernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
@@ -827,6 +909,7 @@ struct HipStreamCallbackData {
   hipError_t Status;
   void *UserData;
   hipStreamCallback_t Callback;
+  CHIPEventOpenCL *CallbackFinishEvent;
 };
 
 void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
@@ -837,10 +920,14 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   if (Cbo->Callback == nullptr)
     return;
   Cbo->Callback(Cbo->Stream, Cbo->Status, Cbo->UserData);
+  if (Cbo->CallbackFinishEvent != nullptr) {
+    clSetUserEventStatus(Cbo->CallbackFinishEvent->ClEvent, CL_COMPLETE);
+    Cbo->CallbackFinishEvent->decreaseRefCount("Notified finished.");
+  }
   delete Cbo;
 }
 
-void CHIPQueueOpenCL::MemMap(AllocationInfo *AllocInfo,
+void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
                              CHIPQueue::MEM_MAP_TYPE Type) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
@@ -857,13 +944,18 @@ void CHIPQueueOpenCL::MemMap(AllocationInfo *AllocInfo,
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
                         AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+  } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE) {
+    logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
+    Status =
+        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
   } else {
     assert(0 && "Invalid MemMap Type");
   }
   assert(Status == CL_SUCCESS);
 }
 
-void CHIPQueueOpenCL::MemUnmap(AllocationInfo *AllocInfo) {
+void CHIPQueueOpenCL::MemUnmap(const AllocationInfo *AllocInfo) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
@@ -880,22 +972,59 @@ cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
 void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   logTrace("CHIPQueueOpenCL::addCallback()");
-  auto Ev = getLastEvent();
-  if (Ev == nullptr) {
-    Ev = (CHIPEventOpenCL *)enqueueMarker();
-  }
 
-  HipStreamCallbackData *Cb =
-      new HipStreamCallbackData{this, hipSuccess, UserData, Callback};
+  cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
+  cl_int Err;
 
-  auto Status =
-      clSetEventCallback(Ev->getNativeRef(), CL_COMPLETE, pfn_notify, Cb);
+  CHIPEventOpenCL *HoldBackEvent =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+
+  HoldBackEvent->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
+
+  std::vector<CHIPEvent *> WaitForEvents{HoldBackEvent};
+  auto LastEvent = getLastEvent();
+  if (LastEvent != nullptr)
+    WaitForEvents.push_back(LastEvent);
+
+  // Enqueue a barrier used to ensure the callback is not called too early,
+  // otherwise it would be (at worst) executed in this host thread when
+  // setting it, blocking the execution, while the clients might expect
+  // parallel execution.
+  auto HoldbackBarrierCompletedEv =
+      (CHIPEventOpenCL *)enqueueBarrier(&WaitForEvents);
+
+  // OpenCL event callbacks have undefined execution ordering/finishing
+  // guarantees. We need to enforce CUDA ordering using user events.
+
+  CHIPEventOpenCL *CallbackEvent =
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+
+  CallbackEvent->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+
+  // Make the succeeding commands wait for the user event which will be
+  // set CL_COMPLETE by the callback trampoline function pfn_notify after
+  // finishing the user CB's execution.
+
+  HipStreamCallbackData *Cb = new HipStreamCallbackData{
+      this, hipSuccess, UserData, Callback, CallbackEvent};
+
+  std::vector<CHIPEvent *> WaitForEventsCBB{CallbackEvent};
+  auto CallbackCompleted = enqueueBarrier(&WaitForEventsCBB);
+
+  // We know that the callback won't be yet launched since it's depending
+  // on the barrier which waits for the user event.
+  auto Status = clSetEventCallback(HoldbackBarrierCompletedEv->ClEvent,
+                                   CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  // enqueue barrier with no dependencies (all further enqueues will wait for
-  // this one to finish)
+  updateLastEvent(CallbackCompleted);
+  ClQueue_->flush();
 
-  auto CallbackCompleted = enqueueBarrier(nullptr);
+  // Now the CB can start executing in the background:
+  clSetUserEventStatus(HoldBackEvent->ClEvent, CL_COMPLETE);
+  HoldBackEvent->decreaseRefCount("Notified finished.");
+
   return;
 };
 
@@ -911,16 +1040,19 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
 
 CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
   LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+  // TODO: shouldn't we increment the ref count here, assuming it will be
+  // needed to be kept alive for the client?
   return (CHIPEventOpenCL *)LastEvent_;
 }
 
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
+  auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   CHIPEventOpenCL *LaunchEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+      (CHIPEventOpenCL *)Backend->createCHIPEvent(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
-  assert(Kernel != nullptr);
+  assert(Kernel && "Kernel in ExecItem is NULL!");
   logTrace("Launching Kernel {}", Kernel->getName());
 
   ChipOclExecItem->setupAllArgs();
@@ -938,22 +1070,36 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
 
   logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1], Local[2]);
 #ifdef DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockOpenCL)
+  LOCK(Backend->DubiousLockOpenCL);
 #endif
+
+  auto SvmAllocationsToKeepAlive =
+      annotateSvmPointers(*OclContext, Kernel->get()->get());
+
   auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(),
                                        NumDims, GlobalOffset, Global, Local, 0,
                                        nullptr, LaunchEvent->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  if (std::shared_ptr<CHIPArgSpillBuffer> SpillBuf =
-          ExecItem->getArgSpillBuffer()) {
-    // Use an event call back to prolong the lifetime of the spill buffer
-    // in case the exec item gets destroyed before the kernel
-    // is launched/completed (may happen when called from
-    // CHIPQueue::launchKernel()).
-    auto *CBData = new decltype(SpillBuf)(SpillBuf);
+  std::shared_ptr<CHIPArgSpillBuffer> SpillBuf = ExecItem->getArgSpillBuffer();
+
+  if (SpillBuf || SvmAllocationsToKeepAlive) {
+    // Use an event call back to prolong the lifetimes of the
+    // following objects until the kernel terminates.
+    //
+    // * SpillBuffer holds an allocation referenced by the kernel
+    //   shared by exec item, which might get destroyed before the
+    //   kernel is launched/completed
+    //
+    // * Annotated SVM pointers may need to outlive the kernel
+    //   execution. The OpenCL spec does not clearly specify how long
+    //   the pointers, annotated via clSetKernelExecInfo(), needs to
+    //   live.
+    auto *CBData = new KernelEventCallbackData;
+    CBData->ArgSpillBuffer = SpillBuf;
+    CBData->SvmKeepAlives = std::move(SvmAllocationsToKeepAlive);
     Status = clSetEventCallback(LaunchEvent->getNativeRef(), CL_COMPLETE,
-                                releaseSpillBufferCallback, CBData);
+                                kernelEventCallback, CBData);
     if (Status != CL_SUCCESS) {
       delete CBData;
       CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -1207,13 +1353,25 @@ void CHIPExecItemOpenCL::setupAllArgs() {
         Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, SharedMem_,
                                nullptr);
       } else {
-        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {}\n", Arg.Index,
-                 Arg.Size, Arg.Data);
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {} (value {})\n",
+                 Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
         Err = ::clSetKernelArgSVMPointer(
             Kernel->get()->get(), Arg.Index,
             // Unlike clSetKernelArg() which takes address to the argument,
             // this function takes the argument value directly.
             *(const void **)Arg.Data);
+        if (Err != CL_SUCCESS) {
+          // ROCm seems to allow passing invalid pointers to kernels if they are
+          // not derefenced (see test_device_adjacent_difference of rocPRIM).
+          // If the setting of the arg fails, let's assume this might be such a
+          // case and convert it to a null pointer.
+          logWarn(
+              "clSetKernelArgSVMPointer {} SIZE {} to {} (value {}) returned "
+              "error, setting the arg to nullptr\n",
+              Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
+          Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), Arg.Index,
+                                           nullptr);
+        }
       }
       CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                   "clSetKernelArgSVMPointer failed");
@@ -1238,6 +1396,18 @@ void CHIPExecItemOpenCL::setupAllArgs() {
                              ArgSpillBuffer_->getSize());
 
   return;
+}
+
+void CHIPExecItemOpenCL::setKernel(CHIPKernel *Kernel) {
+  assert(Kernel && "Kernel is nullptr!");
+  // Make a clone of the kernel so the its cl_kernel object is not
+  // shared among other threads (sharing cl_kernel is discouraged by
+  // the OpenCL spec).
+  auto *Clone = static_cast<CHIPKernelOpenCL *>(Kernel)->clone();
+  ChipKernel_.reset(Clone);
+
+  // Arguments set on the original cl_kernel are not copied.
+  ArgsSetup = false;
 }
 
 // CHIPBackendOpenCL

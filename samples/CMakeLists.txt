@@ -60,7 +60,6 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
              PASS_REGULAR_EXPRESSION "${TEST_PASS}"
              LABELS internal)
 
-
 endfunction()
 
 
@@ -130,9 +129,7 @@ set(SAMPLES
     ccompat
     hipComplex
     hipHostMallocSample
-    # DISABLED for LLVM 15. Fails due to clang inserting -lamdhip64
-    # into the linking phase.
-    # hipDeviceLink # must be last in this list due to how hacky using multiple compilers with CMake is
+    hipDeviceLink
 )
 
 include(mkl_and_icpx)

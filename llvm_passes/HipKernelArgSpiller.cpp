@@ -73,9 +73,26 @@ constexpr size_t MAX_KERNEL_PARAM_LIST_SIZE = 1024;
 /// For example, the type maps to an image or sampler type. IOW, the type maps
 /// to other than an integer, a floating-point, a vector or an aggregate type.
 /// Generally, the special types don't have size and/or they are not spillable.
-bool isSpecial(Type *Ty) {
+bool isSpecial(const Argument &Arg) {
+#if LLVM_VERSION_MAJOR == 16
+  // Can't detect image and sampler arguments/types straightforwardly in LLVM 16
+  // because
+  //
+  // * named opaque struct types are gone in the opaque pointer world and
+  //
+  // * the alternative way to express them
+  //   (https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/1880) didn't
+  //   make it to the llvm-spirv branch "llvm_release_160".
+  //
+  // So until LLVM 17 we consider all pointer arguments as non-special. We won't
+  // end up with spilling image and sampler arguments with the current
+  // implementation as they don't have byval attribute and non-byval pointers
+  // are not profitable to spill.
+  return false;
+#else
   // Special types are encoded as pointers to specially named structures (until
   // typed pointers leaves the LLVM)
+  Type *Ty = Arg.getType();
   auto *PtrTy = dyn_cast<PointerType>(Ty);
   if (!PtrTy)
     return false;
@@ -88,10 +105,11 @@ bool isSpecial(Type *Ty) {
   // structures alone (they are just plain pointers).
   StringRef Name = STy->getName();
   return (Name.startswith("opencl.") || Name.startswith("__spirv_"));
+#endif
 }
 
 static size_t getArgumentSize(const Argument &Arg) {
-  assert(!isSpecial(Arg.getType()) &&
+  assert(!isSpecial(Arg) &&
          "Can't determine the size of a special SPIR-V type!");
 
   auto &DL = Arg.getParent()->getParent()->getDataLayout();
@@ -101,10 +119,10 @@ static size_t getArgumentSize(const Argument &Arg) {
 }
 
 static bool canSpill(const Argument &Arg) {
-  auto *ArgTy = Arg.getType();
-  if (isSpecial(ArgTy))
+  if (isSpecial(Arg))
     return false;
 
+  auto *ArgTy = Arg.getType();
   if (isa<PointerType>(ArgTy))
     if (ArgTy->getPointerAddressSpace() == SPIRV_WORKGROUP_AS ||
         ArgTy->getPointerAddressSpace() == SPIRV_UNIFORMCONSTANT_AS)
@@ -118,7 +136,7 @@ using ArgSet = SmallPtrSet<const Argument *, 16>;
 static ArgSet getSpillPlan(Function *F) {
   size_t ArgumentsSize = 0;
   for (const Argument &Arg : F->args()) {
-    if (isSpecial(Arg.getType())) {
+    if (isSpecial(Arg)) {
       // For starters, we are not currently handling kernels with image and
       // sampler and other special object arguments. It's not clear what their
       // sizes really are.
@@ -204,7 +222,6 @@ static void annotateSpilledArgs(Function *F, ArgSet ArgsToSpill) {
   // index of the spilled argument and upper 16-bits carry the size of the
   // argument.
 
-  auto NumArgs = F->getFunctionType()->getNumParams();
   SmallVector<uint32_t> Annotations;
   for (const auto *Arg : ArgsToSpill) {
     assert(Arg->getArgNo() >> 16u == 0 && "Doesn't fit in 16-bit field!");
@@ -281,9 +298,14 @@ static bool spillKernelArgs(Function *F) {
     // TODO: optimization. Skip local copy emission if a byval argument is never
     //       modified (has readonly attribute).
 
-    auto *NewType = NewArg->getType()->getNonOpaquePointerElementType();
-    auto SrcAlign = DL.getABITypeAlign(NewType);
-    auto *LocalCopy = createEntryAlloca(B, NewType);
+#if LLVM_VERSION_MAJOR < 16
+    auto *AllocaTy = NewArg->getType()->getNonOpaquePointerElementType();
+#else
+    auto *AllocaTy = OrigArg.hasByValAttr() ? OrigArg.getParamByValType()
+                                            : OrigArg.getType();
+#endif
+    auto SrcAlign = DL.getABITypeAlign(AllocaTy);
+    auto *LocalCopy = createEntryAlloca(B, AllocaTy);
     auto AllocSizeInBitsOpt = LocalCopy->getAllocationSizeInBits(DL);
     assert(AllocSizeInBitsOpt);
     size_t AllocSizeInBits = AllocSizeInBitsOpt->getFixedSize();

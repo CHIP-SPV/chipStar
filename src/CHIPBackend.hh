@@ -451,10 +451,12 @@ class CHIPAllocationTracker {
 private:
   std::string Name_;
 
+  std::unordered_set<AllocationInfo *> AllocInfos_;
   std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
 
 public:
-  std::mutex AllocationTrackerMtx;
+  mutable std::mutex AllocationTrackerMtx;
+
   /**
    * @brief Associate a host pointer with a device pointer. @see hipHostRegister
    *
@@ -543,13 +545,29 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
+    assert(AllocInfos_.count(AllocInfo) &&
+           "Not a member of the allocation tracker!");
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
+                                // CHIPAllocationTracker::AllocInfos_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
-
+    AllocInfos_.erase(AllocInfo);
     delete AllocInfo;
   }
+
+  /**
+   * @brief Visit tracked allocations.
+   *
+   * The visitor is called with 'const AllocationInfo&' argument.
+   */
+  template <typename VisitorT> void visitAllocations(VisitorT Visitor) const {
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::AllocInfos_
+    for (const auto *Info : AllocInfos_)
+      Visitor(*Info);
+  }
+
+  size_t getNumAllocations() const { return AllocInfos_.size(); }
 };
 
 class CHIPDeviceVar {
@@ -589,6 +607,11 @@ protected:
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
 
+#ifndef NDEBUG
+  // A debug flag for cathing use-after-delete.
+  bool Deleted_ = false;
+#endif
+
   // reference count
   size_t *Refc_;
 
@@ -607,7 +630,10 @@ protected:
 
 public:
   bool isUserEvent() { return UserEvent_; }
-  void addDependency(CHIPEvent *Event) { DependsOnList.push_back(Event); }
+  void addDependency(CHIPEvent *Event) {
+    assert(!Deleted_ && "Event use after delete!");
+    DependsOnList.push_back(Event);
+  }
   void releaseDependencies();
   void track();
   CHIPEventFlags getFlags() { return Flags_; }
@@ -628,7 +654,10 @@ public:
    *
    * @return CHIPContext* pointer to context on which this event was created
    */
-  CHIPContext *getContext() { return ChipContext_; }
+  CHIPContext *getContext() {
+    assert(!Deleted_ && "Event use after delete!");
+    return ChipContext_;
+  }
 
   /**
    * @brief Query the state of this event and update it's status
@@ -647,6 +676,7 @@ public:
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
+    assert(!Deleted_ && "Event use after delete!");
     return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
@@ -656,7 +686,10 @@ public:
    * @return true recoded
    * @return false not recorded
    */
-  bool isFinished() { return (EventStatus_ == EVENT_STATUS_RECORDED); }
+  bool isFinished() {
+    assert(!Deleted_ && "Event use after delete!");
+    return (EventStatus_ == EVENT_STATUS_RECORDED);
+  }
 
   /**
    * @brief Get the Event Status object
@@ -708,6 +741,10 @@ public:
    *
    */
   virtual void hostSignal() = 0;
+
+#ifndef NDEBUG
+  void markDeleted(bool State = true) { Deleted_ = State; }
+#endif
 };
 
 class CHIPProgram {
@@ -1053,7 +1090,6 @@ protected:
   dim3 GridDim_;
   dim3 BlockDim_;
 
-  CHIPKernel *ChipKernel_;
   CHIPQueue *ChipQueue_;
 
   std::vector<void *> Args_;
@@ -1110,16 +1146,25 @@ public:
                hipStream_t ChipQueue);
 
   /**
+   * @brief Set the Kernel object
+   *
+   * @return CHIPKernel* Kernel to be executed
+   */
+  virtual void setKernel(CHIPKernel *Kernel) = 0;
+
+  /**
    * @brief Get the Kernel object
    *
    * @return CHIPKernel* Kernel to be executed
    */
-  CHIPKernel *getKernel();
+  virtual CHIPKernel *getKernel() = 0;
+
   /**
    * @brief Get the Queue object
    *
    * @return CHIPQueue*
    */
+
   CHIPQueue *getQueue();
 
   /**
@@ -1151,8 +1196,6 @@ public:
    *
    */
   virtual void setupAllArgs() = 0;
-
-  void setKernel(CHIPKernel *Kernel) { this->ChipKernel_ = Kernel; }
 
   std::shared_ptr<CHIPArgSpillBuffer> getArgSpillBuffer() const {
     return ArgSpillBuffer_;
@@ -1541,7 +1584,7 @@ protected:
 
 public:
   std::vector<CHIPEvent *> Events;
-  std::mutex ContextMtx;
+  mutable std::mutex ContextMtx;
 
   /**
    * @brief Destroy the CHIPContext object
@@ -1973,12 +2016,9 @@ protected:
                                MANAGED_MEM_STATE ExecState);
 
 public:
-  enum MEM_MAP_TYPE {
-    HOST_READ,
-    HOST_WRITE,
-  };
-  virtual void MemMap(AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
-  virtual void MemUnmap(AllocationInfo *AllocInfo) {}
+  enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
+  virtual void MemMap(const AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
+  virtual void MemUnmap(const AllocationInfo *AllocInfo) {}
 
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.

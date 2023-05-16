@@ -23,25 +23,30 @@
 #
 #=============================================================================
 
-if(NOT DEFINED LLVM_CONFIG)
-  find_program(LLVM_CONFIG NAMES llvm-config)
-  if(NOT LLVM_CONFIG)
-      message(FATAL_ERROR "Can't find llvm-config. Please provide CMake argument -DLLVM_CONFIG=/path/to/llvm-config<-version>")
+if(NOT DEFINED LLVM_CONFIG_BIN)
+  find_program(LLVM_CONFIG_BIN NAMES llvm-config)
+  if(NOT LLVM_CONFIG_BIN)
+      message(FATAL_ERROR "Can't find llvm-config. Please provide CMake argument -DLLVM_CONFIG_BIN=/path/to/llvm-config<-version>")
   endif()
+else() # check that LLVM_CONFIG_BIN points to existing binary
+    if(NOT EXISTS ${LLVM_CONFIG_BIN})
+        message(FATAL_ERROR "Provided LLVM_CONFIG_BIN (${LLVM_CONFIG_BIN}) does not exist")
+    endif()
 endif()
-message(STATUS "Using llvm-config: ${LLVM_CONFIG}")
+message(STATUS "Using llvm-config: ${LLVM_CONFIG_BIN}")
 
-get_filename_component(LLVM_CONFIG_BINARY_NAME ${LLVM_CONFIG} NAME)
+get_filename_component(LLVM_CONFIG_BINARY_NAME ${LLVM_CONFIG_BIN} NAME)
+get_filename_component(LLVM_CONFIG_DIR ${LLVM_CONFIG_BIN} DIRECTORY)
 string(REGEX MATCH "[0-9]+" LLVM_VERSION_MAJOR "${LLVM_CONFIG_BINARY_NAME}")
 
-execute_process(COMMAND "${LLVM_CONFIG}" "--obj-root"
+execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--obj-root"
   RESULT_VARIABLE RES
   OUTPUT_VARIABLE CLANG_ROOT_PATH
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "Using CLANG_ROOT_PATH: ${CLANG_ROOT_PATH}")
 set(CLANG_ROOT_PATH_BIN ${CLANG_ROOT_PATH}/bin)
 
-execute_process(COMMAND "${LLVM_CONFIG}" "--version"
+execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--version"
   RESULT_VARIABLE RES
   OUTPUT_VARIABLE LLVM_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -58,6 +63,7 @@ find_program(CMAKE_C_COMPILER_PATH NAMES clang NO_DEFAULT_PATH PATHS ${CLANG_ROO
 if(NOT CMAKE_C_COMPILER_PATH)
   message(FATAL_ERROR "Could not find clang in ${CLANG_ROOT_PATH_BIN}. Please provide CMake argument -DCMAKE_C_COMPILER_PATH=/path/to/clang<-version>")
 endif()
+set(CLANG_BIN ${CMAKE_C_COMPILER_PATH})
 message(STATUS "Using CMAKE_C_COMPILER_PATH: ${CMAKE_C_COMPILER_PATH}")
 
 if(NOT CMAKE_CXX_COMPILER EQUAL ${CMAKE_CXX_COMPILER_PATH})
@@ -92,3 +98,24 @@ if(NOT DEFINED CLANG_OFFLOAD_BUNDLER)
   endif()
 endif()
 message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
+
+# Execute llvm-spirv and check for errors
+execute_process(
+    COMMAND ${LLVM_SPIRV} --version
+    RESULT_VARIABLE LLVM_SPIRV_ERROR
+    OUTPUT_VARIABLE LLVM_SPIRV_OUTPUT
+)
+
+if(LLVM_SPIRV_ERROR)
+    message(FATAL_ERROR "Error executing llvm-config: ${LLVM_CONFIG_ERROR}."
+    "If 'error while loading shared libraries' error is thrown, you might have to add LLVM libs to LD_LIBRARY_PATH"
+    "If file is not found, you might have a versioned version (llvm-spirv-16 instead of llvm-spirv). Pass the path to the full binary via -DLLVM_SPIRV="
+)
+else()
+    message(STATUS "llvm-spirv version: ${LLVM_SPIRV_OUTPUT}")
+endif()
+
+enable_language(C CXX)
+# required by ROCm-Device-Libs, must be after project() call
+find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH}/lib/cmake/llvm)
+find_package(Clang REQUIRED CONFIG NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH}/lib/cmake/clang)

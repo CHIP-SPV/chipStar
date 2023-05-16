@@ -27,13 +27,13 @@
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-execute_process(COMMAND "${LLVM_CONFIG}" "--cmakedir"
+execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--cmakedir"
 		OUTPUT_VARIABLE LLVM_DIR
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 		RESULT_VARIABLE RES)
 
 if(NOT RES EQUAL 0)
-  message(FATAL_ERROR "failed to run llvm-config (${LLVM_CONFIG})")
+  message(FATAL_ERROR "failed to run llvm-config (${LLVM_CONFIG_BIN})")
 endif()
 
 message(STATUS "LLVM CMake directory: ${LLVM_DIR}")
@@ -93,7 +93,8 @@ add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
-    HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp ${EXTRA_OBJS})
+    HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
+    HipLowerZeroLengthArrays.cpp ${EXTRA_OBJS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES

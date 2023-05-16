@@ -33,17 +33,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 
 # end temporary
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
-# Skip the compiler check for now since we will select the compiler later based on llvm-config
-set(CMAKE_C_COMPILER_WORKS 1)
-set(CMAKE_CXX_COMPILER_WORKS 1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-include(FindLLVM)
 
 project(CHIP-SPV
   VERSION 1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
-  LANGUAGES C CXX)
+  LANGUAGES NONE)
 
+include(FindLLVM) # Enables C, CXX
 include(LLVMCheck)
 include(chip_spv_cmake_macros)
 enable_testing()
@@ -52,12 +49,22 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "..." FORCE)
 endif()
 
-execute_process(COMMAND git submodule update --init)
+set(REQUIRED_DIRECTORIES
+    HIPCC
+    HIP
+    bitcode/ROCm-Device-Libs
+    hip-tests
+    hip-testsuite
+)
+
+foreach(dir ${REQUIRED_DIRECTORIES})
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/${dir}")
+        message(FATAL_ERROR "Directory '${dir}' is missing. Please execute: git submodule update --init")
+    endif()
+endforeach()
 
 # =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
-include(FindLLVM)
-
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
@@ -176,9 +183,13 @@ option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executa
 option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(BUILD_TESTS "Build Catch2 unit tests" ON)
+option(BUILD_SAMPLES "Build samples" ON)
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
+option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
+option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -200,8 +211,20 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
+if(USE_OCML_ROUNDED_OPS)
+  set(OCML_BASIC_ROUNDED_OPERATIONS ON)
+endif()
+
 if(DUBIOUS_LOCKS)
   list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
+endif()
+
+if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+endif()
+
+if(CHIP_FAST_MATH)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_FAST_MATH)
 endif()
 
 if(MALLOC_SHARED_WORKAROUND)
@@ -210,7 +233,7 @@ endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 
-if(NOT CLANG_VERSION_LESS_15)
+if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
   # LLVM 15 switches to opaque pointer mode by default which
   # llvm-spirv currently does not support. Switch the mode off.
   #
@@ -218,19 +241,16 @@ if(NOT CLANG_VERSION_LESS_15)
   # for SPIR-V targets but the patch has not yet landed on the
   # LLVM 15 branch.
   #
+  # For LLVM 16+ we swtich to use opaque pointers.
+  #
   # NOTE: Bitcode library must be compiled with the same opaque
   # pointer setting.
   set(DISABLE_OPAQUE_PTRS_OPT -Xclang -no-opaque-pointers)
 endif()
 
+set(SPIRV_EMITTER_OPTS "")
 if(LLVM_USE_INTERGRATED_SPIRV)
-  if(CLANG_VERSION_LESS_14)
-    message(FATAL_ERROR "-DLLVM_USE_INTERGRATED_SPIRV=On is not supported for LLVM 13 and less")
-  else()
-    set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
-  endif()
-else()
-  set(SPIRV_EMITTER_OPTS "")
+  set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
 
 if(ENFORCE_QUEUE_SYNCHRONIZATION)
@@ -299,12 +319,6 @@ message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
-add_subdirectory(tests/cuda)
-add_subdirectory(tests/hiprtc)
-add_subdirectory(tests/fromLibCeed)
-add_subdirectory(tests/compiler)
-add_subdirectory(tests/runtime)
-add_subdirectory(./samples samples)
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 
@@ -312,7 +326,6 @@ add_subdirectory(HIPCC)
 # convenience. The CHIP module itself does not depend on these but
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
-add_dependencies(samples CHIP)
 add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 add_subdirectory(bin)
@@ -340,43 +353,26 @@ target_include_directories(CHIP
   PUBLIC
   "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>"
   "$<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}/cuspv>"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/bitcode>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/HIP/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
+  "${CMAKE_BINARY_DIR}/include" # for CHIPSPVConfig.hh, should be first
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
-  "${CMAKE_BINARY_DIR}"
-  "${CMAKE_BINARY_DIR}/include"
 )
 
-# CHIP-SPV COMPILATION SETUP
-# =============================================================================
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
-set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ 
-  ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT})
-
-# hipDeviceLink sample requires --offload=spirv64 flag at link time. Why?
-if(NOT CLANG_VERSION_LESS_14)
-  set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-    --offload=spirv64
-
-    # By default RocmInstallationDetector::AddHIPIncludeArgs in the
-    # HIP-Clang inserts include wrapper headers which cause compile
-    # errors when compiling HIP sources for SPIR-V target.  This flag
-    # excludes the wrappers.
-    "-nohipwrapperinc")
-endif()
-
-if(CLANG_VERSION_LESS_14)
-  set(HIP_LINK_DEVICELIB_BUILD --hip-device-lib-path=${CMAKE_BINARY_DIR}/share --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${CMAKE_BINARY_DIR}/llvm_passes)
-  set(HIP_LINK_DEVICELIB_INSTALL --hip-device-lib-path=${SHARE_INSTALL_DIR} --hip-device-lib=devicelib.bc --hip-llvm-pass-path=${LIB_INSTALL_DIR}/llvm)
-else()
-  set(HIP_LINK_DEVICELIB_BUILD --hip-path=${CMAKE_BINARY_DIR})
-  set(HIP_LINK_DEVICELIB_INSTALL --hip-path=${CMAKE_INSTALL_PREFIX})
-endif()
+set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
+  --offload=spirv64 ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
+  # By default RocmInstallationDetector::AddHIPIncludeArgs in the
+  # HIP-Clang inserts include wrapper headers which cause compile
+  # errors when compiling HIP sources for SPIR-V target.  This flag
+  # excludes the wrappers.
+  -nohipwrapperinc)
 
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
@@ -384,22 +380,38 @@ set(HIP_FIXUPS_HEADER_BUILD
 set(HIP_FIXUPS_HEADER_INSTALL
   -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
 
+# Flags needed additionally for linking phase with -fgpu-rdc.
+set(HIP_RDC_SUPPLEMENT_LINK_FLAGS_
+  # Infors clang the type of the code object inputs (which are different than
+  # in regular host C/C++ linking)
+  --hip-link
+  # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
+  --offload=spirv64
+  # --hip-path is also needed but not included here (different option
+  # value is needed for build and installation).
+)
+
+if (NOT CLANG_VERSION_LESS_15)
+  list(APPEND HIP_RDC_SUPPLEMENT_LINK_FLAGS_
+    -no-hip-rt) # Clang 15+: Prevents linking amdhip64 library.
+endif()
+
 # For use by hipcc
-execute_process(COMMAND ${LLVM_CONFIG} --host-target
+execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL}
+  --hip-path=${CMAKE_INSTALL_PREFIX}
   ${HOST_ARCH}
   ${HIP_FIXUPS_HEADER_INSTALL})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD}
+  --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
   ${HIP_FIXUPS_HEADER_BUILD})
 
@@ -414,7 +426,7 @@ if(OpenCL_LIBRARY)
 endif()
 
 if(LevelZero_LIBRARY)
-  target_compile_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR})
+  target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR})
   target_link_directories(CHIP PUBLIC ${LevelZero_DIR})
   target_link_libraries(CHIP PUBLIC ze_loader)
 endif()
@@ -430,6 +442,8 @@ string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL "${HIP_OFFLOAD_COMPIL
 string(REPLACE ";" " " HIP_OFFLOAD_COMPILE_OPTIONS_BUILD "${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_}")
 string(REPLACE ";" " " HIP_OFFLOAD_LINK_OPTIONS_INSTALL "${HIP_OFFLOAD_LINK_OPTIONS_INSTALL_}")
 string(REPLACE ";" " " HIP_OFFLOAD_LINK_OPTIONS_BUILD "${HIP_OFFLOAD_LINK_OPTIONS_BUILD_}")
+string(REPLACE ";" " " HIP_RDC_SUPPLEMENT_LINK_FLAGS
+  "${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}")
 message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_INSTALL}")
 
@@ -438,29 +452,32 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
-  -x hip
-  ${HIP_ENABLE_SPIRV}
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_BUILD}
-  ${HIP_FIXUPS_HEADER_BUILD})
-target_link_options(deviceInternal INTERFACE
-  ${HIP_LINK_DEVICELIB_BUILD})
+  -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
-  -x hip
-  ${HIP_ENABLE_SPIRV}
-  ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
-  ${HIP_LINK_DEVICELIB_INSTALL}
-  ${HIP_FIXUPS_HEADER_INSTALL})
-target_link_options(device INTERFACE
-  ${HIP_LINK_DEVICELIB_INSTALL})
+  -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on CHIP-SPV but provides compatibility with AMD
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
+
+# Interface libraries for compiling HIP sources conveniently in RDC
+# (relocatable device code) mode.
+add_library(deviceRDCInternal INTERFACE)
+target_compile_options(deviceRDCInternal INTERFACE -fgpu-rdc)
+target_link_options(deviceRDCInternal INTERFACE
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_} --hip-path=${CMAKE_BINARY_DIR})
+target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
+
+add_library(deviceRDC INTERFACE)
+target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
+target_link_options(deviceRDC INTERFACE
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
+  --hip-path=${CMAKE_INSTALL_PREFIX})
+target_link_libraries(deviceRDC INTERFACE device)
 
 # HIP OFFLOAD FLAGS
 # =============================================================================
@@ -516,6 +533,9 @@ add_to_config(_hipInfo_install
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 add_to_config(_hipInfo_install
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_INSTALL}")
+add_to_config(_hipInfo_install
+  HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
+  "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_INSTALL_PREFIX}")
 
 # Build version
 set(_hipInfo_build "# Auto-generated by cmake on ${_timestamp} UTC\n")
@@ -528,8 +548,11 @@ add_to_config(_hipInfo_build
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD}")
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_BUILD}")
+add_to_config(_hipInfo_build
+  HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
+  "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR}")
 
-INSTALL(TARGETS CHIP host device
+INSTALL(TARGETS CHIP host device deviceRDC
   EXPORT hip-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION lib
@@ -597,14 +620,26 @@ install(EXPORT CHIPTargets
 # CHIP-SPV INSTALLATION AND PACKAGING
 # =============================================================================
 #
+# enable the build_tests target
+SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
+if(USE_EXTERNAL_HIP_TESTS)
+  add_subdirectory(hip-tests/catch catch)
+else()
+  add_subdirectory(HIP/tests/catch catch)
+endif()
+
 if(BUILD_TESTS)
-  SET(HIP_PATH ${CMAKE_BINARY_DIR})
-  if(USE_EXTERNAL_HIP_TESTS)
-    add_subdirectory(hip-tests/catch catch)
-  else()
-    add_subdirectory(HIP/tests/catch catch)
-  endif()
-  add_dependencies(build_tests CHIP samples)
+  add_subdirectory(tests/cuda)
+  add_subdirectory(tests/devicelib)
+  add_subdirectory(tests/hiprtc)
+  add_subdirectory(tests/fromLibCeed)
+  add_subdirectory(tests/compiler)
+  add_subdirectory(tests/runtime)
+endif()
+
+if(BUILD_SAMPLES)
+  add_subdirectory(./samples samples)
+  add_dependencies(samples CHIP devicelib_bc)
 endif()
 
 if(BUILD_DOCS)

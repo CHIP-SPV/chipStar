@@ -51,6 +51,7 @@
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
+#include "Utils.hh"
 
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
 
@@ -126,10 +127,13 @@ class SVMemoryRegion {
   enum SVM_ALLOC_GRANULARITY { COARSE_GRAIN, FINE_GRAIN };
   // ContextMutex should be enough
 
-  std::map<void *, size_t> SvmAllocations_;
+  std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> SvmAllocations_;
   cl::Context Context_;
 
 public:
+  using const_svm_alloc_iterator = ConstMapKeyIterator<
+      std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
+
   void init(cl::Context &C) { Context_ = C; }
   SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
   void *allocate(size_t Size, SVM_ALLOC_GRANULARITY Granularity = COARSE_GRAIN);
@@ -141,6 +145,13 @@ public:
   int memFill(void *Dst, size_t Size, const void *Pattern, size_t PatternSize,
               cl::CommandQueue &Queue);
   void clear();
+
+  size_t getNumAllocations() const { return SvmAllocations_.size(); }
+  IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
+    return IteratorRange<const_svm_alloc_iterator>(
+        const_svm_alloc_iterator(SvmAllocations_.begin()),
+        const_svm_alloc_iterator(SvmAllocations_.end()));
+  }
 };
 
 class CHIPContextOpenCL : public CHIPContext {
@@ -165,7 +176,7 @@ private:
                    int Idx);
 
 public:
-  virtual CHIPContextOpenCL *createContext() override {}
+  virtual CHIPContextOpenCL *createContext() override { return nullptr; }
 
   static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
                                   CHIPContextOpenCL *ChipContext, int Idx);
@@ -210,7 +221,7 @@ protected:
    * @param AllocInfo AllocationInfo object to be mapped for the host
    * @param Type Type of mapping to be performed. Either READ or WRITE
    */
-  virtual void MemMap(AllocationInfo *AllocInfo,
+  virtual void MemMap(const AllocationInfo *AllocInfo,
                       CHIPQueue::MEM_MAP_TYPE Type) override;
 
   /**
@@ -220,7 +231,7 @@ protected:
    *
    * @param AllocInfo
    */
-  virtual void MemUnmap(AllocationInfo *AllocInfo) override;
+  virtual void MemUnmap(const AllocationInfo *AllocInfo) override;
 
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
@@ -269,13 +280,15 @@ private:
   CHIPDeviceOpenCL *Device;
 
 public:
-  CHIPKernelOpenCL(const cl::Kernel &&ClKernel, CHIPDeviceOpenCL *Dev,
+  CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
                    std::string HostFName, SPVFuncInfo *FuncInfo,
                    CHIPModuleOpenCL *Parent);
+
   virtual ~CHIPKernelOpenCL() {}
   SPVFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();
+  CHIPKernelOpenCL *clone();
 
   CHIPModuleOpenCL *getModule() override { return Module; }
   const CHIPModuleOpenCL *getModule() const override { return Module; }
@@ -284,6 +297,7 @@ public:
 
 class CHIPExecItemOpenCL : public CHIPExecItem {
 private:
+  std::unique_ptr<CHIPKernelOpenCL> ChipKernel_;
   cl::Kernel *ClKernel_;
 
 public:
@@ -292,8 +306,10 @@ public:
                            Other.ChipQueue_) {
     // TOOD Graphs Is this safe?
     ClKernel_ = Other.ClKernel_;
-    ChipKernel_ = Other.ChipKernel_;
-    this->ArgsSetup = Other.ArgsSetup;
+    ChipKernel_.reset(Other.ChipKernel_->clone());
+    // ChipKernel cloning currently does not copy the argument setup
+    // of the cl_kernel, therefore, mark arguments being unset.
+    this->ArgsSetup = false;
     this->Args_ = Other.Args_;
   }
   CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
@@ -306,10 +322,14 @@ public:
   SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl::Kernel *get();
+
   virtual CHIPExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemOpenCL(*this);
     return NewExecItem;
   }
+
+  void setKernel(CHIPKernel *Kernel) override;
+  CHIPKernelOpenCL *getKernel() override { return ChipKernel_.get(); }
 };
 
 class CHIPBackendOpenCL : public CHIPBackend {

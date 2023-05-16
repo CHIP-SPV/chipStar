@@ -9,7 +9,8 @@
 // Define a pass plugin that runs a collection of HIP passes.
 //
 // (c) 2021 Parmance for Argonne National Laboratory and
-//     2022 Pekka Jääskeläinen / Intel
+// (c) 2022 Pekka Jääskeläinen / Intel
+// (c) 2023 CHIP-SPV developers
 //===----------------------------------------------------------------------===//
 
 
@@ -24,6 +25,7 @@
 #include "HipTextureLowering.h"
 #include "HipEmitLoweredNames.h"
 #include "HipKernelArgSpiller.h"
+#include "HipLowerZeroLengthArrays.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -89,6 +91,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Run a collection of passes run at device link time.
   MPM.addPass(HipDynMemExternReplaceNewPass());
+  // Should be after the HipDynMemExternReplaceNewPass which relies on detecting
+  // dynamic shared memories being modeled as zero length arrays.
+  MPM.addPass(HipLowerZeroLengthArraysPass());
 
   // Prepare device code for texture function lowering which does not yet work
   // on non-inlined code and local variables of hipTextureObject_t type.
@@ -97,8 +102,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(ModuleInlinerWrapperPass(getInlineParams(1000)));
 #if LLVM_VERSION_MAJOR < 14
   MPM.addPass(createModuleToFunctionPassAdaptor(SROA()));
-#else
+#elif LLVM_VERSION_MAJOR < 16
   MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass()));
+#else
+  MPM.addPass(
+      createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::PreserveCFG)));
 #endif
 
   MPM.addPass(HipTextureLoweringPass());

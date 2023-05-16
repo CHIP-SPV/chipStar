@@ -13,6 +13,7 @@
 // (c) 2021 Paulius Velesko for Argonne National Laboratory
 // (c) 2020 Michal Babej for TUNI
 // (c) 2022 Michal Babej for Argonne National Laboratory
+// (c) 2023 CHIP-SPV developers
 //===----------------------------------------------------------------------===//
 
 
@@ -124,7 +125,7 @@ private:
   }
 
   // will not compile after typed pointer removal
-#if LLVM_VERSION_MAJOR <= 15
+#if LLVM_VERSION_MAJOR <= 16
   static void recursivelyReplaceArrayWithPointer(Value *DestV, Value *SrcV, Type *ElemType, IRBuilder<> &B) {
     SmallVector<Instruction *> InstsToDelete;
 
@@ -370,8 +371,10 @@ private:
     if (isGVarUsedInFunction(GV, NewF)) {
       B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
 
+#if LLVM_VERSION_MAJOR >= 15
 #if LLVM_VERSION_MAJOR == 15
       assert(M.getContext().hasSetOpaquePointersValue());
+#endif
 
       if (M.getContext().supportsTypedPointers()) {
 #endif
@@ -391,7 +394,7 @@ private:
         // the bitcast to [N x Type] should now be unused
         if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
         LastArgBitcast->eraseFromParent();
-#if LLVM_VERSION_MAJOR == 15
+#if LLVM_VERSION_MAJOR >= 15
       } else {
         // replace GVar references with the argument
         replaceGVarUsesWith(GV, NewF, last_arg);

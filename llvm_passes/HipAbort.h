@@ -37,7 +37,4 @@ private:
   Module *M_;
 };
 
-#define CHIPSPV_ABORT_FLAG_NAME "__chipspv_abort_called"
-#define CHIPSPV_ABORT_FLAG_AS 1
-
 #endif

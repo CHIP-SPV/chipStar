@@ -2248,11 +2248,6 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   *Ptr = RetVal;
   logInfo("hipMalloc(ptr={}, size={})", (void *)RetVal, Size);
 
-  // currently required by both OpenCL and Level Zero when passing in SoA
-  bool firstTouch;
-  auto Status = Backend->getActiveDevice()->getDefaultQueue()->memCopy(
-      RetVal, &firstTouch, 1);
-  assert(Status == hipSuccess);
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2764,10 +2759,10 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
   logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
           hipMemcpyKindToString(Kind));
 
-  NULLCHECK(Dst, Src);
-
   if (SizeBytes == 0)
     RETURN(hipSuccess);
+
+  NULLCHECK(Dst, Src);
 
   if (Dst == Src) {
     logWarn("Src and Dst are same. Skipping the copy");

@@ -36,6 +36,8 @@ template <typename T> T passThroughKernel(T ArgIn) {
   return ArgOutH;
 }
 
+__global__ void undefArgPtr(int *Unused, int A) { printf("%d\n", A); }
+
 int main() {
 
   auto IntOut = passThroughKernel(123);
@@ -90,6 +92,8 @@ int main() {
   for (int i = 0; i < 7; i++)
     assert(S3Out.a[i] == S3.a[i]);
   assert(S3Out.b == S3.b);
+
+  undefArgPtr<<<1, 1>>>((int*)0x2, 1);
 
   return 0;
 }

@@ -13,15 +13,9 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
   endif()
 
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
-    message(WARNING "Deprecated clang version '${CMAKE_CXX_COMPILER_VERSION}'. \
-            Support for Clang < 14.0 will be discontinued in the future.")
-    set(CLANG_VERSION_LESS_14 ON)
+    message(FATAL_ERROR
+      "Unsupported clang version '${CMAKE_CXX_COMPILER_VERSION}'")
   endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0.0)
-    set(CLANG_VERSION_LESS_13 ON)
-  endif()
-
 else()
   message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
 endif()

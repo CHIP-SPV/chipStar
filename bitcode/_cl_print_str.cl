@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-23 CHIP-SPV developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,10 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
-
-
-void __attribute__((used)) _cl_print_str(__generic const char *S) {
+static void __attribute__((used)) _cl_print_str(__generic const char *S) {
   unsigned Pos = 0;
   char C;
   while ((C = S[Pos]) != 0) {

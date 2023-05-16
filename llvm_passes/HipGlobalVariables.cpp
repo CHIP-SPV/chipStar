@@ -30,6 +30,7 @@
 // - the CrossWorkGroup address space of the SPIR-V specification.
 //
 // (c) 2022 Parmance for Argonne National Laboratory
+// (c) 2023 CHIP-SPV developers
 //===----------------------------------------------------------------------===//
 
 
@@ -40,6 +41,7 @@
 #include "LLVMSPIRV.h"
 #include "../src/common.hh"
 
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"

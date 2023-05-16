@@ -1,24 +1,26 @@
 # CHIP-SPV
 
-CHIP-SPV that aims to make HIP and CUDA portable to platforms which support
-SPIR-V as the device intermediate representation. Currently CHIP-SPV supports
+CHIP-SPV makes HIP and CUDA applications portable to platforms which support
+SPIR-V as the device intermediate representation. Currently it supports
 OpenCL and Level Zero as the low-level runtime alternatives.
+
+For User documentation, read [this.](docs/Using.md)
+For Developer documentation, read [this.](docs/Development.md)
+For a list of (un)supported features, read [this.](docs/Features.md)
 
 This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 [HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
 
-For CHIP-SPV User documentation, read [this.](docs/Using.md)
-For CHIP-SPV Developer documentation, read [this.](docs/Development.md)
-For a list of (un)supported features in CHIP-SPV, read [this.](docs/Features.md)
-
 ## Prerequisites
 
 * Cmake >= 3.16.0
-* Clang 14 or 15
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'. *NOTE*: The Ubuntu clang package does not provide a symlink for `clang++`, only `clang++-14` is availble. If you plan on using `hipcc` you will need to make this symlink manually to ensure that `clang++` is available in `HIP_CLANG_PATH`.
+* Clang 14, 15 or 16
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'.  
+  * *NOTE*: Some features currently require patches that are not yet upstreamed to LLVM. They are on top of the branch [here](https://github.com/CHIP-SPV/llvm-project/tree/chipspv-llvm-15-patches).
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)
-  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator)
+  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
+  * For best results, install [CHIP-SPV's LLVM 15 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-15-patches) or [CHIP-SPV's LLVM 16 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which have fixes that are not yet in upstream.
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
