@@ -17,6 +17,6 @@ ${HIPCC} ${SRC_DIR}/inputs/AssertFail.hip -o assert-fail
 
 grep -c "file:123: function: Device-side assertion .expression. failed." \
      output.log ||  {
-    echo "FAIL: excepted assertion error message was not found."
+    echo "FAIL: Expected assertion error message was not found."
     exit 1
 }

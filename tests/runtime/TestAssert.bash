@@ -17,6 +17,6 @@ ${HIPCC} ${SRC_DIR}/inputs/Assert.hip -o assert
 
 grep -c "Assert.hip:5: void k(): Device-side assertion .false [&][&] \"Hello, World!\". failed." \
      output.log ||  {
-    echo "FAIL: excepted assertion error message was not found."
+    echo "FAIL: expected assertion error message was not found."
     exit 1
 }
