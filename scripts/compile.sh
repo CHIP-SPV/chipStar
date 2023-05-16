@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Check if at least one argument is provided
-if [ $# -lt 3 ]; then
+# Check if at least two argument is provided
+if [ $# -lt 2 ]; then
     echo "Please provide at least three arguments."
     exit 1
 fi
@@ -27,17 +27,6 @@ else
   exit 1
 fi
 
-platform=$3
-case $arg in
-    "pocl-cpu"|"opencl-igpu"|"opencl-dgpu"|"opencl-cpu"|"levelzero-igpu"|"levelzero-dgpu")
-        echo "The third argument is one of the specified options: $platform"
-        ;;
-    *)
-        echo "The third argument isn't one of the specified options: $platform"
-        exit 1
-        ;;
-esac
-
 source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
@@ -54,12 +43,12 @@ rm -rf HIP
 rm -rf bitcode/ROCm-Device-Libs
 rm -rf hip-tests
 rm -rf hip-testsuite
-
 git submodule update --init
-rm -rf build
-rm -rf *_result.txt
-mkdir build
-cd build
+
+DIR=build-$LLVM-$build_type
+rm -rf $DIR
+mkdir $DIR
+cd $DIR
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module load $CLANG
@@ -67,6 +56,6 @@ module load opencl/pocl-cpu-$LLVM
 
 echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all build_tests -j &> /dev/null
+make all build_tests -j
 echo "build complete." 
 module unload opencl/pocl-cpu-$LLVM
