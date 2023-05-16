@@ -80,6 +80,8 @@ public:
   // Using lists for iterator stability.
   std::list<SPVFunction> Kernels;
   std::list<SPVVariable> Variables;
+  /// True if the module has flag variable for signaling device side abort.
+  bool HasAbortFlag = false;
 
   std::string_view getBinary() const {
     assert(FinalizedBinary_.size() && "Has not finalized yet!");
