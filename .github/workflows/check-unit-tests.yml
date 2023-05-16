@@ -35,7 +35,13 @@ jobs:
           - name: Run unit test checking script
             run: ./scripts/unit_tests.sh debug llvm-15 pocl-cpu
             shell: bash
-
+    unit-tests-llvm-15-debug-opencl-igpu:
+        needs: build-llvm-15-debug
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-15 opencl-igpu
+            shell: bash
         
 # jobs:
 #   unit-tests-llvm-15-debug:

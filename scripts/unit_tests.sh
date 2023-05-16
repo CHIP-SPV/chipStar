@@ -44,38 +44,10 @@ source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
+export CHIP_LOGLEVEL=err
 
-# icpx --version
-# # ulimit -a
-# sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
-# sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
-
-# rm -rf HIPCC
-# rm -rf HIP
-# rm -rf bitcode/ROCm-Device-Libs
-# rm -rf hip-tests
-# rm -rf hip-testsuite
-
-# git submodule update --init
-# rm -rf build
-# rm -rf *_result.txt
-# mkdir build
-# cd build
-
-# # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-# module load $CLANG
-# module load opencl/pocl-cpu-$LLVM
-
-# echo "building with $CLANG"
-# cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-# make all build_tests -j &> /dev/null
-# echo "build complete." 
-# module unload opencl/pocl-cpu-$LLVM
-
-
-# Test PoCL CPU
+cd build-$LLVM-$build_type
 arg=$3
-
 case $arg in
     "pocl-cpu")
         # Insert operations for pocl-cpu here
@@ -141,29 +113,3 @@ esac
 check_tests "${test_result}"
 test_status=$?
 exit $test_status
-
-
-overall_status=0
-
-# echo "RESULTS:"
-# for test_result in igpu_opencl_make_check_result.txt \
-#                    dgpu_opencl_make_check_result.txt \
-#                    cpu_opencl_make_check_result.txt \
-#                    igpu_level0_make_check_result.txt \
-#                    dgpu_level0_make_check_result.txt \
-#                    cpu_pocl_make_check_result.txt
-# do
-#   echo -n "${test_result}: "
-#   check_tests "${test_result}"
-#   test_status=$?
-#   if [ $test_status -eq 1 ]; then
-#     overall_status=1
-#   fi
-# done
-
-exit $overall_status
-# if [ $overall_status -eq 0 ]; then
-#   exit 0
-# else
-#   exit 1
-# fi
