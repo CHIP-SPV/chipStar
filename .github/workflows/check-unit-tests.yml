@@ -18,7 +18,8 @@ concurrency:
 # levelzero-dgpu
 
 jobs:
-    build-llvm-15-debug:
+    # LLVM-15-Debug
+    build-llvm-15-debug-cupcake:
         runs-on: dgpu
         steps:
           - uses: actions/checkout@v2
@@ -29,58 +30,246 @@ jobs:
             run: ./scripts/compile.sh debug llvm-15
             shell: bash
     unit-tests-llvm-15-debug-pocl-cpu:
-        needs: build-llvm-15-debug
+        needs: build-llvm-15-debug-cupcake
         runs-on: dgpu
         steps:
           - name: Run unit test checking script
             run: ./scripts/unit_tests.sh debug llvm-15 pocl-cpu
             shell: bash
-    unit-tests-llvm-15-debug-opencl-igpu:
-        needs: build-llvm-15-debug
+    unit-tests-llvm-15-debug-opencl-dgpu:
+        needs: build-llvm-15-debug-cupcake
         runs-on: dgpu
         steps:
           - name: Run unit test checking script
-            run: ./scripts/unit_tests.sh debug llvm-15 opencl-igpu
+            run: ./scripts/unit_tests.sh debug llvm-15 opencl-dgpu
             shell: bash
-        
-# jobs:
-#   unit-tests-llvm-15-debug:
-#     runs-on: self-hosted
-#     steps:
-#       - uses: actions/checkout@v2
-#         with:
-#           ref: ${{ github.event.pull_request.head.sha }}
-#           fetch-depth: 0
-#       - name: Run unit test checking script
-#         run: ./scripts/unit_tests.sh debug llvm-15
-#         shell: bash
-#   unit-tests-llvm-15-release:
-#     runs-on: self-hosted
-#     steps:
-#       - uses: actions/checkout@v2
-#         with:
-#           ref: ${{ github.event.pull_request.head.sha }}
-#           fetch-depth: 0
-#       - name: Run unit test checking script
-#         run: ./scripts/unit_tests.sh release llvm-15
-#         shell: bash
-#   unit-tests-llvm-16-debug:
-#     runs-on: self-hosted
-#     steps:
-#       - uses: actions/checkout@v2
-#         with:
-#           ref: ${{ github.event.pull_request.head.sha }}
-#           fetch-depth: 0
-#       - name: Run unit test checking script
-#         run: ./scripts/unit_tests.sh debug llvm-16
-#         shell: bash
-#   unit-tests-llvm-16-release:
-#     runs-on: self-hosted
-#     steps:
-#       - uses: actions/checkout@v2
-#         with:
-#           ref: ${{ github.event.pull_request.head.sha }}
-#           fetch-depth: 0
-#       - name: Run unit test checking script
-#         run: ./scripts/unit_tests.sh release llvm-16
-#         shell: bash
+    unit-tests-llvm-15-debug-opencl-cpu:
+        needs: build-llvm-15-debug-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-15 opencl-cpu
+            shell: bash
+    unit-tests-llvm-15-debug-levelzero-dgpu:
+        needs: build-llvm-15-debug-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-15 levelzero-dgpu
+            shell: bash
+    build-llvm-15-debug-torxbit:
+        runs-on: igpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-15 debug
+            run: ./scripts/compile.sh debug llvm-15
+            shell: bash
+    unit-tests-llvm-15-debug-opencl-igpu:
+        needs: build-llvm-15-debug-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-15 opencl-igpu
+            shell: bash 
+    unit-tests-llvm-15-debug-levelzero-igpu:
+        needs: build-llvm-15-debug-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-15 levelzero-igpu
+            shell: bash    
+
+    # LLVM-15-Release
+    build-llvm-15-release-cupcake:
+        runs-on: dgpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-15 release
+            run: ./scripts/compile.sh release llvm-15
+            shell: bash
+    unit-tests-llvm-15-release-pocl-cpu:
+        needs: build-llvm-15-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-15 pocl-cpu
+            shell: bash
+    unit-tests-llvm-15-release-opencl-dgpu:
+        needs: build-llvm-15-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-15 opencl-dgpu
+            shell: bash
+    unit-tests-llvm-15-release-opencl-cpu:
+        needs: build-llvm-15-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-15 opencl-cpu
+            shell: bash
+    unit-tests-llvm-15-release-levelzero-dgpu:
+        needs: build-llvm-15-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-15 levelzero-dgpu
+            shell: bash
+    build-llvm-15-release-torxbit:
+        runs-on: igpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-15 release
+            run: ./scripts/compile.sh release llvm-15
+            shell: bash
+    unit-tests-llvm-15-release-opencl-igpu:
+        needs: build-llvm-15-release-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-15 opencl-igpu
+            shell: bash 
+    unit-tests-llvm-15-release-levelzero-igpu:
+        needs: build-llvm-15-release-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-15 levelzero-igpu
+            shell: bash    
+
+    # LLVM-16-Debug
+    build-llvm-16-debug-cupcake:
+        runs-on: dgpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-16 debug
+            run: ./scripts/compile.sh debug llvm-16
+            shell: bash
+    unit-tests-llvm-16-debug-pocl-cpu:
+        needs: build-llvm-16-debug-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-16 pocl-cpu
+            shell: bash
+    unit-tests-llvm-16-debug-opencl-dgpu:
+        needs: build-llvm-16-debug-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-16 opencl-dgpu
+            shell: bash
+    unit-tests-llvm-16-debug-opencl-cpu:
+        needs: build-llvm-16-debug-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-16 opencl-cpu
+            shell: bash
+    unit-tests-llvm-16-debug-levelzero-dgpu:
+        needs: build-llvm-16-debug-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-16 levelzero-dgpu
+            shell: bash
+    build-llvm-16-debug-torxbit:
+        runs-on: igpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-16 debug
+            run: ./scripts/compile.sh debug llvm-16
+            shell: bash
+    unit-tests-llvm-16-debug-opencl-igpu:
+        needs: build-llvm-16-debug-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-16 opencl-igpu
+            shell: bash 
+    unit-tests-llvm-16-debug-levelzero-igpu:
+        needs: build-llvm-16-debug-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh debug llvm-16 levelzero-igpu
+            shell: bash    
+
+    # LLVM-16-Release
+    build-llvm-16-release-cupcake:
+        runs-on: dgpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-16 release
+            run: ./scripts/compile.sh release llvm-16
+            shell: bash
+    unit-tests-llvm-16-release-pocl-cpu:
+        needs: build-llvm-16-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-16 pocl-cpu
+            shell: bash
+    unit-tests-llvm-16-release-opencl-dgpu:
+        needs: build-llvm-16-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-16 opencl-dgpu
+            shell: bash
+    unit-tests-llvm-16-release-opencl-cpu:
+        needs: build-llvm-16-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-16 opencl-cpu
+            shell: bash
+    unit-tests-llvm-16-release-levelzero-dgpu:
+        needs: build-llvm-16-release-cupcake
+        runs-on: dgpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-16 levelzero-dgpu
+            shell: bash
+    build-llvm-16-release-torxbit:
+        runs-on: igpu
+        steps:
+          - uses: actions/checkout@v2
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+          - name: Compile llvm-16 release
+            run: ./scripts/compile.sh release llvm-16
+            shell: bash
+    unit-tests-llvm-16-release-opencl-igpu:
+        needs: build-llvm-16-release-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-16 opencl-igpu
+            shell: bash 
+    unit-tests-llvm-16-release-levelzero-igpu:
+        needs: build-llvm-16-release-torxbit
+        runs-on: igpu
+        steps:
+          - name: Run unit test checking script
+            run: ./scripts/unit_tests.sh release llvm-16 levelzero-igpu
+            shell: bash    
