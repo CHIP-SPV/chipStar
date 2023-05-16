@@ -2518,6 +2518,9 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rz_d
 # Fails for LLVM 15 Debug: SPIR-V Parser: Failed to find size for type id 83
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_rnorm_double") # Failed
 
+# This causes an LLVM codegen crash with cold kcache, but with hot
+# kcache it passes. Also it passes with the 'basic' driver.
+list(APPEND CPU_POCL_FAILED_TESTS "TestUndefKernelArg")
 
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
