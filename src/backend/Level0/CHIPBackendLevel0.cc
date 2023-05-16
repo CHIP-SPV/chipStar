@@ -246,6 +246,10 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     // '~CHIPEventLevel0' has a non-throwing exception specification
     assert(Status == ZE_RESULT_SUCCESS);
   }
+  if (EventPoolHandle_) {
+    auto Status = zeEventPoolDestroy(EventPoolHandle_);
+    assert(Status == ZE_RESULT_SUCCESS);
+  }
   Event_ = nullptr;
   EventPoolHandle_ = nullptr;
   EventPool = nullptr;
