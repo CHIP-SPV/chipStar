@@ -51,51 +51,209 @@
 #include <set>
 #include <iostream>
 
-__attribute__((optnone)) PreservedAnalyses
-HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
+#define DEBUG_TYPE "hip-abort"
 
-  // The abort calls are made to undefined abort decl thus should not get
-  // inlined.
-  GlobalValue *AbortF = Mod.getNamedValue("__chipspv_abort");
+using InverseCallGraphNode = HipAbortPass::InverseCallGraphNode;
+using AbortAttribute = HipAbortPass::AbortAttribute;
+using CallRecord = CallGraphNode::CallRecord;
 
-  if (AbortF == nullptr) {
-    // Mark modules that do not call abort by just the global flag variable.
-    // Ugly, but should allow avoiding the kernel call to check the global
-    // variable.
-    GlobalVariable *AbortFlag = Mod.getGlobalVariable(ChipDeviceAbortFlagName);
-    if (AbortFlag != nullptr) {
-      AbortFlag->replaceAllUsesWith(
-          Constant::getNullValue(AbortFlag->getType()));
-      AbortFlag->eraseFromParent();
+static StringRef getFnName(const Function *F) {
+  if (!F)
+    return "<error: nullptr>";
+  if (!F->hasName())
+    return "<error: no-name>";
+  return F->getName();
+}
+
+/// Get corresponding inverted call graph node for the function 'F'.
+InverseCallGraphNode *HipAbortPass::getInvertedCGNode(Function *F) {
+  assert(F && "Key is nullptr!");
+  auto *Node = InverseCallGraph[F];
+  assert(Node && "Node was not found for a function.");
+  return Node;
+}
+
+/// Get corresponding inverted call graph node for 'CGN'.
+InverseCallGraphNode *
+HipAbortPass::getInvertedCGNode(const CallGraphNode *CGN) {
+  return getInvertedCGNode(CGN->getFunction());
+}
+
+/// Create or get already created node for inverted call graph for the regular
+/// call graph node.
+InverseCallGraphNode *
+HipAbortPass::getOrCreateInvertedCGNode(const CallGraphNode *CGN) {
+  auto *F = CGN->getFunction();
+  if (!InverseCallGraph.count(F))
+    InverseCallGraph[F] = new InverseCallGraphNode(CGN);
+  return getInvertedCGNode(F);
+}
+
+/// Build an inverted call graph where the call edges are reversed. The produced
+/// graph only includes defined functions.
+void HipAbortPass::buildInvertedCallGraph(const CallGraph &CG) {
+  for (auto &FnNodePair : CG) {
+    auto *CGCaller = FnNodePair.second.get();
+    if (CGCaller == CG.getExternalCallingNode() ||
+        CGCaller == CG.getCallsExternalNode())
+      continue;
+    assert(CGCaller);
+
+    auto *ICGCaller = getOrCreateInvertedCGNode(CGCaller);
+
+    if (!CGCaller->size()) {
+      // The function does not call anything, thus, won't abort either.
+      ICGCaller->AbortAttr = AbortAttribute::WontAbort;
+      continue;
     }
-    return PreservedAnalyses::all();
+
+    for (auto &CGRecord : *CGCaller) {
+      auto *CGCalleeNode = CGRecord.second;
+      if (CGCalleeNode == CG.getCallsExternalNode())
+        continue;
+      auto *ICGCallee = getOrCreateInvertedCGNode(CGCalleeNode);
+      ICGCallee->Callers.insert(ICGCaller);
+    }
   }
+}
 
-  assert(AbortF->isDeclaration());
+/// Returns true if the 'CI' is a *direct* call to abort declaration.
+static bool callsAbort(const CallInst *CI) {
+  return CI->getCalledFunction() &&
+         CI->getCalledFunction()->getName() == "__chipspv_abort";
+}
 
-  auto &Ctx = Mod.getContext();
-  auto *Int32Ty = IntegerType::get(Ctx, 32);
-  auto *Int32OneConst = ConstantInt::get(Int32Ty, 1);
+/// Get CallInst recorded in 'CR' if it has one. Otherwise, return nullptr.
+static CallInst *getCallInst(const CallRecord &CR) {
+  // Get call value, peel off std::optional.
+  if (!CR.first)
+    return nullptr;
+  // Peel off WeakTrackingVH. value should The be alive as module is not
+  // modfied at this point.
+  assert(CR.first->pointsToAliveValue());
+  Value *V = static_cast<Value *>(*CR.first);
+  // Must be a call instruction. Otherwise, something is very off if there are
+  // invoke or callbr instructions in the device code.
+  return cast<CallInst>(V);
+}
 
-  GlobalVariable *AbortFlag = Mod.getGlobalVariable(ChipDeviceAbortFlagName);
-  assert(AbortFlag != nullptr);
+static InverseCallGraphNode *popAny(std::set<InverseCallGraphNode *> &Set) {
+  assert(Set.size() && "Can't extract an element from empty container!");
+  auto EltIt = Set.begin();
+  Set.erase(EltIt);
+  return *EltIt;
+}
 
-  bool Modified = false;
-  std::set<CallInst *> CallsToHandle;
-  std::set<CallInst *> AbortCallsToHandle;
-  for (auto &F : Mod) {
-    for (auto &BB : F) {
-      for (auto &I : BB) {
-        if (I.isDebugOrPseudoInst() || !isa<CallInst>(I))
-          continue;
-        CallInst *Call = cast<CallInst>(&I);
-        CallsToHandle.insert(Call);
-        if (Call->getCalledFunction() &&
-            Call->getCalledFunction()->getName() == "__chipspv_abort")
-          AbortCallsToHandle.insert(Call);
+void HipAbortPass::analyze(const CallGraph &CG) {
+  std::set<InverseCallGraphNode *> WorkList;
+  SmallVector<InverseCallGraphNode *> KernelNodes;
+
+  // Find functions directly calling __chipspv_abort() function.
+  for (auto &FnNodePair : CG) {
+    auto *CGNode = FnNodePair.second.get();
+    if (CGNode == CG.getExternalCallingNode() ||
+        CGNode == CG.getCallsExternalNode())
+      continue; // Only interested in functions with definition.
+    auto *F = CGNode->getFunction();
+    if (F->isDeclaration())
+      continue;
+
+    if (F->getCallingConv() == CallingConv::SPIR_KERNEL)
+      KernelNodes.push_back(getInvertedCGNode(F));
+
+    for (auto &CGRecord : *CGNode) {
+      auto *CI = getCallInst(CGRecord);
+      assert(CI);
+      bool IndirectCall = !CI->getCalledFunction();
+      LLVM_DEBUG({
+        if (IndirectCall) {
+          // Current analysis does not extend beyond indirect calls (which are
+          // fortunately rare). Since they may potentially call the abort(),
+          // mark the call's origin function with 'MayAbort'.
+          dbgs() << "    Warning: an indirect call considered as may-abort\n"
+                 << "Call origin: " << getFnName(CI->getParent()->getParent())
+                 << "\n";
+        }
+      });
+
+      if (callsAbort(CI) || IndirectCall) {
+        WorkList.insert(getInvertedCGNode(F));
+        break;
       }
     }
   }
+
+  // Propagate may-abort attribute to callers.
+  while (WorkList.size()) {
+    InverseCallGraphNode *N = popAny(WorkList);
+    assert(N->AbortAttr != AbortAttribute::MayAbort && "Infinite loop!");
+    N->AbortAttr = AbortAttribute::MayAbort;
+    for (auto *Caller : N->Callers)
+      if (Caller->AbortAttr != AbortAttribute::MayAbort)
+        WorkList.insert(Caller);
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "Kernels potentially calling abort():\n";
+    for (auto *KN : KernelNodes)
+      if (KN->mayCallAbort())
+        dbgs() << "- " << getFnName(KN->getFunction()) << "\n";
+  });
+
+  for (auto *KN : KernelNodes)
+    if (KN->mayCallAbort()) {
+      AnyKernelMayCallAbort = true;
+      break;
+    }
+}
+
+/// True if the callee may abort. This method can be only called after
+/// analyze().
+bool HipAbortPass::mayCallAbort(const CallInst *CI) const {
+  if (callsAbort(CI))
+    return true;
+
+  if (!CI->getCalledFunction())
+    return true; // Current analysis does not extend beyond indirect calls.
+
+  auto *Callee = CI->getCalledFunction();
+  if (InverseCallGraph.count(Callee))
+    return false; // Reaching this could also mean incomplete analysis.
+
+  return InverseCallGraph.at(Callee)->mayCallAbort();
+}
+
+void HipAbortPass::processFunctions(Module &M) {
+  if (!AnyKernelMayCallAbort)
+    return;
+
+  std::set<CallInst *> CallsToHandle;
+  std::set<CallInst *> AbortCallsToHandle;
+  for (auto &FnNodePair : InverseCallGraph) {
+    auto *ICGNode = FnNodePair.second;
+    if (!ICGNode->mayCallAbort())
+      continue;
+
+    auto *CGNode = ICGNode->OrigNode;
+    for (auto &CGRecord : *CGNode) {
+      auto *CI = getCallInst(CGRecord);
+      assert(CI);
+      if (callsAbort(CI)) {
+        CallsToHandle.insert(CI);
+        AbortCallsToHandle.insert(CI);
+      } else if (mayCallAbort(CI))
+        CallsToHandle.insert(CI);
+    }
+  }
+
+  // Analysis concluded a kernel may call abort() - there should be something to
+  // be processed.
+  assert(CallsToHandle.size() || AbortCallsToHandle.size());
+
+  auto *AbortFlag = M.getGlobalVariable(ChipDeviceAbortFlagName);
+  auto &Ctx = M.getContext();
+  auto *Int32Ty = IntegerType::get(Ctx, 32);
+  auto *Int32OneConst = ConstantInt::get(Int32Ty, 1);
 
   // Use a single abort exit BB per function.
   std::map<Function *, BasicBlock *> AbortReturnBlocks;
@@ -135,6 +293,67 @@ HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
     B.CreateStore(Int32OneConst, AbortFlag, true);
     Call->eraseFromParent();
   }
+}
 
-  return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
+/// Erase a variable used for signaling abort event. Return true if it was found
+/// and removed.
+static bool eraseAbortFlag(Module &M) {
+  // Mark modules that do not call abort by just the global flag variable.
+  // Ugly, but should allow avoiding the kernel call to check the global
+  // variable.
+  GlobalVariable *AbortFlag = M.getGlobalVariable(ChipDeviceAbortFlagName);
+  if (AbortFlag != nullptr) {
+    AbortFlag->replaceAllUsesWith(Constant::getNullValue(AbortFlag->getType()));
+    AbortFlag->eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
+PreservedAnalyses HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
+  reset();
+
+  // This is always present due to its being declared as externally visible.  We
+  // are dealing with fully linked device code so nothing should link to the
+  // symbol. If we can remove it, we remove __chipspv_abort() call too which
+  // gives us a change to exit the pass early.
+  auto *AssertFailF = Mod.getFunction("__assert_fail");
+  if (AssertFailF && AssertFailF->hasNUses(0))
+    AssertFailF->eraseFromParent();
+
+  // The abort calls are made to undefined abort decl thus should not get
+  // inlined.
+  auto *AbortF = Mod.getFunction("__chipspv_abort");
+  if (!AbortF) {
+    return eraseAbortFlag(Mod) ? PreservedAnalyses::none()
+                               : PreservedAnalyses::all();
+  }
+  if (AbortF->hasNUses(0)) {
+    AbortF->eraseFromParent();
+    eraseAbortFlag(Mod);
+    return PreservedAnalyses::none();
+  }
+
+  assert(AbortF->isDeclaration() && "Expected to be a declaration!");
+
+  CallGraph CG(Mod);
+  buildInvertedCallGraph(CG);
+  analyze(CG);
+  if (AnyKernelMayCallAbort)
+    processFunctions(Mod);
+  else
+    eraseAbortFlag(Mod);
+
+  // __chipspv_abort is not needed anymore. Eliminate it so SPIR-V linker does
+  // not get upset about undefined symbol.
+  if (AbortF->hasNUses(0))
+    AbortF->eraseFromParent();
+  else {
+    // Simpler to just add an empy definition to it and let optimizer handle it.
+    auto *BB = BasicBlock::Create(Mod.getContext(), "entry", AbortF);
+    ReturnInst::Create(Mod.getContext(), BB);
+    assert(!AbortF->isDeclaration());
+  }
+
+  return PreservedAnalyses::none();
 }
