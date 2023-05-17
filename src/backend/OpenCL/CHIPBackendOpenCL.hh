@@ -228,10 +228,10 @@ public:
   const SVMemoryRegion &getRegion() const { return SvmMemory; }
   virtual void freeImpl(void *Ptr) override;
   cl::Context &get() { return ClContext; }
-  bool supportsCommandBuffers() { return SupportsCommandBuffers; }
-  bool supportsCommandBuffersSVM() { return SupportsCommandBuffersSVM; }
-  bool supportsCommandBuffersHost() { return SupportsCommandBuffersHost; }
-  const CHIPContextClExts *exts() { return &Exts; }
+  bool supportsCommandBuffers() const { return SupportsCommandBuffers; }
+  bool supportsCommandBuffersSVM() const { return SupportsCommandBuffersSVM; }
+  bool supportsCommandBuffersHost() const { return SupportsCommandBuffersHost; }
+  const CHIPContextClExts *exts() const { return &Exts; }
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
