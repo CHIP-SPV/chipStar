@@ -207,9 +207,9 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
 bool CHIPGraphExec::tryLaunchNative(CHIPQueue *Queue) {
   bool UsedNativeGraph = false;
   if (NativeGraph) {
-    if (NativeGraph->isFinalized()) {
+    if (NativeGraph->isFinalized())
       logDebug("NativeGraph: launching existing graph");
-    } else {
+    else {
       logDebug("NativeGraph: constructed but failed to finalize");
       return false;
     }
