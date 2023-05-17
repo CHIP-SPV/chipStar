@@ -55,14 +55,12 @@ void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
 
 void CHIPGraphNode::checkDependencies(size_t numDependencies,
                                       CHIPGraphNode **pDependencies) {
-  if (numDependencies > 0 && pDependencies == nullptr) {
+  if (numDependencies > 0 && pDependencies == nullptr)
     CHIPERR_LOG_AND_THROW("numDependencies > 0 && pDependencies == nullptr",
                           hipErrorInvalidValue);
-  }
-  if (numDependencies == 0 && pDependencies != nullptr) {
+  if (numDependencies == 0 && pDependencies != nullptr)
     CHIPERR_LOG_AND_THROW("numDependencies == 0 && pDependencies != nullptr",
                           hipErrorInvalidValue);
-  }
 }
 
 CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
