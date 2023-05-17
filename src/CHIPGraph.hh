@@ -121,10 +121,9 @@ public:
    * @param TheNode
    */
   void addDependency(CHIPGraphNode *TheNode) {
-    if (TheNode == nullptr) {
+    if (TheNode == nullptr)
       CHIPERR_LOG_AND_THROW("addDependency called with nullptr",
                             hipErrorInvalidValue);
-    }
     logDebug("{} addDependency() <{} depends on {}>", (void *)this, Msg,
              TheNode->Msg);
     Dependencies_.push_back(TheNode);
