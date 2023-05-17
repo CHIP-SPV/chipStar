@@ -922,9 +922,8 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
     Exts.USM.clMemFreeINTEL =
         (clMemFreeINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
             Plat(), "clMemFreeINTEL");
-  } else {
+  } else
     logDebug("Device does not support Intel USM");
-  }
 
   cl_device_svm_capabilities DeviceSVMCapabilities;
   int Err = Dev.getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
