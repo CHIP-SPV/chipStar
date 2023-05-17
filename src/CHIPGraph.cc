@@ -238,9 +238,8 @@ bool CHIPGraphExec::tryLaunchNative(CHIPQueue *Queue) {
     logDebug("NativeGraph: launched");
     Queue->finish();
     return true;
-  } else {
-    return false;
   }
+  return false;
 }
 
 void CHIPGraphExec::launch(CHIPQueue *Queue) {
