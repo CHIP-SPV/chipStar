@@ -930,11 +930,10 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
   SupportsFineGrainSVM =
       DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
-  if (SupportsFineGrainSVM) {
+  if (SupportsFineGrainSVM)
     logTrace("Device supports fine grain SVM");
-  } else {
+  else
     logTrace("Device does not support fine grain SVM");
-  }
 
   ClContext = CtxIn;
   SvmMemory.init(CtxIn, Dev, Exts.USM, SupportsFineGrainSVM, SupportsIntelUSM);
