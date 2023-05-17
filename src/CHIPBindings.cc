@@ -381,10 +381,9 @@ hipError_t hipGraphGetRootNodes(hipGraph_t graph, hipGraphNode_t *pRootNodes,
       RETURN(hipErrorInvalidValue);
     size_t ToCopy = pNumRootNodes ? *pNumRootNodes : Nodes.size();
     memcpy(pRootNodes, Nodes.data(), ToCopy * sizeof(CHIPGraphNode *));
-  } else {
+  } else
     // numNodes && pRootNodes == nullptr
     *pNumRootNodes = Nodes.size();
-  }
 
   RETURN(hipSuccess);
   CHIP_CATCH
