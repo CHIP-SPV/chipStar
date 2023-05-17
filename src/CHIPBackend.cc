@@ -465,9 +465,8 @@ void *CHIPArgSpillBuffer::allocate(const SPVFuncInfo::Arg &Arg) {
 void CHIPExecItem::copyArgs(void **Args) {
   // args need to be set up again
   ArgsSetup = false;
-  for (size_t i = 0; i < getNumArgs(); i++) {
+  for (size_t i = 0; i < getNumArgs(); i++)
     Args_.push_back(Args[i]);
-  }
 }
 
 CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
