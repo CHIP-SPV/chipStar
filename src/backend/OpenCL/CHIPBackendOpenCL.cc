@@ -1590,11 +1590,10 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
           Handle, nullptr, SyncPointDeps.size(), SyncPointDeps.data(),
           SyncPoint, nullptr);
       CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
-    } else {
+    } else
       Status = Exts->clCommandSVMMemcpyPOCL(
           Handle, nullptr, Dst, Src, Size, SyncPointDeps.size(),
           SyncPointDeps.data(), SyncPoint, nullptr);
-    }
   }
 
   return Status == CL_SUCCESS;
