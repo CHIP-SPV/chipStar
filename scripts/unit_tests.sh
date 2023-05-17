@@ -32,6 +32,7 @@ source /etc/profile.d/modules.sh
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
+export CHIP_LOGLEVEL=err
 
 # icpx --version
 # ulimit -a
