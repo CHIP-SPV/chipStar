@@ -1598,7 +1598,6 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
   return Status == CL_SUCCESS;
 }
 
-// DONE
 bool CHIPGraphNativeOpenCL::addMemcpyNode(
     CHIPGraphNodeMemcpyFromSymbol *Node,
     std::vector<cl_sync_point_khr> &SyncPointDeps,
@@ -1626,7 +1625,6 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
   return Status == CL_SUCCESS;
 }
 
-// DONE
 bool CHIPGraphNativeOpenCL::addMemcpyNode(
     CHIPGraphNodeMemcpyToSymbol *Node,
     std::vector<cl_sync_point_khr> &SyncPointDeps,
@@ -1652,7 +1650,6 @@ bool CHIPGraphNativeOpenCL::addMemcpyNode(
   return Status == CL_SUCCESS;
 }
 
-// DONE
 bool CHIPGraphNativeOpenCL::addMemsetNode(
     CHIPGraphNodeMemset *Node, std::vector<cl_sync_point_khr> &SyncPointDeps,
     cl_sync_point_khr *SyncPoint) {
@@ -1677,7 +1674,6 @@ bool CHIPGraphNativeOpenCL::addMemsetNode(
 
 #ifdef cl_pocl_command_buffer_host_exec
 
-// DONE
 bool CHIPGraphNativeOpenCL::addHostNode(
     CHIPGraphNodeHost *Node, std::vector<cl_sync_point_khr> &SyncPointDeps,
     cl_sync_point_khr *SyncPoint) {
@@ -1693,7 +1689,6 @@ bool CHIPGraphNativeOpenCL::addHostNode(
   return Status == CL_SUCCESS;
 }
 
-// TODO output cl_event
 bool CHIPGraphNativeOpenCL::addEventRecordNode(
     CHIPGraphNodeEventRecord *Node,
     std::vector<cl_sync_point_khr> &SyncPointDeps,
@@ -1701,17 +1696,19 @@ bool CHIPGraphNativeOpenCL::addEventRecordNode(
   if (!Exts->clCommandSignalEventPOCL)
     return false;
 
+  return false;
+  // unfinished
+#if 0
   CHIPEvent *E = Node->getEvent();
   CHIPEventOpenCL *CLE = static_cast<CHIPEventOpenCL *>(E);
 
   int Status;
-  // TODO BROKEN
   Status = Exts->clCommandSignalEventPOCL(Handle, nullptr, nullptr, SyncPoint,
                                           nullptr);
   return Status == CL_SUCCESS;
+#endif
 }
 
-// DONE
 bool CHIPGraphNativeOpenCL::addEventWaitNode(
     CHIPGraphNodeWaitEvent *Node, std::vector<cl_sync_point_khr> &SyncPointDeps,
     cl_sync_point_khr *SyncPoint) {
