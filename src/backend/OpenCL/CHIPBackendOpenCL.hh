@@ -128,11 +128,11 @@ public:
 
 class CHIPModuleOpenCL : public CHIPModule {
 protected:
-  cl::Program Program_;
+  cl::Program ClProgram_;
 
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
-  cl::Program &get() { return Program_; }
+  cl::Program &get() { return ClProgram_; }
   virtual ~CHIPModuleOpenCL() {}
   virtual void compile(CHIPDevice *ChipDevice) override;
 };
@@ -151,7 +151,7 @@ class SVMemoryRegion {
   cl::Context Context_;
   cl::Device Device_;
 
-  CHIPContextUSMExts USM;
+  CHIPContextUSMExts USMExts_;
   bool SupportsFineGrain;
   bool SupportsIntelUSM;
 
@@ -208,14 +208,14 @@ typedef struct {
 
 class CHIPContextOpenCL : public CHIPContext {
 private:
-  cl::Context ClContext;
+  cl::Context ClContext_;
   bool SupportsCommandBuffers;
   bool SupportsCommandBuffersSVM;
   bool SupportsCommandBuffersHost;
   bool SupportsIntelUSM;
   bool SupportsFineGrainSVM;
-  CHIPContextClExts Exts;
-  SVMemoryRegion SvmMemory;
+  CHIPContextClExts Exts_;
+  SVMemoryRegion SvmMemory_;
 
 public:
   bool allDevicesSupportFineGrainSVMorUSM();
@@ -225,25 +225,25 @@ public:
                      CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
-  const SVMemoryRegion &getRegion() const { return SvmMemory; }
+  const SVMemoryRegion &getSVMRegion() const { return SvmMemory_; }
   virtual void freeImpl(void *Ptr) override;
-  cl::Context &get() { return ClContext; }
+  cl::Context &get() { return ClContext_; }
   bool supportsCommandBuffers() const { return SupportsCommandBuffers; }
   bool supportsCommandBuffersSVM() const { return SupportsCommandBuffersSVM; }
   bool supportsCommandBuffersHost() const { return SupportsCommandBuffersHost; }
-  const CHIPContextClExts *exts() const { return &Exts; }
+  const CHIPContextClExts *exts() const { return &Exts_; }
 };
 
 class CHIPDeviceOpenCL : public CHIPDevice {
 private:
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device ClDevice,
                    int Idx);
-  cl::Device ClDevice;
+  cl::Device ClDevice_;
 
 public:
   static CHIPDeviceOpenCL *create(cl::Device ClDevice,
                                   CHIPContextOpenCL *ChipContext, int Idx);
-  cl::Device &get() { return ClDevice; }
+  cl::Device &get() { return ClDevice_; }
   virtual void populateDevicePropertiesImpl() override;
   // unused
   virtual void resetImpl() override{};
@@ -269,15 +269,14 @@ public:
 class CHIPQueueOpenCL : public CHIPQueue {
 protected:
   // Any reason to make these private/protected?
-  cl::CommandQueue ClQueue;
+  cl::CommandQueue ClQueue_;
 
   /**
    * @brief Map memory to device.
    *
-   * All OpenCL allocations are done using SVM allocator. On systems with only
-   * coarse-grain SVM, we need to map the memory before performing any
-   * operations on the host. If the device supports fine-grain SVM, then no
-   * mapping will be done.
+   * On OpenCL systems with only coarse-grain SVM, we need to map the memory
+   * before performing any operations on the host. If the device supports
+   * fine-grain SVM or Intel USM, then no mapping will be done.
    *
    * @param AllocInfo AllocationInfo object to be mapped for the host
    * @param Type Type of mapping to be performed. Either READ or WRITE
@@ -307,7 +306,7 @@ public:
   virtual void finish() override;
   virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
-  cl::CommandQueue &get() { return ClQueue; }
+  cl::CommandQueue &get() { return ClQueue_; }
   virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
                                       const void *Pattern,
                                       size_t PatternSize) override;
@@ -335,14 +334,14 @@ public:
 class CHIPKernelOpenCL : public CHIPKernel {
 private:
   std::string Name_;
-  cl::Kernel OclKernel_;
+  cl::Kernel ClKernel_;
   size_t MaxDynamicLocalSize_;
   size_t MaxWorkGroupSize_;
   size_t StaticLocalSize_;
   size_t PrivateSize_;
 
-  CHIPModuleOpenCL *Module;
-  CHIPDeviceOpenCL *Device;
+  CHIPModuleOpenCL *Module_;
+  CHIPDeviceOpenCL *Device_;
 
 public:
   CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
@@ -353,11 +352,11 @@ public:
 
   SPVFuncInfo *getFuncInfo() const { return FuncInfo_; }
   const std::string &getName() const { return Name_; }
-  cl::Kernel &get() { return OclKernel_; }
+  cl::Kernel &get() { return ClKernel_; }
   CHIPKernelOpenCL *clone();
 
-  CHIPModuleOpenCL *getModule() override { return Module; }
-  const CHIPModuleOpenCL *getModule() const override { return Module; }
+  CHIPModuleOpenCL *getModule() override { return Module_; }
+  const CHIPModuleOpenCL *getModule() const override { return Module_; }
   virtual hipError_t getAttributes(hipFuncAttributes *Attr) override;
 };
 
@@ -428,33 +427,33 @@ public:
 };
 
 class CHIPTextureOpenCL : public CHIPTexture {
-  cl_mem Image;
-  cl_sampler Sampler;
+  cl_mem Image_;
+  cl_sampler Sampler_;
 
 public:
   CHIPTextureOpenCL() = delete;
   CHIPTextureOpenCL(const hipResourceDesc &ResDesc, cl_mem TheImage,
                     cl_sampler TheSampler)
-      : CHIPTexture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
+      : CHIPTexture(ResDesc), Image_(TheImage), Sampler_(TheSampler) {}
 
   virtual ~CHIPTextureOpenCL() {
     cl_int Status;
-    Status = clReleaseMemObject(Image);
+    Status = clReleaseMemObject(Image_);
     assert(Status == CL_SUCCESS && "Invalid image handler?");
-    Status = clReleaseSampler(Sampler);
+    Status = clReleaseSampler(Sampler_);
     assert(Status == CL_SUCCESS && "Invalid sampler handler?");
     (void)Status;
   }
 
-  cl_mem getImage() const { return Image; }
-  cl_sampler getSampler() const { return Sampler; }
+  cl_mem getImage() const { return Image_; }
+  cl_sampler getSampler() const { return Sampler_; }
 };
 
 class CHIPGraphNativeOpenCL : public CHIPGraphNative {
-  cl_command_buffer_khr Handle;
-  cl_command_queue CmdQ;
-  std::map<CHIPGraphNode *, cl_sync_point_khr> SyncPointMap;
-  const CHIPContextClExts *Exts;
+  cl_command_buffer_khr Handle_;
+  cl_command_queue CmdQ_;
+  std::map<CHIPGraphNode *, cl_sync_point_khr> SyncPointMap_;
+  const CHIPContextClExts *Exts_;
 
   bool addKernelNode(CHIPGraphNodeKernel *Node,
                      std::vector<cl_sync_point_khr> &SyncPointDeps,
@@ -489,9 +488,9 @@ class CHIPGraphNativeOpenCL : public CHIPGraphNative {
 public:
   CHIPGraphNativeOpenCL(cl_command_buffer_khr H, cl_command_queue CQ,
                         const CHIPContextClExts *E)
-      : Handle(H), CmdQ(CQ), Exts(E) {}
+      : Handle_(H), CmdQ_(CQ), Exts_(E) {}
   virtual ~CHIPGraphNativeOpenCL();
-  cl_command_buffer_khr get() const { return Handle; }
+  cl_command_buffer_khr get() const { return Handle_; }
   virtual bool finalize() override;
   virtual bool addNode(CHIPGraphNode *NewNode) override;
 };

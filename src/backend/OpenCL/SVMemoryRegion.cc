@@ -28,7 +28,7 @@ void SVMemoryRegion::init(cl::Context C, cl::Device D, CHIPContextUSMExts U,
                           bool FineGrain, bool IntelUSM) {
   Device_ = D;
   Context_ = C;
-  USM = U;
+  USMExts_ = U;
   SupportsFineGrain = FineGrain;
   SupportsIntelUSM = IntelUSM;
 }
@@ -37,7 +37,7 @@ SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
   SvmAllocations_ = std::move(Rhs.SvmAllocations_);
   Context_ = std::move(Rhs.Context_);
   Device_ = std::move(Rhs.Device_);
-  USM = std::move(Rhs.USM);
+  USMExts_ = std::move(Rhs.USMExts_);
   SupportsFineGrain = Rhs.SupportsFineGrain;
   SupportsIntelUSM = Rhs.SupportsIntelUSM;
   return *this;
@@ -66,7 +66,7 @@ void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
     case hipMemoryTypeUnified:
     */
     default:
-      Ptr = USM.clSharedMemAllocINTEL(Context_(), Device_(), NULL, Size,
+      Ptr = USMExts_.clSharedMemAllocINTEL(Context_(), Device_(), NULL, Size,
                                       Alignment, &Err);
       break;
     }
@@ -79,7 +79,7 @@ void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
   if (Ptr) {
     auto Deleter = [Ctx = this->Context_, SupportsUSM = this->SupportsIntelUSM,
                     clMemFreeINTEL =
-                        this->USM.clMemFreeINTEL](void *PtrToFree) -> void {
+                        this->USMExts_.clMemFreeINTEL](void *PtrToFree) -> void {
       logTrace("clSVMFree on: {}\n", PtrToFree);
       if (SupportsUSM)
         clMemFreeINTEL(Ctx(), PtrToFree);
