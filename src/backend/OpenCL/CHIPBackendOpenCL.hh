@@ -85,7 +85,7 @@ public:
 
 class CHIPEventOpenCL : public CHIPEvent {
 private:
-  cl::Event ClEvent;
+  cl::Event ClEvent_;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
@@ -103,23 +103,23 @@ public:
   virtual void hostSignal() override{};
 
   virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
-  cl::Event &get() { return ClEvent; }
-  cl::UserEvent &getAsUserEv() { return static_cast<cl::UserEvent &>(ClEvent); }
+  cl::Event &get() { return ClEvent_; }
+  cl::UserEvent &getAsUserEv() { return static_cast<cl::UserEvent &>(ClEvent_); }
   void reset(cl::UserEvent &&Ev) {
-    ClEvent = Ev;
+    ClEvent_ = Ev;
     logTrace("UserEvent {} Moved into {} || NOW: {}", (void *)Ev.get(),
-             (void *)this, (void *)ClEvent.get());
+             (void *)this, (void *)ClEvent_.get());
   }
 
   void reset(cl::Event &&Ev) {
-    ClEvent = Ev;
+    ClEvent_ = Ev;
     logTrace("Event {} Moved into {} || NOW: {}", (void *)Ev.get(),
-             (void *)this, (void *)ClEvent.get());
+             (void *)this, (void *)ClEvent_.get());
   }
   void reset(cl_event Ev) {
-    ClEvent = Ev;
+    ClEvent_ = Ev;
     logTrace("Event {} Moved into {} ||| NOW: {}", (void *)Ev, (void *)this,
-             (void *)ClEvent.get());
+             (void *)ClEvent_.get());
   }
 
   // for elapsedTime

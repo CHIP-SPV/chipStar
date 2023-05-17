@@ -70,7 +70,7 @@ void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
                                       Alignment, &Err);
       break;
     }
-  else if (SupportsFineGrain)
+  } else if (SupportsFineGrain)
     Ptr = ::clSVMAlloc(
         Context_(), CL_MEM_READ_WRITE | CL_MEM_SVM_FINE_GRAIN_BUFFER, Size, 0);
   else

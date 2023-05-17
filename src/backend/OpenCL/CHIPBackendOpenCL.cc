@@ -524,7 +524,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  cl_event ClEvent, CHIPEventFlags Flags,
                                  bool UserEvent)
-    : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent(ClEvent) {
+    : CHIPEvent((CHIPContext *)(ChipContext), Flags), ClEvent_(ClEvent) {
   UserEvent_ = UserEvent;
 }
 
@@ -535,7 +535,7 @@ CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
 uint64_t CHIPEventOpenCL::getFinishTime() {
   int Status = CL_SUCCESS;
   uint64_t Ret;
-  Ret = ClEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>(&Status);
+  Ret = ClEvent_.getProfilingInfo<CL_PROFILING_COMMAND_END>(&Status);
 
   if (Status != CL_SUCCESS) {
     logError("Failed to query event for profiling info.");
@@ -562,7 +562,7 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
   CHIPEventOpenCL *Marker = (CHIPEventOpenCL *)ChipQueue->enqueueMarkerImpl();
   // see operator=() on cl::Event
   // should automatically release ClEvent if it already contains valid handle
-  ClEvent = Marker->ClEvent;
+  ClEvent_ = Marker->ClEvent_;
   Msg = "recordStreamMarker";
   EventStatus_ = EVENT_STATUS_RECORDING;
   delete Marker;
@@ -579,7 +579,7 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
 
 size_t CHIPEventOpenCL::getCHIPRefc() {
   int Err = CL_SUCCESS;
-  size_t RefC = ClEvent.getInfo<CL_EVENT_REFERENCE_COUNT>(&Err);
+  size_t RefC = ClEvent_.getInfo<CL_EVENT_REFERENCE_COUNT>(&Err);
   if (Err != CL_SUCCESS) {
     logError("failed to get Reference count from OpenCL event");
     return 0;
@@ -595,20 +595,20 @@ bool CHIPEventOpenCL::wait() {
     return false;
   }
 
-  auto Status = ClEvent.wait();
+  auto Status = ClEvent_.wait();
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   return true;
 }
 
 bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   logTrace("CHIPEventOpenCL::updateFinishStatus()");
-  if (ThrowErrorIfNotReady && ClEvent.get() == nullptr)
+  if (ThrowErrorIfNotReady && ClEvent_.get() == nullptr)
     CHIPERR_LOG_AND_THROW("OpenCL has not been initialized cl_event is null",
                           hipErrorNotReady);
 
   int Status = CL_SUCCESS;
   int UpdatedStatus =
-      ClEvent.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>(&Status);
+      ClEvent_.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>(&Status);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   if (ThrowErrorIfNotReady && UpdatedStatus != CL_COMPLETE) {
     CHIPERR_LOG_AND_THROW("Event not yet ready", hipErrorNotReady);

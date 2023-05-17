@@ -217,13 +217,12 @@ bool CHIPGraphExec::tryLaunchNative(CHIPQueue *Queue) {
     if (!NativeGraph)
       return false;
 
-    for (auto &Node : OriginalGraph_->getNodes()) {
+    for (auto &Node : OriginalGraph_->getNodes())
       if (!NativeGraph->addNode(Node)) {
         logError("NativeGraph: failed to add node of type: {}",
                  Node->getType());
         return false;
       }
-    }
 
     if (!NativeGraph->finalize()) {
       logDebug("NativeGraph: failed to finalize");

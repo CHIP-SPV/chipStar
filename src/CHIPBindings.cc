@@ -350,17 +350,14 @@ hipError_t hipGraphGetNodes(hipGraph_t graph, hipGraphNode_t *nodes,
   CHIP_TRY
   if (!graph || !numNodes)
     RETURN(hipErrorInvalidValue);
-  //  if (!nodes && !numNodes)
-  //    RETURN(hipErrorInvalidValue);
   CHIPInitialize();
   auto Nodes = GRAPH(graph)->getNodes();
   if (nodes) {
-    if (numNodes && (*numNodes > Nodes.size()))
+    if (*numNodes > Nodes.size())
       RETURN(hipErrorInvalidValue);
     size_t ToCopy = numNodes ? *numNodes : Nodes.size();
     memcpy(nodes, Nodes.data(), ToCopy * sizeof(CHIPGraphNode *));
   } else {
-    // numNodes && nodes == nullptr
     *numNodes = Nodes.size();
   }
   RETURN(hipSuccess);
