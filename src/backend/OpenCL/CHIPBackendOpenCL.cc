@@ -1459,11 +1459,10 @@ bool CHIPGraphNativeOpenCL::finalize() {
   if (Status == CL_SUCCESS) {
     Finalized = true;
     return true;
-  } else {
-    logError("clFinalizeCommandBufferKHR FAILED with status {}",
-             resultToString(Status));
-    return false;
   }
+  logError("clFinalizeCommandBufferKHR FAILED with status {}",
+           resultToString(Status));
+  return false;
 }
 
 CHIPGraphNativeOpenCL::~CHIPGraphNativeOpenCL() {
