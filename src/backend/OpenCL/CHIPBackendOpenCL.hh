@@ -352,7 +352,7 @@ public:
   virtual ~CHIPKernelOpenCL() {}
 
   SPVFuncInfo *getFuncInfo() const { return FuncInfo_; }
-  std::string getName() { return Name_; }
+  const std::string &getName() const { return Name_; }
   cl::Kernel &get() { return OclKernel_; }
   CHIPKernelOpenCL *clone();
 
