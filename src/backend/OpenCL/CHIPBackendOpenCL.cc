@@ -583,9 +583,8 @@ size_t CHIPEventOpenCL::getCHIPRefc() {
   if (Err != CL_SUCCESS) {
     logError("failed to get Reference count from OpenCL event");
     return 0;
-  } else {
-    return RefC;
   }
+  return RefC;
 }
 
 bool CHIPEventOpenCL::wait() {
