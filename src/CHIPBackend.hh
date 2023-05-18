@@ -640,8 +640,8 @@ public:
   std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc();
-  virtual void decreaseRefCount(std::string Reason);
-  virtual void increaseRefCount(std::string Reason);
+  virtual void decreaseRefCount(std::string Reason) = 0;
+  virtual void increaseRefCount(std::string Reason) = 0;
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**

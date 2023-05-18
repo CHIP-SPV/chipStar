@@ -220,30 +220,6 @@ void CHIPEvent::releaseDependencies() {
   DependsOnList.clear();
 }
 
-void CHIPEvent::decreaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-  if (*Refc_ > 0) {
-    (*Refc_)--;
-  } else {
-    assert(false && "CHIPEvent::decreaseRefCount() called when refc == 0");
-    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-  }
-  // Destructor to be called by event monitor once backend is done using it
-}
-void CHIPEvent::increaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-
-  // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
-  assert(*Refc_ > 0 && "Increasing refcount from zero!");
-  (*Refc_)++;
-}
-
 size_t CHIPEvent::getCHIPRefc() {
   LOCK(this->EventMtx); // CHIPEvent::Refc_
   assert(!Deleted_ && "Event use after delete!");

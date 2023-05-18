@@ -2170,9 +2170,7 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
 
   ChipEvent->decreaseRefCount("hipEventDestroy");
-  if (ChipEvent->getCHIPRefc() != 0) {
-    logError("hipEventDestroy was called but remaining refcount is not 0");
-  }
+
   RETURN(hipSuccess);
 
   CHIP_CATCH
