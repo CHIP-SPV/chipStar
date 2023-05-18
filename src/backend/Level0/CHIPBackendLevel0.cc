@@ -223,10 +223,14 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 void CHIPEventLevel0::reset() {
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  LOCK(EventMtx); // CHIPEvent::TrackCalled_
-  TrackCalled_ = false;
-  EventStatus_ = EVENT_STATUS_INIT;
-  *Refc_ = 1;
+  {
+    LOCK(EventMtx); // CHIPEvent::TrackCalled_
+    TrackCalled_ = false;
+    UserEvent_ = false;
+    EventStatus_ = EVENT_STATUS_INIT;
+    *Refc_ = 1;
+  }
+
 #ifndef NDEBUG
   markDeleted(false);
 #endif
@@ -248,7 +252,7 @@ ze_event_handle_t CHIPEventLevel0::get(std::string Msg) {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  logTrace("chipEventLevel0 DEST {}", (void *)this);
+  logTrace("~CHIPEventLevel0({}_", (void *)this);
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
     // '~CHIPEventLevel0' has a non-throwing exception specification
@@ -256,6 +260,7 @@ CHIPEventLevel0::~CHIPEventLevel0() {
   }
 
   if (isUserEvent()) {
+    assert(!TrackCalled_ && "Track() was called for a user event");
     assert(EventPoolHandle_ && "UserEvent has a null event pool handle!");
     auto Status = zeEventPoolDestroy(EventPoolHandle_);
     assert(Status == ZE_RESULT_SUCCESS);
@@ -660,6 +665,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       CHIPEvent *ChipEvent = Backend->Events[i];
 
       assert(ChipEvent);
+      assert(!ChipEvent->isUserEvent());
+      assert(ChipEvent->TrackCalled_ && "Event found in backend list but TrackCalled_ is false");
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
       // do not change refcount for user events
@@ -1510,6 +1517,7 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
     Event = ZeCtx->getEventFromPool();
   }
 
+  assert(UserEvent == Event->isUserEvent() && "Returning a user event when it was not requested");
   return Event;
 }
 

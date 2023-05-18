@@ -335,7 +335,15 @@ public:
   std::mutex EventMonitorMtx;
   volatile bool Stop = false;
 
-  void join() { pthread_join(Thread_, nullptr); }
+  void join() { 
+    assert(Thread_);
+    logDebug("Joining Event Monitor Thread {}", Thread_);
+    int Status = pthread_join(Thread_, nullptr); 
+    if(Status != 0) {
+      logError("Failed to call join() {}", Status);
+    }
+  }
+
   static void *monitorWrapper(void *Arg) {
     auto Monitor = (CHIPEventMonitor *)Arg;
     Monitor->monitor();
@@ -600,9 +608,10 @@ public:
 };
 
 class CHIPEvent : public ihipEvent_t {
+public:
+  bool TrackCalled_ = false;
 protected:
   bool UserEvent_ = false;
-  bool TrackCalled_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
@@ -640,8 +649,8 @@ public:
   std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc();
-  virtual void decreaseRefCount(std::string Reason) = 0;
-  virtual void increaseRefCount(std::string Reason) = 0;
+  virtual size_t decreaseRefCount(std::string Reason) = 0;
+  virtual size_t increaseRefCount(std::string Reason) = 0;
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
@@ -743,7 +752,10 @@ public:
   virtual void hostSignal() = 0;
 
 #ifndef NDEBUG
-  void markDeleted(bool State = true) { Deleted_ = State; }
+  void markDeleted(bool State = true) { 
+    LOCK(EventMtx); // Deleted_
+    Deleted_ = State; 
+    }
 #endif
 };
 

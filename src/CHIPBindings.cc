@@ -2168,7 +2168,10 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   NULLCHECK(Event);
   CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
 
-  ChipEvent->decreaseRefCount("hipEventDestroy");
+  size_t Refc = ChipEvent->decreaseRefCount("hipEventDestroy");
+  if(Refc == 0) {
+    Event = nullptr;
+  }
 
   RETURN(hipSuccess);
 

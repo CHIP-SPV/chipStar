@@ -814,6 +814,7 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
 void CHIPEvent::track() {
   LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
   LOCK(EventMtx);           // writing bool CHIPEvent::TrackCalled_
+  assert(!isUserEvent() && "Attemped to track a user event!");
   assert(!Deleted_ && "Event use after delete!");
   if (!TrackCalled_) {
     Backend->Events.push_back(this);
@@ -1210,10 +1211,10 @@ CHIPBackend::CHIPBackend() {
 
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  if (StaleEventMonitor_)
-    StaleEventMonitor_->stop();
-  if (CallbackEventMonitor_)
-    CallbackEventMonitor_->stop();
+  // if (StaleEventMonitor_)
+  //   StaleEventMonitor_->stop();
+  // if (CallbackEventMonitor_)
+  //   CallbackEventMonitor_->stop();
   Events.clear();
   for (auto &Ctx : ChipContexts) {
     Backend->removeContext(Ctx);

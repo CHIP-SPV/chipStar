@@ -108,8 +108,8 @@ public:
   uint64_t getFinishTime();
   size_t getRefCount();
 
-  virtual void increaseRefCount(std::string Reason) override;
-  virtual void decreaseRefCount(std::string Reason) override;
+  virtual size_t increaseRefCount(std::string Reason) override;
+  virtual size_t decreaseRefCount(std::string Reason) override;
 };
 
 class CHIPModuleOpenCL : public CHIPModule {

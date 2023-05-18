@@ -92,7 +92,7 @@ private:
   std::vector<ActionFn> Actions_;
 
 public:
-  virtual void decreaseRefCount(std::string Reason) override {
+  virtual size_t decreaseRefCount(std::string Reason) override {
     LOCK(EventMtx); // CHIPEvent::Refc_
     assert(!Deleted_ && "Event use after delete!");
     // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -104,11 +104,16 @@ public:
       logError("CHIPEvent::decreaseRefCount() called when refc == 0");
     }
     // Destructor to be called by event monitor once backend is done using it
-    if (!TrackCalled_)
+    if (!TrackCalled_) {
       delete this;
+      return 0;
+    } else {
+      return *Refc_;
+    }
+
   }
 
-  virtual void increaseRefCount(std::string Reason) override {
+  virtual size_t increaseRefCount(std::string Reason) override {
     LOCK(EventMtx); // CHIPEvent::Refc_
     assert(!Deleted_ && "Event use after delete!");
     // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
@@ -117,6 +122,8 @@ public:
     // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
     assert(*Refc_ > 0 && "Increasing refcount from zero!");
     (*Refc_)++;
+
+    return *Refc_;
   }
 
   uint32_t getValidTimestampBits();
