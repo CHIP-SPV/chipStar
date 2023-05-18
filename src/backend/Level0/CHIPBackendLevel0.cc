@@ -1472,6 +1472,7 @@ CHIPEventLevel0 *LZEventPool::getEvent() {
     return nullptr;
   auto Event = Events_[PoolIndex];
   Event->reset();
+  assert(Event->isUserEvent() == false);
 
   return Event;
 };
@@ -1511,6 +1512,7 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   CHIPEventLevel0 *Event;
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+    Event->UserEvent_ = true;
     // Event->increaseRefCount("hipEventCreate");
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;

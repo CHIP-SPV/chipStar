@@ -610,8 +610,8 @@ public:
 class CHIPEvent : public ihipEvent_t {
 public:
   bool TrackCalled_ = false;
-protected:
   bool UserEvent_ = false;
+protected:
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
