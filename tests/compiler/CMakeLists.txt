@@ -107,6 +107,7 @@ add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O1
   HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestPrintfLonePercent.hip HIPCC_OPTIONS -c)
 
+add_shell_test(TestHipccAcceptCFiles.bash)
 add_shell_test(TestRDCWithSingleHipccCmd.bash)
 add_shell_test(TestRDCWithMultipleHipccCmds.bash)
 add_shell_test(TestWholeProgramCompilation.bash)
