@@ -256,7 +256,7 @@ CHIPEventLevel0::~CHIPEventLevel0() {
   }
 
   if (isUserEvent()) {
-    assert(EventPool && "EventPoolHandle_ is set but EventPool is nullptr");
+    assert(EventPoolHandle_ && "UserEvent has a null event pool handle!");
     auto Status = zeEventPoolDestroy(EventPoolHandle_);
     assert(Status == ZE_RESULT_SUCCESS);
   }
