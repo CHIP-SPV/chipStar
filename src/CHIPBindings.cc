@@ -2137,7 +2137,6 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 
   auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
-  ChipEvent->increaseRefCount("hipEventCreateWithFlags");
 
   *Event = ChipEvent;
   RETURN(hipSuccess);
