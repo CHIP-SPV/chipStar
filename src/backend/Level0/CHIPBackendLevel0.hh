@@ -104,7 +104,7 @@ public:
       logError("CHIPEvent::decreaseRefCount() called when refc == 0");
     }
     // Destructor to be called by event monitor once backend is done using it
-    if (!TrackCalled_) {
+    if (!TrackCalled_ && !UserEvent_ && *Refc_ == 0) {
       delete this;
       return 0;
     } else {

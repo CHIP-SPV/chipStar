@@ -1351,7 +1351,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPEventLevel0 *MemCopyEvent =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
-
+  assert(!MemCopyEvent->isUserEvent());
   ze_result_t Status;
   CHIPASSERT(MemCopyEvent->peek());
   GET_COMMAND_LIST(this);

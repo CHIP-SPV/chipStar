@@ -635,8 +635,7 @@ protected:
    * constructor should be called.
    *
    */
-  CHIPEvent() = default;
-
+  CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
 public:
   bool isUserEvent() { return UserEvent_; }
   void addDependency(CHIPEvent *Event) {

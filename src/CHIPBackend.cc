@@ -1518,7 +1518,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
-
+    assert(!ChipEvent->isUserEvent());
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
           AllocInfoDst, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
@@ -1529,7 +1529,10 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
     ChipEvent->Msg = "memCopy";
     updateLastEvent(ChipEvent);
     this->finish();
+    assert(!ChipEvent->isUserEvent());
+    assert(!ChipEvent->TrackCalled_);
   }
+  assert(!ChipEvent->isUserEvent());
   ChipEvent->track();
 
   return hipSuccess;
