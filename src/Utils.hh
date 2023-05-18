@@ -31,6 +31,8 @@
 #include <optional>
 #include <cstring>
 #include <string_view>
+#include <iomanip>
+
 
 std::string readEnvVar(std::string EnvVar, bool Lower = true);
 void dumpSpirv(std::string_view Spirv);
