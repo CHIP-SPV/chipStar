@@ -68,13 +68,8 @@ add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
 add_hipcc_test(TestDoubleShuffleOverloads.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
 
+add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
-
-add_test(NAME "TestHipccAcceptCcFiles"
-  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
-  ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccAcceptCcFiles.c -o TestHipccAcceptCcFiles &&
-  ./TestHipccAcceptCcFiles
-)
 
 add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
