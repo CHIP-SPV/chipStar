@@ -666,7 +666,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
       assert(ChipEvent);
       assert(!ChipEvent->isUserEvent());
-      assert(ChipEvent->TrackCalled_ && "Event found in backend list but TrackCalled_ is false");
+      assert(ChipEvent->isTrackCalled() && "Event found in backend list but TrackCalled_ is false");
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
       // do not change refcount for user events
@@ -1512,7 +1512,7 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   CHIPEventLevel0 *Event;
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-    Event->UserEvent_ = true;
+    Event->setUserEvent(true);
     // Event->increaseRefCount("hipEventCreate");
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
