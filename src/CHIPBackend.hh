@@ -637,9 +637,9 @@ protected:
   CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
 public:
   bool isTrackCalled() { return TrackCalled_; }
-  bool setTrackCalled(bool Val) { TrackCalled_ = Val; }
+  void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
-  bool setUserEvent(bool Val) { UserEvent_ = Val; }
+  void setUserEvent(bool Val) { UserEvent_ = Val; }
   void addDependency(CHIPEvent *Event) {
     assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
