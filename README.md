@@ -79,6 +79,7 @@ make install
 
 Useful options:
  * `-DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>`
+ * `-DBUILD_SAMPLES=<ON(default), OFF>` # Samples are built by default, unless you set this to OFF
 
 The documentation will be placed in `doxygen/html`.
 
