@@ -335,11 +335,11 @@ public:
   std::mutex EventMonitorMtx;
   volatile bool Stop = false;
 
-  void join() { 
+  void join() {
     assert(Thread_);
     logDebug("Joining Event Monitor Thread {}", Thread_);
-    int Status = pthread_join(Thread_, nullptr); 
-    if(Status != 0) {
+    int Status = pthread_join(Thread_, nullptr);
+    if (Status != 0) {
       logError("Failed to call join() {}", Status);
     }
   }
@@ -635,6 +635,7 @@ protected:
    *
    */
   CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
+
 public:
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
@@ -645,7 +646,7 @@ public:
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  void track();
+  virtual void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
@@ -753,10 +754,10 @@ public:
   virtual void hostSignal() = 0;
 
 #ifndef NDEBUG
-  void markDeleted(bool State = true) { 
+  void markDeleted(bool State = true) {
     LOCK(EventMtx); // Deleted_
-    Deleted_ = State; 
-    }
+    Deleted_ = State;
+  }
 #endif
 };
 
