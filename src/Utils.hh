@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef SRC_UTILS_HH
 #define SRC_UTILS_HH
 
@@ -31,6 +30,7 @@
 #include <optional>
 #include <cstring>
 #include <string_view>
+#include <iomanip>
 
 std::string readEnvVar(std::string EnvVar, bool Lower = true);
 void dumpSpirv(std::string_view Spirv);

@@ -686,7 +686,7 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 
-void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
+size_t CHIPEventOpenCL::increaseRefCount(std::string Reason) {
   LOCK(EventMtx); // CHIPEvent::Refc_
   auto status = clRetainEvent(this->ClEvent);
   if (!UserEvent_)
@@ -698,9 +698,10 @@ void CHIPEventOpenCL::increaseRefCount(std::string Reason) {
   assert(*Refc_ = getRefCount() - 1);
   // logDebug("CHIPEventOpenCL::increaseRefCount() {} OpenCL RefCount: {}",
   //          (void *)this, getRefCount());
+  return *Refc_;
 }
 
-void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
+size_t CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
   LOCK(EventMtx); // CHIPEvent::Refc_
   // logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
   //          (void *)this, getRefCount());
@@ -713,6 +714,7 @@ void CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
     logError("CHIPEvent::decreaseRefCount() called when refc == 0");
   }
   clReleaseEvent(this->ClEvent);
+  return *Refc_;
 }
 
 // CHIPModuleOpenCL
