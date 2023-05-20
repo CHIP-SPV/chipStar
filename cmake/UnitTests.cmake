@@ -13,6 +13,10 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS " ")
 list(APPEND CPU_POCL_FAILED_TESTS " ") 
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 
+# This test gets enabled only if LLVM' FileCheck tool is found in PATH.
+# It fails with "error: cannot find ROCm device library;
+#  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
+#  '-nogpulib' to build without ROCm device library"
 list(APPEND FAILING_FOR_ALL "constant_fold_lgamma_r") # Unknown
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSync") # Pinned Memory Missing mutex?
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncAsync") # Pinned Memory Missing mutex?
@@ -2514,6 +2518,9 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rz_d
 # Fails for LLVM 15 Debug: SPIR-V Parser: Failed to find size for type id 83
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_rnorm_double") # Failed
 
+# This causes an LLVM codegen crash with cold kcache, but with hot
+# kcache it passes. Also it passes with the 'basic' driver.
+list(APPEND CPU_POCL_FAILED_TESTS "TestUndefKernelArg")
 
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
