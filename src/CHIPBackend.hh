@@ -335,7 +335,15 @@ public:
   std::mutex EventMonitorMtx;
   volatile bool Stop = false;
 
-  void join() { pthread_join(Thread_, nullptr); }
+  void join() {
+    assert(Thread_);
+    logDebug("Joining Event Monitor Thread {}", Thread_);
+    int Status = pthread_join(Thread_, nullptr);
+    if (Status != 0) {
+      logError("Failed to call join() {}", Status);
+    }
+  }
+
   static void *monitorWrapper(void *Arg) {
     auto Monitor = (CHIPEventMonitor *)Arg;
     Monitor->monitor();
@@ -601,8 +609,8 @@ public:
 
 class CHIPEvent : public ihipEvent_t {
 protected:
-  bool UserEvent_ = false;
   bool TrackCalled_ = false;
+  bool UserEvent_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
   std::vector<CHIPEvent *> DependsOnList;
@@ -626,22 +634,25 @@ protected:
    * constructor should be called.
    *
    */
-  CHIPEvent() = default;
+  CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
 
 public:
+  bool isTrackCalled() { return TrackCalled_; }
+  void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
+  void setUserEvent(bool Val) { UserEvent_ = Val; }
   void addDependency(CHIPEvent *Event) {
     assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  void track();
+  virtual void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
   size_t getCHIPRefc();
-  virtual void decreaseRefCount(std::string Reason);
-  virtual void increaseRefCount(std::string Reason);
+  virtual size_t decreaseRefCount(std::string Reason) = 0;
+  virtual size_t increaseRefCount(std::string Reason) = 0;
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
@@ -743,7 +754,10 @@ public:
   virtual void hostSignal() = 0;
 
 #ifndef NDEBUG
-  void markDeleted(bool State = true) { Deleted_ = State; }
+  void markDeleted(bool State = true) {
+    LOCK(EventMtx); // Deleted_
+    Deleted_ = State;
+  }
 #endif
 };
 

@@ -29,6 +29,34 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 * For HIP-SYCL and HIP-MKL Interoperability
   * [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
 
+## Compiling Clang
+
+It's recommended to use the latest version of LLVM and use CHIP-SPV fork of SPIRV-LLVM-Translator.
+```bash
+git clone https://github.com/llvm/llvm-project.git
+cd llvm-project
+git checkout -t origin/release/16.x
+cd llvm/projects
+git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git
+cd SPIRV-LLVM-Translator
+git checkout -t origin/chipspv-llvm-16-patches
+cd ../../
+
+mkdir build
+cd build
+
+# DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
+# DLLVM_TARGETS_TO_BUILD Speed up compilation but building only the necessary CPU host target
+# CMAKE_INSTALL_PREFIX Where to install LLVM
+cmake .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLVM_ENABLE_PROJECTS="clang;openmp" \
+  -DLLVM_TARGETS_TO_BUILD=X86 \
+  -DCMAKE_INSTALL_PREFIX=/home/pvelesko/install/llvm/16.0 
+
+```
+
+```bash
 ## Downloading Sources
 
 ```bash
@@ -51,6 +79,7 @@ make install
 
 Useful options:
  * `-DCMAKE_BUILD_TYPE=<Debug(default), Release, RelWithDebInfo>`
+ * `-DBUILD_SAMPLES=<ON(default), OFF>` # Samples are built by default, unless you set this to OFF
 
 The documentation will be placed in `doxygen/html`.
 

@@ -220,30 +220,6 @@ void CHIPEvent::releaseDependencies() {
   DependsOnList.clear();
 }
 
-void CHIPEvent::decreaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-  if (*Refc_ > 0) {
-    (*Refc_)--;
-  } else {
-    assert(false && "CHIPEvent::decreaseRefCount() called when refc == 0");
-    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-  }
-  // Destructor to be called by event monitor once backend is done using it
-}
-void CHIPEvent::increaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-
-  // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
-  assert(*Refc_ > 0 && "Increasing refcount from zero!");
-  (*Refc_)++;
-}
-
 size_t CHIPEvent::getCHIPRefc() {
   LOCK(this->EventMtx); // CHIPEvent::Refc_
   assert(!Deleted_ && "Event use after delete!");
@@ -838,6 +814,7 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
 void CHIPEvent::track() {
   LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
   LOCK(EventMtx);           // writing bool CHIPEvent::TrackCalled_
+  assert(!isUserEvent() && "Attemped to track a user event!");
   assert(!Deleted_ && "Event use after delete!");
   if (!TrackCalled_) {
     Backend->Events.push_back(this);
@@ -1234,11 +1211,7 @@ CHIPBackend::CHIPBackend() {
 
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  if (StaleEventMonitor_)
-    StaleEventMonitor_->stop();
-  if (CallbackEventMonitor_)
-    CallbackEventMonitor_->stop();
-  Events.clear();
+  assert(Events.size() == 0);
   for (auto &Ctx : ChipContexts) {
     Backend->removeContext(Ctx);
     delete Ctx;
@@ -1553,6 +1526,8 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
     updateLastEvent(ChipEvent);
     this->finish();
   }
+  assert(!ChipEvent->isUserEvent());
+  assert(!ChipEvent->isTrackCalled());
   ChipEvent->track();
 
   return hipSuccess;

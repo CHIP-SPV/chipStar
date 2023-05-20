@@ -2137,7 +2137,6 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 
   auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
-  ChipEvent->increaseRefCount("hipEventCreateWithFlags");
 
   *Event = ChipEvent;
   RETURN(hipSuccess);
@@ -2169,10 +2168,11 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   NULLCHECK(Event);
   CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
 
-  ChipEvent->decreaseRefCount("hipEventDestroy");
-  if (ChipEvent->getCHIPRefc() != 0) {
-    logError("hipEventDestroy was called but remaining refcount is not 0");
+  size_t Refc = ChipEvent->decreaseRefCount("hipEventDestroy");
+  if(Refc == 0) {
+    Event = nullptr;
   }
+
   RETURN(hipSuccess);
 
   CHIP_CATCH

@@ -97,6 +97,9 @@ public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   CHIPEventFlags Flags = CHIPEventFlags());
   virtual ~CHIPEventOpenCL() override;
+
+  virtual void track() override{};
+
   virtual void recordStream(CHIPQueue *ChipQueue) override;
   void takeOver(CHIPEvent *Other);
   bool wait() override;
@@ -108,8 +111,8 @@ public:
   uint64_t getFinishTime();
   size_t getRefCount();
 
-  virtual void increaseRefCount(std::string Reason) override;
-  virtual void decreaseRefCount(std::string Reason) override;
+  virtual size_t increaseRefCount(std::string Reason) override;
+  virtual size_t decreaseRefCount(std::string Reason) override;
 };
 
 class CHIPModuleOpenCL : public CHIPModule {
