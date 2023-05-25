@@ -2246,6 +2246,12 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   *Ptr = RetVal;
   logInfo("hipMalloc(ptr={}, size={})", (void *)RetVal, Size);
 
+  // currently required for PVC
+  bool firstTouch;
+  auto Status = Backend->getActiveDevice()->getDefaultQueue()->memCopy(
+      RetVal, &firstTouch, 1);
+  assert(Status == hipSuccess);
+
   RETURN(hipSuccess);
 
   CHIP_CATCH
