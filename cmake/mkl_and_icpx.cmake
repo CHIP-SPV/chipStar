@@ -20,7 +20,6 @@ find_package(MKL CONFIG
 if(MKL_FOUND) 
   include_directories(${MKL_INCLUDE})
   add_link_options(-L${MKL_ROOT}/lib/${MKL_ARCH})
-  link_libraries(${MKL_LIBRARIES})
 endif()
 
 # message(STATUS "ICPX : ${ICPX_EXECUTABLE} MKL: ${MKL_FOUND} ")

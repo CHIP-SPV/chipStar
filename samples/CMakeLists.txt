@@ -135,10 +135,11 @@ set(SAMPLES
 include(mkl_and_icpx)
 # Add samples that depend on Intel's oneAPI compiler - if available.
 if (SYCL_AVAILABLE)
-  list(APPEND SAMPLES
-    sycl_hip_interop
-    hip_sycl_interop
-    hip_sycl_interop_no_buffers)
+  list(APPEND SAMPLES sycl_hip_interop)
+  if (LevelZero_LIBRARY)
+      list(APPEND SAMPLES hip_sycl_interop)
+      list(APPEND SAMPLES hip_sycl_interop_no_buffers)
+  endif()
 
 else()
   message(STATUS "icpx or MKL not found: Not building SYCL interop samples.")
