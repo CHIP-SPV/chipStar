@@ -1072,9 +1072,9 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPEventLevel0 *LaunchEvent =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
-  LaunchEvent->Msg = "launch";
 
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
+  LaunchEvent->Msg = "launch " + ChipKernel->getName();
   ze_kernel_handle_t KernelZe = ChipKernel->get();
   logTrace("Launching Kernel {}", ChipKernel->getName());
 
@@ -1115,10 +1115,10 @@ CHIPEvent *CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
       CommandList, KernelZe, &LaunchArgs, LaunchEvent->peek(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+#ifndef NDEBUG
   auto StatusReadyCheck = zeEventQueryStatus(LaunchEvent->peek());
-  if (StatusReadyCheck != ZE_RESULT_NOT_READY) {
-    logCritical("KernelLaunch event immediately ready!");
-  }
+  assert(StatusReadyCheck == ZE_RESULT_NOT_READY);
+#endif
   executeCommandList(CommandList);
 
   if (std::shared_ptr<CHIPArgSpillBuffer> SpillBuf =
@@ -1306,7 +1306,6 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 
 CHIPEvent *
 CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
-  // Create an event, refc=2, add it to EventList
   CHIPEventLevel0 *EventToSignal =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
   EventToSignal->Msg = "barrier";
