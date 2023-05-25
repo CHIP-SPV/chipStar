@@ -198,7 +198,12 @@ option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their pre
 # with GPUs with 64 wide warps.
 set(DEFAULT_WARP_SIZE 32 CACHE STRING "The warp size to use.")
 
-set(CMAKE_BUILD_TYPE "DEBUG" CACHE STRING "The build type to use DEBUG, RELEASE, RELWITHDEBINFO, MINSIZEREL")
+# Set the default build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "The build type to use Debug, Release, RelWithDebInfo, MinRelSize" FORCE)
+endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
 set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
 
