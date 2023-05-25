@@ -95,8 +95,8 @@ public:
   virtual size_t decreaseRefCount(std::string Reason) override {
     LOCK(EventMtx); // CHIPEvent::Refc_
     assert(!Deleted_ && "Event use after delete!");
-    // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
     } else {
@@ -117,8 +117,8 @@ public:
   virtual size_t increaseRefCount(std::string Reason) override {
     LOCK(EventMtx); // CHIPEvent::Refc_
     assert(!Deleted_ && "Event use after delete!");
-    // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
 
     // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
     assert(*Refc_ > 0 && "Increasing refcount from zero!");
