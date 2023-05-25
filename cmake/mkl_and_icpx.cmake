@@ -16,6 +16,13 @@ find_package(MKL CONFIG
 	HINTS $ENV{MKLROOT}/lib/cmake/mkl  $ENV{ONEAPI_ROOT}/mkl/latest/lib/cmake/mkl
 	PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
 
+# Manually include MKL dirs so that they get cached
+if(MKL_FOUND) 
+  include_directories(${MKL_INCLUDE})
+  add_link_options(-L${MKL_ROOT}/lib/${MKL_ARCH})
+  link_libraries(${MKL_LIBRARIES})
+endif()
+
 # message(STATUS "ICPX : ${ICPX_EXECUTABLE} MKL: ${MKL_FOUND} ")
 set(INTEL_LIBS -L${ICPX_SYCL_LIBDIR} -L${ICPX_CORE_LIBDIR} -lsvml -lintlc -lirng -limf -lsycl)
 
