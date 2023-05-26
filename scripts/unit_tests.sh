@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
     echo "Usage: $0 <debug|release> <llvm-15|llvm-16> ..."
