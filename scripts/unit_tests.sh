@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -e
 
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
@@ -30,7 +30,7 @@ else
 fi
 
 source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
-source /etc/profile.d/modules.sh
+source /etc/profile.d/modules.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
