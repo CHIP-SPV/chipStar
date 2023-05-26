@@ -35,12 +35,12 @@ extern "C++" inline __device__ unsigned long long int 	__brevll ( unsigned long 
 extern "C" __device__  unsigned int 	__chip_byte_perm ( unsigned int  x, unsigned int y, unsigned int  s ); // Custom
 extern "C++" inline __device__ unsigned int 	__byte_perm ( unsigned int  x, unsigned int y, unsigned int  s ) { return __chip_byte_perm(x, y, s); }
 
-extern "C++" __device__ int clz ( int  x ); // OpenCL
-extern "C++" inline __device__ int __clz ( int  x ) { return clz(x); }
+extern "C++" inline __device__ int __clz ( int  x ) {
+  return __builtin_clz(x);
+}
 
-extern "C++" __device__ int clz ( long long int x ); // OpenCL
 extern "C++" inline __device__ int __clzll ( long long int x ) {
-  return clz(x);
+  return __builtin_clzl(x);
 }
 
 extern "C" __device__  int __chip_ffs ( int  x ); // Custom
@@ -89,11 +89,13 @@ extern "C++" inline __device__ long long int 	__mul64hi ( long long int x, long 
 extern "C++" __device__ int mul_hi ( int  x, int  y ); // OpenCL
 extern "C++" inline __device__ int __mulhi ( int  x, int  y ) { return mul_hi(x, y); }
 
-extern "C++" __device__ int popcount ( unsigned int  x ); // OpenCL
-extern "C++" inline __device__ int __popc ( unsigned int  x ) { return popcount(x); }
+extern "C++" inline __device__ int __popc ( unsigned int  x ) {
+  return __builtin_popcount(x);
+}
 
-extern "C++" __device__ int popcount ( unsigned long long int x ); // OpenCL
-extern "C++" inline __device__ int __popcll ( unsigned long long int x ) { return popcount(x); }
+extern "C++" inline __device__ int __popcll ( unsigned long long int x ) {
+  return (int)__builtin_popcountl(x);
+}
 
 extern "C++" __device__ int rhadd ( int  x, int  y ); // OpenCL
 extern "C++" inline __device__ int __rhadd ( int  x, int  y ) { return rhadd(x, y); }
