@@ -146,9 +146,12 @@ extern "C" __device__ int printf(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
 extern "C" __device__ void abort();
 
-// The assert part mimiced from amd_device_functions.h of amdhip.
-// We assume assert.h defines assert such that it calls __assert_fail
-// when it fails.
+// The assert part mimiced from amd_device_functions.h of amdhip.  We
+// assume assert.h defines assert such that it calls __assert_fail
+// when it fails. Some users forward declares the __assert_fail, with
+// a signature copied from the AMD's headers, in their
+// applications. If we don't reflect the function signature the
+// compiler may give obscure warnings about it.
 
 extern "C" {
 #if defined(_WIN32) || defined(_WIN64)
