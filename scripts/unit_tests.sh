@@ -36,10 +36,16 @@ export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 
-# icpx --version
-# ulimit -a
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+
+# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
+module load $CLANG
+module load opencl/pocl-cpu-$LLVM
+clinfo -l
+
+# icpx --version
+# ulimit -a
 
 rm -rf HIPCC
 rm -rf HIP
@@ -53,13 +59,11 @@ rm -rf *_result.txt
 mkdir build
 cd build
 
-# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG
-module load opencl/pocl-cpu-$LLVM
+
 
 echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all build_tests -j &> /dev/null
+make all build_tests -j #&> /dev/null
 echo "build complete." 
 module unload opencl/pocl-cpu-$LLVM
 
