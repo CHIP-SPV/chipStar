@@ -1249,6 +1249,7 @@ void CHIPBackend::waitForThreadExit() {
   // Cleanup all queues
   {
     LOCK(Backend->BackendMtx); // prevent devices from being destrpyed
+    LOCK(Backend->EventsMtx); // CHIPBackend::Events
 
     for (auto Dev : Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
