@@ -42,10 +42,17 @@ sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module load $CLANG
 module load opencl/pocl-cpu-$LLVM
-clinfo -l
+output=$(clinfo -l 2>&1 | grep "Platform #0")
+if [ $? -ne 0 ]; then
+    echo "clinfo failed to execute."
+    exit 1
+fi
 
-# icpx --version
-# ulimit -a
+# check if the output is empty
+if [ -z "$output" ]; then
+    echo "No OpenCL devices detected."
+    exit 1
+fi
 
 rm -rf HIPCC
 rm -rf HIP
@@ -58,8 +65,6 @@ rm -rf build
 rm -rf *_result.txt
 mkdir build
 cd build
-
-
 
 echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
