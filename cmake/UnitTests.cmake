@@ -534,6 +534,17 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHos
 list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
+# These fail at least with LLVM 16 and Debug build of CHIP-SPV. Might
+# need upstreaming fixes to SPIR-V translator so the Intel CPU driver
+# receives them. To investigate.
+# See https://github.com/CHIP-SPV/chip-spv/issues/455
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_j0f_float")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_j1f_float")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_jnf_float")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_y0f_float")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_y1f_float")
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_ynf_float")
+
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
