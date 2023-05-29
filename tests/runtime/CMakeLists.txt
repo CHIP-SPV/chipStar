@@ -41,6 +41,14 @@ function(add_hip_runtime_test MAIN_SOURCE)
     SKIP_REGULAR_EXPRESSION "SKIP")
 endfunction()
 
+# add_shell_test(<script-file>)
+function(add_shell_test SCRIPT)
+  get_filename_component(TEST_NAME ${SCRIPT} NAME_WLE)
+  configure_file(${SCRIPT} ${SCRIPT} @ONLY)
+  add_test(NAME ${TEST_NAME}
+    COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
+endfunction()
+
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
 add_hip_runtime_test(TestUndefKernelArg.hip)
@@ -55,3 +63,6 @@ add_hip_runtime_test(TestStlFunctionsDouble.hip)
 add_hip_runtime_test(TestHIPMathFunctions.hip)
 add_hip_runtime_test(TestAtomics.hip)
 add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)
+
+add_shell_test(TestAssert.bash)
+add_shell_test(TestAssertFail.bash)

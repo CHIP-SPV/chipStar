@@ -93,6 +93,12 @@ void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
       (Name == ChipDeviceAbortFlagName && HostPtrLookup_[Ptr]->Name == Name) &&
           "Host-pointer is already mapped.");
 
+  if (Name == ChipDeviceAbortFlagName) {
+    if (SrcMod->HasAbortFlag)
+      return; // Ignore duplicate abort flag variable.
+    SrcMod->HasAbortFlag = true;
+  }
+
   SrcMod->Variables.emplace_back(SPVVariable{{SrcMod, Ptr, Name}, Size});
   HostPtrLookup_.emplace(std::make_pair(Ptr, &SrcMod->Variables.back()));
 }

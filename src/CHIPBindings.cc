@@ -250,8 +250,11 @@ static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
 
   // Disable host-side abort behavior for making the unit testing of abort
   // cases easier.
-  if (!getenv("CHIP_HOST_IGNORES_DEVICE_ABORT"))
+  if (!getenv("CHIP_HOST_IGNORES_DEVICE_ABORT")) {
+    // Intel CPU OpenCL doesn't seem flush after the kernel completion.
+    std::cout << std::flush;
     abort();
+  }
 
   // Just act like nothing happened. Reset the flag so we let there be more
   // aborts.
