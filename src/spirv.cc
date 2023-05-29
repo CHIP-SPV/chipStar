@@ -743,18 +743,16 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
       continue;
     if (Insn.isDecoration(spv::DecorationLinkageAttributes)) {
       auto LinkName = parseLinkageAttributeName(Insn);
-      if (parseLinkageAttributeType(Insn) == spv::LinkageTypeImport) {
+      if (EntryPoints.count(LinkName))
+        continue;
+      if (parseLinkageAttributeType(Insn) == spv::LinkageTypeImport)
         // We are currently supposed to receive only fully linked
         // device code (from the user perspective). The user probably
-        // forgot a definition. Otherwise, preserve the attribute as
-        // removal of it would confuse some backend drivers.
+        // forgot a definition.
         //
         // Issue warning unless it's a magic CHIP-SPV or llvm-spirv symbol.
-        if (!startsWith(LinkName, "__spirv_"))
+        if (!startsWith(LinkName, "spirv_"))
           logWarn("Missing definition for '{}'", LinkName);
-      } else if (!startsWith(LinkName, ChipSpilledArgsVarPrefix))
-        // Some specially named variables are preserved for later analysis.
-        continue;
     }
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
