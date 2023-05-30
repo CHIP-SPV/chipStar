@@ -8,12 +8,14 @@
 //===----------------------------------------------------------------------===//
 // LLVM IR pass to handle kernels with abort() calls.
 //
-// (c) 2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
+// (c) 2023 CHIP-SPV developers
+//     2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_PASSES_HIP_ABORT_H
 #define LLVM_PASSES_HIP_ABORT_H
 
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PassManager.h"
 
@@ -23,18 +25,47 @@ using namespace llvm;
 
 class HipAbortPass : public PassInfoMixin<HipAbortPass> {
 public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-  static bool isRequired() { return true; }
+  // Rules:
+  //   Unresolved + WontAbort -> Unresolved.
+  //    MayAbort + <anything> -> MayAbort.
+  enum AbortAttribute { Unresolved = 0, WontAbort, MayAbort };
+
+  struct InverseCallGraphNode {
+    const CallGraphNode *OrigNode = nullptr;
+    std::set<InverseCallGraphNode *> Callers;
+    AbortAttribute AbortAttr = Unresolved;
+    InverseCallGraphNode(const CallGraphNode *TheOrigNode)
+        : OrigNode(TheOrigNode) {}
+    Function *getFunction() const { return OrigNode->getFunction(); }
+    bool mayCallAbort() const { return AbortAttr == AbortAttribute::MayAbort; }
+  };
 
 private:
-  Constant *getOrCreateStrLiteralArg(const std::string &Str,
-                                     llvm::IRBuilder<> &B);
-  Function *getOrCreatePrintStringF();
-  Value *cloneStrArgToConstantAS(Value *StrArg, llvm::IRBuilder<> &B,
-                                 bool *IsEmpty);
+  std::map<Function *, InverseCallGraphNode *> InverseCallGraph;
 
-  std::map<std::string, Constant *> LiteralArgs_;
-  Module *M_;
+  /// True if any kernel may call abort().
+  bool AnyKernelMayCallAbort = false;
+
+public:
+  ~HipAbortPass() { reset(); }
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
+  void reset() {
+    for (auto KV : InverseCallGraph)
+      delete KV.second;
+    InverseCallGraph.clear();
+    AnyKernelMayCallAbort = false;
+  }
+
+private:
+  InverseCallGraphNode *getInvertedCGNode(Function *F);
+  InverseCallGraphNode *getInvertedCGNode(const CallGraphNode *CGN);
+  InverseCallGraphNode *getOrCreateInvertedCGNode(const CallGraphNode *CGN);
+  bool mayCallAbort(const CallInst *CI) const;
+  void buildInvertedCallGraph(const CallGraph &CG);
+  void analyze(const CallGraph &CG);
+  void processFunctions(Module &M);
 };
 
 #endif
