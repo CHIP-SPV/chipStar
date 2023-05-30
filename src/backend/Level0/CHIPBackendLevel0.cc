@@ -666,7 +666,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
       assert(ChipEvent);
       assert(!ChipEvent->isUserEvent());
-      assert(ChipEvent->isTrackCalled() && "Event found in backend list but TrackCalled_ is false");
+      assert(ChipEvent->isTrackCalled() &&
+             "Event found in backend list but TrackCalled_ is false");
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
       // do not change refcount for user events
@@ -1518,7 +1519,14 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
     Event = ZeCtx->getEventFromPool();
   }
 
-  assert(UserEvent == Event->isUserEvent() && "Returning a user event when it was not requested");
+  assert(UserEvent == Event->isUserEvent() &&
+         "CHIPBackendLevel0::createCHIPEvent Returning a user event when it "
+         "was not requested");
+  assert(!Event->isDeleted() &&
+         "CHIPBackendLevel0::createCHIPEvent Returning a deleted event");
+  assert(!Event->isTrackCalled() &&
+         "CHIPBackendLevel0::createCHIPEvent Returning an event that was "
+         "already tracked");
   return Event;
 }
 

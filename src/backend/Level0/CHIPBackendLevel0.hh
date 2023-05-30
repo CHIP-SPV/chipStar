@@ -340,8 +340,11 @@ public:
     // go through all pools and try to get an allocated event
     for (size_t i = 0; i < EventPools_.size(); i++) {
       CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
-      if (Event)
+      if (Event) {
+        assert(!Event->isDeleted() && "getEventFromPool returning a deleted event from an existing pool");
+        assert(!Event->isTrackCalled() && "getEventFromPool returning a tracked event from an existing pool");
         return Event;
+      }
     }
 
     // no events available, create new pool, get event from there and return
@@ -351,6 +354,8 @@ public:
     auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
     auto Event = NewEventPool->getEvent();
     EventPools_.push_back(NewEventPool);
+    assert(!Event->isDeleted() && "getEventFromPool returning a deleted event frm a new pool");
+    assert(!Event->isTrackCalled() && "getEventFromPool returning a tracked event from a new pool");
     return Event;
   }
 

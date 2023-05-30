@@ -758,6 +758,10 @@ public:
     LOCK(EventMtx); // Deleted_
     Deleted_ = State;
   }
+  bool isDeleted() {
+    LOCK(EventMtx); // Deleted_
+    return Deleted_;
+  }
 #endif
 };
 
