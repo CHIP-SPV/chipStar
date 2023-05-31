@@ -45,6 +45,9 @@ static InstWord getSPVVersion(int Major, int Minor) {
   return (Major << 16) | (Minor << 8);
 }
 
+static std::string_view parseLiteralString(const InstWord *WordBegin,
+                                           size_t NumWords);
+
 /// Represents alignment value which is non-zero 2**N integer.
 class Alignment {
   size_t Val_ = 1;
@@ -341,6 +344,14 @@ public:
   // Return true if the instruction is the given Decoration.
   bool isDecoration(spv::Decoration Dec) const {
     return Opcode_ == spv::Op::OpDecorate && getWord(2) == (InstWord)Dec;
+  }
+
+  bool isExtension() const { return Opcode_ == spv::Op::OpExtension; }
+
+  std::string_view getExtension() const {
+    assert(isExtension() && "Not an OpExtension!");
+    auto StrSize = size() - /* offset to the string: */ 1;
+    return parseLiteralString(&getWord(1), StrSize);
   }
 
   SPIRVtype *decodeType(SPIRTypeMap &TypeMap, SPIRVConstMap &ConstMap,
@@ -729,6 +740,13 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     if (Insn.isEntryPoint())
       EntryPoints.insert(Insn.entryPointName());
 
+    if (Insn.isExtension() && Insn.getExtension() == "SPV_KHR_linkonce_odr")
+      // Drop SPV_KHR_linkonce_odr and LinkOnceODR linkage attributes
+      // (below) for improving portability. They appear for inline and
+      // template functions. Dealing with fully linked device code the
+      // attribute is no longer needed.
+      continue;
+
     // A workaround for https://github.com/CHIP-SPV/chip-spv/issues/48.
     //
     // Some Intel Compute Runtime versions fails to compile valid SPIR-V
@@ -744,6 +762,9 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     if (Insn.isDecoration(spv::DecorationLinkageAttributes)) {
       auto LinkName = parseLinkageAttributeName(Insn);
       if (EntryPoints.count(LinkName))
+        continue;
+      if (parseLinkageAttributeType(Insn) == spv::LinkageTypeLinkOnceODR)
+        // Drop because the SPV_KHR_linkonce_odr is dropped in the above.
         continue;
       if (parseLinkageAttributeType(Insn) == spv::LinkageTypeImport)
         // We are currently supposed to receive only fully linked
