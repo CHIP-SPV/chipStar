@@ -232,6 +232,10 @@ void CHIPModule::consumeSPIRV() {
   FuncIL_ = (uint8_t *)Src_->getBinary().data();
   IlSize_ = Src_->getBinary().size();
 
+  // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
+  // dump here prior to parsing in case parsing crashes
+  dumpSpirv(Src_->getBinary());
+
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
   BinaryData_ = new uint32_t[NumWords + 1];
@@ -242,8 +246,6 @@ void CHIPModule::consumeSPIRV() {
   if (!Res) {
     CHIPERR_LOG_AND_THROW("SPIR-V parsing failed", hipErrorUnknown);
   }
-  // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
-  dumpSpirv(Src_->getBinary());
 }
 
 CHIPModule::~CHIPModule() {}

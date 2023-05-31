@@ -1387,6 +1387,9 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
   auto LastCmdListEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
+  assert(!LastCmdListEvent->isUserEvent());
+  assert(!LastCmdListEvent->isTrackCalled());
+  assert(!LastCmdListEvent->isDeleted());
 
   ze_result_t Status;
 
