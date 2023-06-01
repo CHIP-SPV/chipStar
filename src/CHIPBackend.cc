@@ -204,15 +204,40 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 
 // CHIPEvent
 // ************************************************************************
-
 void CHIPEvent::sanityCheck() {
-    LOCK(Backend->EventsMtx); // CHIPBackend::Events
-    auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), this);
-    if (Found != Backend->Events.end()){
-        logCritical("CHIPEvent::sanityCheck({})", (void*)this);
-        assert(false && "Event found in Backend->Events");
-    }
+#ifndef NDEBUG
+  LOCK(Backend->EventsMtx); // CHIPBackend::Events
+  sanityCheck();
+#endif
+}
+
+void CHIPEvent::sanityCheckNoLock() {
+#ifndef NDEBUG
+  bool Sane = true;
+  auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), this);
+  if (TrackCalled_ && Found == Backend->Events.end()) {
+    logCritical(
+        "CHIPEvent::sanityCheck({}) Tracked event not found in Backend->Events",
+        (void *)this);
+    Sane = false;
   }
+
+  if (!TrackCalled_ && Found != Backend->Events.end()) {
+    logCritical(
+        "CHIPEvent::sanityCheck({}) Untracked event found in Backend->Events",
+        (void *)this);
+    Sane = false;
+  }
+
+  if (UserEvent_ && TrackCalled_) {
+    logCritical("CHIPEvent::sanityCheck({}) UserEvent is Tracked",
+                (void *)this);
+    Sane = false;
+  }
+
+  assert(Sane);
+#endif
+}
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
@@ -1261,7 +1286,7 @@ void CHIPBackend::waitForThreadExit() {
   // Cleanup all queues
   {
     LOCK(Backend->BackendMtx); // prevent devices from being destrpyed
-    LOCK(Backend->EventsMtx); // CHIPBackend::Events
+    LOCK(Backend->EventsMtx);  // CHIPBackend::Events
 
     for (auto Dev : Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);

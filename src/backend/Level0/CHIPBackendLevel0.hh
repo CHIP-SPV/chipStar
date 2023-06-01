@@ -338,14 +338,12 @@ public:
   CHIPEventLevel0 *getEventFromPool() {
 
     // go through all pools and try to get an allocated event
-    LOCK(ContextMtx); // EventPools_ is accessed by multiple threads
+    LOCK(ContextMtx); // CHIPContext::EventPools
     for (size_t i = 0; i < EventPools_.size(); i++) {
       CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
-      if (Event) {
+      if (Event)
         return Event;
-      }
     }
-
 
     // no events available, create new pool, get event from there and return
     logTrace("No available events found in {} event pools. Creating a new "

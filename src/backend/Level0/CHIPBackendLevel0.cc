@@ -228,13 +228,11 @@ void CHIPEventLevel0::reset() {
     TrackCalled_ = false;
     UserEvent_ = false;
     EventStatus_ = EVENT_STATUS_INIT;
-    Deleted_ = false;
     *Refc_ = 1;
+#ifndef NDEBUG
+    Deleted_ = false;
+#endif
   }
-
-  // #ifndef NDEBUG
-  //   markDeleted(false);
-  // #endif
 }
 
 ze_event_handle_t CHIPEventLevel0::peek() {
@@ -666,9 +664,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       CHIPEvent *ChipEvent = Backend->Events[i];
 
       assert(ChipEvent);
-      assert(!ChipEvent->isUserEvent());
-      assert(ChipEvent->isTrackCalled() &&
-             "Event found in backend list but TrackCalled_ is false");
+      ChipEvent->sanityCheckNoLock();
       auto E = (CHIPEventLevel0 *)ChipEvent;
 
       // do not change refcount for user events
@@ -1389,15 +1385,16 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 #ifdef L0_IMM_QUEUES
 #else
-  CHIPEventLevel0 *LastCmdListEvent = nullptr;
 
-  LastCmdListEvent =
+  auto LastCmdListEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
+
+  ze_result_t Status;
+
   {
     LOCK( // CHIPBackendLevel0::EventCommandListMap
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
-    ze_result_t Status;
 
     // Associate this event with the command list. Once the events are signaled,
     // CHIPEventMonitorLevel0 will destroy the command list
