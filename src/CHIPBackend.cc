@@ -205,6 +205,15 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 // CHIPEvent
 // ************************************************************************
 
+void CHIPEvent::sanityCheck() {
+    LOCK(Backend->EventsMtx); // CHIPBackend::Events
+    auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), this);
+    if (Found != Backend->Events.end()){
+        logCritical("CHIPEvent::sanityCheck({})", (void*)this);
+        assert(false && "Event found in Backend->Events");
+    }
+  }
+
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
       ChipContext_(Ctx), Msg("") {
@@ -819,6 +828,7 @@ void CHIPEvent::track() {
   assert(!isUserEvent() && "Attemped to track a user event!");
   assert(!Deleted_ && "Event use after delete!");
   if (!TrackCalled_) {
+    logDebug("Tracking CHIPEvent {} in CHIPBackend::Events", (void *)this);
     Backend->Events.push_back(this);
     TrackCalled_ = true;
   }
@@ -1517,6 +1527,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+    ChipEvent->sanityCheck();
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
@@ -1529,8 +1540,6 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
     updateLastEvent(ChipEvent);
     this->finish();
   }
-  assert(!ChipEvent->isUserEvent());
-  assert(!ChipEvent->isTrackCalled());
   ChipEvent->track();
 
   return hipSuccess;

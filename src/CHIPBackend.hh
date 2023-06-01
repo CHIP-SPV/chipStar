@@ -637,6 +637,7 @@ protected:
   CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
 
 public:
+  void sanityCheck();
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }

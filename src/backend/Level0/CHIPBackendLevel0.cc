@@ -228,12 +228,13 @@ void CHIPEventLevel0::reset() {
     TrackCalled_ = false;
     UserEvent_ = false;
     EventStatus_ = EVENT_STATUS_INIT;
+    Deleted_ = false;
     *Refc_ = 1;
   }
 
-#ifndef NDEBUG
-  markDeleted(false);
-#endif
+  // #ifndef NDEBUG
+  //   markDeleted(false);
+  // #endif
 }
 
 ze_event_handle_t CHIPEventLevel0::peek() {
@@ -646,11 +647,11 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (true) {
     usleep(20000);
-    LOCK(EventMonitorMtx); // CHIPEventMonitor::Stop
     std::vector<CHIPEvent *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
     LOCK(Backend->EventsMtx); // CHIPBackend::Events
+    LOCK(EventMonitorMtx);    // CHIPEventMonitor::Stop
     LOCK(                     // CHIPBackendLevel0::EventCommandListMap
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
     // auto LzBackend = (CHIPBackendLevel0 *)Backend;
@@ -690,6 +691,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
                                 "event which is already "
                                 "removed from backend event list",
                                 hipErrorTbd);
+        logTrace("Removing {} from backend event list", (void *)E);
         Backend->Events.erase(Found); // TODO fix-251 segfault here
 
         E->doActions();
@@ -1309,6 +1311,8 @@ CHIPEvent *
 CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   CHIPEventLevel0 *EventToSignal =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
+
+  EventToSignal->sanityCheck();
   EventToSignal->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
@@ -1342,6 +1346,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   if (EventHandles)
     delete[] EventHandles;
 
+  EventToSignal->sanityCheck();
   return EventToSignal;
 }
 
@@ -1351,7 +1356,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPEventLevel0 *MemCopyEvent =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipCtxZe);
-  assert(!MemCopyEvent->isUserEvent());
+  MemCopyEvent->sanityCheck();
   ze_result_t Status;
   CHIPASSERT(MemCopyEvent->peek());
   GET_COMMAND_LIST(this);
@@ -1364,6 +1369,7 @@ CHIPEvent *CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src,
                               hipErrorInitializationError);
   executeCommandList(CommandList);
 
+  MemCopyEvent->sanityCheck();
   return MemCopyEvent;
 }
 
@@ -1383,19 +1389,15 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 #ifdef L0_IMM_QUEUES
 #else
+  CHIPEventLevel0 *LastCmdListEvent = nullptr;
 
-  auto LastCmdListEvent =
+  LastCmdListEvent =
       ((CHIPBackendLevel0 *)Backend)->createCHIPEvent(ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
-  assert(!LastCmdListEvent->isUserEvent());
-  assert(!LastCmdListEvent->isTrackCalled());
-  assert(!LastCmdListEvent->isDeleted());
-
-  ze_result_t Status;
-
   {
     LOCK( // CHIPBackendLevel0::EventCommandListMap
         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+    ze_result_t Status;
 
     // Associate this event with the command list. Once the events are signaled,
     // CHIPEventMonitorLevel0 will destroy the command list
@@ -1470,18 +1472,21 @@ LZEventPool::~LZEventPool() {
 };
 
 CHIPEventLevel0 *LZEventPool::getEvent() {
-  int PoolIndex = getFreeSlot();
-  if (PoolIndex == -1)
-    return nullptr;
-  auto Event = Events_[PoolIndex];
-  Event->reset();
-  assert(Event->isUserEvent() == false);
+  CHIPEventLevel0 *Event = nullptr;
+  {
+    LOCK(EventPoolMtx); // LZEventPool::Events_
+    int PoolIndex = getFreeSlot();
+    if (PoolIndex == -1)
+      return nullptr;
+    Event = Events_[PoolIndex];
+    Event->reset();
+  }
 
+  Event->sanityCheck();
   return Event;
 };
 
 int LZEventPool::getFreeSlot() {
-  LOCK(EventPoolMtx); // LZEventPool::FreeSlots_
   if (FreeSlots_.size() == 0)
     return -1;
 
@@ -1516,20 +1521,12 @@ CHIPEventLevel0 *CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx,
   if (UserEvent) {
     Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
     Event->setUserEvent(true);
-    // Event->increaseRefCount("hipEventCreate");
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
     Event = ZeCtx->getEventFromPool();
   }
 
-  assert(UserEvent == Event->isUserEvent() &&
-         "CHIPBackendLevel0::createCHIPEvent Returning a user event when it "
-         "was not requested");
-  assert(!Event->isDeleted() &&
-         "CHIPBackendLevel0::createCHIPEvent Returning a deleted event");
-  assert(!Event->isTrackCalled() &&
-         "CHIPBackendLevel0::createCHIPEvent Returning an event that was "
-         "already tracked");
+  Event->sanityCheck();
   return Event;
 }
 
