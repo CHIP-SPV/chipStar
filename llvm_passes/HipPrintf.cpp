@@ -275,27 +275,18 @@ Function *HipPrintfToOpenCLPrintfPass::getOrCreatePrintStringF() {
 }
 
 // Get called function from 'CI' call or return nullptr the call is indirect.
-static Function* getCalledFunction(CallInst *CI, const LLVMContext &Ctx) {
+static Function *getCalledFunction(CallInst *CI) {
   assert(CI);
   if (auto *Callee = CI->getCalledFunction())
     return Callee;
 
   if (CI->isIndirectCall())
     return nullptr;
+
   // A call with mismatched call signature.
-
-#if LLVM_VERSION_MAJOR > 14
-#if LLVM_VERSION_MAJOR == 15
-  assert(Ctx.hasSetOpaquePointersValue());
-#endif
-
-  if (!Ctx.supportsTypedPointers())
-    return cast<Function>(CI->getCalledOperand());
-#endif
-
-  auto *CalledOp = dyn_cast<ConstantExpr>(CI->getCalledOperand());
-  assert(CalledOp && CalledOp->getOpcode() == Instruction::BitCast);
-  return cast<Function>(CalledOp->getOperand(0));
+  auto *Callee = CI->getCalledOperand()->stripPointerCasts();
+  assert(isa<Function>(Callee)); // ... or something more exotic?
+  return cast<Function>(Callee);
 }
 
 PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
@@ -353,18 +344,10 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
         if (!CI)
           continue;
 
-        Function *Callee = getCalledFunction(CI, Ctx);
-        if (!Callee) {
-          // There is a call signature mismatch if getCalledFunction() returns
-          // nullptr.
-          Value *CalledOpV = CI->getCalledOperand();
-          Instruction *CalledOpInst = dyn_cast<Instruction>(CalledOpV);
-          assert(CalledOpInst->getOpcode() == Instruction::BitCast);
-          Callee = cast<Function>(CalledOpInst->getOperand(0));
-          if (Callee == nullptr)
-            llvm_unreachable("callee is not a function!");
-        }
-        if (Callee->getName() != ORIG_PRINTF_FUNC_NAME)
+        Function *Callee = getCalledFunction(CI);
+        if (!Callee)
+          continue;
+        if (!Callee->hasName() || Callee->getName() != ORIG_PRINTF_FUNC_NAME)
           continue;
 
         LLVM_DEBUG(dbgs() << "Original printf call: "; CI->dump());
