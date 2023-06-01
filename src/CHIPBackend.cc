@@ -204,6 +204,40 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 
 // CHIPEvent
 // ************************************************************************
+void CHIPEvent::sanityCheck() {
+#ifndef NDEBUG
+  LOCK(Backend->EventsMtx); // CHIPBackend::Events
+  sanityCheckNoLock();
+#endif
+}
+
+void CHIPEvent::sanityCheckNoLock() {
+#ifndef NDEBUG
+  bool Sane = true;
+  auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), this);
+  if (TrackCalled_ && Found == Backend->Events.end()) {
+    logCritical(
+        "CHIPEvent::sanityCheck({}) Tracked event not found in Backend->Events",
+        (void *)this);
+    Sane = false;
+  }
+
+  if (!TrackCalled_ && Found != Backend->Events.end()) {
+    logCritical(
+        "CHIPEvent::sanityCheck({}) Untracked event found in Backend->Events",
+        (void *)this);
+    Sane = false;
+  }
+
+  if (UserEvent_ && TrackCalled_) {
+    logCritical("CHIPEvent::sanityCheck({}) UserEvent is Tracked",
+                (void *)this);
+    Sane = false;
+  }
+
+  assert(Sane);
+#endif
+}
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
@@ -232,6 +266,10 @@ void CHIPModule::consumeSPIRV() {
   FuncIL_ = (uint8_t *)Src_->getBinary().data();
   IlSize_ = Src_->getBinary().size();
 
+  // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
+  // dump here prior to parsing in case parsing crashes
+  dumpSpirv(Src_->getBinary());
+
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
   BinaryData_ = new uint32_t[NumWords + 1];
@@ -242,8 +280,6 @@ void CHIPModule::consumeSPIRV() {
   if (!Res) {
     CHIPERR_LOG_AND_THROW("SPIR-V parsing failed", hipErrorUnknown);
   }
-  // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
-  dumpSpirv(Src_->getBinary());
 }
 
 CHIPModule::~CHIPModule() {}
@@ -817,6 +853,7 @@ void CHIPEvent::track() {
   assert(!isUserEvent() && "Attemped to track a user event!");
   assert(!Deleted_ && "Event use after delete!");
   if (!TrackCalled_) {
+    logDebug("Tracking CHIPEvent {} in CHIPBackend::Events", (void *)this);
     Backend->Events.push_back(this);
     TrackCalled_ = true;
   }
@@ -1249,6 +1286,7 @@ void CHIPBackend::waitForThreadExit() {
   // Cleanup all queues
   {
     LOCK(Backend->BackendMtx); // prevent devices from being destrpyed
+    LOCK(Backend->EventsMtx);  // CHIPBackend::Events
 
     for (auto Dev : Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
@@ -1514,6 +1552,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+    ChipEvent->sanityCheck();
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
@@ -1526,8 +1565,6 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
     updateLastEvent(ChipEvent);
     this->finish();
   }
-  assert(!ChipEvent->isUserEvent());
-  assert(!ChipEvent->isTrackCalled());
   ChipEvent->track();
 
   return hipSuccess;

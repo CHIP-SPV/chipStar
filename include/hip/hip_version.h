@@ -1,1 +1,0 @@
-// Placeholder for generated hip_version.h

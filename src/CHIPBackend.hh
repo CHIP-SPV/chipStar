@@ -637,6 +637,8 @@ protected:
   CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
 
 public:
+  void sanityCheck();
+  void sanityCheckNoLock();
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
@@ -757,6 +759,10 @@ public:
   void markDeleted(bool State = true) {
     LOCK(EventMtx); // Deleted_
     Deleted_ = State;
+  }
+  bool isDeleted() {
+    LOCK(EventMtx); // Deleted_
+    return Deleted_;
   }
 #endif
 };

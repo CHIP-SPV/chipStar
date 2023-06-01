@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
     echo "Usage: $0 <debug|release> <llvm-15|llvm-16> ..."
@@ -28,16 +30,29 @@ else
 fi
 
 source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
-source /etc/profile.d/modules.sh
+source /etc/profile.d/modules.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 
-# icpx --version
-# ulimit -a
 sudo /opt/ocl-icd/scripts/igpu_unbind &> /dev/null
 sudo /opt/ocl-icd/scripts/dgpu_unbind &> /dev/null
+
+# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
+module load $CLANG
+module load opencl/pocl-cpu-$LLVM
+output=$(clinfo -l 2>&1 | grep "Platform #0")
+if [ $? -ne 0 ]; then
+    echo "clinfo failed to execute."
+    exit 1
+fi
+
+# check if the output is empty
+if [ -z "$output" ]; then
+    echo "No OpenCL devices detected."
+    exit 1
+fi
 
 rm -rf HIPCC
 rm -rf HIP
@@ -51,13 +66,9 @@ rm -rf *_result.txt
 mkdir build
 cd build
 
-# Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG
-module load opencl/pocl-cpu-$LLVM
-
 echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all build_tests -j &> /dev/null
+make all build_tests -j #&> /dev/null
 echo "build complete." 
 module unload opencl/pocl-cpu-$LLVM
 

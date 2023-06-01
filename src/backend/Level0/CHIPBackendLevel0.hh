@@ -95,8 +95,8 @@ public:
   virtual size_t decreaseRefCount(std::string Reason) override {
     LOCK(EventMtx); // CHIPEvent::Refc_
     assert(!Deleted_ && "Event use after delete!");
-    // logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
+    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
     if (*Refc_ > 0) {
       (*Refc_)--;
     } else {
@@ -117,8 +117,8 @@ public:
   virtual size_t increaseRefCount(std::string Reason) override {
     LOCK(EventMtx); // CHIPEvent::Refc_
     assert(!Deleted_ && "Event use after delete!");
-    // logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-    //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
+    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
+             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
 
     // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
     assert(*Refc_ > 0 && "Increasing refcount from zero!");
@@ -338,6 +338,7 @@ public:
   CHIPEventLevel0 *getEventFromPool() {
 
     // go through all pools and try to get an allocated event
+    LOCK(ContextMtx); // CHIPContext::EventPools
     for (size_t i = 0; i < EventPools_.size(); i++) {
       CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
       if (Event)
@@ -351,6 +352,7 @@ public:
     auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
     auto Event = NewEventPool->getEvent();
     EventPools_.push_back(NewEventPool);
+    Event->sanityCheck(); 
     return Event;
   }
 
