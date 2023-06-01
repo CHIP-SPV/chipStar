@@ -207,7 +207,7 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 void CHIPEvent::sanityCheck() {
 #ifndef NDEBUG
   LOCK(Backend->EventsMtx); // CHIPBackend::Events
-  sanityCheck();
+  sanityCheckNoLock();
 #endif
 }
 
