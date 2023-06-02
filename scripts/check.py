@@ -21,9 +21,9 @@ def process_args():
     if sys.argv[2] == "cpu":
         device_type = "cpu"
     elif sys.argv[2] == "dgpu":
-        device_type = "dgpu"
+        device_type = "gpu"
     elif sys.argv[2] == "igpu":
-        device_type = "igpu"
+        device_type = "gpu"
     else:
         print("Unrecognized device type: " + sys.argv[2])
         print(usage_line)
