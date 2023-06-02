@@ -54,7 +54,7 @@ os.chdir(work_dir)
 if(backend == "pocl" or backend == "opencl"):
     env_vars = "CHIP_BE=opencl CHIP_DEVICE_TYPE={device_type}".format(backend=backend, device_type=device_type)
 else:
-    env_vars = "CHIP_BE=level0 CHIP_DEVICE_TYPE={device_type} CHIP_DEVICE_NUM=0".format(backend=backend, device_type=device_type)
+    env_vars = "CHIP_BE=level0 CHIP_DEVICE_TYPE={device_type}".format(backend=backend, device_type=device_type)
 
-cmd = "{env_vars} ctest --timeout {timeout} --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`\"".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend, timeout=timeout)
+cmd = "{env_vars} ctest --output-on-failure --timeout {timeout} --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`\"".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend, timeout=timeout)
 run_cmd(cmd)
