@@ -26,6 +26,7 @@
 #include "HipEmitLoweredNames.h"
 #include "HipKernelArgSpiller.h"
 #include "HipLowerZeroLengthArrays.h"
+#include "HipSanityChecks.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -83,6 +84,8 @@ public:
 };
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  MPM.addPass(HipSanityChecksPass());
+
   /// For extracting name expression to lowered name expressions (hiprtc).
   MPM.addPass(HipEmitLoweredNamesPass());
 

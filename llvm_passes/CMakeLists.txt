@@ -94,7 +94,7 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
-    HipLowerZeroLengthArrays.cpp ${EXTRA_OBJS})
+    HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp ${EXTRA_OBJS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES

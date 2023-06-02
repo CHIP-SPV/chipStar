@@ -346,7 +346,7 @@ EXPORT float __chip_norm_f32(int dim, const float *a) {
   return sqrt(r);
 }
 
-  EXPORT float __chip_rnorm_f64(int dim, const double *a) { 
+  EXPORT double __chip_rnorm_f64(int dim, const double *a) {
   double r = 0;
   while (dim--) {
     r += a[0] * a[0];

@@ -214,14 +214,16 @@ extern "C++" inline __device__ double rnorm4d(double a, double b, double c,
 extern "C++" __device__ double round(double x); // OpenCL
 extern "C++" __device__ double rsqrt(double x); // OpenCL
 
-extern "C" __device__  double __ocml_scalbn_f64(double x, long int n);
+extern "C" __device__  double __ocml_scalb_f64(double x, double n);
 extern "C++" inline __device__ double scalbln(double x, long int n) {
-  return ::__ocml_scalbn_f64(x, n);
+  // No implementatin for scalbln(double, long) in OCML so promote 'n'
+  // and call OCML's scalb instead.
+  return ::__ocml_scalb_f64(x, n);
 }
 
-extern "C" __device__  double __ocml_scalb_f64(double x, int n);
+extern "C" __device__  double __ocml_scalbn_f64(double x, int n);
 extern "C++" inline __device__ double scalbn(double x, int n)  {
-  return ::__ocml_scalb_f64(x, n);
+  return ::__ocml_scalbn_f64(x, n);
 }
 
 extern "C++" __device__ int 	signbit ( double  a ); // OpenCL
