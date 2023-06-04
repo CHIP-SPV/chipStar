@@ -20,8 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef HIP_INCLUDE_HIP_AMD_DETAIL_HIP_LDG_H
-#define HIP_INCLUDE_HIP_AMD_DETAIL_HIP_LDG_H
+#ifndef HIP_INCLUDE_HIP_SPIRV_HIP_LDG_H
+#define HIP_INCLUDE_HIP_SPIRV_HIP_LDG_H
+
+#if __HIP_CLANG_ONLY__
 
 #include "spirv_hip_vector_types.h"
 //#include "host_defines.h"
@@ -85,6 +87,8 @@ __device__ inline static uchar4 __ldg(const uchar4* ptr) { return ptr[0]; }
 
 __device__ inline static ushort2 __ldg(const ushort2* ptr) { return ptr[0]; }
 
+__device__ inline static ushort4 __ldg(const ushort4* ptr) { return ptr[0]; }
+
 __device__ inline static uint2 __ldg(const uint2* ptr) { return ptr[0]; }
 
 __device__ inline static uint4 __ldg(const uint4* ptr) { return ptr[0]; }
@@ -103,4 +107,5 @@ __device__ inline static double __ldg(const double* ptr) { return ptr[0]; }
 
 __device__ inline static double2 __ldg(const double2* ptr) { return ptr[0]; }
 
-#endif  // HIP_LDG_H
+#endif  // __HIP_CLANG_ONLY__
+#endif  // HIP_INCLUDE_HIP_SPIRV_HIP_LDG_H

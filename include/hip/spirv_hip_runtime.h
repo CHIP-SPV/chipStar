@@ -41,15 +41,12 @@ THE SOFTWARE.
 #endif
 
 #include <hip/hip_runtime_api.h>
-
 #include <hip/spirv_hip.hh>
-
 #include <hip/spirv_hip_vector_types.h>
-
 #include <hip/spirv_math_fwd.h>
 #include <hip/spirv_hip_host_math.h>
-
 #include <hip/spirv_texture_functions.h>
+#include <hip/spirv_hip_ldg.h>
 
 // Feature tests:
 #if (defined(__HCC_ACCELERATOR__) && (__HCC_ACCELERATOR__ != 0)) ||            \
