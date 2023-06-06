@@ -47,6 +47,8 @@ bool UsingDefaultBackend;
 CHIPBackend *Backend = nullptr;
 std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 
+std::atomic_ulong CHIPNumRegisteredFatBinaries;
+
 // Uninitializes the backend when the application exits.
 void __attribute__((destructor)) uninitializeBackend() {
   // Generally, __hipUnregisterFatBinary would uninitialize the
@@ -54,11 +56,8 @@ void __attribute__((destructor)) uninitializeBackend() {
   // there won't be hip(Un)registerFatBinary() calls if the HIP
   // program does not have embedded kernels. This makes sure we
   // uninitialize the backend at exit.
-  if (Backend) {
+  if (Backend && CHIPNumRegisteredFatBinaries == 0)
     CHIPUninitialize();
-    delete Backend;
-    Backend = nullptr;
-  }
 }
 
 void CHIPReadEnvVarsCallOnce() {
@@ -151,6 +150,10 @@ extern void CHIPInitialize() {
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
   if (Backend) {
+    if (getSPVRegister().getNumSources()) {
+      logWarn("Program still has unloaded HIP modules at program exit.");
+      logInfo("Unloaded module count: {}", getSPVRegister().getNumSources());
+    }
     Backend->uninitialize();
     delete Backend;
     Backend = nullptr;

@@ -36,6 +36,7 @@
 #define CHIP_DRIVER_H
 #include <iostream>
 #include <mutex>
+#include <atomic>
 
 #include "Utils.hh"
 
@@ -100,4 +101,13 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
 
 const char *CHIPGetBackendName();
+
+/**
+ * Number of fat binaries registerer through __hipRegisterFatBinary(). On
+ * program exit this value (non-zero) will postpone CHIP-SPV runtime
+ * uninitialization until the all the registered binaries have been
+ * unregistered through __hipUnregisterFatBinary().
+ */
+extern std::atomic_ulong CHIPNumRegisteredFatBinaries;
+
 #endif
