@@ -58,10 +58,11 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
     } else {
       // Actual indirect call? Core SPIR-V does not have modeling for indirect
       // calls.
-      if (CaughtChecks.test(Check::IndirectCall)) { // Warn once per module.
+      if (!CaughtChecks.test(Check::IndirectCall)) { // Warn once per module.
         CaughtChecks.set(Check::IndirectCall);
-        dbgs() << "Warning: Indirect calls are not yet supported in CHIP-SPV.";
-        dbgs() << "Call origin: " << *CI->getParent()->getParent() << "\n";
+        dbgs() << "Warning: Indirect calls are not yet supported in CHIP-SPV.\n"
+               << "Call origin: " << CI->getParent()->getParent()->getName()
+               << "\n";
       }
 
 #ifndef NDEBUG
