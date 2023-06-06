@@ -137,10 +137,12 @@ public:
 
 class SPIRVtypePointer : public SPIRVtype {
   SPVStorageClass StorageClass_;
+  InstWord PointeeTypeID_;
 
 public:
-  SPIRVtypePointer(InstWord Id, InstWord StorClass, size_t PointerSize)
-      : SPIRVtype(Id, PointerSize) {
+  SPIRVtypePointer(InstWord Id, InstWord StorClass, size_t PointerSize,
+                   InstWord PointeeTypeID)
+      : SPIRVtype(Id, PointerSize), PointeeTypeID_(PointeeTypeID) {
     switch (StorClass) {
     case (int32_t)spv::StorageClassCrossWorkgroup:
       StorageClass_ = SPVStorageClass::CrossWorkgroup;
@@ -155,7 +157,7 @@ public:
       break;
 
     case (InstWord)spv::StorageClassFunction:
-      assert(0 && "should have been handled elsewhere!");
+      StorageClass_ = SPVStorageClass::Private;
       break;
 
     default:
@@ -165,6 +167,7 @@ public:
   virtual ~SPIRVtypePointer(){};
   virtual SPVTypeKind typeKind() override { return SPVTypeKind::Pointer; }
   SPVStorageClass getSC() override { return StorageClass_; }
+  InstWord getPointeeTypeID() const { return PointeeTypeID_; }
 };
 
 class SPIRVConstant {
@@ -286,6 +289,7 @@ public:
 
   size_t size() const { return WordCount_; }
   spv::Op getOpcode() const { return Opcode_; }
+  template <spv::Op Opcode> bool isa() const { return Opcode == getOpcode(); }
 
   InstWord getFunctionID() const { return getWord(2); }
   InstWord getFunctionTypeID() const { return Words_[4]; }
@@ -439,24 +443,14 @@ public:
       return new SPIRVtypeSampler(getWord(1));
     }
 
-    if (Opcode_ == spv::Op::OpTypePointer) {
-      // structs or vectors passed by value are represented in LLVM IR / SPIRV
-      // by a pointer with "byval" keyword; handle them here
-      if (getWord(2) == (InstWord)spv::StorageClassFunction) {
-        InstWord Pointee = getWord(3);
-        auto Type = TypeMap[Pointee];
-        if (!Type) {
-          logError("SPIR-V Parser: Failed to find size for type id {}",
-                   Pointee);
-          return nullptr;
-        }
+    if (Opcode_ == spv::Op::OpTypePointer)
+      return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize,
+                                  getWord(3));
 
-        size_t PointeeSize = Type->size();
-        return new SPIRVtypePOD(getWord(1), PointeeSize);
-
-      } else
-        return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize);
-    }
+    if (Opcode_ == spv::Op::OpTypeFunction)
+      // Not a correct object for function type but close. We currently
+      // don't need dedicated class for it.
+      return new SPIRVtypeOpaque(getWord(1), "<some-function>");
 
     return nullptr;
   }
@@ -470,27 +464,6 @@ public:
 
     logWarn("SPIR-V Parser: Missing type declaration for a constant");
     return nullptr;
-  }
-
-  SPVFuncInfo *decodeFunctionType(SPIRTypeMap &TypeMap, size_t PointerSize) {
-    assert(Opcode_ == spv::Op::OpTypeFunction);
-
-    SPVFuncInfo *Fi = new SPVFuncInfo;
-
-    size_t NumArgs = WordCount_ - 3;
-    if (NumArgs > 0) {
-      Fi->ArgTypeInfo_.resize(NumArgs);
-      for (size_t i = 0; i < NumArgs; ++i) {
-        InstWord TypeId = getWord(i + 3);
-        auto It = TypeMap.find(TypeId);
-        assert(It != TypeMap.end());
-        Fi->ArgTypeInfo_[i].Kind = It->second->typeKind();
-        Fi->ArgTypeInfo_[i].Size = It->second->size();
-        Fi->ArgTypeInfo_[i].StorageClass = It->second->getSC();
-      }
-    }
-
-    return Fi;
   }
 };
 
@@ -521,6 +494,12 @@ static spv::LinkageType parseLinkageAttributeType(const SPIRVinst &Inst) {
   return static_cast<spv::LinkageType>(Inst.getWord(Inst.size() - 1));
 }
 
+static spv::FunctionParameterAttribute
+parseFunctionParameterAttribute(const SPIRVinst &Inst) {
+  assert(Inst.isDecoration(spv::DecorationFuncParamAttr));
+  return static_cast<spv::FunctionParameterAttribute>(Inst.getWord(3));
+}
+
 static IteratorRange<const InstWord *> getWordRange(const InstWord *Begin,
                                                     size_t NumWords) {
   return IteratorRange<const InstWord *>(Begin, Begin + NumWords);
@@ -530,8 +509,9 @@ class SPIRVmodule {
   std::map<InstWord, std::string> EntryPoints_;
   SPIRTypeMap TypeMap_;
   SPIRVConstMap ConstMap_;
-  SPVFuncInfoMap FunctionTypeMap_;
-  std::map<InstWord, InstWord> EntryToFunctionTypeIDMap_;
+  SPVFuncInfoMap KernelInfoMap_;
+  // Records of result IDs decorated with ByVal function parameter attribute.
+  std::map<InstWord, bool> ByValParams_;
   std::unordered_map<InstWord, std::unique_ptr<SPIRVinst>> IdToInstMap_;
   /// Names of globals and functions.
   std::map<InstWord, std::string_view> LinkNames_;
@@ -591,10 +571,8 @@ public:
     for (auto i : EntryPoints_) {
       InstWord EntryPointID = i.first;
       std::string_view KernelName = i.second;
-      auto Ft = EntryToFunctionTypeIDMap_.find(EntryPointID);
-      assert(Ft != EntryToFunctionTypeIDMap_.end());
-      auto Fi = FunctionTypeMap_.find(Ft->second);
-      assert(Fi != FunctionTypeMap_.end());
+      auto Fi = KernelInfoMap_.find(EntryPointID);
+      assert(Fi != KernelInfoMap_.end());
       auto FnInfo = Fi->second;
 
       if (SpilledArgAnnotations_.count(KernelName))
@@ -603,7 +581,7 @@ public:
 
       ModuleMap.emplace(std::make_pair(i.second, FnInfo));
     }
-    FunctionTypeMap_.clear();
+    KernelInfoMap_.clear();
 
     return true;
   }
@@ -622,9 +600,37 @@ private:
     return It != IdToInstMap_.end() ? It->second.get() : nullptr;
   }
 
+  void processKernelParameter(const SPIRVinst &Inst, SPVFuncInfo &FuncInfo) {
+    // Record kernel parameter size for kernel argument setters in the
+    // backends.
+    auto ParamTypeID = Inst.getWord(1);
+    assert(TypeMap_.count(ParamTypeID) &&
+           "Can't calculate parameter size due to missing type info!");
+    SPIRVtype *ParamType = TypeMap_[ParamTypeID];
+    size_t ParamSize = 0;
+    SPVTypeKind TypeKind = SPVTypeKind::Unknown;
+    if (ByValParams_.count(Inst.getResultID())) {
+      // ByVal attribute may only be attached on pointer parameters.
+      auto *PtrType = static_cast<SPIRVtypePointer *>(ParamType);
+      SPIRVtype *PointeeType = TypeMap_[PtrType->getPointeeTypeID()];
+      assert(PointeeType && "Can't calculate parameter size due to missing "
+                            "pointee type info!");
+      // Backends treat the ByVal attributes pointer parameters as POD.
+      ParamSize = PointeeType->size();
+      TypeKind = SPVTypeKind::POD;
+    } else {
+      ParamSize = ParamType->size();
+      TypeKind = ParamType->typeKind();
+    }
+    FuncInfo.ArgTypeInfo_.emplace_back(
+        SPVArgTypeInfo{TypeKind, ParamType->getSC(), ParamSize});
+  }
+
   bool parseInstructionStream(const InstWord *Stream, size_t NumWords) {
     const InstWord *StreamIntPtr = Stream;
     size_t PointerSize = 0;
+    InstWord CurrentKernelID = 0;
+    SPVFuncInfo *CurrentKernelInfo = nullptr;
     while (NumWords > 0) {
       SPIRVinst TempInst(StreamIntPtr);
       auto *Inst = &TempInst;
@@ -651,27 +657,30 @@ private:
             std::make_pair(Inst->entryPointID(), Inst->entryPointName()));
       }
 
-      if (Inst->isType()) {
-        if (Inst->isFunctionType())
-          FunctionTypeMap_.emplace(
-              std::make_pair(Inst->getTypeID(),
-                             Inst->decodeFunctionType(TypeMap_, PointerSize)));
-        else
-          TypeMap_.emplace(std::make_pair(
-              Inst->getTypeID(),
-              Inst->decodeType(TypeMap_, ConstMap_, PointerSize)));
-      }
+      if (Inst->isType())
+        TypeMap_.emplace(
+            std::make_pair(Inst->getTypeID(),
+                           Inst->decodeType(TypeMap_, ConstMap_, PointerSize)));
 
-      if (Inst->isFunction() &&
-          (EntryPoints_.find(Inst->getFunctionID()) != EntryPoints_.end())) {
+      if (Inst->isFunction() && EntryPoints_.count(Inst->getFunctionID())) {
+        CurrentKernelID = Inst->getFunctionID();
+        assert(!KernelInfoMap_.count(CurrentKernelID) &&
+               "Overwriting existing kernel function info!");
+        auto FnInfo = std::make_shared<SPVFuncInfo>();
+        KernelInfoMap_[CurrentKernelID] = FnInfo;
+        CurrentKernelInfo = FnInfo.get();
+
         // ret type must be void
         auto Retty = TypeMap_.find(Inst->getFunctionRetType());
         assert(Retty != TypeMap_.end());
         assert(TypeMap_[Inst->getFunctionRetType()]->size() == 0);
-
-        EntryToFunctionTypeIDMap_.emplace(
-            std::make_pair(Inst->getFunctionID(), Inst->getFunctionTypeID()));
       }
+
+      if (Inst->isa<spv::OpFunctionParameter>() && CurrentKernelInfo)
+        processKernelParameter(*Inst, *CurrentKernelInfo);
+
+      if (Inst->isa<spv::OpFunctionEnd>())
+        CurrentKernelInfo = nullptr;
 
       if (Inst->isConstant()) {
         auto *Const = Inst->decodeConstant(TypeMap_);
@@ -682,6 +691,14 @@ private:
         auto TargetID = Inst->getWord(1);
         auto LinkName = parseLinkageAttributeName(Inst);
         LinkNames_[TargetID] = LinkName;
+      }
+
+      if (Inst->isDecoration(spv::DecorationFuncParamAttr)) {
+        auto Attr = parseFunctionParameterAttribute(*Inst);
+        if (Attr == spv::FunctionParameterAttributeByVal) {
+          auto TargetID = Inst->getWord(1);
+          ByValParams_[TargetID] = true;
+        }
       }
 
       if (Inst->isGlobalVariable()) {
