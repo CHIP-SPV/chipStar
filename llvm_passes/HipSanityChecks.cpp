@@ -57,18 +57,16 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
 #endif
     } else {
       // Actual indirect call? Core SPIR-V does not have modeling for indirect
-      // calls.
+      // calls and SPV_INTEL_function_pointers extension will be used to model
+      // them. So far no drivers advertise support for the extension but code
+      // with indirect calls is known to work on Inter drivers (by luck?).
       if (!CaughtChecks.test(Check::IndirectCall)) { // Warn once per module.
         CaughtChecks.set(Check::IndirectCall);
-        dbgs() << "Warning: Indirect calls are not yet supported in CHIP-SPV.\n"
+        dbgs() << "Warning: Indirect call support is experimental.\nHIP "
+                  "programs with them  may encounter failures or even crash!\n"
                << "Call origin: " << CI->getParent()->getParent()->getName()
                << "\n";
       }
-
-#ifndef NDEBUG
-      dbgs() << "Aborting (CHIP-SPV debug build mode policy)\n";
-      abort();
-#endif
     }
   }
 }
