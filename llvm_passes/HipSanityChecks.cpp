@@ -63,7 +63,7 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
       if (!CaughtChecks.test(Check::IndirectCall)) { // Warn once per module.
         CaughtChecks.set(Check::IndirectCall);
         dbgs() << "Warning: Indirect call support is experimental.\nHIP "
-                  "programs with them  may encounter failures or even crash!\n"
+                  "programs with them may encounter failures or even crash!\n"
                << "Call origin: " << CI->getParent()->getParent()->getName()
                << "\n";
       }
