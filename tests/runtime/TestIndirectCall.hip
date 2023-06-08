@@ -9,6 +9,7 @@
 // * Invalid SPIR-V binary is known to be generated.
 //   OpConstantFunctionPointerINTEL instruction is generated with a reference to
 //   an undeclared OpFunction (missing forward declaration).
+//   https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2043.
 
 #include <hip/hip_runtime.h>
 
