@@ -1040,13 +1040,6 @@ CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
   return MarkerEvent;
 }
 
-CHIPEventOpenCL *CHIPQueueOpenCL::getLastEvent() {
-  LOCK(LastEventMtx); // CHIPQueue::LastEvent_
-  // TODO: shouldn't we increment the ref count here, assuming it will be
-  // needed to be kept alive for the client?
-  return (CHIPEventOpenCL *)LastEvent_;
-}
-
 CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
@@ -1256,7 +1249,7 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 }
 
 CHIPEvent *
-CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
+CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
 #ifdef DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif

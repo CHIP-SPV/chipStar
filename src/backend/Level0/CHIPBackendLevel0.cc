@@ -574,12 +574,12 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   CpuCallbackComplete = (CHIPEventLevel0 *)Backend->createCHIPEvent(Ctx);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
-  GpuReady = ChipQueue->enqueueBarrierImpl(nullptr);
+  GpuReady = ChipQueue->enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>>());
   GpuReady->Msg = "GpuReady";
 
-  std::vector<CHIPEvent *> ChipEvs = {CpuCallbackComplete};
-  auto WaitForCpuComplete = ChipQueue->enqueueBarrierImpl(&ChipEvs);
-  ChipQueue->updateLastEvent(WaitForCpuComplete);
+  std::vector<std::shared_ptr<CHIPEvent>> ChipEvs = {std::shared_ptr<CHIPEvent>(CpuCallbackComplete)};
+  CHIPEvent* WaitForCpuComplete = ChipQueue->enqueueBarrierImpl(ChipEvs);
+  ChipQueue->updateLastEvent(std::shared_ptr<CHIPEvent>(WaitForCpuComplete));
 
   GpuAck = ChipQueue->enqueueMarkerImpl();
   GpuAck->Msg = "GpuAck";
@@ -642,103 +642,103 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
 }
 
 void CHIPStaleEventMonitorLevel0::monitor() {
-  // Stop is false and I have more events
-  while (true) {
-    usleep(20000);
-    std::vector<CHIPEvent *> EventsToDelete;
-    std::vector<ze_command_list_handle_t> CommandListsToDelete;
+//   // Stop is false and I have more events
+//   while (true) {
+//     usleep(20000);
+//     std::vector<CHIPEvent *> EventsToDelete;
+//     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
-    LOCK(Backend->EventsMtx); // CHIPBackend::Events
-    LOCK(EventMonitorMtx);    // CHIPEventMonitor::Stop
-    LOCK(                     // CHIPBackendLevel0::EventCommandListMap
-        ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
-    // auto LzBackend = (CHIPBackendLevel0 *)Backend;
-    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues
-    // {}",
-    //          Backend->Events.size(), LzBackend->EventCommandListMap.size());
+//     LOCK(Backend->EventsMtx); // CHIPBackend::Events
+//     LOCK(EventMonitorMtx);    // CHIPEventMonitor::Stop
+//     LOCK(                     // CHIPBackendLevel0::EventCommandListMap
+//         ((CHIPBackendLevel0 *)Backend)->CommandListsMtx);
+//     // auto LzBackend = (CHIPBackendLevel0 *)Backend;
+//     // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues
+//     // {}",
+//     //          Backend->Events.size(), LzBackend->EventCommandListMap.size());
 
-    auto EventCommandListMap =
-        &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
+//     auto EventCommandListMap =
+//         &((CHIPBackendLevel0 *)Backend)->EventCommandListMap;
 
-    for (size_t i = 0; i < Backend->Events.size(); i++) {
-      CHIPEvent *ChipEvent = Backend->Events[i];
+//     for (size_t i = 0; i < Backend->Events.size(); i++) {
+//       CHIPEvent *ChipEvent = Backend->Events[i];
 
-      assert(ChipEvent);
-      ChipEvent->sanityCheckNoLock();
-      auto E = (CHIPEventLevel0 *)ChipEvent;
+//       assert(ChipEvent);
+//       ChipEvent->sanityCheckNoLock();
+//       auto E = (CHIPEventLevel0 *)ChipEvent;
 
-      // do not change refcount for user events
-      if (E->updateFinishStatus(false) && E->EventPool) {
-        E->decreaseRefCount("Event became ready");
-        E->releaseDependencies();
-      }
+//       // do not change refcount for user events
+//       if (E->updateFinishStatus(false) && E->EventPool) {
+//         E->decreaseRefCount("Event became ready");
+//         E->releaseDependencies();
+//       }
 
-      // delete the event if refcount reached 0
-      if (E->getCHIPRefc() == 0) {
-        // Purpose of the stale event monitor is to release events
-        // when it's safe to do so which is indicated by their ready
-        // status.
-        assert(E->isFinished() &&
-               "Event refcount reached zero while it's not ready!");
-        auto Found =
-            std::find(Backend->Events.begin(), Backend->Events.end(), E);
-        if (Found == Backend->Events.end())
-          CHIPERR_LOG_AND_THROW("StaleEventMonitor is trying to destroy an "
-                                "event which is already "
-                                "removed from backend event list",
-                                hipErrorTbd);
-        logTrace("Removing {} from backend event list", (void *)E);
-        Backend->Events.erase(Found); // TODO fix-251 segfault here
+//       // delete the event if refcount reached 0
+//       if (E->getCHIPRefc() == 0) {
+//         // Purpose of the stale event monitor is to release events
+//         // when it's safe to do so which is indicated by their ready
+//         // status.
+//         assert(E->isFinished() &&
+//                "Event refcount reached zero while it's not ready!");
+//         auto Found =
+//             std::find(Backend->Events.begin(), Backend->Events.end(), E);
+//         if (Found == Backend->Events.end())
+//           CHIPERR_LOG_AND_THROW("StaleEventMonitor is trying to destroy an "
+//                                 "event which is already "
+//                                 "removed from backend event list",
+//                                 hipErrorTbd);
+//         logTrace("Removing {} from backend event list", (void *)E);
+//         Backend->Events.erase(Found); // TODO fix-251 segfault here
 
-        E->doActions();
+//         E->doActions();
 
-        // Check if this event is associated with a CommandList
-        bool CommandListFound = EventCommandListMap->count(E);
-        if (CommandListFound) {
-          logTrace("Erase cmdlist assoc w/ event: {}", (void *)E);
-          auto CommandList = (*EventCommandListMap)[E];
-          EventCommandListMap->erase(E);
+//         // Check if this event is associated with a CommandList
+//         bool CommandListFound = EventCommandListMap->count(E);
+//         if (CommandListFound) {
+//           logTrace("Erase cmdlist assoc w/ event: {}", (void *)E);
+//           auto CommandList = (*EventCommandListMap)[E];
+//           EventCommandListMap->erase(E);
 
-#ifdef DUBIOUS_LOCKS
-          LOCK(Backend->DubiousLockLevel0)
-#endif
-          // The application must not call this function
-          // from simultaneous threads with the same command list handle.
-          // Done via this is the only thread that calls it
-          auto Status = zeCommandListDestroy(CommandList);
-          CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-        }
+// #ifdef DUBIOUS_LOCKS
+//           LOCK(Backend->DubiousLockLevel0)
+// #endif
+//           // The application must not call this function
+//           // from simultaneous threads with the same command list handle.
+//           // Done via this is the only thread that calls it
+//           auto Status = zeCommandListDestroy(CommandList);
+//           CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+//         }
 
-        if (E->EventPool)
-          E->EventPool->returnSlot(E->EventPoolIndex);
-#ifndef NDEBUG
-        E->markDeleted();
-#endif
-      }
+//         if (E->EventPool)
+//           E->EventPool->returnSlot(E->EventPoolIndex);
+// #ifndef NDEBUG
+//         E->markDeleted();
+// #endif
+//       }
 
-    } // done collecting events to delete
+//     } // done collecting events to delete
 
-    /**
-     * In the case that a user doesn't destroy all the
-     * created streams, we remove the streams and outstanding events in
-     * CHIPBackend::waitForThreadExit() but CHIPBackend has no knowledge of
-     * EventCommandListMap
-     */
-    // TODO libCEED - re-enable this check
-    if (Stop && !EventCommandListMap->size()) {
-      if (Backend->Events.size() > 0) {
-        logError(
-            "CHIPStaleEventMonitorLevel0 stop was called but not all events "
-            "have been cleared");
-      } else {
-        logTrace(
-            "CHIPStaleEventMonitorLevel0 stop was called and all events have "
-            "been cleared");
-      }
-      pthread_exit(0);
-    }
+//     /**
+//      * In the case that a user doesn't destroy all the
+//      * created streams, we remove the streams and outstanding events in
+//      * CHIPBackend::waitForThreadExit() but CHIPBackend has no knowledge of
+//      * EventCommandListMap
+//      */
+//     // TODO libCEED - re-enable this check
+//     if (Stop && !EventCommandListMap->size()) {
+//       if (Backend->Events.size() > 0) {
+//         logError(
+//             "CHIPStaleEventMonitorLevel0 stop was called but not all events "
+//             "have been cleared");
+//       } else {
+//         logTrace(
+//             "CHIPStaleEventMonitorLevel0 stop was called and all events have "
+//             "been cleared");
+//       }
+//       pthread_exit(0);
+//     }
 
-  } // endless loop
+//   } // endless loop
 }
 // End CHIPEventMonitorLevel0
 
@@ -833,11 +833,6 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
   }
 
   return;
-}
-
-CHIPEventLevel0 *CHIPQueueLevel0::getLastEvent() {
-  LOCK(LastEventMtx); // CHIPQueue::LastEvent_
-  return (CHIPEventLevel0 *)LastEvent_;
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
@@ -1304,7 +1299,7 @@ CHIPEvent *CHIPQueueLevel0::enqueueMarkerImpl() {
 }
 
 CHIPEvent *
-CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
+CHIPQueueLevel0::enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
   CHIPEventLevel0 *EventToSignal =
       (CHIPEventLevel0 *)Backend->createCHIPEvent(ChipContext_);
 
@@ -1312,7 +1307,7 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   EventToSignal->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
-  NumEventsToWaitFor = EventsToWaitFor ? EventsToWaitFor->size() : 0;
+  NumEventsToWaitFor = EventsToWaitFor.size();
 
   ze_event_handle_t *EventHandles = nullptr;
   ze_event_handle_t SignalEventHandle = nullptr;
@@ -1322,9 +1317,11 @@ CHIPQueueLevel0::enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) {
   if (NumEventsToWaitFor > 0) {
     EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
     for (size_t i = 0; i < NumEventsToWaitFor; i++) {
-      CHIPEventLevel0 *ChipEventLz = (CHIPEventLevel0 *)(*EventsToWaitFor)[i];
+      std::shared_ptr<CHIPEvent> ChipEvent = EventsToWaitFor[i];
+      std::shared_ptr<CHIPEventLevel0> ChipEventLz =
+          std::dynamic_pointer_cast<CHIPEventLevel0>(ChipEvent);
       CHIPASSERT(ChipEventLz);
-      EventHandles[i] = ChipEventLz->get("enqueueBarrierImpl addDependency");
+      EventHandles[i] = ChipEventLz->peek();
       EventToSignal->addDependency(ChipEventLz);
     }
   } // done gather Event_ handles to wait on
@@ -1554,23 +1551,23 @@ void CHIPBackendLevel0::uninitialize() {
   }
   StaleEventMonitor_->join();
 
-  if (Backend->Events.size()) {
-    logTrace("Remaining {} events that haven't been collected:",
-             Backend->Events.size());
-    for (auto *E : Backend->Events) {
-      logTrace("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
-               E->getCHIPRefc());
-      if (!E->isUserEvent()) {
-        // A strong indicator that we are missing decreaseRefCount() call
-        // for events which are solely managed by the CHIP-SPV.
-        assert(!(E->isFinished() && E->getCHIPRefc() > 0) &&
-               "Missed decreaseRefCount()?");
-        assert(E->isFinished() && "Uncollected non-user events!");
-      }
-    }
-    logTrace("Remaining {} command lists that haven't been collected:",
-             ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
-  }
+//   if (Backend->Events.size()) {
+//     logTrace("Remaining {} events that haven't been collected:",
+//              Backend->Events.size());
+//     for (auto *E : Backend->Events) {
+//       logTrace("{} status= {} refc={}", E->Msg, E->getEventStatusStr(),
+//                E->getCHIPRefc());
+//       if (!E->isUserEvent()) {
+//         // A strong indicator that we are missing decreaseRefCount() call
+//         // for events which are solely managed by the CHIP-SPV.
+//         assert(!(E->isFinished() && E->getCHIPRefc() > 0) &&
+//                "Missed decreaseRefCount()?");
+//         assert(E->isFinished() && "Uncollected non-user events!");
+//       }
+//     }
+//     logTrace("Remaining {} command lists that haven't been collected:",
+//              ((CHIPBackendLevel0 *)Backend)->EventCommandListMap.size());
+//   }
   return;
 }
 

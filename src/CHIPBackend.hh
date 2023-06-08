@@ -613,7 +613,7 @@ protected:
   bool UserEvent_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
-  std::vector<CHIPEvent *> DependsOnList;
+  std::vector<std::shared_ptr<CHIPEvent>> DependsOnList;
 
 #ifndef NDEBUG
   // A debug flag for cathing use-after-delete.
@@ -643,7 +643,7 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(CHIPEvent *Event) {
+  void addDependency(std::shared_ptr<CHIPEvent> Event) {
     assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
   }
@@ -1603,7 +1603,6 @@ protected:
   CHIPContext();
 
 public:
-  std::vector<CHIPEvent *> Events;
   mutable std::mutex ContextMtx;
 
   /**
@@ -1776,7 +1775,7 @@ public:
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
-  std::vector<CHIPEvent *> Events;
+  std::vector<std::shared_ptr<CHIPEvent>> Events;
   std::mutex EventsMtx;
 
   std::queue<CHIPCallbackData *> CallbackQueue;
@@ -2028,7 +2027,7 @@ protected:
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  CHIPEvent *LastEvent_ = nullptr;
+  std::shared_ptr<CHIPEvent> LastEvent_ = nullptr;
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
@@ -2083,7 +2082,10 @@ public:
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
-  virtual CHIPEvent *getLastEvent() = 0;
+  virtual std::shared_ptr<CHIPEvent> getLastEvent() {
+    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+    return LastEvent_;
+  }
 
   /**
    * @brief Construct a new CHIPQueue object
@@ -2107,20 +2109,13 @@ public:
   virtual ~CHIPQueue();
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(CHIPEvent *NewEvent) {
+  virtual void updateLastEvent(std::shared_ptr<CHIPEvent> NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
-             (void *)LastEvent_, (void *)NewEvent);
-    if (NewEvent == LastEvent_)
+             (void *)LastEvent_.get(), (void *)NewEvent.get());
+    if (NewEvent == LastEvent_) // TODO: should I compare NewEvent.get()
       return;
 
-    if (LastEvent_ != nullptr) {
-      LastEvent_->decreaseRefCount("updateLastEvent - old event");
-    }
-
-    if (NewEvent != nullptr) {
-      NewEvent->increaseRefCount("updateLastEvent - new event");
-    }
     LastEvent_ = NewEvent;
   }
 
@@ -2245,8 +2240,8 @@ public:
    * @return false
    */
   virtual CHIPEvent *
-  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) = 0;
-  virtual CHIPEvent *enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor);
+  enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) = 0;
+  virtual CHIPEvent *enqueueBarrier(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor);
 
   virtual CHIPEvent *enqueueMarkerImpl() = 0;
   CHIPEvent *enqueueMarker();

@@ -2031,7 +2031,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   }
 
   std::vector<CHIPEvent *> EventsToWaitOn = {static_cast<CHIPEvent *>(Event)};
-  ChipQueue->enqueueBarrier(&EventsToWaitOn);
+//   ChipQueue->enqueueBarrier(&EventsToWaitOn);
 
   RETURN(hipSuccess);
   CHIP_CATCH

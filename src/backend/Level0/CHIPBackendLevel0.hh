@@ -276,8 +276,6 @@ public:
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
 
-  virtual CHIPEventLevel0 *getLastEvent() override;
-
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
 
   virtual void finish() override;
@@ -319,7 +317,7 @@ public:
   virtual CHIPEvent *enqueueMarkerImpl() override;
 
   virtual CHIPEvent *
-  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
+  enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) override;
 
   virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) override {
     UNIMPLEMENTED(nullptr);

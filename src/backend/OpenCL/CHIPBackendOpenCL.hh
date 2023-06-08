@@ -242,7 +242,6 @@ public:
   CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
-  virtual CHIPEventOpenCL *getLastEvent() override;
   virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
