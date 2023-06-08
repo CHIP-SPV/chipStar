@@ -648,7 +648,7 @@ public:
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  virtual void track();
+  virtual std::shared_ptr<CHIPEvent> track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
@@ -2031,7 +2031,7 @@ protected:
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
-  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem,
+  std::shared_ptr<CHIPEvent> RegisteredVarCopy(CHIPExecItem *ExecItem,
                                MANAGED_MEM_STATE ExecState);
 
 public:

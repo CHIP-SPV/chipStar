@@ -847,16 +847,18 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
   return;
 }
 
-void CHIPEvent::track() {
+std::shared_ptr<CHIPEvent> CHIPEvent::track() {
   LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
   LOCK(EventMtx);           // writing bool CHIPEvent::TrackCalled_
   assert(!isUserEvent() && "Attemped to track a user event!");
   assert(!Deleted_ && "Event use after delete!");
-  if (!TrackCalled_) {
-    logDebug("Tracking CHIPEvent {} in CHIPBackend::Events", (void *)this);
-    Backend->Events.push_back(std::shared_ptr<CHIPEvent>(this)); // BAD - potentially multiple calls to shared_ptr ctor
-    TrackCalled_ = true;
-  }
+  assert(!TrackCalled_ && "Event already tracked!");
+
+  std::shared_ptr<CHIPEvent> TrackedEventHandle = std::shared_ptr<CHIPEvent>(this);
+  logDebug("Tracking CHIPEvent {} in CHIPBackend::Events", (void *)this);
+  Backend->Events.push_back(TrackedEventHandle); // BAD - potentially multiple calls to shared_ptr ctor
+  TrackCalled_ = true;
+  return TrackedEventHandle;
 }
 
 CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
@@ -1692,7 +1694,7 @@ void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
 void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
 // TODO: return all events and track() outside
-CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
+std::shared_ptr<CHIPEvent> CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         MANAGED_MEM_STATE ExecState) {
 
   // TODO: Inspect kernel code for indirect allocation accesses. If
@@ -1724,13 +1726,17 @@ CHIPEvent *CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
   if (CopyEvents.empty())
     return nullptr;
 
-  CHIPEvent* BackEvent = CopyEvents.back();
-// PROBLEM
+std::shared_ptr<CHIPEvent> LastTrackedEvent;
+// We don't need to updateLastEvent because this function is always part of the kernel launch sequence which update the last event anyway
+// CHIPEvent* BackEvent = CopyEvents.back();
 //   updateLastEvent(std::shared_ptr<CHIPEvent>(BackEvent));
-//   for (auto *Ev : CopyEvents)
-//     Ev->track();
 
-  return CopyEvents.back();
+
+// They must be tracked, however, which will turn them into shared_ptr so we must return a tracked event.
+   for (auto *Ev : CopyEvents)
+     LastTrackedEvent = Ev->track();
+
+  return LastTrackedEvent;
 }
 
 void CHIPQueue::launch(CHIPExecItem *ExecItem) {
@@ -1786,20 +1792,16 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
                           hipErrorLaunchFailure);
   }
 
-//   auto RegisteredVarInEvent =
-//       RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
-//   auto LaunchEvent = launchImpl(ExecItem);
-//   auto RegisteredVarOutEvent =
-//       RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
+  auto RegisteredVarInEvent =
+      RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
+  auto LaunchEvent = launchImpl(ExecItem);
+  auto RegisteredVarOutEvent =
+      RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
 
-//   RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
-//                         : updateLastEvent(LaunchEvent);
+  RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
+                        : updateLastEvent(std::shared_ptr<CHIPEvent>(LaunchEvent));
 
-//   if (RegisteredVarInEvent)
-//     RegisteredVarInEvent->track();
-//   LaunchEvent->track();
-//   if (RegisteredVarOutEvent)
-//     RegisteredVarOutEvent->track();
+  LaunchEvent->track();
 }
 
 CHIPEvent *
