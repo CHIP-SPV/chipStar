@@ -1902,18 +1902,9 @@ const char *hipGetErrorString(hipError_t HipError) {
   return hipGetErrorName(HipError);
 }
 
-hipError_t hipStreamCreate(hipStream_t *Stream) {
-  RETURN(hipStreamCreateWithFlags(Stream, 0));
-}
-
-hipError_t hipStreamCreateWithFlags(hipStream_t *Stream, unsigned int Flags) {
-  RETURN(hipStreamCreateWithPriority(Stream, Flags, 1));
-}
-
-hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
-                                       int Priority) {
-  CHIP_TRY
-  CHIPInitialize();
+static inline hipError_t
+hipStreamCreateWithPriority_internal(hipStream_t *Stream, unsigned int Flags,
+                                     int Priority) {
   if (Stream == nullptr)
     CHIPERR_LOG_AND_THROW("Stream pointer is null", hipErrorInvalidValue);
 
@@ -1929,7 +1920,27 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
       Dev->createQueueAndRegister(FlagsParsed, ClampedPriority);
   *Stream = ChipQueue;
   RETURN(hipSuccess);
+}
 
+hipError_t hipStreamCreate(hipStream_t *Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipStreamCreateWithPriority_internal(Stream, 0, 1));
+  CHIP_CATCH
+}
+
+hipError_t hipStreamCreateWithFlags(hipStream_t *Stream, unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipStreamCreateWithPriority_internal(Stream, Flags, 1));
+  CHIP_CATCH
+}
+
+hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
+                                       int Priority) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipStreamCreateWithPriority_internal(Stream, Flags, Priority));
   CHIP_CATCH
 }
 
