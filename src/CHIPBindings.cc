@@ -2981,12 +2981,10 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
-                            size_t Height, hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst);
-
+static inline hipError_t hipMemset2DAsync_internal(void *Dst, size_t Pitch,
+                                                   int Value, size_t Width,
+                                                   size_t Height,
+                                                   hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {
       /* Dst */ Dst,
@@ -2997,7 +2995,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                                           memset unsigned? */
       /* width */ Width};
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params)) {
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   hipError_t Res = hipSuccess;
@@ -3011,7 +3009,15 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
       break;
   }
 
-  RETURN(Res);
+  return Res;
+}
+
+hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
+                            size_t Height, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+  RETURN(hipMemset2DAsync_internal(Dst, Pitch, Value, Width, Height, Stream));
   CHIP_CATCH
 }
 
@@ -3019,9 +3025,10 @@ hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
                        size_t Height) {
   CHIP_TRY
   CHIPInitialize();
+  NULLCHECK(Dst);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemset2DAsync(Dst, Pitch, Value, Width, Height, ChipQueue);
+  auto Res = hipMemset2DAsync_internal(Dst, Pitch, Value, Width, Height, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
