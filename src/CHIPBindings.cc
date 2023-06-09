@@ -3772,22 +3772,23 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
-                               size_t Offset, hipMemcpyKind Kind) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst, Symbol);
+static inline hipError_t
+hipMemcpyFromSymbolAsync_internal(void *Dst, const void *Symbol,
+                                  size_t SizeBytes, size_t Offset,
+                                  hipMemcpyKind Kind, hipStream_t Stream) {
+  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyFromSymbol>(
+          const_cast<void *>(Dst), Symbol, SizeBytes, Offset, Kind)) {
+    return hipSuccess;
+  }
 
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
+  CHIPDeviceVar *Var = ChipQueue->getDevice()->getGlobalVar(Symbol);
+  ERROR_IF(!Var, hipErrorInvalidSymbol);
+  void *DevPtr = Var->getDevAddr();
 
-  hipError_t Res =
-      hipMemcpyFromSymbolAsync(Dst, Symbol, SizeBytes, Offset, Kind, ChipQueue);
-
-  if (Res == hipSuccess)
-    ChipQueue->finish();
-
-  RETURN(hipSuccess);
-  CHIP_CATCH
+  return hipMemcpyAsync_internal(Dst, (void *)((intptr_t)DevPtr + Offset),
+                                 SizeBytes, Kind, Stream);
 }
 
 hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
@@ -3796,20 +3797,26 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Symbol);
+  RETURN(hipMemcpyFromSymbolAsync_internal(Dst, Symbol, SizeBytes, Offset,
+                                           Kind, Stream));
+  CHIP_CATCH
+}
 
-  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyFromSymbol>(
-          const_cast<void *>(Dst), Symbol, SizeBytes, Offset, Kind)) {
-    RETURN(hipSuccess);
-  }
+hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
+                               size_t Offset, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst, Symbol);
 
-  Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
-  CHIPDeviceVar *Var = ChipQueue->getDevice()->getGlobalVar(Symbol);
-  ERROR_IF(!Var, hipErrorInvalidSymbol);
-  void *DevPtr = Var->getDevAddr();
+  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  RETURN(hipMemcpyAsync_internal(Dst, (void *)((intptr_t)DevPtr + Offset),
-                                 SizeBytes, Kind, Stream));
+  hipError_t Res = hipMemcpyFromSymbolAsync_internal(Dst, Symbol, SizeBytes,
+                                                     Offset, Kind, ChipQueue);
+
+  if (Res == hipSuccess)
+    ChipQueue->finish();
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
