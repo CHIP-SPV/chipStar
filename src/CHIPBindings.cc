@@ -2743,29 +2743,34 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
-                          hipMemcpyKind Kind, hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-
+static inline hipError_t hipMemcpyAsync_internal(void *Dst, const void *Src,
+                                                 size_t SizeBytes,
+                                                 hipMemcpyKind Kind,
+                                                 hipStream_t Stream) {
   if (SizeBytes == 0)
-    RETURN(hipSuccess);
+    return hipSuccess;
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
                                                        Kind)) {
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
-    RETURN(hipSuccess);
+    return hipSuccess;
   } else {
     ChipQueue->memCopyAsync(Dst, Src, SizeBytes);
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
+}
 
+hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
+                          hipMemcpyKind Kind, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, Kind, Stream));
   CHIP_CATCH
 }
 
@@ -2804,7 +2809,11 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
 
 hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t Dst, hipDeviceptr_t Src,
                               size_t SizeBytes, hipStream_t Stream) {
-  RETURN(hipMemcpyAsync(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice, Stream));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice,
+                                 Stream));
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
@@ -2817,7 +2826,11 @@ hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
 
 hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
                               hipStream_t Stream) {
-  RETURN(hipMemcpyAsync(Dst, Src, SizeBytes, hipMemcpyHostToDevice, Stream));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, hipMemcpyHostToDevice,
+                                 Stream));
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
@@ -2829,7 +2842,11 @@ hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
 
 hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
                               hipStream_t Stream) {
-  RETURN(hipMemcpyAsync(Dst, Src, SizeBytes, hipMemcpyDeviceToHost, Stream));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost,
+                                 Stream));
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
@@ -3198,7 +3215,7 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
     RETURN(hipErrorInvalidValue);
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; ++i) {
-    if (hipMemcpyAsync(Dst, Src, Width, Kind, Stream) != hipSuccess)
+    if (hipMemcpyAsync_internal(Dst, Src, Width, Kind, Stream) != hipSuccess)
       RETURN(hipErrorLaunchFailure);
     Src = (char *)Src + SPitch;
     Dst = (char *)Dst + DPitch;
@@ -3280,7 +3297,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
   for (size_t Offset = HOffset; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
-    if (hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
+    if (hipMemcpyAsync_internal(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
       RETURN(hipErrorLaunchFailure);
   }
 
@@ -3356,7 +3373,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
-    auto Err = hipMemcpyAsync(DstP, SrcP, Width, Kind, Stream);
+    auto Err = hipMemcpyAsync_internal(DstP, SrcP, Width, Kind, Stream);
     ERROR_IF(Err != hipSuccess, Err);
   }
 
@@ -3539,8 +3556,8 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
             (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
         unsigned char *Dst =
             (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        if (hipMemcpyAsync(Dst, Src, WidthInBytes, Params->kind, Stream) !=
-            hipSuccess)
+        if (hipMemcpyAsync_internal(Dst, Src, WidthInBytes, Params->kind,
+                                    Stream) != hipSuccess)
           RETURN(hipErrorLaunchFailure);
       }
     }
@@ -3634,8 +3651,8 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
   void *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Found the symbol but not its device address?");
 
-  RETURN(hipMemcpyAsync((void *)((intptr_t)DevPtr + Offset), Src, SizeBytes,
-                        Kind, Stream));
+  RETURN(hipMemcpyAsync_internal((void *)((intptr_t)DevPtr + Offset), Src,
+                                 SizeBytes, Kind, Stream));
   CHIP_CATCH
 }
 
@@ -3675,8 +3692,8 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   void *DevPtr = Var->getDevAddr();
 
-  RETURN(hipMemcpyAsync(Dst, (void *)((intptr_t)DevPtr + Offset), SizeBytes,
-                        Kind, Stream));
+  RETURN(hipMemcpyAsync_internal(Dst, (void *)((intptr_t)DevPtr + Offset),
+                                 SizeBytes, Kind, Stream));
   CHIP_CATCH
 }
 
