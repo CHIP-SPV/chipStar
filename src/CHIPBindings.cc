@@ -2376,19 +2376,13 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIP_CATCH
 };
 
-DEPRECATED("use hipHostMalloc instead")
-hipError_t hipMallocHost(void **Ptr, size_t Size) {
-  RETURN(hipMalloc(Ptr, Size));
-}
-
-hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
-  CHIP_TRY
-  CHIPInitialize();
+static inline hipError_t hipHostMalloc_internal(void **Ptr, size_t Size,
+                                                unsigned int Flags) {
   if (Ptr == nullptr)
     CHIPERR_LOG_AND_THROW("Ptr is null", hipErrorInvalidValue);
   if (Size == 0) {
     *Ptr = nullptr;
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   auto FlagsParsed = CHIPHostAllocFlags(Flags);
@@ -2403,13 +2397,30 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   assert(PageLockSuccess == 0 && "Failed to page lock memory");
 
   *Ptr = RetVal;
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
+
+hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipHostMalloc_internal(Ptr, Size, Flags));
+  CHIP_CATCH
+}
+
+DEPRECATED("use hipHostMalloc instead")
+hipError_t hipMallocHost(void **Ptr, size_t Size) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipHostMalloc_internal(Ptr, Size, hipHostMallocDefault));
   CHIP_CATCH
 }
 
 DEPRECATED("use hipHostMalloc instead")
 hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
-  RETURN(hipHostMalloc(Ptr, Size, Flags));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipHostMalloc_internal(Ptr, Size, Flags));
+  CHIP_CATCH
 }
 
 static inline hipError_t hipFree_internal(void *Ptr) {
