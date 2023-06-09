@@ -2412,25 +2412,31 @@ hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
   RETURN(hipHostMalloc(Ptr, Size, Flags));
 }
 
-hipError_t hipFree(void *Ptr) {
-  CHIP_TRY
-  CHIPInitialize();
-  logInfo("hipFree(ptr={})", (void *)Ptr);
+static inline hipError_t hipFree_internal(void *Ptr) {
+  logInfo("hipFree_internal(ptr={})", (void *)Ptr);
 
   auto Status = hipDeviceSynchronize_internal();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
 
   if (Ptr == nullptr)
-    RETURN(hipSuccess);
-  RETURN(Backend->getActiveContext()->free(Ptr));
+    return hipSuccess;
+  return Backend->getActiveContext()->free(Ptr);
+}
 
+hipError_t hipFree(void *Ptr) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipFree_internal(Ptr));
   CHIP_CATCH
 }
 
 hipError_t hipHostFree(void *Ptr) {
+  CHIP_TRY
+  CHIPInitialize();
   int Status = munlock(Ptr, 0);
   assert(Status == 0 && "Failed to unlock page-locked memory");
-  RETURN(hipFree(Ptr));
+  RETURN(hipFree_internal(Ptr));
+  CHIP_CATCH
 }
 
 DEPRECATED("use hipHostFree instead")
@@ -2548,7 +2554,7 @@ hipError_t hipHostUnregister(void *HostPtr) {
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
-  auto Err = hipFree(AllocInfo->DevPtr);
+  auto Err = hipFree_internal(AllocInfo->DevPtr);
   RETURN(Err);
 
   CHIP_CATCH
@@ -2754,7 +2760,7 @@ hipError_t hipFreeArray(hipArray *Array) {
   CHIPInitialize();
   NULLCHECK(Array, Array->data);
 
-  hipError_t Err = hipFree(Array->data);
+  hipError_t Err = hipFree_internal(Array->data);
   delete Array;
   RETURN(Err);
 
