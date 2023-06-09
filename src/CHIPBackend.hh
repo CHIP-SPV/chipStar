@@ -309,9 +309,9 @@ protected:
 
 public:
   CHIPQueue *ChipQueue;
-  CHIPEvent *GpuReady;
-  CHIPEvent *CpuCallbackComplete;
-  CHIPEvent *GpuAck;
+  std::shared_ptr<CHIPEvent> GpuReady;
+  std::shared_ptr<CHIPEvent> CpuCallbackComplete;
+  std::shared_ptr<CHIPEvent> GpuAck;
 
   hipError_t Status;
   void *CallbackArgs;
@@ -637,6 +637,7 @@ protected:
   CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
 
 public:
+  void markTracked() { TrackCalled_ = true; }
   void sanityCheck();
   void sanityCheckNoLock();
   bool isTrackCalled() { return TrackCalled_; }
@@ -648,7 +649,6 @@ public:
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  virtual std::shared_ptr<CHIPEvent> track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
@@ -1761,6 +1761,8 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
+  void trackEvent(std::shared_ptr<CHIPEvent> Event);
+
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
   std::mutex DubiousLockLevel0;
@@ -1972,15 +1974,14 @@ public:
   virtual CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx,
                                      CHIPEventFlags Flags = CHIPEventFlags(),
                                      bool UserEvent = false) = 0;
-
-  // CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
-  //                            CHIPEventFlags Flags = CHIPEventFlags(),
-  //                            bool UserEvent = false) {
-  //   auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
-  //   NewEvent->Msg = MsgIn;
-  //   return NewEvent;
-  // }
-
+                                     
+  std::shared_ptr<CHIPEvent> createCHIPEventShared(CHIPContext *ChipCtx,
+                                                   CHIPEventFlags Flags =
+                                                       CHIPEventFlags(),
+                                                   bool UserEvent = false) {
+    return std::shared_ptr<CHIPEvent>(
+        createCHIPEvent(ChipCtx, Flags, UserEvent));
+  }
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
@@ -2137,7 +2138,7 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
+  virtual std::shared_ptr<CHIPEvent> memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
@@ -2160,7 +2161,7 @@ public:
    * @param pattern
    * @param pattern_size
    */
-  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
+  virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
                                       const void *Pattern,
                                       size_t PatternSize) = 0;
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
@@ -2170,7 +2171,7 @@ public:
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
-  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t DPitch,
+  virtual std::shared_ptr<CHIPEvent> memCopy2DAsyncImpl(void *Dst, size_t DPitch,
                                         const void *Src, size_t SPitch,
                                         size_t Width, size_t Height) = 0;
   virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
@@ -2181,7 +2182,7 @@ public:
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
 
-  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t DPitch,
+  virtual std::shared_ptr<CHIPEvent> memCopy3DAsyncImpl(void *Dst, size_t DPitch,
                                         size_t DSPitch, const void *Src,
                                         size_t SPitch, size_t SSPitch,
                                         size_t Width, size_t Height,
@@ -2197,7 +2198,7 @@ public:
    * @param exec_item
    * @return hipError_t
    */
-  virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) = 0;
+  virtual std::shared_ptr<CHIPEvent> launchImpl(CHIPExecItem *ExecItem) = 0;
   virtual void launch(CHIPExecItem *ExecItem);
 
   /**
@@ -2239,12 +2240,12 @@ public:
    * @return true
    * @return false
    */
-  virtual CHIPEvent *
+  virtual std::shared_ptr<CHIPEvent> 
   enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) = 0;
-  virtual CHIPEvent *enqueueBarrier(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor);
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor);
 
-  virtual CHIPEvent *enqueueMarkerImpl() = 0;
-  CHIPEvent *enqueueMarker();
+  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
+  std::shared_ptr<CHIPEvent> enqueueMarker();
 
   /**
    * @brief Get the Flags object with which this queue was created.
@@ -2280,7 +2281,7 @@ public:
    * @return false
    */
 
-  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) = 0;
+  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr, size_t Count) = 0;
   void memPrefetch(const void *Ptr, size_t Count);
 
   /**

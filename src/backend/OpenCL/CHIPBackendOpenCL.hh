@@ -98,8 +98,6 @@ public:
                   CHIPEventFlags Flags = CHIPEventFlags());
   virtual ~CHIPEventOpenCL() override;
 
-  virtual void track() override{};
-
   virtual void recordStream(CHIPQueue *ChipQueue) override;
   void takeOver(CHIPEvent *Other);
   bool wait() override;

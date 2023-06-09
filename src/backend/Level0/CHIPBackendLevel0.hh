@@ -179,11 +179,7 @@ public:
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
 
-  virtual ~CHIPCallbackDataLevel0() override {
-    delete GpuReady;
-    delete CpuCallbackComplete;
-    delete GpuAck;
-  }
+  virtual ~CHIPCallbackDataLevel0() override {}
 };
 
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
@@ -276,11 +272,11 @@ public:
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
 
-  virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
+  virtual std::shared_ptr<CHIPEvent> launchImpl(CHIPExecItem *ExecItem) override;
 
   virtual void finish() override;
 
-  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
+  virtual std::shared_ptr<CHIPEvent> memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
 
   /**
@@ -293,33 +289,33 @@ public:
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
 
-  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
+  virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
                                       const void *Pattern,
                                       size_t PatternSize) override;
 
-  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
+  virtual std::shared_ptr<CHIPEvent> memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
                                         const void *Src, size_t Spitch,
                                         size_t Width, size_t Height) override;
 
-  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
+  virtual std::shared_ptr<CHIPEvent> memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
                                         size_t Dspitch, const void *Src,
                                         size_t Spitch, size_t Sspitch,
                                         size_t Width, size_t Height,
                                         size_t Depth) override;
 
-  virtual CHIPEvent *memCopyToImage(ze_image_handle_t TexStorage,
+  virtual std::shared_ptr<CHIPEvent> memCopyToImage(ze_image_handle_t TexStorage,
                                     const void *Src,
                                     const CHIPRegionDesc &SrcRegion);
 
   virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
                                        int *NumHandles) override;
 
-  virtual CHIPEvent *enqueueMarkerImpl() override;
+  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() override;
 
-  virtual CHIPEvent *
+  virtual std::shared_ptr<CHIPEvent> 
   enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) override;
 
-  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) override {
+  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr, size_t Count) override {
     UNIMPLEMENTED(nullptr);
   }
 

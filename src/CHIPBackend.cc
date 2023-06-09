@@ -847,20 +847,6 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
   return;
 }
 
-std::shared_ptr<CHIPEvent> CHIPEvent::track() {
-  LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
-  LOCK(EventMtx);           // writing bool CHIPEvent::TrackCalled_
-  assert(!isUserEvent() && "Attemped to track a user event!");
-  assert(!Deleted_ && "Event use after delete!");
-  assert(!TrackCalled_ && "Event already tracked!");
-
-  std::shared_ptr<CHIPEvent> TrackedEventHandle = std::shared_ptr<CHIPEvent>(this);
-  logDebug("Tracking CHIPEvent {} in CHIPBackend::Events", (void *)this);
-  Backend->Events.push_back(TrackedEventHandle); // BAD - potentially multiple calls to shared_ptr ctor
-  TrackCalled_ = true;
-  return TrackedEventHandle;
-}
-
 CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
                                               int Priority) {
 
@@ -1105,7 +1091,7 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   // default stream waits on all blocking streams to complete
   std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn;
 
-  CHIPEvent *SyncQueuesEvent;
+  std::shared_ptr<CHIPEvent> SyncQueuesEvent;
   if (TargetQueue == DefaultQueue) {
     for (auto &q : QueuesToSyncWith) {
       auto Ev = q->getLastEvent();
@@ -1114,16 +1100,17 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
     }
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
-    TargetQueue->updateLastEvent(std::shared_ptr<CHIPEvent>(SyncQueuesEvent));
+    TargetQueue->updateLastEvent(SyncQueuesEvent);
   } else { // blocking stream must wait until default stream is done
     auto Ev = DefaultQueue->getLastEvent();
     if (Ev)
       EventsToWaitOn.push_back(Ev);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
-    TargetQueue->updateLastEvent(std::shared_ptr<CHIPEvent>(SyncQueuesEvent));
+    TargetQueue->updateLastEvent(SyncQueuesEvent);
   }
-  SyncQueuesEvent->track();
+  Backend->trackEvent(SyncQueuesEvent);
+
 }
 
 CHIPDevice *CHIPContext::getDevice() {
@@ -1250,11 +1237,23 @@ CHIPBackend::CHIPBackend() {
 
 CHIPBackend::~CHIPBackend() {
   logDebug("CHIPBackend Destructor. Deleting all pointers.");
-  assert(Events.size() == 0);
+//   assert(Events.size() == 0);
   for (auto &Ctx : ChipContexts) {
     Backend->removeContext(Ctx);
     delete Ctx;
   }
+}
+
+ void CHIPBackend::trackEvent(std::shared_ptr<CHIPEvent> Event) {
+  LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
+  LOCK(Event->EventMtx);           // writing bool CHIPEvent::TrackCalled_
+//   assert(!isUserEvent() && "Attemped to track a user event!");
+//   assert(!Deleted_ && "Event use after delete!");
+//   assert(!TrackCalled_ && "Event already tracked!");
+
+  logDebug("Tracking CHIPEvent {} in CHIPBackend::Events", (void *)this);
+  Backend->Events.push_back(Event);
+  Event->markTracked();
 }
 
 void CHIPBackend::waitForThreadExit() {
@@ -1541,7 +1540,7 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  CHIPEvent *ChipEvent;
+  std::shared_ptr<CHIPEvent> ChipEvent;
   // Scope this so that we release mutex for finish()
   {
     auto AllocInfoDst =
@@ -1564,10 +1563,10 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
           AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopy";
-    updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
+    updateLastEvent(ChipEvent);
     this->finish();
   }
-  ChipEvent->track();
+  Backend->trackEvent(ChipEvent);
 
   return hipSuccess;
 }
@@ -1575,7 +1574,7 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  CHIPEvent *ChipEvent;
+  std::shared_ptr<CHIPEvent> ChipEvent;
   // Scope this so that we release mutex for finish()
   {
     auto AllocInfoDst =
@@ -1595,9 +1594,9 @@ void CHIPQueue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
       this->MemMap(AllocInfoSrc, CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopyAsync";
-    updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
+    updateLastEvent(ChipEvent);
   }
-  ChipEvent->track();
+  Backend->trackEvent(ChipEvent);
 }
 
 void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
@@ -1607,10 +1606,10 @@ void CHIPQueue::memFill(void *Dst, size_t Size, const void *Pattern,
     ChipContext_->syncQueues(this);
 #endif
 
-    auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
+    std::shared_ptr<CHIPEvent> ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
-    updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-    ChipEvent->track();
+    updateLastEvent(ChipEvent);
+    Backend->trackEvent(ChipEvent);
     this->finish();
   }
   return;
@@ -1622,21 +1621,21 @@ void CHIPQueue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
   ChipContext_->syncQueues(this);
 #endif
 
-  auto ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
+  std::shared_ptr<CHIPEvent> ChipEvent = memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
 }
 void CHIPQueue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                           size_t SPitch, size_t Width, size_t Height) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
-  auto ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
+  std::shared_ptr<CHIPEvent> ChipEvent = memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
   ChipEvent->Msg = "memCopy2D";
   finish();
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
 }
 
 void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
@@ -1645,11 +1644,11 @@ void CHIPQueue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
 #endif
-    auto ChipEvent =
+    std::shared_ptr<CHIPEvent> ChipEvent =
         memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
     ChipEvent->Msg = "memCopy2DAsync";
-    updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-    ChipEvent->track();
+    updateLastEvent(ChipEvent);
+    Backend->trackEvent(ChipEvent);
     this->finish();
   }
   return;
@@ -1662,12 +1661,12 @@ void CHIPQueue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
   ChipContext_->syncQueues(this);
 #endif
 
-  auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
+  std::shared_ptr<CHIPEvent> ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3D";
   finish();
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
 }
 
 void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
@@ -1677,11 +1676,11 @@ void CHIPQueue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
   ChipContext_->syncQueues(this);
 #endif
 
-  auto ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
+  std::shared_ptr<CHIPEvent> ChipEvent = memCopy3DAsyncImpl(Dst, DPitch, DSPitch, Src, SPitch,
                                       SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3DAsync";
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
 }
 
 void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
@@ -1693,7 +1692,6 @@ void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
 
 void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
-// TODO: return all events and track() outside
 std::shared_ptr<CHIPEvent> CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
                                         MANAGED_MEM_STATE ExecState) {
 
@@ -1701,7 +1699,7 @@ std::shared_ptr<CHIPEvent> CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
   //       the kernel does not have any, we only need inspect kernels
   //       pointer arguments for allocations to be synchronized.
 
-  std::vector<CHIPEvent *> CopyEvents;
+  std::vector<std::shared_ptr<CHIPEvent>> CopyEvents;
   auto PreKernel = ExecState == MANAGED_MEM_STATE::PRE_KERNEL;
   auto &AllocTracker = Backend->getActiveDevice()->AllocationTracker;
   auto ArgVisitor = [&](const AllocationInfo &AllocInfo) -> void {
@@ -1726,17 +1724,15 @@ std::shared_ptr<CHIPEvent> CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
   if (CopyEvents.empty())
     return nullptr;
 
-std::shared_ptr<CHIPEvent> LastTrackedEvent;
 // We don't need to updateLastEvent because this function is always part of the kernel launch sequence which update the last event anyway
 // CHIPEvent* BackEvent = CopyEvents.back();
 //   updateLastEvent(std::shared_ptr<CHIPEvent>(BackEvent));
 
 
-// They must be tracked, however, which will turn them into shared_ptr so we must return a tracked event.
-   for (auto *Ev : CopyEvents)
-     LastTrackedEvent = Ev->track();
+   for (auto Ev : CopyEvents)
+      Backend->trackEvent(Ev);
 
-  return LastTrackedEvent;
+  return CopyEvents.back();
 }
 
 void CHIPQueue::launch(CHIPExecItem *ExecItem) {
@@ -1792,31 +1788,31 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
                           hipErrorLaunchFailure);
   }
 
-  auto RegisteredVarInEvent =
+  std::shared_ptr<CHIPEvent>  RegisteredVarInEvent =
       RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
-  auto LaunchEvent = launchImpl(ExecItem);
-  auto RegisteredVarOutEvent =
+  std::shared_ptr<CHIPEvent> LaunchEvent = launchImpl(ExecItem);
+  std::shared_ptr<CHIPEvent>  RegisteredVarOutEvent =
       RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
 
   RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
-                        : updateLastEvent(std::shared_ptr<CHIPEvent>(LaunchEvent));
+                        : updateLastEvent(LaunchEvent);
 
-  LaunchEvent->track();
+  Backend->trackEvent(LaunchEvent);
 }
 
-CHIPEvent *
+std::shared_ptr<CHIPEvent> 
 CHIPQueue::enqueueBarrier(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
-  auto ChipEvent = enqueueBarrierImpl(EventsToWaitFor);
+  std::shared_ptr<CHIPEvent>  ChipEvent = std::shared_ptr<CHIPEvent> (enqueueBarrierImpl(EventsToWaitFor));
   ChipEvent->Msg = "enqueueBarrier";
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
   return ChipEvent;
 }
-CHIPEvent *CHIPQueue::enqueueMarker() {
-  auto ChipEvent = enqueueMarkerImpl();
+std::shared_ptr<CHIPEvent> CHIPQueue::enqueueMarker() {
+  std::shared_ptr<CHIPEvent> ChipEvent = std::shared_ptr<CHIPEvent> (enqueueMarkerImpl());
   ChipEvent->Msg = "enqueueMarker";
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
   return ChipEvent;
 }
 
@@ -1825,10 +1821,10 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
   ChipContext_->syncQueues(this);
 #endif
 
-  auto ChipEvent = memPrefetchImpl(Ptr, Count);
+  std::shared_ptr<CHIPEvent>  ChipEvent = std::shared_ptr<CHIPEvent> (memPrefetchImpl(Ptr, Count));
   ChipEvent->Msg = "memPrefetch";
-  updateLastEvent(std::shared_ptr<CHIPEvent>(ChipEvent));
-  ChipEvent->track();
+  updateLastEvent(ChipEvent);
+  Backend->trackEvent(ChipEvent);
 }
 
 void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
