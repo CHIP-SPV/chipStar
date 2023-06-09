@@ -4068,15 +4068,14 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIP_CATCH
 }
 
-hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
-                                 unsigned int GridDimY, unsigned int GridDimZ,
-                                 unsigned int BlockDimX, unsigned int BlockDimY,
-                                 unsigned int BlockDimZ,
-                                 unsigned int SharedMemBytes,
-                                 hipStream_t Stream, void *KernelParams[],
-                                 void *Extra[]) {
-  CHIP_TRY
-  CHIPInitialize();
+static inline hipError_t
+hipModuleLaunchKernel_internal(hipFunction_t Kernel, unsigned int GridDimX,
+                               unsigned int GridDimY, unsigned int GridDimZ,
+                               unsigned int BlockDimX, unsigned int BlockDimY,
+                               unsigned int BlockDimZ,
+                               unsigned int SharedMemBytes,
+                               hipStream_t Stream, void *KernelParams[],
+                               void *Extra[]) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
 
   if (KernelParams == Extra)
@@ -4109,11 +4108,11 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
         i++; // Ignore setting value.
         continue;
       } else
-        RETURN(hipErrorInvalidValue);
+        return hipErrorInvalidValue;
     }
 
     if (!ExtraArgBuf) // Null argument pointer.
-      RETURN(hipErrorInvalidValue);
+      return hipErrorInvalidValue;
 
     auto ChipKernel = static_cast<CHIPKernel *>(Kernel);
 
@@ -4126,6 +4125,21 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
 
   handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
   return hipSuccess;
+}
+
+hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
+                                 unsigned int GridDimY, unsigned int GridDimZ,
+                                 unsigned int BlockDimX, unsigned int BlockDimY,
+                                 unsigned int BlockDimZ,
+                                 unsigned int SharedMemBytes,
+                                 hipStream_t Stream, void *KernelParams[],
+                                 void *Extra[]) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipModuleLaunchKernel_internal(Kernel, GridDimX, GridDimY, GridDimZ,
+                                        BlockDimX, BlockDimY, BlockDimZ,
+                                        SharedMemBytes, Stream, KernelParams,
+                                        Extra));
   CHIP_CATCH
 }
 
@@ -4141,7 +4155,7 @@ hipError_t hipExtModuleLaunchKernel(
   CHIP_TRY
   NULLCHECK(Kernel);
   // Null checks on the KernelParams and Extra arguments are performed by
-  // hipModuleLaunchKernel().
+  // hipModuleLaunchKernel_internal().
   CHIPInitialize();
 
   // TODO: Process flags (hipExtAnyOrderLaunch).
@@ -4163,9 +4177,11 @@ hipError_t hipExtModuleLaunchKernel(
   if (Result != hipSuccess)
     RETURN(Result);
 
-  Result = hipModuleLaunchKernel(Kernel, GridBlocksX, GridBlocksY, GridBlocksZ,
-                                 LocalWorkSizeX, LocalWorkSizeY, LocalWorkSizeZ,
-                                 SharedMemBytes, Stream, KernelParams, Extra);
+  Result = hipModuleLaunchKernel_internal(Kernel, GridBlocksX, GridBlocksY,
+                                          GridBlocksZ, LocalWorkSizeX,
+                                          LocalWorkSizeY, LocalWorkSizeZ,
+                                          SharedMemBytes, Stream, KernelParams,
+                                          Extra);
   if (Result != hipSuccess)
     RETURN(Result);
 
