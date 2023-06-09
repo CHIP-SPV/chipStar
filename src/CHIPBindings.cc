@@ -2237,21 +2237,25 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIP_CATCH
 }
 
+static inline hipError_t hipEventRecord_internal(hipEvent_t Event,
+                                                 hipStream_t Stream) {
+  auto ChipEvent = static_cast<CHIPEvent *>(Event);
+  auto ChipQueue = static_cast<CHIPQueue *>(Stream);
+  ChipQueue = Backend->findQueue(ChipQueue);
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
+    return hipSuccess;
+  }
+
+  ChipEvent->recordStream(ChipQueue);
+  return hipSuccess;
+}
+
 hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
   // TODO: Why does this check fail for OpenCL but not for Level0
   NULLCHECK(Event);
-  auto ChipEvent = static_cast<CHIPEvent *>(Event);
-  auto ChipQueue = static_cast<CHIPQueue *>(Stream);
-  ChipQueue = Backend->findQueue(ChipQueue);
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
-    RETURN(hipSuccess);
-  }
-
-  ChipEvent->recordStream(ChipQueue);
-  RETURN(hipSuccess);
-
+  RETURN(hipEventRecord_internal(Event, Stream));
   CHIP_CATCH
 }
 
@@ -4177,7 +4181,7 @@ hipError_t hipExtModuleLaunchKernel(
   hipError_t Result = hipSuccess;
 
   if (StartEvent)
-    Result = hipEventRecord(StartEvent, Stream);
+    Result = hipEventRecord_internal(StartEvent, Stream);
   if (Result != hipSuccess)
     RETURN(Result);
 
@@ -4190,7 +4194,7 @@ hipError_t hipExtModuleLaunchKernel(
     RETURN(Result);
 
   if (StopEvent)
-    Result = hipEventRecord(StopEvent, Stream);
+    Result = hipEventRecord_internal(StopEvent, Stream);
 
   RETURN(Result);
   CHIP_CATCH
