@@ -3009,10 +3009,7 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst);
+static inline hipError_t hipMemset_internal(void *Dst, int Value, size_t SizeBytes) {
   logInfo("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
 
   char CharVal = Value;
@@ -3054,8 +3051,14 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
       CHIPERR_LOG_AND_THROW("Unknown MemoryType", hipErrorTbd);
     }
   }
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
 
+hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+  RETURN(hipMemset_internal(Dst, Value,SizeBytes));
   CHIP_CATCH
 }
 
@@ -3086,7 +3089,11 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
 
 hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
                        size_t SizeBytes) {
-  RETURN(hipMemset(Dest, Value, SizeBytes));
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dest);
+  RETURN(hipMemset_internal(Dest, Value, SizeBytes));
+  CHIP_CATCH
 }
 
 hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
