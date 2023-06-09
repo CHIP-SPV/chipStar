@@ -2130,23 +2130,30 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
   CHIP_CATCH
 }
 
-hipError_t hipEventCreate(hipEvent_t *Event) {
-  RETURN(hipEventCreateWithFlags(Event, 0));
-}
-
-hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Event);
-
+static inline hipError_t hipEventCreateWithFlags_internal(hipEvent_t *Event,
+                                                          unsigned Flags) {
   CHIPEventFlags EventFlags{Flags};
 
   auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
 
   *Event = ChipEvent;
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
 
+hipError_t hipEventCreate(hipEvent_t *Event) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Event);
+  RETURN(hipEventCreateWithFlags_internal(Event, 0));
+  CHIP_CATCH
+}
+
+hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Event);
+  RETURN(hipEventCreateWithFlags_internal(Event, Flags));
   CHIP_CATCH
 }
 
