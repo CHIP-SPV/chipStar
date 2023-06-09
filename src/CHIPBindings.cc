@@ -1422,10 +1422,7 @@ hipError_t hipSetDevice(int DeviceId) {
   CHIP_CATCH
 }
 
-hipError_t hipDeviceSynchronize(void) {
-  CHIP_TRY
-  CHIPInitialize();
-
+static inline hipError_t hipDeviceSynchronize_internal(void) {
   auto Dev = Backend->getActiveDevice();
   {
     LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
@@ -1439,7 +1436,13 @@ hipError_t hipDeviceSynchronize(void) {
     Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
   }
 
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
+
+hipError_t hipDeviceSynchronize(void) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipDeviceSynchronize_internal());
   CHIP_CATCH
 }
 
@@ -2337,7 +2340,7 @@ hipError_t hipFree(void *Ptr) {
   CHIPInitialize();
   logInfo("hipFree(ptr={})", (void *)Ptr);
 
-  auto Status = hipDeviceSynchronize();
+  auto Status = hipDeviceSynchronize_internal();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
 
   if (Ptr == nullptr)
