@@ -1319,6 +1319,64 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
   CHIP_CATCH
 };
 
+static inline hipError_t
+hipMemcpy2DAsync_internal(void *Dst, size_t DPitch, const void *Src,
+                          size_t SPitch, size_t Width, size_t Height,
+                          hipMemcpyKind Kind, hipStream_t Stream) {
+  NULLCHECK(Dst, Src);
+
+  if (DPitch < 1)
+    CHIPERR_LOG_AND_THROW("DPitch <= 0", hipErrorInvalidValue);
+  if (SPitch < 1)
+    CHIPERR_LOG_AND_THROW("SPitch <= 0", hipErrorInvalidValue);
+  if (Width > DPitch)
+    CHIPERR_LOG_AND_THROW("Width > DPitch", hipErrorInvalidValue);
+  if (Height * Width == 0)
+    return hipSuccess;
+
+  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
+  const hipMemcpy3DParms Params = {
+      /* hipArray_t srcArray */ nullptr,
+      /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
+      /* struct hipPitchedPtr srcPtr */
+      make_hipPitchedPtr(const_cast<void *>(Src), SPitch, Width, Height),
+      /* hipArray_t dstArray */ nullptr,
+      /* struct hipPos dstPos */ make_hipPos(1, 1, 1),
+      /* struct hipPitchedPtr dstPtr */
+      make_hipPitchedPtr(Dst, SPitch, Width, Height),
+      /* struct hipExtent extent */ make_hipExtent(Width, Height, 1),
+      /* enum hipMemcpyKind kind */ Kind};
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
+    return hipSuccess;
+  }
+
+  if (SPitch == 0)
+    SPitch = Width;
+  if (DPitch == 0)
+    DPitch = Width;
+
+  if (SPitch == 0 || DPitch == 0)
+    return hipErrorInvalidValue;
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+  for (size_t i = 0; i < Height; ++i) {
+    if (hipMemcpyAsync_internal(Dst, Src, Width, Kind, Stream) != hipSuccess)
+      return hipErrorLaunchFailure;
+    Src = (char *)Src + SPitch;
+    Dst = (char *)Dst + DPitch;
+  }
+  return hipSuccess;
+}
+
+hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
+                            size_t SPitch, size_t Width, size_t Height,
+                            hipMemcpyKind Kind, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpy2DAsync_internal(Dst, DPitch, Src, SPitch, Width, Height,
+                                   Kind, Stream));
+  CHIP_CATCH
+}
+
 hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
                                  hipStream_t Stream) {
   CHIP_TRY
@@ -1346,9 +1404,10 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
       (PCopy->WidthInBytes > PCopy->srcPitch))
     CHIPERR_LOG_AND_THROW("Width > src/dest pitches", hipErrorTbd);
 
-  return hipMemcpy2DAsync(PCopy->dstArray->data, PCopy->WidthInBytes,
-                          PCopy->srcHost, PCopy->srcPitch, PCopy->WidthInBytes,
-                          PCopy->Height, hipMemcpyDefault, ChipQueue);
+  RETURN(hipMemcpy2DAsync_internal(PCopy->dstArray->data, PCopy->WidthInBytes,
+                                   PCopy->srcHost, PCopy->srcPitch,
+                                   PCopy->WidthInBytes, PCopy->Height,
+                                   hipMemcpyDefault, ChipQueue));
   CHIP_CATCH
 }
 
@@ -3192,57 +3251,6 @@ hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
   CHIP_CATCH
 }
 
-hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
-                            size_t SPitch, size_t Width, size_t Height,
-                            hipMemcpyKind Kind, hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst, Src);
-
-  if (DPitch < 1)
-    CHIPERR_LOG_AND_THROW("DPitch <= 0", hipErrorInvalidValue);
-  if (SPitch < 1)
-    CHIPERR_LOG_AND_THROW("SPitch <= 0", hipErrorInvalidValue);
-  if (Width > DPitch)
-    CHIPERR_LOG_AND_THROW("Width > DPitch", hipErrorInvalidValue);
-  if (Height * Width == 0)
-    return hipSuccess;
-
-  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
-  const hipMemcpy3DParms Params = {
-      /* hipArray_t srcArray */ nullptr,
-      /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
-      /* struct hipPitchedPtr srcPtr */
-      make_hipPitchedPtr(const_cast<void *>(Src), SPitch, Width, Height),
-      /* hipArray_t dstArray */ nullptr,
-      /* struct hipPos dstPos */ make_hipPos(1, 1, 1),
-      /* struct hipPitchedPtr dstPtr */
-      make_hipPitchedPtr(Dst, SPitch, Width, Height),
-      /* struct hipExtent extent */ make_hipExtent(Width, Height, 1),
-      /* enum hipMemcpyKind kind */ Kind};
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
-    RETURN(hipSuccess);
-  }
-
-  if (SPitch == 0)
-    SPitch = Width;
-  if (DPitch == 0)
-    DPitch = Width;
-
-  if (SPitch == 0 || DPitch == 0)
-    RETURN(hipErrorInvalidValue);
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t i = 0; i < Height; ++i) {
-    if (hipMemcpyAsync_internal(Dst, Src, Width, Kind, Stream) != hipSuccess)
-      RETURN(hipErrorLaunchFailure);
-    Src = (char *)Src + SPitch;
-    Dst = (char *)Dst + DPitch;
-  }
-  RETURN(hipSuccess);
-
-  CHIP_CATCH
-}
-
 hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
                        size_t Width, size_t Height, hipMemcpyKind Kind) {
   CHIP_TRY
@@ -3254,8 +3262,8 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  hipError_t Res = hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height,
-                                    Kind, ChipQueue);
+  hipError_t Res = hipMemcpy2DAsync_internal(Dst, DPitch, Src, SPitch, Width,
+                                             Height, Kind, ChipQueue);
 
   if (Res == hipSuccess)
     ChipQueue->finish();
