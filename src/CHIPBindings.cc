@@ -3393,26 +3393,12 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
-                                size_t WOffset, size_t HOffset, size_t Width,
-                                size_t Height, hipMemcpyKind Kind) {
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-
-  auto Res = hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset,
-                                       Width, Height, Kind, ChipQueue);
-  if (Res == hipSuccess)
-    ChipQueue->finish();
-
-  RETURN(Res);
-}
-hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
-                                     hipArray_const_t Src, size_t WOffset,
-                                     size_t HOffset, size_t Width,
-                                     size_t Height, hipMemcpyKind Kind,
-                                     hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst, Src);
+static inline hipError_t
+hipMemcpy2DFromArrayAsync_internal(void *Dst, size_t DPitch,
+                                   hipArray_const_t Src, size_t WOffset,
+                                   size_t HOffset, size_t Width,
+                                   size_t Height, hipMemcpyKind Kind,
+                                   hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ const_cast<hipArray_t>(Src),
@@ -3425,11 +3411,11 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
       /* struct hipExtent extent */ make_hipExtent(Width, Height, 1),
       /* enum hipMemcpyKind kind */ Kind};
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   if (!Width || !Height)
-    RETURN(hipSuccess);
+    return hipSuccess;
 
   size_t ByteSize;
   if (Src) {
@@ -3448,11 +3434,11 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
       break;
     }
   } else {
-    RETURN(hipErrorUnknown);
+    return hipErrorUnknown;
   }
 
   if ((WOffset + Width > (Src->width * ByteSize)) || Width > DPitch) {
-    RETURN(hipErrorInvalidValue);
+    return hipErrorInvalidValue;
   }
 
   size_t DstW = DPitch;
@@ -3465,7 +3451,37 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
     ERROR_IF(Err != hipSuccess, Err);
   }
 
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
+
+hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
+                                     hipArray_const_t Src, size_t WOffset,
+                                     size_t HOffset, size_t Width,
+                                     size_t Height, hipMemcpyKind Kind,
+                                     hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst, Src);
+  RETURN(hipMemcpy2DFromArrayAsync_internal(Dst, DPitch, Src, WOffset, HOffset,
+                                            Width, Height, Kind, Stream));
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
+                                size_t WOffset, size_t HOffset, size_t Width,
+                                size_t Height, hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst, Src);
+  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+
+  auto Res = hipMemcpy2DFromArrayAsync_internal(Dst, DPitch, Src, WOffset,
+                                                HOffset, Width, Height, Kind,
+                                                ChipQueue);
+  if (Res == hipSuccess)
+    ChipQueue->finish();
+
+  RETURN(Res);
   CHIP_CATCH
 }
 
