@@ -3551,28 +3551,12 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
-  CHIP_TRY
-  CHIPInitialize();
-
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemcpy3DAsync(Params, ChipQueue);
-  if (Res == hipSuccess)
-    ChipQueue->finish();
-
-  RETURN(Res);
-  CHIP_CATCH
-}
-
-hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
-                            hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Params);
-
+static inline hipError_t
+hipMemcpy3DAsync_internal(const struct hipMemcpy3DParms *Params,
+                          hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   const HIP_MEMCPY3D PDrvI = getDrvMemcpy3DDesc(*Params);
@@ -3651,8 +3635,8 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   }
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-    RETURN(hipMemcpy_internal((void *)DstPtr, (void *)SrcPtr,
-                              WidthInBytes * Height * Depth, Params->kind));
+    return hipMemcpy_internal((void *)DstPtr, (void *)SrcPtr,
+                              WidthInBytes * Height * Depth, Params->kind);
   } else {
     for (size_t i = 0; i < Depth; i++) {
       for (size_t j = 0; j < Height; j++) {
@@ -3662,15 +3646,36 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
             (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
         if (hipMemcpyAsync_internal(Dst, Src, WidthInBytes, Params->kind,
                                     Stream) != hipSuccess)
-          RETURN(hipErrorLaunchFailure);
+          return hipErrorLaunchFailure;
       }
     }
 
     ChipQueue->finish();
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
 
+hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
+                            hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Params);
+  RETURN(hipMemcpy3DAsync_internal(Params, Stream));
+  CHIP_CATCH
+}
+
+hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Params);
+
+  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  auto Res = hipMemcpy3DAsync_internal(Params, ChipQueue);
+  if (Res == hipSuccess)
+    ChipQueue->finish();
+
+  RETURN(Res);
   CHIP_CATCH
 }
 
