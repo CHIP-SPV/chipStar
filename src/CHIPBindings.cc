@@ -1840,7 +1840,7 @@ hipError_t hipPeekAtLastError(void) {
   return Backend->TlsLastError;
 }
 
-const char *hipGetErrorName(hipError_t HipError) {
+static inline const char *hipGetErrorName_internal(hipError_t HipError) {
   switch (HipError) {
   case hipSuccess:
     return "hipSuccess";
@@ -1963,8 +1963,12 @@ const char *hipGetErrorName(hipError_t HipError) {
   }
 }
 
+const char *hipGetErrorName(hipError_t HipError) {
+  return hipGetErrorName_internal(HipError);
+}
+
 const char *hipGetErrorString(hipError_t HipError) {
-  return hipGetErrorName(HipError);
+  return hipGetErrorName_internal(HipError);
 }
 
 static inline hipError_t
