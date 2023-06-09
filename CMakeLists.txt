@@ -123,7 +123,6 @@ set(CHIP_SRC
   src/SPVRegister.cc
   src/CHIPGraph.cc
   src/CHIPBindings.cc
-  src/CHIPBindings_spt.cc
   src/logging.cc
   src/Utils.cc
   src/SPIRVFuncInfo.cc

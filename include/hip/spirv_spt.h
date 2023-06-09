@@ -33,10 +33,6 @@
 #ifndef SPIRV_SPT_H
 #define SPIRV_SPT_H
 
-#include "spirv_hip_runtime.h"
-
-
-
 /**
  * If HIP_API_PER_THREAD_DEFAULT_STREAM is defined, we map all regular functions to the per-thread stream versions
  * hipMemcpy() -> hipMemcpy_spt()
@@ -48,7 +44,6 @@
  * We must ensure that once CHIP-SPV is compiled, we can still use `hipcc ----default-stream`
  */
 
-#include "spirv_hip_runtime.h"
 /// hipStreamPerThread implementation
 #if defined(HIP_API_PER_THREAD_DEFAULT_STREAM)
     #define __HIP_STREAM_PER_THREAD
@@ -86,6 +81,9 @@
     #define hipLaunchCooperativeKernel    __HIP_API_SPT(hipLaunchCooperativeKernel)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 hipError_t hipMemcpy_spt(void* dst, const void* src, size_t sizeBytes, hipMemcpyKind kind);
 
 hipError_t hipMemcpyToSymbol_spt(const void* symbol, const void* src, size_t sizeBytes,
@@ -129,9 +127,7 @@ hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int* flags);
 hipError_t hipLaunchCooperativeKernel_spt(const void* f,
                                       dim3 gridDim, dim3 blockDim,
                                       void **kernelParams, uint32_t sharedMemBytes, hipStream_t hStream);
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 hipError_t hipLaunchKernel_spt(const void* function_address,
                            dim3 numBlocks,
                            dim3 dimBlocks,
