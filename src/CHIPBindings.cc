@@ -2441,17 +2441,26 @@ hipError_t hipFree(void *Ptr) {
   CHIP_CATCH
 }
 
+static inline hipError_t hipHostFree_internal(void *Ptr) {
+  int Status = munlock(Ptr, 0);
+  assert(Status == 0 && "Failed to unlock page-locked memory");
+  return hipFree_internal(Ptr);
+}
+
 hipError_t hipHostFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
-  int Status = munlock(Ptr, 0);
-  assert(Status == 0 && "Failed to unlock page-locked memory");
-  RETURN(hipFree_internal(Ptr));
+  RETURN(hipHostFree_internal(Ptr));
   CHIP_CATCH
 }
 
 DEPRECATED("use hipHostFree instead")
-hipError_t hipFreeHost(void *Ptr) { RETURN(hipHostFree(Ptr)); }
+hipError_t hipFreeHost(void *Ptr) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipHostFree_internal(Ptr));
+  CHIP_CATCH
+}
 
 hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
