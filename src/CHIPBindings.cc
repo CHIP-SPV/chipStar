@@ -2769,31 +2769,36 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
-                     hipMemcpyKind Kind) {
-  CHIP_TRY
-  CHIPInitialize();
+static inline hipError_t hipMemcpy_internal(void *Dst, const void *Src,
+                                            size_t SizeBytes,
+                                            hipMemcpyKind Kind) {
   logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
           hipMemcpyKindToString(Kind));
 
   if (SizeBytes == 0)
-    RETURN(hipSuccess);
+    return hipSuccess;
 
   NULLCHECK(Dst, Src);
 
   if (Dst == Src) {
     logWarn("Src and Dst are same. Skipping the copy");
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   if (Kind == hipMemcpyHostToHost) {
     memcpy(Dst, Src, SizeBytes);
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
-  RETURN(Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src,
-                                                                SizeBytes));
+  return Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src,
+                                                                SizeBytes);
+}
 
+hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
+                     hipMemcpyKind Kind) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, Kind));
   CHIP_CATCH
 }
 
@@ -2804,7 +2809,10 @@ hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t Dst, hipDeviceptr_t Src,
 
 hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
                          size_t SizeBytes) {
-  RETURN(hipMemcpy(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice));
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
@@ -2813,7 +2821,10 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
 }
 
 hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
-  RETURN(hipMemcpy(Dst, Src, SizeBytes, hipMemcpyHostToDevice));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, hipMemcpyHostToDevice));
+  CHIP_CATCH
 }
 
 hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
@@ -2822,7 +2833,10 @@ hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
 }
 
 hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
-  RETURN(hipMemcpy(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
+  CHIP_CATCH
 }
 
 hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
@@ -3357,7 +3371,7 @@ hipError_t hipMemcpyToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   NULLCHECK(Dst, Src);
 
   void *DstP = (unsigned char *)Dst->data + WOffset;
-  RETURN(hipMemcpy(DstP, Src, Count, Kind));
+  RETURN(hipMemcpy_internal(DstP, Src, Count, Kind));
   CHIP_CATCH
 }
 
@@ -3369,7 +3383,7 @@ hipError_t hipMemcpyFromArray(void *Dst, hipArray_const_t SrcArray,
   NULLCHECK(Dst, SrcArray);
 
   void *SrcP = (unsigned char *)SrcArray->data + WOffset;
-  RETURN(hipMemcpy(Dst, SrcP, Count, Kind));
+  RETURN(hipMemcpy_internal(Dst, SrcP, Count, Kind));
 
   CHIP_CATCH
 }
@@ -3387,8 +3401,8 @@ hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
   if (Info->Size < Count)
     CHIPERR_LOG_AND_THROW("MemCopy larger than allocated size", hipErrorTbd);
 
-  return hipMemcpy((char *)Dst, (char *)SrcArray->data + SrcOffset, Count,
-                   hipMemcpyDeviceToHost);
+  RETURN(hipMemcpy_internal((char *)Dst, (char *)SrcArray->data + SrcOffset,
+                            Count, hipMemcpyDeviceToHost));
 
   CHIP_CATCH
 }
@@ -3410,8 +3424,8 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
     CHIPERR_LOG_AND_THROW("Copy size greater than allocation size",
                           hipErrorTbd);
 
-  return hipMemcpy((char *)DstArray->data + DstOffset, SrcHost, Count,
-                   hipMemcpyHostToDevice);
+  RETURN(hipMemcpy_internal((char *)DstArray->data + DstOffset, SrcHost,
+                            Count, hipMemcpyHostToDevice));
 
   CHIP_CATCH
 }
@@ -3516,8 +3530,8 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   }
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-    return hipMemcpy((void *)DstPtr, (void *)SrcPtr,
-                     WidthInBytes * Height * Depth, Params->kind);
+    RETURN(hipMemcpy_internal((void *)DstPtr, (void *)SrcPtr,
+                              WidthInBytes * Height * Depth, Params->kind));
   } else {
     for (size_t i = 0; i < Depth; i++) {
       for (size_t j = 0; j < Height; j++) {
