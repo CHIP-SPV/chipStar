@@ -3820,17 +3820,14 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(ModuleHandle, Image);
-
+static inline hipError_t hipModuleLoadData_internal(hipModule_t *ModuleHandle,
+                                                    const void *Image) {
   std::string ErrorMsg;
   // Image is expected to be a Clang offload bundle.
   std::string_view ModuleCode = extractSPIRVModule(Image, ErrorMsg);
   if (ModuleCode.empty()) {
     logDebug("{}", ErrorMsg);
-    RETURN(hipErrorTbd);
+    return hipErrorTbd;
   }
 
   auto Entry = getSPVRegister().registerSource(ModuleCode);
@@ -3838,7 +3835,14 @@ hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   auto *ChipModule = Backend->getActiveDevice()->getOrCreateModule(*SrcMod);
   *ModuleHandle = ChipModule;
 
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
+
+hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(ModuleHandle, Image);
+  RETURN(hipModuleLoadData_internal(Module, Image));
   CHIP_CATCH
 }
 
@@ -3848,7 +3852,7 @@ hipError_t hipModuleLoadDataEx(hipModule_t *Module, const void *Image,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Module, Image);
-  RETURN(hipModuleLoadData(Module, Image));
+  RETURN(hipModuleLoadData_internal(Module, Image));
   CHIP_CATCH
 }
 
