@@ -2950,6 +2950,37 @@ hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
   CHIP_CATCH
 }
 
+static inline hipError_t hipMemsetAsync_internal(void *Dst, int Value,
+                                                 size_t SizeBytes,
+                                                 hipStream_t Stream) {
+  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
+  const hipMemsetParams Params = {
+      /* Dst */ Dst,
+      /* elementSize*/ 1,
+      /* height */ 1,
+      /* pitch */ 1,
+      /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
+                                          memset unsigned? */
+      /* width */ SizeBytes};
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params)) {
+    return hipSuccess;
+  }
+
+  char CharVal = Value;
+  ChipQueue->memFillAsync(Dst, SizeBytes, &CharVal, 1);
+
+  return hipSuccess;
+}
+
+hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
+                          hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dst);
+  RETURN(hipMemsetAsync_internal(Dst, Value, SizeBytes, Stream));
+  CHIP_CATCH
+}
+
 hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                             size_t Height, hipStream_t Stream) {
   CHIP_TRY
@@ -2975,7 +3006,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
+    auto Res = hipMemsetAsync_internal(DstP + Offset, Value, SizeBytes, Stream);
     if (Res != hipSuccess)
       break;
   }
@@ -3039,8 +3070,8 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   size_t Depth = Extent.depth;
 
   if (PitchedDevPtr.pitch == Extent.width) {
-    return hipMemsetAsync(PitchedDevPtr.ptr, Value, Width * Height * Depth,
-                          Stream);
+    RETURN(hipMemsetAsync_internal(PitchedDevPtr.ptr, Value,
+                                   Width * Height * Depth, Stream));
   }
 
   // auto Height = std::max<size_t>(1, Extent.height);
@@ -3054,7 +3085,8 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
       size_t SizeBytes = Width;
       auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
       char *DstP = (char *)Dst;
-      auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
+      auto Res = hipMemsetAsync_internal(DstP + Offset, Value, SizeBytes,
+                                         Stream);
       if (Res != hipSuccess)
         break;
     }
@@ -3074,32 +3106,6 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
     ChipQueue->finish();
 
   RETURN(Res);
-  CHIP_CATCH
-}
-
-hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
-                          hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Dst);
-
-  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
-  const hipMemsetParams Params = {
-      /* Dst */ Dst,
-      /* elementSize*/ 1,
-      /* height */ 1,
-      /* pitch */ 1,
-      /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
-                                          memset unsigned? */
-      /* width */ SizeBytes};
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params)) {
-    RETURN(hipSuccess);
-  }
-
-  char CharVal = Value;
-  ChipQueue->memFillAsync(Dst, SizeBytes, &CharVal, 1);
-
-  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
