@@ -2313,21 +2313,17 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIP_CATCH
 }
 
-hipError_t hipMalloc(void **Ptr, size_t Size) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Ptr);
-
+static inline hipError_t hipMalloc_internal(void **Ptr, size_t Size) {
   if (Size == 0) {
     *Ptr = nullptr;
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
   void *RetVal = Backend->getActiveContext()->allocate(
       Size, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
-  logInfo("hipMalloc(ptr={}, size={})", (void *)RetVal, Size);
+  logInfo("hipMalloc_internal(ptr={}, size={})", (void *)RetVal, Size);
 
   // currently required for PVC
   bool firstTouch;
@@ -2335,10 +2331,17 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
       RetVal, &firstTouch, 1);
   assert(Status == hipSuccess);
 
-  RETURN(hipSuccess);
+  return hipSuccess;
+}
 
+hipError_t hipMalloc(void **Ptr, size_t Size) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Ptr);
+  RETURN(hipMalloc_internal(Ptr, Size));
   CHIP_CATCH
 }
+
 hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
@@ -2554,7 +2557,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     }
 
   void *DevPtr;
-  auto Err = hipMalloc(&DevPtr, SizeBytes);
+  auto Err = hipMalloc_internal(&DevPtr, SizeBytes);
   ERROR_IF(Err != hipSuccess, Err);
 
   // Associate the pointer
