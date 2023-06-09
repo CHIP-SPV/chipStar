@@ -1320,6 +1320,37 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
   CHIP_CATCH
 };
 
+static inline hipError_t hipMemcpyAsync_internal(void *Dst, const void *Src,
+                                                 size_t SizeBytes,
+                                                 hipMemcpyKind Kind,
+                                                 hipStream_t Stream) {
+  if (SizeBytes == 0)
+    return hipSuccess;
+  NULLCHECK(Dst, Src);
+
+  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
+                                                       Kind)) {
+    return hipSuccess;
+  }
+
+  if (Kind == hipMemcpyHostToHost) {
+    memcpy(Dst, Src, SizeBytes);
+    return hipSuccess;
+  } else {
+    ChipQueue->memCopyAsync(Dst, Src, SizeBytes);
+    return hipSuccess;
+  }
+}
+
+hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
+                          hipMemcpyKind Kind, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, Kind, Stream));
+  CHIP_CATCH
+}
+
 static inline hipError_t
 hipMemcpy2DAsync_internal(void *Dst, size_t DPitch, const void *Src,
                           size_t SPitch, size_t Width, size_t Height,
@@ -2869,37 +2900,6 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   *Size = AllocInfo->Size;
 
   RETURN(hipSuccess);
-  CHIP_CATCH
-}
-
-static inline hipError_t hipMemcpyAsync_internal(void *Dst, const void *Src,
-                                                 size_t SizeBytes,
-                                                 hipMemcpyKind Kind,
-                                                 hipStream_t Stream) {
-  if (SizeBytes == 0)
-    return hipSuccess;
-  NULLCHECK(Dst, Src);
-
-  auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
-                                                       Kind)) {
-    return hipSuccess;
-  }
-
-  if (Kind == hipMemcpyHostToHost) {
-    memcpy(Dst, Src, SizeBytes);
-    return hipSuccess;
-  } else {
-    ChipQueue->memCopyAsync(Dst, Src, SizeBytes);
-    return hipSuccess;
-  }
-}
-
-hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
-                          hipMemcpyKind Kind, hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, Kind, Stream));
   CHIP_CATCH
 }
 
