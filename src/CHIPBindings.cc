@@ -3036,12 +3036,9 @@ hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
   CHIP_CATCH
 }
 
-hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
-                            hipExtent Extent, hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(PitchedDevPtr.ptr);
-
+static inline hipError_t
+hipMemset3DAsync_internal(hipPitchedPtr PitchedDevPtr, int Value,
+                          hipExtent Extent, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {
       /* Dst */ PitchedDevPtr.ptr,
@@ -3052,7 +3049,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
                                           memset unsigned? */
       /* width */ Extent.width};
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params)) {
-    RETURN(hipSuccess);
+    return hipSuccess;
   }
 
   if (Extent.height * Extent.width * Extent.depth == 0)
@@ -3077,8 +3074,8 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   size_t Depth = Extent.depth;
 
   if (PitchedDevPtr.pitch == Extent.width) {
-    RETURN(hipMemsetAsync_internal(PitchedDevPtr.ptr, Value,
-                                   Width * Height * Depth, Stream));
+    return hipMemsetAsync_internal(PitchedDevPtr.ptr, Value,
+                                   Width * Height * Depth, Stream);
   }
 
   // auto Height = std::max<size_t>(1, Extent.height);
@@ -3098,7 +3095,15 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
         break;
     }
 
-  RETURN(Res);
+  return Res;
+}
+
+hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
+                            hipExtent Extent, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PitchedDevPtr.ptr);
+  RETURN(hipMemset3DAsync_internal(PitchedDevPtr, Value, Extent, Stream));
   CHIP_CATCH
 }
 
@@ -3106,9 +3111,10 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
                        hipExtent Extent) {
   CHIP_TRY
   CHIPInitialize();
+  NULLCHECK(PitchedDevPtr.ptr);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemset3DAsync(PitchedDevPtr, Value, Extent, ChipQueue);
+  auto Res = hipMemset3DAsync_internal(PitchedDevPtr, Value, Extent, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
