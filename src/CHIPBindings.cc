@@ -2583,12 +2583,9 @@ hipError_t hipHostUnregister(void *HostPtr) {
   CHIP_CATCH
 }
 
-static hipError_t hipMallocPitch3D(void **Ptr, size_t *Pitch, size_t Width,
-                                   size_t Height, size_t Depth) {
-  CHIP_TRY
-  CHIPInitialize();
-  NULLCHECK(Ptr, Pitch);
-
+static inline hipError_t hipMallocPitch3D_internal(void **Ptr, size_t *Pitch,
+                                                   size_t Width, size_t Height,
+                                                   size_t Depth) {
   *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
   const size_t SizeBytes =
       (*Pitch) * std::max<size_t>(1, Height) * std::max<size_t>(1, Depth);
@@ -2598,8 +2595,7 @@ static hipError_t hipMallocPitch3D(void **Ptr, size_t *Pitch, size_t Width,
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
-  RETURN(hipSuccess);
-  CHIP_CATCH
+  return hipSuccess;
 }
 
 hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
@@ -2608,7 +2604,7 @@ hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
   CHIPInitialize();
   NULLCHECK(Ptr, Pitch);
 
-  RETURN(hipMallocPitch3D(Ptr, Pitch, Width, Height, 0));
+  RETURN(hipMallocPitch3D_internal(Ptr, Pitch, Width, Height, 0));
 
   CHIP_CATCH
 }
@@ -2796,11 +2792,10 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
   NULLCHECK(PitchedDevPtr);
 
   ERROR_IF((Extent.width == 0 || Extent.height == 0), hipErrorInvalidValue);
-  ERROR_IF((PitchedDevPtr == nullptr), hipErrorInvalidValue);
 
   size_t Pitch;
 
-  hipError_t HipStatus = hipMallocPitch3D(
+  hipError_t HipStatus = hipMallocPitch3D_internal(
       &PitchedDevPtr->ptr, &Pitch, Extent.width, Extent.height, Extent.depth);
 
   if (HipStatus == hipSuccess) {
