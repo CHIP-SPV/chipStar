@@ -2026,13 +2026,13 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
 
   // Unless the event is in recording state, we can't wait on it
-  if (static_cast<CHIPEvent *>(Event)->getEventStatus() == EVENT_STATUS_INIT) {
+  if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
-
-  std::vector<CHIPEvent *> EventsToWaitOn = {static_cast<CHIPEvent *>(Event)};
-//   ChipQueue->enqueueBarrier(&EventsToWaitOn);
-
+  std::shared_ptr<CHIPEvent> ChipEventShared(ChipEvent);
+  std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn = {ChipEventShared};
+  auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
+  Backend->trackEvent(BarrierEvent);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
