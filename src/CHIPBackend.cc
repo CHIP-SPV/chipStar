@@ -240,24 +240,14 @@ void CHIPEvent::sanityCheckNoLock() {
 }
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
-    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), Refc_(new size_t()),
+    : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags),
       ChipContext_(Ctx), Msg("") {
-  *Refc_ = 1;
 }
 
 void CHIPEvent::releaseDependencies() {
   assert(!Deleted_ && "Event use after delete!");
-  for (auto Event : DependsOnList) {
-    Event->decreaseRefCount("An event that depended on this one has finished");
-  }
   LOCK(EventMtx); // CHIPEvent::DependsOnList
   DependsOnList.clear();
-}
-
-size_t CHIPEvent::getCHIPRefc() {
-  LOCK(this->EventMtx); // CHIPEvent::Refc_
-  assert(!Deleted_ && "Event use after delete!");
-  return *Refc_;
 }
 
 // CHIPModuleflags_

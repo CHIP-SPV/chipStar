@@ -620,9 +620,6 @@ protected:
   bool Deleted_ = false;
 #endif
 
-  // reference count
-  size_t *Refc_;
-
   /**
    * @brief Events are always created with a context
    *
@@ -652,9 +649,6 @@ public:
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc();
-  virtual size_t decreaseRefCount(std::string Reason) = 0;
-  virtual size_t increaseRefCount(std::string Reason) = 0;
   virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
@@ -2226,7 +2220,6 @@ public:
       return true;
 
     if (LastEvent_->updateFinishStatus(false))
-      // LastEvent_->decreaseRefCount("query(): event became ready");
       if (LastEvent_->isFinished())
         return true;
 

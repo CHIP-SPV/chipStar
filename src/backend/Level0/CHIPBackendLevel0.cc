@@ -228,7 +228,6 @@ void CHIPEventLevel0::reset() {
     TrackCalled_ = false;
     UserEvent_ = false;
     EventStatus_ = EVENT_STATUS_INIT;
-    *Refc_ = 1;
 #ifndef NDEBUG
     Deleted_ = false;
 #endif
@@ -237,16 +236,6 @@ void CHIPEventLevel0::reset() {
 
 ze_event_handle_t CHIPEventLevel0::peek() {
   assert(!Deleted_ && "Event use after delete!");
-  return Event_;
-}
-
-ze_event_handle_t CHIPEventLevel0::get(std::string Msg) {
-  assert(!Deleted_ && "Event use after delete!");
-  if (Msg.size() > 0) {
-    increaseRefCount(Msg);
-  } else {
-    increaseRefCount("get()");
-  }
   return Event_;
 }
 
@@ -1218,7 +1207,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Ima
     // Done via GET_COMMAND_LIST
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, Src, 0,
-        std::static_pointer_cast<CHIPEventLevel0>(Ev)->get("zeCommandListAppendImageCopyFromMemory"), 0, nullptr);
+        std::static_pointer_cast<CHIPEventLevel0>(Ev)->peek(), 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     executeCommandList(CommandList);
 
@@ -1245,7 +1234,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Ima
     // Done via GET_COMMAND_LIST
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, SrcRow, &DstZeRegion,
-        LastRow ? std::static_pointer_cast<CHIPEventLevel0>(Ev)->get("zeCommandListAppendImageCopyFromMemory") : nullptr,
+        LastRow ? std::static_pointer_cast<CHIPEventLevel0>(Ev)->peek() : nullptr,
         0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     executeCommandList(CommandList);
@@ -1291,7 +1280,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::enqueueMarkerImpl() {
   // Done via GET_COMMAND_LIST
   auto Status = zeCommandListAppendSignalEvent(
       CommandList,
-      std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->get("MarkerEvent: zeCommandListAppendSignalEvent"));
+      std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList);
 
@@ -1688,16 +1677,16 @@ hipEvent_t CHIPBackendLevel0::getHipEvent(void *NativeEvent) {
   ze_event_handle_t E = (ze_event_handle_t)NativeEvent;
   CHIPEventLevel0 *NewEvent =
       new CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
-  NewEvent->increaseRefCount("getHipEvent");
+//   NewEvent->increaseRefCount("getHipEvent");
   return NewEvent;
 }
 
 void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
-  CHIPEventLevel0 *E = (CHIPEventLevel0 *)HipEvent;
+  CHIPEventLevel0 *E = static_cast<CHIPEventLevel0*>(HipEvent);
   if (!E->isRecordingOrRecorded())
     return nullptr;
   // TODO should we retain here?
-  return (void *)E->get("getNativeEvent");
+  return (void *)E->peek();
 }
 
 // CHIPContextLevelZero

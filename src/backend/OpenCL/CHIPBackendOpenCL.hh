@@ -108,9 +108,6 @@ public:
   cl_event &getNativeRef() { return ClEvent; }
   uint64_t getFinishTime();
   size_t getRefCount();
-
-  virtual size_t increaseRefCount(std::string Reason) override;
-  virtual size_t decreaseRefCount(std::string Reason) override;
 };
 
 class CHIPModuleOpenCL : public CHIPModule {

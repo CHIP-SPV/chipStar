@@ -594,7 +594,6 @@ void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
 
 void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
   logTrace("CHIPEventOpenCL::takeOver");
-  decreaseRefCount("takeOver");
   {
     auto *Other = (CHIPEventOpenCL *)OtherIn;
     LOCK(EventMtx); // CHIPEvent::Refc_
@@ -602,7 +601,6 @@ void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
     this->Refc_ = Other->Refc_;
     this->Msg = Other->Msg;
   }
-  increaseRefCount("takeOver");
 }
 
 bool CHIPEventOpenCL::wait() {
@@ -685,37 +683,6 @@ float CHIPEventOpenCL::getElapsedTime(CHIPEvent *OtherIn) {
 }
 
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
-
-size_t CHIPEventOpenCL::increaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  auto status = clRetainEvent(this->ClEvent);
-  if (!UserEvent_)
-    assert(status == 0);
-  // logDebug("CHIPEventOpenCL::increaseRefCount() {} {} refc {}->{} REASON:
-  // {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-  (*Refc_)++;
-  assert(*Refc_ = getRefCount() - 1);
-  // logDebug("CHIPEventOpenCL::increaseRefCount() {} OpenCL RefCount: {}",
-  //          (void *)this, getRefCount());
-  return *Refc_;
-}
-
-size_t CHIPEventOpenCL::decreaseRefCount(std::string Reason) {
-  LOCK(EventMtx); // CHIPEvent::Refc_
-  // logDebug("CHIPEventOpenCL::decreaseRefCount() {} OpenCL RefCount: {}",
-  //          (void *)this, getRefCount());
-  // logDebug("CHIPEventOpenCL::decreaseRefCount() {} {} refc {}->{} REASON:
-  // {}",
-  //          (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-  if (*Refc_ > 0) {
-    (*Refc_)--;
-  } else {
-    logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-  }
-  clReleaseEvent(this->ClEvent);
-  return *Refc_;
-}
 
 // CHIPModuleOpenCL
 //*************************************************************************
@@ -924,7 +891,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   Cbo->Callback(Cbo->Stream, Cbo->Status, Cbo->UserData);
   if (Cbo->CallbackFinishEvent != nullptr) {
     clSetUserEventStatus(Cbo->CallbackFinishEvent->ClEvent, CL_COMPLETE);
-    Cbo->CallbackFinishEvent->decreaseRefCount("Notified finished.");
+    // Cbo->CallbackFinishEvent->decreaseRefCount("Notified finished.");
   }
   delete Cbo;
 }
@@ -1025,7 +992,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 
   // Now the CB can start executing in the background:
   clSetUserEventStatus(HoldBackEvent->ClEvent, CL_COMPLETE);
-  HoldBackEvent->decreaseRefCount("Notified finished.");
+//   HoldBackEvent->decreaseRefCount("Notified finished.");
 
   return;
 };
