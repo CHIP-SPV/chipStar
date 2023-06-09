@@ -1377,10 +1377,8 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
-                                 hipStream_t Stream) {
-  CHIP_TRY
-  CHIPInitialize();
+static inline hipError_t
+hipMemcpyParam2DAsync_internal(const hip_Memcpy2D *PCopy, hipStream_t Stream) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
 
   ChipQueue = Backend->findQueue(ChipQueue);
@@ -1404,10 +1402,18 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
       (PCopy->WidthInBytes > PCopy->srcPitch))
     CHIPERR_LOG_AND_THROW("Width > src/dest pitches", hipErrorTbd);
 
-  RETURN(hipMemcpy2DAsync_internal(PCopy->dstArray->data, PCopy->WidthInBytes,
+  return hipMemcpy2DAsync_internal(PCopy->dstArray->data, PCopy->WidthInBytes,
                                    PCopy->srcHost, PCopy->srcPitch,
                                    PCopy->WidthInBytes, PCopy->Height,
-                                   hipMemcpyDefault, ChipQueue));
+                                   hipMemcpyDefault, ChipQueue);
+}
+
+hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
+                                 hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(PCopy);
+  RETURN(hipMemcpyParam2DAsync_internal(PCopy, Stream));
   CHIP_CATCH
 }
 
@@ -3286,7 +3292,7 @@ hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
   CHIPInitialize();
   NULLCHECK(PCopy);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemcpyParam2DAsync(PCopy, ChipQueue);
+  auto Res = hipMemcpyParam2DAsync_internal(PCopy, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
