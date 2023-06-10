@@ -3871,7 +3871,7 @@ hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(ModuleHandle, Image);
-  RETURN(hipModuleLoadData_internal(Module, Image));
+  RETURN(hipModuleLoadData_internal(ModuleHandle, Image));
   CHIP_CATCH
 }
 
@@ -4727,7 +4727,7 @@ hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
 hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int *flags) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Flags);
+  NULLCHECK(flags);
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipStreamGetFlags_internal(Queue, flags));
   CHIP_CATCH
