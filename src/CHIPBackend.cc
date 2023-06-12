@@ -204,46 +204,6 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 
 // CHIPEvent
 // ************************************************************************
-void CHIPEvent::sanityCheck() {
-#ifndef NDEBUG
-  LOCK(Backend->EventsMtx); // CHIPBackend::Events
-  sanityCheckNoLock();
-#endif
-}
-
-void CHIPEvent::sanityCheckNoLock() {
-#ifndef NDEBUG
-  bool Sane = true;
-  //   auto Found = std::find(Backend->Events.begin(), Backend->Events.end(),
-  //   this); if (TrackCalled_ && Found == Backend->Events.end()) {
-  //     logCritical(
-  //         "CHIPEvent::sanityCheck({}) Tracked event not found in
-  //         Backend->Events", (void *)this);
-  //     Sane = false;
-  //   }
-
-  //   if (!TrackCalled_ && Found != Backend->Events.end()) {
-  //     logCritical(
-  //         "CHIPEvent::sanityCheck({}) Untracked event found in
-  //         Backend->Events", (void *)this);
-  //     Sane = false;
-  //   }
-
-  if (UserEvent_ && TrackCalled_) {
-    logCritical("CHIPEvent::sanityCheck({}) UserEvent is Tracked",
-                (void *)this);
-    Sane = false;
-  }
-
-  if (Deleted_) {
-    logCritical("CHIPEvent::sanityCheck({}) Event use after delete",
-                (void *)this);
-    Sane = false;
-  }
-
-//   assert(Sane);
-#endif
-}
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
@@ -1547,7 +1507,6 @@ hipError_t CHIPQueue::memCopy(void *Dst, const void *Src, size_t Size) {
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
 
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
-    ChipEvent->sanityCheck();
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(

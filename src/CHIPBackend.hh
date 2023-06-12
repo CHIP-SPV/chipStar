@@ -636,8 +636,6 @@ protected:
 
 public:
   void markTracked() { TrackCalled_ = true; }
-  void sanityCheck();
-  void sanityCheckNoLock();
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }

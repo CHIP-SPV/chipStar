@@ -652,7 +652,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
 
       assert(ChipEvent);
-      ChipEvent->sanityCheckNoLock();
 
       if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
         ChipEvent->releaseDependencies();
@@ -1269,7 +1268,6 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::enqueueBarrierImpl(
     std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
   std::shared_ptr<CHIPEvent> EventToSignal =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
-  EventToSignal->sanityCheck();
   EventToSignal->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
@@ -1306,7 +1304,6 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::enqueueBarrierImpl(
   if (EventHandles)
     delete[] EventHandles;
 
-  EventToSignal->sanityCheck();
   return EventToSignal;
 }
 
@@ -1316,7 +1313,6 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<CHIPEvent> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
-  MemCopyEvent->sanityCheck();
   ze_result_t Status;
   GET_COMMAND_LIST(this);
   // The application must not call this function from simultaneous threads with
@@ -1330,7 +1326,6 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
                               hipErrorInitializationError);
   executeCommandList(CommandList);
 
-  MemCopyEvent->sanityCheck();
   return MemCopyEvent;
 }
 
@@ -1443,7 +1438,6 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
     Event = Events_[PoolIndex];
   }
 
-  Event->sanityCheck();
   return Event;
 };
 
@@ -1489,7 +1483,6 @@ CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags,
   }
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
-  Event->sanityCheck();
   return Event;
 }
 

@@ -312,7 +312,6 @@ public:
     auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
     Event = NewEventPool->getEvent();
     EventPools_.push_back(NewEventPool);
-    Event->sanityCheck();
     return Event;
   }
 
