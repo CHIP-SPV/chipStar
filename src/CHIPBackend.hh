@@ -1772,7 +1772,9 @@ public:
   mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
   std::vector<std::shared_ptr<CHIPEvent>> Events;
+  std::vector<std::shared_ptr<CHIPEvent>> UserEvents;
   std::mutex EventsMtx;
+  std::mutex UserEventsMtx;
 
   std::queue<CHIPCallbackData *> CallbackQueue;
 
@@ -1965,17 +1967,10 @@ public:
    * prevent it from being garbage collected.
    * @return CHIPEvent* Event
    */
-  virtual CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx,
-                                     CHIPEventFlags Flags = CHIPEventFlags(),
-                                     bool UserEvent = false) = 0;
-                                     
-  std::shared_ptr<CHIPEvent> createCHIPEventShared(CHIPContext *ChipCtx,
+  virtual std::shared_ptr<CHIPEvent> createCHIPEvent(CHIPContext *ChipCtx,
                                                    CHIPEventFlags Flags =
                                                        CHIPEventFlags(),
-                                                   bool UserEvent = false) {
-    return std::shared_ptr<CHIPEvent>(
-        createCHIPEvent(ChipCtx, Flags, UserEvent));
-  }
+                                                   bool UserEvent = false) = 0;
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived

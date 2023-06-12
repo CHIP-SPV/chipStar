@@ -212,8 +212,8 @@ void CHIPEvent::sanityCheck() {
 }
 
 void CHIPEvent::sanityCheckNoLock() {
-// #ifndef NDEBUG
-//   bool Sane = true;
+#ifndef NDEBUG
+  bool Sane = true;
 //   auto Found = std::find(Backend->Events.begin(), Backend->Events.end(), this);
 //   if (TrackCalled_ && Found == Backend->Events.end()) {
 //     logCritical(
@@ -229,14 +229,19 @@ void CHIPEvent::sanityCheckNoLock() {
 //     Sane = false;
 //   }
 
-//   if (UserEvent_ && TrackCalled_) {
-//     logCritical("CHIPEvent::sanityCheck({}) UserEvent is Tracked",
-//                 (void *)this);
-//     Sane = false;
-//   }
+  if (UserEvent_ && TrackCalled_) {
+    logCritical("CHIPEvent::sanityCheck({}) UserEvent is Tracked",
+                (void *)this);
+    Sane = false;
+  }
+
+  if (Deleted_) {
+    logCritical("CHIPEvent::sanityCheck({}) Event use after delete", (void *)this);
+    Sane = false;
+  }
 
 //   assert(Sane);
-// #endif
+#endif
 }
 
 CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
