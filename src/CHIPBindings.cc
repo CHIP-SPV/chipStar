@@ -2435,18 +2435,21 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     RETURN(hipErrorInvalidValue);
 
   // TODO fixOpenCLTests - make this a class
-  if (Flags)
-    switch (Flags) {
-    case hipHostRegisterDefault:
-      break;
-    case hipHostRegisterMapped:
-      break;
-    case hipHostRegisterPortable:
-      break;
-    default:
-      CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flag passed",
-                            hipErrorInvalidValue);
-    }
+  if (Flags) {
+    // Currently, the flags are ignored. This only exists to satisfy hip-tests.
+
+    // First 4 bits are valid flag bits. This includes flags from CUDA which are
+    // not supported or documented in HIP.
+    constexpr unsigned FlagMask = (1u << 4u) - 1u;
+
+    if (Flags & ~FlagMask) // Has invalid flags
+      CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flags passed",
+                             hipErrorInvalidValue);
+
+    if (Flags & hipHostRegisterIoMemory)
+      CHIPERR_LOG_AND_THROW("Unsupported hipHostRegisterIoMemory flag",
+                             hipErrorInvalidValue);
+  }
 
   void *DevPtr;
   if (hipMalloc(&DevPtr, SizeBytes) != hipSuccess)
