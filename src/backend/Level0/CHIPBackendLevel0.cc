@@ -1284,7 +1284,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::enqueueBarrierImpl(
     for (size_t i = 0; i < NumEventsToWaitFor; i++) {
       std::shared_ptr<CHIPEvent> ChipEvent = EventsToWaitFor[i];
       std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-          std::dynamic_pointer_cast<CHIPEventLevel0>(ChipEvent);
+          std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
       CHIPASSERT(ChipEventLz);
       EventHandles[i] = ChipEventLz->peek();
       EventToSignal->addDependency(ChipEventLz);
