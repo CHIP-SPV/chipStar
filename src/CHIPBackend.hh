@@ -631,7 +631,8 @@ protected:
    * constructor should be called.
    *
    */
-  CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
+  CHIPEvent() : TrackCalled_(false), UserEvent_(false) {}
+  virtual ~CHIPEvent() {};
 
 public:
   void markTracked() { TrackCalled_ = true; }
@@ -649,7 +650,6 @@ public:
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
    * @brief CHIPEvent constructor. Must always be created with some context.
@@ -1755,6 +1755,15 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
+  std::shared_ptr<CHIPEvent> userEventLookup(CHIPEvent* EventPtr) {
+    std::lock_guard<std::mutex> Lock(UserEventsMtx);
+    for (auto &UserEvent : UserEvents) {
+      if (UserEvent.get() == EventPtr) {
+        return UserEvent;
+      }
+    }
+    return nullptr;
+  }
   void trackEvent(std::shared_ptr<CHIPEvent> Event);
 
 #ifdef DUBIOUS_LOCKS

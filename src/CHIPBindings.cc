@@ -2029,10 +2029,12 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
-  std::shared_ptr<CHIPEvent> ChipEventShared(ChipEvent);
-  std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn = {ChipEventShared};
+  std::shared_ptr<CHIPEvent> ChipEventShared = Backend->userEventLookup(ChipEvent);
+  std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn;
+  if(ChipEventShared.get())
+    EventsToWaitOn.push_back(ChipEventShared);
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
-  Backend->trackEvent(BarrierEvent);
+  BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2140,8 +2142,10 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 
   auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
-  LOCK(Backend->UserEventsMtx);
-  Backend->UserEvents.push_back(ChipEvent);
+  {
+    LOCK(Backend->UserEventsMtx);
+    Backend->UserEvents.push_back(ChipEvent);
+  }
 
   *Event = ChipEvent.get();
   RETURN(hipSuccess);

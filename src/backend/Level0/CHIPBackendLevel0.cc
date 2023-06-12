@@ -646,11 +646,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
     LOCK(Backend->EventsMtx); // CHIPBackend::Events
     LOCK(EventMonitorMtx);    // CHIPEventMonitor::Stop
-    // auto LzBackend = (CHIPBackendLevel0 *)Backend;
-    // logTrace("CHIPStaleEventMonitorLevel0::monitor() # events {} # queues
-    // {}",
-    //          Backend->Events.size(),
-    //          LzBackend->EventCommandListMap.size());
 
     for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
       std::shared_ptr<CHIPEventLevel0> ChipEvent =
