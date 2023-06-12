@@ -1265,7 +1265,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::enqueueMarkerImpl() {
 }
 
 std::shared_ptr<CHIPEvent> CHIPQueueLevel0::enqueueBarrierImpl(
-    std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
+    const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) {
   std::shared_ptr<CHIPEvent> EventToSignal =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
   EventToSignal->Msg = "barrier";

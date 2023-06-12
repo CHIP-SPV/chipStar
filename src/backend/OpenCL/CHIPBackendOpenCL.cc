@@ -574,34 +574,33 @@ size_t CHIPEventOpenCL::getRefCount() {
 
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
-CHIPEventOpenCL *CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
+std::shared_ptr<CHIPEvent> CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipCtx,
                                                     CHIPEventFlags Flags,
                                                     bool UserEvent) {
   CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
 
-  return Event;
+  return std::shared_ptr<CHIPEvent>(Event);
 }
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
   logTrace("CHIPEvent::recordStream()");
   auto MarkerEvent = ChipQueue->enqueueMarker();
-  this->takeOver(MarkerEvent);
+//   this->takeOver(MarkerEvent);
 
   this->EventStatus_ = EVENT_STATUS_RECORDING;
   return;
 }
 
-void CHIPEventOpenCL::takeOver(CHIPEvent *OtherIn) {
-  logTrace("CHIPEventOpenCL::takeOver");
-  {
-    auto *Other = (CHIPEventOpenCL *)OtherIn;
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    this->ClEvent = Other->ClEvent;
-    this->Refc_ = Other->Refc_;
-    this->Msg = Other->Msg;
-  }
-}
+// void CHIPEventOpenCL::takeOver(std::shared_ptr<CHIPEvent> OtherIn) {
+//   logTrace("CHIPEventOpenCL::takeOver");
+//   {
+//     auto *Other = (CHIPEventOpenCL *)OtherIn;
+//     LOCK(EventMtx); // CHIPEvent::Refc_
+//     this->ClEvent = Other->ClEvent;
+//     this->Msg = Other->Msg;
+//   }
+// }
 
 bool CHIPEventOpenCL::wait() {
   logTrace("CHIPEventOpenCL::wait()");
@@ -878,7 +877,7 @@ struct HipStreamCallbackData {
   hipError_t Status;
   void *UserData;
   hipStreamCallback_t Callback;
-  CHIPEventOpenCL *CallbackFinishEvent;
+  std::shared_ptr<CHIPEvent> CallbackFinishEvent;
 };
 
 void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
@@ -890,8 +889,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
     return;
   Cbo->Callback(Cbo->Stream, Cbo->Status, Cbo->UserData);
   if (Cbo->CallbackFinishEvent != nullptr) {
-    clSetUserEventStatus(Cbo->CallbackFinishEvent->ClEvent, CL_COMPLETE);
-    // Cbo->CallbackFinishEvent->decreaseRefCount("Notified finished.");
+    clSetUserEventStatus(std::static_pointer_cast<CHIPEventOpenCL>(Cbo->CallbackFinishEvent)->ClEvent, CL_COMPLETE);
   }
   delete Cbo;
 }
@@ -945,13 +943,13 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
   cl_int Err;
 
-  CHIPEventOpenCL *HoldBackEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+  std::shared_ptr<CHIPEvent> HoldBackEvent =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(ChipContext_);
 
-  HoldBackEvent->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
+  std::static_pointer_cast<CHIPEventOpenCL>(HoldBackEvent)->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
 
-  std::vector<CHIPEvent *> WaitForEvents{HoldBackEvent};
-  auto LastEvent = getLastEvent();
+  std::vector<std::shared_ptr<CHIPEvent>> WaitForEvents{HoldBackEvent};
+  std::shared_ptr<CHIPEvent> LastEvent = getLastEvent();
   if (LastEvent != nullptr)
     WaitForEvents.push_back(LastEvent);
 
@@ -959,16 +957,16 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // otherwise it would be (at worst) executed in this host thread when
   // setting it, blocking the execution, while the clients might expect
   // parallel execution.
-  auto HoldbackBarrierCompletedEv =
-      (CHIPEventOpenCL *)enqueueBarrier(&WaitForEvents);
+  std::shared_ptr<CHIPEvent> HoldbackBarrierCompletedEv =
+      enqueueBarrier(WaitForEvents);
 
   // OpenCL event callbacks have undefined execution ordering/finishing
   // guarantees. We need to enforce CUDA ordering using user events.
 
-  CHIPEventOpenCL *CallbackEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+  std::shared_ptr<CHIPEvent> CallbackEvent =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(ChipContext_);
 
-  CallbackEvent->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
+  std::static_pointer_cast<CHIPEventOpenCL>(CallbackEvent)->ClEvent = clCreateUserEvent(ClContext_->get(), &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
 
   // Make the succeeding commands wait for the user event which will be
@@ -978,12 +976,12 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   HipStreamCallbackData *Cb = new HipStreamCallbackData{
       this, hipSuccess, UserData, Callback, CallbackEvent};
 
-  std::vector<CHIPEvent *> WaitForEventsCBB{CallbackEvent};
-  auto CallbackCompleted = enqueueBarrier(&WaitForEventsCBB);
+  std::vector<std::shared_ptr<CHIPEvent>> WaitForEventsCBB{CallbackEvent};
+  auto CallbackCompleted = enqueueBarrier(WaitForEventsCBB);
 
   // We know that the callback won't be yet launched since it's depending
   // on the barrier which waits for the user event.
-  auto Status = clSetEventCallback(HoldbackBarrierCompletedEv->ClEvent,
+  auto Status = clSetEventCallback(std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)->ClEvent,
                                    CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
@@ -991,27 +989,27 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   ClQueue_->flush();
 
   // Now the CB can start executing in the background:
-  clSetUserEventStatus(HoldBackEvent->ClEvent, CL_COMPLETE);
+  clSetUserEventStatus(std::static_pointer_cast<CHIPEventOpenCL>(HoldBackEvent)->ClEvent, CL_COMPLETE);
   //   HoldBackEvent->decreaseRefCount("Notified finished.");
 
   return;
 };
 
-CHIPEvent *CHIPQueueOpenCL::enqueueMarkerImpl() {
-  CHIPEventOpenCL *MarkerEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::enqueueMarkerImpl() {
+  std::shared_ptr<CHIPEvent> MarkerEvent =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(ChipContext_);
   auto Status =
-      clEnqueueMarker(this->get()->get(), MarkerEvent->getNativePtr());
+      clEnqueueMarker(this->get()->get(), std::static_pointer_cast<CHIPEventOpenCL>(MarkerEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   MarkerEvent->Msg = "marker";
   return MarkerEvent;
 }
 
-CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
-  CHIPEventOpenCL *LaunchEvent =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(OclContext);
+  std::shared_ptr<CHIPEvent>(LaunchEvent) =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   assert(Kernel && "Kernel in ExecItem is NULL!");
@@ -1040,7 +1038,7 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
 
   auto Status = clEnqueueNDRangeKernel(ClQueue_->get(), Kernel->get()->get(),
                                        NumDims, GlobalOffset, Global, Local, 0,
-                                       nullptr, LaunchEvent->getNativePtr());
+                                       nullptr, std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
   std::shared_ptr<CHIPArgSpillBuffer> SpillBuf = ExecItem->getArgSpillBuffer();
@@ -1060,7 +1058,7 @@ CHIPEvent *CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
     auto *CBData = new KernelEventCallbackData;
     CBData->ArgSpillBuffer = SpillBuf;
     CBData->SvmKeepAlives = std::move(SvmAllocationsToKeepAlive);
-    Status = clSetEventCallback(LaunchEvent->getNativeRef(), CL_COMPLETE,
+    Status = clSetEventCallback(std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativeRef(), CL_COMPLETE,
                                 kernelEventCallback, CBData);
     if (Status != CL_SUCCESS) {
       delete CBData;
@@ -1122,10 +1120,10 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
 }
 
-CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
                                              size_t Size) {
-  CHIPEventOpenCL *Event =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+  std::shared_ptr<CHIPEvent> Event =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
@@ -1137,14 +1135,14 @@ CHIPEvent *CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src,
     // like it should. To unify the behavior, let's convert the special case to
     // a maker here, so we can return an event.
     cl::Event MarkerEvent;
-    auto Status = clEnqueueMarker(ClQueue_->get(), Event->getNativePtr());
+    auto Status = clEnqueueMarker(ClQueue_->get(), std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
 #ifdef DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockOpenCL)
 #endif
     auto Status = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src,
-                                       Size, 0, nullptr, Event->getNativePtr());
+                                       Size, 0, nullptr, std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
   }
   return Event;
@@ -1158,26 +1156,26 @@ void CHIPQueueOpenCL::finish() {
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
 
-CHIPEvent *CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size,
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size,
                                              const void *Pattern,
                                              size_t PatternSize) {
-  CHIPEventOpenCL *Event =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(ChipContext_);
+  std::shared_ptr<CHIPEvent> Event =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
   cl_event Ev = nullptr;
   int Retval = ::clEnqueueSVMMemFill(ClQueue_->get(), Dst, Pattern, PatternSize,
-                                     Size, 0, nullptr, Event->getNativePtr());
+                                     Size, 0, nullptr, std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
   return Event;
 };
 
-CHIPEvent *CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
                                                const void *Src, size_t Spitch,
                                                size_t Width, size_t Height) {
   UNIMPLEMENTED(nullptr);
 };
 
-CHIPEvent *CHIPQueueOpenCL::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
                                                size_t Dspitch, const void *Src,
                                                size_t Spitch, size_t Sspitch,
                                                size_t Width, size_t Height,
@@ -1211,41 +1209,39 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
   return hipSuccess;
 }
 
-CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
   UNIMPLEMENTED(nullptr);
 }
 
-CHIPEvent *CHIPQueueOpenCL::enqueueBarrierImpl(
-    std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
+std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::enqueueBarrierImpl(
+    const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) {
 #ifdef DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif
-  CHIPEventOpenCL *Event =
-      (CHIPEventOpenCL *)Backend->createCHIPEvent(this->ChipContext_);
+  std::shared_ptr<CHIPEvent> Event =
+      static_cast<CHIPBackendOpenCL*>(Backend)->createCHIPEvent(this->ChipContext_);
   cl_int RefCount;
   int Status;
-  Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
+  Status = clGetEventInfo(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
                           &RefCount, NULL);
-  if (EventsToWaitFor && EventsToWaitFor->size() > 0) {
+  if (EventsToWaitFor.size() > 0) {
     std::vector<cl_event> Events = {};
-    for (auto E : *EventsToWaitFor) {
-      auto Ee = (CHIPEventOpenCL *)E;
-      // assert(Ee->getRefCount() > 0);
-      Events.push_back(Ee->getNativeRef());
+    for (auto WaitEvent : EventsToWaitFor) {
+      Events.push_back(std::static_pointer_cast<CHIPEventOpenCL>(WaitEvent)->getNativeRef());
     }
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
     auto Status =
         clEnqueueBarrierWithWaitList(ClQueue_->get(), Events.size(),
-                                     Events.data(), &(Event->getNativeRef()));
+                                     Events.data(), &(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef()));
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
     auto Status = clEnqueueBarrierWithWaitList(ClQueue_->get(), 0, nullptr,
-                                               Event->getNativePtr());
+                                               std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
 
-  Status = clGetEventInfo(Event->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
+  Status = clGetEventInfo(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
                           &RefCount, NULL);
   return Event;
 }

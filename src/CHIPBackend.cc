@@ -1758,7 +1758,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 }
 
 std::shared_ptr<CHIPEvent> CHIPQueue::enqueueBarrier(
-    std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
+    const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) {
   std::shared_ptr<CHIPEvent> ChipEvent =
       std::shared_ptr<CHIPEvent>(enqueueBarrierImpl(EventsToWaitFor));
   ChipEvent->Msg = "enqueueBarrier";

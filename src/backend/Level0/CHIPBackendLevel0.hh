@@ -278,7 +278,7 @@ public:
   virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() override;
 
   virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
-      std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) override;
+      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) override;
 
   virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
                                                      size_t Count) override {

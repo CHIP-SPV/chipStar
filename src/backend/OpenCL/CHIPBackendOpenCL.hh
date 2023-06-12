@@ -237,20 +237,20 @@ public:
   CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
-  virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
+  virtual std::shared_ptr<CHIPEvent> launchImpl(CHIPExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
   virtual void finish() override;
-  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
+  virtual std::shared_ptr<CHIPEvent> memCopyAsyncImpl(void *Dst, const void *Src,
                                       size_t Size) override;
   cl::CommandQueue *get();
-  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
+  virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
                                       const void *Pattern,
                                       size_t PatternSize) override;
-  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
+  virtual std::shared_ptr<CHIPEvent> memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
                                         const void *Src, size_t Spitch,
                                         size_t Width, size_t Height) override;
-  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
+  virtual std::shared_ptr<CHIPEvent> memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
                                         size_t Dspitch, const void *Src,
                                         size_t Spitch, size_t Sspitch,
                                         size_t Width, size_t Height,
@@ -258,10 +258,10 @@ public:
 
   virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
                                        int *NumHandles) override;
-  virtual CHIPEvent *
-  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
-  virtual CHIPEvent *enqueueMarkerImpl() override;
-  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) override;
+  virtual std::shared_ptr<CHIPEvent>
+  enqueueBarrierImpl(const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) override;
+  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() override;
+  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr, size_t Count) override;
 };
 
 class CHIPKernelOpenCL : public CHIPKernel {
@@ -347,7 +347,7 @@ public:
   virtual int ReqNumHandles() override { return 4; }
 
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
-  virtual CHIPEventOpenCL *
+  virtual std::shared_ptr<CHIPEvent>
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override;
   virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
