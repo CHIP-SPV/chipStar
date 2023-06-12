@@ -1320,7 +1320,7 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
   CHIP_CATCH
 };
 
-static inline hipError_t hipMemcpyAsync_internal(void *Dst, const void *Src,
+static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
                                                  size_t SizeBytes,
                                                  hipMemcpyKind Kind,
                                                  hipStream_t Stream) {
@@ -1347,12 +1347,12 @@ hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
                           hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, Kind, Stream));
+  RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, Kind, Stream));
   CHIP_CATCH
 }
 
 static inline hipError_t
-hipMemcpy2DAsync_internal(void *Dst, size_t DPitch, const void *Src,
+hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
                           size_t SPitch, size_t Width, size_t Height,
                           hipMemcpyKind Kind, hipStream_t Stream) {
   NULLCHECK(Dst, Src);
@@ -1391,7 +1391,7 @@ hipMemcpy2DAsync_internal(void *Dst, size_t DPitch, const void *Src,
     return hipErrorInvalidValue;
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; ++i) {
-    if (hipMemcpyAsync_internal(Dst, Src, Width, Kind, Stream) != hipSuccess)
+    if (hipMemcpyAsyncInternal(Dst, Src, Width, Kind, Stream) != hipSuccess)
       return hipErrorLaunchFailure;
     Src = (char *)Src + SPitch;
     Dst = (char *)Dst + DPitch;
@@ -1404,13 +1404,13 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
                             hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpy2DAsync_internal(Dst, DPitch, Src, SPitch, Width, Height,
+  RETURN(hipMemcpy2DAsyncInternal(Dst, DPitch, Src, SPitch, Width, Height,
                                    Kind, Stream));
   CHIP_CATCH
 }
 
 static inline hipError_t
-hipMemcpyParam2DAsync_internal(const hip_Memcpy2D *PCopy, hipStream_t Stream) {
+hipMemcpyParam2DAsyncInternal(const hip_Memcpy2D *PCopy, hipStream_t Stream) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
 
   ChipQueue = Backend->findQueue(ChipQueue);
@@ -1434,7 +1434,7 @@ hipMemcpyParam2DAsync_internal(const hip_Memcpy2D *PCopy, hipStream_t Stream) {
       (PCopy->WidthInBytes > PCopy->srcPitch))
     CHIPERR_LOG_AND_THROW("Width > src/dest pitches", hipErrorTbd);
 
-  return hipMemcpy2DAsync_internal(PCopy->dstArray->data, PCopy->WidthInBytes,
+  return hipMemcpy2DAsyncInternal(PCopy->dstArray->data, PCopy->WidthInBytes,
                                    PCopy->srcHost, PCopy->srcPitch,
                                    PCopy->WidthInBytes, PCopy->Height,
                                    hipMemcpyDefault, ChipQueue);
@@ -1445,7 +1445,7 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(PCopy);
-  RETURN(hipMemcpyParam2DAsync_internal(PCopy, Stream));
+  RETURN(hipMemcpyParam2DAsyncInternal(PCopy, Stream));
   CHIP_CATCH
 }
 
@@ -1519,7 +1519,7 @@ hipError_t hipSetDevice(int DeviceId) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipDeviceSynchronize_internal(void) {
+static inline hipError_t hipDeviceSynchronizeInternal(void) {
   auto Dev = Backend->getActiveDevice();
   {
     LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
@@ -1539,7 +1539,7 @@ static inline hipError_t hipDeviceSynchronize_internal(void) {
 hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipDeviceSynchronize_internal());
+  RETURN(hipDeviceSynchronizeInternal());
   CHIP_CATCH
 }
 
@@ -1872,7 +1872,7 @@ hipError_t hipPeekAtLastError(void) {
   return Backend->TlsLastError;
 }
 
-static inline const char *hipGetErrorName_internal(hipError_t HipError) {
+static inline const char *hipGetErrorNameInternal(hipError_t HipError) {
   switch (HipError) {
   case hipSuccess:
     return "hipSuccess";
@@ -1996,15 +1996,15 @@ static inline const char *hipGetErrorName_internal(hipError_t HipError) {
 }
 
 const char *hipGetErrorName(hipError_t HipError) {
-  return hipGetErrorName_internal(HipError);
+  return hipGetErrorNameInternal(HipError);
 }
 
 const char *hipGetErrorString(hipError_t HipError) {
-  return hipGetErrorName_internal(HipError);
+  return hipGetErrorNameInternal(HipError);
 }
 
 static inline hipError_t
-hipStreamCreateWithPriority_internal(hipStream_t *Stream, unsigned int Flags,
+hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
                                      int Priority) {
   if (Stream == nullptr)
     CHIPERR_LOG_AND_THROW("Stream pointer is null", hipErrorInvalidValue);
@@ -2026,14 +2026,14 @@ hipStreamCreateWithPriority_internal(hipStream_t *Stream, unsigned int Flags,
 hipError_t hipStreamCreate(hipStream_t *Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamCreateWithPriority_internal(Stream, 0, 1));
+  RETURN(hipStreamCreateWithPriorityInternal(Stream, 0, 1));
   CHIP_CATCH
 }
 
 hipError_t hipStreamCreateWithFlags(hipStream_t *Stream, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamCreateWithPriority_internal(Stream, Flags, 1));
+  RETURN(hipStreamCreateWithPriorityInternal(Stream, Flags, 1));
   CHIP_CATCH
 }
 
@@ -2041,7 +2041,7 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
                                        int Priority) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamCreateWithPriority_internal(Stream, Flags, Priority));
+  RETURN(hipStreamCreateWithPriorityInternal(Stream, Flags, Priority));
   CHIP_CATCH
 }
 
@@ -2091,7 +2091,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipStreamQuery_internal(hipStream_t Stream) {
+static inline hipError_t hipStreamQueryInternal(hipStream_t Stream) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
@@ -2108,11 +2108,11 @@ static inline hipError_t hipStreamQuery_internal(hipStream_t Stream) {
 hipError_t hipStreamQuery(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamQuery_internal(Stream));
+  RETURN(hipStreamQueryInternal(Stream));
   CHIP_CATCH
 }
 
-hipError_t hipStreamSynchronize_internal(hipStream_t Stream) {
+hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
@@ -2128,12 +2128,12 @@ hipError_t hipStreamSynchronize_internal(hipStream_t Stream) {
 hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamSynchronize_internal(Stream));
+  RETURN(hipStreamSynchronizeInternal(Stream));
   CHIP_CATCH
 }
 
 static inline hipError_t
-hipStreamWaitEvent_internal(hipStream_t Stream, hipEvent_t Event,
+hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
                             unsigned int Flags) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   auto ChipEvent = static_cast<CHIPEvent *>(Event);
@@ -2160,7 +2160,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
                               unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamWaitEvent_internal(Stream, Event, Flags));
+  RETURN(hipStreamWaitEventInternal(Stream, Event, Flags));
   CHIP_CATCH
 }
 
@@ -2173,7 +2173,7 @@ int hipGetStreamDeviceId(hipStream_t Stream) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipStreamGetFlags_internal(hipStream_t Stream,
+static inline hipError_t hipStreamGetFlagsInternal(hipStream_t Stream,
                                                     unsigned int *Flags) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
@@ -2191,11 +2191,11 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Flags);
-  RETURN(hipStreamGetFlags_internal(Stream, Flags));
+  RETURN(hipStreamGetFlagsInternal(Stream, Flags));
   CHIP_CATCH
 }
 
-static inline hipError_t hipStreamGetPriority_internal(hipStream_t Stream,
+static inline hipError_t hipStreamGetPriorityInternal(hipStream_t Stream,
                                                        int *Priority) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   if (Priority == nullptr) {
@@ -2215,7 +2215,7 @@ static inline hipError_t hipStreamGetPriority_internal(hipStream_t Stream,
 hipError_t hipStreamGetPriority(hipStream_t Stream, int *Priority) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipStreamGetPriority_internal(Stream, Priority));
+  RETURN(hipStreamGetPriorityInternal(Stream, Priority));
   CHIP_CATCH
 }
 
@@ -2262,7 +2262,7 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
   CHIP_CATCH
 }
 
-static inline hipError_t hipEventCreateWithFlags_internal(hipEvent_t *Event,
+static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
                                                           unsigned Flags) {
   CHIPEventFlags EventFlags{Flags};
 
@@ -2277,7 +2277,7 @@ hipError_t hipEventCreate(hipEvent_t *Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
-  RETURN(hipEventCreateWithFlags_internal(Event, 0));
+  RETURN(hipEventCreateWithFlagsInternal(Event, 0));
   CHIP_CATCH
 }
 
@@ -2285,11 +2285,11 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
-  RETURN(hipEventCreateWithFlags_internal(Event, Flags));
+  RETURN(hipEventCreateWithFlagsInternal(Event, Flags));
   CHIP_CATCH
 }
 
-static inline hipError_t hipEventRecord_internal(hipEvent_t Event,
+static inline hipError_t hipEventRecordInternal(hipEvent_t Event,
                                                  hipStream_t Stream) {
   auto ChipEvent = static_cast<CHIPEvent *>(Event);
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
@@ -2307,7 +2307,7 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIPInitialize();
   // TODO: Why does this check fail for OpenCL but not for Level0
   NULLCHECK(Event);
-  RETURN(hipEventRecord_internal(Event, Stream));
+  RETURN(hipEventRecordInternal(Event, Stream));
   CHIP_CATCH
 }
 
@@ -2379,7 +2379,7 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipMalloc_internal(void **Ptr, size_t Size) {
+static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
   if (Size == 0) {
     *Ptr = nullptr;
     return hipSuccess;
@@ -2389,7 +2389,7 @@ static inline hipError_t hipMalloc_internal(void **Ptr, size_t Size) {
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
-  logInfo("hipMalloc_internal(ptr={}, size={})", (void *)RetVal, Size);
+  logInfo("hipMallocInternal(ptr={}, size={})", (void *)RetVal, Size);
 
   // currently required for PVC
   bool firstTouch;
@@ -2404,7 +2404,7 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Ptr);
-  RETURN(hipMalloc_internal(Ptr, Size));
+  RETURN(hipMallocInternal(Ptr, Size));
   CHIP_CATCH
 }
 
@@ -2445,7 +2445,7 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIP_CATCH
 };
 
-static inline hipError_t hipHostMalloc_internal(void **Ptr, size_t Size,
+static inline hipError_t hipHostMallocInternal(void **Ptr, size_t Size,
                                                 unsigned int Flags) {
   if (Ptr == nullptr)
     CHIPERR_LOG_AND_THROW("Ptr is null", hipErrorInvalidValue);
@@ -2472,28 +2472,28 @@ static inline hipError_t hipHostMalloc_internal(void **Ptr, size_t Size,
 hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipHostMalloc_internal(Ptr, Size, Flags));
+  RETURN(hipHostMallocInternal(Ptr, Size, Flags));
   CHIP_CATCH
 }
 
 hipError_t hipMallocHost(void **Ptr, size_t Size) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipHostMalloc_internal(Ptr, Size, hipHostMallocDefault));
+  RETURN(hipHostMallocInternal(Ptr, Size, hipHostMallocDefault));
   CHIP_CATCH
 }
 
 hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipHostMalloc_internal(Ptr, Size, Flags));
+  RETURN(hipHostMallocInternal(Ptr, Size, Flags));
   CHIP_CATCH
 }
 
-static inline hipError_t hipFree_internal(void *Ptr) {
-  logInfo("hipFree_internal(ptr={})", (void *)Ptr);
+static inline hipError_t hipFreeInternal(void *Ptr) {
+  logInfo("hipFreeInternal(ptr={})", (void *)Ptr);
 
-  auto Status = hipDeviceSynchronize_internal();
+  auto Status = hipDeviceSynchronizeInternal();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
 
   if (Ptr == nullptr)
@@ -2504,27 +2504,27 @@ static inline hipError_t hipFree_internal(void *Ptr) {
 hipError_t hipFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipFree_internal(Ptr));
+  RETURN(hipFreeInternal(Ptr));
   CHIP_CATCH
 }
 
-static inline hipError_t hipHostFree_internal(void *Ptr) {
+static inline hipError_t hipHostFreeInternal(void *Ptr) {
   int Status = munlock(Ptr, 0);
   assert(Status == 0 && "Failed to unlock page-locked memory");
-  return hipFree_internal(Ptr);
+  return hipFreeInternal(Ptr);
 }
 
 hipError_t hipHostFree(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipHostFree_internal(Ptr));
+  RETURN(hipHostFreeInternal(Ptr));
   CHIP_CATCH
 }
 
 hipError_t hipFreeHost(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipHostFree_internal(Ptr));
+  RETURN(hipHostFreeInternal(Ptr));
   CHIP_CATCH
 }
 
@@ -2620,7 +2620,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     }
 
   void *DevPtr;
-  auto Err = hipMalloc_internal(&DevPtr, SizeBytes);
+  auto Err = hipMallocInternal(&DevPtr, SizeBytes);
   ERROR_IF(Err != hipSuccess, Err);
 
   // Associate the pointer
@@ -2640,13 +2640,13 @@ hipError_t hipHostUnregister(void *HostPtr) {
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
-  auto Err = hipFree_internal(AllocInfo->DevPtr);
+  auto Err = hipFreeInternal(AllocInfo->DevPtr);
   RETURN(Err);
 
   CHIP_CATCH
 }
 
-static inline hipError_t hipMallocPitch3D_internal(void **Ptr, size_t *Pitch,
+static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
                                                    size_t Width, size_t Height,
                                                    size_t Depth) {
   *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
@@ -2667,7 +2667,7 @@ hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
   CHIPInitialize();
   NULLCHECK(Ptr, Pitch);
 
-  RETURN(hipMallocPitch3D_internal(Ptr, Pitch, Width, Height, 0));
+  RETURN(hipMallocPitch3DInternal(Ptr, Pitch, Width, Height, 0));
 
   CHIP_CATCH
 }
@@ -2842,7 +2842,7 @@ hipError_t hipFreeArray(hipArray *Array) {
   CHIPInitialize();
   NULLCHECK(Array, Array->data);
 
-  hipError_t Err = hipFree_internal(Array->data);
+  hipError_t Err = hipFreeInternal(Array->data);
   delete Array;
   RETURN(Err);
 
@@ -2858,7 +2858,7 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
 
   size_t Pitch;
 
-  hipError_t HipStatus = hipMallocPitch3D_internal(
+  hipError_t HipStatus = hipMallocPitch3DInternal(
       &PitchedDevPtr->ptr, &Pitch, Extent.width, Extent.height, Extent.depth);
 
   if (HipStatus == hipSuccess) {
@@ -2900,7 +2900,7 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipMemcpy_internal(void *Dst, const void *Src,
+static inline hipError_t hipMemcpyInternal(void *Dst, const void *Src,
                                             size_t SizeBytes,
                                             hipMemcpyKind Kind) {
   logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
@@ -2929,7 +2929,7 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, Kind));
+  RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, Kind));
   CHIP_CATCH
 }
 
@@ -2937,7 +2937,7 @@ hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t Dst, hipDeviceptr_t Src,
                               size_t SizeBytes, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice,
+  RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice,
                                  Stream));
   CHIP_CATCH
 }
@@ -2946,7 +2946,7 @@ hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
                          size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice));
+  RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice));
   CHIP_CATCH
 }
 
@@ -2954,7 +2954,7 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
                               hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, hipMemcpyHostToDevice,
+  RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, hipMemcpyHostToDevice,
                                  Stream));
   CHIP_CATCH
 }
@@ -2962,7 +2962,7 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
 hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, hipMemcpyHostToDevice));
+  RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, hipMemcpyHostToDevice));
   CHIP_CATCH
 }
 
@@ -2970,7 +2970,7 @@ hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
                               hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpyAsync_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost,
+  RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost,
                                  Stream));
   CHIP_CATCH
 }
@@ -2978,11 +2978,11 @@ hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
 hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipMemcpy_internal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
+  RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
   CHIP_CATCH
 }
 
-static inline hipError_t hipMemsetAsync_internal(void *Dst, int Value,
+static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
                                                  size_t SizeBytes,
                                                  hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
@@ -3009,11 +3009,11 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
-  RETURN(hipMemsetAsync_internal(Dst, Value, SizeBytes, Stream));
+  RETURN(hipMemsetAsyncInternal(Dst, Value, SizeBytes, Stream));
   CHIP_CATCH
 }
 
-static inline hipError_t hipMemset2DAsync_internal(void *Dst, size_t Pitch,
+static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
                                                    int Value, size_t Width,
                                                    size_t Height,
                                                    hipStream_t Stream) {
@@ -3036,7 +3036,7 @@ static inline hipError_t hipMemset2DAsync_internal(void *Dst, size_t Pitch,
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    auto Res = hipMemsetAsync_internal(DstP + Offset, Value, SizeBytes, Stream);
+    auto Res = hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
     if (Res != hipSuccess)
       break;
   }
@@ -3049,7 +3049,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
-  RETURN(hipMemset2DAsync_internal(Dst, Pitch, Value, Width, Height, Stream));
+  RETURN(hipMemset2DAsyncInternal(Dst, Pitch, Value, Width, Height, Stream));
   CHIP_CATCH
 }
 
@@ -3060,7 +3060,7 @@ hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
   NULLCHECK(Dst);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemset2DAsync_internal(Dst, Pitch, Value, Width, Height, ChipQueue);
+  auto Res = hipMemset2DAsyncInternal(Dst, Pitch, Value, Width, Height, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
@@ -3069,7 +3069,7 @@ hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
 }
 
 static inline hipError_t
-hipMemset3DAsync_internal(hipPitchedPtr PitchedDevPtr, int Value,
+hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr, int Value,
                           hipExtent Extent, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {
@@ -3106,7 +3106,7 @@ hipMemset3DAsync_internal(hipPitchedPtr PitchedDevPtr, int Value,
   size_t Depth = Extent.depth;
 
   if (PitchedDevPtr.pitch == Extent.width) {
-    return hipMemsetAsync_internal(PitchedDevPtr.ptr, Value,
+    return hipMemsetAsyncInternal(PitchedDevPtr.ptr, Value,
                                    Width * Height * Depth, Stream);
   }
 
@@ -3121,7 +3121,7 @@ hipMemset3DAsync_internal(hipPitchedPtr PitchedDevPtr, int Value,
       size_t SizeBytes = Width;
       auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
       char *DstP = (char *)Dst;
-      auto Res = hipMemsetAsync_internal(DstP + Offset, Value, SizeBytes,
+      auto Res = hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes,
                                          Stream);
       if (Res != hipSuccess)
         break;
@@ -3135,7 +3135,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr.ptr);
-  RETURN(hipMemset3DAsync_internal(PitchedDevPtr, Value, Extent, Stream));
+  RETURN(hipMemset3DAsyncInternal(PitchedDevPtr, Value, Extent, Stream));
   CHIP_CATCH
 }
 
@@ -3146,7 +3146,7 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
   NULLCHECK(PitchedDevPtr.ptr);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemset3DAsync_internal(PitchedDevPtr, Value, Extent, ChipQueue);
+  auto Res = hipMemset3DAsyncInternal(PitchedDevPtr, Value, Extent, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
@@ -3154,7 +3154,7 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_CATCH
 }
 
-static inline hipError_t hipMemset_internal(void *Dst, int Value, size_t SizeBytes) {
+static inline hipError_t hipMemsetInternal(void *Dst, int Value, size_t SizeBytes) {
   logInfo("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
 
   char CharVal = Value;
@@ -3203,7 +3203,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst);
-  RETURN(hipMemset_internal(Dst, Value,SizeBytes));
+  RETURN(hipMemsetInternal(Dst, Value,SizeBytes));
   CHIP_CATCH
 }
 
@@ -3237,7 +3237,7 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dest);
-  RETURN(hipMemset_internal(Dest, Value, SizeBytes));
+  RETURN(hipMemsetInternal(Dest, Value, SizeBytes));
   CHIP_CATCH
 }
 
@@ -3318,7 +3318,7 @@ hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
   CHIPInitialize();
   NULLCHECK(PCopy);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemcpyParam2DAsync_internal(PCopy, ChipQueue);
+  auto Res = hipMemcpyParam2DAsyncInternal(PCopy, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
@@ -3337,7 +3337,7 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  hipError_t Res = hipMemcpy2DAsync_internal(Dst, DPitch, Src, SPitch, Width,
+  hipError_t Res = hipMemcpy2DAsyncInternal(Dst, DPitch, Src, SPitch, Width,
                                              Height, Kind, ChipQueue);
 
   if (Res == hipSuccess)
@@ -3348,7 +3348,7 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
 }
 
 static inline hipError_t
-hipMemcpy2DToArrayAsync_internal(hipArray *Dst, size_t WOffset,
+hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset,
                                  size_t HOffset, const void *Src,
                                  size_t SPitch, size_t Width, size_t Height,
                                  hipMemcpyKind Kind, hipStream_t Stream) {
@@ -3381,7 +3381,7 @@ hipMemcpy2DToArrayAsync_internal(hipArray *Dst, size_t WOffset,
   for (size_t Offset = HOffset; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
-    if (hipMemcpyAsync_internal(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
+    if (hipMemcpyAsyncInternal(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
       return hipErrorLaunchFailure;
   }
 
@@ -3395,7 +3395,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
-  RETURN(hipMemcpy2DToArrayAsync_internal(Dst, WOffset, HOffset, Src, SPitch,
+  RETURN(hipMemcpy2DToArrayAsyncInternal(Dst, WOffset, HOffset, Src, SPitch,
                                           Width, Height, Kind, Stream));
   CHIP_CATCH
 };
@@ -3408,7 +3408,7 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   NULLCHECK(Dst, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  auto Res = hipMemcpy2DToArrayAsync_internal(Dst, WOffset, HOffset, Src,
+  auto Res = hipMemcpy2DToArrayAsyncInternal(Dst, WOffset, HOffset, Src,
                                               SPitch, Width, Height, Kind,
                                               ChipQueue);
 
@@ -3420,7 +3420,7 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
 }
 
 static inline hipError_t
-hipMemcpy2DFromArrayAsync_internal(void *Dst, size_t DPitch,
+hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
                                    hipArray_const_t Src, size_t WOffset,
                                    size_t HOffset, size_t Width,
                                    size_t Height, hipMemcpyKind Kind,
@@ -3473,7 +3473,7 @@ hipMemcpy2DFromArrayAsync_internal(void *Dst, size_t DPitch,
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
-    auto Err = hipMemcpyAsync_internal(DstP, SrcP, Width, Kind, Stream);
+    auto Err = hipMemcpyAsyncInternal(DstP, SrcP, Width, Kind, Stream);
     ERROR_IF(Err != hipSuccess, Err);
   }
 
@@ -3488,7 +3488,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Src);
-  RETURN(hipMemcpy2DFromArrayAsync_internal(Dst, DPitch, Src, WOffset, HOffset,
+  RETURN(hipMemcpy2DFromArrayAsyncInternal(Dst, DPitch, Src, WOffset, HOffset,
                                             Width, Height, Kind, Stream));
   CHIP_CATCH
 }
@@ -3501,7 +3501,7 @@ hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
   NULLCHECK(Dst, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  auto Res = hipMemcpy2DFromArrayAsync_internal(Dst, DPitch, Src, WOffset,
+  auto Res = hipMemcpy2DFromArrayAsyncInternal(Dst, DPitch, Src, WOffset,
                                                 HOffset, Width, Height, Kind,
                                                 ChipQueue);
   if (Res == hipSuccess)
@@ -3518,7 +3518,7 @@ hipError_t hipMemcpyToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   NULLCHECK(Dst, Src);
 
   void *DstP = (unsigned char *)Dst->data + WOffset;
-  RETURN(hipMemcpy_internal(DstP, Src, Count, Kind));
+  RETURN(hipMemcpyInternal(DstP, Src, Count, Kind));
   CHIP_CATCH
 }
 
@@ -3530,7 +3530,7 @@ hipError_t hipMemcpyFromArray(void *Dst, hipArray_const_t SrcArray,
   NULLCHECK(Dst, SrcArray);
 
   void *SrcP = (unsigned char *)SrcArray->data + WOffset;
-  RETURN(hipMemcpy_internal(Dst, SrcP, Count, Kind));
+  RETURN(hipMemcpyInternal(Dst, SrcP, Count, Kind));
 
   CHIP_CATCH
 }
@@ -3548,7 +3548,7 @@ hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
   if (Info->Size < Count)
     CHIPERR_LOG_AND_THROW("MemCopy larger than allocated size", hipErrorTbd);
 
-  RETURN(hipMemcpy_internal((char *)Dst, (char *)SrcArray->data + SrcOffset,
+  RETURN(hipMemcpyInternal((char *)Dst, (char *)SrcArray->data + SrcOffset,
                             Count, hipMemcpyDeviceToHost));
 
   CHIP_CATCH
@@ -3571,14 +3571,14 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
     CHIPERR_LOG_AND_THROW("Copy size greater than allocation size",
                           hipErrorTbd);
 
-  RETURN(hipMemcpy_internal((char *)DstArray->data + DstOffset, SrcHost,
+  RETURN(hipMemcpyInternal((char *)DstArray->data + DstOffset, SrcHost,
                             Count, hipMemcpyHostToDevice));
 
   CHIP_CATCH
 }
 
 static inline hipError_t
-hipMemcpy3DAsync_internal(const struct hipMemcpy3DParms *Params,
+hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
                           hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
@@ -3661,7 +3661,7 @@ hipMemcpy3DAsync_internal(const struct hipMemcpy3DParms *Params,
   }
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-    return hipMemcpy_internal((void *)DstPtr, (void *)SrcPtr,
+    return hipMemcpyInternal((void *)DstPtr, (void *)SrcPtr,
                               WidthInBytes * Height * Depth, Params->kind);
   } else {
     for (size_t i = 0; i < Depth; i++) {
@@ -3670,7 +3670,7 @@ hipMemcpy3DAsync_internal(const struct hipMemcpy3DParms *Params,
             (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
         unsigned char *Dst =
             (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        if (hipMemcpyAsync_internal(Dst, Src, WidthInBytes, Params->kind,
+        if (hipMemcpyAsyncInternal(Dst, Src, WidthInBytes, Params->kind,
                                     Stream) != hipSuccess)
           return hipErrorLaunchFailure;
       }
@@ -3687,7 +3687,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Params);
-  RETURN(hipMemcpy3DAsync_internal(Params, Stream));
+  RETURN(hipMemcpy3DAsyncInternal(Params, Stream));
   CHIP_CATCH
 }
 
@@ -3697,7 +3697,7 @@ hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
   NULLCHECK(Params);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
-  auto Res = hipMemcpy3DAsync_internal(Params, ChipQueue);
+  auto Res = hipMemcpy3DAsyncInternal(Params, ChipQueue);
   if (Res == hipSuccess)
     ChipQueue->finish();
 
@@ -3749,7 +3749,7 @@ hipError_t hipGetSymbolSize(size_t *Size, const void *Symbol) {
 }
 
 static inline hipError_t
-hipMemcpyToSymbolAsync_internal(const void *Symbol, const void *Src,
+hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
                                 size_t SizeBytes, size_t Offset,
                                 hipMemcpyKind Kind, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
@@ -3765,7 +3765,7 @@ hipMemcpyToSymbolAsync_internal(const void *Symbol, const void *Src,
   void *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Found the symbol but not its device address?");
 
-  return hipMemcpyAsync_internal((void *)((intptr_t)DevPtr + Offset), Src,
+  return hipMemcpyAsyncInternal((void *)((intptr_t)DevPtr + Offset), Src,
                                  SizeBytes, Kind, Stream);
 }
 
@@ -3775,7 +3775,7 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Symbol, Src);
-  RETURN(hipMemcpyToSymbolAsync_internal(Symbol, Src, SizeBytes, Offset,
+  RETURN(hipMemcpyToSymbolAsyncInternal(Symbol, Src, SizeBytes, Offset,
                                          Kind, Stream));
   CHIP_CATCH
 }
@@ -3788,7 +3788,7 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   NULLCHECK(Symbol, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  hipError_t Res = hipMemcpyToSymbolAsync_internal(Symbol, Src, SizeBytes,
+  hipError_t Res = hipMemcpyToSymbolAsyncInternal(Symbol, Src, SizeBytes,
                                                    Offset, Kind, ChipQueue);
 
   if (Res == hipSuccess)
@@ -3799,7 +3799,7 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
 }
 
 static inline hipError_t
-hipMemcpyFromSymbolAsync_internal(void *Dst, const void *Symbol,
+hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
                                   size_t SizeBytes, size_t Offset,
                                   hipMemcpyKind Kind, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
@@ -3813,7 +3813,7 @@ hipMemcpyFromSymbolAsync_internal(void *Dst, const void *Symbol,
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   void *DevPtr = Var->getDevAddr();
 
-  return hipMemcpyAsync_internal(Dst, (void *)((intptr_t)DevPtr + Offset),
+  return hipMemcpyAsyncInternal(Dst, (void *)((intptr_t)DevPtr + Offset),
                                  SizeBytes, Kind, Stream);
 }
 
@@ -3823,7 +3823,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dst, Symbol);
-  RETURN(hipMemcpyFromSymbolAsync_internal(Dst, Symbol, SizeBytes, Offset,
+  RETURN(hipMemcpyFromSymbolAsyncInternal(Dst, Symbol, SizeBytes, Offset,
                                            Kind, Stream));
   CHIP_CATCH
 }
@@ -3836,7 +3836,7 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
-  hipError_t Res = hipMemcpyFromSymbolAsync_internal(Dst, Symbol, SizeBytes,
+  hipError_t Res = hipMemcpyFromSymbolAsyncInternal(Dst, Symbol, SizeBytes,
                                                      Offset, Kind, ChipQueue);
 
   if (Res == hipSuccess)
@@ -3846,7 +3846,7 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
   CHIP_CATCH
 }
 
-static inline hipError_t hipModuleLoadData_internal(hipModule_t *ModuleHandle,
+static inline hipError_t hipModuleLoadDataInternal(hipModule_t *ModuleHandle,
                                                     const void *Image) {
   std::string ErrorMsg;
   // Image is expected to be a Clang offload bundle.
@@ -3868,7 +3868,7 @@ hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(ModuleHandle, Image);
-  RETURN(hipModuleLoadData_internal(ModuleHandle, Image));
+  RETURN(hipModuleLoadDataInternal(ModuleHandle, Image));
   CHIP_CATCH
 }
 
@@ -3878,12 +3878,12 @@ hipError_t hipModuleLoadDataEx(hipModule_t *Module, const void *Image,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Module, Image);
-  RETURN(hipModuleLoadData_internal(Module, Image));
+  RETURN(hipModuleLoadDataInternal(Module, Image));
   CHIP_CATCH
 }
 
 static inline hipError_t
-hipLaunchKernel_internal(const void *HostFunction, dim3 GridDim,
+hipLaunchKernelInternal(const void *HostFunction, dim3 GridDim,
                          dim3 BlockDim, void **Args, size_t SharedMem,
                          hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
@@ -3911,7 +3911,7 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(HostFunction, Args);
-  RETURN(hipLaunchKernel_internal(HostFunction, GridDim, BlockDim, Args,
+  RETURN(hipLaunchKernelInternal(HostFunction, GridDim, BlockDim, Args,
                                   SharedMem, Stream));
   CHIP_CATCH
 }
@@ -4102,7 +4102,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
 }
 
 static inline hipError_t
-hipModuleLaunchKernel_internal(hipFunction_t Kernel, unsigned int GridDimX,
+hipModuleLaunchKernelInternal(hipFunction_t Kernel, unsigned int GridDimX,
                                unsigned int GridDimY, unsigned int GridDimZ,
                                unsigned int BlockDimX, unsigned int BlockDimY,
                                unsigned int BlockDimZ,
@@ -4169,7 +4169,7 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
                                  void *Extra[]) {
   CHIP_TRY
   CHIPInitialize();
-  RETURN(hipModuleLaunchKernel_internal(Kernel, GridDimX, GridDimY, GridDimZ,
+  RETURN(hipModuleLaunchKernelInternal(Kernel, GridDimX, GridDimY, GridDimZ,
                                         BlockDimX, BlockDimY, BlockDimZ,
                                         SharedMemBytes, Stream, KernelParams,
                                         Extra));
@@ -4188,7 +4188,7 @@ hipError_t hipExtModuleLaunchKernel(
   CHIP_TRY
   NULLCHECK(Kernel);
   // Null checks on the KernelParams and Extra arguments are performed by
-  // hipModuleLaunchKernel_internal().
+  // hipModuleLaunchKernelInternal().
   CHIPInitialize();
 
   // TODO: Process flags (hipExtAnyOrderLaunch).
@@ -4206,11 +4206,11 @@ hipError_t hipExtModuleLaunchKernel(
   hipError_t Result = hipSuccess;
 
   if (StartEvent)
-    Result = hipEventRecord_internal(StartEvent, Stream);
+    Result = hipEventRecordInternal(StartEvent, Stream);
   if (Result != hipSuccess)
     RETURN(Result);
 
-  Result = hipModuleLaunchKernel_internal(Kernel, GridBlocksX, GridBlocksY,
+  Result = hipModuleLaunchKernelInternal(Kernel, GridBlocksX, GridBlocksY,
                                           GridBlocksZ, LocalWorkSizeX,
                                           LocalWorkSizeY, LocalWorkSizeZ,
                                           SharedMemBytes, Stream, KernelParams,
@@ -4219,7 +4219,7 @@ hipError_t hipExtModuleLaunchKernel(
     RETURN(Result);
 
   if (StopEvent)
-    Result = hipEventRecord_internal(StopEvent, Stream);
+    Result = hipEventRecordInternal(StopEvent, Stream);
 
   RETURN(Result);
   CHIP_CATCH
@@ -4539,11 +4539,11 @@ hipError_t hipMemcpy_spt(void *dst, const void *src, size_t sizeBytes,
                          hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  hipError_t Res = hipMemcpyAsync_internal(dst, src, sizeBytes, kind,
+  hipError_t Res = hipMemcpyAsyncInternal(dst, src, sizeBytes, kind,
                                            hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4553,12 +4553,12 @@ hipError_t hipMemcpyToSymbol_spt(const void *symbol, const void *src,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(symbol, src);
-  hipError_t Res = hipMemcpyToSymbolAsync_internal(symbol, src, sizeBytes,
+  hipError_t Res = hipMemcpyToSymbolAsyncInternal(symbol, src, sizeBytes,
                                                    offset, kind,
                                                    hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4568,12 +4568,12 @@ hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(dst, symbol);
-  hipError_t Res = hipMemcpyFromSymbolAsync_internal(dst, symbol, sizeBytes,
+  hipError_t Res = hipMemcpyFromSymbolAsyncInternal(dst, symbol, sizeBytes,
                                                      offset, kind,
                                                      hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4582,11 +4582,11 @@ hipError_t hipMemcpy2D_spt(void *dst, size_t dpitch, const void *src,
                            hipMemcpyKind kind) {
   CHIP_TRY
   CHIPInitialize();
-  hipError_t Res = hipMemcpy2DAsync_internal(dst, dpitch, src, spitch, width,
+  hipError_t Res = hipMemcpy2DAsyncInternal(dst, dpitch, src, spitch, width,
                                              height, kind, hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4596,12 +4596,12 @@ hipError_t hipMemcpy2DToArray_spt(hipArray *dst, size_t wOffset, size_t hOffset,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(dst, src);
-  hipError_t Res = hipMemcpy2DToArrayAsync_internal(dst, wOffset, hOffset, src,
+  hipError_t Res = hipMemcpy2DToArrayAsyncInternal(dst, wOffset, hOffset, src,
                                                     spitch, width, height,
                                                     kind, hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4612,12 +4612,12 @@ hipError_t hipMemcpy2DFromArray_spt(void *dst, size_t dpitch,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(dst, src);
-  hipError_t Res = hipMemcpy2DFromArrayAsync_internal(dst, dpitch, src, wOffset,
+  hipError_t Res = hipMemcpy2DFromArrayAsyncInternal(dst, dpitch, src, wOffset,
                                                       hOffset, width, height,
                                                       kind, hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4625,10 +4625,10 @@ hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms *p) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(p);
-  hipError_t Res = hipMemcpy3DAsync_internal(p, hipStreamPerThread);
+  hipError_t Res = hipMemcpy3DAsyncInternal(p, hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4636,11 +4636,11 @@ hipError_t hipMemset_spt(void *dst, int value, size_t sizeBytes) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(dst);
-  hipError_t Res = hipMemsetAsync_internal(dst, value, sizeBytes,
+  hipError_t Res = hipMemsetAsyncInternal(dst, value, sizeBytes,
                                            hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4649,11 +4649,11 @@ hipError_t hipMemset2D_spt(void *dst, size_t pitch, int value, size_t width,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(dst);
-  hipError_t Res = hipMemset2DAsync_internal(dst, pitch, value, width, height,
+  hipError_t Res = hipMemset2DAsyncInternal(dst, pitch, value, width, height,
                                              hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4662,11 +4662,11 @@ hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int value,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(pitchedDevPtr.ptr);
-  hipError_t Res = hipMemset3DAsync_internal(pitchedDevPtr, value, extent,
+  hipError_t Res = hipMemset3DAsyncInternal(pitchedDevPtr, value, extent,
                                              hipStreamPerThread);
   if (hipSuccess != Res)
       RETURN(Res);
-  RETURN(hipStreamSynchronize_internal(hipStreamPerThread));
+  RETURN(hipStreamSynchronizeInternal(hipStreamPerThread));
   CHIP_CATCH
 }
 
@@ -4675,7 +4675,7 @@ hipError_t hipMemcpyAsync_spt(void *dst, const void *src, size_t sizeBytes,
   CHIP_TRY
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipMemcpyAsync_internal(dst, src, sizeBytes, kind, Queue));
+  RETURN(hipMemcpyAsyncInternal(dst, src, sizeBytes, kind, Queue));
   CHIP_CATCH
 }
 
@@ -4683,7 +4683,7 @@ hipError_t hipStreamQuery_spt(hipStream_t stream) {
   CHIP_TRY
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipStreamQuery_internal(Queue));
+  RETURN(hipStreamQueryInternal(Queue));
   CHIP_CATCH
 }
 
@@ -4691,7 +4691,7 @@ hipError_t hipStreamSynchronize_spt(hipStream_t stream) {
   CHIP_TRY
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipStreamSynchronize_internal(Queue));
+  RETURN(hipStreamSynchronizeInternal(Queue));
   CHIP_CATCH
 }
 
@@ -4699,7 +4699,7 @@ hipError_t hipStreamGetPriority_spt(hipStream_t stream, int *priority) {
   CHIP_TRY
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipStreamGetPriority_internal(Queue, priority));
+  RETURN(hipStreamGetPriorityInternal(Queue, priority));
   CHIP_CATCH
 }
 
@@ -4708,7 +4708,7 @@ hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event,
   CHIP_TRY
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipStreamWaitEvent_internal(Queue, event, flags));
+  RETURN(hipStreamWaitEventInternal(Queue, event, flags));
   CHIP_CATCH
 }
 
@@ -4717,7 +4717,7 @@ hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
   CHIPInitialize();
   NULLCHECK(Event);
   auto Queue = Stream ? Stream : hipStreamPerThread;
-  RETURN(hipEventRecord_internal(Event, Queue));
+  RETURN(hipEventRecordInternal(Event, Queue));
   CHIP_CATCH
 }
 
@@ -4726,7 +4726,7 @@ hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int *flags) {
   CHIPInitialize();
   NULLCHECK(flags);
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipStreamGetFlags_internal(Queue, flags));
+  RETURN(hipStreamGetFlagsInternal(Queue, flags));
   CHIP_CATCH
 }
 
@@ -4744,7 +4744,7 @@ hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
   CHIPInitialize();
   NULLCHECK(function_address, args);
   auto Queue = stream ? stream : hipStreamPerThread;
-  RETURN(hipLaunchKernel_internal(function_address, numBlocks, dimBlocks, args,
+  RETURN(hipLaunchKernelInternal(function_address, numBlocks, dimBlocks, args,
                                   sharedMemBytes, Queue));
   CHIP_CATCH
 }
