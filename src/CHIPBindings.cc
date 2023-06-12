@@ -224,7 +224,9 @@ hipError_t hipGraphReleaseUserObject(hipGraph_t graph, hipUserObject_t object,
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipInit(unsigned int flags) { return hipSuccess; };
+hipError_t hipInit(unsigned int flags) {
+  return flags ? hipErrorInvalidValue : hipSuccess;
+};
 
 // Handles device side abort() call by checking the abort flag global
 // variable used for signaling the request.
