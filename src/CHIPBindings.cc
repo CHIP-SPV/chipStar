@@ -2431,7 +2431,8 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
                            unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(HostPtr);
+  if (!HostPtr || !SizeBytes)
+    RETURN(hipErrorInvalidValue);
 
   // TODO fixOpenCLTests - make this a class
   if (Flags)
@@ -2448,8 +2449,10 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     }
 
   void *DevPtr;
-  auto Err = hipMalloc(&DevPtr, SizeBytes);
-  ERROR_IF(Err != hipSuccess, Err);
+  if (hipMalloc(&DevPtr, SizeBytes) != hipSuccess)
+    // Translate hipOutOfMemory to hipErrorInvalidValue. The latter is
+    // the one hip-tests suite expects in case of OoM.
+    RETURN(hipErrorInvalidValue);
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();

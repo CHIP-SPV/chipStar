@@ -323,9 +323,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKerneland
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - int") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - float") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - double") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - int") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - float") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - double") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
@@ -693,9 +690,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - int") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - float") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - double") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - int") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - float") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - double") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
@@ -1088,9 +1082,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - int") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - float") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Flags - double") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - int") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - float") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Negative - double") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
@@ -1492,9 +1483,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Memcpy - double") # T
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Flags - int") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Flags - float") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Flags - double") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Negative - int") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Negative - float") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Negative - double") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
@@ -1866,9 +1854,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Flags - int") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Flags - float") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Flags - double") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Negative - int") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Negative - float") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Negative - double") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
@@ -2269,9 +2254,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhi
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_Flags - int") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_Flags - float") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_Flags - double") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_Negative - int") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_Negative - float") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_Negative - double") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT

@@ -474,6 +474,12 @@ public:
     CHIPASSERT(HostPtr && "HostPtr is null");
     CHIPASSERT(DevPtr && "DevPtr is null");
     auto AllocInfo = this->getAllocInfo(DevPtr);
+    if (AllocInfo->HostPtr)
+      // HIP test suite expects hipErrorInvalidValue, HIP API does not
+      // meantion it. If we followed CUDA Runtime API, we'd return
+      // hipErrorHostMemoryAlreadyRegistered.
+      CHIPERR_LOG_AND_THROW("Host memory is already registered!",
+                            hipErrorInvalidValue);
     AllocInfo->HostPtr = HostPtr;
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
     AllocInfo->MemoryType = hipMemoryTypeManaged;
