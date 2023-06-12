@@ -301,6 +301,7 @@ public:
     LOCK(ContextMtx); // CHIPContext::EventPools
     std::shared_ptr<CHIPEventLevel0> Event;
     for (auto EventPool : EventPools_) {
+      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
       if (EventPool->EventAvailable())
         return EventPool->getEvent();
     }

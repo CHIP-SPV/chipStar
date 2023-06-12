@@ -1431,7 +1431,6 @@ LZEventPool::~LZEventPool() {
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   std::shared_ptr<CHIPEventLevel0> Event;
   {
-    LOCK(EventPoolMtx); // LZEventPool::Events_
     int PoolIndex = getFreeSlot();
     if (PoolIndex == -1)
       return nullptr;
