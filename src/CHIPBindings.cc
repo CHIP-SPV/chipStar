@@ -2476,7 +2476,6 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_CATCH
 }
 
-DEPRECATED("use hipHostMalloc instead")
 hipError_t hipMallocHost(void **Ptr, size_t Size) {
   CHIP_TRY
   CHIPInitialize();
@@ -2484,7 +2483,6 @@ hipError_t hipMallocHost(void **Ptr, size_t Size) {
   CHIP_CATCH
 }
 
-DEPRECATED("use hipHostMalloc instead")
 hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
@@ -2523,7 +2521,6 @@ hipError_t hipHostFree(void *Ptr) {
   CHIP_CATCH
 }
 
-DEPRECATED("use hipHostFree instead")
 hipError_t hipFreeHost(void *Ptr) {
   CHIP_TRY
   CHIPInitialize();
