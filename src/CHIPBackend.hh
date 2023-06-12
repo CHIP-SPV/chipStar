@@ -632,7 +632,7 @@ protected:
    *
    */
   CHIPEvent() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~CHIPEvent() {};
+  virtual ~CHIPEvent(){};
 
 public:
   void markTracked() { TrackCalled_ = true; }
@@ -1755,7 +1755,7 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
-  std::shared_ptr<CHIPEvent> userEventLookup(CHIPEvent* EventPtr) {
+  std::shared_ptr<CHIPEvent> userEventLookup(CHIPEvent *EventPtr) {
     std::lock_guard<std::mutex> Lock(UserEventsMtx);
     for (auto &UserEvent : UserEvents) {
       if (UserEvent.get() == EventPtr) {
@@ -1976,10 +1976,9 @@ public:
    * prevent it from being garbage collected.
    * @return CHIPEvent* Event
    */
-  virtual std::shared_ptr<CHIPEvent> createCHIPEvent(CHIPContext *ChipCtx,
-                                                   CHIPEventFlags Flags =
-                                                       CHIPEventFlags(),
-                                                   bool UserEvent = false) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false) = 0;
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
@@ -2031,7 +2030,7 @@ protected:
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
   std::shared_ptr<CHIPEvent> RegisteredVarCopy(CHIPExecItem *ExecItem,
-                               MANAGED_MEM_STATE ExecState);
+                                               MANAGED_MEM_STATE ExecState);
 
 public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
@@ -2136,8 +2135,8 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual std::shared_ptr<CHIPEvent> memCopyAsyncImpl(void *Dst, const void *Src,
-                                      size_t Size) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
   /**
@@ -2160,8 +2159,8 @@ public:
    * @param pattern_size
    */
   virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
-                                      const void *Pattern,
-                                      size_t PatternSize) = 0;
+                                                      const void *Pattern,
+                                                      size_t PatternSize) = 0;
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
 
@@ -2169,9 +2168,9 @@ public:
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
-  virtual std::shared_ptr<CHIPEvent> memCopy2DAsyncImpl(void *Dst, size_t DPitch,
-                                        const void *Src, size_t SPitch,
-                                        size_t Width, size_t Height) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopy2DAsyncImpl(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
+                     size_t Width, size_t Height) = 0;
   virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                               size_t SPitch, size_t Width, size_t Height);
 
@@ -2180,11 +2179,10 @@ public:
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
 
-  virtual std::shared_ptr<CHIPEvent> memCopy3DAsyncImpl(void *Dst, size_t DPitch,
-                                        size_t DSPitch, const void *Src,
-                                        size_t SPitch, size_t SSPitch,
-                                        size_t Width, size_t Height,
-                                        size_t Depth) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopy3DAsyncImpl(void *Dst, size_t DPitch, size_t DSPitch, const void *Src,
+                     size_t SPitch, size_t SSPitch, size_t Width, size_t Height,
+                     size_t Depth) = 0;
   virtual void memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                               const void *Src, size_t SPitch, size_t SSPitch,
                               size_t Width, size_t Height, size_t Depth);
@@ -2237,9 +2235,10 @@ public:
    * @return true
    * @return false
    */
-  virtual std::shared_ptr<CHIPEvent> 
-  enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) = 0;
-  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor);
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
+      std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  enqueueBarrier(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor);
 
   virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
   std::shared_ptr<CHIPEvent> enqueueMarker();
@@ -2278,7 +2277,8 @@ public:
    * @return false
    */
 
-  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr, size_t Count) = 0;
+  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
+                                                     size_t Count) = 0;
   void memPrefetch(const void *Ptr, size_t Count);
 
   /**

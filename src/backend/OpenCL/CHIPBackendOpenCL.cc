@@ -992,7 +992,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 
   // Now the CB can start executing in the background:
   clSetUserEventStatus(HoldBackEvent->ClEvent, CL_COMPLETE);
-//   HoldBackEvent->decreaseRefCount("Notified finished.");
+  //   HoldBackEvent->decreaseRefCount("Notified finished.");
 
   return;
 };
@@ -1215,8 +1215,8 @@ CHIPEvent *CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
   UNIMPLEMENTED(nullptr);
 }
 
-CHIPEvent *
-CHIPQueueOpenCL::enqueueBarrierImpl(std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
+CHIPEvent *CHIPQueueOpenCL::enqueueBarrierImpl(
+    std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitFor) {
 #ifdef DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif
