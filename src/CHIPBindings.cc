@@ -2401,13 +2401,12 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
-  if (!AllocInfo) {
-    logWarn("host pointer was not mapped via hipHostRegister... Returning host "
-            "pointer as device pointer (in case host pointer was mapped "
-            "through hipMallocShared or hipMallocHost");
-    *DevPtr = HostPtr;
-  } else
-    *DevPtr = AllocInfo->DevPtr;
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("Host pointer is not allocated by hipHostMalloc or "
+                          "registered with hipHostRegister!",
+                          hipErrorInvalidValue);
+
+  *DevPtr = AllocInfo->DevPtr;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2470,10 +2469,14 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 hipError_t hipHostUnregister(void *HostPtr) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(HostPtr);
+  if (!HostPtr)
+    CHIPERR_LOG_AND_THROW("Host pointer is nullptr!", hipErrorInvalidValue);
 
-  auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
+  auto *Device = Backend->getActiveDevice();
+  auto *AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("Host pointer is not registered!",
+                          hipErrorHostMemoryNotRegistered);
   auto Err = hipFree(AllocInfo->DevPtr);
   RETURN(Err);
 

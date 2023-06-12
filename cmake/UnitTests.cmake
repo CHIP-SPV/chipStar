@@ -320,10 +320,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Null
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_AlreadyUnregisteredPointer") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
@@ -684,10 +680,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Nul
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_AlreadyUnregisteredPointer") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
@@ -1073,10 +1065,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyHtoA_Basic - float") # Faile
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostUnregister_AlreadyUnregisteredPointer") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
@@ -1471,10 +1459,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_Memcpy - double") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_AlreadyUnregisteredPointer") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Bus error
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
@@ -1839,10 +1823,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Nul
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostUnregister_AlreadyUnregisteredPointer") # SEGFAULT
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
@@ -2236,10 +2216,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Null_O
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_MemoryNotAccessableAfterUnregister") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_NullPtr") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_NotRegisteredPointer") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostUnregister_AlreadyUnregisteredPointer") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
