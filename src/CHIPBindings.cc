@@ -2020,7 +2020,7 @@ hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
   CHIPQueue *ChipQueue =
       Dev->createQueueAndRegister(FlagsParsed, ClampedPriority);
   *Stream = ChipQueue;
-  RETURN(hipSuccess);
+  return hipSuccess;
 }
 
 hipError_t hipStreamCreate(hipStream_t *Stream) {
