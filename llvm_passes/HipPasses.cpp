@@ -27,6 +27,7 @@
 #include "HipKernelArgSpiller.h"
 #include "HipLowerZeroLengthArrays.h"
 #include "HipSanityChecks.h"
+#include "HipLowerSwitch.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -91,6 +92,8 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Remove attributes that may prevent the device code from being optimized.
   MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
+
+  MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerSwitchPass()));
 
   // Run a collection of passes run at device link time.
   MPM.addPass(HipDynMemExternReplaceNewPass());

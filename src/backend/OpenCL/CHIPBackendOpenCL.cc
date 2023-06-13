@@ -529,6 +529,11 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.maxTexture3D[0] = clampToInt(Max3DWidth);
   HipDeviceProps_.maxTexture3D[1] = clampToInt(Max3DHeight);
   HipDeviceProps_.maxTexture3D[2] = clampToInt(Max3DDepth);
+
+  constexpr char ArchName[] = "unavailable";
+  static_assert(sizeof(ArchName) <= sizeof(HipDeviceProps_.gcnArchName),
+                "Buffer overflow!");
+  std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(sizeof(ArchName)));
 }
 
 void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
