@@ -116,3 +116,4 @@ add_test(NAME "TestHipccMultiSource" COMMAND
   ${CMAKE_BINARY_DIR}/bin/hipcc.bin ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
+add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
