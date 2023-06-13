@@ -3036,9 +3036,12 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    auto Res = hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
-    if (Res != hipSuccess)
-      break;
+    if (SizeBytes > 0) {
+      auto Res =
+          hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
+      if (Res != hipSuccess)
+        break;
+    }
   }
 
   return Res;
