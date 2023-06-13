@@ -52,6 +52,7 @@
 #include "macros.hh"
 #include "Utils.hh"
 #include "SPVRegister.hh"
+#include "CHIPBindingsInternal.hh"
 #include "hipCtx.hh"
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
@@ -1872,7 +1873,7 @@ hipError_t hipPeekAtLastError(void) {
   return Backend->TlsLastError;
 }
 
-static inline const char *hipGetErrorNameInternal(hipError_t HipError) {
+const char *hipGetErrorNameInternal(hipError_t HipError) {
   switch (HipError) {
   case hipSuccess:
     return "hipSuccess";
@@ -2132,9 +2133,8 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipStreamWaitEventInternal(hipStream_t Stream,
-                                                    hipEvent_t Event,
-                                                    unsigned int Flags) {
+hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
+                                      unsigned int Flags) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   auto ChipEvent = static_cast<CHIPEvent *>(Event);
 
@@ -2289,8 +2289,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipEventRecordInternal(hipEvent_t Event,
-                                                hipStream_t Stream) {
+hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
   auto ChipEvent = static_cast<CHIPEvent *>(Event);
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
@@ -2900,9 +2899,8 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipMemcpyInternal(void *Dst, const void *Src,
-                                           size_t SizeBytes,
-                                           hipMemcpyKind Kind) {
+hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
+                             hipMemcpyKind Kind) {
   logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
           hipMemcpyKindToString(Kind));
 
@@ -3579,9 +3577,8 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
   CHIP_CATCH
 }
 
-static inline hipError_t
-hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
-                         hipStream_t Stream) {
+hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
+                                    hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
     return hipSuccess;
@@ -3750,10 +3747,10 @@ hipError_t hipGetSymbolSize(size_t *Size, const void *Symbol) {
   CHIP_CATCH
 }
 
-static inline hipError_t
-hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
-                               size_t SizeBytes, size_t Offset,
-                               hipMemcpyKind Kind, hipStream_t Stream) {
+hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
+                                          size_t SizeBytes, size_t Offset,
+                                          hipMemcpyKind Kind,
+                                          hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyToSymbol>(
           const_cast<void *>(Src), Symbol, SizeBytes, Offset, Kind)) {
@@ -3800,10 +3797,10 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   CHIP_CATCH
 }
 
-static inline hipError_t
-hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
-                                 size_t SizeBytes, size_t Offset,
-                                 hipMemcpyKind Kind, hipStream_t Stream) {
+hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
+                                            size_t SizeBytes, size_t Offset,
+                                            hipMemcpyKind Kind,
+                                            hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyFromSymbol>(
           const_cast<void *>(Dst), Symbol, SizeBytes, Offset, Kind)) {

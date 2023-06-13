@@ -31,6 +31,7 @@
  */
 
 #include "CHIPBackend.hh"
+#include "CHIPBindingsInternal.hh"
 // CHIPGraphNode
 //*************************************************************************************
 void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
@@ -103,12 +104,12 @@ void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
 
 void CHIPGraphNodeMemcpy::execute(CHIPQueue *Queue) const {
   if (Dst_ && Src_) {
-    auto Status = hipMemcpy(Dst_, Src_, Count_, Kind_);
+    auto Status = hipMemcpyInternal(Dst_, Src_, Count_, Kind_);
     if (Status != hipSuccess)
       CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                             hipErrorTbd);
   } else {
-    auto Status = hipMemcpy3DAsync(&Params_, Queue);
+    auto Status = hipMemcpy3DAsyncInternal(&Params_, Queue);
     if (Status != hipSuccess)
       CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                             hipErrorTbd);
@@ -397,7 +398,32 @@ void CHIPGraphExec::ExtractSubGraphs_() {
 }
 
 void CHIPGraphNodeEventRecord::execute(CHIPQueue *Queue) const {
-  auto Status = hipEventRecord(Event_, Queue);
+  NULLCHECK(Event_);
+  auto Status = hipEventRecordInternal(Event_, Queue);
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
+}
+
+void CHIPGraphNodeMemcpyFromSymbol::execute(CHIPQueue *Queue) const {
+  NULLCHECK(Dst_, Symbol_);
+  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  auto Status = hipMemcpyFromSymbolAsyncInternal(Dst_, Symbol_, SizeBytes_,
+                                                 Offset_, Kind_, ChipQueue);
+  if (Status == hipSuccess)
+    ChipQueue->finish();
+  if (Status != hipSuccess)
+    CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
+                          hipErrorTbd);
+}
+
+void CHIPGraphNodeMemcpyToSymbol::execute(CHIPQueue *Queue) const {
+  NULLCHECK(Symbol_, Src_);
+  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  auto Status = hipMemcpyToSymbolAsyncInternal(Symbol_, Src_, SizeBytes_,
+                                               Offset_, Kind_, ChipQueue);
+  if (Status == hipSuccess)
+    ChipQueue->finish();
   if (Status != hipSuccess)
     CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                           hipErrorTbd);
@@ -406,7 +432,7 @@ void CHIPGraphNodeEventRecord::execute(CHIPQueue *Queue) const {
 void CHIPGraphNodeWaitEvent::execute(CHIPQueue *Queue) const {
   // current HIP API requires Flags
   unsigned int Flags = 0;
-  auto Status = hipStreamWaitEvent(Queue, Event_, Flags);
+  auto Status = hipStreamWaitEventInternal(Queue, Event_, Flags);
   if (Status != hipSuccess)
     CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                           hipErrorTbd);
