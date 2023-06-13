@@ -634,7 +634,7 @@ protected:
    * constructor should be called.
    *
    */
-  CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
+  CHIPEvent() : TrackCalled_(false), UserEvent_(false) {}
 
 public:
   void sanityCheck();
