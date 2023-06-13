@@ -3793,6 +3793,17 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
                                           size_t SizeBytes, size_t Offset,
                                           hipMemcpyKind Kind,
                                           hipStream_t Stream) {
+
+  CHIPInitialize();
+  if (!Symbol)
+    CHIPERR_LOG_AND_THROW("Destination is invalid symbol!",
+                          hipErrorInvalidSymbol);
+  if (!Src)
+    CHIPERR_LOG_AND_THROW("Source is nullptr!", hipErrorInvalidValue);
+  if (!(Kind == hipMemcpyHostToDevice || Kind == hipMemcpyDeviceToDevice))
+    CHIPERR_LOG_AND_THROW("Invalid memcpy direction!",
+                          hipErrorInvalidMemcpyDirection);
+
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyToSymbol>(
           const_cast<void *>(Src), Symbol, SizeBytes, Offset, Kind)) {
@@ -3803,6 +3814,9 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
 
   CHIPDeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
+  if (Offset + SizeBytes > Var->getSize())
+    CHIPERR_LOG_AND_THROW("Copy has out-of-bounds accesses!",
+                          hipErrorInvalidValue);
   void *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Found the symbol but not its device address?");
 
@@ -3815,7 +3829,6 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
                                   hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Symbol, Src);
   RETURN(hipMemcpyToSymbolAsyncInternal(Symbol, Src, SizeBytes, Offset, Kind,
                                         Stream));
   CHIP_CATCH
@@ -3826,7 +3839,6 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
                              hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Symbol, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
   hipError_t Res = hipMemcpyToSymbolAsyncInternal(Symbol, Src, SizeBytes,
@@ -3835,7 +3847,7 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
   if (Res == hipSuccess)
     ChipQueue->finish();
 
-  RETURN(hipSuccess);
+  RETURN(Res);
   CHIP_CATCH
 }
 
@@ -3843,6 +3855,15 @@ hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
                                             size_t SizeBytes, size_t Offset,
                                             hipMemcpyKind Kind,
                                             hipStream_t Stream) {
+
+  if (!Dst)
+    CHIPERR_LOG_AND_THROW("Destination is nullptr!", hipErrorInvalidValue);
+  if (!Symbol)
+    CHIPERR_LOG_AND_THROW("Source is invalid symbol!", hipErrorInvalidSymbol);
+  if (!(Kind == hipMemcpyDeviceToHost || Kind == hipMemcpyDeviceToDevice))
+    CHIPERR_LOG_AND_THROW("Invalid memcpy direction!",
+                          hipErrorInvalidMemcpyDirection);
+
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyFromSymbol>(
           const_cast<void *>(Dst), Symbol, SizeBytes, Offset, Kind)) {
@@ -3852,6 +3873,9 @@ hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
   CHIPDeviceVar *Var = ChipQueue->getDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
+  if (Offset + SizeBytes > Var->getSize())
+    CHIPERR_LOG_AND_THROW("Copy has out-of-bounds accesses!",
+                          hipErrorInvalidValue);
   void *DevPtr = Var->getDevAddr();
 
   return hipMemcpyAsyncInternal(Dst, (void *)((intptr_t)DevPtr + Offset),
@@ -3863,7 +3887,6 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
                                     hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst, Symbol);
   RETURN(hipMemcpyFromSymbolAsyncInternal(Dst, Symbol, SizeBytes, Offset, Kind,
                                           Stream));
   CHIP_CATCH
@@ -3873,7 +3896,6 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
                                size_t Offset, hipMemcpyKind Kind) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst, Symbol);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
@@ -3883,7 +3905,7 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
   if (Res == hipSuccess)
     ChipQueue->finish();
 
-  RETURN(hipSuccess);
+  RETURN(Res);
   CHIP_CATCH
 }
 
