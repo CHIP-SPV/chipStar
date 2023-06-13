@@ -225,7 +225,12 @@ hipError_t hipGraphReleaseUserObject(hipGraph_t graph, hipUserObject_t object,
 }
 
 hipError_t hipInit(unsigned int flags) {
-  return flags ? hipErrorInvalidValue : hipSuccess;
+  CHIP_TRY
+  if (flags)
+    RETURN(hipErrorInvalidValue);
+  CHIPInitialize();
+  RETURN(hipSuccess);
+  CHIP_CATCH
 };
 
 // Handles device side abort() call by checking the abort flag global
@@ -1761,17 +1766,17 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
 }
 
 hipError_t hipGetLastError(void) {
-  CHIPInitialize();
-
-  hipError_t Temp = Backend->TlsLastError;
-  Backend->TlsLastError = hipSuccess;
+  // No runtime initialization here as the function does not depend on the
+  // driver nor the driver affects the answer.
+  hipError_t Temp = CHIPTlsLastError;
+  CHIPTlsLastError = hipSuccess;
   return Temp;
 }
 
 hipError_t hipPeekAtLastError(void) {
-  CHIPInitialize();
-
-  return Backend->TlsLastError;
+  // No runtime initialization here as the function does not depend on the
+  // driver nor the driver affects the answer.
+  return CHIPTlsLastError;
 }
 
 const char *hipGetErrorName(hipError_t HipError) {

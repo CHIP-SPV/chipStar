@@ -1781,9 +1781,6 @@ public:
 
   std::queue<CHIPCallbackData *> CallbackQueue;
 
-  // Adds -std=c++17 requirement
-  inline static thread_local hipError_t TlsLastError;
-
   std::vector<CHIPContext *> ChipContexts;
 
   /**

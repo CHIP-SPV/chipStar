@@ -46,7 +46,7 @@
 #define RETURN(x)                                                              \
   do {                                                                         \
     hipError_t err = (x);                                                      \
-    Backend->TlsLastError = err;                                               \
+    CHIPTlsLastError = err;                                                    \
     return err;                                                                \
   } while (0)
 
@@ -54,7 +54,7 @@
   if (cond)                                                                    \
     do {                                                                       \
       logError("Error {} at {}:{} code {}", err, __FILE__, __LINE__, #cond);   \
-      Backend->TlsLastError = err;                                             \
+      CHIPTlsLastError = err;                                                  \
       return err;                                                              \
   } while (0)
 
