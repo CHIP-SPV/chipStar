@@ -2028,13 +2028,15 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
 
   // Unless the event is in recording state, we can't wait on it
-  if (static_cast<CHIPEvent *>(Event)->getEventStatus() == EVENT_STATUS_INIT) {
+  if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
-
-  std::vector<CHIPEvent *> EventsToWaitOn = {static_cast<CHIPEvent *>(Event)};
-  ChipQueue->enqueueBarrier(&EventsToWaitOn);
-
+  std::shared_ptr<CHIPEvent> ChipEventShared = Backend->userEventLookup(ChipEvent);
+  std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn;
+  if(ChipEventShared.get())
+    EventsToWaitOn.push_back(ChipEventShared);
+  auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
+  BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2142,8 +2144,12 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 
   auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
+  {
+    LOCK(Backend->UserEventsMtx);
+    Backend->UserEvents.push_back(ChipEvent);
+  }
 
-  *Event = ChipEvent;
+  *Event = ChipEvent.get();
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2173,10 +2179,12 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   NULLCHECK(Event);
   CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
 
-  size_t Refc = ChipEvent->decreaseRefCount("hipEventDestroy");
-  if(Refc == 0) {
-    Event = nullptr;
-  }
+  LOCK(Backend->UserEventsMtx);
+  Backend->UserEvents.erase(
+    std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(), 
+    [&ChipEvent](const std::shared_ptr<CHIPEvent>& x) { return x.get() == ChipEvent; }), 
+    Backend->UserEvents.end()
+);
 
   RETURN(hipSuccess);
 
