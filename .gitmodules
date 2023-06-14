@@ -6,7 +6,7 @@
 	url = https://github.com/CHIP-SPV/hip-testsuite.git
 [submodule "bitcode/ROCm-Device-Libs"]
 	path = bitcode/ROCm-Device-Libs
-	url = https://github.com/RadeonOpenCompute/ROCm-Device-Libs.git
+	url = https://github.com/CHIP-SPV/ROCm-Device-Libs.git
 [submodule "HIPCC"]
 	path = HIPCC
 	url = https://github.com/CHIP-SPV/HIPCC.git
