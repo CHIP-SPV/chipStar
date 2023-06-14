@@ -584,6 +584,22 @@ public:
   }
 
   size_t getNumAllocations() const { return AllocInfos_.size(); }
+
+  /**
+   * True if 'Ptr' points to device or device mapped allocation
+   */
+  bool containsDevicePtr(const void *Ptr) {
+    if (!Ptr)
+      return false;
+    auto *AllocInfo = getAllocInfo(Ptr);
+    if (!AllocInfo)
+      return false;
+
+    if (AllocInfo->MemoryType == hipMemoryTypeHost)
+      return AllocInfo->Flags.isMapped();
+
+    return true; // Other memory types are device located/mapped.
+  }
 };
 
 class CHIPDeviceVar {

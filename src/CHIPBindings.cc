@@ -2858,7 +2858,9 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                             size_t Height, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Dst);
+  if (!Backend->getActiveDevice()->AllocationTracker->containsDevicePtr(Dst) ||
+      !Stream)
+    RETURN(hipErrorInvalidValue);
 
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {
@@ -2879,7 +2881,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
     size_t SizeBytes = Width * sizeof(int);
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    auto Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
+    Res = hipMemsetAsync(DstP + Offset, Value, SizeBytes, Stream);
     if (Res != hipSuccess)
       break;
   }
