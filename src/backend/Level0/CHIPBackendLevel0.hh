@@ -92,41 +92,6 @@ private:
   std::vector<ActionFn> Actions_;
 
 public:
-  virtual size_t decreaseRefCount(std::string Reason) override {
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    assert(!Deleted_ && "Event use after delete!");
-    logDebug("CHIPEvent::decreaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void *)this, Msg.c_str(), *Refc_, *Refc_ - 1, Reason);
-    if (*Refc_ > 0) {
-      (*Refc_)--;
-    } else {
-      assert(false && "CHIPEvent::decreaseRefCount() called when refc == 0");
-      logError("CHIPEvent::decreaseRefCount() called when refc == 0");
-    }
-    // Destructor to be called by event monitor once backend is done using it
-    assert(!(TrackCalled_ && UserEvent_) && "UserEvent has TrackCalled_!");
-    if (!TrackCalled_ && !UserEvent_ && *Refc_ == 0) {
-      delete this;
-      return 0;
-    } else {
-      return *Refc_;
-    }
-
-  }
-
-  virtual size_t increaseRefCount(std::string Reason) override {
-    LOCK(EventMtx); // CHIPEvent::Refc_
-    assert(!Deleted_ && "Event use after delete!");
-    logDebug("CHIPEvent::increaseRefCount() {} {} refc {}->{} REASON: {}",
-             (void *)this, Msg.c_str(), *Refc_, *Refc_ + 1, Reason);
-
-    // Base constructor and CHIPEventLevel0::reset() sets the refc_ to one.
-    assert(*Refc_ > 0 && "Increasing refcount from zero!");
-    (*Refc_)++;
-
-    return *Refc_;
-  }
-
   uint32_t getValidTimestampBits();
   uint64_t getHostTimestamp() { return HostTimestamp_; }
   unsigned int EventPoolIndex;
@@ -155,7 +120,6 @@ public:
   void reset();
 
   ze_event_handle_t peek();
-  ze_event_handle_t get(std::string Msg);
 
   /// Bind an action which is promised to be executed when the event is
   /// finished.
@@ -179,11 +143,7 @@ public:
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          CHIPQueue *ChipQueue);
 
-  virtual ~CHIPCallbackDataLevel0() override {
-    delete GpuReady;
-    delete CpuCallbackComplete;
-    delete GpuAck;
-  }
+  virtual ~CHIPCallbackDataLevel0() override {}
 };
 
 class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
@@ -210,7 +170,7 @@ private:
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
   std::stack<int> FreeSlots_;
-  std::vector<CHIPEventLevel0 *> Events_;
+  std::vector<std::shared_ptr<CHIPEventLevel0>> Events_;
 
   int getFreeSlot();
 
@@ -218,11 +178,12 @@ public:
   std::mutex EventPoolMtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
+  bool EventAvailable() { return FreeSlots_.size() > 0; }
   ze_event_pool_handle_t get() { return EventPool_; }
 
   void returnSlot(int Slot);
 
-  CHIPEventLevel0 *getEvent();
+  std::shared_ptr<CHIPEventLevel0> getEvent();
 };
 
 enum LevelZeroQueueType {
@@ -276,14 +237,13 @@ public:
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
 
-  virtual CHIPEventLevel0 *getLastEvent() override;
-
-  virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) override;
+  virtual std::shared_ptr<CHIPEvent>
+  launchImpl(CHIPExecItem *ExecItem) override;
 
   virtual void finish() override;
 
-  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
-                                      size_t Size) override;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
 
   /**
    * @brief Execute a given command list
@@ -295,33 +255,33 @@ public:
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
 
-  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
-                                      const void *Pattern,
-                                      size_t PatternSize) override;
+  virtual std::shared_ptr<CHIPEvent>
+  memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
+                   size_t PatternSize) override;
 
-  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t Dpitch,
-                                        const void *Src, size_t Spitch,
-                                        size_t Width, size_t Height) override;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src, size_t Spitch,
+                     size_t Width, size_t Height) override;
 
-  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t Dpitch,
-                                        size_t Dspitch, const void *Src,
-                                        size_t Spitch, size_t Sspitch,
-                                        size_t Width, size_t Height,
-                                        size_t Depth) override;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch, const void *Src,
+                     size_t Spitch, size_t Sspitch, size_t Width, size_t Height,
+                     size_t Depth) override;
 
-  virtual CHIPEvent *memCopyToImage(ze_image_handle_t TexStorage,
-                                    const void *Src,
-                                    const CHIPRegionDesc &SrcRegion);
+  virtual std::shared_ptr<CHIPEvent>
+  memCopyToImage(ze_image_handle_t TexStorage, const void *Src,
+                 const CHIPRegionDesc &SrcRegion);
 
   virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
                                        int *NumHandles) override;
 
-  virtual CHIPEvent *enqueueMarkerImpl() override;
+  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() override;
 
-  virtual CHIPEvent *
-  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) override;
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
+      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) override;
 
-  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) override {
+  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
+                                                     size_t Count) override {
     UNIMPLEMENTED(nullptr);
   }
 
@@ -335,14 +295,15 @@ class CHIPContextLevel0 : public CHIPContext {
   std::vector<LZEventPool *> EventPools_;
 
 public:
-  CHIPEventLevel0 *getEventFromPool() {
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
 
     // go through all pools and try to get an allocated event
     LOCK(ContextMtx); // CHIPContext::EventPools
-    for (size_t i = 0; i < EventPools_.size(); i++) {
-      CHIPEventLevel0 *Event = EventPools_[i]->getEvent();
-      if (Event)
-        return Event;
+    std::shared_ptr<CHIPEventLevel0> Event;
+    for (auto EventPool : EventPools_) {
+      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
+      if (EventPool->EventAvailable())
+        return EventPool->getEvent();
     }
 
     // no events available, create new pool, get event from there and return
@@ -350,9 +311,8 @@ public:
              "event pool",
              EventPools_.size());
     auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
-    auto Event = NewEventPool->getEvent();
+    Event = NewEventPool->getEvent();
     EventPools_.push_back(NewEventPool);
-    Event->sanityCheck(); 
     return Event;
   }
 
@@ -599,7 +559,39 @@ public:
     return Q;
   }
 
-  virtual CHIPEventLevel0 *
+  /**
+   * @brief Check if the given event is associated with a command list and if
+   * so, destroy it. This operation will lock the CommandListsMtx.
+   *
+   * @param ChipEvent
+   */
+  void destroyAssocCmdList(CHIPEventLevel0 *ChipEvent) {
+    LOCK( // CHIPBackendLevel0::EventCommandListMap
+        static_cast<CHIPBackendLevel0 *>(Backend)->CommandListsMtx);
+
+    // Check if this event is associated with a CommandList
+    bool CommandListFound =
+        static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.count(
+            ChipEvent);
+    if (CommandListFound) {
+      logTrace("Erase cmdlist assoc w/ event: {}", (void *)this);
+      auto CommandList = static_cast<CHIPBackendLevel0 *>(Backend)
+                             ->EventCommandListMap[ChipEvent];
+      static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.erase(
+          ChipEvent);
+
+#ifdef DUBIOUS_LOCKS
+      LOCK(Backend->DubiousLockLevel0)
+#endif
+      // The application must not call this function
+      // from simultaneous threads with the same command list handle.
+      // Done via this is the only thread that calls it
+      auto Status = zeCommandListDestroy(CommandList);
+      CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    }
+  }
+
+  virtual std::shared_ptr<CHIPEvent>
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override;
 
