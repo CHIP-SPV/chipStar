@@ -459,7 +459,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetName_NegTst") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
@@ -831,7 +830,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetName_NegTst") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
@@ -1238,7 +1236,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetName_NegTst") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
@@ -1633,7 +1630,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetName_NegTst") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
@@ -2007,7 +2003,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetName_NegTst") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
@@ -2411,7 +2406,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetName_NegTst") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
