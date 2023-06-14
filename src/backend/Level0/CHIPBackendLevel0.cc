@@ -1964,6 +1964,11 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.kernelExecTimeoutEnabled = 0;
   HipDeviceProps_.ECCEnabled = 0;
   HipDeviceProps_.asicRevision = 1;
+
+  constexpr char ArchName[] = "unavailable";
+  static_assert(sizeof(ArchName) <= sizeof(HipDeviceProps_.gcnArchName),
+                "Buffer overflow!");
+  std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(sizeof(ArchName)));
 }
 
 CHIPQueue *CHIPDeviceLevel0::createQueue(CHIPQueueFlags Flags, int Priority) {

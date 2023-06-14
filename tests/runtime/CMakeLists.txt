@@ -67,3 +67,6 @@ add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)
 add_shell_test(TestAssert.bash)
 add_shell_test(TestAssertFail.bash)
 add_shell_test(TestForgottenModuleUnload.bash)
+
+add_hip_runtime_test(TestIndirectCall.hip)
+add_hip_runtime_test(TestStructWithFnPtr.hip)

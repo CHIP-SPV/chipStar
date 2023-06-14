@@ -482,6 +482,8 @@ CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
   PerThreadDefaultQueue = nullptr;
+  // Avoid indeterminate values.
+  std::memset(&HipDeviceProps_, 0, sizeof(HipDeviceProps_));
 }
 
 CHIPDevice::~CHIPDevice() {
