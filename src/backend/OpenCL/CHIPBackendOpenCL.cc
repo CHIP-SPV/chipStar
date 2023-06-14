@@ -590,22 +590,22 @@ std::shared_ptr<CHIPEvent> CHIPBackendOpenCL::createCHIPEvent(CHIPContext *ChipC
 
 void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
   logTrace("CHIPEvent::recordStream()");
-  auto MarkerEvent = ChipQueue->enqueueMarker();
-//   this->takeOver(MarkerEvent);
+  std::shared_ptr<CHIPEvent>  MarkerEvent = ChipQueue->enqueueMarker();
+  this->takeOver(MarkerEvent);
 
   this->EventStatus_ = EVENT_STATUS_RECORDING;
   return;
 }
 
-// void CHIPEventOpenCL::takeOver(std::shared_ptr<CHIPEvent> OtherIn) {
-//   logTrace("CHIPEventOpenCL::takeOver");
-//   {
-//     auto *Other = (CHIPEventOpenCL *)OtherIn;
-//     LOCK(EventMtx); // CHIPEvent::Refc_
-//     this->ClEvent = Other->ClEvent;
-//     this->Msg = Other->Msg;
-//   }
-// }
+void CHIPEventOpenCL::takeOver(std::shared_ptr<CHIPEvent> OtherIn) {
+  logTrace("CHIPEventOpenCL::takeOver");
+  {
+    std::shared_ptr<CHIPEventOpenCL> Other = std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
+    LOCK(EventMtx); // CHIPEvent::Refc_
+    this->ClEvent = Other->ClEvent;
+    this->Msg = Other->Msg;
+  }
+}
 
 bool CHIPEventOpenCL::wait() {
   logTrace("CHIPEventOpenCL::wait()");
