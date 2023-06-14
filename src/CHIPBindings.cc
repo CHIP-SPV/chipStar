@@ -3026,7 +3026,7 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {
       /* Dst */ Dst,
-      /* elementSize*/ sizeof(int),
+      /* elementSize*/ 1,
       /* height */ Height,
       /* pitch */ Pitch,
       /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
@@ -3039,7 +3039,7 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
   hipError_t Res = hipSuccess;
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
   for (size_t i = 0; i < Height; i++) {
-    size_t SizeBytes = Width * sizeof(int);
+    size_t SizeBytes = Width;
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
     if (SizeBytes > 0) {
@@ -3084,7 +3084,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {
       /* Dst */ PitchedDevPtr.ptr,
-      /* elementSize*/ sizeof(int),
+      /* elementSize*/ 1,
       /* height */ Extent.height,
       /* pitch */ PitchedDevPtr.pitch,
       /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
