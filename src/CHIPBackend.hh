@@ -309,9 +309,9 @@ protected:
 
 public:
   CHIPQueue *ChipQueue;
-  CHIPEvent *GpuReady;
-  CHIPEvent *CpuCallbackComplete;
-  CHIPEvent *GpuAck;
+  std::shared_ptr<CHIPEvent> GpuReady;
+  std::shared_ptr<CHIPEvent> CpuCallbackComplete;
+  std::shared_ptr<CHIPEvent> GpuAck;
 
   hipError_t Status;
   void *CallbackArgs;
@@ -613,15 +613,12 @@ protected:
   bool UserEvent_ = false;
   event_status_e EventStatus_;
   CHIPEventFlags Flags_;
-  std::vector<CHIPEvent *> DependsOnList;
+  std::vector<std::shared_ptr<CHIPEvent>> DependsOnList;
 
 #ifndef NDEBUG
   // A debug flag for cathing use-after-delete.
   bool Deleted_ = false;
 #endif
-
-  // reference count
-  size_t *Refc_;
 
   /**
    * @brief Events are always created with a context
@@ -634,28 +631,23 @@ protected:
    * constructor should be called.
    *
    */
-  CHIPEvent() : UserEvent_(false), TrackCalled_(false) {}
+  CHIPEvent() : TrackCalled_(false), UserEvent_(false) {}
+  virtual ~CHIPEvent(){};
 
 public:
-  void sanityCheck();
-  void sanityCheckNoLock();
+  void markTracked() { TrackCalled_ = true; }
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(CHIPEvent *Event) {
+  void addDependency(std::shared_ptr<CHIPEvent> Event) {
     assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  virtual void track();
   CHIPEventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
-  size_t getCHIPRefc();
-  virtual size_t decreaseRefCount(std::string Reason) = 0;
-  virtual size_t increaseRefCount(std::string Reason) = 0;
-  virtual ~CHIPEvent() = default;
   // Optionally provide a field for origin of this event
   /**
    * @brief CHIPEvent constructor. Must always be created with some context.
@@ -1603,7 +1595,6 @@ protected:
   CHIPContext();
 
 public:
-  std::vector<CHIPEvent *> Events;
   mutable std::mutex ContextMtx;
 
   /**
@@ -1762,6 +1753,17 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
+  std::shared_ptr<CHIPEvent> userEventLookup(CHIPEvent *EventPtr) {
+    std::lock_guard<std::mutex> Lock(UserEventsMtx);
+    for (auto &UserEvent : UserEvents) {
+      if (UserEvent.get() == EventPtr) {
+        return UserEvent;
+      }
+    }
+    return nullptr;
+  }
+  void trackEvent(std::shared_ptr<CHIPEvent> Event);
+
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
   std::mutex DubiousLockLevel0;
@@ -1776,8 +1778,10 @@ public:
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
-  std::vector<CHIPEvent *> Events;
+  std::vector<std::shared_ptr<CHIPEvent>> Events;
+  std::vector<std::shared_ptr<CHIPEvent>> UserEvents;
   std::mutex EventsMtx;
+  std::mutex UserEventsMtx;
 
   std::queue<CHIPCallbackData *> CallbackQueue;
 
@@ -1970,18 +1974,9 @@ public:
    * prevent it from being garbage collected.
    * @return CHIPEvent* Event
    */
-  virtual CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx,
-                                     CHIPEventFlags Flags = CHIPEventFlags(),
-                                     bool UserEvent = false) = 0;
-
-  // CHIPEvent *createCHIPEvent(CHIPContext *ChipCtx, std::string MsgIn,
-  //                            CHIPEventFlags Flags = CHIPEventFlags(),
-  //                            bool UserEvent = false) {
-  //   auto NewEvent = createCHIPEvent(ChipCtx, MsgIn, Flags, UserEvent);
-  //   NewEvent->Msg = MsgIn;
-  //   return NewEvent;
-  // }
-
+  virtual std::shared_ptr<CHIPEvent>
+  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+                  bool UserEvent = false) = 0;
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
@@ -2028,12 +2023,12 @@ protected:
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  CHIPEvent *LastEvent_ = nullptr;
+  std::shared_ptr<CHIPEvent> LastEvent_ = nullptr;
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
-  CHIPEvent *RegisteredVarCopy(CHIPExecItem *ExecItem,
-                               MANAGED_MEM_STATE ExecState);
+  std::shared_ptr<CHIPEvent> RegisteredVarCopy(CHIPExecItem *ExecItem,
+                                               MANAGED_MEM_STATE ExecState);
 
 public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
@@ -2083,7 +2078,10 @@ public:
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
-  virtual CHIPEvent *getLastEvent() = 0;
+  virtual std::shared_ptr<CHIPEvent> getLastEvent() {
+    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+    return LastEvent_;
+  }
 
   /**
    * @brief Construct a new CHIPQueue object
@@ -2107,20 +2105,13 @@ public:
   virtual ~CHIPQueue();
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(CHIPEvent *NewEvent) {
+  virtual void updateLastEvent(std::shared_ptr<CHIPEvent> NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
-             (void *)LastEvent_, (void *)NewEvent);
-    if (NewEvent == LastEvent_)
+             (void *)LastEvent_.get(), (void *)NewEvent.get());
+    if (NewEvent == LastEvent_) // TODO: should I compare NewEvent.get()
       return;
 
-    if (LastEvent_ != nullptr) {
-      LastEvent_->decreaseRefCount("updateLastEvent - old event");
-    }
-
-    if (NewEvent != nullptr) {
-      NewEvent->increaseRefCount("updateLastEvent - new event");
-    }
     LastEvent_ = NewEvent;
   }
 
@@ -2142,8 +2133,8 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual CHIPEvent *memCopyAsyncImpl(void *Dst, const void *Src,
-                                      size_t Size) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
   /**
@@ -2165,9 +2156,9 @@ public:
    * @param pattern
    * @param pattern_size
    */
-  virtual CHIPEvent *memFillAsyncImpl(void *Dst, size_t Size,
-                                      const void *Pattern,
-                                      size_t PatternSize) = 0;
+  virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
+                                                      const void *Pattern,
+                                                      size_t PatternSize) = 0;
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
 
@@ -2175,9 +2166,9 @@ public:
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
-  virtual CHIPEvent *memCopy2DAsyncImpl(void *Dst, size_t DPitch,
-                                        const void *Src, size_t SPitch,
-                                        size_t Width, size_t Height) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopy2DAsyncImpl(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
+                     size_t Width, size_t Height) = 0;
   virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                               size_t SPitch, size_t Width, size_t Height);
 
@@ -2186,11 +2177,10 @@ public:
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
 
-  virtual CHIPEvent *memCopy3DAsyncImpl(void *Dst, size_t DPitch,
-                                        size_t DSPitch, const void *Src,
-                                        size_t SPitch, size_t SSPitch,
-                                        size_t Width, size_t Height,
-                                        size_t Depth) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  memCopy3DAsyncImpl(void *Dst, size_t DPitch, size_t DSPitch, const void *Src,
+                     size_t SPitch, size_t SSPitch, size_t Width, size_t Height,
+                     size_t Depth) = 0;
   virtual void memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                               const void *Src, size_t SPitch, size_t SSPitch,
                               size_t Width, size_t Height, size_t Depth);
@@ -2202,7 +2192,7 @@ public:
    * @param exec_item
    * @return hipError_t
    */
-  virtual CHIPEvent *launchImpl(CHIPExecItem *ExecItem) = 0;
+  virtual std::shared_ptr<CHIPEvent> launchImpl(CHIPExecItem *ExecItem) = 0;
   virtual void launch(CHIPExecItem *ExecItem);
 
   /**
@@ -2230,7 +2220,6 @@ public:
       return true;
 
     if (LastEvent_->updateFinishStatus(false))
-      // LastEvent_->decreaseRefCount("query(): event became ready");
       if (LastEvent_->isFinished())
         return true;
 
@@ -2244,12 +2233,13 @@ public:
    * @return true
    * @return false
    */
-  virtual CHIPEvent *
-  enqueueBarrierImpl(std::vector<CHIPEvent *> *EventsToWaitFor) = 0;
-  virtual CHIPEvent *enqueueBarrier(std::vector<CHIPEvent *> *EventsToWaitFor);
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
+      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) = 0;
+  virtual std::shared_ptr<CHIPEvent>
+  enqueueBarrier(const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
 
-  virtual CHIPEvent *enqueueMarkerImpl() = 0;
-  CHIPEvent *enqueueMarker();
+  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
+  std::shared_ptr<CHIPEvent> enqueueMarker();
 
   /**
    * @brief Get the Flags object with which this queue was created.
@@ -2285,7 +2275,8 @@ public:
    * @return false
    */
 
-  virtual CHIPEvent *memPrefetchImpl(const void *Ptr, size_t Count) = 0;
+  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
+                                                     size_t Count) = 0;
   void memPrefetch(const void *Ptr, size_t Count);
 
   /**

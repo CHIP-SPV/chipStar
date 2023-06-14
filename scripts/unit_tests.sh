@@ -29,7 +29,6 @@ else
   exit 1
 fi
 
-source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
@@ -40,6 +39,7 @@ export CHIP_LOGLEVEL=err
 module load $CLANG
 module load opencl/pocl-cpu-$LLVM
 output=$(clinfo -l 2>&1 | grep "Platform #0")
+echo $output
 if [ $? -ne 0 ]; then
     echo "clinfo failed to execute."
     exit 1
