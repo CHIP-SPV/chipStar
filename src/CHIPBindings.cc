@@ -4046,7 +4046,7 @@ hipError_t hipConfigureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
   CHIPInitialize();
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   logDebug("hipConfigureCall()");
-  RETURN(Backend->configureCall(GridDim, BlockDim, SharedMem, Stream));
+  RETURN(Backend->configureCall(GridDim, BlockDim, SharedMem, ChipQueue));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
