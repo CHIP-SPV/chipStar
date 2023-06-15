@@ -2285,7 +2285,7 @@ static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
     Backend->UserEvents.push_back(ChipEvent);
   }
 
-  *Event = ChipEvent.get();;
+  *Event = ChipEvent.get();
   return hipSuccess;
 }
 
@@ -2639,11 +2639,11 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 
     if (Flags & ~FlagMask) // Has invalid flags
       CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flags passed",
-                             hipErrorInvalidValue);
+                            hipErrorInvalidValue);
 
     if (Flags & hipHostRegisterIoMemory)
       CHIPERR_LOG_AND_THROW("Unsupported hipHostRegisterIoMemory flag",
-                             hipErrorInvalidValue);
+                            hipErrorInvalidValue);
   }
 
   void *DevPtr;
