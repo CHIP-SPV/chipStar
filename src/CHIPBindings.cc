@@ -2426,13 +2426,12 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
 
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
-  if (!AllocInfo) {
-    logWarn("host pointer was not mapped via hipHostRegister... Returning host "
-            "pointer as device pointer (in case host pointer was mapped "
-            "through hipMallocShared or hipMallocHost");
-    *DevPtr = HostPtr;
-  } else
-    *DevPtr = AllocInfo->DevPtr;
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("Host pointer is not allocated by hipHostMalloc or "
+                          "registered with hipHostRegister!",
+                          hipErrorInvalidValue);
+
+  *DevPtr = AllocInfo->DevPtr;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2456,25 +2455,31 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
                            unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(HostPtr);
+  if (!HostPtr || !SizeBytes)
+    RETURN(hipErrorInvalidValue);
 
   // TODO fixOpenCLTests - make this a class
-  if (Flags)
-    switch (Flags) {
-    case hipHostRegisterDefault:
-      break;
-    case hipHostRegisterMapped:
-      break;
-    case hipHostRegisterPortable:
-      break;
-    default:
-      CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flag passed",
-                            hipErrorInvalidValue);
-    }
+  if (Flags) {
+    // Currently, the flags are ignored. This only exists to satisfy hip-tests.
+
+    // First 4 bits are valid flag bits. This includes flags from CUDA which are
+    // not supported or documented in HIP.
+    constexpr unsigned FlagMask = (1u << 4u) - 1u;
+
+    if (Flags & ~FlagMask) // Has invalid flags
+      CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flags passed",
+                             hipErrorInvalidValue);
+
+    if (Flags & hipHostRegisterIoMemory)
+      CHIPERR_LOG_AND_THROW("Unsupported hipHostRegisterIoMemory flag",
+                             hipErrorInvalidValue);
+  }
 
   void *DevPtr;
-  auto Err = hipMalloc(&DevPtr, SizeBytes);
-  ERROR_IF(Err != hipSuccess, Err);
+  if (hipMalloc(&DevPtr, SizeBytes) != hipSuccess)
+    // Translate hipOutOfMemory to hipErrorInvalidValue. The latter is
+    // the one hip-tests suite expects in case of OoM.
+    RETURN(hipErrorInvalidValue);
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();
@@ -2489,10 +2494,14 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 hipError_t hipHostUnregister(void *HostPtr) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(HostPtr);
+  if (!HostPtr)
+    CHIPERR_LOG_AND_THROW("Host pointer is nullptr!", hipErrorInvalidValue);
 
-  auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
+  auto *Device = Backend->getActiveDevice();
+  auto *AllocInfo = Device->AllocationTracker->getAllocInfo(HostPtr);
+  if (!AllocInfo)
+    CHIPERR_LOG_AND_THROW("Host pointer is not registered!",
+                          hipErrorHostMemoryNotRegistered);
   auto Err = hipFree(AllocInfo->DevPtr);
   RETURN(Err);
 
