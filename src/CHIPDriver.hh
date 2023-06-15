@@ -110,4 +110,9 @@ const char *CHIPGetBackendName();
  */
 extern std::atomic_ulong CHIPNumRegisteredFatBinaries;
 
+/**
+ * Keeps the track of the hipError_t from the last HIP API call.
+ */
+extern thread_local hipError_t CHIPTlsLastError;
+
 #endif

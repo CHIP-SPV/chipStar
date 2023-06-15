@@ -46,8 +46,18 @@ std::once_flag Uninitialized;
 bool UsingDefaultBackend;
 CHIPBackend *Backend = nullptr;
 std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
-
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
+
+// CUDA Driver API: "If cuInit() has not been called, any function
+// from the driver API will return CUDA_ERROR_NOT_INITIALIZED".
+//
+// CUDA Programming manual v12.1: "The runtime maintains an error
+// variable for each host thread that is initialized to cudaSuccess
+// ..."
+//
+// HIP API is mostly based on the CUDA runtime API so follow the
+// programming manual.
+thread_local hipError_t CHIPTlsLastError = hipSuccess;
 
 // Uninitializes the backend when the application exits.
 void __attribute__((destructor)) uninitializeBackend() {
