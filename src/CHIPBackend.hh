@@ -2232,8 +2232,8 @@ public:
    */
   virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) = 0;
-  virtual std::shared_ptr<CHIPEvent>
-  enqueueBarrier(const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(
+      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
 
   virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
   std::shared_ptr<CHIPEvent> enqueueMarker();
