@@ -69,6 +69,8 @@
 #define DECONST_NODES(x)                                                       \
   reinterpret_cast<CHIPGraphNode **>(const_cast<hipGraphNode_t *>(x))
 
+hipError_t hipFreeArray(hipArray *Array);
+
 hipError_t hipDeviceGetP2PAttribute(int *value, hipDeviceP2PAttr attr,
                                     int srcDevice, int dstDevice) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -125,9 +127,9 @@ hipError_t hipDrvMemcpy3DAsync(const HIP_MEMCPY3D *pCopy, hipStream_t stream) {
 hipError_t hipDeviceGetDefaultMemPool(hipMemPool_t *mem_pool, int device) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
-hipError_t hipArrayDestroy(hipArray *array) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
+
+hipError_t hipArrayDestroy(hipArray *Array) { return hipFreeArray(Array); }
+
 hipError_t hipArray3DCreate(hipArray **array,
                             const HIP_ARRAY3D_DESCRIPTOR *pAllocateArray) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -224,7 +226,14 @@ hipError_t hipGraphReleaseUserObject(hipGraph_t graph, hipUserObject_t object,
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipInit(unsigned int flags) { return hipSuccess; };
+hipError_t hipInit(unsigned int flags) {
+  CHIP_TRY
+  if (flags)
+    RETURN(hipErrorInvalidValue);
+  CHIPInitialize();
+  RETURN(hipSuccess);
+  CHIP_CATCH
+};
 
 // Handles device side abort() call by checking the abort flag global
 // variable used for signaling the request.
@@ -1760,17 +1769,17 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
 }
 
 hipError_t hipGetLastError(void) {
-  CHIPInitialize();
-
-  hipError_t Temp = Backend->TlsLastError;
-  Backend->TlsLastError = hipSuccess;
+  // No runtime initialization here as the function does not depend on the
+  // driver nor the driver affects the answer.
+  hipError_t Temp = CHIPTlsLastError;
+  CHIPTlsLastError = hipSuccess;
   return Temp;
 }
 
 hipError_t hipPeekAtLastError(void) {
-  CHIPInitialize();
-
-  return Backend->TlsLastError;
+  // No runtime initialization here as the function does not depend on the
+  // driver nor the driver affects the answer.
+  return CHIPTlsLastError;
 }
 
 const char *hipGetErrorName(hipError_t HipError) {
@@ -2030,9 +2039,10 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
-  std::shared_ptr<CHIPEvent> ChipEventShared = Backend->userEventLookup(ChipEvent);
+  std::shared_ptr<CHIPEvent> ChipEventShared =
+      Backend->userEventLookup(ChipEvent);
   std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn;
-  if(ChipEventShared.get())
+  if (ChipEventShared.get())
     EventsToWaitOn.push_back(ChipEventShared);
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
   BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
@@ -2180,10 +2190,11 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
 
   LOCK(Backend->UserEventsMtx);
   Backend->UserEvents.erase(
-    std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(), 
-    [&ChipEvent](const std::shared_ptr<CHIPEvent>& x) { return x.get() == ChipEvent; }), 
-    Backend->UserEvents.end()
-);
+      std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(),
+                     [&ChipEvent](const std::shared_ptr<CHIPEvent> &x) {
+                       return x.get() == ChipEvent;
+                     }),
+      Backend->UserEvents.end());
 
   RETURN(hipSuccess);
 
@@ -2359,6 +2370,12 @@ hipError_t hipFree(void *Ptr) {
 hipError_t hipHostFree(void *Ptr) {
   int Status = munlock(Ptr, 0);
   assert(Status == 0 && "Failed to unlock page-locked memory");
+
+  auto *AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto *AllocInfo = AllocTracker->getAllocInfo(Ptr);
+  if (AllocInfo && AllocInfo->IsHostRegistered)
+    RETURN(hipErrorInvalidValue); // Must use hipHostUnregister() instead.
+
   RETURN(hipFree(Ptr));
 }
 
@@ -2681,11 +2698,16 @@ hipError_t hipArrayCreate(hipArray **Array,
 hipError_t hipFreeArray(hipArray *Array) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Array, Array->data);
+  if (!Array || !Array->data)
+    RETURN(hipErrorInvalidValue);
 
   hipError_t Err = hipFree(Array->data);
+  if (Err != hipSuccess)
+    // HIP test suite expects this but HIP API doc doesn't even list it as
+    // one of the possible error codes.
+    RETURN(hipErrorContextIsDestroyed);
   delete Array;
-  RETURN(Err);
+  RETURN(hipSuccess);
 
   CHIP_CATCH
 }

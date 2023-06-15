@@ -449,6 +449,7 @@ struct AllocationInfo {
   bool Managed = false;
   enum hipMemoryType MemoryType;
   bool RequiresMapUnmap = false;
+  bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
 };
 
 /**
@@ -477,6 +478,7 @@ public:
     AllocInfo->HostPtr = HostPtr;
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
     AllocInfo->MemoryType = hipMemoryTypeManaged;
+    AllocInfo->IsHostRegistered = true;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -1785,9 +1787,6 @@ public:
 
   std::queue<CHIPCallbackData *> CallbackQueue;
 
-  // Adds -std=c++17 requirement
-  inline static thread_local hipError_t TlsLastError;
-
   std::vector<CHIPContext *> ChipContexts;
 
   /**
@@ -2235,8 +2234,8 @@ public:
    */
   virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) = 0;
-  virtual std::shared_ptr<CHIPEvent>
-  enqueueBarrier(const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(
+      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
 
   virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
   std::shared_ptr<CHIPEvent> enqueueMarker();
