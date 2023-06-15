@@ -70,3 +70,4 @@ add_shell_test(TestForgottenModuleUnload.bash)
 
 add_hip_runtime_test(TestIndirectCall.hip)
 add_hip_runtime_test(TestStructWithFnPtr.hip)
+add_hip_runtime_test(TestHipInit.hip)

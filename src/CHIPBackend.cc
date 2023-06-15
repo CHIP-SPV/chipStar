@@ -1150,7 +1150,9 @@ hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
   AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
-    return hipErrorInvalidDevicePointer;
+    // HIP API doc says we should return hipErrorInvalidDevicePointer but HIP
+    // test suite excepts hipErrorInvalidValue. Go with the latter.
+    return hipErrorInvalidValue;
 
   ChipDev->AllocationTracker->releaseMemReservation(AllocInfo->Size);
   ChipDev->AllocationTracker->eraseRecord(AllocInfo);

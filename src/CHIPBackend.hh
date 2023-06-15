@@ -449,6 +449,7 @@ struct AllocationInfo {
   bool Managed = false;
   enum hipMemoryType MemoryType;
   bool RequiresMapUnmap = false;
+  bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
 };
 
 /**
@@ -474,9 +475,16 @@ public:
     CHIPASSERT(HostPtr && "HostPtr is null");
     CHIPASSERT(DevPtr && "DevPtr is null");
     auto AllocInfo = this->getAllocInfo(DevPtr);
+    if (AllocInfo->HostPtr)
+      // HIP test suite expects hipErrorInvalidValue, HIP API does not
+      // meantion it. If we followed CUDA Runtime API, we'd return
+      // hipErrorHostMemoryAlreadyRegistered.
+      CHIPERR_LOG_AND_THROW("Host memory is already registered!",
+                            hipErrorInvalidValue);
     AllocInfo->HostPtr = HostPtr;
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
     AllocInfo->MemoryType = hipMemoryTypeManaged;
+    AllocInfo->IsHostRegistered = true;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -1785,9 +1793,6 @@ public:
 
   std::queue<CHIPCallbackData *> CallbackQueue;
 
-  // Adds -std=c++17 requirement
-  inline static thread_local hipError_t TlsLastError;
-
   std::vector<CHIPContext *> ChipContexts;
 
   /**
@@ -2235,8 +2240,8 @@ public:
    */
   virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) = 0;
-  virtual std::shared_ptr<CHIPEvent>
-  enqueueBarrier(const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
+  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(
+      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
 
   virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
   std::shared_ptr<CHIPEvent> enqueueMarker();
