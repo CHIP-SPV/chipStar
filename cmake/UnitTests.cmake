@@ -428,12 +428,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subprocess
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeDev") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeHost") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeArray") # SEGFAULT
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleDevice") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleHost") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleArray") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
@@ -796,12 +790,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subproces
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeDev") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeHost") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeArray") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleDevice") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleHost") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleArray") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
@@ -1200,12 +1188,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subproces
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeDev") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeHost") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeNegativeArray") # SEGFAULT
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleDevice") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleHost") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeDoubleArray") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
@@ -1595,12 +1577,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subproces
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeNegativeDev") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeNegativeHost") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeNegativeArray") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeDoubleDevice") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeDoubleHost") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeDoubleArray") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
@@ -1968,12 +1944,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subproces
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeNegativeDev") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeNegativeHost") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeNegativeArray") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeDoubleDevice") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeDoubleHost") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeDoubleArray") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
@@ -2376,12 +2346,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subprocess a
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeNegativeDev") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeNegativeHost") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeNegativeArray") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeDoubleDevice") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeDoubleHost") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeDoubleArray") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted

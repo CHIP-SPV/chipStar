@@ -449,6 +449,7 @@ struct AllocationInfo {
   bool Managed = false;
   enum hipMemoryType MemoryType;
   bool RequiresMapUnmap = false;
+  bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
 };
 
 /**
@@ -477,6 +478,7 @@ public:
     AllocInfo->HostPtr = HostPtr;
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
     AllocInfo->MemoryType = hipMemoryTypeManaged;
+    AllocInfo->IsHostRegistered = true;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;

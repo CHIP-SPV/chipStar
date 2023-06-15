@@ -69,6 +69,8 @@
 #define DECONST_NODES(x)                                                       \
   reinterpret_cast<CHIPGraphNode **>(const_cast<hipGraphNode_t *>(x))
 
+hipError_t hipFreeArray(hipArray *Array);
+
 hipError_t hipDeviceGetP2PAttribute(int *value, hipDeviceP2PAttr attr,
                                     int srcDevice, int dstDevice) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -125,9 +127,9 @@ hipError_t hipDrvMemcpy3DAsync(const HIP_MEMCPY3D *pCopy, hipStream_t stream) {
 hipError_t hipDeviceGetDefaultMemPool(hipMemPool_t *mem_pool, int device) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
-hipError_t hipArrayDestroy(hipArray *array) {
-  UNIMPLEMENTED(hipErrorNotSupported);
-}
+
+hipError_t hipArrayDestroy(hipArray *Array) { return hipFreeArray(Array); }
+
 hipError_t hipArray3DCreate(hipArray **array,
                             const HIP_ARRAY3D_DESCRIPTOR *pAllocateArray) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -2367,6 +2369,12 @@ hipError_t hipFree(void *Ptr) {
 hipError_t hipHostFree(void *Ptr) {
   int Status = munlock(Ptr, 0);
   assert(Status == 0 && "Failed to unlock page-locked memory");
+
+  auto *AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  auto *AllocInfo = AllocTracker->getAllocInfo(Ptr);
+  if (AllocInfo && AllocInfo->IsHostRegistered)
+    RETURN(hipErrorInvalidValue); // Must use hipHostUnregister() instead.
+
   RETURN(hipFree(Ptr));
 }
 
@@ -2689,11 +2697,16 @@ hipError_t hipArrayCreate(hipArray **Array,
 hipError_t hipFreeArray(hipArray *Array) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Array, Array->data);
+  if (!Array || !Array->data)
+    RETURN(hipErrorInvalidValue);
 
   hipError_t Err = hipFree(Array->data);
+  if (Err != hipSuccess)
+    // HIP test suite expects this but HIP API doc doesn't even list it as
+    // one of the possible error codes.
+    RETURN(hipErrorContextIsDestroyed);
   delete Array;
-  RETURN(Err);
+  RETURN(hipSuccess);
 
   CHIP_CATCH
 }
