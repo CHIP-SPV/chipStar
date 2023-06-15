@@ -334,7 +334,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -684,7 +683,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -1060,7 +1058,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -1445,7 +1442,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -1800,7 +1796,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -2187,7 +2182,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed

@@ -2858,9 +2858,17 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                             size_t Height, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  if (!Backend->getActiveDevice()->AllocationTracker->containsDevicePtr(Dst) ||
-      !Stream)
+  if (!Stream)
     RETURN(hipErrorInvalidValue);
+
+  auto *AllocTracker = Backend->getActiveDevice()->AllocationTracker;
+  const auto *AllocInfo = AllocTracker->getAllocInfo(Dst);
+  if (!AllocInfo || !AllocInfo->isDeviceAccessible())
+    CHIPERR_LOG_AND_THROW("Invalid destination pointer!", hipErrorInvalidValue);
+  if (Width > Pitch)
+    CHIPERR_LOG_AND_THROW("Width exceeds pitch value!", hipErrorInvalidValue);
+  if (Pitch * Height - (Pitch - Width) > AllocInfo->Size)
+    CHIPERR_LOG_AND_THROW("Out of bounds 2D memset!", hipErrorInvalidValue);
 
   auto ChipQueue = Backend->findQueue(static_cast<CHIPQueue *>(Stream));
   const hipMemsetParams Params = {

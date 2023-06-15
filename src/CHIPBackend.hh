@@ -284,14 +284,15 @@ public:
     if (Coherent_ && NonCoherent_)
       CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
   }
-  unsigned int getRaw() { return FlagsRaw_; }
-  bool isDefault() { return Default_; }
-  bool isPortable() { return Portable_; }
-  bool isMapped() { return Mapped_; }
-  bool isWriteCombined() { return WriteCombined_; }
-  bool isNumaUser() { return NumaUser_; }
-  bool isCoherent() { return Coherent_; }
-  bool isNonCoherent() { return NonCoherent_; }
+
+  unsigned int getRaw() const { return FlagsRaw_; }
+  bool isDefault() const { return Default_; }
+  bool isPortable() const { return Portable_; }
+  bool isMapped() const { return Mapped_; }
+  bool isWriteCombined() const { return WriteCombined_; }
+  bool isNumaUser() const { return NumaUser_; }
+  bool isCoherent() const { return Coherent_; }
+  bool isNonCoherent() const { return NonCoherent_; }
 };
 
 /**
@@ -450,6 +451,11 @@ struct AllocationInfo {
   enum hipMemoryType MemoryType;
   bool RequiresMapUnmap = false;
   bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
+
+  /// True if the allocation is accessible from device.
+  bool isDeviceAccessible() const {
+    return MemoryType == hipMemoryTypeHost ? Flags.isMapped() : true;
+  }
 };
 
 /**
@@ -584,22 +590,6 @@ public:
   }
 
   size_t getNumAllocations() const { return AllocInfos_.size(); }
-
-  /**
-   * True if 'Ptr' points to device or device mapped allocation
-   */
-  bool containsDevicePtr(const void *Ptr) {
-    if (!Ptr)
-      return false;
-    auto *AllocInfo = getAllocInfo(Ptr);
-    if (!AllocInfo)
-      return false;
-
-    if (AllocInfo->MemoryType == hipMemoryTypeHost)
-      return AllocInfo->Flags.isMapped();
-
-    return true; // Other memory types are device located/mapped.
-  }
 };
 
 class CHIPDeviceVar {
