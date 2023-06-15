@@ -226,7 +226,14 @@ hipError_t hipGraphReleaseUserObject(hipGraph_t graph, hipUserObject_t object,
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
-hipError_t hipInit(unsigned int flags) { return hipSuccess; };
+hipError_t hipInit(unsigned int flags) {
+  CHIP_TRY
+  if (flags)
+    RETURN(hipErrorInvalidValue);
+  CHIPInitialize();
+  RETURN(hipSuccess);
+  CHIP_CATCH
+};
 
 // Handles device side abort() call by checking the abort flag global
 // variable used for signaling the request.
@@ -1761,17 +1768,17 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
 }
 
 hipError_t hipGetLastError(void) {
-  CHIPInitialize();
-
-  hipError_t Temp = Backend->TlsLastError;
-  Backend->TlsLastError = hipSuccess;
+  // No runtime initialization here as the function does not depend on the
+  // driver nor the driver affects the answer.
+  hipError_t Temp = CHIPTlsLastError;
+  CHIPTlsLastError = hipSuccess;
   return Temp;
 }
 
 hipError_t hipPeekAtLastError(void) {
-  CHIPInitialize();
-
-  return Backend->TlsLastError;
+  // No runtime initialization here as the function does not depend on the
+  // driver nor the driver affects the answer.
+  return CHIPTlsLastError;
 }
 
 const char *hipGetErrorName(hipError_t HipError) {
@@ -2031,9 +2038,10 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
-  std::shared_ptr<CHIPEvent> ChipEventShared = Backend->userEventLookup(ChipEvent);
+  std::shared_ptr<CHIPEvent> ChipEventShared =
+      Backend->userEventLookup(ChipEvent);
   std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn;
-  if(ChipEventShared.get())
+  if (ChipEventShared.get())
     EventsToWaitOn.push_back(ChipEventShared);
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
   BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
@@ -2181,10 +2189,11 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
 
   LOCK(Backend->UserEventsMtx);
   Backend->UserEvents.erase(
-    std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(), 
-    [&ChipEvent](const std::shared_ptr<CHIPEvent>& x) { return x.get() == ChipEvent; }), 
-    Backend->UserEvents.end()
-);
+      std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(),
+                     [&ChipEvent](const std::shared_ptr<CHIPEvent> &x) {
+                       return x.get() == ChipEvent;
+                     }),
+      Backend->UserEvents.end());
 
   RETURN(hipSuccess);
 

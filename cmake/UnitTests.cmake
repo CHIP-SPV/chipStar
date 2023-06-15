@@ -487,7 +487,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default")
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipInit_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
@@ -853,7 +852,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default"
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipInit_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
@@ -1254,7 +1252,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default"
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipInit_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
@@ -1643,7 +1640,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default"
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipInit_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
@@ -2011,7 +2007,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default"
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipInit_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
@@ -2407,7 +2402,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default") #
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipInit_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
