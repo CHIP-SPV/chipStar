@@ -73,7 +73,6 @@ public:
   }                                                                            \
   catch (CHIPError _status) {                                                  \
     logError("Caught Error: {}", _status.getErrStr());                         \
-    CHIPTlsLastError = _status.toHIPError();                                   \
     RETURN(_status.toHIPError());                                              \
   }
 
