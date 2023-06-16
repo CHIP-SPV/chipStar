@@ -34,14 +34,13 @@ template <typename T, typename FnT> void launchUnaryFn(FnT Fn, T Arg = T()) {
   (void)hipFree(DataD);
 }
 
-template <typename T, typename FnT> void launchBinaryFn(FnT Fn) {
+template <typename T, typename FnT>
+void launchBinaryFn(FnT Fn, T LhsH = T(), T RhsH = T()) {
   T *LhsD, *RhsD;
-  T DataH;
-  std::memset(&DataH, 0, sizeof(T));
   (void)hipMalloc(&LhsD, sizeof(T));
   (void)hipMalloc(&RhsD, sizeof(T));
-  (void)hipMemcpy(LhsD, &DataH, sizeof(T), hipMemcpyHostToDevice);
-  (void)hipMemcpy(RhsD, &DataH, sizeof(T), hipMemcpyHostToDevice);
+  (void)hipMemcpy(LhsD, &LhsH, sizeof(T), hipMemcpyHostToDevice);
+  (void)hipMemcpy(RhsD, &RhsH, sizeof(T), hipMemcpyHostToDevice);
   binaryKernel<<<1, 1>>>(Fn, LhsD, RhsD);
   (void)hipDeviceSynchronize();
   assert(hipGetLastError() == hipSuccess);
@@ -79,6 +78,8 @@ int main() {
       [] __device__(auto x, auto y) { return std::copysign(x, y); });
   launchBinaryFn<double>(
       [] __device__(auto x, auto y) { return std::nextafter(x, y); });
+  launchBinaryFn<double>(
+      [] __device__(auto x, auto y) { return std::pow(x, y); }, 2.0, 3.0);
 
   return 0;
 }

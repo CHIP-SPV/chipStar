@@ -179,6 +179,8 @@ extern "C++" inline __device__ double normcdfinv(double x) {
   return ::__ocml_ncdfinv_f64(x);
 }
 
+extern "C++" __device__ double pow(double x, double y); // OpenCL
+
 extern "C" __device__  double __ocml_rcbrt_f64(double x); // OCML
 extern "C++" inline __device__ double rcbrt(double x) {
   return ::__ocml_rcbrt_f64(x);
@@ -290,6 +292,7 @@ using ::log1p;
 using ::log2;
 using ::nearbyint;
 using ::nextafter;
+using ::pow;
 using ::sin;
 using ::sinh;
 using ::sqrt;
