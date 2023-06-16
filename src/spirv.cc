@@ -748,6 +748,8 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   Dst.append(Bytes, (const char *)WordsPtr); // Copy the header.
 
   std::set<std::string_view> EntryPoints;
+  std::unordered_set<InstWord> BuiltIns;
+  std::unordered_map<InstWord, std::string_view> MissingDefs;
   size_t InsnSize = 0;
   for (size_t I = 0; I < NumWords; I += InsnSize) {
     SPIRVinst Insn(WordsPtr + I);
@@ -776,6 +778,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     // and we are not currently linking the SPIR-V modules with anything else.
     if (Insn.isName() && EntryPoints.count(Insn.getName()))
       continue;
+
     if (Insn.isDecoration(spv::DecorationLinkageAttributes)) {
       auto LinkName = parseLinkageAttributeName(Insn);
       if (EntryPoints.count(LinkName))
@@ -788,13 +791,22 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
         // device code (from the user perspective). The user probably
         // forgot a definition.
         //
-        // Issue warning unless it's a magic CHIP-SPV or llvm-spirv symbol.
-        if (!startsWith(LinkName, "spirv_"))
-          logWarn("Missing definition for '{}'", LinkName);
+        // Issue warning unless it's a builtin, magic CHIP-SPV or
+        // llvm-spirv symbol.
+        if (!startsWith(LinkName, "spirv_") && !BuiltIns.count(Insn.getWord(1)))
+          MissingDefs[Insn.getWord(1)] = LinkName;
+    }
+
+    if (Insn.isDecoration(spv::DecorationBuiltIn)) {
+      BuiltIns.insert(Insn.getWord(1));
+      MissingDefs.erase(Insn.getWord(1));
     }
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
   }
+
+  for (auto &[Ignored, Name] : MissingDefs)
+    logWarn("Missing definition for '{}'", Name);
 
   return true;
 }
