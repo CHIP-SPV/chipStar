@@ -1,6 +1,6 @@
-# CHIP-SPV
+# chipStar
 
-CHIP-SPV makes HIP and CUDA applications portable to platforms which support
+chipStar makes HIP and CUDA applications portable to platforms which support
 SPIR-V as the device intermediate representation. Currently it supports
 OpenCL and Level Zero as the low-level runtime alternatives.
 
@@ -16,11 +16,11 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 * Cmake >= 3.16.0
 * Clang 14, 15 or 16
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'.  
-  * *NOTE*: Some features currently require patches that are not yet upstreamed to LLVM. They are on top of the branch [here](https://github.com/CHIP-SPV/llvm-project/tree/chipspv-llvm-15-patches).
+  * *NOTE*: Some features currently require patches that are not yet upstreamed to LLVM. They are on top of the branch [here](https://github.com/chipStar/llvm-project/tree/chipspv-llvm-15-patches).
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
-  * For best results, install [CHIP-SPV's LLVM 15 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-15-patches) or [CHIP-SPV's LLVM 16 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which have fixes that are not yet in upstream.
+  * For best results, install [chipStar's LLVM 15 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-15-patches) or [chipStar's LLVM 16 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which have fixes that are not yet in upstream.
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
@@ -31,7 +31,7 @@ This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
 
 ## Compiling Clang
 
-It's recommended to use the latest version of LLVM and use CHIP-SPV fork of SPIRV-LLVM-Translator.
+It's recommended to use the latest version of LLVM and use chipStar fork of SPIRV-LLVM-Translator.
 ```bash
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
@@ -60,8 +60,8 @@ cmake .. \
 ## Downloading Sources
 
 ```bash
-git clone https://github.com/CHIP-SPV/chip-spv.git
-cd chip-spv
+git clone https://github.com/CHIP-SPV/chipStar.git
+cd chipStar
 git submodule update --init --recursive
 ```
 
@@ -71,7 +71,7 @@ git submodule update --init --recursive
 mkdir build
 cd build
 cmake .. \ 
-    -DLLVM_CONFIG=/path/to/llvm-config # optional, if not in PATH or if only versioned binary is available i.e. llvm-config-15
+    -DLLVM_CONFIG=/path/to/llvm-config # optional, if not in PATH or if only versioned binary is available i.e. llvm-config-16
     -DCMAKE_INSTALL_PREFIX=/path/to/install # optional, default is <build_dir>/install
 make
 make install
