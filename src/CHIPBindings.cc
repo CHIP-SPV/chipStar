@@ -1548,7 +1548,8 @@ hipError_t hipDeviceGetLimit(size_t *PValue, enum hipLimit_t Limit) {
 hipError_t hipDeviceGetName(char *Name, int Len, hipDevice_t Device) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Name);
+  if (!Name)
+    RETURN(hipErrorInvalidValue);
   ERROR_CHECK_DEVNUM(Device);
 
   std::string DeviceName = (Backend->getDevices()[Device])->getName();
