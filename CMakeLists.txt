@@ -606,7 +606,8 @@ set(_versionInfoHeader
 #endif\n
 ")
 file(WRITE "${PROJECT_BINARY_DIR}/include/hip/hip_version.h" ${_versionInfoHeader})
-install(FILES "${PROJECT_BINARY_DIR}/include/hip/hip_version.h" DESTINATION ${INCLUDE_INSTALL_DIR})
+install(FILES "${PROJECT_BINARY_DIR}/include/hip/hip_version.h"
+  DESTINATION ${INCLUDE_INSTALL_DIR}/hip)
 
 # Generate .hipInfo
 file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install" ${_hipInfo_install})
