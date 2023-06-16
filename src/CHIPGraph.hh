@@ -511,13 +511,7 @@ public:
 
   virtual ~CHIPGraphNodeMemcpyFromSymbol() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override {
-    auto Status =
-        hipMemcpyFromSymbol(Dst_, Symbol_, SizeBytes_, Offset_, Kind_);
-    if (Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                            hipErrorTbd);
-  }
+  virtual void execute(CHIPQueue *Queue) const override;
 
   void setParams(void *Dst, const void *Symbol, size_t SizeBytes, size_t Offset,
                  hipMemcpyKind Kind) {
@@ -556,12 +550,8 @@ public:
 
   virtual ~CHIPGraphNodeMemcpyToSymbol() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override {
-    auto Status = hipMemcpyToSymbol(Symbol_, Src_, SizeBytes_, Offset_, Kind_);
-    if (Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                            hipErrorTbd);
-  }
+  virtual void execute(CHIPQueue *Queue) const override;
+
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeMemcpyToSymbol(*this);
     return NewNode;

@@ -34,6 +34,7 @@
 #define CHIP_EXCEPTION_HH
 
 #include "hip/hip_runtime_api.h"
+#include "CHIPBindingsInternal.hh"
 #include "logging.hh"
 #include <string>
 class CHIPError {
@@ -46,7 +47,7 @@ public:
   virtual hipError_t toHIPError() { return Err_; }
 
   std::string getMsgStr() { return Msg_.c_str(); }
-  std::string getErrStr() { return std::string(hipGetErrorName(Err_)); }
+  std::string getErrStr() { return std::string(hipGetErrorNameInternal(Err_)); }
 };
 
 #define CHIPERR_LOG_AND_THROW(msg, errtype)                                    \
@@ -72,14 +73,21 @@ public:
   }                                                                            \
   catch (CHIPError _status) {                                                  \
     logError("Caught Error: {}", _status.getErrStr());                         \
-    CHIPTlsLastError = _status.toHIPError();                                   \
     RETURN(_status.toHIPError());                                              \
   }
 
 #define CHIP_CATCH_NO_RETURN                                                   \
   }                                                                            \
   catch (CHIPError _status) {                                                  \
-    logError(hipGetErrorName(_status.toHIPError()));                           \
+    logError(hipGetErrorNameInternal(_status.toHIPError()));                   \
+  }
+
+#define CHIP_CATCH_RETURN_CODE(code)                                           \
+  }                                                                            \
+  catch (CHIPError _status) {                                                  \
+    logError("Caught Error: {} Returned: {}", _status.getErrStr(),             \
+             hipGetErrorNameInternal(code));                                   \
+    RETURN(code);                                                              \
   }
 
 inline void checkIfNullptr(std::string_view File, int Line,
