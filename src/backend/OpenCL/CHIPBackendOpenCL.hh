@@ -39,8 +39,6 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 210
 #define CL_HPP_MINIMUM_OPENCL_VERSION 200
 
-#pragma OPENCL EXTENSION cl_khr_priority_hints : enable
-
 #include <CL/cl_ext_intel.h>
 
 #pragma GCC diagnostic push
