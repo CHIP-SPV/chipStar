@@ -82,6 +82,14 @@ public:
     logError(hipGetErrorNameInternal(_status.toHIPError()));                   \
   }
 
+#define CHIP_CATCH_RETURN_CODE(code)                                           \
+  }                                                                            \
+  catch (CHIPError _status) {                                                  \
+    logError("Caught Error: {} Returned: {}", _status.getErrStr(),             \
+             hipGetErrorNameInternal(code));                                   \
+    RETURN(code);                                                              \
+  }
+
 inline void checkIfNullptr(std::string_view File, int Line,
                            std::string_view Function, int NumArgs, ...) {
   va_list VaArgList;

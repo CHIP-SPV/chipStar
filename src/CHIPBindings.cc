@@ -2647,10 +2647,12 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   }
 
   void *DevPtr;
+  CHIP_TRY
   if (hipMallocInternal(&DevPtr, SizeBytes) != hipSuccess)
     // Translate hipOutOfMemory to hipErrorInvalidValue. The latter is
     // the one hip-tests suite expects in case of OoM.
     RETURN(hipErrorInvalidValue);
+  CHIP_CATCH_RETURN_CODE(hipErrorInvalidValue)
 
   // Associate the pointer
   auto Device = Backend->getActiveDevice();
