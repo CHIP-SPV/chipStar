@@ -374,19 +374,20 @@ public:
   }
 };
 
-} // namespace chipstar
 
-class CHIPTexture {
+class Texture {
   /// Resource description used to create this texture.
   hipResourceDesc ResourceDesc;
 
 public:
-  CHIPTexture() = delete;
-  CHIPTexture(const hipResourceDesc &ResDesc) : ResourceDesc(ResDesc) {}
-  virtual ~CHIPTexture() {}
+  Texture() = delete;
+  Texture(const hipResourceDesc &ResDesc) : ResourceDesc(ResDesc) {}
+  virtual ~Texture() {}
 
   const hipResourceDesc &getResourceDesc() const { return ResourceDesc; }
 };
+
+} // namespace chipstar
 
 template <class T> std::string resultToString(T Err);
 
@@ -1570,11 +1571,11 @@ public:
 
   void eraseModule(CHIPModule *Module);
 
-  virtual CHIPTexture *
+  virtual chipstar::Texture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
                 const struct hipResourceViewDesc *ResViewDesc) = 0;
 
-  virtual void destroyTexture(CHIPTexture *TextureObject) = 0;
+  virtual void destroyTexture(chipstar::Texture *TextureObject) = 0;
 
   void prepareDeviceVariables(HostPtr Ptr);
   void invalidateDeviceVariables();

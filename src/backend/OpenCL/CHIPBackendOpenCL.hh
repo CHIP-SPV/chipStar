@@ -186,10 +186,10 @@ public:
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
 
-  virtual CHIPTexture *
+  virtual chipstar::Texture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
                 const struct hipResourceViewDesc *ResViewDesc) override;
-  virtual void destroyTexture(CHIPTexture *ChipTexture) override {
+  virtual void destroyTexture(chipstar::Texture *ChipTexture) override {
     logTrace("CHIPDeviceOpenCL::destroyTexture");
     delete ChipTexture;
   }
@@ -359,7 +359,7 @@ public:
   virtual void *getNativeEvent(hipEvent_t HipEvent) override;
 };
 
-class CHIPTextureOpenCL : public CHIPTexture {
+class CHIPTextureOpenCL : public chipstar::Texture {
   cl_mem Image;
   cl_sampler Sampler;
 
@@ -367,7 +367,7 @@ public:
   CHIPTextureOpenCL() = delete;
   CHIPTextureOpenCL(const hipResourceDesc &ResDesc, cl_mem TheImage,
                     cl_sampler TheSampler)
-      : CHIPTexture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
+      : chipstar::Texture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
 
   virtual ~CHIPTextureOpenCL() {
     cl_int Status;

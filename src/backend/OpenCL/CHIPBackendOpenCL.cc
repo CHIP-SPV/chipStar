@@ -291,7 +291,7 @@ void EventMonitorOpenCL::monitor() {
 // CHIPDeviceOpenCL
 // ************************************************************************
 
-CHIPTexture *
+chipstar::Texture *
 CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
                                 const hipTextureDesc *TexDesc,
                                 const struct hipResourceViewDesc *ResViewDesc) {

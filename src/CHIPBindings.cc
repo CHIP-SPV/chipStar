@@ -4071,7 +4071,7 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
         "Heterogeneous texture addressing modes are not supported yet",
         hipErrorTbd);
 
-  CHIPTexture *RetObj =
+  chipstar::Texture *RetObj =
       Backend->getActiveDevice()->createTexture(ResDesc, TexDesc, ResViewDesc);
   if (RetObj != nullptr) {
     *TexObject = reinterpret_cast<hipTextureObject_t>(RetObj);
@@ -4087,7 +4087,7 @@ hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
   // TODO CRITCAL look into the define for hipTextureObject_t
   if (TextureObject == nullptr)
     RETURN(hipSuccess);
-  CHIPTexture *ChipTexture = (CHIPTexture *)TextureObject;
+  chipstar::Texture *ChipTexture = (chipstar::Texture *)TextureObject;
   Backend->getActiveDevice()->destroyTexture(ChipTexture);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -4099,7 +4099,7 @@ hipError_t hipGetTextureObjectResourceDesc(hipResourceDesc *ResDesc,
   CHIPInitialize();
   if (TextureObject == nullptr)
     RETURN(hipErrorInvalidValue);
-  CHIPTexture *ChipTexture = (CHIPTexture *)TextureObject;
+  chipstar::Texture *ChipTexture = (chipstar::Texture *)TextureObject;
   *ResDesc = ChipTexture->getResourceDesc();
   RETURN(hipSuccess);
   CHIP_CATCH

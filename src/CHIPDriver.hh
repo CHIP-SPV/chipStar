@@ -49,7 +49,7 @@ class CHIPKernel;
 class CHIPBackend;
 class CHIPEvent;
 class CHIPQueue;
-class CHIPTexture;
+// class Texture;
 
 /* HIP Graph API */
 class CHIPGraph;

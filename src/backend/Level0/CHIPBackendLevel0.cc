@@ -2011,7 +2011,7 @@ ze_image_handle_t CHIPDeviceLevel0::allocateImage(unsigned int TextureType,
   return ImageHandle;
 }
 
-CHIPTexture *CHIPDeviceLevel0::createTexture(
+chipstar::Texture *CHIPDeviceLevel0::createTexture(
     const hipResourceDesc *PResDesc, const hipTextureDesc *PTexDesc,
     const struct hipResourceViewDesc *PResViewDesc) {
   logTrace("CHIPDeviceLevel0::createTexture");

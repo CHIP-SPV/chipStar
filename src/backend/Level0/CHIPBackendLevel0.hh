@@ -406,14 +406,14 @@ public:
 };
 
 // The struct that accomodate the L0/Hip texture object's content
-class CHIPTextureLevel0 : public CHIPTexture {
+class CHIPTextureLevel0 : public chipstar::Texture {
   ze_image_handle_t Image;
   ze_sampler_handle_t Sampler;
 
 public:
   CHIPTextureLevel0(const hipResourceDesc &ResDesc, ze_image_handle_t TheImage,
                     ze_sampler_handle_t TheSampler)
-      : CHIPTexture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
+      : chipstar::Texture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
 
   virtual ~CHIPTextureLevel0() {
     destroyImage(Image);
@@ -517,11 +517,11 @@ public:
                                   bool NormalizeToFloat, size_t Width,
                                   size_t Height = 0, size_t Depth = 0);
 
-  virtual CHIPTexture *
+  virtual chipstar::Texture *
   createTexture(const hipResourceDesc *PResDesc, const hipTextureDesc *PTexDesc,
                 const struct hipResourceViewDesc *PResViewDesc) override;
 
-  virtual void destroyTexture(CHIPTexture *TextureObject) override {
+  virtual void destroyTexture(chipstar::Texture *TextureObject) override {
     logTrace("CHIPDeviceLevel0::destroyTexture");
     delete TextureObject;
   }
