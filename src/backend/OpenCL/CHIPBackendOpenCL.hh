@@ -182,7 +182,7 @@ public:
   bool supportsFineGrainSVM() { return SupportsFineGrainSVM; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
-  virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
+  virtual CHIPQueue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
 

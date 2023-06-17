@@ -755,7 +755,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   Program_ = Program;
 }
 
-CHIPQueue *CHIPDeviceOpenCL::createQueue(CHIPQueueFlags Flags, int Priority) {
+CHIPQueue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
   NewQ->setFlags(Flags);
   return NewQ;
@@ -1090,7 +1090,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
                                  cl_command_queue Queue)
-    : CHIPQueue(ChipDevice, CHIPQueueFlags{}, Priority) {
+    : CHIPQueue(ChipDevice, chipstar::QueueFlags{}, Priority) {
 
   cl_queue_priority_khr PrioritySelection;
   switch (Priority_) {

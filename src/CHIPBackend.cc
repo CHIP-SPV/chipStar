@@ -555,7 +555,7 @@ void CHIPDevice::init() {
     AllocationTracker = new CHIPAllocationTracker(
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
 
-  CHIPQueueFlags Flags;
+  chipstar::QueueFlags Flags;
   int Priority = 1; // TODO : set a default
   LegacyDefaultQueue = createQueue(Flags, Priority);
 }
@@ -804,7 +804,7 @@ void CHIPDevice::addQueue(CHIPQueue *ChipQueue) {
   return;
 }
 
-CHIPQueue *CHIPDevice::createQueueAndRegister(CHIPQueueFlags Flags,
+CHIPQueue *CHIPDevice::createQueueAndRegister(chipstar::QueueFlags Flags,
                                               int Priority) {
 
   auto ChipQueue = createQueue(Flags, Priority);
@@ -1477,13 +1477,13 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 
 // CHIPQueue
 //*************************************************************************************
-CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags, int Priority)
+CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, chipstar::QueueFlags Flags, int Priority)
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
   logDebug("CHIPQueue() {}", (void *)this);
 };
 
-CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, CHIPQueueFlags Flags)
+CHIPQueue::CHIPQueue(CHIPDevice *ChipDevice, chipstar::QueueFlags Flags)
     : CHIPQueue(ChipDevice, Flags, 0){};
 
 CHIPQueue::~CHIPQueue() {
@@ -1815,7 +1815,7 @@ CHIPDevice *CHIPQueue::getDevice() {
   return ChipDevice_;
 }
 
-CHIPQueueFlags CHIPQueue::getFlags() { return QueueFlags_; }
+chipstar::QueueFlags CHIPQueue::getFlags() { return QueueFlags_; }
 int CHIPQueue::getPriority() { return Priority_; }
 void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
   CHIPCallbackData *Callbackdata =

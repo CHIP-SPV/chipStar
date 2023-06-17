@@ -225,10 +225,10 @@ public:
   }
   LevelZeroQueueType QueueType = LevelZeroQueueType::Unknown;
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
-  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags);
-  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags,
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags,
                   int Priority);
-  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, CHIPQueueFlags Flags, int Priority,
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags, int Priority,
                   LevelZeroQueueType TheQueueType);
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
@@ -503,7 +503,7 @@ public:
 
   virtual void resetImpl() override;
 
-  virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) override;
+  virtual CHIPQueue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
 

@@ -191,17 +191,16 @@ public:
 };
 
 class EventMonitor;
-} // namespace chipstar
 
 
-class CHIPQueueFlags {
+class QueueFlags {
   unsigned int FlagsRaw_;
   bool Default_ = true;
   bool NonBlocking_ = false;
 
 public:
-  CHIPQueueFlags() : CHIPQueueFlags(hipStreamDefault) {}
-  CHIPQueueFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+  QueueFlags() : QueueFlags(hipStreamDefault) {}
+  QueueFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
 
     if (FlagsRaw & hipStreamDefault) {
       Default_ = true;
@@ -214,7 +213,7 @@ public:
     }
 
     if (FlagsRaw > 0)
-      CHIPERR_LOG_AND_THROW("Invalid CHIPQueueFlags", hipErrorInvalidValue);
+      CHIPERR_LOG_AND_THROW("Invalid QueueFlags", hipErrorInvalidValue);
   }
 
   bool isDefault() { return Default_; }
@@ -222,6 +221,8 @@ public:
   bool isBlocking() { return !NonBlocking_; }
   unsigned int getRaw() { return FlagsRaw_; }
 };
+
+} // namespace chipstar
 
 enum class CHIPManagedMemFlags : unsigned int {
   AttachHost = hipMemAttachHost,
@@ -1313,7 +1314,7 @@ public:
    * @param Priority
    * @return CHIPQueue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
+  CHIPQueue *createQueueAndRegister(chipstar::QueueFlags Flags = chipstar::QueueFlags(),
                                     int Priority = DEFAULT_QUEUE_PRIORITY);
 
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
@@ -1400,7 +1401,7 @@ public:
    * @return CHIPQueue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) = 0;
+  virtual CHIPQueue *createQueue(chipstar::QueueFlags Flags, int Priority) = 0;
   virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) = 0;
 
@@ -2024,7 +2025,7 @@ protected:
    */
   const int MaxPriority = 0;
   int MinPriority;
-  CHIPQueueFlags QueueFlags_;
+  chipstar::QueueFlags QueueFlags_;
   /// Device on which this queue will execute
   CHIPDevice *ChipDevice_;
   /// Context to which device belongs to
@@ -2098,7 +2099,7 @@ public:
    * @param chip_dev
    * @param flags
    */
-  CHIPQueue(CHIPDevice *ChipDev, CHIPQueueFlags Flags);
+  CHIPQueue(CHIPDevice *ChipDev, chipstar::QueueFlags Flags);
   /**
    * @brief Construct a new CHIPQueue object
    *
@@ -2106,14 +2107,14 @@ public:
    * @param flags
    * @param priority
    */
-  CHIPQueue(CHIPDevice *ChipDev, CHIPQueueFlags Flags, int Priority);
+  CHIPQueue(CHIPDevice *ChipDev, chipstar::QueueFlags Flags, int Priority);
   /**
    * @brief Destroy the CHIPQueue object
    *
    */
   virtual ~CHIPQueue();
 
-  CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
+  chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(std::shared_ptr<CHIPEvent> NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
@@ -2256,7 +2257,7 @@ public:
    * @return unsigned int
    */
 
-  CHIPQueueFlags getFlags();
+  chipstar::QueueFlags getFlags();
   /**
    * @brief Get the Priority object with which this queue was created.
    *
@@ -2314,7 +2315,7 @@ public:
                                        int *NumHandles) = 0;
 
   CHIPContext *getContext() { return ChipContext_; }
-  void setFlags(CHIPQueueFlags TheFlags) { QueueFlags_ = TheFlags; }
+  void setFlags(chipstar::QueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
 
 #endif

@@ -2022,7 +2022,7 @@ hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
 
   CHIPDevice *Dev = Backend->getActiveDevice();
 
-  CHIPQueueFlags FlagsParsed{Flags};
+  chipstar::QueueFlags FlagsParsed{Flags};
 
   // Clamp priority between min and max
   auto MaxPriority = 0;

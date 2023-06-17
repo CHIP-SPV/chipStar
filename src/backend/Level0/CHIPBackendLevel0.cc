@@ -813,16 +813,16 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
                       LevelZeroQueueType::Compute) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 CHIPQueueFlags Flags)
+                                 chipstar::QueueFlags Flags)
     : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY,
                       LevelZeroQueueType::Compute) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 CHIPQueueFlags Flags, int Priority)
+                                 chipstar::QueueFlags Flags, int Priority)
     : CHIPQueueLevel0(ChipDev, Flags, Priority, LevelZeroQueueType::Compute) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 CHIPQueueFlags Flags, int Priority,
+                                 chipstar::QueueFlags Flags, int Priority,
                                  LevelZeroQueueType TheType)
     : CHIPQueue(ChipDev, Flags, Priority) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
@@ -1971,7 +1971,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(sizeof(ArchName)));
 }
 
-CHIPQueue *CHIPDeviceLevel0::createQueue(CHIPQueueFlags Flags, int Priority) {
+CHIPQueue *CHIPDeviceLevel0::createQueue(chipstar::QueueFlags Flags, int Priority) {
   CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
   return NewQ;
 }
