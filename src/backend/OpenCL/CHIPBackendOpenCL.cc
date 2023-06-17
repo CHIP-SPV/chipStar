@@ -903,7 +903,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   delete Cbo;
 }
 
-void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
+void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              CHIPQueue::MEM_MAP_TYPE Type) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
@@ -931,7 +931,7 @@ void CHIPQueueOpenCL::MemMap(const AllocationInfo *AllocInfo,
   assert(Status == CL_SUCCESS);
 }
 
-void CHIPQueueOpenCL::MemUnmap(const AllocationInfo *AllocInfo) {
+void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");

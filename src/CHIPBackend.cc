@@ -108,7 +108,7 @@ CHIPAllocationTracker::~CHIPAllocationTracker() {
     delete Member;
 }
 
-AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
+chipstar::AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
   {
     LOCK( // CHIPAllocationTracker::PtrToAllocInfo_
         AllocationTrackerMtx);
@@ -154,7 +154,7 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipDevice_t Device, size_t Size,
                                              chipstar::HostAllocFlags Flags,
                                              hipMemoryType MemoryType) {
-  AllocationInfo *AllocInfo = new AllocationInfo{
+  chipstar::AllocationInfo *AllocInfo = new chipstar::AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
   LOCK(AllocationTrackerMtx); // writing CHIPAllocationTracker::PtrToAllocInfo_
                               // CHIPAllocationTracker::AllocInfos_
@@ -187,11 +187,11 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   return;
 }
 
-AllocationInfo *
+chipstar::AllocationInfo *
 CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
   LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
   for (auto &Info : PtrToAllocInfo_) {
-    AllocationInfo *AllocInfo = Info.second;
+    chipstar::AllocationInfo *AllocInfo = Info.second;
     void *Start = AllocInfo->DevPtr;
     void *End = (char *)Start + AllocInfo->Size;
 
@@ -1148,7 +1148,7 @@ void CHIPContext::reset() {
 
 hipError_t CHIPContext::free(void *Ptr) {
   CHIPDevice *ChipDev = Backend->getActiveDevice();
-  AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
+  chipstar::AllocationInfo *AllocInfo = ChipDev->AllocationTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
     // HIP API doc says we should return hipErrorInvalidDevicePointer but HIP
     // test suite excepts hipErrorInvalidValue. Go with the latter.
@@ -1663,7 +1663,7 @@ CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
   std::vector<std::shared_ptr<CHIPEvent>> CopyEvents;
   auto PreKernel = ExecState == MANAGED_MEM_STATE::PRE_KERNEL;
   auto &AllocTracker = Backend->getActiveDevice()->AllocationTracker;
-  auto ArgVisitor = [&](const AllocationInfo &AllocInfo) -> void {
+  auto ArgVisitor = [&](const chipstar::AllocationInfo &AllocInfo) -> void {
     if (AllocInfo.MemoryType == hipMemoryTypeHost) {
       logDebug("Sync host memory {} ({})", AllocInfo.HostPtr,
                (PreKernel ? "Unmap" : "Map"));

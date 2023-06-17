@@ -442,8 +442,6 @@ public:
   bool isInterprocess() { return Interprocess_; };
 };
 
-} // namespace chipstar
-
 /**
  * @brief  Structure describing an allocation
  *
@@ -461,6 +459,10 @@ struct AllocationInfo {
   bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
 };
 
+} // namespace chipstar
+
+
+
 /**
  * @brief Class for keeping track of device allocations.
  *
@@ -469,8 +471,8 @@ class CHIPAllocationTracker {
 private:
   std::string Name_;
 
-  std::unordered_set<AllocationInfo *> AllocInfos_;
-  std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
+  std::unordered_set<chipstar::AllocationInfo *> AllocInfos_;
+  std::unordered_map<void *, chipstar::AllocationInfo *> PtrToAllocInfo_;
 
 public:
   mutable std::mutex AllocationTrackerMtx;
@@ -522,9 +524,9 @@ public:
   /**
    * @brief Get Allocation Info associated with this pointer
    *
-   * @return AllocationInfo contains the base pointer and allocation size;
+   * @return chipstar::AllocationInfo contains the base pointer and allocation size;
    */
-  AllocationInfo *getAllocInfo(const void *);
+  chipstar::AllocationInfo *getAllocInfo(const void *);
 
   /**
    * @brief Reserve memory for an allocation.
@@ -559,17 +561,17 @@ public:
    * @brief Check if a given pointer belongs to any of the existing allocations
    *
    * @param DevPtr device side pointer
-   * @return AllocationInfo* pointer to allocation info. Nullptr if this pointer
+   * @return chipstar::AllocationInfo* pointer to allocation info. Nullptr if this pointer
    * does not belong to any existing allocations
    */
-  AllocationInfo *getAllocInfoCheckPtrRanges(void *DevPtr);
+  chipstar::AllocationInfo *getAllocInfoCheckPtrRanges(void *DevPtr);
 
   /**
-   * @brief Delete an AllocationInfo item
+   * @brief Delete an chipstar::AllocationInfo item
    *
    * @param AllocInfo
    */
-  void eraseRecord(AllocationInfo *AllocInfo) {
+  void eraseRecord(chipstar::AllocationInfo *AllocInfo) {
     assert(AllocInfos_.count(AllocInfo) &&
            "Not a member of the allocation tracker!");
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
@@ -584,7 +586,7 @@ public:
   /**
    * @brief Visit tracked allocations.
    *
-   * The visitor is called with 'const AllocationInfo&' argument.
+   * The visitor is called with 'const chipstar::AllocationInfo&' argument.
    */
   template <typename VisitorT> void visitAllocations(VisitorT Visitor) const {
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::AllocInfos_
@@ -2046,8 +2048,8 @@ protected:
 
 public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
-  virtual void MemMap(const AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
-  virtual void MemUnmap(const AllocationInfo *AllocInfo) {}
+  virtual void MemMap(const chipstar::AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
+  virtual void MemUnmap(const chipstar::AllocationInfo *AllocInfo) {}
 
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.

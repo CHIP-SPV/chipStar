@@ -214,10 +214,10 @@ protected:
    * operations on the host. If the device supports fine-grain SVM, then no
    * mapping will be done.
    *
-   * @param AllocInfo AllocationInfo object to be mapped for the host
+   * @param AllocInfo chipstar::AllocationInfo object to be mapped for the host
    * @param Type Type of mapping to be performed. Either READ or WRITE
    */
-  virtual void MemMap(const AllocationInfo *AllocInfo,
+  virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       CHIPQueue::MEM_MAP_TYPE Type) override;
 
   /**
@@ -227,7 +227,7 @@ protected:
    *
    * @param AllocInfo
    */
-  virtual void MemUnmap(const AllocationInfo *AllocInfo) override;
+  virtual void MemUnmap(const chipstar::AllocationInfo *AllocInfo) override;
 
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor

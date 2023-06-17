@@ -2933,7 +2933,7 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   CHIPInitialize();
   NULLCHECK(Ptr, Size);
 
-  AllocationInfo *AllocInfo =
+  chipstar::AllocationInfo *AllocInfo =
       Backend->getActiveDevice()->AllocationTracker->getAllocInfo(Ptr);
   *Size = AllocInfo->Size;
 
@@ -3137,7 +3137,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
 
   // Check if pointer inside allocation range
   auto AllocTracker = ChipQueue->getDevice()->AllocationTracker;
-  AllocationInfo *AllocInfo =
+  chipstar::AllocationInfo *AllocInfo =
       AllocTracker->getAllocInfoCheckPtrRanges(PitchedDevPtr.ptr);
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
