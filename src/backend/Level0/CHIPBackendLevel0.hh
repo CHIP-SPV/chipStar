@@ -134,7 +134,7 @@ public:
   }
 };
 
-class CHIPCallbackDataLevel0 : public CHIPCallbackData {
+class CHIPCallbackDataLevel0 : public chipstar::CallbackData {
 private:
   // ze_event_pool_handle_t ZeEventPool_;
 
@@ -595,7 +595,7 @@ public:
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override;
 
-  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
+  virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQueue) override {
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);

@@ -1409,7 +1409,7 @@ CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
 }
 
-CHIPCallbackData *
+chipstar::CallbackData *
 CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
                                       void *UserData, CHIPQueue *ChipQueue) {
   UNIMPLEMENTED(nullptr);

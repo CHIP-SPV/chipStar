@@ -560,7 +560,7 @@ void CHIPEventLevel0::hostSignal() {
 CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                CHIPQueue *ChipQueue)
-    : CHIPCallbackData(CallbackF, CallbackArgs, ChipQueue) {
+    : chipstar::CallbackData(CallbackF, CallbackArgs, ChipQueue) {
   LOCK(Backend->BackendMtx) // ensure callback enqueues are submitted as one
 
   CHIPContext *Ctx = ChipQueue->getContext();
@@ -587,7 +587,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
-  CHIPCallbackDataLevel0 *CallbackData;
+  CHIPCallbackDataLevel0 *CbData;
   while (true) {
     usleep(20000);
     LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
@@ -608,31 +608,31 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
         continue;
 
       // get the callback item
-      CallbackData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+      CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
 
       // Lock the item and members
-      assert(CallbackData);
+      assert(CbData);
       LOCK( // CHIPBackend::CallbackQueue
-          CallbackData->CallbackDataMtx);
+          CbData->CallbackDataMtx);
       Backend->CallbackQueue.pop();
 
       // Update Status
       logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
                "status for {}",
-               static_cast<void *>(CallbackData->GpuReady.get()));
-      CallbackData->GpuReady->updateFinishStatus(false);
-      if (CallbackData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+               static_cast<void *>(CbData->GpuReady.get()));
+      CbData->GpuReady->updateFinishStatus(false);
+      if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
         // if not ready, push to the back
-        Backend->CallbackQueue.push(CallbackData);
+        Backend->CallbackQueue.push(CbData);
         continue;
       }
     }
 
-    CallbackData->execute(hipSuccess);
-    CallbackData->CpuCallbackComplete->hostSignal();
-    CallbackData->GpuAck->wait();
+    CbData->execute(hipSuccess);
+    CbData->CpuCallbackComplete->hostSignal();
+    CbData->GpuAck->wait();
 
-    delete CallbackData;
+    delete CbData;
     pthread_yield();
   }
 }
@@ -781,7 +781,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 
 void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
-  CHIPCallbackData *Callbackdata =
+  chipstar::CallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);
 
   {

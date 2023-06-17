@@ -81,13 +81,13 @@ static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
   queueKernel(Q, K);
 }
 
-CHIPCallbackData::CHIPCallbackData(hipStreamCallback_t TheCallbackF,
+chipstar::CallbackData::CallbackData(hipStreamCallback_t TheCallbackF,
                                    void *TheCallbackArgs,
                                    CHIPQueue *TheChipQueue)
     : ChipQueue(TheChipQueue), CallbackArgs(TheCallbackArgs),
       CallbackF(TheCallbackF) {}
 
-void CHIPCallbackData::execute(hipError_t ResultFromDependency) {
+void chipstar::CallbackData::execute(hipError_t ResultFromDependency) {
   CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
 }
 
@@ -1818,7 +1818,7 @@ CHIPDevice *CHIPQueue::getDevice() {
 chipstar::QueueFlags CHIPQueue::getFlags() { return QueueFlags_; }
 int CHIPQueue::getPriority() { return Priority_; }
 void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
-  CHIPCallbackData *Callbackdata =
+  chipstar::CallbackData *Callbackdata =
       Backend->createCallbackData(Callback, UserData, this);
 
   {

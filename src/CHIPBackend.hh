@@ -298,7 +298,6 @@ public:
   bool isNonCoherent() { return NonCoherent_; }
 };
 
-} // namespace chipstar
 
 /**
  * @brief This object gets created when a callback is requested. Once created,
@@ -309,9 +308,9 @@ public:
  * - Callback function
  * - Arguments for the callback function
  */
-class CHIPCallbackData {
+class CallbackData {
 protected:
-  virtual ~CHIPCallbackData() = default;
+  virtual ~CallbackData() = default;
 
 public:
   CHIPQueue *ChipQueue;
@@ -323,11 +322,13 @@ public:
   void *CallbackArgs;
   hipStreamCallback_t CallbackF;
 
-  CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
+  CallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
                    CHIPQueue *ChipQueue);
 
   void execute(hipError_t ResultFromDependency);
 };
+
+} // namespace chipstar
 
 class chipstar::EventMonitor {
   typedef void *(*THREADFUNCPTR)(void *);
@@ -1797,7 +1798,7 @@ public:
   std::mutex EventsMtx;
   std::mutex UserEventsMtx;
 
-  std::queue<CHIPCallbackData *> CallbackQueue;
+  std::queue<chipstar::CallbackData *> CallbackQueue;
 
   std::vector<CHIPContext *> ChipContexts;
 
@@ -1991,11 +1992,11 @@ public:
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
-   * CHIPCallbackData constructor.
-   * @return CHIPCallbackData* pointer to newly allocated CHIPCallbackData
+   * chipstar::CallbackData constructor.
+   * @return chipstar::CallbackData* pointer to newly allocated chipstar::CallbackData
    * object.
    */
-  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
+  virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQ) = 0;
 

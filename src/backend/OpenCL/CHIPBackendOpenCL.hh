@@ -349,7 +349,7 @@ public:
   virtual std::shared_ptr<CHIPEvent>
   createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
                   bool UserEvent = false) override;
-  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
+  virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQueue) override;
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() override;
