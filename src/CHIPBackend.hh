@@ -222,12 +222,12 @@ public:
   unsigned int getRaw() { return FlagsRaw_; }
 };
 
-} // namespace chipstar
-
-enum class CHIPManagedMemFlags : unsigned int {
+enum class ManagedMemFlags : unsigned int {
   AttachHost = hipMemAttachHost,
   AttachGlobal = hipMemAttachGlobal
 };
+
+} // namespace chipstar
 
 class CHIPHostAllocFlags {
   bool Default_ = true;

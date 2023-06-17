@@ -2434,11 +2434,11 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
 
   // TODO: Create a class for parsing this, default to attach global
   // attach host should be device allocate with associated host poitner?
-  auto FlagsParsed = CHIPManagedMemFlags{Flags};
+  auto FlagsParsed = chipstar::ManagedMemFlags{Flags};
   switch (FlagsParsed) {
-  case CHIPManagedMemFlags::AttachGlobal:
+  case chipstar::ManagedMemFlags::AttachGlobal:
     break;
-  case CHIPManagedMemFlags::AttachHost:
+  case chipstar::ManagedMemFlags::AttachHost:
     break;
   default:
     CHIPERR_LOG_AND_THROW("Invalid value passed for hipMallocManaged flags",
