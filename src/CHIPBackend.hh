@@ -561,10 +561,11 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
-    assert(AllocInfos_.count(AllocInfo) &&
-           "Not a member of the allocation tracker!");
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
                                 // CHIPAllocationTracker::AllocInfos_
+    assert(AllocInfo && "Null pointer passed to eraseRecord");
+    assert(AllocInfos_.count(AllocInfo) &&
+           "Not a member of the allocation tracker!");
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
