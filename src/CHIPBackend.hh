@@ -1340,7 +1340,7 @@ public:
     return MaxMallocSize_;
   }
 
-  chipstar::AllocationTracker *AllocationTracker = nullptr;
+  chipstar::AllocationTracker *AllocTracker = nullptr;
 
   virtual ~CHIPDevice();
 
