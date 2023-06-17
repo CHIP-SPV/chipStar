@@ -241,7 +241,7 @@ hipError_t hipInit(unsigned int flags) {
 // variable used for signaling the request.
 static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
   logTrace("handleAbortRequest()");
-  CHIPDeviceVar *Var = M.getGlobalVar("__chipspv_abort_called");
+  chipstar::DeviceVar*Var = M.getGlobalVar("__chipspv_abort_called");
 
   if (!Var)
     // If the flag is not found, we have removed it in HipAbort pass
@@ -3768,7 +3768,7 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
   NULLCHECK(Dptr, Bytes, Hmod, Name);
   auto ChipModule = static_cast<CHIPModule *>(Hmod);
 
-  CHIPDeviceVar *Var = ChipModule->getGlobalVar(Name);
+  chipstar::DeviceVar*Var = ChipModule->getGlobalVar(Name);
   *Dptr = Var->getDevAddr();
 
   RETURN(hipSuccess);
@@ -3780,7 +3780,7 @@ hipError_t hipGetSymbolSize(size_t *Size, const void *Symbol) {
   CHIPInitialize();
   NULLCHECK(Size, Symbol);
 
-  CHIPDeviceVar *Var =
+  chipstar::DeviceVar*Var =
       Backend->getActiveDevice()->getGlobalVar((const char *)Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
 
@@ -3812,7 +3812,7 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
 
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
 
-  CHIPDeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
+  chipstar::DeviceVar*Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   if (Offset + SizeBytes > Var->getSize())
     CHIPERR_LOG_AND_THROW("Copy has out-of-bounds accesses!",
@@ -3871,7 +3871,7 @@ hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
   }
 
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
-  CHIPDeviceVar *Var = ChipQueue->getDevice()->getGlobalVar(Symbol);
+  chipstar::DeviceVar*Var = ChipQueue->getDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   if (Offset + SizeBytes > Var->getSize())
     CHIPERR_LOG_AND_THROW("Copy has out-of-bounds accesses!",
@@ -4497,7 +4497,7 @@ hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
   NULLCHECK(DevPtr, Symbol);
 
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
-  CHIPDeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
+  chipstar::DeviceVar*Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   *DevPtr = Var->getDevAddr();
   assert(*DevPtr);

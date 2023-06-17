@@ -596,9 +596,8 @@ public:
   size_t getNumAllocations() const { return AllocInfos_.size(); }
 };
 
-} // namespace chipstar
 
-class CHIPDeviceVar {
+class DeviceVar {
 private:
   const SPVVariable *SrcVar_ = nullptr;
   void *DevAddr_ = nullptr;
@@ -611,8 +610,8 @@ private:
   bool HasInitializer_ = false;
 
 public:
-  CHIPDeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
-  ~CHIPDeviceVar();
+  DeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
+  ~DeviceVar();
 
   void *getDevAddr() const { return DevAddr_; }
   void setDevAddr(void *Addr) { DevAddr_ = Addr; }
@@ -626,6 +625,8 @@ public:
   bool hasInitializer() const { return HasInitializer_; }
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
+
+} // namespace chipstar
 
 class CHIPEvent : public ihipEvent_t {
 protected:
@@ -863,7 +864,7 @@ protected:
   size_t IlSize_;
   std::mutex Mtx_;
   // Global variables
-  std::vector<CHIPDeviceVar *> ChipVars_;
+  std::vector<chipstar::DeviceVar*> ChipVars_;
   // Kernels
   std::vector<CHIPKernel *> ChipKernels_;
   /// Binary representation extracted from FatBinary.
@@ -930,9 +931,9 @@ public:
    * A module, along with device kernels, can also contain global variables.
    *
    * @param name global variable name
-   * @return CHIPDeviceVar*
+   * @return DeviceVar*
    */
-  virtual CHIPDeviceVar *getGlobalVar(const char *VarName);
+  virtual chipstar::DeviceVar*getGlobalVar(const char *VarName);
 
   /**
    * @brief Get the Kernel object
@@ -984,9 +985,9 @@ public:
    *
    * Takes ownership of the variable.
    */
-  void addDeviceVariable(CHIPDeviceVar *DevVar) { ChipVars_.push_back(DevVar); }
+  void addDeviceVariable(chipstar::DeviceVar*DevVar) { ChipVars_.push_back(DevVar); }
 
-  std::vector<CHIPDeviceVar *> &getDeviceVariables() { return ChipVars_; }
+  std::vector<chipstar::DeviceVar*> &getDeviceVariables() { return ChipVars_; }
 
   hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
                                            CHIPQueue *Queue);
@@ -1265,7 +1266,7 @@ protected:
   size_t MaxMallocSize_ = 0;
 
   /// Maps host-side shadow variables to the corresponding device variables.
-  std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
+  std::unordered_map<const void *, chipstar::DeviceVar*> DeviceVarLookup_;
 
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
@@ -1552,25 +1553,25 @@ public:
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param var host pointer to the variable
-   * @return CHIPDeviceVar* if not found returns nullptr
+   * @return DeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getDynGlobalVar(const void *Var) { return nullptr; }
+  chipstar::DeviceVar*getDynGlobalVar(const void *Var) { return nullptr; }
 
   /**
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param var Pointer to host side shadow variable.
-   * @return CHIPDeviceVar* if not found returns nullptr
+   * @return DeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getStatGlobalVar(const void *Var);
+  chipstar::DeviceVar*getStatGlobalVar(const void *Var);
 
   /**
    * @brief Get the global variable
    *
    * @param var Pointer to host side shadow variable.
-   * @return CHIPDeviceVar* if not found returns nullptr
+   * @return DeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getGlobalVar(const void *Var);
+  chipstar::DeviceVar*getGlobalVar(const void *Var);
 
   void eraseModule(CHIPModule *Module);
 

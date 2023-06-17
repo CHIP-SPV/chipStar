@@ -50,7 +50,7 @@ static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
 /// Queue a shadow kernel for binding a device variable (a pointer) to
 /// the given allocation.
 static void queueVariableInfoShadowKernel(CHIPQueue *Q, CHIPModule *M,
-                                          const CHIPDeviceVar *Var,
+                                          const chipstar::DeviceVar*Var,
                                           void *InfoBuffer) {
   assert(M && Var && InfoBuffer);
   auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) +
@@ -61,7 +61,7 @@ static void queueVariableInfoShadowKernel(CHIPQueue *Q, CHIPModule *M,
 }
 
 static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
-                                          const CHIPDeviceVar *Var) {
+                                          const chipstar::DeviceVar*Var) {
   assert(M && Var);
   auto *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Space has not be allocated for a variable.");
@@ -73,7 +73,7 @@ static void queueVariableBindShadowKernel(CHIPQueue *Q, CHIPModule *M,
 }
 
 static void queueVariableInitShadowKernel(CHIPQueue *Q, CHIPModule *M,
-                                          const CHIPDeviceVar *Var) {
+                                          const chipstar::DeviceVar*Var) {
   assert(M && Var);
   auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
                                std::string(Var->getName()));
@@ -91,9 +91,9 @@ void chipstar::CallbackData::execute(hipError_t ResultFromDependency) {
   CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
 }
 
-// CHIPDeviceVar
+// DeviceVar
 // ************************************************************************
-CHIPDeviceVar::~CHIPDeviceVar() { assert(!DevAddr_ && "Memory leak?"); }
+chipstar::DeviceVar::~DeviceVar() { assert(!DevAddr_ && "Memory leak?"); }
 
 // chipstar::AllocTracker
 // ************************************************************************
@@ -284,9 +284,9 @@ CHIPKernel *CHIPModule::getKernel(const void *HostFPtr) {
 
 std::vector<CHIPKernel *> &CHIPModule::getKernels() { return ChipKernels_; }
 
-CHIPDeviceVar *CHIPModule::getGlobalVar(const char *VarName) {
+chipstar::DeviceVar*CHIPModule::getGlobalVar(const char *VarName) {
   auto VarFound = std::find_if(ChipVars_.begin(), ChipVars_.end(),
-                               [VarName](CHIPDeviceVar *Var) {
+                               [VarName](chipstar::DeviceVar*Var) {
                                  return Var->getName().compare(VarName) == 0;
                                });
   if (VarFound == ChipVars_.end()) {
@@ -319,7 +319,7 @@ hipError_t CHIPModule::allocateDeviceVariablesNoLock(CHIPDevice *Device,
   auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(ChipVars_.size());
 
   // Gather information for storage allocation.
-  std::vector<std::pair<CHIPDeviceVar *, CHIPVarInfo *>> VarInfos;
+  std::vector<std::pair<chipstar::DeviceVar*, CHIPVarInfo *>> VarInfos;
   for (auto *Var : ChipVars_) {
     auto I = VarInfos.size();
     queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
@@ -569,7 +569,7 @@ void CHIPDevice::copyDeviceProperties(hipDeviceProp_t *Prop) {
 CHIPContext *CHIPDevice::getContext() { return Ctx_; }
 int CHIPDevice::getDeviceId() { return Idx_; }
 
-CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *HostPtr) {
+chipstar::DeviceVar*CHIPDevice::getStatGlobalVar(const void *HostPtr) {
   if (DeviceVarLookup_.count(HostPtr)) {
     auto *Var = DeviceVarLookup_[HostPtr];
     assert(Var->getDevAddr() && "Missing device pointer.");
@@ -578,7 +578,7 @@ CHIPDeviceVar *CHIPDevice::getStatGlobalVar(const void *HostPtr) {
   return nullptr;
 }
 
-CHIPDeviceVar *CHIPDevice::getGlobalVar(const void *HostPtr) {
+chipstar::DeviceVar*CHIPDevice::getGlobalVar(const void *HostPtr) {
   if (auto *Found = getDynGlobalVar(HostPtr))
     return Found;
 
@@ -992,7 +992,7 @@ CHIPModule *CHIPDevice::getOrCreateModule(const SPVModule &SrcMod) {
           Info.Name);
       continue;
     }
-    auto *Var = new CHIPDeviceVar(&Info);
+    auto *Var = new chipstar::DeviceVar(&Info);
     Module->addDeviceVariable(Var);
 
     DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
