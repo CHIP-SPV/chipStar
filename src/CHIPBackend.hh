@@ -328,9 +328,8 @@ public:
   void execute(hipError_t ResultFromDependency);
 };
 
-} // namespace chipstar
 
-class chipstar::EventMonitor {
+class EventMonitor {
   typedef void *(*THREADFUNCPTR)(void *);
 
 protected:
@@ -374,6 +373,8 @@ public:
     join();
   }
 };
+
+} // namespace chipstar
 
 class CHIPTexture {
   /// Resource description used to create this texture.
