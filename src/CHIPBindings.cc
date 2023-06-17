@@ -2473,7 +2473,7 @@ static inline hipError_t hipHostMallocInternal(void **Ptr, size_t Size,
     return hipSuccess;
   }
 
-  auto FlagsParsed = CHIPHostAllocFlags(Flags);
+  auto FlagsParsed = chipstar::HostAllocFlags(Flags);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       Size, 0x1000, hipMemoryType::hipMemoryTypeHost, FlagsParsed);

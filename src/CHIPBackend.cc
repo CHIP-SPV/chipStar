@@ -152,7 +152,7 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
 
 void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipDevice_t Device, size_t Size,
-                                             CHIPHostAllocFlags Flags,
+                                             chipstar::HostAllocFlags Flags,
                                              hipMemoryType MemoryType) {
   AllocationInfo *AllocInfo = new AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
@@ -1075,16 +1075,16 @@ CHIPDevice *CHIPContext::getDevice() {
 }
 
 void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
-  return allocate(Size, 0, MemType, CHIPHostAllocFlags());
+  return allocate(Size, 0, MemType, chipstar::HostAllocFlags());
 }
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType) {
-  return allocate(Size, Alignment, MemType, CHIPHostAllocFlags());
+  return allocate(Size, Alignment, MemType, chipstar::HostAllocFlags());
 }
 
 void *CHIPContext::allocate(size_t Size, size_t Alignment,
-                            hipMemoryType MemType, CHIPHostAllocFlags Flags) {
+                            hipMemoryType MemType, chipstar::HostAllocFlags Flags) {
   void *AllocatedPtr, *HostPtr = nullptr;
   // TOOD hipCtx - use the device with which this context is associated
   CHIPDevice *ChipDev = Backend->getActiveDevice();

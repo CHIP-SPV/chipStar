@@ -1687,7 +1687,7 @@ CHIPContextLevel0::~CHIPContextLevel0() {
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy,
-                                      CHIPHostAllocFlags Flags) {
+                                      chipstar::HostAllocFlags Flags) {
 
 #ifdef MALLOC_SHARED_WORKAROUND
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {

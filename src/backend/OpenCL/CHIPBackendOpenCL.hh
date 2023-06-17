@@ -158,7 +158,7 @@ public:
   CHIPContextOpenCL(cl::Context *ClContext);
   virtual ~CHIPContextOpenCL() {}
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
-                     CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
+                     chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   virtual void freeImpl(void *Ptr) override;

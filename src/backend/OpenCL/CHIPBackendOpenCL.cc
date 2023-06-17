@@ -868,7 +868,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemType,
-                                      CHIPHostAllocFlags Flags) {
+                                      chipstar::HostAllocFlags Flags) {
   void *Retval;
   LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
 

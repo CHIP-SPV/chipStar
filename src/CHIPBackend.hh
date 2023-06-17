@@ -227,9 +227,8 @@ enum class ManagedMemFlags : unsigned int {
   AttachGlobal = hipMemAttachGlobal
 };
 
-} // namespace chipstar
 
-class CHIPHostAllocFlags {
+class HostAllocFlags {
   bool Default_ = true;
   bool Portable_ = false;
   bool Mapped_ = false;
@@ -240,8 +239,8 @@ class CHIPHostAllocFlags {
   unsigned int FlagsRaw_;
 
 public:
-  CHIPHostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
-  CHIPHostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+  HostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
+  HostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
     if (FlagsRaw & hipHostMallocDefault) {
       Default_ = true;
       FlagsRaw = FlagsRaw & (~hipHostMallocDefault);
@@ -298,6 +297,8 @@ public:
   bool isCoherent() { return Coherent_; }
   bool isNonCoherent() { return NonCoherent_; }
 };
+
+} // namespace chipstar
 
 /**
  * @brief This object gets created when a callback is requested. Once created,
@@ -449,7 +450,7 @@ struct AllocationInfo {
   void *DevPtr;
   void *HostPtr;
   size_t Size;
-  CHIPHostAllocFlags Flags;
+  chipstar::HostAllocFlags Flags;
   hipDevice_t Device;
   bool Managed = false;
   enum hipMemoryType MemoryType;
@@ -548,7 +549,7 @@ public:
    * @param dev_ptr
    */
   void recordAllocation(void *DevPtr, void *HostPtr, hipDevice_t Device,
-                        size_t Size, CHIPHostAllocFlags Flags,
+                        size_t Size, chipstar::HostAllocFlags Flags,
                         hipMemoryType MemoryType);
 
   /**
@@ -1665,7 +1666,7 @@ public:
    * @return void* pointer to allocated memory
    */
   void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType,
-                 CHIPHostAllocFlags Flags);
+                 chipstar::HostAllocFlags Flags);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
@@ -1679,7 +1680,7 @@ public:
    */
   virtual void *
   allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
-               CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
+               chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) = 0;
 
   /**
    * @brief Returns true if the pointer is mapped to virtual memory with

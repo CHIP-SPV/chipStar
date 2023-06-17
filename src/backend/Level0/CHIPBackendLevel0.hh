@@ -329,7 +329,7 @@ public:
   virtual ~CHIPContextLevel0() override;
 
   void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
-                     CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) override;
+                     chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   void freeImpl(void *Ptr) override;
