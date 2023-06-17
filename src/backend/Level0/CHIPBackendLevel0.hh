@@ -146,7 +146,7 @@ public:
   virtual ~CHIPCallbackDataLevel0() override {}
 };
 
-class CHIPCallbackEventMonitorLevel0 : public CHIPEventMonitor {
+class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
 public:
   ~CHIPCallbackEventMonitorLevel0() {
     logTrace("CHIPCallbackEventMonitorLevel0 DEST");
@@ -155,7 +155,7 @@ public:
   virtual void monitor() override;
 };
 
-class CHIPStaleEventMonitorLevel0 : public CHIPEventMonitor {
+class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
 public:
   ~CHIPStaleEventMonitorLevel0() {
     logTrace("CHIPStaleEventMonitorLevel0 DEST");
@@ -601,13 +601,13 @@ public:
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 
-  virtual CHIPEventMonitor *createCallbackEventMonitor_() override {
+  virtual chipstar::EventMonitor *createCallbackEventMonitor_() override {
     auto Evm = new CHIPCallbackEventMonitorLevel0();
     Evm->start();
     return Evm;
   }
 
-  virtual CHIPEventMonitor *createStaleEventMonitor_() override {
+  virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
     auto Evm = new CHIPStaleEventMonitorLevel0();
     Evm->start();
     return Evm;

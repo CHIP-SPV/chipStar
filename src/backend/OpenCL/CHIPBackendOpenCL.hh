@@ -77,9 +77,9 @@ public:
                          CHIPQueue *ChipQueue);
 };
 
-class CHIPEventMonitorOpenCL : public CHIPEventMonitor {
+class EventMonitorOpenCL : public chipstar::EventMonitor {
 public:
-  CHIPEventMonitorOpenCL();
+  EventMonitorOpenCL();
   virtual void monitor() override;
 };
 
@@ -352,8 +352,8 @@ public:
   virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
                                                CHIPQueue *ChipQueue) override;
-  virtual CHIPEventMonitor *createCallbackEventMonitor_() override;
-  virtual CHIPEventMonitor *createStaleEventMonitor_() override;
+  virtual chipstar::EventMonitor *createCallbackEventMonitor_() override;
+  virtual chipstar::EventMonitor *createStaleEventMonitor_() override;
 
   virtual hipEvent_t getHipEvent(void *NativeEvent) override;
   virtual void *getNativeEvent(hipEvent_t HipEvent) override;

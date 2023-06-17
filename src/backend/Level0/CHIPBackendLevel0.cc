@@ -583,14 +583,14 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 
 // End CHIPCallbackDataLevel0
 
-// CHIPEventMonitorLevel0
+// EventMonitorLevel0
 // ***********************************************************************
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
   CHIPCallbackDataLevel0 *CallbackData;
   while (true) {
     usleep(20000);
-    LOCK(EventMonitorMtx); // CHIPEventMonitor::Stop
+    LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
     {
 
       if (Stop) {
@@ -645,7 +645,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
 
     LOCK(Backend->EventsMtx); // CHIPBackend::Events
-    LOCK(EventMonitorMtx);    // CHIPEventMonitor::Stop
+    LOCK(EventMonitorMtx);    // chipstar::EventMonitor::Stop
 
     for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
       std::shared_ptr<CHIPEventLevel0> ChipEvent =
@@ -697,7 +697,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
   } // endless loop
 }
-// End CHIPEventMonitorLevel0
+// End EventMonitorLevel0
 
 // CHIPKernelLevelZero
 // ***********************************************************************
@@ -1357,7 +1357,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
         static_cast<CHIPBackendLevel0 *>(Backend)->CommandListsMtx);
 
     // Associate this event with the command list. Once the events are signaled,
-    // CHIPEventMonitorLevel0 will destroy the command list
+    // EventMonitorLevel0 will destroy the command list
 
     logTrace("assoc event {} w/ cmdlist", (void *)LastCmdListEvent.get());
     static_cast<CHIPBackendLevel0 *>(Backend)
@@ -1500,14 +1500,14 @@ void CHIPBackendLevel0::uninitialize() {
 
   if (CallbackEventMonitor_) {
     logTrace("CHIPBackend::uninitialize(): Killing CallbackEventMonitor");
-    LOCK(CallbackEventMonitor_->EventMonitorMtx); // CHIPEventMonitor::Stop
+    LOCK(CallbackEventMonitor_->EventMonitorMtx); // chipstar::EventMonitor::Stop
     CallbackEventMonitor_->Stop = true;
   }
   CallbackEventMonitor_->join();
 
   {
     logTrace("CHIPBackend::uninitialize(): Killing StaleEventMonitor");
-    LOCK(StaleEventMonitor_->EventMonitorMtx); // CHIPEventMonitor::Stop
+    LOCK(StaleEventMonitor_->EventMonitorMtx); // chipstar::EventMonitor::Stop
     StaleEventMonitor_->Stop = true;
   }
   StaleEventMonitor_->join();

@@ -190,9 +190,9 @@ public:
   }
 };
 
+class EventMonitor;
 } // namespace chipstar
 
-class CHIPEventMonitor;
 
 class CHIPQueueFlags {
   unsigned int FlagsRaw_;
@@ -327,12 +327,12 @@ public:
   void execute(hipError_t ResultFromDependency);
 };
 
-class CHIPEventMonitor {
+class chipstar::EventMonitor {
   typedef void *(*THREADFUNCPTR)(void *);
 
 protected:
-  CHIPEventMonitor() = default;
-  virtual ~CHIPEventMonitor() = default;
+  EventMonitor() = default;
+  virtual ~EventMonitor() = default;
   pthread_t Thread_;
 
 public:
@@ -349,7 +349,7 @@ public:
   }
 
   static void *monitorWrapper(void *Arg) {
-    auto Monitor = (CHIPEventMonitor *)Arg;
+    auto Monitor = (chipstar::EventMonitor *)Arg;
     Monitor->monitor();
     return 0;
   }
@@ -1751,8 +1751,8 @@ public:
  */
 class CHIPBackend {
 protected:
-  CHIPEventMonitor *CallbackEventMonitor_ = nullptr;
-  CHIPEventMonitor *StaleEventMonitor_ = nullptr;
+  chipstar::EventMonitor *CallbackEventMonitor_ = nullptr;
+  chipstar::EventMonitor *StaleEventMonitor_ = nullptr;
 
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
@@ -1997,8 +1997,8 @@ public:
                                                void *UserData,
                                                CHIPQueue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor *createCallbackEventMonitor_() = 0;
-  virtual CHIPEventMonitor *createStaleEventMonitor_() = 0;
+  virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
+  virtual chipstar::EventMonitor *createStaleEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;

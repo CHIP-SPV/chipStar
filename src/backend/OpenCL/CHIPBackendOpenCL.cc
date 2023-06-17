@@ -279,13 +279,13 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
   CallbackF = TheCallback;
 }
 
-// CHIPEventMonitorOpenCL
+// EventMonitorOpenCL
 // ************************************************************************
-CHIPEventMonitorOpenCL::CHIPEventMonitorOpenCL() : CHIPEventMonitor(){};
+EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor(){};
 
-void CHIPEventMonitorOpenCL::monitor() {
-  logTrace("CHIPEventMonitorOpenCL::monitor()");
-  CHIPEventMonitor::monitor();
+void EventMonitorOpenCL::monitor() {
+  logTrace("EventMonitorOpenCL::monitor()");
+  chipstar::EventMonitor::monitor();
 }
 
 // CHIPDeviceOpenCL
@@ -1415,13 +1415,13 @@ CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
   UNIMPLEMENTED(nullptr);
 }
 
-CHIPEventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor_() {
-  auto Evm = new CHIPEventMonitorOpenCL();
+chipstar::EventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor_() {
+  auto Evm = new EventMonitorOpenCL();
   Evm->start();
   return Evm;
 }
 
-CHIPEventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
+chipstar::EventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
   UNIMPLEMENTED(nullptr);
 }
 
