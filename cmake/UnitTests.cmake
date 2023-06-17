@@ -342,7 +342,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # F
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyFromToSymbol_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
@@ -693,7 +692,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyFromToSymbol_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
@@ -1070,7 +1068,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyFromToSymbol_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
@@ -1458,7 +1455,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # 
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemcpyFromToSymbol_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
@@ -1814,7 +1810,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # 
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemcpyFromToSymbol_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
@@ -2202,7 +2197,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Fai
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_BasicFunctional") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_BasicFunctional") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyFromToSymbol_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
