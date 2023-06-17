@@ -1202,7 +1202,7 @@ CHIPBackend::~CHIPBackend() {
   }
 }
 
-void CHIPBackend::trackEvent(std::shared_ptr<CHIPEvent> Event) {
+void CHIPBackend::trackEvent(const std::shared_ptr<CHIPEvent> &Event) {
   LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
   LOCK(Event->EventMtx);    // writing bool CHIPEvent::TrackCalled_
   //   assert(!isUserEvent() && "Attemped to track a user event!");
