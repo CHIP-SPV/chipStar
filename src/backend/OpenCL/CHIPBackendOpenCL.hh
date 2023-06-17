@@ -90,10 +90,10 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
-                  CHIPEventFlags Flags = CHIPEventFlags(),
+                  chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false);
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
-                  CHIPEventFlags Flags = CHIPEventFlags());
+                  chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;
 
   virtual void recordStream(CHIPQueue *ChipQueue) override;
@@ -347,7 +347,7 @@ public:
 
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
   virtual std::shared_ptr<CHIPEvent>
-  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+  createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,

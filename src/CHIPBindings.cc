@@ -2277,7 +2277,7 @@ hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
 
 static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
                                                          unsigned Flags) {
-  CHIPEventFlags EventFlags{Flags};
+  chipstar::EventFlags EventFlags{Flags};
 
   auto ChipEvent =
       Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);

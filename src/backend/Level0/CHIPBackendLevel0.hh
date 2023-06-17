@@ -99,10 +99,10 @@ public:
   CHIPEventLevel0()
       : CHIPEventLevel0((CHIPContextLevel0 *)Backend->getActiveContext()) {}
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
-                  CHIPEventFlags Flags = CHIPEventFlags());
+                  chipstar::EventFlags Flags = chipstar::EventFlags());
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, ze_event_handle_t NativeEvent);
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, LZEventPool *EventPool,
-                  unsigned int PoolIndex, CHIPEventFlags Flags);
+                  unsigned int PoolIndex, chipstar::EventFlags Flags);
   virtual ~CHIPEventLevel0() override;
 
   void recordStream(CHIPQueue *ChipQueue) override;
@@ -592,7 +592,7 @@ public:
   }
 
   virtual std::shared_ptr<CHIPEvent>
-  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+  createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
 
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,

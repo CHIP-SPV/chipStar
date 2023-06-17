@@ -75,6 +75,8 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
 }
 
+template <class T> std::string resultToString(T Err);
+
 /// Describes a memory region to copy from/to.
 namespace chipstar {
 
@@ -387,11 +389,7 @@ public:
   const hipResourceDesc &getResourceDesc() const { return ResourceDesc; }
 };
 
-} // namespace chipstar
-
-template <class T> std::string resultToString(T Err);
-
-class CHIPEventFlags {
+class EventFlags {
   bool BlockingSync_ = false;
   bool DisableTiming_ = false;
   bool Interprocess_ = false;
@@ -399,8 +397,8 @@ class CHIPEventFlags {
   bool ReleaseToSystem_ = false;
 
 public:
-  CHIPEventFlags() = default;
-  CHIPEventFlags(unsigned Flags) {
+  EventFlags() = default;
+  EventFlags(unsigned Flags) {
 
     if (Flags & hipEventBlockingSync) {
       Flags = Flags & (~hipEventBlockingSync);
@@ -443,6 +441,8 @@ public:
   bool isDisableTiming() { return DisableTiming_; };
   bool isInterprocess() { return Interprocess_; };
 };
+
+} // namespace chipstar
 
 /**
  * @brief  Structure describing an allocation
@@ -629,7 +629,7 @@ protected:
   bool TrackCalled_ = false;
   bool UserEvent_ = false;
   event_status_e EventStatus_;
-  CHIPEventFlags Flags_;
+  chipstar::EventFlags Flags_;
   std::vector<std::shared_ptr<CHIPEvent>> DependsOnList;
 
 #ifndef NDEBUG
@@ -662,7 +662,7 @@ public:
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  CHIPEventFlags getFlags() { return Flags_; }
+  chipstar::EventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
   // Optionally provide a field for origin of this event
@@ -670,7 +670,7 @@ public:
    * @brief CHIPEvent constructor. Must always be created with some context.
    *
    */
-  CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags = CHIPEventFlags());
+  CHIPEvent(CHIPContext *Ctx, chipstar::EventFlags Flags = chipstar::EventFlags());
   /**
    * @brief Get the Context object
    *
@@ -1989,7 +1989,7 @@ public:
    * @return CHIPEvent* Event
    */
   virtual std::shared_ptr<CHIPEvent>
-  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+  createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) = 0;
   /**
    * @brief Create a Callback Obj object

@@ -205,7 +205,7 @@ CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 // CHIPEvent
 // ************************************************************************
 
-CHIPEvent::CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags)
+CHIPEvent::CHIPEvent(CHIPContext *Ctx, chipstar::EventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
       Msg("") {}
 

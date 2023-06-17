@@ -263,7 +263,7 @@ CHIPEventLevel0::~CHIPEventLevel0() {
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  LZEventPool *TheEventPool,
                                  unsigned int ThePoolIndex,
-                                 CHIPEventFlags Flags)
+                                 chipstar::EventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr), Timestamp_(0) {
   LOCK(TheEventPool->EventPoolMtx); // CHIPEventPool::EventPool_ via get()
@@ -289,7 +289,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
-                                 CHIPEventFlags Flags)
+                                 chipstar::EventFlags Flags)
     : CHIPEvent((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
       EventPool(0) {
@@ -1411,7 +1411,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
                               "Level Zero Event_ pool creation fail! ");
 
   for (unsigned i = 0; i < Size_; i++) {
-    CHIPEventFlags Flags;
+    chipstar::EventFlags Flags;
     Events_.push_back(std::shared_ptr<CHIPEventLevel0>(
         new CHIPEventLevel0(Ctx_, this, i, Flags)));
     FreeSlots_.push(i);
@@ -1469,7 +1469,7 @@ CHIPExecItem *CHIPBackendLevel0::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
 };
 
 std::shared_ptr<CHIPEvent>
-CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags,
+CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags,
                                    bool UserEvent) {
   std::shared_ptr<CHIPEvent> Event;
   if (UserEvent) {
