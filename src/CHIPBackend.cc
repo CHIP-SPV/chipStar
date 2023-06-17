@@ -95,22 +95,22 @@ void chipstar::CallbackData::execute(hipError_t ResultFromDependency) {
 // ************************************************************************
 CHIPDeviceVar::~CHIPDeviceVar() { assert(!DevAddr_ && "Memory leak?"); }
 
-// CHIPAllocationTracker
+// chipstar::AllocationTracker
 // ************************************************************************
-CHIPAllocationTracker::CHIPAllocationTracker(size_t GlobalMemSize,
+chipstar::AllocationTracker::AllocationTracker(size_t GlobalMemSize,
                                              std::string Name)
     : GlobalMemSize(GlobalMemSize), TotalMemSize(0), MaxMemUsed(0) {
   Name_ = Name;
 }
 
-CHIPAllocationTracker::~CHIPAllocationTracker() {
+chipstar::AllocationTracker::~AllocationTracker() {
   for (auto *Member : AllocInfos_)
     delete Member;
 }
 
-chipstar::AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
+chipstar::AllocationInfo *chipstar::AllocationTracker::getAllocInfo(const void *Ptr) {
   {
-    LOCK( // CHIPAllocationTracker::PtrToAllocInfo_
+    LOCK( // chipstar::AllocationTracker::PtrToAllocInfo_
         AllocationTrackerMtx);
     // In case that Ptr is the base of the allocation, check hash map directly
     auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
@@ -125,8 +125,8 @@ chipstar::AllocationInfo *CHIPAllocationTracker::getAllocInfo(const void *Ptr) {
   return AllocInfo;
 }
 
-bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
-  LOCK(AllocationTrackerMtx); // reading CHIPAllocationTracker::GlobalMemSize
+bool chipstar::AllocationTracker::reserveMem(size_t Bytes) {
+  LOCK(AllocationTrackerMtx); // reading chipstar::AllocationTracker::GlobalMemSize
   if (Bytes <= (GlobalMemSize - TotalMemSize)) {
     TotalMemSize += Bytes;
     if (TotalMemSize > MaxMemUsed)
@@ -140,8 +140,8 @@ bool CHIPAllocationTracker::reserveMem(size_t Bytes) {
   }
 }
 
-bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
-  LOCK(AllocationTrackerMtx); // reading CHIPAllocationTracker::GlobalMemSize
+bool chipstar::AllocationTracker::releaseMemReservation(unsigned long Bytes) {
+  LOCK(AllocationTrackerMtx); // reading chipstar::AllocationTracker::GlobalMemSize
   if (TotalMemSize >= Bytes) {
     TotalMemSize -= Bytes;
     return true;
@@ -150,14 +150,14 @@ bool CHIPAllocationTracker::releaseMemReservation(unsigned long Bytes) {
   return false;
 }
 
-void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
+void chipstar::AllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
                                              hipDevice_t Device, size_t Size,
                                              chipstar::HostAllocFlags Flags,
                                              hipMemoryType MemoryType) {
   chipstar::AllocationInfo *AllocInfo = new chipstar::AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
-  LOCK(AllocationTrackerMtx); // writing CHIPAllocationTracker::PtrToAllocInfo_
-                              // CHIPAllocationTracker::AllocInfos_
+  LOCK(AllocationTrackerMtx); // writing chipstar::AllocationTracker::PtrToAllocInfo_
+                              // chipstar::AllocationTracker::AllocInfos_
   // TODO AllocInfo turned into class and constructor take care of this
   if (MemoryType == hipMemoryTypeHost) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -182,14 +182,14 @@ void CHIPAllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   }
 
   logDebug(
-      "CHIPAllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
+      "chipstar::AllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
       Size, HostPtr, DevPtr, (unsigned)MemoryType);
   return;
 }
 
 chipstar::AllocationInfo *
-CHIPAllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
-  LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
+chipstar::AllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
+  LOCK(AllocationTrackerMtx); // chipstar::AllocationTracker::PtrToAllocInfo_
   for (auto &Info : PtrToAllocInfo_) {
     chipstar::AllocationInfo *AllocInfo = Info.second;
     void *Start = AllocInfo->DevPtr;
@@ -552,7 +552,7 @@ void CHIPDevice::init() {
   std::call_once(PropsPopulated_, &CHIPDevice::populateDevicePropertiesImpl,
                  this);
   if (!AllocationTracker)
-    AllocationTracker = new CHIPAllocationTracker(
+    AllocationTracker = new chipstar::AllocationTracker(
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
 
   chipstar::QueueFlags Flags;
@@ -1114,7 +1114,7 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   }
   assert(ChipDev->getContext() == this);
 
-  assert(ChipDev->AllocationTracker && "AllocationTracker was not created!");
+  assert(ChipDev->AllocationTracker && "chipstar::AllocationTracker was not created!");
   if (!ChipDev->AllocationTracker->reserveMem(Size))
     return nullptr;
   AllocatedPtr = allocateImpl(Size, Alignment, MemType);

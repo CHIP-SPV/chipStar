@@ -459,7 +459,6 @@ struct AllocationInfo {
   bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
 };
 
-} // namespace chipstar
 
 
 
@@ -467,7 +466,7 @@ struct AllocationInfo {
  * @brief Class for keeping track of device allocations.
  *
  */
-class CHIPAllocationTracker {
+class AllocationTracker {
 private:
   std::string Name_;
 
@@ -500,19 +499,19 @@ public:
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
   /**
-   * @brief Construct a new CHIPAllocationTracker object
+   * @brief Construct a new chipstar::AllocationTracker object
    *
    * @param GlobalMemSize Total available global memory on the device
    * @param Name name for this allocation tracker for logging. Normally device
    * name
    */
-  CHIPAllocationTracker(size_t GlobalMemSize, std::string Name);
+  AllocationTracker(size_t GlobalMemSize, std::string Name);
 
   /**
-   * @brief Destroy the CHIPAllocationTracker object
+   * @brief Destroy the AllocationTracker object
    *
    */
-  ~CHIPAllocationTracker();
+  ~AllocationTracker();
 
   /**
    * @brief Get the Name object
@@ -574,8 +573,8 @@ public:
   void eraseRecord(chipstar::AllocationInfo *AllocInfo) {
     assert(AllocInfos_.count(AllocInfo) &&
            "Not a member of the allocation tracker!");
-    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
-                                // CHIPAllocationTracker::AllocInfos_
+    LOCK(AllocationTrackerMtx); // chipstar::AllocationTracker::PtrToAllocInfo_
+                                // chipstar::AllocationTracker::AllocInfos_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -589,13 +588,15 @@ public:
    * The visitor is called with 'const chipstar::AllocationInfo&' argument.
    */
   template <typename VisitorT> void visitAllocations(VisitorT Visitor) const {
-    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::AllocInfos_
+    LOCK(AllocationTrackerMtx); // chipstar::AllocationTracker::AllocInfos_
     for (const auto *Info : AllocInfos_)
       Visitor(*Info);
   }
 
   size_t getNumAllocations() const { return AllocInfos_.size(); }
 };
+
+} // namespace chipstar
 
 class CHIPDeviceVar {
 private:
@@ -1339,7 +1340,7 @@ public:
     return MaxMallocSize_;
   }
 
-  CHIPAllocationTracker *AllocationTracker = nullptr;
+  chipstar::AllocationTracker *AllocationTracker = nullptr;
 
   virtual ~CHIPDevice();
 
