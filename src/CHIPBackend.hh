@@ -76,7 +76,9 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
 }
 
 /// Describes a memory region to copy from/to.
-class CHIPRegionDesc {
+namespace chipstar {
+
+class RegionDesc {
 public:
   static constexpr unsigned MaxNumDims = 3;
   // The number of dimensions.
@@ -121,10 +123,10 @@ public:
     }
   }
 
-  static CHIPRegionDesc get3DRegion(size_t TheWidth, size_t TheHeight,
+  static chipstar::RegionDesc get3DRegion(size_t TheWidth, size_t TheHeight,
                                     size_t TheDepth,
                                     size_t ElementByteSize = 1) {
-    CHIPRegionDesc Result;
+    chipstar::RegionDesc Result;
     Result.NumDims = 3;
     Result.ElementSize = ElementByteSize;
     Result.Size[0] = TheWidth;
@@ -135,42 +137,42 @@ public:
     return Result;
   }
 
-  static CHIPRegionDesc get2DRegion(size_t TheWidth, size_t TheHeight,
+  static chipstar::RegionDesc get2DRegion(size_t TheWidth, size_t TheHeight,
                                     size_t ElementByteSize = 1) {
     auto R = get3DRegion(TheWidth, TheHeight, 1, ElementByteSize);
     R.NumDims = 2;
     return R;
   }
 
-  static CHIPRegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
+  static chipstar::RegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
                                     size_t ElementByteSize = 1) {
     auto R = get2DRegion(TheWidth, 1, ElementByteSize);
     R.NumDims = 1;
     return R;
   }
 
-  static CHIPRegionDesc from(const hipArray &Array) {
+  static chipstar::RegionDesc from(const hipArray &Array) {
     auto TexelByteSize = getChannelByteSize(Array.desc);
     switch (Array.textureType) {
     default:
       assert(false && "Unkown texture type.");
-      return CHIPRegionDesc();
+      return chipstar::RegionDesc();
     case hipTextureType1D:
-      return CHIPRegionDesc::get1DRegion(Array.width, TexelByteSize);
+      return chipstar::RegionDesc::get1DRegion(Array.width, TexelByteSize);
     case hipTextureType2D:
-      return CHIPRegionDesc::get2DRegion(Array.width, Array.height,
+      return chipstar::RegionDesc::get2DRegion(Array.width, Array.height,
                                          TexelByteSize);
     case hipTextureType3D:
-      return CHIPRegionDesc::get3DRegion(Array.width, Array.height, Array.depth,
+      return chipstar::RegionDesc::get3DRegion(Array.width, Array.height, Array.depth,
                                          TexelByteSize);
     }
   }
 
-  static CHIPRegionDesc from(const hipResourceDesc &ResDesc) {
+  static chipstar::RegionDesc from(const hipResourceDesc &ResDesc) {
     switch (ResDesc.resType) {
     default:
       CHIPASSERT(false && "Unknown resource type");
-      return CHIPRegionDesc();
+      return chipstar::RegionDesc();
     case hipResourceTypePitch2D: {
       auto &Res = ResDesc.res.pitch2D;
       auto R = get2DRegion(Res.width, Res.height, getChannelByteSize(Res.desc));
@@ -187,6 +189,8 @@ public:
     } // switch
   }
 };
+
+} // namespace chipstar
 
 class CHIPEventMonitor;
 

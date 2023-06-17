@@ -196,7 +196,7 @@ static cl_mem createImage(cl_context Ctx, unsigned int TextureType,
 }
 
 static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
-                           const void *HostSrc, const CHIPRegionDesc &SrcRegion,
+                           const void *HostSrc, const chipstar::RegionDesc &SrcRegion,
                            bool BlockingCopy = true) {
 
   size_t InputRowPitch = SrcRegion.isPitched() ? SrcRegion.Pitch[0] : 0;
@@ -318,7 +318,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
     logTrace("Created texture: {}", (void *)Tex.get());
 
-    CHIPRegionDesc SrcRegion = CHIPRegionDesc::from(*Array);
+    chipstar::RegionDesc SrcRegion = chipstar::RegionDesc::from(*Array);
     memCopyToImage(Q->get()->get(), Image, Array->data, SrcRegion);
 
     return Tex.release();
@@ -336,7 +336,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     logTrace("Created texture: {}", (void *)Tex.get());
 
     // Copy data to image.
-    auto SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
+    auto SrcDesc = chipstar::RegionDesc::get1DRegion(Width, TexelByteSize);
     memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
 
     return Tex.release();
@@ -353,7 +353,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     logTrace("Created texture: {}", (void *)Tex.get());
 
     // Copy data to image.
-    auto SrcDesc = CHIPRegionDesc::from(*ResDesc);
+    auto SrcDesc = chipstar::RegionDesc::from(*ResDesc);
     memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
 
     return Tex.release();

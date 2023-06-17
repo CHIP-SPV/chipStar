@@ -1169,7 +1169,7 @@ std::shared_ptr<CHIPEvent> CHIPQueueLevel0::memCopy3DAsyncImpl(
 // Memory copy to texture object, i.e. image
 std::shared_ptr<CHIPEvent>
 CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
-                                const CHIPRegionDesc &SrcRegion) {
+                                const chipstar::RegionDesc &SrcRegion) {
   logTrace("CHIPQueueLevel0::memCopyToImage");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<CHIPEvent> Ev =
@@ -2039,7 +2039,7 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
                                                    SamplerHandle);
     logTrace("Created texture: {}", (void *)Tex.get());
 
-    CHIPRegionDesc SrcRegion = CHIPRegionDesc::from(*Array);
+    chipstar::RegionDesc SrcRegion = chipstar::RegionDesc::from(*Array);
     Q->memCopyToImage(ImageHandle, Array->data, SrcRegion);
     Q->finish(); // Finish for safety.
 
@@ -2059,7 +2059,7 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
     logTrace("Created texture: {}", (void *)Tex.get());
 
     // Copy data to image.
-    auto SrcDesc = CHIPRegionDesc::get1DRegion(Width, TexelByteSize);
+    auto SrcDesc = chipstar::RegionDesc::get1DRegion(Width, TexelByteSize);
     Q->memCopyToImage(ImageHandle, Res.devPtr, SrcDesc);
     Q->finish(); // Finish for safety.
 
@@ -2080,7 +2080,7 @@ CHIPTexture *CHIPDeviceLevel0::createTexture(
     logTrace("Created texture: {}", (void *)Tex.get());
 
     // Copy data to image.
-    auto SrcDesc = CHIPRegionDesc::from(*PResDesc);
+    auto SrcDesc = chipstar::RegionDesc::from(*PResDesc);
     Q->memCopyToImage(ImageHandle, Res.devPtr, SrcDesc);
     Q->finish(); // Finish for safety.
 

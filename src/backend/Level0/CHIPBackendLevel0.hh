@@ -270,7 +270,7 @@ public:
 
   virtual std::shared_ptr<CHIPEvent>
   memCopyToImage(ze_image_handle_t TexStorage, const void *Src,
-                 const CHIPRegionDesc &SrcRegion);
+                 const chipstar::RegionDesc &SrcRegion);
 
   virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
                                        int *NumHandles) override;
