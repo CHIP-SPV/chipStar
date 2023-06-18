@@ -781,11 +781,9 @@ public:
 #endif
 };
 
-} // namespace chipstar
 
-#include "CHIPGraph.hh"
 
-class CHIPProgram {
+class Program {
   std::string ProgramName_;   ///< Program name.
   std::string ProgramSource_; ///< Program source code.
 
@@ -802,8 +800,8 @@ class CHIPProgram {
   std::string Code_;       ///< Compiled program.
 
 public:
-  CHIPProgram() = delete;
-  CHIPProgram(const std::string &ProgramName) : ProgramName_(ProgramName) {}
+  Program() = delete;
+  Program(const std::string &ProgramName) : ProgramName_(ProgramName) {}
 
   void setSource(const char *Source) {
     if (Source)
@@ -842,6 +840,10 @@ public:
   /// Return true if the program has been compiled.
   bool isAfterCompilation() const { return !Code_.empty(); }
 };
+
+} // namespace chipstar
+
+#include "CHIPGraph.hh"
 
 /**
  * @brief Module abstraction. Contains global variables and kernels. Can be

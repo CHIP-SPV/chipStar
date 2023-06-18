@@ -51,7 +51,7 @@ static bool checkIncludeName(std::string_view Name) {
   return std::regex_match(Name.begin(), Name.end(), RegEx);
 }
 
-static bool createHeaderFiles(const CHIPProgram &Program,
+static bool createHeaderFiles(const chipstar::Program &Program,
                               const fs::path &DestDir) {
   for (auto &Header : Program.getHeaders())
     if (!writeToFile(DestDir / Header.first, Header.second))
@@ -59,7 +59,7 @@ static bool createHeaderFiles(const CHIPProgram &Program,
   return true;
 }
 
-static bool createSourceFile(const CHIPProgram &Program,
+static bool createSourceFile(const chipstar::Program &Program,
                              const fs::path OutputFile,
                              // A file to output lowered name expressions.
                              const fs::path LoweredNamesFile) {
@@ -97,7 +97,7 @@ extern  "C" __device__ const char *_chip_name_expr_output_file =
 
 /// Filter and translate user given options. Return true if an error
 /// was encountered.
-static bool processOptions(CHIPProgram &Program, int NumOptions,
+static bool processOptions(chipstar::Program &Program, int NumOptions,
                            const char **Options, CompileOptions &OptionsOut) {
 
   // Already checked in hiprtcCompileProgram().
@@ -239,7 +239,7 @@ static bool executeCommand(const fs::path &WorkingDirectory,
   return ReturnCode == 0;
 }
 
-static void getLoweredNameExpressions(CHIPProgram &Program,
+static void getLoweredNameExpressions(chipstar::Program &Program,
                                       const fs::path &WorkingDirectory,
                                       const fs::path &LoweredNamesFile) {
   auto &NameExprMap = Program.getNameExpressionMap();
@@ -256,9 +256,9 @@ static void getLoweredNameExpressions(CHIPProgram &Program,
   }
 }
 
-// Compiles sources stored in 'Program'. Uses 'WorkingDirectory' for
+// Compiles sources stored in 'chipstar::Program'. Uses 'WorkingDirectory' for
 // temporary compilation I/O.
-static hiprtcResult compile(CHIPProgram &Program, int NumRawOptions,
+static hiprtcResult compile(chipstar::Program &Program, int NumRawOptions,
                             const char **RawOptions,
                             fs::path WorkingDirectory) {
   // Create source and header files.
@@ -360,7 +360,7 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
   if (!Prog || !NameExpression)
     return HIPRTC_ERROR_INVALID_INPUT;
 
-  auto &Program = *(CHIPProgram *)Prog;
+  auto &Program = *(chipstar::Program *)Prog;
   if (Program.isAfterCompilation())
     return HIPRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION;
 
@@ -395,7 +395,7 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
   if (!Prog)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    auto &Program = *(CHIPProgram *)Prog;
+    auto &Program = *(chipstar::Program *)Prog;
 
     // Create temporary directory for compilation I/O.
     auto TmpDir = createTemporaryDirectory();
@@ -437,7 +437,7 @@ hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
     // From NVRTC: 'CUDA program name. name can be NULL;
     // "default_program" is used when name is NULL or "". '.
     auto Program =
-        std::make_unique<CHIPProgram>(Name ? Name : "default_program");
+        std::make_unique<chipstar::Program>(Name ? Name : "default_program");
     Program->setSource(Src);
 
     for (int i = 0; i < NumHeaders; i++) {
@@ -477,7 +477,7 @@ hiprtcResult hiprtcDestroyProgram(hiprtcProgram *Prog) {
   if (!Prog || !*Prog)
     return HIPRTC_ERROR_INVALID_PROGRAM;
   try {
-    delete (CHIPProgram *)*Prog;
+    delete (chipstar::Program *)*Prog;
     *Prog = nullptr;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
@@ -492,7 +492,7 @@ hiprtcResult hiprtcGetLoweredName(hiprtcProgram WrappedProg,
   if (!WrappedProg || !NameExpression || !LoweredName)
     return HIPRTC_ERROR_INVALID_INPUT;
 
-  auto &Prog = *(CHIPProgram *)WrappedProg;
+  auto &Prog = *(chipstar::Program *)WrappedProg;
   if (!Prog.isAfterCompilation())
     return HIPRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION;
 
@@ -510,7 +510,7 @@ hiprtcResult hiprtcGetProgramLog(hiprtcProgram Prog, char *Log) {
   if (!Prog || !Log)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    const auto &LogSrc = ((CHIPProgram *)Prog)->getProgramLog();
+    const auto &LogSrc = ((chipstar::Program *)Prog)->getProgramLog();
     std::memcpy(Log, LogSrc.c_str(), LogSrc.size());
     return HIPRTC_SUCCESS;
   } catch (...) {
@@ -523,7 +523,7 @@ hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram Prog, size_t *LogSizeRet) {
   if (!Prog || !LogSizeRet)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    *LogSizeRet = ((CHIPProgram *)Prog)->getProgramLog().size();
+    *LogSizeRet = ((chipstar::Program *)Prog)->getProgramLog().size();
     return HIPRTC_SUCCESS;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
@@ -537,7 +537,7 @@ hiprtcResult hiprtcGetCode(hiprtcProgram Prog, char *Code) {
   if (!Code)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    auto &SavedCode = ((CHIPProgram *)Prog)->getCode();
+    auto &SavedCode = ((chipstar::Program *)Prog)->getCode();
     std::memcpy(Code, SavedCode.c_str(), SavedCode.size());
     return HIPRTC_SUCCESS;
   } catch (...) {
@@ -552,7 +552,7 @@ hiprtcResult hiprtcGetCodeSize(hiprtcProgram Prog, size_t *CodeSizeRet) {
   if (!CodeSizeRet)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    *CodeSizeRet = ((CHIPProgram *)Prog)->getCode().size();
+    *CodeSizeRet = ((chipstar::Program *)Prog)->getCode().size();
     return HIPRTC_SUCCESS;
   } catch (...) {
     logDebug("Caught an unknown exception\n");

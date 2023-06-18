@@ -709,16 +709,16 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   int Err;
   auto SrcBin = Src_->getBinary();
   std::vector<char> BinaryVec(SrcBin.begin(), SrcBin.end());
-  auto Program = cl::Program(*(ChipCtxOcl->get()), BinaryVec, false, &Err);
+  auto ClProgram = cl::Program(*(ChipCtxOcl->get()), BinaryVec, false, &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   //   for (CHIPDevice *chip_dev : chip_devices) {
   std::string Name = ChipDevOcl->getName();
-  Err = Program.build(Backend->getJitFlags().c_str());
+  Err = ClProgram.build(Backend->getJitFlags().c_str());
   auto ErrBuild = Err;
 
   std::string Log =
-      Program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
+      ClProgram.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
   if (ErrBuild != CL_SUCCESS)
     logError("Program BUILD LOG for device #{}:{}:\n{}\n",
              ChipDevOcl->getDeviceId(), Name, Log);
@@ -731,7 +731,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
            ChipDevOcl->getDeviceId(), Name, Log);
 
   std::vector<cl::Kernel> Kernels;
-  Err = Program.createKernels(&Kernels);
+  Err = ClProgram.createKernels(&Kernels);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
@@ -752,7 +752,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
     addKernel(ChipKernel);
   }
 
-  Program_ = Program;
+  Program_ = ClProgram;
 }
 
 CHIPQueue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags, int Priority) {
