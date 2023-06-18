@@ -105,7 +105,7 @@ public:
                   unsigned int PoolIndex, chipstar::EventFlags Flags);
   virtual ~CHIPEventLevel0() override;
 
-  void recordStream(CHIPQueue *ChipQueue) override;
+  void recordStream(chipstar::Queue *ChipQueue) override;
 
   virtual bool wait() override;
 
@@ -141,7 +141,7 @@ private:
 public:
   std::mutex CallbackDataMtx;
   CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF, void *CallbackArgs,
-                         CHIPQueue *ChipQueue);
+                         chipstar::Queue *ChipQueue);
 
   virtual ~CHIPCallbackDataLevel0() override {}
 };
@@ -192,7 +192,7 @@ enum LevelZeroQueueType {
   Copy,
 };
 
-class CHIPQueueLevel0 : public CHIPQueue {
+class CHIPQueueLevel0 : public chipstar::Queue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
@@ -503,8 +503,8 @@ public:
 
   virtual void resetImpl() override;
 
-  virtual CHIPQueue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
-  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+  virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
+  virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
 
   ze_device_properties_t *getDeviceProps() { return &(this->ZeDeviceProps_); };
@@ -552,7 +552,7 @@ public:
 
   virtual int ReqNumHandles() override { return 4; }
 
-  virtual CHIPQueue *createCHIPQueue(chipstar::Device  *ChipDev) override {
+  virtual chipstar::Queue *createCHIPQueue(chipstar::Device  *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
     auto Q = new CHIPQueueLevel0(ChipDevLz);
 
@@ -597,7 +597,7 @@ public:
 
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
-                                               CHIPQueue *ChipQueue) override {
+                                               chipstar::Queue *ChipQueue) override {
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 

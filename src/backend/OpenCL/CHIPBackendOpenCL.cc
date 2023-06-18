@@ -270,7 +270,7 @@ static void CL_CALLBACK kernelEventCallback(cl_event chipstar::Event,
 
 CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
                                                void *TheCallbackArgs,
-                                               CHIPQueue *ChipQueue)
+                                               chipstar::Queue *ChipQueue)
     : ChipQueue((CHIPQueueOpenCL *)ChipQueue) {
   if (TheCallbackArgs != nullptr)
     CallbackArgs = TheCallbackArgs;
@@ -588,7 +588,7 @@ CHIPBackendOpenCL::createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventF
   return std::shared_ptr<chipstar::Event>(chipstar::Event);
 }
 
-void CHIPEventOpenCL::recordStream(CHIPQueue *ChipQueue) {
+void CHIPEventOpenCL::recordStream(chipstar::Queue *ChipQueue) {
   logTrace("chipstar::Event::recordStream()");
   std::shared_ptr<chipstar::Event> MarkerEvent = ChipQueue->enqueueMarker();
   this->takeOver(MarkerEvent);
@@ -755,13 +755,13 @@ void CHIPModuleOpenCL::compile(chipstar::Device  *ChipDev) {
   Program_ = ClProgram;
 }
 
-CHIPQueue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags, int Priority) {
+chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags, int Priority) {
   CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
   NewQ->setFlags(Flags);
   return NewQ;
 }
 
-CHIPQueue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
+chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
                                          int NumHandles) {
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
   CHIPQueueOpenCL *NewQ =
@@ -904,23 +904,23 @@ void CL_CALLBACK pfn_notify(cl_event chipstar::Event, cl_int CommandExecStatus,
 }
 
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
-                             CHIPQueue::MEM_MAP_TYPE Type) {
+                             chipstar::Queue::MEM_MAP_TYPE Type) {
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
   }
   cl_int Status;
-  if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ) {
+  if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
                         AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
-  } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_WRITE) {
+  } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
                         AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
-  } else if (Type == CHIPQueue::MEM_MAP_TYPE::HOST_READ_WRITE) {
+  } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
@@ -1090,7 +1090,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(chipstar::ExecItem 
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device  *ChipDevice, int Priority,
                                  cl_command_queue Queue)
-    : CHIPQueue(ChipDevice, chipstar::QueueFlags{}, Priority) {
+    : Queue(ChipDevice, chipstar::QueueFlags{}, Priority) {
 
   cl_queue_priority_khr PrioritySelection;
   switch (Priority_) {
@@ -1404,14 +1404,14 @@ chipstar::ExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 Blo
       new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
   return ExecItem;
 };
-CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(chipstar::Device  *ChipDev) {
+chipstar::Queue *CHIPBackendOpenCL::createCHIPQueue(chipstar::Device  *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
 }
 
 chipstar::CallbackData *
 CHIPBackendOpenCL::createCallbackData(hipStreamCallback_t Callback,
-                                      void *UserData, CHIPQueue *ChipQueue) {
+                                      void *UserData, chipstar::Queue *ChipQueue) {
   UNIMPLEMENTED(nullptr);
 }
 

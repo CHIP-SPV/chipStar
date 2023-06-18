@@ -75,11 +75,14 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
 
 template <class T> std::string resultToString(T Err);
 
-class CHIPQueue;
-class CHIPGraph;
+// class CHIPGraph;
+// class CHIPGraphNode;
+#include "CHIPGraph.hh"
+
 /// Describes a memory region to copy from/to.
 namespace chipstar {
 
+class Queue;
 class Backend;
 class Event;
 class Kernel;
@@ -319,7 +322,7 @@ protected:
   virtual ~CallbackData() = default;
 
 public:
-  CHIPQueue *ChipQueue;
+  chipstar::Queue *ChipQueue;
   std::shared_ptr<chipstar::Event> GpuReady;
   std::shared_ptr<chipstar::Event> CpuCallbackComplete;
   std::shared_ptr<chipstar::Event> GpuAck;
@@ -329,7 +332,7 @@ public:
   hipStreamCallback_t CallbackF;
 
   CallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
-                   CHIPQueue *ChipQueue);
+                   chipstar::Queue *ChipQueue);
 
   void execute(hipError_t ResultFromDependency);
 };
@@ -741,13 +744,13 @@ public:
   }
 
   /**
-   * @brief Enqueue this event in a given CHIPQueue
+   * @brief Enqueue this event in a given Queue
    *
-   * @param chip_queue_ CHIPQueue in which to enque this event
+   * @param chip_queue_ Queue in which to enque this event
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue *ChipQueue) = 0;
+  virtual void recordStream(chipstar::Queue *ChipQueue) = 0;
   /**
    * @brief Wait for this event to complete
    *
@@ -995,8 +998,8 @@ public:
   std::vector<chipstar::DeviceVar*> &getDeviceVariables() { return ChipVars_; }
 
   hipError_t allocateDeviceVariablesNoLock(chipstar::Device *Device,
-                                           CHIPQueue *Queue);
-  void prepareDeviceVariablesNoLock(chipstar::Device *Device, CHIPQueue *Queue);
+                                           chipstar::Queue *Queue);
+  void prepareDeviceVariablesNoLock(chipstar::Device *Device, chipstar::Queue *Queue);
   void invalidateDeviceVariablesNoLock();
   void deallocateDeviceVariablesNoLock(chipstar::Device *Device);
 
@@ -1133,7 +1136,7 @@ protected:
   dim3 GridDim_;
   dim3 BlockDim_;
 
-  CHIPQueue *ChipQueue_;
+  chipstar::Queue *ChipQueue_;
 
   std::vector<void *> Args_;
 
@@ -1141,7 +1144,7 @@ protected:
 
 public:
   void copyArgs(void **Args);
-  void setQueue(CHIPQueue *Queue) { ChipQueue_ = Queue; }
+  void setQueue(chipstar::Queue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() {
     assert(getKernel() && "chipstar::Kernel was not set! (call  setKernel() first)");
@@ -1205,10 +1208,10 @@ public:
   /**
    * @brief Get the Queue object
    *
-   * @return CHIPQueue*
+   * @return Queue*
    */
 
-  CHIPQueue *getQueue();
+  chipstar::Queue *getQueue();
 
   /**
    * @brief Get the Grid object
@@ -1267,7 +1270,7 @@ class Device {
 protected:
   std::string DeviceName_;
   chipstar::Context * Ctx_;
-  std::vector<CHIPQueue *> ChipQueues_;
+  std::vector<chipstar::Queue *> ChipQueues_;
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1293,26 +1296,26 @@ public:
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::vector<CHIPQueue *> getQueuesNoLock() { return ChipQueues_; }
+  std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
 
-  CHIPQueue *LegacyDefaultQueue;
-  inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
+  chipstar::Queue *LegacyDefaultQueue;
+  inline static thread_local std::unique_ptr<chipstar::Queue> PerThreadDefaultQueue;
 
   /**
    * @brief Get the Legacy Default Queue object.
    *
-   * @return CHIPQueue* default legacy queue
+   * @return Queue* default legacy queue
    */
-  CHIPQueue *getLegacyDefaultQueue();
+  chipstar::Queue *getLegacyDefaultQueue();
   /**
    * @brief Get the Per Thread Default Queue object. If it was not initialized,
    * initialize it and set PerThreadStreamUsed to true
    * @see Device::PerThreadStreamUsed
    *
-   * @return CHIPQueue*
+   * @return Queue*
    */
-  CHIPQueue *getPerThreadDefaultQueue();
-  CHIPQueue *getPerThreadDefaultQueueNoLock();
+  chipstar::Queue *getPerThreadDefaultQueue();
+  chipstar::Queue *getPerThreadDefaultQueueNoLock();
 
   bool isPerThreadStreamUsed();
   bool isPerThreadStreamUsedNoLock();
@@ -1323,21 +1326,21 @@ public:
    * was set during compilation, return PerThreadStream, otherwise return legacy
    * stream
    *
-   * @return CHIPQueue*
+   * @return Queue*
    */
-  CHIPQueue *getDefaultQueue();
+  chipstar::Queue *getDefaultQueue();
 
   /**
    * @brief Create a Queue object
    *
    * @param Flags
    * @param Priority
-   * @return CHIPQueue*
+   * @return Queue*
    */
-  CHIPQueue *createQueueAndRegister(chipstar::QueueFlags Flags = chipstar::QueueFlags(),
+  chipstar::Queue *createQueueAndRegister(chipstar::QueueFlags Flags = chipstar::QueueFlags(),
                                     int Priority = DEFAULT_QUEUE_PRIORITY);
 
-  CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
+  chipstar::Queue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
 
   void removeContext(chipstar::Context * Ctx);
@@ -1418,25 +1421,25 @@ public:
    *
    * @param flags
    * @param priority
-   * @return CHIPQueue* pointer to the newly created queue (can also be found
+   * @return Queue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue *createQueue(chipstar::QueueFlags Flags, int Priority) = 0;
-  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+  virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags, int Priority) = 0;
+  virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) = 0;
 
   /**
    * @brief Add a queue to this device and the backend
    *
-   * @param chip_queue_  CHIPQueue to be added
+   * @param chip_queue_  chipstar::Queue to be added
    */
-  void addQueue(CHIPQueue *ChipQueue);
+  void addQueue(chipstar::Queue *ChipQueue);
   /**
    * @brief Get the Queues object
    *
-   * @return std::vector<CHIPQueue*>
+   * @return std::vector<chipstar::Queue*>
    */
-  std::vector<CHIPQueue *> &getQueues();
+  std::vector<chipstar::Queue *> &getQueues();
 
   /**
    * @brief Remove a queue from this device's queue vector
@@ -1445,7 +1448,7 @@ public:
    * @return true
    * @return false
    */
-  bool removeQueue(CHIPQueue *ChipQueue);
+  bool removeQueue(chipstar::Queue *ChipQueue);
 
   /**
    * @brief Get the integer ID of this device as it appears in the Backend's
@@ -1638,7 +1641,7 @@ public:
    */
   virtual ~Context();
 
-  virtual void syncQueues(CHIPQueue *TargetQueue);
+  virtual void syncQueues(chipstar::Queue *TargetQueue);
 
   void setDevice(chipstar::Device *Device) { ChipDevice_ = Device; }
 
@@ -1976,9 +1979,9 @@ public:
    * @brief Find a given queue in this backend.
    *
    * @param q queue to find
-   * @return CHIPQueue* return queue or nullptr if not found
+   * @return Queue* return queue or nullptr if not found
    */
-  CHIPQueue *findQueue(CHIPQueue *ChipQueue);
+  chipstar::Queue *findQueue(chipstar::Queue *ChipQueue);
 
   /**
    * @brief Add a chipstar::Module to every initialized device
@@ -1997,7 +2000,7 @@ public:
 
   /************Factories***************/
 
-  virtual CHIPQueue *createCHIPQueue(chipstar::Device *ChipDev) = 0;
+  virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) = 0;
 
   /**
    * @brief Create an chipstar::Event, adding it to the Backend chipstar::Event list.
@@ -2020,7 +2023,7 @@ public:
    */
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
-                                               CHIPQueue *ChipQ) = 0;
+                                               chipstar::Queue *ChipQ) = 0;
 
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
   virtual chipstar::EventMonitor *createStaleEventMonitor_() = 0;
@@ -2030,17 +2033,12 @@ public:
   virtual void *getNativeEvent(hipEvent_t HipEvent) = 0;
 };
 
-} // namespace chipstar
 
-inline chipstar::Context *PrimaryContext = nullptr;
-inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
-inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
-#include "CHIPGraph.hh"
 
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class CHIPQueue : public ihipStream_t {
+class Queue : public ihipStream_t {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
@@ -2110,9 +2108,7 @@ public:
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {
     CaptureMode_ = CaptureMode;
   }
-  CHIPGraph *getCaptureGraph() const {
-    return static_cast<CHIPGraph *>(CaptureGraph_);
-  }
+  CHIPGraph *getCaptureGraph() const;
 
   chipstar::Device *PerThreadQueueForDevice = nullptr;
 
@@ -2120,34 +2116,34 @@ public:
   std::mutex QueueMtx;
 
   virtual std::shared_ptr<chipstar::Event> getLastEvent() {
-    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+    LOCK(LastEventMtx); // Queue::LastEvent_
     return LastEvent_;
   }
 
   /**
-   * @brief Construct a new CHIPQueue object
+   * @brief Construct a new Queue object
    *
    * @param chip_dev
    * @param flags
    */
-  CHIPQueue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags);
+  Queue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags);
   /**
-   * @brief Construct a new CHIPQueue object
+   * @brief Construct a new Queue object
    *
    * @param chip_dev
    * @param flags
    * @param priority
    */
-  CHIPQueue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags, int Priority);
+  Queue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags, int Priority);
   /**
-   * @brief Destroy the CHIPQueue object
+   * @brief Destroy the Queue object
    *
    */
-  virtual ~CHIPQueue();
+  virtual ~Queue();
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void updateLastEvent(std::shared_ptr<chipstar::Event> NewEvent) {
-    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+    LOCK(LastEventMtx); // Queue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_.get(), (void *)NewEvent.get());
     if (NewEvent == LastEvent_) // TODO: should I compare NewEvent.get()
@@ -2348,5 +2344,11 @@ public:
   chipstar::Context * getContext() { return ChipContext_; }
   void setFlags(chipstar::QueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
+
+} // namespace chipstar
+
+inline chipstar::Context *PrimaryContext = nullptr;
+inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
 
 #endif

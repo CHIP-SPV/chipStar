@@ -74,7 +74,7 @@ public:
   hipError_t Status;
 
   CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF, void *CallbackArgs,
-                         CHIPQueue *ChipQueue);
+                         chipstar::Queue *ChipQueue);
 };
 
 class EventMonitorOpenCL : public chipstar::EventMonitor {
@@ -96,7 +96,7 @@ public:
                   chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;
 
-  virtual void recordStream(CHIPQueue *ChipQueue) override;
+  virtual void recordStream(chipstar::Queue *ChipQueue) override;
   void takeOver(std::shared_ptr<chipstar::Event> Other);
   bool wait() override;
   float getElapsedTime(chipstar::Event *Other) override;
@@ -182,8 +182,8 @@ public:
   bool supportsFineGrainSVM() { return SupportsFineGrainSVM; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
-  virtual CHIPQueue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
-  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
+  virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
+  virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
                                  int NumHandles) override;
 
   virtual chipstar::Texture *
@@ -201,7 +201,7 @@ public:
   }
 };
 
-class CHIPQueueOpenCL : public CHIPQueue {
+class CHIPQueueOpenCL : public chipstar::Queue {
 protected:
   // Any reason to make these private/protected?
   cl::CommandQueue *ClQueue_;
@@ -218,7 +218,7 @@ protected:
    * @param Type Type of mapping to be performed. Either READ or WRITE
    */
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
-                      CHIPQueue::MEM_MAP_TYPE Type) override;
+                      chipstar::Queue::MEM_MAP_TYPE Type) override;
 
   /**
    * @brief Unmap memory from host.
@@ -345,13 +345,13 @@ public:
 
   virtual int ReqNumHandles() override { return 4; }
 
-  virtual CHIPQueue *createCHIPQueue(chipstar::Device  *ChipDev) override;
+  virtual chipstar::Queue *createCHIPQueue(chipstar::Device  *ChipDev) override;
   virtual std::shared_ptr<chipstar::Event>
   createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,
-                                               CHIPQueue *ChipQueue) override;
+                                               chipstar::Queue *ChipQueue) override;
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() override;
   virtual chipstar::EventMonitor *createStaleEventMonitor_() override;
 

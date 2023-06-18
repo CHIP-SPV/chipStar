@@ -336,7 +336,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
-void CHIPEventLevel0::recordStream(CHIPQueue *ChipQueue) {
+void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
   ze_result_t Status;
 
   {
@@ -559,7 +559,7 @@ void CHIPEventLevel0::hostSignal() {
 
 CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
-                                               CHIPQueue *ChipQueue)
+                                               chipstar::Queue *ChipQueue)
     : chipstar::CallbackData(CallbackF, CallbackArgs, ChipQueue) {
   LOCK(Backend->BackendMtx) // ensure callback enqueues are submitted as one
 
@@ -762,7 +762,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   }
   updateLastEvent(
       nullptr); // Just in case that unique_ptr destructor calls this, the
-                // generic ~CHIPQueue() (which calls updateLastEvent(nullptr))
+                // generic ~Queue() (which calls updateLastEvent(nullptr))
                 // hasn't been called yet, and the stale event monitor ends up
                 // waiting forever.
 
@@ -824,7 +824,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  chipstar::QueueFlags Flags, int Priority,
                                  LevelZeroQueueType TheType)
-    : CHIPQueue(ChipDev, Flags, Priority) {
+    : Queue(ChipDev, Flags, Priority) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
   ze_result_t Status;
   auto ChipDevLz = ChipDev;
@@ -869,7 +869,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  ze_command_queue_handle_t ZeCmdQ)
-    : CHIPQueue(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {
+    : Queue(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {
   auto ChipDevLz = ChipDev;
   auto Ctx = ChipDevLz->getContext();
   auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
@@ -1079,7 +1079,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::launchImpl(chipstar::ExecItem 
           ExecItem->getArgSpillBuffer())
     // Use an event action to prolong the lifetime of the spill buffer
     // in case the exec item gets destroyed before the kernel
-    // completes (may happen when called from CHIPQueue::launchKernel()).
+    // completes (may happen when called from Queue::launchKernel()).
     std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)
         ->addAction([=]() -> void { auto Tmp = SpillBuf; });
 
@@ -1971,12 +1971,12 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(sizeof(ArchName)));
 }
 
-CHIPQueue *CHIPDeviceLevel0::createQueue(chipstar::QueueFlags Flags, int Priority) {
+chipstar::Queue *CHIPDeviceLevel0::createQueue(chipstar::QueueFlags Flags, int Priority) {
   CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
   return NewQ;
 }
 
-CHIPQueue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
+chipstar::Queue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
                                          int NumHandles) {
   ze_command_queue_handle_t CmdQ = (ze_command_queue_handle_t)NativeHandles[3];
   CHIPQueueLevel0 *NewQ;

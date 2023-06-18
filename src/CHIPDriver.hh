@@ -48,7 +48,7 @@
 // class Kernel;
 // // class Backend;
 // // class chipstar::Event;
-// class CHIPQueue;
+// class Queue;
 // // class Texture;
 
 // /* HIP Graph API */
