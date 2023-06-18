@@ -4294,12 +4294,12 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(HostFunction));
-  CHIPExecItem *ExecItem = ChipExecStack.top();
+  chipstar::ExecItem *ExecItem = ChipExecStack.top();
   ChipExecStack.pop();
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {
-    std::string Msg = "Tried to launch CHIPExecItem but its queue is null";
+    std::string Msg = "Tried to launch chipstar::ExecItem but its queue is null";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
   }
 

@@ -254,7 +254,7 @@ public:
 class CHIPGraphNodeKernel : public CHIPGraphNode {
 private:
   hipKernelNodeParams Params_;
-  CHIPExecItem *ExecItem_;
+  chipstar::ExecItem *ExecItem_;
 
 public:
   CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other);

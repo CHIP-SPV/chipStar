@@ -49,9 +49,7 @@
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
-inline CHIPContext *PrimaryContext = nullptr;
-inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
-inline thread_local std::stack<CHIPContext *> ChipCtxStack;
+
 
 inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
   switch (Kind) {
@@ -1114,19 +1112,17 @@ public:
   }
 };
 
-} // namespace chipstar
 
-#include "CHIPGraph.hh"
 
 /**
  * @brief Contains kernel arguments and a queue on which to execute.
  * Prior to kernel launch, the arguments are setup via
  * CHIPBackend::configureCall(). Because of this, we get the kernel last so the
  * kernel so the launch() takes a kernel argument as opposed to queue receiving
- * a CHIPExecItem containing the kernel and arguments
+ * a chipstar::ExecItem containing the kernel and arguments
  *
  */
-class CHIPExecItem {
+class ExecItem {
 protected:
   bool ArgsSetup = false;
   size_t SharedMem_;
@@ -1145,7 +1141,7 @@ public:
   void setQueue(CHIPQueue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() {
-    assert(getKernel() && "chipstar::Kernel was not set! (call setKernel() first)");
+    assert(getKernel() && "chipstar::Kernel was not set! (call  setKernel() first)");
     return getKernel()->getFuncInfo()->getNumClientArgs();
   }
 
@@ -1156,10 +1152,10 @@ public:
 
   /**
    * @brief Deleted default constructor
-   * Doesn't make sense for CHIPExecItem to exist without arguments
+   * Doesn't make sense for ExecItem to exist without arguments
    *
    */
-  CHIPExecItem() = delete;
+  ExecItem() = delete;
 
   /**
    * @brief Deleted copy constructor
@@ -1168,25 +1164,25 @@ public:
    *
    * @param Other
    */
-  CHIPExecItem(const CHIPExecItem &Other) = delete;
+  ExecItem(const ExecItem &Other) = delete;
 
   /**
-   * @brief Destroy the CHIPExecItem object
+   * @brief Destroy the ExecItem object
    *
    */
-  virtual ~CHIPExecItem() {}
+  virtual ~ExecItem() {}
 
-  virtual CHIPExecItem *clone() const = 0;
+  virtual ExecItem *clone() const = 0;
 
   /**
-   * @brief Construct a new CHIPExecItem object
+   * @brief Construct a new ExecItem object
    *
    * @param grid_dim_
    * @param block_dim_
    * @param shared_mem_
    * @param chip_queue_
    */
-  CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+  ExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                hipStream_t ChipQueue);
 
   /**
@@ -1245,6 +1241,13 @@ public:
     return ArgSpillBuffer_;
   };
 };
+
+} // namespace chipstar
+
+inline CHIPContext *PrimaryContext = nullptr;
+inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+inline thread_local std::stack<CHIPContext *> ChipCtxStack;
+#include "CHIPGraph.hh"
 
 /**
  * @brief Compute device class
@@ -1801,7 +1804,7 @@ public:
   std::mutex DubiousLockLevel0;
 #endif
 
-  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+  virtual chipstar::ExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                            size_t SharedMem,
                                            hipStream_t ChipQueue) = 0;
 
@@ -2056,7 +2059,7 @@ protected:
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
-  std::shared_ptr<chipstar::Event> RegisteredVarCopy(CHIPExecItem *ExecItem,
+  std::shared_ptr<chipstar::Event> RegisteredVarCopy(chipstar::ExecItem *ExecItem,
                                                MANAGED_MEM_STATE ExecState);
 
 public:
@@ -2215,14 +2218,14 @@ public:
                               size_t Width, size_t Height, size_t Depth);
 
   /**
-   * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
+   * @brief Submit a chipstar::ExecItem to this queue for execution. ExecItem
    * needs to be complete - contain the kernel and arguments
    *
    * @param exec_item
    * @return hipError_t
    */
-  virtual std::shared_ptr<chipstar::Event> launchImpl(CHIPExecItem *ExecItem) = 0;
-  virtual void launch(CHIPExecItem *ExecItem);
+  virtual std::shared_ptr<chipstar::Event> launchImpl(chipstar::ExecItem *ExecItem) = 0;
+  virtual void launch(chipstar::ExecItem *ExecItem);
 
   /**
    * @brief Get the Device obj

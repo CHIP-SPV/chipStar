@@ -236,7 +236,7 @@ public:
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
   virtual std::shared_ptr<chipstar::Event>
-  launchImpl(CHIPExecItem *ExecItem) override;
+  launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
   virtual void finish() override;
@@ -291,7 +291,7 @@ public:
   virtual hipError_t getAttributes(hipFuncAttributes *Attr) override;
 };
 
-class CHIPExecItemOpenCL : public CHIPExecItem {
+class CHIPExecItemOpenCL : public chipstar::ExecItem {
 private:
   std::unique_ptr<CHIPKernelOpenCL> ChipKernel_;
   cl::Kernel *ClKernel_;
@@ -310,7 +310,7 @@ public:
   }
   CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                      hipStream_t ChipQueue)
-      : CHIPExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
+      : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemOpenCL() override {
     // TODO delete ClKernel_?
@@ -319,8 +319,8 @@ public:
   virtual void setupAllArgs() override;
   cl::Kernel *get();
 
-  virtual CHIPExecItem *clone() const override {
-    auto NewExecItem = new CHIPExecItemOpenCL(*this);
+  virtual chipstar::ExecItem *clone() const override {
+    auto Newchipstar::ExecItem = new CHIPExecItemOpenCL(*this);
     return NewExecItem;
   }
 
@@ -330,7 +330,7 @@ public:
 
 class CHIPBackendOpenCL : public CHIPBackend {
 public:
-  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+  virtual chipstar::ExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                            size_t SharedMem,
                                            hipStream_t ChipQueue) override;
 

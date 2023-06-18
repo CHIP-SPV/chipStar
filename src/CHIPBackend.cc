@@ -30,7 +30,7 @@ static void queueKernel(CHIPQueue *Q, chipstar::Kernel *K, void *Args[] = nullpt
   assert(K);
   // FIXME: Should construct backend specific exec item or make the exec
   //        item a backend agnostic class.
-  CHIPExecItem *EI =
+  chipstar::ExecItem *EI =
       Backend->createCHIPExecItem(GridDim, BlockDim, SharedMemSize, Q);
   EI->setKernel(K);
 
@@ -40,7 +40,7 @@ static void queueKernel(CHIPQueue *Q, chipstar::Kernel *K, void *Args[] = nullpt
   auto ChipQueue = EI->getQueue();
   if (!ChipQueue)
     CHIPERR_LOG_AND_THROW(
-        "Tried to launch kernel for an ExecItem which has a null queue",
+        "Tried to launch kernel for an chipstar::ExecItem which has a null queue",
         hipErrorTbd);
 
   ChipQueue->launch(EI);
@@ -459,23 +459,23 @@ void *chipstar::ArgSpillBuffer ::allocate(const SPVFuncInfo::Arg &Arg) {
   return DeviceBuffer_ + Offset;
 }
 
-// CHIPExecItem
+// ExecItem
 //*************************************************************************************
-void CHIPExecItem::copyArgs(void **Args) {
+void chipstar::ExecItem::copyArgs(void **Args) {
   for (int i = 0; i < getNumArgs(); i++) {
     Args_.push_back(Args[i]);
   }
 }
 
-CHIPExecItem::CHIPExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
+chipstar::ExecItem::ExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                            hipStream_t ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
       ChipQueue_(static_cast<CHIPQueue *>(ChipQueue)){};
 
-dim3 CHIPExecItem::getBlock() { return BlockDim_; }
-dim3 CHIPExecItem::getGrid() { return GridDim_; }
-size_t CHIPExecItem::getSharedMem() { return SharedMem_; }
-CHIPQueue *CHIPExecItem::getQueue() { return ChipQueue_; }
+dim3 chipstar::ExecItem::getBlock() { return BlockDim_; }
+dim3 chipstar::ExecItem::getGrid() { return GridDim_; }
+size_t chipstar::ExecItem::getSharedMem() { return SharedMem_; }
+CHIPQueue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
 // CHIPDevice
 //*************************************************************************************
 CHIPDevice::CHIPDevice(CHIPContext *Ctx, int DeviceIdx)
@@ -1337,7 +1337,7 @@ hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
-  CHIPExecItem *ExecItem =
+  chipstar::ExecItem *ExecItem =
       Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
   ChipExecStack.push(ExecItem);
 
@@ -1653,7 +1653,7 @@ void CHIPQueue::updateLastNode(CHIPGraphNode *NewNode) {
 void CHIPQueue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
 std::shared_ptr<chipstar::Event>
-CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
+CHIPQueue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
                              MANAGED_MEM_STATE ExecState) {
 
   // TODO: Inspect kernel code for indirect allocation accesses. If
@@ -1696,16 +1696,16 @@ CHIPQueue::RegisteredVarCopy(CHIPExecItem *ExecItem,
   return CopyEvents.back();
 }
 
-void CHIPQueue::launch(CHIPExecItem *ExecItem) {
+void CHIPQueue::launch(chipstar::ExecItem *ExItem) {
   std::stringstream InfoStr;
-  InfoStr << "\nLaunching kernel " << ExecItem->getKernel()->getName() << "\n";
-  InfoStr << "GridDim: <" << ExecItem->getGrid().x << ", "
-          << ExecItem->getGrid().y << ", " << ExecItem->getGrid().z << ">";
-  InfoStr << " BlockDim: <" << ExecItem->getBlock().x << ", "
-          << ExecItem->getBlock().y << ", " << ExecItem->getBlock().z << ">\n";
-  InfoStr << "SharedMem: " << ExecItem->getSharedMem() << "\n";
+  InfoStr << "\nLaunching kernel " << ExItem->getKernel()->getName() << "\n";
+  InfoStr << "GridDim: <" << ExItem->getGrid().x << ", "
+          << ExItem->getGrid().y << ", " << ExItem->getGrid().z << ">";
+  InfoStr << " BlockDim: <" << ExItem->getBlock().x << ", "
+          << ExItem->getBlock().y << ", " << ExItem->getBlock().z << ">\n";
+  InfoStr << "SharedMem: " << ExItem->getSharedMem() << "\n";
 
-  const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
+  const auto &FuncInfo = *ExItem->getKernel()->getFuncInfo();
   InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
   auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     InfoStr << "Arg " << Arg.Index << ": " << Arg.getKindAsString() << " "
@@ -1716,7 +1716,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
     }
     InfoStr << "\n";
   };
-  FuncInfo.visitKernelArgs(ExecItem->getArgs(), Visitor);
+  FuncInfo.visitKernelArgs(ExItem->getArgs(), Visitor);
 
   // Making this log info since hipLaunchKernel doesn't know enough about args
   logInfo("{}", InfoStr.str());
@@ -1726,7 +1726,7 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
 #endif
 
   auto TotalThreadsPerBlock =
-      ExecItem->getBlock().x * ExecItem->getBlock().y * ExecItem->getBlock().z;
+      ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
   auto DeviceProps = getDevice()->getDeviceProps();
   auto MaxTotalThreadsPerBlock = DeviceProps.maxThreadsPerBlock;
 
@@ -1737,12 +1737,12 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
                           hipErrorLaunchFailure);
   }
 
-  if (ExecItem->getBlock().x > DeviceProps.maxThreadsDim[0] ||
-      ExecItem->getBlock().y > DeviceProps.maxThreadsDim[1] ||
-      ExecItem->getBlock().z > DeviceProps.maxThreadsDim[2]) {
+  if (ExItem->getBlock().x > DeviceProps.maxThreadsDim[0] ||
+      ExItem->getBlock().y > DeviceProps.maxThreadsDim[1] ||
+      ExItem->getBlock().z > DeviceProps.maxThreadsDim[2]) {
     logCritical(
         "Requested local size dimension ({}, {}, {}) exceeds max ({}, {}, {})",
-        ExecItem->getBlock().x, ExecItem->getBlock().y, ExecItem->getBlock().z,
+        ExItem->getBlock().x, ExItem->getBlock().y, ExItem->getBlock().z,
         DeviceProps.maxThreadsDim[0], DeviceProps.maxThreadsDim[1],
         DeviceProps.maxThreadsDim[2]);
     CHIPERR_LOG_AND_THROW("Requested local size exceeds HW max",
@@ -1750,10 +1750,10 @@ void CHIPQueue::launch(CHIPExecItem *ExecItem) {
   }
 
   std::shared_ptr<chipstar::Event> RegisteredVarInEvent =
-      RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::PRE_KERNEL);
-  std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExecItem);
+      RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
+  std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExItem);
   std::shared_ptr<chipstar::Event> RegisteredVarOutEvent =
-      RegisteredVarCopy(ExecItem, MANAGED_MEM_STATE::POST_KERNEL);
+      RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::POST_KERNEL);
 
   RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
                         : updateLastEvent(LaunchEvent);
@@ -1795,13 +1795,13 @@ void CHIPQueue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
                              dim3 DimBlocks, void **Args,
                              size_t SharedMemBytes) {
   LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
-  CHIPExecItem *ExecItem =
+  chipstar::ExecItem *ExItem =
       Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
-  ExecItem->setKernel(ChipKernel);
-  ExecItem->copyArgs(Args);
-  ExecItem->setupAllArgs();
-  launch(ExecItem);
-  delete ExecItem;
+  ExItem->setKernel(ChipKernel);
+  ExItem->copyArgs(Args);
+  ExItem->setupAllArgs();
+  launch(ExItem);
+  delete ExItem;
 }
 
 ///////// End Enqueue Operations //////////

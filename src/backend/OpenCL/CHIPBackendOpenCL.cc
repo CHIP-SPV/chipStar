@@ -1021,14 +1021,14 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
   return MarkerEvent;
 }
 
-std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecItem) {
+std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(OclContext);
-  CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
+  CHIPExecItemOpenCL *ChipOclchipstar::ExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
-  assert(Kernel && "Kernel in ExecItem is NULL!");
+  assert(Kernel && "Kernel in chipstar::ExecItem is NULL!");
   logTrace("Launching Kernel {}", Kernel->getName());
 
   ChipOclExecItem->setupAllArgs();
@@ -1397,10 +1397,10 @@ void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {
 
 // CHIPBackendOpenCL
 //*************************************************************************
-CHIPExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+chipstar::ExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                                     size_t SharedMem,
                                                     hipStream_t ChipQueue) {
-  CHIPExecItemOpenCL *ExecItem =
+  CHIPExecItemOpenCL *chipstar::ExecItem =
       new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
   return ExecItem;
 };

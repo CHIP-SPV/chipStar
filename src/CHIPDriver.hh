@@ -41,7 +41,7 @@
 #include "Utils.hh"
 
 // Forward Declares
-class CHIPExecItem;
+class ExecItem;
 class CHIPDevice;
 class CHIPContext;
 class Module;

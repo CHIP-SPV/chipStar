@@ -1019,7 +1019,7 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
   return CommandQueueCopyDesc;
 }
 
-std::shared_ptr<chipstar::Event> CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecItem) {
+std::shared_ptr<chipstar::Event> CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> LaunchEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
@@ -1460,7 +1460,7 @@ void LZEventPool::returnSlot(int Slot) {
 
 // CHIPBackendLevel0
 // ***********************************************************************
-CHIPExecItem *CHIPBackendLevel0::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+chipstar::ExecItem *CHIPBackendLevel0::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                                     size_t SharedMem,
                                                     hipStream_t ChipQueue) {
   CHIPExecItemLevel0 *ExecItem =

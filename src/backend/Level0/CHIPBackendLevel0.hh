@@ -46,7 +46,7 @@ class LZEventPool;
 class CHIPExecItemLevel0;
 class CHIPKernelLevel0;
 
-class CHIPExecItemLevel0 : public CHIPExecItem {
+class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
 
 public:
@@ -60,12 +60,12 @@ public:
 
   CHIPExecItemLevel0(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
                      hipStream_t ChipQueue)
-      : CHIPExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
+      : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemLevel0() override {}
 
   virtual void setupAllArgs() override;
-  virtual CHIPExecItem *clone() const override {
+  virtual chipstar::ExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemLevel0(*this);
     return NewExecItem;
   }
@@ -238,7 +238,7 @@ public:
                            void *UserData) override;
 
   virtual std::shared_ptr<chipstar::Event>
-  launchImpl(CHIPExecItem *ExecItem) override;
+  launchImpl(chipstar::ExecItem *ExecItem) override;
 
   virtual void finish() override;
 
@@ -532,7 +532,7 @@ public:
 class CHIPBackendLevel0 : public CHIPBackend {
 
 public:
-  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+  virtual chipstar::ExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                            size_t SharedMem,
                                            hipStream_t ChipQueue) override;
 
