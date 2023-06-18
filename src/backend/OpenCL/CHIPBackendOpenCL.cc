@@ -736,8 +736,8 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
   for (int KernelIdx = 0; KernelIdx < Kernels.size(); KernelIdx++) {
-    auto Kernel = Kernels[KernelIdx];
-    std::string HostFName = Kernel.getInfo<CL_KERNEL_FUNCTION_NAME>(&Err);
+    auto Krnl = Kernels[KernelIdx];
+    std::string HostFName = Krnl.getInfo<CL_KERNEL_FUNCTION_NAME>(&Err);
     CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError,
                                 "Failed to fetch OpenCL kernel name");
     auto *FuncInfo = findFunctionInfo(HostFName);
@@ -748,7 +748,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
       //                      hipErrorInitializationError);
     }
     CHIPKernelOpenCL *ChipKernel =
-        new CHIPKernelOpenCL(Kernel, ChipDevOcl, HostFName, FuncInfo, this);
+        new CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
 
@@ -810,7 +810,7 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
                                    std::string HostFName, SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
-    : CHIPKernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
+    : Kernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
   OclKernel_ = ClKernel;
   int Err = 0;
@@ -1383,7 +1383,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   return;
 }
 
-void CHIPExecItemOpenCL::setKernel(CHIPKernel *Kernel) {
+void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {
   assert(Kernel && "Kernel is nullptr!");
   // Make a clone of the kernel so the its cl_kernel object is not
   // shared among other threads (sharing cl_kernel is discouraged by

@@ -556,7 +556,7 @@ hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
 
   /**
    Update Limitations:
-    a) Kernel nodes:
+    a) chipstar::Kernel nodes:
         1. The owning context of the function cannot change.
         2. A node whose function originally did not use CUDA dynamic parallelism
    cannot be updated to a function which uses CDP.
@@ -3752,7 +3752,7 @@ hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
   CHIPInitialize();
 
   CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPKernel *Kernel = Dev->findKernel(HostPtr(HostFunction));
+  chipstar::Kernel *Kernel = Dev->findKernel(HostPtr(HostFunction));
   if (!Kernel)
     RETURN(hipErrorInvalidDeviceFunction);
   hipError_t Res = Kernel->getAttributes(Attr);
@@ -4155,7 +4155,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
   auto ChipModule = (chipstar::Module *)Module;
-  CHIPKernel *Kernel = ChipModule->getKernelByName(Name);
+  chipstar::Kernel *Kernel = ChipModule->getKernelByName(Name);
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);
 
@@ -4178,7 +4178,7 @@ static inline hipError_t hipModuleLaunchKernelInternal(
   dim3 Grid(GridDimX, GridDimY, GridDimZ);
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
-  auto ChipKernel = static_cast<CHIPKernel *>(Kernel);
+  auto ChipKernel = static_cast<chipstar::Kernel *>(Kernel);
   Backend->getActiveDevice()->prepareDeviceVariables(
       HostPtr(ChipKernel->getHostPtr()));
 
@@ -4207,7 +4207,7 @@ static inline hipError_t hipModuleLaunchKernelInternal(
     if (!ExtraArgBuf) // Null argument pointer.
       return hipErrorInvalidValue;
 
-    auto ChipKernel = static_cast<CHIPKernel *>(Kernel);
+    auto ChipKernel = static_cast<chipstar::Kernel *>(Kernel);
 
     auto *FuncInfo = ChipKernel->getFuncInfo();
     auto ParamBuffer = convertExtraArgsToPointerArray(ExtraArgBuf, *FuncInfo);

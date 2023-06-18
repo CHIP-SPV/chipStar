@@ -708,7 +708,7 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
                                    CHIPDeviceLevel0 *Dev, std::string HostFName,
                                    SPVFuncInfo *FuncInfo,
                                    CHIPModuleLevel0 *Parent)
-    : CHIPKernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Module(Parent),
+    : Kernel(HostFName, FuncInfo), ZeKernel_(ZeKernel), Module(Parent),
       Device(Dev) {
   logTrace("CHIPKernelLevel0 constructor via ze_kernel_handle");
 
@@ -2247,7 +2247,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
     if (!FuncInfo) {
       // TODO: __syncthreads() gets turned into
       // Intel_Symbol_Table_Void_Program This is a call to OCML so it
-      // shouldn't be turned into a CHIPKernel
+      // shouldn't be turned into a Kernel
       continue;
       // CHIPERR_LOG_AND_THROW("Failed to find kernel in
       // OpenCLFunctionInfoMap",
@@ -2370,8 +2370,8 @@ void CHIPExecItemLevel0::setupAllArgs() {
   return;
 }
 
-void CHIPExecItemLevel0::setKernel(CHIPKernel *Kernel) {
+void CHIPExecItemLevel0::setKernel(chipstar::Kernel *Kernel) {
   ChipKernel_ = static_cast<CHIPKernelLevel0 *>(Kernel);
 }
 
-CHIPKernel *CHIPExecItemLevel0::getKernel() { return ChipKernel_; }
+chipstar::Kernel *CHIPExecItemLevel0::getKernel() { return ChipKernel_; }

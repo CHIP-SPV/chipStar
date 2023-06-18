@@ -179,7 +179,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   CHIPReadEnvVars();
   logDebug("CHIPDriver REInitialize");
 
-  // Kernel compilation may have already taken place so we need save
+  // chipstar::Kernel compilation may have already taken place so we need save
   // these modules and pass them to re-initialization function
   auto ModuleState = Backend->getActiveDevice()->getModuleState();
 

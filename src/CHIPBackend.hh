@@ -81,6 +81,7 @@ template <class T> std::string resultToString(T Err);
 namespace chipstar {
 
 class Event;
+class Kernel;
 
 class RegionDesc {
 public:
@@ -869,7 +870,7 @@ protected:
   // Global variables
   std::vector<chipstar::DeviceVar*> ChipVars_;
   // Kernels
-  std::vector<CHIPKernel *> ChipKernels_;
+  std::vector<chipstar::Kernel *> ChipKernels_;
   /// Binary representation extracted from FatBinary.
   const SPVModule *Src_;
   // Kernel JIT compilation can be lazy
@@ -901,15 +902,15 @@ public:
   Module(const SPVModule &Src) : Src_(&Src) {}
 
   /**
-   * @brief Add a CHIPKernel to this module.
+   * @brief Add a chipstar::Kernel to this module.
    * During initialization when the FatBinary is consumed, a Module is
    * constructed for every device. SPIR-V kernels reside in this module. This
    * method is called called via the constructor during this initialization
    * phase. Modules can also be loaded from a file during runtime, however.
    *
-   * @param kernel CHIPKernel to be added to this module.
+   * @param kernel chipstar::Kernel to be added to this module.
    */
-  void addKernel(CHIPKernel *Kernel);
+  void addKernel(chipstar::Kernel *Kernel);
 
   /**
    * @brief Wrapper around compile() called via std::call_once
@@ -918,7 +919,7 @@ public:
    */
   void compileOnce(CHIPDevice *ChipDev);
   /**
-   * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
+   * @brief chipstar::Kernel JIT compilation can be lazy. This is configured via Cmake
    * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
    * compiled until the first call to one of its kernels. If LAZY_JIT is set to
    * false(default) then this method should be called in the constructor;
@@ -939,20 +940,20 @@ public:
   virtual chipstar::DeviceVar*getGlobalVar(const char *VarName);
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
    * @param name name of the corresponding host function
-   * @return CHIPKernel* if found and nullptr otherwise.
+   * @return Kernel* if found and nullptr otherwise.
    */
-  CHIPKernel *findKernel(const std::string &Name);
+  chipstar::Kernel *findKernel(const std::string &Name);
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
    * @param name name of the corresponding host function
-   * @return CHIPKernel*
+   * @return Kernel*
    */
-  CHIPKernel *getKernelByName(const std::string &Name);
+  chipstar::Kernel *getKernelByName(const std::string &Name);
 
   /**
    * @brief Checks if the module has a kernel with the given name.
@@ -965,17 +966,17 @@ public:
   /**
    * @brief Get the Kernels object
    *
-   * @return std::vector<CHIPKernel*>&
+   * @return std::vector<Kernel*>&
    */
-  std::vector<CHIPKernel *> &getKernels();
+  std::vector<chipstar::Kernel *> &getKernels();
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
    * @param host_f_ptr host-side function pointer
-   * @return CHIPKernel*
+   * @return Kernel*
    */
-  CHIPKernel *getKernel(const void *HostFPtr);
+  chipstar::Kernel *getKernel(const void *HostFPtr);
 
   /**
    * @brief consume SPIRV and fill in SPVFuncINFO
@@ -1003,20 +1004,18 @@ public:
   const SPVModule &getSourceModule() const { return *Src_; }
 };
 
-} // namespace chipstar
 
-#include "CHIPGraph.hh"
 /**
  * @brief Contains information about the function on the host and device
  */
-class CHIPKernel : public ihipModuleSymbol_t {
+class Kernel : public ihipModuleSymbol_t {
 protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be
    * called.
    *
    */
-  CHIPKernel(std::string HostFName, SPVFuncInfo *FuncInfo);
+  Kernel(std::string HostFName, SPVFuncInfo *FuncInfo);
   /// Name of the function
   std::string HostFName_;
   /// Pointer to the host function
@@ -1027,7 +1026,7 @@ protected:
   SPVFuncInfo *FuncInfo_;
 
 public:
-  virtual ~CHIPKernel();
+  virtual ~Kernel();
 
   /**
    * @brief Get the Name object
@@ -1089,6 +1088,10 @@ public:
   virtual const chipstar::Module *getModule() const = 0;
 };
 
+} // namespace chipstar
+
+#include "CHIPGraph.hh"
+
 class CHIPArgSpillBuffer {
   CHIPContext *Ctx_; ///< A context to allocate device space from.
   std::unique_ptr<char[]> HostBuffer_;
@@ -1140,7 +1143,7 @@ public:
   void setQueue(CHIPQueue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() {
-    assert(getKernel() && "Kernel was not set! (call setKernel() first)");
+    assert(getKernel() && "chipstar::Kernel was not set! (call setKernel() first)");
     return getKernel()->getFuncInfo()->getNumClientArgs();
   }
 
@@ -1185,18 +1188,18 @@ public:
                hipStream_t ChipQueue);
 
   /**
-   * @brief Set the Kernel object
+   * @brief Set the chipstar::Kernel object
    *
-   * @return CHIPKernel* Kernel to be executed
+   * @return Kernel* chipstar::Kernel to be executed
    */
-  virtual void setKernel(CHIPKernel *Kernel) = 0;
+  virtual void setKernel(chipstar::Kernel *Kernel) = 0;
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
-   * @return CHIPKernel* Kernel to be executed
+   * @return Kernel* chipstar::Kernel to be executed
    */
-  virtual CHIPKernel *getKernel() = 0;
+  virtual chipstar::Kernel *getKernel() = 0;
 
   /**
    * @brief Get the Queue object
@@ -1353,7 +1356,7 @@ public:
 
   /// Return kernel the host-pointer 'Ptr' is associated with, if
   /// found. Otherwise return nullptr.
-  CHIPKernel *findKernel(HostPtr Ptr) {
+  chipstar::Kernel *findKernel(HostPtr Ptr) {
     if (auto *Mod = getOrCreateModule(Ptr))
       return Mod->getKernel(Ptr);
     return nullptr;
@@ -1368,9 +1371,9 @@ public:
   /**
    * @brief Get the Kernels object
    *
-   * @return std::vector<CHIPKernel*>&
+   * @return std::vector<Kernel*>&
    */
-  std::vector<CHIPKernel *> getKernels();
+  std::vector<chipstar::Kernel *> getKernels();
 
   ModuleState getModuleState() const {
     ModuleState State;
@@ -2312,7 +2315,7 @@ public:
    * @param args
    * @param sharedMemBytes
    */
-  void launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks, dim3 DimBlocks,
+  void launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks, dim3 DimBlocks,
                     void **Args, size_t SharedMemBytes);
 
   /**

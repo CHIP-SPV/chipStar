@@ -70,8 +70,8 @@ public:
     return NewExecItem;
   }
 
-  void setKernel(CHIPKernel *Kernel) override;
-  CHIPKernel *getKernel() override;
+  void setKernel(chipstar::Kernel *Kernel) override;
+  chipstar::Kernel *getKernel() override;
 };
 
 class CHIPEventLevel0 : public chipstar::Event {
@@ -372,7 +372,7 @@ public:
   ze_module_handle_t get() { return ZeModule_; }
 };
 
-class CHIPKernelLevel0 : public CHIPKernel {
+class CHIPKernelLevel0 : public chipstar::Kernel {
 protected:
   ze_kernel_handle_t ZeKernel_;
   size_t MaxDynamicLocalSize_;

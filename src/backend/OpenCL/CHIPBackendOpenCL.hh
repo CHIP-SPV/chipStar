@@ -263,7 +263,7 @@ public:
                                                      size_t Count) override;
 };
 
-class CHIPKernelOpenCL : public CHIPKernel {
+class CHIPKernelOpenCL : public chipstar::Kernel {
 private:
   std::string Name_;
   cl::Kernel OclKernel_;
@@ -324,7 +324,7 @@ public:
     return NewExecItem;
   }
 
-  void setKernel(CHIPKernel *Kernel) override;
+  void setKernel(chipstar::Kernel *Kernel) override;
   CHIPKernelOpenCL *getKernel() override { return ChipKernel_.get(); }
 };
 

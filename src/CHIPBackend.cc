@@ -23,7 +23,7 @@
 #include "CHIPBackend.hh"
 
 /// Queue a kernel for retrieving information about the device variable.
-static void queueKernel(CHIPQueue *Q, CHIPKernel *K, void *Args[] = nullptr,
+static void queueKernel(CHIPQueue *Q, chipstar::Kernel *K, void *Args[] = nullptr,
                         dim3 GridDim = dim3(1), dim3 BlockDim = dim3(1),
                         size_t SharedMemSize = 0) {
   assert(Q);
@@ -239,7 +239,7 @@ void chipstar::Module::consumeSPIRV() {
 
 chipstar::Module::~Module() {}
 
-void chipstar::Module::addKernel(CHIPKernel *Kernel) {
+void chipstar::Module::addKernel(chipstar::Kernel *Kernel) {
   ChipKernels_.push_back(Kernel);
 }
 
@@ -247,15 +247,15 @@ void chipstar::Module::compileOnce(CHIPDevice *ChipDevice) {
   std::call_once(Compiled_, &chipstar::Module::compile, this, ChipDevice);
 }
 
-CHIPKernel *chipstar::Module::findKernel(const std::string &Name) {
+chipstar::Kernel *chipstar::Module::findKernel(const std::string &Name) {
   auto KernelFound = std::find_if(ChipKernels_.begin(), ChipKernels_.end(),
-                                  [&Name](CHIPKernel *Kernel) {
+                                  [&Name](chipstar::Kernel *Kernel) {
                                     return Kernel->getName().compare(Name) == 0;
                                   });
   return KernelFound == ChipKernels_.end() ? nullptr : *KernelFound;
 }
 
-CHIPKernel *chipstar::Module::getKernelByName(const std::string &Name) {
+chipstar::Kernel *chipstar::Module::getKernelByName(const std::string &Name) {
   auto *Kernel = findKernel(Name);
   if (!Kernel) {
     std::string Msg = "Failed to find kernel via kernel name: " + Name;
@@ -266,12 +266,12 @@ CHIPKernel *chipstar::Module::getKernelByName(const std::string &Name) {
 
 bool chipstar::Module::hasKernel(std::string Name) { return findKernel(Name); }
 
-CHIPKernel *chipstar::Module::getKernel(const void *HostFPtr) {
+chipstar::Kernel *chipstar::Module::getKernel(const void *HostFPtr) {
   logDebug("{} chipstar::Module::getKernel({})", (void *)this, HostFPtr);
   for (auto &Kernel : ChipKernels_)
     logDebug("chip kernel: {} {}", Kernel->getHostPtr(), Kernel->getName());
   auto KernelFound = std::find_if(ChipKernels_.begin(), ChipKernels_.end(),
-                                  [HostFPtr](CHIPKernel *Kernel) {
+                                  [HostFPtr](chipstar::Kernel *Kernel) {
                                     return Kernel->getHostPtr() == HostFPtr;
                                   });
   if (KernelFound == ChipKernels_.end()) {
@@ -282,7 +282,7 @@ CHIPKernel *chipstar::Module::getKernel(const void *HostFPtr) {
   return *KernelFound;
 }
 
-std::vector<CHIPKernel *> &chipstar::Module::getKernels() { return ChipKernels_; }
+std::vector<chipstar::Kernel *> &chipstar::Module::getKernels() { return ChipKernels_; }
 
 chipstar::DeviceVar*chipstar::Module::getGlobalVar(const char *VarName) {
   auto VarFound = std::find_if(ChipVars_.begin(), ChipVars_.end(),
@@ -406,20 +406,20 @@ SPVFuncInfo *chipstar::Module::findFunctionInfo(const std::string &FName) {
   return FuncInfos_.count(FName) ? FuncInfos_.at(FName).get() : nullptr;
 }
 
-// CHIPKernel
+// Kernel
 //*************************************************************************************
-CHIPKernel::CHIPKernel(std::string HostFName, SPVFuncInfo *FuncInfo)
+chipstar::Kernel::Kernel(std::string HostFName, SPVFuncInfo *FuncInfo)
     : HostFName_(HostFName), FuncInfo_(FuncInfo) {}
-CHIPKernel::~CHIPKernel(){};
-std::string CHIPKernel::getName() { return HostFName_; }
-const void *CHIPKernel::getHostPtr() { return HostFPtr_; }
-const void *CHIPKernel::getDevPtr() { return DevFPtr_; }
+chipstar::Kernel::~Kernel(){};
+std::string chipstar::Kernel::getName() { return HostFName_; }
+const void *chipstar::Kernel::getHostPtr() { return HostFPtr_; }
+const void *chipstar::Kernel::getDevPtr() { return DevFPtr_; }
 
-SPVFuncInfo *CHIPKernel::getFuncInfo() { return FuncInfo_; }
+SPVFuncInfo *chipstar::Kernel::getFuncInfo() { return FuncInfo_; }
 
-void CHIPKernel::setName(std::string HostFName) { HostFName_ = HostFName; }
-void CHIPKernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
-void CHIPKernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
+void chipstar::Kernel::setName(std::string HostFName) { HostFName_ = HostFName; }
+void chipstar::Kernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
+void chipstar::Kernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 
 // CHIPArgSpillBuffer
 //*****************************************************************************
@@ -536,10 +536,10 @@ CHIPQueue *CHIPDevice::getPerThreadDefaultQueueNoLock() {
   return PerThreadDefaultQueue.get();
 }
 
-std::vector<CHIPKernel *> CHIPDevice::getKernels() {
-  std::vector<CHIPKernel *> ChipKernels;
+std::vector<chipstar::Kernel *> CHIPDevice::getKernels() {
+  std::vector<chipstar::Kernel *> ChipKernels;
   for (auto &Kv : SrcModToCompiledMod_) {
-    for (CHIPKernel *Kernel : Kv.second->getKernels())
+    for (chipstar::Kernel *Kernel : Kv.second->getKernels())
       ChipKernels.push_back(Kernel);
   }
   return ChipKernels;
@@ -966,8 +966,8 @@ chipstar::Module *CHIPDevice::getOrCreateModule(const SPVModule &SrcMod) {
   // Bind host pointers to their backend counterparts.
   for (const auto &Info : SrcMod.Kernels) {
     std::string NameTmp(Info.Name.begin(), Info.Name.end());
-    CHIPKernel *Kernel = Module->getKernelByName(NameTmp);
-    assert(Kernel && "Kernel went missing?");
+    chipstar::Kernel *Kernel = Module->getKernelByName(NameTmp);
+    assert(Kernel && "chipstar::Kernel went missing?");
     Kernel->setHostPtr(Info.Ptr);
     HostPtrToCompiledMod_[Info.Ptr] = Module;
   }
@@ -1791,7 +1791,7 @@ void CHIPQueue::memPrefetch(const void *Ptr, size_t Count) {
   Backend->trackEvent(ChipEvent);
 }
 
-void CHIPQueue::launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks,
+void CHIPQueue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
                              dim3 DimBlocks, void **Args,
                              size_t SharedMemBytes) {
   LOCK(Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
