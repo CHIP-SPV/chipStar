@@ -25,7 +25,7 @@
  * @brief CHIPBackend class definition. CHIP backends are to inherit from this
  * base class and override desired virtual functions. Overrides for this class
  * are expected to be minimal with primary overrides being done on lower-level
- * classes such as CHIPContext consturctors, etc.
+ * classes such as Context consturctors, etc.
  * @version 0.1
  * @date 2021-08-19
  *
@@ -83,6 +83,7 @@ class Kernel;
 class Device;
 class EventMonitor;
 class Texture;
+class Context;
 
 class RegionDesc {
 public:
@@ -548,7 +549,7 @@ public:
   bool releaseMemReservation(size_t Bytes);
 
   /**
-   * @brief Record the pointer received from CHIPContext::allocate_()
+   * @brief Record the pointer received from Context::allocate_()
    *
    * @param dev_ptr
    */
@@ -644,7 +645,7 @@ protected:
    * @brief Events are always created with a context
    *
    */
-  CHIPContext *ChipContext_;
+  chipstar::Context * ChipContext_;
 
   /**
    * @brief hidden default constructor for Event. Only derived class
@@ -673,13 +674,13 @@ public:
    * @brief chipstar::Event constructor. Must always be created with some context.
    *
    */
-  Event(CHIPContext *Ctx, chipstar::EventFlags Flags = chipstar::EventFlags());
+  Event(chipstar::Context * Ctx, chipstar::EventFlags Flags = chipstar::EventFlags());
   /**
    * @brief Get the Context object
    *
-   * @return CHIPContext* pointer to context on which this event was created
+   * @return Context* pointer to context on which this event was created
    */
-  CHIPContext *getContext() {
+  chipstar::Context * getContext() {
     assert(!Deleted_ && "chipstar::Event use after delete!");
     return ChipContext_;
   }
@@ -1088,7 +1089,7 @@ public:
 
 
 class ArgSpillBuffer {
-  CHIPContext *Ctx_; ///< A context to allocate device space from.
+  chipstar::Context * Ctx_; ///< A context to allocate device space from.
   std::unique_ptr<char[]> HostBuffer_;
   char *DeviceBuffer_ = nullptr;
   std::map<size_t, size_t> ArgIndexToOffset_;
@@ -1096,7 +1097,7 @@ class ArgSpillBuffer {
 
 public:
   ArgSpillBuffer() = delete;
-  ArgSpillBuffer(CHIPContext *Ctx) : Ctx_(Ctx) {}
+  ArgSpillBuffer(chipstar::Context * Ctx) : Ctx_(Ctx) {}
   ~ArgSpillBuffer();
   void computeAndReserveSpace(const SPVFuncInfo &KernelInfo);
   void *allocate(const SPVFuncInfo::Arg &Arg);
@@ -1262,7 +1263,7 @@ class Device {
 
 protected:
   std::string DeviceName_;
-  CHIPContext *Ctx_;
+  chipstar::Context * Ctx_;
   std::vector<CHIPQueue *> ChipQueues_;
   std::once_flag PropsPopulated_;
 
@@ -1279,7 +1280,7 @@ protected:
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
   // only callable from derived classes, because we need to call also init()
-  Device(CHIPContext *Ctx, int DeviceIdx);
+  Device(chipstar::Context * Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
   bool PerThreadStreamUsed_ = false;
@@ -1336,9 +1337,9 @@ public:
   CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                     const size_t NumHandles);
 
-  void removeContext(CHIPContext *Ctx);
-  virtual CHIPContext *createContext() = 0;
-  CHIPContext *createContextAndRegister() {
+  void removeContext(chipstar::Context * Ctx);
+  virtual chipstar::Context * createContext() = 0;
+  chipstar::Context * createContextAndRegister() {
     Ctx_ = createContext();
     return Ctx_;
   }
@@ -1404,10 +1405,10 @@ public:
   /**
    * @brief Get the context object
    *
-   * @return CHIPContext* pointer to the CHIPContext object this Device
+   * @return Context* pointer to the Context object this Device
    * was created with
    */
-  CHIPContext *getContext();
+  chipstar::Context * getContext();
 
   /**
    * @brief Construct an additional queue for this device
@@ -1603,12 +1604,7 @@ protected:
   virtual chipstar::Module *compile(const SPVModule &Src) = 0;
 };
 
-} // namespace chipstar
 
-inline CHIPContext *PrimaryContext = nullptr;
-inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
-inline thread_local std::stack<CHIPContext *> ChipCtxStack;
-#include "CHIPGraph.hh"
 
 /**
  * @brief Context class
@@ -1616,7 +1612,7 @@ inline thread_local std::stack<CHIPContext *> ChipCtxStack;
  * multiple devices. Provides for creation of additional queues, events, and
  * interaction with devices.
  */
-class CHIPContext : public ihipCtx_t {
+class Context : public ihipCtx_t {
 protected:
   int RefCount_;
   chipstar::Device *ChipDevice_;
@@ -1625,19 +1621,19 @@ protected:
   unsigned int Flags_;
 
   /**
-   * @brief Construct a new CHIPContext object
+   * @brief Construct a new Context object
    *
    */
-  CHIPContext();
+  Context();
 
 public:
   mutable std::mutex ContextMtx;
 
   /**
-   * @brief Destroy the CHIPContext object
+   * @brief Destroy the Context object
    *
    */
-  virtual ~CHIPContext();
+  virtual ~Context();
 
   virtual void syncQueues(CHIPQueue *TargetQueue);
 
@@ -1653,7 +1649,7 @@ public:
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * Calls Context::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
@@ -1665,7 +1661,7 @@ public:
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * Calls Context::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type)
    *
    * @param size size of the allocation
@@ -1678,7 +1674,7 @@ public:
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * Calls Context::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type)
    *
    * @param size size of the allocation
@@ -1693,7 +1689,7 @@ public:
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
    * backend. This member function is the one that's called by all the
-   * publically visible CHIPContext::allocate() variants
+   * publically visible Context::allocate() variants
    *
    * @param size size of the allocation.
    * @param alignment allocation alignment in bytes
@@ -1718,7 +1714,7 @@ public:
    * @brief Free memory
    *
    * @param ptr pointer to the memory location to be deallocated. Internally
-   * calls CHIPContext::free_()
+   * calls Context::free_()
    * @return true Success
    * @return false Failure
    */
@@ -1758,7 +1754,7 @@ public:
    * @brief Retain this context.
    * TODO: What does it mean to retain a context?
    *
-   * @return CHIPContext*
+   * @return Context*
    */
   void retain() { ++RefCount_; }
 
@@ -1769,6 +1765,13 @@ public:
     }
   }
 };
+
+} // namespace chipstar
+
+inline chipstar::Context *PrimaryContext = nullptr;
+inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
+#include "CHIPGraph.hh"
 
 /**
  * @brief Primary object to interact with the backend
@@ -1781,7 +1784,7 @@ protected:
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
 
-  CHIPContext *ActiveCtx_;
+  chipstar::Context * ActiveCtx_;
   chipstar::Device *ActiveDev_;
 
   // Keep hold on the default logger instance to make sure that it is
@@ -1821,7 +1824,7 @@ public:
 
   std::queue<chipstar::CallbackData *> CallbackQueue;
 
-  std::vector<CHIPContext *> ChipContexts;
+  std::vector<chipstar::Context *> ChipContexts;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1917,9 +1920,9 @@ public:
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
    *
-   * @return CHIPContext*
+   * @return Context*
    */
-  CHIPContext *getActiveContext();
+  chipstar::Context * getActiveContext();
   /**
    * @brief Get the Active Device object. Returns the device of the active
    * queue.
@@ -1933,7 +1936,7 @@ public:
    *
    * @param chip_dev
    */
-  void setActiveContext(CHIPContext *ChipContext);
+  void setActiveContext(chipstar::Context * ChipContext);
   void setActiveDevice(chipstar::Device *ChipDevice);
 
   std::vector<chipstar::Device *> getDevices();
@@ -1948,8 +1951,8 @@ public:
    *
    * @param ctx_in
    */
-  void addContext(CHIPContext *ChipContext);
-  void removeContext(CHIPContext *ChipContext);
+  void addContext(chipstar::Context * ChipContext);
+  void removeContext(chipstar::Context * ChipContext);
 
   /**
    * @brief Configure an upcoming kernel call
@@ -2008,7 +2011,7 @@ public:
    * @return chipstar::Event* chipstar::Event
    */
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
+  createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) = 0;
   /**
    * @brief Create a Callback Obj object
@@ -2052,7 +2055,7 @@ protected:
   /// Device on which this queue will execute
   chipstar::Device *ChipDevice_;
   /// Context to which device belongs to
-  CHIPContext *ChipContext_;
+  chipstar::Context * ChipContext_;
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
@@ -2337,7 +2340,7 @@ public:
   virtual hipError_t getBackendHandles(uintptr_t *NativeHandles,
                                        int *NumHandles) = 0;
 
-  CHIPContext *getContext() { return ChipContext_; }
+  chipstar::Context * getContext() { return ChipContext_; }
   void setFlags(chipstar::QueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
 

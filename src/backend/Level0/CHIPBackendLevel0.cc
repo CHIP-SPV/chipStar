@@ -264,7 +264,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  LZEventPool *TheEventPool,
                                  unsigned int ThePoolIndex,
                                  chipstar::EventFlags Flags)
-    : chipstar::Event((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
+    : chipstar::Event((chipstar::Context * )(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr), Timestamp_(0) {
   LOCK(TheEventPool->EventPoolMtx); // CHIPEventPool::EventPool_ via get()
   EventPool = TheEventPool;
@@ -290,7 +290,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  chipstar::EventFlags Flags)
-    : chipstar::Event((CHIPContext *)(ChipCtx), Flags), Event_(nullptr),
+    : chipstar::Event((chipstar::Context * )(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
       EventPool(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
@@ -330,7 +330,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
-    : chipstar::Event((CHIPContext *)(ChipCtx)), Event_(NativeEvent),
+    : chipstar::Event((chipstar::Context * )(ChipCtx)), Event_(NativeEvent),
       EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
       EventPool(nullptr) {}
 
@@ -563,7 +563,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
     : chipstar::CallbackData(CallbackF, CallbackArgs, ChipQueue) {
   LOCK(Backend->BackendMtx) // ensure callback enqueues are submitted as one
 
-  CHIPContext *Ctx = ChipQueue->getContext();
+  chipstar::Context * Ctx = ChipQueue->getContext();
 
   CpuCallbackComplete =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(Ctx);
@@ -1469,7 +1469,7 @@ chipstar::ExecItem *CHIPBackendLevel0::createCHIPExecItem(dim3 GirdDim, dim3 Blo
 };
 
 std::shared_ptr<chipstar::Event>
-CHIPBackendLevel0::createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags,
+CHIPBackendLevel0::createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags,
                                    bool UserEvent) {
   std::shared_ptr<chipstar::Event> Event;
   if (UserEvent) {

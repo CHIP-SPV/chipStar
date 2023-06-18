@@ -205,7 +205,7 @@ chipstar::AllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 // chipstar::Event
 // ************************************************************************
 
-chipstar::Event::Event(CHIPContext *Ctx, chipstar::EventFlags Flags)
+chipstar::Event::Event(chipstar::Context * Ctx, chipstar::EventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
       Msg("") {}
 
@@ -478,7 +478,7 @@ size_t chipstar::ExecItem::getSharedMem() { return SharedMem_; }
 CHIPQueue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
 // Device
 //*************************************************************************************
-chipstar::Device::Device(CHIPContext *Ctx, int DeviceIdx)
+chipstar::Device::Device(chipstar::Context * Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
   PerThreadDefaultQueue = nullptr;
@@ -566,7 +566,7 @@ void chipstar::Device::copyDeviceProperties(hipDeviceProp_t *Prop) {
     std::memcpy(Prop, &this->HipDeviceProps_, sizeof(hipDeviceProp_t));
 }
 
-CHIPContext *chipstar::Device::getContext() { return Ctx_; }
+chipstar::Context * chipstar::Device::getContext() { return Ctx_; }
 int chipstar::Device::getDeviceId() { return Idx_; }
 
 chipstar::DeviceVar*chipstar::Device::getStatGlobalVar(const void *HostPtr) {
@@ -847,7 +847,7 @@ hipSharedMemConfig chipstar::Device::getSharedMemConfig() {
   UNIMPLEMENTED(hipSharedMemBankSizeDefault);
 }
 
-void chipstar::Device::removeContext(CHIPContext *CHIPContext) {}
+void chipstar::Device::removeContext(chipstar::Context * Context) {}
 
 bool chipstar::Device::removeQueue(CHIPQueue *ChipQueue) {
   /**
@@ -1003,15 +1003,15 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
   return Module;
 }
 
-// CHIPContext
+// Context
 //*************************************************************************************
-CHIPContext::CHIPContext() {}
-CHIPContext::~CHIPContext() {
-  logDebug("~CHIPContext() {}", (void *)this);
+chipstar::Context::Context() {}
+chipstar::Context::~Context() {
+  logDebug("~Context() {}", (void *)this);
   delete ChipDevice_;
 }
 
-void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
+void chipstar::Context::syncQueues(CHIPQueue *TargetQueue) {
   auto Dev = Backend->getActiveDevice();
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
@@ -1069,21 +1069,21 @@ void CHIPContext::syncQueues(CHIPQueue *TargetQueue) {
   Backend->trackEvent(SyncQueuesEvent);
 }
 
-chipstar::Device  *CHIPContext::getDevice() {
+chipstar::Device  *chipstar::Context::getDevice() {
   assert(this->ChipDevice_);
   return ChipDevice_;
 }
 
-void *CHIPContext::allocate(size_t Size, hipMemoryType MemType) {
+void *chipstar::Context::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, chipstar::HostAllocFlags());
 }
 
-void *CHIPContext::allocate(size_t Size, size_t Alignment,
+void *chipstar::Context::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType) {
   return allocate(Size, Alignment, MemType, chipstar::HostAllocFlags());
 }
 
-void *CHIPContext::allocate(size_t Size, size_t Alignment,
+void *chipstar::Context::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, chipstar::HostAllocFlags Flags) {
   void *AllocatedPtr, *HostPtr = nullptr;
   // TOOD hipCtx - use the device with which this context is associated
@@ -1127,12 +1127,12 @@ void *CHIPContext::allocate(size_t Size, size_t Alignment,
   return AllocatedPtr;
 }
 
-unsigned int CHIPContext::getFlags() { return Flags_; }
+unsigned int chipstar::Context::getFlags() { return Flags_; }
 
-void CHIPContext::setFlags(unsigned int Flags) { Flags_ = Flags; }
+void chipstar::Context::setFlags(unsigned int Flags) { Flags_ = Flags; }
 
-void CHIPContext::reset() {
-  logDebug("Resetting CHIPContext: deleting allocations");
+void chipstar::Context::reset() {
+  logDebug("Resetting Context: deleting allocations");
   // Free all allocations in this context
   for (auto &Ptr : AllocatedPtrs_)
     freeImpl(Ptr);
@@ -1146,7 +1146,7 @@ void CHIPContext::reset() {
   getDevice()->reset();
 }
 
-hipError_t CHIPContext::free(void *Ptr) {
+hipError_t chipstar::Context::free(void *Ptr) {
   chipstar::Device  *ChipDev = Backend->getActiveDevice();
   chipstar::AllocationInfo *AllocInfo = ChipDev->AllocTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
@@ -1286,7 +1286,7 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
       ChipContexts[0]); // pushes primary context to context stack for thread 0
 }
 
-void CHIPBackend::setActiveContext(CHIPContext *ChipContext) {
+void CHIPBackend::setActiveContext(chipstar::Context * ChipContext) {
   ChipCtxStack.push(ChipContext);
 }
 
@@ -1294,7 +1294,7 @@ void CHIPBackend::setActiveDevice(chipstar::Device  *ChipDevice) {
   Backend->setActiveContext(ChipDevice->getContext());
 }
 
-CHIPContext *CHIPBackend::getActiveContext() {
+chipstar::Context * CHIPBackend::getActiveContext() {
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
     logDebug("Context stack is empty for thread {}", pthread_self());
@@ -1304,7 +1304,7 @@ CHIPContext *CHIPBackend::getActiveContext() {
 };
 
 chipstar::Device  *CHIPBackend::getActiveDevice() {
-  CHIPContext *Ctx = getActiveContext();
+  chipstar::Context * Ctx = getActiveContext();
   return Ctx->getDevice();
 };
 
@@ -1319,7 +1319,7 @@ std::vector<chipstar::Device  *> CHIPBackend::getDevices() {
 
 size_t CHIPBackend::getNumDevices() { return ChipContexts.size(); }
 
-void CHIPBackend::removeContext(CHIPContext *ChipContext) {
+void CHIPBackend::removeContext(chipstar::Context * ChipContext) {
   auto ContextFound =
       std::find(ChipContexts.begin(), ChipContexts.end(), ChipContext);
   if (ContextFound != ChipContexts.end()) {
@@ -1327,7 +1327,7 @@ void CHIPBackend::removeContext(CHIPContext *ChipContext) {
   }
 }
 
-void CHIPBackend::addContext(CHIPContext *ChipContext) {
+void CHIPBackend::addContext(chipstar::Context * ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 

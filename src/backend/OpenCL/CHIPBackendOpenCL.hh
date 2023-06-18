@@ -150,7 +150,7 @@ public:
   }
 };
 
-class CHIPContextOpenCL : public CHIPContext {
+class CHIPContextOpenCL : public Context {
 public:
   bool allDevicesSupportFineGrainSVM();
   SVMemoryRegion SvmMemory;
@@ -347,7 +347,7 @@ public:
 
   virtual CHIPQueue *createCHIPQueue(chipstar::Device  *ChipDev) override;
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
+  createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
                                                void *UserData,

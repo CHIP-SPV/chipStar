@@ -43,7 +43,7 @@
 // Forward Declares
 class ExecItem;
 // class Device;
-class CHIPContext;
+// class Context;
 class Module;
 class Kernel;
 class CHIPBackend;

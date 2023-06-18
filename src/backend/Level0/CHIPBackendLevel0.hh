@@ -290,7 +290,7 @@ public:
   }
 }; // end CHIPQueueLevel0
 
-class CHIPContextLevel0 : public CHIPContext {
+class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
   std::vector<LZEventPool *> EventPools_;
 
@@ -298,7 +298,7 @@ public:
   std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
 
     // go through all pools and try to get an allocated event
-    LOCK(ContextMtx); // CHIPContext::EventPools
+    LOCK(ContextMtx); // Context::EventPools
     std::shared_ptr<CHIPEventLevel0> Event;
     for (auto EventPool : EventPools_) {
       LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
@@ -592,7 +592,7 @@ public:
   }
 
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
+  createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
 
   virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
