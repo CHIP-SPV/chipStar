@@ -337,11 +337,11 @@ public:
 
 }; // CHIPContextLevel0
 
-class CHIPModuleLevel0 : public CHIPModule {
+class CHIPModuleLevel0 : public chipstar::Module {
   ze_module_handle_t ZeModule_ = nullptr;
 
 public:
-  CHIPModuleLevel0(const SPVModule &Src) : CHIPModule(Src) {}
+  CHIPModuleLevel0(const SPVModule &Src) : Module(Src) {}
 
   virtual ~CHIPModuleLevel0() {
     logTrace("destroy CHIPModuleLevel0 {}", (void *)this);

@@ -2225,7 +2225,7 @@ void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
            resultToString(BuildStatus));
   // if (Status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
-  //  CHIPERR_LOG_AND_THROW("Module failed to JIT: " + std::string(log_str),
+  //  CHIPERR_LOG_AND_THROW("chipstar::Module failed to JIT: " + std::string(log_str),
   //                        hipErrorUnknown);
   //}
 

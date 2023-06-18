@@ -44,7 +44,7 @@
 class CHIPExecItem;
 class CHIPDevice;
 class CHIPContext;
-class CHIPModule;
+class Module;
 class CHIPKernel;
 class CHIPBackend;
 // class chipstar::Event;

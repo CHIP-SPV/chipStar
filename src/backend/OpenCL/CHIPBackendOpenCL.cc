@@ -693,7 +693,7 @@ void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
 //*************************************************************************
 
 CHIPModuleOpenCL::CHIPModuleOpenCL(const SPVModule &SrcMod)
-    : CHIPModule(SrcMod) {}
+    : Module(SrcMod) {}
 
 cl::Program *CHIPModuleOpenCL::get() { return &Program_; }
 

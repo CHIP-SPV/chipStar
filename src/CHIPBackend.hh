@@ -841,10 +841,6 @@ public:
   bool isAfterCompilation() const { return !Code_.empty(); }
 };
 
-} // namespace chipstar
-
-#include "CHIPGraph.hh"
-
 /**
  * @brief Module abstraction. Contains global variables and kernels. Can be
  * extracted from FatBinary or loaded at runtime.
@@ -853,7 +849,7 @@ public:
  * ROCclr - amd::Program
  * CUDA - CUmodule
  */
-class CHIPModule : public ihipModule_t {
+class Module : public ihipModule_t {
   /// Flag for the allocation state of the device variables. True if
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that
@@ -886,27 +882,27 @@ protected:
    * called.
    *
    */
-  CHIPModule() = default;
+  Module() = default;
 
 public:
   /**
-   * @brief Destroy the CHIPModule object
+   * @brief Destroy the Module object
    *
    */
-  virtual ~CHIPModule();
+  virtual ~Module();
   /**
-   * @brief Construct a new CHIPModule object.
+   * @brief Construct a new Module object.
    * This constructor should be implemented by the derived class (specific
    * backend implementation). Call to this constructor should result in a
    * populated chip_kernels vector.
    *
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
-  CHIPModule(const SPVModule &Src) : Src_(&Src) {}
+  Module(const SPVModule &Src) : Src_(&Src) {}
 
   /**
    * @brief Add a CHIPKernel to this module.
-   * During initialization when the FatBinary is consumed, a CHIPModule is
+   * During initialization when the FatBinary is consumed, a Module is
    * constructed for every device. SPIR-V kernels reside in this module. This
    * method is called called via the constructor during this initialization
    * phase. Modules can also be loaded from a file during runtime, however.
@@ -1007,6 +1003,9 @@ public:
   const SPVModule &getSourceModule() const { return *Src_; }
 };
 
+} // namespace chipstar
+
+#include "CHIPGraph.hh"
 /**
  * @brief Contains information about the function on the host and device
  */
@@ -1086,8 +1085,8 @@ public:
   /**
    * @brief Return the parent module of the kernel.
    */
-  virtual CHIPModule *getModule() = 0;
-  virtual const CHIPModule *getModule() const = 0;
+  virtual chipstar::Module *getModule() = 0;
+  virtual const chipstar::Module *getModule() const = 0;
 };
 
 class CHIPArgSpillBuffer {
@@ -1250,14 +1249,14 @@ class CHIPDevice {
   // A bundle for CHIPReinitialize.
   class ModuleState {
     friend class CHIPDevice;
-    std::unordered_map<const SPVModule *, CHIPModule *> SrcModToCompiledMod_;
-    std::unordered_map<const void *, CHIPModule *> HostPtrToCompiledMod_;
+    std::unordered_map<const SPVModule *, chipstar::Module *> SrcModToCompiledMod_;
+    std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
   };
 
   /// Modules compiled so far.
-  std::unordered_map<const SPVModule *, CHIPModule *> SrcModToCompiledMod_;
+  std::unordered_map<const SPVModule *, chipstar::Module *> SrcModToCompiledMod_;
   /// Host pointer mapping to modules.
-  std::unordered_map<const void *, CHIPModule *> HostPtrToCompiledMod_;
+  std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
 
 protected:
   std::string DeviceName_;
@@ -1360,8 +1359,8 @@ public:
     return nullptr;
   }
 
-  CHIPModule *getOrCreateModule(HostPtr Ptr);
-  CHIPModule *getOrCreateModule(const SPVModule &SrcMod);
+  chipstar::Module *getOrCreateModule(HostPtr Ptr);
+  chipstar::Module *getOrCreateModule(const SPVModule &SrcMod);
 
   /// Return the number of currently compiled modules on this device.
   size_t getNumCompiledModules() const { return SrcModToCompiledMod_.size(); }
@@ -1580,7 +1579,7 @@ public:
    */
   chipstar::DeviceVar*getGlobalVar(const void *Var);
 
-  void eraseModule(CHIPModule *Module);
+  void eraseModule(chipstar::Module *Module);
 
   virtual chipstar::Texture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
@@ -1599,7 +1598,7 @@ protected:
   virtual void resetImpl() = 0;
 
   /// Compile the source (SPIR-V) to native/backend code.
-  virtual CHIPModule *compile(const SPVModule &Src) = 0;
+  virtual chipstar::Module *compile(const SPVModule &Src) = 0;
 };
 
 /**
@@ -1850,7 +1849,7 @@ public:
   //  * @brief
   //  *
   //  */
-  // std::unordered_map<ptr_dev, CHIPModule*> host_f_ptr_to_chipmodule_map;
+  // std::unordered_map<ptr_dev, Module*> host_f_ptr_to_chipmodule_map;
 
   /**
    * @brief Construct a new CHIPBackend object
@@ -1972,19 +1971,19 @@ public:
   CHIPQueue *findQueue(CHIPQueue *ChipQueue);
 
   /**
-   * @brief Add a CHIPModule to every initialized device
+   * @brief Add a chipstar::Module to every initialized device
    *
-   * @param chip_module pointer to CHIPModule object
+   * @param chip_module pointer to chipstar::Module object
    * @return hipError_t
    */
-  // CHIPModule* addModule(std::string* module_src);
+  // Module* addModule(std::string* module_src);
   /**
    * @brief Remove this module from every device
    *
    * @param chip_module pointer to the module which is to be removed
    * @return hipError_t
    */
-  // hipError_t removeModule(CHIPModule* chip_module);
+  // hipError_t removeModule(Module* chip_module);
 
   /************Factories***************/
 

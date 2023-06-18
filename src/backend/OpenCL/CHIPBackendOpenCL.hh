@@ -108,7 +108,7 @@ public:
   size_t getRefCount();
 };
 
-class CHIPModuleOpenCL : public CHIPModule {
+class CHIPModuleOpenCL : public chipstar::Module {
 protected:
   cl::Program Program_;
 

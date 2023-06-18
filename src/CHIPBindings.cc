@@ -239,7 +239,7 @@ hipError_t hipInit(unsigned int flags) {
 
 // Handles device side abort() call by checking the abort flag global
 // variable used for signaling the request.
-static void handleAbortRequest(CHIPQueue &Q, CHIPModule &M) {
+static void handleAbortRequest(CHIPQueue &Q, chipstar::Module &M) {
   logTrace("handleAbortRequest()");
   chipstar::DeviceVar*Var = M.getGlobalVar("__chipspv_abort_called");
 
@@ -3766,7 +3766,7 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dptr, Bytes, Hmod, Name);
-  auto ChipModule = static_cast<CHIPModule *>(Hmod);
+  auto ChipModule = static_cast<chipstar::Module *>(Hmod);
 
   chipstar::DeviceVar*Var = ChipModule->getGlobalVar(Name);
   *Dptr = Var->getDevAddr();
@@ -4126,7 +4126,7 @@ hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
   std::string Content(MemBlock, Size);
   delete[] MemBlock;
 
-  // CHIPModule *chip_module = new CHIPModule(std::move(content));
+  // chipstar::Module *chip_module = new Module(std::move(content));
   for (auto &Dev : Backend->getDevices())
     Dev->addModule(&Content);
 #endif
@@ -4140,7 +4140,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   NULLCHECK(Module);
   logInfo("hipModuleUnload(Module={}", (void *)Module);
 
-  auto *ChipModule = reinterpret_cast<CHIPModule *>(Module);
+  auto *ChipModule = reinterpret_cast<chipstar::Module *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();
   Backend->getActiveDevice()->eraseModule(ChipModule);
   getSPVRegister().unregisterSource(&SrcMod);
@@ -4154,7 +4154,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
-  auto ChipModule = (CHIPModule *)Module;
+  auto ChipModule = (chipstar::Module *)Module;
   CHIPKernel *Kernel = ChipModule->getKernelByName(Name);
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);
@@ -4432,7 +4432,7 @@ extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
   // NOTE: CHIP backend initialization is undesired here. See the
   //       rationale in __hipRegisterFatBinary().
 
-  logDebug("Module {}: register function ({}) {}",
+  logDebug("chipstar::Module {}: register function ({}) {}",
            static_cast<const void *>(Data),
            static_cast<const void *>(HostFunction), DeviceName);
   SPVRegister::Handle ModHandle{reinterpret_cast<void *>(Data)};
@@ -4471,7 +4471,7 @@ __hipRegisterVar(void **Data,
   // NOTE: CHIP backend initialization is undesired here. See the
   //       rationale in __hipRegisterFatBinary().
 
-  logDebug("Module {}: Register variable ({}) size={}, name={}", (void *)Data,
+  logDebug("chipstar::Module {}: Register variable ({}) size={}, name={}", (void *)Data,
            (void *)Var, Size, DeviceName);
 
   SPVRegister::Handle ModHandle{reinterpret_cast<void *>(Data)};
