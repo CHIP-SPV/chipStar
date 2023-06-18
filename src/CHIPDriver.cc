@@ -44,7 +44,7 @@ std::once_flag Initialized;
 std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
 bool UsingDefaultBackend;
-CHIPBackend *Backend = nullptr;
+chipstar::Backend *Backend = nullptr;
 std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
 

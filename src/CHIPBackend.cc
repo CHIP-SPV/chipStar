@@ -162,7 +162,7 @@ void chipstar::AllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
   if (MemoryType == hipMemoryTypeHost) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
     // Map onto host so that the data can be potentially initialized on host
-    Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+    ::Backend->getActiveDevice()->getDefaultQueue()->MemMap(
         AllocInfo, CHIPQueue::MEM_MAP_TYPE::HOST_WRITE);
   }
 
@@ -528,7 +528,7 @@ CHIPQueue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
-        std::unique_ptr<CHIPQueue>(Backend->createCHIPQueue(this));
+        std::unique_ptr<CHIPQueue>(::Backend->createCHIPQueue(this));
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
   }
@@ -1012,7 +1012,7 @@ chipstar::Context::~Context() {
 }
 
 void chipstar::Context::syncQueues(CHIPQueue *TargetQueue) {
-  auto Dev = Backend->getActiveDevice();
+  auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
   auto DefaultQueue = Dev->getDefaultQueue();
@@ -1066,7 +1066,7 @@ void chipstar::Context::syncQueues(CHIPQueue *TargetQueue) {
     SyncQueuesEvent->Msg = "barrierSyncQueue";
     TargetQueue->updateLastEvent(SyncQueuesEvent);
   }
-  Backend->trackEvent(SyncQueuesEvent);
+  ::Backend->trackEvent(SyncQueuesEvent);
 }
 
 chipstar::Device  *chipstar::Context::getDevice() {
@@ -1087,7 +1087,7 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
                             hipMemoryType MemType, chipstar::HostAllocFlags Flags) {
   void *AllocatedPtr, *HostPtr = nullptr;
   // TOOD hipCtx - use the device with which this context is associated
-  chipstar::Device  *ChipDev = Backend->getActiveDevice();
+  chipstar::Device  *ChipDev = ::Backend->getActiveDevice();
   if (!Flags.isDefault()) {
     if (Flags.isMapped())
       MemType = hipMemoryType::hipMemoryTypeHost;
@@ -1147,7 +1147,7 @@ void chipstar::Context::reset() {
 }
 
 hipError_t chipstar::Context::free(void *Ptr) {
-  chipstar::Device  *ChipDev = Backend->getActiveDevice();
+  chipstar::Device  *ChipDev = ::Backend->getActiveDevice();
   chipstar::AllocationInfo *AllocInfo = ChipDev->AllocTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
     // HIP API doc says we should return hipErrorInvalidDevicePointer but HIP
@@ -1160,10 +1160,10 @@ hipError_t chipstar::Context::free(void *Ptr) {
   return hipSuccess;
 }
 
-// CHIPBackend
+// Backend
 //*************************************************************************************
-int CHIPBackend::getPerThreadQueuesActive() {
-  LOCK(Backend->BackendMtx); // Prevent adding/removing devices while iterating
+int chipstar::Backend::getPerThreadQueuesActive() {
+  LOCK(::Backend->BackendMtx); // Prevent adding/removing devices while iterating
   int Active = 0;
   for (auto Dev : getDevices()) {
     if (Dev->isPerThreadStreamUsed()) {
@@ -1172,12 +1172,12 @@ int CHIPBackend::getPerThreadQueuesActive() {
   }
   return Active;
 }
-int CHIPBackend::getQueuePriorityRange() {
+int chipstar::Backend::getQueuePriorityRange() {
   assert(MinQueuePriority_);
   return MinQueuePriority_;
 }
 
-std::string CHIPBackend::getJitFlags() {
+std::string chipstar::Backend::getJitFlags() {
   std::string Flags;
   if (CustomJitFlags != "") {
     Flags = CustomJitFlags;
@@ -1188,33 +1188,33 @@ std::string CHIPBackend::getJitFlags() {
   return Flags;
 }
 
-CHIPBackend::CHIPBackend() {
-  logDebug("CHIPBackend Base Constructor");
+chipstar::Backend::Backend() {
+  logDebug("Backend Base Constructor");
   Logger = spdlog::default_logger();
 };
 
-CHIPBackend::~CHIPBackend() {
-  logDebug("CHIPBackend Destructor. Deleting all pointers.");
+chipstar::Backend::~Backend() {
+  logDebug("Backend Destructor. Deleting all pointers.");
   //   assert(Events.size() == 0);
   for (auto &Ctx : ChipContexts) {
-    Backend->removeContext(Ctx);
+    ::Backend->removeContext(Ctx);
     delete Ctx;
   }
 }
 
-void CHIPBackend::trackEvent(std::shared_ptr<chipstar::Event> Event) {
-  LOCK(Backend->EventsMtx); // trackImpl CHIPBackend::Events
+void chipstar::Backend::trackEvent(std::shared_ptr<chipstar::Event> Event) {
+  LOCK(::Backend->EventsMtx); // trackImpl Backend::Events
   LOCK(Event->EventMtx);    // writing bool chipstar::Event::TrackCalled_
   //   assert(!isUserEvent() && "Attemped to track a user event!");
   //   assert(!Deleted_ && "chipstar::Event use after delete!");
   //   assert(!TrackCalled_ && "chipstar::Event already tracked!");
 
-  logDebug("Tracking chipstar::Event {} in CHIPBackend::Events", (void *)this);
-  Backend->Events.push_back(Event);
+  logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
+  ::Backend->Events.push_back(Event);
   Event->markTracked();
 }
 
-void CHIPBackend::waitForThreadExit() {
+void chipstar::Backend::waitForThreadExit() {
   /**
    * If the main thread just creates a bunch of other threads and tries to exit
    * right away, it could be the case that all those threads are not yet done
@@ -1230,12 +1230,12 @@ void CHIPBackend::waitForThreadExit() {
 
   while (true) {
     {
-      auto NumPerThreadQueuesActive = Backend->getPerThreadQueuesActive();
+      auto NumPerThreadQueuesActive = ::Backend->getPerThreadQueuesActive();
       if (!NumPerThreadQueuesActive)
         break;
 
       logDebug(
-          "CHIPBackend::waitForThreadExit() per-thread queues still active "
+          "Backend::waitForThreadExit() per-thread queues still active "
           "{}. Sleeping for 1s..",
           NumPerThreadQueuesActive);
     }
@@ -1244,10 +1244,10 @@ void CHIPBackend::waitForThreadExit() {
 
   // Cleanup all queues
   {
-    LOCK(Backend->BackendMtx); // prevent devices from being destrpyed
-    LOCK(Backend->EventsMtx);  // CHIPBackend::Events
+    LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
+    LOCK(::Backend->EventsMtx);  // Backend::Events
 
-    for (auto Dev : Backend->getDevices()) {
+    for (auto Dev : ::Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
       int NumQueues = Dev->getQueues().size();
       if (NumQueues) {
@@ -1258,9 +1258,9 @@ void CHIPBackend::waitForThreadExit() {
                 "been created via hipStreamCreate()");
         logWarn("Removing user-created streams without calling a destructor");
         Dev->getQueues().clear();
-        if (Backend->Events.size()) {
-          logWarn("Clearing chipstar::Event list {}", Backend->Events.size());
-          Backend->Events.clear();
+        if (::Backend->Events.size()) {
+          logWarn("Clearing chipstar::Event list {}", ::Backend->Events.size());
+          ::Backend->Events.clear();
         }
       }
       /**
@@ -1272,7 +1272,7 @@ void CHIPBackend::waitForThreadExit() {
     }
   }
 }
-void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
+void chipstar::Backend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
                              std::string DeviceIdStr) {
   initializeImpl(PlatformStr, DeviceTypeStr, DeviceIdStr);
   CustomJitFlags = readEnvVar("CHIP_JIT_FLAGS", false);
@@ -1286,15 +1286,15 @@ void CHIPBackend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
       ChipContexts[0]); // pushes primary context to context stack for thread 0
 }
 
-void CHIPBackend::setActiveContext(chipstar::Context * ChipContext) {
+void chipstar::Backend::setActiveContext(chipstar::Context * ChipContext) {
   ChipCtxStack.push(ChipContext);
 }
 
-void CHIPBackend::setActiveDevice(chipstar::Device  *ChipDevice) {
-  Backend->setActiveContext(ChipDevice->getContext());
+void chipstar::Backend::setActiveDevice(chipstar::Device  *ChipDevice) {
+  ::Backend->setActiveContext(ChipDevice->getContext());
 }
 
-chipstar::Context * CHIPBackend::getActiveContext() {
+chipstar::Context * chipstar::Backend::getActiveContext() {
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
     logDebug("Context stack is empty for thread {}", pthread_self());
@@ -1303,12 +1303,12 @@ chipstar::Context * CHIPBackend::getActiveContext() {
   return ChipCtxStack.top();
 };
 
-chipstar::Device  *CHIPBackend::getActiveDevice() {
+chipstar::Device  *chipstar::Backend::getActiveDevice() {
   chipstar::Context * Ctx = getActiveContext();
   return Ctx->getDevice();
 };
 
-std::vector<chipstar::Device  *> CHIPBackend::getDevices() {
+std::vector<chipstar::Device  *> chipstar::Backend::getDevices() {
   std::vector<chipstar::Device  *> Devices;
   for (auto Ctx : ChipContexts) {
     Devices.push_back(Ctx->getDevice());
@@ -1317,9 +1317,9 @@ std::vector<chipstar::Device  *> CHIPBackend::getDevices() {
   return Devices;
 }
 
-size_t CHIPBackend::getNumDevices() { return ChipContexts.size(); }
+size_t chipstar::Backend::getNumDevices() { return ChipContexts.size(); }
 
-void CHIPBackend::removeContext(chipstar::Context * ChipContext) {
+void chipstar::Backend::removeContext(chipstar::Context * ChipContext) {
   auto ContextFound =
       std::find(ChipContexts.begin(), ChipContexts.end(), ChipContext);
   if (ContextFound != ChipContexts.end()) {
@@ -1327,24 +1327,24 @@ void CHIPBackend::removeContext(chipstar::Context * ChipContext) {
   }
 }
 
-void CHIPBackend::addContext(chipstar::Context * ChipContext) {
+void chipstar::Backend::addContext(chipstar::Context * ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 
-hipError_t CHIPBackend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
+hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
                                       hipStream_t ChipQueue) {
-  logDebug("CHIPBackend->configureCall(grid=({},{},{}), block=({},{},{}), "
+  logDebug("Backend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
   chipstar::ExecItem *ExecItem =
-      Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
+      ::Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
   ChipExecStack.push(ExecItem);
 
   return hipSuccess;
 }
 
-chipstar::Device  *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
+chipstar::Device  *chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
   chipstar::Device  *MatchedDevice = nullptr;
   int MaxMatchedCount = 0;
   for (auto &Dev : getDevices()) {
@@ -1446,8 +1446,8 @@ chipstar::Device  *CHIPBackend::findDeviceMatchingProps(const hipDeviceProp_t *P
   return MatchedDevice;
 }
 
-CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
-  auto Dev = Backend->getActiveDevice();
+CHIPQueue *chipstar::Backend::findQueue(CHIPQueue *ChipQueue) {
+  auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
   if (ChipQueue == hipStreamPerThread) {
@@ -1468,7 +1468,7 @@ CHIPQueue *CHIPBackend::findQueue(CHIPQueue *ChipQueue) {
 
   auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
   if (QueueFound == AllQueues.end())
-    CHIPERR_LOG_AND_THROW("CHIPBackend::findQueue() was given a non-nullptr "
+    CHIPERR_LOG_AND_THROW("Backend::findQueue() was given a non-nullptr "
                           "queue but this queue "
                           "was not found among the backend queues.",
                           hipErrorTbd);
@@ -1822,7 +1822,7 @@ void CHIPQueue::addCallback(hipStreamCallback_t Callback, void *UserData) {
       Backend->createCallbackData(Callback, UserData, this);
 
   {
-    LOCK(Backend->CallbackQueueMtx); // CHIPBackend::CallbackQueue
+    LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
     Backend->CallbackQueue.push(Callbackdata);
   }
 

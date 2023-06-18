@@ -20,9 +20,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /**
- * @file CHIPBackend.hh
+ * @file Backend.hh
  * @author Paulius Velesko (pvelesko@pglc.io)
- * @brief CHIPBackend class definition. CHIP backends are to inherit from this
+ * @brief Backend class definition. CHIP backends are to inherit from this
  * base class and override desired virtual functions. Overrides for this class
  * are expected to be minimal with primary overrides being done on lower-level
  * classes such as Context consturctors, etc.
@@ -75,9 +75,12 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
 
 template <class T> std::string resultToString(T Err);
 
+class CHIPQueue;
+class CHIPGraph;
 /// Describes a memory region to copy from/to.
 namespace chipstar {
 
+class Backend;
 class Event;
 class Kernel;
 class Device;
@@ -304,7 +307,7 @@ public:
 
 /**
  * @brief This object gets created when a callback is requested. Once created,
- * it gets placed on the CHIPBackend callback queue. A Callback monitor thread
+ * it gets placed on the Backend callback queue. A Callback monitor thread
  * gets created and executes these callback objects. This object stores all the
  * necessary data to execute a callback function:
  * - Events for synching
@@ -1117,7 +1120,7 @@ public:
 /**
  * @brief Contains kernel arguments and a queue on which to execute.
  * Prior to kernel launch, the arguments are setup via
- * CHIPBackend::configureCall(). Because of this, we get the kernel last so the
+ * Backend::configureCall(). Because of this, we get the kernel last so the
  * kernel so the launch() takes a kernel argument as opposed to queue receiving
  * a chipstar::ExecItem containing the kernel and arguments
  *
@@ -1766,17 +1769,12 @@ public:
   }
 };
 
-} // namespace chipstar
 
-inline chipstar::Context *PrimaryContext = nullptr;
-inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
-inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
-#include "CHIPGraph.hh"
 
 /**
  * @brief Primary object to interact with the backend
  */
-class CHIPBackend {
+class Backend {
 protected:
   chipstar::EventMonitor *CallbackEventMonitor_ = nullptr;
   chipstar::EventMonitor *StaleEventMonitor_ = nullptr;
@@ -1845,7 +1843,7 @@ public:
   /**
    * @brief Get the jit options object
    * return CHIP_JIT_FLAGS if it is set, otherwise return default options as
-   * defined by CHIPBackend<implementation>::getDefaultJitFlags()
+   * defined by Backend<implementation>::getDefaultJitFlags()
    *
    * @return std::string flags to pass to JIT compiler
    */
@@ -1864,15 +1862,15 @@ public:
   // std::unordered_map<ptr_dev, Module*> host_f_ptr_to_chipmodule_map;
 
   /**
-   * @brief Construct a new CHIPBackend object
+   * @brief Construct a new Backend object
    *
    */
-  CHIPBackend();
+  Backend();
   /**
-   * @brief Destroy the CHIPBackend objectk
+   * @brief Destroy the Backend objectk
    *
    */
-  virtual ~CHIPBackend();
+  virtual ~Backend();
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -2031,6 +2029,13 @@ public:
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
   virtual void *getNativeEvent(hipEvent_t HipEvent) = 0;
 };
+
+} // namespace chipstar
+
+inline chipstar::Context *PrimaryContext = nullptr;
+inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
+#include "CHIPGraph.hh"
 
 /**
  * @brief Queue class for submitting kernels to for execution

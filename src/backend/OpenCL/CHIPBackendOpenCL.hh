@@ -24,7 +24,7 @@
  * @file Backend.hh
  * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief OpenCL backend for CHIP. CHIPBackendOpenCL class definition with
- * inheritance from CHIPBackend. Subsequent virtual function overrides.
+ * inheritance from Backend. Subsequent virtual function overrides.
  * @version 0.1
  * @date 2021-08-19
  *
@@ -328,7 +328,7 @@ public:
   CHIPKernelOpenCL *getKernel() override { return ChipKernel_.get(); }
 };
 
-class CHIPBackendOpenCL : public CHIPBackend {
+class CHIPBackendOpenCL : public chipstar::Backend {
 public:
   virtual chipstar::ExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                            size_t SharedMem,

@@ -529,7 +529,7 @@ public:
   CHIPModuleLevel0 *compile(const SPVModule &Src) override;
 };
 
-class CHIPBackendLevel0 : public CHIPBackend {
+class CHIPBackendLevel0 : public chipstar::Backend {
 
 public:
   virtual chipstar::ExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
@@ -567,21 +567,21 @@ public:
    */
   void destroyAssocCmdList(CHIPEventLevel0 *ChipEvent) {
     LOCK( // CHIPBackendLevel0::EventCommandListMap
-        static_cast<CHIPBackendLevel0 *>(Backend)->CommandListsMtx);
+        static_cast<CHIPBackendLevel0 *>(::Backend)->CommandListsMtx);
 
     // Check if this event is associated with a CommandList
     bool CommandListFound =
-        static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.count(
+        static_cast<CHIPBackendLevel0 *>(::Backend)->EventCommandListMap.count(
             ChipEvent);
     if (CommandListFound) {
       logTrace("Erase cmdlist assoc w/ event: {}", (void *)this);
-      auto CommandList = static_cast<CHIPBackendLevel0 *>(Backend)
+      auto CommandList = static_cast<CHIPBackendLevel0 *>(::Backend)
                              ->EventCommandListMap[ChipEvent];
-      static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.erase(
+      static_cast<CHIPBackendLevel0 *>(::Backend)->EventCommandListMap.erase(
           ChipEvent);
 
 #ifdef DUBIOUS_LOCKS
-      LOCK(Backend->DubiousLockLevel0)
+      LOCK(::Backend->DubiousLockLevel0)
 #endif
       // The application must not call this function
       // from simultaneous threads with the same command list handle.
