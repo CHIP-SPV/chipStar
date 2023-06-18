@@ -47,7 +47,7 @@ class CHIPContext;
 class CHIPModule;
 class CHIPKernel;
 class CHIPBackend;
-class CHIPEvent;
+// class chipstar::Event;
 class CHIPQueue;
 // class Texture;
 

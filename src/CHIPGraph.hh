@@ -442,10 +442,10 @@ public:
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
 private:
-  CHIPEvent *Event_;
+  chipstar::Event *Event_;
 
 public:
-  CHIPGraphNodeWaitEvent(CHIPEvent *Event)
+  CHIPGraphNodeWaitEvent(chipstar::Event *Event)
       : CHIPGraphNode(hipGraphNodeTypeWaitEvent), Event_(Event) {}
 
   CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent &Other)
@@ -460,16 +460,16 @@ public:
     return NewNode;
   }
 
-  CHIPEvent *getEvent() { return Event_; }
-  void setEvent(CHIPEvent *Event) { Event_ = Event; }
+  chipstar::Event *getEvent() { return Event_; }
+  void setEvent(chipstar::Event *Event) { Event_ = Event; }
 };
 
 class CHIPGraphNodeEventRecord : public CHIPGraphNode {
 private:
-  CHIPEvent *Event_;
+  chipstar::Event *Event_;
 
 public:
-  CHIPGraphNodeEventRecord(CHIPEvent *Event)
+  CHIPGraphNodeEventRecord(chipstar::Event *Event)
       : CHIPGraphNode(hipGraphNodeTypeEventRecord), Event_(Event){};
 
   CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord &Other)
@@ -484,9 +484,9 @@ public:
     return NewNode;
   }
 
-  void setEvent(CHIPEvent *NewEvent) { Event_ = NewEvent; }
+  void setEvent(chipstar::Event *NewEvent) { Event_ = NewEvent; }
 
-  CHIPEvent *getEvent() { return Event_; }
+  chipstar::Event *getEvent() { return Event_; }
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {

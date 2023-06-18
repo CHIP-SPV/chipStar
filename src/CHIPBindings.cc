@@ -1080,7 +1080,7 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeEventRecord *Node =
-      new CHIPGraphNodeEventRecord(static_cast<CHIPEvent *>(event));
+      new CHIPGraphNodeEventRecord(static_cast<chipstar::Event *>(event));
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
   *pGraphNode = Node;
   GRAPH(graph)->addNode(Node);
@@ -1109,7 +1109,7 @@ hipError_t hipGraphEventRecordNodeSetEvent(hipGraphNode_t node,
   if (!CastNode)
     CHIPERR_LOG_AND_THROW("Failed to cast CHIPGraphNodeEventRecord",
                           hipErrorInvalidValue);
-  CastNode->setEvent(static_cast<CHIPEvent *>(event));
+  CastNode->setEvent(static_cast<chipstar::Event *>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1131,7 +1131,7 @@ hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
         "Node provided failed to cast to CHIPGraphNodeEventRecord",
         hipErrorInvalidValue);
 
-  CastNode->setEvent(static_cast<CHIPEvent *>(event));
+  CastNode->setEvent(static_cast<chipstar::Event *>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1143,7 +1143,7 @@ hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
   CHIP_TRY
   CHIPInitialize();
   CHIPGraphNodeWaitEvent *Node =
-      new CHIPGraphNodeWaitEvent(static_cast<CHIPEvent *>(event));
+      new CHIPGraphNodeWaitEvent(static_cast<chipstar::Event *>(event));
   *pGraphNode = Node;
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
   GRAPH(graph)->addNode(Node);
@@ -1177,7 +1177,7 @@ hipError_t hipGraphEventWaitNodeSetEvent(hipGraphNode_t node,
         "Node provided failed to cast to CHIPGraphNodeWaitEvent",
         hipErrorInvalidValue);
 
-  CastNode->setEvent(static_cast<CHIPEvent *>(event));
+  CastNode->setEvent(static_cast<chipstar::Event *>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1200,7 +1200,7 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
         "Node provided failed to cast to CHIPGraphNodeWaitEvent",
         hipErrorInvalidValue);
 
-  CastNode->setEvent(static_cast<CHIPEvent *>(event));
+  CastNode->setEvent(static_cast<chipstar::Event *>(event));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2146,7 +2146,7 @@ hipError_t hipStreamSynchronize(hipStream_t Stream) {
 hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
                                       unsigned int Flags) {
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
-  auto ChipEvent = static_cast<CHIPEvent *>(Event);
+  auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   ChipQueue = Backend->findQueue(ChipQueue);
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
@@ -2158,9 +2158,9 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
     RETURN(hipSuccess);
   }
-  std::shared_ptr<CHIPEvent> ChipEventShared =
+  std::shared_ptr<chipstar::Event> ChipEventShared =
       Backend->userEventLookup(ChipEvent);
-  std::vector<std::shared_ptr<CHIPEvent>> EventsToWaitOn;
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   if (ChipEventShared.get())
     EventsToWaitOn.push_back(ChipEventShared);
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
@@ -2307,7 +2307,7 @@ hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
 }
 
 hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
-  auto ChipEvent = static_cast<CHIPEvent *>(Event);
+  auto ChipEvent = static_cast<chipstar::Event *>(Event);
   auto ChipQueue = static_cast<CHIPQueue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
@@ -2331,12 +2331,12 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
-  CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
+  chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
   LOCK(Backend->UserEventsMtx);
   Backend->UserEvents.erase(
       std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(),
-                     [&ChipEvent](const std::shared_ptr<CHIPEvent> &x) {
+                     [&ChipEvent](const std::shared_ptr<chipstar::Event> &x) {
                        return x.get() == ChipEvent;
                      }),
       Backend->UserEvents.end());
@@ -2350,7 +2350,7 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
-  CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
+  chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
   ChipEvent->wait();
   RETURN(hipSuccess);
@@ -2364,8 +2364,8 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   if (!Ms)
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
   NULLCHECK(Start, Stop);
-  CHIPEvent *ChipEventStart = static_cast<CHIPEvent *>(Start);
-  CHIPEvent *ChipEventStop = static_cast<CHIPEvent *>(Stop);
+  chipstar::Event *ChipEventStart = static_cast<chipstar::Event *>(Start);
+  chipstar::Event *ChipEventStop = static_cast<chipstar::Event *>(Stop);
   if (!ChipEventStart->isRecordingOrRecorded() ||
       !ChipEventStop->isRecordingOrRecorded()) {
     CHIPERR_LOG_AND_THROW("One of the events was not recorded",
@@ -2387,7 +2387,7 @@ hipError_t hipEventQuery(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
-  CHIPEvent *ChipEvent = static_cast<CHIPEvent *>(Event);
+  chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
   ChipEvent->updateFinishStatus();
   if (ChipEvent->isFinished())

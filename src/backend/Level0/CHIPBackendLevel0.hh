@@ -74,7 +74,7 @@ public:
   CHIPKernel *getKernel() override;
 };
 
-class CHIPEventLevel0 : public CHIPEvent {
+class CHIPEventLevel0 : public chipstar::Event {
 public:
   using ActionFn = std::function<void()>;
 
@@ -113,7 +113,7 @@ public:
 
   unsigned long getFinishTime();
 
-  virtual float getElapsedTime(CHIPEvent *Other) override;
+  virtual float getElapsedTime(chipstar::Event *Other) override;
 
   virtual void hostSignal() override;
 
@@ -127,7 +127,7 @@ public:
 
   /// Execute the actions. The event must be finished.
   void doActions() {
-    assert(isFinished() && "Event must be finished first!");
+    assert(isFinished() && "chipstar::Event must be finished first!");
     for (auto &Action : Actions_)
       Action();
     Actions_.clear();
@@ -237,12 +237,12 @@ public:
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   launchImpl(CHIPExecItem *ExecItem) override;
 
   virtual void finish() override;
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
 
   /**
@@ -255,32 +255,32 @@ public:
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                    size_t PatternSize) override;
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src, size_t Spitch,
                      size_t Width, size_t Height) override;
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch, const void *Src,
                      size_t Spitch, size_t Sspitch, size_t Width, size_t Height,
                      size_t Depth) override;
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopyToImage(ze_image_handle_t TexStorage, const void *Src,
                  const chipstar::RegionDesc &SrcRegion);
 
   virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
                                        int *NumHandles) override;
 
-  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() override;
+  virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
 
-  virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
-      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) override;
+  virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) override;
 
-  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
+  virtual std::shared_ptr<chipstar::Event> memPrefetchImpl(const void *Ptr,
                                                      size_t Count) override {
     UNIMPLEMENTED(nullptr);
   }
@@ -591,7 +591,7 @@ public:
     }
   }
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
 

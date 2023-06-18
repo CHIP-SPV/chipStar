@@ -44,7 +44,7 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
-#include "CHIPGraph.hh"
+
 #include "SPVRegister.hh"
 
 #define DEFAULT_QUEUE_PRIORITY 1
@@ -79,6 +79,8 @@ template <class T> std::string resultToString(T Err);
 
 /// Describes a memory region to copy from/to.
 namespace chipstar {
+
+class Event;
 
 class RegionDesc {
 public:
@@ -316,9 +318,9 @@ protected:
 
 public:
   CHIPQueue *ChipQueue;
-  std::shared_ptr<CHIPEvent> GpuReady;
-  std::shared_ptr<CHIPEvent> CpuCallbackComplete;
-  std::shared_ptr<CHIPEvent> GpuAck;
+  std::shared_ptr<chipstar::Event> GpuReady;
+  std::shared_ptr<chipstar::Event> CpuCallbackComplete;
+  std::shared_ptr<chipstar::Event> GpuAck;
 
   hipError_t Status;
   void *CallbackArgs;
@@ -345,7 +347,7 @@ public:
 
   void join() {
     assert(Thread_);
-    logDebug("Joining Event Monitor Thread {}", Thread_);
+    logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
     int Status = pthread_join(Thread_, nullptr);
     if (Status != 0) {
       logError("Failed to call join() {}", Status);
@@ -360,7 +362,7 @@ public:
   virtual void monitor(){};
 
   void start() {
-    logDebug("Starting Event Monitor Thread");
+    logDebug("Starting chipstar::Event Monitor Thread");
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
@@ -370,7 +372,7 @@ public:
   void stop() {
     LOCK(EventMonitorMtx) // Lock the mutex to ensure that the thread is not
                           // executing the monitor function
-    logDebug("Stopping Event Monitor Thread");
+    logDebug("Stopping chipstar::Event Monitor Thread");
     Stop = true;
     join();
   }
@@ -626,15 +628,14 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-} // namespace chipstar
 
-class CHIPEvent : public ihipEvent_t {
+class Event : public ihipEvent_t {
 protected:
   bool TrackCalled_ = false;
   bool UserEvent_ = false;
   event_status_e EventStatus_;
   chipstar::EventFlags Flags_;
-  std::vector<std::shared_ptr<CHIPEvent>> DependsOnList;
+  std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
 
 #ifndef NDEBUG
   // A debug flag for cathing use-after-delete.
@@ -648,12 +649,12 @@ protected:
   CHIPContext *ChipContext_;
 
   /**
-   * @brief hidden default constructor for CHIPEvent. Only derived class
+   * @brief hidden default constructor for Event. Only derived class
    * constructor should be called.
    *
    */
-  CHIPEvent() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~CHIPEvent(){};
+  Event() : TrackCalled_(false), UserEvent_(false) {}
+  virtual ~Event(){};
 
 public:
   void markTracked() { TrackCalled_ = true; }
@@ -661,8 +662,8 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(std::shared_ptr<CHIPEvent> Event) {
-    assert(!Deleted_ && "Event use after delete!");
+  void addDependency(std::shared_ptr<chipstar::Event> Event) {
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
@@ -671,17 +672,17 @@ public:
   std::string Msg;
   // Optionally provide a field for origin of this event
   /**
-   * @brief CHIPEvent constructor. Must always be created with some context.
+   * @brief chipstar::Event constructor. Must always be created with some context.
    *
    */
-  CHIPEvent(CHIPContext *Ctx, chipstar::EventFlags Flags = chipstar::EventFlags());
+  Event(CHIPContext *Ctx, chipstar::EventFlags Flags = chipstar::EventFlags());
   /**
    * @brief Get the Context object
    *
    * @return CHIPContext* pointer to context on which this event was created
    */
   CHIPContext *getContext() {
-    assert(!Deleted_ && "Event use after delete!");
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     return ChipContext_;
   }
 
@@ -702,7 +703,7 @@ public:
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
-    assert(!Deleted_ && "Event use after delete!");
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
@@ -713,12 +714,12 @@ public:
    * @return false not recorded
    */
   bool isFinished() {
-    assert(!Deleted_ && "Event use after delete!");
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     return (EventStatus_ == EVENT_STATUS_RECORDED);
   }
 
   /**
-   * @brief Get the Event Status object
+   * @brief Get the chipstar::Event Status object
    *
    * @return event_status_e current event status
    */
@@ -760,7 +761,7 @@ public:
    * @param other
    * @return float
    */
-  virtual float getElapsedTime(CHIPEvent *Other) = 0;
+  virtual float getElapsedTime(chipstar::Event *Other) = 0;
 
   /**
    * @brief Toggle this event from the host.
@@ -779,6 +780,10 @@ public:
   }
 #endif
 };
+
+} // namespace chipstar
+
+#include "CHIPGraph.hh"
 
 class CHIPProgram {
   std::string ProgramName_;   ///< Program name.
@@ -1774,7 +1779,7 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
-  std::shared_ptr<CHIPEvent> userEventLookup(CHIPEvent *EventPtr) {
+  std::shared_ptr<chipstar::Event> userEventLookup(chipstar::Event *EventPtr) {
     std::lock_guard<std::mutex> Lock(UserEventsMtx);
     for (auto &UserEvent : UserEvents) {
       if (UserEvent.get() == EventPtr) {
@@ -1783,7 +1788,7 @@ public:
     }
     return nullptr;
   }
-  void trackEvent(std::shared_ptr<CHIPEvent> Event);
+  void trackEvent(std::shared_ptr<chipstar::Event> Event);
 
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
@@ -1799,8 +1804,8 @@ public:
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
-  std::vector<std::shared_ptr<CHIPEvent>> Events;
-  std::vector<std::shared_ptr<CHIPEvent>> UserEvents;
+  std::vector<std::shared_ptr<chipstar::Event>> Events;
+  std::vector<std::shared_ptr<chipstar::Event>> UserEvents;
   std::mutex EventsMtx;
   std::mutex UserEventsMtx;
 
@@ -1984,15 +1989,15 @@ public:
   virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
 
   /**
-   * @brief Create an Event, adding it to the Backend Event list.
+   * @brief Create an chipstar::Event, adding it to the Backend chipstar::Event list.
    *
    * @param ChipCtx Context in which to create the event in
    * @param Flags Events falgs
    * @param UserEvent Is this a user event? If so, increase refcount to 2 to
    * prevent it from being garbage collected.
-   * @return CHIPEvent* Event
+   * @return chipstar::Event* chipstar::Event
    */
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) = 0;
   /**
@@ -2041,11 +2046,11 @@ protected:
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  std::shared_ptr<CHIPEvent> LastEvent_ = nullptr;
+  std::shared_ptr<chipstar::Event> LastEvent_ = nullptr;
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
-  std::shared_ptr<CHIPEvent> RegisteredVarCopy(CHIPExecItem *ExecItem,
+  std::shared_ptr<chipstar::Event> RegisteredVarCopy(CHIPExecItem *ExecItem,
                                                MANAGED_MEM_STATE ExecState);
 
 public:
@@ -2096,7 +2101,7 @@ public:
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
-  virtual std::shared_ptr<CHIPEvent> getLastEvent() {
+  virtual std::shared_ptr<chipstar::Event> getLastEvent() {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     return LastEvent_;
   }
@@ -2123,7 +2128,7 @@ public:
   virtual ~CHIPQueue();
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(std::shared_ptr<CHIPEvent> NewEvent) {
+  virtual void updateLastEvent(std::shared_ptr<chipstar::Event> NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_.get(), (void *)NewEvent.get());
@@ -2151,7 +2156,7 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
@@ -2174,7 +2179,7 @@ public:
    * @param pattern
    * @param pattern_size
    */
-  virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
+  virtual std::shared_ptr<chipstar::Event> memFillAsyncImpl(void *Dst, size_t Size,
                                                       const void *Pattern,
                                                       size_t PatternSize) = 0;
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
@@ -2184,7 +2189,7 @@ public:
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopy2DAsyncImpl(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
                      size_t Width, size_t Height) = 0;
   virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
@@ -2195,7 +2200,7 @@ public:
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopy3DAsyncImpl(void *Dst, size_t DPitch, size_t DSPitch, const void *Src,
                      size_t SPitch, size_t SSPitch, size_t Width, size_t Height,
                      size_t Depth) = 0;
@@ -2210,7 +2215,7 @@ public:
    * @param exec_item
    * @return hipError_t
    */
-  virtual std::shared_ptr<CHIPEvent> launchImpl(CHIPExecItem *ExecItem) = 0;
+  virtual std::shared_ptr<chipstar::Event> launchImpl(CHIPExecItem *ExecItem) = 0;
   virtual void launch(CHIPExecItem *ExecItem);
 
   /**
@@ -2251,13 +2256,13 @@ public:
    * @return true
    * @return false
    */
-  virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
-      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) = 0;
-  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(
-      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
+  virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) = 0;
+  virtual std::shared_ptr<chipstar::Event> enqueueBarrier(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
 
-  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
-  std::shared_ptr<CHIPEvent> enqueueMarker();
+  virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() = 0;
+  std::shared_ptr<chipstar::Event> enqueueMarker();
 
   /**
    * @brief Get the Flags object with which this queue was created.
@@ -2293,7 +2298,7 @@ public:
    * @return false
    */
 
-  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
+  virtual std::shared_ptr<chipstar::Event> memPrefetchImpl(const void *Ptr,
                                                      size_t Count) = 0;
   void memPrefetch(const void *Ptr, size_t Count);
 
