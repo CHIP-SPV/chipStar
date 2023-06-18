@@ -1075,7 +1075,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::launchImpl(CHIPExecItem *ExecI
 #endif
   executeCommandList(CommandList);
 
-  if (std::shared_ptr<CHIPArgSpillBuffer> SpillBuf =
+  if (std::shared_ptr<chipstar::ArgSpillBuffer > SpillBuf =
           ExecItem->getArgSpillBuffer())
     // Use an event action to prolong the lifetime of the spill buffer
     // in case the exec item gets destroyed before the kernel
@@ -2287,7 +2287,7 @@ void CHIPExecItemLevel0::setupAllArgs() {
 
   if (FuncInfo->hasByRefArgs()) {
     ArgSpillBuffer_ =
-        std::make_shared<CHIPArgSpillBuffer>(ChipQueue_->getContext());
+        std::make_shared<chipstar::ArgSpillBuffer >(ChipQueue_->getContext());
     ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
   }
 

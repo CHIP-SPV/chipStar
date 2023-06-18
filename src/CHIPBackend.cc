@@ -421,12 +421,12 @@ void chipstar::Kernel::setName(std::string HostFName) { HostFName_ = HostFName; 
 void chipstar::Kernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
 void chipstar::Kernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 
-// CHIPArgSpillBuffer
+// chipstar::ArgSpillBuffer 
 //*****************************************************************************
 
-CHIPArgSpillBuffer::~CHIPArgSpillBuffer() { (void)Ctx_->free(DeviceBuffer_); }
+chipstar::ArgSpillBuffer::~ArgSpillBuffer () { (void)Ctx_->free(DeviceBuffer_); }
 
-void CHIPArgSpillBuffer::computeAndReserveSpace(const SPVFuncInfo &KernelInfo) {
+void chipstar::ArgSpillBuffer::computeAndReserveSpace(const SPVFuncInfo &KernelInfo) {
   size_t Offset = 0;
   size_t MaxAlignment = 1;
   auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
@@ -449,7 +449,7 @@ void CHIPArgSpillBuffer::computeAndReserveSpace(const SPVFuncInfo &KernelInfo) {
       Ctx_->allocate(Size_, MaxAlignment, hipMemoryTypeDevice));
 }
 
-void *CHIPArgSpillBuffer::allocate(const SPVFuncInfo::Arg &Arg) {
+void *chipstar::ArgSpillBuffer ::allocate(const SPVFuncInfo::Arg &Arg) {
   assert(HostBuffer_ && DeviceBuffer_ &&
          "Forgot to call computeAndReserveSpace()?");
   auto Offset = ArgIndexToOffset_[Arg.Index];

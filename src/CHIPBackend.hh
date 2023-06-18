@@ -1088,11 +1088,9 @@ public:
   virtual const chipstar::Module *getModule() const = 0;
 };
 
-} // namespace chipstar
 
-#include "CHIPGraph.hh"
 
-class CHIPArgSpillBuffer {
+class ArgSpillBuffer {
   CHIPContext *Ctx_; ///< A context to allocate device space from.
   std::unique_ptr<char[]> HostBuffer_;
   char *DeviceBuffer_ = nullptr;
@@ -1100,9 +1098,9 @@ class CHIPArgSpillBuffer {
   size_t Size_ = 0;
 
 public:
-  CHIPArgSpillBuffer() = delete;
-  CHIPArgSpillBuffer(CHIPContext *Ctx) : Ctx_(Ctx) {}
-  ~CHIPArgSpillBuffer();
+  ArgSpillBuffer() = delete;
+  ArgSpillBuffer(CHIPContext *Ctx) : Ctx_(Ctx) {}
+  ~ArgSpillBuffer();
   void computeAndReserveSpace(const SPVFuncInfo &KernelInfo);
   void *allocate(const SPVFuncInfo::Arg &Arg);
   size_t getSize() const { return Size_; }
@@ -1115,6 +1113,10 @@ public:
     return DeviceBuffer_;
   }
 };
+
+} // namespace chipstar
+
+#include "CHIPGraph.hh"
 
 /**
  * @brief Contains kernel arguments and a queue on which to execute.
@@ -1136,7 +1138,7 @@ protected:
 
   std::vector<void *> Args_;
 
-  std::shared_ptr<CHIPArgSpillBuffer> ArgSpillBuffer_;
+  std::shared_ptr<chipstar::ArgSpillBuffer > ArgSpillBuffer_;
 
 public:
   void copyArgs(void **Args);
@@ -1239,7 +1241,7 @@ public:
    */
   virtual void setupAllArgs() = 0;
 
-  std::shared_ptr<CHIPArgSpillBuffer> getArgSpillBuffer() const {
+  std::shared_ptr<chipstar::ArgSpillBuffer > getArgSpillBuffer() const {
     return ArgSpillBuffer_;
   };
 };

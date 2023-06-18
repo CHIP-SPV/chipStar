@@ -256,7 +256,7 @@ annotateSvmPointers(const CHIPContextOpenCL &Ctx, cl_kernel KernelAPIHandle) {
 }
 
 struct KernelEventCallbackData {
-  std::shared_ptr<CHIPArgSpillBuffer> ArgSpillBuffer;
+  std::shared_ptr<chipstar::ArgSpillBuffer > chipstar::ArgSpillBuffer ;
   std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
 };
 static void CL_CALLBACK kernelEventCallback(cl_event chipstar::Event,
@@ -1058,7 +1058,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecI
       std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
-  std::shared_ptr<CHIPArgSpillBuffer> SpillBuf = ExecItem->getArgSpillBuffer();
+  std::shared_ptr<chipstar::ArgSpillBuffer > SpillBuf = ExecItem->getArgSpillBuffer();
 
   if (SpillBuf || SvmAllocationsToKeepAlive) {
     // Use an event call back to prolong the lifetimes of the
@@ -1073,7 +1073,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(CHIPExecItem *ExecI
     //   the pointers, annotated via clSetKernelExecInfo(), needs to
     //   live.
     auto *CBData = new KernelEventCallbackData;
-    CBData->ArgSpillBuffer = SpillBuf;
+    CBData->chipstar::ArgSpillBuffer  = SpillBuf;
     CBData->SvmKeepAlives = std::move(SvmAllocationsToKeepAlive);
     Status = clSetEventCallback(
         std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativeRef(),
@@ -1290,7 +1290,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
 
   if (FuncInfo->hasByRefArgs()) {
     ArgSpillBuffer_ =
-        std::make_shared<CHIPArgSpillBuffer>(ChipQueue_->getContext());
+        std::make_shared<chipstar::ArgSpillBuffer >(ChipQueue_->getContext());
     ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
   }
 
