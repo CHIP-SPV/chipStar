@@ -80,6 +80,9 @@ namespace chipstar {
 
 class Event;
 class Kernel;
+class Device;
+class EventMonitor;
+class Texture;
 
 class RegionDesc {
 public:
@@ -193,9 +196,6 @@ public:
   }
 };
 
-class EventMonitor;
-
-
 class QueueFlags {
   unsigned int FlagsRaw_;
   bool Default_ = true;
@@ -229,7 +229,6 @@ enum class ManagedMemFlags : unsigned int {
   AttachHost = hipMemAttachHost,
   AttachGlobal = hipMemAttachGlobal
 };
-
 
 class HostAllocFlags {
   bool Default_ = true;
@@ -915,7 +914,7 @@ public:
    *
    * @param chip_dev device for which to compile the kernels
    */
-  void compileOnce(CHIPDevice *ChipDev);
+  void compileOnce(chipstar::Device *ChipDev);
   /**
    * @brief chipstar::Kernel JIT compilation can be lazy. This is configured via Cmake
    * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
@@ -927,7 +926,7 @@ public:
    * function pointers.
    *
    */
-  virtual void compile(CHIPDevice *ChipDev) = 0;
+  virtual void compile(chipstar::Device *ChipDev) = 0;
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
@@ -991,11 +990,11 @@ public:
 
   std::vector<chipstar::DeviceVar*> &getDeviceVariables() { return ChipVars_; }
 
-  hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
+  hipError_t allocateDeviceVariablesNoLock(chipstar::Device *Device,
                                            CHIPQueue *Queue);
-  void prepareDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
+  void prepareDeviceVariablesNoLock(chipstar::Device *Device, CHIPQueue *Queue);
   void invalidateDeviceVariablesNoLock();
-  void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
+  void deallocateDeviceVariablesNoLock(chipstar::Device *Device);
 
   SPVFuncInfo *findFunctionInfo(const std::string &FName);
 
@@ -1242,21 +1241,16 @@ public:
   };
 };
 
-} // namespace chipstar
 
-inline CHIPContext *PrimaryContext = nullptr;
-inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
-inline thread_local std::stack<CHIPContext *> ChipCtxStack;
-#include "CHIPGraph.hh"
 
 /**
  * @brief Compute device class
  */
-class CHIPDevice {
+class Device {
 
   // A bundle for CHIPReinitialize.
   class ModuleState {
-    friend class CHIPDevice;
+    friend class Device;
     std::unordered_map<const SPVModule *, chipstar::Module *> SrcModToCompiledMod_;
     std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
   };
@@ -1285,7 +1279,7 @@ protected:
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
   // only callable from derived classes, because we need to call also init()
-  CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
+  Device(CHIPContext *Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
   bool PerThreadStreamUsed_ = false;
@@ -1309,7 +1303,7 @@ public:
   /**
    * @brief Get the Per Thread Default Queue object. If it was not initialized,
    * initialize it and set PerThreadStreamUsed to true
-   * @see CHIPDevice::PerThreadStreamUsed
+   * @see Device::PerThreadStreamUsed
    *
    * @return CHIPQueue*
    */
@@ -1357,7 +1351,7 @@ public:
 
   chipstar::AllocationTracker *AllocTracker = nullptr;
 
-  virtual ~CHIPDevice();
+  virtual ~Device();
 
   /// Return kernel the host-pointer 'Ptr' is associated with, if
   /// found. Otherwise return nullptr.
@@ -1410,7 +1404,7 @@ public:
   /**
    * @brief Get the context object
    *
-   * @return CHIPContext* pointer to the CHIPContext object this CHIPDevice
+   * @return CHIPContext* pointer to the CHIPContext object this Device
    * was created with
    */
   CHIPContext *getContext();
@@ -1544,7 +1538,7 @@ public:
    * @param peerDevice
    * @return int
    */
-  int getPeerAccess(CHIPDevice *PeerDevice);
+  int getPeerAccess(chipstar::Device *PeerDevice);
 
   /**
    * @brief Set access between this and another device
@@ -1554,7 +1548,7 @@ public:
    * @param canAccessPeer
    * @return hipError_t
    */
-  hipError_t setPeerAccess(CHIPDevice *Peer, int Flags, bool CanAccessPeer);
+  hipError_t setPeerAccess(chipstar::Device *Peer, int Flags, bool CanAccessPeer);
 
   /**
    * @brief Get the total used global memory
@@ -1609,6 +1603,13 @@ protected:
   virtual chipstar::Module *compile(const SPVModule &Src) = 0;
 };
 
+} // namespace chipstar
+
+inline CHIPContext *PrimaryContext = nullptr;
+inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+inline thread_local std::stack<CHIPContext *> ChipCtxStack;
+#include "CHIPGraph.hh"
+
 /**
  * @brief Context class
  * Contexts contain execution queues and are created on top of a single or
@@ -1618,7 +1619,7 @@ protected:
 class CHIPContext : public ihipCtx_t {
 protected:
   int RefCount_;
-  CHIPDevice *ChipDevice_;
+  chipstar::Device *ChipDevice_;
   std::vector<void *> AllocatedPtrs_;
 
   unsigned int Flags_;
@@ -1640,14 +1641,14 @@ public:
 
   virtual void syncQueues(CHIPQueue *TargetQueue);
 
-  void setDevice(CHIPDevice *Device) { ChipDevice_ = Device; }
+  void setDevice(chipstar::Device *Device) { ChipDevice_ = Device; }
 
   /**
    * @brief Get this context's CHIPDevices
    *
-   * @return CHIPDevice *
+   * @return chipstar::Device *
    */
-  CHIPDevice *getDevice();
+  chipstar::Device *getDevice();
 
   /**
    * @brief Allocate data.
@@ -1781,7 +1782,7 @@ protected:
   int MaxQueuePriority_ = 0;
 
   CHIPContext *ActiveCtx_;
-  CHIPDevice *ActiveDev_;
+  chipstar::Device *ActiveDev_;
 
   // Keep hold on the default logger instance to make sure that it is
   // not destructed before the backend finishes uninitialization.
@@ -1923,9 +1924,9 @@ public:
    * @brief Get the Active Device object. Returns the device of the active
    * queue.
    *
-   * @return CHIPDevice*
+   * @return Device*
    */
-  CHIPDevice *getActiveDevice();
+  chipstar::Device *getActiveDevice();
   /**
    * @brief Set the active device. Sets the active queue to this device's
    * first/default/primary queue.
@@ -1933,9 +1934,9 @@ public:
    * @param chip_dev
    */
   void setActiveContext(CHIPContext *ChipContext);
-  void setActiveDevice(CHIPDevice *ChipDevice);
+  void setActiveDevice(chipstar::Device *ChipDevice);
 
-  std::vector<CHIPDevice *> getDevices();
+  std::vector<chipstar::Device *> getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1966,9 +1967,9 @@ public:
    * @brief Return a device which meets or exceeds the requirements
    *
    * @param props
-   * @return CHIPDevice*
+   * @return Device*
    */
-  CHIPDevice *findDeviceMatchingProps(const hipDeviceProp_t *Props);
+  chipstar::Device *findDeviceMatchingProps(const hipDeviceProp_t *Props);
 
   /**
    * @brief Find a given queue in this backend.
@@ -1995,7 +1996,7 @@ public:
 
   /************Factories***************/
 
-  virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
+  virtual CHIPQueue *createCHIPQueue(chipstar::Device *ChipDev) = 0;
 
   /**
    * @brief Create an chipstar::Event, adding it to the Backend chipstar::Event list.
@@ -2049,7 +2050,7 @@ protected:
   int MinPriority;
   chipstar::QueueFlags QueueFlags_;
   /// Device on which this queue will execute
-  CHIPDevice *ChipDevice_;
+  chipstar::Device *ChipDevice_;
   /// Context to which device belongs to
   CHIPContext *ChipContext_;
 
@@ -2105,7 +2106,7 @@ public:
     return static_cast<CHIPGraph *>(CaptureGraph_);
   }
 
-  CHIPDevice *PerThreadQueueForDevice = nullptr;
+  chipstar::Device *PerThreadQueueForDevice = nullptr;
 
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
@@ -2121,7 +2122,7 @@ public:
    * @param chip_dev
    * @param flags
    */
-  CHIPQueue(CHIPDevice *ChipDev, chipstar::QueueFlags Flags);
+  CHIPQueue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags);
   /**
    * @brief Construct a new CHIPQueue object
    *
@@ -2129,7 +2130,7 @@ public:
    * @param flags
    * @param priority
    */
-  CHIPQueue(CHIPDevice *ChipDev, chipstar::QueueFlags Flags, int Priority);
+  CHIPQueue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags, int Priority);
   /**
    * @brief Destroy the CHIPQueue object
    *
@@ -2230,10 +2231,10 @@ public:
   /**
    * @brief Get the Device obj
    *
-   * @return CHIPDevice*
+   * @return Device*
    */
 
-  CHIPDevice *getDevice();
+  chipstar::Device *getDevice();
   /**
    * @brief Wait for this queue to finish.
    *

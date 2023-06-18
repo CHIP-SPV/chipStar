@@ -363,7 +363,7 @@ public:
    *
    * @param chip_dev device for which to compile this module for
    */
-  virtual void compile(CHIPDevice *ChipDev) override;
+  virtual void compile(chipstar::Device  *ChipDev) override;
   /**
    * @brief return the raw module handle
    *
@@ -442,7 +442,7 @@ public:
   }
 };
 
-class CHIPDeviceLevel0 : public CHIPDevice {
+class CHIPDeviceLevel0 : public chipstar::Device  {
   ze_device_handle_t ZeDev_;
   ze_context_handle_t ZeCtx_;
 
@@ -552,7 +552,7 @@ public:
 
   virtual int ReqNumHandles() override { return 4; }
 
-  virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override {
+  virtual CHIPQueue *createCHIPQueue(chipstar::Device  *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
     auto Q = new CHIPQueueLevel0(ChipDevLz);
 

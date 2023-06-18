@@ -1602,7 +1602,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   Backend->addContext(ChipL0Ctx);
 
   // Filter in only devices of selected type and add them to the
-  // backend as derivates of CHIPDevice
+  // backend as derivates of Device
   auto Dev = ZeDevices[SelectedDeviceIdx];
   ze_device_properties_t DeviceProperties{};
   DeviceProperties.pNext = nullptr;
@@ -1753,7 +1753,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
 // ***********************************************************************
 CHIPDeviceLevel0::CHIPDeviceLevel0(ze_device_handle_t ZeDev,
                                    CHIPContextLevel0 *ChipCtx, int Idx)
-    : CHIPDevice(ChipCtx, Idx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()),
+    : Device(ChipCtx, Idx), ZeDev_(ZeDev), ZeCtx_(ChipCtx->get()),
       ZeDeviceProps_() {
   initializeQueueGroupProperties();
   ZeDeviceProps_.pNext = nullptr;
@@ -2182,7 +2182,7 @@ std::string resultToString(ze_result_t Status) {
 
 // CHIPModuleLevel0
 // ***********************************************************************
-void CHIPModuleLevel0::compile(CHIPDevice *ChipDev) {
+void CHIPModuleLevel0::compile(chipstar::Device  *ChipDev) {
   logTrace("CHIPModuleLevel0.compile()");
   consumeSPIRV();
 

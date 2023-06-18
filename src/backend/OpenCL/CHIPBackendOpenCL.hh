@@ -115,7 +115,7 @@ protected:
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
   virtual ~CHIPModuleOpenCL() {}
-  virtual void compile(CHIPDevice *ChipDevice) override;
+  virtual void compile(chipstar::Device  *ChipDevice) override;
   cl::Program *get();
 };
 
@@ -165,7 +165,7 @@ public:
   cl::Context *get();
 };
 
-class CHIPDeviceOpenCL : public CHIPDevice {
+class CHIPDeviceOpenCL : public chipstar::Device  {
 private:
   bool SupportsFineGrainSVM = false;
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
@@ -232,7 +232,7 @@ protected:
 public:
   CHIPQueueOpenCL() = delete; // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
-  CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
+  CHIPQueueOpenCL(chipstar::Device  *ChipDevice, int Priority,
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
   virtual std::shared_ptr<chipstar::Event>
@@ -345,7 +345,7 @@ public:
 
   virtual int ReqNumHandles() override { return 4; }
 
-  virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) override;
+  virtual CHIPQueue *createCHIPQueue(chipstar::Device  *ChipDev) override;
   virtual std::shared_ptr<chipstar::Event>
   createCHIPEvent(CHIPContext *ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;

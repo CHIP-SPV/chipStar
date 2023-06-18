@@ -1498,7 +1498,7 @@ hipError_t hipGetDevice(int *DeviceId) {
   CHIPInitialize();
   NULLCHECK(DeviceId);
 
-  CHIPDevice *ChipDev = Backend->getActiveDevice();
+  chipstar::Device  *ChipDev = Backend->getActiveDevice();
   *DeviceId = ChipDev->getDeviceId();
 
   RETURN(hipSuccess);
@@ -1522,7 +1522,7 @@ hipError_t hipSetDevice(int DeviceId) {
 
   ERROR_CHECK_DEVNUM(DeviceId);
 
-  CHIPDevice *SelectedDevice = Backend->getDevices()[DeviceId];
+  chipstar::Device  *SelectedDevice = Backend->getDevices()[DeviceId];
   Backend->setActiveDevice(SelectedDevice);
 
   RETURN(hipSuccess);
@@ -1557,7 +1557,7 @@ hipError_t hipDeviceReset(void) {
   CHIP_TRY
   CHIPInitialize();
 
-  CHIPDevice *ChipDev = Backend->getActiveDevice();
+  chipstar::Device  *ChipDev = Backend->getActiveDevice();
 
   ChipDev->reset();
   RETURN(hipSuccess);
@@ -1740,7 +1740,7 @@ hipError_t hipDeviceGetPCIBusId(char *PciBusId, int Len, int DeviceId) {
   if (Len < 1)
     RETURN(hipErrorInvalidResourceHandle);
 
-  CHIPDevice *Dev = Backend->getDevices()[DeviceId];
+  chipstar::Device  *Dev = Backend->getDevices()[DeviceId];
 
   hipDeviceProp_t Prop;
   Dev->copyDeviceProperties(&Prop);
@@ -1762,7 +1762,7 @@ hipError_t hipDeviceGetByPCIBusId(int *DeviceId, const char *PciBusId) {
   if (Err == EOF || Err < 3)
     RETURN(hipErrorInvalidValue);
   for (size_t DevIdx = 0; DevIdx < Backend->getNumDevices(); DevIdx++) {
-    CHIPDevice *Dev = Backend->getDevices()[DevIdx];
+    chipstar::Device  *Dev = Backend->getDevices()[DevIdx];
     if (Dev->hasPCIBusId(PciDomainID, PciBusID, PciDeviceID)) {
       *DeviceId = DevIdx;
       RETURN(hipSuccess);
@@ -1794,8 +1794,8 @@ hipError_t hipDeviceCanAccessPeer(int *CanAccessPeer, int DeviceId,
     RETURN(hipSuccess);
   }
 
-  CHIPDevice *Dev = Backend->getDevices()[DeviceId];
-  CHIPDevice *Peer = Backend->getDevices()[PeerDeviceId];
+  chipstar::Device  *Dev = Backend->getDevices()[DeviceId];
+  chipstar::Device  *Peer = Backend->getDevices()[PeerDeviceId];
 
   *CanAccessPeer = Dev->getPeerAccess(Peer);
 
@@ -1807,8 +1807,8 @@ hipError_t hipDeviceEnablePeerAccess(int PeerDeviceId, unsigned int Flags) {
   CHIP_TRY
   CHIPInitialize();
 
-  CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPDevice *Peer = Backend->getDevices()[PeerDeviceId];
+  chipstar::Device  *Dev = Backend->getActiveDevice();
+  chipstar::Device  *Peer = Backend->getDevices()[PeerDeviceId];
 
   RETURN(Dev->setPeerAccess(Peer, Flags, true));
   CHIP_CATCH
@@ -1818,8 +1818,8 @@ hipError_t hipDeviceDisablePeerAccess(int PeerDeviceId) {
   CHIP_TRY
   CHIPInitialize();
 
-  CHIPDevice *Dev = Backend->getActiveDevice();
-  CHIPDevice *Peer = Backend->getDevices()[PeerDeviceId];
+  chipstar::Device  *Dev = Backend->getActiveDevice();
+  chipstar::Device  *Peer = Backend->getDevices()[PeerDeviceId];
 
   RETURN(Dev->setPeerAccess(Peer, 0, false));
   CHIP_CATCH
@@ -1830,7 +1830,7 @@ hipError_t hipChooseDevice(int *DeviceId, const hipDeviceProp_t *Prop) {
   CHIPInitialize();
   NULLCHECK(DeviceId, Prop);
 
-  CHIPDevice *Dev = Backend->findDeviceMatchingProps(Prop);
+  chipstar::Device  *Dev = Backend->findDeviceMatchingProps(Prop);
   if (!Dev)
     RETURN(hipErrorInvalidValue);
 
@@ -2020,7 +2020,7 @@ hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
   if (Stream == nullptr)
     CHIPERR_LOG_AND_THROW("Stream pointer is null", hipErrorInvalidValue);
 
-  CHIPDevice *Dev = Backend->getActiveDevice();
+  chipstar::Device  *Dev = Backend->getActiveDevice();
 
   chipstar::QueueFlags FlagsParsed{Flags};
 
@@ -2089,7 +2089,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
     RETURN(hipErrorStreamCaptureInvalidated);
   }
 
-  CHIPDevice *Dev = Backend->getActiveDevice();
+  chipstar::Device  *Dev = Backend->getActiveDevice();
 
   // make sure nothing is pending in the stream
   ChipQueue->finish();
@@ -2180,7 +2180,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
 int hipGetStreamDeviceId(hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPDevice *Device =
+  chipstar::Device  *Device =
       Backend->findQueue(static_cast<CHIPQueue *>(Stream))->getDevice();
   return Device->getDeviceId();
   CHIP_CATCH
@@ -2564,7 +2564,7 @@ hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
   // TODO Graphs - async operation should be supported by graphs but no prefetch
   // node is defined
   ERROR_CHECK_DEVNUM(DstDevId);
-  CHIPDevice *Dev = Backend->getDevices()[DstDevId];
+  chipstar::Device  *Dev = Backend->getDevices()[DstDevId];
 
   // Check if given Stream belongs to the requested device
   ERROR_IF(ChipQueue->getDevice() != Dev, hipErrorInvalidDevice);
@@ -3751,7 +3751,7 @@ hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
   CHIP_TRY
   CHIPInitialize();
 
-  CHIPDevice *Dev = Backend->getActiveDevice();
+  chipstar::Device *Dev = Backend->getActiveDevice();
   chipstar::Kernel *Kernel = Dev->findKernel(HostPtr(HostFunction));
   if (!Kernel)
     RETURN(hipErrorInvalidDeviceFunction);

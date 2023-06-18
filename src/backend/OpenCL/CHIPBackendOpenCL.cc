@@ -365,7 +365,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
 
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
                                    cl::Device *DevIn, int Idx)
-    : CHIPDevice(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
+    : Device(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
   cl_device_svm_capabilities DeviceSVMCapabilities;
@@ -697,7 +697,7 @@ CHIPModuleOpenCL::CHIPModuleOpenCL(const SPVModule &SrcMod)
 
 cl::Program *CHIPModuleOpenCL::get() { return &Program_; }
 
-void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
+void CHIPModuleOpenCL::compile(chipstar::Device  *ChipDev) {
 
   // TODO make compile_ which calls consumeSPIRV()
   logTrace("CHIPModuleOpenCL::compile()");
@@ -712,7 +712,7 @@ void CHIPModuleOpenCL::compile(CHIPDevice *ChipDev) {
   auto ClProgram = cl::Program(*(ChipCtxOcl->get()), BinaryVec, false, &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
-  //   for (CHIPDevice *chip_dev : chip_devices) {
+  //   for (chipstar::Device  *chip_dev : chip_devices) {
   std::string Name = ChipDevOcl->getName();
   Err = ClProgram.build(Backend->getJitFlags().c_str());
   auto ErrBuild = Err;
@@ -1088,7 +1088,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(chipstar::ExecItem 
   return LaunchEvent;
 }
 
-CHIPQueueOpenCL::CHIPQueueOpenCL(CHIPDevice *ChipDevice, int Priority,
+CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device  *ChipDevice, int Priority,
                                  cl_command_queue Queue)
     : CHIPQueue(ChipDevice, chipstar::QueueFlags{}, Priority) {
 
@@ -1404,7 +1404,7 @@ chipstar::ExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 Blo
       new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
   return ExecItem;
 };
-CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(CHIPDevice *ChipDev) {
+CHIPQueue *CHIPBackendOpenCL::createCHIPQueue(chipstar::Device  *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
   return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
 }
