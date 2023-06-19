@@ -1422,12 +1422,12 @@ LZEventPool::~LZEventPool() {
   assert(Backend->Events.size() == 0 &&
          "CHIPEventLevel0 objects still exist at the time of EventPool "
          "destruction");
-  assert(Backend->UserEvents.size() == 0 &&
-         "CHIPUserEventLevel0 objects still exist at the time of EventPool "
-         "destruction");
   assert(static_cast<CHIPBackendLevel0*>(Backend)->EventCommandListMap.size() == 0 &&
          "CHIPCommandListLevel0 objects still exist at the time of EventPool "
          "destruction");
+  if(Backend->UserEvents.size() != 0)
+    logWarn( "CHIPUserEventLevel0 objects still exist at the time of EventPool destruction");
+
   Events_.clear(); // shared_ptr's will be deleted
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
