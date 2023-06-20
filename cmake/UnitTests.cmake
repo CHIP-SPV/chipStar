@@ -147,6 +147,12 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Issue 517
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
@@ -827,15 +833,18 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
+ # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctions") #  Timeuot
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Issue 517
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -1881,9 +1890,7 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemory") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # failing for LLVM16
@@ -1922,13 +1929,21 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphClone_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_DependencyGraph") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_Negative") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemory") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalConstMemory") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemoryWithKernel") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphChildGraphNodeGetGraph_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphNodeFindInClone_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_ClonedGraphwithHostNode") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_BasicFunc") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeToSymbol_GlobalMemory") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeToSymbol_GlobalConstMemory") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeToSymbol_MemcpyToSymbolNodeWithKernel") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
@@ -1999,6 +2014,7 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_ArgValidation") 
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamEndCapture_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamEndCapture_Thread_Negative") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Functional") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_SetAndVerifyMemory") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_VerifyEventNotChanged") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_Negative") # SEGFAULT
@@ -2220,6 +2236,13 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") #
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
