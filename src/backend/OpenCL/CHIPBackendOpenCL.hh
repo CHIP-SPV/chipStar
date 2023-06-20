@@ -150,7 +150,7 @@ public:
   }
 };
 
-class CHIPContextOpenCL : public Context {
+class CHIPContextOpenCL : public chipstar::Context {
 public:
   bool allDevicesSupportFineGrainSVM();
   SVMemoryRegion SvmMemory;
@@ -320,7 +320,7 @@ public:
   cl::Kernel *get();
 
   virtual chipstar::ExecItem *clone() const override {
-    auto Newchipstar::ExecItem = new CHIPExecItemOpenCL(*this);
+    auto NewExecItem = new CHIPExecItemOpenCL(*this);
     return NewExecItem;
   }
 

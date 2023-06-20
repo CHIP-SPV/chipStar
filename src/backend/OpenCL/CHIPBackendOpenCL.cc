@@ -256,10 +256,10 @@ annotateSvmPointers(const CHIPContextOpenCL &Ctx, cl_kernel KernelAPIHandle) {
 }
 
 struct KernelEventCallbackData {
-  std::shared_ptr<chipstar::ArgSpillBuffer > chipstar::ArgSpillBuffer ;
+  std::shared_ptr<chipstar::ArgSpillBuffer > ArgSpillBuffer ;
   std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
 };
-static void CL_CALLBACK kernelEventCallback(cl_event chipstar::Event,
+static void CL_CALLBACK kernelEventCallback(cl_event Event,
                                             cl_int CommandExecStatus,
                                             void *UserData) {
   delete static_cast<KernelEventCallbackData *>(UserData);
@@ -582,10 +582,10 @@ CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 std::shared_ptr<chipstar::Event>
 CHIPBackendOpenCL::createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags,
                                    bool UserEvent) {
-  CHIPEventOpenCL *chipstar::Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
+  CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
 
-  return std::shared_ptr<chipstar::Event>(chipstar::Event);
+  return std::shared_ptr<chipstar::Event>(Event);
 }
 
 void CHIPEventOpenCL::recordStream(chipstar::Queue *ChipQueue) {
@@ -886,7 +886,7 @@ struct HipStreamCallbackData {
   std::shared_ptr<chipstar::Event> CallbackFinishEvent;
 };
 
-void CL_CALLBACK pfn_notify(cl_event chipstar::Event, cl_int CommandExecStatus,
+void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
                             void *UserData) {
   HipStreamCallbackData *Cbo = (HipStreamCallbackData *)(UserData);
   if (Cbo == nullptr)
@@ -1026,7 +1026,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(chipstar::ExecItem 
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(OclContext);
-  CHIPExecItemOpenCL *ChipOclchipstar::ExecItem = (CHIPExecItemOpenCL *)ExecItem;
+  CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   assert(Kernel && "Kernel in chipstar::ExecItem is NULL!");
   logTrace("Launching Kernel {}", Kernel->getName());
@@ -1073,7 +1073,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(chipstar::ExecItem 
     //   the pointers, annotated via clSetKernelExecInfo(), needs to
     //   live.
     auto *CBData = new KernelEventCallbackData;
-    CBData->chipstar::ArgSpillBuffer  = SpillBuf;
+    CBData->ArgSpillBuffer  = SpillBuf;
     CBData->SvmKeepAlives = std::move(SvmAllocationsToKeepAlive);
     Status = clSetEventCallback(
         std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativeRef(),
@@ -1090,7 +1090,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::launchImpl(chipstar::ExecItem 
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device  *ChipDevice, int Priority,
                                  cl_command_queue Queue)
-    : Queue(ChipDevice, chipstar::QueueFlags{}, Priority) {
+    : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority) {
 
   cl_queue_priority_khr PrioritySelection;
   switch (Priority_) {
@@ -1140,7 +1140,7 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
-  std::shared_ptr<chipstar::Event> chipstar::Event =
+  std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
   if (Dst == Src) {
@@ -1152,10 +1152,10 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
     // makes/ it pass, but Intel CPU OpenCL returns CL_​MEM_​COPY_​OVERLAP
     // like it should. To unify the behavior, let's convert the special case to
     // a maker here, so we can return an event.
-    cl::chipstar::Event MarkerEvent;
+    cl::Event MarkerEvent;
     auto Status = clEnqueueMarker(
         ClQueue_->get(),
-        std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativePtr());
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
 #ifdef DUBIOUS_LOCKS
@@ -1163,10 +1163,10 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
 #endif
     auto Status = ::clEnqueueSVMMemcpy(
         ClQueue_->get(), CL_FALSE, Dst, Src, Size, 0, nullptr,
-        std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativePtr());
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
   }
-  return chipstar::Event;
+  return Event;
 }
 
 void CHIPQueueOpenCL::finish() {
@@ -1180,15 +1180,15 @@ void CHIPQueueOpenCL::finish() {
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
-  std::shared_ptr<chipstar::Event> chipstar::Event =
+  std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
   cl_event Ev = nullptr;
   int Retval = ::clEnqueueSVMMemFill(
       ClQueue_->get(), Dst, Pattern, PatternSize, Size, 0, nullptr,
-      std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativePtr());
+      std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
-  return chipstar::Event;
+  return Event;
 };
 
 std::shared_ptr<chipstar::Event>
@@ -1240,13 +1240,13 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
 #ifdef DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif
-  std::shared_ptr<chipstar::Event> chipstar::Event =
+  std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(
           this->ChipContext_);
   cl_int RefCount;
   int Status;
   Status = clGetEventInfo(
-      std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativeRef(),
+      std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
   if (EventsToWaitFor.size() > 0) {
     std::vector<cl_event> Events = {};
@@ -1257,20 +1257,20 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
     auto Status = clEnqueueBarrierWithWaitList(
         ClQueue_->get(), Events.size(), Events.data(),
-        &(std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativeRef()));
+        &(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef()));
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
     auto Status = clEnqueueBarrierWithWaitList(
         ClQueue_->get(), 0, nullptr,
-        std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativePtr());
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
 
   Status = clGetEventInfo(
-      std::static_pointer_cast<CHIPEventOpenCL>(chipstar::Event)->getNativeRef(),
+      std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
-  return chipstar::Event;
+  return Event;
 }
 
 // CHIPExecItemOpenCL
@@ -1400,7 +1400,7 @@ void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {
 chipstar::ExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
                                                     size_t SharedMem,
                                                     hipStream_t ChipQueue) {
-  CHIPExecItemOpenCL *chipstar::ExecItem =
+  CHIPExecItemOpenCL *ExecItem =
       new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
   return ExecItem;
 };
@@ -1507,7 +1507,7 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   // TODO Change this to spirv_enabled_devices
   cl::Context *Ctx = new cl::Context(SpirvDevices);
   CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
-  Backend->addContext(ChipContext);
+  ::Backend->addContext(ChipContext);
 
   // TODO for now only a single device is supported.
   cl::Device *clDev = new cl::Device(Device);
