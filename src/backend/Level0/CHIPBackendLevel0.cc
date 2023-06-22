@@ -1578,6 +1578,12 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   Status = zeDriverGet(&DriverCount, ZeDrivers.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
+  if (PlatformIdx >= DriverCount) {
+    CHIPERR_LOG_AND_THROW("CHIP_PLATFORM for Level0 backend must be"
+                          " < number of drivers",
+                          hipErrorInitializationError);
+  }
+
   // TODO Allow for multilpe platforms(drivers)
   // TODO Check platform ID is not the same as OpenCL. You can have
   // two OCL platforms but only one level0 driver
