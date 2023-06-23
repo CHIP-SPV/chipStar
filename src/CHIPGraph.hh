@@ -39,6 +39,14 @@
 #include "logging.hh"
 #include "macros.hh"
 
+namespace chipstar {
+class Queue;
+class Event;
+class ExecItem;
+} // namespace chipstar
+
+class CHIPGraph;
+
 class CHIPGraphNode : public hipGraphNode {
 protected:
   hipGraphNodeType Type_;
@@ -83,7 +91,7 @@ public:
    *
    * @param Queue Queue in which to execute this node
    */
-  virtual void execute(CHIPQueue *Queue) const = 0;
+  virtual void execute(chipstar::Queue *Queue) const = 0;
 
   /**
    * @brief Add a dependant to a node.
@@ -254,7 +262,7 @@ public:
 class CHIPGraphNodeKernel : public CHIPGraphNode {
 private:
   hipKernelNodeParams Params_;
-  CHIPExecItem *ExecItem_;
+  chipstar::ExecItem *ExecItem_;
 
 public:
   CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other);
@@ -266,7 +274,7 @@ public:
 
   virtual ~CHIPGraphNodeKernel() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   hipKernelNodeParams getParams() const { return Params_; }
 
@@ -337,7 +345,7 @@ public:
     memcpy(&Params_.kind, &(Params->kind), sizeof(hipMemcpyKind));
   }
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeMemcpy(*this);
@@ -364,7 +372,7 @@ public:
   hipMemsetParams getParams() { return Params_; }
   void setParams(const hipMemsetParams *Params) { Params_ = *Params; }
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeMemset(*this);
     return NewNode;
@@ -384,7 +392,7 @@ public:
 
   virtual ~CHIPGraphNodeHost() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeHost(*this);
@@ -409,7 +417,7 @@ public:
 
   virtual ~CHIPGraphNodeGraph() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override {
+  virtual void execute(chipstar::Queue *Queue) const override {
     CHIPERR_LOG_AND_THROW("Attemped to execute GraphNode", hipErrorTbd);
   }
   virtual CHIPGraphNode *clone() const override {
@@ -430,7 +438,7 @@ public:
 
   virtual ~CHIPGraphNodeEmpty() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override {
+  virtual void execute(chipstar::Queue *Queue) const override {
     logDebug("Executing empty node");
   }
 
@@ -442,10 +450,10 @@ public:
 
 class CHIPGraphNodeWaitEvent : public CHIPGraphNode {
 private:
-  CHIPEvent *Event_;
+  chipstar::Event *Event_;
 
 public:
-  CHIPGraphNodeWaitEvent(CHIPEvent *Event)
+  CHIPGraphNodeWaitEvent(chipstar::Event *Event)
       : CHIPGraphNode(hipGraphNodeTypeWaitEvent), Event_(Event) {}
 
   CHIPGraphNodeWaitEvent(const CHIPGraphNodeWaitEvent &Other)
@@ -453,23 +461,23 @@ public:
 
   virtual ~CHIPGraphNodeWaitEvent() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeWaitEvent(*this);
     return NewNode;
   }
 
-  CHIPEvent *getEvent() { return Event_; }
-  void setEvent(CHIPEvent *Event) { Event_ = Event; }
+  chipstar::Event *getEvent() { return Event_; }
+  void setEvent(chipstar::Event *Event) { Event_ = Event; }
 };
 
 class CHIPGraphNodeEventRecord : public CHIPGraphNode {
 private:
-  CHIPEvent *Event_;
+  chipstar::Event *Event_;
 
 public:
-  CHIPGraphNodeEventRecord(CHIPEvent *Event)
+  CHIPGraphNodeEventRecord(chipstar::Event *Event)
       : CHIPGraphNode(hipGraphNodeTypeEventRecord), Event_(Event){};
 
   CHIPGraphNodeEventRecord(const CHIPGraphNodeEventRecord &Other)
@@ -477,16 +485,16 @@ public:
 
   virtual ~CHIPGraphNodeEventRecord() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeEventRecord(*this);
     return NewNode;
   }
 
-  void setEvent(CHIPEvent *NewEvent) { Event_ = NewEvent; }
+  void setEvent(chipstar::Event *NewEvent) { Event_ = NewEvent; }
 
-  CHIPEvent *getEvent() { return Event_; }
+  chipstar::Event *getEvent() { return Event_; }
 };
 
 class CHIPGraphNodeMemcpyFromSymbol : public CHIPGraphNode {
@@ -511,7 +519,7 @@ public:
 
   virtual ~CHIPGraphNodeMemcpyFromSymbol() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   void setParams(void *Dst, const void *Symbol, size_t SizeBytes, size_t Offset,
                  hipMemcpyKind Kind) {
@@ -550,7 +558,7 @@ public:
 
   virtual ~CHIPGraphNodeMemcpyToSymbol() override {}
 
-  virtual void execute(CHIPQueue *Queue) const override;
+  virtual void execute(chipstar::Queue *Queue) const override;
 
   virtual CHIPGraphNode *clone() const override {
     auto NewNode = new CHIPGraphNodeMemcpyToSymbol(*this);
@@ -677,7 +685,7 @@ public:
 
   ~CHIPGraphExec() {}
 
-  void launch(CHIPQueue *Queue);
+  void launch(chipstar::Queue *Queue);
 
   CHIPGraph *getOriginalGraphPtr() const { return OriginalGraph_; }
 

@@ -24,7 +24,7 @@
  * @file CHIPDriver.hh
  * @author Paulius Velesko (pvelesko@pglc.io)
  * @brief Header defining global CHIP classes and functions such as
- * CHIPBackend type pointer Backend which gets initialized at the start of
+ * Backend type pointer Backend which gets initialized at the start of
  * execution.
  * @version 0.1
  * @date 2021-08-19
@@ -40,21 +40,25 @@
 
 #include "Utils.hh"
 
-// Forward Declares
-class CHIPExecItem;
-class CHIPDevice;
-class CHIPContext;
-class CHIPModule;
-class CHIPKernel;
-class CHIPBackend;
-class CHIPEvent;
-class CHIPQueue;
-class CHIPTexture;
+// // Forward Declares
+// class ExecItem;
+// // class Device;
+// // class Context;
+// class Module;
+// class Kernel;
+// // class Backend;
+// // class chipstar::Event;
+// class Queue;
+// // class Texture;
 
-/* HIP Graph API */
-class CHIPGraph;
-class CHIPGraphExec;
-class CHIPGraphNode;
+// /* HIP Graph API */
+// class CHIPGraph;
+// class CHIPGraphExec;
+// class CHIPGraphNode;
+
+namespace chipstar {
+class Backend;
+}
 
 #include "CHIPBackend.hh"
 
@@ -63,7 +67,7 @@ class CHIPGraphNode;
  * Global Backend pointer through which backend-specific operations are
  * performed
  */
-extern CHIPBackend *Backend;
+extern chipstar::Backend *Backend;
 
 /**
  * @brief
@@ -98,7 +102,6 @@ void CHIPUninitializeCallOnce();
 
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles);
-
 
 const char *CHIPGetBackendName();
 

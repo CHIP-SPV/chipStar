@@ -44,7 +44,7 @@ std::once_flag Initialized;
 std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
 bool UsingDefaultBackend;
-CHIPBackend *Backend = nullptr;
+chipstar::Backend *Backend = nullptr;
 std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
 
@@ -179,7 +179,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   CHIPReadEnvVars();
   logDebug("CHIPDriver REInitialize");
 
-  // Kernel compilation may have already taken place so we need save
+  // chipstar::Kernel compilation may have already taken place so we need save
   // these modules and pass them to re-initialization function
   auto ModuleState = Backend->getActiveDevice()->getModuleState();
 

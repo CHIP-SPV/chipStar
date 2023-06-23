@@ -94,7 +94,7 @@ CHIPGraphNode *CHIPGraphNodeKernel::clone() const {
   return NewNode;
 }
 
-void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
@@ -102,7 +102,7 @@ void CHIPGraphNodeMemset::execute(CHIPQueue *Queue) const {
   Queue->memFillAsync(Params_.dst, Size, (void *)&Val, Params_.elementSize);
 }
 
-void CHIPGraphNodeMemcpy::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
   if (Dst_ && Src_) {
     auto Status = hipMemcpyInternal(Dst_, Src_, Count_, Kind_);
     if (Status != hipSuccess)
@@ -115,7 +115,7 @@ void CHIPGraphNodeMemcpy::execute(CHIPQueue *Queue) const {
                             hipErrorTbd);
   }
 }
-void CHIPGraphNodeKernel::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeKernel::execute(chipstar::Queue *Queue) const {
   Queue->launch(ExecItem_);
 }
 
@@ -128,12 +128,12 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
   Params_.kernelParams = TheParams->kernelParams;
   Params_.sharedMemBytes = TheParams->sharedMemBytes;
   auto Dev = Backend->getActiveDevice();
-  CHIPKernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
+  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
   if (!ChipKernel)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
-  ExecItem_ = Backend->createCHIPExecItem(Params_.gridDim, Params_.blockDim,
-                                          Params_.sharedMemBytes, nullptr);
+  ExecItem_ = Backend->createExecItem(Params_.gridDim, Params_.blockDim,
+                                      Params_.sharedMemBytes, nullptr);
   ExecItem_->setKernel(ChipKernel);
 
   ExecItem_->copyArgs(TheParams->kernelParams);
@@ -153,12 +153,11 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   Params_.sharedMemBytes = SharedMem;
 
   auto Dev = Backend->getActiveDevice();
-  CHIPKernel *ChipKernel = Dev->findKernel(HostPtr(HostFunction));
+  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(HostFunction));
   if (!ChipKernel)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
-  ExecItem_ =
-      Backend->createCHIPExecItem(GridDim, BlockDim, SharedMem, nullptr);
+  ExecItem_ = Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setKernel(ChipKernel);
 
   ExecItem_->copyArgs(Args);
@@ -185,7 +184,7 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
   }
 }
 
-void CHIPGraphExec::launch(CHIPQueue *Queue) {
+void CHIPGraphExec::launch(chipstar::Queue *Queue) {
   logDebug("{} CHIPGraphExec::launch({})", (void *)this, (void *)Queue);
   compile();
   auto ExecQueueCopy = ExecQueues_;
@@ -358,7 +357,7 @@ void CHIPGraphExec::compile() {
   }
 }
 
-void CHIPGraphNodeHost::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeHost::execute(chipstar::Queue *Queue) const {
   Queue->finish();
   Params_.fn(Params_.userData);
 }
@@ -397,7 +396,7 @@ void CHIPGraphExec::ExtractSubGraphs_() {
   }
 }
 
-void CHIPGraphNodeEventRecord::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Event_);
   auto Status = hipEventRecordInternal(Event_, Queue);
   if (Status != hipSuccess)
@@ -405,7 +404,7 @@ void CHIPGraphNodeEventRecord::execute(CHIPQueue *Queue) const {
                           hipErrorTbd);
 }
 
-void CHIPGraphNodeMemcpyFromSymbol::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeMemcpyFromSymbol::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Dst_, Symbol_);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
   auto Status = hipMemcpyFromSymbolAsyncInternal(Dst_, Symbol_, SizeBytes_,
@@ -417,7 +416,7 @@ void CHIPGraphNodeMemcpyFromSymbol::execute(CHIPQueue *Queue) const {
                           hipErrorTbd);
 }
 
-void CHIPGraphNodeMemcpyToSymbol::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeMemcpyToSymbol::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Symbol_, Src_);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
   auto Status = hipMemcpyToSymbolAsyncInternal(Symbol_, Src_, SizeBytes_,
@@ -429,7 +428,7 @@ void CHIPGraphNodeMemcpyToSymbol::execute(CHIPQueue *Queue) const {
                           hipErrorTbd);
 }
 
-void CHIPGraphNodeWaitEvent::execute(CHIPQueue *Queue) const {
+void CHIPGraphNodeWaitEvent::execute(chipstar::Queue *Queue) const {
   // current HIP API requires Flags
   unsigned int Flags = 0;
   auto Status = hipStreamWaitEventInternal(Queue, Event_, Flags);

@@ -20,12 +20,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /**
- * @file CHIPBackend.hh
+ * @file Backend.hh
  * @author Paulius Velesko (pvelesko@pglc.io)
- * @brief CHIPBackend class definition. CHIP backends are to inherit from this
+ * @brief Backend class definition. CHIP backends are to inherit from this
  * base class and override desired virtual functions. Overrides for this class
  * are expected to be minimal with primary overrides being done on lower-level
- * classes such as CHIPContext consturctors, etc.
+ * classes such as Context consturctors, etc.
  * @version 0.1
  * @date 2021-08-19
  *
@@ -44,14 +44,10 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
-#include "CHIPGraph.hh"
+
 #include "SPVRegister.hh"
 
 #define DEFAULT_QUEUE_PRIORITY 1
-
-inline CHIPContext *PrimaryContext = nullptr;
-inline thread_local std::stack<CHIPExecItem *> ChipExecStack;
-inline thread_local std::stack<CHIPContext *> ChipCtxStack;
 
 inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
   switch (Kind) {
@@ -75,8 +71,25 @@ static inline size_t getChannelByteSize(hipChannelFormatDesc Desc) {
   return ((TotalNumBits + 7u) / 8u); // Round upwards.
 }
 
+template <class T> std::string resultToString(T Err);
+
+// class CHIPGraph;
+// class CHIPGraphNode;
+#include "CHIPGraph.hh"
+
 /// Describes a memory region to copy from/to.
-class CHIPRegionDesc {
+namespace chipstar {
+
+class Queue;
+class Backend;
+class Event;
+class Kernel;
+class Device;
+class EventMonitor;
+class Texture;
+class Context;
+
+class RegionDesc {
 public:
   static constexpr unsigned MaxNumDims = 3;
   // The number of dimensions.
@@ -121,10 +134,10 @@ public:
     }
   }
 
-  static CHIPRegionDesc get3DRegion(size_t TheWidth, size_t TheHeight,
-                                    size_t TheDepth,
-                                    size_t ElementByteSize = 1) {
-    CHIPRegionDesc Result;
+  static chipstar::RegionDesc get3DRegion(size_t TheWidth, size_t TheHeight,
+                                          size_t TheDepth,
+                                          size_t ElementByteSize = 1) {
+    chipstar::RegionDesc Result;
     Result.NumDims = 3;
     Result.ElementSize = ElementByteSize;
     Result.Size[0] = TheWidth;
@@ -135,42 +148,42 @@ public:
     return Result;
   }
 
-  static CHIPRegionDesc get2DRegion(size_t TheWidth, size_t TheHeight,
-                                    size_t ElementByteSize = 1) {
+  static chipstar::RegionDesc get2DRegion(size_t TheWidth, size_t TheHeight,
+                                          size_t ElementByteSize = 1) {
     auto R = get3DRegion(TheWidth, TheHeight, 1, ElementByteSize);
     R.NumDims = 2;
     return R;
   }
 
-  static CHIPRegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
-                                    size_t ElementByteSize = 1) {
+  static chipstar::RegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
+                                          size_t ElementByteSize = 1) {
     auto R = get2DRegion(TheWidth, 1, ElementByteSize);
     R.NumDims = 1;
     return R;
   }
 
-  static CHIPRegionDesc from(const hipArray &Array) {
+  static chipstar::RegionDesc from(const hipArray &Array) {
     auto TexelByteSize = getChannelByteSize(Array.desc);
     switch (Array.textureType) {
     default:
       assert(false && "Unkown texture type.");
-      return CHIPRegionDesc();
+      return chipstar::RegionDesc();
     case hipTextureType1D:
-      return CHIPRegionDesc::get1DRegion(Array.width, TexelByteSize);
+      return chipstar::RegionDesc::get1DRegion(Array.width, TexelByteSize);
     case hipTextureType2D:
-      return CHIPRegionDesc::get2DRegion(Array.width, Array.height,
-                                         TexelByteSize);
+      return chipstar::RegionDesc::get2DRegion(Array.width, Array.height,
+                                               TexelByteSize);
     case hipTextureType3D:
-      return CHIPRegionDesc::get3DRegion(Array.width, Array.height, Array.depth,
-                                         TexelByteSize);
+      return chipstar::RegionDesc::get3DRegion(Array.width, Array.height,
+                                               Array.depth, TexelByteSize);
     }
   }
 
-  static CHIPRegionDesc from(const hipResourceDesc &ResDesc) {
+  static chipstar::RegionDesc from(const hipResourceDesc &ResDesc) {
     switch (ResDesc.resType) {
     default:
       CHIPASSERT(false && "Unknown resource type");
-      return CHIPRegionDesc();
+      return chipstar::RegionDesc();
     case hipResourceTypePitch2D: {
       auto &Res = ResDesc.res.pitch2D;
       auto R = get2DRegion(Res.width, Res.height, getChannelByteSize(Res.desc));
@@ -188,16 +201,14 @@ public:
   }
 };
 
-class CHIPEventMonitor;
-
-class CHIPQueueFlags {
+class QueueFlags {
   unsigned int FlagsRaw_;
   bool Default_ = true;
   bool NonBlocking_ = false;
 
 public:
-  CHIPQueueFlags() : CHIPQueueFlags(hipStreamDefault) {}
-  CHIPQueueFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+  QueueFlags() : QueueFlags(hipStreamDefault) {}
+  QueueFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
 
     if (FlagsRaw & hipStreamDefault) {
       Default_ = true;
@@ -210,7 +221,7 @@ public:
     }
 
     if (FlagsRaw > 0)
-      CHIPERR_LOG_AND_THROW("Invalid CHIPQueueFlags", hipErrorInvalidValue);
+      CHIPERR_LOG_AND_THROW("Invalid QueueFlags", hipErrorInvalidValue);
   }
 
   bool isDefault() { return Default_; }
@@ -219,12 +230,12 @@ public:
   unsigned int getRaw() { return FlagsRaw_; }
 };
 
-enum class CHIPManagedMemFlags : unsigned int {
+enum class ManagedMemFlags : unsigned int {
   AttachHost = hipMemAttachHost,
   AttachGlobal = hipMemAttachGlobal
 };
 
-class CHIPHostAllocFlags {
+class HostAllocFlags {
   bool Default_ = true;
   bool Portable_ = false;
   bool Mapped_ = false;
@@ -235,8 +246,8 @@ class CHIPHostAllocFlags {
   unsigned int FlagsRaw_;
 
 public:
-  CHIPHostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
-  CHIPHostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
+  HostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
+  HostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
     if (FlagsRaw & hipHostMallocDefault) {
       Default_ = true;
       FlagsRaw = FlagsRaw & (~hipHostMallocDefault);
@@ -296,39 +307,39 @@ public:
 
 /**
  * @brief This object gets created when a callback is requested. Once created,
- * it gets placed on the CHIPBackend callback queue. A Callback monitor thread
+ * it gets placed on the Backend callback queue. A Callback monitor thread
  * gets created and executes these callback objects. This object stores all the
  * necessary data to execute a callback function:
  * - Events for synching
  * - Callback function
  * - Arguments for the callback function
  */
-class CHIPCallbackData {
+class CallbackData {
 protected:
-  virtual ~CHIPCallbackData() = default;
+  virtual ~CallbackData() = default;
 
 public:
-  CHIPQueue *ChipQueue;
-  std::shared_ptr<CHIPEvent> GpuReady;
-  std::shared_ptr<CHIPEvent> CpuCallbackComplete;
-  std::shared_ptr<CHIPEvent> GpuAck;
+  chipstar::Queue *ChipQueue;
+  std::shared_ptr<chipstar::Event> GpuReady;
+  std::shared_ptr<chipstar::Event> CpuCallbackComplete;
+  std::shared_ptr<chipstar::Event> GpuAck;
 
   hipError_t Status;
   void *CallbackArgs;
   hipStreamCallback_t CallbackF;
 
-  CHIPCallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
-                   CHIPQueue *ChipQueue);
+  CallbackData(hipStreamCallback_t CallbackF, void *CallbackArgs,
+               chipstar::Queue *ChipQueue);
 
   void execute(hipError_t ResultFromDependency);
 };
 
-class CHIPEventMonitor {
+class EventMonitor {
   typedef void *(*THREADFUNCPTR)(void *);
 
 protected:
-  CHIPEventMonitor() = default;
-  virtual ~CHIPEventMonitor() = default;
+  EventMonitor() = default;
+  virtual ~EventMonitor() = default;
   pthread_t Thread_;
 
 public:
@@ -337,7 +348,7 @@ public:
 
   void join() {
     assert(Thread_);
-    logDebug("Joining Event Monitor Thread {}", Thread_);
+    logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
     int Status = pthread_join(Thread_, nullptr);
     if (Status != 0) {
       logError("Failed to call join() {}", Status);
@@ -345,14 +356,14 @@ public:
   }
 
   static void *monitorWrapper(void *Arg) {
-    auto Monitor = (CHIPEventMonitor *)Arg;
+    auto Monitor = (chipstar::EventMonitor *)Arg;
     Monitor->monitor();
     return 0;
   }
   virtual void monitor(){};
 
   void start() {
-    logDebug("Starting Event Monitor Thread");
+    logDebug("Starting chipstar::Event Monitor Thread");
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
@@ -362,27 +373,25 @@ public:
   void stop() {
     LOCK(EventMonitorMtx) // Lock the mutex to ensure that the thread is not
                           // executing the monitor function
-    logDebug("Stopping Event Monitor Thread");
+    logDebug("Stopping chipstar::Event Monitor Thread");
     Stop = true;
     join();
   }
 };
 
-class CHIPTexture {
+class Texture {
   /// Resource description used to create this texture.
   hipResourceDesc ResourceDesc;
 
 public:
-  CHIPTexture() = delete;
-  CHIPTexture(const hipResourceDesc &ResDesc) : ResourceDesc(ResDesc) {}
-  virtual ~CHIPTexture() {}
+  Texture() = delete;
+  Texture(const hipResourceDesc &ResDesc) : ResourceDesc(ResDesc) {}
+  virtual ~Texture() {}
 
   const hipResourceDesc &getResourceDesc() const { return ResourceDesc; }
 };
 
-template <class T> std::string resultToString(T Err);
-
-class CHIPEventFlags {
+class EventFlags {
   bool BlockingSync_ = false;
   bool DisableTiming_ = false;
   bool Interprocess_ = false;
@@ -390,8 +399,8 @@ class CHIPEventFlags {
   bool ReleaseToSystem_ = false;
 
 public:
-  CHIPEventFlags() = default;
-  CHIPEventFlags(unsigned Flags) {
+  EventFlags() = default;
+  EventFlags(unsigned Flags) {
 
     if (Flags & hipEventBlockingSync) {
       Flags = Flags & (~hipEventBlockingSync);
@@ -444,7 +453,7 @@ struct AllocationInfo {
   void *DevPtr;
   void *HostPtr;
   size_t Size;
-  CHIPHostAllocFlags Flags;
+  chipstar::HostAllocFlags Flags;
   hipDevice_t Device;
   bool Managed = false;
   enum hipMemoryType MemoryType;
@@ -456,12 +465,12 @@ struct AllocationInfo {
  * @brief Class for keeping track of device allocations.
  *
  */
-class CHIPAllocationTracker {
+class AllocationTracker {
 private:
   std::string Name_;
 
-  std::unordered_set<AllocationInfo *> AllocInfos_;
-  std::unordered_map<void *, AllocationInfo *> PtrToAllocInfo_;
+  std::unordered_set<chipstar::AllocationInfo *> AllocInfos_;
+  std::unordered_map<void *, chipstar::AllocationInfo *> PtrToAllocInfo_;
 
 public:
   mutable std::mutex AllocationTrackerMtx;
@@ -489,19 +498,19 @@ public:
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
   /**
-   * @brief Construct a new CHIPAllocationTracker object
+   * @brief Construct a new chipstar::AllocationTracker object
    *
    * @param GlobalMemSize Total available global memory on the device
    * @param Name name for this allocation tracker for logging. Normally device
    * name
    */
-  CHIPAllocationTracker(size_t GlobalMemSize, std::string Name);
+  AllocationTracker(size_t GlobalMemSize, std::string Name);
 
   /**
-   * @brief Destroy the CHIPAllocationTracker object
+   * @brief Destroy the AllocationTracker object
    *
    */
-  ~CHIPAllocationTracker();
+  ~AllocationTracker();
 
   /**
    * @brief Get the Name object
@@ -513,9 +522,10 @@ public:
   /**
    * @brief Get Allocation Info associated with this pointer
    *
-   * @return AllocationInfo contains the base pointer and allocation size;
+   * @return chipstar::AllocationInfo contains the base pointer and allocation
+   * size;
    */
-  AllocationInfo *getAllocInfo(const void *);
+  chipstar::AllocationInfo *getAllocInfo(const void *);
 
   /**
    * @brief Reserve memory for an allocation.
@@ -538,29 +548,29 @@ public:
   bool releaseMemReservation(size_t Bytes);
 
   /**
-   * @brief Record the pointer received from CHIPContext::allocate_()
+   * @brief Record the pointer received from Context::allocate_()
    *
    * @param dev_ptr
    */
   void recordAllocation(void *DevPtr, void *HostPtr, hipDevice_t Device,
-                        size_t Size, CHIPHostAllocFlags Flags,
+                        size_t Size, chipstar::HostAllocFlags Flags,
                         hipMemoryType MemoryType);
 
   /**
    * @brief Check if a given pointer belongs to any of the existing allocations
    *
    * @param DevPtr device side pointer
-   * @return AllocationInfo* pointer to allocation info. Nullptr if this pointer
-   * does not belong to any existing allocations
+   * @return chipstar::AllocationInfo* pointer to allocation info. Nullptr if
+   * this pointer does not belong to any existing allocations
    */
-  AllocationInfo *getAllocInfoCheckPtrRanges(void *DevPtr);
+  chipstar::AllocationInfo *getAllocInfoCheckPtrRanges(void *DevPtr);
 
   /**
-   * @brief Delete an AllocationInfo item
+   * @brief Delete an chipstar::AllocationInfo item
    *
    * @param AllocInfo
    */
-  void eraseRecord(AllocationInfo *AllocInfo) {
+  void eraseRecord(chipstar::AllocationInfo *AllocInfo) {
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
                                 // CHIPAllocationTracker::AllocInfos_
     assert(AllocInfo && "Null pointer passed to eraseRecord");
@@ -576,10 +586,10 @@ public:
   /**
    * @brief Visit tracked allocations.
    *
-   * The visitor is called with 'const AllocationInfo&' argument.
+   * The visitor is called with 'const chipstar::AllocationInfo&' argument.
    */
   template <typename VisitorT> void visitAllocations(VisitorT Visitor) const {
-    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::AllocInfos_
+    LOCK(AllocationTrackerMtx); // chipstar::AllocationTracker::AllocInfos_
     for (const auto *Info : AllocInfos_)
       Visitor(*Info);
   }
@@ -587,7 +597,7 @@ public:
   size_t getNumAllocations() const { return AllocInfos_.size(); }
 };
 
-class CHIPDeviceVar {
+class DeviceVar {
 private:
   const SPVVariable *SrcVar_ = nullptr;
   void *DevAddr_ = nullptr;
@@ -600,8 +610,8 @@ private:
   bool HasInitializer_ = false;
 
 public:
-  CHIPDeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
-  ~CHIPDeviceVar();
+  DeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
+  ~DeviceVar();
 
   void *getDevAddr() const { return DevAddr_; }
   void setDevAddr(void *Addr) { DevAddr_ = Addr; }
@@ -616,13 +626,13 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-class CHIPEvent : public ihipEvent_t {
+class Event : public ihipEvent_t {
 protected:
   bool TrackCalled_ = false;
   bool UserEvent_ = false;
   event_status_e EventStatus_;
-  CHIPEventFlags Flags_;
-  std::vector<std::shared_ptr<CHIPEvent>> DependsOnList;
+  chipstar::EventFlags Flags_;
+  std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
 
 #ifndef NDEBUG
   // A debug flag for cathing use-after-delete.
@@ -633,15 +643,15 @@ protected:
    * @brief Events are always created with a context
    *
    */
-  CHIPContext *ChipContext_;
+  chipstar::Context *ChipContext_;
 
   /**
-   * @brief hidden default constructor for CHIPEvent. Only derived class
+   * @brief hidden default constructor for Event. Only derived class
    * constructor should be called.
    *
    */
-  CHIPEvent() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~CHIPEvent(){};
+  Event() : TrackCalled_(false), UserEvent_(false) {}
+  virtual ~Event(){};
 
 public:
   void markTracked() { TrackCalled_ = true; }
@@ -649,27 +659,29 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(const std::shared_ptr<CHIPEvent> &Event) {
+  void addDependency(const std::shared_ptr<chipstar::Event> &Event) {
     assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
-  CHIPEventFlags getFlags() { return Flags_; }
+  chipstar::EventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
   std::string Msg;
   // Optionally provide a field for origin of this event
   /**
-   * @brief CHIPEvent constructor. Must always be created with some context.
+   * @brief chipstar::Event constructor. Must always be created with some
+   * context.
    *
    */
-  CHIPEvent(CHIPContext *Ctx, CHIPEventFlags Flags = CHIPEventFlags());
+  Event(chipstar::Context *Ctx,
+        chipstar::EventFlags Flags = chipstar::EventFlags());
   /**
    * @brief Get the Context object
    *
-   * @return CHIPContext* pointer to context on which this event was created
+   * @return Context* pointer to context on which this event was created
    */
-  CHIPContext *getContext() {
-    assert(!Deleted_ && "Event use after delete!");
+  chipstar::Context *getContext() {
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     return ChipContext_;
   }
 
@@ -690,7 +702,7 @@ public:
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
-    assert(!Deleted_ && "Event use after delete!");
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
@@ -701,12 +713,12 @@ public:
    * @return false not recorded
    */
   bool isFinished() {
-    assert(!Deleted_ && "Event use after delete!");
+    assert(!Deleted_ && "chipstar::Event use after delete!");
     return (EventStatus_ == EVENT_STATUS_RECORDED);
   }
 
   /**
-   * @brief Get the Event Status object
+   * @brief Get the chipstar::Event Status object
    *
    * @return event_status_e current event status
    */
@@ -726,13 +738,13 @@ public:
   }
 
   /**
-   * @brief Enqueue this event in a given CHIPQueue
+   * @brief Enqueue this event in a given Queue
    *
-   * @param chip_queue_ CHIPQueue in which to enque this event
+   * @param chip_queue_ Queue in which to enque this event
    * @return true
    * @return false
    */
-  virtual void recordStream(CHIPQueue *ChipQueue) = 0;
+  virtual void recordStream(chipstar::Queue *ChipQueue) = 0;
   /**
    * @brief Wait for this event to complete
    *
@@ -748,7 +760,7 @@ public:
    * @param other
    * @return float
    */
-  virtual float getElapsedTime(CHIPEvent *Other) = 0;
+  virtual float getElapsedTime(chipstar::Event *Other) = 0;
 
   /**
    * @brief Toggle this event from the host.
@@ -768,7 +780,7 @@ public:
 #endif
 };
 
-class CHIPProgram {
+class Program {
   std::string ProgramName_;   ///< Program name.
   std::string ProgramSource_; ///< Program source code.
 
@@ -785,8 +797,8 @@ class CHIPProgram {
   std::string Code_;       ///< Compiled program.
 
 public:
-  CHIPProgram() = delete;
-  CHIPProgram(const std::string &ProgramName) : ProgramName_(ProgramName) {}
+  Program() = delete;
+  Program(const std::string &ProgramName) : ProgramName_(ProgramName) {}
 
   void setSource(const char *Source) {
     if (Source)
@@ -834,7 +846,7 @@ public:
  * ROCclr - amd::Program
  * CUDA - CUmodule
  */
-class CHIPModule : public ihipModule_t {
+class Module : public ihipModule_t {
   /// Flag for the allocation state of the device variables. True if
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that
@@ -852,9 +864,9 @@ protected:
   size_t IlSize_;
   std::mutex Mtx_;
   // Global variables
-  std::vector<CHIPDeviceVar *> ChipVars_;
+  std::vector<chipstar::DeviceVar *> ChipVars_;
   // Kernels
-  std::vector<CHIPKernel *> ChipKernels_;
+  std::vector<chipstar::Kernel *> ChipKernels_;
   /// Binary representation extracted from FatBinary.
   const SPVModule *Src_;
   // Kernel JIT compilation can be lazy
@@ -867,44 +879,44 @@ protected:
    * called.
    *
    */
-  CHIPModule() = default;
+  Module() = default;
 
 public:
   /**
-   * @brief Destroy the CHIPModule object
+   * @brief Destroy the Module object
    *
    */
-  virtual ~CHIPModule();
+  virtual ~Module();
   /**
-   * @brief Construct a new CHIPModule object.
+   * @brief Construct a new Module object.
    * This constructor should be implemented by the derived class (specific
    * backend implementation). Call to this constructor should result in a
    * populated chip_kernels vector.
    *
    * @param module_str string prepresenting the binary extracted from FatBinary
    */
-  CHIPModule(const SPVModule &Src) : Src_(&Src) {}
+  Module(const SPVModule &Src) : Src_(&Src) {}
 
   /**
-   * @brief Add a CHIPKernel to this module.
-   * During initialization when the FatBinary is consumed, a CHIPModule is
+   * @brief Add a chipstar::Kernel to this module.
+   * During initialization when the FatBinary is consumed, a Module is
    * constructed for every device. SPIR-V kernels reside in this module. This
    * method is called called via the constructor during this initialization
    * phase. Modules can also be loaded from a file during runtime, however.
    *
-   * @param kernel CHIPKernel to be added to this module.
+   * @param kernel chipstar::Kernel to be added to this module.
    */
-  void addKernel(CHIPKernel *Kernel);
+  void addKernel(chipstar::Kernel *Kernel);
 
   /**
    * @brief Wrapper around compile() called via std::call_once
    *
    * @param chip_dev device for which to compile the kernels
    */
-  void compileOnce(CHIPDevice *ChipDev);
+  void compileOnce(chipstar::Device *ChipDev);
   /**
-   * @brief Kernel JIT compilation can be lazy. This is configured via Cmake
-   * LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
+   * @brief chipstar::Kernel JIT compilation can be lazy. This is configured via
+   * Cmake LAZY_JIT option. If LAZY_JIT is set to true then this module won't be
    * compiled until the first call to one of its kernels. If LAZY_JIT is set to
    * false(default) then this method should be called in the constructor;
    *
@@ -913,31 +925,31 @@ public:
    * function pointers.
    *
    */
-  virtual void compile(CHIPDevice *ChipDev) = 0;
+  virtual void compile(chipstar::Device *ChipDev) = 0;
   /**
    * @brief Get the Global Var object
    * A module, along with device kernels, can also contain global variables.
    *
    * @param name global variable name
-   * @return CHIPDeviceVar*
+   * @return DeviceVar*
    */
-  virtual CHIPDeviceVar *getGlobalVar(const char *VarName);
+  virtual chipstar::DeviceVar *getGlobalVar(const char *VarName);
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
    * @param name name of the corresponding host function
-   * @return CHIPKernel* if found and nullptr otherwise.
+   * @return Kernel* if found and nullptr otherwise.
    */
-  CHIPKernel *findKernel(const std::string &Name);
+  chipstar::Kernel *findKernel(const std::string &Name);
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
    * @param name name of the corresponding host function
-   * @return CHIPKernel*
+   * @return Kernel*
    */
-  CHIPKernel *getKernelByName(const std::string &Name);
+  chipstar::Kernel *getKernelByName(const std::string &Name);
 
   /**
    * @brief Checks if the module has a kernel with the given name.
@@ -950,17 +962,17 @@ public:
   /**
    * @brief Get the Kernels object
    *
-   * @return std::vector<CHIPKernel*>&
+   * @return std::vector<Kernel*>&
    */
-  std::vector<CHIPKernel *> &getKernels();
+  std::vector<chipstar::Kernel *> &getKernels();
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
    * @param host_f_ptr host-side function pointer
-   * @return CHIPKernel*
+   * @return Kernel*
    */
-  CHIPKernel *getKernel(const void *HostFPtr);
+  chipstar::Kernel *getKernel(const void *HostFPtr);
 
   /**
    * @brief consume SPIRV and fill in SPVFuncINFO
@@ -973,15 +985,18 @@ public:
    *
    * Takes ownership of the variable.
    */
-  void addDeviceVariable(CHIPDeviceVar *DevVar) { ChipVars_.push_back(DevVar); }
+  void addDeviceVariable(chipstar::DeviceVar *DevVar) {
+    ChipVars_.push_back(DevVar);
+  }
 
-  std::vector<CHIPDeviceVar *> &getDeviceVariables() { return ChipVars_; }
+  std::vector<chipstar::DeviceVar *> &getDeviceVariables() { return ChipVars_; }
 
-  hipError_t allocateDeviceVariablesNoLock(CHIPDevice *Device,
-                                           CHIPQueue *Queue);
-  void prepareDeviceVariablesNoLock(CHIPDevice *Device, CHIPQueue *Queue);
+  hipError_t allocateDeviceVariablesNoLock(chipstar::Device *Device,
+                                           chipstar::Queue *Queue);
+  void prepareDeviceVariablesNoLock(chipstar::Device *Device,
+                                    chipstar::Queue *Queue);
   void invalidateDeviceVariablesNoLock();
-  void deallocateDeviceVariablesNoLock(CHIPDevice *Device);
+  void deallocateDeviceVariablesNoLock(chipstar::Device *Device);
 
   SPVFuncInfo *findFunctionInfo(const std::string &FName);
 
@@ -991,14 +1006,14 @@ public:
 /**
  * @brief Contains information about the function on the host and device
  */
-class CHIPKernel : public ihipModuleSymbol_t {
+class Kernel : public ihipModuleSymbol_t {
 protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be
    * called.
    *
    */
-  CHIPKernel(std::string HostFName, SPVFuncInfo *FuncInfo);
+  Kernel(std::string HostFName, SPVFuncInfo *FuncInfo);
   /// Name of the function
   std::string HostFName_;
   /// Pointer to the host function
@@ -1009,7 +1024,7 @@ protected:
   SPVFuncInfo *FuncInfo_;
 
 public:
-  virtual ~CHIPKernel();
+  virtual ~Kernel();
 
   /**
    * @brief Get the Name object
@@ -1067,21 +1082,21 @@ public:
   /**
    * @brief Return the parent module of the kernel.
    */
-  virtual CHIPModule *getModule() = 0;
-  virtual const CHIPModule *getModule() const = 0;
+  virtual chipstar::Module *getModule() = 0;
+  virtual const chipstar::Module *getModule() const = 0;
 };
 
-class CHIPArgSpillBuffer {
-  CHIPContext *Ctx_; ///< A context to allocate device space from.
+class ArgSpillBuffer {
+  chipstar::Context *Ctx_; ///< A context to allocate device space from.
   std::unique_ptr<char[]> HostBuffer_;
   char *DeviceBuffer_ = nullptr;
   std::map<size_t, size_t> ArgIndexToOffset_;
   size_t Size_ = 0;
 
 public:
-  CHIPArgSpillBuffer() = delete;
-  CHIPArgSpillBuffer(CHIPContext *Ctx) : Ctx_(Ctx) {}
-  ~CHIPArgSpillBuffer();
+  ArgSpillBuffer() = delete;
+  ArgSpillBuffer(chipstar::Context *Ctx) : Ctx_(Ctx) {}
+  ~ArgSpillBuffer();
   void computeAndReserveSpace(const SPVFuncInfo &KernelInfo);
   void *allocate(const SPVFuncInfo::Arg &Arg);
   size_t getSize() const { return Size_; }
@@ -1098,12 +1113,12 @@ public:
 /**
  * @brief Contains kernel arguments and a queue on which to execute.
  * Prior to kernel launch, the arguments are setup via
- * CHIPBackend::configureCall(). Because of this, we get the kernel last so the
+ * Backend::configureCall(). Because of this, we get the kernel last so the
  * kernel so the launch() takes a kernel argument as opposed to queue receiving
- * a CHIPExecItem containing the kernel and arguments
+ * a chipstar::ExecItem containing the kernel and arguments
  *
  */
-class CHIPExecItem {
+class ExecItem {
 protected:
   bool ArgsSetup = false;
   size_t SharedMem_;
@@ -1111,18 +1126,19 @@ protected:
   dim3 GridDim_;
   dim3 BlockDim_;
 
-  CHIPQueue *ChipQueue_;
+  chipstar::Queue *ChipQueue_;
 
   std::vector<void *> Args_;
 
-  std::shared_ptr<CHIPArgSpillBuffer> ArgSpillBuffer_;
+  std::shared_ptr<chipstar::ArgSpillBuffer> ArgSpillBuffer_;
 
 public:
   void copyArgs(void **Args);
-  void setQueue(CHIPQueue *Queue) { ChipQueue_ = Queue; }
+  void setQueue(chipstar::Queue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() {
-    assert(getKernel() && "Kernel was not set! (call setKernel() first)");
+    assert(getKernel() &&
+           "chipstar::Kernel was not set! (call  setKernel() first)");
     return getKernel()->getFuncInfo()->getNumClientArgs();
   }
 
@@ -1133,10 +1149,10 @@ public:
 
   /**
    * @brief Deleted default constructor
-   * Doesn't make sense for CHIPExecItem to exist without arguments
+   * Doesn't make sense for ExecItem to exist without arguments
    *
    */
-  CHIPExecItem() = delete;
+  ExecItem() = delete;
 
   /**
    * @brief Deleted copy constructor
@@ -1145,48 +1161,48 @@ public:
    *
    * @param Other
    */
-  CHIPExecItem(const CHIPExecItem &Other) = delete;
+  ExecItem(const ExecItem &Other) = delete;
 
   /**
-   * @brief Destroy the CHIPExecItem object
+   * @brief Destroy the ExecItem object
    *
    */
-  virtual ~CHIPExecItem() {}
+  virtual ~ExecItem() {}
 
-  virtual CHIPExecItem *clone() const = 0;
+  virtual ExecItem *clone() const = 0;
 
   /**
-   * @brief Construct a new CHIPExecItem object
+   * @brief Construct a new ExecItem object
    *
    * @param grid_dim_
    * @param block_dim_
    * @param shared_mem_
    * @param chip_queue_
    */
-  CHIPExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-               hipStream_t ChipQueue);
+  ExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+           hipStream_t ChipQueue);
 
   /**
-   * @brief Set the Kernel object
+   * @brief Set the chipstar::Kernel object
    *
-   * @return CHIPKernel* Kernel to be executed
+   * @return Kernel* chipstar::Kernel to be executed
    */
-  virtual void setKernel(CHIPKernel *Kernel) = 0;
+  virtual void setKernel(chipstar::Kernel *Kernel) = 0;
 
   /**
-   * @brief Get the Kernel object
+   * @brief Get the chipstar::Kernel object
    *
-   * @return CHIPKernel* Kernel to be executed
+   * @return Kernel* chipstar::Kernel to be executed
    */
-  virtual CHIPKernel *getKernel() = 0;
+  virtual chipstar::Kernel *getKernel() = 0;
 
   /**
    * @brief Get the Queue object
    *
-   * @return CHIPQueue*
+   * @return Queue*
    */
 
-  CHIPQueue *getQueue();
+  chipstar::Queue *getQueue();
 
   /**
    * @brief Get the Grid object
@@ -1218,7 +1234,7 @@ public:
    */
   virtual void setupAllArgs() = 0;
 
-  std::shared_ptr<CHIPArgSpillBuffer> getArgSpillBuffer() const {
+  std::shared_ptr<chipstar::ArgSpillBuffer> getArgSpillBuffer() const {
     return ArgSpillBuffer_;
   };
 };
@@ -1226,24 +1242,26 @@ public:
 /**
  * @brief Compute device class
  */
-class CHIPDevice {
+class Device {
 
   // A bundle for CHIPReinitialize.
   class ModuleState {
-    friend class CHIPDevice;
-    std::unordered_map<const SPVModule *, CHIPModule *> SrcModToCompiledMod_;
-    std::unordered_map<const void *, CHIPModule *> HostPtrToCompiledMod_;
+    friend class Device;
+    std::unordered_map<const SPVModule *, chipstar::Module *>
+        SrcModToCompiledMod_;
+    std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
   };
 
   /// Modules compiled so far.
-  std::unordered_map<const SPVModule *, CHIPModule *> SrcModToCompiledMod_;
+  std::unordered_map<const SPVModule *, chipstar::Module *>
+      SrcModToCompiledMod_;
   /// Host pointer mapping to modules.
-  std::unordered_map<const void *, CHIPModule *> HostPtrToCompiledMod_;
+  std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
 
 protected:
   std::string DeviceName_;
-  CHIPContext *Ctx_;
-  std::vector<CHIPQueue *> ChipQueues_;
+  chipstar::Context *Ctx_;
+  std::vector<chipstar::Queue *> ChipQueues_;
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1254,12 +1272,12 @@ protected:
   size_t MaxMallocSize_ = 0;
 
   /// Maps host-side shadow variables to the corresponding device variables.
-  std::unordered_map<const void *, CHIPDeviceVar *> DeviceVarLookup_;
+  std::unordered_map<const void *, chipstar::DeviceVar *> DeviceVarLookup_;
 
   int Idx_ = -1; // Initialized with a value indicating unset ID.
 
   // only callable from derived classes, because we need to call also init()
-  CHIPDevice(CHIPContext *Ctx, int DeviceIdx);
+  Device(chipstar::Context *Ctx, int DeviceIdx);
   // initializer. may call virtual methods
   void init();
   bool PerThreadStreamUsed_ = false;
@@ -1269,26 +1287,27 @@ public:
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::vector<CHIPQueue *> getQueuesNoLock() { return ChipQueues_; }
+  std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
 
-  CHIPQueue *LegacyDefaultQueue;
-  inline static thread_local std::unique_ptr<CHIPQueue> PerThreadDefaultQueue;
+  chipstar::Queue *LegacyDefaultQueue;
+  inline static thread_local std::unique_ptr<chipstar::Queue>
+      PerThreadDefaultQueue;
 
   /**
    * @brief Get the Legacy Default Queue object.
    *
-   * @return CHIPQueue* default legacy queue
+   * @return Queue* default legacy queue
    */
-  CHIPQueue *getLegacyDefaultQueue();
+  chipstar::Queue *getLegacyDefaultQueue();
   /**
    * @brief Get the Per Thread Default Queue object. If it was not initialized,
    * initialize it and set PerThreadStreamUsed to true
-   * @see CHIPDevice::PerThreadStreamUsed
+   * @see Device::PerThreadStreamUsed
    *
-   * @return CHIPQueue*
+   * @return Queue*
    */
-  CHIPQueue *getPerThreadDefaultQueue();
-  CHIPQueue *getPerThreadDefaultQueueNoLock();
+  chipstar::Queue *getPerThreadDefaultQueue();
+  chipstar::Queue *getPerThreadDefaultQueueNoLock();
 
   bool isPerThreadStreamUsed();
   bool isPerThreadStreamUsedNoLock();
@@ -1299,26 +1318,27 @@ public:
    * was set during compilation, return PerThreadStream, otherwise return legacy
    * stream
    *
-   * @return CHIPQueue*
+   * @return Queue*
    */
-  CHIPQueue *getDefaultQueue();
+  chipstar::Queue *getDefaultQueue();
 
   /**
    * @brief Create a Queue object
    *
    * @param Flags
    * @param Priority
-   * @return CHIPQueue*
+   * @return Queue*
    */
-  CHIPQueue *createQueueAndRegister(CHIPQueueFlags Flags = CHIPQueueFlags(),
-                                    int Priority = DEFAULT_QUEUE_PRIORITY);
+  chipstar::Queue *
+  createQueueAndRegister(chipstar::QueueFlags Flags = chipstar::QueueFlags(),
+                         int Priority = DEFAULT_QUEUE_PRIORITY);
 
-  CHIPQueue *createQueueAndRegister(const uintptr_t *NativeHandles,
-                                    const size_t NumHandles);
+  chipstar::Queue *createQueueAndRegister(const uintptr_t *NativeHandles,
+                                          const size_t NumHandles);
 
-  void removeContext(CHIPContext *Ctx);
-  virtual CHIPContext *createContext() = 0;
-  CHIPContext *createContextAndRegister() {
+  void removeContext(chipstar::Context *Ctx);
+  virtual chipstar::Context *createContext() = 0;
+  chipstar::Context *createContextAndRegister() {
     Ctx_ = createContext();
     return Ctx_;
   }
@@ -1329,20 +1349,20 @@ public:
     return MaxMallocSize_;
   }
 
-  CHIPAllocationTracker *AllocationTracker = nullptr;
+  chipstar::AllocationTracker *AllocTracker = nullptr;
 
-  virtual ~CHIPDevice();
+  virtual ~Device();
 
   /// Return kernel the host-pointer 'Ptr' is associated with, if
   /// found. Otherwise return nullptr.
-  CHIPKernel *findKernel(HostPtr Ptr) {
+  chipstar::Kernel *findKernel(HostPtr Ptr) {
     if (auto *Mod = getOrCreateModule(Ptr))
       return Mod->getKernel(Ptr);
     return nullptr;
   }
 
-  CHIPModule *getOrCreateModule(HostPtr Ptr);
-  CHIPModule *getOrCreateModule(const SPVModule &SrcMod);
+  chipstar::Module *getOrCreateModule(HostPtr Ptr);
+  chipstar::Module *getOrCreateModule(const SPVModule &SrcMod);
 
   /// Return the number of currently compiled modules on this device.
   size_t getNumCompiledModules() const { return SrcModToCompiledMod_.size(); }
@@ -1350,9 +1370,9 @@ public:
   /**
    * @brief Get the Kernels object
    *
-   * @return std::vector<CHIPKernel*>&
+   * @return std::vector<Kernel*>&
    */
-  std::vector<CHIPKernel *> getKernels();
+  std::vector<chipstar::Kernel *> getKernels();
 
   ModuleState getModuleState() const {
     ModuleState State;
@@ -1384,35 +1404,36 @@ public:
   /**
    * @brief Get the context object
    *
-   * @return CHIPContext* pointer to the CHIPContext object this CHIPDevice
+   * @return Context* pointer to the Context object this Device
    * was created with
    */
-  CHIPContext *getContext();
+  chipstar::Context *getContext();
 
   /**
    * @brief Construct an additional queue for this device
    *
    * @param flags
    * @param priority
-   * @return CHIPQueue* pointer to the newly created queue (can also be found
+   * @return Queue* pointer to the newly created queue (can also be found
    * in chip_queues vector)
    */
-  virtual CHIPQueue *createQueue(CHIPQueueFlags Flags, int Priority) = 0;
-  virtual CHIPQueue *createQueue(const uintptr_t *NativeHandles,
-                                 int NumHandles) = 0;
+  virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags,
+                                       int Priority) = 0;
+  virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
+                                       int NumHandles) = 0;
 
   /**
    * @brief Add a queue to this device and the backend
    *
-   * @param chip_queue_  CHIPQueue to be added
+   * @param chip_queue_  chipstar::Queue to be added
    */
-  void addQueue(CHIPQueue *ChipQueue);
+  void addQueue(chipstar::Queue *ChipQueue);
   /**
    * @brief Get the Queues object
    *
-   * @return std::vector<CHIPQueue*>
+   * @return std::vector<chipstar::Queue*>
    */
-  std::vector<CHIPQueue *> &getQueues();
+  std::vector<chipstar::Queue *> &getQueues();
 
   /**
    * @brief Remove a queue from this device's queue vector
@@ -1421,7 +1442,7 @@ public:
    * @return true
    * @return false
    */
-  bool removeQueue(CHIPQueue *ChipQueue);
+  bool removeQueue(chipstar::Queue *ChipQueue);
 
   /**
    * @brief Get the integer ID of this device as it appears in the Backend's
@@ -1518,7 +1539,7 @@ public:
    * @param peerDevice
    * @return int
    */
-  int getPeerAccess(CHIPDevice *PeerDevice);
+  int getPeerAccess(chipstar::Device *PeerDevice);
 
   /**
    * @brief Set access between this and another device
@@ -1528,7 +1549,8 @@ public:
    * @param canAccessPeer
    * @return hipError_t
    */
-  hipError_t setPeerAccess(CHIPDevice *Peer, int Flags, bool CanAccessPeer);
+  hipError_t setPeerAccess(chipstar::Device *Peer, int Flags,
+                           bool CanAccessPeer);
 
   /**
    * @brief Get the total used global memory
@@ -1541,33 +1563,33 @@ public:
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param var host pointer to the variable
-   * @return CHIPDeviceVar* if not found returns nullptr
+   * @return DeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getDynGlobalVar(const void *Var) { return nullptr; }
+  chipstar::DeviceVar *getDynGlobalVar(const void *Var) { return nullptr; }
 
   /**
    * @brief Get the global variable that came from a FatBinary module
    *
    * @param var Pointer to host side shadow variable.
-   * @return CHIPDeviceVar* if not found returns nullptr
+   * @return DeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getStatGlobalVar(const void *Var);
+  chipstar::DeviceVar *getStatGlobalVar(const void *Var);
 
   /**
    * @brief Get the global variable
    *
    * @param var Pointer to host side shadow variable.
-   * @return CHIPDeviceVar* if not found returns nullptr
+   * @return DeviceVar* if not found returns nullptr
    */
-  CHIPDeviceVar *getGlobalVar(const void *Var);
+  chipstar::DeviceVar *getGlobalVar(const void *Var);
 
-  void eraseModule(CHIPModule *Module);
+  void eraseModule(chipstar::Module *Module);
 
-  virtual CHIPTexture *
+  virtual chipstar::Texture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
                 const struct hipResourceViewDesc *ResViewDesc) = 0;
 
-  virtual void destroyTexture(CHIPTexture *TextureObject) = 0;
+  virtual void destroyTexture(chipstar::Texture *TextureObject) = 0;
 
   void prepareDeviceVariables(HostPtr Ptr);
   void invalidateDeviceVariables();
@@ -1580,7 +1602,7 @@ protected:
   virtual void resetImpl() = 0;
 
   /// Compile the source (SPIR-V) to native/backend code.
-  virtual CHIPModule *compile(const SPVModule &Src) = 0;
+  virtual chipstar::Module *compile(const SPVModule &Src) = 0;
 };
 
 /**
@@ -1589,44 +1611,44 @@ protected:
  * multiple devices. Provides for creation of additional queues, events, and
  * interaction with devices.
  */
-class CHIPContext : public ihipCtx_t {
+class Context : public ihipCtx_t {
 protected:
   int RefCount_;
-  CHIPDevice *ChipDevice_;
+  chipstar::Device *ChipDevice_;
   std::vector<void *> AllocatedPtrs_;
 
   unsigned int Flags_;
 
   /**
-   * @brief Construct a new CHIPContext object
+   * @brief Construct a new Context object
    *
    */
-  CHIPContext();
+  Context();
 
 public:
   mutable std::mutex ContextMtx;
 
   /**
-   * @brief Destroy the CHIPContext object
+   * @brief Destroy the Context object
    *
    */
-  virtual ~CHIPContext();
+  virtual ~Context();
 
-  virtual void syncQueues(CHIPQueue *TargetQueue);
+  virtual void syncQueues(chipstar::Queue *TargetQueue);
 
-  void setDevice(CHIPDevice *Device) { ChipDevice_ = Device; }
+  void setDevice(chipstar::Device *Device) { ChipDevice_ = Device; }
 
   /**
    * @brief Get this context's CHIPDevices
    *
-   * @return CHIPDevice *
+   * @return chipstar::Device *
    */
-  CHIPDevice *getDevice();
+  chipstar::Device *getDevice();
 
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * Calls Context::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type) with allignment = 0
    *
    * @param size size of the allocation
@@ -1638,7 +1660,7 @@ public:
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * Calls Context::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type)
    *
    * @param size size of the allocation
@@ -1651,7 +1673,7 @@ public:
   /**
    * @brief Allocate data.
    * Calls reserveMem() to keep track memory used on the device.
-   * Calls CHIPContext::allocate_(size_t size, size_t alignment,
+   * Calls Context::allocate_(size_t size, size_t alignment,
    * hipMemoryType mem_type)
    *
    * @param size size of the allocation
@@ -1661,12 +1683,12 @@ public:
    * @return void* pointer to allocated memory
    */
   void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType,
-                 CHIPHostAllocFlags Flags);
+                 chipstar::HostAllocFlags Flags);
 
   /**
    * @brief Allocate data. Pure virtual function - to be overriden by each
    * backend. This member function is the one that's called by all the
-   * publically visible CHIPContext::allocate() variants
+   * publically visible Context::allocate() variants
    *
    * @param size size of the allocation.
    * @param alignment allocation alignment in bytes
@@ -1675,7 +1697,7 @@ public:
    */
   virtual void *
   allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
-               CHIPHostAllocFlags Flags = CHIPHostAllocFlags()) = 0;
+               chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) = 0;
 
   /**
    * @brief Returns true if the pointer is mapped to virtual memory with
@@ -1691,7 +1713,7 @@ public:
    * @brief Free memory
    *
    * @param ptr pointer to the memory location to be deallocated. Internally
-   * calls CHIPContext::free_()
+   * calls Context::free_()
    * @return true Success
    * @return false Failure
    */
@@ -1731,7 +1753,7 @@ public:
    * @brief Retain this context.
    * TODO: What does it mean to retain a context?
    *
-   * @return CHIPContext*
+   * @return Context*
    */
   void retain() { ++RefCount_; }
 
@@ -1746,23 +1768,23 @@ public:
 /**
  * @brief Primary object to interact with the backend
  */
-class CHIPBackend {
+class Backend {
 protected:
-  CHIPEventMonitor *CallbackEventMonitor_ = nullptr;
-  CHIPEventMonitor *StaleEventMonitor_ = nullptr;
+  chipstar::EventMonitor *CallbackEventMonitor_ = nullptr;
+  chipstar::EventMonitor *StaleEventMonitor_ = nullptr;
 
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
 
-  CHIPContext *ActiveCtx_;
-  CHIPDevice *ActiveDev_;
+  chipstar::Context *ActiveCtx_;
+  chipstar::Device *ActiveDev_;
 
   // Keep hold on the default logger instance to make sure that it is
   // not destructed before the backend finishes uninitialization.
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
-  std::shared_ptr<CHIPEvent> userEventLookup(CHIPEvent *EventPtr) {
+  std::shared_ptr<chipstar::Event> userEventLookup(chipstar::Event *EventPtr) {
     std::lock_guard<std::mutex> Lock(UserEventsMtx);
     for (auto &UserEvent : UserEvents) {
       if (UserEvent.get() == EventPtr) {
@@ -1771,30 +1793,30 @@ public:
     }
     return nullptr;
   }
-  void trackEvent(const std::shared_ptr<CHIPEvent> &Event);
+  void trackEvent(const std::shared_ptr<chipstar::Event> &Event);
 
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
   std::mutex DubiousLockLevel0;
 #endif
 
-  virtual CHIPExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
-                                           size_t SharedMem,
-                                           hipStream_t ChipQueue) = 0;
+  virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
+                                             size_t SharedMem,
+                                             hipStream_t ChipQueue) = 0;
 
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
   std::mutex CallbackQueueMtx;
-  std::vector<std::shared_ptr<CHIPEvent>> Events;
-  std::vector<std::shared_ptr<CHIPEvent>> UserEvents;
+  std::vector<std::shared_ptr<chipstar::Event>> Events;
+  std::vector<std::shared_ptr<chipstar::Event>> UserEvents;
   std::mutex EventsMtx;
   std::mutex UserEventsMtx;
 
-  std::queue<CHIPCallbackData *> CallbackQueue;
+  std::queue<chipstar::CallbackData *> CallbackQueue;
 
-  std::vector<CHIPContext *> ChipContexts;
+  std::vector<chipstar::Context *> ChipContexts;
 
   /**
    * @brief User defined compiler options to pass to the JIT compiler
@@ -1815,7 +1837,7 @@ public:
   /**
    * @brief Get the jit options object
    * return CHIP_JIT_FLAGS if it is set, otherwise return default options as
-   * defined by CHIPBackend<implementation>::getDefaultJitFlags()
+   * defined by Backend<implementation>::getDefaultJitFlags()
    *
    * @return std::string flags to pass to JIT compiler
    */
@@ -1831,18 +1853,18 @@ public:
   //  * @brief
   //  *
   //  */
-  // std::unordered_map<ptr_dev, CHIPModule*> host_f_ptr_to_chipmodule_map;
+  // std::unordered_map<ptr_dev, Module*> host_f_ptr_to_chipmodule_map;
 
   /**
-   * @brief Construct a new CHIPBackend object
+   * @brief Construct a new Backend object
    *
    */
-  CHIPBackend();
+  Backend();
   /**
-   * @brief Destroy the CHIPBackend objectk
+   * @brief Destroy the Backend objectk
    *
    */
-  virtual ~CHIPBackend();
+  virtual ~Backend();
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1890,26 +1912,26 @@ public:
    * @brief Get the Active Context object. Returns the context of the active
    * queue.
    *
-   * @return CHIPContext*
+   * @return Context*
    */
-  CHIPContext *getActiveContext();
+  chipstar::Context *getActiveContext();
   /**
    * @brief Get the Active Device object. Returns the device of the active
    * queue.
    *
-   * @return CHIPDevice*
+   * @return Device*
    */
-  CHIPDevice *getActiveDevice();
+  chipstar::Device *getActiveDevice();
   /**
    * @brief Set the active device. Sets the active queue to this device's
    * first/default/primary queue.
    *
    * @param chip_dev
    */
-  void setActiveContext(CHIPContext *ChipContext);
-  void setActiveDevice(CHIPDevice *ChipDevice);
+  void setActiveContext(chipstar::Context *ChipContext);
+  void setActiveDevice(chipstar::Device *ChipDevice);
 
-  std::vector<CHIPDevice *> getDevices();
+  std::vector<chipstar::Device *> getDevices();
   /**
    * @brief Get the Num Devices object
    *
@@ -1921,8 +1943,8 @@ public:
    *
    * @param ctx_in
    */
-  void addContext(CHIPContext *ChipContext);
-  void removeContext(CHIPContext *ChipContext);
+  void addContext(chipstar::Context *ChipContext);
+  void removeContext(chipstar::Context *ChipContext);
 
   /**
    * @brief Configure an upcoming kernel call
@@ -1940,62 +1962,64 @@ public:
    * @brief Return a device which meets or exceeds the requirements
    *
    * @param props
-   * @return CHIPDevice*
+   * @return Device*
    */
-  CHIPDevice *findDeviceMatchingProps(const hipDeviceProp_t *Props);
+  chipstar::Device *findDeviceMatchingProps(const hipDeviceProp_t *Props);
 
   /**
    * @brief Find a given queue in this backend.
    *
    * @param q queue to find
-   * @return CHIPQueue* return queue or nullptr if not found
+   * @return Queue* return queue or nullptr if not found
    */
-  CHIPQueue *findQueue(CHIPQueue *ChipQueue);
+  chipstar::Queue *findQueue(chipstar::Queue *ChipQueue);
 
   /**
-   * @brief Add a CHIPModule to every initialized device
+   * @brief Add a chipstar::Module to every initialized device
    *
-   * @param chip_module pointer to CHIPModule object
+   * @param chip_module pointer to chipstar::Module object
    * @return hipError_t
    */
-  // CHIPModule* addModule(std::string* module_src);
+  // Module* addModule(std::string* module_src);
   /**
    * @brief Remove this module from every device
    *
    * @param chip_module pointer to the module which is to be removed
    * @return hipError_t
    */
-  // hipError_t removeModule(CHIPModule* chip_module);
+  // hipError_t removeModule(Module* chip_module);
 
   /************Factories***************/
 
-  virtual CHIPQueue *createCHIPQueue(CHIPDevice *ChipDev) = 0;
+  virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) = 0;
 
   /**
-   * @brief Create an Event, adding it to the Backend Event list.
+   * @brief Create an chipstar::Event, adding it to the Backend chipstar::Event
+   * list.
    *
    * @param ChipCtx Context in which to create the event in
    * @param Flags Events falgs
    * @param UserEvent Is this a user event? If so, increase refcount to 2 to
    * prevent it from being garbage collected.
-   * @return CHIPEvent* Event
+   * @return chipstar::Event* chipstar::Event
    */
-  virtual std::shared_ptr<CHIPEvent>
-  createCHIPEvent(CHIPContext *ChipCtx, CHIPEventFlags Flags = CHIPEventFlags(),
+  virtual std::shared_ptr<chipstar::Event>
+  createCHIPEvent(chipstar::Context *ChipCtx,
+                  chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) = 0;
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived
-   * CHIPCallbackData constructor.
-   * @return CHIPCallbackData* pointer to newly allocated CHIPCallbackData
-   * object.
+   * chipstar::CallbackData constructor.
+   * @return chipstar::CallbackData* pointer to newly allocated
+   * chipstar::CallbackData object.
    */
-  virtual CHIPCallbackData *createCallbackData(hipStreamCallback_t Callback,
-                                               void *UserData,
-                                               CHIPQueue *ChipQ) = 0;
+  virtual chipstar::CallbackData *
+  createCallbackData(hipStreamCallback_t Callback, void *UserData,
+                     chipstar::Queue *ChipQ) = 0;
 
-  virtual CHIPEventMonitor *createCallbackEventMonitor_() = 0;
-  virtual CHIPEventMonitor *createStaleEventMonitor_() = 0;
+  virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
+  virtual chipstar::EventMonitor *createStaleEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
@@ -2005,7 +2029,7 @@ public:
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class CHIPQueue : public ihipStream_t {
+class Queue : public ihipStream_t {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
@@ -2021,25 +2045,26 @@ protected:
    */
   const int MaxPriority = 0;
   int MinPriority;
-  CHIPQueueFlags QueueFlags_;
+  chipstar::QueueFlags QueueFlags_;
   /// Device on which this queue will execute
-  CHIPDevice *ChipDevice_;
+  chipstar::Device *ChipDevice_;
   /// Context to which device belongs to
-  CHIPContext *ChipContext_;
+  chipstar::Context *ChipContext_;
 
   /** Keep track of what was the last event submitted to this queue. Required
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  std::shared_ptr<CHIPEvent> LastEvent_ = nullptr;
+  std::shared_ptr<chipstar::Event> LastEvent_ = nullptr;
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
-  std::shared_ptr<CHIPEvent> RegisteredVarCopy(CHIPExecItem *ExecItem,
-                                               MANAGED_MEM_STATE ExecState);
+  std::shared_ptr<chipstar::Event>
+  RegisteredVarCopy(chipstar::ExecItem *ExecItem, MANAGED_MEM_STATE ExecState);
 
 public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
-  virtual void MemMap(const AllocationInfo *AllocInfo, MEM_MAP_TYPE MapType) {}
-  virtual void MemUnmap(const AllocationInfo *AllocInfo) {}
+  virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
+                      MEM_MAP_TYPE MapType) {}
+  virtual void MemUnmap(const chipstar::AllocationInfo *AllocInfo) {}
 
   /**
    * @brief Check the stream to see if it's in capture mode and if so, capture.
@@ -2075,43 +2100,42 @@ public:
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {
     CaptureMode_ = CaptureMode;
   }
-  CHIPGraph *getCaptureGraph() const {
-    return static_cast<CHIPGraph *>(CaptureGraph_);
-  }
+  CHIPGraph *getCaptureGraph() const;
 
-  CHIPDevice *PerThreadQueueForDevice = nullptr;
+  chipstar::Device *PerThreadQueueForDevice = nullptr;
 
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
-  virtual std::shared_ptr<CHIPEvent> getLastEvent() {
-    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+  virtual std::shared_ptr<chipstar::Event> getLastEvent() {
+    LOCK(LastEventMtx); // Queue::LastEvent_
     return LastEvent_;
   }
 
   /**
-   * @brief Construct a new CHIPQueue object
+   * @brief Construct a new Queue object
    *
    * @param chip_dev
    * @param flags
    */
-  CHIPQueue(CHIPDevice *ChipDev, CHIPQueueFlags Flags);
+  Queue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags);
   /**
-   * @brief Construct a new CHIPQueue object
+   * @brief Construct a new Queue object
    *
    * @param chip_dev
    * @param flags
    * @param priority
    */
-  CHIPQueue(CHIPDevice *ChipDev, CHIPQueueFlags Flags, int Priority);
+  Queue(chipstar::Device *ChipDev, chipstar::QueueFlags Flags, int Priority);
   /**
-   * @brief Destroy the CHIPQueue object
+   * @brief Destroy the Queue object
    *
    */
-  virtual ~CHIPQueue();
+  virtual ~Queue();
 
-  CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(const std::shared_ptr<CHIPEvent> &NewEvent) {
+  chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
+  virtual void
+  updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_.get(), (void *)NewEvent.get());
@@ -2139,7 +2163,7 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
 
@@ -2162,9 +2186,9 @@ public:
    * @param pattern
    * @param pattern_size
    */
-  virtual std::shared_ptr<CHIPEvent> memFillAsyncImpl(void *Dst, size_t Size,
-                                                      const void *Pattern,
-                                                      size_t PatternSize) = 0;
+  virtual std::shared_ptr<chipstar::Event>
+  memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
+                   size_t PatternSize) = 0;
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
 
@@ -2172,7 +2196,7 @@ public:
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
                          size_t SPitch, size_t Width, size_t Height);
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopy2DAsyncImpl(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
                      size_t Width, size_t Height) = 0;
   virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
@@ -2183,7 +2207,7 @@ public:
                          const void *Src, size_t SPitch, size_t SSPitch,
                          size_t Width, size_t Height, size_t Depth);
 
-  virtual std::shared_ptr<CHIPEvent>
+  virtual std::shared_ptr<chipstar::Event>
   memCopy3DAsyncImpl(void *Dst, size_t DPitch, size_t DSPitch, const void *Src,
                      size_t SPitch, size_t SSPitch, size_t Width, size_t Height,
                      size_t Depth) = 0;
@@ -2192,22 +2216,23 @@ public:
                               size_t Width, size_t Height, size_t Depth);
 
   /**
-   * @brief Submit a CHIPExecItem to this queue for execution. CHIPExecItem
+   * @brief Submit a chipstar::ExecItem to this queue for execution. ExecItem
    * needs to be complete - contain the kernel and arguments
    *
    * @param exec_item
    * @return hipError_t
    */
-  virtual std::shared_ptr<CHIPEvent> launchImpl(CHIPExecItem *ExecItem) = 0;
-  virtual void launch(CHIPExecItem *ExecItem);
+  virtual std::shared_ptr<chipstar::Event>
+  launchImpl(chipstar::ExecItem *ExecItem) = 0;
+  virtual void launch(chipstar::ExecItem *ExecItem);
 
   /**
    * @brief Get the Device obj
    *
-   * @return CHIPDevice*
+   * @return Device*
    */
 
-  CHIPDevice *getDevice();
+  chipstar::Device *getDevice();
   /**
    * @brief Wait for this queue to finish.
    *
@@ -2239,13 +2264,13 @@ public:
    * @return true
    * @return false
    */
-  virtual std::shared_ptr<CHIPEvent> enqueueBarrierImpl(
-      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor) = 0;
-  virtual std::shared_ptr<CHIPEvent> enqueueBarrier(
-      const std::vector<std::shared_ptr<CHIPEvent>> &EventsToWaitFor);
+  virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) = 0;
+  virtual std::shared_ptr<chipstar::Event> enqueueBarrier(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
 
-  virtual std::shared_ptr<CHIPEvent> enqueueMarkerImpl() = 0;
-  std::shared_ptr<CHIPEvent> enqueueMarker();
+  virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() = 0;
+  std::shared_ptr<chipstar::Event> enqueueMarker();
 
   /**
    * @brief Get the Flags object with which this queue was created.
@@ -2253,7 +2278,7 @@ public:
    * @return unsigned int
    */
 
-  CHIPQueueFlags getFlags();
+  chipstar::QueueFlags getFlags();
   /**
    * @brief Get the Priority object with which this queue was created.
    *
@@ -2281,8 +2306,8 @@ public:
    * @return false
    */
 
-  virtual std::shared_ptr<CHIPEvent> memPrefetchImpl(const void *Ptr,
-                                                     size_t Count) = 0;
+  virtual std::shared_ptr<chipstar::Event> memPrefetchImpl(const void *Ptr,
+                                                           size_t Count) = 0;
   void memPrefetch(const void *Ptr, size_t Count);
 
   /**
@@ -2294,8 +2319,8 @@ public:
    * @param args
    * @param sharedMemBytes
    */
-  void launchKernel(CHIPKernel *ChipKernel, dim3 NumBlocks, dim3 DimBlocks,
-                    void **Args, size_t SharedMemBytes);
+  void launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
+                    dim3 DimBlocks, void **Args, size_t SharedMemBytes);
 
   /**
    * @brief returns Native backend handles for a stream
@@ -2310,8 +2335,14 @@ public:
   virtual hipError_t getBackendHandles(uintptr_t *NativeHandles,
                                        int *NumHandles) = 0;
 
-  CHIPContext *getContext() { return ChipContext_; }
-  void setFlags(CHIPQueueFlags TheFlags) { QueueFlags_ = TheFlags; }
+  chipstar::Context *getContext() { return ChipContext_; }
+  void setFlags(chipstar::QueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
+
+} // namespace chipstar
+
+inline chipstar::Context *PrimaryContext = nullptr;
+inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
 
 #endif
