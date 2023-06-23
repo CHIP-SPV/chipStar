@@ -57,7 +57,7 @@
 // class CHIPGraphNode;
 
 namespace chipstar {
-    class Backend;
+class Backend;
 }
 
 #include "CHIPBackend.hh"
@@ -102,7 +102,6 @@ void CHIPUninitializeCallOnce();
 
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles);
-
 
 const char *CHIPGetBackendName();
 

@@ -41,8 +41,8 @@
 #include <queue>
 #include <stack>
 
-/// The implementation of ihipEvent_t. The chipstar::Event class inherits this so
-/// ihipEvent_t pointers may carry chipstar::Event instances.
+/// The implementation of ihipEvent_t. The chipstar::Event class inherits this
+/// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t {};
 struct ihipCtx_t {};
 struct ihipStream_t {};

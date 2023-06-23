@@ -228,8 +228,8 @@ public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags,
                   int Priority);
-  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags, int Priority,
-                  LevelZeroQueueType TheQueueType);
+  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags,
+                  int Priority, LevelZeroQueueType TheQueueType);
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   virtual ~CHIPQueueLevel0() override;
@@ -278,10 +278,11 @@ public:
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
 
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
-      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) override;
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
+      override;
 
-  virtual std::shared_ptr<chipstar::Event> memPrefetchImpl(const void *Ptr,
-                                                     size_t Count) override {
+  virtual std::shared_ptr<chipstar::Event>
+  memPrefetchImpl(const void *Ptr, size_t Count) override {
     UNIMPLEMENTED(nullptr);
   }
 
@@ -328,8 +329,9 @@ public:
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   virtual ~CHIPContextLevel0() override;
 
-  void *allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemTy,
-                     chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
+  void *allocateImpl(
+      size_t Size, size_t Alignment, hipMemoryType MemTy,
+      chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
 
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   void freeImpl(void *Ptr) override;
@@ -363,7 +365,7 @@ public:
    *
    * @param chip_dev device for which to compile this module for
    */
-  virtual void compile(chipstar::Device  *ChipDev) override;
+  virtual void compile(chipstar::Device *ChipDev) override;
   /**
    * @brief return the raw module handle
    *
@@ -442,7 +444,7 @@ public:
   }
 };
 
-class CHIPDeviceLevel0 : public chipstar::Device  {
+class CHIPDeviceLevel0 : public chipstar::Device {
   ze_device_handle_t ZeDev_;
   ze_context_handle_t ZeCtx_;
 
@@ -503,9 +505,10 @@ public:
 
   virtual void resetImpl() override;
 
-  virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags, int Priority) override;
+  virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags,
+                                       int Priority) override;
   virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
-                                 int NumHandles) override;
+                                       int NumHandles) override;
 
   ze_device_properties_t *getDeviceProps() { return &(this->ZeDeviceProps_); };
   bool hasOnDemandPaging() const {
@@ -533,8 +536,8 @@ class CHIPBackendLevel0 : public chipstar::Backend {
 
 public:
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
-                                           size_t SharedMem,
-                                           hipStream_t ChipQueue) override;
+                                             size_t SharedMem,
+                                             hipStream_t ChipQueue) override;
 
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
@@ -552,7 +555,7 @@ public:
 
   virtual int ReqNumHandles() override { return 4; }
 
-  virtual chipstar::Queue *createCHIPQueue(chipstar::Device  *ChipDev) override {
+  virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
     auto Q = new CHIPQueueLevel0(ChipDevLz);
 
@@ -592,12 +595,13 @@ public:
   }
 
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(chipstar::Context * ChipCtx, chipstar::EventFlags Flags = chipstar::EventFlags(),
+  createCHIPEvent(chipstar::Context *ChipCtx,
+                  chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
 
-  virtual chipstar::CallbackData *createCallbackData(hipStreamCallback_t Callback,
-                                               void *UserData,
-                                               chipstar::Queue *ChipQueue) override {
+  virtual chipstar::CallbackData *
+  createCallbackData(hipStreamCallback_t Callback, void *UserData,
+                     chipstar::Queue *ChipQueue) override {
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 

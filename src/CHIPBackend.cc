@@ -23,9 +23,9 @@
 #include "CHIPBackend.hh"
 
 /// Queue a kernel for retrieving information about the device variable.
-static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K, void *Args[] = nullptr,
-                        dim3 GridDim = dim3(1), dim3 BlockDim = dim3(1),
-                        size_t SharedMemSize = 0) {
+static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
+                        void *Args[] = nullptr, dim3 GridDim = dim3(1),
+                        dim3 BlockDim = dim3(1), size_t SharedMemSize = 0) {
   assert(Q);
   assert(K);
   // FIXME: Should construct backend specific exec item or make the exec
@@ -39,9 +39,9 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K, void *Args[] = 
 
   auto ChipQueue = EI->getQueue();
   if (!ChipQueue)
-    CHIPERR_LOG_AND_THROW(
-        "Tried to launch kernel for an chipstar::ExecItem which has a null queue",
-        hipErrorTbd);
+    CHIPERR_LOG_AND_THROW("Tried to launch kernel for an chipstar::ExecItem "
+                          "which has a null queue",
+                          hipErrorTbd);
 
   ChipQueue->launch(EI);
   delete EI;
@@ -49,8 +49,9 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K, void *Args[] = 
 
 /// Queue a shadow kernel for binding a device variable (a pointer) to
 /// the given allocation.
-static void queueVariableInfoShadowKernel(chipstar::Queue *Q, chipstar::Module *M,
-                                          const chipstar::DeviceVar*Var,
+static void queueVariableInfoShadowKernel(chipstar::Queue *Q,
+                                          chipstar::Module *M,
+                                          const chipstar::DeviceVar *Var,
                                           void *InfoBuffer) {
   assert(M && Var && InfoBuffer);
   auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) +
@@ -60,8 +61,9 @@ static void queueVariableInfoShadowKernel(chipstar::Queue *Q, chipstar::Module *
   queueKernel(Q, K, Args);
 }
 
-static void queueVariableBindShadowKernel(chipstar::Queue *Q, chipstar::Module *M,
-                                          const chipstar::DeviceVar*Var) {
+static void queueVariableBindShadowKernel(chipstar::Queue *Q,
+                                          chipstar::Module *M,
+                                          const chipstar::DeviceVar *Var) {
   assert(M && Var);
   auto *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Space has not be allocated for a variable.");
@@ -72,8 +74,9 @@ static void queueVariableBindShadowKernel(chipstar::Queue *Q, chipstar::Module *
   queueKernel(Q, K, Args);
 }
 
-static void queueVariableInitShadowKernel(chipstar::Queue *Q, chipstar::Module *M,
-                                          const chipstar::DeviceVar*Var) {
+static void queueVariableInitShadowKernel(chipstar::Queue *Q,
+                                          chipstar::Module *M,
+                                          const chipstar::DeviceVar *Var) {
   assert(M && Var);
   auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
                                std::string(Var->getName()));
@@ -82,8 +85,8 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q, chipstar::Module *
 }
 
 chipstar::CallbackData::CallbackData(hipStreamCallback_t TheCallbackF,
-                                   void *TheCallbackArgs,
-                                   chipstar::Queue *TheChipQueue)
+                                     void *TheCallbackArgs,
+                                     chipstar::Queue *TheChipQueue)
     : ChipQueue(TheChipQueue), CallbackArgs(TheCallbackArgs),
       CallbackF(TheCallbackF) {}
 
@@ -98,7 +101,7 @@ chipstar::DeviceVar::~DeviceVar() { assert(!DevAddr_ && "Memory leak?"); }
 // chipstar::AllocTracker
 // ************************************************************************
 chipstar::AllocationTracker::AllocationTracker(size_t GlobalMemSize,
-                                             std::string Name)
+                                               std::string Name)
     : GlobalMemSize(GlobalMemSize), TotalMemSize(0), MaxMemUsed(0) {
   Name_ = Name;
 }
@@ -108,7 +111,8 @@ chipstar::AllocationTracker::~AllocationTracker() {
     delete Member;
 }
 
-chipstar::AllocationInfo *chipstar::AllocationTracker::getAllocInfo(const void *Ptr) {
+chipstar::AllocationInfo *
+chipstar::AllocationTracker::getAllocInfo(const void *Ptr) {
   {
     LOCK( // chipstar::AllocTracker::PtrToAllocInfo_
         AllocationTrackerMtx);
@@ -150,10 +154,9 @@ bool chipstar::AllocationTracker::releaseMemReservation(unsigned long Bytes) {
   return false;
 }
 
-void chipstar::AllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
-                                             hipDevice_t Device, size_t Size,
-                                             chipstar::HostAllocFlags Flags,
-                                             hipMemoryType MemoryType) {
+void chipstar::AllocationTracker::recordAllocation(
+    void *DevPtr, void *HostPtr, hipDevice_t Device, size_t Size,
+    chipstar::HostAllocFlags Flags, hipMemoryType MemoryType) {
   chipstar::AllocationInfo *AllocInfo = new chipstar::AllocationInfo{
       DevPtr, HostPtr, Size, Flags, Device, false, MemoryType};
   LOCK(AllocationTrackerMtx); // writing chipstar::AllocTracker::PtrToAllocInfo_
@@ -181,9 +184,9 @@ void chipstar::AllocationTracker::recordAllocation(void *DevPtr, void *HostPtr,
     PtrToAllocInfo_[HostPtr] = AllocInfo;
   }
 
-  logDebug(
-      "chipstar::AllocationTracker::recordAllocation size: {} HOST {} DEV {} TYPE {}",
-      Size, HostPtr, DevPtr, (unsigned)MemoryType);
+  logDebug("chipstar::AllocationTracker::recordAllocation size: {} HOST {} DEV "
+           "{} TYPE {}",
+           Size, HostPtr, DevPtr, (unsigned)MemoryType);
   return;
 }
 
@@ -205,7 +208,7 @@ chipstar::AllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
 // chipstar::Event
 // ************************************************************************
 
-chipstar::Event::Event(chipstar::Context * Ctx, chipstar::EventFlags Flags)
+chipstar::Event::Event(chipstar::Context *Ctx, chipstar::EventFlags Flags)
     : EventStatus_(EVENT_STATUS_INIT), Flags_(Flags), ChipContext_(Ctx),
       Msg("") {}
 
@@ -243,7 +246,7 @@ void chipstar::Module::addKernel(chipstar::Kernel *Kernel) {
   ChipKernels_.push_back(Kernel);
 }
 
-void chipstar::Module::compileOnce(chipstar::Device  *ChipDevice) {
+void chipstar::Module::compileOnce(chipstar::Device *ChipDevice) {
   std::call_once(Compiled_, &chipstar::Module::compile, this, ChipDevice);
 }
 
@@ -282,11 +285,13 @@ chipstar::Kernel *chipstar::Module::getKernel(const void *HostFPtr) {
   return *KernelFound;
 }
 
-std::vector<chipstar::Kernel *> &chipstar::Module::getKernels() { return ChipKernels_; }
+std::vector<chipstar::Kernel *> &chipstar::Module::getKernels() {
+  return ChipKernels_;
+}
 
-chipstar::DeviceVar*chipstar::Module::getGlobalVar(const char *VarName) {
+chipstar::DeviceVar *chipstar::Module::getGlobalVar(const char *VarName) {
   auto VarFound = std::find_if(ChipVars_.begin(), ChipVars_.end(),
-                               [VarName](chipstar::DeviceVar*Var) {
+                               [VarName](chipstar::DeviceVar *Var) {
                                  return Var->getName().compare(VarName) == 0;
                                });
   if (VarFound == ChipVars_.end()) {
@@ -298,8 +303,9 @@ chipstar::DeviceVar*chipstar::Module::getGlobalVar(const char *VarName) {
   return *VarFound;
 }
 
-hipError_t chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device  *Device,
-                                                     chipstar::Queue *Queue) {
+hipError_t
+chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
+                                                chipstar::Queue *Queue) {
   // Mark as allocated if the module does not have any variables.
   DeviceVariablesAllocated_ |= ChipVars_.empty();
 
@@ -319,7 +325,7 @@ hipError_t chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device  *De
   auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(ChipVars_.size());
 
   // Gather information for storage allocation.
-  std::vector<std::pair<chipstar::DeviceVar*, CHIPVarInfo *>> VarInfos;
+  std::vector<std::pair<chipstar::DeviceVar *, CHIPVarInfo *>> VarInfos;
   for (auto *Var : ChipVars_) {
     auto I = VarInfos.size();
     queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
@@ -351,8 +357,8 @@ hipError_t chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device  *De
   return hipSuccess;
 }
 
-void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device  *Device,
-                                              chipstar::Queue *Queue) {
+void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
+                                                    chipstar::Queue *Queue) {
   auto Err = allocateDeviceVariablesNoLock(Device, Queue);
   (void)Err;
 
@@ -392,7 +398,8 @@ void chipstar::Module::invalidateDeviceVariablesNoLock() {
   DeviceVariablesInitialized_ = false;
 }
 
-void chipstar::Module::deallocateDeviceVariablesNoLock(chipstar::Device  *Device) {
+void chipstar::Module::deallocateDeviceVariablesNoLock(
+    chipstar::Device *Device) {
   invalidateDeviceVariablesNoLock();
   for (auto *Var : ChipVars_) {
     auto Err = Device->getContext()->free(Var->getDevAddr());
@@ -417,16 +424,21 @@ const void *chipstar::Kernel::getDevPtr() { return DevFPtr_; }
 
 SPVFuncInfo *chipstar::Kernel::getFuncInfo() { return FuncInfo_; }
 
-void chipstar::Kernel::setName(std::string HostFName) { HostFName_ = HostFName; }
-void chipstar::Kernel::setHostPtr(const void *HostFPtr) { HostFPtr_ = HostFPtr; }
+void chipstar::Kernel::setName(std::string HostFName) {
+  HostFName_ = HostFName;
+}
+void chipstar::Kernel::setHostPtr(const void *HostFPtr) {
+  HostFPtr_ = HostFPtr;
+}
 void chipstar::Kernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 
-// chipstar::ArgSpillBuffer 
+// chipstar::ArgSpillBuffer
 //*****************************************************************************
 
-chipstar::ArgSpillBuffer::~ArgSpillBuffer () { (void)Ctx_->free(DeviceBuffer_); }
+chipstar::ArgSpillBuffer::~ArgSpillBuffer() { (void)Ctx_->free(DeviceBuffer_); }
 
-void chipstar::ArgSpillBuffer::computeAndReserveSpace(const SPVFuncInfo &KernelInfo) {
+void chipstar::ArgSpillBuffer::computeAndReserveSpace(
+    const SPVFuncInfo &KernelInfo) {
   size_t Offset = 0;
   size_t MaxAlignment = 1;
   auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
@@ -468,7 +480,7 @@ void chipstar::ExecItem::copyArgs(void **Args) {
 }
 
 chipstar::ExecItem::ExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
-                           hipStream_t ChipQueue)
+                             hipStream_t ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
       ChipQueue_(static_cast<chipstar::Queue *>(ChipQueue)){};
 
@@ -478,7 +490,7 @@ size_t chipstar::ExecItem::getSharedMem() { return SharedMem_; }
 chipstar::Queue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
 // Device
 //*************************************************************************************
-chipstar::Device::Device(chipstar::Context * Ctx, int DeviceIdx)
+chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
   PerThreadDefaultQueue = nullptr;
@@ -497,7 +509,9 @@ chipstar::Device::~Device() {
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
 }
-chipstar::Queue *chipstar::Device::getLegacyDefaultQueue() { return LegacyDefaultQueue; }
+chipstar::Queue *chipstar::Device::getLegacyDefaultQueue() {
+  return LegacyDefaultQueue;
+}
 
 chipstar::Queue *chipstar::Device::getDefaultQueue() {
 #ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -512,7 +526,9 @@ bool chipstar::Device::isPerThreadStreamUsed() {
   return PerThreadStreamUsed_;
 }
 
-bool chipstar::Device::isPerThreadStreamUsedNoLock() { return PerThreadStreamUsed_; }
+bool chipstar::Device::isPerThreadStreamUsedNoLock() {
+  return PerThreadStreamUsed_;
+}
 
 void chipstar::Device::setPerThreadStreamUsed(bool Status) {
   LOCK(DeviceMtx); // chipstar::Device::PerThreadStreamUsed
@@ -545,12 +561,14 @@ std::vector<chipstar::Kernel *> chipstar::Device::getKernels() {
   return ChipKernels;
 }
 
-std::string chipstar::Device::getName() { return std::string(HipDeviceProps_.name); }
+std::string chipstar::Device::getName() {
+  return std::string(HipDeviceProps_.name);
+}
 
 void chipstar::Device::init() {
   LOCK(DeviceMtx) // chipstar::Device::LegacyDefaultQueue
-  std::call_once(PropsPopulated_, &chipstar::Device::populateDevicePropertiesImpl,
-                 this);
+  std::call_once(PropsPopulated_,
+                 &chipstar::Device::populateDevicePropertiesImpl, this);
   if (!AllocTracker)
     AllocTracker = new chipstar::AllocationTracker(
         HipDeviceProps_.totalGlobalMem, HipDeviceProps_.name);
@@ -566,10 +584,10 @@ void chipstar::Device::copyDeviceProperties(hipDeviceProp_t *Prop) {
     std::memcpy(Prop, &this->HipDeviceProps_, sizeof(hipDeviceProp_t));
 }
 
-chipstar::Context * chipstar::Device::getContext() { return Ctx_; }
+chipstar::Context *chipstar::Device::getContext() { return Ctx_; }
 int chipstar::Device::getDeviceId() { return Idx_; }
 
-chipstar::DeviceVar*chipstar::Device::getStatGlobalVar(const void *HostPtr) {
+chipstar::DeviceVar *chipstar::Device::getStatGlobalVar(const void *HostPtr) {
   if (DeviceVarLookup_.count(HostPtr)) {
     auto *Var = DeviceVarLookup_[HostPtr];
     assert(Var->getDevAddr() && "Missing device pointer.");
@@ -578,7 +596,7 @@ chipstar::DeviceVar*chipstar::Device::getStatGlobalVar(const void *HostPtr) {
   return nullptr;
 }
 
-chipstar::DeviceVar* chipstar::Device::getGlobalVar(const void *HostPtr) {
+chipstar::DeviceVar *chipstar::Device::getGlobalVar(const void *HostPtr) {
   if (auto *Found = getDynGlobalVar(HostPtr))
     return Found;
 
@@ -773,7 +791,9 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) {
   return -1;
 }
 
-size_t chipstar::Device::getGlobalMemSize() { return HipDeviceProps_.totalGlobalMem; }
+size_t chipstar::Device::getGlobalMemSize() {
+  return HipDeviceProps_.totalGlobalMem;
+}
 
 void chipstar::Device::eraseModule(chipstar::Module *Module) {
   LOCK(DeviceMtx); // SrcModToCompiledMod_
@@ -804,8 +824,9 @@ void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
   return;
 }
 
-chipstar::Queue *chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
-                                              int Priority) {
+chipstar::Queue *
+chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
+                                         int Priority) {
 
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
@@ -813,8 +834,9 @@ chipstar::Queue *chipstar::Device::createQueueAndRegister(chipstar::QueueFlags F
   return ChipQueue;
 }
 
-chipstar::Queue *chipstar::Device::createQueueAndRegister(const uintptr_t *NativeHandles,
-                                              const size_t NumHandles) {
+chipstar::Queue *
+chipstar::Device::createQueueAndRegister(const uintptr_t *NativeHandles,
+                                         const size_t NumHandles) {
   auto ChipQueue = createQueue(NativeHandles, NumHandles);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
@@ -826,16 +848,19 @@ std::vector<chipstar::Queue *> &chipstar::Device::getQueues() {
   return ChipQueues_;
 }
 
-hipError_t chipstar::Device::setPeerAccess(chipstar::Device  *Peer, int Flags,
-                                     bool CanAccessPeer) {
+hipError_t chipstar::Device::setPeerAccess(chipstar::Device *Peer, int Flags,
+                                           bool CanAccessPeer) {
   UNIMPLEMENTED(hipSuccess);
 }
 
-int chipstar::Device::getPeerAccess(chipstar::Device  *PeerDevice) { UNIMPLEMENTED(0); }
+int chipstar::Device::getPeerAccess(chipstar::Device *PeerDevice) {
+  UNIMPLEMENTED(0);
+}
 
 void chipstar::Device::setCacheConfig(hipFuncCache_t Cfg) { UNIMPLEMENTED(); }
 
-void chipstar::Device::setFuncCacheConfig(const void *Func, hipFuncCache_t Cfg) {
+void chipstar::Device::setFuncCacheConfig(const void *Func,
+                                          hipFuncCache_t Cfg) {
   UNIMPLEMENTED();
 }
 
@@ -847,7 +872,7 @@ hipSharedMemConfig chipstar::Device::getSharedMemConfig() {
   UNIMPLEMENTED(hipSharedMemBankSizeDefault);
 }
 
-void chipstar::Device::removeContext(chipstar::Context * Context) {}
+void chipstar::Device::removeContext(chipstar::Context *Context) {}
 
 bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
   /**
@@ -876,13 +901,16 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
   return true;
 }
 
-void chipstar::Device::setSharedMemConfig(hipSharedMemConfig Cfg) { UNIMPLEMENTED(); }
+void chipstar::Device::setSharedMemConfig(hipSharedMemConfig Cfg) {
+  UNIMPLEMENTED();
+}
 
 size_t chipstar::Device::getUsedGlobalMem() {
   return AllocTracker->TotalMemSize;
 }
 
-bool chipstar::Device::hasPCIBusId(int PciDomainID, int PciBusID, int PciDeviceID) {
+bool chipstar::Device::hasPCIBusId(int PciDomainID, int PciBusID,
+                                   int PciDeviceID) {
   auto T1 = this->HipDeviceProps_.pciBusID == PciBusID;
   auto T2 = this->HipDeviceProps_.pciDomainID == PciDomainID;
   auto T3 = this->HipDeviceProps_.pciDeviceID == PciDeviceID;
@@ -1069,7 +1097,7 @@ void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
   ::Backend->trackEvent(SyncQueuesEvent);
 }
 
-chipstar::Device  *chipstar::Context::getDevice() {
+chipstar::Device *chipstar::Context::getDevice() {
   assert(this->ChipDevice_);
   return ChipDevice_;
 }
@@ -1079,15 +1107,16 @@ void *chipstar::Context::allocate(size_t Size, hipMemoryType MemType) {
 }
 
 void *chipstar::Context::allocate(size_t Size, size_t Alignment,
-                            hipMemoryType MemType) {
+                                  hipMemoryType MemType) {
   return allocate(Size, Alignment, MemType, chipstar::HostAllocFlags());
 }
 
 void *chipstar::Context::allocate(size_t Size, size_t Alignment,
-                            hipMemoryType MemType, chipstar::HostAllocFlags Flags) {
+                                  hipMemoryType MemType,
+                                  chipstar::HostAllocFlags Flags) {
   void *AllocatedPtr, *HostPtr = nullptr;
   // TOOD hipCtx - use the device with which this context is associated
-  chipstar::Device  *ChipDev = ::Backend->getActiveDevice();
+  chipstar::Device *ChipDev = ::Backend->getActiveDevice();
   if (!Flags.isDefault()) {
     if (Flags.isMapped())
       MemType = hipMemoryType::hipMemoryTypeHost;
@@ -1114,7 +1143,8 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
   }
   assert(ChipDev->getContext() == this);
 
-  assert(ChipDev->AllocTracker && "chipstar::AllocationTracker was not created!");
+  assert(ChipDev->AllocTracker &&
+         "chipstar::AllocationTracker was not created!");
   if (!ChipDev->AllocTracker->reserveMem(Size))
     return nullptr;
   AllocatedPtr = allocateImpl(Size, Alignment, MemType);
@@ -1139,16 +1169,16 @@ void chipstar::Context::reset() {
 
   auto Dev = getDevice();
   // Free all the memory reservations on each device
-  Dev->AllocTracker->releaseMemReservation(
-      Dev->AllocTracker->TotalMemSize);
+  Dev->AllocTracker->releaseMemReservation(Dev->AllocTracker->TotalMemSize);
   AllocatedPtrs_.clear();
 
   getDevice()->reset();
 }
 
 hipError_t chipstar::Context::free(void *Ptr) {
-  chipstar::Device  *ChipDev = ::Backend->getActiveDevice();
-  chipstar::AllocationInfo *AllocInfo = ChipDev->AllocTracker->getAllocInfo(Ptr);
+  chipstar::Device *ChipDev = ::Backend->getActiveDevice();
+  chipstar::AllocationInfo *AllocInfo =
+      ChipDev->AllocTracker->getAllocInfo(Ptr);
   if (!AllocInfo)
     // HIP API doc says we should return hipErrorInvalidDevicePointer but HIP
     // test suite excepts hipErrorInvalidValue. Go with the latter.
@@ -1163,7 +1193,8 @@ hipError_t chipstar::Context::free(void *Ptr) {
 // Backend
 //*************************************************************************************
 int chipstar::Backend::getPerThreadQueuesActive() {
-  LOCK(::Backend->BackendMtx); // Prevent adding/removing devices while iterating
+  LOCK(
+      ::Backend->BackendMtx); // Prevent adding/removing devices while iterating
   int Active = 0;
   for (auto Dev : getDevices()) {
     if (Dev->isPerThreadStreamUsed()) {
@@ -1204,7 +1235,7 @@ chipstar::Backend::~Backend() {
 
 void chipstar::Backend::trackEvent(std::shared_ptr<chipstar::Event> Event) {
   LOCK(::Backend->EventsMtx); // trackImpl Backend::Events
-  LOCK(Event->EventMtx);    // writing bool chipstar::Event::TrackCalled_
+  LOCK(Event->EventMtx);      // writing bool chipstar::Event::TrackCalled_
   //   assert(!isUserEvent() && "Attemped to track a user event!");
   //   assert(!Deleted_ && "chipstar::Event use after delete!");
   //   assert(!TrackCalled_ && "chipstar::Event already tracked!");
@@ -1234,10 +1265,9 @@ void chipstar::Backend::waitForThreadExit() {
       if (!NumPerThreadQueuesActive)
         break;
 
-      logDebug(
-          "Backend::waitForThreadExit() per-thread queues still active "
-          "{}. Sleeping for 1s..",
-          NumPerThreadQueuesActive);
+      logDebug("Backend::waitForThreadExit() per-thread queues still active "
+               "{}. Sleeping for 1s..",
+               NumPerThreadQueuesActive);
     }
     sleep(1);
   }
@@ -1272,8 +1302,9 @@ void chipstar::Backend::waitForThreadExit() {
     }
   }
 }
-void chipstar::Backend::initialize(std::string PlatformStr, std::string DeviceTypeStr,
-                             std::string DeviceIdStr) {
+void chipstar::Backend::initialize(std::string PlatformStr,
+                                   std::string DeviceTypeStr,
+                                   std::string DeviceIdStr) {
   initializeImpl(PlatformStr, DeviceTypeStr, DeviceIdStr);
   CustomJitFlags = readEnvVar("CHIP_JIT_FLAGS", false);
   if (ChipContexts.size() == 0) {
@@ -1286,15 +1317,15 @@ void chipstar::Backend::initialize(std::string PlatformStr, std::string DeviceTy
       ChipContexts[0]); // pushes primary context to context stack for thread 0
 }
 
-void chipstar::Backend::setActiveContext(chipstar::Context * ChipContext) {
+void chipstar::Backend::setActiveContext(chipstar::Context *ChipContext) {
   ChipCtxStack.push(ChipContext);
 }
 
-void chipstar::Backend::setActiveDevice(chipstar::Device  *ChipDevice) {
+void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
   ::Backend->setActiveContext(ChipDevice->getContext());
 }
 
-chipstar::Context * chipstar::Backend::getActiveContext() {
+chipstar::Context *chipstar::Backend::getActiveContext() {
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
     logDebug("Context stack is empty for thread {}", pthread_self());
@@ -1303,13 +1334,13 @@ chipstar::Context * chipstar::Backend::getActiveContext() {
   return ChipCtxStack.top();
 };
 
-chipstar::Device  *chipstar::Backend::getActiveDevice() {
-  chipstar::Context * Ctx = getActiveContext();
+chipstar::Device *chipstar::Backend::getActiveDevice() {
+  chipstar::Context *Ctx = getActiveContext();
   return Ctx->getDevice();
 };
 
-std::vector<chipstar::Device  *> chipstar::Backend::getDevices() {
-  std::vector<chipstar::Device  *> Devices;
+std::vector<chipstar::Device *> chipstar::Backend::getDevices() {
+  std::vector<chipstar::Device *> Devices;
   for (auto Ctx : ChipContexts) {
     Devices.push_back(Ctx->getDevice());
   }
@@ -1319,7 +1350,7 @@ std::vector<chipstar::Device  *> chipstar::Backend::getDevices() {
 
 size_t chipstar::Backend::getNumDevices() { return ChipContexts.size(); }
 
-void chipstar::Backend::removeContext(chipstar::Context * ChipContext) {
+void chipstar::Backend::removeContext(chipstar::Context *ChipContext) {
   auto ContextFound =
       std::find(ChipContexts.begin(), ChipContexts.end(), ChipContext);
   if (ContextFound != ChipContexts.end()) {
@@ -1327,12 +1358,13 @@ void chipstar::Backend::removeContext(chipstar::Context * ChipContext) {
   }
 }
 
-void chipstar::Backend::addContext(chipstar::Context * ChipContext) {
+void chipstar::Backend::addContext(chipstar::Context *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 
-hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block, size_t SharedMem,
-                                      hipStream_t ChipQueue) {
+hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block,
+                                            size_t SharedMem,
+                                            hipStream_t ChipQueue) {
   logDebug("Backend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
@@ -1344,8 +1376,9 @@ hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block, size_t Shared
   return hipSuccess;
 }
 
-chipstar::Device  *chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
-  chipstar::Device  *MatchedDevice = nullptr;
+chipstar::Device *
+chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
+  chipstar::Device *MatchedDevice = nullptr;
   int MaxMatchedCount = 0;
   for (auto &Dev : getDevices()) {
     hipDeviceProp_t CurrentProp = {};
@@ -1477,13 +1510,14 @@ chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
 
 // Queue
 //*************************************************************************************
-chipstar::Queue::Queue(chipstar::Device  *ChipDevice, chipstar::QueueFlags Flags, int Priority)
+chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags,
+                       int Priority)
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
   logDebug("Queue() {}", (void *)this);
 };
 
-chipstar::Queue::Queue(chipstar::Device  *ChipDevice, chipstar::QueueFlags Flags)
+chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
     : Queue(ChipDevice, Flags, 0){};
 
 chipstar::Queue::~Queue() {
@@ -1546,9 +1580,11 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
     ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
 
     if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      this->MemMap(AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+      this->MemMap(AllocInfoDst,
+                   chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
     if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+      this->MemMap(AllocInfoSrc,
+                   chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopyAsync";
     updateLastEvent(ChipEvent);
@@ -1557,7 +1593,7 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 }
 
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
-                        size_t PatternSize) {
+                              size_t PatternSize) {
   {
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
@@ -1574,7 +1610,7 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
 }
 
 void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
-                             size_t PatternSize) {
+                                   size_t PatternSize) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1586,7 +1622,7 @@ void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
   ::Backend->trackEvent(ChipEvent);
 }
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
-                          size_t SPitch, size_t Width, size_t Height) {
+                                size_t SPitch, size_t Width, size_t Height) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1599,7 +1635,8 @@ void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
 }
 
 void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
-                               size_t SPitch, size_t Width, size_t Height) {
+                                     size_t SPitch, size_t Width,
+                                     size_t Height) {
   {
 #ifdef ENFORCE_QUEUE_SYNC
     ChipContext_->syncQueues(this);
@@ -1615,8 +1652,8 @@ void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
 }
 
 void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
-                          const void *Src, size_t SPitch, size_t SSPitch,
-                          size_t Width, size_t Height, size_t Depth) {
+                                const void *Src, size_t SPitch, size_t SSPitch,
+                                size_t Width, size_t Height, size_t Depth) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1630,8 +1667,9 @@ void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
 }
 
 void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
-                               const void *Src, size_t SPitch, size_t SSPitch,
-                               size_t Width, size_t Height, size_t Depth) {
+                                     const void *Src, size_t SPitch,
+                                     size_t SSPitch, size_t Width,
+                                     size_t Height, size_t Depth) {
 #ifdef ENFORCE_QUEUE_SYNC
   ChipContext_->syncQueues(this);
 #endif
@@ -1654,7 +1692,7 @@ void chipstar::Queue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
 
 std::shared_ptr<chipstar::Event>
 chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
-                             MANAGED_MEM_STATE ExecState) {
+                                   MANAGED_MEM_STATE ExecState) {
 
   // TODO: Inspect kernel code for indirect allocation accesses. If
   //       the kernel does not have any, we only need inspect kernels
@@ -1686,8 +1724,8 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
     return nullptr;
 
   // We don't need to updateLastEvent because this function is always part of
-  // the kernel launch sequence which update the last event anyway chipstar::Event*
-  // BackEvent = CopyEvents.back();
+  // the kernel launch sequence which update the last event anyway
+  // chipstar::Event* BackEvent = CopyEvents.back();
   //   updateLastEvent(std::shared_ptr<chipstar::Event>(BackEvent));
 
   for (auto Ev : CopyEvents)
@@ -1699,8 +1737,8 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
 void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
   std::stringstream InfoStr;
   InfoStr << "\nLaunching kernel " << ExItem->getKernel()->getName() << "\n";
-  InfoStr << "GridDim: <" << ExItem->getGrid().x << ", "
-          << ExItem->getGrid().y << ", " << ExItem->getGrid().z << ">";
+  InfoStr << "GridDim: <" << ExItem->getGrid().x << ", " << ExItem->getGrid().y
+          << ", " << ExItem->getGrid().z << ">";
   InfoStr << " BlockDim: <" << ExItem->getBlock().x << ", "
           << ExItem->getBlock().y << ", " << ExItem->getBlock().z << ">\n";
   InfoStr << "SharedMem: " << ExItem->getSharedMem() << "\n";
@@ -1792,9 +1830,10 @@ void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
 }
 
 void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
-                             dim3 DimBlocks, void **Args,
-                             size_t SharedMemBytes) {
-  LOCK(::Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
+                                   dim3 DimBlocks, void **Args,
+                                   size_t SharedMemBytes) {
+  LOCK(
+      ::Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
   chipstar::ExecItem *ExItem =
       ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExItem->setKernel(ChipKernel);
@@ -1806,7 +1845,7 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
 
 ///////// End Enqueue Operations //////////
 
-chipstar::Device  *chipstar::Queue::getDevice() {
+chipstar::Device *chipstar::Queue::getDevice() {
   if (ChipDevice_ == nullptr) {
     std::string Msg = "chip_device is null";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
@@ -1817,7 +1856,8 @@ chipstar::Device  *chipstar::Queue::getDevice() {
 
 chipstar::QueueFlags chipstar::Queue::getFlags() { return QueueFlags_; }
 int chipstar::Queue::getPriority() { return Priority_; }
-void chipstar::Queue::addCallback(hipStreamCallback_t Callback, void *UserData) {
+void chipstar::Queue::addCallback(hipStreamCallback_t Callback,
+                                  void *UserData) {
   chipstar::CallbackData *Callbackdata =
       ::Backend->createCallbackData(Callback, UserData, this);
 
@@ -1841,6 +1881,6 @@ void chipstar::Queue::addCallback(hipStreamCallback_t Callback, void *UserData) 
 //     return false;
 //   }
 
-  CHIPGraph *chipstar::Queue::getCaptureGraph() const {
-    return static_cast<CHIPGraph *>(CaptureGraph_);
-  }
+CHIPGraph *chipstar::Queue::getCaptureGraph() const {
+  return static_cast<CHIPGraph *>(CaptureGraph_);
+}

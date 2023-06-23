@@ -40,10 +40,10 @@
 #include "macros.hh"
 
 namespace chipstar {
-    class Queue;
-    class Event;
-    class ExecItem;
-}
+class Queue;
+class Event;
+class ExecItem;
+} // namespace chipstar
 
 class CHIPGraph;
 
