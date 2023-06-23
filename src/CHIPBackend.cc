@@ -1078,6 +1078,9 @@ void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
 
   std::shared_ptr<chipstar::Event> SyncQueuesEvent;
   if (TargetQueue == DefaultQueue) {
+    auto Ev = TargetQueue->getLastEvent();
+    if (Ev)
+      EventsToWaitOn.push_back(Ev);
     for (auto &q : QueuesToSyncWith) {
       auto Ev = q->getLastEvent();
       if (Ev)
@@ -1531,7 +1534,7 @@ chipstar::Queue::~Queue() {
 ///////// Enqueue Operations //////////
 hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
-  ChipContext_->syncQueues(this);
+//   ChipContext_->syncQueues(this);
 #endif
   std::shared_ptr<chipstar::Event> ChipEvent;
   // Scope this so that we release mutex for finish()

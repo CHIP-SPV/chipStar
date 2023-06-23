@@ -34,7 +34,6 @@
 #ifdef L0_IMM_QUEUES
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
-  LOCK(Queue->QueueMtx); /* CHIPQueueLevel0::ZeCmdList_ */                     \
   CommandList = Queue->getCmdList();
 #else
 #define GET_COMMAND_LIST(Queue)                                                \
@@ -316,7 +315,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       ZE_STRUCTURE_TYPE_EVENT_DESC, // stype
       nullptr,                      // pNext
       0,                            // index
-      ZE_EVENT_SCOPE_FLAG_HOST,     // ensure memory/cache coherency required on
+      0,     // ensure memory/cache coherency required on
                                     // signal
       ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
                                     // Host after Event_ completes
@@ -864,7 +863,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUEs
+#ifdef L0_IMM_QUEUES
   initializeCmdListImm();
 #endif
 }
@@ -891,7 +890,10 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
-  assert(QueueType != Unknown);
+  //   assert(QueueType != Unknown);
+  if (QueueType == Unknown) {
+    QueueType = Compute;
+  }
 
   auto Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
                                              &ZeCmdList_);
@@ -1023,6 +1025,7 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
+    finish();
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> LaunchEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
@@ -1065,17 +1068,19 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via GET_COMMAND_LIST
+  auto LastEvent = getLastEvent();
+  auto LastEventZe = std::static_pointer_cast<CHIPEventLevel0>(LastEvent)->peek();
   auto Status = zeCommandListAppendLaunchKernel(
       CommandList, KernelZe, &LaunchArgs,
-      std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(), 0,
-      nullptr);
+      std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(), 1,
+      &LastEventZe);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
-#ifndef NDEBUG
-  auto StatusReadyCheck = zeEventQueryStatus(
-      std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek());
-  assert(StatusReadyCheck == ZE_RESULT_NOT_READY);
-#endif
+// #ifndef NDEBUG
+//   auto StatusReadyCheck = zeEventQueryStatus(
+//       std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek());
+//   assert(StatusReadyCheck == ZE_RESULT_NOT_READY);
+// #endif
   executeCommandList(CommandList);
 
   if (std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
@@ -1086,6 +1091,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
     std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)
         ->addAction([=]() -> void { auto Tmp = SpillBuf; });
 
+  ::Backend->trackEvent(LaunchEvent);
   return LaunchEvent;
 }
 
@@ -1312,6 +1318,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
+finish();
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
@@ -1321,12 +1328,25 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via GET_COMMAND_LIST
-  Status = zeCommandListAppendMemoryCopy(
-      CommandList, Dst, Src, Size,
-      std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(), 0,
-      nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  auto LastEvent = getLastEvent();
+  if(LastEvent) {
+    auto LastEventZe = std::static_pointer_cast<CHIPEventLevel0>(LastEvent);
+    auto LastEventHandle = LastEventZe->peek(); 
+    Status = zeCommandListAppendMemoryCopy(
+        CommandList, Dst, Src, Size,
+        std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(), 1,
+        &LastEventHandle);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                  hipErrorInitializationError);
+  } else {
+    Status = zeCommandListAppendMemoryCopy(
+        CommandList, Dst, Src, Size,
+        std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(), 0,
+        nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                  hipErrorInitializationError);
+  }
+
   executeCommandList(CommandList);
 
   return MemCopyEvent;
@@ -1422,14 +1442,17 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 };
 
 LZEventPool::~LZEventPool() {
-  assert(Backend->Events.size() == 0 &&
-         "CHIPEventLevel0 objects still exist at the time of EventPool "
-         "destruction");
-  assert(static_cast<CHIPBackendLevel0*>(Backend)->EventCommandListMap.size() == 0 &&
-         "CHIPCommandListLevel0 objects still exist at the time of EventPool "
-         "destruction");
-  if(Backend->UserEvents.size() != 0)
-    logWarn( "CHIPUserEventLevel0 objects still exist at the time of EventPool destruction");
+//   assert(Backend->Events.size() == 0 &&
+//          "CHIPEventLevel0 objects still exist at the time of EventPool "
+//          "destruction");
+  assert(
+      static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size() ==
+          0 &&
+      "CHIPCommandListLevel0 objects still exist at the time of EventPool "
+      "destruction");
+  if (Backend->UserEvents.size() != 0)
+    logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
+            "destruction");
 
   Events_.clear(); // shared_ptr's will be deleted
   // The application must not call this function from
@@ -1698,10 +1721,10 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
   // delete all event pools
-    for (LZEventPool *Pool : EventPools_) {
-        delete Pool;
-    }
-    EventPools_.clear();
+  for (LZEventPool *Pool : EventPools_) {
+    delete Pool;
+  }
+  EventPools_.clear();
 
   // The application must not call this function from
   // simultaneous threads with the same context handle.

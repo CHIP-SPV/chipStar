@@ -24,7 +24,7 @@
 #define CHIP_BACKEND_LEVEL0_H
 
 // TODO: Should this be a cmake parameter? env? What is max size?
-#define EVENT_POOL_SIZE 1000
+#define EVENT_POOL_SIZE 1
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
