@@ -561,10 +561,11 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(AllocationInfo *AllocInfo) {
-    assert(AllocInfos_.count(AllocInfo) &&
-           "Not a member of the allocation tracker!");
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
                                 // CHIPAllocationTracker::AllocInfos_
+    assert(AllocInfo && "Null pointer passed to eraseRecord");
+    assert(AllocInfos_.count(AllocInfo) &&
+           "Not a member of the allocation tracker!");
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -648,7 +649,7 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(std::shared_ptr<CHIPEvent> Event) {
+  void addDependency(const std::shared_ptr<CHIPEvent> &Event) {
     assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
   }
@@ -1770,7 +1771,7 @@ public:
     }
     return nullptr;
   }
-  void trackEvent(std::shared_ptr<CHIPEvent> Event);
+  void trackEvent(const std::shared_ptr<CHIPEvent> &Event);
 
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
@@ -2110,7 +2111,7 @@ public:
   virtual ~CHIPQueue();
 
   CHIPQueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(std::shared_ptr<CHIPEvent> NewEvent) {
+  virtual void updateLastEvent(const std::shared_ptr<CHIPEvent> &NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_.get(), (void *)NewEvent.get());

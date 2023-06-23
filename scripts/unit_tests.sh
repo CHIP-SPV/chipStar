@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+# set -e
 
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
