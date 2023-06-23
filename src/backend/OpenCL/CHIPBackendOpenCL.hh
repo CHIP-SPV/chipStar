@@ -97,7 +97,7 @@ public:
   virtual ~CHIPEventOpenCL() override;
 
   virtual void recordStream(chipstar::Queue *ChipQueue) override;
-  void takeOver(std::shared_ptr<chipstar::Event> Other);
+  void takeOver(const std::shared_ptr<chipstar::Event> &Other);
   bool wait() override;
   float getElapsedTime(chipstar::Event *Other) override;
   virtual void hostSignal() override;

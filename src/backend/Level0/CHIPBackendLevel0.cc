@@ -1422,6 +1422,15 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 };
 
 LZEventPool::~LZEventPool() {
+  assert(Backend->Events.size() == 0 &&
+         "CHIPEventLevel0 objects still exist at the time of EventPool "
+         "destruction");
+  assert(static_cast<CHIPBackendLevel0*>(Backend)->EventCommandListMap.size() == 0 &&
+         "CHIPCommandListLevel0 objects still exist at the time of EventPool "
+         "destruction");
+  if(Backend->UserEvents.size() != 0)
+    logWarn( "CHIPUserEventLevel0 objects still exist at the time of EventPool destruction");
+
   Events_.clear(); // shared_ptr's will be deleted
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
@@ -1682,6 +1691,12 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
+  // delete all event pools
+    for (LZEventPool *Pool : EventPools_) {
+        delete Pool;
+    }
+    EventPools_.clear();
+
   // The application must not call this function from
   // simultaneous threads with the same context handle.
   // Done via destructor should not be called from multiple threads

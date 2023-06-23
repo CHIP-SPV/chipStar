@@ -599,7 +599,7 @@ void CHIPEventOpenCL::recordStream(chipstar::Queue *ChipQueue) {
   return;
 }
 
-void CHIPEventOpenCL::takeOver(std::shared_ptr<chipstar::Event> OtherIn) {
+void CHIPEventOpenCL::takeOver(const std::shared_ptr<chipstar::Event> &OtherIn) {
   logTrace("CHIPEventOpenCL::takeOver");
   {
     std::shared_ptr<CHIPEventOpenCL> Other =

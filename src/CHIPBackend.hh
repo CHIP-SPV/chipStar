@@ -571,10 +571,11 @@ public:
    * @param AllocInfo
    */
   void eraseRecord(chipstar::AllocationInfo *AllocInfo) {
+    LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
+                                // CHIPAllocationTracker::AllocInfos_
+    assert(AllocInfo && "Null pointer passed to eraseRecord");
     assert(AllocInfos_.count(AllocInfo) &&
            "Not a member of the allocation tracker!");
-    LOCK(AllocationTrackerMtx); // chipstar::AllocationTracker::PtrToAllocInfo_
-                                // chipstar::AllocationTracker::AllocInfos_
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -658,8 +659,8 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(std::shared_ptr<chipstar::Event> Event) {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+  void addDependency(const std::shared_ptr<chipstar::Event> &Event) {
+    assert(!Deleted_ && "Event use after delete!");
     DependsOnList.push_back(Event);
   }
   void releaseDependencies();
@@ -1792,7 +1793,7 @@ public:
     }
     return nullptr;
   }
-  void trackEvent(std::shared_ptr<chipstar::Event> Event);
+  void trackEvent(const std::shared_ptr<chipstar::Event> &Event);
 
 #ifdef DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
@@ -2133,8 +2134,8 @@ public:
   virtual ~Queue();
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(std::shared_ptr<chipstar::Event> NewEvent) {
-    LOCK(LastEventMtx); // Queue::LastEvent_
+  virtual void updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent) {
+    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_.get(), (void *)NewEvent.get());
     if (NewEvent == LastEvent_) // TODO: should I compare NewEvent.get()

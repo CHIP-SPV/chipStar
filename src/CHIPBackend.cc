@@ -1275,11 +1275,11 @@ void chipstar::Backend::waitForThreadExit() {
   // Cleanup all queues
   {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
-    LOCK(::Backend->EventsMtx);  // Backend::Events
-
     for (auto Dev : ::Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      int NumQueues = Dev->getQueues().size();
+      LOCK(Dev->DeviceMtx);  // CHIPBackend::Events
+      LOCK(Backend->EventsMtx);  // CHIPBackend::Events
+      int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
         logWarn("Not all user created streams have been destoyed... Queues "
                 "remaining: {}",
@@ -1287,7 +1287,7 @@ void chipstar::Backend::waitForThreadExit() {
         logWarn("Make sure to call hipStreamDestroy() for all queues that have "
                 "been created via hipStreamCreate()");
         logWarn("Removing user-created streams without calling a destructor");
-        Dev->getQueues().clear();
+        Dev->getQueuesNoLock().clear();
         if (::Backend->Events.size()) {
           logWarn("Clearing chipstar::Event list {}", ::Backend->Events.size());
           ::Backend->Events.clear();
