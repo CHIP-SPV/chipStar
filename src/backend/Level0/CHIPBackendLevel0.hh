@@ -532,7 +532,7 @@ public:
 class CHIPBackendLevel0 : public chipstar::Backend {
 
 public:
-  virtual chipstar::ExecItem *createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+  virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                            size_t SharedMem,
                                            hipStream_t ChipQueue) override;
 

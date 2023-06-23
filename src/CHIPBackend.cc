@@ -31,7 +31,7 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K, void *Args[] = 
   // FIXME: Should construct backend specific exec item or make the exec
   //        item a backend agnostic class.
   chipstar::ExecItem *EI =
-      ::Backend->createCHIPExecItem(GridDim, BlockDim, SharedMemSize, Q);
+      ::Backend->createExecItem(GridDim, BlockDim, SharedMemSize, Q);
   EI->setKernel(K);
 
   EI->copyArgs(Args);
@@ -1338,7 +1338,7 @@ hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block, size_t Shared
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
   chipstar::ExecItem *ExecItem =
-      ::Backend->createCHIPExecItem(Grid, Block, SharedMem, ChipQueue);
+      ::Backend->createExecItem(Grid, Block, SharedMem, ChipQueue);
   ChipExecStack.push(ExecItem);
 
   return hipSuccess;
@@ -1796,7 +1796,7 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
                              size_t SharedMemBytes) {
   LOCK(::Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
   chipstar::ExecItem *ExItem =
-      ::Backend->createCHIPExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
+      ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExItem->setKernel(ChipKernel);
   ExItem->copyArgs(Args);
   ExItem->setupAllArgs();

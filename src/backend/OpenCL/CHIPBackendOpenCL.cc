@@ -1397,7 +1397,7 @@ void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {
 
 // CHIPBackendOpenCL
 //*************************************************************************
-chipstar::ExecItem *CHIPBackendOpenCL::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+chipstar::ExecItem *CHIPBackendOpenCL::createExecItem(dim3 GirdDim, dim3 BlockDim,
                                                     size_t SharedMem,
                                                     hipStream_t ChipQueue) {
   CHIPExecItemOpenCL *ExecItem =

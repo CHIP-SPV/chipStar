@@ -1460,7 +1460,7 @@ void LZEventPool::returnSlot(int Slot) {
 
 // CHIPBackendLevel0
 // ***********************************************************************
-chipstar::ExecItem *CHIPBackendLevel0::createCHIPExecItem(dim3 GirdDim, dim3 BlockDim,
+chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim, dim3 BlockDim,
                                                     size_t SharedMem,
                                                     hipStream_t ChipQueue) {
   CHIPExecItemLevel0 *ExecItem =
