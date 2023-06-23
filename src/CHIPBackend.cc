@@ -1233,7 +1233,8 @@ chipstar::Backend::~Backend() {
   }
 }
 
-void chipstar::Backend::trackEvent(std::shared_ptr<chipstar::Event> Event) {
+void chipstar::Backend::trackEvent(
+    const std::shared_ptr<chipstar::Event> &Event) {
   LOCK(::Backend->EventsMtx); // trackImpl Backend::Events
   LOCK(Event->EventMtx);      // writing bool chipstar::Event::TrackCalled_
   //   assert(!isUserEvent() && "Attemped to track a user event!");
@@ -1277,8 +1278,8 @@ void chipstar::Backend::waitForThreadExit() {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     for (auto Dev : ::Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      LOCK(Dev->DeviceMtx);  // CHIPBackend::Events
-      LOCK(Backend->EventsMtx);  // CHIPBackend::Events
+      LOCK(Dev->DeviceMtx);       // CHIPBackend::Events
+      LOCK(::Backend->EventsMtx); // CHIPBackend::Events
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
         logWarn("Not all user created streams have been destoyed... Queues "

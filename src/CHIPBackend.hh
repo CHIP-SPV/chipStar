@@ -2134,7 +2134,8 @@ public:
   virtual ~Queue();
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent) {
+  virtual void
+  updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent) {
     LOCK(LastEventMtx); // CHIPQueue::LastEvent_
     logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
              (void *)LastEvent_.get(), (void *)NewEvent.get());
