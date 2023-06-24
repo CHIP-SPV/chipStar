@@ -771,7 +771,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
   if (zeCmdQOwnership_) {
@@ -799,7 +799,7 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
   return ZeCmdList_;
 #else
   ze_command_list_handle_t ZeCmdList;
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
   auto Status =
@@ -857,7 +857,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ZeDev_ = ChipDevLz->get();
 
   logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
   Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
@@ -1337,7 +1337,7 @@ void CHIPQueueLevel0::finish() {
   pthread_yield();
   // Using zeCommandQueueSynchronize() for ensuring the device printf
   // buffers get flushed.
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
   zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
@@ -1378,7 +1378,7 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
     // Done via GET_COMMAND_LIST
     Status = zeCommandListClose(CommandList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockLevel0)
 #endif
     Status =
@@ -1714,14 +1714,6 @@ CHIPContextLevel0::~CHIPContextLevel0() {
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy,
                                       chipstar::HostAllocFlags Flags) {
-
-#ifdef MALLOC_SHARED_WORKAROUND
-  if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
-    MemTy = hipMemoryType::hipMemoryTypeHost;
-    logWarn("Using zeMemAllocHost as a workaround instead of zeMemAllocShared");
-  }
-#endif
-
   void *Ptr = 0;
 
   ze_device_mem_alloc_flags_t DeviceFlags =

@@ -583,7 +583,7 @@ public:
       static_cast<CHIPBackendLevel0 *>(::Backend)->EventCommandListMap.erase(
           ChipEvent);
 
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
       LOCK(::Backend->DubiousLockLevel0)
 #endif
       // The application must not call this function

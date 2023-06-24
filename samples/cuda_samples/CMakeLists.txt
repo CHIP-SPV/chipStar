@@ -95,12 +95,12 @@ add_cuda_sample(cuda-fastwalsh  6_Advanced/fastWalshTransform fastWalshTransform
 
 ############################
 
-# if(NOT ENABLE_FAILING_TESTS)
+# if(NOT CHIP_ENABLE_FAILING_TESTS)
 #   ##### when run, sometimes fails sometimes passes TODO investigate
 #   set_tests_properties("cuda-simpleCallback" PROPERTIES DISABLED 1 LABELS "")
 # endif()
 
-if(ENABLE_UNCOMPILABLE_TESTS)
+if(CHIP_ENABLE_UNCOMPILABLE_TESTS)
   # cppOverload: DISABLED: Due to the following error:
   #
   # ../cppOverload.cu:138:11: error: assigning to 'void (*)(const int *, int *, int)' from incompatible type '<overloaded function type>'

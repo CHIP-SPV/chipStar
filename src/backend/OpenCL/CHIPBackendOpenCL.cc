@@ -1049,7 +1049,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("Launch GLOBAL: {} {} {}", Global[0], Global[1], Global[2]);
 
   logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1], Local[2]);
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL);
 #endif
 
@@ -1163,7 +1163,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockOpenCL)
 #endif
     auto Status = ::clEnqueueSVMMemcpy(
@@ -1175,7 +1175,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
 }
 
 void CHIPQueueOpenCL::finish() {
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif
   auto Status = ClQueue_->finish();
@@ -1242,7 +1242,7 @@ CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif
   std::shared_ptr<chipstar::Event> Event =

@@ -1795,7 +1795,7 @@ public:
   }
   void trackEvent(const std::shared_ptr<chipstar::Event> &Event);
 
-#ifdef DUBIOUS_LOCKS
+#ifdef CHIP_DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
   std::mutex DubiousLockLevel0;
 #endif
