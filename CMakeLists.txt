@@ -166,7 +166,10 @@ set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install di
 set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
-# TODO: Add CHIP_ prefix
+# HIP options
+option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
+
+# chipStar options
 option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
 option(CHIP_LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
@@ -181,7 +184,6 @@ option(CHIP_ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unr
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
-option(CHIP_STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 option(CHIP_DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
 option(CHIP_USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
