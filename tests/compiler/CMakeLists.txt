@@ -71,7 +71,7 @@ add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 
-add_hipcc_test(Test516Regression.hip HIPCC_OPTIONS)
+add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
