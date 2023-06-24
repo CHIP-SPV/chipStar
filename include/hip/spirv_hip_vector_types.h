@@ -361,19 +361,19 @@ inline HIP_vector_type<T, n> operator%(
 
 template <typename T, unsigned int n,
           typename std::enable_if<std::is_integral<T>{}>* = nullptr>
-inline HIP_vector_type<T, n> operator^(
+__device__ __host__ inline HIP_vector_type<T, n> operator^(
     const HIP_vector_type<T, n>& x, const HIP_vector_type<T, n>& y) noexcept {
   return HIP_vector_type<T, n>{x} ^= y;
 }
 template <typename T, unsigned int n, typename U,
           typename std::enable_if<std::is_integral<T>{}>* = nullptr>
-inline HIP_vector_type<T, n> operator^(const HIP_vector_type<T, n>& x,
+__device__ __host__ inline HIP_vector_type<T, n> operator^(const HIP_vector_type<T, n>& x,
                                        U y) noexcept {
   return HIP_vector_type<T, n>{x} ^= y;
 }
 template <typename T, unsigned int n, typename U,
           typename std::enable_if<std::is_integral<T>{}>* = nullptr>
-inline HIP_vector_type<T, n> operator^(
+__device__ __host__ inline HIP_vector_type<T, n> operator^(
     U x, const HIP_vector_type<T, n>& y) noexcept {
   return HIP_vector_type<T, n>{x} ^= y;
 }
