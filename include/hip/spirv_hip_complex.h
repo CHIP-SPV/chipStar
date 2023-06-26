@@ -106,15 +106,20 @@ THE SOFTWARE.
         return lhs;                                                                                \
     }
 
-#define COMPLEX_MUL_PREOP_OVERLOAD(type)                                                           \
-    __HOST_DEVICE__ static inline type& operator*=(type& lhs, const type& rhs) {               \
-        lhs = lhs * rhs;                                                                           \
-        return lhs;                                                                                \
+#define COMPLEX_MUL_PREOP_OVERLOAD(type)                                                            \
+    __HOST_DEVICE__ static inline type& operator*=(type& lhs, const type& rhs) {                    \
+        type temp{lhs};                                                                             \
+        lhs.x = rhs.x * temp.x - rhs.y * temp.y;                                                    \
+        lhs.y = rhs.y * temp.x + rhs.x * temp.y;                                                    \
+        return lhs;                                                                                 \
     }
 
 #define COMPLEX_DIV_PREOP_OVERLOAD(type)                                                           \
-    __HOST_DEVICE__ static inline type& operator/=(type& lhs, const type& rhs) {               \
-        lhs = lhs / rhs;                                                                           \
+    __HOST_DEVICE__ static inline type& operator/=(type& lhs, const type& rhs) {                   \
+        type temp;                                                                                 \
+        temp.x = (lhs.x*rhs.x + lhs.y * rhs.y) / (rhs.x*rhs.x + rhs.y*rhs.y);                      \
+        temp.y = (lhs.y * rhs.x - lhs.x * rhs.y) / (rhs.x*rhs.x + rhs.y*rhs.y);                    \
+        lhs = temp;                                                                                \
         return lhs;                                                                                \
     }
 
