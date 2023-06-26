@@ -234,13 +234,7 @@ COMPLEX_EQ_OP_OVERLOAD(hipFloatComplex)
 COMPLEX_NE_OP_OVERLOAD(hipFloatComplex)
 COMPLEX_ADD_OP_OVERLOAD(hipFloatComplex)
 COMPLEX_SUB_OP_OVERLOAD(hipFloatComplex)
-// COMPLEX_MUL_OP_OVERLOAD(hipFloatComplex)
-// template <> __host__ __device__ inline hipFloatComplex operator*(const hipFloatComplex& lhs, const hipFloatComplex& rhs) noexcept { printf("haha"); hipFloatComplex ret; ret.x = lhs.x * rhs.x - lhs.y * rhs.y; ret.y = lhs.x * rhs.y + lhs.y * rhs.x; return ret; }
-// template <>
-// __host__ __device__ inline hipFloatComplex operator*(hipFloatComplex &lhs, const hipFloatComplex& rhs) noexcept
-// {
-//     hipFloatComplex ret; ret.x = lhs.x * rhs.x - lhs.y * rhs.y; ret.y = lhs.x * rhs.y + lhs.y * rhs.x; return ret; 
-// }
+COMPLEX_MUL_OP_OVERLOAD(hipFloatComplex)
 COMPLEX_DIV_OP_OVERLOAD(hipFloatComplex)
 COMPLEX_ADD_PREOP_OVERLOAD(hipFloatComplex)
 COMPLEX_SUB_PREOP_OVERLOAD(hipFloatComplex)
@@ -273,7 +267,7 @@ __host__ __device__ inline hipDoubleComplex operator+(const hipDoubleComplex& lh
 __host__ __device__ inline hipDoubleComplex operator-(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex ret; ret.x = lhs.x - rhs.x; ret.y = lhs.y - rhs.y; return ret; }
 
 // COMPLEX_MUL_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex operator*(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); printf("haha"); HIP_vector_type<double, 2> ret; ret.x = lhs.x * rhs.x - lhs.y * rhs.y; ret.y = lhs.x * rhs.y + lhs.y * rhs.x; return ret; }
+__host__ __device__ inline hipDoubleComplex operator*(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); HIP_vector_type<double, 2> ret; ret.x = lhs.x * rhs.x - lhs.y * rhs.y; ret.y = lhs.x * rhs.y + lhs.y * rhs.x; return ret; }
 
 // COMPLEX_DIV_OP_OVERLOAD(hipDoubleComplex)
 __host__ __device__ inline hipDoubleComplex operator/(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex ret; ret.x = (lhs.x * rhs.x + lhs.y * rhs.y); ret.y = (rhs.x * lhs.y - lhs.x * rhs.y); ret.x = ret.x / (rhs.x * rhs.x + rhs.y * rhs.y); ret.y = ret.y / (rhs.x * rhs.x + rhs.y * rhs.y); return ret; }
