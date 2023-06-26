@@ -6,6 +6,10 @@ int main(int argc, char **argv) {
   hipDoubleComplex y = make_hipDoubleComplex(4.0, 2.0);
 
   y = y * x;
+  y = y / x;
+  y = y + x;
+  y = y - x;
+
 
   printf("%f%+fi\n", hipCreal(y), hipCimag(y));
   if (hipCreal(y) == 2.0 && hipCimag(y) == 16.0) {
