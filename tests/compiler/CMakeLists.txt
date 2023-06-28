@@ -112,6 +112,8 @@ add_shell_test(TestRDCWithSingleHipccCmd.bash)
 add_shell_test(TestRDCWithMultipleHipccCmds.bash)
 add_shell_test(TestWholeProgramCompilation.bash)
 
+add_shell_test(TestHipccDashX.bash)
+
 add_test(NAME "TestHipccMultiSource" COMMAND 
   ${CMAKE_BINARY_DIR}/bin/hipcc.bin ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 
