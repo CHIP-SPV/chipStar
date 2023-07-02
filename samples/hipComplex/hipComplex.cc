@@ -7,13 +7,11 @@ int main(int argc, char **argv) {
 
   y *= x;
   y = y / x;
-  y = y + x; 
+  y = y + x;
   y = y - x;
   y -= x;
   y *= x;
   y /= x;
-
-
 
   printf("%f%+fi\n", hipCreal(y), hipCimag(y));
   if (hipCreal(y) == 2.0 && hipCimag(y) == -1.0) {
