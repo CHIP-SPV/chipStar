@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test RDC mode with single compile command.
+# Test hipcc handling of -x hip
 set -eu
 
 SRC_DIR=@CMAKE_CURRENT_SOURCE_DIR@
