@@ -1034,9 +1034,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 // Context
 //*************************************************************************************
 chipstar::Context::Context() {}
-chipstar::Context::~Context() {
-  logDebug("~Context() {}", (void *)this);
-}
+chipstar::Context::~Context() { logDebug("~Context() {}", (void *)this); }
 
 void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
   auto Dev = ::Backend->getActiveDevice();
