@@ -75,7 +75,7 @@ THE SOFTWARE.
     }
 
 #define COMPLEX_MUL_OP_OVERLOAD(type)                                                              \
-    __HOST_DEVICE__ static inline type operator*(const type& lhs, const type& rhs) noexcept { printf("haha");           \
+    __HOST_DEVICE__ static inline type operator*(const type& lhs, const type& rhs) {           \
         type ret;                                                                                  \
         ret.x = lhs.x * rhs.x - lhs.y * rhs.y;                                                     \
         ret.y = lhs.x * rhs.y + lhs.y * rhs.x;                                                     \
@@ -106,20 +106,15 @@ THE SOFTWARE.
         return lhs;                                                                                \
     }
 
-#define COMPLEX_MUL_PREOP_OVERLOAD(type)                                                            \
-    __HOST_DEVICE__ static inline type& operator*=(type& lhs, const type& rhs) {                    \
-        type temp{lhs};                                                                             \
-        lhs.x = rhs.x * temp.x - rhs.y * temp.y;                                                    \
-        lhs.y = rhs.y * temp.x + rhs.x * temp.y;                                                    \
-        return lhs;                                                                                 \
+#define COMPLEX_MUL_PREOP_OVERLOAD(type)                                                           \
+    __HOST_DEVICE__ static inline type& operator*=(type& lhs, const type& rhs) {               \
+        lhs = lhs * rhs;                                                                           \
+        return lhs;                                                                                \
     }
 
 #define COMPLEX_DIV_PREOP_OVERLOAD(type)                                                           \
-    __HOST_DEVICE__ static inline type& operator/=(type& lhs, const type& rhs) {                   \
-        type temp;                                                                                 \
-        temp.x = (lhs.x*rhs.x + lhs.y * rhs.y) / (rhs.x*rhs.x + rhs.y*rhs.y);                      \
-        temp.y = (lhs.y * rhs.x - lhs.x * rhs.y) / (rhs.x*rhs.x + rhs.y*rhs.y);                    \
-        lhs = temp;                                                                                \
+    __HOST_DEVICE__ static inline type& operator/=(type& lhs, const type& rhs) {               \
+        lhs = lhs / rhs;                                                                           \
         return lhs;                                                                                \
     }
 
@@ -133,7 +128,7 @@ THE SOFTWARE.
 
 #endif
 
-typedef float2 hipFloatComplex;
+class hipFloatComplex : public HIP_vector_type<float, 2U> {};
 
 __HOST_DEVICE__ static inline float hipCrealf(hipFloatComplex z) { return z.x; }
 
@@ -180,7 +175,7 @@ __HOST_DEVICE__ static inline hipFloatComplex hipCdivf(hipFloatComplex p, hipFlo
 __HOST_DEVICE__ static inline float hipCabsf(hipFloatComplex z) { return sqrtf(hipCsqabsf(z)); }
 
 
-typedef double2 hipDoubleComplex;
+class hipDoubleComplex : public HIP_vector_type<double, 2U> {};
 
 __HOST_DEVICE__ static inline double hipCreal(hipDoubleComplex z) { return z.x; }
 
@@ -251,39 +246,17 @@ COMPLEX_SCALAR_PRODUCT(hipFloatComplex, double)
 COMPLEX_SCALAR_PRODUCT(hipFloatComplex, signed long long)
 COMPLEX_SCALAR_PRODUCT(hipFloatComplex, unsigned long long)
 
-// COMPLEX_NEG_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex operator-(const hipDoubleComplex& op) noexcept { printf("haha"); hipDoubleComplex ret; ret.x = -op.x; ret.y = -op.y; return ret; }
-
-// COMPLEX_EQ_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline bool operator==(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); return lhs.x == rhs.x && lhs.y == rhs.y; }
-
-// COMPLEX_NE_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline bool operator!=(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); return !(lhs == rhs); }
-
-// COMPLEX_ADD_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex operator+(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex ret; ret.x = lhs.x + rhs.x; ret.y = lhs.y + rhs.y; return ret; }
-
-// COMPLEX_SUB_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex operator-(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex ret; ret.x = lhs.x - rhs.x; ret.y = lhs.y - rhs.y; return ret; }
-
-// COMPLEX_MUL_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex operator*(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); HIP_vector_type<double, 2> ret; ret.x = lhs.x * rhs.x - lhs.y * rhs.y; ret.y = lhs.x * rhs.y + lhs.y * rhs.x; return ret; }
-
-// COMPLEX_DIV_OP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex operator/(const hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex ret; ret.x = (lhs.x * rhs.x + lhs.y * rhs.y); ret.y = (rhs.x * lhs.y - lhs.x * rhs.y); ret.x = ret.x / (rhs.x * rhs.x + rhs.y * rhs.y); ret.y = ret.y / (rhs.x * rhs.x + rhs.y * rhs.y); return ret; }
-
-// COMPLEX_ADD_PREOP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex& operator+=(hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); lhs.x += rhs.x; lhs.y += rhs.y; return lhs; }
-
-// COMPLEX_SUB_PREOP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex& operator-=(hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); lhs.x -= rhs.x; lhs.y -= rhs.y; return lhs; }
-
-// COMPLEX_MUL_PREOP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex& operator*=(hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex temp{lhs}; lhs.x = rhs.x * temp.x - rhs.y * temp.y; lhs.y = rhs.y * temp.x + rhs.x * temp.y; return lhs; }
-
-// COMPLEX_DIV_PREOP_OVERLOAD(hipDoubleComplex)
-__host__ __device__ inline hipDoubleComplex& operator/=(hipDoubleComplex& lhs, const hipDoubleComplex& rhs) noexcept { printf("haha"); hipDoubleComplex temp; temp.x = (lhs.x*rhs.x + lhs.y * rhs.y) / (rhs.x*rhs.x + rhs.y*rhs.y); temp.y = (lhs.y * rhs.x - lhs.x * rhs.y) / (rhs.x*rhs.x + rhs.y*rhs.y); lhs = temp; return lhs; }
-
+COMPLEX_NEG_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_EQ_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_NE_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_ADD_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_SUB_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_MUL_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_DIV_OP_OVERLOAD(hipDoubleComplex)
+COMPLEX_ADD_PREOP_OVERLOAD(hipDoubleComplex)
+COMPLEX_SUB_PREOP_OVERLOAD(hipDoubleComplex)
+COMPLEX_MUL_PREOP_OVERLOAD(hipDoubleComplex)
+COMPLEX_DIV_PREOP_OVERLOAD(hipDoubleComplex)
 COMPLEX_SCALAR_PRODUCT(hipDoubleComplex, unsigned short)
 COMPLEX_SCALAR_PRODUCT(hipDoubleComplex, signed short)
 COMPLEX_SCALAR_PRODUCT(hipDoubleComplex, unsigned int)
