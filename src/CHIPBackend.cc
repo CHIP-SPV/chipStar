@@ -1036,7 +1036,6 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 chipstar::Context::Context() {}
 chipstar::Context::~Context() {
   logDebug("~Context() {}", (void *)this);
-  delete ChipDevice_;
 }
 
 void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
@@ -1227,6 +1226,8 @@ chipstar::Backend::Backend() {
 chipstar::Backend::~Backend() {
   logDebug("Backend Destructor. Deleting all pointers.");
   //   assert(Events.size() == 0);
+  Events.clear();
+  UserEvents.clear();
   for (auto &Ctx : ChipContexts) {
     ::Backend->removeContext(Ctx);
     delete Ctx;

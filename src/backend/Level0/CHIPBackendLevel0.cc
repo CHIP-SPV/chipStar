@@ -1703,6 +1703,9 @@ CHIPContextLevel0::~CHIPContextLevel0() {
     }
     EventPools_.clear();
 
+    // delete all devicesA
+    delete static_cast<CHIPDeviceLevel0*>(ChipDevice_);
+
   // The application must not call this function from
   // simultaneous threads with the same context handle.
   // Done via destructor should not be called from multiple threads
