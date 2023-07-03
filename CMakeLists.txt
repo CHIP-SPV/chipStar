@@ -32,7 +32,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
 
 # end temporary
-cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 project(CHIP-SPV
@@ -166,27 +166,27 @@ set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install di
 set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
-# TODO: Add CHIP_ prefix
-option(ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
-option(LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
-option(CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
-option(VERBOSE "Verbose compilation" OFF)
-option(BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
-option(BUILD_DOCS "Build doxygen documentation" OFF)
-option(ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
-option(PER_THREAD_DEFAULT_STREAM "Each thread has a thread local default stream. Default: OFF - use legacy stream" OFF)
-option(LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
-option(MALLOC_SHARED_WORKAROUND "Use zeMallocHost instead of zeMallocShared as it causes segfaults on some systems" OFF)
-option(LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
-option(SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
-option(ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
-option(ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
-option(BUILD_TESTS "Build Catch2 unit tests" ON)
-option(BUILD_SAMPLES "Build samples" ON)
+# HIP options
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
-option(DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
-option(USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
-option(USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
+
+# chipStar options
+option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
+option(CHIP_LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
+option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
+option(CHIP_VERBOSE "Verbose compilation" OFF)
+option(CHIP_BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
+option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
+option(CHIP_ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
+option(CHIP_LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
+option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
+option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
+option(CHIP_ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
+option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
+option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
+option(CHIP_BUILD_SAMPLES "Build samples" ON)
+option(CHIP_DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
+option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(CHIP_USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 
@@ -215,12 +215,12 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # CHIP-SPV CMAKE OPTIONS PARSING
-if(USE_OCML_ROUNDED_OPS)
+if(CHIP_USE_OCML_ROUNDED_OPS)
   set(OCML_BASIC_ROUNDED_OPERATIONS ON)
 endif()
 
-if(DUBIOUS_LOCKS)
-  list(APPEND CHIP_SPV_DEFINITIONS DUBIOUS_LOCKS)
+if(CHIP_DUBIOUS_LOCKS)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_DUBIOUS_LOCKS)
 endif()
 
 if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
@@ -229,10 +229,6 @@ endif()
 
 if(CHIP_FAST_MATH)
   list(APPEND CHIP_SPV_DEFINITIONS CHIP_FAST_MATH)
-endif()
-
-if(MALLOC_SHARED_WORKAROUND)
-  list(APPEND CHIP_SPV_DEFINITIONS MALLOC_SHARED_WORKAROUND)
 endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
@@ -253,11 +249,11 @@ if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
 endif()
 
 set(SPIRV_EMITTER_OPTS "")
-if(LLVM_USE_INTERGRATED_SPIRV)
+if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
 
-if(ENFORCE_QUEUE_SYNCHRONIZATION)
+if(CHIP_ENFORCE_QUEUE_SYNCHRONIZATION)
   list(APPEND CHIP_SPV_DEFINITIONS ENFORCE_QUEUE_SYNC)
 endif()
 
@@ -265,11 +261,11 @@ if(PER_THREAD_DEFAULT_STREAM)
   list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
 endif()
 
-if(LEVEL_ZERO_IMMEDIATE_QUEUES)
+if(CHIP_LEVEL_ZERO_IMMEDIATE_QUEUES)
   list(APPEND CHIP_SPV_DEFINITIONS L0_IMM_QUEUES)
 endif()
 
-if(VERBOSE)
+if(CHIP_VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
   add_compile_options("-v")
 endif()
@@ -283,11 +279,11 @@ else()
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_WARN)
 endif()
 
-if(ERROR_IF_NOT_IMPLEMENTED)
+if(CHIP_ERROR_IF_NOT_IMPLEMENTED)
   list(APPEND CHIP_SPV_DEFINITIONS CHIP_ERROR_ON_UNIMPL)
 endif()
 
-if(BUILD_SHARED_LIBS)
+if(CHIP_BUILD_SHARED_LIBS)
   message(STATUS "Buiding CHIP-SPV as a shared library")
   add_library(CHIP SHARED ${CHIP_SRC})
   set(CHIP_LIB_NAME "libCHIP.so")
@@ -435,7 +431,7 @@ if(LevelZero_LIBRARY)
   target_link_libraries(CHIP PUBLIC ze_loader)
 endif()
 
-if(SET_RPATH)
+if(CHIP_SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")
   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
@@ -646,13 +642,13 @@ install(EXPORT CHIPTargets
 #
 # enable the build_tests target
 SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
-if(USE_EXTERNAL_HIP_TESTS)
+if(CHIP_USE_EXTERNAL_HIP_TESTS)
   add_subdirectory(hip-tests/catch catch)
 else()
   add_subdirectory(HIP/tests/catch catch)
 endif()
 
-if(BUILD_TESTS)
+if(CHIP_BUILD_TESTS)
   add_subdirectory(tests/cuda)
   add_subdirectory(tests/devicelib)
   add_subdirectory(tests/hiprtc)
@@ -661,12 +657,12 @@ if(BUILD_TESTS)
   add_subdirectory(tests/runtime)
 endif()
 
-if(BUILD_SAMPLES)
+if(CHIP_BUILD_SAMPLES)
   add_subdirectory(./samples samples)
   add_dependencies(samples CHIP devicelib_bc)
 endif()
 
-if(BUILD_DOCS)
+if(CHIP_BUILD_DOCS)
   find_package(Doxygen REQUIRED)
   set(DOXYGEN_GENERATE_HTML YES)
   set(DOXYGEN_GENERATE_MAN NO)
@@ -674,4 +670,14 @@ if(BUILD_DOCS)
   set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
   doxygen_add_docs(gendocs README.md src llvm_passes
     COMMENT "generate documentation for source")
+endif()
+
+# Short Summary 
+# print if Level Zero or OpenCL are enabbled
+if(OpenCL_LIBRARY)
+  message(STATUS "OpenCL is enabled: ${OpenCL_LIBRARY}")
+endif()
+
+if(LevelZero_LIBRARY)
+  message(STATUS "Level Zero is enabled: ${LevelZero_LIBRARY}")
 endif()
