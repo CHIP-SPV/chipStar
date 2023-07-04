@@ -470,19 +470,18 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     return *this -= HIP_vector_type{x};
   }
 
-  // Struggling to properly specialize these so commenting out for now
-  // __HOST_DEVICE__
-  // HIP_vector_type& operator*=(const HIP_vector_type& x) noexcept
-  // {
-  //     data *= x.data;
-  //     return *this;
-  // }
+  __HOST_DEVICE__
+  HIP_vector_type& operator*=(const HIP_vector_type& x) noexcept
+  {
+      data *= x.data;
+      return *this;
+  }
 
-  // friend __HOST_DEVICE__ inline constexpr HIP_vector_type operator*(
-  // HIP_vector_type x, const HIP_vector_type& y) noexcept
-  // {
-  //   return HIP_vector_type{ x } *= y;
-  // }
+  friend __HOST_DEVICE__ inline constexpr HIP_vector_type operator*(
+  HIP_vector_type x, const HIP_vector_type& y) noexcept
+  {
+    return HIP_vector_type{ x } *= y;
+  }
 
   template <typename U, typename std::enable_if<
                             std::is_convertible<U, T>{}>::type * = nullptr>
