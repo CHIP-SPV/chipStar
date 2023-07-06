@@ -147,12 +147,6 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
@@ -835,12 +829,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctions") #  Timeuot
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
@@ -2236,12 +2224,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") #
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed

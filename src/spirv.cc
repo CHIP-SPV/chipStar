@@ -260,6 +260,17 @@ public:
     return Words_[Idx];
   }
 
+  /// Get operand of the instruction
+  ///
+  /// Indexing starts past instruction's opcode and result ID and
+  /// result type words.
+  const InstWord &getOperand(unsigned Idx) const {
+    bool HasResultID;
+    bool HasResultType;
+    HasResultAndType(getOpcode(), &HasResultID, &HasResultType);
+    return getWord(Idx + 1 + HasResultID + HasResultType);
+  }
+
   bool isKernelCapab() const {
     return (Opcode_ == spv::Op::OpCapability) &&
            (getWord(1) == (InstWord)spv::CapabilityKernel);
@@ -735,6 +746,58 @@ private:
   }
 };
 
+using IdMapT = std::unordered_map<InstWord, InstWord>;
+using IdSetT = std::unordered_set<InstWord>;
+enum FilterAction { Error = 0, Keep, Drop, Replace };
+
+static FilterAction
+workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
+                             std::vector<InstWord> &ReplacementInsn,
+                             IdMapT &ResultIdMap, IdSetT &SampledImgs) {
+  // Workaround issue of
+  // https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2008
+  // that occurs with llvm-spirv-16 which produces invalid SPIR-V like
+  // the following:
+  //
+  //   %TempSampledImage = OpSampledImage %14 %i %s
+  //                 %16 = OpBitcast %14 %TempSampledImage
+  //               %call = OpImageSampleExplicitLod %v4float %16 %c Lod %float_0
+  //
+  // The %TempSampledImage may only appear as operand to image lookups
+  // and queries and bitcasts are not one of them. Additionally,
+  // OpTypeSampledImage is not allowed type for bitcast.
+  //
+  // Fix by dropping the bitcast and passing its input operand to users.
+
+  if (Insn.isa<spv::OpSampledImage>()) {
+    // Track result type. We use it to detect invalid bitcast of sampled image.
+    SampledImgs.insert(Insn.getResultID());
+    return FilterAction::Keep;
+  }
+
+  if (Insn.isa<spv::OpBitcast>()) {
+    if (SampledImgs.count(Insn.getOperand(0))) {
+      // Invalid bitcast of a sampled image. Drop it and replace users of
+      // the bitcast with its input operand.
+      ResultIdMap[Insn.getResultID()] = Insn.getOperand(0);
+      return FilterAction::Drop;
+    }
+    return FilterAction::Keep;
+  }
+
+  if (Insn.isa<spv::OpImageSampleExplicitLod>()) {
+    if (!ResultIdMap.count(Insn.getOperand(0)))
+      return FilterAction::Keep;
+
+    // Replace sampled-image operand from dropped bitcast to its input operand.
+    ReplacementInsn.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
+    ReplacementInsn[3] = ResultIdMap[Insn.getOperand(0)];
+    return FilterAction::Replace;
+  }
+
+  return FilterAction::Keep;
+}
+
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   logTrace("filterSPIRV");
 
@@ -750,6 +813,8 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   std::set<std::string_view> EntryPoints;
   std::unordered_set<InstWord> BuiltIns;
   std::unordered_map<InstWord, std::string_view> MissingDefs;
+  IdMapT ResultIdMap;
+  IdSetT SampledImgs;
   size_t InsnSize = 0;
   for (size_t I = 0; I < NumWords; I += InsnSize) {
     SPIRVinst Insn(WordsPtr + I);
@@ -800,6 +865,23 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     if (Insn.isDecoration(spv::DecorationBuiltIn)) {
       BuiltIns.insert(Insn.getWord(1));
       MissingDefs.erase(Insn.getWord(1));
+    }
+
+    std::vector<InstWord> TransformedInst;
+    switch (workaroundLlvmSpirvIssue2008(Insn, TransformedInst, ResultIdMap,
+                                         SampledImgs)) {
+    default:
+      assert(false && "Unknown instruction filter action!");
+      // FALLTHROUGH
+    case FilterAction::Keep:
+      break;
+    case FilterAction::Drop:
+      continue;
+    case FilterAction::Replace: {
+      Dst.append((const char *)&*TransformedInst.begin(),
+                 (const char *)&*TransformedInst.end());
+      continue;
+    }
     }
 
     Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
