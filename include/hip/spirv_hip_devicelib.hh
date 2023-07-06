@@ -125,7 +125,17 @@ __HIP_OVERLOAD2(double, min)
 
 namespace std {
 __HIP_OVERLOAD1(long, lrint);
-}
+__HIP_OVERLOAD1(double, lgamma);
+__HIP_OVERLOAD1(double, erfc);
+__HIP_OVERLOAD1(double, erf);
+__HIP_OVERLOAD1(double, tanh);
+__HIP_OVERLOAD1(double, cosh);
+__HIP_OVERLOAD1(double, sinh);
+__HIP_OVERLOAD1(double, atan);
+__HIP_OVERLOAD1(double, acos);
+__HIP_OVERLOAD1(double, asin);
+__HIP_OVERLOAD1(double, tan);
+} // namespace std
 
 #pragma pop_macro("__DEF_FLOAT_FUN")
 #pragma pop_macro("__DEF_FLOAT_FUN2")

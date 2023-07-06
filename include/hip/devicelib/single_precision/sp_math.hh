@@ -193,6 +193,7 @@ extern "C++" inline __device__ float ldexpf(float x, int exp) {
 
 extern "C" __device__  float __ocml_lgamma_f32(float x); // OCML
 extern "C++" inline __device__ float lgammaf(float x) { return ::__ocml_lgamma_f32(x); };
+extern "C++" inline __device__ float lgamma(float x) { return ::lgammaf(x); }
 
 extern "C" __device__  long long int __chip_llrint_f32(float x); // Custom
 extern "C++" inline __device__ long long int llrintf(float x) {
