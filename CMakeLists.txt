@@ -376,7 +376,7 @@ set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
 
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
-  -include ${CMAKE_BINARY_DIR}/include/hip/spirv_fixups.h)
+  -include ${CMAKE_SOURCE_DIR}/include/hip/spirv_fixups.h)
 set(HIP_FIXUPS_HEADER_INSTALL
   -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
 
@@ -413,7 +413,10 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
-  ${HIP_FIXUPS_HEADER_BUILD})
+  ${HIP_FIXUPS_HEADER_BUILD}
+  -I${CMAKE_SOURCE_DIR}/include
+  -I${CMAKE_SOURCE_DIR}/HIP/include
+  -I${CMAKE_BINARY_DIR}/include)
 
 # HIP applications need to link against libCHIP.so; add it to rpath
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
@@ -609,10 +612,6 @@ file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install" ${_hipInfo_install})
 file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo" ${_hipInfo_build})
 install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
   DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
-
-# Copy over includes for hipcc to work in the build dir
-file(COPY ${CMAKE_SOURCE_DIR}/include DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/hip DESTINATION ${CMAKE_BINARY_DIR}/include)
 
 # Copy hipconfig, hipvars, etc to bin
 install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ)
