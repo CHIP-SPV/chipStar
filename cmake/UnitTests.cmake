@@ -147,21 +147,11 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # LLVM-16 Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # LLVM-16 Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # LLVM-16 Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # LLVM-16 Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # LLVM-16 Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "2d_shuffle") # Failed
@@ -833,8 +823,11 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
- # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctions") #  Timeuot
+# Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctions") #  Timeuot It
+# seems none of the tests with texture sampling isn't working on CI's
+# OpenCL/dGPU yet there are plenty of other backend-driver
+# combinations where they do work. A bug in OpenCL/dGPU driver?
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
@@ -1894,10 +1887,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess ab
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
@@ -2236,12 +2225,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") #
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
