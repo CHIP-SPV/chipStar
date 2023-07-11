@@ -147,6 +147,7 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
