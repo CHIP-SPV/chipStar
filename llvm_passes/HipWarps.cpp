@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 // LLVM IR pass to handle kernels that are sensitive to warp width.
 //
-// (c) 2022 Pekka Jääskeläinen / Intel
+// (c) 2022-2023 Pekka Jääskeläinen / Intel
 //===----------------------------------------------------------------------===//
 //
 // Currently handles kernels that call warp primitives that rely on the
@@ -66,7 +66,8 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
       "_Z23intel_sub_group_shuffleij",
       "_Z23intel_sub_group_shufflefj",
       "_Z27intel_sub_group_shuffle_xorij",
-      "_Z27intel_sub_group_shuffle_xorfj"};
+      "_Z27intel_sub_group_shuffle_xorfj",
+      "_Z22get_sub_group_local_idv"};
 
   bool SensitiveFuncFound = false;
   for (auto &FuncName : WarpSizeSensitiveFuncNames) {
