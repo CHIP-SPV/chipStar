@@ -8,19 +8,19 @@ For User documentation, read [this.](docs/Using.md)
 For Developer documentation, read [this.](docs/Development.md)
 For a list of (un)supported features, read [this.](docs/Features.md)
 
-This project is an integration of [HIPCL](https://github.com/cpc/hipcl) and
+This project builds on work done in [HIPCL](https://github.com/cpc/hipcl) and
 [HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
 
 ## Prerequisites
 
-* Cmake >= 3.16.0
-* Clang 14, 15 or 16
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'.  
-  * *NOTE*: Some features currently require patches that are not yet upstreamed to LLVM. They are on top of the branch [here](https://github.com/chipStar/llvm-project/tree/chipspv-llvm-15-patches).
+* Cmake >= 3.20.0
+* Clang 15 or 16
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'.
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * For best results, install [chipStar's LLVM 15 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-15-patches) or [chipStar's LLVM 16 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which have fixes that are not yet in upstream.
+  * make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
@@ -46,7 +46,7 @@ mkdir build
 cd build
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
-# DLLVM_TARGETS_TO_BUILD Speed up compilation but building only the necessary CPU host target
+# DLLVM_TARGETS_TO_BUILD Speed up compilation by building only the necessary CPU host target
 # CMAKE_INSTALL_PREFIX Where to install LLVM
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
@@ -71,7 +71,7 @@ git submodule update --init --recursive
 mkdir build
 cd build
 cmake .. \ 
-    -DLLVM_CONFIG=/path/to/llvm-config # optional, if not in PATH or if only versioned binary is available i.e. llvm-config-16
+    -DLLVM_CONFIG_BIN=/path/to/llvm-config # optional, if not in PATH or if only versioned binary is available i.e. llvm-config-16
     -DCMAKE_INSTALL_PREFIX=/path/to/install # optional, default is <build_dir>/install
 make
 make install
@@ -83,11 +83,23 @@ Useful options:
 
 The documentation will be placed in `doxygen/html`.
 
-## Building & Running Unit Tests
+## Building
 
 ```bash
-make build_tests
-make check # runs only tests that are expected to work
+cd build
+make
+make build_tests # builds the HIP's Catch2 testsuite
+```
+
+## Running Unit Tests
+
+```bash
+export BACKEND={opencl/level0/pocl}   # which backend you wish to test, "pocl" = PoCL OpenCL runtime, "opencl" = any other OpenCL runtime
+export DEVICE={cpu,igpu,dgpu}         # what kind of device to test
+export PARALLEL={N}                   # how many tests to run in parallel
+export CHIP_PLATFORM=N                # required only when there are multiple OpenCL platforms present on the system
+
+python3 $SOURCE_DIR/scripts/check.py $BUILD_DIR $DEVICE $BACKEND $PARALLEL 1
 ```
 
 ## Building documentation
