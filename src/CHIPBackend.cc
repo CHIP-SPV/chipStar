@@ -1241,6 +1241,14 @@ void chipstar::Backend::trackEvent(
   //   assert(!TrackCalled_ && "chipstar::Event already tracked!");
 
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
+  // check if event is already present in Backend->Events
+  for (auto &E : ::Backend->Events) {
+      if (E.get() == Event.get()) {
+      logError("chipstar::Event {} already tracked in Backend::Events",
+                  (void *)this);
+      assert(false && "chipstar::Event already tracked in Backend::Events");
+      }
+  }
   ::Backend->Events.push_back(Event);
   Event->markTracked();
 }
