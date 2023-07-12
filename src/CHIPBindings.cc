@@ -1339,8 +1339,6 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
                                                        Kind)) {
     return hipSuccess;
@@ -2141,8 +2139,6 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   ChipQueue = Backend->findQueue(ChipQueue);
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
     return hipSuccess;
   }
@@ -2184,8 +2180,6 @@ static inline hipError_t hipStreamGetFlagsInternal(hipStream_t Stream,
                                                    unsigned int *Flags) {
   auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     return hipErrorStreamCaptureInvalidated;
@@ -2207,13 +2201,11 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
 static inline hipError_t hipStreamGetPriorityInternal(hipStream_t Stream,
                                                       int *Priority) {
   auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
-  ChipQueue = Backend->findQueue(ChipQueue);
-  LOCK(ChipQueue->QueueMtx);
-
   if (Priority == nullptr) {
     CHIPERR_LOG_AND_THROW("Priority is nullptr", hipErrorInvalidValue);
   }
 
+  ChipQueue = Backend->findQueue(ChipQueue);
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     return hipErrorStreamCaptureInvalidated;
@@ -2243,11 +2235,8 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
   // TODO: Can't use NULLCHECK for this one
   if (Callback == nullptr)
     CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
-
   auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     RETURN(hipErrorStreamCaptureInvalidated);
@@ -3377,8 +3366,6 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
                                 size_t Height, hipMemcpyKind Kind,
                                 hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ nullptr,
       /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
@@ -3403,8 +3390,13 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
 
   size_t SrcW = SPitch;
   size_t DstW = (Dst->width) * ByteSize;
-  ChipQueue->memCopy2DAsync(Dst->data, DstW, const_cast<void *>(Src), SrcW,
-                            Width, Height);
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+  for (size_t Offset = HOffset; Offset < Height; ++Offset) {
+    void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
+    void *SrcP = ((unsigned char *)Src + Offset * SrcW);
+    if (hipMemcpyAsyncInternal(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
+      return hipErrorLaunchFailure;
+  }
 
   return hipSuccess;
 };
@@ -3445,8 +3437,6 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
                                   size_t HOffset, size_t Width, size_t Height,
                                   hipMemcpyKind Kind, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ const_cast<hipArray_t>(Src),
       /* struct hipPos srcPos */ make_hipPos(WOffset, HOffset, 1),
@@ -3490,7 +3480,13 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
 
   size_t DstW = DPitch;
   size_t SrcW = (Src->width) * ByteSize;
-  ChipQueue->memCopy2DAsync(Dst, DstW, Src->data, SrcW, Width, Height);
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+  for (size_t Offset = 0; Offset < Height; ++Offset) {
+    void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
+    void *DstP = ((unsigned char *)Dst + Offset * DstW);
+    auto Err = hipMemcpyAsyncInternal(DstP, SrcP, Width, Kind, Stream);
+    ERROR_IF(Err != hipSuccess, Err);
+  }
 
   return hipSuccess;
 }
