@@ -2689,6 +2689,9 @@ static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
   if (!Ptr || !Pitch)
     return hipErrorInvalidValue;
 
+  if (Width * Height == 0)
+    return hipSuccess;
+
   size_t CandidatePitch = roundUp(Width, SVM_ALIGNMENT);
   const size_t SizeBytes = std::max<size_t>(1, CandidatePitch) *
                            std::max<size_t>(1, Height) *
@@ -3617,6 +3620,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   void *SrcPtr;
   void *DstPtr;
   size_t YSize;
+  size_t XSize;
 
   bool ArrayDst = Params->dstArray != nullptr ? true : false;
   bool ArraySrc = Params->srcArray != nullptr ? true : false;
@@ -3652,6 +3656,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     SrcPitch = PDrv->srcPitch;
     SrcPtr = (void *)PDrv->srcHost;
     YSize = PDrv->srcHeight;
+    XSize = PDrv->srcXInBytes / ByteSize;
     DstPtr = PDrv->dstArray->data;
   } else { // non Drc params
     Depth = Params->extent.depth;
@@ -3669,8 +3674,10 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
 
     if (ArraySrc) {
       YSize = Params->srcArray->height;
+      XSize = Params->srcArray->width;
     } else {
       YSize = Params->srcPtr.ysize;
+      XSize = Params->srcPtr.xsize;
     }
 
     if (ArrayDst) {
@@ -3682,13 +3689,25 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     }
   }
 
+  if (YSize * XSize == 0)
+    return hipSuccess;
 
   size_t srcSlicePitch = SrcPitch * YSize;
   size_t dstSlicePitch = DstPitch * YSize;
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch))
     ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth);
   else {
-    ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr, SrcPitch, srcSlicePitch, Width, Height, Depth);
+    // TODO What am I doing wrong here?
+    // ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr, SrcPitch, srcSlicePitch, Width, Height, Depth);
+    for (size_t i = 0; i < Depth; i++) {
+      for (size_t j = 0; j < Height; j++) {
+        unsigned char *Src =
+            (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
+        unsigned char *Dst =
+            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
+        ChipQueue->memCopyAsync(Dst, Src, WidthInBytes);
+      }
+    }
   }
   return hipSuccess;
 }
