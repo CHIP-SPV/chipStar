@@ -2877,7 +2877,7 @@ hipError_t hipFreeArray(hipArray *Array) {
   CHIP_TRY
   CHIPInitialize();
   if (!Array || !Array->data)
-    RETURN(hipErrorInvalidValue);
+    RETURN(hipErrorContextIsDestroyed);
 
   hipError_t Err = hipFreeInternal(Array->data);
   if (Err != hipSuccess)
