@@ -3590,6 +3590,8 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
 hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
                                     hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
     return hipSuccess;
   }
@@ -3600,6 +3602,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   size_t ByteSize = 1;
   size_t Depth;
   size_t Height;
+  size_t Width;
   size_t WidthInBytes;
   size_t SrcPitch;
   size_t DstPitch;
@@ -3636,6 +3639,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     Depth = PDrv->Depth;
     Height = PDrv->Height;
     WidthInBytes = PDrv->WidthInBytes;
+    Width = WidthInBytes / ByteSize;
     DstPitch = PDrv->dstArray->width * 4;
     SrcPitch = PDrv->srcPitch;
     SrcPtr = (void *)PDrv->srcHost;
@@ -3644,6 +3648,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   } else { // non Drc params
     Depth = Params->extent.depth;
     Height = Params->extent.height;
+    Width = Params->extent.width;
     WidthInBytes = Params->extent.width * ByteSize;
 
     if (ArraySrc) {
@@ -3668,25 +3673,14 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
       DstPtr = Params->dstPtr.ptr;
     }
   }
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-    return hipMemcpyInternal((void *)DstPtr, (void *)SrcPtr,
-                             WidthInBytes * Height * Depth, Params->kind);
-  } else {
-    for (size_t i = 0; i < Depth; i++) {
-      for (size_t j = 0; j < Height; j++) {
-        unsigned char *Src =
-            (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
-        unsigned char *Dst =
-            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        if (hipMemcpyAsyncInternal(Dst, Src, WidthInBytes, Params->kind,
-                                   Stream) != hipSuccess)
-          return hipErrorLaunchFailure;
-      }
-    }
 
-    ChipQueue->finish();
-    return hipSuccess;
+
+  size_t srcSlicePitch = SrcPitch * YSize;
+  size_t dstSlicePitch = DstPitch * YSize;
+  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch))
+    ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth);
+  else {
+    ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr, SrcPitch, srcSlicePitch, Width, Height, Depth);
   }
   return hipSuccess;
 }
