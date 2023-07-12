@@ -651,7 +651,7 @@ protected:
    *
    */
   Event() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~Event() { logDebug("~Event() {}", (void *)this); };
+  virtual ~Event(){};
 
 public:
   void markTracked() { TrackCalled_ = true; }
