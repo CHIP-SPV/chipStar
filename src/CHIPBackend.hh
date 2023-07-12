@@ -2189,11 +2189,8 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                    size_t PatternSize) = 0;
-
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
-  virtual void memFillAsync2D(void *Dst, size_t Pitch, int Value, size_t Width,
-                              size_t Height);
 
   // The memory copy 2D support
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,

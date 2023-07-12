@@ -33,6 +33,7 @@
  */
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
+  LOCK(Queue->QueueMtx); /* CHIPQueueLevel0::ZeCmdList_ */                     \
   CommandList = Queue->getCmdList();
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
