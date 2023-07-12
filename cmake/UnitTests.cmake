@@ -17,6 +17,7 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "Unit_HMM_OverSubscriptionTst") # Seems AMD-specific, crashes the driver
 list(APPEND FAILING_FOR_ALL "constant_fold_lgamma_r") # Unknown
 list(APPEND FAILING_FOR_ALL "RecursiveGaussian") # Flaky
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_rd_float") # Unimplemented
