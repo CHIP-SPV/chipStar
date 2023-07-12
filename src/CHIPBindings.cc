@@ -3026,6 +3026,7 @@ static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
                                                 size_t SizeBytes,
                                                 hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx);
   const hipMemsetParams Params = {
       /* Dst */ Dst,
       /* elementSize*/ 1,
@@ -3057,7 +3058,10 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
                                                   int Value, size_t Width,
                                                   size_t Height,
                                                   hipStream_t Stream) {
+
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   const hipMemsetParams Params = {
       /* Dst */ Dst,
       /* elementSize*/ 1,
@@ -3070,21 +3074,9 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     return hipSuccess;
   }
 
-  hipError_t Res = hipSuccess;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t i = 0; i < Height; i++) {
-    size_t SizeBytes = Width;
-    auto Offset = Pitch * i;
-    char *DstP = (char *)Dst;
-    if (SizeBytes > 0) {
-      auto Res =
-          hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
-      if (Res != hipSuccess)
-        break;
-    }
-  }
+  ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
 
-  return Res;
+  return hipSuccess;
 }
 
 hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,

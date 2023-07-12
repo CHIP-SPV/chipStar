@@ -1243,11 +1243,11 @@ void chipstar::Backend::trackEvent(
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
   // check if event is already present in Backend->Events
   for (auto &E : ::Backend->Events) {
-      if (E.get() == Event.get()) {
+    if (E.get() == Event.get()) {
       logError("chipstar::Event {} already tracked in Backend::Events",
-                  (void *)this);
+               (void *)this);
       assert(false && "chipstar::Event already tracked in Backend::Events");
-      }
+    }
   }
   ::Backend->Events.push_back(Event);
   Event->markTracked();
@@ -1629,6 +1629,32 @@ void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
   updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
+
+void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
+                                     size_t Width, size_t Height) {
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
+  size_t SizeBytes = Width;
+  if (SizeBytes < 1)
+    return;
+
+  std::shared_ptr<chipstar::Event> ChipEvent;
+  for (size_t i = 0; i < Height; i++) {
+    auto Offset = Pitch * i;
+    char *DstP = (char *)Dst;
+    // capture the returned event on last iteration, otherwise don't
+    if (i == Height - 1)
+      ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+    else
+      memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+  }
+
+  ChipEvent->Msg = "memFillAsync2D";
+  updateLastEvent(ChipEvent);
+  ::Backend->trackEvent(ChipEvent);
+}
+
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                                 size_t SPitch, size_t Width, size_t Height) {
 #ifdef ENFORCE_QUEUE_SYNC
