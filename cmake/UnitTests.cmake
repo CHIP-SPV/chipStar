@@ -815,11 +815,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
-# Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctions") #  Timeuot It
-# seems none of the tests with texture sampling isn't working on CI's
-# OpenCL/dGPU yet there are plenty of other backend-driver
-# combinations where they do work. A bug in OpenCL/dGPU driver?
+ # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
