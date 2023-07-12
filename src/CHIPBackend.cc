@@ -1690,6 +1690,35 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
   ::Backend->trackEvent(ChipEvent);
 }
 
+void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                                     hipExtent Extent) {
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
+  std::shared_ptr<chipstar::Event> ChipEvent;
+
+  size_t Width = Extent.width;
+  size_t Height = Extent.height;
+  size_t Depth = Extent.depth;
+
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+  for (size_t i = 0; i < Depth; i++)
+    for (size_t j = 0; j < Height; j++) {
+      size_t SizeBytes = Width;
+      auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
+      char *DstP = (char *)Dst;
+      // capture the returned event on last iteration, otherwise don't
+      if (i == Depth - 1 && j == Height - 1) {
+        ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+        ChipEvent->Msg = "memFillAsync3D";
+        updateLastEvent(ChipEvent);
+         ::Backend->trackEvent(ChipEvent);
+      } else
+        memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
+    }
+ }
+
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                                 size_t SPitch, size_t Width, size_t Height) {
 #ifdef ENFORCE_QUEUE_SYNC
