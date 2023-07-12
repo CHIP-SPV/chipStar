@@ -864,7 +864,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUES
+#ifdef L0_IMM_QUEUEs
   initializeCmdListImm();
 #endif
 }
