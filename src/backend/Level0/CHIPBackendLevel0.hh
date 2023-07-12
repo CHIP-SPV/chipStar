@@ -59,7 +59,7 @@ public:
   }
 
   CHIPExecItemLevel0(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-                     hipStream_t ChipQueue)
+                     chipstar::Queue *ChipQueue)
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemLevel0() override {}
@@ -535,9 +535,9 @@ public:
 class CHIPBackendLevel0 : public chipstar::Backend {
 
 public:
-  virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
-                                             size_t SharedMem,
-                                             hipStream_t ChipQueue) override;
+  virtual chipstar::ExecItem *
+  createExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+                 chipstar::Queue *ChipQueue) override;
 
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;

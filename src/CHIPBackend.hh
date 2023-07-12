@@ -1180,7 +1180,7 @@ public:
    * @param chip_queue_
    */
   ExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-           hipStream_t ChipQueue);
+           chipstar::Queue *ChipQueue);
 
   /**
    * @brief Set the chipstar::Kernel object
@@ -1802,7 +1802,7 @@ public:
 
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
-                                             hipStream_t ChipQueue) = 0;
+                                             chipstar::Queue *ChipQueue) = 0;
 
   int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
@@ -1956,7 +1956,7 @@ public:
    * @return hipError_t
    */
   hipError_t configureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
-                           hipStream_t ChipQueue);
+                           chipstar::Queue *ChipQueue);
 
   /**
    * @brief Return a device which meets or exceeds the requirements
@@ -2029,7 +2029,7 @@ public:
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class Queue : public ihipStream_t {
+class Queue {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;

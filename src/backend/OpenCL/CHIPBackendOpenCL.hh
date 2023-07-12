@@ -312,7 +312,7 @@ public:
     this->Args_ = Other.Args_;
   }
   CHIPExecItemOpenCL(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
-                     hipStream_t ChipQueue)
+                     chipstar::Queue *ChipQueue)
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemOpenCL() override {
@@ -333,9 +333,9 @@ public:
 
 class CHIPBackendOpenCL : public chipstar::Backend {
 public:
-  virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
-                                             size_t SharedMem,
-                                             hipStream_t ChipQueue) override;
+  virtual chipstar::ExecItem *
+  createExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+                 chipstar::Queue *ChipQueue) override;
 
   virtual void uninitialize() override { waitForThreadExit(); }
   virtual void initializeImpl(std::string CHIPPlatformStr,

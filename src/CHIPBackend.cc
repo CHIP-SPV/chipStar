@@ -91,7 +91,7 @@ chipstar::CallbackData::CallbackData(hipStreamCallback_t TheCallbackF,
       CallbackF(TheCallbackF) {}
 
 void chipstar::CallbackData::execute(hipError_t ResultFromDependency) {
-  CallbackF(ChipQueue, ResultFromDependency, CallbackArgs);
+  CallbackF(STREAM(ChipQueue), ResultFromDependency, CallbackArgs);
 }
 
 // DeviceVar
@@ -480,9 +480,9 @@ void chipstar::ExecItem::copyArgs(void **Args) {
 }
 
 chipstar::ExecItem::ExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
-                             hipStream_t ChipQueue)
+                             chipstar::Queue *ChipQueue)
     : SharedMem_(SharedMem), GridDim_(GridDim), BlockDim_(BlockDim),
-      ChipQueue_(static_cast<chipstar::Queue *>(ChipQueue)){};
+      ChipQueue_(ChipQueue){};
 
 dim3 chipstar::ExecItem::getBlock() { return BlockDim_; }
 dim3 chipstar::ExecItem::getGrid() { return GridDim_; }
@@ -502,11 +502,13 @@ chipstar::Device::~Device() {
   LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
   while (this->ChipQueues_.size() > 0) {
-    delete ChipQueues_[0];
+    ChipQueues_[0]->~Queue();
+    free(CHIP_OBJ_TO_HANDLE(ChipQueues_[0], ihipStream_t));
     ChipQueues_.erase(ChipQueues_.begin());
   }
 
-  delete LegacyDefaultQueue;
+  LegacyDefaultQueue->~Queue();
+  free(CHIP_OBJ_TO_HANDLE(LegacyDefaultQueue, ihipStream_t));
   LegacyDefaultQueue = nullptr;
 }
 chipstar::Queue *chipstar::Device::getLegacyDefaultQueue() {
@@ -897,7 +899,8 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
   }
   ChipQueues_.erase(FoundQueue);
 
-  delete ChipQueue;
+  ChipQueue->~Queue();
+  free(CHIP_OBJ_TO_HANDLE(ChipQueue, ihipStream_t));
   return true;
 }
 
@@ -1364,7 +1367,7 @@ void chipstar::Backend::addContext(chipstar::Context *ChipContext) {
 
 hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block,
                                             size_t SharedMem,
-                                            hipStream_t ChipQueue) {
+                                            chipstar::Queue *ChipQueue) {
   logDebug("Backend->configureCall(grid=({},{},{}), block=({},{},{}), "
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
@@ -1483,9 +1486,9 @@ chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
   auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
-  if (ChipQueue == hipStreamPerThread) {
+  if (ChipQueue == (chipstar::Queue *)hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueueNoLock();
-  } else if (ChipQueue == hipStreamLegacy) {
+  } else if (ChipQueue == (chipstar::Queue *)hipStreamLegacy) {
     return Dev->getLegacyDefaultQueue();
   } else if (ChipQueue == nullptr) {
     return Dev->getDefaultQueue();

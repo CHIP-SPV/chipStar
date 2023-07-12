@@ -41,11 +41,36 @@
 #include <queue>
 #include <stack>
 
+/// For multiplexing purposes, the first field of our objects must be a void *
+/// pointer
+struct ihipDispatch {
+  void *dispatch;
+};
+
+#define CHIP_HANDLE_TO_OBJ(handle, type)                                       \
+  (reinterpret_cast<type *>(reinterpret_cast<uintptr_t>(handle) +              \
+                            sizeof(ihipDispatch)))
+
+#define CHIP_OBJ_TO_HANDLE(pobj, type)                                         \
+  (reinterpret_cast<type *>(reinterpret_cast<uintptr_t>(pobj) -                \
+                            sizeof(ihipDispatch)))
+
+#define QUEUE(x)                                                               \
+  ((!(x) || (x) == hipStreamPerThread || (x) == hipStreamLegacy)               \
+       ? reinterpret_cast<chipstar::Queue *>(x)                                \
+       : CHIP_HANDLE_TO_OBJ(x, chipstar::Queue))
+
+#define STREAM(x)                                                              \
+  ((!(x) || (x) == (chipstar::Queue *)hipStreamPerThread ||                    \
+    (x) == (chipstar::Queue *)hipStreamLegacy)                                 \
+       ? reinterpret_cast<ihipStream_t *>(x)                                   \
+       : CHIP_OBJ_TO_HANDLE(x, ihipStream_t))
+
 /// The implementation of ihipEvent_t. The chipstar::Event class inherits this
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t {};
 struct ihipCtx_t {};
-struct ihipStream_t {};
+struct ihipStream_t : ihipDispatch {};
 struct ihipModule_t {};
 struct ihipModuleSymbol_t {};
 struct ihipGraph {};

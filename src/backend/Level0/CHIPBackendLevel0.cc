@@ -1475,10 +1475,9 @@ void LZEventPool::returnSlot(int Slot) {
 
 // CHIPBackendLevel0
 // ***********************************************************************
-chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim,
-                                                      dim3 BlockDim,
-                                                      size_t SharedMem,
-                                                      hipStream_t ChipQueue) {
+chipstar::ExecItem *
+CHIPBackendLevel0::createExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+                                  chipstar::Queue *ChipQueue) {
   CHIPExecItemLevel0 *ExecItem =
       new CHIPExecItemLevel0(GirdDim, BlockDim, SharedMem, ChipQueue);
   return ExecItem;
@@ -1997,7 +1996,9 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
 chipstar::Queue *CHIPDeviceLevel0::createQueue(chipstar::QueueFlags Flags,
                                                int Priority) {
-  CHIPQueueLevel0 *NewQ = new CHIPQueueLevel0(this, Flags, Priority);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
+  CHIPQueueLevel0 *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
+  NewQ = new (NewQ) CHIPQueueLevel0(this, Flags, Priority);
   return NewQ;
 }
 
@@ -2008,9 +2009,13 @@ chipstar::Queue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
   if (!CmdQ) {
     logWarn("initializeFromNative: native queue pointer is null. Creating a "
             "new queue");
-    NewQ = new CHIPQueueLevel0(this, 0, 0);
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
+    NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
+    NewQ = new (NewQ) CHIPQueueLevel0(this, 0, 0);
   } else {
-    NewQ = new CHIPQueueLevel0(this, CmdQ);
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
+    NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
+    NewQ = new (NewQ) CHIPQueueLevel0(this, CmdQ);
     // In this case CHIP does not own the queue hence setting right ownership
     if (NewQ != nullptr) {
       NewQ->setCmdQueueOwnership(false);

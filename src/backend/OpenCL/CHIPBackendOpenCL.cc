@@ -759,7 +759,9 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,
                                                int Priority) {
-  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueOpenCL));
+  CHIPQueueOpenCL *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueOpenCL);
+  NewQ = new (NewQ) CHIPQueueOpenCL(this, Priority);
   NewQ->setFlags(Flags);
   return NewQ;
 }
@@ -767,8 +769,9 @@ chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
                                                int NumHandles) {
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
-  CHIPQueueOpenCL *NewQ =
-      new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueOpenCL));
+  CHIPQueueOpenCL *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueOpenCL);
+  NewQ = new (mem) CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
   return NewQ;
 }
 
@@ -988,7 +991,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // finishing the user CB's execution.
 
   HipStreamCallbackData *Cb = new HipStreamCallbackData{
-      this, hipSuccess, UserData, Callback, CallbackEvent};
+      STREAM(this), hipSuccess, UserData, Callback, CallbackEvent};
 
   std::vector<std::shared_ptr<chipstar::Event>> WaitForEventsCBB{CallbackEvent};
   auto CallbackCompleted = enqueueBarrier(WaitForEventsCBB);
@@ -1402,10 +1405,9 @@ void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {
 
 // CHIPBackendOpenCL
 //*************************************************************************
-chipstar::ExecItem *CHIPBackendOpenCL::createExecItem(dim3 GirdDim,
-                                                      dim3 BlockDim,
-                                                      size_t SharedMem,
-                                                      hipStream_t ChipQueue) {
+chipstar::ExecItem *
+CHIPBackendOpenCL::createExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
+                                  chipstar::Queue *ChipQueue) {
   CHIPExecItemOpenCL *ExecItem =
       new CHIPExecItemOpenCL(GirdDim, BlockDim, SharedMem, ChipQueue);
   return ExecItem;
