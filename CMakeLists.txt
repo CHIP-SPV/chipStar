@@ -65,7 +65,9 @@ endforeach()
 
 # =============================================================================
 # CHIP-SPV CMAKE DEPENDENCIES
-if(NOT DEFINED OpenCL_LIBRARY)
+option(CHIP_ENABLE_OPENCL "Enable building the OpenCL backend" ON)
+option(CHIP_ENABLE_LEVEL0 "Enable building the Level Zero backend" ON)
+if(NOT DEFINED OpenCL_LIBRARY AND CHIP_ENABLE_OPENCL)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
   if(OpenCL_LIBRARY)
@@ -76,7 +78,7 @@ if(NOT DEFINED OpenCL_LIBRARY)
   endif()
 endif()
 
-if(NOT DEFINED LevelZero_LIBRARY)
+if(NOT DEFINED LevelZero_LIBRARY AND CHIP_ENABLE_LEVEL0)
   message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
   find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
   if(LevelZero_LIBRARY)
@@ -87,10 +89,14 @@ if(NOT DEFINED LevelZero_LIBRARY)
   endif()
 endif()
 
-message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
+if(CHIP_ENABLE_OPENCL)
+  message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
+endif()
+if(CHIP_ENABLE_LEVEL0)
 message(STATUS "LevelZero_LIBRARY: ${LevelZero_LIBRARY}")
+endif()
 
-if(NOT OpenCL_LIBRARY AND NOT LevelZero_LIBRARY)
+if(NOT (OpenCL_LIBRARY AND CHIP_ENABLE_OPENCL) AND NOT (LevelZero_LIBRARY AND CHIP_ENABLE_LEVEL0))
   message(FATAL_ERROR "At least one of OpenCL,Level0 libraries must be available")
 endif()
 
@@ -128,13 +134,13 @@ set(CHIP_SRC
   src/SPIRVFuncInfo.cc
 )
 
-if(OpenCL_LIBRARY)
+if(OpenCL_LIBRARY AND CHIP_ENABLE_OPENCL)
   list(APPEND CHIP_SRC
     src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc)
 endif()
 
-if(LevelZero_LIBRARY)
+if(LevelZero_LIBRARY AND CHIP_ENABLE_LEVEL0)
   list(APPEND CHIP_SRC
     src/backend/Level0/CHIPBackendLevel0.cc)
 endif()
@@ -295,12 +301,12 @@ endif()
 
 set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})
 
-if(OpenCL_LIBRARY)
+if(OpenCL_LIBRARY AND CHIP_ENABLE_OPENCL)
   list(APPEND CHIP_SPV_DEFINITIONS HAVE_OPENCL)
   list(PREPEND CHIP_INTERFACE_LIBS ${OpenCL_LIBRARY})
 endif()
 
-if(LevelZero_LIBRARY)
+if(LevelZero_LIBRARY AND CHIP_ENABLE_LEVEL0)
   list(APPEND CHIP_SPV_DEFINITIONS HAVE_LEVEL0)
   list(PREPEND CHIP_INTERFACE_LIBS ${LevelZero_LIBRARY})
 endif()
@@ -422,13 +428,13 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${CMAKE_BINARY_DIR}" "-lCHIP")
 
-if(OpenCL_LIBRARY)
+if(OpenCL_LIBRARY AND CHIP_ENABLE_OPENCL)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
   target_link_libraries(CHIP PUBLIC OpenCL)
 endif()
 
-if(LevelZero_LIBRARY)
+if(LevelZero_LIBRARY AND CHIP_ENABLE_LEVEL0)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZero_DIR})
   target_link_directories(CHIP PUBLIC ${LevelZero_DIR})
   target_link_libraries(CHIP PUBLIC ze_loader)
@@ -673,10 +679,10 @@ endif()
 
 # Short Summary 
 # print if Level Zero or OpenCL are enabbled
-if(OpenCL_LIBRARY)
+if(OpenCL_LIBRARY AND CHIP_ENABLE_OPENCL)
   message(STATUS "OpenCL is enabled: ${OpenCL_LIBRARY}")
 endif()
 
-if(LevelZero_LIBRARY)
+if(LevelZero_LIBRARY AND CHIP_ENABLE_LEVEL0)
   message(STATUS "Level Zero is enabled: ${LevelZero_LIBRARY}")
 endif()
