@@ -1713,11 +1713,11 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
         ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
         ChipEvent->Msg = "memFillAsync3D";
         updateLastEvent(ChipEvent);
-         ::Backend->trackEvent(ChipEvent);
+        ::Backend->trackEvent(ChipEvent);
       } else
         memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
     }
- }
+}
 
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                                 size_t SPitch, size_t Width, size_t Height) {
