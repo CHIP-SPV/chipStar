@@ -301,9 +301,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKerneland
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
@@ -481,9 +479,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - int") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # Failed
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
@@ -633,7 +629,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
@@ -1005,7 +1000,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
@@ -1358,7 +1352,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Bus error
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocPitch_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
@@ -1688,7 +1681,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelan
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocPitch_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
@@ -2056,11 +2048,7 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhi
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - int") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed

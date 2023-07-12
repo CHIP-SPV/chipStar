@@ -2686,15 +2686,20 @@ hipError_t hipHostUnregister(void *HostPtr) {
 static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
                                                   size_t Width, size_t Height,
                                                   size_t Depth) {
-  *Pitch = ((((int)Width - 1) / SVM_ALIGNMENT) + 1) * SVM_ALIGNMENT;
-  const size_t SizeBytes =
-      (*Pitch) * std::max<size_t>(1, Height) * std::max<size_t>(1, Depth);
+  if (!Ptr || !Pitch)
+    return hipErrorInvalidValue;
+
+  size_t CandidatePitch = roundUp(Width, SVM_ALIGNMENT);
+  const size_t SizeBytes = std::max<size_t>(1, CandidatePitch) *
+                           std::max<size_t>(1, Height) *
+                           std::max<size_t>(1, Depth);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       SizeBytes, hipMemoryType::hipMemoryTypeDevice);
-  ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
+  ERROR_IF((RetVal == nullptr), hipErrorOutOfMemory);
 
   *Ptr = RetVal;
+  *Pitch = CandidatePitch;
   return hipSuccess;
 }
 
@@ -2702,7 +2707,6 @@ hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
                           size_t Height) {
   CHIP_TRY
   CHIPInitialize();
-  NULLCHECK(Ptr, Pitch);
 
   RETURN(hipMallocPitch3DInternal(Ptr, Pitch, Width, Height, 0));
 
