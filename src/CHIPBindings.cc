@@ -3081,7 +3081,8 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     CHIPERR_LOG_AND_THROW("Invalid destination pointer!", hipErrorInvalidValue);
   if (Width > Pitch)
     CHIPERR_LOG_AND_THROW("Width exceeds pitch value!", hipErrorInvalidValue);
-  if (std::max(0UL, int(Pitch * Height) - (Pitch - Width)) > AllocInfo->Size)
+  int size = Pitch * Height - Pitch - Width;
+  if (std::max(0, size) > AllocInfo->Size)
     CHIPERR_LOG_AND_THROW("Out of bounds 2D memset!", hipErrorInvalidValue);
 
   const hipMemsetParams Params = {
