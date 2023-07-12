@@ -2166,8 +2166,9 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
-  void memCopyAsync2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
-                      size_t Width, size_t Height, hipMemcpyKind Kind);
+  void memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
+                         size_t SPitch, size_t Width, size_t Height,
+                         hipMemcpyKind Kind);
 
   /**
    * @brief Blocking memset
@@ -2196,8 +2197,6 @@ public:
                             size_t PatternSize);
   virtual void memFillAsync2D(void *Dst, size_t Pitch, int Value, size_t Width,
                               size_t Height);
-  virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
-                              hipExtent Extent);
 
   // The memory copy 2D support
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,

@@ -3098,8 +3098,6 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
                                                   int Value, hipExtent Extent,
                                                   hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-
   const hipMemsetParams Params = {
       /* Dst */ PitchedDevPtr.ptr,
       /* elementSize*/ 1,
@@ -3133,13 +3131,29 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   size_t Height = Extent.height;
   size_t Depth = Extent.depth;
 
-  if (PitchedDevPtr.pitch == Extent.width)
-    ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
-                            1);
-  else
-    ChipQueue->memFillAsync3D(PitchedDevPtr, Value, Extent);
+  if (PitchedDevPtr.pitch == Extent.width) {
+    return hipMemsetAsyncInternal(PitchedDevPtr.ptr, Value,
+                                  Width * Height * Depth, Stream);
+  }
 
-  return hipSuccess;
+  // auto Height = std::max<size_t>(1, Extent.height);
+  // auto Depth = std::max<size_t>(1, Extent.depth);
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+  hipError_t Res = hipSuccess;
+  for (size_t i = 0; i < Depth; i++)
+    for (size_t j = 0; j < Height; j++) {
+      size_t SizeBytes = Width;
+      auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
+      char *DstP = (char *)Dst;
+      auto Res =
+          hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
+      if (Res != hipSuccess)
+        break;
+    }
+
+  return Res;
 }
 
 hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
