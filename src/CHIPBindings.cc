@@ -2884,8 +2884,11 @@ hipError_t hipArrayCreate(hipArray **Array,
 hipError_t hipFreeArray(hipArray *Array) {
   CHIP_TRY
   CHIPInitialize();
-  if (!Array || !Array->data)
+  if (!Array)
     RETURN(hipErrorInvalidValue);
+
+  if (!Array->data)
+    RETURN(hipErrorContextIsDestroyed);
 
   hipError_t Err = hipFreeInternal(Array->data);
   if (Err != hipSuccess)
