@@ -1377,6 +1377,8 @@ hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ nullptr,
       /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
@@ -1392,20 +1394,8 @@ hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
   }
 
-  if (SPitch == 0)
-    SPitch = Width;
-  if (DPitch == 0)
-    DPitch = Width;
+  ChipQueue->memCopyAsync2D(Dst, DPitch, Src, SPitch, Width, Height, Kind);
 
-  if (SPitch == 0 || DPitch == 0)
-    return hipErrorInvalidValue;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t i = 0; i < Height; ++i) {
-    if (hipMemcpyAsyncInternal(Dst, Src, Width, Kind, Stream) != hipSuccess)
-      return hipErrorLaunchFailure;
-    Src = (char *)Src + SPitch;
-    Dst = (char *)Dst + DPitch;
-  }
   return hipSuccess;
 }
 

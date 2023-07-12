@@ -2166,6 +2166,9 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
+  void memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
+                         size_t SPitch, size_t Width, size_t Height,
+                         hipMemcpyKind Kind);
 
   /**
    * @brief Blocking memset
