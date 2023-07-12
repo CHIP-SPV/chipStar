@@ -1,6 +1,8 @@
-## Using CHIP-SPV
+## Using chipStar
 
-### Environment Flags
+### Environment Variables
+
+These variables can be used to control `hipcc` when targeting chipStar.
 
 #### CHIP_BE
 
@@ -12,7 +14,7 @@ If set to "default" (or unset), it automatically selects any available backend i
 #### CHIP_LOGLEVEL
 
 Select the verbosity of debug info during execution.
-Possible values: trace, debug(default for Debug builds), warn(default for non-Debug builds), err, crit
+Possible values: trace, debug (default for Debug builds), warn (default for non-Debug builds), err, crit
 
 Setting this value to `debug` will print information coming from the CHIP-SPV functions which are shared between the backends.
 
