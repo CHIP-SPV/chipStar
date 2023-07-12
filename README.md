@@ -4,22 +4,24 @@ chipStar makes HIP and CUDA applications portable to platforms which support
 SPIR-V as the device intermediate representation. Currently it supports
 OpenCL and Level Zero as the low-level runtime alternatives.
 
-For User documentation, read [this.](docs/Using.md)
-For Developer documentation, read [this.](docs/Development.md)
-For a list of (un)supported features, read [this.](docs/Features.md)
+* [User documentation](docs/Using.md)
+* [Developer documentation](docs/Development.md)
+* [A list of (un)supported features](docs/Features.md)
 
-This project builds on work done in [HIPCL](https://github.com/cpc/hipcl) and
+chipStar project has been built on the prototyping work done in the (now obsolete) [HIPCL](https://github.com/cpc/hipcl) and
 [HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
+
+The name chipStar comes from `c`uda and `hip` and the word `Star` which means asterisk, a typical shell wildcard, denoting the intention to make "CUDA and HIP applications run everywhere".
 
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang 15 or 16
+* Clang and LLVM 15 or 16
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-15 llvm-15 clang-tools-15'.
+  * For best results, install it from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which has fixes that are not yet in the LLVM upstream project.
 * SPIRV-LLVM-Translator from a branch matching to the clang version:
   (e.g. llvm\_release\_150 for Clang 15.0)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
-  * For best results, install [chipStar's LLVM 15 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-15-patches) or [chipStar's LLVM 16 branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which have fixes that are not yet in upstream.
   * make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors
 * For Level Zero Backend
   * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
