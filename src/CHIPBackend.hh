@@ -626,7 +626,7 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
 };
 
-class Event : public ihipEvent_t {
+class Event {
 protected:
   bool TrackCalled_ = false;
   bool UserEvent_ = false;
@@ -654,6 +654,10 @@ protected:
   virtual ~Event(){};
 
 public:
+  static void deleter(chipstar::Event *e) {
+    e->~Event();
+    free(CHIP_OBJ_TO_HANDLE(e, ihipEvent_t));
+  }
   void markTracked() { TrackCalled_ = true; }
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }

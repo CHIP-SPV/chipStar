@@ -1415,8 +1415,11 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
-    Events_.push_back(std::shared_ptr<CHIPEventLevel0>(
-        new CHIPEventLevel0(Ctx_, this, i, Flags)));
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPEventLevel0));
+    CHIPEventLevel0 *Event = CHIP_HANDLE_TO_OBJ(mem, CHIPEventLevel0);
+    Event = new (Event) CHIPEventLevel0(Ctx_, this, i, Flags);
+    Events_.push_back(
+        std::shared_ptr<CHIPEventLevel0>(Event, chipstar::Event::deleter));
     FreeSlots_.push(i);
   }
 };
@@ -1488,8 +1491,10 @@ CHIPBackendLevel0::createCHIPEvent(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
   std::shared_ptr<chipstar::Event> Event;
   if (UserEvent) {
-    Event = std::shared_ptr<chipstar::Event>(
-        new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags));
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPEventLevel0));
+    CHIPEventLevel0 *evt = CHIP_HANDLE_TO_OBJ(mem, CHIPEventLevel0);
+    evt = new (evt) CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+    Event = std::shared_ptr<chipstar::Event>(evt, chipstar::Event::deleter);
     Event->setUserEvent(true);
   } else {
     auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
@@ -1671,14 +1676,15 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
 hipEvent_t CHIPBackendLevel0::getHipEvent(void *NativeEvent) {
   ze_event_handle_t E = (ze_event_handle_t)NativeEvent;
-  CHIPEventLevel0 *NewEvent =
-      new CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPEventLevel0));
+  CHIPEventLevel0 *NewEvent = CHIP_HANDLE_TO_OBJ(mem, CHIPEventLevel0);
+  NewEvent = new (NewEvent) CHIPEventLevel0((CHIPContextLevel0 *)ActiveCtx_, E);
   //   NewEvent->increaseRefCount("getHipEvent");
-  return NewEvent;
+  return HIPEVENT(NewEvent);
 }
 
 void *CHIPBackendLevel0::getNativeEvent(hipEvent_t HipEvent) {
-  CHIPEventLevel0 *E = static_cast<CHIPEventLevel0 *>(HipEvent);
+  CHIPEventLevel0 *E = CHIP_HANDLE_TO_OBJ(HipEvent, CHIPEventLevel0);
   if (!E->isRecordingOrRecorded())
     return nullptr;
   // TODO should we retain here?

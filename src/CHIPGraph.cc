@@ -398,7 +398,7 @@ void CHIPGraphExec::ExtractSubGraphs_() {
 
 void CHIPGraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Event_);
-  auto Status = hipEventRecordInternal(Event_, STREAM(Queue));
+  auto Status = hipEventRecordInternal(HIPEVENT(Event_), STREAM(Queue));
   if (Status != hipSuccess)
     CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                           hipErrorTbd);
@@ -431,7 +431,8 @@ void CHIPGraphNodeMemcpyToSymbol::execute(chipstar::Queue *Queue) const {
 void CHIPGraphNodeWaitEvent::execute(chipstar::Queue *Queue) const {
   // current HIP API requires Flags
   unsigned int Flags = 0;
-  auto Status = hipStreamWaitEventInternal(STREAM(Queue), Event_, Flags);
+  auto Status =
+      hipStreamWaitEventInternal(STREAM(Queue), HIPEVENT(Event_), Flags);
   if (Status != hipSuccess)
     CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                           hipErrorTbd);

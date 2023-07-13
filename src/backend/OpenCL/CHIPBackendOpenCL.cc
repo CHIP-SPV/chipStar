@@ -584,10 +584,12 @@ CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 std::shared_ptr<chipstar::Event>
 CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
-  CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
-                                               nullptr, Flags, UserEvent);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPEventOpenCL));
+  CHIPEventOpenCL *Event = CHIP_HANDLE_TO_OBJ(mem, CHIPEventOpenCL);
+  Event = new (Event)
+      CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, UserEvent);
 
-  return std::shared_ptr<chipstar::Event>(Event);
+  return std::shared_ptr<chipstar::Event>(Event, chipstar::Event::deleter);
 }
 
 void CHIPEventOpenCL::recordStream(chipstar::Queue *ChipQueue) {
@@ -1551,15 +1553,16 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
 
 hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {
   cl_event E = (cl_event)NativeEvent;
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPEventOpenCL));
+  CHIPEventOpenCL *NewEvent = CHIP_HANDLE_TO_OBJ(mem, CHIPEventOpenCL);
   // this retains cl_event
-  CHIPEventOpenCL *NewEvent =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ActiveCtx_, E);
+  NewEvent = new (NewEvent) CHIPEventOpenCL((CHIPContextOpenCL *)ActiveCtx_, E);
   NewEvent->Msg = "fromHipEvent";
-  return NewEvent;
+  return HIPEVENT(NewEvent);
 }
 
 void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
-  CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
+  CHIPEventOpenCL *E = CHIP_HANDLE_TO_OBJ(HipEvent, CHIPEventOpenCL);
   if (!E->isRecordingOrRecorded())
     return nullptr;
   return (void *)E->ClEvent;
