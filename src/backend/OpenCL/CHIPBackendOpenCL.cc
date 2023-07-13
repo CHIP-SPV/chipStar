@@ -751,8 +751,10 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       // OpenCLFunctionInfoMap",
       //                      hipErrorInitializationError);
     }
-    CHIPKernelOpenCL *ChipKernel =
-        new CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPKernelOpenCL));
+    CHIPKernelOpenCL *ChipKernel = CHIP_HANDLE_TO_OBJ(mem, CHIPKernelOpenCL);
+    ChipKernel = new (ChipKernel)
+        CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
 
@@ -792,8 +794,11 @@ CHIPKernelOpenCL *CHIPKernelOpenCL::clone() {
   // called on the original cl_kernel.
   auto Cloned = clCreateKernel(Module->get()->get(), Name_.c_str(), &Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  return new CHIPKernelOpenCL(cl::Kernel(Cloned, false), Device, Name_,
-                              getFuncInfo(), Module);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPKernelOpenCL));
+  CHIPKernelOpenCL *ChipKernel = CHIP_HANDLE_TO_OBJ(mem, CHIPKernelOpenCL);
+  ChipKernel = new (ChipKernel) CHIPKernelOpenCL(
+      cl::Kernel(Cloned, false), Device, Name_, getFuncInfo(), Module);
+  return ChipKernel;
 }
 
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
@@ -1391,6 +1396,14 @@ void CHIPExecItemOpenCL::setupAllArgs() {
                              ArgSpillBuffer_->getSize());
 
   return;
+}
+
+void CHIPExecItemOpenCL::KernelDeleter::operator()(
+    CHIPKernelOpenCL *k) const noexcept {
+  if (k) {
+    k->~CHIPKernelOpenCL();
+    free(CHIP_OBJ_TO_HANDLE(k, ihipStream_t));
+  }
 }
 
 void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {

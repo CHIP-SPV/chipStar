@@ -4159,7 +4159,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);
 
-  *Function = Kernel;
+  *Function = HIPMODULESYMBOL(Kernel);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -4178,7 +4178,7 @@ static inline hipError_t hipModuleLaunchKernelInternal(
   dim3 Grid(GridDimX, GridDimY, GridDimZ);
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
-  auto ChipKernel = static_cast<chipstar::Kernel *>(Kernel);
+  auto ChipKernel = KERNEL(Kernel);
   Backend->getActiveDevice()->prepareDeviceVariables(
       HostPtr(ChipKernel->getHostPtr()));
 
@@ -4207,7 +4207,7 @@ static inline hipError_t hipModuleLaunchKernelInternal(
     if (!ExtraArgBuf) // Null argument pointer.
       return hipErrorInvalidValue;
 
-    auto ChipKernel = static_cast<chipstar::Kernel *>(Kernel);
+    auto ChipKernel = KERNEL(Kernel);
 
     auto *FuncInfo = ChipKernel->getFuncInfo();
     auto ParamBuffer = convertExtraArgsToPointerArray(ExtraArgBuf, *FuncInfo);

@@ -347,8 +347,11 @@ public:
 
   virtual ~CHIPModuleLevel0() {
     logTrace("destroy CHIPModuleLevel0 {}", (void *)this);
-    for (auto *K : ChipKernels_) // Kernels must be destroyed before the module.
-      delete K;
+    for (auto *K :
+         ChipKernels_) { // Kernels must be destroyed before the module.
+      K->~Kernel();
+      free(CHIP_OBJ_TO_HANDLE(K, ihipModuleSymbol_t));
+    }
     ChipKernels_.clear();
     if (ZeModule_) {
       // The application must not call this function from

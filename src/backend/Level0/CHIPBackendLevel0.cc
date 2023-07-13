@@ -2307,8 +2307,10 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
     Status = zeKernelCreate(ZeModule_, &KernelDesc, &ZeKernel);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", Status);
-    CHIPKernelLevel0 *ChipZeKernel =
-        new CHIPKernelLevel0(ZeKernel, LzDev, HostFName, FuncInfo, this);
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPKernelLevel0));
+    CHIPKernelLevel0 *ChipZeKernel = CHIP_HANDLE_TO_OBJ(mem, CHIPKernelLevel0);
+    ChipZeKernel = new (ChipZeKernel)
+        CHIPKernelLevel0(ZeKernel, LzDev, HostFName, FuncInfo, this);
     addKernel(ChipZeKernel);
   }
 }

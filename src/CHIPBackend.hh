@@ -1010,7 +1010,7 @@ public:
 /**
  * @brief Contains information about the function on the host and device
  */
-class Kernel : public ihipModuleSymbol_t {
+class Kernel {
 protected:
   /**
    * @brief hidden default constructor. Only derived type constructor should be

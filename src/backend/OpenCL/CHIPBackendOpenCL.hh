@@ -114,7 +114,13 @@ protected:
 
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
-  virtual ~CHIPModuleOpenCL() {}
+  virtual ~CHIPModuleOpenCL() {
+    for (auto *K : ChipKernels_) {
+      K->~Kernel();
+      free(CHIP_OBJ_TO_HANDLE(K, ihipModuleSymbol_t));
+    }
+    ChipKernels_.clear();
+  }
   virtual void compile(chipstar::Device *ChipDevice) override;
   cl::Program *get();
 };
@@ -298,8 +304,12 @@ public:
 };
 
 class CHIPExecItemOpenCL : public chipstar::ExecItem {
+  struct KernelDeleter {
+    void operator()(CHIPKernelOpenCL *k) const noexcept;
+  };
+
 private:
-  std::unique_ptr<CHIPKernelOpenCL> ChipKernel_;
+  std::unique_ptr<CHIPKernelOpenCL, KernelDeleter> ChipKernel_;
   cl::Kernel *ClKernel_;
 
 public:
