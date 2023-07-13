@@ -1684,11 +1684,9 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
       ChipEvent->Msg = "memFillAsync2D";
       updateLastEvent(ChipEvent);
       ::Backend->trackEvent(ChipEvent);
-    }
-    else
+    } else
       memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
   }
-
 }
 
 void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
