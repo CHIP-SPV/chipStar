@@ -651,7 +651,7 @@ protected:
    *
    */
   Event() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~Event(){};
+  virtual ~Event() { logDebug("~Event() {}", (void *)this); };
 
 public:
   void markTracked() { TrackCalled_ = true; }
@@ -2166,6 +2166,8 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
+  void memCopyAsync2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
+                      size_t Width, size_t Height, hipMemcpyKind Kind);
 
   /**
    * @brief Blocking memset
@@ -2189,8 +2191,13 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                    size_t PatternSize) = 0;
+
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
+  virtual void memFillAsync2D(void *Dst, size_t Pitch, int Value, size_t Width,
+                              size_t Height);
+  virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                              hipExtent Extent);
 
   // The memory copy 2D support
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,

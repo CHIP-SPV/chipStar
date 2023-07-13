@@ -1339,6 +1339,8 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx);
+
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
                                                        Kind)) {
     return hipSuccess;
@@ -1377,6 +1379,8 @@ hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ nullptr,
       /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
@@ -1392,20 +1396,8 @@ hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
   }
 
-  if (SPitch == 0)
-    SPitch = Width;
-  if (DPitch == 0)
-    DPitch = Width;
+  ChipQueue->memCopyAsync2D(Dst, DPitch, Src, SPitch, Width, Height, Kind);
 
-  if (SPitch == 0 || DPitch == 0)
-    return hipErrorInvalidValue;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t i = 0; i < Height; ++i) {
-    if (hipMemcpyAsyncInternal(Dst, Src, Width, Kind, Stream) != hipSuccess)
-      return hipErrorLaunchFailure;
-    Src = (char *)Src + SPitch;
-    Dst = (char *)Dst + DPitch;
-  }
   return hipSuccess;
 }
 
@@ -2149,6 +2141,8 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   ChipQueue = Backend->findQueue(ChipQueue);
+  LOCK(ChipQueue->QueueMtx);
+
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
     return hipSuccess;
   }
@@ -2190,6 +2184,8 @@ static inline hipError_t hipStreamGetFlagsInternal(hipStream_t Stream,
                                                    unsigned int *Flags) {
   auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
+  LOCK(ChipQueue->QueueMtx);
+
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     return hipErrorStreamCaptureInvalidated;
@@ -2211,11 +2207,13 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
 static inline hipError_t hipStreamGetPriorityInternal(hipStream_t Stream,
                                                       int *Priority) {
   auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
+  ChipQueue = Backend->findQueue(ChipQueue);
+  LOCK(ChipQueue->QueueMtx);
+
   if (Priority == nullptr) {
     CHIPERR_LOG_AND_THROW("Priority is nullptr", hipErrorInvalidValue);
   }
 
-  ChipQueue = Backend->findQueue(ChipQueue);
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     return hipErrorStreamCaptureInvalidated;
@@ -2245,8 +2243,11 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
   // TODO: Can't use NULLCHECK for this one
   if (Callback == nullptr)
     CHIPERR_LOG_AND_THROW("passed in nullptr", hipErrorInvalidValue);
+
   auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
   ChipQueue = Backend->findQueue(ChipQueue);
+  LOCK(ChipQueue->QueueMtx);
+
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     RETURN(hipErrorStreamCaptureInvalidated);
@@ -3026,6 +3027,7 @@ static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
                                                 size_t SizeBytes,
                                                 hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx);
   const hipMemsetParams Params = {
       /* Dst */ Dst,
       /* elementSize*/ 1,
@@ -3057,7 +3059,10 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
                                                   int Value, size_t Width,
                                                   size_t Height,
                                                   hipStream_t Stream) {
+
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   const hipMemsetParams Params = {
       /* Dst */ Dst,
       /* elementSize*/ 1,
@@ -3070,21 +3075,9 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     return hipSuccess;
   }
 
-  hipError_t Res = hipSuccess;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t i = 0; i < Height; i++) {
-    size_t SizeBytes = Width;
-    auto Offset = Pitch * i;
-    char *DstP = (char *)Dst;
-    if (SizeBytes > 0) {
-      auto Res =
-          hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
-      if (Res != hipSuccess)
-        break;
-    }
-  }
+  ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
 
-  return Res;
+  return hipSuccess;
 }
 
 hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
@@ -3116,6 +3109,8 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
                                                   int Value, hipExtent Extent,
                                                   hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   const hipMemsetParams Params = {
       /* Dst */ PitchedDevPtr.ptr,
       /* elementSize*/ 1,
@@ -3149,29 +3144,13 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   size_t Height = Extent.height;
   size_t Depth = Extent.depth;
 
-  if (PitchedDevPtr.pitch == Extent.width) {
-    return hipMemsetAsyncInternal(PitchedDevPtr.ptr, Value,
-                                  Width * Height * Depth, Stream);
-  }
+  if (PitchedDevPtr.pitch == Extent.width)
+    ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
+                            1);
+  else
+    ChipQueue->memFillAsync3D(PitchedDevPtr, Value, Extent);
 
-  // auto Height = std::max<size_t>(1, Extent.height);
-  // auto Depth = std::max<size_t>(1, Extent.depth);
-  auto Pitch = PitchedDevPtr.pitch;
-  auto Dst = PitchedDevPtr.ptr;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  hipError_t Res = hipSuccess;
-  for (size_t i = 0; i < Depth; i++)
-    for (size_t j = 0; j < Height; j++) {
-      size_t SizeBytes = Width;
-      auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
-      char *DstP = (char *)Dst;
-      auto Res =
-          hipMemsetAsyncInternal(DstP + Offset, Value, SizeBytes, Stream);
-      if (Res != hipSuccess)
-        break;
-    }
-
-  return Res;
+  return hipSuccess;
 }
 
 hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
@@ -3398,6 +3377,8 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
                                 size_t Height, hipMemcpyKind Kind,
                                 hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx);
+
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ nullptr,
       /* struct hipPos srcPos */ make_hipPos(1, 1, 1),
@@ -3422,13 +3403,8 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
 
   size_t SrcW = SPitch;
   size_t DstW = (Dst->width) * ByteSize;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t Offset = HOffset; Offset < Height; ++Offset) {
-    void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
-    void *SrcP = ((unsigned char *)Src + Offset * SrcW);
-    if (hipMemcpyAsyncInternal(DstP, SrcP, Width, Kind, Stream) != hipSuccess)
-      return hipErrorLaunchFailure;
-  }
+  ChipQueue->memCopy2DAsync(Dst->data, DstW, const_cast<void *>(Src), SrcW,
+                            Width, Height);
 
   return hipSuccess;
 };
@@ -3469,6 +3445,8 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
                                   size_t HOffset, size_t Width, size_t Height,
                                   hipMemcpyKind Kind, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   const hipMemcpy3DParms Params = {
       /* hipArray_t srcArray */ const_cast<hipArray_t>(Src),
       /* struct hipPos srcPos */ make_hipPos(WOffset, HOffset, 1),
@@ -3512,13 +3490,7 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
 
   size_t DstW = DPitch;
   size_t SrcW = (Src->width) * ByteSize;
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  for (size_t Offset = 0; Offset < Height; ++Offset) {
-    void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
-    void *DstP = ((unsigned char *)Dst + Offset * DstW);
-    auto Err = hipMemcpyAsyncInternal(DstP, SrcP, Width, Kind, Stream);
-    ERROR_IF(Err != hipSuccess, Err);
-  }
+  ChipQueue->memCopy2DAsync(Dst, DstW, Src->data, SrcW, Width, Height);
 
   return hipSuccess;
 }
@@ -3622,6 +3594,8 @@ hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
 hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
                                     hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx); // prevent interruptions
+
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Params)) {
     return hipSuccess;
   }
@@ -3632,6 +3606,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   size_t ByteSize = 1;
   size_t Depth;
   size_t Height;
+  size_t Width;
   size_t WidthInBytes;
   size_t SrcPitch;
   size_t DstPitch;
@@ -3668,6 +3643,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     Depth = PDrv->Depth;
     Height = PDrv->Height;
     WidthInBytes = PDrv->WidthInBytes;
+    Width = WidthInBytes / ByteSize;
     DstPitch = PDrv->dstArray->width * 4;
     SrcPitch = PDrv->srcPitch;
     SrcPtr = (void *)PDrv->srcHost;
@@ -3676,6 +3652,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   } else { // non Drc params
     Depth = Params->extent.depth;
     Height = Params->extent.height;
+    Width = Params->extent.width;
     WidthInBytes = Params->extent.width * ByteSize;
 
     if (ArraySrc) {
@@ -3700,25 +3677,14 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
       DstPtr = Params->dstPtr.ptr;
     }
   }
-  LOCK(ChipQueue->QueueMtx); // prevent interruptions
-  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch)) {
-    return hipMemcpyInternal((void *)DstPtr, (void *)SrcPtr,
-                             WidthInBytes * Height * Depth, Params->kind);
-  } else {
-    for (size_t i = 0; i < Depth; i++) {
-      for (size_t j = 0; j < Height; j++) {
-        unsigned char *Src =
-            (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
-        unsigned char *Dst =
-            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        if (hipMemcpyAsyncInternal(Dst, Src, WidthInBytes, Params->kind,
-                                   Stream) != hipSuccess)
-          return hipErrorLaunchFailure;
-      }
-    }
 
-    ChipQueue->finish();
-    return hipSuccess;
+
+  size_t srcSlicePitch = SrcPitch * YSize;
+  size_t dstSlicePitch = DstPitch * YSize;
+  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch))
+    ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth);
+  else {
+    ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr, SrcPitch, srcSlicePitch, Width, Height, Depth);
   }
   return hipSuccess;
 }

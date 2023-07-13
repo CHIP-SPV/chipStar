@@ -31,16 +31,9 @@
  * If immediate command lists are not used, getCmdList will create a new
  * handle which is a thread safe operation
  */
-#ifdef L0_IMM_QUEUES
-#define GET_COMMAND_LIST(Queue)                                                \
-  ze_command_list_handle_t CommandList;                                        \
-  LOCK(Queue->QueueMtx); /* CHIPQueueLevel0::ZeCmdList_ */                     \
-  CommandList = Queue->getCmdList();
-#else
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
   CommandList = Queue->getCmdList();
-#endif
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
@@ -864,7 +857,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUEs
+#ifdef L0_IMM_QUEUES
   initializeCmdListImm();
 #endif
 }

@@ -1241,6 +1241,14 @@ void chipstar::Backend::trackEvent(
   //   assert(!TrackCalled_ && "chipstar::Event already tracked!");
 
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
+  // check if event is already present in Backend->Events
+  for (auto &E : ::Backend->Events) {
+    if (E.get() == Event.get()) {
+      logError("chipstar::Event {} already tracked in Backend::Events",
+               (void *)this);
+      assert(false && "chipstar::Event already tracked in Backend::Events");
+    }
+  }
   ::Backend->Events.push_back(Event);
   Event->markTracked();
 }
@@ -1566,30 +1574,65 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
   ChipContext_->syncQueues(this);
 #endif
   std::shared_ptr<chipstar::Event> ChipEvent;
-  // Scope this so that we release mutex for finish()
-  {
-    auto AllocInfoDst =
-        ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
-    auto AllocInfoSrc =
-        ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Src);
-    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      this->MemUnmap(AllocInfoDst);
-    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      this->MemUnmap(AllocInfoSrc);
+  auto AllocInfoDst =
+      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
+  auto AllocInfoSrc =
+      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Src);
+  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    this->MemUnmap(AllocInfoDst);
+  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    this->MemUnmap(AllocInfoSrc);
 
-    ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+  ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
 
-    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      this->MemMap(AllocInfoDst,
-                   chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
-    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      this->MemMap(AllocInfoSrc,
-                   chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    this->MemMap(AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
-    ChipEvent->Msg = "memCopyAsync";
-    updateLastEvent(ChipEvent);
-  }
+  ChipEvent->Msg = "memCopyAsync";
+  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
+}
+
+void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
+                                     size_t SPitch, size_t Width, size_t Height,
+                                     hipMemcpyKind Kind) {
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
+  std::shared_ptr<chipstar::Event> ChipEvent = nullptr;
+
+  auto AllocInfoDst =
+      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
+  auto AllocInfoSrc =
+      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Src);
+  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    this->MemUnmap(AllocInfoDst);
+  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    this->MemUnmap(AllocInfoSrc);
+
+  // perform the copy
+  for (size_t i = 0; i < Height; ++i) {
+    // capture the event on last iteration
+    if (i == Height - 1) {
+      ChipEvent = memCopyAsyncImpl(Dst, Src, Width);
+      ChipEvent->Msg = "memCopyAsync2D";
+    } else {
+      memCopyAsyncImpl(Dst, Src, Width);
+    }
+    Src = (char *)Src + SPitch;
+    Dst = (char *)Dst + DPitch;
+  }
+
+  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
+    this->MemMap(AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
+    this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+
+  updateLastEvent(ChipEvent);
+  if (ChipEvent)
+    ::Backend->trackEvent(ChipEvent);
 }
 
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
@@ -1621,6 +1664,61 @@ void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
   updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
+
+void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
+                                     size_t Width, size_t Height) {
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
+  size_t SizeBytes = Width;
+  if (SizeBytes < 1)
+    return;
+
+  std::shared_ptr<chipstar::Event> ChipEvent;
+  for (size_t i = 0; i < Height; i++) {
+    auto Offset = Pitch * i;
+    char *DstP = (char *)Dst;
+    // capture the returned event on last iteration, otherwise don't
+    if (i == Height - 1)
+      ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+    else
+      memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+  }
+
+  ChipEvent->Msg = "memFillAsync2D";
+  updateLastEvent(ChipEvent);
+  ::Backend->trackEvent(ChipEvent);
+}
+
+void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                                     hipExtent Extent) {
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
+  std::shared_ptr<chipstar::Event> ChipEvent;
+
+  size_t Width = Extent.width;
+  size_t Height = Extent.height;
+  size_t Depth = Extent.depth;
+
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+  for (size_t i = 0; i < Depth; i++)
+    for (size_t j = 0; j < Height; j++) {
+      size_t SizeBytes = Width;
+      auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
+      char *DstP = (char *)Dst;
+      // capture the returned event on last iteration, otherwise don't
+      if (i == Depth - 1 && j == Height - 1) {
+        ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+        ChipEvent->Msg = "memFillAsync3D";
+        updateLastEvent(ChipEvent);
+        ::Backend->trackEvent(ChipEvent);
+      } else
+        memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
+    }
+}
+
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                                 size_t SPitch, size_t Width, size_t Height) {
 #ifdef ENFORCE_QUEUE_SYNC
