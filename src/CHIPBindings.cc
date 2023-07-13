@@ -3060,6 +3060,8 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
                           hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+  if (!SizeBytes)
+    return hipSuccess;
   NULLCHECK(Dst);
   RETURN(hipMemsetAsyncInternal(Dst, Value, SizeBytes, Stream));
   CHIP_CATCH
@@ -3082,7 +3084,7 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
   if (Width > Pitch)
     CHIPERR_LOG_AND_THROW("Width exceeds pitch value!", hipErrorInvalidValue);
   int size = Pitch * Height - Pitch - Width;
-  if (size > AllocInfo->Size)
+  if (size > int(AllocInfo->Size))
     CHIPERR_LOG_AND_THROW("Out of bounds 2D memset!", hipErrorInvalidValue);
   int TrueHeight = AllocInfo->Size / Pitch;
   if (Height > TrueHeight)
@@ -3249,6 +3251,8 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
 hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
+  if (!SizeBytes)
+    return hipSuccess;
   NULLCHECK(Dst);
   RETURN(hipMemsetInternal(Dst, Value, SizeBytes));
   CHIP_CATCH
@@ -3258,6 +3262,8 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
                             size_t Count, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+  if (!Count)
+    return hipSuccess;
   NULLCHECK(Dest);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
@@ -3283,6 +3289,8 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
                        size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
+    if (!SizeBytes)
+    return hipSuccess;
   NULLCHECK(Dest);
   RETURN(hipMemsetInternal(Dest, Value, SizeBytes));
   CHIP_CATCH
@@ -3292,7 +3300,8 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
                              size_t Count, hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-
+  if (!Count)
+    return hipSuccess;
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   const hipMemsetParams Params = {
       /* Dst */ Dest,
@@ -3315,6 +3324,8 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
                         size_t Count) {
   CHIP_TRY
   CHIPInitialize();
+    if (!Count)
+    return hipSuccess;
   NULLCHECK(Dest);
 
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dest, 2 * Count,
@@ -3328,6 +3339,8 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
                              hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
+    if (!Count)
+    return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   const hipMemsetParams Params = {
@@ -3351,6 +3364,8 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
 hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   CHIP_TRY
   CHIPInitialize();
+  if (!Count)
+    return hipSuccess;
   NULLCHECK(Dst);
 
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, 4 * Count, &Value,
