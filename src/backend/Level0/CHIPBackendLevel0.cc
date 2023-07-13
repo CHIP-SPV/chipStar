@@ -2128,9 +2128,11 @@ chipstar::Texture *CHIPDeviceLevel0::createTexture(
 }
 
 CHIPModuleLevel0 *CHIPDeviceLevel0::compile(const SPVModule &SrcMod) {
-  auto CompiledModule = std::make_unique<CHIPModuleLevel0>(SrcMod);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPModuleLevel0));
+  CHIPModuleLevel0 *CompiledModule = CHIP_HANDLE_TO_OBJ(mem, CHIPModuleLevel0);
+  CompiledModule = new (CompiledModule) CHIPModuleLevel0(SrcMod);
   CompiledModule->compile(this);
-  return CompiledModule.release();
+  return CompiledModule;
 }
 
 // Other

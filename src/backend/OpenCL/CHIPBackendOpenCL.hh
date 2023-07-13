@@ -197,9 +197,12 @@ public:
   }
 
   CHIPModuleOpenCL *compile(const SPVModule &SrcMod) override {
-    auto CompiledModule = std::make_unique<CHIPModuleOpenCL>(SrcMod);
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPModuleOpenCL));
+    CHIPModuleOpenCL *CompiledModule =
+        CHIP_HANDLE_TO_OBJ(mem, CHIPModuleOpenCL);
+    CompiledModule = new (CompiledModule) CHIPModuleOpenCL(SrcMod);
     CompiledModule->compile(this);
-    return CompiledModule.release();
+    return CompiledModule;
   }
 };
 

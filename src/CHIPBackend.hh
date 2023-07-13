@@ -850,7 +850,7 @@ public:
  * ROCclr - amd::Program
  * CUDA - CUmodule
  */
-class Module : public ihipModule_t {
+class Module {
   /// Flag for the allocation state of the device variables. True if
   /// all variables have space allocated for this module for the
   /// device this module is attached to. False implies that

@@ -801,7 +801,8 @@ void chipstar::Device::eraseModule(chipstar::Module *Module) {
   LOCK(DeviceMtx); // SrcModToCompiledMod_
   for (auto &Kv : SrcModToCompiledMod_)
     if (Kv.second == Module) {
-      delete Module;
+      Module->~Module();
+      free(CHIP_OBJ_TO_HANDLE(Module, ihipModule_t));
       SrcModToCompiledMod_.erase(Kv.first);
       break;
     }

@@ -3766,7 +3766,7 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Dptr, Bytes, Hmod, Name);
-  auto ChipModule = static_cast<chipstar::Module *>(Hmod);
+  auto ChipModule = MODULE(Hmod);
 
   chipstar::DeviceVar *Var = ChipModule->getGlobalVar(Name);
   *Dptr = Var->getDevAddr();
@@ -3922,7 +3922,7 @@ static inline hipError_t hipModuleLoadDataInternal(hipModule_t *ModuleHandle,
   auto Entry = getSPVRegister().registerSource(ModuleCode);
   auto *SrcMod = getSPVRegister().getSource(Entry);
   auto *ChipModule = Backend->getActiveDevice()->getOrCreateModule(*SrcMod);
-  *ModuleHandle = ChipModule;
+  *ModuleHandle = HIPMODULE(ChipModule);
 
   return hipSuccess;
 }
@@ -4140,7 +4140,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   NULLCHECK(Module);
   logInfo("hipModuleUnload(Module={}", (void *)Module);
 
-  auto *ChipModule = reinterpret_cast<chipstar::Module *>(Module);
+  auto *ChipModule = MODULE(Module);
   const auto &SrcMod = ChipModule->getSourceModule();
   Backend->getActiveDevice()->eraseModule(ChipModule);
   getSPVRegister().unregisterSource(&SrcMod);
@@ -4154,7 +4154,7 @@ hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
-  auto ChipModule = (chipstar::Module *)Module;
+  auto ChipModule = MODULE(Module);
   chipstar::Kernel *Kernel = ChipModule->getKernelByName(Name);
 
   ERROR_IF((Kernel == nullptr), hipErrorInvalidDeviceFunction);

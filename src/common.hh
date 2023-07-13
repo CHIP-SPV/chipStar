@@ -74,12 +74,20 @@ struct ihipDispatch {
   (!(x) ? reinterpret_cast<ihipEvent_t *>(x)                                   \
         : CHIP_OBJ_TO_HANDLE(x, ihipEvent_t))
 
+#define MODULE(x)                                                              \
+  (!(x) ? reinterpret_cast<chipstar::Module *>(x)                              \
+        : CHIP_HANDLE_TO_OBJ(x, chipstar::Module))
+
+#define HIPMODULE(x)                                                           \
+  (!(x) ? reinterpret_cast<ihipModule_t *>(x)                                  \
+        : CHIP_OBJ_TO_HANDLE(x, ihipModule_t))
+
 /// The implementation of ihipEvent_t. The chipstar::Event class inherits this
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t : ihipDispatch {};
 struct ihipCtx_t {};
 struct ihipStream_t : ihipDispatch {};
-struct ihipModule_t {};
+struct ihipModule_t : ihipDispatch {};
 struct ihipModuleSymbol_t {};
 struct ihipGraph {};
 struct hipGraphNode {};
