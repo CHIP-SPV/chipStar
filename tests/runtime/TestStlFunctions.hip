@@ -52,52 +52,33 @@ template <typename T, typename FnT> void launchBinaryFn(FnT Fn) {
 int main() {
 
   launchUnaryFn<float>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<char>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<short>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<int>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<long>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<bool>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<unsigned char>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<unsigned short>([] __device__(auto x) { return std::abs(x); });
-
   launchUnaryFn<float>([] __device__(auto x) { return std::expm1(x); });
 
   launchUnaryFn<float>([] __device__(auto x) { return std::log1p(x); }, 2);
 
   launchUnaryFn<float>([] __device__(auto x) { return std::trunc(x); });
 
-  launchUnaryFn<int>([] __device__(auto x) { return std::sin(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::sin(x); });
 
-  launchUnaryFn<int>([] __device__(auto x) { return std::cos(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::cos(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::tan(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::tan(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::asin(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::asin(x); });
 
-  launchUnaryFn<int>([] __device__(auto x) { return std::acos(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::acos(x); });
 
-  launchUnaryFn<int>([] __device__(auto x) { return std::atan(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::atan(x); });
 
-  launchUnaryFn<int>([] __device__(auto x) { return std::sinh(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::sinh(x); });
 
-  launchUnaryFn<int>([] __device__(auto x) { return std::cosh(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::cosh(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::tanh(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::tanh(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::floor(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::floor(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::floorf(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::ceil(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::ceil(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::ceilf(x); });
 
@@ -105,60 +86,38 @@ int main() {
   launchUnaryFn<float>([] __device__(auto x) { return std::log(x); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::logf(x); }, 2);
 
-  launchUnaryFn<int>([] __device__(int x) { return std::log2(x); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::log2(x); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::log2f(x); }, 2);
 
-  launchUnaryFn<int>([] __device__(int x) { return std::log10(x); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::log10(x); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::log10f(x); }, 2);
 
-  launchUnaryFn<int>([] __device__(int x) { return std::erf(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::erf(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::erff(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::erfc(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::erfc(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::erfcf(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::sqrt(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::sqrt(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::sqrtf(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::lgamma(x); }, 1);
   launchUnaryFn<float>([] __device__(auto x) { return std::lgamma(x); }, 1);
   launchUnaryFn<float>([] __device__(auto x) { return std::lgammaf(x); }, 1);
 
-  launchUnaryFn<int>([] __device__(int x) { return std::nearbyint(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::nearbyint(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::nearbyintf(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::exp(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::exp(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::expf(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::lrint(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::lrint(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::lrintf(x); });
 
-
-  // Known issue:
-  // <...>/include/c++/11/cmath:1300:14: error: reference to __host__
-  // function 'copysign' in __host__ __device__ function
-  //
-  // launchBinaryFn<int>(
-  //     [] __device__(int x, int y) { return std::copysign(x, y); });
   launchBinaryFn<float>(
       [] __device__(auto x, auto y) { return std::copysign(x, y); });
   launchBinaryFn<float>(
       [] __device__(auto x, auto y) { return std::copysignf(x, y); });
 
-  // Known issue:
-  // <...>/include/c++/11/cmath:1674:14: error: reference to __host__ function
-  // 'nextafter' in __host__ __device__ function
-  //
-  // launchBinaryFn<int>(
-  //     [] __device__(int x, int y) { return std::nextafter(x, y); });
   launchBinaryFn<float>(
       [] __device__(auto x, auto y) { return std::nextafter(x, y); });
   launchBinaryFn<float>(

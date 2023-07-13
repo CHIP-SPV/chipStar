@@ -1679,15 +1679,16 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
     // capture the returned event on last iteration, otherwise don't
-    if (i == Height - 1)
+    if (i == Height - 1) {
       ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+      ChipEvent->Msg = "memFillAsync2D";
+      updateLastEvent(ChipEvent);
+      ::Backend->trackEvent(ChipEvent);
+    }
     else
       memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
   }
 
-  ChipEvent->Msg = "memFillAsync2D";
-  updateLastEvent(ChipEvent);
-  ::Backend->trackEvent(ChipEvent);
 }
 
 void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
