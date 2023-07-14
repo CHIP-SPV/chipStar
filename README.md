@@ -11,7 +11,7 @@ OpenCL and Level Zero as the low-level runtime alternatives.
 chipStar was initially built by combining the prototyping work done in the (now obsolete) [HIPCL](https://github.com/cpc/hipcl) and
 [HIPLZ](https://github.com/jz10/anl-gt-gpu/) projects.
 
-The name chipStar comes from `c`uda and `hip` and the word `Star` which means asterisk, a typical shell wildcard, denoting the intention to make "CUDA and HIP applications run everywhere".
+The name chipStar comes from `c`uda and `hip` and the word `Star` which means asterisk, a typical shell wildcard, denoting the intention to make "CUDA and HIP applications run everywhere". The project was previously called CHIP-SPV.
 
 ## Development Status and Maturity
 
