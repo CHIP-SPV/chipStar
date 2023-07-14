@@ -57,8 +57,6 @@
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
-#define GRAPH(x) static_cast<CHIPGraph *>(x)
-
 #define NODE(x) static_cast<CHIPGraphNode *>(x)
 
 #define EXEC(x) static_cast<CHIPGraphExec *>(x)
@@ -281,8 +279,10 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraph *Graph = new CHIPGraph();
-  *pGraph = Graph;
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPGraph));
+  CHIPGraph *Graph = CHIP_HANDLE_TO_OBJ(mem, CHIPGraph);
+  Graph = new (Graph) CHIPGraph();
+  *pGraph = HIPGRAPH(Graph);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -290,7 +290,10 @@ hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
 hipError_t hipGraphDestroy(hipGraph_t graph) {
   CHIP_TRY
   CHIPInitialize();
-  delete graph;
+  NULLCHECK(graph);
+  CHIPGraph *G = GRAPH(graph);
+  G->~CHIPGraph();
+  free(graph);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -456,8 +459,10 @@ hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
 hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
   CHIP_TRY
   CHIPInitialize();
-  CHIPGraph *CloneGraph = new CHIPGraph(*GRAPH(originalGraph));
-  *pGraphClone = CloneGraph;
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPGraph));
+  CHIPGraph *CloneGraph = CHIP_HANDLE_TO_OBJ(mem, CHIPGraph);
+  CloneGraph = new (CloneGraph) CHIPGraph(*GRAPH(originalGraph));
+  *pGraphClone = HIPGRAPH(CloneGraph);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1044,7 +1049,8 @@ hipError_t hipGraphChildGraphNodeGetGraph(hipGraphNode_t node,
                                           hipGraph_t *pGraph) {
   CHIP_TRY
   CHIPInitialize();
-  *pGraph = static_cast<CHIPGraphNodeGraph *>(node)->getGraph();
+  CHIPGraph *G = static_cast<CHIPGraphNodeGraph *>(node)->getGraph();
+  *pGraph = HIPGRAPH(G);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1233,7 +1239,8 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
   }
   ChipQueue->setCaptureStatus(
       hipStreamCaptureStatus::hipStreamCaptureStatusNone);
-  *pGraph = ChipQueue->getCaptureGraph();
+  CHIPGraph *G = ChipQueue->getCaptureGraph();
+  *pGraph = HIPGRAPH(G);
   RETURN(hipSuccess);
   CHIP_CATCH
 }

@@ -575,7 +575,7 @@ public:
   }
 };
 
-class CHIPGraph : public ihipGraph {
+class CHIPGraph {
 protected:
   std::vector<CHIPGraphNode *> Nodes_;
   // Map the pointers Original -> Clone

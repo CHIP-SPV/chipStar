@@ -542,7 +542,8 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   return getPerThreadDefaultQueueNoLock();
 }
 
-void chipstar::Device::QueueDeleter::operator()(chipstar::Queue *q) const noexcept {
+void chipstar::Device::QueueDeleter::operator()(
+    chipstar::Queue *q) const noexcept {
   if (q) {
     q->~Queue();
     free(CHIP_OBJ_TO_HANDLE(q, ihipStream_t));
@@ -1701,7 +1702,12 @@ void chipstar::Queue::updateLastNode(CHIPGraphNode *NewNode) {
   LastNode_ = NewNode;
 }
 
-void chipstar::Queue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
+void chipstar::Queue::initCaptureGraph() {
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPGraph));
+  CHIPGraph *G = CHIP_HANDLE_TO_OBJ(mem, CHIPGraph);
+  G = new (G) CHIPGraph();
+  CaptureGraph_ = G;
+}
 
 std::shared_ptr<chipstar::Event>
 chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,

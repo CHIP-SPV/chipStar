@@ -2041,7 +2041,7 @@ class Queue {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
-  hipGraph_t CaptureGraph_;
+  CHIPGraph *CaptureGraph_;
   std::mutex LastEventMtx;
   /// @brief  node for creating a dependency chain between subsequent record
   /// events when in graph capture mode
