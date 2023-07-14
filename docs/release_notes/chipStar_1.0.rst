@@ -39,7 +39,7 @@ Implemented lazy compilation of device code that compiles device modules when ne
 Minor New Features Since 0.9
 =============================
 
-* Synchronized CHIP-SPV’s FP16 support to the latest one in AMD HIP.
+* Synchronized chipStar’s FP16 support to the latest one in AMD HIP.
 
 * Emulation of warp functions using the required sub group metadata added to kernels that are sensitive to the warp size.
 

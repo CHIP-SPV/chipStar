@@ -1,7 +1,7 @@
 
-## CHIP-SPV support matrix for host side
+## chipStar support matrix for host side
 
-| Feature                       | HIP API # of funcs | # of impl in CHIP-SPV  |  CHIP-SPV missing / notes |
+| Feature                       | HIP API # of funcs | # of impl in chipStar  |  chipStar missing / notes |
 |-------------------------------|-----------|-----------|---------------------------|
 | Device API                    |     23    |     17    | hipDeviceSetCacheConfig, hipDeviceGetCacheConfig, hipDeviceSetSharedMemConfig, hipDeviceGetSharedMemConfig, hipSetDeviceFlags, hipGetDeviceFlags |
 | IPC API                       |     5     |     0     | hipIpcCloseMemHandle, hipIpcGetEventHandle, hipIpcGetMemHandle, hipIpcOpenEventHandle, hipIpcOpenMemHandle |

@@ -1,9 +1,9 @@
 
-# List of CUDA/HIP device-side functions supported by CHIP-SPV
+# List of CUDA/HIP device-side functions supported by chipStar
 
 ## Double precision intrinsics
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:------------:|
 |  double \_\_dadd_rd ( double  x, double  y ) | N | N |
 |  double \_\_dadd_rn ( double  x, double  y ) | N | N |
@@ -36,7 +36,7 @@
 
 ## Double precision math library
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:----------------:|
 |  double acos(double x) | Y | Y |
 |  double acosh ( double  x ) | Y | Y |
@@ -135,7 +135,7 @@
 
 ## Single precision intrinsics
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:----------------:|
 |  \_\_cosf ( float  x ) | Y | N |
 |  \_\_sincosf ( float  x, float* sptr, float* cptr ) | N | Y |
@@ -185,7 +185,7 @@
 
 ## Single precision math library
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:----------------:|
 | float acosf(float x) | Y | Y |
 | float acoshf ( float  x ) | Y | Y |
@@ -284,7 +284,7 @@
 
 ## Half precision intrinsics + math library
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:----------------:|
 |  \_\_device\_\_ \_\_half \_\_habs | Y | Y |
 |  \_\_device\_\_ \_\_half \_\_hadd | Y | Y |
@@ -385,7 +385,7 @@
 
 ## Half2 precision intrinsics + math library
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:----------------:|
 |  \_\_device\_\_    \_\_half2 \_\_h2div | Y | Y |
 |  \_\_device\_\_    \_\_half2 \_\_habs2 | Y | Y |
