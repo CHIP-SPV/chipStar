@@ -1396,6 +1396,14 @@ hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
   }
 
+  if (SPitch == 0)
+    SPitch = Width;
+  if (DPitch == 0)
+    DPitch = Width;
+
+  if (SPitch == 0 || DPitch == 0)
+    return hipErrorInvalidValue;
+
   ChipQueue->memCopyAsync2D(Dst, DPitch, Src, SPitch, Width, Height, Kind);
 
   return hipSuccess;
@@ -3088,7 +3096,8 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     CHIPERR_LOG_AND_THROW("Out of bounds 2D memset!", hipErrorInvalidValue);
   int TrueHeight = AllocInfo->Size / Pitch;
   if (Height > TrueHeight)
-    CHIPERR_LOG_AND_THROW("Height requested exceeds allocations!", hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW("Height requested exceeds allocations!",
+                          hipErrorInvalidValue);
 
   const hipMemsetParams Params = {
       /* Dst */ Dst,
@@ -3289,7 +3298,7 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
                        size_t SizeBytes) {
   CHIP_TRY
   CHIPInitialize();
-    if (!SizeBytes)
+  if (!SizeBytes)
     return hipSuccess;
   NULLCHECK(Dest);
   RETURN(hipMemsetInternal(Dest, Value, SizeBytes));
@@ -3324,7 +3333,7 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
                         size_t Count) {
   CHIP_TRY
   CHIPInitialize();
-    if (!Count)
+  if (!Count)
     return hipSuccess;
   NULLCHECK(Dest);
 
@@ -3339,7 +3348,7 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
                              hipStream_t Stream) {
   CHIP_TRY
   CHIPInitialize();
-    if (!Count)
+  if (!Count)
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
@@ -3414,6 +3423,9 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
                                 const void *Src, size_t SPitch, size_t Width,
                                 size_t Height, hipMemcpyKind Kind,
                                 hipStream_t Stream) {
+  if (Width == 0 || Height == 0)
+    return hipSuccess;
+
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   LOCK(ChipQueue->QueueMtx);
 
@@ -3441,8 +3453,11 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
 
   size_t SrcW = SPitch;
   size_t DstW = (Dst->width) * ByteSize;
-  ChipQueue->memCopy2DAsync(Dst->data, DstW, const_cast<void *>(Src), SrcW,
-                            Width, Height);
+  for (size_t Offset = HOffset; Offset < Height; ++Offset) {
+    void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
+    void *SrcP = ((unsigned char *)Src + Offset * SrcW);
+    ChipQueue->memCopyAsync(DstP, SrcP, Width);
+  }
 
   return hipSuccess;
 };
@@ -3528,7 +3543,13 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
 
   size_t DstW = DPitch;
   size_t SrcW = (Src->width) * ByteSize;
-  ChipQueue->memCopy2DAsync(Dst, DstW, Src->data, SrcW, Width, Height);
+// TODO 1.1
+//   ChipQueue->memCopy2DAsync(Dst, DstW, Src->data, SrcW, Width, Height);
+  for (size_t Offset = 0; Offset < Height; ++Offset) {
+    void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
+    void *DstP = ((unsigned char *)Dst + Offset * DstW);
+    ChipQueue->memCopyAsync(DstP, SrcP, Width);
+  }
 
   return hipSuccess;
 }
@@ -3729,7 +3750,8 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth);
   else {
     // TODO What am I doing wrong here?
-    // ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr, SrcPitch, srcSlicePitch, Width, Height, Depth);
+    // ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr,
+    // SrcPitch, srcSlicePitch, Width, Height, Depth);
     for (size_t i = 0; i < Depth; i++) {
       for (size_t j = 0; j < Height; j++) {
         unsigned char *Src =
