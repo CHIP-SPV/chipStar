@@ -2131,7 +2131,7 @@ hipError_t hipStreamQuery(hipStream_t Stream) {
 }
 
 static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
-  ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
