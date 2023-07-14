@@ -500,7 +500,6 @@ hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
   CHIPInitialize();
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(stream));
-  LOCK(ChipQueue->QueueMtx);
 
   EXEC(graphExec)->launch(ChipQueue);
   RETURN(hipSuccess);
@@ -3472,7 +3471,10 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
   for (size_t Offset = HOffset; Offset < Height; ++Offset) {
     void *DstP = ((unsigned char *)Dst->data + Offset * DstW);
     void *SrcP = ((unsigned char *)Src + Offset * SrcW);
-    ChipQueue->memCopyAsync(DstP, SrcP, Width);
+    if (Kind == hipMemcpyHostToHost)
+      memcpy(DstP, SrcP, Width);
+    else
+      ChipQueue->memCopyAsync(DstP, SrcP, Width);
   }
 
   return hipSuccess;
@@ -3564,7 +3566,10 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
   for (size_t Offset = 0; Offset < Height; ++Offset) {
     void *SrcP = ((unsigned char *)Src->data + Offset * SrcW);
     void *DstP = ((unsigned char *)Dst + Offset * DstW);
-    ChipQueue->memCopyAsync(DstP, SrcP, Width);
+    if (Kind == hipMemcpyHostToHost)
+      memcpy(DstP, SrcP, Width);
+    else
+      ChipQueue->memCopyAsync(DstP, SrcP, Width);
   }
 
   return hipSuccess;
@@ -3759,6 +3764,12 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
 
   if (YSize * XSize == 0)
     return hipSuccess;
+  if (WidthInBytes == 0)
+    return hipSuccess;
+  if (Depth == 0)
+    return hipSuccess;
+  if (Height == 0)
+    return hipSuccess;
 
   size_t srcSlicePitch = SrcPitch * YSize;
   size_t dstSlicePitch = DstPitch * YSize;
@@ -3774,7 +3785,10 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
             (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
         unsigned char *Dst =
             (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        ChipQueue->memCopyAsync(Dst, Src, WidthInBytes);
+        if (Params->kind == hipMemcpyHostToHost)
+          memcpy(Dst, Src, WidthInBytes);
+        else
+          ChipQueue->memCopyAsync(Dst, Src, WidthInBytes);
       }
     }
   }
@@ -3880,8 +3894,8 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
   void *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Found the symbol but not its device address?");
 
-  return hipMemcpyAsyncInternal((void *)((intptr_t)DevPtr + Offset), Src,
-                                SizeBytes, Kind, Stream);
+  ChipQueue->memCopyAsync((void *)((intptr_t)DevPtr + Offset), Src, SizeBytes);
+  return hipSuccess;
 }
 
 hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
@@ -3940,8 +3954,8 @@ hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
                           hipErrorInvalidValue);
   void *DevPtr = Var->getDevAddr();
 
-  return hipMemcpyAsyncInternal(Dst, (void *)((intptr_t)DevPtr + Offset),
-                                SizeBytes, Kind, Stream);
+  ChipQueue->memCopyAsync(Dst, (void *)((intptr_t)DevPtr + Offset), SizeBytes);
+  return hipSuccess;
 }
 
 hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
