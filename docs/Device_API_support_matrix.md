@@ -7,9 +7,9 @@
 | Feature                       | HIP API # of funcs  | # of impl in CHIP-SPV |  CHIP-SPV notes |
 |-------------------------------|---------------------|-----------------------|---------------------------|
 | Coordinate Built-Ins          |        12           |       12              | |
-| Warp Size variable            |      supported      |     unsupported       | CHIP-SPV support probably low effort, but requires guarantee from driver side to respect warpSize (cl_intel_required_subgroup_size) |
+| Warp Size variable            |      supported      |     supported         | CHIP-SPV support probably low effort, but requires guarantee from driver side to respect warpSize (cl_intel_required_subgroup_size) |
 | Timer functions               |        2            |        0              | missing: clock, clock64; seems already available in intel GPU hardware & driver (TODO: unclear about HW clock bit width), possibly needs software (SPIR-V) support |
-| Atomic functions              |      ~30            |      ~30              | all supported, but a few (on float/double types) are emulated, proper impl requires OpenCL/driver/HW support |
+| Atomic functions              |      ~30            |      ~30               | all supported, but a few (on float/double types) are emulated, proper impl requires OpenCL/driver/HW support |
 | Vector Types                  |       48            |       48              | |
 | Memory-Fence Instructions     |        3            |        2              | \_\_threadfence_system is unsupported |
 | Synchronization Functions     |        4            |        4              | |
@@ -31,7 +31,7 @@
 | Profiler Counter Function     |    1, unsupported   |     unsupported       | unsupported in both HIP  & CHIP-SPV |
 | Independent Thread Scheduling |     unsupported     |     unsupported       | unsupported in both HIP  & CHIP-SPV |
 | Pragma Unroll                 |      supported      |      supported        | Clang feature |
-| Assert                        |      supported      |     unsupported       | abort is supported, assert is not|
+| Assert                        |      supported      |      supported        | |
 | Printf                        |        1            |       1               | fully supported |
 | advanced C++ features (RTTI, virtual, exceptions) | unsupported | unsupported | |
 

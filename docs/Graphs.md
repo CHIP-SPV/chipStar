@@ -2,7 +2,7 @@
 
 HIP graphs allow you to create a graph of kernels and data transfers that can be executed on the GPU. This is useful for applications that have a complex flow of data and operations. The graph can be optimized and executed asynchronously to improve performance.
 
-## CHIP-SPV Graph Implementation
+## chipStar Graph Implementation
 
 Graphs can be constructed manually by creating nodes and defining relationships between nodes, or by using `hipStreamCaptureBegin()` and `hipStreamCaptureEnd()` to capture a sequence of operations. The graph is then executed by calling `hipGraphLaunch()`. 
 

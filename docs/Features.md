@@ -1,6 +1,6 @@
 ## Support status
 
-This is a (non-exhaustive) list of HIP features currently (un)supported by CHIP-SPV.
+This is a (non-exhaustive) list of HIP features currently (un)supported by chipStar.
 
 For a more detailed matrix of supported functions and features, see the files
 Host_API_support_matrix.md and Device_API_support_matrix.md.
@@ -40,8 +40,6 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
   hipDevicePrimaryCtxRetain,  hipDevicePrimaryCtxSetFlags)
 
 * few memory APIs (hipMemPrefetchAsync, hipMemAdvise)
-
-* few module APIs (hipModuleLoadData, hipModuleUnload, hipModuleLaunchKernel)
 
 #### partially supported
 
@@ -88,8 +86,8 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
 
 #### Partially supported
 
-* math library: almost all single/double functions are available,
-  half/half2 functions are available but untested
+* math library: almost all single/double/half/half2 math functions are available,
+  some math intrinsics functions are available
 
 * functions that specify rounding (e.g. __fdiv_rd), except conversion functions (as rounding cannot be selected in OpenCL)
 
