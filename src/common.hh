@@ -66,29 +66,23 @@ struct ihipDispatch {
        ? reinterpret_cast<ihipStream_t *>(x)                                   \
        : CHIP_OBJ_TO_HANDLE(x, ihipStream_t))
 
-#define EVENT(x)                                                               \
-  (!(x) ? reinterpret_cast<chipstar::Event *>(x)                               \
-        : CHIP_HANDLE_TO_OBJ(x, chipstar::Event))
+#define HIPTOCHIP(x, t)                                                        \
+  (!(x) ? reinterpret_cast<t *>(x) : CHIP_HANDLE_TO_OBJ(x, t))
 
-#define HIPEVENT(x)                                                            \
-  (!(x) ? reinterpret_cast<ihipEvent_t *>(x)                                   \
-        : CHIP_OBJ_TO_HANDLE(x, ihipEvent_t))
+#define CHIPTOHIP(x, t)                                                        \
+  (!(x) ? reinterpret_cast<t *>(x) : CHIP_OBJ_TO_HANDLE(x, t))
 
-#define MODULE(x)                                                              \
-  (!(x) ? reinterpret_cast<chipstar::Module *>(x)                              \
-        : CHIP_HANDLE_TO_OBJ(x, chipstar::Module))
+#define EVENT(x) HIPTOCHIP(x, chipstar::Event)
 
-#define HIPMODULE(x)                                                           \
-  (!(x) ? reinterpret_cast<ihipModule_t *>(x)                                  \
-        : CHIP_OBJ_TO_HANDLE(x, ihipModule_t))
+#define HIPEVENT(x) CHIPTOHIP(x, ihipEvent_t)
 
-#define KERNEL(x)                                                              \
-  (!(x) ? reinterpret_cast<chipstar::Kernel *>(x)                              \
-        : CHIP_HANDLE_TO_OBJ(x, chipstar::Kernel))
+#define MODULE(x) HIPTOCHIP(x, chipstar::Module)
 
-#define HIPMODULESYMBOL(x)                                                     \
-  (!(x) ? reinterpret_cast<ihipModuleSymbol_t *>(x)                            \
-        : CHIP_OBJ_TO_HANDLE(x, ihipModuleSymbol_t))
+#define HIPMODULE(x) CHIPTOHIP(x, ihipModule_t)
+
+#define KERNEL(x) HIPTOCHIP(x, chipstar::Kernel)
+
+#define HIPMODULESYMBOL(x) CHIPTOHIP(x, ihipModuleSymbol_t)
 
 /// The implementation of ihipEvent_t. The chipstar::Event class inherits this
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
