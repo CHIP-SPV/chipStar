@@ -1619,7 +1619,7 @@ protected:
  * multiple devices. Provides for creation of additional queues, events, and
  * interaction with devices.
  */
-class Context : public ihipCtx_t {
+class Context {
 protected:
   int RefCount_;
   chipstar::Device *ChipDevice_;

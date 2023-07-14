@@ -84,10 +84,14 @@ struct ihipDispatch {
 
 #define HIPMODULESYMBOL(x) CHIPTOHIP(x, ihipModuleSymbol_t)
 
+#define CONTEXT(x) HIPTOCHIP(x, chipstar::Context)
+
+#define HIPCONTEXT(x) CHIPTOHIP(x, ihipCtx_t)
+
 /// The implementation of ihipEvent_t. The chipstar::Event class inherits this
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t : ihipDispatch {};
-struct ihipCtx_t {};
+struct ihipCtx_t : ihipDispatch {};
 struct ihipStream_t : ihipDispatch {};
 struct ihipModule_t : ihipDispatch {};
 struct ihipModuleSymbol_t : ihipDispatch {};

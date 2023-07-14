@@ -1240,7 +1240,8 @@ chipstar::Backend::~Backend() {
   UserEvents.clear();
   for (auto &Ctx : ChipContexts) {
     ::Backend->removeContext(Ctx);
-    delete Ctx;
+    Ctx->~Context();
+    free(CHIP_OBJ_TO_HANDLE(Ctx, ihipCtx_t));
   }
 }
 

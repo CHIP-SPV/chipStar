@@ -1625,7 +1625,9 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   Status = zeContextCreateEx(ZeDriver, &CtxDesc, DeviceCount, ZeDevices.data(),
                              &ZeCtx);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  CHIPContextLevel0 *ChipL0Ctx = new CHIPContextLevel0(ZeDriver, ZeCtx);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPContextLevel0));
+  CHIPContextLevel0 *ChipL0Ctx = CHIP_HANDLE_TO_OBJ(mem, CHIPContextLevel0);
+  ChipL0Ctx = new (ChipL0Ctx) CHIPContextLevel0(ZeDriver, ZeCtx);
   ::Backend->addContext(ChipL0Ctx);
 
   // Filter in only devices of selected type and add them to the
@@ -1657,7 +1659,9 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];
   ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[2];
 
-  CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Drv, Ctx);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPContextLevel0));
+  CHIPContextLevel0 *ChipCtx = CHIP_HANDLE_TO_OBJ(mem, CHIPContextLevel0);
+  ChipCtx = new (ChipCtx) CHIPContextLevel0(Drv, Ctx);
   ChipCtx->setZeContextOwnership(false);
   addContext(ChipCtx);
 

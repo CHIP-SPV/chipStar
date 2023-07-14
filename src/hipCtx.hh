@@ -48,7 +48,7 @@ hipError_t hipCtxCreate(hipCtx_t *ctx, unsigned int flags, hipDevice_t device) {
 
   auto ChipCtx = Backend->getDevices()[device]->getContext();
   ChipCtx->retain();
-  *ctx = ChipCtx;
+  *ctx = HIPCONTEXT(ChipCtx);
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -57,7 +57,7 @@ hipError_t hipCtxCreate(hipCtx_t *ctx, unsigned int flags, hipDevice_t device) {
 hipError_t hipCtxDestroy(hipCtx_t ctx) {
   CHIP_TRY
   CHIPInitialize();
-  auto ChipCtx = static_cast<chipstar::Context *>(ctx);
+  auto ChipCtx = CONTEXT(ctx);
   if (ChipCtx == nullptr) {
     RETURN(hipErrorInvalidValue);
   }
@@ -80,7 +80,7 @@ hipError_t hipCtxPopCurrent(hipCtx_t *ctx) {
   if (ChipCtxStack.empty()) {
     *ctx = nullptr;
   } else {
-    *ctx = ChipCtxStack.top();
+    *ctx = HIPCONTEXT(ChipCtxStack.top());
     ChipCtxStack.pop();
   }
 
@@ -92,7 +92,7 @@ hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
   CHIP_TRY
   CHIPInitialize();
 
-  auto ChipCtx = static_cast<chipstar::Context *>(ctx);
+  auto ChipCtx = CONTEXT(ctx);
   if (!ChipCtx) {
     if (!ChipCtxStack.empty()) {
       ChipCtxStack.pop();
@@ -108,7 +108,7 @@ hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
 hipError_t hipCtxSetCurrent(hipCtx_t ctx) {
   CHIP_TRY
   CHIPInitialize();
-  Backend->setActiveContext(static_cast<chipstar::Context *>(ctx));
+  Backend->setActiveContext(CONTEXT(ctx));
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -116,7 +116,7 @@ hipError_t hipCtxSetCurrent(hipCtx_t ctx) {
 hipError_t hipCtxGetCurrent(hipCtx_t *ctx) {
   CHIP_TRY
   CHIPInitialize();
-  *ctx = Backend->getActiveContext();
+  *ctx = HIPCONTEXT(Backend->getActiveContext());
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -221,7 +221,7 @@ hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *Context, hipDevice_t Device) {
   NULLCHECK(Context);
   ERROR_CHECK_DEVNUM(Device);
 
-  *Context = Backend->getDevices()[Device]->getContext();
+  *Context = HIPCONTEXT(Backend->getDevices()[Device]->getContext());
   RETURN(hipSuccess);
 
   CHIP_CATCH

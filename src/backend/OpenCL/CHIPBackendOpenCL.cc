@@ -1531,7 +1531,9 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   // Create queues that have devices each of which has an associated context
   // TODO Change this to spirv_enabled_devices
   cl::Context *Ctx = new cl::Context(SpirvDevices);
-  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPContextOpenCL));
+  CHIPContextOpenCL *ChipContext = CHIP_HANDLE_TO_OBJ(mem, CHIPContextOpenCL);
+  ChipContext = new (ChipContext) CHIPContextOpenCL(Ctx);
   ::Backend->addContext(ChipContext);
 
   // TODO for now only a single device is supported.
@@ -1552,7 +1554,9 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   cl_context CtxId = (cl_context)NativeHandles[2];
 
   cl::Context *Ctx = new cl::Context(CtxId);
-  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPContextOpenCL));
+  CHIPContextOpenCL *ChipContext = CHIP_HANDLE_TO_OBJ(mem, CHIPContextOpenCL);
+  ChipContext = new (ChipContext) CHIPContextOpenCL(Ctx);
   addContext(ChipContext);
 
   cl::Device *Dev = new cl::Device(DevId);
