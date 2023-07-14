@@ -105,11 +105,6 @@ python3 $SOURCE_DIR/scripts/check.py $BUILD_DIR $DEVICE $BACKEND $PARALLEL 1
 
 Please refer to the [user documentation](docs/Using.md) for instructions on how to use the installed chipStar to build CUDA/HIP programs.
 
-## Building documentation
-
-Make sure you have doxygen installed, then after configuring the build, run `make gendocs`.
-The documentation will be placed in `doxygen/html`.
-
 ## Troubleshooting
 
 ### Missing Double Precision Support
