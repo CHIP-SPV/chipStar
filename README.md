@@ -44,7 +44,7 @@ While chipStar 1.0 can already be used to run various large HPC applications suc
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
 * For HIP-SYCL and HIP-MKL Interoperability: [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
 
-## Compiling Clang
+## Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
 It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
 ```bash
@@ -85,7 +85,7 @@ mkdir build && cd build
 cmake .. \
     -DLLVM_CONFIG_BIN=/path/to/llvm-config
     -DCMAKE_INSTALL_PREFIX=/path/to/install
-make all build_tests install
+make all build_tests install -j8
 ```
 
 NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` package), but only libOpenCL.so.1 installed, CMake fails to find it and disables the OpenCL backend. This [issue](https://github.com/CHIP-SPV/chipStar/issues/542) describes a workaround.
