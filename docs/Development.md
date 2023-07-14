@@ -115,7 +115,6 @@ These called functions are implemented in the runtime, `src/CHIPBindings.cc`; th
 
 there is an additional `__hipUnregisterFatBinary()` called after main() returns; in CHIP-SPV, this calls `CHIPUninitialize()` once the number of loaded modules becomes zero.
 
-
 # Release management
 
 For each release, a release manager is assigned. Release manager is responsible

@@ -61,7 +61,7 @@ cmake -S llvm -B build \
   -DLLVM_ENABLE_PROJECTS="clang;openmp" \
   -DLLVM_TARGETS_TO_BUILD=X86 \
   -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-16
-make -C build -j8 all install 
+make -C build -j8 all install
 ```
 
 ## Downloading Sources
@@ -80,9 +80,9 @@ git submodule update --init --recursive
 mkdir build && cd build
 
 # LLVM_CONFIG_BIN is optional if LLVM is not installed in PATH or if only a version-sufficed
-# binary is available i.e. llvm-config-16
+# binary is available (for example, llvm-config-16)
 
-cmake .. \ 
+cmake .. \
     -DLLVM_CONFIG_BIN=/path/to/llvm-config
     -DCMAKE_INSTALL_PREFIX=/path/to/install
 make all build_tests install
@@ -95,7 +95,7 @@ NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` 
 There's a script `check.py` which can be used to run unit tests and which filters out known failing tests for different platforms. Its usage is as follows.
 
 ```bash
-# BACKEND={opencl/level0/pocl}   # Which backend/driver you wish to test, "opencl" = Intel OpenCL runtime, "level0" = Intel LevelZero runtime, "pocl" = PoCL OpenCL runtime 
+# BACKEND={opencl/level0/pocl}   # Which backend/driver you wish to test, "opencl" = Intel OpenCL runtime, "level0" = Intel LevelZero runtime, "pocl" = PoCL OpenCL runtime
 # DEVICE={cpu,igpu,dgpu}         # What kind of device to test.
 # PARALLEL={N}                   # How many tests to run in parallel.
 # export CHIP_PLATFORM=N         # If there are multiple OpenCL platforms present on the system, selects which one to use
@@ -106,6 +106,16 @@ python3 $SOURCE_DIR/scripts/check.py $BUILD_DIR $DEVICE $BACKEND $PARALLEL 1
 Please refer to the [user documentation](docs/Using.md) for instructions on how to use the installed chipStar to build CUDA/HIP programs.
 
 ## Troubleshooting
+
+### Clang++ Cannot Find libstdc++ When Building chipStar
+
+This occurs often when the latest installed GCC version doesn't include libstdc++, and Clang++ by default chooses the latest found one regardless, and ends up failing to link C++ programs. The problem is discussed [here](https://discourse.llvm.org/t/add-gcc-install-dir-deprecate-gcc-toolchain-and-remove-gcc-install-prefix/65091/14).
+
+The issue can be resolved by defining a Clang++ [configuration file](https://clang.llvm.org/docs/UsersManual.html#configuration-files) which forces the GCC to what we want. Example:
+
+```bash
+echo --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/11 > ~/local/llvm-16/bin/x86_64-unknown-linux-gnu-clang++.cfg
+```
 
 ### Missing Double Precision Support
 
@@ -119,14 +129,4 @@ overhead of software emulation:
 ```bash
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
-```
-
-### Clang++ Cannot Find libstdc++ When Building chipStar
-
-This occurs often when the latest installed GCC version doesn't include libstdc++, and Clang++ by default chooses the latest found one regardless, and ends up failing to link C++ programs. The problem is discussed [here](https://discourse.llvm.org/t/add-gcc-install-dir-deprecate-gcc-toolchain-and-remove-gcc-install-prefix/65091/14). 
-
-The issue can be resolved by defining a Clang++ [configuration file](https://clang.llvm.org/docs/UsersManual.html#configuration-files) which forces the GCC to what we want. Example:
-
-```bash
-echo --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/11 > ~/local/llvm-16/bin/x86_64-unknown-linux-gnu-clang++.cfg
 ```
