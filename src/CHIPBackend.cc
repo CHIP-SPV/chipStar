@@ -542,11 +542,19 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   return getPerThreadDefaultQueueNoLock();
 }
 
+void chipstar::Device::QueueDeleter::operator()(chipstar::Queue *q) const noexcept {
+  if (q) {
+    q->~Queue();
+    free(CHIP_OBJ_TO_HANDLE(q, ihipStream_t));
+  }
+}
+
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   if (!PerThreadDefaultQueue.get()) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
-        std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
+        std::unique_ptr<chipstar::Queue, chipstar::Device::QueueDeleter>(
+            ::Backend->createCHIPQueue(this), chipstar::Device::QueueDeleter());
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
   }

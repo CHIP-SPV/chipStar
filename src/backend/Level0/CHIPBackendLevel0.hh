@@ -560,8 +560,9 @@ public:
 
   virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) override {
     CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipDev;
-    auto Q = new CHIPQueueLevel0(ChipDevLz);
-
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
+    chipstar::Queue *Q = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
+    Q = new (Q) CHIPQueueLevel0(ChipDevLz);
     return Q;
   }
 

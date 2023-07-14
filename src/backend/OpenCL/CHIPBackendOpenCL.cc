@@ -775,7 +775,7 @@ chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
   void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueOpenCL));
   CHIPQueueOpenCL *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueOpenCL);
-  NewQ = new (mem) CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
+  NewQ = new (NewQ) CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
   return NewQ;
 }
 
@@ -1429,7 +1429,10 @@ CHIPBackendOpenCL::createExecItem(dim3 GirdDim, dim3 BlockDim, size_t SharedMem,
 };
 chipstar::Queue *CHIPBackendOpenCL::createCHIPQueue(chipstar::Device *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
-  return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
+  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueOpenCL));
+  CHIPQueueOpenCL *Q = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueOpenCL);
+  Q = new (Q) CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
+  return Q;
 }
 
 chipstar::CallbackData *CHIPBackendOpenCL::createCallbackData(

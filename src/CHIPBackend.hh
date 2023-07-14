@@ -1294,7 +1294,11 @@ public:
   std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
 
   chipstar::Queue *LegacyDefaultQueue;
-  inline static thread_local std::unique_ptr<chipstar::Queue>
+  struct QueueDeleter {
+    void operator()(chipstar::Queue *q) const noexcept;
+  };
+
+  inline static thread_local std::unique_ptr<chipstar::Queue, QueueDeleter>
       PerThreadDefaultQueue;
 
   /**
