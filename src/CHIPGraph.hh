@@ -645,7 +645,7 @@ public:
   }
 };
 
-class CHIPGraphExec : public hipGraphExec {
+class CHIPGraphExec {
 protected:
   CHIPGraph *OriginalGraph_;
   CHIPGraph CompiledGraph_;

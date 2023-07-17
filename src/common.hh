@@ -92,6 +92,10 @@ struct ihipDispatch {
 
 #define HIPGRAPH(x) CHIPTOHIP(x, ihipGraph)
 
+#define GRAPHEXEC(x) HIPTOCHIP(x, CHIPGraphExec)
+
+#define HIPGRAPHEXEC(x) CHIPTOHIP(x, hipGraphExec)
+
 /// The implementation of ihipEvent_t. The chipstar::Event class inherits this
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t : ihipDispatch {};
@@ -101,7 +105,7 @@ struct ihipModule_t : ihipDispatch {};
 struct ihipModuleSymbol_t : ihipDispatch {};
 struct ihipGraph : ihipDispatch {};
 struct hipGraphNode {};
-struct hipGraphExec {};
+struct hipGraphExec : ihipDispatch {};
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(uint32_t *Stream, size_t NumWords,
