@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -506,7 +506,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
 
   // OpenCL 3.0 devices support basic CUDA managed memory via coarse-grain SVM,
   // but some of the functions such as prefetch and advice are unimplemented
-  // in CHIP-SPV.
+  // in chipStar.
   HipDeviceProps_.managedMemory = 0;
   // TODO: Populate these from SVM/USM properties. Advertise the safe
   // defaults for now. Uninitialized properties cause undeterminism.
@@ -1302,7 +1302,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     switch (Arg.Kind) {
     default:
-      CHIPERR_LOG_AND_THROW("Internal CHIP-SPV error: Unknown argument kind",
+      CHIPERR_LOG_AND_THROW("Internal chipStar error: Unknown argument kind",
                             hipErrorTbd);
     case SPVTypeKind::Image: {
       auto *TexObj =

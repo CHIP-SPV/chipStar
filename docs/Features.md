@@ -1,6 +1,6 @@
 ## Support status
 
-This is a (non-exhaustive) list of HIP features currently (un)supported by CHIP-SPV.
+This is a (non-exhaustive) list of HIP features currently (un)supported by chipStar.
 
 For a more detailed matrix of supported functions and features, see the files
 Host_API_support_matrix.md and Device_API_support_matrix.md.
@@ -41,8 +41,6 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
 
 * few memory APIs (hipMemPrefetchAsync, hipMemAdvise)
 
-* few module APIs (hipModuleLoadData, hipModuleUnload, hipModuleLaunchKernel)
-
 #### partially supported
 
 * Texture Objects of 1D/2D type are supported; 3D, LOD, Grad,
@@ -62,7 +60,7 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
 
 #### Unsupported / unavailable
 
-* _syncwarp(), __activemask(), threadfence_system(), warpSize variable
+* __activemask(), threadfence_system()
 
 * clock(), clock64()
 
@@ -82,24 +80,22 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
 
 * In-Line Assembly
 
-* __trap(), __brkpt(), assert()
+* __brkpt()
 
 * surface functions
 
 #### Partially supported
 
-* math library: almost all single/double functions are available,
-  half/half2 functions are available but untested
+* math library: almost all single/double/half/half2 math functions are available,
+  some math intrinsics functions are available
 
 * functions that specify rounding (e.g. __fdiv_rd), except conversion functions (as rounding cannot be selected in OpenCL)
 
-* device intrinsics are mapped to OpenCL's native_* functions where possible, otherwise are unsupported / emulated
+* device intrinsics are mapped to OpenCL's default functions to reduce rounding error differences
 
 * Warp functions (__all, __any, __ballot): only the non-sync versions are supported
 
 * Shuffle functions (__shfl_{up,down,xor}): only the non-sync versions are supported
-
-* abort()
 
 * texture functions: only with certain image types
 
@@ -108,8 +104,6 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
 -------------------------------------------------------------------
 
 ### Known issues
-
-* warpSize might depend on the kernel instead of being a device constant
 
 * hiprtc: Valid name expressions with a function pointer cast
   (e.g. '(void(*)(float *))akernel') fails with misleading

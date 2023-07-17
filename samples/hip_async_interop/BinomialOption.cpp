@@ -372,7 +372,7 @@ BinomialOption::runNativeKernel(void *NativeEventDep, uintptr_t *NativeHandles, 
     return nullptr;
 #endif
   } else {
-    std::cerr << "ERROR: unknown CHIP-SPV backend\n";
+    std::cerr << "ERROR: unknown chipStar backend\n";
     return nullptr;
   }
 }

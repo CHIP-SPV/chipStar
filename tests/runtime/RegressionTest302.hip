@@ -1,6 +1,6 @@
 #include "hip/hip_runtime.h"
 
-// CHIP-SPV/chip-spv#302
+// CHIP-SPV/chipStar#302
 __global__ static void repro_kernel(double *address, double val) {
   unsigned long long int *address_as_ull = (unsigned long long int *)address;
   unsigned long long int value_as_ull = *address_as_ull;

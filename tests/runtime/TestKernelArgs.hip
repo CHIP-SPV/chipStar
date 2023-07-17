@@ -14,7 +14,7 @@ template <typename T> T passThroughKernel(T ArgIn) {
   T *ArgOutD;
   assert(hipMalloc(&ArgOutD, sizeof(T)) == hipSuccess);
 
-  // Check source code and CHIP-SPV runtime agreed on the T's size.
+  // Check source code and chipStar runtime agreed on the T's size.
   auto KernelPtr = (void *)passArgs<T>;
   auto *ChipKernel = Backend->getActiveDevice()->findKernel(HostPtr(KernelPtr));
   assert(ChipKernel && "Could not find the kernel defined in the source.");

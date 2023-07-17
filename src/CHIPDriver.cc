@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -107,7 +107,7 @@ static void createBackendObject() {
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
 #else
-    CHIPERR_LOG_AND_THROW("Invalid CHIP-SPV Backend Selected. This CHIP-SPV "
+    CHIPERR_LOG_AND_THROW("Invalid chipStar Backend Selected. This chipStar "
                           "was not compiled with OpenCL backend",
                           hipErrorInitializationError);
 #endif
@@ -116,7 +116,7 @@ static void createBackendObject() {
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
 #else
-    CHIPERR_LOG_AND_THROW("Invalid CHIP-SPV Backend Selected. This CHIP-SPV "
+    CHIPERR_LOG_AND_THROW("Invalid chipStar Backend Selected. This chipStar "
                           "was not compiled with Level0 backend",
                           hipErrorInitializationError);
 #endif
@@ -139,7 +139,7 @@ static void createBackendObject() {
     }
   } else {
     CHIPERR_LOG_AND_THROW(
-        "Invalid CHIP-SPV Backend Selected. Accepted values : level0, opencl.",
+        "Invalid chipStar Backend Selected. Accepted values : level0, opencl.",
         hipErrorInitializationError);
   }
 }

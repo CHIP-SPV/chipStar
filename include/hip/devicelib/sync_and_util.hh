@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -109,7 +109,7 @@ extern "C++" inline __device__ void *memcpy(void *dest, const void *src, size_t 
 }
 
 extern "C++" inline __device__ unsigned __activemask()
-    __attribute__((unavailable("unsupported in CHIP-SPV.")));
+    __attribute__((unavailable("unsupported in chipStar.")));
 
 
 extern "C++" {

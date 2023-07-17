@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-23 CHIP-SPV developers
+ * Copyright (c) 2021-23 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -412,17 +412,17 @@ public:
     }
     if (Flags & hipEventInterprocess) {
       Flags = Flags & (~hipEventInterprocess);
-      logWarn("hipEventInterprocess is not supported on CHIP-SPV");
+      logWarn("hipEventInterprocess is not supported on chipStar");
       Interprocess_ = true;
     }
     if (Flags & hipEventReleaseToDevice) {
       Flags = Flags & (~hipEventReleaseToDevice);
-      logWarn("hipEventReleaseToDevice is not supported on CHIP-SPV");
+      logWarn("hipEventReleaseToDevice is not supported on chipStar");
       ReleaseToDevice_ = true;
     }
     if (Flags & hipEventReleaseToSystem) {
       Flags = Flags & (~hipEventReleaseToSystem);
-      logWarn("hipEventReleaseToSystem is not supported on CHIP-SPV");
+      logWarn("hipEventReleaseToSystem is not supported on chipStar");
       ReleaseToSystem_ = true;
     }
 

@@ -1,6 +1,8 @@
-## Using CHIP-SPV
+## Using chipStar
 
-### Environment Flags
+### Environment Variables
+
+These variables can be used to control `hipcc` when targeting chipStar.
 
 #### CHIP_BE
 
@@ -12,9 +14,9 @@ If set to "default" (or unset), it automatically selects any available backend i
 #### CHIP_LOGLEVEL
 
 Select the verbosity of debug info during execution.
-Possible values: trace, debug(default for Debug builds), warn(default for non-Debug builds), err, crit
+Possible values: trace, debug (default for Debug builds), warn (default for non-Debug builds), err, crit
 
-Setting this value to `debug` will print information coming from the CHIP-SPV functions which are shared between the backends.
+Setting this value to `debug` will print information coming from the chipStar functions which are shared between the backends.
 
 Settings this value to `trace` will print `debug`, as well as debug infomarmation from the backend implementation itself such as results from low-level Level Zero API calls.
 
@@ -28,7 +30,7 @@ If you do not provide this value, `hipcc` will check for existance of the follow
 /opt/rocm
 ```
 
-#### CHIP\_RTC\_SAVE\_TEMPS
+#### CHIP_RTC_SAVE_TEMPS
 
 Preserves runtime temporary compilation files when this variable is set to `1`.
 
@@ -36,13 +38,13 @@ Preserves runtime temporary compilation files when this variable is set to `1`.
 
 Note that long-running GPU compute kernels can trigger hang detection mechanism in the GPU driver, which will cause the kernel execution to be terminated and the runtime will report an error. Consult the documentation of your GPU driver on how to disable this hangcheck.
 
-### Compiling CUDA application directly with CHIP-SPV
+### Compiling CUDA application directly with chipStar
 
 Compilation of CUDA sources without changing the sources, can be done in two ways. The first is to replace calls of the nvcc compiler with calls of the wrapper script <CHIP-install-path>/bin/cuspv in Makefiles. The wrapper script will call clang with the correct flags. The other way is possible when using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::device)`. However the project must be compiled with Clang (a version supported by HIP). Note that it's not necessary to have Nvidia's CUDA installed.
 
-### Compiling a HIP application using CHIP-SPV
+### Compiling a HIP application using chipStar
 
-Compiling a HIP application with CHIP-SPV will allow you to execute HIP code on any device that supports SPIR-V, such as Intel GPUs. To compile a HIP application, all you need to do is to use the `hipcc` compiler wrapper provided by this project. In case you have AMD implementation installed as well, you can switch between them by using `HIP_PLATFORM` environment variable.
+Compiling a HIP application with chipStar will allow you to execute HIP code on any device that supports SPIR-V, such as Intel GPUs. To compile a HIP application, all you need to do is to use the `hipcc` compiler wrapper provided by this project. In case you have AMD implementation installed as well, you can switch between them by using `HIP_PLATFORM` environment variable.
 
 You can find various HIP applications here: <https://github.com/CHIP-SPV/hip-testsuite>
 
@@ -52,7 +54,7 @@ hipcc ./hip_app.cpp -o hip_app
 
 ### Interoperability with OpenCL / Level0 APIs from HIP code
 
-CHIP-SPV provides several extra APIs (not present in AMD's HIP) for interoperability with its backends:
+chipStar provides several extra APIs (not present in AMD's HIP) for interoperability with its backends:
 
 * the hipGetBackendNativeHandles API returns native object handles, but does not give up ownership of these objects (HIP will keep using them asynchronously with the application).
 * hipInitFromNativeHandles API creates HIP objects from native handles, but again does not take ownership (they're still usable from application).
@@ -71,7 +73,7 @@ there are also two APIs for asynchronous interoperability:
 Before using the hipGetNativeEvent, the event must be recorded in a Stream.
 
 With OpenCL, both get*Event APIs increase the refcount of the cl_event and each side (HIP and the user application) are responsible for releasing the event when they’re done with it.
-With Level0, the event pool from which it was allocated remains the responsibility of the side that allocated it (e.g. getNativeEvent returns a ze_event handle but the pool is still managed by CHIP-SPV). This could lead to issues if e.g. a pool is released but an event allocated from it still exists as a dependency in some command enqueued by the opposite API. Since CHIP-SPV's Level0 backend never releases event pools, this can be resolved by not releasing eventpools allocated on the application side.
+With Level0, the event pool from which it was allocated remains the responsibility of the side that allocated it (e.g. getNativeEvent returns a ze_event handle but the pool is still managed by chipStar). This could lead to issues if e.g. a pool is released but an event allocated from it still exists as a dependency in some command enqueued by the opposite API. Since chipStar's Level0 backend never releases event pools, this can be resolved by not releasing eventpools allocated on the application side.
 
 Simplified example code with OpenCL interop:
 
@@ -134,14 +136,14 @@ Simplified example code with OpenCL interop:
     }
 ```
 
-This example launches the `binomial_options` HIP kernel using `hipLaunchKernelGGL`, gets the native event of that launch, and launches a native kernel with that event as dependency. The event returned by that native launch, can in turn be used by HIP code as dependency (in this case it's used with `hipStreamWaitEvent`). The full example with both Level0 and OpenCL interoperability can be found in CHIP-SPV sources: `<CHIP-SPV>/samples/hip_async_interop`.
+This example launches the `binomial_options` HIP kernel using `hipLaunchKernelGGL`, gets the native event of that launch, and launches a native kernel with that event as dependency. The event returned by that native launch, can in turn be used by HIP code as dependency (in this case it's used with `hipStreamWaitEvent`). The full example with both Level0 and OpenCL interoperability can be found in chipStar sources: `<chipStar>/samples/hip_async_interop`.
 
-### Using CHIP-SPV in own projects (with CMake)
+### Using chipStar in own projects (with CMake)
 
-CHIP-SPV provides a `FindHIP.cmake` module so you can verify that HIP is installed:
+chipStar provides a `FindHIP.cmake` module so you can verify that HIP is installed:
 
 ```bash
-list(APPEND CMAKE_MODULES_PREFIX <CHIP-SPV install location>/cmake)
+list(APPEND CMAKE_MODULES_PREFIX <chipStar install location>/cmake)
 find_package(HIP REQUIRED)
 ```
 

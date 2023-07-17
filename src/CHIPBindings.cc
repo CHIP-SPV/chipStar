@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -2876,8 +2876,11 @@ hipError_t hipArrayCreate(hipArray **Array,
 hipError_t hipFreeArray(hipArray *Array) {
   CHIP_TRY
   CHIPInitialize();
-  if (!Array || !Array->data)
+  if (!Array)
     RETURN(hipErrorInvalidValue);
+
+  if (!Array->data)
+    RETURN(hipErrorContextIsDestroyed);
 
   hipError_t Err = hipFreeInternal(Array->data);
   if (Err != hipSuccess)

@@ -1,6 +1,6 @@
-# Utility Scripts for CHIP-SPV
+# Utility Scripts for chipStar
 
-This directory contains a number of utility scripts for working with CHIP-SPV.
+This directory contains a number of utility scripts for working with chipStar.
 ## all_check_for_resolved_tests.sh
 
 This script runs `check_for_resolved_tests.py` for all the backends. It is intended to be run on the CI machine `cupcake`.

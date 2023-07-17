@@ -1,4 +1,4 @@
-// Regression test for https://github.com/CHIP-SPV/chip-spv/issues/211
+// Regression test for https://github.com/CHIP-SPV/chipStar/issues/211
 #include <hip/hip_runtime_api.h>
 #include <cstdio>
 #include <cstdlib>

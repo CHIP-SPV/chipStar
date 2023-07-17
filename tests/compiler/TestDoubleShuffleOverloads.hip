@@ -1,4 +1,4 @@
-// Regression test for CHIP-SPV/chip-spv#364.
+// Regression test for CHIP-SPV/chipStar#364.
 #include <hip/hip_runtime.h>
 
 __global__ void callShfl(double *InOut, int LaneSel) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  * Copyright (c) 2019 Michal Babej / Tampere University
  * Copyright (c) 2014 Cedric Nugteren, SURFsara
  * https://github.com/CNugteren/myGEMM.git

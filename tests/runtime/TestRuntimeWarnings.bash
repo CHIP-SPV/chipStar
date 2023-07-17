@@ -1,4 +1,4 @@
-# A regression test for https://github.com/CHIP-SPV/chip-spv/issues/481.
+# A regression test for https://github.com/CHIP-SPV/chipStar/issues/481.
 #!/bin/bash
 set -eu
 

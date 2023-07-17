@@ -1,6 +1,6 @@
 //===- HipEmitLoweredNames.cpp --------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -24,7 +24,7 @@
 //
 // Finally, the magic variables are removed from the module.
 //
-// Copyright (c) 2021-22 CHIP-SPV developers
+// Copyright (c) 2021-22 chipStar developers
 //===----------------------------------------------------------------------===//
 
 #include "HipEmitLoweredNames.h"

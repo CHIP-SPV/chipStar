@@ -1,6 +1,6 @@
 //===- LLVMSPIRV.h --------------------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 // LLVM definitions for SPIR-V
 //
-// (c) 2023 CHIP-SPV developers
+// (c) 2023 chipStar developers
 // (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
 //===----------------------------------------------------------------------===//
 

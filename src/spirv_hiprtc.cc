@@ -1,6 +1,6 @@
 /*
 Copyright (c) 2021 - 2021 Advanced Micro Devices, Inc. All rights reserved.
-Copyright (c) 2022 CHIP-SPV developers.
+Copyright (c) 2022 chipStar developers.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -179,7 +179,7 @@ static std::string createCompileCommand(const CompileOptions &Options,
 #ifdef CHIP_SOURCE_DIR
   // For making the compilation work in the build directory.
   //
-  // TODO: Could we detect if we are using installed CHIP-SPV and omit
+  // TODO: Could we detect if we are using installed chipStar and omit
   //       these options?
   Append(std::string("-I") + CHIP_SOURCE_DIR + "/HIP/include");
   Append(std::string("-I") + CHIP_SOURCE_DIR + "/include/hip");

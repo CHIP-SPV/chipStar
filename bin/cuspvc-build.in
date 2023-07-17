@@ -4,9 +4,9 @@
 #
 #   CUDA sources are compiled in HIP mode with an include search path to
 #   cuda_runtime.h wrapper which translates CUDA API to HIP API.
-#   NOTE: this file is not meant only to be usable in CHIP-SPV build directory.
+#   NOTE: this file is not meant only to be usable in chipStar build directory.
 #
-#   Copyright (c) 2021-22 CHIP-SPV developers
+#   Copyright (c) 2021-22 chipStar developers
 #
 #   Permission is hereby granted, free of charge, to any person obtaining a copy
 #   of this software and associated documentation files (the "Software"), to deal

@@ -1,4 +1,4 @@
-// Regression test for https://github.com/CHIP-SPV/chip-spv/issues/391
+// Regression test for https://github.com/CHIP-SPV/chipStar/issues/391
 #include <hip/hip_runtime.h>
 // NOTE: This format string has an invalid specifier which triggers
 // undefined behavior. The goal with this test is to check the

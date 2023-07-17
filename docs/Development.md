@@ -1,17 +1,17 @@
 
-# CHIP-SPV internals for developers
+# chipStar internals for developers
 
-The code of CHIP-SPV can be divided in two main parts: compilation and runtime library.
+The code of chipStar can be divided in two main parts: compilation and runtime library.
 
 ## Compilation
 
-Compilation of HIP sources with CHIP-SPV is done by Clang. The Clang compiler since version 14 now has all features to support the CHIP-SPV compilation process. In particular, the Clang driver (the program that "drives" the actual compilation process by running other programs) knows the steps to compile a CHIP-SPV program. The steps are:
+Compilation of HIP sources with chipStar is done by Clang. The Clang compiler since version 14 now has all features to support the chipStar compilation process. In particular, the Clang driver (the program that "drives" the actual compilation process by running other programs) knows the steps to compile a chipStar program. The steps are:
 
 1) Compilation of the source in device mode (host code is ignored) to LLVM IR.
-2) Linking of the LLVM IR (from previous step) to the CHIP-SPV bitcode library (see 'CHIP-SPV bitcode library' below).
+2) Linking of the LLVM IR (from previous step) to the chipStar bitcode library (see 'chipStar bitcode library' below).
 3) Running the necessary transformation passes (see LLVM passes below).
 4) Converting the device bitcode to a SPIR-V binary. Currently, the SPIRV-LLVM Translator tool is used for this, but in the future we may switch to using LLVM’s SPIR-V backend as it becomes stable.
-5) Bundling the SPIR-V in clang's "offload bundle" fat binary format (in theory multiple binary formats could be bundled here, but currently CHIP-SPV only includes the SPIR-V binary).
+5) Bundling the SPIR-V in clang's "offload bundle" fat binary format (in theory multiple binary formats could be bundled here, but currently chipStar only includes the SPIR-V binary).
 6) Compilation of the source in the host mode (device code is ignored in this step) to LLVM IR. The offload bundle binary is included in the compilation unit as a "magic" global variable.
 7) Assembling & linking of the LLVM IR from previous step to produce final object.
 
@@ -43,7 +43,7 @@ Found HIP installation: /home/michal/0/build/b_chip_sycl, version 5.1.0
 
 # this step is meant to link device code objects from multiple TUs (translation units, if there are multiple)
 /usr/local/bin/llvm-link  hipmath-hip-spirv64-generic.bc -o hipmath-hip-spirv64-generic-link.bc
-# runs the CHIP-SPV LLVM passes
+# runs the chipStar LLVM passes
 /usr/local/bin/opt hipmath-hip-spirv64-generic-link.bc -load-pass-plugin /chip_build_dir/lib/libLLVMHipSpvPasses.so -passes=hip-post-link-passes -o hipmath-hip-spirv64-generic-lower.bc
 # convert device LLVM IR bitcode to SPIR-V
 /usr/local/bin/llvm-spirv  --spirv-max-version=1.1 --spirv-ext=+all hipmath-hip-spirv64-generic-lower.bc -o hipmath-hip-spirv64-generic.out
@@ -61,15 +61,15 @@ Found HIP installation: /home/michal/0/build/b_chip_sycl, version 5.1.0
 
 ```
 
-### CHIP-SPV bitcode library
+### chipStar bitcode library
 
 This is a library which contains HIP device-side functions (math, workgroup and others) which either don't exist in OpenCL at all, or have different implementation (different name, function signature etc), and implements these by using OpenCL device-side functions (or OpenCL extensions where possible).
 
 For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_LOCAL_MEM_FENCE)`, `rhypot()` has no equivalent in OpenCL so it's implemented via OCML, and shuffle functions are implemented using cl_khr_subgroup_shuffle and cl_khr_subgroup_shuffle_relative extensions. Kernels that call cross-lane intrinsics that are sensitive to the fixed warp width are handled by annotating them with cl_intel_reqd_sub_group_size.
 
-### CHIP-SPV-specific LLVM passes
+### chipStar-specific LLVM passes
 
-There are several transformations (LLVM passes) done on the LLVM IR of the device code to deal with differences between CUDA and OpenCL/Level0/SPIR-V capabilities. The passes can be found in `<CHIP-SPV>/llvm-passes`. Most of them have more documentation in the source. Note that for debugging LLVM passes, it's recommended to compile Clang+LLVM in debug mode and enable assertions (`cmake -DLLVM_ENABLE_ASSERTIONS=ON ...`); the Clang/LLVM packages in linux distributions are usually compiled in release mode, without assertions.
+There are several transformations (LLVM passes) done on the LLVM IR of the device code to deal with differences between CUDA and OpenCL/Level0/SPIR-V capabilities. The passes can be found in `<chipStar>/llvm-passes`. Most of them have more documentation in the source. Note that for debugging LLVM passes, it's recommended to compile Clang+LLVM in debug mode and enable assertions (`cmake -DLLVM_ENABLE_ASSERTIONS=ON ...`); the Clang/LLVM packages in linux distributions are usually compiled in release mode, without assertions.
 
 * HipAbort.cpp - special handling for abort() calls from the device side (to cause a host abort currently).
 * HipDefrost.cpp - removes freeze from instructions (workaround for the llvm-spirv translator).
@@ -113,8 +113,7 @@ These called functions are implemented in the runtime, `src/CHIPBindings.cc`; th
 
 `__hipRegisterVar`: this registers global variables, again connecting a host pointer with a variable name.
 
-there is an additional `__hipUnregisterFatBinary()` called after main() returns; in CHIP-SPV, this calls `CHIPUninitialize()` once the number of loaded modules becomes zero.
-
+there is an additional `__hipUnregisterFatBinary()` called after main() returns; in chipStar, this calls `CHIPUninitialize()` once the number of loaded modules becomes zero.
 
 # Release management
 
@@ -153,7 +152,7 @@ A checklist of things to do for a release:
 * Request for testers in all communication channels. Point the testers to
   send their test reports to you privately or by adding them to the wiki.
   A good way is to create a wiki page for the release schedule and a test
-  log. See https://github.com/CHIP-SPV/chip-spv/wiki/Release-testing-of-chip-spv-0-9
+  log. See https://github.com/CHIP-SPV/chipStar/wiki/Release-testing-of-chip-spv-0-9
   for an example.
 
 * To publish a release, create a new release on Github without the
