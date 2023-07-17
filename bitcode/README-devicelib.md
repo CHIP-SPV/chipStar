@@ -1,21 +1,21 @@
-# CHIP-SPV Device Library
+# chipStar Device Library
 
-This directory contains the source code for the CHIP-SPV Device Library. The header files declare math functions and intrinsics that can be used inside kernel code with C++ linkage and call an underlaying device-side function. The device-side function implementations are provided either by OpenCL, OCML, or our own custom implementation. 
+This directory contains the source code for the chipStar Device Library. The header files declare math functions and intrinsics that can be used inside kernel code with C++ linkage and call an underlaying device-side function. The device-side function implementations are provided either by OpenCL, OCML, or our own custom implementation. 
 
 ## Device-side Function Headers
-The headers for device-side functions can be found in `CHIP-SPV/include/hip/devicelib`. The header files are not provided by HIP-COMMON so instead these headers file were assmebled by hand from the official CUDA and HIP documentation:
+The headers for device-side functions can be found in `chipStar/include/hip/devicelib`. The header files are not provided by HIP-COMMON so instead these headers file were assmebled by hand from the official CUDA and HIP documentation:
 [CUDA Math API](https://docs.nvidia.com/cuda/cuda-math-api/index.html)
 [HIP Programming Guide](https://docs.amd.com/bundle/HIP-Programming-Guide-v5.0/page/Programming_with_HIP.html)
 
 ## Deviside-side Function Implementations
 Most of the function implementations come from OpenCL. For other cases, we use the OCML library. The OCML library is provided by AMD and can be found in the [ROCm-Device-Libs](https://github.com/RadeonOpenCompute/ROCm-Device-Libs) repo. 
-If a function is not provided by OpenCL or OCML, we provide our own implementation which lives in `CHIP-SPV/bitcode/devicelib.cl`.
+If a function is not provided by OpenCL or OCML, we provide our own implementation which lives in `chipStar/bitcode/devicelib.cl`.
 
 # ROCm-Device-Library
 This library provides function implmementations that can be compiled into LLVM IR bitcode. Unfortunately, it was implemented to for AMD architectures which results in the use of admgcn intrinsics which won't compile to SPIR-V. For this reason, we had to modify some of the implementations and correctness of these implementations is poorly tested. 
 
 In order to link a functioning bitcode library, we must link in some control libraries which modify the behavior of the device-side functions. These libraries are OCLC and OCKL
-`CHIP-SPV/bitcode/CMakeLists.txt`:
+`chipStar/bitcode/CMakeLists.txt`:
 ```
 # ROCm-Device-Libs provides OCML and its dependencies (OCLC, OCKL, etc.)
 # Since these targets don't seem to get exported as normal targets, we have to link this way.

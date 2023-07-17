@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  * Copyright (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1220,7 +1220,7 @@ cudaOccupancyMaxPotentialBlockSize(int *GridSize, int *BlockSize, T Func,
 
 //###################
 
-/* Texture driver API, deprecated by CUDA, unsupported by CHIP-SPV */
+/* Texture driver API, deprecated by CUDA, unsupported by chipStar */
 
 UNAVAILABLE
 static inline cudaError_t cuTexRefSetAddressMode(textureReference *texRef,
@@ -1261,7 +1261,7 @@ static inline cudaError_t
 cuTexObjectGetTextureDesc(CUDA_TEXTURE_DESC *pTexDesc,
                           CUtexObject texObject);
 
-/* this seems supported by HIP, but is not supported by CHIP-SPV */
+/* this seems supported by HIP, but is not supported by chipStar */
 UNAVAILABLE
 static inline cudaError_t cuTexRefGetAddress(CUdeviceptr *dev_ptr,
                                              const textureReference *texRef);

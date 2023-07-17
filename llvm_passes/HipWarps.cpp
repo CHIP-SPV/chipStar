@@ -1,6 +1,6 @@
 //===- HipWarps.cpp -.-----------------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -36,7 +36,7 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
   // constant that can be queried from the device info.
   //
   // Add the intel_reqd_sub_group_size kernel metadata to force the subgroup
-  // size to be fixed to the warp size used by the CHIP-SPV build in case there
+  // size to be fixed to the warp size used by the chipStar build in case there
   // is a possibility the kernel's semantically sensitive to the warp width.
   //
   // For now check if the CUDA warp-size sensitive intrinsic declarations appear
@@ -91,6 +91,6 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
                                        I32Type, CHIP_DEFAULT_WARP_SIZE))));
   }
 
-  // The metadata should not impact other CHIP-SPV passes.
+  // The metadata should not impact other chipStar passes.
   return PreservedAnalyses::all();
 }

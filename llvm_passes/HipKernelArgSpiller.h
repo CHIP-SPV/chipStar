@@ -1,6 +1,6 @@
 //===- HipKernelArgSpiller.h ----------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 // Reduces the size of large kernel parameter lists by "spilling" them.
 //
-// Copyright (c) 2023 CHIP-SPV developers
+// Copyright (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_PASSES_HIP_KERNEL_ARG_SPILLER_H

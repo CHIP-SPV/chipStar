@@ -1,6 +1,6 @@
 //===- HipSanityChecks.cpp ------------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 // Does sanity checks on the LLVM IR just before HIP-to-SPIR-V lowering.
 //
-// (c) 2023 CHIP-SPV developers
+// (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 #include "HipSanityChecks.h"
 
@@ -52,7 +52,7 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
 #ifndef NDEBUG
       // Fail visibly, but only for debug build, so issues like these won't slip
       // in silently only to be detected very much later in an obscure way.
-      dbgs() << "Aborting (CHIP-SPV debug build mode policy)\n";
+      dbgs() << "Aborting (chipStar debug build mode policy)\n";
       abort();
 #endif
     } else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@
 
 #if defined(__clang__) && defined(__HIP__)
 
-// Undefine the __noinline__ coming from the CHIP-SPV's fork of the
+// Undefine the __noinline__ coming from the chipStar's fork of the
 // HIP-Common as it is shadowing the keyword in Clang 15+. The
 // upstream HIP has removed the __noinline__ definition and also the
 // other HIP function attributes and let the implementers define them.

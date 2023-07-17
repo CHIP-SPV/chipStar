@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
   float gpu_time = 0.0f;
 
   // asynchronously issue work to the GPU (all to stream 0)
-  // Profiling is not supported by CHIP-SPV (yet?).
+  // Profiling is not supported by chipStar (yet?).
   // checkCudaErrors(cudaProfilerStart());
   sdkStartTimer(&timer);
   cudaEventRecord(start, 0);

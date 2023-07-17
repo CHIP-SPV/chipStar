@@ -1,7 +1,7 @@
 #=============================================================================
 #   CMake build system files
 #
-#   Copyright (c) 2021-22 CHIP-SPV developers
+#   Copyright (c) 2021-22 chipStar developers
 #
 #   Permission is hereby granted, free of charge, to any person obtaining a copy
 #   of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 #
 #=============================================================================
 
-#include(/home/pvelesko/CHIP-SPV/install/cmake/CHIP/CHIPTargets.cmake)
+#include(/home/pvelesko/chipStar/install/cmake/CHIP/CHIPTargets.cmake)
 option(SAVE_TEMPS "Save temporary compilation products" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 
@@ -39,7 +39,7 @@ endif()
 
 # ARGN = test args
 function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
-    message(STATUS "CHIP-SPV Sample test: ${EXEC_NAME} ${SOURCE}")
+    message(STATUS "chipStar Sample test: ${EXEC_NAME} ${SOURCE}")
     set(TEST_EXEC_ARGS ${ARGN})
     set_source_files_properties(${SOURCE} PROPERTIES LANGUAGE CXX)
 

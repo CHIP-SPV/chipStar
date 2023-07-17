@@ -1,6 +1,6 @@
 //===- HipKernelArgSpiller.cpp --------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -9,7 +9,7 @@
 // Reduces the size of large kernel parameter lists by "spilling" them.
 //
 // In CUDA (and HIP too?) kernel parameter lists are limited to 4KB [1] but
-// CHIP-SPV's backends may have more stricter limit. We support large kernel
+// chipStar's backends may have more stricter limit. We support large kernel
 // parameter lists on such backends by passing some of the arguments via
 // intermediate, temporary device buffer.
 //
@@ -25,7 +25,7 @@
 //     aKernel_original(*A, *B, ...);
 //   }
 //
-// The CHIP-SPV runtime is let to know about the spilled arguments by annotating
+// The chipStar runtime is let to know about the spilled arguments by annotating
 // their position and original size of the argument in a global magic array:
 //
 //    uint16_t __chip_spilled_args_<kernel-name>[] = {
@@ -39,7 +39,7 @@
 //
 // [1]: CUDA C++ Programming Guide 14.5.9.3. Function Parameters
 //
-// Copyright (c) 2023 CHIP-SPV developers
+// Copyright (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
 #include "HipKernelArgSpiller.h"
@@ -234,7 +234,7 @@ static void annotateSpilledArgs(Function *F, ArgSet ArgsToSpill) {
   auto *GV = new GlobalVariable(
       *F->getParent(), GVInit->getType(), true,
       // Mark the GV as external for keeping it alive at least until the
-      // CHIP-SPV runtime reads it.
+      // chipStar runtime reads it.
       GlobalValue::ExternalLinkage, GVInit, Name, nullptr,
       GlobalValue::NotThreadLocal /* Default value*/,
       // Global-scope variables may not have Function storage class.

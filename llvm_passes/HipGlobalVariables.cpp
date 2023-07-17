@@ -1,6 +1,6 @@
 //===- HipGlobalVariables.cpp ---------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -30,7 +30,7 @@
 // - the CrossWorkGroup address space of the SPIR-V specification.
 //
 // (c) 2022 Parmance for Argonne National Laboratory
-// (c) 2023 CHIP-SPV developers
+// (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
 
@@ -196,7 +196,7 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
 /// used as source (a pointer) for memcpy.
 static Value *createCopyableValue(Module &M, Constant *Initializer) {
   // Name does not really matter but having <ChipVarPrefix> prefix in it we can
-  // distinguish CHIP-SPV emitted values from source code originated ones and
+  // distinguish chipStar emitted values from source code originated ones and
   // handle them correctly.
   auto Name = std::string(ChipVarPrefix) + "_initializer";
   auto *InitValue = new GlobalVariable(

@@ -1,6 +1,6 @@
 //===- HipPasses.cpp ------------------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -10,7 +10,7 @@
 //
 // (c) 2021 Parmance for Argonne National Laboratory and
 // (c) 2022 Pekka Jääskeläinen / Intel
-// (c) 2023 CHIP-SPV developers
+// (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 CHIP-SPV developers
+ * Copyright (c) 2022 chipStar developers
  * Copyright (c) 2022 Paulius Velesko <pvelesko@pglc.io>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

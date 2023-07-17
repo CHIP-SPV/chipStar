@@ -70,10 +70,10 @@ if(NOT DEFINED HIP_CLANG_NUM_PARALLEL_JOBS)
 endif()
 
 if(WIN32)
-  message(FATAL_ERROR "Windows not yet supported for CHIP-SPV")
+  message(FATAL_ERROR "Windows not yet supported for chipStar")
 endif()
 
-set(HIP_PATH "@HIP_PATH@" CACHE PATH "Path to the CHIP-SPV installation")
+set(HIP_PATH "@HIP_PATH@" CACHE PATH "Path to the chipStar installation")
 set(HIP_COMPILER "@HIP_COMPILER@" CACHE STRING "C++ compiler")
 set(HIP_RUNTIME "@HIP_RUNTIME@" CACHE STRING "" FORCE)
 set(HIP_PLATFORM "@HIP_PLATFORM@" CACHE STRING "" FORCE)
@@ -82,7 +82,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS "@HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL@"
   CACHE STRING "clang compiler variables for offload compilation")
 set(HIP_OFFLOAD_LINK_OPTIONS "@HIP_OFFLOAD_LINK_OPTIONS_INSTALL@"
   CACHE STRING "HIP application linker options")
-message(STATUS "hip-config.cmake CHIP-SPV:")
+message(STATUS "hip-config.cmake chipStar:")
 message(STATUS "HIP_PATH: ${HIP_PATH}")
 message(STATUS "HIP_COMPILER: ${HIP_COMPILER}")
 message(STATUS "HIP_RUNTIME: ${HIP_RUNTIME}")

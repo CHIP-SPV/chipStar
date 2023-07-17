@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-23 CHIP-SPV developers
+ * Copyright (c) 2022-23 chipStar developers
  * Copyright (c) 2022-23 Sarbojit Sarkar <sarkar.iitr@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

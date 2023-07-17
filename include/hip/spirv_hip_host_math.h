@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 CHIP-SPV developers
+ * Copyright (c) 2023 chipStar developers
  * Copyright (c) 2015 - 2021 Advanced Micro Devices, Inc. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

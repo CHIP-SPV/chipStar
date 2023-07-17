@@ -26,10 +26,10 @@ THE SOFTWARE.
   and minimal modifications.
 */
 
-/* CHIP-SPV defines start */
+/* chipStar defines start */
 #define __llvm_amdgcn_rcp_f16(__X) ((__half)1.0f / (__half)__X)
 #define __llvm_amdgcn_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
-/* CHIP-SPV defines end */
+/* chipStar defines end */
 
 #ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
 #error Include this file after including hip/hip_runtime.h

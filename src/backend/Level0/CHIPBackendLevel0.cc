@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -1537,7 +1537,7 @@ void CHIPBackendLevel0::uninitialize() {
   //                E->getCHIPRefc());
   //       if (!E->isUserEvent()) {
   //         // A strong indicator that we are missing decreaseRefCount() call
-  //         // for events which are solely managed by the CHIP-SPV.
+  //         // for events which are solely managed by the chipStar.
   //         assert(!(E->isFinished() && E->getCHIPRefc() > 0) &&
   //                "Missed decreaseRefCount()?");
   //         assert(E->isFinished() && "Uncollected non-user events!");
@@ -1967,7 +1967,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
   // Level0 devices support basic CUDA managed memory via USM,
   // but some of the functions such as prefetch and advice are unimplemented
-  // in CHIP-SPV.
+  // in chipStar.
   HipDeviceProps_.managedMemory = 0;
   // TODO: Populate these from SVM/USM properties. Advertise the safe
   // defaults for now. Uninitialized properties cause undeterminism.
@@ -2321,7 +2321,7 @@ void CHIPExecItemLevel0::setupAllArgs() {
     ze_result_t Status;
     switch (Arg.Kind) {
     default:
-      CHIPERR_LOG_AND_THROW("Internal CHIP-SPV error: Unknown argument kind.",
+      CHIPERR_LOG_AND_THROW("Internal chipStar error: Unknown argument kind.",
                             hipErrorTbd);
 
     case SPVTypeKind::Image: {

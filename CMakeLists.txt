@@ -1,7 +1,7 @@
 # =============================================================================
 # CMake build system files
 #
-# Copyright (c) 2021-22 CHIP-SPV developers
+# Copyright (c) 2021-22 chipStar developers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-project(CHIP-SPV
+project(chipStar
   VERSION 1.0
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES NONE)
@@ -64,7 +64,7 @@ foreach(dir ${REQUIRED_DIRECTORIES})
 endforeach()
 
 # =============================================================================
-# CHIP-SPV CMAKE DEPENDENCIES
+# chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
   find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
@@ -110,11 +110,11 @@ if(NOT HAS_FILESYSTEM AND NOT HAS_EXPERIMENTAL_FILESYSTEM)
   message(FATAL_ERROR "<filesystem> was not found.")
 endif()
 
-# CHIP-SPV CMAKE DEPENDENCIES
+# chipStar CMAKE DEPENDENCIES
 # =============================================================================
 
 # =============================================================================
-# CHIP-SPV CMAKE VARIABLBLES/OPTIONS
+# chipStar CMAKE VARIABLBLES/OPTIONS
 set(CHIP_SRC
   src/spirv.cc
   src/spirv_hiprtc.cc
@@ -139,17 +139,17 @@ if(LevelZero_LIBRARY)
     src/backend/Level0/CHIPBackendLevel0.cc)
 endif()
 
-set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "CHIP-SPV source directory")
+set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "chipStar source directory")
 
 set(CHIP_SPV_LINK_FLAGS "")
 set(CHIP_SPV_COMPILE_FLAGS "")
 list(APPEND CHIP_SPV_DEFINITIONS "")
 
 # used by hipcc/hipconfig
-set(HIP_COMPILER "clang" CACHE STRING "CHIP-SPV compiler")
-set(HIP_RUNTIME "spirv" CACHE STRING "CHIP-SPV runtime")
-set(HIP_PLATFORM "spirv" CACHE STRING "CHIP-SPV platform")
-set(HIP_ARCH "spirv" CACHE STRING "CHIP-SPV architecture")
+set(HIP_COMPILER "clang" CACHE STRING "chipStar compiler")
+set(HIP_RUNTIME "spirv" CACHE STRING "chipStar runtime")
+set(HIP_PLATFORM "spirv" CACHE STRING "chipStar platform")
+set(HIP_ARCH "spirv" CACHE STRING "chipStar architecture")
 get_filename_component(HIP_CLANG_PATH ${CMAKE_CXX_COMPILER} DIRECTORY)
 get_filename_component(HIP_CLANG_PATH "${HIP_CLANG_PATH}../" DIRECTORY CACHE)
 
@@ -170,16 +170,16 @@ set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 
 # chipStar options
-option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in CHIP-SPV. If such a function is called, throw hipErrorNotSupported" ON)
+option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in chipStar. If such a function is called, throw hipErrorNotSupported" ON)
 option(CHIP_LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
 option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(CHIP_VERBOSE "Verbose compilation" OFF)
-option(CHIP_BUILD_SHARED_LIBS "Build CHIP-SPV as a shared library" ON)
+option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
 option(CHIP_ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
 option(CHIP_LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
-option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for CHIP-SPV executables" ON)
+option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
@@ -203,18 +203,18 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for CHIP-SPV")
+set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for chipStar")
 set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
 
 # FOR EXTERNAL USE
 set(HIP_OFFLOAD_COMPILE_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for generating offload code")
 set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for linking binaries with GPU offload")
 
-# CHIP-SPV CMAKE VARIABLBLES/OPTIONS
+# chipStar CMAKE VARIABLBLES/OPTIONS
 # =============================================================================
 
 # =============================================================================
-# CHIP-SPV CMAKE OPTIONS PARSING
+# chipStar CMAKE OPTIONS PARSING
 if(CHIP_USE_OCML_ROUNDED_OPS)
   set(OCML_BASIC_ROUNDED_OPERATIONS ON)
 endif()
@@ -284,11 +284,11 @@ if(CHIP_ERROR_IF_NOT_IMPLEMENTED)
 endif()
 
 if(CHIP_BUILD_SHARED_LIBS)
-  message(STATUS "Buiding CHIP-SPV as a shared library")
+  message(STATUS "Buiding chipStar as a shared library")
   add_library(CHIP SHARED ${CHIP_SRC})
   set(CHIP_LIB_NAME "libCHIP.so")
 else()
-  message(STATUS "Buiding CHIP-SPV as a static library")
+  message(STATUS "Buiding chipStar as a static library")
   add_library(CHIP STATIC ${CHIP_SRC})
   set(CHIP_LIB_NAME "libCHIP.a")
 endif()
@@ -309,13 +309,13 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CHIP_SPV_DEFAULT_INSTALL_DIR}" CACHE PATH "Install path prefix")
 endif()
 
-message(STATUS "CHIP-SPV will be installed to: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
-# CHIP-SPV CMAKE OPTIONS PARSING
+# chipStar CMAKE OPTIONS PARSING
 # =============================================================================
 
 # =============================================================================
-# CHIP-SPV BINARIES & TESTS
+# chipStar BINARIES & TESTS
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
@@ -332,11 +332,11 @@ add_subdirectory(bin)
 
 include(UnitTests)
 
-# CHIP-SPV BINARIES & TESTS
+# chipStar BINARIES & TESTS
 # =============================================================================
 
 # =============================================================================
-# CHIP-SPV COMPILATION SETUP
+# chipStar COMPILATION SETUP
 # For building on top of HIP-COMMON
 target_compile_options(CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
 target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
@@ -463,7 +463,7 @@ target_compile_options(device INTERFACE
   -x hip ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_})
 target_link_libraries(device INTERFACE CHIP)
 
-# same as device on CHIP-SPV but provides compatibility with AMD
+# same as device on chipStar but provides compatibility with AMD
 add_library(host INTERFACE)
 target_link_libraries(host INTERFACE device)
 
@@ -498,7 +498,7 @@ configure_file(CHIPSPVConfig.hh.in include/CHIPSPVConfig.hh @ONLY)
 # =============================================================================
 
 # =============================================================================
-# CHIP-SPV INSTALLATION AND PACKAGING
+# chipStar INSTALLATION AND PACKAGING
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
@@ -636,7 +636,7 @@ install(EXPORT CHIPTargets
   NAMESPACE CHIP::
   DESTINATION cmake/CHIP)
 
-# CHIP-SPV INSTALLATION AND PACKAGING
+# chipStar INSTALLATION AND PACKAGING
 # =============================================================================
 #
 # enable the build_tests target
