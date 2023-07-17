@@ -306,11 +306,22 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
   if (!graph || !from || !to)
     RETURN(hipErrorInvalidValue);
   CHIPInitialize();
-  chipstar::GraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
-  if (!FoundNode)
-    RETURN(hipErrorInvalidValue);
 
-  FoundNode->addDependencies(DECONST_NODES(from), numDependencies);
+  NULLCHECK(graph);
+  if (numDependencies)
+    NULLCHECK(from, to);
+  chipstar::Graph *G = GRAPH(graph);
+  for (size_t i = 0; i < numDependencies; i++) {
+    chipstar::GraphNode *FoundNode = G->findNode(NODE(to[i]));
+    if (!FoundNode)
+      RETURN(hipErrorInvalidValue);
+    FoundNode = G->findNode(NODE(from[i]));
+    if (!FoundNode)
+      RETURN(hipErrorInvalidValue);
+  }
+  for (size_t i = 0; i < numDependencies; i++) {
+    G->findNode(NODE(to[i]))->addDependency(G->findNode(NODE(from[i])));
+  }
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -325,11 +336,21 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
   if (!from || !to)
     RETURN(hipErrorInvalidValue);
   CHIPInitialize();
-  chipstar::GraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
-  if (!FoundNode)
-    RETURN(hipErrorInvalidValue);
-
-  FoundNode->removeDependencies(DECONST_NODES(from), numDependencies);
+  NULLCHECK(graph);
+  if (numDependencies)
+    NULLCHECK(from, to);
+  chipstar::Graph *G = GRAPH(graph);
+  for (size_t i = 0; i < numDependencies; i++) {
+    chipstar::GraphNode *FoundNode = G->findNode(NODE(to[i]));
+    if (!FoundNode)
+      RETURN(hipErrorInvalidValue);
+    FoundNode = G->findNode(NODE(from[i]));
+    if (!FoundNode)
+      RETURN(hipErrorInvalidValue);
+  }
+  for (size_t i = 0; i < numDependencies; i++) {
+    G->findNode(NODE(to[i]))->removeDependency(G->findNode(NODE(from[i])));
+  }
   RETURN(hipSuccess);
   CHIP_CATCH
 }
