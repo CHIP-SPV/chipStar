@@ -36,7 +36,7 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 project(chipStar
-  VERSION 1.0
+  VERSION 1.1
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES NONE)
 
