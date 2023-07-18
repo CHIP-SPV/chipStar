@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-23 CHIP-SPV developers
+ * Copyright (c) 2021-23 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -831,7 +831,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
       // attribute is no longer needed.
       continue;
 
-    // A workaround for https://github.com/CHIP-SPV/chip-spv/issues/48.
+    // A workaround for https://github.com/CHIP-SPV/chipStar/issues/48.
     //
     // Some Intel Compute Runtime versions fails to compile valid SPIR-V
     // modules correctly on OpenCL if there are OpEntryPoints and
@@ -856,7 +856,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
         // device code (from the user perspective). The user probably
         // forgot a definition.
         //
-        // Issue warning unless it's a builtin, magic CHIP-SPV or
+        // Issue warning unless it's a builtin, magic chipStar or
         // llvm-spirv symbol.
         if (!startsWith(LinkName, "spirv_") && !BuiltIns.count(Insn.getWord(1)))
           MissingDefs[Insn.getWord(1)] = LinkName;

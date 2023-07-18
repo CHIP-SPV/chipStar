@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  * (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

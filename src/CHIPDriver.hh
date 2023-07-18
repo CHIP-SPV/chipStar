@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -107,7 +107,7 @@ const char *CHIPGetBackendName();
 
 /**
  * Number of fat binaries registerer through __hipRegisterFatBinary(). On
- * program exit this value (non-zero) will postpone CHIP-SPV runtime
+ * program exit this value (non-zero) will postpone chipStar runtime
  * uninitialization until the all the registered binaries have been
  * unregistered through __hipUnregisterFatBinary().
  */

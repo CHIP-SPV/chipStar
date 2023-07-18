@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  * Copyright (c) 2021-22 Paulius Velesko <paulius.velesko@intel.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

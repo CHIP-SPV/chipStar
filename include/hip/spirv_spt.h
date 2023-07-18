@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-23 CHIP-SPV developers
+ * Copyright (c) 2021-23 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@
  * hipMemcpy()
  * hipMemcpy_spt()
  * 
- * We must ensure that once CHIP-SPV is compiled, we can still use `hipcc ----default-stream`
+ * We must ensure that once chipStar is compiled, we can still use `hipcc ----default-stream`
  */
 
 /// hipStreamPerThread implementation

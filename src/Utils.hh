@@ -122,7 +122,7 @@ public:
 // A less comparator for comparing mixed raw and smart pointers.
 //
 // From https://stackoverflow.com/questions/18939882. Formatted for
-// CHIP-SPV.
+// chipStar.
 template <class T> struct PointerCmp {
   typedef std::true_type is_transparent;
   struct Helper {

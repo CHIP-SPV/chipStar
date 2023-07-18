@@ -1,6 +1,6 @@
 //===- HipLowerZeroLengthArrays.cpp ---------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -9,7 +9,7 @@
 // Lowers occurrences of zero length array types which are not supported by
 // the llvm-spirv.
 //
-// Copyright (c) 2023 CHIP-SPV developers
+// Copyright (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
 #include "HipLowerZeroLengthArrays.h"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -200,12 +200,12 @@ protected:
   // The shared memory buffer
   void *SharedBuf_;
 
-  // In case of interop queue may or may not be owned by CHIP-SPV
+  // In case of interop queue may or may not be owned by chipStar
   // Ownership indicator helps during teardown
   bool zeCmdQOwnership_{true};
   /**
    * @brief Command queue handle
-   * CHIP-SPV Uses the immediate command list for all its operations. However,
+   * chipStar Uses the immediate command list for all its operations. However,
    * if you wish to call SYCL from HIP using the Level Zero backend then you
    * need pointers to the command queue as well. This is that command queue.
    * Current implementation does nothing with it.

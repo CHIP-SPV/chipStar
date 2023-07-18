@@ -1,4 +1,4 @@
-// Regression test for https://github.com/CHIP-SPV/chip-spv/issues/471.
+// Regression test for https://github.com/CHIP-SPV/chipStar/issues/471.
 #include <hip/hip_runtime.h>
 
 #define CHECK(TYPE_)                                                           \

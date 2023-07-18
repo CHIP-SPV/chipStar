@@ -1,6 +1,6 @@
 //===- HipLowerSwitch.cpp -------------------------------------------------===//
 //
-// Part of the CHIP-SPV Project, under the Apache License v2.0 with LLVM
+// Part of the chipStar Project, under the Apache License v2.0 with LLVM
 // Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -12,7 +12,7 @@
 //
 // https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/1685
 //
-// (c) 2023 CHIP-SPV Developers
+// (c) 2023 chipStar Developers
 //===----------------------------------------------------------------------===//
 
 #include "HipLowerSwitch.h"

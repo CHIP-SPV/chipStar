@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  * Copyright (c) 2021-22 Paulius Velesko <paulius.velesko@intel.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -106,7 +106,7 @@ int main() {
   sycl::platform Plt = Dev.get_platform();
 
   if (Devs.size() >= 1) {
-    // Initialize CHIP-SPV Level-Zero Backend via providing native runtime
+    // Initialize chipStar Level-Zero Backend via providing native runtime
     // information
     uintptr_t Args[] = {
         (uintptr_t)get_native<sycl::backend::level_zero>(Plt),
@@ -116,10 +116,10 @@ int main() {
     hipInitFromNativeHandles(Args, 4);
 
 #ifdef USM
-    // Run GEMM test via CHIP-SPV Level-Zero Backend and USM data transfer
+    // Run GEMM test via chipStar Level-Zero Backend and USM data transfer
     hipMatrixMultiplicationUSMTest(A, B, C, WIDTH, WIDTH);
 #else
-    // Run GEMM test via CHIP-SPV Level-Zero Backend
+    // Run GEMM test via chipStar Level-Zero Backend
     hipMatrixMultiplicationTest(A, B, C, WIDTH, WIDTH);
 #endif
   }

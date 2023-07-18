@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  * Copyright (c) 2020 - 2021 Advanced Micro Devices, Inc. All rights reserved
  * Copyright (c) 2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
  *

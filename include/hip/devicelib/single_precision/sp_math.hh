@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 CHIP-SPV developers
+ * Copyright (c) 2021-22 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -421,7 +421,7 @@ extern "C++" inline __device__ float ynf(int n, float x) {
 
 namespace std {
 // Clang does provide device side std:: functions via HIP include
-// wrappers but, alas, the wrappers won't compile on CHIP-SPV due to
+// wrappers but, alas, the wrappers won't compile on chipStar due to
 // presence of AMD specific built-ins.
 using ::acos;
 using ::acosh;

@@ -1,9 +1,9 @@
 
-# List of HIP runtime API functions supported by CHIP-SPV
+# List of HIP runtime API functions supported by chipStar
 
 ## **1. Device Management**
 
-|   **CUDA**                                                |   **HIP**                         |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                         |  **chipStar**|
 |-----------------------------------------------------------|-----------------------------------|:----------------:|
 
 ## DEVICE API
@@ -47,7 +47,7 @@
 
 ## **3. Error Handling**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaGetErrorName`                                        | `hipGetErrorName`             | Y |
 | `cudaGetErrorString`                                      | `hipGetErrorString`           | Y |
@@ -56,7 +56,7 @@
 
 ## **4. Stream Management**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**   |
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**   |
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaStreamAddCallback`                                   | `hipStreamAddCallback`        | Y |
 | `cudaStreamCreate`                                        | `hipStreamCreate`             | Y |
@@ -72,7 +72,7 @@
 
 ## **5. Event Management**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**   |
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**   |
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaEventCreate`                                         | `hipEventCreate`              | Y |
 | `cudaEventCreateWithFlags`                                | `hipEventCreateWithFlags`     | Y |
@@ -85,7 +85,7 @@
 
 ## **7. Execution Control**
 
-|   **CUDA**                                                |   **HIP**                             |  **CHIP-SPV**   |
+|   **CUDA**                                                |   **HIP**                             |  **chipStar**   |
 |-----------------------------------------------------------|---------------------------------------|:----------------:|
 | `cudaFuncGetAttributes`                                   |`hipFuncGetAttributes`                 | Y*|
 | `cudaFuncSetAttribute`                                    |`hipFuncSetAttribute`                  | Y |
@@ -101,7 +101,7 @@
 
 ## **8. Occupancy**
 
-|   **CUDA**                                                |   **HIP**                                             |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                                             |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------------------------------|:----------------:|
 | `cudaOccupancyMaxActiveBlocksPerMultiprocessor`           | `hipOccupancyMaxActiveBlocksPerMultiprocessor`         | N |
 | `cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`  | `hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`| N |
@@ -114,7 +114,7 @@
 
 ## **9. Memory Management**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaArrayGetInfo`                                        |                               | ? |
 | `cudaFree`                                                | `hipFree`                     | Y |
@@ -175,13 +175,13 @@
 
 ## **11. Unified Addressing**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaPointerGetAttributes`                                | `hipPointerGetAttributes`     | Y |
 
 ## **12. Peer Device Memory Access**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaDeviceCanAccessPeer`                                 | `hipDeviceCanAccessPeer`      | N |
 | `cudaDeviceDisablePeerAccess`                             | `hipDeviceDisablePeerAccess`  | N |
@@ -189,7 +189,7 @@
 
 ## **24. Texture Reference Management [DEPRECATED]**
 
-|   **CUDA**                                                |   **HIP**                        |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                        |  **chipStar**|
 |-----------------------------------------------------------|----------------------------------|:----------------:|
 | `cudaBindTexture`                                         | `hipBindTexture`                 | Y |
 | `cudaBindTexture2D`                                       | `hipBindTexture2D`               | Y |
@@ -204,7 +204,7 @@
 
 ## **26. Texture Object Management**
 
-|   **CUDA**                                                |   **HIP**                            |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                            |  **chipStar**|
 |-----------------------------------------------------------|--------------------------------------|:----------------:|
 | `cudaCreateTextureObject`                                 |`hipCreateTextureObject`              | Y |
 | `cudaDestroyTextureObject`                                |`hipDestroyTextureObject`             | Y |
@@ -214,21 +214,21 @@
 
 ## **27. Surface Object Management**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaCreateSurfaceObject`                                 | `hipCreateSurfaceObject`      | N |
 | `cudaDestroySurfaceObject`                                | `hipDestroySurfaceObject`     | N |
 
 ## **28. Version Management**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaDriverGetVersion`                                    | `hipDriverGetVersion`         | Y |
 | `cudaRuntimeGetVersion`                                   | `hipRuntimeGetVersion`        | Y |
 
 ## **29. Graph Management**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaGraphAddChildGraphNode`                              |                               | N                |
 | `cudaGraphAddDependencies`                                |                               | N                |
@@ -279,7 +279,7 @@
 
 ## **32. Profiler Control**
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | `cudaProfilerStart`                                       | `hipProfilerStart`            | N |
 | `cudaProfilerStop`                                        | `hipProfilerStop`             | N |
@@ -287,7 +287,7 @@
 
 #### Primary Context API
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | ?                                                         | `hipDevicePrimaryCtxGetState` | Y        |
 | ?                                                         | `hipDevicePrimaryCtxRelease`  | N        |
@@ -298,7 +298,7 @@
 
 #### Module API
 
-|   **CUDA**                                                |   **HIP**                     |  **CHIP-SPV**|
+|   **CUDA**                                                |   **HIP**                     |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------|:----------------:|
 | ?                                                         | `hipModuleLoadData`           | Y        |
 | ?                                                         | `hipModuleUnload`             | Y        |
