@@ -47,7 +47,7 @@ class ExecItem;
 
 class CHIPGraph;
 
-class CHIPGraphNode : public hipGraphNode {
+class CHIPGraphNode {
 protected:
   hipGraphNodeType Type_;
   // nodes which depend on this node
