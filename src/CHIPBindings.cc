@@ -1296,7 +1296,6 @@ hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
   CHIPInitialize();
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
@@ -1342,7 +1341,6 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
                                                        Kind)) {
@@ -1473,7 +1471,6 @@ hipError_t __hipPushCallConfiguration(dim3 GridDim, dim3 BlockDim,
   CHIPInitialize();
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   RETURN(Backend->configureCall(GridDim, BlockDim, SharedMem, ChipQueue));
   CHIP_CATCH
@@ -2087,7 +2084,6 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
                           hipErrorTbd);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
@@ -2109,7 +2105,6 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
 
 static inline hipError_t hipStreamQueryInternal(hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
@@ -2131,7 +2126,6 @@ hipError_t hipStreamQuery(hipStream_t Stream) {
 
 static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
@@ -2155,7 +2149,6 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
     return hipSuccess;
@@ -2197,7 +2190,6 @@ int hipGetStreamDeviceId(hipStream_t Stream) {
 static inline hipError_t hipStreamGetFlagsInternal(hipStream_t Stream,
                                                    unsigned int *Flags) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
@@ -2220,7 +2212,6 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
 static inline hipError_t hipStreamGetPriorityInternal(hipStream_t Stream,
                                                       int *Priority) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (Priority == nullptr) {
     CHIPERR_LOG_AND_THROW("Priority is nullptr", hipErrorInvalidValue);
@@ -2322,7 +2313,6 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
   auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
     return hipSuccess;
@@ -2575,7 +2565,6 @@ hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
   NULLCHECK(Ptr);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   // TODO Graphs - async operation should be supported by graphs but no prefetch
   // node is defined
@@ -2704,8 +2693,10 @@ static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
   if (!Ptr || !Pitch)
     return hipErrorInvalidValue;
 
-  if (Width * Height == 0)
+  if (Width * Height == 0) {
+    *Ptr = nullptr;
     return hipSuccess;
+  }
 
   size_t CandidatePitch = roundUp(Width, SVM_ALIGNMENT);
   const size_t SizeBytes = std::max<size_t>(1, CandidatePitch) *
@@ -3052,7 +3043,6 @@ static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
                                                 size_t SizeBytes,
                                                 hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   const hipMemsetParams Params = {
       /* Dst */ Dst,
@@ -3284,8 +3274,6 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
   NULLCHECK(Dest);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   const hipMemsetParams Params = {
       /* Dst */ Dest,
       /* elementSize*/ 1,
@@ -3323,8 +3311,6 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   const hipMemsetParams Params = {
       /* Dst */ Dest,
       /* elementSize*/ 2,
@@ -3365,8 +3351,6 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   const hipMemsetParams Params = {
       /* Dst */ Dst,
       /* elementSize*/ 4,
@@ -3877,8 +3861,6 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
                           hipErrorInvalidMemcpyDirection);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyToSymbol>(
           const_cast<void *>(Src), Symbol, SizeBytes, Offset, Kind)) {
     return hipSuccess;
@@ -3939,8 +3921,6 @@ hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
                           hipErrorInvalidMemcpyDirection);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpyFromSymbol>(
           const_cast<void *>(Dst), Symbol, SizeBytes, Offset, Kind)) {
     return hipSuccess;
@@ -4026,8 +4006,6 @@ static inline hipError_t hipLaunchKernelInternal(const void *HostFunction,
                                                  void **Args, size_t SharedMem,
                                                  hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeKernel>(
           HostFunction, GridDim, BlockDim, Args, SharedMem)) {
     return hipSuccess;
@@ -4248,7 +4226,6 @@ static inline hipError_t hipModuleLaunchKernelInternal(
     unsigned int BlockDimZ, unsigned int SharedMemBytes, hipStream_t Stream,
     void *KernelParams[], void *Extra[]) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
 
   if (KernelParams == Extra)
     CHIPERR_LOG_AND_THROW("either kernelParams or extra is required",
@@ -4400,8 +4377,6 @@ hipError_t hipConfigureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
   CHIP_TRY
   CHIPInitialize();
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   logDebug("hipConfigureCall()");
   RETURN(Backend->configureCall(GridDim, BlockDim, SharedMem, ChipQueue));
   RETURN(hipSuccess);
@@ -4900,11 +4875,8 @@ int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
   CHIP_TRY
   CHIPInitialize();
   logDebug("hipGetBackendNativeHandles");
-
   auto ChipQueue =
       Backend->findQueue(reinterpret_cast<chipstar::Queue *>(Stream));
-  LOCK(ChipQueue->QueueMtx);
-
   RETURN(ChipQueue->getBackendHandles(NativeHandles, NumHandles));
   CHIP_CATCH
 }
