@@ -1200,6 +1200,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src,
                                     size_t Spitch, size_t Width,
                                     size_t Height) {
+  UNIMPLEMENTED(nullptr);
   std::shared_ptr<chipstar::Event> ChipEvent;
 
   for (size_t Offset = 0; Offset < Height; ++Offset) {
