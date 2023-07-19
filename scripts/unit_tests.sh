@@ -37,7 +37,7 @@ export CHIP_LOGLEVEL=err
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module load $CLANG
-module load opencl/pocl-cpu-$LLVM
+module load opencl/pocl-cpu-llvm-15
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
 if [ $? -ne 0 ]; then
@@ -67,14 +67,14 @@ echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
 make all build_tests -j #&> /dev/null
 echo "build complete." 
-module unload opencl/pocl-cpu-$LLVM
+module unload opencl/pocl-cpu-llvm-15
 
 # Test PoCL CPU
 echo "begin cpu_pocl_failed_tests"
-module load opencl/pocl-cpu-$LLVM
+module load opencl/pocl-cpu-llvm-15
 module list
 ctest --timeout 200 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
-module unload opencl/pocl-cpu-$LLVM
+module unload opencl/pocl-cpu-llvm-15
 echo "end cpu_pocl_failed_tests"
 
 # Test Level Zero iGPU
