@@ -32,7 +32,7 @@ else
   exit 1
 fi
 
-source /etc/profile.d/modules.sh &> /dev/null
+# source /etc/profile.d/modules.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
