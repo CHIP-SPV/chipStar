@@ -4152,7 +4152,7 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
   chipstar::Texture *RetObj =
       Backend->getActiveDevice()->createTexture(ResDesc, TexDesc, ResViewDesc);
   if (RetObj != nullptr) {
-    *TexObject = reinterpret_cast<hipTextureObject_t>(RetObj);
+    *TexObject = HIPTEXTUREOBJECT(RetObj);
     RETURN(hipSuccess);
   } else
     RETURN(hipErrorInvalidValue);
@@ -4165,7 +4165,7 @@ hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
   // TODO CRITCAL look into the define for hipTextureObject_t
   if (TextureObject == nullptr)
     RETURN(hipSuccess);
-  chipstar::Texture *ChipTexture = (chipstar::Texture *)TextureObject;
+  chipstar::Texture *ChipTexture = TEXTURE(TextureObject);
   Backend->getActiveDevice()->destroyTexture(ChipTexture);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -4177,7 +4177,7 @@ hipError_t hipGetTextureObjectResourceDesc(hipResourceDesc *ResDesc,
   CHIPInitialize();
   if (TextureObject == nullptr)
     RETURN(hipErrorInvalidValue);
-  chipstar::Texture *ChipTexture = (chipstar::Texture *)TextureObject;
+  chipstar::Texture *ChipTexture = TEXTURE(TextureObject);
   *ResDesc = ChipTexture->getResourceDesc();
   RETURN(hipSuccess);
   CHIP_CATCH

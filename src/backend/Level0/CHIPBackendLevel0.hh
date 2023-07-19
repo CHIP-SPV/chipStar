@@ -529,7 +529,8 @@ public:
 
   virtual void destroyTexture(chipstar::Texture *TextureObject) override {
     logTrace("CHIPDeviceLevel0::destroyTexture");
-    delete TextureObject;
+    TextureObject->~Texture();
+    free(CHIP_OBJ_TO_HANDLE(TextureObject, __hip_texture));
   }
 
   CHIPModuleLevel0 *compile(const SPVModule &Src) override;

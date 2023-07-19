@@ -199,7 +199,8 @@ public:
                 const struct hipResourceViewDesc *ResViewDesc) override;
   virtual void destroyTexture(chipstar::Texture *ChipTexture) override {
     logTrace("CHIPDeviceOpenCL::destroyTexture");
-    delete ChipTexture;
+    ChipTexture->~Texture();
+    free(CHIP_OBJ_TO_HANDLE(ChipTexture, __hip_texture));
   }
 
   CHIPModuleOpenCL *compile(const SPVModule &SrcMod) override {

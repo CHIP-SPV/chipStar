@@ -316,13 +316,15 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     cl_mem Image = createImage(CLCtx, Array->textureType, Array->desc,
                                NormalizedFloat, Width, Height, Depth);
 
-    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
-    logTrace("Created texture: {}", (void *)Tex.get());
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPTextureOpenCL));
+    CHIPTextureOpenCL *Tex = CHIP_HANDLE_TO_OBJ(mem, CHIPTextureOpenCL);
+    Tex = new (Tex) CHIPTextureOpenCL(*ResDesc, Image, Sampler);
+    logTrace("Created texture: {}", (void *)Tex);
 
     chipstar::RegionDesc SrcRegion = chipstar::RegionDesc::from(*Array);
     memCopyToImage(Q->get()->get(), Image, Array->data, SrcRegion);
 
-    return Tex.release();
+    return Tex;
   }
 
   if (ResDesc->resType == hipResourceTypeLinear) {
@@ -333,14 +335,16 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     cl_mem Image =
         createImage(CLCtx, hipTextureType1D, Res.desc, NormalizedFloat, Width);
 
-    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
-    logTrace("Created texture: {}", (void *)Tex.get());
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPTextureOpenCL));
+    CHIPTextureOpenCL *Tex = CHIP_HANDLE_TO_OBJ(mem, CHIPTextureOpenCL);
+    Tex = new (Tex) CHIPTextureOpenCL(*ResDesc, Image, Sampler);
+    logTrace("Created texture: {}", (void *)Tex);
 
     // Copy data to image.
     auto SrcDesc = chipstar::RegionDesc::get1DRegion(Width, TexelByteSize);
     memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
 
-    return Tex.release();
+    return Tex;
   }
 
   if (ResDesc->resType == hipResourceTypePitch2D) {
@@ -350,14 +354,16 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     cl_mem Image = createImage(CLCtx, hipTextureType2D, Res.desc,
                                NormalizedFloat, Res.width, Res.height);
 
-    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
-    logTrace("Created texture: {}", (void *)Tex.get());
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPTextureOpenCL));
+    CHIPTextureOpenCL *Tex = CHIP_HANDLE_TO_OBJ(mem, CHIPTextureOpenCL);
+    Tex = new (Tex) CHIPTextureOpenCL(*ResDesc, Image, Sampler);
+    logTrace("Created texture: {}", (void *)Tex);
 
     // Copy data to image.
     auto SrcDesc = chipstar::RegionDesc::from(*ResDesc);
     memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
 
-    return Tex.release();
+    return Tex;
   }
 
   CHIPASSERT(false && "Unsupported/unimplemented texture resource type.");
@@ -1315,8 +1321,8 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       CHIPERR_LOG_AND_THROW("Internal CHIP-SPV error: Unknown argument kind",
                             hipErrorTbd);
     case SPVTypeKind::Image: {
-      auto *TexObj =
-          *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
+      hipTextureObject_t HIPTexObj = *(hipTextureObject_t *)(Arg.Data);
+      CHIPTextureOpenCL *TexObj = HIPTOCHIP(HIPTexObj, CHIPTextureOpenCL);
       cl_mem Image = TexObj->getImage();
       logTrace("set image arg {} for tex {}\n", Arg.Index, (void *)TexObj);
       Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, sizeof(cl_mem),
@@ -1326,8 +1332,8 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       break;
     }
     case SPVTypeKind::Sampler: {
-      auto *TexObj =
-          *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
+      hipTextureObject_t HIPTexObj = *(hipTextureObject_t *)(Arg.Data);
+      CHIPTextureOpenCL *TexObj = HIPTOCHIP(HIPTexObj, CHIPTextureOpenCL);
       cl_sampler Sampler = TexObj->getSampler();
       logTrace("set sampler arg {} for tex {}\n", Arg.Index, (void *)TexObj);
       Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index,
