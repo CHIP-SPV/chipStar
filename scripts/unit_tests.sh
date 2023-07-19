@@ -17,10 +17,10 @@ fi
 # Set the build type based on the argument
 build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
-if [ "$2" == "llvm-15" ]; then
+if [ "$2" = "llvm-15" ]; then
     LLVM=llvm-15
     CLANG=clang/clang15-spirv-omp
-elif [ "$2" == "llvm-16" ]; then
+elif [ "$2" = "llvm-16" ]; then
     LLVM=llvm-16
     CLANG=clang/clang16-spirv-omp
 else
