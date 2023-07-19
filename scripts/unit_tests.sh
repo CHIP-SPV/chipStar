@@ -1,4 +1,7 @@
-#!/bin/zsh
+#!/bin/bash
+
+# change to zsh
+/usr/bin/zsh
 
 # set -e
 
