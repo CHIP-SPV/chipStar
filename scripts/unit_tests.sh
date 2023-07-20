@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# change to zsh
-/usr/bin/zsh
-
 # set -e
 
 # Check if at least one argument is provided
@@ -20,10 +17,10 @@ fi
 # Set the build type based on the argument
 build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
-if [ "$2" = "llvm-15" ]; then
+if [ "$2" == "llvm-15" ]; then
     LLVM=llvm-15
     CLANG=clang/clang15-spirv-omp
-elif [ "$2" = "llvm-16" ]; then
+elif [ "$2" == "llvm-16" ]; then
     LLVM=llvm-16
     CLANG=clang/clang16-spirv-omp
 else
@@ -32,7 +29,7 @@ else
   exit 1
 fi
 
-# source /etc/profile.d/modules.sh &> /dev/null
+source /etc/profile.d/modules.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
@@ -40,7 +37,7 @@ export CHIP_LOGLEVEL=err
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module load $CLANG
-module load opencl/pocl-cpu-llvm-15
+module load opencl/pocl-cpu-$LLVM
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
 if [ $? -ne 0 ]; then
@@ -70,21 +67,21 @@ echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
 make all build_tests -j #&> /dev/null
 echo "build complete." 
-module unload opencl/pocl-cpu-llvm-15
+module unload opencl/pocl-cpu-$LLVM
 
 # Test PoCL CPU
 echo "begin cpu_pocl_failed_tests"
-module load opencl/pocl-cpu-llvm-15
+module load opencl/pocl-cpu-$LLVM
 module list
-ctest --timeout 200 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
-module unload opencl/pocl-cpu-llvm-15
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+module unload opencl/pocl-cpu-$LLVM
 echo "end cpu_pocl_failed_tests"
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
 module load levelzero/igpu
 module list
-ctest --timeout 200 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 module unload levelzero/igpu
 echo "end igpu_level0_failed_tests"
 
@@ -92,7 +89,7 @@ echo "end igpu_level0_failed_tests"
 echo "begin dgpu_level0_failed_tests"
 module load levelzero/dgpu
 module list
-ctest --timeout 200 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 module unload levelzero/dgpu
 echo "end dgpu_level0_failed_tests"
 
@@ -100,7 +97,7 @@ echo "end dgpu_level0_failed_tests"
 echo "begin igpu_opencl_failed_tests"
 module load opencl/intel-igpu
 module list
-ctest --timeout 200 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 module unload opencl/intel-igpu
 echo "end igpu_opencl_failed_tests"
 
@@ -108,7 +105,7 @@ echo "end igpu_opencl_failed_tests"
 echo "begin dgpu_opencl_failed_tests"
 module load opencl/intel-dgpu
 module list
-ctest --timeout 200 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 module unload opencl/intel-dgpu
 echo "end dgpu_opencl_failed_tests"
 
@@ -116,7 +113,7 @@ echo "end dgpu_opencl_failed_tests"
 echo "begin cpu_opencl_failed_tests"
 module load opencl/intel-cpu
 module list
-ctest --timeout 200 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
 module unload opencl/intel-cpu
 echo "end cpu_opencl_failed_tests"
 
