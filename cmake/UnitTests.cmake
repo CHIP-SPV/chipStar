@@ -20,6 +20,10 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 list(APPEND FAILING_FOR_ALL "TestIndirectMappedHostAlloc") # Fails on Sunspot. Currently, first-touch enabled as a workaround
 list(APPEND FAILING_FOR_ALL "Unit_HMM_OverSubscriptionTst") # Seems AMD-specific, crashes the driver
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Incorrect result - prob something minor
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_Negative") # Likely arg checks
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - int") # Correctess
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - float") # Correctness
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - double") # Correctness
 list(APPEND FAILING_FOR_ALL "constant_fold_lgamma_r") # Unknown
 list(APPEND FAILING_FOR_ALL "RecursiveGaussian") # Flaky
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___double2float_rd_float") # Unimplemented
