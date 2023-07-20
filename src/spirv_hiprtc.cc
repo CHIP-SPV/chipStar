@@ -360,7 +360,7 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
   if (!Prog || !NameExpression)
     return HIPRTC_ERROR_INVALID_INPUT;
 
-  auto &Program = *(chipstar::Program *)Prog;
+  auto &Program = *PROGRAM(Prog);
   if (Program.isAfterCompilation())
     return HIPRTC_ERROR_NO_NAME_EXPRESSIONS_AFTER_COMPILATION;
 
@@ -395,7 +395,7 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
   if (!Prog)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    auto &Program = *(chipstar::Program *)Prog;
+    auto &Program = *PROGRAM(Prog);
 
     // Create temporary directory for compilation I/O.
     auto TmpDir = createTemporaryDirectory();
@@ -436,8 +436,9 @@ hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
   try {
     // From NVRTC: 'CUDA program name. name can be NULL;
     // "default_program" is used when name is NULL or "". '.
-    auto Program =
-        std::make_unique<chipstar::Program>(Name ? Name : "default_program");
+    void *mem = malloc(sizeof(ihipDispatch) + sizeof(chipstar::Program));
+    chipstar::Program *Program = CHIP_HANDLE_TO_OBJ(mem, chipstar::Program);
+    Program = new (Program) chipstar::Program(Name ? Name : "default_program");
     Program->setSource(Src);
 
     for (int i = 0; i < NumHeaders; i++) {
@@ -465,7 +466,7 @@ hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
       Program->addHeader(IncludeName, HeaderPtr);
     }
 
-    *Prog = (hiprtcProgram)Program.release();
+    *Prog = HIPRTCPROGRAM(Program);
     return HIPRTC_SUCCESS;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
@@ -477,7 +478,9 @@ hiprtcResult hiprtcDestroyProgram(hiprtcProgram *Prog) {
   if (!Prog || !*Prog)
     return HIPRTC_ERROR_INVALID_PROGRAM;
   try {
-    delete (chipstar::Program *)*Prog;
+    chipstar::Program *Program = PROGRAM(*Prog);
+    Program->~Program();
+    free(*Prog);
     *Prog = nullptr;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
@@ -492,7 +495,7 @@ hiprtcResult hiprtcGetLoweredName(hiprtcProgram WrappedProg,
   if (!WrappedProg || !NameExpression || !LoweredName)
     return HIPRTC_ERROR_INVALID_INPUT;
 
-  auto &Prog = *(chipstar::Program *)WrappedProg;
+  auto &Prog = *PROGRAM(WrappedProg);
   if (!Prog.isAfterCompilation())
     return HIPRTC_ERROR_NO_LOWERED_NAMES_BEFORE_COMPILATION;
 
@@ -510,7 +513,7 @@ hiprtcResult hiprtcGetProgramLog(hiprtcProgram Prog, char *Log) {
   if (!Prog || !Log)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    const auto &LogSrc = ((chipstar::Program *)Prog)->getProgramLog();
+    const auto &LogSrc = PROGRAM(Prog)->getProgramLog();
     std::memcpy(Log, LogSrc.c_str(), LogSrc.size());
     return HIPRTC_SUCCESS;
   } catch (...) {
@@ -523,7 +526,7 @@ hiprtcResult hiprtcGetProgramLogSize(hiprtcProgram Prog, size_t *LogSizeRet) {
   if (!Prog || !LogSizeRet)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    *LogSizeRet = ((chipstar::Program *)Prog)->getProgramLog().size();
+    *LogSizeRet = PROGRAM(Prog)->getProgramLog().size();
     return HIPRTC_SUCCESS;
   } catch (...) {
     logDebug("Caught an unknown exception\n");
@@ -537,7 +540,7 @@ hiprtcResult hiprtcGetCode(hiprtcProgram Prog, char *Code) {
   if (!Code)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    auto &SavedCode = ((chipstar::Program *)Prog)->getCode();
+    auto &SavedCode = PROGRAM(Prog)->getCode();
     std::memcpy(Code, SavedCode.c_str(), SavedCode.size());
     return HIPRTC_SUCCESS;
   } catch (...) {
@@ -552,7 +555,7 @@ hiprtcResult hiprtcGetCodeSize(hiprtcProgram Prog, size_t *CodeSizeRet) {
   if (!CodeSizeRet)
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
-    *CodeSizeRet = ((chipstar::Program *)Prog)->getCode().size();
+    *CodeSizeRet = PROGRAM(Prog)->getCode().size();
     return HIPRTC_SUCCESS;
   } catch (...) {
     logDebug("Caught an unknown exception\n");

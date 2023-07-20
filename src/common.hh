@@ -104,6 +104,10 @@ struct ihipDispatch {
 
 #define HIPTEXTUREOBJECT(x) CHIPTOHIP(x, __hip_texture)
 
+#define PROGRAM(x) HIPTOCHIP(x, chipstar::Program)
+
+#define HIPRTCPROGRAM(x) CHIPTOHIP(x, _hiprtcProgram)
+
 /// The implementation of ihipEvent_t. The chipstar::Event class inherits this
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t : ihipDispatch {};
@@ -115,6 +119,7 @@ struct ihipGraph : ihipDispatch {};
 struct hipGraphNode : ihipDispatch {};
 struct hipGraphExec : ihipDispatch {};
 struct __hip_texture : ihipDispatch {};
+struct _hiprtcProgram : ihipDispatch {};
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(uint32_t *Stream, size_t NumWords,
