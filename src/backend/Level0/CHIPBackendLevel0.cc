@@ -31,16 +31,9 @@
  * If immediate command lists are not used, getCmdList will create a new
  * handle which is a thread safe operation
  */
-#ifdef L0_IMM_QUEUES
-#define GET_COMMAND_LIST(Queue)                                                \
-  ze_command_list_handle_t CommandList;                                        \
-  LOCK(Queue->QueueMtx); /* CHIPQueueLevel0::ZeCmdList_ */                     \
-  CommandList = Queue->getCmdList();
-#else
 #define GET_COMMAND_LIST(Queue)                                                \
   ze_command_list_handle_t CommandList;                                        \
   CommandList = Queue->getCmdList();
-#endif
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
@@ -648,6 +641,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
     LOCK(Backend->EventsMtx); // Backend::Events
     LOCK(EventMonitorMtx);    // chipstar::EventMonitor::Stop
+    LOCK(                     // CHIPBackendLevel0::EventCommandListMap
+        static_cast<CHIPBackendLevel0 *>(::Backend)->CommandListsMtx);
 
     for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
       std::shared_ptr<CHIPEventLevel0> ChipEvent =
@@ -864,7 +859,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUEs
+#ifdef L0_IMM_QUEUES
   initializeCmdListImm();
 #endif
 }
@@ -1355,35 +1350,33 @@ void CHIPQueueLevel0::executeCommandList(ze_command_list_handle_t CommandList) {
 
   ze_result_t Status;
 
+  // Associate this event with the command list. Once the events are signaled,
+  // EventMonitorLevel0 will destroy the command list
+
+  // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
+  ze_event_handle_t EventHandle =
+      std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent)->peek();
+  Status = zeCommandListAppendBarrier(CommandList, EventHandle, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
+  Status = zeCommandListClose(CommandList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+#ifdef CHIP_DUBIOUS_LOCKS
+  LOCK(Backend->DubiousLockLevel0)
+#endif
+  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   {
     LOCK( // CHIPBackendLevel0::EventCommandListMap
         static_cast<CHIPBackendLevel0 *>(Backend)->CommandListsMtx);
-
-    // Associate this event with the command list. Once the events are signaled,
-    // EventMonitorLevel0 will destroy the command list
-
     logTrace("assoc event {} w/ cmdlist", (void *)LastCmdListEvent.get());
     static_cast<CHIPBackendLevel0 *>(Backend)
         ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent.get()] =
         CommandList;
-    // The application must not call this function from
-    // simultaneous threads with the same command list handle.
-    // Done via GET_COMMAND_LIST
-    ze_event_handle_t EventHandle =
-        std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent)->peek();
-    Status = zeCommandListAppendBarrier(CommandList, EventHandle, 0, nullptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    // The application must not call this function from
-    // simultaneous threads with the same command list handle.
-    // Done via GET_COMMAND_LIST
-    Status = zeCommandListClose(CommandList);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-#ifdef CHIP_DUBIOUS_LOCKS
-    LOCK(Backend->DubiousLockLevel0)
-#endif
-    Status =
-        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
 
   Backend->trackEvent(LastCmdListEvent);

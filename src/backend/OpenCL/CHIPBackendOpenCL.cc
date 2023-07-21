@@ -1201,6 +1201,19 @@ CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src,
                                     size_t Spitch, size_t Width,
                                     size_t Height) {
   UNIMPLEMENTED(nullptr);
+  std::shared_ptr<chipstar::Event> ChipEvent;
+
+  for (size_t Offset = 0; Offset < Height; ++Offset) {
+    void *DstP = ((unsigned char *)Dst + Offset * Dpitch);
+    void *SrcP = ((unsigned char *)Src + Offset * Spitch);
+    // capture the event on last iteration
+    if (Offset == Height - 1)
+      ChipEvent = memCopyAsyncImpl(DstP, SrcP, Width);
+    else
+      memCopyAsyncImpl(DstP, SrcP, Width);
+  }
+
+  return ChipEvent;
 };
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::memCopy3DAsyncImpl(
