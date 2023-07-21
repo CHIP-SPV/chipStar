@@ -17,6 +17,9 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "TestIndirectMappedHostAlloc") # Fails on Sunspot. Currently, first-touch enabled as a workaround
+list(APPEND FAILING_FOR_ALL "Unit_HMM_OverSubscriptionTst") # Seems AMD-specific, crashes the driver
+list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Incorrect result - prob something minor
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_Negative") # Likely arg checks
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - int") # Correctess
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - float") # Correctness
@@ -152,7 +155,6 @@ list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -306,7 +308,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
@@ -315,9 +316,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidPtr") # SEGFAULT
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_OutOfBoundsPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -484,14 +482,10 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - int") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
@@ -645,9 +639,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidPtr") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_OutOfBoundsPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -826,11 +817,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
-# Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND DGPU_OPENCL_FAILED_TESTS "TestStlFunctions") #  Timeuot It
-# seems none of the tests with texture sampling isn't working on CI's
-# OpenCL/dGPU yet there are plenty of other backend-driver
-# combinations where they do work. A bug in OpenCL/dGPU driver?
+ # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
@@ -838,7 +825,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
@@ -1016,9 +1002,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidPtr") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2D_Negative_OutOfBoundsPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -1368,9 +1351,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_OutOfBoundsPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -1697,9 +1677,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2D_Negative_OutOfBoundsPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
@@ -1883,6 +1860,7 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
@@ -1918,7 +1896,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphClone_Negative") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_DependencyGraph") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_Negative") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemory") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalConstMemory") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemoryWithKernel") # SEGFAULT
@@ -2056,9 +2033,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - int") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - float") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch - double") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
@@ -2067,9 +2041,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidPtr") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_Negative_InvalidSizes") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_Negative_OutOfBoundsPtr") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed

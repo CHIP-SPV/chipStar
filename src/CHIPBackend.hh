@@ -295,14 +295,15 @@ public:
     if (Coherent_ && NonCoherent_)
       CHIPERR_LOG_AND_THROW("Invalid CHIPHostAllocFlag", hipErrorInvalidValue);
   }
-  unsigned int getRaw() { return FlagsRaw_; }
-  bool isDefault() { return Default_; }
-  bool isPortable() { return Portable_; }
-  bool isMapped() { return Mapped_; }
-  bool isWriteCombined() { return WriteCombined_; }
-  bool isNumaUser() { return NumaUser_; }
-  bool isCoherent() { return Coherent_; }
-  bool isNonCoherent() { return NonCoherent_; }
+
+  unsigned int getRaw() const { return FlagsRaw_; }
+  bool isDefault() const { return Default_; }
+  bool isPortable() const { return Portable_; }
+  bool isMapped() const { return Mapped_; }
+  bool isWriteCombined() const { return WriteCombined_; }
+  bool isNumaUser() const { return NumaUser_; }
+  bool isCoherent() const { return Coherent_; }
+  bool isNonCoherent() const { return NonCoherent_; }
 };
 
 /**
@@ -459,6 +460,11 @@ struct AllocationInfo {
   enum hipMemoryType MemoryType;
   bool RequiresMapUnmap = false;
   bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
+
+  /// True if the allocation is accessible from device.
+  bool isDeviceAccessible() const {
+    return MemoryType == hipMemoryTypeHost ? Flags.isMapped() : true;
+  }
 };
 
 /**
@@ -651,7 +657,7 @@ protected:
    *
    */
   Event() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~Event(){};
+  virtual ~Event() { logDebug("~Event() {}", (void *)this); };
 
 public:
   void markTracked() { TrackCalled_ = true; }
@@ -2166,6 +2172,8 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
   void memCopyAsync(void *Dst, const void *Src, size_t Size);
+  void memCopyAsync2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
+                      size_t Width, size_t Height, hipMemcpyKind Kind);
 
   /**
    * @brief Blocking memset
@@ -2189,8 +2197,13 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                    size_t PatternSize) = 0;
+
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
+  virtual void memFillAsync2D(void *Dst, size_t Pitch, int Value, size_t Width,
+                              size_t Height);
+  virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                              hipExtent Extent);
 
   // The memory copy 2D support
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,

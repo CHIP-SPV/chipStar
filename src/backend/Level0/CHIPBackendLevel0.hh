@@ -569,8 +569,6 @@ public:
    * @param ChipEvent
    */
   void destroyAssocCmdList(CHIPEventLevel0 *ChipEvent) {
-    LOCK( // CHIPBackendLevel0::EventCommandListMap
-        static_cast<CHIPBackendLevel0 *>(::Backend)->CommandListsMtx);
 
     // Check if this event is associated with a CommandList
     bool CommandListFound =
@@ -583,9 +581,6 @@ public:
       static_cast<CHIPBackendLevel0 *>(::Backend)->EventCommandListMap.erase(
           ChipEvent);
 
-#ifdef CHIP_DUBIOUS_LOCKS
-      LOCK(::Backend->DubiousLockLevel0)
-#endif
       // The application must not call this function
       // from simultaneous threads with the same command list handle.
       // Done via this is the only thread that calls it
