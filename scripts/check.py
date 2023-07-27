@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(
                     epilog = 'Text at the bottom of help')
 
 def process_args():
-    usage_line = "Usage: python3 check.py <path to build dir> <cpu/igpu/dgpu> <opencl/level0/PoCL> <num threads> <num_tries>"
+    usage_line = "Usage: python3 check.py <path to build dir> <cpu/igpu/dgpu> <opencl/level0/pocl> <num threads> <num_tries>"
     if (len(sys.argv) != 6):
         print("not enough args")
         print(sys.argv)
