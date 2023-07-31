@@ -240,7 +240,11 @@ void chipstar::Module::consumeSPIRV() {
   }
 }
 
-chipstar::Module::~Module() {}
+chipstar::Module::~Module() {
+  for (auto *K : ChipKernels_)
+    delete K;
+  ChipKernels_.clear();
+}
 
 void chipstar::Module::addKernel(chipstar::Kernel *Kernel) {
   ChipKernels_.push_back(Kernel);
