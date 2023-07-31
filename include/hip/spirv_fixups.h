@@ -48,4 +48,10 @@
 
 #endif // __HIP_DEVICE_COMPILE__
 
+// Make sure '__device__ constexpr' definitions, used for implementing
+// device side cmath functions, appear before <cmath> include.
+// Otherwise, we may encounter 'reference to __host__ function 'xyz' in
+// __host__ __device__ function' errors if the <cmath> is included first.
+#include <hip/spirv_hip_devicelib.hh>
+
 #endif // SPIRV_COMPILER_FIXUPS_H
