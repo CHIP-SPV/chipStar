@@ -328,6 +328,9 @@ add_subdirectory(HIPCC)
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
+file(MAKE_DIRECTORY ${HIPCC_BUILD_PATH})
+file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
+
 add_subdirectory(bin)
 
 include(UnitTests)
@@ -492,6 +495,10 @@ set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
 set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
 set(CHIP_DEFAULT_WARP_SIZE ${DEFAULT_WARP_SIZE})
+set(CHIP_DEBUG_BUILD 0)
+if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+  set(CHIP_DEBUG_BUILD 1)
+endif()
 configure_file(CHIPSPVConfig.hh.in include/CHIPSPVConfig.hh @ONLY)
 
 # PROJECT CONFIGURATION HEADER

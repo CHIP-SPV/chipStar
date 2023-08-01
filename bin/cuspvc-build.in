@@ -31,4 +31,4 @@
 export HIP_PLATFORM=spirv
 export PATH=@CLANG_BIN_DIR@:@CMAKE_BINARY_DIR@/bin:$PATH
 export HIP_PATH=@CMAKE_BINARY_DIR@
-hipcc.bin @CHIP_INCLUDES@ "$@"
+hipcc @CHIP_INCLUDES@ "$@"

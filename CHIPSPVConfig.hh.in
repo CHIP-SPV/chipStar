@@ -39,4 +39,7 @@
 
 #cmakedefine CHIP_DEFAULT_WARP_SIZE @DEFAULT_WARP_SIZE@
 
+// Non-zero integer if the chipStar is built in debug mode.
+#cmakedefine CHIP_DEBUG_BUILD @CHIP_DEBUG_BUILD@
+
 #endif

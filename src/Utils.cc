@@ -73,17 +73,14 @@ void dumpSpirv(std::string_view Spirv) {
   SpirvFile.close();
 }
 
-/// Returns true if the file can be executed.
-static bool canExecute(const fs::path &Path) {
-  if (!fs::exists(Path))
+/// Returns true if the hipcc can be executed by the user.
+static bool canExecuteHipcc(const fs::path &HipccPath) {
+  if (!fs::exists(HipccPath))
     return false;
 
-  const auto &Perms = fs::status(Path).permissions();
-
-  // Only considering file to be executable if it has others_exec bit
-  // set on. For owner_exec and group_exec bits we need to check
-  // user's file access privileges.
-  return (Perms & fs::perms::others_exec) != fs::perms::none;
+  auto Cmd = std::string("sh -c '\"") + HipccPath.string() +
+             "\" --version >/dev/null 2>&1'";
+  return std::system(Cmd.c_str()) == 0;
 }
 
 std::string getRandomString(size_t Length) {
@@ -131,16 +128,23 @@ std::optional<std::string> readFromFile(const fs::path Path) {
 }
 
 std::optional<fs::path> getHIPCCPath() {
-  // TODO: Probably should detect if we are using a built or an
-  //       installed CHIP library. Mixing the installed and the built
-  //       resources could lead to obscure issues.
-  for (const auto &ExeCand : {fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
-                              fs::path(CHIP_BUILD_DIR) / "bin/hipcc",
-                              fs::path(CHIP_BUILD_DIR) / "bin/hipcc.bin"})
-    if (canExecute(ExeCand))
-      return ExeCand;
+  static std::once_flag Flag;
+  static std::optional<fs::path> HIPCCPath;
 
-  return std::nullopt;
+  std::call_once(Flag, []() {
+    for (const auto &ExeCand : {
+#if !CHIP_DEBUG_BUILD
+           fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
+#endif
+           fs::path(CHIP_BUILD_DIR) / "bin/hipcc"
+         })
+      if (canExecuteHipcc(ExeCand)) {
+        HIPCCPath = ExeCand;
+        return;
+      }
+  });
+
+  return HIPCCPath;
 }
 
 std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
