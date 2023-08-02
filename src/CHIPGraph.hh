@@ -276,6 +276,7 @@ public:
 class GraphNodeKernel : public GraphNode {
 private:
   hipKernelNodeParams Params_;
+  std::vector<void*> KernelArgs_;
   chipstar::ExecItem *ExecItem_;
   chipstar::Kernel *Kernel_;
 
