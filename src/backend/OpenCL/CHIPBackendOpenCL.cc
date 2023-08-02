@@ -380,6 +380,10 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
     logTrace("Device supports fine grain SVM");
   } else {
     logTrace("Device does not support fine grain SVM");
+    if ((DeviceSVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0) {
+      logError("At least coarse grain buffer SVM is required.");
+      abort();
+    }
   }
 }
 
@@ -504,6 +508,20 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.kernelExecTimeoutEnabled = 0;
   HipDeviceProps_.ECCEnabled = 0;
   HipDeviceProps_.asicRevision = 1;
+
+  cl_device_svm_capabilities SVMCapabilities =
+    ClDevice->getInfo<CL_DEVICE_SVM_CAPABILITIES>();
+
+  // System atomics are required for CC >= 6.0. We need fine grain
+  // SVM + SVM atomics for them to function, thus cap with that feature
+  // set.
+  // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
+  if (HipDeviceProps_.major > 5 &&
+      ((SVMCapabilities & CL_DEVICE_SVM_ATOMICS) == 0 ||
+       !SupportsFineGrainSVM)) {
+    HipDeviceProps_.major = 5;
+    HipDeviceProps_.minor = 0;
+  }
 
   // OpenCL 3.0 devices support basic CUDA managed memory via coarse-grain SVM,
   // but some of the functions such as prefetch and advice are unimplemented
