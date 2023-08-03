@@ -32,6 +32,7 @@
  * handle which is a thread safe operation
  */
 #define GET_COMMAND_LIST(Queue)                                                \
+  LOCK(Queue->CmdListMtx);                                                            \
   ze_command_list_handle_t CommandList;                                        \
   CommandList = Queue->getCmdList();
 
@@ -1084,11 +1085,11 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
       nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
-// #ifndef NDEBUG
-//   auto StatusReadyCheck = zeEventQueryStatus(
-//       std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek());
-//   assert(StatusReadyCheck == ZE_RESULT_NOT_READY);
-// #endif
+  // #ifndef NDEBUG
+  //   auto StatusReadyCheck = zeEventQueryStatus(
+  //       std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek());
+  //   assert(StatusReadyCheck == ZE_RESULT_NOT_READY);
+  // #endif
   executeCommandList(CommandList, LaunchEvent);
 
   if (std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =

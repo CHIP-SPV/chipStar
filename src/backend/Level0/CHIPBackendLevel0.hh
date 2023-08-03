@@ -216,9 +216,11 @@ protected:
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdList_;
 
+
   void initializeCmdListImm();
 
 public:
+  std::mutex CmdListMtx;
   ze_command_list_handle_t getCmdList();
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
