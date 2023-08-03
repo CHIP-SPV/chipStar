@@ -1086,14 +1086,12 @@ void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
     }
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
-    TargetQueue->updateLastEvent(SyncQueuesEvent);
   } else { // blocking stream must wait until default stream is done
     auto Ev = DefaultQueue->getLastEvent();
     if (Ev)
       EventsToWaitOn.push_back(Ev);
     SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(EventsToWaitOn);
     SyncQueuesEvent->Msg = "barrierSyncQueue";
-    TargetQueue->updateLastEvent(SyncQueuesEvent);
   }
   ::Backend->trackEvent(SyncQueuesEvent);
 }
@@ -1559,7 +1557,6 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
           AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopy";
-    updateLastEvent(ChipEvent);
     this->finish();
   }
   ::Backend->trackEvent(ChipEvent);
@@ -1588,7 +1585,6 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
     this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
   ChipEvent->Msg = "memCopyAsync";
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
 
@@ -1627,7 +1623,6 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
   if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
     this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
-  updateLastEvent(ChipEvent);
   if (ChipEvent)
     ::Backend->trackEvent(ChipEvent);
 }
@@ -1642,7 +1637,6 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
     std::shared_ptr<chipstar::Event> ChipEvent =
         memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
-    updateLastEvent(ChipEvent);
     ::Backend->trackEvent(ChipEvent);
     this->finish();
   }
@@ -1658,7 +1652,6 @@ void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
   std::shared_ptr<chipstar::Event> ChipEvent =
       memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
 
@@ -1679,7 +1672,6 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
     if (i == Height - 1) {
       ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
       ChipEvent->Msg = "memFillAsync2D";
-      updateLastEvent(ChipEvent);
       ::Backend->trackEvent(ChipEvent);
     } else
       memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
@@ -1708,7 +1700,6 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
       if (i == Depth - 1 && j == Height - 1) {
         ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
         ChipEvent->Msg = "memFillAsync3D";
-        updateLastEvent(ChipEvent);
         ::Backend->trackEvent(ChipEvent);
       } else
         memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
@@ -1724,7 +1715,6 @@ void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
       memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
   ChipEvent->Msg = "memCopy2D";
   finish();
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
 
@@ -1738,7 +1728,6 @@ void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
     std::shared_ptr<chipstar::Event> ChipEvent =
         memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
     ChipEvent->Msg = "memCopy2DAsync";
-    updateLastEvent(ChipEvent);
     ::Backend->trackEvent(ChipEvent);
     this->finish();
   }
@@ -1756,7 +1745,6 @@ void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3D";
   finish();
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
 
@@ -1771,7 +1759,6 @@ void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3DAsync";
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
 
@@ -1887,9 +1874,6 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
   std::shared_ptr<chipstar::Event> RegisteredVarOutEvent =
       RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::POST_KERNEL);
 
-  RegisteredVarOutEvent ? updateLastEvent(RegisteredVarOutEvent)
-                        : updateLastEvent(LaunchEvent);
-
   ::Backend->trackEvent(LaunchEvent);
 }
 
@@ -1898,7 +1882,6 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueBarrier(
   std::shared_ptr<chipstar::Event> ChipEvent =
       std::shared_ptr<chipstar::Event>(enqueueBarrierImpl(EventsToWaitFor));
   ChipEvent->Msg = "enqueueBarrier";
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
   return ChipEvent;
 }
@@ -1906,7 +1889,6 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
   std::shared_ptr<chipstar::Event> ChipEvent =
       std::shared_ptr<chipstar::Event>(enqueueMarkerImpl());
   ChipEvent->Msg = "enqueueMarker";
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
   return ChipEvent;
 }
@@ -1919,7 +1901,6 @@ void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
   std::shared_ptr<chipstar::Event> ChipEvent =
       std::shared_ptr<chipstar::Event>(memPrefetchImpl(Ptr, Count));
   ChipEvent->Msg = "memPrefetch";
-  updateLastEvent(ChipEvent);
   ::Backend->trackEvent(ChipEvent);
 }
 

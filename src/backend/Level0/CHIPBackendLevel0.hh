@@ -250,7 +250,7 @@ public:
    *
    * @param CommandList a handle to either a compute or copy command list
    */
-  void executeCommandList(ze_command_list_handle_t CommandList);
+  void executeCommandList(ze_command_list_handle_t CommandList, std::shared_ptr<chipstar::Event> Event = nullptr);
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
