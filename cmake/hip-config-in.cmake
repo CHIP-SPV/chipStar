@@ -103,22 +103,6 @@ else()
   set_and_check(hip_HIPCONFIG_EXECUTABLE "${hip_BIN_INSTALL_DIR}/hipconfig")
 endif()
 
-
-# TODO check if hipcc CMAKE_CXX_COMPILER_ID is clang
-# Make sure that the compiler is clang
-if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang"))
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0.0)
-    message(FATAL_ERROR "this project requires clang >= 8.0")
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
-    message(WARNING "Deprecated clang version '${CMAKE_CXX_COMPILER_VERSION}'. \
-            Support for Clang < 14.0 will be discontinued in the future.")
-  endif()
-else()
-  message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
-endif()
-
 if(NOT HIP_CXX_COMPILER)
   set(HIP_CXX_COMPILER ${CMAKE_CXX_COMPILER})
 endif()
