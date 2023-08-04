@@ -32,7 +32,7 @@
  * handle which is a thread safe operation
  */
 #define GET_COMMAND_LIST(Queue)                                                \
-  LOCK(Queue->CmdListMtx);                                                            \
+  LOCK(Queue->CmdListMtx);                                                     \
   ze_command_list_handle_t CommandList;                                        \
   CommandList = Queue->getCmdList();
 
@@ -565,15 +565,15 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(Ctx);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
-  GpuReady = ChipQueue->enqueueBarrierImpl(
+  GpuReady = static_cast<CHIPQueueLevel0*>(ChipQueue)->enqueueBarrierImplReg(
       std::vector<std::shared_ptr<chipstar::Event>>());
   GpuReady->Msg = "GpuReady";
 
   std::vector<std::shared_ptr<chipstar::Event>> ChipEvs = {CpuCallbackComplete};
-  std::shared_ptr WaitForCpuComplete = ChipQueue->enqueueBarrierImpl(ChipEvs);
+  std::shared_ptr WaitForCpuComplete = static_cast<CHIPQueueLevel0*>(ChipQueue)->enqueueBarrierImplReg(ChipEvs);
   ChipQueue->updateLastEvent(WaitForCpuComplete);
 
-  GpuAck = ChipQueue->enqueueMarkerImpl();
+  GpuAck = static_cast<CHIPQueueLevel0*>(ChipQueue)->enqueueMarkerImplReg();
   GpuAck->Msg = "GpuAck";
 }
 
@@ -1285,6 +1285,33 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   return MarkerEvent;
 }
 
+std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
+
+  std::shared_ptr<chipstar::Event> MarkerEvent =
+      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+
+  MarkerEvent->Msg = "marker";
+  // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
+
+  ze_command_list_handle_t CommandList;
+#ifdef CHIP_DUBIOUS_LOCKS
+  LOCK(Backend->DubiousLockLevel0)
+#endif
+  auto Status =
+      zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &CommandList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+  Status = zeCommandListAppendSignalEvent(
+      CommandList,
+      std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  executeCommandListReg(CommandList);
+
+  return MarkerEvent;
+}
+
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   std::shared_ptr<chipstar::Event> BarrierEvent =
@@ -1321,6 +1348,58 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
                                            NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList, BarrierEvent);
+
+  if (EventHandles)
+    delete[] EventHandles;
+
+  return BarrierEvent;
+}
+
+std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
+    const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
+  std::shared_ptr<chipstar::Event> BarrierEvent =
+      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+  BarrierEvent->Msg = "barrier";
+  size_t NumEventsToWaitFor = 0;
+
+  NumEventsToWaitFor = EventsToWaitFor.size();
+
+  ze_event_handle_t *EventHandles = nullptr;
+  ze_event_handle_t SignalEventHandle = nullptr;
+
+  SignalEventHandle =
+      std::static_pointer_cast<CHIPEventLevel0>(BarrierEvent)->peek();
+
+  if (NumEventsToWaitFor > 0) {
+    EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
+    for (size_t i = 0; i < NumEventsToWaitFor; i++) {
+      std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitFor[i];
+      std::shared_ptr<CHIPEventLevel0> ChipEventLz =
+          std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
+      CHIPASSERT(ChipEventLz);
+      EventHandles[i] = ChipEventLz->peek();
+      BarrierEvent->addDependency(ChipEventLz);
+    }
+  } // done gather Event_ handles to wait on
+
+  // TODO Should this be memory or compute?
+  //   GET_COMMAND_LIST(this)
+  ze_command_list_handle_t CommandList;
+#ifdef CHIP_DUBIOUS_LOCKS
+  LOCK(Backend->DubiousLockLevel0)
+#endif
+  auto Status =
+      zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &CommandList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
+
+  // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  // Done via GET_COMMAND_LIST
+  Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
+                                           NumEventsToWaitFor, EventHandles);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  executeCommandListReg(CommandList);
 
   if (EventHandles)
     delete[] EventHandles;
@@ -1373,9 +1452,14 @@ void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
 #ifdef L0_IMM_QUEUES
-  updateLastEvent(Event);
+  executeCommandListImm(Event);
 #else
+  executeCommandListReg(CommandList);
+#endif
+};
 
+void CHIPQueueLevel0::executeCommandListReg(
+    ze_command_list_handle_t CommandList) {
   std::shared_ptr<chipstar::Event> LastCmdListEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
@@ -1414,7 +1498,11 @@ void CHIPQueueLevel0::executeCommandList(
 
   updateLastEvent(LastCmdListEvent);
   Backend->trackEvent(LastCmdListEvent);
-#endif
+};
+
+void CHIPQueueLevel0::executeCommandListImm(
+    std::shared_ptr<chipstar::Event> Event) {
+  updateLastEvent(Event);
 };
 
 // End CHIPQueueLevelZero
