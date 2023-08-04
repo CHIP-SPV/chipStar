@@ -565,15 +565,16 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(Ctx);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
-  GpuReady = static_cast<CHIPQueueLevel0*>(ChipQueue)->enqueueBarrierImplReg(
+  GpuReady = static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueBarrierImplReg(
       std::vector<std::shared_ptr<chipstar::Event>>());
   GpuReady->Msg = "GpuReady";
 
   std::vector<std::shared_ptr<chipstar::Event>> ChipEvs = {CpuCallbackComplete};
-  std::shared_ptr WaitForCpuComplete = static_cast<CHIPQueueLevel0*>(ChipQueue)->enqueueBarrierImplReg(ChipEvs);
+  std::shared_ptr WaitForCpuComplete =
+      static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueBarrierImplReg(ChipEvs);
   ChipQueue->updateLastEvent(WaitForCpuComplete);
 
-  GpuAck = static_cast<CHIPQueueLevel0*>(ChipQueue)->enqueueMarkerImplReg();
+  GpuAck = static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueMarkerImplReg();
   GpuAck->Msg = "GpuAck";
 }
 
@@ -1397,7 +1398,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
   Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
-                                           NumEventsToWaitFor, EventHandles);
+                                      NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandListReg(CommandList);
 

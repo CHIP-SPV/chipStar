@@ -216,7 +216,6 @@ protected:
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdList_;
 
-
   void initializeCmdListImm();
 
 public:
@@ -252,7 +251,8 @@ public:
    *
    * @param CommandList a handle to either a compute or copy command list
    */
-  void executeCommandList(ze_command_list_handle_t CommandList, std::shared_ptr<chipstar::Event> Event = nullptr);
+  void executeCommandList(ze_command_list_handle_t CommandList,
+                          std::shared_ptr<chipstar::Event> Event = nullptr);
   void executeCommandListReg(ze_command_list_handle_t CommandList);
   void executeCommandListImm(std::shared_ptr<chipstar::Event> Event);
 
