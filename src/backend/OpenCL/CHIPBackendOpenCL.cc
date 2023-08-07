@@ -212,6 +212,7 @@ static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
   cl_int Status = clEnqueueWriteImage(CmdQ, Image, BlockingCopy, DstOrigin,
                                       DstRegion, InputRowPitch, InputSlicePitch,
                                       HostSrc, 0, nullptr, nullptr);
+  // TODO update last event
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 }
 
@@ -908,6 +909,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              chipstar::Queue::MEM_MAP_TYPE Type) {
+  auto MemMapEvent = static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
@@ -917,17 +919,17 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
-                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
-                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
     Status =
         clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, NULL);
+                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   } else {
     assert(0 && "Invalid MemMap Type");
   }
@@ -935,6 +937,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 }
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
+  auto MemMapEvent = static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
@@ -942,7 +945,7 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
   logDebug("CHIPQueueOpenCL::MemUnmap");
 
   auto Status =
-      clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, NULL);
+      clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   assert(Status == CL_SUCCESS);
 }
 
@@ -1021,6 +1024,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
       std::static_pointer_cast<CHIPEventOpenCL>(MarkerEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   MarkerEvent->Msg = "marker";
+  updateLastEvent(MarkerEvent);
   return MarkerEvent;
 }
 
@@ -1090,6 +1094,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   }
 
   LaunchEvent->Msg = "KernelLaunch";
+    updateLastEvent(LaunchEvent);
   return LaunchEvent;
 }
 
@@ -1171,6 +1176,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
   }
+  updateLastEvent(Event);
   return Event;
 }
 
@@ -1193,6 +1199,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
       ClQueue_->get(), Dst, Pattern, PatternSize, Size, 0, nullptr,
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+    updateLastEvent(Event);
   return Event;
 };
 
@@ -1288,6 +1295,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
   Status = clGetEventInfo(
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
+  updateLastEvent(Event);
   return Event;
 }
 
