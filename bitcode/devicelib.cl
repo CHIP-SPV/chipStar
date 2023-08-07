@@ -497,26 +497,27 @@ EXPORT long __chip_ctz_li(long var) { return ctz(var); }
    https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
 */
 
-#define DEF_CHIP_ATOMIC2(NAME)                                          \
-  int OVLD atomic_##NAME(volatile __generic int *, int);                \
-  uint OVLD atomic_##NAME(volatile __generic uint *, uint);             \
-  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int i) {        \
-    return atomic_##NAME((volatile __generic int *)address, i);         \
-  }                                                                     \
-  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint ui) {    \
-    return atomic_##NAME((volatile __generic int *)address, ui);        \
-  }                                                                     \
-  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address, ulong ull) { \
-    return atomic_##NAME((volatile __generic int *)address, ull);       \
-  }                                                                     \
-  int __chip_atomic_##NAME##_system_i(DEFAULT_AS int *address, int i) { \
-    return atomic_##NAME((volatile __generic int *)address, i);         \
-  }                                                                     \
-  uint __chip_atomic_##NAME##_system_u(DEFAULT_AS uint *address, uint ui) { \
-    return atomic_##NAME((volatile __generic int *)address, ui);        \
-  }                                                                     \
-  ulong __chip_atomic_##NAME##_system_l(DEFAULT_AS ulong *address, ulong ull) { \
-    return atomic_##NAME((volatile __generic int *)address, ull);       \
+#define DEF_CHIP_ATOMIC2(NAME)                                                 \
+  int OVLD atomic_##NAME(volatile __generic int *, int);                       \
+  uint OVLD atomic_##NAME(volatile __generic uint *, uint);                    \
+  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int i) {               \
+    return atomic_##NAME((volatile __generic int *)address, i);                \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint ui) {           \
+    return atomic_##NAME((volatile __generic int *)address, ui);               \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address, ulong ull) {       \
+    return atomic_##NAME((volatile __generic int *)address, ull);              \
+  }                                                                            \
+  int __chip_atomic_##NAME##_system_i(DEFAULT_AS int *address, int i) {        \
+    return atomic_##NAME((volatile __generic int *)address, i);                \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_system_u(DEFAULT_AS uint *address, uint ui) {    \
+    return atomic_##NAME((volatile __generic int *)address, ui);               \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_system_l(DEFAULT_AS ulong *address,             \
+                                        ulong ull) {                           \
+    return atomic_##NAME((volatile __generic int *)address, ull);              \
   }
 
 // __chip_atomic_add_i, __chip_atomic_add_u, __chip_atomic_add_l
@@ -536,17 +537,17 @@ DEF_CHIP_ATOMIC2(or)
 // __chip_atomic_xor_i, __chip_atomic_xor_u, __chip_atomic_xor_l
 DEF_CHIP_ATOMIC2(xor)
 
-#define DEF_CHIP_ATOMIC1(NAME)                                          \
-  int OVLD atomic_##NAME(volatile __generic int *);                     \
-  uint OVLD atomic_##NAME(volatile __generic uint *);                   \
-  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address) {               \
-    return atomic_##NAME((volatile __generic int *)address);            \
-  }                                                                     \
-  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address) {             \
-    return atomic_##NAME((volatile __generic int *)address);            \
-  }                                                                     \
-  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address) {           \
-    return atomic_##NAME((volatile __generic int *)address);            \
+#define DEF_CHIP_ATOMIC1(NAME)                                                 \
+  int OVLD atomic_##NAME(volatile __generic int *);                            \
+  uint OVLD atomic_##NAME(volatile __generic uint *);                          \
+  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address) {                      \
+    return atomic_##NAME((volatile __generic int *)address);                   \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address) {                    \
+    return atomic_##NAME((volatile __generic int *)address);                   \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address) {                  \
+    return atomic_##NAME((volatile __generic int *)address);                   \
   }
 
 // __chip_atomic_inc_i, __chip_atomic_inc_u, __chip_atomic_inc_l
@@ -554,34 +555,35 @@ DEF_CHIP_ATOMIC1(inc)
 // __chip_atomic_dec_i, __chip_atomic_dec_u, __chip_atomic_dec_l
 DEF_CHIP_ATOMIC1(dec)
 
-#define DEF_CHIP_ATOMIC3(NAME)                                          \
-  int OVLD atomic_##NAME(volatile __generic int *, int, int);           \
-  uint OVLD atomic_##NAME(volatile __generic uint *, uint, uint);       \
-  ulong OVLD atomic_##NAME(volatile __generic ulong *, ulong, ulong);   \
-  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int cmp, int val) { \
-    return atomic_##NAME((volatile __global int*)address, cmp, val);    \
-  }                                                                     \
-  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint cmp,     \
-                                uint val) {                             \
-    return atomic_##NAME((volatile __global uint*)address, cmp, val);   \
-  }                                                                     \
-  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address, ulong cmp,  \
-                                 ulong val) {                           \
-    return atomic_##NAME((volatile __global ulong*)address, cmp, val);  \
-  }                                                                     \
-  int __chip_atomic_##NAME##_system_i(DEFAULT_AS int *address, int cmp, int val) { \
-    return atomic_##NAME((volatile __global int*)address, cmp, val);    \
-  }                                                                     \
+#define DEF_CHIP_ATOMIC3(NAME)                                                 \
+  int OVLD atomic_##NAME(volatile __generic int *, int, int);                  \
+  uint OVLD atomic_##NAME(volatile __generic uint *, uint, uint);              \
+  ulong OVLD atomic_##NAME(volatile __generic ulong *, ulong, ulong);          \
+  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int cmp, int val) {    \
+    return atomic_##NAME((volatile __global int *)address, cmp, val);          \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint cmp,            \
+                                uint val) {                                    \
+    return atomic_##NAME((volatile __global uint *)address, cmp, val);         \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address, ulong cmp,         \
+                                 ulong val) {                                  \
+    return atomic_##NAME((volatile __global ulong *)address, cmp, val);        \
+  }                                                                            \
+  int __chip_atomic_##NAME##_system_i(DEFAULT_AS int *address, int cmp,        \
+                                      int val) {                               \
+    return atomic_##NAME((volatile __global int *)address, cmp, val);          \
+  }                                                                            \
   uint __chip_atomic_##NAME##_system_u(DEFAULT_AS uint *address, uint cmp,     \
-                                uint val) {                             \
-    return atomic_##NAME((volatile __global uint*)address, cmp, val);   \
-  }                                                                     \
+                                       uint val) {                             \
+    return atomic_##NAME((volatile __global uint *)address, cmp, val);         \
+  }                                                                            \
   ulong __chip_atomic_##NAME##_system_l(DEFAULT_AS ulong *address, ulong cmp,  \
-                                 ulong val) {                           \
-    return atomic_##NAME((volatile __global ulong*)address, cmp, val);  \
+                                        ulong val) {                           \
+    return atomic_##NAME((volatile __global ulong *)address, cmp, val);        \
   }
 
- // __chip_atomic_cmpxchg_i, __chip_atomic_cmpxchg_u, __chip_atomic_cmpxchg_l
+// __chip_atomic_cmpxchg_i, __chip_atomic_cmpxchg_u, __chip_atomic_cmpxchg_l
 DEF_CHIP_ATOMIC3(cmpxchg)
 
 /* This code adapted from AMD's HIP sources */
@@ -631,7 +633,8 @@ EXPORT float __chip_atomic_exch_f32(DEFAULT_AS float *address, float val) {
     return __chip_atomic_exch_f32(li, val);
   return 0;
 }
-EXPORT float __chip_atomic_exch_system_f32(DEFAULT_AS float *address, float val) {
+EXPORT float __chip_atomic_exch_system_f32(DEFAULT_AS float *address,
+                                           float val) {
   return __chip_atomic_exch_f32(address, val);
 }
 
@@ -672,8 +675,9 @@ EXPORT unsigned int __chip_atomic_exch_u(DEFAULT_AS unsigned int *address,
     return __chip_atomic_exch_u(li, val);
   return 0;
 }
-EXPORT unsigned int __chip_atomic_exch_system_u(DEFAULT_AS unsigned int *address,
-                                         unsigned int val) {
+EXPORT unsigned int
+__chip_atomic_exch_system_u(DEFAULT_AS unsigned int *address,
+                            unsigned int val) {
   return __chip_atomic_exch_u(address, val);
 }
 
@@ -706,10 +710,9 @@ __chip_atomic_exch_system_ul(DEFAULT_AS unsigned long int *address,
   return __chip_atomic_exch_ul(address, val);
 }
 
-EXPORT long int
-__chip_atomic_exch_system_l(DEFAULT_AS long int *address,
-                            long int val) {
-  return __chip_atomic_exch_ul((DEFAULT_AS unsigned long int*)address, val);
+EXPORT long int __chip_atomic_exch_system_l(DEFAULT_AS long int *address,
+                                            long int val) {
+  return __chip_atomic_exch_ul((DEFAULT_AS unsigned long int *)address, val);
 }
 
 static OVLD float __chip_atomic_add_f32(volatile global float *address,
@@ -794,7 +797,8 @@ EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address, float val) {
   return 0;
 }
 
-EXPORT float __chip_atomic_add_system_f32(DEFAULT_AS float *address, float val) {
+EXPORT float __chip_atomic_add_system_f32(DEFAULT_AS float *address,
+                                          float val) {
   return __chip_atomic_add_f32(address, val);
 }
 
@@ -808,7 +812,8 @@ EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address, double val) {
   return 0;
 }
 
-EXPORT double __chip_atomic_add_system_f64(DEFAULT_AS double *address, double val) {
+EXPORT double __chip_atomic_add_system_f64(DEFAULT_AS double *address,
+                                           double val) {
   return __chip_atomic_add_f64(address, val);
 }
 
