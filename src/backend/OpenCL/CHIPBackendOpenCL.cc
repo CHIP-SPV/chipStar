@@ -495,7 +495,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.asicRevision = 1;
 
   cl_device_svm_capabilities SVMCapabilities =
-    ClDevice->getInfo<CL_DEVICE_SVM_CAPABILITIES>();
+      ClDevice->getInfo<CL_DEVICE_SVM_CAPABILITIES>();
 
   // System atomics are required for CC >= 6.0. We need fine grain
   // SVM + SVM atomics for them to function, thus cap with that feature
