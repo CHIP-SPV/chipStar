@@ -911,7 +911,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              chipstar::Queue::MEM_MAP_TYPE Type) {
   auto MemMapEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
-  atuo MemMapEventNative =
+  auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
