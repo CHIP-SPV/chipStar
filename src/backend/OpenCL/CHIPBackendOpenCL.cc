@@ -909,7 +909,10 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              chipstar::Queue::MEM_MAP_TYPE Type) {
-  auto MemMapEvent = static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+  auto MemMapEvent =
+      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+  atuo MemMapEventNative =
+      std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
@@ -917,19 +920,19 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
-    Status =
-        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
-                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
+    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
+                             AllocInfo->HostPtr, AllocInfo->Size, 0, NULL,
+                             MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
-    Status =
-        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
-                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
+    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
+                             AllocInfo->HostPtr, AllocInfo->Size, 0, NULL,
+                             MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
-    Status =
-        clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-                        AllocInfo->HostPtr, AllocInfo->Size, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
+    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE,
+                             CL_MAP_READ | CL_MAP_WRITE, AllocInfo->HostPtr,
+                             AllocInfo->Size, 0, NULL, MemMapEventNative);
   } else {
     assert(0 && "Invalid MemMap Type");
   }
@@ -937,15 +940,17 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 }
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
-  auto MemMapEvent = static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+  auto MemMapEvent =
+      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
           ->supportsFineGrainSVM()) {
     logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
 
-  auto Status =
-      clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr, 0, NULL, std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
+  auto Status = clEnqueueSVMUnmap(
+      ClQueue_->get(), AllocInfo->HostPtr, 0, NULL,
+      std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   assert(Status == CL_SUCCESS);
 }
 
@@ -1094,7 +1099,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   }
 
   LaunchEvent->Msg = "KernelLaunch";
-    updateLastEvent(LaunchEvent);
+  updateLastEvent(LaunchEvent);
   return LaunchEvent;
 }
 
@@ -1199,7 +1204,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
       ClQueue_->get(), Dst, Pattern, PatternSize, Size, 0, nullptr,
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
-    updateLastEvent(Event);
+  updateLastEvent(Event);
   return Event;
 };
 

@@ -378,21 +378,22 @@ void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
                                          sizeof(uint64_t), Event_, 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  std::shared_ptr<chipstar::Event> DestoyCommandListEvent =
+  std::shared_ptr<chipstar::Event> DestroyCommandListEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(
           this->ChipContext_);
-  DestoyCommandListEvent->Msg = "recordStreamComplete";
+  DestroyCommandListEvent->Msg = "recordStreamComplete";
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
   Status = zeCommandListAppendBarrier(
       CommandList,
-      std::static_pointer_cast<CHIPEventLevel0>(DestoyCommandListEvent)->peek(),
+      std::static_pointer_cast<CHIPEventLevel0>(DestroyCommandListEvent)
+          ->peek(),
       0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  Q->executeCommandList(CommandList, DestoyCommandListEvent);
-  Backend->trackEvent(DestoyCommandListEvent);
+  Q->executeCommandList(CommandList, DestroyCommandListEvent);
+  Backend->trackEvent(DestroyCommandListEvent);
 
   LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDING;
@@ -654,7 +655,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
       // updateFinishStatus will return true upon event state change.
       // EventPool will be null only for user created events
-      // So, if these two conditions are met, that means we can
+      // So, if these two conditions are met, that means we release the
+      // dependencies and remove this event from the track list
       if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
         ChipEvent->releaseDependencies();
         Backend->Events.erase(Backend->Events.begin() + EventIdx);
@@ -663,10 +665,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         ChipEvent->doActions();
       }
 
-      // delete the event if refcount reached 2 (one ref here and 1
-      // Backend->Events)
-      if (ChipEvent.use_count() == 2) {
-
+      // delete the event if refcount reached 1 (this->ChipEvent)
+      if (ChipEvent.use_count() == 1) {
         if (ChipEvent->EventPool) {
           ChipEvent->EventPool->returnSlot(ChipEvent->EventPoolIndex);
         }
@@ -1292,9 +1292,6 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
 
   MarkerEvent->Msg = "marker";
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via GET_COMMAND_LIST
 
   ze_command_list_handle_t CommandList;
 #ifdef CHIP_DUBIOUS_LOCKS
@@ -1304,6 +1301,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
       zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &CommandList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
+
+  // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  // Done via creating a new command list above
   Status = zeCommandListAppendSignalEvent(
       CommandList,
       std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
