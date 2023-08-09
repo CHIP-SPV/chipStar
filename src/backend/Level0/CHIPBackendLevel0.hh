@@ -219,6 +219,7 @@ protected:
   void initializeCmdListImm();
 
 public:
+  std::mutex CmdListMtx;
   ze_command_list_handle_t getCmdList();
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
@@ -250,7 +251,10 @@ public:
    *
    * @param CommandList a handle to either a compute or copy command list
    */
-  void executeCommandList(ze_command_list_handle_t CommandList);
+  void executeCommandList(ze_command_list_handle_t CommandList,
+                          std::shared_ptr<chipstar::Event> Event = nullptr);
+  void executeCommandListReg(ze_command_list_handle_t CommandList);
+  void executeCommandListImm(std::shared_ptr<chipstar::Event> Event);
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
@@ -276,10 +280,14 @@ public:
                                        int *NumHandles) override;
 
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
+  std::shared_ptr<chipstar::Event> enqueueMarkerImplReg();
 
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
       override;
+
+  std::shared_ptr<chipstar::Event> enqueueBarrierImplReg(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
 
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override {
