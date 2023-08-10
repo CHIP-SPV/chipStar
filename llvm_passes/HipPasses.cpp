@@ -28,6 +28,7 @@
 #include "HipLowerZeroLengthArrays.h"
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
+#include "HipLowerMemset.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -123,6 +124,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   //  failed.
   MPM.addPass(HipPrintfToOpenCLPrintfPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(HipDefrostPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerMemsetPass()));
   MPM.addPass(HipAbortPass());
   // This pass must appear after HipDynMemExternReplaceNewPass.
   MPM.addPass(HipGlobalVariablesPass());
