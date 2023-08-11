@@ -41,6 +41,7 @@
 // because -I<CHIP>/include causes CL header conflict
 #include "../../../include/hip/hip_interop.h"
 
+#include <variant>
 #include <vector>
 #include <iostream>
 
@@ -108,11 +109,18 @@ int main() {
   if (Devs.size() >= 1) {
     // Initialize chipStar Level-Zero Backend via providing native runtime
     // information
+
+    std::variant<ze_command_queue_handle_t, ze_command_list_handle_t> queue_var =
+      get_native<sycl::backend::level_zero>(myQueue);
+    auto ptr_l0_queue_h = std::get_if<ze_command_queue_handle_t>(&queue_var);
+    auto ptr_icl_h = std::get_if<ze_command_list_handle_t>(&queue_var);
+
     uintptr_t Args[] = {
         (uintptr_t)get_native<sycl::backend::level_zero>(Plt),
         (uintptr_t)get_native<sycl::backend::level_zero>(Devs[0]),
         (uintptr_t)get_native<sycl::backend::level_zero>(Ctx),
-        (uintptr_t)get_native<sycl::backend::level_zero>(myQueue)};
+        ptr_l0_queue_h != nullptr ? (uintptr_t)(*ptr_l0_queue_h) : (uintptr_t)(*ptr_icl_h)};
+
     hipInitFromNativeHandles(Args, 4);
 
 #ifdef USM
