@@ -49,6 +49,8 @@ function(add_shell_test SCRIPT)
     COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
 endfunction()
 
+# TODO - this should check if immediate cmd lists are being used
+add_hip_runtime_test(TestRecordEventBlocking.cpp)
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
 add_hip_runtime_test(TestUndefKernelArg.hip)
