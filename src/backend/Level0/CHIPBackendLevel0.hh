@@ -24,7 +24,7 @@
 #define CHIP_BACKEND_LEVEL0_H
 
 // TODO: Should this be a cmake parameter? env? What is max size?
-#define EVENT_POOL_SIZE 1000
+#define EVENT_POOL_SIZE 10
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
@@ -92,8 +92,10 @@ private:
   std::vector<ActionFn> Actions_;
 
 public:
+  void setStatusAsRecording() { EventStatus_ = EVENT_STATUS_RECORDING; }
   uint32_t getValidTimestampBits();
-  uint64_t getHostTimestamp() { return HostTimestamp_; }
+  uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
+  uint64_t &getHostTimestamp() { return HostTimestamp_; }
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
   CHIPEventLevel0()
@@ -219,6 +221,7 @@ protected:
   void initializeCmdListImm();
 
 public:
+  virtual void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CmdListMtx;
   ze_command_list_handle_t getCmdList();
   size_t getMaxMemoryFillPatternSize() {
@@ -281,6 +284,10 @@ public:
 
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
   std::shared_ptr<chipstar::Event> enqueueMarkerImplReg();
+
+  std::shared_ptr<chipstar::Event> enqueueBarrierImpl() {
+    return enqueueBarrierImpl(std::vector<std::shared_ptr<chipstar::Event>>{});
+  }
 
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
@@ -609,15 +616,17 @@ public:
   }
 
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() override {
-    auto Evm = new CHIPCallbackEventMonitorLevel0();
-    Evm->start();
-    return Evm;
+    // auto Evm = new CHIPCallbackEventMonitorLevel0();
+    // Evm->start();
+    // return Evm;
+    return nullptr;
   }
 
   virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitorLevel0();
-    Evm->start();
-    return Evm;
+    // auto Evm = new CHIPStaleEventMonitorLevel0();
+    // Evm->start();
+    // return Evm;
+    return nullptr;
   }
 
   virtual hipEvent_t getHipEvent(void *NativeEvent) override;

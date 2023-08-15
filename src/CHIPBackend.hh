@@ -2238,6 +2238,7 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) = 0;
   virtual void launch(chipstar::ExecItem *ExecItem);
+  virtual void recordEvent(chipstar::Event *EventPtr) {};
 
   /**
    * @brief Get the Device obj

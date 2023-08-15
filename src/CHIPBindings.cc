@@ -2318,7 +2318,8 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
     return hipSuccess;
   }
 
-  ChipEvent->recordStream(ChipQueue);
+//   ChipEvent->recordStream(ChipQueue);
+  ChipQueue->recordEvent(ChipEvent);
   return hipSuccess;
 }
 
@@ -2381,6 +2382,8 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
                           "Unable to return elasped time",
                           hipErrorInvalidResourceHandle);
 
+  ChipEventStart->updateFinishStatus();
+  ChipEventStop->updateFinishStatus();
   *Ms = ChipEventStart->getElapsedTime(ChipEventStop);
   RETURN(hipSuccess);
 

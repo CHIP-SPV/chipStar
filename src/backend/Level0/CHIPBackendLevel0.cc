@@ -219,6 +219,8 @@ void CHIPEventLevel0::reset() {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   {
     LOCK(EventMtx); // chipstar::Event::TrackCalled_
+    HostTimestamp_ = 0;
+    DeviceTimestamp_ = 0;
     TrackCalled_ = false;
     UserEvent_ = false;
     EventStatus_ = EVENT_STATUS_INIT;
@@ -330,12 +332,60 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       EventPoolHandle_(nullptr), Timestamp_(0), EventPoolIndex(0),
       EventPool(nullptr) {}
 
+
+void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
+    auto ChipEventLz = static_cast<CHIPEventLevel0 *>(ChipEvent);
+    auto ChipEventLzHandle = ChipEventLz->peek();
+    ChipEventLz->reset();
+    ze_result_t Status;
+    ze_event_handle_t LastEventHandle = nullptr;
+    size_t EventsToWaitOn = 0;
+    GET_COMMAND_LIST(this);
+    if(LastEvent_) {
+        LastEventHandle = static_cast<CHIPEventLevel0 *>(LastEvent_.get())->peek();
+        EventsToWaitOn = 1;
+    } else {
+        // enqueue a marker
+        LastEvent_ = Backend->createCHIPEvent(ChipContext_);
+        LastEventHandle = static_cast<CHIPEventLevel0 *>(LastEvent_.get())->peek();
+        zeCommandListAppendBarrier(CommandList, LastEventHandle, 0, nullptr);
+        EventsToWaitOn = 1;
+    }
+
+
+    // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  Status = zeCommandListAppendWriteGlobalTimestamp(
+      CommandList, (uint64_t *)(getSharedBufffer()), nullptr, EventsToWaitOn,
+      &LastEventHandle);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
+ CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  // The application must not call this function from
+  // simultaneous threads with the same command list handle.
+  Status = zeCommandListAppendMemoryCopy(CommandList, &ChipEventLz->getDeviceTimestamp(),
+                                         getSharedBufffer(),
+                                         sizeof(uint64_t), ChipEventLzHandle, 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  std::shared_ptr<chipstar::Event> NewLastEvent = Backend->createCHIPEvent(ChipContext_);
+    NewLastEvent->Msg = "recordEventComplete";
+  auto NewLastEventHandle = static_cast<CHIPEventLevel0 *>(NewLastEvent.get())->peek();
+  zeCommandListAppendBarrier(CommandList, NewLastEventHandle, 0, nullptr);
+ CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  ChipEventLz->setStatusAsRecording();
+  volatile auto TestStatus = zeEventQueryStatus(ChipEventLzHandle);
+  executeCommandList(CommandList, NewLastEvent);
+}
+
 // Must use this for now - Level Zero hangs when events are host visible +
 // kernel timings are enabled
 void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
   ze_result_t Status;
 
-  {
     LOCK(EventMtx); // chipstar::Event::EventStatus_
     if (EventStatus_ == EVENT_STATUS_RECORDED) {
       logTrace("chipstar::Event {}: EVENT_STATUS_RECORDED ... Resetting event.",
@@ -346,37 +396,15 @@ void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
       DeviceTimestamp_ = 0;
       CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     }
-  }
-
-  auto Dev = (CHIPDeviceLevel0 *)ChipQueue->getDevice();
-  Status = zeDeviceGetGlobalTimestamps(Dev->get(), &HostTimestamp_,
-                                       &DeviceTimestamp_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   if (ChipQueue == nullptr)
     CHIPERR_LOG_AND_THROW("Queue passed in is null", hipErrorTbd);
+  CHIPQueueLevel0 *ChipQueueZe = (CHIPQueueLevel0 *)ChipQueue;
+  GET_COMMAND_LIST(ChipQueueZe)
 
-  CHIPQueueLevel0 *Q = (CHIPQueueLevel0 *)ChipQueue;
-  GET_COMMAND_LIST(Q)
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)(Q->getSharedBufffer()), nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendMemoryCopy(CommandList, &Timestamp_,
-                                         Q->getSharedBufffer(),
-                                         sizeof(uint64_t), Event_, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  std::shared_ptr<chipstar::Event> LastEvent = ChipQueueZe->getLastEvent();
+  ze_event_handle_t LastEventHandle =
+      static_cast<CHIPEventLevel0 *>(LastEvent.get())->peek();
 
   std::shared_ptr<chipstar::Event> DestroyCommandListEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(
@@ -392,10 +420,8 @@ void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
       0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  Q->executeCommandList(CommandList, DestroyCommandListEvent);
-  Backend->trackEvent(DestroyCommandListEvent);
+  ChipQueueZe->executeCommandList(CommandList, DestroyCommandListEvent);
 
-  LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDING;
   Msg = "recordStream";
 }
@@ -475,7 +501,7 @@ unsigned long CHIPEventLevel0::getFinishTime() {
   uint64_t TimerResolution = Props->timerResolution;
   uint32_t TimestampValidBits = Props->timestampValidBits;
 
-  uint32_t T = (Timestamp_ & (((uint64_t)1 << TimestampValidBits) - 1));
+  uint32_t T = (DeviceTimestamp_ & (((uint64_t)1 << TimestampValidBits) - 1));
   T = T * TimerResolution;
 
   return T;
@@ -489,53 +515,25 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
 
-  this->updateFinishStatus();
-  Other->updateFinishStatus();
-  if (!this->isFinished() || !Other->isFinished())
-    CHIPERR_LOG_AND_THROW("One of the events for getElapsedTime() was done yet",
-                          hipErrorNotReady);
+  //   this->updateFinishStatus();
+  //   Other->updateFinishStatus();
+  //   if (!this->isFinished() || !Other->isFinished())
+  //     CHIPERR_LOG_AND_THROW("One of the events for getElapsedTime() was done
+  //     yet",
+  //                           hipErrorNotReady);
 
-  uint32_t Started = this->getFinishTime();
-  uint32_t Finished = Other->getFinishTime();
-  auto StartedCPU = this->getHostTimestamp();
-  auto FinishedCPU = Other->getHostTimestamp();
+  uint64_t Started = this->getDeviceTimestamp();
+  uint64_t Finished = Other->getDeviceTimestamp();
+  uint64_t Elapsed = (Finished - Started);
 
-  /**
-   *
-   * Kernel timestamps execute along a device timeline but because of limited
-   * range may wrap unexpectedly. Because of this, the temporal order of two
-   * kernel timestamps shouldn’t be inferred despite coincidental START/END
-   * values.
-   * https://spec.oneapi.io/level-zero/latest/core/PROG.html#kernel-timestamp-events
-   */
-  // uint64_t Elapsed = std::fabs(Finished - Started);
-  // Infering temporal order anyways because hipEvent unit tests expects it
+  CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
+  CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevice();
+  auto Props = ChipDevLz->getDeviceProps();
 
-  // Resolve overflows
-  // hipEventElapsed(start, stop)
-  bool ReversedEvents = false;
-  if (FinishedCPU < StartedCPU) {
-    ReversedEvents = true;
-    auto Temp = Started;
-    Started = Finished;
-    Finished = Temp;
-  }
+  uint64_t TimerResolution = Props->timerResolution;
+  // uint32_t TimestampValidBits = Props->timestampValidBits;
+  float Ms = (TimerResolution * Elapsed) / 1000000.0f;
 
-  if (Finished < Started) {
-    const uint64_t maxValue = (1ull << getValidTimestampBits()) - 1;
-    Finished = Finished + (maxValue - Started);
-  }
-
-  int64_t Elapsed = (Finished - Started);
-
-#define NANOSECS 1000000000
-  int64_t MS = (Elapsed / NANOSECS) * 1000;
-  int64_t NS = Elapsed % NANOSECS;
-  float FractInMS = ((float)NS) / 1000000.0f;
-  auto Ms = (float)MS + FractInMS;
-
-  if (ReversedEvents)
-    Ms = Ms * -1;
   return Ms;
 }
 
