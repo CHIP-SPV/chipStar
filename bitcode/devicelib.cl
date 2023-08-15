@@ -586,8 +586,9 @@ DEF_CHIP_ATOMIC1(dec)
 // __chip_atomic_cmpxchg_i, __chip_atomic_cmpxchg_u, __chip_atomic_cmpxchg_l
 DEF_CHIP_ATOMIC3(cmpxchg)
 
-/* This code adapted from AMD's HIP sources */
+#ifndef CHIP_EXT_FLOAT_ATOMICS
 
+/* This code is adapted from AMD's HIP sources */
 static OVLD float __chip_atomic_add_f32(volatile local float *address,
                                         float val) {
   volatile local uint *uaddr = (volatile local uint *)address;
@@ -602,6 +603,44 @@ static OVLD float __chip_atomic_add_f32(volatile local float *address,
   return as_float(r);
 }
 
+static OVLD float __chip_atomic_add_f32(volatile global float *address,
+                                        float val) {
+  volatile global uint *uaddr = (volatile global uint *)address;
+  uint old = *uaddr;
+  uint r;
+
+  do {
+    r = old;
+    old = atomic_cmpxchg(uaddr, r, as_uint(val + as_float(r)));
+  } while (r != old);
+
+  return as_float(r);
+}
+
+EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address, float val) {
+  volatile global float *gi = to_global(address);
+  if (gi)
+    return __chip_atomic_add_f32(gi, val);
+  volatile local float *li = to_local(address);
+  if (li)
+    return __chip_atomic_add_f32(li, val);
+  return 0;
+}
+
+static OVLD double __chip_atom_add_f64(volatile global double *address,
+                                       double val) {
+  volatile global ulong *uaddr = (volatile global ulong *)address;
+  ulong old = *uaddr;
+  ulong r;
+
+  do {
+    r = old;
+    old = atom_cmpxchg(uaddr, r, as_ulong(val + as_double(r)));
+  } while (r != old);
+
+  return as_double(r);
+}
+
 static OVLD double __chip_atom_add_f64(volatile local double *address,
                                        double val) {
   volatile local ulong *uaddr = (volatile local ulong *)address;
@@ -614,6 +653,71 @@ static OVLD double __chip_atom_add_f64(volatile local double *address,
   } while (r != old);
 
   return as_double(r);
+}
+
+EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address, double val) {
+  volatile global double *gi = to_global((DEFAULT_AS double *)address);
+  if (gi)
+    return __chip_atom_add_f64(gi, val);
+  volatile local double *li = to_local((DEFAULT_AS double *)address);
+  if (li)
+    return __chip_atom_add_f64(li, val);
+  return 0;
+}
+
+#else
+
+/* https://registry.khronos.org/OpenCL/extensions/ext/cl_ext_float_atomics.html
+ */
+
+#if !defined(__opencl_c_ext_fp32_global_atomic_add) ||                         \
+    !defined(__opencl_c_ext_fp64_global_atomic_add) ||                         \
+    !defined(__opencl_c_ext_fp32_local_atomic_add) ||                          \
+    !defined(__opencl_c_ext_fp64_local_atomic_add)
+#error cl_ext_float_atomics needed!
+#endif
+
+float OVLD atomic_fetch_add(volatile __generic float *, float);
+double OVLD atomic_fetch_add(volatile __generic double *, double);
+
+static OVLD float __chip_atomic_add_f32(volatile local float *address,
+                                        float val) {
+  return atomic_fetch_add(address, val);
+}
+
+static OVLD float __chip_atomic_add_f32(volatile global float *address,
+                                        float val) {
+  return atomic_fetch_add(address, val);
+}
+
+EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address, float val) {
+  return atomic_fetch_add(address, val);
+}
+
+static OVLD double __chip_atom_add_f64(volatile local double *address,
+                                       double val) {
+  return atomic_fetch_add(address, val);
+}
+
+static OVLD double __chip_atom_add_f64(volatile global double *address,
+                                       double val) {
+  return atomic_fetch_add(address, val);
+}
+
+EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address, double val) {
+  return atomic_fetch_add(address, val);
+}
+
+#endif
+
+EXPORT float __chip_atomic_add_system_f32(DEFAULT_AS float *address,
+                                          float val) {
+  return __chip_atomic_add_f32(address, val);
+}
+
+EXPORT double __chip_atomic_add_system_f64(DEFAULT_AS double *address,
+                                           double val) {
+  return __chip_atomic_add_f64(address, val);
 }
 
 static OVLD float __chip_atomic_exch_f32(volatile local float *address,
@@ -715,34 +819,6 @@ EXPORT long int __chip_atomic_exch_system_l(DEFAULT_AS long int *address,
   return __chip_atomic_exch_ul((DEFAULT_AS unsigned long int *)address, val);
 }
 
-static OVLD float __chip_atomic_add_f32(volatile global float *address,
-                                        float val) {
-  volatile global uint *uaddr = (volatile global uint *)address;
-  uint old = *uaddr;
-  uint r;
-
-  do {
-    r = old;
-    old = atomic_cmpxchg(uaddr, r, as_uint(val + as_float(r)));
-  } while (r != old);
-
-  return as_float(r);
-}
-
-static OVLD double __chip_atom_add_f64(volatile global double *address,
-                                       double val) {
-  volatile global ulong *uaddr = (volatile global ulong *)address;
-  ulong old = *uaddr;
-  ulong r;
-
-  do {
-    r = old;
-    old = atom_cmpxchg(uaddr, r, as_ulong(val + as_double(r)));
-  } while (r != old);
-
-  return as_double(r);
-}
-
 static OVLD uint __chip_atomic_inc2_u(volatile local uint *address, uint val) {
   uint old = *address;
   uint r;
@@ -785,36 +861,6 @@ static OVLD uint __chip_atomic_dec2_u(volatile global uint *address, uint val) {
   } while (r != old);
 
   return r;
-}
-
-EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address, float val) {
-  volatile global float *gi = to_global(address);
-  if (gi)
-    return __chip_atomic_add_f32(gi, val);
-  volatile local float *li = to_local(address);
-  if (li)
-    return __chip_atomic_add_f32(li, val);
-  return 0;
-}
-
-EXPORT float __chip_atomic_add_system_f32(DEFAULT_AS float *address,
-                                          float val) {
-  return __chip_atomic_add_f32(address, val);
-}
-
-EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address, double val) {
-  volatile global double *gi = to_global((DEFAULT_AS double *)address);
-  if (gi)
-    return __chip_atom_add_f64(gi, val);
-  volatile local double *li = to_local((DEFAULT_AS double *)address);
-  if (li)
-    return __chip_atom_add_f64(li, val);
-  return 0;
-}
-
-EXPORT double __chip_atomic_add_system_f64(DEFAULT_AS double *address,
-                                           double val) {
-  return __chip_atomic_add_f64(address, val);
 }
 
 EXPORT uint __chip_atomic_inc2_u(DEFAULT_AS uint *address, uint val) {
@@ -971,6 +1017,7 @@ EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
 EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
 #ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+
 // See c_to_opencl.def for details.
 #define DEF_UNARY_FN_MAP(NAME_, TYPE_)                                         \
   TYPE_ MAP_PREFIX##NAME_(TYPE_ x) { return NAME_(x); }
