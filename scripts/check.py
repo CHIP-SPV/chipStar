@@ -68,5 +68,6 @@ else:
     texture_cmd = ""
 
 cmd = "{env_vars} ctest --output-on-failure --timeout {timeout} --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`{texture_cmd}\"  -O checkpy_{device_type}_{backend}.txt".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend, timeout=timeout, texture_cmd=texture_cmd)
-run_cmd(cmd)
-
+res = run_cmd(cmd)
+if '***Failed' in res:
+    sys.exit(1)
