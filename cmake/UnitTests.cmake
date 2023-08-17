@@ -180,10 +180,6 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_HalfMemCopy") # Started failing for no reason
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - int") # Started failing for no reason
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - float") # Started failing for no reason
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - double") # Started failing for no reason
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -800,7 +796,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_HalfMemCopy") # Started failing for no reason 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Failed
@@ -1763,10 +1758,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpy_HalfMemCopy") # started failing for no reason
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - int") # started failing for no reason
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - float") # started failing for no reason
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - double") # started failing for no reason
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
