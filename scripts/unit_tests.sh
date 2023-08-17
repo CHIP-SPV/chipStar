@@ -71,7 +71,7 @@ echo "chipStar build complete."
 # Build libCEED
 export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
 export LIBCEED_DIR=`pwd`/libCEED
-./compile_libceed.sh ${HIP_DIR}
+../scripts/compile_libceed.sh ${HIP_DIR}
 module unload opencl/pocl-cpu-$LLVM
 
 # Test PoCL CPU
