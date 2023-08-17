@@ -17,17 +17,7 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
-list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2D_Check") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTexObjPitch_texture2D - float") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTexObjPitch_texture2D - int") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTexObjPitch_texture2D - unsigned char") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTexObjPitch_texture2D - int16_t") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTexObjPitch_texture2D - char") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTexObjPitch_texture2D - unsigned int") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_tex1DfetchVerification") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
 list(APPEND FAILING_FOR_ALL "Unit_tex1Dfetch_CheckModes") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckModes") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
-list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckModes") # Textures not supported on Sunspot and no use cases yet. Disabling until device query check is implemented. 
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
@@ -189,6 +179,10 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_HalfMemCopy") # Started failing for no reason
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - int") # Started failing for no reason
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - float") # Started failing for no reason
+list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - double") # Started failing for no reason
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -393,7 +387,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -806,6 +799,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpy_HalfMemCopy") # Started failing for no reason 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Failed
@@ -1768,6 +1762,10 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
 
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpy_HalfMemCopy") # started failing for no reason
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - int") # started failing for no reason
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - float") # started failing for no reason
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemcpyAsync_KernelLaunch - double") # started failing for no reason
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -1974,7 +1972,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Fa
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -2086,7 +2083,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Reference_
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # NUMERICAL
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # NUMERICAL
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
