@@ -65,7 +65,7 @@ cd build
 
 echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all install -j 8 #&> /dev/null
+make all build_tests install -j 8 #&> /dev/null
 echo "chipStar build complete." 
 
 # Build libCEED
