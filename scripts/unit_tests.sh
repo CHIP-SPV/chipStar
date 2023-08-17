@@ -69,11 +69,9 @@ make all build_tests install -j #&> /dev/null
 echo "chipStar build complete." 
 
 # Build libCEED
-rm -rf libCEED
-module load HIP/hipBLAS/latest mkl
 export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
 export LIBCEED_DIR=`pwd`/libCEED
-git clone https://github.com/CHIP-SPV/libCEED.git -b jed/chip-spv-pvelesko
+./compile_libceed.sh ${HIP_DIR}
 module unload opencl/pocl-cpu-$LLVM
 
 # Test PoCL CPU
@@ -91,7 +89,7 @@ module list
 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 
 pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
 popd
 
 module unload levelzero/igpu
@@ -104,7 +102,7 @@ module list
 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 
 pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
 popd
 
 module unload levelzero/dgpu
@@ -117,7 +115,7 @@ module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 
 pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
 popd
 
 module unload opencl/intel-igpu
@@ -130,7 +128,7 @@ module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 
 pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
 popd
 
 module unload opencl/intel-dgpu
