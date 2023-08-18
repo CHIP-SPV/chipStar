@@ -136,7 +136,7 @@ std::optional<fs::path> getHIPCCPath() {
 #if !CHIP_DEBUG_BUILD
            fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
 #endif
-           fs::path(CHIP_BUILD_DIR) / "bin/hipcc"
+               fs::path(CHIP_BUILD_DIR) / "bin/hipcc"
          })
       if (canExecuteHipcc(ExeCand)) {
         HIPCCPath = ExeCand;
