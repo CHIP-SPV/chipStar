@@ -138,6 +138,7 @@ void printDeviceProp(int deviceId) {
     cout << setw(w1) << "arch.has3dGrid: " << props.arch.has3dGrid << endl;
     cout << setw(w1) << "arch.hasDynamicParallelism: " << props.arch.hasDynamicParallelism << endl;
     cout << setw(w1) << "gcnArch: " << props.gcnArch << endl;
+    cout << setw(w1) << "maxTexture1DLinear: " << props.maxTexture1DLinear << endl;
 
 
     int deviceCnt;

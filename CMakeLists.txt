@@ -176,8 +176,8 @@ option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program 
 option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
-option(CHIP_ENFORCE_QUEUE_SYNCHRONIZATION "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
-option(CHIP_LEVEL_ZERO_IMMEDIATE_QUEUES "Enable/disable the use of immediate command queues" OFF)
+option(CHIP_QUEUE_SYNC "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
+option(CHIP_IMM_LISTS "Enable/disable the use of immediate command queues" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
@@ -258,7 +258,7 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
 
-if(CHIP_ENFORCE_QUEUE_SYNCHRONIZATION)
+if(CHIP_QUEUE_SYNC)
   list(APPEND CHIP_SPV_DEFINITIONS ENFORCE_QUEUE_SYNC)
 endif()
 
@@ -266,7 +266,7 @@ if(PER_THREAD_DEFAULT_STREAM)
   list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
 endif()
 
-if(CHIP_LEVEL_ZERO_IMMEDIATE_QUEUES)
+if(CHIP_IMM_LISTS)
   list(APPEND CHIP_SPV_DEFINITIONS L0_IMM_QUEUES)
 endif()
 
@@ -332,6 +332,9 @@ add_subdirectory(HIPCC)
 # HIP program compilation does.
 add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(CHIP hipcc.bin hipconfig.bin)
+
+file(MAKE_DIRECTORY ${HIPCC_BUILD_PATH})
+file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
 
 add_subdirectory(bin)
 
@@ -497,6 +500,10 @@ set(CHIP_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(CHIP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
 set(CHIP_CLANG_PATH ${CLANG_BIN_PATH})
 set(CHIP_DEFAULT_WARP_SIZE ${DEFAULT_WARP_SIZE})
+set(CHIP_DEBUG_BUILD 0)
+if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+  set(CHIP_DEBUG_BUILD 1)
+endif()
 configure_file(CHIPSPVConfig.hh.in include/CHIPSPVConfig.hh @ONLY)
 
 # PROJECT CONFIGURATION HEADER

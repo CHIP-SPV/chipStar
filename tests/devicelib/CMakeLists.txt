@@ -40,7 +40,7 @@ add_hip_test(implicitCasts.cpp)
 
 # Add this as a hipcc otherwise the `make all` will fail which is not convenient indicator for test failure
 add_test(NAME "deviceMallocCompile"
-  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
 
 add_hip_test(sincospifSpotTest.cc)
