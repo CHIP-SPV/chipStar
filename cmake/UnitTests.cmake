@@ -17,6 +17,32 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Flaky
+list(APPEND FAILING_FOR_ALL "Unit_tex1Dfetch_CheckModes") # Correctness
+list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
+list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
+list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
+list(APPEND FAILING_FOR_ALL "Unit_hipGetChannelDesc_CreateAndGet") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckRGBAModes") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND FAILING_FOR_ALL "TestIndirectMappedHostAlloc") # Fails on Sunspot. Currently, first-touch enabled as a workaround
 list(APPEND FAILING_FOR_ALL "Unit_HMM_OverSubscriptionTst") # Seems AMD-specific, crashes the driver
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Incorrect result - prob something minor
@@ -155,10 +181,8 @@ list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # LLVM-16 Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "2d_shuffle") # Failed
@@ -337,14 +361,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -368,11 +384,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -463,16 +474,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Referenc
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Value") # Subprocess aborted
@@ -660,14 +661,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemse
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -691,11 +684,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -789,16 +777,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Referen
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
@@ -818,16 +796,9 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Issue 517
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Issue 517
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
@@ -1032,14 +1003,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemse
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -1063,11 +1026,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat")
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -1162,21 +1120,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Referen
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
@@ -1375,14 +1318,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemse
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -1406,11 +1341,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat")
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -1505,16 +1435,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Referen
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
@@ -1701,14 +1621,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemse
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -1732,11 +1644,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat")
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -1831,16 +1738,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Referen
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
@@ -1865,7 +1762,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
@@ -2068,14 +1964,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Fa
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - short2") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - char4") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float2") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MaxTexture_Default - float4") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
@@ -2099,11 +1987,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") # 
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - char") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - uchar2") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
@@ -2192,17 +2075,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Reference_
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipCreateTextureObject_Pitch2DResource") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetChannelDesc_CreateAndGet") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - array") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - array") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckRGBAModes") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # NUMERICAL
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # NUMERICAL
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed

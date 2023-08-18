@@ -59,8 +59,15 @@ work_dir, device_type, backend, num_threads, num_tries, timeout, env_vars = proc
 
 os.chdir(work_dir)
 
-cmd = "{env_vars} ctest --output-on-failure --timeout {timeout} --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`\"  -O checkpy_{device_type}_{backend}.txt".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend, timeout=timeout)
+cmd = "./samples/hipInfo/hipInfo"
+out = run_cmd(cmd)
+texture_support = 0 < int(out.split("maxTexture1DLinear:")[1].split("\n")[0].strip())
+if(not texture_support):
+    texture_cmd = "|[Tt]ex"
+else:
+    texture_cmd = ""
 
-if '***Failed' in run_cmd(cmd):
+cmd = "{env_vars} ctest --output-on-failure --timeout {timeout} --repeat until-fail:{num_tries} -j {num_threads} -E \"`cat ./test_lists/{device_type}_{backend}_failed_tests.txt`{texture_cmd}\"  -O checkpy_{device_type}_{backend}.txt".format(work_dir=work_dir, num_tries=num_tries, env_vars=env_vars, num_threads=num_threads, device_type=device_type, backend=backend, timeout=timeout, texture_cmd=texture_cmd)
+res = run_cmd(cmd)
+if '***Failed' in res:
     sys.exit(1)
-

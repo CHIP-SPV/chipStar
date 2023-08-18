@@ -36,7 +36,7 @@ export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG
+module load $CLANG mkl
 module load opencl/pocl-cpu-$LLVM
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
@@ -65,8 +65,13 @@ cd build
 
 echo "building with $CLANG"
 cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all build_tests -j #&> /dev/null
-echo "build complete." 
+make all build_tests install -j 8 #&> /dev/null
+echo "chipStar build complete." 
+
+# Build libCEED
+export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
+export LIBCEED_DIR=`pwd`/libCEED
+../scripts/compile_libceed.sh ${HIP_DIR}
 module unload opencl/pocl-cpu-$LLVM
 
 # Test PoCL CPU
@@ -82,6 +87,11 @@ echo "begin igpu_level0_failed_tests"
 module load levelzero/igpu
 module list
 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+
+pushd ${LIBCEED_DIR}
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
+popd
+
 module unload levelzero/igpu
 echo "end igpu_level0_failed_tests"
 
@@ -90,6 +100,11 @@ echo "begin dgpu_level0_failed_tests"
 module load levelzero/dgpu
 module list
 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+
+pushd ${LIBCEED_DIR}
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
+popd
+
 module unload levelzero/dgpu
 echo "end dgpu_level0_failed_tests"
 
@@ -98,6 +113,11 @@ echo "begin igpu_opencl_failed_tests"
 module load opencl/intel-igpu
 module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+
+pushd ${LIBCEED_DIR}
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
+popd
+
 module unload opencl/intel-igpu
 echo "end igpu_opencl_failed_tests"
 
@@ -106,6 +126,11 @@ echo "begin dgpu_opencl_failed_tests"
 module load opencl/intel-dgpu
 module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+
+pushd ${LIBCEED_DIR}
+make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
+popd
+
 module unload opencl/intel-dgpu
 echo "end dgpu_opencl_failed_tests"
 
@@ -129,6 +154,18 @@ function check_tests {
   fi
 }
 
+function check_libceed {
+  file="$1"
+  if grep -q "Result: PASS" "$file"; then
+    echo "PASS"
+    return 0
+  else
+    echo "FAIL"
+    awk '/Test Summary Report/,EOF' "$file"
+    return 1
+  fi
+}
+
 overall_status=0
 
 echo "RESULTS:"
@@ -141,6 +178,22 @@ for test_result in igpu_opencl_make_check_result.txt \
 do
   echo -n "${test_result}: "
   check_tests "${test_result}"
+  test_status=$?
+  if [ $test_status -eq 1 ]; then
+    overall_status=1
+  fi
+done
+
+# dgpu_opencl_make_check_result
+# libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
+for test_result in libCEED/igpu_opencl_make_check_result.txt \
+                   libCEED/dgpu_opencl_make_check_result.txt \
+                   libCEED/igpu_level0_make_check_result.txt \
+                   libCEED/dgpu_level0_make_check_result.txt
+                   
+do
+  echo -n "${test_result}: "
+  check_libceed "${test_result}"
   test_status=$?
   if [ $test_status -eq 1 ]; then
     overall_status=1
