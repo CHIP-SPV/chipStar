@@ -38,7 +38,7 @@ function(add_hipcc_test MAIN_SOURCE)
   endif()
 
   add_test(NAME "${TEST_NAME}"
-    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
     ${TESTOPT_HIPCC_OPTIONS}
     ${CMAKE_CURRENT_SOURCE_DIR}/${MAIN_SOURCE} -o /dev/null)
 endfunction()
@@ -74,17 +74,17 @@ add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccNeedsDashO"
-  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
 
 add_hipcc_test(TestHipVersion.cc HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccHalfConversions"
-  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -D__HIP_NO_HALF_CONVERSIONS__=1
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -D__HIP_NO_HALF_CONVERSIONS__=1
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccHalfConversions.cc)
 
 add_test(NAME "TestHipccHalfOperators"
-  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -D__HIP_NO_HALF_OPERATORS__=1
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -D__HIP_NO_HALF_OPERATORS__=1
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccHalfConversions.cc)
 
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
@@ -104,7 +104,7 @@ add_shell_test(TestWholeProgramCompilation.bash)
 add_shell_test(TestHipccDashX.bash)
 
 add_test(NAME "TestHipccMultiSource" COMMAND 
-  ${CMAKE_BINARY_DIR}/bin/hipcc.bin ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
+  ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
