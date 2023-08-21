@@ -95,12 +95,11 @@ add_hipcc_test(TestPrintfLonePercent.hip HIPCC_OPTIONS -c)
 
 add_shell_test(TestHipccCompileAndLink.bash)
 add_shell_test(TestHipccCompileThenLink.bash)
-
+add_shell_test(TestHipcc588.bash)
 add_shell_test(TestHipccAcceptCFiles.bash)
 add_shell_test(TestRDCWithSingleHipccCmd.bash)
 add_shell_test(TestRDCWithMultipleHipccCmds.bash)
 add_shell_test(TestWholeProgramCompilation.bash)
-
 add_shell_test(TestHipccDashX.bash)
 
 add_test(NAME "TestHipccMultiSource" COMMAND 
