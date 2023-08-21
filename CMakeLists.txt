@@ -85,6 +85,23 @@ if(NOT DEFINED LevelZero_LIBRARY)
     set(LevelZeroInclude_DIR "${LevelZeroLib_DIR}/../include/level_zero")
     message(STATUS "Setting LevelZeroInclude_DIR to ${LevelZeroInclude_DIR}")
     message(STATUS "Setting LevelZeroLib_DIR to ${LevelZeroLib_DIR}")
+
+    # make sure that ze_api.h exists in LevelZeroInclude_DIR
+    if(NOT EXISTS "${LevelZeroInclude_DIR}/ze_api.h")
+      message(FATAL_ERROR "ze_api.h was not found in ${LevelZeroInclude_DIR}")
+    endif()
+
+    # grep ze_api.h for @version and make sure it's at least 1.7
+    execute_process(COMMAND grep "@version" "${LevelZeroInclude_DIR}/ze_api.h" OUTPUT_VARIABLE ZE_API_VERSION)
+    string(REGEX MATCHALL "[0-9]+" ZE_API_VERSION "${ZE_API_VERSION}")
+    list(GET ZE_API_VERSION 0 ZE_API_MAJOR)
+    list(GET ZE_API_VERSION 1 ZE_API_MINOR)
+    if(ZE_API_MAJOR LESS 1 OR (ZE_API_MAJOR EQUAL 1 AND ZE_API_MINOR LESS 7))
+      message(FATAL_ERROR "LevelZero version must be at least 1.7")
+    else()
+      message(STATUS "LevelZero version: ${ZE_API_MAJOR}.${ZE_API_MINOR}")
+    endif()
+    
   else()
     message(STATUS "Level Zero not found")
   endif()
