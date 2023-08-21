@@ -34,6 +34,7 @@ export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modul
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
+export POCL_KERNEL_CACHE=0
 rm -rf /home/pvelesko/.cache
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
