@@ -32,7 +32,7 @@
 #endif
 
 #include <stdint.h>
-#include "../../../include/ze_api.h"
+#include "ze_api.h"
 #include <CL/sycl.hpp>
 
 #include "sycl_chip_interop.h"

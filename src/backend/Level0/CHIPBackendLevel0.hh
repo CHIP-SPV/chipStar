@@ -28,7 +28,7 @@
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
-#include "../include/ze_api.h"
+#include "ze_api.h"
 #include "../src/common.hh"
 
 std::string resultToString(ze_result_t Status);

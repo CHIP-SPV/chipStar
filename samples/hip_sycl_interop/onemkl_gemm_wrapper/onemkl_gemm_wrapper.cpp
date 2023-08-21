@@ -28,7 +28,7 @@
 #include <CL/sycl/backend/level_zero.hpp>
 #endif
 
-#include "../../../include/ze_api.h"
+#include "ze_api.h"
 
 #include <stdlib.h>
 #include <vector>
