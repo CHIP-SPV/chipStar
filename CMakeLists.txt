@@ -78,11 +78,17 @@ endif()
 
 if(NOT DEFINED LevelZero_LIBRARY)
   message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
-  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH NO_CACHE)
   if(LevelZero_LIBRARY)
     get_filename_component(LevelZeroLib_DIR ${LevelZero_LIBRARY} DIRECTORY CACHE)
-    # get the path to the LevelZero directory
-    set(LevelZeroInclude_DIR "${LevelZeroLib_DIR}/../include/level_zero")
+    # Check if the library is in the system path
+    if("${LevelZeroLib_DIR}" STREQUAL "/usr/local/lib")
+      set(LevelZeroInclude_DIR "/usr/include/level_zero")
+    else()
+      # get the path to the LevelZero directory
+      set(LevelZeroInclude_DIR "/usr/include")
+    endif()
+
     message(STATUS "Setting LevelZeroInclude_DIR to ${LevelZeroInclude_DIR}")
     message(STATUS "Setting LevelZeroLib_DIR to ${LevelZeroLib_DIR}")
 
@@ -91,13 +97,13 @@ if(NOT DEFINED LevelZero_LIBRARY)
       message(FATAL_ERROR "ze_api.h was not found in ${LevelZeroInclude_DIR}")
     endif()
 
-    # grep ze_api.h for @version and make sure it's at least 1.7
+    # grep ze_api.h for @version and make sure it's at least 1.6
     execute_process(COMMAND grep "@version" "${LevelZeroInclude_DIR}/ze_api.h" OUTPUT_VARIABLE ZE_API_VERSION)
     string(REGEX MATCHALL "[0-9]+" ZE_API_VERSION "${ZE_API_VERSION}")
     list(GET ZE_API_VERSION 0 ZE_API_MAJOR)
     list(GET ZE_API_VERSION 1 ZE_API_MINOR)
-    if(ZE_API_MAJOR LESS 1 OR (ZE_API_MAJOR EQUAL 1 AND ZE_API_MINOR LESS 7))
-      message(FATAL_ERROR "LevelZero version must be at least 1.7")
+    if(ZE_API_MAJOR LESS 1 OR (ZE_API_MAJOR EQUAL 1 AND ZE_API_MINOR LESS 6))
+      message(FATAL_ERROR "LevelZero version must be at least 1.6")
     else()
       message(STATUS "LevelZero version: ${ZE_API_MAJOR}.${ZE_API_MINOR}")
     endif()
