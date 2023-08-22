@@ -23,6 +23,7 @@
 #ifndef HIP_INCLUDE_DEVICELIB_ATOMICS
 #define HIP_INCLUDE_DEVICELIB_ATOMICS
 
+#include <hip/host_defines.h>
 #include <hip/devicelib/macros.hh>
 
 // Copied from HIP programming guide:
