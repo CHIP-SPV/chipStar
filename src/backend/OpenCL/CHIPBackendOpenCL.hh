@@ -119,12 +119,12 @@ public:
   cl::Program *get();
 };
 
-typedef struct {
+struct CHIPContextUSMExts {
   clSharedMemAllocINTEL_fn clSharedMemAllocINTEL;
   clDeviceMemAllocINTEL_fn clDeviceMemAllocINTEL;
   clHostMemAllocINTEL_fn clHostMemAllocINTEL;
   clMemFreeINTEL_fn clMemFreeINTEL;
-} CHIPContextUSMExts;
+};
 
 using const_svm_alloc_iterator = ConstMapKeyIterator<
     std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
