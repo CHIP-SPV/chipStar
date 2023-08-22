@@ -7,6 +7,5 @@ OUT_DIR=@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d
 HIPCC=@CMAKE_BINARY_DIR@/bin/hipcc
 
 export HIPCC_VERBOSE=7
-mkdir -p ${OUT_DIR}
 
-${HIPCC} ${SRC_DIR}/inputs/testfp16include.cpp
+${HIPCC} ${SRC_DIR}/inputs/testfp16include.cpp > /dev/null
