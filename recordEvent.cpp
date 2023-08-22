@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include <hip/hip_runtime.h>
 
 // Simple time-consuming kernel without arguments
@@ -18,6 +19,15 @@ int main() {
     hipEventRecord(start, 0);
     // hipEventElapsedTime(&milliseconds, start, start);
     hipLaunchKernelGGL(slowKernel, dim3(512), dim3(256), 0, 0);
-    assert(hipEventElapsedTime(&milliseconds, start, start) == hipSuccess);
+    // time how long it takes to execute to check if blocking or not
+    auto startTime = std::chrono::high_resolution_clock::now();
+    hipEventElapsedTime(&milliseconds, start, start);
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto  ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    if(ms > 1000)
+        std::cout << "Blocking" << std::endl;
+    else
+        std::cout << "Non-Blocking" << std::endl;
+
     return 0;
 }
