@@ -82,11 +82,11 @@ if(NOT DEFINED LevelZero_LIBRARY)
   if(LevelZero_LIBRARY)
     get_filename_component(LevelZeroLib_DIR ${LevelZero_LIBRARY} DIRECTORY CACHE)
     # Check if the library is in the system path
-    if("${LevelZeroLib_DIR}" STREQUAL "/usr/local/lib")
-      set(LevelZeroInclude_DIR "/usr/include/level_zero")
+    if("${LevelZeroLib_DIR}" STREQUAL "/usr/lib/x86_64-linux-gnu")
+      set(LevelZeroInclude_DIR "/usr/include")
     else()
       # get the path to the LevelZero directory
-      set(LevelZeroInclude_DIR "/usr/include")
+      set(LevelZeroInclude_DIR "${LevelZeroLib_DIR}/../include/level_zero")
     endif()
 
     message(STATUS "Setting LevelZeroInclude_DIR to ${LevelZeroInclude_DIR}")
