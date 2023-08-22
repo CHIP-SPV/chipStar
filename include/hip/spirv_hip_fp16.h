@@ -31,9 +31,7 @@ THE SOFTWARE.
 #define __llvm_amdgcn_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
 /* chipStar defines end */
 
-#ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
 #include <hip/hip_runtime.h>
-#endif
 
 #pragma once
 #ifndef HIP_INCLUDE_SPIRV_HIP_FP16_H
