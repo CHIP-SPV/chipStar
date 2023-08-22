@@ -32,7 +32,7 @@ THE SOFTWARE.
 /* chipStar defines end */
 
 #ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
-#error Include this file after including hip/hip_runtime.h
+#include <hip/hip_runtime.h>
 #endif
 
 #pragma once
@@ -1533,7 +1533,6 @@ THE SOFTWARE.
                     __llvm_amdgcn_rcp_f16(static_cast<__half_raw>(x).data)};
             }
 #endif
-            inline
             __device__
             __half hrsqrt(__half x)
             {
