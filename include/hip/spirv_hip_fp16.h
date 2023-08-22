@@ -1522,8 +1522,8 @@ THE SOFTWARE.
                 return __half_raw{
                     __ocml_log10_f16(static_cast<__half_raw>(x).data)};
             }
-            inline
 #if !defined(__HIP_PLATFORM_SPIRV__)
+            inline
             __device__
             __half hrcp(__half x)
             {
@@ -1531,6 +1531,7 @@ THE SOFTWARE.
                     __llvm_amdgcn_rcp_f16(static_cast<__half_raw>(x).data)};
             }
 #endif
+            inline
             __device__
             __half hrsqrt(__half x)
             {
