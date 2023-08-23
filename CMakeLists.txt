@@ -168,8 +168,6 @@ endif()
 
 set(CHIP_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "chipStar source directory")
 
-set(CHIP_SPV_LINK_FLAGS "")
-set(CHIP_SPV_COMPILE_FLAGS "")
 list(APPEND CHIP_SPV_DEFINITIONS "")
 
 # used by hipcc/hipconfig
@@ -368,8 +366,8 @@ include(UnitTests)
 # =============================================================================
 # chipStar COMPILATION SETUP
 # For building on top of HIP-COMMON
-target_compile_options(CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_COMPILE_FLAGS})
-target_compile_definitions(CHIP PRIVATE ${CHIP_SPV_DEFINITIONS})
+target_compile_definitions(
+  CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
 
@@ -496,7 +494,8 @@ target_link_libraries(device INTERFACE CHIP)
 
 # same as device on chipStar but provides compatibility with AMD
 add_library(host INTERFACE)
-target_link_libraries(host INTERFACE device)
+target_compile_definitions(host INTERFACE ${HIP_ENABLE_SPIRV})
+target_link_libraries(host INTERFACE CHIP)
 
 # Interface libraries for compiling HIP sources conveniently in RDC
 # (relocatable device code) mode.
