@@ -236,12 +236,12 @@ annotateSvmPointers(const CHIPContextOpenCL &Ctx, cl_kernel KernelAPIHandle) {
   std::vector<void *> SvmAnnotationList;
   std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
   LOCK(Ctx.ContextMtx); // CHIPContextOpenCL::SvmMemory
-  auto NumSvmAllocations = Ctx.SvmMemory.getNumAllocations();
+  auto NumSvmAllocations = Ctx.getNumAllocations();
   if (NumSvmAllocations) {
     SvmAnnotationList.reserve(NumSvmAllocations);
     SvmKeepAlives.reset(new std::vector<std::shared_ptr<void>>());
     SvmKeepAlives->reserve(NumSvmAllocations);
-    for (std::shared_ptr<void> Ptr : Ctx.SvmMemory.getSvmPointers()) {
+    for (std::shared_ptr<void> Ptr : Ctx.getSvmPointers()) {
       SvmAnnotationList.push_back(Ptr.get());
       SvmKeepAlives->push_back(Ptr);
     }
@@ -370,17 +370,6 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
     : Device(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
-  cl_device_svm_capabilities DeviceSVMCapabilities;
-  auto Status =
-      DevIn->getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
-  this->SupportsFineGrainSVM =
-      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
-  if (this->SupportsFineGrainSVM) {
-    logTrace("Device supports fine grain SVM");
-  } else {
-    logTrace("Device does not support fine grain SVM");
-  }
 }
 
 CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
@@ -849,13 +838,8 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
 // CHIPContextOpenCL
 //*************************************************************************
 
-bool CHIPContextOpenCL::allDevicesSupportFineGrainSVM() {
-  bool allFineGrainSVM = true;
-  if (!static_cast<CHIPDeviceOpenCL *>(this->ChipDevice_)
-           ->supportsFineGrainSVM()) {
-    allFineGrainSVM = false;
-  }
-  return allFineGrainSVM;
+bool CHIPContextOpenCL::allDevicesSupportFineGrainSVMorUSM() {
+  return SupportsFineGrainSVM || SupportsIntelUSM;
 }
 
 void CHIPContextOpenCL::freeImpl(void *Ptr) {
@@ -863,11 +847,51 @@ void CHIPContextOpenCL::freeImpl(void *Ptr) {
   SvmMemory.free(Ptr);
 }
 
-cl::Context *CHIPContextOpenCL::get() { return ClContext; }
-CHIPContextOpenCL::CHIPContextOpenCL(cl::Context *CtxIn) {
+cl::Context *CHIPContextOpenCL::get() { return &ClContext; }
+CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
+                                     cl::Platform Plat) {
   logTrace("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
+
+  std::string DevExts = Dev.getInfo<CL_DEVICE_EXTENSIONS>();
+  std::memset(&USM, 0, sizeof(USM));
+
+#ifdef CHIP_USE_INTEL_USM
+  SupportsIntelUSM =
+      DevExts.find("cl_intel_unified_shared_memory") != std::string::npos;
+#else
+  SupportsIntelUSM = false;
+#endif
+  if (SupportsIntelUSM) {
+    logDebug("Device supports Intel USM");
+    USM.clSharedMemAllocINTEL =
+        (clSharedMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clSharedMemAllocINTEL");
+    USM.clDeviceMemAllocINTEL =
+        (clDeviceMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clDeviceMemAllocINTEL");
+    USM.clHostMemAllocINTEL =
+        (clHostMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clHostMemAllocINTEL");
+    USM.clMemFreeINTEL =
+        (clMemFreeINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clMemFreeINTEL");
+  } else {
+    logDebug("Device does not support Intel USM");
+  }
+
+  cl_device_svm_capabilities DeviceSVMCapabilities;
+  int Err = Dev.getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  SupportsFineGrainSVM =
+      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
+  if (SupportsFineGrainSVM) {
+    logTrace("Device supports fine grain SVM");
+  } else {
+    logTrace("Device does not support fine grain SVM");
+  }
+
   ClContext = CtxIn;
-  SvmMemory.init(*CtxIn);
+  SvmMemory.init(ClContext, Dev, USM, SupportsFineGrainSVM, SupportsIntelUSM);
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
@@ -876,7 +900,7 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
   void *Retval;
   LOCK(ContextMtx); // CHIPContextOpenCL::SvmMemory
 
-  Retval = SvmMemory.allocate(Size);
+  Retval = SvmMemory.allocate(Size, Alignment, MemType);
   return Retval;
 }
 
@@ -909,14 +933,17 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              chipstar::Queue::MEM_MAP_TYPE Type) {
+  CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
+  if (C->allDevicesSupportFineGrainSVMorUSM()) {
+    logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
+    return;
+  }
+
   auto MemMapEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
-  if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
-          ->supportsFineGrainSVM()) {
-    logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
-  }
+
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
@@ -942,9 +969,10 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
   auto MemMapEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
-  if (static_cast<CHIPDeviceOpenCL *>(this->getDevice())
-          ->supportsFineGrainSVM()) {
-    logDebug("Device supports fine grain SVM. Skipping MemMap/Unmap");
+  CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
+  if (C->allDevicesSupportFineGrainSVMorUSM()) {
+    logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
+    return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
 
@@ -1536,8 +1564,9 @@ void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
   // TODO Change this to spirv_enabled_devices
-  cl::Context *Ctx = new cl::Context(SpirvDevices);
-  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
+  cl::Context Ctx(SpirvDevices);
+  CHIPContextOpenCL *ChipContext =
+      new CHIPContextOpenCL(Ctx, Device, SelectedPlatform);
   ::Backend->addContext(ChipContext);
 
   // TODO for now only a single device is supported.
@@ -1553,15 +1582,17 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
                                              int NumHandles) {
   logTrace("CHIPBackendOpenCL InitializeNative");
   MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
-  // cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
+  cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
   cl_device_id DevId = (cl_device_id)NativeHandles[1];
   cl_context CtxId = (cl_context)NativeHandles[2];
 
-  cl::Context *Ctx = new cl::Context(CtxId);
-  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx);
+  cl::Context Ctx(CtxId);
+  cl::Platform Plat(PlatId);
+  cl::Device *Dev = new cl::Device(DevId);
+
+  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx, *Dev, Plat);
   addContext(ChipContext);
 
-  cl::Device *Dev = new cl::Device(DevId);
   CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, 0);
   logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
