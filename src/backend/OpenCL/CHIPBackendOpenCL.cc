@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 chipStar developers
+ * Copyright (c) 2021-23 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -497,13 +497,16 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   cl_device_svm_capabilities SVMCapabilities =
       ClDevice->getInfo<CL_DEVICE_SVM_CAPABILITIES>();
 
+  const bool SupportsFineGrainSVM =
+    (SVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER) != 0;
+  const bool SupportsSVMAtomics =
+    (SVMCapabilities & CL_DEVICE_SVM_ATOMICS) != 0;
   // System atomics are required for CC >= 6.0. We need fine grain
   // SVM + SVM atomics for them to function, thus cap with that feature
   // set.
   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
   if (HipDeviceProps_.major > 5 &&
-      ((SVMCapabilities & CL_DEVICE_SVM_ATOMICS) == 0 ||
-       !SupportsFineGrainSVM)) {
+      (!SupportsFineGrainSVM || !SupportsSVMAtomics)) {
     HipDeviceProps_.major = 5;
     HipDeviceProps_.minor = 0;
   }
