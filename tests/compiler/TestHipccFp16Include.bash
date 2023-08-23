@@ -8,4 +8,4 @@ HIPCC=@CMAKE_BINARY_DIR@/bin/hipcc
 
 export HIPCC_VERBOSE=7
 
-${HIPCC} ${SRC_DIR}/inputs/testfp16include.cpp > /dev/null
+${HIPCC} ${SRC_DIR}/inputs/testfp16include.cpp -o /dev/null
