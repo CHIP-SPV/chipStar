@@ -122,7 +122,6 @@ __HIP_OVERLOAD2(bool, isunordered);
 
 __HIP_OVERLOAD2(double, max)
 __HIP_OVERLOAD2(double, min)
-__HIP_OVERLOAD2(double, pow)
 
 namespace std {
 __HIP_OVERLOAD1(long, lrint);
