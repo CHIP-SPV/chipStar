@@ -27,6 +27,8 @@
 
 #include "CHIPSPVConfig.hh"
 
+#include <cstdint>
+
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
 extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
