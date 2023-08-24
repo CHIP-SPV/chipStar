@@ -27,11 +27,13 @@ THE SOFTWARE.
 */
 
 /* chipStar defines start */
-#define __llvm_amdgcn_rcp_f16(__X) ((__half)1.0f / (__half)__X)
-#define __llvm_amdgcn_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
+#define __llvm_rcp_f16(__X) ((__half)1.0f / (__half)__X)
+#define __llvm_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
 /* chipStar defines end */
 
+#ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
 #include <hip/hip_runtime.h>
+#endif
 
 #pragma once
 #ifndef HIP_INCLUDE_SPIRV_HIP_FP16_H
@@ -1528,7 +1530,7 @@ THE SOFTWARE.
             __half hrcp(__half x)
             {
                 return __half_raw{
-                    __llvm_amdgcn_rcp_f16(static_cast<__half_raw>(x).data)};
+                    __llvm_rcp_f16(static_cast<__half_raw>(x).data)};
             }
 #endif
             inline
@@ -1632,7 +1634,7 @@ THE SOFTWARE.
             __half2 h2log10(__half2 x) { return __ocml_log10_2f16(x); }
             inline
             __HOST_DEVICE__
-            __half2 h2rcp(__half2 x) { return __llvm_amdgcn_rcp_2f16(x); }
+            __half2 h2rcp(__half2 x) { return __llvm_rcp_2f16(x); }
             inline
             __HOST_DEVICE__
             __half2 h2rsqrt(__half2 x) { return __ocml_rsqrt_2f16(x); }
