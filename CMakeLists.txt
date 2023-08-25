@@ -688,6 +688,7 @@ if(CHIP_BUILD_TESTS)
   add_subdirectory(tests/fromLibCeed)
   add_subdirectory(tests/compiler)
   add_subdirectory(tests/runtime)
+  add_subdirectory(tests/post-install)
 endif()
 
 if(CHIP_BUILD_SAMPLES)
