@@ -49,6 +49,16 @@ While chipStar 1.0 can already be used to run various large HPC applications suc
 ## Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
 It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
+You can use a script include in chipStar repo: 
+```bash
+# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir>
+chipStar/scripts/configure_llvm.sh 16 /opt/install/llvm/16.0
+cd ./llvm-project/llvm/build_16
+make -j 16 
+<sudo> make install
+```
+
+Or do it manually:
 ```bash
 git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipspv-llvm-16-patches
 cd llvm-project/llvm/projects
