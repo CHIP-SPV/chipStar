@@ -41,8 +41,9 @@ jobs:
         source /etc/profile.d/modules.sh &> /dev/null;
         module avail;
         module load ${{ matrix.c_compiler }} opencl/cpu;
+        ldd /usr/bin/clinfo;
         clinfo -l;
-        module swap opencl opencl/gpu;
+        module swap opencl opencl/dgpu;
         clinfo -l;
         module swap opencl opencl/pocl;
         clinfo -l;
