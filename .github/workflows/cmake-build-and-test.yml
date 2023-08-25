@@ -56,4 +56,4 @@ jobs:
         source /etc/profile.d/modules.sh &> /dev/null;
         module avail;
         module load ${{ matrix.c_compiler }} opencl/cpu;
-        ctest -R hip_sycl_interop_no_buffers --output-on-failure
+        ctest --build-config ${{ matrix.build_type }} -R "hip_sycl_interop_no_buffers" --output-on-failure
