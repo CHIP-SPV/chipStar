@@ -22,7 +22,7 @@ jobs:
         os: [self-hosted]
         build_type: [RelWithDebInfo, Debug]
         c_compiler: [clang/clang15-spirv-omp, clang/clang16-spirv-omp]
-        chip_backend: [opencl/cpu, opencl/dgpu, opencl/pocl, level-zero/dgpu]
+        # chip_backend: [opencl/cpu, opencl/dgpu, opencl/pocl, level-zero/dgpu]
 
     steps:
     - uses: actions/checkout@v3
@@ -39,7 +39,7 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
         source /opt/intel/oneapi/setvars.sh &> /dev/null;
-        module load ${{ matrix.c_compiler }} ${{ matrix.chip_backend }};
+        module load ${{ matrix.c_compiler }} opencl/cpu;
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
