@@ -49,8 +49,8 @@ jobs:
         source /etc/profile.d/modules.sh &> /dev/null;
         export MODULEPATH=:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles;
         module load ${{ matrix.c_compiler }} opencl/cpu;
-        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }};
-        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target build_tests;
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} -j$(nproc);
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target build_tests  -j$(nproc);
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
