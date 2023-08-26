@@ -41,27 +41,22 @@ jobs:
         source /opt/intel/oneapi/setvars.sh &> /dev/null;
         source /etc/profile.d/modules.sh &> /dev/null;
         export MODULEPATH=:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
-        module avail;
         module load ${{ matrix.c_compiler }} opencl/cpu;
-        ldd /usr/bin/clinfo;
-        clinfo -l;
-        module swap opencl opencl/dgpu;
-        clinfo -l;
-        module swap opencl opencl/pocl;
-        clinfo -l;
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
 
-    # - name: Build
-    #   run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+    - name: Build
+      run: >
+      module list
+      cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
-    # - name: Test
-    #   working-directory: ${{ steps.strings.outputs.build-output-dir }}
-    #   # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-    #   # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-    #   run: >
-    #     source /etc/profile.d/modules.sh &> /dev/null;
-    #     module avail;
-    #     module load ${{ matrix.c_compiler }} opencl/cpu;
-    #     ctest --build-config ${{ matrix.build_type }} -R "hip_sycl_interop_no_buffers" --output-on-failure
+    - name: Test
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
+      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+      run: >
+        source /etc/profile.d/modules.sh &> /dev/null;
+        module avail;
+        module load ${{ matrix.c_compiler }} opencl/cpu;
+        ctest --build-config ${{ matrix.build_type }} -R "hip_sycl_interop_no_buffers" --output-on-failure
