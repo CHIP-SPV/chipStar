@@ -1257,7 +1257,12 @@ void chipstar::Backend::waitForThreadExit() {
    *
    * So we just wait for 0.5 seconds before starting to check for thread exit.
    */
+#if defined(__APPLE__) || defined(__MACOSX)
+  sched_yield();
+#else
   pthread_yield();
+#endif
+
   // TODO fix-255 is there a better way to do this?
   unsigned long long int sleepMicroSeconds = 500000;
   usleep(sleepMicroSeconds);
