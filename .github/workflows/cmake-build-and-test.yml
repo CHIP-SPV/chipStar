@@ -60,7 +60,7 @@ jobs:
         source /etc/profile.d/modules.sh &> /dev/null;
         export MODULEPATH=:/opt/modulefiles:/opt/intel/oneapi/modulefiles;
         module load ${{ matrix.c_compiler }} opencl/cpu;
-        ./scripts/check.py ${{ steps.strings.outputs.build-output-dir }} cpu opencl 8 1
+        ${{ github.workspace }}/scripts/check.py ${{ steps.strings.outputs.build-output-dir }} cpu opencl 8 1
 
     - name: dGPU OpenCL
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
@@ -69,4 +69,4 @@ jobs:
         source /etc/profile.d/modules.sh &> /dev/null;
         export MODULEPATH=:/opt/modulefiles:/opt/intel/oneapi/modulefiles;
         module load ${{ matrix.c_compiler }} opencl/dgpu;
-        ./scripts/check.py ${{ steps.strings.outputs.build-output-dir }} dgpu opencl 1 1
+        ${{ github.workspace }}/scripts/check.py ${{ steps.strings.outputs.build-output-dir }} dgpu opencl 1 1
