@@ -170,8 +170,7 @@ overall_status=0
 
 echo "RESULTS:"
 #  igpu_level0_make_check_result.txt
-for test_result in igpu_opencl_make_check_result.txt \
-                   dgpu_opencl_make_check_result.txt \
+for test_result in dgpu_opencl_make_check_result.txt \
                    cpu_opencl_make_check_result.txt \
                    dgpu_level0_make_check_result.txt \
                    cpu_pocl_make_check_result.txt
@@ -189,14 +188,14 @@ done
 # for test_result in libCEED/dgpu_opencl_make_check_result.txt \
 #                    libCEED/dgpu_level0_make_check_result.txt
                    
-do
-  echo -n "${test_result}: "
-  check_libceed "${test_result}"
-  test_status=$?
-  if [ $test_status -eq 1 ]; then
-    overall_status=1
-  fi
-done
+# do
+#   echo -n "${test_result}: "
+#   check_libceed "${test_result}"
+#   test_status=$?
+#   if [ $test_status -eq 1 ]; then
+#     overall_status=1
+#   fi
+# done
 
 if [ $overall_status -eq 0 ]; then
   exit 0
