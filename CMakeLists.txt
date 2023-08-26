@@ -25,7 +25,30 @@
 
 # temporary
 set(CMAKE_WARN_DEPRECATED OFF)
-add_compile_options(-Wno-format-extra-args -mf16c)
+
+# Workaround for https://gitlab.kitware.com/cmake/cmake/-/issues/17702
+#FIXME: For my machine (Apple M1 Max), this just returns ""
+message("ARCH <${CMAKE_SYSTEM_PROCESSOR}> <${CMAKE_HOST_SYSTEM_PROCESSOR}>")
+# From PROCESSOR_ARCHITECTURE, see https://learn.microsoft.com/en-us/windows/win32/winprog64/wow64-implementation-details?redirectedfrom=MSDN
+if ("{CMAKE_SYSTEM_PROCESSOR}" STREQUAL "AMD64")
+  set(ARCH "x64")
+elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
+  set(ARCH "x86")
+# From uname -p
+elseif ("{CMAKE_SYSTEM_PROCESSOR}" STREQUAL "i386")
+  # We can't differentiate x86 or x64, but we guess x64
+  set(ARCH "x64")
+else()
+  set(ARCH "unknown")
+endif()
+
+add_compile_options(-Wno-format-extra-args)
+if("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x86")
+  add_compile_options(-mf16c)
+elseif("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x64")
+  add_compile_options(-mf16c)
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
