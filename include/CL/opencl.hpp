@@ -525,7 +525,10 @@
 #endif
 
 #if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/opencl.h>
+#define CL_DEPRECATED(...)
+#define GCL_API_SUFFIX__VERSION_1_1
+//#include <OpenCL/opencl.h>
+#include <CL/opencl.h>
 #else
 #include <CL/opencl.h>
 #endif // !__APPLE__

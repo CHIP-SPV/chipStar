@@ -67,13 +67,16 @@ endforeach()
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
-  if(OpenCL_LIBRARY)
-    get_filename_component(OpenCL_DIR ${OpenCL_LIBRARY} DIRECTORY CACHE)
-    message(STATUS "Setting OpenCL_DIR to ${OpenCL_DIR}")
-  else()
-    message(STATUS "OpenCL not found")
-  endif()
+  #find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+
+  find_package(OpenCLHeaders)
+  find_package(OpenCLICDLoader)
+
+  #add_library(OpenCL ALIAS OpenCLICDLoader)
+  message("OpenCL_FOUND: ${OpenCL_FOUND}")
+  set(OpenCL_FOUND ${OpenCLICDLoader_FOUND})
+  message("OpenCL_FOUND: ${OpenCL_FOUND}")
+
 endif()
 
 if(NOT DEFINED LevelZero_LIBRARY)
@@ -114,10 +117,10 @@ if(NOT DEFINED LevelZero_LIBRARY)
   endif()
 endif()
 
-message(STATUS "OpenCL_LIBRARY: ${OpenCL_LIBRARY}")
+message(STATUS "OpenCL_FOUND: ${OpenCL_FOUND}")
 message(STATUS "LevelZero_LIBRARY: ${LevelZero_LIBRARY}")
 
-if(NOT OpenCL_LIBRARY AND NOT LevelZero_LIBRARY)
+if(NOT OpenCL_FOUND AND NOT LevelZero_LIBRARY)
   message(FATAL_ERROR "At least one of OpenCL,Level0 libraries must be available")
 endif()
 
@@ -155,7 +158,7 @@ set(CHIP_SRC
   src/SPIRVFuncInfo.cc
 )
 
-if(OpenCL_LIBRARY)
+if(OpenCL_FOUND)
   list(APPEND CHIP_SRC
     src/backend/OpenCL/CHIPBackendOpenCL.cc
     src/backend/OpenCL/SVMemoryRegion.cc)
@@ -320,9 +323,11 @@ endif()
 
 set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})
 
-if(OpenCL_LIBRARY)
+if(OpenCL_FOUND)
   list(APPEND CHIP_SPV_DEFINITIONS HAVE_OPENCL)
-  list(PREPEND CHIP_INTERFACE_LIBS ${OpenCL_LIBRARY})
+  list(PREPEND CHIP_INTERFACE_LIBS 
+  #OpenCL::Headers
+   OpenCL::OpenCL)
 endif()
 
 if(LevelZero_LIBRARY)
@@ -450,10 +455,10 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${CMAKE_BINARY_DIR}" "-lCHIP")
 
-if(OpenCL_LIBRARY)
-  target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
-  target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
-  target_link_libraries(CHIP PUBLIC OpenCL)
+if(OpenCL_FOUND)
+  target_link_libraries(CHIP PUBLIC
+  # OpenCL::Headers
+   OpenCL::OpenCL)
 endif()
 
 if(LevelZero_LIBRARY)
@@ -706,7 +711,7 @@ endif()
 
 # Short Summary 
 # print if Level Zero or OpenCL are enabbled
-if(OpenCL_LIBRARY)
+if(OpenCL_FOUND)
   message(STATUS "OpenCL is enabled: ${OpenCL_LIBRARY}")
 endif()
 
