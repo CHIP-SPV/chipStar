@@ -97,6 +97,14 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
     ${EXTRA_OBJS})
 
+# From https://stackoverflow.com/a/48177101
+if (APPLE)
+  target_link_libraries(LLVMHipDynMem "-undefined dynamic_lookup")
+  target_link_libraries(LLVMHipStripUsedIntrinsics "-undefined dynamic_lookup")
+  target_link_libraries(LLVMHipDefrost "-undefined dynamic_lookup")
+  target_link_libraries(LLVMHipPasses "-undefined dynamic_lookup")
+endif()
+
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES
     # HIP-Clang 14+ automatically searches for libLLVMHipSpvPasses.so in
