@@ -1,9 +1,7 @@
-#pragma once
-
-//
-// Copyright(c) 2018 Gabi Melman.
+// Copyright(c) 2015-present, Gabi Melman & spdlog contributors.
 // Distributed under the MIT License (http://opensource.org/licenses/MIT)
-//
+
+#pragma once
 
 // multi producer-multi consumer blocking queue.
 // enqueue(..) - will block until room found to put the new message.
@@ -12,7 +10,7 @@
 // dequeue_for(..) - will block until the queue is not empty or timeout have
 // passed.
 
-#include "spdlog/details/circular_q.h"
+#include <spdlog/details/circular_q.h>
 
 #include <condition_variable>
 #include <mutex>
@@ -27,8 +25,7 @@ public:
     using item_type = T;
     explicit mpmc_blocking_queue(size_t max_items)
         : q_(max_items)
-    {
-    }
+    {}
 
 #ifndef __MINGW32__
     // try to enqueue and block if no room left
@@ -52,7 +49,7 @@ public:
         push_cv_.notify_one();
     }
 
-    // try to dequeue item. if no item found. wait upto timeout and try again
+    // dequeue with a timeout.
     // Return true, if succeeded dequeue item, false otherwise
     bool dequeue_for(T &popped_item, std::chrono::milliseconds wait_duration)
     {
@@ -62,10 +59,23 @@ public:
             {
                 return false;
             }
-            q_.pop_front(popped_item);
+            popped_item = std::move(q_.front());
+            q_.pop_front();
         }
         pop_cv_.notify_one();
         return true;
+    }
+
+    // blocking dequeue without a timeout.
+    void dequeue(T &popped_item)
+    {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            push_cv_.wait(lock, [this] { return !this->q_.empty(); });
+            popped_item = std::move(q_.front());
+            q_.pop_front();
+        }
+        pop_cv_.notify_one();
     }
 
 #else
@@ -89,7 +99,7 @@ public:
         push_cv_.notify_one();
     }
 
-    // try to dequeue item. if no item found. wait upto timeout and try again
+    // dequeue with a timeout.
     // Return true, if succeeded dequeue item, false otherwise
     bool dequeue_for(T &popped_item, std::chrono::milliseconds wait_duration)
     {
@@ -98,9 +108,20 @@ public:
         {
             return false;
         }
-        q_.pop_front(popped_item);
+        popped_item = std::move(q_.front());
+        q_.pop_front();
         pop_cv_.notify_one();
         return true;
+    }
+
+    // blocking dequeue without a timeout.
+    void dequeue(T &popped_item)
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        push_cv_.wait(lock, [this] { return !this->q_.empty(); });
+        popped_item = std::move(q_.front());
+        q_.pop_front();
+        pop_cv_.notify_one();
     }
 
 #endif
@@ -109,6 +130,18 @@ public:
     {
         std::unique_lock<std::mutex> lock(queue_mutex_);
         return q_.overrun_counter();
+    }
+
+    size_t size()
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        return q_.size();
+    }
+
+    void reset_overrun_counter()
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        q_.reset_overrun_counter();
     }
 
 private:
