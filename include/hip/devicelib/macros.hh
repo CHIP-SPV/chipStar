@@ -52,4 +52,7 @@
 typedef _Float16 api_half;
 typedef _Float16 api_half2 __attribute__((ext_vector_type(2)));
 
+typedef unsigned int uint;
+typedef unsigned long ulong;
+
 #endif // include guard
