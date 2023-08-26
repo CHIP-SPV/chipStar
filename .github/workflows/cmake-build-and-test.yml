@@ -48,6 +48,7 @@ jobs:
         source /opt/intel/oneapi/setvars.sh &> /dev/null;
         source /etc/profile.d/modules.sh &> /dev/null;
         export MODULEPATH=:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles;
+        export CHIP_LOGLEVEL=err;
         module load ${{ matrix.c_compiler }} opencl/cpu;
         cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} -j$(nproc);
         cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target build_tests  -j$(nproc);
