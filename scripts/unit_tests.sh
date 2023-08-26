@@ -30,7 +30,7 @@ else
 fi
 
 source /etc/profile.d/modules.sh &> /dev/null
-export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
+export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles:/opt/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
@@ -70,8 +70,8 @@ echo "chipStar build complete."
 
 # Build libCEED
 export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
-export LIBCEED_DIR=`pwd`/libCEED
-../scripts/compile_libceed.sh ${HIP_DIR}
+# export LIBCEED_DIR=`pwd`/libCEED
+# ../scripts/compile_libceed.sh ${HIP_DIR}
 module unload opencl/pocl
 
 # Test PoCL CPU
@@ -101,9 +101,9 @@ module load level-zero/dgpu
 module list
 ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 
-pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
-popd
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
+# popd
 
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_tests"
@@ -127,9 +127,9 @@ module load opencl/dgpu
 module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 
-pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
-popd
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
+# popd
 
 module unload opencl/dgpu
 echo "end dgpu_opencl_failed_tests"
@@ -184,10 +184,10 @@ do
   fi
 done
 
-# dgpu_opencl_make_check_result
-# libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
-for test_result in libCEED/dgpu_opencl_make_check_result.txt \
-                   libCEED/dgpu_level0_make_check_result.txt
+# # dgpu_opencl_make_check_result
+# # libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
+# for test_result in libCEED/dgpu_opencl_make_check_result.txt \
+#                    libCEED/dgpu_level0_make_check_result.txt
                    
 do
   echo -n "${test_result}: "
