@@ -7,7 +7,7 @@ add_custom_command(
   OUTPUT ccompat.o DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c -c -g -pthread
-  -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include)
+  -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include -I${PROJECT_BINARY_DIR}/include)
 
 add_custom_target(
   ccompat ALL DEPENDS saxpy.o ccompat.o
