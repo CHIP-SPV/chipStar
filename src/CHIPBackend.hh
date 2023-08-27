@@ -47,6 +47,17 @@
 
 #include "SPVRegister.hh"
 
+#if defined(__APPLE__) || defined(__MACOSX)
+static void* getThreadId(pthread_t thread) {
+  // On macOS, pthread_t is an opaque pointer, which spdlog can't handle
+  return (void*)thread;
+}
+#else
+static pthread_t getThreadId(pthread_t thread) {
+  return thread;
+}
+#endif
+
 #define DEFAULT_QUEUE_PRIORITY 1
 
 inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
@@ -349,7 +360,7 @@ public:
 
   void join() {
     assert(Thread_);
-    logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
+    logDebug("Joining chipstar::Event Monitor Thread {}", getThreadId(Thread_));
     int Status = pthread_join(Thread_, nullptr);
     if (Status != 0) {
       logError("Failed to call join() {}", Status);
@@ -368,7 +379,7 @@ public:
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
-    logDebug("Thread Created with ID : {}", Thread_);
+    logDebug("Thread Created with ID : {}", getThreadId(Thread_));
   }
 
   void stop() {

@@ -1331,7 +1331,7 @@ void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
 chipstar::Context *chipstar::Backend::getActiveContext() {
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
-    logDebug("Context stack is empty for thread {}", pthread_self());
+    logDebug("Context stack is empty for thread {}", getThreadId(pthread_self()));
     ChipCtxStack.push(PrimaryContext);
   }
   return ChipCtxStack.top();
