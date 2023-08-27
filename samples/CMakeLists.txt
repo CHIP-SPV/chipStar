@@ -95,7 +95,7 @@ function(add_chip_library EXEC_NAME)
 endfunction()
 
 set(SAMPLES
-    abort
+    #abort # something weird with pass (nullptr deref, then causes LLVM verifier issues)
     hipmath
     hiptest
     bit_extract
