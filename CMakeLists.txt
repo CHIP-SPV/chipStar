@@ -313,11 +313,9 @@ endif()
 if(CHIP_BUILD_SHARED_LIBS)
   message(STATUS "Buiding chipStar as a shared library")
   add_library(CHIP SHARED ${CHIP_SRC})
-  set(CHIP_LIB_NAME "libCHIP.so")
 else()
   message(STATUS "Buiding chipStar as a static library")
   add_library(CHIP STATIC ${CHIP_SRC})
-  set(CHIP_LIB_NAME "libCHIP.a")
 endif()
 
 set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})
@@ -662,7 +660,7 @@ install(TARGETS CHIP
 )
 
 install(FILES ${CMAKE_BINARY_DIR}/include/CHIPSPVConfig.hh DESTINATION ${INCLUDE_INSTALL_DIR})
-install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
+install(TARGETS CHIP)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS)
 
