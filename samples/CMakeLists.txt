@@ -104,7 +104,7 @@ set(SAMPLES
     0_MatrixTranspose
     0_MatrixMultiply
     1_hipEvent
-    2_vecadd
+    #2_vecadd # "parser at end of file"
     3_shared_memory
     4_shfl
     5_2dshfl
