@@ -38,7 +38,6 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <string.h>
 #include <vector>
-#include <malloc.h>
 #include <math.h>
 #include <numeric>
 #include <stdint.h>
@@ -60,7 +59,9 @@ THE SOFTWARE.
 #include <windows.h>
 #else
 #include <sys/time.h>
+#ifndef __APPLE__
 #include <linux/limits.h>
+#endif
 #include <unistd.h>
 #endif
 

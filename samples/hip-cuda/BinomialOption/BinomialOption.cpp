@@ -27,7 +27,6 @@ THE SOFTWARE.
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include <malloc.h>
 
 #include "../include/HIPUtil.hpp"
 
@@ -298,7 +297,7 @@ BinomialOption::setupBinomialOption()
 
     samplesPerVectorWidth = numSamples / 4;
 
-    randArray = (float*)memalign(16, samplesPerVectorWidth * sizeof(float4));
+    posix_memalign((void**)&randArray, 16, samplesPerVectorWidth * sizeof(float4));
 
     CHECK_ALLOCATION(randArray, "Failed to allocate host memory. (randArray)");
 
