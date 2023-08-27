@@ -42,7 +42,7 @@ void _setupSpdlog() {
 
   const char *LogLevel = getenv("CHIP_LOGLEVEL");
   if (LogLevel) {
-    // std::cout << "CHIP_LOGLEVEL=" << loglevel << "\n";
+    // std::cout << "CHIP_LOGLEVEL=" << LogLevel << "\n";
     std::string Level(LogLevel);
     if (Level == "trace")
       SpdLogLevel = spdlog::level::trace;
