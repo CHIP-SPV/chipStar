@@ -129,8 +129,14 @@ set(SAMPLES
     ccompat
     hipComplex
     hipHostMallocSample
+)
+# We skip this test on macOS, because macho does not support EXCLUDE section flags (used by clang-offload-bundler)
+if (NOT APPLE)
+set(SAMPLES
+    ${SAMPLES}
     hipDeviceLink
 )
+endif()
 
 include(mkl_and_icpx)
 # Add samples that depend on Intel's oneAPI compiler - if available.
