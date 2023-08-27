@@ -77,7 +77,7 @@ void CHIPReadEnvVarsCallOnce() {
 
   CHIPDeviceTypeStr = readEnvVar("CHIP_DEVICE_TYPE");
   if (CHIPDeviceTypeStr.size() == 0)
-    CHIPDeviceTypeStr = "gpu";
+    CHIPDeviceTypeStr = "default";
 
   CHIPDeviceStr = readEnvVar("CHIP_DEVICE");
   if (CHIPDeviceStr.size() == 0)
