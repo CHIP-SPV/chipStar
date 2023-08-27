@@ -184,8 +184,14 @@ void HipAbortPass::analyze(const CallGraph &CG) {
   }
 
   // Propagate may-abort attribute to callers.
+
   while (WorkList.size()) {
+    printf("worklist size: %d\n", WorkList.size());
     InverseCallGraphNode *N = popAny(WorkList);
+    if (N == nullptr) {
+      printf("N was nullptr! skipping\n");
+      continue;
+    }
     assert(N->AbortAttr != AbortAttribute::MayAbort && "Infinite loop!");
     N->AbortAttr = AbortAttribute::MayAbort;
     for (auto *Caller : N->Callers)
@@ -349,6 +355,7 @@ PreservedAnalyses HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
   if (AbortF->hasNUses(0))
     AbortF->eraseFromParent();
   else {
+    printf("Adding function?!!\n");
     // Simpler to just add an empy definition to it and let optimizer handle it.
     auto *BB = BasicBlock::Create(Mod.getContext(), "entry", AbortF);
     ReturnInst::Create(Mod.getContext(), BB);
