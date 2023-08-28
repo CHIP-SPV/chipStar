@@ -1,0 +1,220 @@
+name: pocl-cpu
+
+on:
+  push:
+    paths-ignore: "docs/**"
+  pull_request:
+    paths-ignore: "docs/**"
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          paths_ignore: '["docs/**"]'
+          do_not_skip: '["pull_request"]'
+
+
+  spirv-tools:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    name: Build and cache spirv-tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache@v3
+        id: spirv-tools
+        env:
+          cache-name: cache-spirv-tools
+        with:
+          path: ~/opt/SPIRV-Tools/v2023.2
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+      - run: sudo apt update; sudo apt install -y gcc cmake python3
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+      - uses: actions/checkout@v3
+        with:
+          repository: KhronosGroup/SPIRV-Tools
+          ref: v2023.2
+          path: SPIRV-Tools
+          fetch-depth: 0
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+      - run: python3 utils/git-sync-deps
+        working-directory: SPIRV-Tools/
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+      - run: mkdir -p SPIRV-Tools/build
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/SPIRV-Tools/v2023.2 -DSPIRV_SKIP_TESTS=ON
+        working-directory: SPIRV-Tools/build
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+      - run: cmake --build . --parallel 4
+        working-directory: SPIRV-Tools/build
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+      - run: cmake --install .
+        working-directory: SPIRV-Tools/build
+        if: steps.spirv-tools.outputs.cache-hit != 'true'
+
+  llvm:
+    needs: [pre_job, spirv-tools]
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    name: Build and cache llvm-${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [15, 16]
+    steps:
+      - uses: actions/cache@v3
+        id: spirv-tools
+        env:
+          cache-name: cache-spirv-tools
+        with:
+          path: ~/opt/SPIRV-Tools/v2023.2
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          fail-on-cache-miss: true
+      - uses: actions/cache@v3
+        id: llvm
+        env:
+          cache-name: cache-llvm-${{ matrix.version }}
+        with:
+          path: ~/opt/llvm/${{ matrix.version }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - run: sudo apt update; sudo apt install -y gcc cmake
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - uses: actions/checkout@v3
+        with:
+          repository: CHIP-SPV/llvm-project
+          ref: chipStar-llvm-${{ matrix.version }}
+          path: llvm-${{ matrix.version }}
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - uses: actions/checkout@v3
+        with:
+          repository: CHIP-SPV/SPIRV-LLVM-Translator
+          ref: chipStar-llvm-${{ matrix.version }}
+          path: llvm-${{ matrix.version }}/llvm/projects/SPIRV-LLVM-Translator
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - run: mkdir -p llvm-${{ matrix.version }}/build
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - run: cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm/${{ matrix.version }} -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_SPIRV_INCLUDE_TESTS=OFF
+        env:
+          PKG_CONFIG_PATH: ~/opt/SPIRV-Tools/v2023.2/lib/pkgconfig/
+        working-directory: llvm-${{ matrix.version }}
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - run: cmake --build . --parallel 4
+        working-directory: llvm-${{ matrix.version }}/build
+        if: steps.llvm.outputs.cache-hit != 'true'
+      - run: cmake --install .
+        working-directory: llvm-${{ matrix.version }}/build
+        if: steps.llvm.outputs.cache-hit != 'true'
+
+  pocl:
+    needs: [pre_job, llvm, spirv-tools]
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    name: Build and cache pocl (llvm-${{ matrix.version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [15, 16]
+    steps:
+      - uses: actions/cache@v3
+        id: pocl
+        env:
+          cache-name: cache-pocl
+        with:
+          path: ~/opt/pocl/4.0
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-llvm-${{ matrix.version }}
+      - uses: actions/cache@v3
+        id: spirv-tools
+        env:
+          cache-name: cache-spirv-tools
+        with:
+          path: ~/opt/SPIRV-Tools/v2023.2
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          fail-on-cache-miss: true
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - uses: actions/cache@v3
+        id: llvm
+        env:
+          cache-name: cache-llvm-${{ matrix.version }}
+        with:
+          path: ~/opt/llvm/${{ matrix.version }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          fail-on-cache-miss: true
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - uses: actions/checkout@v3
+        with:
+          repository: pocl/pocl
+          ref: v4.0
+          path: pocl
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - run: mkdir -p pocl/build
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON
+        working-directory: pocl/build
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - run: cmake --build . --parallel 4
+        working-directory: pocl/build
+        if: steps.pocl.outputs.cache-hit != 'true'
+      - run: cmake --install .
+        working-directory: pocl/build
+        if: steps.pocl.outputs.cache-hit != 'true'
+
+  chipstar:
+    needs: [pre_job, llvm, spirv-tools, pocl]
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    name: Build and test chipStar (llvm-${{ matrix.version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [15, 16]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/cache@v3
+        id: spirv-tools
+        env:
+          cache-name: cache-spirv-tools
+        with:
+          path: ~/opt/SPIRV-Tools/v2023.2
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          fail-on-cache-miss: true
+      - uses: actions/cache@v3
+        id: llvm
+        env:
+          cache-name: cache-llvm-${{ matrix.version }}
+        with:
+          path: ~/opt/llvm/${{ matrix.version }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          fail-on-cache-miss: true
+      - uses: actions/cache@v3
+        id: pocl
+        env:
+          cache-name: cache-pocl
+        with:
+          path: ~/opt/pocl/4.0
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-llvm-${{ matrix.version }}
+          fail-on-cache-miss: true
+      - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev
+      - run: ls ~/opt/pocl/4.0/etc/OpenCL/vendors/; cat ~/opt/pocl/4.0/etc/OpenCL/vendors/*
+      - run: ldd `cat ~/opt/pocl/4.0/etc/OpenCL/vendors/pocl.icd`
+      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ clinfo
+      - run: mkdir -p build
+      - run: cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
+        working-directory: build
+      - run: cmake --build . --parallel 4
+        working-directory: build
+      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
+        working-directory: build
+      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+        working-directory: build
