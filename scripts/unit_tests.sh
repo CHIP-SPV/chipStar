@@ -30,13 +30,14 @@ else
 fi
 
 source /etc/profile.d/modules.sh &> /dev/null
+source /opt/intel/oneapi/setvars.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles:/opt/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG mkl
+module load $CLANG
 module load opencl/pocl
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
