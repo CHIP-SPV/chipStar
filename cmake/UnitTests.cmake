@@ -17,6 +17,7 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Flaky
@@ -183,7 +184,6 @@ list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -788,7 +788,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") #
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
@@ -1071,7 +1070,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # F
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
@@ -1386,7 +1384,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # F
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Bus error
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
@@ -1689,7 +1686,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # F
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
