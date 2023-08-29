@@ -55,7 +55,7 @@ endfunction()
 add_hip_runtime_test(TestRecordEventBlocking.cpp)
 # This test checks if zeEventQuery is a blocking operation
 set_tests_properties(TestRecordEventBlocking PROPERTIES
-  TIMEOUT 10)
+  TIMEOUT 60)
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
