@@ -24,12 +24,12 @@ While chipStar 1.0 can already be used to run various large HPC applications suc
 * Cmake >= 3.20.0
 * Clang and LLVM 16 (LLVM 15 might also work)
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-16 llvm-16 clang-tools-16'.
-  * For the best results, install it from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipspv-llvm-16-patches) which has fixes that are not yet in the LLVM upstream project.
+  * For the best results, install it from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-16) which has fixes that are not yet in the LLVM upstream project.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
   (e.g. llvm\_release\_160 for LLVM 16)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
-  * For the best results, install it from a chipStar [branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipspv-llvm-16-patches) which has fixes that are not yet upstreamed.
+  * For the best results, install it from a chipStar [branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipStar-llvm-16) which has fixes that are not yet upstreamed.
 
 ### OpenCL Backend
 
@@ -49,10 +49,20 @@ While chipStar 1.0 can already be used to run various large HPC applications suc
 ## Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
 It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
+You can use a script include in chipStar repo: 
 ```bash
-git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipspv-llvm-16-patches
+# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir>
+chipStar/scripts/configure_llvm.sh 16 /opt/install/llvm/16.0
+cd ./llvm-project/llvm/build_16
+make -j 16 
+<sudo> make install
+```
+
+Or do it manually:
+```bash
+git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-16
 cd llvm-project/llvm/projects
-git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipspv-llvm-16-patches
+git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-16
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
 # DLLVM_TARGETS_TO_BUILD Speed up compilation by building only the necessary CPU host target

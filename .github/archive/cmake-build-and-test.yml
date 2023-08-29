@@ -1,0 +1,72 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: CMake on multiple platforms
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+
+      matrix:
+        os: [self-hosted]
+        build_type: [RelWithDebInfo, Debug]
+        c_compiler: [clang/clang15-spirv-omp, clang/clang16-spirv-omp]
+        # chip_backend: [opencl/cpu, opencl/dgpu, opencl/pocl, level-zero/dgpu]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set reusable strings
+      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: >
+
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -S ${{ github.workspace }}
+
+    - name: Build
+      run: >
+        source /opt/intel/oneapi/setvars.sh &> /dev/null;
+        source /etc/profile.d/modules.sh &> /dev/null;
+        export MODULEPATH=:/opt/modulefiles:/opt/intel/oneapi/modulefiles;
+        export CHIP_LOGLEVEL=err;
+        module load ${{ matrix.c_compiler }} opencl/cpu;
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} -j$(nproc);
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target build_tests  -j$(nproc);
+
+    - name: PoCL
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: >
+        source /opt/intel/oneapi/setvars.sh &> /dev/null;
+        source /etc/profile.d/modules.sh &> /dev/null;
+        export MODULEPATH=:/opt/modulefiles:/opt/intel/oneapi/modulefiles;
+        module load ${{ matrix.c_compiler }} opencl/cpu;
+        ${{ github.workspace }}/scripts/check.py ${{ steps.strings.outputs.build-output-dir }} cpu opencl 8 1
+
+    - name: dGPU OpenCL
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: >
+        source /opt/intel/oneapi/setvars.sh &> /dev/null;
+        source /etc/profile.d/modules.sh &> /dev/null;
+        export MODULEPATH=:/opt/modulefiles:/opt/intel/oneapi/modulefiles;
+        module load ${{ matrix.c_compiler }} opencl/dgpu;
+        ${{ github.workspace }}/scripts/check.py ${{ steps.strings.outputs.build-output-dir }} dgpu opencl 1 1
