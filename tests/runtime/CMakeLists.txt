@@ -40,7 +40,7 @@ function(add_hip_runtime_test MAIN_SOURCE)
   set_tests_properties("${EXEC_NAME}" PROPERTIES
     SKIP_REGULAR_EXPRESSION "SKIP")
   set_tests_properties("${EXEC_NAME}" PROPERTIES
-    PASS_REGULAR_EXPRESSION "PASS")
+    FAIL_REGULAR_EXPRESSION "FAIL")
 endfunction()
 
 # add_shell_test(<script-file>)
