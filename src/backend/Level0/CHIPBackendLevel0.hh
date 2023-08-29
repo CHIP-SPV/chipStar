@@ -541,8 +541,18 @@ public:
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
+  bool useImmCmdLists_ = false;
 
 public:
+  bool useImmCmdLists() { return useImmCmdLists_; }
+  void setUseImmCmdLists() {
+    auto str = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
+    // if str is empty, 0, false, or off, then useImmCmdLists_ is false
+    useImmCmdLists_ =
+        !(str.empty() || str == "0" || str == "false" || str == "off");
+    logDebug("CHIP_L0_IMM_CMD_LISTS = {}", useImmCmdLists_ ? "true" : "false");
+  }
+
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
