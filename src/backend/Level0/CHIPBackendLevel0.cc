@@ -25,8 +25,9 @@
 
 /**
  *  CHIPQueueLevel0::getCmdList() will return an immediate command list handle
- * if L0_IMM_QUEUES is used. There is only one such handle for a queue and a
- * queue can be shared between multiple threads thus this lock is necessary.
+ * if level zero immediate command lists is used. There is only one such handle
+ * for a queue and a queue can be shared between multiple threads thus this lock
+ * is necessary.
  *
  * If immediate command lists are not used, getCmdList will create a new
  * handle which is a thread safe operation
@@ -812,19 +813,19 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
-#ifdef L0_IMM_QUEUES
-  return ZeCmdList_;
-#else
-  ze_command_list_handle_t ZeCmdList;
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+    return ZeCmdList_;
+  } else {
+    ze_command_list_handle_t ZeCmdList;
 #ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
+    LOCK(Backend->DubiousLockLevel0)
 #endif
-  auto Status =
-      zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  return ZeCmdList;
-#endif
+    auto Status =
+        zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
+    return ZeCmdList;
+  }
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
@@ -881,9 +882,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUES
-  initializeCmdListImm();
-#endif
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+    initializeCmdListImm();
+  }
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
@@ -902,9 +903,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-#ifdef L0_IMM_QUEUES
-  initializeCmdListImm();
-#endif
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+    initializeCmdListImm();
+  }
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1436,16 +1437,16 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
 
-#ifdef L0_IMM_QUEUES
-  auto Event = getLastEvent();
-  auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
-  if (EventLZ) {
-    auto EventHandle = EventLZ->peek();
-    zeEventHostSynchronize(EventHandle, UINT64_MAX);
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+    auto Event = getLastEvent();
+    auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
+    if (EventLZ) {
+      auto EventHandle = EventLZ->peek();
+      zeEventHostSynchronize(EventHandle, UINT64_MAX);
+    }
+  } else {
+    zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
   }
-#else
-  zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
-#endif
 
   return;
 }
@@ -1453,11 +1454,12 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
-#ifdef L0_IMM_QUEUES
-  executeCommandListImm(Event);
-#else
-  executeCommandListReg(CommandList);
-#endif
+
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+    executeCommandListImm(Event);
+  } else {
+    executeCommandListReg(CommandList);
+  }
 };
 
 void CHIPQueueLevel0::executeCommandListReg(
@@ -1672,6 +1674,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
                                        std::string CHIPDeviceTypeStr,
                                        std::string CHIPDeviceStr) {
   logTrace("CHIPBackendLevel0 Initialize");
+  setUseImmCmdLists();
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   ze_result_t Status;
   Status = zeInit(0);
