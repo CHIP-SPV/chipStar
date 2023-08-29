@@ -1152,6 +1152,12 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # ICL correctness
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_async_binomial") # Sunspot correctness
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctness
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEvent") # Failing for Imm Cmd Lists https://github.com/intel/compute-runtime/issues/668
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
