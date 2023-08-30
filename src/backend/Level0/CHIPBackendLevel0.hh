@@ -547,9 +547,11 @@ public:
   bool useImmCmdLists() { return useImmCmdLists_; }
   void setUseImmCmdLists() {
     auto str = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
-    // if str is empty, 0, false, or off, then useImmCmdLists_ is false
-    useImmCmdLists_ =
-        !(str.empty() || str == "0" || str == "false" || str == "off");
+    // assert that str is either 0, 1, on, off or empty
+    assert((str.empty() || str == "0" || str == "1" || str == "on" ||
+           str == "off") && "CHIP_L0_IMM_CMD_LISTS must be 0, 1, on, off or "
+                             "empty (default: off)");
+    useImmCmdLists_ = (str == "1" || str == "on");
     logDebug("CHIP_L0_IMM_CMD_LISTS = {}", useImmCmdLists_ ? "true" : "false");
   }
 
