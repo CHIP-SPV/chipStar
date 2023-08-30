@@ -49,11 +49,28 @@
 
 #endif // __HIP_DEVICE_COMPILE__
 
+
+#if defined(__CHIPSTAR_MASQUERADE_CUDA__) && defined(__HIP__)
+// "Defined when compiling CUDA source files." [nvcc v12.2 2.1.]
+#define __CUDACC__
+#endif
+
+// __NVCC__ is set when compiling sources via cucc compiler.
+//
+// Having __NVCC__ defined makes HIP headers to define
+// __HIP_PLATFORM_{NVCC/NVIDIA}__ which clash with other
+// __HIP_PLATFORM_*__ defines (mutual exclusivity). Hide __NVCC__
+// temporarily.
+#pragma push_macro("__NVCC__")
+#undef __NVCC__
+
 // Make sure '__device__ constexpr' definitions, used for implementing
 // device side cmath functions, appear before <cmath> include.
 // Otherwise, we may encounter 'reference to __host__ function 'xyz' in
 // __host__ __device__ function' errors if the <cmath> is included first.
 #include <hip/spirv_hip_devicelib.hh>
+
+#pragma pop_macro("__NVCC__")
 
 #endif // __HIP__
 #endif // SPIRV_COMPILER_FIXUPS_H
