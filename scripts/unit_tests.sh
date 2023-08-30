@@ -96,18 +96,33 @@ echo "end cpu_pocl_failed_tests"
 # module unload level-zero/igpu
 # echo "end igpu_level0_failed_tests"
 
-# Test Level Zero dGPU
-echo "begin dgpu_level0_failed_tests"
+# Test Level Zero Regular Cmd Lists dGPU
+echo "begin dgpu_level0_failed_reg_tests"
 module load level-zero/dgpu
 module list
-ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 
 # pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
 
 module unload level-zero/dgpu
-echo "end dgpu_level0_failed_tests"
+echo "end dgpu_level0_failed_reg_tests"
+
+# Test Level Zero Regular Cmd Lists dGPU
+echo "begin dgpu_level0_failed_imm_tests"
+module load level-zero/dgpu
+module list
+export CHIP_L0_IMM_CMD_LISTS=ON
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+unset CHIP_L0_IMM_CMD_LISTS
+
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# popd
+
+module unload level-zero/dgpu
+echo "end dgpu_level0_failed_imm_tests"
 
 # # Test OpenCL iGPU
 # echo "begin igpu_opencl_failed_tests"
@@ -173,7 +188,8 @@ echo "RESULTS:"
 #  igpu_level0_make_check_result.txt
 for test_result in dgpu_opencl_make_check_result.txt \
                    cpu_opencl_make_check_result.txt \
-                   dgpu_level0_make_check_result.txt \
+                   dgpu_level0_reg_make_check_result.txt \
+                   dgpu_level0_imm_make_check_result.txt \
                    cpu_pocl_make_check_result.txt
 do
   echo -n "${test_result}: "
@@ -187,7 +203,8 @@ done
 # # dgpu_opencl_make_check_result
 # # libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
 # for test_result in libCEED/dgpu_opencl_make_check_result.txt \
-#                    libCEED/dgpu_level0_make_check_result.txt
+#                    libCEED/dgpu_level0_reg_make_check_result.txt \
+#                    libCEED/dgpu_level0_imm_make_check_result.txt
                    
 # do
 #   echo -n "${test_result}: "
