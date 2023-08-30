@@ -642,6 +642,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     usleep(20000);
     std::vector<chipstar::Event *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
+    auto BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
 
     LOCK(Backend->EventsMtx); // Backend::Events
     LOCK(EventMonitorMtx);    // chipstar::EventMonitor::Stop
@@ -661,8 +662,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
         ChipEvent->releaseDependencies();
         Backend->Events.erase(Backend->Events.begin() + EventIdx);
-        static_cast<CHIPBackendLevel0 *>(Backend)->destroyAssocCmdList(
-            ChipEvent.get());
+        BackendZe->destroyAssocCmdList(ChipEvent.get());
         ChipEvent->doActions();
       }
 
@@ -684,35 +684,57 @@ void CHIPStaleEventMonitorLevel0::monitor() {
      * Backend::waitForThreadExit() but Backend has no knowledge of
      * EventCommandListMap
      */
-    // TODO libCEED - re-enable this check
-    if (Stop && !static_cast<CHIPBackendLevel0 *>(Backend)
-                     ->EventCommandListMap.size()) {
-      if (Backend->Events.size() > 0) {
+    if (Stop) {
+      // get current host time in seconds
+      int CurrTime = std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+
+      // if this is the first time we are stopping, set the time
+      if (TimeSinceStopRequested_ == 0)
+        TimeSinceStopRequested_ = CurrTime;
+
+      int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
+      bool AllEventsCleared = BackendZe->EventCommandListMap.size() == 0 &&
+                              Backend->Events.size() == 0;
+      if (AllEventsCleared) {
+        pthread_exit(0);
+      } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
         logError(
             "CHIPStaleEventMonitorLevel0 stop was called but not all events "
-            "have been cleared");
-      } else {
-        logTrace(
-            "CHIPStaleEventMonitorLevel0 stop was called and all events have "
-            "been cleared");
-      }
-      pthread_exit(0);
-    }
+            "have been cleared. Timeout of {} seconds has been reached.",
+            BackendZe->getCollectEventsTimeout());
+        int MaxPrintEntries = 10;
+        int PrintedEntries = 0;
+        for (auto &MapEntry :
+             static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap) {
+          logError("Uncollected EventCommandListMap: "
+                   "entries: {} {}",
+                   (void *)MapEntry.first, MapEntry.first->Msg);
+          PrintedEntries++;
+          if (PrintedEntries > MaxPrintEntries)
+            break;
+        }
 
-    // if stop is true, and EventCommandListMap is stil  not empty, print out
-    // the map
-    if (Stop &&
-        static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size()) {
-      logError(
-          "CHIPStaleEventMonitorLevel0 stop was called but EventCommandListMap "
-          "is not empty");
-      for (auto &MapEntry :
-           static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap) {
-        logError("CHIPStaleEventMonitorLevel0 EventCommandListMap still has "
-                 "entries: {}",
-                 (void *)MapEntry.first);
+        PrintedEntries = 0;
+        for (auto &Event : Backend->Events) {
+          logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
+                   Event->Msg);
+          PrintedEntries++;
+          if (PrintedEntries > MaxPrintEntries)
+            break;
+        }
+        pthread_exit(0);
+      } else {
+        // print only once a second to avoid saturating stdout with logs
+        if (CurrTime - LastPrint_ >= 1) {
+          LastPrint_ = CurrTime;
+          logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
+                   "events have been cleared. Timeout of {} seconds has not "
+                   "been reached yet. Elapsed time: {} seconds",
+                   BackendZe->getCollectEventsTimeout(), EpasedTime);
+        }
       }
-      //   pthread_exit(0);
     }
 
   } // endless loop
@@ -1675,6 +1697,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
                                        std::string CHIPDeviceStr) {
   logTrace("CHIPBackendLevel0 Initialize");
   setUseImmCmdLists();
+  setCollectEventsTimeout();
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   ze_result_t Status;
   Status = zeInit(0);
