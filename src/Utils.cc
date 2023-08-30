@@ -27,6 +27,17 @@
 #include <fstream>
 #include <random>
 
+bool isConvertibleToInt(const std::string &str) {
+  try {
+    std::stoi(str);
+    return true;
+  } catch (const std::invalid_argument &) {
+    return false;
+  } catch (const std::out_of_range &) {
+    return false;
+  }
+}
+
 /// Read an environment variable and return its value as a string.
 std::string readEnvVar(std::string EnvVar, bool Lower) {
   logDebug("Reading {} from env", EnvVar);

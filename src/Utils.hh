@@ -32,6 +32,8 @@
 #include <string_view>
 #include <iomanip>
 
+bool isConvertibleToInt(const std::string &str);
+
 std::string readEnvVar(std::string EnvVar, bool Lower = true);
 void dumpSpirv(std::string_view Spirv);
 
