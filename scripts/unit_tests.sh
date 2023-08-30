@@ -189,8 +189,7 @@ echo "RESULTS:"
 for test_result in dgpu_opencl_make_check_result.txt \
                    cpu_opencl_make_check_result.txt \
                    dgpu_level0_reg_make_check_result.txt \
-                   dgpu_level0_imm_make_check_result.txt \
-                   cpu_pocl_make_check_result.txt
+                   dgpu_level0_imm_make_check_result.txt
 do
   echo -n "${test_result}: "
   check_tests "${test_result}"
