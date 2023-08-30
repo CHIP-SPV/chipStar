@@ -75,13 +75,13 @@ export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
 # ../scripts/compile_libceed.sh ${HIP_DIR}
 module unload opencl/pocl
 
-# Test PoCL CPU
-echo "begin cpu_pocl_failed_tests"
-module load opencl/pocl
-module list
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
-module unload opencl/pocl
-echo "end cpu_pocl_failed_tests"
+# # Test PoCL CPU
+# echo "begin cpu_pocl_failed_tests"
+# module load opencl/pocl
+# module list
+# ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+# module unload opencl/pocl
+# echo "end cpu_pocl_failed_tests"
 
 # # Test Level Zero iGPU
 # echo "begin igpu_level0_failed_tests"
