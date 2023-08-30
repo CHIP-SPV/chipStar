@@ -16,7 +16,6 @@
 #include "LLVMSPIRV.h"
 #include "../src/common.hh"
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSwitch.h"
