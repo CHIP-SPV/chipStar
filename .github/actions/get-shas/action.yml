@@ -1,0 +1,25 @@
+name: 'Get SHAs'
+description: 'Get SHAs of tips of branches we use.'
+inputs:
+  version:
+    description: 'LLVM version'
+    required: true
+outputs:
+  llvm-sha:
+    description: 'SHA of llvm-projetc to checkout'
+    value: ${{ steps.llvm-sha.outputs.sha }}
+  spirv-llvm-sha:
+    description: 'SHA of SIPRV LLVM Translator to checkout'
+    value: ${{ steps.spirv-llvm-sha.outputs.sha }}
+  cache-key:
+    description: 'Key to use when caching LLVM builds'
+    value: ${{ runner.os }}-build-cache-llvm-${{ inputs.version }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
+runs:
+  using: "composite"
+  steps:
+    - id: llvm-sha
+      run: echo "sha=$( curl -u \"u:${{github.token}}\" https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ inputs.version }} | jq .object.sha | tr -d '\"' )" >> $GITHUB_OUTPUT
+      shell: bash
+    - id: spirv-llvm-sha
+      run: echo "sha=$( curl -u \"u:${{github.token}}\" https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ inputs.version }} | jq .object.sha | tr -d '\"' )" >> $GITHUB_OUTPUT
+      shell: bash

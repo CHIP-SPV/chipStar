@@ -27,6 +27,7 @@ jobs:
     name: Build and cache spirv-tools
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         id: spirv-tools
         env:
@@ -68,6 +69,7 @@ jobs:
         version: [15, 16]
       fail-fast: false
     steps:
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         id: spirv-tools
         env:
@@ -76,30 +78,29 @@ jobs:
           path: ~/opt/SPIRV-Tools/v2023.2
           key: ${{ runner.os }}-build-${{ env.cache-name }}
           fail-on-cache-miss: true
-      - id: llvm-sha
-        run: echo ::set-output name=sha::$( curl -u "u:${{github.token}}" https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ matrix.version }} | jq .object.sha | tr -d '"' )
-      - id: spirv-llvm-sha
-        run: echo ::set-output name=sha::$( curl -u "u:${{github.token}}" https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ matrix.version }} | jq .object.sha | tr -d '"' )
+      - id: get-shas
+        uses: ./.github/actions/get-shas
+        with:
+          version: ${{ matrix.version }}
       - uses: actions/cache@v3
         id: llvm
         env:
           cache-name: cache-llvm-${{ matrix.version }}
         with:
           path: ~/opt/llvm/${{ matrix.version }}
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
-        if: steps.llvm.outputs.cache-hit != 'true'
+          key: ${{ steps.get-shas.outputs.cache-key }}
       - run: sudo apt update; sudo apt install -y gcc cmake
         if: steps.llvm.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
         with:
           repository: CHIP-SPV/llvm-project
-          ref: ${{ steps.llvm-sha.outputs.sha }}
+          ref: ${{ steps.get-shas.outputs.llvm-sha }}
           path: llvm-${{ matrix.version }}
         if: steps.llvm.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
         with:
           repository: CHIP-SPV/SPIRV-LLVM-Translator
-          ref: ${{ steps.spirv-llvm-sha.outputs.sha }}
+          ref: ${{ steps.get-shas.outputs.spirv-llvm-sha }}
           path: llvm-${{ matrix.version }}/llvm/projects/SPIRV-LLVM-Translator
         if: steps.llvm.outputs.cache-hit != 'true'
       - run: mkdir -p llvm-${{ matrix.version }}/build
@@ -126,6 +127,7 @@ jobs:
         version: [15, 16]
       fail-fast: false
     steps:
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         id: pocl
         env:
@@ -142,17 +144,17 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
-      - id: llvm-sha
-        run: echo ::set-output name=sha::$( curl -u "u:${{github.token}}" https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ matrix.version }} | jq .object.sha | tr -d '"' )
-      - id: spirv-llvm-sha
-        run: echo ::set-output name=sha::$( curl -u "u:${{github.token}}" https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ matrix.version }} | jq .object.sha | tr -d '"' )
+      - id: get-shas
+        uses: ./.github/actions/get-shas
+        with:
+          version: ${{ matrix.version }}
       - uses: actions/cache@v3
         id: llvm
         env:
           cache-name: cache-llvm-${{ matrix.version }}
         with:
           path: ~/opt/llvm/${{ matrix.version }}
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
+          key: ${{ steps.get-shas.outputs.cache-key }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
@@ -198,17 +200,17 @@ jobs:
           path: ~/opt/SPIRV-Tools/v2023.2
           key: ${{ runner.os }}-build-${{ env.cache-name }}
           fail-on-cache-miss: true
-      - id: llvm-sha
-        run: echo ::set-output name=sha::$( curl -u "u:${{github.token}}" https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipsStar-llvm-${{ matrix.version }} | jq .object.sha | tr -d '"' )
-      - id: spirv-llvm-sha
-        run: echo ::set-output name=sha::$( curl -u "u:${{github.token}}" https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ matrix.version }} | jq .object.sha | tr -d '"' )
+      - id: get-shas
+        uses: ./.github/actions/get-shas
+        with:
+          version: ${{ matrix.version }}
       - uses: actions/cache@v3
         id: llvm
         env:
           cache-name: cache-llvm-${{ matrix.version }}
         with:
           path: ~/opt/llvm/${{ matrix.version }}
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
+          key: ${{ steps.get-shas.outputs.cache-key }}
           fail-on-cache-miss: true
       - uses: actions/cache@v3
         id: pocl
