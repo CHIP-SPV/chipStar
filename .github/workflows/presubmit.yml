@@ -66,6 +66,7 @@ jobs:
     strategy:
       matrix:
         version: [15, 16]
+      fail-fast: false
     steps:
       - uses: actions/cache@v3
         id: spirv-tools
@@ -119,6 +120,7 @@ jobs:
     strategy:
       matrix:
         version: [15, 16]
+      fail-fast: false
     steps:
       - uses: actions/cache@v3
         id: pocl
