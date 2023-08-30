@@ -16,7 +16,7 @@ else
     exit 1
 fi
 
-module load HIP/hipBLAS mkl
+module load HIP/hipBLAS/main/debug-reg mkl
 rm -rf libCEED
 git clone https://github.com/CHIP-SPV/libCEED.git -b jed/chip-spv-pvelesko
 cd libCEED
