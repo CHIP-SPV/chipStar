@@ -813,7 +813,7 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     return ZeCmdList_;
   } else {
     ze_command_list_handle_t ZeCmdList;
@@ -882,7 +882,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     initializeCmdListImm();
   }
 }
@@ -903,7 +903,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     initializeCmdListImm();
   }
 }
@@ -1437,7 +1437,7 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     auto Event = getLastEvent();
     auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
     if (EventLZ) {
@@ -1455,7 +1455,7 @@ void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->useImmCmdLists()) {
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     executeCommandListImm(Event);
   } else {
     executeCommandListReg(CommandList);

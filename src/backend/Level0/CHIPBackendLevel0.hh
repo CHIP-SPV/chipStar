@@ -544,7 +544,7 @@ class CHIPBackendLevel0 : public chipstar::Backend {
   bool useImmCmdLists_ = false;
 
 public:
-  bool useImmCmdLists() { return useImmCmdLists_; }
+  bool getUseImmCmdLists() { return useImmCmdLists_; }
   void setUseImmCmdLists() {
     auto str = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
     // assert that str is either 0, 1, on, off or empty
