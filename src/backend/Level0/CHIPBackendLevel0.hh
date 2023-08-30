@@ -156,6 +156,11 @@ public:
 };
 
 class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
+  // variable for storing the how much time has passed since trying to exit
+  // the monitor loop
+  int TimeSinceStopRequested_ = 0;
+  int LastPrint_ = 0;
+
 public:
   ~CHIPStaleEventMonitorLevel0() {
     logTrace("CHIPStaleEventMonitorLevel0 DEST");
@@ -541,8 +546,35 @@ public:
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
+  bool useImmCmdLists_ = false;
+  int collectEventsTimeout_ = 30;
 
 public:
+  int getCollectEventsTimeout() { return collectEventsTimeout_; }
+  void setCollectEventsTimeout() {
+    auto str = readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
+    // assert that str can be converted to an int
+    if (str.empty())
+      str = "30";
+    assert(isConvertibleToInt(str) && "CHIP_L0_COLLECT_EVENTS_TIMEOUT "
+                                      "must be an integer or empty "
+                                      "(default: 30) measured in seconds");
+    collectEventsTimeout_ = std::stoi(str);
+    logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT = {}", collectEventsTimeout_);
+  }
+
+  bool getUseImmCmdLists() { return useImmCmdLists_; }
+  void setUseImmCmdLists() {
+    auto str = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
+    // assert that str is either 0, 1, on, off or empty
+    assert((str.empty() || str == "0" || str == "1" || str == "on" ||
+            str == "off") &&
+           "CHIP_L0_IMM_CMD_LISTS must be 0, 1, on, off or "
+           "empty (default: off)");
+    useImmCmdLists_ = (str == "1" || str == "on");
+    logDebug("CHIP_L0_IMM_CMD_LISTS = {}", useImmCmdLists_ ? "true" : "false");
+  }
+
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
