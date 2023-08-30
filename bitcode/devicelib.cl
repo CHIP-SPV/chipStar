@@ -994,20 +994,6 @@ EXPORT OVLD void __chip_syncwarp() {
   return sub_group_barrier(CLK_GLOBAL_MEM_FENCE);
 }
 
-typedef struct {
-  intptr_t image;
-  intptr_t sampler;
-} *hipTextureObject_t;
-
-EXPORT float __chip_tex2D_f32(hipTextureObject_t textureObject, float x,
-                              float y) {
-  return read_imagef(
-             __builtin_astype(textureObject->image, read_only image2d_t),
-             __builtin_astype(textureObject->sampler, sampler_t),
-             (float2)(x, y))
-      .x;
-}
-
 EXPORT float __chip_int_as_float(int x) { return as_float(x); }
 EXPORT int __chip_float_as_int(float x) { return as_int(x); }
 EXPORT float __chip_uint_as_float(uint x) { return as_float(x); }
