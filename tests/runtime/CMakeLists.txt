@@ -39,6 +39,7 @@ function(add_hip_runtime_test MAIN_SOURCE)
 
   set_tests_properties("${EXEC_NAME}" PROPERTIES
     SKIP_REGULAR_EXPRESSION "SKIP")
+
 endfunction()
 
 # add_shell_test(<script-file>)
@@ -48,6 +49,16 @@ function(add_shell_test SCRIPT)
   add_test(NAME ${TEST_NAME}
     COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
 endfunction()
+
+# TODO - this should check if immediate cmd lists are being used
+add_hip_runtime_test(TestRecordEventBlocking.cpp)
+# This test checks if zeEventQuery is a blocking operation
+set_tests_properties(TestRecordEventBlocking PROPERTIES
+  TIMEOUT 60)
+set_tests_properties(TestRecordEventBlocking PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL")
+set_tests_properties(TestRecordEventBlocking PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
