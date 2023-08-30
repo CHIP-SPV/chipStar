@@ -554,11 +554,11 @@ public:
   void setCollectEventsTimeout() {
     auto str = readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
     // assert that str can be converted to an int
-    if (str.empty()) str = "30";
-    assert(isConvertibleToInt(str) &&
-           "CHIP_L0_COLLECT_EVENTS_TIMEOUT "
-           "must be an integer or empty "
-           "(default: 30) measured in seconds");
+    if (str.empty())
+      str = "30";
+    assert(isConvertibleToInt(str) && "CHIP_L0_COLLECT_EVENTS_TIMEOUT "
+                                      "must be an integer or empty "
+                                      "(default: 30) measured in seconds");
     collectEventsTimeout_ = std::stoi(str);
     logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT = {}", collectEventsTimeout_);
   }
