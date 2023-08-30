@@ -31,6 +31,7 @@ set(prop "$<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>")
 set(CHIP_INCLUDES "$<$<BOOL:${prop}>:-I$<JOIN:${prop}, -I>>")
 
 # Generate cuspvc tool that is usable within build directory.
+# TODO: Deprecate cuspvc
 configure_file(cuspvc-build.in cuspvc-build.in @ONLY)
 file(
   GENERATE
@@ -38,6 +39,24 @@ file(
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-build.in)
 
 # Generate cuspv tool that will be installed.
+# TODO: Deprecate cuspvc
 configure_file(cuspvc-install.in cuspvc-install @ONLY)
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-install
   DESTINATION bin RENAME cuspvc)
+
+# Generate cucc tool that is usable within build directory.
+set(CUCC_HIP_PATH ${CMAKE_BINARY_DIR})
+configure_file(cucc.in cucc @ONLY)
+
+# This cucc variant is for the install destination.
+set(CUCC_HIP_PATH ${CMAKE_INSTALL_PREFIX})
+configure_file(cucc.in cucc-install @ONLY)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc-install
+  DESTINATION bin RENAME cucc)
+
+# Run static type check on cucc if there is a tool available for it.
+find_program(MYPY NAMES mypy)
+if(MYPY)
+  add_test(NAME cucc-static-type-check
+    COMMAND ${MYPY} ${CMAKE_CURRENT_SOURCE_DIR}/cucc.in)
+endif()

@@ -31,7 +31,16 @@
 #ifndef __CUDA_RUNTIME_H__
 #define __CUDA_RUNTIME_H__
 
+// Having __NVCC__ defined makes HIP headers to define
+// __HIP_PLATFORM_{NVCC/NVIDIA}__ which clash with other
+// __HIP_PLATFORM_*__ defines (mutual exclusivity). Hide __NVCC__
+// temporarily.
+#pragma push_macro("__NVCC__")
+#undef __NVCC__
+
 #include <hip/hip_runtime.h>
+
+#pragma pop_macro("__NVCC__")
 
 // for memset
 #include <cstring>
@@ -52,6 +61,11 @@
 // Pretend compute capability to be 2.0
 #ifndef __CUDA_ARCH__
 #define __CUDA_ARCH__ 200
+#endif
+
+#ifdef __HIP__
+// "Defined when compiling CUDA source files." [nvcc v12.2 2.1.]
+#define __CUDACC__
 #endif
 
 #ifndef __align__
@@ -149,6 +163,7 @@
 #define cudaErrorRuntimeMemory hipErrorRuntimeMemory
 #define cudaErrorRuntimeOther hipErrorRuntimeOther
 #define cudaErrorTbd hipErrorTbd
+#define cudaMemcpyDefault hipMemcpyDefault
 #define cudaMemcpyHostToDevice hipMemcpyHostToDevice
 #define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
 #define cudaMemcpyDeviceToDevice hipMemcpyDeviceToDevice
@@ -341,7 +356,6 @@ using cudaDeviceAttribute_t = hipDeviceAttribute_t;
 using cudaDevice_t = hipDevice_t;
 using cudaError_t = hipError_t;
 using cudaEvent_t = hipEvent_t;
-using cudaExtent = hipExtent;
 using cudaFuncAttributes = hipFuncAttributes;
 using cudaFuncCache = hipFuncCache_t;
 using cudaLimit = hipLimit_t;
@@ -536,6 +550,8 @@ using cudaChannelFormatKind = hipChannelFormatKind;
 #define cudaChannelFormatKindUnsigned hipChannelFormatKindUnsigned
 #define cudaChannelFormatKindFloat hipChannelFormatKindFloat
 #define cudaChannelFormatKindNone hipChannelFormatKindNone
+
+#define cudaExtent hipExtent
 
 //#################
 static inline cudaError_t cudaGetDeviceCount(int *Count) {
@@ -777,7 +793,7 @@ static inline cudaError_t cudaHostFree(void *Ptr) { return hipHostFree(Ptr); }
 static inline cudaError_t cudaFreeHost(void *Ptr) { return hipHostFree(Ptr); }
 static inline cudaError_t cudaMemPrefetchAsync(const void *Ptr, size_t Count,
                                                int DstDevId,
-                                               cudaStream_t Stream = 0) {
+                                               cudaStream_t Stream __dparm(0)) {
   return hipMemPrefetchAsync(Ptr, Count, DstDevId, Stream);
 }
 
@@ -833,7 +849,7 @@ static inline cudaError_t cudaMemPtrGetInfo(void *Ptr, size_t *Size) {
 }
 static inline cudaError_t cudaMemcpyAsync(void *Dst, const void *Src,
                                           size_t SizeBytes, cudaMemcpyKind Kind,
-                                          cudaStream_t Stream) {
+                                          cudaStream_t Stream __dparm(0)) {
   return hipMemcpyAsync(Dst, Src, SizeBytes, Kind, Stream);
 }
 static inline cudaError_t
@@ -864,7 +880,7 @@ static inline cudaError_t cudaMemcpyPeer(void *Dst, int DstDeviceId,
 static inline cudaError_t cudaMemcpyPeerAsync(void *Dst, int DstDeviceId,
                                               const void *Src, int SrcDevice,
                                               size_t SizeBytes,
-                                              cudaStream_t Stream) {
+                                              cudaStream_t Stream __dparm(0)) {
   return hipMemcpyPeerAsync(Dst, DstDeviceId, Src, SrcDevice, SizeBytes,
                             Stream);
 }
@@ -885,7 +901,7 @@ static inline cudaError_t cudaMemcpy2DAsync(void *Dst, size_t DPitch,
                                             const void *Src, size_t SPitch,
                                             size_t Width, size_t Height,
                                             cudaMemcpyKind Kind,
-                                            cudaStream_t Stream = 0) {
+                                            cudaStream_t Stream __dparm(0)) {
   return hipMemcpy2DAsync(Dst, DPitch, Src, SPitch, Width, Height, Kind,
                           Stream);
 }
@@ -901,7 +917,7 @@ static inline cudaError_t
 cudaMemcpy2DToArrayAsync(cudaArray *Dst, size_t WOffset, size_t HOffset,
                          const void *Src, size_t SPitch, size_t Width,
                          size_t Height, cudaMemcpyKind Kind,
-                         cudaStream_t Stream = 0) {
+                         cudaStream_t Stream __dparm(0)) {
   return hipMemcpy2DToArrayAsync(Dst, WOffset, HOffset, Src, SPitch, Width,
                                  Height, Kind, Stream);
 }
@@ -917,7 +933,7 @@ static inline cudaError_t
 cudaMemcpy2DFromArrayAsync(void *Dst, size_t DPitch, cudaArray_const_t Src,
                            size_t WOffset, size_t HOffset, size_t Width,
                            size_t Height, cudaMemcpyKind Kind,
-                           cudaStream_t Stream = 0) {
+                           cudaStream_t Stream __dparm(0)) {
   return hipMemcpy2DFromArrayAsync(Dst, DPitch, Src, WOffset, HOffset, Width,
                                    Height, Kind, Stream);
 }
@@ -925,8 +941,8 @@ cudaMemcpy2DFromArrayAsync(void *Dst, size_t DPitch, cudaArray_const_t Src,
 static inline cudaError_t cudaMemcpy3D(const cudaMemcpy3DParms *Params) {
   return hipMemcpy3D(Params);
 }
-static inline cudaError_t
-cudaMemcpy3DAsync(const cudaMemcpy3DParms *Params, cudaStream_t Stream) {
+static inline cudaError_t cudaMemcpy3DAsync(const cudaMemcpy3DParms *Params,
+                                            cudaStream_t Stream __dparm(0)) {
   return hipMemcpy3DAsync(Params, Stream);
 }
 
@@ -947,23 +963,26 @@ cudaMemcpyFromArray(void *Dst, cudaArray_const_t SrcArray, size_t WOffset,
 
 // Driver API
 static inline cudaError_t cuMemcpyDtoDAsync(CUdeviceptr Dst, CUdeviceptr Src,
-                               size_t SizeBytes, cudaStream_t Stream) {
+                                            size_t SizeBytes,
+                                            cudaStream_t Stream __dparm(0)) {
   return hipMemcpyDtoDAsync(Dst, Src, SizeBytes, Stream);
 }
 static inline cudaError_t cuMemcpyDtoD(CUdeviceptr Dst, CUdeviceptr Src,
                           size_t SizeBytes) {
   return hipMemcpyDtoD(Dst, Src, SizeBytes);
 }
-static inline cudaError_t cuMemcpyHtoDAsync(CUdeviceptr Dst, void *Src, size_t
-SizeBytes, cudaStream_t Stream) {
+static inline cudaError_t cuMemcpyHtoDAsync(CUdeviceptr Dst, void *Src,
+                                            size_t SizeBytes,
+                                            cudaStream_t Stream __dparm(0)) {
   return hipMemcpyHtoDAsync(Dst, Src, SizeBytes, Stream);
 }
 static inline cudaError_t cuMemcpyHtoD(CUdeviceptr Dst, void *Src, size_t
 SizeBytes) { return hipMemcpyHtoD(Dst, Src, SizeBytes);
 }
-static inline cudaError_t cuMemcpyDtoHAsync(void *Dst, CUdeviceptr Src, size_t
-SizeBytes, cudaStream_t Stream) { return hipMemcpyDtoHAsync(Dst, Src, SizeBytes,
-Stream);
+static inline cudaError_t cuMemcpyDtoHAsync(void *Dst, CUdeviceptr Src,
+                                            size_t SizeBytes,
+                                            cudaStream_t Stream __dparm(0)) {
+  return hipMemcpyDtoHAsync(Dst, Src, SizeBytes, Stream);
 }
 static inline cudaError_t cuMemcpyDtoH(void *Dst, CUdeviceptr Src, size_t
 SizeBytes) { return hipMemcpyDtoH(Dst, Src, SizeBytes);
@@ -990,7 +1009,7 @@ static inline cudaError_t cudaMemset2D(void *Dst, size_t Pitch, int Value,
 
 static inline cudaError_t cudaMemset2DAsync(void *Dst, size_t Pitch, int Value,
                                             size_t Width, size_t Height,
-                                            cudaStream_t Stream = 0) {
+                                            cudaStream_t Stream __dparm(0)) {
   return hipMemset2DAsync(Dst, Pitch, Value, Width, Height, Stream);
 }
 
@@ -1000,11 +1019,12 @@ static inline cudaError_t cudaMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
 }
 static inline cudaError_t cudaMemset3DAsync(hipPitchedPtr PitchedDevPtr,
                                             int Value, hipExtent Extent,
-                                            cudaStream_t Stream = 0) {
+                                            cudaStream_t Stream  __dparm(0)) {
   return hipMemset3DAsync(PitchedDevPtr, Value, Extent, Stream);
 }
-static inline cudaError_t
-cudaMemsetAsync(void *Dst, int Value, size_t SizeBytes, cudaStream_t Stream) {
+static inline cudaError_t cudaMemsetAsync(void *Dst, int Value,
+                                          size_t SizeBytes,
+                                          cudaStream_t Stream __dparm(0)) {
   return hipMemsetAsync(Dst, Value, SizeBytes, Stream);
 }
 
@@ -1057,7 +1077,7 @@ template <typename T>
 static inline cudaError_t
 cudaMemcpyToSymbolAsync(const T &Symbol, const void *Src, size_t SizeBytes,
                         size_t Offset, cudaMemcpyKind Kind,
-                        cudaStream_t Stream = 0) {
+                        cudaStream_t Stream __dparm(0)) {
   return hipMemcpyToSymbolAsync((const void *)(&Symbol), Src, SizeBytes, Offset,
                                 Kind, Stream);
 }
@@ -1073,7 +1093,7 @@ template <typename T>
 static inline cudaError_t
 cudaMemcpyFromSymbolAsync(void *Dst, const T &Symbol, size_t SizeBytes,
                           size_t Offset, cudaMemcpyKind Kind,
-                          cudaStream_t Stream = 0) {
+                          cudaStream_t Stream __dparm(0)) {
   return hipMemcpyFromSymbolAsync(Dst, (const void *)(&Symbol), SizeBytes,
                                   Offset, Kind, Stream);
 }
@@ -1597,4 +1617,10 @@ cudaDestroySurfaceObject(cudaSurfaceObject_t surfaceObject) {
 
 /* surface reference API (cudaBindSurfaceToArray) and surface reference type
  * (template) are not supported by HIP. */
+
+//###################
+
+static inline struct cudaExtent make_cudaExtent(size_t w, size_t h, size_t d) {
+  return make_hipExtent(w, h, d);
+}
 #endif
