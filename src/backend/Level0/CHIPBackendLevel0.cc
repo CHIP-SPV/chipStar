@@ -1560,15 +1560,14 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 };
 
 LZEventPool::~LZEventPool() {
-  assert(Backend->Events.size() == 0 &&
-         "CHIPEventLevel0 objects still exist at the time of EventPool "
-         "destruction");
-  assert(
-      static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size() ==
-          0 &&
-      "CHIPCommandListLevel0 objects still exist at the time of EventPool "
-      "destruction");
-  if (Backend->UserEvents.size() != 0)
+  if (Backend->Events.size())
+    logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
+            "destruction");
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size())
+    logWarn(
+        "CHIPCommandListLevel0 objects still exist at the time of EventPool "
+        "destruction");
+  if (Backend->UserEvents.size())
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
