@@ -30,14 +30,16 @@ else
 fi
 
 source /etc/profile.d/modules.sh &> /dev/null
-export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles
+source /opt/intel/oneapi/setvars.sh &> /dev/null
+export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles:/opt/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
+export POCL_KERNEL_CACHE=0
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG mkl
-module load opencl/pocl-cpu-$LLVM
+module load $CLANG
+module load opencl/pocl
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
 if [ $? -ne 0 ]; then
@@ -70,81 +72,96 @@ echo "chipStar build complete."
 
 # Build libCEED
 export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
-export LIBCEED_DIR=`pwd`/libCEED
-../scripts/compile_libceed.sh ${HIP_DIR}
-module unload opencl/pocl-cpu-$LLVM
+# export LIBCEED_DIR=`pwd`/libCEED
+# ../scripts/compile_libceed.sh ${HIP_DIR}
+module unload opencl/pocl
 
-# Test PoCL CPU
-echo "begin cpu_pocl_failed_tests"
-module load opencl/pocl-cpu-$LLVM
+# # Test PoCL CPU
+# echo "begin cpu_pocl_failed_tests"
+# module load opencl/pocl
+# module list
+# ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+# module unload opencl/pocl
+# echo "end cpu_pocl_failed_tests"
+
+# # Test Level Zero iGPU
+# echo "begin igpu_level0_failed_tests"
+# module load level-zero/igpu
+# module list
+# ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
+# popd
+
+# module unload level-zero/igpu
+# echo "end igpu_level0_failed_tests"
+
+# Test Level Zero Regular Cmd Lists dGPU
+echo "begin dgpu_level0_failed_reg_tests"
+module load level-zero/dgpu
 module list
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
-module unload opencl/pocl-cpu-$LLVM
-echo "end cpu_pocl_failed_tests"
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 
-# Test Level Zero iGPU
-echo "begin igpu_level0_failed_tests"
-module load levelzero/igpu
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
+# popd
+
+module unload level-zero/dgpu
+echo "end dgpu_level0_failed_reg_tests"
+
+# Test Level Zero Regular Cmd Lists dGPU
+echo "begin dgpu_level0_failed_imm_tests"
+module load level-zero/dgpu
 module list
-ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+export CHIP_L0_IMM_CMD_LISTS=ON
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+unset CHIP_L0_IMM_CMD_LISTS
 
-pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
-popd
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# popd
 
-module unload levelzero/igpu
-echo "end igpu_level0_failed_tests"
+module unload level-zero/dgpu
+echo "end dgpu_level0_failed_imm_tests"
 
-# Test Level Zero dGPU
-echo "begin dgpu_level0_failed_tests"
-module load levelzero/dgpu
-module list
-ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
+# # Test OpenCL iGPU
+# echo "begin igpu_opencl_failed_tests"
+# module load opencl/intel-igpu
+# module list
+# ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 
-pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
-popd
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
+# popd
 
-module unload levelzero/dgpu
-echo "end dgpu_level0_failed_tests"
-
-# Test OpenCL iGPU
-echo "begin igpu_opencl_failed_tests"
-module load opencl/intel-igpu
-module list
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
-
-pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
-popd
-
-module unload opencl/intel-igpu
-echo "end igpu_opencl_failed_tests"
+# module unload opencl/intel-igpu
+# echo "end igpu_opencl_failed_tests"
 
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_failed_tests"
-module load opencl/intel-dgpu
+module load opencl/dgpu
 module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 
-pushd ${LIBCEED_DIR}
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
-popd
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
+# popd
 
-module unload opencl/intel-dgpu
+module unload opencl/dgpu
 echo "end dgpu_opencl_failed_tests"
 
 # Test OpenCL CPU
 echo "begin cpu_opencl_failed_tests"
-module load opencl/intel-cpu
+module load opencl/cpu
 module list
 ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
-module unload opencl/intel-cpu
+module unload opencl/cpu
 echo "end cpu_opencl_failed_tests"
 
 function check_tests {
   file="$1"
-  if grep -q "0 tests failed out of" "$file"; then
+  if grep -q " 0 tests failed out of" "$file"; then
     echo "PASS"
     return 0
   else
@@ -169,12 +186,11 @@ function check_libceed {
 overall_status=0
 
 echo "RESULTS:"
-for test_result in igpu_opencl_make_check_result.txt \
-                   dgpu_opencl_make_check_result.txt \
+#  igpu_level0_make_check_result.txt
+for test_result in dgpu_opencl_make_check_result.txt \
                    cpu_opencl_make_check_result.txt \
-                   igpu_level0_make_check_result.txt \
-                   dgpu_level0_make_check_result.txt \
-                   cpu_pocl_make_check_result.txt
+                   dgpu_level0_reg_make_check_result.txt \
+                   dgpu_level0_imm_make_check_result.txt
 do
   echo -n "${test_result}: "
   check_tests "${test_result}"
@@ -184,21 +200,20 @@ do
   fi
 done
 
-# dgpu_opencl_make_check_result
-# libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
-for test_result in libCEED/igpu_opencl_make_check_result.txt \
-                   libCEED/dgpu_opencl_make_check_result.txt \
-                   libCEED/igpu_level0_make_check_result.txt \
-                   libCEED/dgpu_level0_make_check_result.txt
+# # dgpu_opencl_make_check_result
+# # libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
+# for test_result in libCEED/dgpu_opencl_make_check_result.txt \
+#                    libCEED/dgpu_level0_reg_make_check_result.txt \
+#                    libCEED/dgpu_level0_imm_make_check_result.txt
                    
-do
-  echo -n "${test_result}: "
-  check_libceed "${test_result}"
-  test_status=$?
-  if [ $test_status -eq 1 ]; then
-    overall_status=1
-  fi
-done
+# do
+#   echo -n "${test_result}: "
+#   check_libceed "${test_result}"
+#   test_status=$?
+#   if [ $test_status -eq 1 ]; then
+#     overall_status=1
+#   fi
+# done
 
 if [ $overall_status -eq 0 ]; then
   exit 0

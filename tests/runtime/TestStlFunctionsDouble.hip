@@ -80,6 +80,12 @@ int main() {
       [] __device__(auto x, auto y) { return std::nextafter(x, y); });
   launchBinaryFn<double>(
       [] __device__(auto x, auto y) { return std::pow(x, y); }, 2.0, 3.0);
+  launchBinaryFn<double>(
+      [] __device__(int x, float y) { return std::pow(x, y); }, 2, 3.0f);
+  launchBinaryFn<double>(
+      [] __device__(double x, int y) { return std::pow(x, y); }, 2.0, 3);
+  launchBinaryFn<double>(
+      [] __device__(int x, short y) { return std::pow(x, y); }, 2, 3);
 
   launchUnaryFn<char>([] __device__(auto x) { return std::abs(x); });
   launchUnaryFn<short>([] __device__(auto x) { return std::abs(x); });

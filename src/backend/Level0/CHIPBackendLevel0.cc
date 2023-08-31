@@ -25,8 +25,9 @@
 
 /**
  *  CHIPQueueLevel0::getCmdList() will return an immediate command list handle
- * if L0_IMM_QUEUES is used. There is only one such handle for a queue and a
- * queue can be shared between multiple threads thus this lock is necessary.
+ * if level zero immediate command lists is used. There is only one such handle
+ * for a queue and a queue can be shared between multiple threads thus this lock
+ * is necessary.
  *
  * If immediate command lists are not used, getCmdList will create a new
  * handle which is a thread safe operation
@@ -641,6 +642,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     usleep(20000);
     std::vector<chipstar::Event *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
+    auto BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
 
     LOCK(Backend->EventsMtx); // Backend::Events
     LOCK(EventMonitorMtx);    // chipstar::EventMonitor::Stop
@@ -660,8 +662,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
         ChipEvent->releaseDependencies();
         Backend->Events.erase(Backend->Events.begin() + EventIdx);
-        static_cast<CHIPBackendLevel0 *>(Backend)->destroyAssocCmdList(
-            ChipEvent.get());
+        BackendZe->destroyAssocCmdList(ChipEvent.get());
         ChipEvent->doActions();
       }
 
@@ -683,35 +684,57 @@ void CHIPStaleEventMonitorLevel0::monitor() {
      * Backend::waitForThreadExit() but Backend has no knowledge of
      * EventCommandListMap
      */
-    // TODO libCEED - re-enable this check
-    if (Stop && !static_cast<CHIPBackendLevel0 *>(Backend)
-                     ->EventCommandListMap.size()) {
-      if (Backend->Events.size() > 0) {
+    if (Stop) {
+      // get current host time in seconds
+      int CurrTime = std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+
+      // if this is the first time we are stopping, set the time
+      if (TimeSinceStopRequested_ == 0)
+        TimeSinceStopRequested_ = CurrTime;
+
+      int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
+      bool AllEventsCleared = BackendZe->EventCommandListMap.size() == 0 &&
+                              Backend->Events.size() == 0;
+      if (AllEventsCleared) {
+        pthread_exit(0);
+      } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
         logError(
             "CHIPStaleEventMonitorLevel0 stop was called but not all events "
-            "have been cleared");
-      } else {
-        logTrace(
-            "CHIPStaleEventMonitorLevel0 stop was called and all events have "
-            "been cleared");
-      }
-      pthread_exit(0);
-    }
+            "have been cleared. Timeout of {} seconds has been reached.",
+            BackendZe->getCollectEventsTimeout());
+        int MaxPrintEntries = 10;
+        int PrintedEntries = 0;
+        for (auto &MapEntry :
+             static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap) {
+          logError("Uncollected EventCommandListMap: "
+                   "entries: {} {}",
+                   (void *)MapEntry.first, MapEntry.first->Msg);
+          PrintedEntries++;
+          if (PrintedEntries > MaxPrintEntries)
+            break;
+        }
 
-    // if stop is true, and EventCommandListMap is stil  not empty, print out
-    // the map
-    if (Stop &&
-        static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size()) {
-      logError(
-          "CHIPStaleEventMonitorLevel0 stop was called but EventCommandListMap "
-          "is not empty");
-      for (auto &MapEntry :
-           static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap) {
-        logError("CHIPStaleEventMonitorLevel0 EventCommandListMap still has "
-                 "entries: {}",
-                 (void *)MapEntry.first);
+        PrintedEntries = 0;
+        for (auto &Event : Backend->Events) {
+          logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
+                   Event->Msg);
+          PrintedEntries++;
+          if (PrintedEntries > MaxPrintEntries)
+            break;
+        }
+        pthread_exit(0);
+      } else {
+        // print only once a second to avoid saturating stdout with logs
+        if (CurrTime - LastPrint_ >= 1) {
+          LastPrint_ = CurrTime;
+          logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
+                   "events have been cleared. Timeout of {} seconds has not "
+                   "been reached yet. Elapsed time: {} seconds",
+                   BackendZe->getCollectEventsTimeout(), EpasedTime);
+        }
       }
-      //   pthread_exit(0);
     }
 
   } // endless loop
@@ -812,19 +835,19 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
-#ifdef L0_IMM_QUEUES
-  return ZeCmdList_;
-#else
-  ze_command_list_handle_t ZeCmdList;
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+    return ZeCmdList_;
+  } else {
+    ze_command_list_handle_t ZeCmdList;
 #ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
+    LOCK(Backend->DubiousLockLevel0)
 #endif
-  auto Status =
-      zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
-  return ZeCmdList;
-#endif
+    auto Status =
+        zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorInitializationError);
+    return ZeCmdList;
+  }
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
@@ -881,9 +904,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-#ifdef L0_IMM_QUEUES
-  initializeCmdListImm();
-#endif
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+    initializeCmdListImm();
+  }
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
@@ -902,9 +925,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-#ifdef L0_IMM_QUEUES
-  initializeCmdListImm();
-#endif
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+    initializeCmdListImm();
+  }
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1436,16 +1459,16 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
 
-#ifdef L0_IMM_QUEUES
-  auto Event = getLastEvent();
-  auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
-  if (EventLZ) {
-    auto EventHandle = EventLZ->peek();
-    zeEventHostSynchronize(EventHandle, UINT64_MAX);
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+    auto Event = getLastEvent();
+    auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
+    if (EventLZ) {
+      auto EventHandle = EventLZ->peek();
+      zeEventHostSynchronize(EventHandle, UINT64_MAX);
+    }
+  } else {
+    zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
   }
-#else
-  zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
-#endif
 
   return;
 }
@@ -1453,11 +1476,12 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
-#ifdef L0_IMM_QUEUES
-  executeCommandListImm(Event);
-#else
-  executeCommandListReg(CommandList);
-#endif
+
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+    executeCommandListImm(Event);
+  } else {
+    executeCommandListReg(CommandList);
+  }
 };
 
 void CHIPQueueLevel0::executeCommandListReg(
@@ -1536,15 +1560,14 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 };
 
 LZEventPool::~LZEventPool() {
-  assert(Backend->Events.size() == 0 &&
-         "CHIPEventLevel0 objects still exist at the time of EventPool "
-         "destruction");
-  assert(
-      static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size() ==
-          0 &&
-      "CHIPCommandListLevel0 objects still exist at the time of EventPool "
-      "destruction");
-  if (Backend->UserEvents.size() != 0)
+  if (Backend->Events.size())
+    logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
+            "destruction");
+  if (static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size())
+    logWarn(
+        "CHIPCommandListLevel0 objects still exist at the time of EventPool "
+        "destruction");
+  if (Backend->UserEvents.size())
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
@@ -1672,6 +1695,8 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
                                        std::string CHIPDeviceTypeStr,
                                        std::string CHIPDeviceStr) {
   logTrace("CHIPBackendLevel0 Initialize");
+  setUseImmCmdLists();
+  setCollectEventsTimeout();
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   ze_result_t Status;
   Status = zeInit(0);

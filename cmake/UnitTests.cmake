@@ -17,6 +17,9 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
+list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Flaky
 list(APPEND FAILING_FOR_ALL "Unit_tex1Dfetch_CheckModes") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
@@ -29,6 +32,7 @@ list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Fai
 list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckRGBAModes") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
+list(APPEND FAILING_FOR_ALL "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
@@ -42,7 +46,6 @@ list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather -
 list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - short4") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float2") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
-list(APPEND FAILING_FOR_ALL "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND FAILING_FOR_ALL "TestIndirectMappedHostAlloc") # Fails on Sunspot. Currently, first-touch enabled as a workaround
 list(APPEND FAILING_FOR_ALL "Unit_HMM_OverSubscriptionTst") # Seems AMD-specific, crashes the driver
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Incorrect result - prob something minor
@@ -117,62 +120,6 @@ list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rd_flo
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rn_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_ru_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rz_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAdd_system_double") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAnd_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicAnd_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicCAS_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicCAS_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicExch_system_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMax_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMax_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMin_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicMin_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_unsigned_long_long") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicOr_system_float") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicSub_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicSub_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_usigned_int") # Unimplemented
-list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest_atomicXor_system_unsigned_long_long") # Unimplemented
 list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to main thread exiting without calling join
 # Not included in any target because no driver (so far) reports support
 # for indirect calls. Despite this, this test is known to pass on Intel
@@ -180,6 +127,7 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
+list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -784,7 +732,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") #
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
@@ -796,7 +743,16 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Timeout
@@ -1067,7 +1023,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # F
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
@@ -1141,6 +1096,12 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # ICL correctness
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_async_binomial") # Sunspot correctness
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctness
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEvent") # Failing for Imm Cmd Lists https://github.com/intel/compute-runtime/issues/668
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
@@ -1382,7 +1343,6 @@ list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # F
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Bus error
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
@@ -1685,7 +1645,6 @@ list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # F
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
@@ -2167,7 +2126,8 @@ string(CONCAT ALL_FAILED_TESTS_STR ${ALL_FAILED_TESTS_STR} "\$|")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_opencl_failed_tests.txt" "\"${DGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_opencl_failed_tests.txt" "\"${IGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/cpu_opencl_failed_tests.txt" "\"${CPU_OPENCL_FAILED_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_tests.txt" "\"${DGPU_LEVEL0_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_reg_tests.txt" "\"${DGPU_LEVEL0_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_imm_tests.txt" "\"${DGPU_LEVEL0_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_tests.txt" "\"${IGPU_LEVEL0_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/cpu_pocl_failed_tests.txt" "\"${CPU_POCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")

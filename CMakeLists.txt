@@ -215,6 +215,8 @@ option(CHIP_USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functio
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "enable support for cl_intel_unified_shared_memory in the OpenCL backend" OFF)
+option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
+
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
 # to be portable across multiple devices. It should be more portable to
@@ -250,6 +252,10 @@ endif()
 
 if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
   list(APPEND CHIP_SPV_DEFINITIONS CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+endif()
+
+if(CHIP_EXT_FLOAT_ATOMICS)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_EXT_FLOAT_ATOMICS)
 endif()
 
 if(CHIP_FAST_MATH)

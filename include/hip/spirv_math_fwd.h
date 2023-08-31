@@ -74,7 +74,6 @@ extern "C"
     __device__ __attribute__((pure)) _Float16 __ocml_log10_f16(_Float16);
     __device__ __attribute__((pure)) _Float16 __ocml_log2_f16(_Float16);
     __device__ __attribute__((pure)) _Float16 __ocml_pown_f16(_Float16, int);
-    __device__ __attribute__((const)) _Float16 __llvm_amdgcn_rcp_f16(_Float16);
     __device__ __attribute__((const)) _Float16 __ocml_rint_f16(_Float16);
     __device__ __attribute__((const)) _Float16 __ocml_rsqrt_f16(_Float16);
     __device__ _Float16 __ocml_sin_f16(_Float16);
@@ -209,10 +208,6 @@ __device__ __attribute__((const)) double __ocml_fma_rtp_f64(double, double,
 __device__ __attribute__((const)) double __ocml_fma_rtz_f64(double, double,
                                                             double);
 
-__device__ __attribute__((const)) double __llvm_amdgcn_rcp_f64(double) __asm(
-    "llvm.amdgcn.rcp.f64");
-__device__ __attribute__((const)) double __llvm_amdgcn_rsq_f64(double) __asm(
-    "llvm.amdgcn.rsq.f64");
 // END INTRINSICS
 // END DOUBLE
 
@@ -230,10 +225,6 @@ __device__ __attribute__((const)) double __llvm_amdgcn_rsq_f64(double) __asm(
     __device__ __attribute__((pure)) __2f16 __ocml_log10_2f16(__2f16);
     __device__ __attribute__((pure)) __2f16 __ocml_log2_2f16(__2f16);
     __device__ inline
-    __2f16 __llvm_amdgcn_rcp_2f16(__2f16 x) // Not currently exposed by ROCDL.
-    {
-        return __2f16{__llvm_amdgcn_rcp_f16(x.x), __llvm_amdgcn_rcp_f16(x.y)};
-    }
     __device__ __attribute__((const)) __2f16 __ocml_rint_2f16(__2f16);
     __device__ __attribute__((const)) __2f16 __ocml_rsqrt_2f16(__2f16);
     __device__ __2f16 __ocml_sin_2f16(__2f16);
