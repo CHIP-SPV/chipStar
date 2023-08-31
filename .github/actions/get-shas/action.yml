@@ -11,15 +11,33 @@ outputs:
   spirv-llvm-sha:
     description: 'SHA of SIPRV LLVM Translator to checkout'
     value: ${{ steps.spirv-llvm-sha.outputs.sha }}
-  cache-key:
+  pocl-sha:
+    description: 'SHA of pocl to checkout'
+    value: ${{ steps.pocl-sha.outputs.sha }}
+  llvm-cache-key:
     description: 'Key to use when caching LLVM builds'
     value: ${{ runner.os }}-build-cache-llvm-${{ inputs.version }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
+  pocl-cache-key:
+    description: 'Key to use when caching pocl builds'
+    value: ${{ runner.os }}-build-cache-pocl-llvm-${{ inputs.version }}-${{steps.pocl-sha.outputs.sha}}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
 runs:
   using: "composite"
   steps:
     - id: llvm-sha
-      run: echo "sha=$( curl -u \"u:${{github.token}}\" https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ inputs.version }} | jq .object.sha | tr -d '\"' )" >> $GITHUB_OUTPUT
+      run: scripts/get_sha.sh >> $GITHUB_OUTPUT
+      env:
+        URL: https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ inputs.version }}
+        TOKEN: u:${{github.token}}
       shell: bash
     - id: spirv-llvm-sha
-      run: echo "sha=$( curl -u \"u:${{github.token}}\" https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ inputs.version }} | jq .object.sha | tr -d '\"' )" >> $GITHUB_OUTPUT
+      run: scripts/get_sha.sh >> $GITHUB_OUTPUT
+      env:
+        URL: https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ inputs.version }}
+        TOKEN: u:${{github.token}}
+      shell: bash
+    - id: pocl-sha
+      run: scripts/get_sha.sh >> $GITHUB_OUTPUT
+      env:
+        URL: https://api.github.com/repos/pocl/pocl/git/refs/tags/v4.0
+        TOKEN: u:${{ github.token }}
       shell: bash
