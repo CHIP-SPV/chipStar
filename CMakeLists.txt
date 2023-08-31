@@ -397,6 +397,10 @@ target_include_directories(CHIP
   "${CMAKE_SOURCE_DIR}/include"
 )
 
+# For cucc tool which uses HIP_PATH for locating headers.
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
+file(CREATE_LINK "${CMAKE_SOURCE_DIR}/include/cuspv"
+  ${CMAKE_BINARY_DIR}/include/cuspv SYMBOLIC)
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
