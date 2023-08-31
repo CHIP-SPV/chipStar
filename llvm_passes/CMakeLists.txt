@@ -86,8 +86,12 @@ else()
 
 endif()
 
-
 add_library(LLVMHipDynMem MODULE HipDynMem.cpp ${EXTRA_OBJS})
+
+if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 17.0)
+  list(APPEND EXTRA_OBJS SPIRVImageType.cc)
+endif()
+
 add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
 add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 add_library(LLVMHipPasses MODULE HipPasses.cpp

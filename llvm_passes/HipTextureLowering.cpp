@@ -27,6 +27,10 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#if LLVM_VERSION_MAJOR >= 17
+#include "SPIRVImageType.hh"
+#endif
+
 #define PASS_ID "hip-tex-lowering"
 #define DEBUG_TYPE PASS_ID
 
@@ -280,6 +284,7 @@ static TextureUseGroupList analyzeTextureObjectUses(Function &F) {
   return Result;
 }
 
+#if LLVM_VERSION_MAJOR < 17
 // Create a pointer type to to named opaque struct.
 static Type *getPointerTypeToOpaqueStruct(LLVMContext &C, StringRef Name,
                                           unsigned AddrSpace = 0) {
@@ -288,10 +293,17 @@ static Type *getPointerTypeToOpaqueStruct(LLVMContext &C, StringRef Name,
     Ty = StructType::create(C, Name);
   return Ty->getPointerTo(AddrSpace);
 }
+#endif
 
 static Type *getSamplerType(LLVMContext &C) {
+#if LLVM_VERSION_MAJOR < 17
   return getPointerTypeToOpaqueStruct(C, "opencl.sampler_t", OCL_SAMPLER_AS);
+#else
+  return TargetExtType::get(C, "spirv.Sampler");
+#endif
 }
+
+
 
 static Type *getImageType(LLVMContext &C, TexTypeSet TexTySet) {
   switch (TexTySet) {
@@ -300,9 +312,22 @@ static Type *getImageType(LLVMContext &C, TexTypeSet TexTySet) {
     llvm_unreachable("Expected single image type.");
     return nullptr;
   case TexType::Basic1D:
+  {
+#if LLVM_VERSION_MAJOR < 17
     return getPointerTypeToOpaqueStruct(C, "opencl.image1d_ro_t", OCL_IMAGE_AS);
+#else
+    return getSPIRVImageType(C, "spirv.Image", "image1d", AQ_ro);
+#endif
+  }
   case TexType::Basic2D:
+  {
+#if LLVM_VERSION_MAJOR < 17
     return getPointerTypeToOpaqueStruct(C, "opencl.image2d_ro_t", OCL_IMAGE_AS);
+#else
+    return getSPIRVImageType(C, "spirv.Image", "image2d", AQ_ro);
+#endif
+  }
+
   }
 }
 
