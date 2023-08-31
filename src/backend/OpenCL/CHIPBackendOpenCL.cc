@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 chipStar developers
+ * Copyright (c) 2021-23 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -493,6 +493,23 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.kernelExecTimeoutEnabled = 0;
   HipDeviceProps_.ECCEnabled = 0;
   HipDeviceProps_.asicRevision = 1;
+
+  cl_device_svm_capabilities SVMCapabilities =
+      ClDevice->getInfo<CL_DEVICE_SVM_CAPABILITIES>();
+
+  const bool SupportsFineGrainSVM =
+    (SVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER) != 0;
+  const bool SupportsSVMAtomics =
+    (SVMCapabilities & CL_DEVICE_SVM_ATOMICS) != 0;
+  // System atomics are required for CC >= 6.0. We need fine grain
+  // SVM + SVM atomics for them to function, thus cap with that feature
+  // set.
+  // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
+  if (HipDeviceProps_.major > 5 &&
+      (!SupportsFineGrainSVM || !SupportsSVMAtomics)) {
+    HipDeviceProps_.major = 5;
+    HipDeviceProps_.minor = 0;
+  }
 
   // OpenCL 3.0 devices support basic CUDA managed memory via coarse-grain SVM,
   // but some of the functions such as prefetch and advice are unimplemented
@@ -1227,7 +1244,6 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
-  cl_event Ev = nullptr;
   int Retval = ::clEnqueueSVMMemFill(
       ClQueue_->get(), Dst, Pattern, PatternSize, Size, 0, nullptr,
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
@@ -1302,8 +1318,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(
           this->ChipContext_);
   cl_int RefCount;
-  int Status;
-  Status = clGetEventInfo(
+  clGetEventInfo(
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
   if (EventsToWaitFor.size() > 0) {
@@ -1325,7 +1340,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
 
-  Status = clGetEventInfo(
+  clGetEventInfo(
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
   updateLastEvent(Event);
@@ -1485,7 +1500,7 @@ chipstar::EventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
 }
 
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {
-  return std::string("-x spir -cl-kernel-arg-info");
+  return std::string("-x spir -cl-kernel-arg-info -cl-std=CL3.0");
 }
 
 void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,

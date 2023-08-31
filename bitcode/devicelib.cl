@@ -23,7 +23,7 @@
 #include "ROCm-Device-Libs/ocml/inc/ocml.h"
 #define NON_OVLD
 #define OVLD __attribute__((overloadable))
-//#define AI __attribute__((always_inline))
+// #define AI __attribute__((always_inline))
 #define EXPORT NON_OVLD
 
 #define DEFAULT_AS __generic
@@ -39,36 +39,46 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 
-EXPORT unsigned /* long */ long int __chip_umul64hi(unsigned /* long */ long int x, unsigned /* long */ long int y) {
-    unsigned /* long */ long int mul = (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
-    return (unsigned /* long */ long int)(mul >> 64);
+#ifndef __opencl_c_generic_address_space
+#error __opencl_c_generic_address_space needed!
+#endif
+
+EXPORT unsigned /* long */ long int
+__chip_umul64hi(unsigned /* long */ long int x,
+                unsigned /* long */ long int y) {
+  unsigned /* long */ long int mul =
+      (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
+  return (unsigned /* long */ long int)(mul >> 64);
 }
 
-EXPORT /* long */ long int __chip_mul64hi(/* long */ long int x, /* long */ long int y) {
-    unsigned /* long */ long int mul = (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
-    return (/* long */ long int)(mul >> 64);
+EXPORT /* long */ long int __chip_mul64hi(/* long */ long int x,
+                                          /* long */ long int y) {
+  unsigned /* long */ long int mul =
+      (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
+  return (/* long */ long int)(mul >> 64);
 }
 
 EXPORT unsigned int __chip_sad(int x, int y, unsigned int z) {
-    unsigned int result = 0;
-    for (int i = 0; i < sizeof(int) * 8; i++) {
-        int x_bit = (x >> i) & 1;
-        int y_bit = (y >> i) & 1;
-        unsigned int diff = abs(x_bit - y_bit);
-        result += (diff << i);
-    }
-    return result + z;
+  unsigned int result = 0;
+  for (int i = 0; i < sizeof(int) * 8; i++) {
+    int x_bit = (x >> i) & 1;
+    int y_bit = (y >> i) & 1;
+    unsigned int diff = abs(x_bit - y_bit);
+    result += (diff << i);
+  }
+  return result + z;
 }
 
-EXPORT unsigned int __chip_usad(unsigned int x, unsigned int y, unsigned int z) {
-    unsigned int result = 0;
-    for (int i = 0; i < sizeof(unsigned int) * 8; i++) {
-        unsigned int x_bit = (x >> i) & 1;
-        unsigned int y_bit = (y >> i) & 1;
-        unsigned int diff = abs((int)x_bit - (int)y_bit);
-        result += (diff << i);
-    }
-    return result + z;
+EXPORT unsigned int __chip_usad(unsigned int x, unsigned int y,
+                                unsigned int z) {
+  unsigned int result = 0;
+  for (int i = 0; i < sizeof(unsigned int) * 8; i++) {
+    unsigned int x_bit = (x >> i) & 1;
+    unsigned int y_bit = (y >> i) & 1;
+    unsigned int diff = abs((int)x_bit - (int)y_bit);
+    result += (diff << i);
+  }
+  return result + z;
 }
 
 // optimization tries to use llvm intrinsics here, but we don't want that
@@ -86,7 +96,8 @@ EXPORT NOOPT unsigned int __chip_brev(unsigned int a) {
   return a;
 }
 
-EXPORT NOOPT unsigned /* long */ long int __chip_brevll(unsigned /* long */ long int a) {
+EXPORT NOOPT unsigned /* long */ long int
+__chip_brevll(unsigned /* long */ long int a) {
   unsigned /* long */ long int m;
   a = (a >> 32) | (a << 32); // swap words
   m = 0x0000FFFF0000FFFFUL;
@@ -117,7 +128,7 @@ struct uchar2Holder {
 };
 
 EXPORT unsigned int __chip_byte_perm(unsigned int x, unsigned int y,
-                                unsigned int s) {
+                                     unsigned int s) {
   struct uchar2Holder cHoldVal;
   struct ucharHolder cHoldKey;
   struct ucharHolder cHoldOut;
@@ -136,15 +147,15 @@ EXPORT unsigned int __chip_ffs(unsigned int input) {
 }
 
 EXPORT int __chip_ctzll(/* long */ long int x) {
-    if (x == 0) {
-        return sizeof(/* long */ long int) * 8;
-    }
-    int count = 0;
-    while ((x & 1LL) == 0) {
-        x >>= 1;
-        count++;
-    }
-    return count;
+  if (x == 0) {
+    return sizeof(/* long */ long int) * 8;
+  }
+  int count = 0;
+  while ((x & 1LL) == 0) {
+    x >>= 1;
+    count++;
+  }
+  return count;
 }
 
 EXPORT unsigned int __chip_ffsll(/* long */ long int input) {
@@ -162,8 +173,9 @@ EXPORT unsigned int __bitextract_u32(unsigned int src0, unsigned int src1,
   return width == 0 ? 0 : (src0 << (32 - offset - width)) >> (32 - width);
 }
 
-EXPORT unsigned /* long */ long __bitextract_u64(unsigned /* long */ long src0, unsigned int src1,
-                                 unsigned int src2) {
+EXPORT unsigned /* long */ long __bitextract_u64(unsigned /* long */ long src0,
+                                                 unsigned int src1,
+                                                 unsigned int src2) {
   unsigned /* long */ long offset = src1 & 63;
   unsigned /* long */ long width = src2 & 63;
   return width == 0 ? 0 : (src0 << (64 - offset - width)) >> (64 - width);
@@ -279,7 +291,6 @@ EXPORT double __chip_yn_f64(int n, double x) {
   return x1;
 }
 
-
 EXPORT /* long */ long int __chip_llrint_f32(float x) {
   return (/* long */ long int)(rint(x));
 }
@@ -294,27 +305,30 @@ EXPORT /* long */ long int __chip_llround_f64(double x) {
   return (/* long */ long int)(round(x));
 }
 
-EXPORT long int __chip_lrint_f32(float x) {
-  return (long int)(rint(x));
-}
-EXPORT long int __chip_lrint_f64(double x) {
-  return (long int)(rint(x));
-}
+EXPORT long int __chip_lrint_f32(float x) { return (long int)(rint(x)); }
+EXPORT long int __chip_lrint_f64(double x) { return (long int)(rint(x)); }
 
-EXPORT long int __chip_lround_f32(float x) {
-  return (long int)(round(x));
-}
-EXPORT long int __chip_lround_f64(double x) {
-  return (long int)(round(x));
-}
-
+EXPORT long int __chip_lround_f32(float x) { return (long int)(round(x)); }
+EXPORT long int __chip_lround_f64(double x) { return (long int)(round(x)); }
 
 OVLD float length(float4 f);
 OVLD double length(double4 f);
-EXPORT float  __chip_norm4d_f32(float x, float y, float z, float w) { float4 temp = (float4)(x, y, z, w); return length(temp); }
-EXPORT double __chip_norm4d_f64(double x, double y, double z, double w) { double4 temp = (double4)(x, y, z, w); return length(temp); }
-EXPORT float  __chip_norm3d_f32(float x, float y, float z) { float4 temp = (float4)(x, y, z, 0.0f); return length(temp); }
-EXPORT double __chip_norm3d_f64(double x, double y, double z) { double4 temp = (double4)(x, y, z, 0.0); return length(temp); }
+EXPORT float __chip_norm4d_f32(float x, float y, float z, float w) {
+  float4 temp = (float4)(x, y, z, w);
+  return length(temp);
+}
+EXPORT double __chip_norm4d_f64(double x, double y, double z, double w) {
+  double4 temp = (double4)(x, y, z, w);
+  return length(temp);
+}
+EXPORT float __chip_norm3d_f32(float x, float y, float z) {
+  float4 temp = (float4)(x, y, z, 0.0f);
+  return length(temp);
+}
+EXPORT double __chip_norm3d_f64(double x, double y, double z) {
+  double4 temp = (double4)(x, y, z, 0.0);
+  return length(temp);
+}
 
 EXPORT float __chip_norm_f32(int dim, const float *a) {
   float r = 0;
@@ -324,19 +338,9 @@ EXPORT float __chip_norm_f32(int dim, const float *a) {
   }
 
   return sqrt(r);
-  }
+}
 
-  EXPORT double __chip_norm_f64(int dim, const double *a) {
-  float r = 0;
-  while (dim--) {
-    r += a[0] * a[0];
-    ++a;
-  }
-
-  return sqrt(r);
-  }
-
-  EXPORT float __chip_rnorm_f32(int dim, const float *a) { 
+EXPORT double __chip_norm_f64(int dim, const double *a) {
   float r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -346,7 +350,17 @@ EXPORT float __chip_norm_f32(int dim, const float *a) {
   return sqrt(r);
 }
 
-  EXPORT double __chip_rnorm_f64(int dim, const double *a) {
+EXPORT float __chip_rnorm_f32(int dim, const float *a) {
+  float r = 0;
+  while (dim--) {
+    r += a[0] * a[0];
+    ++a;
+  }
+
+  return sqrt(r);
+}
+
+EXPORT double __chip_rnorm_f64(int dim, const double *a) {
   double r = 0;
   while (dim--) {
     r += a[0] * a[0];
@@ -356,14 +370,12 @@ EXPORT float __chip_norm_f32(int dim, const float *a) {
   return sqrt(r);
 }
 
-EXPORT void __chip_sincospi_f32(float x, float *sptr,
-                                              float *cptr) {
+EXPORT void __chip_sincospi_f32(float x, float *sptr, float *cptr) {
   *sptr = sinpi(x);
   *cptr = cospi(x);
 }
 
-EXPORT void __chip_sincospi_f64(double x, double *sptr,
-                                              double *cptr) {
+EXPORT void __chip_sincospi_f64(double x, double *sptr, double *cptr) {
   *sptr = sinpi(x);
   *cptr = cospi(x);
 }
@@ -396,7 +408,6 @@ EXPORT double __chip_modf_f64(double x, DEFAULT_AS double *i) {
   *i = tmp;
   return ret;
 }
-
 
 EXPORT float __chip_remquo_f32(float x, float y, DEFAULT_AS int *quo) {
   int tmp;
@@ -434,28 +445,33 @@ EXPORT void __chip_syncthreads() { barrier(CLK_LOCAL_MEM_FENCE); }
 EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
 // global_fence
-EXPORT void __chip_threadfence() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+EXPORT void __chip_threadfence() {
+  mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
 
 // system_fence
-EXPORT void __chip_threadfence_system() { mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); }
+EXPORT void __chip_threadfence_system() {
+  mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
 /* memory routines */
 
 // sets size bytes of the memory pointed to by ptr to value
 // interpret ptr as a unsigned char so that it writes as bytes
-EXPORT void* __chip_memset(DEFAULT_AS void* ptr, int value, size_t size) {
-  volatile unsigned char* temporary = ptr;
+EXPORT void *__chip_memset(DEFAULT_AS void *ptr, int value, size_t size) {
+  volatile unsigned char *temporary = ptr;
 
-  for(int i=0;i<size;i++)
+  for (int i = 0; i < size; i++)
     temporary[i] = value;
-  
-    return ptr;
+
+  return ptr;
 }
 
-EXPORT void* __chip_memcpy(DEFAULT_AS void *dest, DEFAULT_AS const void * src, size_t n) {
-  volatile unsigned char* temporary_dest = dest;
-  volatile const unsigned char* temporary_src = src;
+EXPORT void *__chip_memcpy(DEFAULT_AS void *dest, DEFAULT_AS const void *src,
+                           size_t n) {
+  volatile unsigned char *temporary_dest = dest;
+  volatile const unsigned char *temporary_src = src;
 
-  for(int i=0;i<n;i++)
+  for (int i = 0; i < n; i++)
     temporary_dest[i] = temporary_src[i];
 
   return dest;
@@ -463,151 +479,118 @@ EXPORT void* __chip_memcpy(DEFAULT_AS void *dest, DEFAULT_AS const void * src, s
 
 /**********************************************************************/
 
-EXPORT int __chip_clz_i(int var) {
-  return clz(var);
-}
+EXPORT int __chip_clz_i(int var) { return clz(var); }
 
-EXPORT long __chip_clz_li(long var) {
-  return clz(var);
-}
+EXPORT long __chip_clz_li(long var) { return clz(var); }
 
-EXPORT int __chip_ctz_i(int var) {
-  return ctz(var);
-}
+EXPORT int __chip_ctz_i(int var) { return ctz(var); }
 
-EXPORT long __chip_ctz_li(long var) {
-  return ctz(var);
-}
+EXPORT long __chip_ctz_li(long var) { return ctz(var); }
 
 /**********************************************************************/
 
-#define DEF_CHIP_ATOMIC2(NAME)                                               \
-  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int i) {          \
-    volatile global int *gi = to_global(address);                              \
-    if (gi)                                                                    \
-      return atomic_##NAME(gi, i);                                             \
-    else {                                                                     \
-      volatile local int *li = to_local(address);                              \
-      if (li)                                                                  \
-        return atomic_##NAME(li, i);                                           \
-      else                                                                     \
-        return 0;                                                              \
-    }                                                                          \
-  };                                                                           \
-  uint __chip_atomic_##NAME##_u(                                          \
-      DEFAULT_AS uint *address, uint ui) {                                     \
-    volatile global uint *gi = to_global(address);                             \
-    if (gi)                                                                    \
-      return atomic_##NAME(gi, ui);                                            \
-    else {                                                                     \
-      volatile local uint *li = to_local(address);                             \
-      if (li)                                                                  \
-        return atomic_##NAME(li, ui);                                          \
-      else                                                                     \
-        return 0;                                                              \
-    }                                                                          \
-  };                                                                           \
-  ulong __chip_atomic_##NAME##_l(                                         \
-      DEFAULT_AS ulong *address,                                               \
-      ulong ull) {                                                             \
-    volatile global ulong *gi =                                                \
-        to_global((DEFAULT_AS ulong *)address);                                \
-    if (gi)                                                                    \
-      return atom_##NAME(gi, ull);                                             \
-    else {                                                                     \
-      volatile local ulong *li =                                               \
-          to_local((DEFAULT_AS ulong *)address);                               \
-      if (li)                                                                  \
-        return atom_##NAME(li, ull);                                           \
-      else                                                                     \
-        return 0;                                                              \
-    }                                                                          \
-  };
+/* We should be able to map the _system-variations to the same
+   OpenCL atomics as long as we ensure the target has fine grain
+   SVM atomics supported. This should be included in the device
+   returning >= 6.0 compute capability.
 
-DEF_CHIP_ATOMIC2(add) // __chip_atomic_add_i, __chip_atomic_add_u, __chip_atomic_add_l
-DEF_CHIP_ATOMIC2(sub) // __chip_atomic_sub_i, __chip_atomic_sub_u, __chip_atomic_sub_l
-DEF_CHIP_ATOMIC2(xchg) // __chip_atomic_xchg_i, __chip_atomic_xchg_u, __chip_atomic_xchg_l
-DEF_CHIP_ATOMIC2(min) // __chip_atomic_min_i, __chip_atomic_min_u, __chip_atomic_min_l
-DEF_CHIP_ATOMIC2(max) // __chip_atomic_max_i, __chip_atomic_max_u, __chip_atomic_max_l
-DEF_CHIP_ATOMIC2(and) // __chip_atomic_and_i, __chip_atomic_and_u, __chip_atomic_and_l
-DEF_CHIP_ATOMIC2(or) // __chip_atomic_or_i, __chip_atomic_or_u, __chip_atomic_or_l
-DEF_CHIP_ATOMIC2(xor) // __chip_atomic_xor_i, __chip_atomic_xor_u, __chip_atomic_xor_l
+   https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
+*/
 
-#define DEF_CHIP_ATOMIC1(NAME)                                               \
-  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address) {                 \
-    volatile global int *gi = to_global(address);                              \
-    if (gi)                                                                    \
-      return atomic_##NAME(gi);                                                \
-    volatile local int *li = to_local(address);                                \
-    if (li)                                                                    \
-      return atomic_##NAME(li);                                                \
-    return 0;                                                                  \
-  };                                                                           \
-  uint __chip_atomic_##NAME##_u(                                          \
-      DEFAULT_AS uint *address) {                                              \
-    volatile global uint *gi = to_global(address);                             \
-    if (gi)                                                                    \
-      return atomic_##NAME(gi);                                                \
-    volatile local uint *li = to_local(address);                               \
-    if (li)                                                                    \
-      return atomic_##NAME(li);                                                \
-    return 0;                                                                  \
-  };                                                                           \
-  ulong __chip_atomic_##NAME##_l(                                         \
-      DEFAULT_AS ulong *address) {                                             \
-    volatile global ulong *gi =                                                \
-        to_global((DEFAULT_AS ulong *)address);                                \
-    if (gi)                                                                    \
-      return atom_##NAME(gi);                                                  \
-    volatile local ulong *li = to_local((DEFAULT_AS ulong *)address);          \
-    if (li)                                                                    \
-      return atom_##NAME(li);                                                  \
-    return 0;                                                                  \
-  };
+#define DEF_CHIP_ATOMIC2(NAME)                                                 \
+  int OVLD atomic_##NAME(volatile __generic int *, int);                       \
+  uint OVLD atomic_##NAME(volatile __generic uint *, uint);                    \
+  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int i) {               \
+    return atomic_##NAME((volatile __generic int *)address, i);                \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint ui) {           \
+    return atomic_##NAME((volatile __generic int *)address, ui);               \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address, ulong ull) {       \
+    return atomic_##NAME((volatile __generic int *)address, ull);              \
+  }                                                                            \
+  int __chip_atomic_##NAME##_system_i(DEFAULT_AS int *address, int i) {        \
+    return atomic_##NAME((volatile __generic int *)address, i);                \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_system_u(DEFAULT_AS uint *address, uint ui) {    \
+    return atomic_##NAME((volatile __generic int *)address, ui);               \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_system_l(DEFAULT_AS ulong *address,             \
+                                        ulong ull) {                           \
+    return atomic_##NAME((volatile __generic int *)address, ull);              \
+  }
 
-DEF_CHIP_ATOMIC1(inc) // __chip_atomic_inc_i, __chip_atomic_inc_u, __chip_atomic_inc_l
-DEF_CHIP_ATOMIC1(dec) // __chip_atomic_dec_i, __chip_atomic_dec_u, __chip_atomic_dec_l
+// __chip_atomic_add_i, __chip_atomic_add_u, __chip_atomic_add_l
+DEF_CHIP_ATOMIC2(add)
+// __chip_atomic_sub_i, __chip_atomic_sub_u, __chip_atomic_sub_l
+DEF_CHIP_ATOMIC2(sub)
+// __chip_atomic_xchg_i, __chip_atomic_xchg_u, __chip_atomic_xchg_l
+DEF_CHIP_ATOMIC2(xchg)
+// __chip_atomic_min_i, __chip_atomic_min_u, __chip_atomic_min_l
+DEF_CHIP_ATOMIC2(min)
+// __chip_atomic_max_i, __chip_atomic_max_u, __chip_atomic_max_l
+DEF_CHIP_ATOMIC2(max)
+// __chip_atomic_and_i, __chip_atomic_and_u, __chip_atomic_and_l
+DEF_CHIP_ATOMIC2(and)
+// __chip_atomic_or_i, __chip_atomic_or_u, __chip_atomic_or_l
+DEF_CHIP_ATOMIC2(or)
+// __chip_atomic_xor_i, __chip_atomic_xor_u, __chip_atomic_xor_l
+DEF_CHIP_ATOMIC2(xor)
 
-#define DEF_CHIP_ATOMIC3(NAME)                                               \
-  int __chip_atomic_##NAME##_i(                                           \
-      DEFAULT_AS int *address, int cmp, int val) {                             \
-    volatile global int *gi = to_global(address);                              \
-    if (gi)                                                                    \
-      return atomic_##NAME(gi, cmp, val);                                      \
-    volatile local int *li = to_local(address);                                \
-    if (li)                                                                    \
-      return atomic_##NAME(li, cmp, val);                                      \
-    return 0;                                                                  \
-  };                                                                           \
-  uint __chip_atomic_##NAME##_u(                                          \
-      DEFAULT_AS uint *address, uint cmp,                                      \
-      uint val) {                                                              \
-    volatile global uint *gi = to_global(address);                             \
-    if (gi)                                                                    \
-      return atomic_##NAME(gi, cmp, val);                                      \
-    volatile local uint *li = to_local(address);                               \
-    if (li)                                                                    \
-      return atomic_##NAME(li, cmp, val);                                      \
-    return 0;                                                                  \
-  };                                                                           \
-  ulong __chip_atomic_##NAME##_l(                                         \
-      DEFAULT_AS ulong *address, ulong cmp,                                    \
-      ulong val) {                                                             \
-    volatile global ulong *gi =                                                \
-        to_global((DEFAULT_AS ulong *)address);                                \
-    if (gi)                                                                    \
-      return atom_##NAME(gi, cmp, val);                                        \
-    volatile local ulong *li = to_local((DEFAULT_AS ulong *)address);          \
-    if (li)                                                                    \
-      return atom_##NAME(li, cmp, val);                                        \
-    return 0;                                                                  \
-  };
+#define DEF_CHIP_ATOMIC1(NAME)                                                 \
+  int OVLD atomic_##NAME(volatile __generic int *);                            \
+  uint OVLD atomic_##NAME(volatile __generic uint *);                          \
+  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address) {                      \
+    return atomic_##NAME((volatile __generic int *)address);                   \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address) {                    \
+    return atomic_##NAME((volatile __generic int *)address);                   \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address) {                  \
+    return atomic_##NAME((volatile __generic int *)address);                   \
+  }
 
-DEF_CHIP_ATOMIC3(cmpxchg) // __chip_atomic_cmpxchg_i, __chip_atomic_cmpxchg_u, __chip_atomic_cmpxchg_l
+// __chip_atomic_inc_i, __chip_atomic_inc_u, __chip_atomic_inc_l
+DEF_CHIP_ATOMIC1(inc)
+// __chip_atomic_dec_i, __chip_atomic_dec_u, __chip_atomic_dec_l
+DEF_CHIP_ATOMIC1(dec)
 
-/* This code adapted from AMD's HIP sources */
+#define DEF_CHIP_ATOMIC3(NAME)                                                 \
+  int OVLD atomic_##NAME(volatile __generic int *, int, int);                  \
+  uint OVLD atomic_##NAME(volatile __generic uint *, uint, uint);              \
+  ulong OVLD atomic_##NAME(volatile __generic ulong *, ulong, ulong);          \
+  int __chip_atomic_##NAME##_i(DEFAULT_AS int *address, int cmp, int val) {    \
+    return atomic_##NAME((volatile __global int *)address, cmp, val);          \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint cmp,            \
+                                uint val) {                                    \
+    return atomic_##NAME((volatile __global uint *)address, cmp, val);         \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_l(DEFAULT_AS ulong *address, ulong cmp,         \
+                                 ulong val) {                                  \
+    return atomic_##NAME((volatile __global ulong *)address, cmp, val);        \
+  }                                                                            \
+  int __chip_atomic_##NAME##_system_i(DEFAULT_AS int *address, int cmp,        \
+                                      int val) {                               \
+    return atomic_##NAME((volatile __global int *)address, cmp, val);          \
+  }                                                                            \
+  uint __chip_atomic_##NAME##_system_u(DEFAULT_AS uint *address, uint cmp,     \
+                                       uint val) {                             \
+    return atomic_##NAME((volatile __global uint *)address, cmp, val);         \
+  }                                                                            \
+  ulong __chip_atomic_##NAME##_system_l(DEFAULT_AS ulong *address, ulong cmp,  \
+                                        ulong val) {                           \
+    return atomic_##NAME((volatile __global ulong *)address, cmp, val);        \
+  }
 
-static OVLD float __chip_atomic_add_f32(volatile local float *address, float val) {
+// __chip_atomic_cmpxchg_i, __chip_atomic_cmpxchg_u, __chip_atomic_cmpxchg_l
+DEF_CHIP_ATOMIC3(cmpxchg)
+
+#ifndef CHIP_EXT_FLOAT_ATOMICS
+
+/* This code is adapted from AMD's HIP sources */
+static OVLD float __chip_atomic_add_f32(volatile local float *address,
+                                        float val) {
   volatile local uint *uaddr = (volatile local uint *)address;
   uint old = *uaddr;
   uint r;
@@ -620,87 +603,8 @@ static OVLD float __chip_atomic_add_f32(volatile local float *address, float val
   return as_float(r);
 }
 
-static OVLD double __chip_atom_add_f64(volatile local double *address, double val) {
-  volatile local ulong *uaddr = (volatile local ulong *)address;
-  ulong old = *uaddr;
-  ulong r;
-
-  do {
-    r = old;
-    old = atom_cmpxchg(uaddr, r, as_ulong(val + as_double(r)));
-  } while (r != old);
-
-  return as_double(r);
-}
-
-  static OVLD float __chip_atomic_exch_f32(volatile local float *address, float val) { 
-    return as_float(atomic_xchg((volatile local uint *)(address), as_uint(val))); 
-  } 
-  static OVLD float __chip_atomic_exch_f32(volatile global float *address, float val) { 
-    return as_float(atomic_xchg((volatile global uint *)(address), as_uint(val))); 
-  } 
-  EXPORT float __chip_atomic_exch_f32(DEFAULT_AS float *address, 
-                                 float val) { 
-  volatile global float *gi = to_global(address); 
-  if (gi) 
-    return __chip_atomic_exch_f32(gi, val); 
-  volatile local float *li = to_local(address); 
-  if (li) 
-    return __chip_atomic_exch_f32(li, val); 
-  return 0; 
-  } 
-  static OVLD int __chip_atomic_exch_i(volatile local int *address, int val)  { 
-    return as_int(atomic_xchg((volatile local uint *)(address), as_uint(val))); 
-  } 
-  static OVLD int __chip_atomic_exch_i(volatile global int *address, int val)  { 
-    return as_int(atomic_xchg((volatile global uint *)(address), as_uint(val))); 
-  } 
-  EXPORT int __chip_atomic_exch_i(DEFAULT_AS int *address, 
-                                 int val) { 
-  volatile global int *gi = to_global(address); 
-  if (gi) 
-    return __chip_atomic_exch_i(gi, val); 
-  volatile local int *li = to_local(address); 
-  if (li) 
-    return __chip_atomic_exch_i(li, val); 
-  return 0; 
-  } 
-  static OVLD unsigned int __chip_atomic_exch_u(volatile local unsigned int *address, unsigned int val)  { 
-    return as_uint(atomic_xchg((volatile local uint *)(address), as_uint(val))); 
-  } 
-  static OVLD unsigned int __chip_atomic_exch_u(volatile global unsigned int *address, unsigned int val)  { 
-    return as_uint(atomic_xchg((volatile global uint *)(address), as_uint(val))); 
-  }  
-  EXPORT unsigned int __chip_atomic_exch_u(DEFAULT_AS unsigned int *address, 
-                                 unsigned int val) { 
-  volatile global unsigned int *gi = to_global(address); 
-  if (gi) 
-    return __chip_atomic_exch_u(gi, val); 
-  volatile local unsigned int *li = to_local(address); 
-  if (li) 
-    return __chip_atomic_exch_u(li, val); 
-  return 0; 
-  } 
-
-  static OVLD unsigned long int __chip_atomic_exch_ul(volatile local unsigned long int *address, unsigned long int val)  { 
-    return as_ulong(atom_xchg((volatile local unsigned long *)(address), as_ulong(val))); 
-  } 
-  static OVLD unsigned long int __chip_atomic_exch_ul(volatile global unsigned long int *address, unsigned long int val)  { 
-    return as_ulong(atom_xchg((volatile global unsigned long *)(address), as_ulong(val))); 
-  }  
-  EXPORT unsigned long int __chip_atomic_exch_ul(DEFAULT_AS unsigned long int *address, 
-                                 unsigned long int val) { 
-    volatile global unsigned long int *gi = to_global(address); 
-    if (gi) 
-      return __chip_atomic_exch_ul(gi, val); 
-    volatile local unsigned long int *li = to_local(address); 
-    if (li) 
-      return __chip_atomic_exch_ul(li, val); 
-    return 0;
-  }
-
-
-static OVLD float __chip_atomic_add_f32(volatile global float *address, float val) {
+static OVLD float __chip_atomic_add_f32(volatile global float *address,
+                                        float val) {
   volatile global uint *uaddr = (volatile global uint *)address;
   uint old = *uaddr;
   uint r;
@@ -713,7 +617,18 @@ static OVLD float __chip_atomic_add_f32(volatile global float *address, float va
   return as_float(r);
 }
 
-static OVLD double __chip_atom_add_f64(volatile global double *address, double val) {
+EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address, float val) {
+  volatile global float *gi = to_global(address);
+  if (gi)
+    return __chip_atomic_add_f32(gi, val);
+  volatile local float *li = to_local(address);
+  if (li)
+    return __chip_atomic_add_f32(li, val);
+  return 0;
+}
+
+static OVLD double __chip_atom_add_f64(volatile global double *address,
+                                       double val) {
   volatile global ulong *uaddr = (volatile global ulong *)address;
   ulong old = *uaddr;
   ulong r;
@@ -726,13 +641,190 @@ static OVLD double __chip_atom_add_f64(volatile global double *address, double v
   return as_double(r);
 }
 
+static OVLD double __chip_atom_add_f64(volatile local double *address,
+                                       double val) {
+  volatile local ulong *uaddr = (volatile local ulong *)address;
+  ulong old = *uaddr;
+  ulong r;
+
+  do {
+    r = old;
+    old = atom_cmpxchg(uaddr, r, as_ulong(val + as_double(r)));
+  } while (r != old);
+
+  return as_double(r);
+}
+
+EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address, double val) {
+  volatile global double *gi = to_global((DEFAULT_AS double *)address);
+  if (gi)
+    return __chip_atom_add_f64(gi, val);
+  volatile local double *li = to_local((DEFAULT_AS double *)address);
+  if (li)
+    return __chip_atom_add_f64(li, val);
+  return 0;
+}
+
+#else
+
+/* https://registry.khronos.org/OpenCL/extensions/ext/cl_ext_float_atomics.html
+ */
+
+#if !defined(__opencl_c_ext_fp32_global_atomic_add) ||                         \
+    !defined(__opencl_c_ext_fp64_global_atomic_add) ||                         \
+    !defined(__opencl_c_ext_fp32_local_atomic_add) ||                          \
+    !defined(__opencl_c_ext_fp64_local_atomic_add)
+#error cl_ext_float_atomics needed!
+#endif
+
+float OVLD atomic_fetch_add(volatile __generic float *, float);
+double OVLD atomic_fetch_add(volatile __generic double *, double);
+
+static OVLD float __chip_atomic_add_f32(volatile local float *address,
+                                        float val) {
+  return atomic_fetch_add(address, val);
+}
+
+static OVLD float __chip_atomic_add_f32(volatile global float *address,
+                                        float val) {
+  return atomic_fetch_add(address, val);
+}
+
+EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address, float val) {
+  return atomic_fetch_add(address, val);
+}
+
+static OVLD double __chip_atom_add_f64(volatile local double *address,
+                                       double val) {
+  return atomic_fetch_add(address, val);
+}
+
+static OVLD double __chip_atom_add_f64(volatile global double *address,
+                                       double val) {
+  return atomic_fetch_add(address, val);
+}
+
+EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address, double val) {
+  return atomic_fetch_add(address, val);
+}
+
+#endif
+
+EXPORT float __chip_atomic_add_system_f32(DEFAULT_AS float *address,
+                                          float val) {
+  return __chip_atomic_add_f32(address, val);
+}
+
+EXPORT double __chip_atomic_add_system_f64(DEFAULT_AS double *address,
+                                           double val) {
+  return __chip_atomic_add_f64(address, val);
+}
+
+static OVLD float __chip_atomic_exch_f32(volatile local float *address,
+                                         float val) {
+  return as_float(atomic_xchg((volatile local uint *)(address), as_uint(val)));
+}
+static OVLD float __chip_atomic_exch_f32(volatile global float *address,
+                                         float val) {
+  return as_float(atomic_xchg((volatile global uint *)(address), as_uint(val)));
+}
+EXPORT float __chip_atomic_exch_f32(DEFAULT_AS float *address, float val) {
+  volatile global float *gi = to_global(address);
+  if (gi)
+    return __chip_atomic_exch_f32(gi, val);
+  volatile local float *li = to_local(address);
+  if (li)
+    return __chip_atomic_exch_f32(li, val);
+  return 0;
+}
+EXPORT float __chip_atomic_exch_system_f32(DEFAULT_AS float *address,
+                                           float val) {
+  return __chip_atomic_exch_f32(address, val);
+}
+
+static OVLD int __chip_atomic_exch_i(volatile local int *address, int val) {
+  return as_int(atomic_xchg((volatile local uint *)(address), as_uint(val)));
+}
+static OVLD int __chip_atomic_exch_i(volatile global int *address, int val) {
+  return as_int(atomic_xchg((volatile global uint *)(address), as_uint(val)));
+}
+EXPORT int __chip_atomic_exch_i(DEFAULT_AS int *address, int val) {
+  volatile global int *gi = to_global(address);
+  if (gi)
+    return __chip_atomic_exch_i(gi, val);
+  volatile local int *li = to_local(address);
+  if (li)
+    return __chip_atomic_exch_i(li, val);
+  return 0;
+}
+EXPORT int __chip_atomic_exch_system_i(DEFAULT_AS int *address, int val) {
+  return __chip_atomic_exch_i(address, val);
+}
+
+static OVLD unsigned int
+__chip_atomic_exch_u(volatile local unsigned int *address, unsigned int val) {
+  return as_uint(atomic_xchg((volatile local uint *)(address), as_uint(val)));
+}
+static OVLD unsigned int
+__chip_atomic_exch_u(volatile global unsigned int *address, unsigned int val) {
+  return as_uint(atomic_xchg((volatile global uint *)(address), as_uint(val)));
+}
+EXPORT unsigned int __chip_atomic_exch_u(DEFAULT_AS unsigned int *address,
+                                         unsigned int val) {
+  volatile global unsigned int *gi = to_global(address);
+  if (gi)
+    return __chip_atomic_exch_u(gi, val);
+  volatile local unsigned int *li = to_local(address);
+  if (li)
+    return __chip_atomic_exch_u(li, val);
+  return 0;
+}
+EXPORT unsigned int
+__chip_atomic_exch_system_u(DEFAULT_AS unsigned int *address,
+                            unsigned int val) {
+  return __chip_atomic_exch_u(address, val);
+}
+
+static OVLD unsigned long int
+__chip_atomic_exch_ul(volatile local unsigned long int *address,
+                      unsigned long int val) {
+  return as_ulong(
+      atom_xchg((volatile local unsigned long *)(address), as_ulong(val)));
+}
+static OVLD unsigned long int
+__chip_atomic_exch_ul(volatile global unsigned long int *address,
+                      unsigned long int val) {
+  return as_ulong(
+      atom_xchg((volatile global unsigned long *)(address), as_ulong(val)));
+}
+EXPORT unsigned long int
+__chip_atomic_exch_ul(DEFAULT_AS unsigned long int *address,
+                      unsigned long int val) {
+  volatile global unsigned long int *gi = to_global(address);
+  if (gi)
+    return __chip_atomic_exch_ul(gi, val);
+  volatile local unsigned long int *li = to_local(address);
+  if (li)
+    return __chip_atomic_exch_ul(li, val);
+  return 0;
+}
+EXPORT unsigned long int
+__chip_atomic_exch_system_ul(DEFAULT_AS unsigned long int *address,
+                             unsigned long int val) {
+  return __chip_atomic_exch_ul(address, val);
+}
+
+EXPORT long int __chip_atomic_exch_system_l(DEFAULT_AS long int *address,
+                                            long int val) {
+  return __chip_atomic_exch_ul((DEFAULT_AS unsigned long int *)address, val);
+}
 
 static OVLD uint __chip_atomic_inc2_u(volatile local uint *address, uint val) {
   uint old = *address;
   uint r;
   do {
     r = old;
-    old = atom_cmpxchg(address, r, ((r >= val) ? 0 : (r+1)));
+    old = atom_cmpxchg(address, r, ((r >= val) ? 0 : (r + 1)));
   } while (r != old);
 
   return r;
@@ -743,7 +835,7 @@ static OVLD uint __chip_atomic_dec2_u(volatile local uint *address, uint val) {
   uint r;
   do {
     r = old;
-    old = atom_cmpxchg(address, r, (((r == 0) || (r > val)) ? val : (r-1)));
+    old = atom_cmpxchg(address, r, (((r == 0) || (r > val)) ? val : (r - 1)));
   } while (r != old);
 
   return r;
@@ -754,7 +846,7 @@ static OVLD uint __chip_atomic_inc2_u(volatile global uint *address, uint val) {
   uint r;
   do {
     r = old;
-    old = atom_cmpxchg(address, r, ((r >= val) ? 0 : (r+1)));
+    old = atom_cmpxchg(address, r, ((r >= val) ? 0 : (r + 1)));
   } while (r != old);
 
   return r;
@@ -765,36 +857,13 @@ static OVLD uint __chip_atomic_dec2_u(volatile global uint *address, uint val) {
   uint r;
   do {
     r = old;
-    old = atom_cmpxchg(address, r, (((r == 0) || (r > val)) ? val : (r-1)));
+    old = atom_cmpxchg(address, r, (((r == 0) || (r > val)) ? val : (r - 1)));
   } while (r != old);
 
   return r;
 }
 
-EXPORT float __chip_atomic_add_f32(DEFAULT_AS float *address,
-                                 float val) {
-  volatile global float *gi = to_global(address);
-  if (gi)
-    return __chip_atomic_add_f32(gi, val);
-  volatile local float *li = to_local(address);
-  if (li)
-    return __chip_atomic_add_f32(li, val);
-  return 0;
-}
-
-EXPORT double __chip_atomic_add_f64(DEFAULT_AS double *address,
-                                  double val) {
-  volatile global double *gi = to_global((DEFAULT_AS double *)address);
-  if (gi)
-    return __chip_atom_add_f64(gi, val);
-  volatile local double *li = to_local((DEFAULT_AS double *)address);
-  if (li)
-    return __chip_atom_add_f64(li, val);
-  return 0;
-}
-
-EXPORT uint __chip_atomic_inc2_u(DEFAULT_AS uint *address,
-                                 uint val) {
+EXPORT uint __chip_atomic_inc2_u(DEFAULT_AS uint *address, uint val) {
   volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
   if (gi)
     return __chip_atomic_inc2_u(gi, val);
@@ -804,8 +873,7 @@ EXPORT uint __chip_atomic_inc2_u(DEFAULT_AS uint *address,
   return 0;
 }
 
-EXPORT uint __chip_atomic_dec2_u(DEFAULT_AS uint *address,
-                                 uint val) {
+EXPORT uint __chip_atomic_dec2_u(DEFAULT_AS uint *address, uint val) {
   volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
   if (gi)
     return __chip_atomic_dec2_u(gi, val);
@@ -831,8 +899,8 @@ float OVLD sub_group_shuffle_xor(float var, uint value);
 //
 // Assumes that each subwarp behaves as a separate entity
 // with a starting logical lane ID of 0.
-__attribute__((always_inline))
-static int warpLaneId(int subWarpLaneId, int wSize) {
+__attribute__((always_inline)) static int warpLaneId(int subWarpLaneId,
+                                                     int wSize) {
   if (wSize == DEFAULT_WARP_SIZE)
     return subWarpLaneId;
   unsigned laneId = get_sub_group_local_id();
@@ -865,16 +933,16 @@ __SHFL_XOR(ulong);
 __SHFL_XOR(float);
 __SHFL_XOR(double);
 
-#define __SHFL_UP(T)							\
-  EXPORT OVLD T __shfl_up(T var, uint delta, int wSize) {		\
-    int laneId = get_sub_group_local_id();				\
-    int logicalSubWarp = laneId / wSize;				\
-    int logicalSubWarpLaneId = laneId % wSize;				\
-    int subWarpSrcId = logicalSubWarpLaneId - delta;			\
-    if (subWarpSrcId < 0)						\
-      subWarpSrcId = logicalSubWarpLaneId;				\
-    return sub_group_shuffle(var, logicalSubWarp * wSize + subWarpSrcId); \
-}
+#define __SHFL_UP(T)                                                           \
+  EXPORT OVLD T __shfl_up(T var, uint delta, int wSize) {                      \
+    int laneId = get_sub_group_local_id();                                     \
+    int logicalSubWarp = laneId / wSize;                                       \
+    int logicalSubWarpLaneId = laneId % wSize;                                 \
+    int subWarpSrcId = logicalSubWarpLaneId - delta;                           \
+    if (subWarpSrcId < 0)                                                      \
+      subWarpSrcId = logicalSubWarpLaneId;                                     \
+    return sub_group_shuffle(var, logicalSubWarp * wSize + subWarpSrcId);      \
+  }
 
 __SHFL_UP(int);
 __SHFL_UP(uint);
@@ -883,16 +951,16 @@ __SHFL_UP(ulong);
 __SHFL_UP(float);
 __SHFL_UP(double);
 
-#define __SHFL_DOWN(T)							\
-EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {		\
-  int laneId = get_sub_group_local_id();				\
-  int logicalSubWarp = laneId / wSize;					\
-  int logicalSubWarpLaneId = laneId % wSize;				\
-  int subWarpSrcId = logicalSubWarpLaneId + delta;			\
-  if (subWarpSrcId >= wSize)						\
-    subWarpSrcId = logicalSubWarpLaneId;				\
-  return sub_group_shuffle(var, logicalSubWarp * wSize + subWarpSrcId); \
-}
+#define __SHFL_DOWN(T)                                                         \
+  EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {                    \
+    int laneId = get_sub_group_local_id();                                     \
+    int logicalSubWarp = laneId / wSize;                                       \
+    int logicalSubWarpLaneId = laneId % wSize;                                 \
+    int subWarpSrcId = logicalSubWarpLaneId + delta;                           \
+    if (subWarpSrcId >= wSize)                                                 \
+      subWarpSrcId = logicalSubWarpLaneId;                                     \
+    return sub_group_shuffle(var, logicalSubWarp * wSize + subWarpSrcId);      \
+  }
 
 __SHFL_DOWN(int);
 __SHFL_DOWN(uint);
@@ -906,8 +974,7 @@ EXPORT OVLD ulong __chip_ballot(int predicate) {
 #if DEFAULT_WARP_SIZE <= 32
   return sub_group_ballot(predicate).x;
 #else
-  return sub_group_ballot(predicate).x |
-    (sub_group_ballot(predicate).y << 32);
+  return sub_group_ballot(predicate).x | (sub_group_ballot(predicate).y << 32);
 #endif
 }
 
@@ -919,9 +986,7 @@ EXPORT OVLD int __chip_any(int predicate) {
   return __chip_ballot(predicate) != 0;
 }
 
-EXPORT OVLD unsigned __chip_lane_id() {
-  return get_sub_group_local_id();
-}
+EXPORT OVLD unsigned __chip_lane_id() { return get_sub_group_local_id(); }
 
 EXPORT OVLD void __chip_syncwarp() {
   // CUDA docs speaks only about "memory". It's not specifying that it would
@@ -930,18 +995,18 @@ EXPORT OVLD void __chip_syncwarp() {
 }
 
 typedef struct {
-  intptr_t  image;
-  intptr_t  sampler;
+  intptr_t image;
+  intptr_t sampler;
 } *hipTextureObject_t;
 
-EXPORT float __chip_tex2D_f32(hipTextureObject_t textureObject,
-				float x, float y) {
+EXPORT float __chip_tex2D_f32(hipTextureObject_t textureObject, float x,
+                              float y) {
   return read_imagef(
-    __builtin_astype(textureObject->image, read_only image2d_t),
-    __builtin_astype(textureObject->sampler, sampler_t),
-    (float2)(x, y)).x;
+             __builtin_astype(textureObject->image, read_only image2d_t),
+             __builtin_astype(textureObject->sampler, sampler_t),
+             (float2)(x, y))
+      .x;
 }
-
 
 EXPORT float __chip_int_as_float(int x) { return as_float(x); }
 EXPORT int __chip_float_as_int(float x) { return as_int(x); }
@@ -952,6 +1017,7 @@ EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
 EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
 #ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+
 // See c_to_opencl.def for details.
 #define DEF_UNARY_FN_MAP(NAME_, TYPE_)                                         \
   TYPE_ MAP_PREFIX##NAME_(TYPE_ x) { return NAME_(x); }
