@@ -498,9 +498,9 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
       ClDevice->getInfo<CL_DEVICE_SVM_CAPABILITIES>();
 
   const bool SupportsFineGrainSVM =
-    (SVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER) != 0;
+      (SVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER) != 0;
   const bool SupportsSVMAtomics =
-    (SVMCapabilities & CL_DEVICE_SVM_ATOMICS) != 0;
+      (SVMCapabilities & CL_DEVICE_SVM_ATOMICS) != 0;
   // System atomics are required for CC >= 6.0. We need fine grain
   // SVM + SVM atomics for them to function, thus cap with that feature
   // set.
