@@ -220,17 +220,25 @@ jobs:
           path: ~/opt/pocl/4.0
           key: ${{ steps.get-shas.outputs.pocl-cache-key }}
           fail-on-cache-miss: true
+      - run: wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+      - run: echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
       - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
-      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev
-      - run: ls ~/opt/pocl/4.0/etc/OpenCL/vendors/; cat ~/opt/pocl/4.0/etc/OpenCL/vendors/*
-      - run: ldd `cat ~/opt/pocl/4.0/etc/OpenCL/vendors/pocl.icd`
-      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ clinfo
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl
+      - run: LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) clinfo
+      - run: LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) OCL_ICD_VENDORS=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ clinfo
       - run: mkdir -p build
-      - run: cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
+      - name: CMake
+        run: cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
         working-directory: build
-      - run: cmake --build . --parallel 4
+      - name: Build
+        run: LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) cmake --build . --parallel 4
         working-directory: build
-      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
+      - name: Build Tests
+        run: LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) OCL_ICD_VENDORS=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
         working-directory: build
-      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+      - name: Test Intel OpenCL
+        run: LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd) CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`"
+        working-directory: build
+      - name: Test pocl OpenCL
+        run: LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) OCL_ICD_VENDORS=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`"
         working-directory: build
