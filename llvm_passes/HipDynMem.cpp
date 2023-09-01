@@ -124,8 +124,6 @@ private:
     }
   }
 
-  // will not compile after typed pointer removal
-#if LLVM_VERSION_MAJOR <= 16
   static void recursivelyReplaceArrayWithPointer(Value *DestV, Value *SrcV, Type *ElemType, IRBuilder<> &B) {
     SmallVector<Instruction *> InstsToDelete;
 
@@ -193,7 +191,6 @@ private:
     }
 
   }
-#endif
 
   // get Function metadata "MDName" and append NN to it
   static void appendMD(Function *F, StringRef MDName, MDNode *NN) {
@@ -257,6 +254,7 @@ private:
   }
 
   static void breakConstantExprs(const GVarVec &GVars) {
+#if LLVM_VERSION_MAJOR < 17
     for (GlobalVariable *GV : GVars) {
       for (Value *U : GV->users()) {
         ConstantExpr *CE = dyn_cast<ConstantExpr>(U);
@@ -268,6 +266,14 @@ private:
         }
       }
     }
+#else
+    SmallVector<Constant *, 8> Cnst;
+    for (GlobalVariable *GV : GVars) {
+      Constant *CE = cast<Constant>(GV);
+      Cnst.push_back(CE);
+    }
+    convertUsersOfConstantsToInstructions(Cnst);
+#endif
   }
 
 
