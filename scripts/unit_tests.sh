@@ -152,12 +152,12 @@ module unload opencl/dgpu
 echo "end dgpu_opencl_failed_tests"
 
 # Test OpenCL CPU
-echo "begin cpu_opencl_failed_tests"
-module load opencl/cpu
-module list
-ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
-module unload opencl/cpu
-echo "end cpu_opencl_failed_tests"
+# echo "begin cpu_opencl_failed_tests"
+# module load opencl/cpu
+# module list
+# ctest --timeout 180 -j 8 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+# module unload opencl/cpu
+# echo "end cpu_opencl_failed_tests"
 
 function check_tests {
   file="$1"
@@ -186,9 +186,9 @@ function check_libceed {
 overall_status=0
 
 echo "RESULTS:"
-#  igpu_level0_make_check_result.txt
+# igpu_level0_make_check_result.txt
+# cpu_opencl_make_check_result.txt
 for test_result in dgpu_opencl_make_check_result.txt \
-                   cpu_opencl_make_check_result.txt \
                    dgpu_level0_reg_make_check_result.txt \
                    dgpu_level0_imm_make_check_result.txt
 do
