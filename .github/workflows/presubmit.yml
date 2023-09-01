@@ -247,3 +247,8 @@ jobs:
       - name: Test OpenCL
         run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
         working-directory: build
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.version }}
+          path: build/Testing/Temporary/LastTest.log
