@@ -84,18 +84,18 @@ module unload opencl/pocl
 # module unload opencl/pocl
 # echo "end cpu_pocl_failed_tests"
 
-# # Test Level Zero iGPU
-# echo "begin igpu_level0_failed_tests"
-# module load level-zero/igpu
-# module list
-# ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
+# Test Level Zero Regular Cmd Lists iGPU
+echo "begin igpu_level0_failed_reg_tests"
+module load level-zero/igpu
+module list
+ctest --timeout 180 -j 1 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
 
 # pushd ${LIBCEED_DIR}
 # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 8 PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
 # popd
 
-# module unload level-zero/igpu
-# echo "end igpu_level0_failed_tests"
+module unload level-zero/igpu
+echo "end igpu_level0_failed_tests"
 
 # Test Level Zero Regular Cmd Lists dGPU
 echo "begin dgpu_level0_failed_reg_tests"
@@ -186,11 +186,13 @@ function check_libceed {
 overall_status=0
 
 echo "RESULTS:"
-# igpu_level0_make_check_result.txt
 # cpu_opencl_make_check_result.txt
 for test_result in dgpu_opencl_make_check_result.txt \
                    dgpu_level0_reg_make_check_result.txt \
-                   dgpu_level0_imm_make_check_result.txt
+                   dgpu_level0_imm_make_check_result.txt \
+                   igpu_level0_reg_make_check_result.txt \
+                   igpu_level0_imm_make_check_result.txt \
+                   igpu_opencl_make_check_result.txt
 do
   echo -n "${test_result}: "
   check_tests "${test_result}"
