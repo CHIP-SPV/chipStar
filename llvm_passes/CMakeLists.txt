@@ -101,6 +101,9 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
     ${EXTRA_OBJS})
 
+target_link_libraries(LLVMHipPasses PRIVATE LLVM)
+target_link_options(LLVMHipPasses PRIVATE -Wl,--no-undefined)
+
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES
     # HIP-Clang 14+ automatically searches for libLLVMHipSpvPasses.so in
