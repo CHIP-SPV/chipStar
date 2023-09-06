@@ -92,6 +92,7 @@ add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O1
   HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestPrintfLonePercent.hip HIPCC_OPTIONS -c)
+add_hipcc_test(inputs/testIssue606.cpp HIPCC_OPTIONS -D__HIP_PLATFORM_SPIRV__ -x c++ -c)
 
 add_shell_test(TestHipccCompileAndLink.bash)
 add_shell_test(TestHipccCompileThenLink.bash)
