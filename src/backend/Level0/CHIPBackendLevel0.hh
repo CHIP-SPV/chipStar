@@ -224,6 +224,60 @@ protected:
   void initializeCmdListImm();
 
 public:
+  std::vector<std::shared_ptr<chipstar::Event>> getSyncQueuesLastEvents() {
+    auto Dev = ::Backend->getActiveDevice();
+
+    LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+
+    std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+
+    // If this stream is default legacy stream, sync with all other streams on
+    // this device
+    if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+      // add LastEvent from all other non-blocking queues
+      for (auto &q : Dev->getQueuesNoLock()) {
+        if (!q->getQueueFlags().isBlocking()) {
+          auto Ev = q->getLastEvent();
+          if (Ev)
+            EventsToWaitOn.push_back(Ev);
+        }
+      }
+    }
+
+    if (this->isDefaultLegacyQueue()) {
+      //  add LastEvent from all other blocking streams
+      for (auto &q : Dev->getQueuesNoLock()) {
+        if (q->getQueueFlags().isBlocking()) {
+          auto Ev = q->getLastEvent();
+          if (Ev)
+            EventsToWaitOn.push_back(Ev);
+        }
+      }
+    }
+
+    return EventsToWaitOn;
+  }
+
+  std::vector<ze_event_handle_t> addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent) {
+    auto EventsToWaitOn = getSyncQueuesLastEvents();
+    // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
+    // that they don't get destroyed before MemCopyEvent
+    for (auto &Event : EventsToWaitOn) {
+      std::static_pointer_cast<CHIPEventLevel0>(Event)->addDependency(
+          TargetEvent);
+    }
+
+    std::vector<ze_event_handle_t> EventHandles(EventsToWaitOn.size());
+    for (size_t i = 0; i < EventsToWaitOn.size(); i++) {
+      std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitOn[i];
+      std::shared_ptr<CHIPEventLevel0> ChipEventLz =
+          std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
+      CHIPASSERT(ChipEventLz);
+      EventHandles[i] = ChipEventLz->peek();
+    }
+    return EventHandles;
+  }
+
   std::mutex CmdListMtx;
   ze_command_list_handle_t getCmdList();
   size_t getMaxMemoryFillPatternSize() {
