@@ -169,7 +169,7 @@ jobs:
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: mkdir -p pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
-      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON
+      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro
         working-directory: pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: cmake --build . --parallel 4
