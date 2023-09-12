@@ -88,11 +88,24 @@ There are several transformations (LLVM passes) done on the LLVM IR of the devic
 
 ### Support for straight-from-CUDA-sources compilation
 
-Compiling CUDA sources directly (instead of hopping through HIP) is supported by means of a compiler wrapper (in `bin/cuspv`) and some header files. The important header file is `include/cuspv/cuda_runtime.h`. This wraps HIP API functions with static inline versions of their CUDA counterparts, and maps the CUDA API types to HIP API types. Both deprecated and unavailable APIs are marked with an attribute (although not all unavailable APIs are yet present in the header).
+Compiling CUDA sources directly (instead of hopping through HIP) is
+supported by means of a compiler wrapper (in `bin/cucc`) and some
+header files. The important header file is
+`include/cuspv/cuda_runtime.h`. This wraps HIP API functions with
+static inline versions of their CUDA counterparts, and maps the CUDA
+API types to HIP API types. Both deprecated and unavailable APIs are
+marked with an attribute (although not all unavailable APIs are yet
+present in the header).
 
-In theory, cuda.h should contain the CUDA driver API only, but because HIP uses the same object types for both CUDA driver & runtime API equivalents, there isn't much point in separating them. In CUDA, the difference between cuda_runtime_api.h and cuda_runtime.h is that the former only contains C code, while the latter contains C++. In our headers, all definitions are currently in the same file.
+In theory, cuda.h should contain the CUDA driver API only, but because
+HIP uses the same object types for both CUDA driver & runtime API
+equivalents, there isn't much point in separating them. In CUDA, the
+difference between cuda\_runtime\_api.h and cuda\_runtime.h is that the
+former only contains C code, while the latter contains C++. In our
+headers, all definitions are currently in the same file.
 
-The implementation does not require CUDA headers from Nvidia, but it does require the HIP headers.
+The implementation does not require CUDA headers from Nvidia, but it
+does require the HIP headers.
 
 ## Runtime
 
