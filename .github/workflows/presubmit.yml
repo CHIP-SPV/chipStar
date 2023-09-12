@@ -88,7 +88,7 @@ jobs:
           cache-name: cache-llvm-${{ matrix.version }}
         with:
           path: ~/opt/llvm/${{ matrix.version }}
-          key: ${{ steps.get-shas.outputs.cache-key }}
+          key: ${{ steps.get-shas.outputs.llvm-cache-key }}
       - run: sudo apt update; sudo apt install -y gcc cmake
         if: steps.llvm.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
@@ -128,13 +128,17 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
+      - id: get-shas
+        uses: ./.github/actions/get-shas
+        with:
+          version: ${{ matrix.version }}
       - uses: actions/cache@v3
         id: pocl
         env:
           cache-name: cache-pocl
         with:
           path: ~/opt/pocl/4.0
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-llvm-${{ matrix.version }}
+          key: ${{ steps.get-shas.outputs.pocl-cache-key }}
       - uses: actions/cache@v3
         id: spirv-tools
         env:
@@ -144,17 +148,13 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
-      - id: get-shas
-        uses: ./.github/actions/get-shas
-        with:
-          version: ${{ matrix.version }}
       - uses: actions/cache@v3
         id: llvm
         env:
           cache-name: cache-llvm-${{ matrix.version }}
         with:
           path: ~/opt/llvm/${{ matrix.version }}
-          key: ${{ steps.get-shas.outputs.cache-key }}
+          key: ${{ steps.get-shas.outputs.llvm-cache-key }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
@@ -164,12 +164,12 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: pocl/pocl
-          ref: v4.0
+          ref: ${{ steps.get-shas.outputs.pocl-sha }}
           path: pocl
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: mkdir -p pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
-      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON
+      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro
         working-directory: pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: cmake --build . --parallel 4
@@ -182,11 +182,15 @@ jobs:
   chipstar:
     needs: [pre_job, llvm, spirv-tools, pocl]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    name: Build and test chipStar (llvm-${{ matrix.version }})
+    name: Build and test chipStar on ${{ matrix.backend }} (llvm-${{ matrix.version }})
     runs-on: ubuntu-latest
+    env:
+      OPENCL_ENV: ${{ matrix.backend == 'intel' && 'LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)' || 'OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/' }}
+      EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/cpu_opencl_failed_tests.txt`"' || '"`cat ./test_lists/cpu_pocl_failed_tests.txt`"' }}
     strategy:
       matrix:
         version: [15, 16]
+        backend: [pocl, intel]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -210,7 +214,7 @@ jobs:
           cache-name: cache-llvm-${{ matrix.version }}
         with:
           path: ~/opt/llvm/${{ matrix.version }}
-          key: ${{ steps.get-shas.outputs.cache-key }}
+          key: ${{ steps.get-shas.outputs.llvm-cache-key }}
           fail-on-cache-miss: true
       - uses: actions/cache@v3
         id: pocl
@@ -218,19 +222,33 @@ jobs:
           cache-name: cache-pocl
         with:
           path: ~/opt/pocl/4.0
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-llvm-${{ matrix.version }}
+          key: ${{ steps.get-shas.outputs.pocl-cache-key }}
           fail-on-cache-miss: true
-      - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
-      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev
-      - run: ls ~/opt/pocl/4.0/etc/OpenCL/vendors/; cat ~/opt/pocl/4.0/etc/OpenCL/vendors/*
-      - run: ldd `cat ~/opt/pocl/4.0/etc/OpenCL/vendors/pocl.icd`
-      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ clinfo
+        if: ${{ matrix.backend == 'pocl' }}
+      - run: wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+        if: ${{ matrix.backend == 'intel' }}
+      - run: echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        if: ${{ matrix.backend == 'intel' }}
+      - run: sudo add-apt-repository ppa:ocl-icd/ppa
+        if: ${{ matrix.backend == 'pocl' }}
+      - run: sudo apt update
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
+      - run: ${{ env.OPENCL_ENV }} clinfo
       - run: mkdir -p build
-      - run: cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
+      - name: CMake
+        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
         working-directory: build
-      - run: cmake --build . --parallel 4
+      - name: Build
+        run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
         working-directory: build
-      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
+      - name: Build Tests
+        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
         working-directory: build
-      - run: OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+      - name: Test OpenCL
+        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
         working-directory: build
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.version }}
+          path: build/Testing/Temporary/LastTest.log
