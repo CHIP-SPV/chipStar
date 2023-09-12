@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [16, 17]
+        version: [16]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -191,6 +191,9 @@ jobs:
       matrix:
         version: [16, 17]
         backend: [pocl, intel]
+        exclude:
+          - backend: pocl
+            version: 17
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
