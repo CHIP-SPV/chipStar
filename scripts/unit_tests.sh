@@ -4,7 +4,7 @@
 
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <debug|release> <llvm-15|llvm-16> ..."
+    echo "Usage: $0 <debug|release> <llvm-16|llvm-17> ..."
     exit 1
 fi
 
@@ -17,15 +17,15 @@ fi
 # Set the build type based on the argument
 build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
-if [ "$2" == "llvm-15" ]; then
-    LLVM=llvm-15
-    CLANG=clang/clang15-spirv-omp
-elif [ "$2" == "llvm-16" ]; then
+if [ "$2" == "llvm-16" ]; then
     LLVM=llvm-16
     CLANG=clang/clang16-spirv-omp
+elif [ "$2" == "llvm-17" ]; then
+    LLVM=llvm-17
+    CLANG=clang/clang17-spirv-omp
 else
   echo "$2"
-  echo "Invalid 2nd argument. Use either 'llvm-15' or 'llvm-16'."
+  echo "Invalid 2nd argument. Use either 'llvm-16' or 'llvm-17'."
   exit 1
 fi
 
