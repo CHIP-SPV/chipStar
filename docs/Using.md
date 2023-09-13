@@ -41,12 +41,12 @@ Note that long-running GPU compute kernels can trigger hang detection mechanism 
 ### Compiling CUDA application directly with chipStar
 
 CUDA sources can be compiled directly without converting the sources
-to HIP first with our `cucc` CUDA compiler which can be used as
-drop-in replacement for
+to HIP first. CUDA compilation can be driven with the `cucc` compiler
+driver which can be used as drop-in replacement for
 [nvcc](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html).
-Beware though - the tool, and our CUDA runtime headers, are still a
+Beware though - the tool, and the CUDA runtime headers, are still a
 work in progress and some features are missing not not supported. Here
-is non-exhaustive list of known issues and limitations:
+is a non-exhaustive list of known issues and limitations:
 
 * Only a subset of nvcc options are supported. Some of them are
   ignored now, others are not processed and they may cause compile
@@ -61,24 +61,24 @@ is non-exhaustive list of known issues and limitations:
   e.g. `__CUDA_ARCH__` and `__CUDA_ARCH_LIST__`.
 
 * Sources depending on CUDA libraries (thrust, cuBLAS, cuFFT, etc)
-  won't compile for now with possibly obscure error messages.
+  won't compile for now and might produce possibly obscure error
+  messages.
 
 * Warp functions ending with `_sync` are not currently
   supported. Workaround: call the legacy warp functions instead if
-  possible - the current requirement is that all threads in the warp
-  must converge at the same warp function.
+  possible - the current requirement of chipStar is that all threads
+  in the warp must converge at the same warp function.
 
 * Some runtime API types and functions might be undeclared.
 
-#### Direct CUDA Usage with CMake
+#### Configuring CMake-based CUDA Projects
 
-(experimental; currently the support has been tested with CMake 3.24.3)
-
-CUDA projects using CMake can be targeted at chipStar. However, this
-currently only covers CMake projects that use CMake's built-in CUDA
-compilation flow instead of relying `find_package(CUDA)` or
-`find_package(CUDAToolkit)`. Here is an example of `CMakeLists.txt`
-for enabling CUDA.
+CUDA projects using CMake can be targeted to utilize chipStar. The
+feature is experimental, and has been only tested with CMake 3.24.3.
+Additionally, thie feature currently only covers CMake projects that
+use CMake's built-in CUDA compilation flow instead of relying
+`find_package(CUDA)` or `find_package(CUDAToolkit)`. Here is an
+example of `CMakeLists.txt` for enabling CUDA.
 
 ```cmake
 project(MyCudaProject LANGUAGES CUDA CXX C)
@@ -102,7 +102,7 @@ touch <chipStar-install-dir>/lib/libcudart_static.a
 touch <chipStar-install-dir>/lib/libcudadevrt.so
 ```
 
-And invoke cmake as followed:
+And invoke cmake as follows:
 
 ```
 cmake -DCMAKE_CUDA_COMPILER=<chipStar-install-dir>/bin/cucc \

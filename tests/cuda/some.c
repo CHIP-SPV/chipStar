@@ -1,4 +1,4 @@
-#ifdef __cpluspluc
+#ifdef __cplusplus
 #  error "Expected C language mode!"
 #endif
 #ifndef __NVCC__
