@@ -31,6 +31,12 @@ import subprocess
 import sys
 from shlex import quote
 
+# If true, we change the behavior of this tool so that the CMake
+# considers this tool to be NVvidia's nvcc. This allows us to compile
+# CUDA code in CMake without find_package().
+# TODO: Add an option or env-var for controlling the value of this.
+MASQUERADE_NVCC = True
+
 def error_exit(msg : str):
     """Print an error message to stderr and then exit with an error.
     """
@@ -136,6 +142,11 @@ def get_cuda_include_dir() -> str:
     """
     return get_hip_path() + "/include/cuspv"
 
+def get_cuda_library_dir() -> str:
+    """Return directory for chipStar's CUDA libraries.
+    """
+    return get_hip_path() + "/lib"
+
 def determine_input_languages(arg_list : list[str], xmode=None) -> set[str]:
     """Determine input language modes from the argument list
 
@@ -224,10 +235,36 @@ def main():
             hipcc_args.extend(["-x", known_args.x])
 
     if known_args.version:
-        hipcc_args.append("--version")
+        alt_version_str = os.environ.get('CUCC_VERSION_STRING')
+        if MASQUERADE_NVCC and alt_version_str:
+            print(alt_version_str)
+            sys.exit(0)
+        else:
+            hipcc_args.append("--version")
 
     if known_args.verbose:
-        hipcc_args.append("-v")
+        if MASQUERADE_NVCC:
+            # Mimic nvcc partially that makes our compiler to look
+            # like nvcc for CMake for the needed parts.
+
+            print(f"#$ PATH={os.environ.get('PATH')}")
+
+            # CMake infers CMAKE_CUDA_COMPILER_TOOLKIT_ROOT from this line.
+            print(f"#$ TOP={get_hip_path()}")
+
+            # Contents of the LIBRARIES variable is used by CMake for locating
+            # a 'link line'.
+            print(f"#$ LIBRARIES= -L{get_cuda_library_dir()}")
+
+            # The 'link line'. We use it to propagate chipStar's
+            # runtime link options. 'g++' is abritrarily chosen - it's included
+            # just in case for keeping CMake's link line parser happy.
+            print(f"#$ g++ -L{get_cuda_library_dir()} -lCHIP")
+
+            # --verbose option is not propagated so CMake does not get
+            # confused by the extra output from the hipcc.
+        else:
+            hipcc_args.append("-v")
 
     if other_args is not None:
         hipcc_args.extend(filter_args_for_hipcc(other_args))
