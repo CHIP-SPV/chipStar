@@ -71,6 +71,14 @@ set_tests_properties(cucc-alt-version-string PROPERTIES
   ENVIRONMENT CUCC_VERSION_STRING="My custom version string"
   PASS_REGULAR_EXPRESSION "My custom version string")
 
+# Test accidental inclusion of NVidia's cuda_runtime.h which is simulated by
+# defining its include guard macro.
+add_compile_test(NAME cucc-accidental-nvidia-header-inclusion
+  COMPILE_OPTIONS "-D__CUDA_RUNTIME_H__ -E some.cu -o /dev/null")
+set_tests_properties(cucc-accidental-nvidia-header-inclusion PROPERTIES
+  PASS_REGULAR_EXPRESSION
+  "NVidia's cuda_runtime.h appears to be included .unsupported by chipStar.")
+
 # Match nvcc's -x behavior. It applies globally unlike in other compilers.
 # DISABLED: hipcc does not currently process '-x hip cuda-inside.cpp
 #           cuda-inside.c' line correctly.
