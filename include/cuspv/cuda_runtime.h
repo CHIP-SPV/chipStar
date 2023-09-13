@@ -26,10 +26,20 @@
  * traslate CUDA API functions to corresponding ones in HIP.
  */
 
+// Catch accidental inclusion of NVidia's cuda_runtime.h header.
+#if defined(__CUDA_RUNTIME_H__) && !defined(__CHIP_CUDA_RUNTIME_H__)
+#error                                                                         \
+    "NVidia's cuda_runtime.h appears to be included (unsupported by chipStar)"
+#endif
+
 // Using same include guard name as in CUDA SDK's cuda_runtime.h so it
 // gets excluded if it happens to be in the include search paths.
 #ifndef __CUDA_RUNTIME_H__
 #define __CUDA_RUNTIME_H__
+
+#ifndef __CHIP_CUDA_RUNTIME_H__
+#define __CHIP_CUDA_RUNTIME_H__
+#endif
 
 // Having __NVCC__ defined makes HIP headers to define
 // __HIP_PLATFORM_{NVCC/NVIDIA}__ which clash with other
