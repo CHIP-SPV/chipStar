@@ -35,7 +35,7 @@ from shlex import quote
 # considers this tool to be NVvidia's nvcc. This allows us to compile
 # CUDA code in CMake without find_package().
 # TODO: Add an option or env-var for controlling the value of this.
-MASQUERADE_NVCC = True
+MASQUERADE_AS_NVCC = True
 
 def error_exit(msg : str):
     """Print an error message to stderr and then exit with an error.
@@ -68,8 +68,8 @@ def prepare_argparser() -> argparse.ArgumentParser:
     Unknown arguments are passed to hipcc.
     """
     parser = argparse.ArgumentParser(
-        description=("CUDA compiler for chipStar and a drop-in replacement"
-                     + " for nvcc."))
+        description=("CUDA compiler driver for chipStar and a drop-in "
+                     + "replacement for nvcc."))
 
     # "Make use of fast math library." [NVCC v12.2 4.2.7.7]
     parser.add_argument("-use_fast_math", "--use_fast_math",
@@ -198,7 +198,7 @@ def filter_args_for_hipcc(arg_list : list[str]) -> list[str]:
 def main():
     """Driver implementation.
     """
-    if os.environ.get('CUCC_VERBOSE') == "1":
+    if os.environ.get('CHIP_CUCC_VERBOSE') == "1":
         print(f"cucc args: {' '.join(map(quote, sys.argv))}",
               file=sys.stderr)
 
@@ -218,7 +218,7 @@ def main():
     hipcc_args.append("-D__NVCC__")
 
     # This tells our CUDA/HIP headers to adjust their code for CUDA compilation.
-    hipcc_args.append("-D__CHIPSTAR_MASQUERADE_CUDA__")
+    hipcc_args.append("-D__CHIP_CUDA_COMPATIBILITY__")
 
     # Handle -std option. It should be ineffective for C inputs (nvcc
     # behavior).  NOTE: this does not behave correctly for mixed C and
@@ -236,14 +236,14 @@ def main():
 
     if known_args.version:
         alt_version_str = os.environ.get('CUCC_VERSION_STRING')
-        if MASQUERADE_NVCC and alt_version_str:
+        if MASQUERADE_AS_NVCC and alt_version_str:
             print(alt_version_str)
             sys.exit(0)
         else:
             hipcc_args.append("--version")
 
     if known_args.verbose:
-        if MASQUERADE_NVCC:
+        if MASQUERADE_AS_NVCC:
             # Mimic nvcc partially that makes our compiler to look
             # like nvcc for CMake for the needed parts.
 
@@ -269,7 +269,7 @@ def main():
     if other_args is not None:
         hipcc_args.extend(filter_args_for_hipcc(other_args))
 
-    if os.environ.get('CUCC_VERBOSE') == "1":
+    if os.environ.get('CHIP_CUCC_VERBOSE') == "1":
         print(f"Executing: {' '.join(map(quote, hipcc_args))}",
               file=sys.stderr)
 
@@ -277,7 +277,7 @@ def main():
     sys.exit(result.returncode)
 
 if __name__ == '__main__':
-    warn("cucc is work-in-progess."
+    warn("cucc is a work-in-progress."
          + " It is incomplete and may behave incorrectly."
          + "\nPlease, report issues at "
          + "https://github.com/CHIP-SPV/chipStar/issues.")

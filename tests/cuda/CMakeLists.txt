@@ -55,7 +55,7 @@ add_compile_test(NAME cucc-nvcc-specific-options
 add_compile_test(NAME cucc-cucc-debug-env
   COMPILE_OPTIONS "some.cu -E -o /dev/null")
 set_tests_properties(cucc-cucc-debug-env PROPERTIES
-  ENVIRONMENT CUCC_VERBOSE=1
+  ENVIRONMENT CHIP_CUCC_VERBOSE=1
   PASS_REGULAR_EXPRESSION "Executing: .*hipcc .*")
 
 # Check -Xcompiler passes options to the driven compiler.
@@ -64,7 +64,8 @@ add_compile_test(NAME cucc-xcompiler-opt
   "-Xcompiler -DFOO=123 -Xcompiler=-DBAR=321 check-macros.cu -E -o /dev/null")
 
 # Check --version response can be user defined. A use case is for
-# masquerading another compiler.
+# masquerading as another compiler (see docs/Usage.md: Configuring
+# CMake-based CUDA Projects).
 add_compile_test(NAME cucc-alt-version-string
   COMPILE_OPTIONS "--version")
 set_tests_properties(cucc-alt-version-string PROPERTIES

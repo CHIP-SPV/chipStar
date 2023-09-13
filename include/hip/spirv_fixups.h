@@ -50,7 +50,7 @@
 #endif // __HIP_DEVICE_COMPILE__
 
 
-#if defined(__CHIPSTAR_MASQUERADE_CUDA__) && defined(__HIP__)
+#if defined(__CHIP_CUDA_COMPATIBILITY__) && defined(__HIP__)
 // "Defined when compiling CUDA source files." [nvcc v12.2 2.1.]
 #define __CUDACC__
 #endif
