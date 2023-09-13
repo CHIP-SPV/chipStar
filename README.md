@@ -91,8 +91,8 @@ git submodule update --init --recursive
 ```bash
 mkdir build && cd build
 
-# LLVM_CONFIG_BIN is optional if LLVM is not installed in PATH or if only a version-sufficed
-# binary is available (for example, llvm-config-17)
+# LLVM_CONFIG_BIN is optional if LLVM can be found in PATH or if not using a version-sufficed
+# binary (for example, llvm-config-17)
 
 cmake .. \
     -DLLVM_CONFIG_BIN=/path/to/llvm-config
