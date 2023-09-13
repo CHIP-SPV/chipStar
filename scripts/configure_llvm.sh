@@ -16,9 +16,9 @@ export LLVM_DIR=`pwd`/llvm-project/llvm
 
 # check if llvm-project exists, if not clone it
 if [ ! -d llvm-project ]; then
-  git clone git@github.com:CHIP-SPV/llvm-project.git -b chipStar-llvm-${VERSION} --depth 1
+  git clone https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-${VERSION} --depth 1
   cd ${LLVM_DIR}/projects
-  git clone git@github.com:CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-${VERSION} --depth 1
+  git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-${VERSION} --depth 1
   cd ${LLVM_DIR}
 else
   # Warn the user, error out
