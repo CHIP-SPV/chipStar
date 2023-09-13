@@ -25,11 +25,14 @@
 #
 #=============================================================================
 """Compiler wrapper aiming to be a drop-in replacement for nvcc."""
+# Enable v3.9+ type annotations in older versions (down to 3.7).
+from __future__ import annotations
 import argparse
 import os
 import subprocess
 import sys
 from shlex import quote
+
 
 # If true, we change the behavior of this tool so that the CMake
 # considers this tool to be NVvidia's nvcc. This allows us to compile
