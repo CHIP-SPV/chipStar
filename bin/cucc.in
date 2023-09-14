@@ -74,10 +74,6 @@ def prepare_argparser() -> argparse.ArgumentParser:
         description=("CUDA compiler driver for chipStar and a drop-in "
                      + "replacement for nvcc."))
 
-    # "Make use of fast math library." [NVCC v12.2 4.2.7.7]
-    parser.add_argument("-use_fast_math", "--use_fast_math",
-                        action='store_true')
-
     # --expt-relaxed-constexpr (-expt-relaxed-constexpr)
     # Experimental flag: Allow host code to invoke ``__device__
     # constexpr`` functions, and device code to invoke ``__host__
@@ -127,6 +123,14 @@ def prepare_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--generate-code", action=IgnoredOption)
     parser.add_argument("-G", "--device-debug", nargs=0, action=IgnoredOption,
                         help="Generate debug information for device code.")
+    # "The compiler has an option (-use_fast_math) that forces each
+    # function in Table 9 to compile to its intrinsic counterpart. "
+    # [CUDA PM v12.2 13.2].
+    #
+    # CUDA intrinsics have defined numerical accuracy. This means -ffast-math
+    # is potentially more relaxed than --use_fast_math so we may not use it.
+    parser.add_argument("-use_fast_math", "--use_fast_math",
+                        nargs=0, action=IgnoredOption)
 
     return parser
 
@@ -213,10 +217,6 @@ def main():
     languages = determine_input_languages(other_args, known_args.x)
 
     hipcc_args = [get_hipcc(), "-isystem", get_cuda_include_dir()]
-
-    # Approximate -use_fast_math with -ffast-math.
-    if known_args.use_fast_math:
-        hipcc_args.append("-ffast-math")
 
     hipcc_args.append("-D__NVCC__")
 
