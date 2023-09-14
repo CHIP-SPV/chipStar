@@ -80,6 +80,11 @@ set_tests_properties(cucc-accidental-nvidia-header-inclusion PROPERTIES
   PASS_REGULAR_EXPRESSION
   "NVidia's cuda_runtime.h appears to be included .unsupported by chipStar.")
 
+# Check the macro mechanism for detecting and preventing NVidia's
+# <cuda-runtime> header inclusion does not cause troubles.
+add_compile_test(NAME cucc-include-cuda-runtime-twice
+  COMPILE_OPTIONS "-E include-twice.cu -o /dev/null")
+
 # Match nvcc's -x behavior. It applies globally unlike in other compilers.
 # DISABLED: hipcc does not currently process '-x hip cuda-inside.cpp
 #           cuda-inside.c' line correctly.
