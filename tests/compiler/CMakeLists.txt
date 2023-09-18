@@ -97,6 +97,7 @@ add_hipcc_test(inputs/testIssue606.cpp HIPCC_OPTIONS -D__HIP_PLATFORM_SPIRV__ -x
 add_shell_test(TestHipccCompileAndLink.bash)
 add_shell_test(TestHipccCompileThenLink.bash)
 add_shell_test(TestHipcc588.bash)
+add_shell_test(TestHipcc621.bash)
 add_shell_test(TestHipccAcceptCFiles.bash)
 add_shell_test(TestRDCWithSingleHipccCmd.bash)
 add_shell_test(TestRDCWithMultipleHipccCmds.bash)
