@@ -7,6 +7,6 @@ OUT_DIR=@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d
 HIPCC=@CMAKE_BINARY_DIR@/bin/hipcc
 
 mkdir -p ${OUT_DIR}
-touch test.c
+touch helloWorld.c
 
 ${HIPCC} -x hip ${SRC_DIR}/inputs/helloWorld.cpp helloWorld.c
