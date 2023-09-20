@@ -887,12 +887,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   }
   QueueType = TheType;
 
-  SharedBuf_ =
-      ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
-
-  // Initialize the uint64_t part as 0
-  *(uint64_t *)this->SharedBuf_ = 0;
-
   ZeCtx_ = ChipContextLz->get();
   ZeDev_ = ChipDevLz->get();
 
@@ -1528,6 +1522,17 @@ void CHIPQueueLevel0::executeCommandListImm(
   updateLastEvent(Event);
 };
 
+void *CHIPQueueLevel0::getSharedBufffer() {
+  if (!SharedBuf_) {
+    auto *LzCtx = static_cast<CHIPContextLevel0 *>(getContext());
+    SharedBuf_ =
+        LzCtx->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
+    // Initialize the uint64_t part as 0.
+    *static_cast<uint64_t *>(SharedBuf_) = 0;
+  }
+  return SharedBuf_;
+};
+
 // End CHIPQueueLevelZero
 
 // EventPool
@@ -1889,8 +1894,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                           Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-
-    return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();
@@ -1899,17 +1902,22 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
         zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-
-    return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO Check if devices support cross-device sharing?
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
+  } else
+    CHIPERR_LOG_AND_THROW("Failed to allocate memory",
+                          hipErrorMemoryAllocation);
 
-    return Ptr;
-  }
-  CHIPERR_LOG_AND_THROW("Failed to allocate memory", hipErrorMemoryAllocation);
+  // Currently required for PVC - use tests/fromLibCeed/firstTouch.cpp
+  // for checking the presence of the issue.
+  char DummyByte = 0;
+  auto Status = getDevice()->getDefaultQueue()->memCopy(Ptr, &DummyByte, 1);
+  assert(Status == hipSuccess);
+
+  return Ptr;
 }
 
 // CHIPDeviceLevelZero
