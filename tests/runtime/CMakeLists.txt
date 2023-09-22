@@ -84,3 +84,5 @@ add_hip_runtime_test(TestStructWithFnPtr.hip)
 add_hip_runtime_test(TestHipInit.hip)
 
 add_shell_test(TestRuntimeWarnings.bash)
+
+add_hip_runtime_test(TestAPIs.hip)
