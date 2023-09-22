@@ -1906,7 +1906,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     CHIPERR_LOG_AND_THROW("Failed to allocate memory",
                           hipErrorMemoryAllocation);
 
-#ifdef  CHIP_L0_FIRST_TOUCH
+#ifdef CHIP_L0_FIRST_TOUCH
   CHIPDeviceLevel0 *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
   if (ChipDev) {
     ze_device_handle_t ZeDev = ChipDev->get();
@@ -1914,11 +1914,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
   }
-  // Currently required for PVC - use tests/fromLibCeed/firstTouch.cpp
-  // for checking the presence of the issue.
-  // char DummyByte = 0;
-  // auto Status = getDevice()->getDefaultQueue()->memCopy(Ptr, &DummyByte, 1);
-  // assert(Status == hipSuccess);
 #endif
   return Ptr;
 }
