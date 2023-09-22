@@ -887,6 +887,12 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   }
   QueueType = TheType;
 
+  SharedBuf_ =
+      ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
+
+  // Initialize the uint64_t part as 0
+  *(uint64_t *)this->SharedBuf_ = 0;
+
   ZeCtx_ = ChipContextLz->get();
   ZeDev_ = ChipDevLz->get();
 
@@ -1522,17 +1528,6 @@ void CHIPQueueLevel0::executeCommandListImm(
   updateLastEvent(Event);
 };
 
-void *CHIPQueueLevel0::getSharedBufffer() {
-  if (!SharedBuf_) {
-    auto *LzCtx = static_cast<CHIPContextLevel0 *>(getContext());
-    SharedBuf_ =
-        LzCtx->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
-    // Initialize the uint64_t part as 0.
-    *static_cast<uint64_t *>(SharedBuf_) = 0;
-  }
-  return SharedBuf_;
-};
-
 // End CHIPQueueLevelZero
 
 // EventPool
@@ -1911,12 +1906,20 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     CHIPERR_LOG_AND_THROW("Failed to allocate memory",
                           hipErrorMemoryAllocation);
 
+#ifdef  CHIP_L0_FIRST_TOUCH
+  CHIPDeviceLevel0 *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
+  if (ChipDev) {
+    ze_device_handle_t ZeDev = ChipDev->get();
+    auto Status = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorMemoryAllocation);
+  }
   // Currently required for PVC - use tests/fromLibCeed/firstTouch.cpp
   // for checking the presence of the issue.
-  char DummyByte = 0;
-  auto Status = getDevice()->getDefaultQueue()->memCopy(Ptr, &DummyByte, 1);
-  assert(Status == hipSuccess);
-
+  // char DummyByte = 0;
+  // auto Status = getDevice()->getDefaultQueue()->memCopy(Ptr, &DummyByte, 1);
+  // assert(Status == hipSuccess);
+#endif
   return Ptr;
 }
 

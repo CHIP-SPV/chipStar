@@ -262,7 +262,7 @@ public:
   void executeCommandListImm(std::shared_ptr<chipstar::Event> Event);
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
-  void *getSharedBufffer();
+  void *getSharedBufffer() { return SharedBuf_; };
 
   virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
