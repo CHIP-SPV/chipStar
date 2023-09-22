@@ -1727,8 +1727,8 @@ hipError_t hipFuncSetCacheConfig(const void *Func, hipFuncCache_t Cfg) {
   CHIPInitialize();
   NULLCHECK(Func);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
-  // RETURN(hipSuccess);
+  // 'Cfg' is ignored for now - API documentation allows it.
+  RETURN(hipSuccess);
 
   CHIP_CATCH
 }
