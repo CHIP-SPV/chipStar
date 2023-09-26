@@ -1530,6 +1530,41 @@ chipstar::Queue::~Queue() {
   }
 };
 
+std::vector<std::shared_ptr<chipstar::Event>>
+chipstar::Queue::getSyncQueuesLastEvents() {
+  auto Dev = ::Backend->getActiveDevice();
+
+  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+
+  // If this stream is default legacy stream, sync with all other streams on
+  // this device
+  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+    // add LastEvent from all other non-blocking queues
+    for (auto &q : Dev->getQueuesNoLock()) {
+      if (!q->getQueueFlags().isBlocking()) {
+        auto Ev = q->getLastEvent();
+        if (Ev)
+          EventsToWaitOn.push_back(Ev);
+      }
+    }
+  }
+
+  if (this->isDefaultLegacyQueue()) {
+    //  add LastEvent from all other blocking streams
+    for (auto &q : Dev->getQueuesNoLock()) {
+      if (q->getQueueFlags().isBlocking()) {
+        auto Ev = q->getLastEvent();
+        if (Ev)
+          EventsToWaitOn.push_back(Ev);
+      }
+    }
+  }
+
+  return EventsToWaitOn;
+}
+
 ///////// Enqueue Operations //////////
 hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
 #ifdef ENFORCE_QUEUE_SYNC
