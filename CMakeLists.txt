@@ -201,7 +201,7 @@ option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program 
 option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
-option(CHIP_QUEUE_SYNC "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
+option(CHIP_QUEUE_SYNC "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" OFF)
 option(CHIP_IMM_LISTS "Enable/disable the use of immediate command queues" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
