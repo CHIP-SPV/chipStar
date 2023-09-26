@@ -21,7 +21,7 @@ jobs:
       matrix:
         os: [self-hosted]
         build_type: [RelWithDebInfo, Debug]
-        c_compiler: [clang/clang15-spirv-omp, clang/clang16-spirv-omp]
+        c_compiler: [clang/clang16-spirv-omp, clang/clang17-spirv-omp]
         # chip_backend: [opencl/cpu, opencl/dgpu, opencl/pocl, level-zero/dgpu]
 
     steps:

@@ -28,12 +28,12 @@ NUM_THREADS="$3"
 # Shift to get rid of the first three arguments
 shift 3
 
-compiler="clang/clang16-spirv-omp"
+compiler="clang/clang17-spirv-omp"
 
 level0="levelzero/loader"
 opencl="opencl/loader"
 cpu_opencl="opencl/intel-cpu"
-cpu_pocl="opencl/pocl-cpu-llvm-16"
+cpu_pocl="opencl/pocl-cpu-llvm-17"
 
 module purge
 

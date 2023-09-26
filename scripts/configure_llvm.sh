@@ -16,32 +16,32 @@ export LLVM_DIR=`pwd`/llvm-project/llvm
 
 # check if llvm-project exists, if not clone it
 if [ ! -d llvm-project ]; then
-  git clone git@github.com:CHIP-SPV/llvm-project.git -b chipspv-llvm-${VERSION}-patches --depth 1
+  git clone https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-${VERSION} --depth 1
   cd ${LLVM_DIR}/projects
-  git clone git@github.com:CHIP-SPV/SPIRV-LLVM-Translator.git -b chipspv-llvm-${VERSION}-patches --depth 1
+  git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-${VERSION} --depth 1
   cd ${LLVM_DIR}
 else
   # Warn the user, error out
   echo "llvm-project directory already exists. Assuming it's cloned from chipStar."
   cd ${LLVM_DIR}
   # check if already on the desired branch 
-  if [ `git branch --show-current` == "chipspv-llvm-${VERSION}-patches" ]; then
-    echo "Already on branch chipspv-llvm-${VERSION}-patches"
+  if [ `git branch --show-current` == "chipStar-llvm-${VERSION}" ]; then
+    echo "Already on branch chipStar-llvm-${VERSION}"
   else
-    echo "Switching to branch chipspv-llvm-${VERSION}-patches"
-    git br -D chipspv-llvm-${VERSION}-patches &> /dev/null
-    git fetch origin chipspv-llvm-${VERSION}-patches:chipspv-llvm-${VERSION}-patches
-    git checkout chipspv-llvm-${VERSION}-patches
+    echo "Switching to branch chipStar-llvm-${VERSION}"
+    git br -D chipStar-llvm-${VERSION} &> /dev/null
+    git fetch origin chipStar-llvm-${VERSION}:chipStar-llvm-${VERSION}
+    git checkout chipStar-llvm-${VERSION}
   fi
   cd ${LLVM_DIR}/projects/SPIRV-LLVM-Translator
   # check if already on the desired branch
-  if [ `git branch --show-current` == "chipspv-llvm-${VERSION}-patches" ]; then
-    echo "Already on branch chipspv-llvm-${VERSION}-patches"
+  if [ `git branch --show-current` == "chipStar-llvm-${VERSION}" ]; then
+    echo "Already on branch chipStar-llvm-${VERSION}"
   else
-    echo "Switching to branch chipspv-llvm-${VERSION}-patches"
-    git br -D chipspv-llvm-${VERSION}-patches &> /dev/null
-    git fetch origin chipspv-llvm-${VERSION}-patches:chipspv-llvm-${VERSION}-patches
-    git checkout chipspv-llvm-${VERSION}-patches
+    echo "Switching to branch chipStar-llvm-${VERSION}"
+    git br -D chipStar-llvm-${VERSION} &> /dev/null
+    git fetch origin chipStar-llvm-${VERSION}:chipStar-llvm-${VERSION}
+    git checkout chipStar-llvm-${VERSION}
   fi
   cd ${LLVM_DIR}
 fi

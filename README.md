@@ -22,14 +22,14 @@ While chipStar 1.0 can already be used to run various large HPC applications suc
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 16 (LLVM 15 might also work)
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-16 llvm-16 clang-tools-16'.
-  * For the best results, install it from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-16) which has fixes that are not yet in the LLVM upstream project.
+* Clang and LLVM 17 (LLVM 15/16 might also work)
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-17 llvm-17 clang-tools-17'.
+  * For the best results, install it from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-17) which has fixes that are not yet in the LLVM upstream project.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
-  (e.g. llvm\_release\_160 for LLVM 16)
+  (e.g. llvm\_release\_170 for LLVM 17)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
-  * For the best results, install it from a chipStar [branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipStar-llvm-16) which has fixes that are not yet upstreamed.
+  * For the best results, install it from a chipStar [branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipStar-llvm-17) which has fixes that are not yet upstreamed.
 
 ### OpenCL Backend
 
@@ -52,17 +52,17 @@ It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
 You can use a script include in chipStar repo: 
 ```bash
 # chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir>
-chipStar/scripts/configure_llvm.sh 16 /opt/install/llvm/16.0
-cd ./llvm-project/llvm/build_16
+chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0
+cd ./llvm-project/llvm/build_17
 make -j 16 
 <sudo> make install
 ```
 
 Or do it manually:
 ```bash
-git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-16
+git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-17
 cd llvm-project/llvm/projects
-git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-16
+git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-17
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
 # DLLVM_TARGETS_TO_BUILD Speed up compilation by building only the necessary CPU host target
@@ -72,7 +72,7 @@ cmake -S llvm -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="clang;openmp" \
   -DLLVM_TARGETS_TO_BUILD=X86 \
-  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-16
+  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-17
 make -C build -j8 all install
 ```
 
@@ -91,8 +91,8 @@ git submodule update --init --recursive
 ```bash
 mkdir build && cd build
 
-# LLVM_CONFIG_BIN is optional if LLVM is not installed in PATH or if only a version-sufficed
-# binary is available (for example, llvm-config-16)
+# LLVM_CONFIG_BIN is optional if LLVM can be found in PATH or if not using a version-sufficed
+# binary (for example, llvm-config-17)
 
 cmake .. \
     -DLLVM_CONFIG_BIN=/path/to/llvm-config
@@ -126,7 +126,7 @@ This occurs often when the latest installed GCC version doesn't include libstdc+
 The issue can be resolved by defining a Clang++ [configuration file](https://clang.llvm.org/docs/UsersManual.html#configuration-files) which forces the GCC to what we want. Example:
 
 ```bash
-echo --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/11 > ~/local/llvm-16/bin/x86_64-unknown-linux-gnu-clang++.cfg
+echo --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/11 > ~/local/llvm-17/bin/x86_64-unknown-linux-gnu-clang++.cfg
 ```
 
 ### Missing Double Precision Support

@@ -41,7 +41,6 @@
 #include "LLVMSPIRV.h"
 #include "../src/common.hh"
 
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -65,7 +64,7 @@ constexpr unsigned SpirvWorkgroupAS = SPIRV_WORKGROUP_AS;
 
 // Create kernel function stub, returns its return instruction.
 static Instruction *createKernelStub(Module &M, StringRef Name,
-                                     ArrayRef<Type *> ArgTypes = None) {
+                                     ArrayRef<Type *> ArgTypes = {}) {
   Function *F = cast<Function>(
       M.getOrInsertFunction(
            Name,

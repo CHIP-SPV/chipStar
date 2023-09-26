@@ -11,26 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-tests-llvm-15-debug:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-15
-        shell: bash
-  unit-tests-llvm-15-release:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-15
-        shell: bash
   unit-tests-llvm-16-debug:
     runs-on: self-hosted
     steps:
@@ -50,4 +30,24 @@ jobs:
           fetch-depth: 0
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-16
+        shell: bash
+  unit-tests-llvm-17-debug:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh debug llvm-17
+        shell: bash
+  unit-tests-llvm-17-release:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh release llvm-17
         shell: bash
