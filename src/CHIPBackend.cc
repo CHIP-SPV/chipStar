@@ -549,6 +549,7 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
+    PerThreadDefaultQueue->setDefaultPerThreadQueue(true); 
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
   }
@@ -580,6 +581,7 @@ void chipstar::Device::init() {
   chipstar::QueueFlags Flags;
   int Priority = 1; // TODO : set a default
   LegacyDefaultQueue = createQueue(Flags, Priority);
+  LegacyDefaultQueue->setDefaultLegacyQueue(true);
 }
 
 void chipstar::Device::copyDeviceProperties(hipDeviceProp_t *Prop) {
@@ -1537,6 +1539,8 @@ chipstar::Queue::getSyncQueuesLastEvents() {
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  if(this->getLastEvent())
+    EventsToWaitOn.push_back(this->getLastEvent());
 
   // If this stream is default legacy stream, sync with all other streams on
   // this device
@@ -1551,16 +1555,16 @@ chipstar::Queue::getSyncQueuesLastEvents() {
     }
   }
 
-  if (this->isDefaultLegacyQueue()) {
-    //  add LastEvent from all other blocking streams
-    for (auto &q : Dev->getQueuesNoLock()) {
-      if (q->getQueueFlags().isBlocking()) {
-        auto Ev = q->getLastEvent();
-        if (Ev)
-          EventsToWaitOn.push_back(Ev);
-      }
-    }
-  }
+  // if (this->isDefaultLegacyQueue()) {
+  //   //  add LastEvent from all other blocking streams
+  //   for (auto &q : Dev->getQueuesNoLock()) {
+  //     if (q->getQueueFlags().isBlocking()) {
+  //       auto Ev = q->getLastEvent();
+  //       if (Ev)
+  //         EventsToWaitOn.push_back(Ev);
+  //     }
+  //   }
+  // }
 
   return EventsToWaitOn;
 }
