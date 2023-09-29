@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # check arguments
-if [ $# -ne 2 ]; then
-  echo "Usage: $0 <version> <install_dir>"
+if [ $# -ne 3 ]; then
+  echo "Usage: $0 <version> <install_dir> <build_type>"
   echo "version: LLVM version 15, 16, 17"
+  echo "build_type: static or dynamic"
   exit 1
 fi
 
@@ -12,6 +13,7 @@ set -e
 
 VERSION=$1
 INSTALL_DIR=$2
+BUILD_TYPE=$3
 export LLVM_DIR=`pwd`/llvm-project/llvm
 
 # check if llvm-project exists, if not clone it
@@ -56,9 +58,25 @@ else
   exit 1
 fi
 
-cmake ../  \
-  -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS="clang;openmp" \
-  -DLLVM_TARGETS_TO_BUILD=X86
-
+# Add build type condition
+if [ "$BUILD_TYPE" == "static" ]; then
+  cmake ../  \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DLLVM_ENABLE_PROJECTS="clang;openmp" \
+    -DLLVM_TARGETS_TO_BUILD=host
+elif [ "$BUILD_TYPE" == "dynamic" ]; then
+  cmake ../ \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
+    -DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib \
+    -DLLVM_ENABLE_PROJECTS="clang;openmp" \
+    -DLLVM_TARGETS_TO_BUILD=host \
+    -DLLVM_LINK_LLVM_DYLIB=ON \
+    -DLLVM_BUILD_LLVM_DYLIB=ON \
+    -DLLVM_PARALLEL_LINK_JOBS=2 \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DLLVM_ENABLE_ASSERTIONS=On
+else
+  echo "Invalid build_type. Must be 'static' or 'dynamic'."
+  exit 1
+fi
