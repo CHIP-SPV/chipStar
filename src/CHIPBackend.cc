@@ -1547,11 +1547,23 @@ chipstar::Queue::getSyncQueuesLastEvents() {
   if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
     // add LastEvent from all other non-blocking queues
     for (auto &q : Dev->getQueuesNoLock()) {
-      if (!q->getQueueFlags().isBlocking()) {
+      if (q->getQueueFlags().isBlocking()) {
         auto Ev = q->getLastEvent();
         if (Ev)
           EventsToWaitOn.push_back(Ev);
       }
+    }
+  } else if (this->getQueueFlags().isBlocking()) {
+    // sync with default legacy stream
+    auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
+    if (Ev)
+      EventsToWaitOn.push_back(Ev);
+    
+    // sync with default per-thread stream
+    if (Dev->isPerThreadStreamUsedNoLock()) {
+      Ev = Dev->getPerThreadDefaultQueueNoLock()->getLastEvent();
+      if (Ev)
+        EventsToWaitOn.push_back(Ev);
     }
   }
 

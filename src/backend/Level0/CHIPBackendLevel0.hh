@@ -230,6 +230,7 @@ public:
     // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
     // that they don't get destroyed before MemCopyEvent
     for (auto &Event : EventsToWaitOn) {
+      LOCK(Event->EventMtx);
       std::static_pointer_cast<CHIPEventLevel0>(Event)->addDependency(
           TargetEvent);
     }
