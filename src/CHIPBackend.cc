@@ -549,7 +549,7 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
-    PerThreadDefaultQueue->setDefaultPerThreadQueue(true); 
+    PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
   }
@@ -1539,7 +1539,7 @@ chipstar::Queue::getSyncQueuesLastEvents() {
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  if(this->getLastEvent())
+  if (this->getLastEvent())
     EventsToWaitOn.push_back(this->getLastEvent());
 
   // If this stream is default legacy stream, sync with all other streams on
@@ -1558,7 +1558,7 @@ chipstar::Queue::getSyncQueuesLastEvents() {
     auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
     if (Ev)
       EventsToWaitOn.push_back(Ev);
-    
+
     // sync with default per-thread stream
     if (Dev->isPerThreadStreamUsedNoLock()) {
       Ev = Dev->getPerThreadDefaultQueueNoLock()->getLastEvent();
