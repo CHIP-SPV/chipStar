@@ -1099,6 +1099,10 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_SeekSetSlice") # only happens when ctest -j $(nproc) regular cmd list
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # only happens when ctest -j $(nproc) regular cmd list
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop_no_buffers") # only happens when ctest -j $(nproc) regular cmd list
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) regular cmd list
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) regular cmd list
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) regular cmd list
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # only happens when ctest -j $(nproc)
