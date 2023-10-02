@@ -1907,8 +1907,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                           hipErrorMemoryAllocation);
 
 #ifdef CHIP_L0_FIRST_TOUCH
-  CHIPDeviceLevel0 *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
-  if (ChipDev) {
+  if (auto *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice())) {
     ze_device_handle_t ZeDev = ChipDev->get();
     auto Status = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
