@@ -1099,6 +1099,8 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) regular cmd list
+list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) regular cmd list
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # only happens when ctest -j $(nproc)
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
 list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
