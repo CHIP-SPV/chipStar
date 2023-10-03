@@ -1907,6 +1907,11 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                           hipErrorMemoryAllocation);
 
 #ifdef CHIP_L0_FIRST_TOUCH
+  /*
+  Normally this would not be necessary but on some systems where the runtime is
+  not up-to-date, this issue persists.
+  https://github.com/intel/compute-runtime/issues/631
+  */
   if (auto *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice())) {
     ze_device_handle_t ZeDev = ChipDev->get();
     auto Status = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
