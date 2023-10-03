@@ -74,8 +74,9 @@ cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
 make all build_tests install -j $(nproc) #&> /dev/null
 echo "chipStar build complete." 
 
-# Build libCEED
-export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
+
+# Build libCEEDA
+# export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
 # export LIBCEED_DIR=`pwd`/libCEED
 # ../scripts/compile_libceed.sh ${HIP_DIR}
 module unload opencl/pocl
@@ -105,12 +106,14 @@ module unload opencl/pocl
 echo "begin dgpu_level0_failed_reg_tests"
 module load level-zero/dgpu
 module list
+export CHIP_L0_IMM_CMD_LISTS=OFF
 ctest --timeout 600 -j $(nproc) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 
 # pushd ${LIBCEED_DIR}
 # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
 
+unset CHIP_L0_IMM_CMD_LISTS
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_reg_tests"
 
@@ -120,12 +123,12 @@ module load level-zero/dgpu
 module list
 export CHIP_L0_IMM_CMD_LISTS=ON
 ctest --timeout 600 -j $(nproc) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
-unset CHIP_L0_IMM_CMD_LISTS
 
 # pushd ${LIBCEED_DIR}
 # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # popd
 
+unset CHIP_L0_IMM_CMD_LISTS
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_imm_tests"
 
