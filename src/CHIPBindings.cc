@@ -148,12 +148,56 @@ hipError_t hipDeviceSetMemPool(int device, hipMemPool_t mem_pool) {
 hipError_t hipDeviceGetMemPool(hipMemPool_t *mem_pool, int device) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
-hipError_t hipMallocAsync(void **dev_ptr, size_t size, hipStream_t stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+hipError_t hipMallocAsync(void **Dev_Ptr, size_t Size, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dev_Ptr);
+
+  if (Size == 0) {
+    *Dev_Ptr = nullptr;
+    RETURN(hipSuccess);
+  }
+
+  auto ChipQueue = static_cast<chipstar::Queue *>(Stream);  
+  ChipQueue = Backend->findQueue(ChipQueue);
+  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
+    ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
+    RETURN(hipErrorStreamCaptureInvalidated);
+  }
+
+  ChipQueue->addCallback(Backend->getActiveContext()->getMemAllocCallback(),
+                        Backend->getActiveContext()->createMemAllocData(Dev_Ptr, Size));
+
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
 }
-hipError_t hipFreeAsync(void *dev_ptr, hipStream_t stream) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+hipError_t hipFreeAsync(void *Dev_Ptr, hipStream_t Stream) {
+  CHIP_TRY
+  CHIPInitialize();
+  NULLCHECK(Dev_Ptr);
+
+  if (Dev_Ptr == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  auto ChipQueue = static_cast<chipstar::Queue *>(Stream);
+  ChipQueue = Backend->findQueue(ChipQueue);
+  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
+    ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
+    RETURN(hipErrorStreamCaptureInvalidated);
+  }
+
+  ChipQueue->addCallback(Backend->getActiveContext()->getMemFreeCallback(),
+                        Backend->getActiveContext()->createMemFreeData(Dev_Ptr));
+  
+  RETURN(hipSuccess);
+
+  CHIP_CATCH
 }
+
 hipError_t hipMemPoolSetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr,
                                   void *value) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -2150,8 +2194,55 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
+  // Multi-stream graph support
+  auto ctx = ChipEvent->getContext();
+  auto ChipQueueofEvent = ctx->EventsQueueMap[ChipEvent].first;
+
+  // fork condition
+  // the event belongs to different stream under capture mode
+  if (ChipQueueofEvent != ChipQueue && ChipQueueofEvent->getCaptureStatus() == hipStreamCaptureStatusActive) {
+    auto eventGraph = ChipQueueofEvent->getCaptureGraph();
+    if ( ChipQueue->getCaptureStatus() == hipStreamCaptureStatusNone) {
+      // fork and capture events into subgraph
+      ChipQueue->initCaptureGraph();
+      ChipQueue->setCaptureMode(ChipQueueofEvent->getCaptureMode());
+      ChipQueue->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusActive);
+      ChipQueue->setForkedFromNode(ctx->EventsQueueMap[ChipEvent].second);
+      logDebug("setting forked from to {}", (void*)ctx->EventsQueueMap[ChipEvent].second);
+   }
+
+    if ( ChipQueue->getCaptureStatus() == hipStreamCaptureStatusActive && (eventGraph->findNode(ChipQueue->getForkedFromNode()) != nullptr) ) {
+    ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent);
+
+      auto depNode = ctx->EventsQueueMap[ChipEvent].second;
+      logDebug("adding fork dependency. {} ({}) depends on {} ({})", (void *)ChipQueue->getLastNode(), ChipQueue->getLastNode()->Msg, (void*)depNode, depNode->Msg);
+      ChipQueue->getLastNode()->addDependency(depNode);
+      RETURN(hipSuccess);
+    }
+  }
+
+
+
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
-    return hipSuccess;
+    // Multi-stream graph support
+    //join if forked
+    auto currChipQueueGraph = ChipQueue->getCaptureGraph();
+    if (ChipQueueofEvent != ChipQueue && ChipQueueofEvent->getCaptureStatus() == hipStreamCaptureStatusActive &&
+         currChipQueueGraph->findNode(ChipQueueofEvent->getForkedFromNode()) != nullptr) {
+      auto graph = ChipQueueofEvent->getCaptureGraph();
+      auto nodes = graph->getNodes();
+
+      auto depNode = ctx->EventsQueueMap[ChipEvent].second;
+      ChipQueue->getLastNode()->addDependency(depNode);
+      logDebug("adding join dependency. {} ({}) depends on {} ({})", (void *)ChipQueue->getLastNode(), ChipQueue->getLastNode()->Msg, (void*)depNode, depNode->Msg);
+      for(auto node:nodes)
+      {
+        currChipQueueGraph->addNode(node);
+      }
+      ChipQueueofEvent->setCaptureStatus(hipStreamCaptureStatus::hipStreamCaptureStatusNone);
+    }
+
+     return hipSuccess;
   }
   ERROR_IF((ChipQueue == nullptr), hipErrorInvalidResourceHandle);
   ERROR_IF((Event == nullptr), hipErrorInvalidResourceHandle);
@@ -2315,6 +2406,11 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
+    // Multi-streamn graph support
+    auto ctx = ChipEvent->getContext();
+    auto Graph = ChipQueue->getCaptureGraph();
+    ctx->EventsQueueMap[ChipEvent] = std::make_pair(ChipQueue, ChipQueue->getLastNode());
+
     return hipSuccess;
   }
 
@@ -2344,6 +2440,10 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
                        return x.get() == ChipEvent;
                      }),
       Backend->UserEvents.end());
+
+  // Multi-steam graph support
+ auto ctx = ChipEvent->getContext();
+ ctx->EventsQueueMap.erase(ChipEvent);
 
   RETURN(hipSuccess);
 

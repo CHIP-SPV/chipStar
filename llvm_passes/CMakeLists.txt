@@ -95,6 +95,7 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
+    HipCUDADV.cpp HipTaskSync.cpp HipKernelParamCopy.cpp
     ${EXTRA_OBJS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)

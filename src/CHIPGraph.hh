@@ -63,6 +63,9 @@ protected:
     Dependencies_.clear();
   }
 
+  // Multi-stream graph support
+  chipstar::Queue *LaunchQueue_;
+
   CHIPGraphNode(hipGraphNodeType Type) : Type_(Type) {}
 
 public:
@@ -73,6 +76,10 @@ public:
 
   hipGraphNodeType getType() { return Type_; }
   virtual CHIPGraphNode *clone() const = 0;
+
+  // Multi-stream graph support
+  void setLaunchQueue(chipstar::Queue *ChipQueue) {LaunchQueue_ = ChipQueue; }
+  chipstar::Queue *getLaunchQueue() { return LaunchQueue_; }
 
   /**
    * @brief Depth-first search of the graph.

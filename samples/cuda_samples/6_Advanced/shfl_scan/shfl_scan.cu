@@ -225,7 +225,8 @@ bool shuffle_simple_test(int argc, char **argv)
     {
         printf("> __shfl() intrinsic requires device SM 3.0+\n");
         printf("> Waiving test.\n");
-        exit(EXIT_WAIVED);
+        // This restriction for SM can be disabled
+	// exit(EXIT_WAIVED);
     }
 
     checkCudaErrors(cudaMallocHost((void **)&h_data, sizeof(int)*n_elements));
@@ -252,7 +253,10 @@ bool shuffle_simple_test(int argc, char **argv)
     printf("Scan summation for %d elements, %d partial sums\n",
            n_elements, n_elements/blockSize);
 
-    int p_blockSize = min(n_partialSums, blockSize);
+    // int p_blockSize = min(n_partialSums, blockSize);
+    int p_blockSize = n_partialSums;
+    if (n_partialSums > blockSize)
+      p_blockSize = blockSize;
     int p_gridSize = iDivUp(n_partialSums, p_blockSize);
     printf("Partial summing %d elements with %d blocks of size %d\n",
            n_partialSums, p_gridSize, p_blockSize);
@@ -399,7 +403,8 @@ int main(int argc, char *argv[])
     {
         printf("> __shfl() intrinsic requires device SM 3.0+\n");
         printf("> Waiving test.\n");
-        exit(EXIT_WAIVED);
+        // This restriction for SM can be disabled
+	// exit(EXIT_WAIVED);
     }
 
 
@@ -409,5 +414,6 @@ int main(int argc, char *argv[])
 
     bTestResult = simpleTest & intTest;
 
+    printf("Finish test %d\n", bTestResult);
     exit((bTestResult) ? EXIT_SUCCESS : EXIT_FAILURE);
 }

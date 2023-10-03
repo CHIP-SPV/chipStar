@@ -823,6 +823,15 @@ static inline cudaError_t cudaMalloc3D(cudaPitchedPtr *PitchedDevPtr,
                                        cudaExtent Extent) {
   return hipMalloc3D(PitchedDevPtr, Extent);
 }
+
+static inline cudaError_t cudaMallocAsync(void **Ptr, size_t Size, cudaStream_t Stream) {
+  return hipMallocAsync(Ptr, Size, Stream);
+}
+
+static inline cudaError_t cudaFreeAsync(void *Ptr, cudaStream_t Stream) {
+  return hipFreeAsync(Ptr, Stream);
+}
+
 static inline cudaError_t cudaMemGetInfo(size_t *Free, size_t *Total) {
   return hipMemGetInfo(Free, Total);
 }

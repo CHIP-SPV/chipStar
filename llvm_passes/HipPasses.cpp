@@ -28,6 +28,9 @@
 #include "HipLowerZeroLengthArrays.h"
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
+#include "HipCUDADV.h"
+#include "HipTaskSync.h"
+#include "HipKernelParamCopy.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -101,6 +104,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // dynamic shared memories being modeled as zero length arrays.
   MPM.addPass(HipLowerZeroLengthArraysPass());
 
+  // Devirtualize virtual function calls
+  MPM.addPass(HipCUDADVPass());
+
+  // Cooperative groiup related transformation
+  MPM.addPass(HipTaskSyncPass());
+
   // Prepare device code for texture function lowering which does not yet work
   // on non-inlined code and local variables of hipTextureObject_t type.
   MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
@@ -116,6 +125,8 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 #endif
 
   MPM.addPass(HipTextureLoweringPass());
+
+  MPM.addPass(HipKernelParamCopyPass());
 
   // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
   //

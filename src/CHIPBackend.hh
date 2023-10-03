@@ -201,6 +201,29 @@ public:
   }
 };
 
+class MemAllocData {
+protected:
+  void** Ptr;
+  size_t Size;
+  chipstar::Context* Ctx;
+
+public:
+  MemAllocData(void** ptr, size_t size, chipstar::Context* ctx) : Ptr(ptr), Size(size), Ctx(ctx) {};
+
+  static void CallbackFunc(hipStream_t stream, hipError_t status, void* userData);
+};
+
+class MemFreeData {
+protected:
+  void* Ptr;
+  chipstar::Context* Ctx;
+
+public:
+  MemFreeData(void* ptr, chipstar::Context* ctx) : Ptr(ptr), Ctx(ctx) {};
+
+  static void CallbackFunc(hipStream_t stream, hipError_t status, void* userData);
+};
+
 class QueueFlags {
   unsigned int FlagsRaw_;
   bool Default_ = true;
@@ -1634,6 +1657,9 @@ protected:
 public:
   mutable std::mutex ContextMtx;
 
+  // Multi-stream graph support
+  std::unordered_map<chipstar::Event * , std::pair<chipstar::Queue * , CHIPGraphNode * >> EventsQueueMap;
+
   /**
    * @brief Destroy the Context object
    *
@@ -1769,6 +1795,20 @@ public:
       // TODO hipCtx - shuold call overlaoded destructor
     }
   }
+
+  /**
+   * @brief Allocate memory asynchronously on stream
+   */
+  void* createMemAllocData(void **ptr, size_t size);
+
+  hipStreamCallback_t getMemAllocCallback();
+
+  /**
+   * @brief Free memory asynchronously on stream
+   */
+  void* createMemFreeData(void *ptr);
+
+  hipStreamCallback_t getMemFreeCallback();
 };
 
 /**
@@ -2061,6 +2101,9 @@ protected:
    * for enforcing proper queue syncronization as per HIP/CUDA API. */
   std::shared_ptr<chipstar::Event> LastEvent_ = nullptr;
 
+   // Multi-stream graph suppport
+  CHIPGraphNode *ForkedFromNode_ = nullptr;
+
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
   std::shared_ptr<chipstar::Event>
@@ -2107,6 +2150,16 @@ public:
     CaptureMode_ = CaptureMode;
   }
   CHIPGraph *getCaptureGraph() const;
+
+  // Multi-stream graph support
+  CHIPGraphNode *getLastNode() {return LastNode_;}
+
+  void setForkedFromNode(CHIPGraphNode *ForkedFromNode) {
+    ForkedFromNode_ = ForkedFromNode;
+  }
+
+  CHIPGraphNode *getForkedFromNode() const {return ForkedFromNode_; }
+
 
   chipstar::Device *PerThreadQueueForDevice = nullptr;
 

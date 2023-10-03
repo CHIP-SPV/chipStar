@@ -1189,6 +1189,33 @@ hipError_t chipstar::Context::free(void *Ptr) {
   return hipSuccess;
 }
 
+void* chipstar::Context::createMemAllocData(void **ptr, size_t size) {
+  return new chipstar::MemAllocData(ptr, size, this);
+}
+
+hipStreamCallback_t chipstar::Context::getMemAllocCallback() {
+  return chipstar::MemAllocData::CallbackFunc;
+}
+
+void* chipstar::Context::createMemFreeData(void *ptr) {
+  return new chipstar::MemFreeData(ptr, this);
+}
+
+hipStreamCallback_t chipstar::Context::getMemFreeCallback() {
+  return chipstar::MemFreeData::CallbackFunc;
+}
+
+void chipstar::MemAllocData::CallbackFunc(hipStream_t stream, hipError_t status, void* userData) {
+  chipstar::MemAllocData* data = (chipstar::MemAllocData*)userData;
+  * data->Ptr = data->Ctx->allocate(data->Size, hipMemoryTypeDevice);
+}
+
+void chipstar::MemFreeData::CallbackFunc(hipStream_t stream, hipError_t status, void* userData) {
+  chipstar::MemFreeData* data = (chipstar::MemFreeData*)userData;
+  data->Ctx->free(data->Ptr);
+}
+
+
 // Backend
 //*************************************************************************************
 int chipstar::Backend::getPerThreadQueuesActive() {
