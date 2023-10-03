@@ -568,7 +568,7 @@ public:
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
-  bool useImmCmdLists_ = false;
+  bool useImmCmdLists_ = true; // default to immediate command lists
   int collectEventsTimeout_ = 30;
 
 public:
