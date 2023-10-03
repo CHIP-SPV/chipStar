@@ -216,7 +216,7 @@ option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib 
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "enable support for cl_intel_unified_shared_memory in the OpenCL backend" OFF)
 option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
-option(CHIP_L0_FIRST_TOUCH "First-touch workaroudn for Level Zero." ON) # https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
+option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." ON) # https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
