@@ -76,9 +76,9 @@ echo "chipStar build complete."
 
 
 # Build libCEEDA
-# export HIP_DIR=`pwd`/install # set HIP_DIR to current build dir
-# export LIBCEED_DIR=`pwd`/libCEED
-# ../scripts/compile_libceed.sh ${HIP_DIR}
+export CHIPSTAR_INSTALL_DIR=`pwd`/install # set CHIPSTAR_INSTALL_DIR to current build dir
+export LIBCEED_DIR=`pwd`/libCEED
+../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 module unload opencl/pocl
 
 # # Test PoCL CPU
@@ -109,9 +109,9 @@ module list
 export CHIP_L0_IMM_CMD_LISTS=OFF
 ctest --timeout 600 -j $(nproc) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 
-# pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
-# popd
+pushd ${LIBCEED_DIR}
+HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
+popd
 
 unset CHIP_L0_IMM_CMD_LISTS
 module unload level-zero/dgpu
@@ -122,11 +122,11 @@ echo "begin dgpu_level0_failed_imm_tests"
 module load level-zero/dgpu
 module list
 export CHIP_L0_IMM_CMD_LISTS=ON
-ctest --timeout 600 -j $(nproc) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+ctest --timeout 600 -j $(nproc) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
 
-# pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
-# popd
+pushd ${LIBCEED_DIR}
+HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+popd
 
 unset CHIP_L0_IMM_CMD_LISTS
 module unload level-zero/dgpu
@@ -152,9 +152,9 @@ module load opencl/dgpu # sets CHIP_BE
 module list
 ctest --timeout 600 -j $(nproc) --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 
-# pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
-# popd
+pushd ${LIBCEED_DIR}
+HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j $(nproc) PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
+popd
 
 module unload opencl/dgpu intel/opencl
 echo "end dgpu_opencl_failed_tests"
