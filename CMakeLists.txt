@@ -216,6 +216,12 @@ option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib 
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "enable support for cl_intel_unified_shared_memory in the OpenCL backend" OFF)
 option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
+# This mitigation might be necessary on some systems with an older runtime. 
+# This mitigation makes memory resident (disable swapping) on the GPU
+# This has a significant impact on the cost of a GPU malloc 
+# If your application does a lot of small allocations, it might be slow
+# https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
+option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -248,6 +254,10 @@ endif()
 
 if(CHIP_DUBIOUS_LOCKS)
   list(APPEND CHIP_SPV_DEFINITIONS CHIP_DUBIOUS_LOCKS)
+endif()
+
+if(CHIP_L0_FIRST_TOUCH)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_L0_FIRST_TOUCH)
 endif()
 
 if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
@@ -290,10 +300,6 @@ endif()
 
 if(PER_THREAD_DEFAULT_STREAM)
   list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
-endif()
-
-if(CHIP_IMM_LISTS)
-  list(APPEND CHIP_SPV_DEFINITIONS L0_IMM_QUEUES)
 endif()
 
 if(CHIP_VERBOSE)

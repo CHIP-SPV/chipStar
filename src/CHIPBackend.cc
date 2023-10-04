@@ -1097,7 +1097,6 @@ void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
 }
 
 chipstar::Device *chipstar::Context::getDevice() {
-  assert(this->ChipDevice_);
   return ChipDevice_;
 }
 
