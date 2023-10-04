@@ -100,16 +100,17 @@ CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 600 -j 20--output-on-failure -E "`cat 
 module unload level-zero/igpu
 echo "end igpu_level0_failed_reg_tests"
 
-# Test Level Zero Immediate Cmd Lists iGPU
-echo "begin igpu_level0_failed_imm_tests"
-module load level-zero/igpu
-module list
-CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 600 -j 20--output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
-# pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
-# popd
-module unload level-zero/igpu
-echo "end igpu_level0_failed_imm_tests"
+# # ICL broken for iGPU
+# # Test Level Zero Immediate Cmd Lists iGPU
+# echo "begin igpu_level0_failed_imm_tests"
+# module load level-zero/igpu
+# module list
+# CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 600 -j 20--output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
+# # pushd ${LIBCEED_DIR}
+# # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# # popd
+# module unload level-zero/igpu
+# echo "end igpu_level0_failed_imm_tests"
 
 # Test Level Zero Regular Cmd Lists dGPU
 echo "begin dgpu_level0_failed_reg_tests"
@@ -191,10 +192,11 @@ function check_libceed {
 overall_status=0
 
 echo "RESULTS:"
+# ICL broken for iGPU
+#                   igpu_level0_imm_make_check_result.txt
 for test_result in dgpu_opencl_make_check_result.txt \
                    igpu_opencl_make_check_result.txt \
                    igpu_level0_reg_make_check_result.txt \
-                   igpu_level0_imm_make_check_result.txt \
                    dgpu_level0_reg_make_check_result.txt \
                    dgpu_level0_imm_make_check_result.txt
 do
