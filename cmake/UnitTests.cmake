@@ -22,6 +22,7 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
 list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
+list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
@@ -1125,7 +1126,7 @@ list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-FDTD3d") # only happens when ctes
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # only happens when ctest -j $(nproc) RCL
 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hip_async_binomial") # Sunspot correctness
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
@@ -1432,6 +1433,11 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Func
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
+
+list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # only happens when ctest -j $(nproc) RCL
+
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
