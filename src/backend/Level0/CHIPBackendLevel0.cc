@@ -1895,8 +1895,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                           Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-
-    return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();
@@ -1905,17 +1903,29 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
         zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-
-    return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO Check if devices support cross-device sharing?
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
+  } else
+    CHIPERR_LOG_AND_THROW("Failed to allocate memory",
+                          hipErrorMemoryAllocation);
 
-    return Ptr;
+#ifdef CHIP_L0_FIRST_TOUCH
+  /*
+  Normally this would not be necessary but on some systems where the runtime is
+  not up-to-date, this issue persists.
+  https://github.com/intel/compute-runtime/issues/631
+  */
+  if (auto *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice())) {
+    ze_device_handle_t ZeDev = ChipDev->get();
+    auto Status = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorMemoryAllocation);
   }
-  CHIPERR_LOG_AND_THROW("Failed to allocate memory", hipErrorMemoryAllocation);
+#endif
+  return Ptr;
 }
 
 // CHIPDeviceLevelZero
