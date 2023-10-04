@@ -225,27 +225,7 @@ protected:
 
 public:
   std::vector<ze_event_handle_t>
-  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent) {
-    auto EventsToWaitOn = getSyncQueuesLastEvents();
-    // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
-    // that they don't get destroyed before MemCopyEvent
-    for (auto &Event : EventsToWaitOn) {
-      LOCK(Event->EventMtx);
-      std::static_pointer_cast<CHIPEventLevel0>(Event)->addDependency(
-          TargetEvent);
-    }
-
-    std::vector<ze_event_handle_t> EventHandles(EventsToWaitOn.size());
-    for (size_t i = 0; i < EventsToWaitOn.size(); i++) {
-      std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitOn[i];
-      std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-          std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
-      CHIPASSERT(ChipEventLz);
-      EventHandles[i] = ChipEventLz->peek();
-    }
-    return EventHandles;
-  }
-
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
   std::mutex CmdListMtx;
   ze_command_list_handle_t getCmdList();
   size_t getMaxMemoryFillPatternSize() {
