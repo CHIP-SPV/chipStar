@@ -89,31 +89,37 @@ module unload opencl/pocl
 # module unload opencl/pocl
 # echo "end cpu_pocl_failed_tests"
 
-# # Test Level Zero iGPU
-# echo "begin igpu_level0_failed_tests"
+# Test Level Zero Regular Cmd Lists iGPU
+echo "begin igpu_level0_failed_reg_tests"
+module load level-zero/igpu
+module list
+CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 600 -j 20--output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
+# pushd ${LIBCEED_DIR}
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
+# popd
+module unload level-zero/igpu
+echo "end igpu_level0_failed_reg_tests"
+
+# # ICL broken for iGPU
+# # Test Level Zero Immediate Cmd Lists iGPU
+# echo "begin igpu_level0_failed_imm_tests"
 # module load level-zero/igpu
 # module list
-# ctest --timeout 600 -j 20--output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
-
-# pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee igpu_level0_make_check_result.txt
-# popd
-
+# CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 600 -j 20--output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
+# # pushd ${LIBCEED_DIR}
+# # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# # popd
 # module unload level-zero/igpu
-# echo "end igpu_level0_failed_tests"
+# echo "end igpu_level0_failed_imm_tests"
 
 # Test Level Zero Regular Cmd Lists dGPU
 echo "begin dgpu_level0_failed_reg_tests"
 module load level-zero/dgpu
 module list
-export CHIP_L0_IMM_CMD_LISTS=OFF
-ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
-
+CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
-
-unset CHIP_L0_IMM_CMD_LISTS
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_reg_tests"
 
@@ -121,29 +127,23 @@ echo "end dgpu_level0_failed_reg_tests"
 echo "begin dgpu_level0_failed_imm_tests"
 module load level-zero/dgpu
 module list
-export CHIP_L0_IMM_CMD_LISTS=ON
-ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
-
+CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # popd
-
-unset CHIP_L0_IMM_CMD_LISTS
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_imm_tests"
 
-# # Test OpenCL iGPU
-# echo "begin igpu_opencl_failed_tests"
-# module load opencl/intel-igpu
-# module list
-# ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
-
-# pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
-# popd
-
-# module unload opencl/intel-igpu
-# echo "end igpu_opencl_failed_tests"
+# Test OpenCL iGPU
+echo "begin igpu_opencl_failed_tests"
+module load opencl/intel-igpu
+module list
+ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+#pushd ${LIBCEED_DIR}
+#make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
+#popd
+module unload opencl/intel-igpu
+echo "end igpu_opencl_failed_tests"
 
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_failed_tests"
@@ -151,11 +151,9 @@ module load intel/opencl # sets ICD
 module load opencl/dgpu # sets CHIP_BE
 module list
 ctest --timeout 600 -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
-
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
 # popd
-
 module unload opencl/dgpu intel/opencl
 echo "end dgpu_opencl_failed_tests"
 
@@ -194,9 +192,11 @@ function check_libceed {
 overall_status=0
 
 echo "RESULTS:"
-# igpu_level0_make_check_result.txt
-# cpu_opencl_make_check_result.txt
+# ICL broken for iGPU
+#                   igpu_level0_imm_make_check_result.txt
 for test_result in dgpu_opencl_make_check_result.txt \
+                   igpu_opencl_make_check_result.txt \
+                   igpu_level0_reg_make_check_result.txt \
                    dgpu_level0_reg_make_check_result.txt \
                    dgpu_level0_imm_make_check_result.txt
 do
