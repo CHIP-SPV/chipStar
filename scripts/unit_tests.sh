@@ -44,7 +44,6 @@ export POCL_KERNEL_CACHE=0
 module load $CLANG
 module load intel/igc intel/neo
 module load opencl/pocl
-module load intel/igc intel/neo intel/opencl
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
 if [ $? -ne 0 ]; then
