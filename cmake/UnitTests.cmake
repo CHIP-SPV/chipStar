@@ -440,6 +440,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hip_async_binomial") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # SEGFAULT
@@ -1118,6 +1119,8 @@ list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctnes
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL https://github.com/intel/compute-runtime/issues/668
 
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMallocPitch_ValidatePitch") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-sortnet") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetSlice") # only happens when ctest -j $(nproc) RCL
