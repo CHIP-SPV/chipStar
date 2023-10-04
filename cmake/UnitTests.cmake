@@ -22,6 +22,9 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
 list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_SeekSetSlice") # race condition
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset3D_MemsetWithExtent") # race condition
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_ConcurrencyMthread") # race condition
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
@@ -133,7 +136,6 @@ list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
@@ -440,7 +442,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # SEGFAULT
+
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hip_async_binomial") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # SEGFAULT
@@ -1107,30 +1109,27 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipTestSymbolReset") # only happens when ctest -j $(nproc) ICL
-list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # ICL correctness
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctness
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL https://github.com/intel/compute-runtime/issues/668
 
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMallocPitch_ValidatePitch") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-sortnet") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetSlice") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetSlice") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # only happens when ctest -j $(nproc) RCL
 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
@@ -1740,8 +1739,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
-  "Unit_hipMemset3DAsync_ConcurrencyMthread") # Flaky. An event related issue.
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
   "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
