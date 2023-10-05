@@ -360,6 +360,11 @@ using cudaStream_t = hipStream_t;
 using cudaStreamCallback_t = hipStreamCallback_t;
 using cudaSurfaceObject_t = hipSurfaceObject_t;
 
+using cudaGraph_t = hipGraph_t;
+using cudaGraphNode_t = hipGraphNode_t;
+using cudaGraphExec_t = hipGraphExec_t;
+using cudaKernelNodeParams = hipKernelNodeParams;
+
 // CUDA driver API
 using CUdevice = hipDevice_t;
 using CUdeviceptr = hipDeviceptr_t;
@@ -830,6 +835,44 @@ static inline cudaError_t cudaMallocAsync(void **Ptr, size_t Size, cudaStream_t 
 
 static inline cudaError_t cudaFreeAsync(void *Ptr, cudaStream_t Stream) {
   return hipFreeAsync(Ptr, Stream);
+}
+
+static inline cudaError_t cudaGraphCreate(cudaGraph_t* pGraph, unsigned int flags) {
+  return hipGraphCreate(pGraph, flags);
+}
+
+static inline cudaError_t cudaGraphDestroy(cudaGraph_t graph) {
+  return hipGraphDestroy(graph);
+}
+
+static inline cudaError_t cudaGraphAddDependencies(cudaGraph_t graph, 
+		                                   const cudaGraphNode_t *from, 
+			   			  const cudaGraphNode_t * to, 
+			  			  size_t numDependencies) {
+  return hipGraphAddDependencies(graph, from, to, numDependencies);
+}
+
+static inline cudaError_t cudaGraphRemoveDependencies(cudaGraph_t graph,
+                                                   const cudaGraphNode_t *from,
+                                                  const cudaGraphNode_t * to,
+                                                  size_t numDependencies) {
+  return hipGraphRemoveDependencies(graph, from, to, numDependencies);
+}
+
+static inline cudaError_t cudaGraphGetEdges(cudaGraph_t graph, 
+		                            cudaGraphNode_t * from, 
+					    cudaGraphNode_t *to, 
+					    size_t *numEdges) {
+  return hipGraphGetEdges(graph, from, to, numEdges);
+}
+
+static inline cudaError_t cudaGraphLaunch(cudaGraphExec_t graphExec, cudaStream_t stream) {
+  return hipGraphLaunch(graphExec, stream);
+}
+
+static inline cudaError_t cudaGraphExecKernelNodeSetParams(cudaGraphExec_t hGraphExec, cudaGraphNode_t node, 
+		                                            const cudaKernelNodeParams *pNodeParams) {
+  return hipGraphExecKernelNodeSetParams(hGraphExec, node, pNodeParams);
 }
 
 static inline cudaError_t cudaMemGetInfo(size_t *Free, size_t *Total) {
