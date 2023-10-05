@@ -1486,16 +1486,16 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+  // if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     auto Event = getLastEvent();
     auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
     if (EventLZ) {
       auto EventHandle = EventLZ->peek();
       zeEventHostSynchronize(EventHandle, UINT64_MAX);
     }
-  } else {
-    zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
-  }
+  // } else {
+  //   zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
+  // }
 
   return;
 }
