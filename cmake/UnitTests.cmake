@@ -4,12 +4,16 @@
 # such as those frome HIP's testsuite; the internal tests
 # should be disabled based on value CHIP_ENABLE_FAILING_TESTS option
 #  Necessary for some reason
-list(APPEND  FAILING_FOR_ALL " ") 
-list(APPEND  CPU_OPENCL_FAILED_TESTS " ") 
+list(APPEND FAILING_FOR_ALL " ") 
+list(APPEND CPU_OPENCL_FAILED_TESTS " ") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS " ") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS " ") 
-list(APPEND IGPU_LEVEL0_FAILED_TESTS " ")
-list(APPEND DGPU_LEVEL0_FAILED_TESTS " ") 
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS " ")
+list(APPEND IGPU_LEVEL0_RCL_TESTS " ")
+list(APPEND IGPU_LEVEL0_ICL_TESTS " ")
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS " ") 
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS " ") 
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS " ") 
 list(APPEND CPU_POCL_FAILED_TESTS " ") 
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 
@@ -17,6 +21,10 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_SeekSetSlice") # race condition
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset3D_MemsetWithExtent") # race condition
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_ConcurrencyMthread") # race condition
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
@@ -128,7 +136,6 @@ list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # MemUnmap CL_RESULT != CL_SUCCESS
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
@@ -435,6 +442,11 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
+
+list(APPEND IGPU_OPENCL_FAILED_TESTS "hip_async_binomial") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # SEGFAULT
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
@@ -743,6 +755,13 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-vectorAdd") # Only happens in ctest -j $(nproc): timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Memcpy - int") # Only happens in ctest -j $(nproc): timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Memcpy - float") # Only happens in ctest -j $(nproc): timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Memcpy - double") # Only happens in ctest -j $(nproc): timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_diffflags") # Only happens in ctest -j $(nproc): timeout
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") # Only happens in ctest -j $(nproc): pure virtual method called
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") # Only happens in ctest -j $(nproc): pure virtual method called
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int") # Unkown
@@ -1090,632 +1109,642 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # ICL correctness
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hip_async_binomial") # Sunspot correctness
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctness
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEvent") # Failing for Imm Cmd Lists https://github.com/intel/compute-runtime/issues/668
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "FloydWarshall") # Assertion `!Deleted_ && "Event use after delete!"' failed.
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "deviceMallocCompile") # Unimplemented
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddDependencies_NegTest") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraph_BasicFunctional") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddMemcpyNode_BasicFunctional") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphClone_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_DependencyGraph") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddHostNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphChildGraphNodeGetGraph_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeFindInClone_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_ClonedGraphwithHostNode") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_BasicFunc") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetRootNodes_Functional") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetRootNodes_CapturedStream") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetRootNodes_ParamValidation") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphHostNodeSetParams_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddMemcpyNode1D_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_OrgGraphAsChildGraph") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_CloneChildGraph") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_MultipleChildNodes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_SingleChildNode") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetType_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetEdges_Functionality") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetEdges_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Func_StrmCapture") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRemoveDependencies_ChangeComputeFunc") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphInstantiate_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_Basic") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_TypeChange") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecUpdate_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_VerifyEventNotChanged") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventWaitNodeSetEvent_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemsetNodeGetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemsetNodeSetParams_InvalidParams") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventRecordNodeGetEvent_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventWaitNodeGetEvent_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_BasicFunctional") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_hipStreamPerThread") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_defaultflag") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_blockingflag") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffflags") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffprio") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_multiplestrms") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_func") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Global") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_ThreadLocal") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Relaxed") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingFromWithinStrms") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_DetectingInvalidCapture") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingMultGraphsFrom1Strm") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_EndingCapturewhenCaptureInProgress") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_nestedStreamCapture") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_streamReuse") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_captureComplexGraph") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_captureEmptyStreams") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_hipStreamPerThread") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_BasicFunctional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_hipStreamPerThread") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_UniqueID") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_ArgValidation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamEndCapture_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamEndCapture_Thread_Negative") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_SetAndVerifyMemory") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_VerifyEventNotChanged") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddMemsetNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddKernelNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeGetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeGetSetParams_Functional") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphLaunch_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams1D_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_ParamValidation") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_ParamValidation") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphHostNodeGetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_BasicFunc") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_ChildTopology") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_BasicFunctional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_hipStreamPerThread") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_UniqueID") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_ParamValidation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_1") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_3") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_4") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectRelease_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectRetain_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObj_Negative_Test") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_1") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphReleaseUserObject_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Null_Object") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Bus error
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetDevicePointer_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicTrim") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_BadFlags") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float2") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float4") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_BadNumberOfBits") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_3ChannelElement") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_ChannelAfterZeroChannel") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_InvalidChannelFormat") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NumericLimit") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_DiffSizes") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_MultiThread") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullArrayPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullDescPtr") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_ZeroHeight") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_InvalidFlags") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelLayout") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_HosttoDevice") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_ExtentValidation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - uint8_t") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - int") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - float") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_HosttoDevice") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_ExtentValidation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_MemoryTypes") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_KernelUpdation") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_BufferID") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_MappedMem") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_DifferentMallocSmall") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - float4") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - char") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - int") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - float2") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - float4") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - char") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - int") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - float2") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - float4") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Bus error
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventRecord") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventIpc") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_ValidFlag") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_SetThenGet") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_Threaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetDeviceFlags_Positive_Context") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDevice_MultiThreaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipSetGetDevice_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetUuid_Positive") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetUuid_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Negative_Parameters") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSetLimit_SetGet") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Default") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Threaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Negative_Parameters") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceReset_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceReset_Positive_Threaded") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSetMemPool_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSetMemPool_Negative_Parameters") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Separate_Allocations") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Reused_Memory") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Handle_For_Freed_Memory") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Out_Of_Bound_Pointer") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Reference_Counting") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipDynamicShared") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-list(APPEND DGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipTestSymbolReset") # only happens when ctest -j $(nproc) ICL
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctness
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL https://github.com/intel/compute-runtime/issues/668
+
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMallocPitch_ValidatePitch") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-sortnet") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetSlice") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) RCL
+
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Sunspot Timeout 
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hip_async_binomial") # Sunspot correctness
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "BitonicSort") # Assertion `!Deleted_ && "Event use after delete!"' failed.
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "FloydWarshall") # Assertion `!Deleted_ && "Event use after delete!"' failed.
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddDependencies_NegTest") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraph_BasicFunctional") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddMemcpyNode_BasicFunctional") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphClone_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_DependencyGraph") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddHostNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphChildGraphNodeGetGraph_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeFindInClone_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_ClonedGraphwithHostNode") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_BasicFunc") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetRootNodes_Functional") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetRootNodes_CapturedStream") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetRootNodes_ParamValidation") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphHostNodeSetParams_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddMemcpyNode1D_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_OrgGraphAsChildGraph") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_CloneChildGraph") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_MultipleChildNodes") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_SingleChildNode") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetType_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetEdges_Functionality") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetEdges_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Func_StrmCapture") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRemoveDependencies_ChangeComputeFunc") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphInstantiate_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_Basic") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_TypeChange") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecUpdate_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_VerifyEventNotChanged") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventWaitNodeSetEvent_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemsetNodeGetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemsetNodeSetParams_InvalidParams") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventRecordNodeGetEvent_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventWaitNodeGetEvent_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_BasicFunctional") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_hipStreamPerThread") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_defaultflag") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_blockingflag") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffflags") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffprio") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_multiplestrms") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_func") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Global") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_ThreadLocal") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Relaxed") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingFromWithinStrms") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_DetectingInvalidCapture") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingMultGraphsFrom1Strm") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_EndingCapturewhenCaptureInProgress") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_nestedStreamCapture") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_streamReuse") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_captureComplexGraph") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_captureEmptyStreams") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_hipStreamPerThread") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_BasicFunctional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_hipStreamPerThread") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_UniqueID") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_ArgValidation") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamEndCapture_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamEndCapture_Thread_Negative") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_SetAndVerifyMemory") # Timeout
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_VerifyEventNotChanged") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddMemsetNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddKernelNode_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeGetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeGetSetParams_Functional") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphLaunch_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams1D_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_ParamValidation") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_ParamValidation") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphHostNodeGetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_Negative") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_BasicFunc") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_ChildTopology") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_BasicFunctional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_hipStreamPerThread") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_UniqueID") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_ParamValidation") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_1") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_2") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_3") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_4") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectRelease_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectRetain_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObj_Negative_Test") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_1") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_2") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphReleaseUserObject_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Null_Object") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Bus error
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetDevicePointer_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_BasicTrim") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_BadFlags") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float2") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float4") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_BadNumberOfBits") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_3ChannelElement") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_ChannelAfterZeroChannel") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_InvalidChannelFormat") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_NumericLimit") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_DiffSizes") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_MultiThread") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullArrayPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullDescPtr") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_ZeroHeight") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_InvalidFlags") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelLayout") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_HosttoDevice") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_ExtentValidation") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - uint8_t") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - int") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - float") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_HosttoDevice") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_ExtentValidation") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_MemoryTypes") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_KernelUpdation") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_BufferID") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_MappedMem") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_DifferentMallocSmall") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - float4") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - char") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - int") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - float2") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - float4") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - char") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - int") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - float2") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - float4") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Bus error
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventRecord") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventIpc") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_ValidFlag") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_SetThenGet") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_Threaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetDeviceFlags_Positive_Context") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDevice_MultiThreaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipSetGetDevice_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetUuid_Positive") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetUuid_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Negative_Parameters") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSetLimit_SetGet") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Default") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Threaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Negative_Parameters") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceReset_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceReset_Positive_Threaded") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSetMemPool_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSetMemPool_Negative_Parameters") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Separate_Allocations") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Reused_Memory") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Handle_For_Freed_Memory") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Out_Of_Bound_Pointer") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Reference_Counting") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hipDynamicShared") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # iGPU Level Zero Unit Test Failures
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "deviceMallocCompile") # Unimplemented
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddDependencies_NegTest") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraph_BasicFunctional") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddMemcpyNode_BasicFunctional") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphClone_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_DependencyGraph") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddHostNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphChildGraphNodeGetGraph_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeFindInClone_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_ClonedGraphwithHostNode") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_BasicFunc") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetRootNodes_Functional") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetRootNodes_CapturedStream") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetRootNodes_ParamValidation") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphHostNodeSetParams_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddMemcpyNode1D_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_OrgGraphAsChildGraph") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_CloneChildGraph") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_MultipleChildNodes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_SingleChildNode") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetType_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetEdges_Functionality") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphGetEdges_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Func_StrmCapture") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRemoveDependencies_ChangeComputeFunc") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphInstantiate_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_Basic") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_TypeChange") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecUpdate_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_VerifyEventNotChanged") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventWaitNodeSetEvent_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemsetNodeGetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemsetNodeSetParams_InvalidParams") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventRecordNodeGetEvent_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphEventWaitNodeGetEvent_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_hipStreamPerThread") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_defaultflag") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_blockingflag") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffflags") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffprio") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_multiplestrms") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_func") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Global") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_ThreadLocal") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Relaxed") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingFromWithinStrms") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_DetectingInvalidCapture") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingMultGraphsFrom1Strm") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_EndingCapturewhenCaptureInProgress") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_nestedStreamCapture") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_streamReuse") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_captureComplexGraph") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamBeginCapture_captureEmptyStreams") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamIsCapturing_hipStreamPerThread") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_BasicFunctional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_hipStreamPerThread") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_UniqueID") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_ArgValidation") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamEndCapture_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamEndCapture_Thread_Negative") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_SetAndVerifyMemory") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_VerifyEventNotChanged") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddMemsetNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphAddKernelNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeGetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphKernelNodeGetSetParams_Functional") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphLaunch_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams1D_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_ParamValidation") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_ParamValidation") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphHostNodeGetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_BasicFunc") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_ChildTopology") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_BasicFunctional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_hipStreamPerThread") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_UniqueID") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_ParamValidation") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_1") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_3") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_4") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectCreate_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectRelease_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObjectRetain_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipUserObj_Negative_Test") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_1") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphReleaseUserObject_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Null_Object") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetDevicePointer_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicTrim") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_BadFlags") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float2") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float4") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_BadNumberOfBits") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_3ChannelElement") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_ChannelAfterZeroChannel") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_InvalidChannelFormat") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMallocArray_Negative_NumericLimit") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_DiffSizes") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_MultiThread") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullArrayPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullDescPtr") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_ZeroHeight") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_InvalidFlags") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelLayout") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_HosttoDevice") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3D_ExtentValidation") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - uint8_t") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - int") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - float") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_HosttoDevice") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_ExtentValidation") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_MemoryTypes") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_KernelUpdation") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_BufferID") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_MappedMem") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPointerGetAttribute_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_DifferentMallocSmall") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTDev - float4") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - char") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - int") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - float2") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTHost - float4") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - char") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - int") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - float2") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipFreeMultiTArray - float4") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventRecord") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventIpc") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_ValidFlag") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_SetThenGet") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDeviceFlags_Threaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetDeviceFlags_Positive_Context") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetSetDevice_MultiThreaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipSetGetDevice_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetUuid_Positive") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetUuid_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Negative_Parameters") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSetLimit_SetGet") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Default") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Negative_Parameters") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceReset_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceReset_Positive_Threaded") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSetMemPool_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceSetMemPool_Negative_Parameters") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Separate_Allocations") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Reused_Memory") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Handle_For_Freed_Memory") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Out_Of_Bound_Pointer") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Reference_Counting") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
-list(APPEND IGPU_LEVEL0_FAILED_TESTS
-  "Unit_hipMemset3DAsync_ConcurrencyMthread") # Flaky. An event related issue.
-list(APPEND IGPU_LEVEL0_FAILED_TESTS
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddDependencies_NegTest") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraph_BasicFunctional") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddMemcpyNode_BasicFunctional") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphClone_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphInstantiateWithFlags_DependencyGraph") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddHostNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphChildGraphNodeGetGraph_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeFindInClone_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_ClonedGraphwithHostNode") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecHostNodeSetParams_BasicFunc") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetRootNodes_Functional") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetRootNodes_CapturedStream") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetRootNodes_ParamValidation") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphHostNodeSetParams_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddMemcpyNode1D_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_OrgGraphAsChildGraph") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_CloneChildGraph") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_MultipleChildNodes") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddChildGraphNode_SingleChildNode") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetType_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams1D_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetEdges_Functionality") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetEdges_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Func_StrmCapture") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRemoveDependencies_ChangeComputeFunc") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRemoveDependencies_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphInstantiate_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_Basic") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecUpdate_Negative_TypeChange") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecUpdate_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_VerifyEventNotChanged") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventRecordNodeSetEvent_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventWaitNodeSetEvent_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemsetNodeGetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemsetNodeSetParams_InvalidParams") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsFromSymbol_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventRecordNodeGetEvent_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphEventWaitNodeGetEvent_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_hipStreamPerThread") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_defaultflag") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_blockingflag") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffflags") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_InterStrmEventSync_diffprio") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_multiplestrms") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_func") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Global") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_ThreadLocal") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_Multithreaded_Relaxed") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingFromWithinStrms") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_DetectingInvalidCapture") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_CapturingMultGraphsFrom1Strm") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_EndingCapturewhenCaptureInProgress") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_nestedStreamCapture") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_streamReuse") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_captureComplexGraph") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamBeginCapture_captureEmptyStreams") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamIsCapturing_hipStreamPerThread") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_BasicFunctional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_hipStreamPerThread") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_UniqueID") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_ArgValidation") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamEndCapture_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamEndCapture_Thread_Negative") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_SetAndVerifyMemory") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_VerifyEventNotChanged") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecEventWaitNodeSetEvent_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddMemsetNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddKernelNode_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeGetParams_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeGetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeSetParams_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphKernelNodeGetSetParams_Functional") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecKernelNodeSetParams_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphLaunch_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams1D_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParamsToSymbol_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependentNodes_ParamValidation") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphNodeGetDependencies_ParamValidation") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphHostNodeGetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_Negative") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_BasicFunc") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecChildGraphNodeSetParams_ChildTopology") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_BasicFunctional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_hipStreamPerThread") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_UniqueID") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetCaptureInfo_v2_ParamValidation") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_1") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_2") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_3") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Functional_4") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectCreate_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectRelease_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObjectRetain_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipUserObj_Negative_Test") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_1") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Functional_2") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphReleaseUserObject_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphRetainUserObject_Negative_Null_Object") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3D_ValidatePitch") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemAllocPitch_ValidatePitch") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3D_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemAllocPitch_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetFlags_flagCombos") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetFlags_DifferentThreads") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetFlags_InvalidArgs") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetDevicePointer_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocManaged_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_Negative_InvalidPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsSize") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_Negative_OutOfBoundsPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset_SetMemoryWithOffset") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_BasicAlloc") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_BasicTrim") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_NullArrayPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_NullDescPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_BadFlags") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float2") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_8bitFloat - float4") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_BadNumberOfBits") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_3ChannelElement") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_ChannelAfterZeroChannel") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_InvalidChannelFormat") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_NumericLimit") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_DiffSizes") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_MultiThread") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullArrayPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NullDescPtr") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_ZeroHeight") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_InvalidFlags") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelLayout") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_8BitFloat") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_DifferentChannelSizes") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_BadChannelSize") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc3DArray_Negative_NumericLimit") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - uint8_t") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - int") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_MultipleDataTypes - float") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_HosttoDevice") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3D_ExtentValidation") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - uint8_t") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - int") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_MultipleDataTypes - float") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_HosttoDevice") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvMemcpy3DAsync_ExtentValidation") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_MemoryTypes") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_KernelUpdation") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_BufferID") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_MappedMem") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPointerGetAttribute_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDrvPtrGetAttributes_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_DifferentMallocSmall") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_ParaSmall") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_ParaNonDiv") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_ParaMultiSmall") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemGetInfo_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - char") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - int") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - float2") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTDev - float4") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - char") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - int") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - float2") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTHost - float4") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - char") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - int") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - float2") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipFreeMultiTArray - float4") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetDASyncMulti - uint32_t") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DASyncMulti") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset3DASyncMulti") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventRecord") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventIpc") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetPCIBusId_Negative_PartialFill") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Default") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_ValidFlag") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_SetThenGet") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_Threaded") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetDeviceFlags_Positive_Context") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDevice_MultiThreaded") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipSetGetDevice_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetUuid_Positive") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetUuid_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetDefaultMemPool_Negative_Parameters") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSetLimit_SetGet") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Default") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Positive_Threaded") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetSharedMemConfig_Negative_Parameters") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceReset_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceReset_Positive_Threaded") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSetMemPool_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSetMemPool_Negative_Parameters") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Default") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Positive_Threaded") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetMemPool_Negative_Parameters") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDriverGetVersion_Negative") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Creating_Process") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcOpenMemHandle_Negative_Open_In_Two_Contexts_Same_Device") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Separate_Allocations") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Reused_Memory") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Handle_For_Freed_Memory") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcGetMemHandle_Negative_Out_Of_Bound_Pointer") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Reference_Counting") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
   "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
-list(APPEND IGPU_LEVEL0_FAILED_TESTS
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
   "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float") # Flaky. An event related issue.
  # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND IGPU_LEVEL0_FAILED_TESTS "TestStlFunctionsDouble")
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestStlFunctionsDouble")
 
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
@@ -1987,7 +2016,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy"
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
@@ -2092,15 +2120,21 @@ list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${IGPU_OPENCL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${CPU_OPENCL_FAILED_TESTS})
-list(APPEND ALL_FAILED_TESTS ${DGPU_LEVEL0_FAILED_TESTS})
-list(APPEND ALL_FAILED_TESTS ${IGPU_LEVEL0_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${DGPU_LEVEL0_BASE_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${DGPU_LEVEL0_RCL_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${DGPU_LEVEL0_ICL_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${IGPU_LEVEL0_BASE_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${IGPU_LEVEL0_RCL_FAILED_TESTS})
+list(APPEND ALL_FAILED_TESTS ${IGPU_LEVEL0_ICL_FAILED_TESTS})
 list(APPEND ALL_FAILED_TESTS ${CPU_POCL_FAILED_TESTS})
 
 list(APPEND DGPU_OPENCL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND IGPU_OPENCL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND CPU_OPENCL_FAILED_TESTS ${FAILING_FOR_ALL})
-list(APPEND DGPU_LEVEL0_FAILED_TESTS ${FAILING_FOR_ALL})
-list(APPEND IGPU_LEVEL0_FAILED_TESTS ${FAILING_FOR_ALL})
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS ${FAILING_FOR_ALL} ${DGPU_LEVEL0_BASE_FAILED_TESTS} ${DGPU_LEVEL0_RCL_FAILED_TESTS})
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS ${FAILING_FOR_ALL} ${DGPU_LEVEL0_BASE_FAILED_TESTS} ${DGPU_LEVEL0_ICL_FAILED_TESTS})
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS ${FAILING_FOR_ALL} ${IGPU_LEVEL0_BASE_FAILED_TESTS} ${IGPU_LEVEL0_RCL_FAILED_TESTS})
+list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS ${FAILING_FOR_ALL} ${IGPU_LEVEL0_BASE_FAILED_TESTS} ${IGPU_LEVEL0_ICL_FAILED_TESTS})
 list(APPEND CPU_POCL_FAILED_TESTS ${FAILING_FOR_ALL})
 
 list(REMOVE_DUPLICATES ALL_FAILED_TESTS)
@@ -2108,8 +2142,10 @@ list(REMOVE_DUPLICATES ALL_FAILED_TESTS)
 string(REGEX REPLACE ";" "\$|" DGPU_OPENCL_FAILED_TESTS_STR "${DGPU_OPENCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" IGPU_OPENCL_FAILED_TESTS_STR "${IGPU_OPENCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|"  CPU_OPENCL_FAILED_TESTS_STR "${CPU_OPENCL_FAILED_TESTS}")
-string(REGEX REPLACE ";" "\$|" DGPU_LEVEL0_FAILED_TESTS_STR "${DGPU_LEVEL0_FAILED_TESTS}")
-string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_FAILED_TESTS_STR "${IGPU_LEVEL0_FAILED_TESTS}")
+string(REGEX REPLACE ";" "\$|" DGPU_LEVEL0_RCL_FAILED_TESTS_STR "${DGPU_LEVEL0_RCL_FAILED_TESTS}")
+string(REGEX REPLACE ";" "\$|" DGPU_LEVEL0_ICL_FAILED_TESTS_STR "${DGPU_LEVEL0_ICL_FAILED_TESTS}")
+string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_RCL_FAILED_TESTS_STR "${IGPU_LEVEL0_RCL_FAILED_TESTS}")
+string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_ICL_FAILED_TESTS_STR "${IGPU_LEVEL0_ICL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|"    CPU_POCL_FAILED_TESTS_STR "${CPU_POCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" ALL_FAILED_TESTS_STR "${ALL_FAILED_TESTS}")
 
@@ -2118,17 +2154,20 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${ALL_
 string(CONCAT DGPU_OPENCL_FAILED_TESTS_STR ${DGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT IGPU_OPENCL_FAILED_TESTS_STR ${IGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT CPU_OPENCL_FAILED_TESTS_STR ${CPU_OPENCL_FAILED_TESTS_STR} "\$|")
-string(CONCAT DGPU_LEVEL0_FAILED_TESTS_STR ${DGPU_LEVEL0_FAILED_TESTS_STR} "\$|")
-string(CONCAT IGPU_LEVEL0_FAILED_TESTS_STR ${IGPU_LEVEL0_FAILED_TESTS_STR} "\$|")
+string(CONCAT DGPU_LEVEL0_RCL_FAILED_TESTS_STR ${DGPU_LEVEL0_RCL_FAILED_TESTS_STR} "\$|")
+string(CONCAT DGPU_LEVEL0_ICL_FAILED_TESTS_STR ${DGPU_LEVEL0_ICL_FAILED_TESTS_STR} "\$|")
+string(CONCAT IGPU_LEVEL0_RCL_FAILED_TESTS_STR ${IGPU_LEVEL0_RCL_FAILED_TESTS_STR} "\$|")
+string(CONCAT IGPU_LEVEL0_ICL_FAILED_TESTS_STR ${IGPU_LEVEL0_ICL_FAILED_TESTS_STR} "\$|")
 string(CONCAT CPU_POCL_FAILED_TESTS_STR ${CPU_POCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT ALL_FAILED_TESTS_STR ${ALL_FAILED_TESTS_STR} "\$|")
 
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_opencl_failed_tests.txt" "\"${DGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_opencl_failed_tests.txt" "\"${IGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/cpu_opencl_failed_tests.txt" "\"${CPU_OPENCL_FAILED_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_reg_tests.txt" "\"${DGPU_LEVEL0_FAILED_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_imm_tests.txt" "\"${DGPU_LEVEL0_FAILED_TESTS_STR}\"")
-FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_tests.txt" "\"${IGPU_LEVEL0_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_reg_tests.txt" "\"${DGPU_LEVEL0_RCL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_level0_failed_imm_tests.txt" "\"${DGPU_LEVEL0_ICL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_reg_tests.txt" "\"${IGPU_LEVEL0_RCL_FAILED_TESTS_STR}\"")
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_imm_tests.txt" "\"${IGPU_LEVEL0_ICL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/cpu_pocl_failed_tests.txt" "\"${CPU_POCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")
 
