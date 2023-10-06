@@ -67,7 +67,7 @@ for test in potentially_resolved_tests:
         print("{test} has been resolved!".format(test=test))
         tests.append(test)
 
-test_case = "{precise_device_type}_{backend}".format(precise_device_type=precise_device_type, backend=args.backend)
+test_case = "{precise_device_type}_{backend}_{level0_cmd_list}".format(precise_device_type=precise_device_type, backend=args.backend, level0_cmd_list=level0_cmd_list)
 # TODO if adding more than one check for invocation
 # resolved_tests[test_case] = tests 
 # print("\n\n")
