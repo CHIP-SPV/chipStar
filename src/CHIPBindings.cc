@@ -2132,7 +2132,6 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
     return hipErrorStreamCaptureInvalidated;
   }
 
-  Backend->getActiveDevice()->getContext()->syncQueues(ChipQueue);
   ChipQueue->finish();
   return hipSuccess;
 }

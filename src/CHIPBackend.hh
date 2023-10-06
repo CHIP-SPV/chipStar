@@ -2065,8 +2065,18 @@ protected:
 
   std::shared_ptr<chipstar::Event>
   RegisteredVarCopy(chipstar::ExecItem *ExecItem, MANAGED_MEM_STATE ExecState);
+  bool isDefaultLegacyQueue_ = false;
+  bool isPerThreadDefaultQueue_ = false;
 
 public:
+  bool isDefaultLegacyQueue() { return isDefaultLegacyQueue_; }
+  bool isDefaultPerThreadQueue() { return isPerThreadDefaultQueue_; }
+  void setDefaultLegacyQueue(bool Status) { isDefaultLegacyQueue_ = Status; }
+  void setDefaultPerThreadQueue(bool Status) {
+    isPerThreadDefaultQueue_ = Status;
+  }
+
+  std::vector<std::shared_ptr<chipstar::Event>> getSyncQueuesLastEvents();
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}

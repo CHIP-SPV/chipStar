@@ -549,6 +549,7 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
+    PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
   }
@@ -580,6 +581,7 @@ void chipstar::Device::init() {
   chipstar::QueueFlags Flags;
   int Priority = 1; // TODO : set a default
   LegacyDefaultQueue = createQueue(Flags, Priority);
+  LegacyDefaultQueue->setDefaultLegacyQueue(true);
 }
 
 void chipstar::Device::copyDeviceProperties(hipDeviceProp_t *Prop) {
@@ -1528,6 +1530,55 @@ chipstar::Queue::~Queue() {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);
   }
 };
+
+std::vector<std::shared_ptr<chipstar::Event>>
+chipstar::Queue::getSyncQueuesLastEvents() {
+  auto Dev = ::Backend->getActiveDevice();
+
+  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  if (this->getLastEvent())
+    EventsToWaitOn.push_back(this->getLastEvent());
+
+  // If this stream is default legacy stream, sync with all other streams on
+  // this device
+  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+    // add LastEvent from all other non-blocking queues
+    for (auto &q : Dev->getQueuesNoLock()) {
+      if (q->getQueueFlags().isBlocking()) {
+        auto Ev = q->getLastEvent();
+        if (Ev)
+          EventsToWaitOn.push_back(Ev);
+      }
+    }
+  } else if (this->getQueueFlags().isBlocking()) {
+    // sync with default legacy stream
+    auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
+    if (Ev)
+      EventsToWaitOn.push_back(Ev);
+
+    // sync with default per-thread stream
+    if (Dev->isPerThreadStreamUsedNoLock()) {
+      Ev = Dev->getPerThreadDefaultQueueNoLock()->getLastEvent();
+      if (Ev)
+        EventsToWaitOn.push_back(Ev);
+    }
+  }
+
+  // if (this->isDefaultLegacyQueue()) {
+  //   //  add LastEvent from all other blocking streams
+  //   for (auto &q : Dev->getQueuesNoLock()) {
+  //     if (q->getQueueFlags().isBlocking()) {
+  //       auto Ev = q->getLastEvent();
+  //       if (Ev)
+  //         EventsToWaitOn.push_back(Ev);
+  //     }
+  //   }
+  // }
+
+  return EventsToWaitOn;
+}
 
 ///////// Enqueue Operations //////////
 hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
