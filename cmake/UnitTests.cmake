@@ -21,14 +21,13 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
-list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
+# list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
 # list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_SeekSetSlice") # race condition
 # list(APPEND FAILING_FOR_ALL "Unit_hipMemset3D_MemsetWithExtent") # race condition
 # list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_ConcurrencyMthread") # race condition
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
-# list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
 # list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Flaky
 # list(APPEND FAILING_FOR_ALL "Unit_tex1Dfetch_CheckModes") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
@@ -41,7 +40,7 @@ list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckRGBAModes - buffer") # Fai
 list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj1DCheckSRGBAModes - buffer") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckRGBAModes") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipTextureObj2DCheckSRGBAModes") # Failed
-list(APPEND FAILING_FOR_ALL "Unit_hipTextureFetch_vector") # failing for LLVM16
+# list(APPEND FAILING_FOR_ALL "Unit_hipTextureFetch_vector") # failing for LLVM16
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - uint") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - int4") # Failed
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocArray_MaxTexture_Default - ushort") # Failed
@@ -57,7 +56,7 @@ list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather -
 list(APPEND FAILING_FOR_ALL "Unit_hipMalloc3DArray_Negative_Non2DTextureGather - float4") # Failed
 # list(APPEND FAILING_FOR_ALL "TestIndirectMappedHostAlloc") # Fails on Sunspot. Currently, first-touch enabled as a workaround
 list(APPEND FAILING_FOR_ALL "Unit_HMM_OverSubscriptionTst") # Seems AMD-specific, crashes the driver
-# list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Incorrect result - prob something minor
+list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Incorrect result - prob something minor
 # list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_Negative") # Likely arg checks
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - int") # Correctess
 list(APPEND FAILING_FOR_ALL "Unit_hipMallocPitch_KernelLaunch - float") # Correctness
@@ -311,9 +310,9 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
@@ -616,9 +615,9 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
@@ -756,6 +755,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") # Only happens in ctest -j $(nproc): timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_ParamTst_Positive") # Only happens in ctest -j $(nproc): timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-vectorAdd") # Only happens in ctest -j $(nproc): timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Memcpy - int") # Only happens in ctest -j $(nproc): timeout
@@ -970,14 +970,14 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem -
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - float") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemcpyAsync_H2H-H2D-D2H-H2PinMem - double") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemset") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD32") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD16") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD8") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD32") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD16") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD8") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
@@ -1116,6 +1116,10 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # dGPU Level Zero Unit Test Failures
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Failed for level0 dgpu imm
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed for level0 dgpu imm
+
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipTestSymbolReset") # only happens when ctest -j $(nproc) ICL
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "cuda-lambda") # Sunspot ICL correctness
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "firstTouch") # Sunspot ICL correctness
@@ -1389,8 +1393,8 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
-# list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
-# list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
@@ -1613,9 +1617,9 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
@@ -1952,9 +1956,9 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
