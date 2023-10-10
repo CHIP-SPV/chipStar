@@ -542,10 +542,8 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
 
 void chipstar::Device::QueueDeleter::operator()(
     chipstar::Queue *q) const noexcept {
-  if (q) {
-    q->~Queue();
-    free(CHIP_OBJ_TO_HANDLE(q, ihipStream_t));
-  }
+  if (q)
+    delete q;
 }
 
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
@@ -907,8 +905,7 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
   }
   ChipQueues_.erase(FoundQueue);
 
-  ChipQueue->~Queue();
-  free(CHIP_OBJ_TO_HANDLE(ChipQueue, ihipStream_t));
+  delete ChipQueue;
   return true;
 }
 
