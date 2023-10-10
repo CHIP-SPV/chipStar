@@ -769,9 +769,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,
                                                int Priority) {
-  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueOpenCL));
-  CHIPQueueOpenCL *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueOpenCL);
-  NewQ = new (NewQ) CHIPQueueOpenCL(this, Priority);
+  auto *NewQ = new CHIPQueueOpenCL(this, Priority);
   NewQ->setFlags(Flags);
   return NewQ;
 }
@@ -779,9 +777,7 @@ chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
                                                int NumHandles) {
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
-  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueOpenCL));
-  CHIPQueueOpenCL *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueOpenCL);
-  NewQ = new (NewQ) CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
+  auto *NewQ = new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
   return NewQ;
 }
 

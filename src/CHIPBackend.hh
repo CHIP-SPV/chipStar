@@ -2037,7 +2037,7 @@ public:
 /**
  * @brief Queue class for submitting kernels to for execution
  */
-class Queue {
+class Queue : public Dispatchable {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;

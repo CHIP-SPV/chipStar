@@ -2006,10 +2006,7 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
 chipstar::Queue *CHIPDeviceLevel0::createQueue(chipstar::QueueFlags Flags,
                                                int Priority) {
-  void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
-  CHIPQueueLevel0 *NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
-  NewQ = new (NewQ) CHIPQueueLevel0(this, Flags, Priority);
-  return NewQ;
+  return new CHIPQueueLevel0(this, Flags, Priority);
 }
 
 chipstar::Queue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
@@ -2019,13 +2016,9 @@ chipstar::Queue *CHIPDeviceLevel0::createQueue(const uintptr_t *NativeHandles,
   if (!CmdQ) {
     logWarn("initializeFromNative: native queue pointer is null. Creating a "
             "new queue");
-    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
-    NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
-    NewQ = new (NewQ) CHIPQueueLevel0(this, 0, 0);
+    NewQ = new CHIPQueueLevel0(this, 0, 0);
   } else {
-    void *mem = malloc(sizeof(ihipDispatch) + sizeof(CHIPQueueLevel0));
-    NewQ = CHIP_HANDLE_TO_OBJ(mem, CHIPQueueLevel0);
-    NewQ = new (NewQ) CHIPQueueLevel0(this, CmdQ);
+    NewQ = new CHIPQueueLevel0(this, CmdQ);
     // In this case CHIP does not own the queue hence setting right ownership
     if (NewQ != nullptr) {
       NewQ->setCmdQueueOwnership(false);

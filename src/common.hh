@@ -40,11 +40,37 @@
 #include <mutex>
 #include <queue>
 #include <stack>
+#include <cassert>
 
 /// For multiplexing purposes, the first field of our objects must be a void *
 /// pointer
 struct ihipDispatch {
   void *dispatch;
+};
+
+class Dispatchable {
+private:
+  struct DispatchImpl {
+    void *Dispatch;
+    void *Object;
+  } DispatchState_ = {nullptr, this};
+
+  // Need to have at least one virtual function so the base and
+  // derived classes have equal 'this' pointer.
+  virtual void forceInheritance() noexcept {};
+
+public:
+  void *asDispatchableObject() noexcept {
+    return static_cast<void *>(&DispatchState_);
+  }
+
+  template <typename T>
+  static T *getObjectAs(void *Ptr) {
+    assert(Ptr);
+    auto *State = static_cast<DispatchImpl *>(Ptr);
+    assert(State->Object);
+    return static_cast<T *>(State->Object);
+  }
 };
 
 #define CHIP_HANDLE_TO_OBJ(handle, type)                                       \
@@ -54,17 +80,6 @@ struct ihipDispatch {
 #define CHIP_OBJ_TO_HANDLE(pobj, type)                                         \
   (reinterpret_cast<type *>(reinterpret_cast<uintptr_t>(pobj) -                \
                             sizeof(ihipDispatch)))
-
-#define QUEUE(x)                                                               \
-  ((!(x) || (x) == hipStreamPerThread || (x) == hipStreamLegacy)               \
-       ? reinterpret_cast<chipstar::Queue *>(x)                                \
-       : CHIP_HANDLE_TO_OBJ(x, chipstar::Queue))
-
-#define STREAM(x)                                                              \
-  ((!(x) || (x) == (chipstar::Queue *)hipStreamPerThread ||                    \
-    (x) == (chipstar::Queue *)hipStreamLegacy)                                 \
-       ? reinterpret_cast<ihipStream_t *>(x)                                   \
-       : CHIP_OBJ_TO_HANDLE(x, ihipStream_t))
 
 #define HIPTOCHIP(x, t)                                                        \
   (!(x) ? reinterpret_cast<t *>(x) : CHIP_HANDLE_TO_OBJ(x, t))
@@ -112,7 +127,6 @@ struct ihipDispatch {
 /// so ihipEvent_t pointers may carry chipstar::Event instances.
 struct ihipEvent_t : ihipDispatch {};
 struct ihipCtx_t : ihipDispatch {};
-struct ihipStream_t : ihipDispatch {};
 struct ihipModule_t : ihipDispatch {};
 struct ihipModuleSymbol_t : ihipDispatch {};
 struct ihipGraph : ihipDispatch {};
@@ -120,6 +134,21 @@ struct hipGraphNode : ihipDispatch {};
 struct hipGraphExec : ihipDispatch {};
 struct __hip_texture : ihipDispatch {};
 struct _hiprtcProgram : ihipDispatch {};
+
+using hipStream_t = struct ihipStream_t *;
+
+namespace chipstar {
+class Queue;
+}
+
+// TODO: rename to unwrap()
+static constexpr chipstar::Queue *QUEUE(hipStream_t Stream) noexcept {
+  return Stream ? Dispatchable::getObjectAs<chipstar::Queue>(Stream) : nullptr;
+}
+
+// Implemented in CHIPBackend.cpp
+// TODO: rename to wrap()
+hipStream_t STREAM(chipstar::Queue *Queue) noexcept;
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(uint32_t *Stream, size_t NumWords,

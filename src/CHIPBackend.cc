@@ -502,13 +502,11 @@ chipstar::Device::~Device() {
   LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
   while (this->ChipQueues_.size() > 0) {
-    ChipQueues_[0]->~Queue();
-    free(CHIP_OBJ_TO_HANDLE(ChipQueues_[0], ihipStream_t));
+    delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
   }
 
-  LegacyDefaultQueue->~Queue();
-  free(CHIP_OBJ_TO_HANDLE(LegacyDefaultQueue, ihipStream_t));
+  delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
 }
 chipstar::Queue *chipstar::Device::getLegacyDefaultQueue() {
@@ -1902,4 +1900,8 @@ void chipstar::Queue::addCallback(hipStreamCallback_t Callback,
 
 CHIPGraph *chipstar::Queue::getCaptureGraph() const {
   return static_cast<CHIPGraph *>(CaptureGraph_);
+}
+
+hipStream_t STREAM(chipstar::Queue *Queue) noexcept {
+   return reinterpret_cast<hipStream_t>(Queue->asDispatchableObject());
 }

@@ -2106,7 +2106,7 @@ hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
   auto ClampedPriority = std::min(MinPriority, std::max(MaxPriority, Priority));
   chipstar::Queue *ChipQueue =
       Dev->createQueueAndRegister(FlagsParsed, ClampedPriority);
-  *Stream = CHIP_OBJ_TO_HANDLE(ChipQueue, ihipStream_t);
+  *Stream = STREAM(ChipQueue);
   return hipSuccess;
 }
 
