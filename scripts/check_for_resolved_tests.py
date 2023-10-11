@@ -53,21 +53,24 @@ if agg_device_type == "igpu" or agg_device_type == "dgpu":
 env_vars = "CHIP_BE={backend} CHIP_DEVICE_TYPE={device_type}".format(backend=args.backend, device_type=agg_device_type)
 print("Checking for resolved tests for {device_type} {backend}".format(device_type=precise_device_type, backend=args.backend))
 os.chdir(args.path)
-out = run_cmd("{env_vars} ctest --timeout 120 -j {num_threads}  -R \"`cat ./test_lists/{precise_device_type}_{backend}_failed_{level0_cmd_list}tests.txt`\"".format(level0_cmd_list=level0_cmd_list, backend=args.backend, precise_device_type=precise_device_type, env_vars=env_vars, num_threads=args.num_threads))
+out = run_cmd("{env_vars} ctest --timeout 600 -j {num_threads}  -R \"`cat ./test_lists/{precise_device_type}_{backend}_failed_{level0_cmd_list}tests.txt`\"".format(level0_cmd_list=level0_cmd_list, backend=args.backend, precise_device_type=precise_device_type, env_vars=env_vars, num_threads=args.num_threads))
 with open("1.initial_passed_tests.txt", 'w') as file:
     file.write(out)
 potentially_resolved_tests = re.findall(r".*?\: (.*?) \.+   Passed", out)
 with open("2.potentially_resolved_tests.txt", 'w') as file:
     file.write(str(potentially_resolved_tests))
 tests = []
+
+tests_to_run = "|".join(["{}$".format(test) for test in potentially_resolved_tests])
+cmd = "{env_vars} ctest --timeout 600 -j {num_threads} --repeat until-fail:{num_tries} -R '{tests_to_run}'".format(num_threads=args.num_threads, env_vars=env_vars, num_tries=args.num_tries, tests_to_run=tests_to_run)
+out = run_cmd(cmd)
+
 for test in potentially_resolved_tests:
-    cmd = "{env_vars} ctest --timeout 120 -j {num_threads} --repeat until-fail:{num_tries} -R '^{test}$'".format(num_threads=args.num_threads, env_vars=env_vars, num_tries=1, test=test)
-    out = run_cmd(cmd)
-    if "100% tests passed" in out:
+    if "{} has been resolved!".format(test) in out:
         print("{test} has been resolved!".format(test=test))
         tests.append(test)
 
-test_case = "{precise_device_type}_{backend}".format(precise_device_type=precise_device_type, backend=args.backend)
+test_case = "{precise_device_type}_{backend}_{level0_cmd_list}".format(precise_device_type=precise_device_type, backend=args.backend, level0_cmd_list=level0_cmd_list)
 # TODO if adding more than one check for invocation
 # resolved_tests[test_case] = tests 
 # print("\n\n")
