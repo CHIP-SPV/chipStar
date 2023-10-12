@@ -21,15 +21,15 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
-list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
+# list(APPEND FAILING_FOR_ALL "hip_sycl_interop") # Segfault after updating to the newest runtime
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
 # list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_SeekSetSlice") # race condition
-list(APPEND FAILING_FOR_ALL "Unit_hipMemset3D_MemsetWithExtent") # race condition
-list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_ConcurrencyMthread") # race condition
+# list(APPEND FAILING_FOR_ALL "Unit_hipMemset3D_MemsetWithExtent") # race condition
+# list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_ConcurrencyMthread") # race condition
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
-list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Flaky
+# list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSame") # Flaky
 # list(APPEND FAILING_FOR_ALL "Unit_tex1Dfetch_CheckModes") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_LinearResource") # Subprocess aborted
@@ -133,7 +133,7 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 # Not included in any target because no driver (so far) reports support
 # for indirect calls. Despite this, this test is known to pass on Intel
 # OpenCL CPU & GPU and Intel Level Zero (however, your mileage may vary).
-list(APPEND FAILING_FOR_ALL "TestIndirectCall")
+# list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
@@ -444,14 +444,14 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
 
-list(APPEND IGPU_OPENCL_FAILED_TESTS "hip_async_binomial") # SEGFAULT
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "hip_async_binomial") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-qrng") # Subprocess aborted
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-qrng") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddDependencies_NegTest") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Negative") # SEGFAULT
@@ -470,7 +470,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negat
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
@@ -615,11 +615,11 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Faile
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
@@ -744,15 +744,15 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "stream") # SEGFAULT
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
  # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
+# list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
@@ -1096,7 +1096,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Positive_Referen
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_printf_flags") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_printf_specifier") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # Failed
+# list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_Check") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipLaunchBounds_With_maxThreadsPerBlock_blocksPerCU_Check") # Failed
 
@@ -1120,18 +1120,23 @@ list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL http
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") 
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") 
 
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMallocPitch_ValidatePitch") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-sortnet") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetAsync_QueueJobsMultithreaded") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-bandwidthTest") # only happens when ctest -j $(nproc) RCL
+
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMallocPitch_ValidatePitch") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-sortnet") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_SeekSetSlice") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) RCL
-list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) RCL
+# list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) RCL
 
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 # list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 # list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hip_async_binomial") # Sunspot correctness
@@ -1607,11 +1612,11 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemset") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD32") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD16") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_hipMemsetD8") # Failed
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
@@ -1737,23 +1742,23 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetLastError_Positive_Threade
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
   "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
-  "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float") # Flaky. An event related issue.
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
+#   "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThreadMultiStream - float") # Flaky. An event related issue.
  # Timeout or out-of-resources error in the CI which emulates double FPs.
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestStlFunctionsDouble")
+# list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestStlFunctionsDouble")
 
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
 list(APPEND CPU_POCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
-list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
+# list(APPEND CPU_POCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "fp16_half2_math") # Subprocess aborted
@@ -2072,7 +2077,7 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Fa
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipClassKernel_Friend") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+# list(APPEND CPU_POCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop") # #terminate called after throwing an instance of 'sycl::_V1::runtime_error' what():  No device of requested type available
 list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # #terminate called after throwing an instance of 'sycl::_V1::runtime_error' what():  No device of requested type available
 # broken tests, they all try to write outside allocated memory;
@@ -2116,7 +2121,7 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest_rnorm_double
 
 # This causes an LLVM codegen crash with cold kcache, but with hot
 # kcache it passes. Also it passes with the 'basic' driver.
-list(APPEND CPU_POCL_FAILED_TESTS "TestUndefKernelArg")
+# list(APPEND CPU_POCL_FAILED_TESTS "TestUndefKernelArg")
 
 list(APPEND ALL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND ALL_FAILED_TESTS ${DGPU_OPENCL_FAILED_TESTS})

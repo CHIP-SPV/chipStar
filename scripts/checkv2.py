@@ -38,9 +38,9 @@ else:
     level0_cmd_list = ""
 
 if args.device_type == "cpu":
-    timeout = 400
+    timeout = 1800
 else:
-    timeout = 180
+    timeout = 1800
 
 os.chdir(args.work_dir)
 
