@@ -398,7 +398,7 @@ target_include_directories(CHIP
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/cuspv>"
   PRIVATE
-  "${CMAKE_BINARY_DIR}/include" # for CHIPSPVConfig.hh, should be first
+  "${CMAKE_BINARY_DIR}/include" # for chipStarConfig.hh, should be first
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
 )
@@ -538,7 +538,7 @@ set(CHIP_DEBUG_BUILD 0)
 if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
   set(CHIP_DEBUG_BUILD 1)
 endif()
-configure_file(CHIPSPVConfig.hh.in include/CHIPSPVConfig.hh @ONLY)
+configure_file(chipStarConfig.hh.in include/chipStarConfig.hh @ONLY)
 
 # PROJECT CONFIGURATION HEADER
 # =============================================================================
@@ -672,7 +672,7 @@ install(TARGETS CHIP
   INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(FILES ${CMAKE_BINARY_DIR}/include/CHIPSPVConfig.hh DESTINATION ${INCLUDE_INSTALL_DIR})
+install(FILES ${CMAKE_BINARY_DIR}/include/chipStarConfig.hh DESTINATION ${INCLUDE_INSTALL_DIR})
 install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS)

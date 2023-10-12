@@ -23,7 +23,7 @@
 #ifndef HIP_COMMON_HH
 #define HIP_COMMON_HH
 
-#include "CHIPSPVConfig.hh"
+#include "chipStarConfig.hh"
 #include "SPIRVFuncInfo.hh"
 
 #include <map>
