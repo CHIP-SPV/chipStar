@@ -26,7 +26,7 @@ module unload opencl/igpu
 
 
 module load opencl/pocl
-./scripts/check_for_resolved_tests.py ./build pocl opencl 24 1 candidates
+./scripts/check_for_resolved_tests.py ./build cpu pocl 24 1 candidates
 module unload opencl/pocl
 
 module load opencl/cpu

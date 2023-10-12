@@ -79,12 +79,15 @@ if args.action == "verify":
     failed_after_retest = run_cmd(cmd)
 
     #filter out everything before "The following tests FAILED:"
-    failed_after_retest = failed_after_retest.split("The following tests FAILED:")[1]
-    
-    # go line by line and extract the test name. The test name is after - and before (
-    failed_after_retest = failed_after_retest.splitlines()
-    failed_after_retest = [line.split("-")[1].split("(")[0].strip() for line in failed_after_retest if "-" in line]
-    resolved_tests = [test for test in candidates if test not in failed_after_retest]
+    if "The following tests FAILED:" not in failed_after_retest:
+        resolved_tests = candidates
+    else:
+      failed_after_retest = failed_after_retest.split("The following tests FAILED:")[1]
+      
+      # go line by line and extract the test name. The test name is after - and before (
+      failed_after_retest = failed_after_retest.splitlines()
+      failed_after_retest = [line.split("-")[1].split("(")[0].strip() for line in failed_after_retest if "-" in line]
+      resolved_tests = [test for test in candidates if test not in failed_after_retest]
 
     with open("resolved_tests_{test_case}.txt".format(test_case=test_case), 'w') as file:
         for test in resolved_tests:
