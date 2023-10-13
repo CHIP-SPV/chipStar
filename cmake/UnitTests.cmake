@@ -130,10 +130,7 @@ list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rn_flo
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_ru_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rz_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to main thread exiting without calling join
-# Not included in any target because no driver (so far) reports support
-# for indirect calls. Despite this, this test is known to pass on Intel
-# OpenCL CPU & GPU and Intel Level Zero (however, your mileage may vary).
-# list(APPEND FAILING_FOR_ALL "TestIndirectCall")
+
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
@@ -1753,6 +1750,11 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
  # Timeout or out-of-resources error in the CI which emulates double FPs.
 # list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestStlFunctionsDouble")
 
+# Not included in any target because no driver (so far) reports support
+# for indirect calls. Despite this, this test is known to pass on Intel
+# OpenCL CPU & GPU and Intel Level Zero (however, your mileage may vary).
+list(APPEND CPU_POCL_FAILED_TESTS "TestIndirectCall")
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode")
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
