@@ -57,28 +57,28 @@ if [ -z "$output" ]; then
     exit 1
 fi
 
-# rm -rf HIPCC
-# rm -rf HIP
-# rm -rf bitcode/ROCm-Device-Libs
-# rm -rf hip-tests
-# rm -rf hip-testsuite
+rm -rf HIPCC
+rm -rf HIP
+rm -rf bitcode/ROCm-Device-Libs
+rm -rf hip-tests
+rm -rf hip-testsuite
 
-# git submodule update --init
-# rm -rf build
-# rm -rf *_result.txt
-# mkdir build
+git submodule update --init
+rm -rf build
+rm -rf *_result.txt
+mkdir build
 cd build
 
-# echo "building with $CLANG"
-# cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-# make all build_tests install -j 20 #&> /dev/null
-# echo "chipStar build complete." 
+echo "building with $CLANG"
+cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
+make all build_tests install -j 20 #&> /dev/null
+echo "chipStar build complete." 
 
 
-# Build libCEEDA
-export CHIPSTAR_INSTALL_DIR=`pwd`/install # set CHIPSTAR_INSTALL_DIR to current build dir
-export LIBCEED_DIR=`pwd`/libCEED
-../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
+# # Build libCEED
+# export CHIPSTAR_INSTALL_DIR=`pwd`/install # set CHIPSTAR_INSTALL_DIR to current build dir
+# export LIBCEED_DIR=`pwd`/libCEED
+# ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 module unload opencl/pocl
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 # # Test PoCL CPU
