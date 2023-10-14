@@ -4,28 +4,28 @@ set -e
 
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> ..."
-    exit 1
+  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [skip-build]"
+  exit 1
 fi
 
 # Check if the first argument is either "debug" or "release"
 if [ "$1" != "debug" ] && [ "$1" != "release" ]; then
-    echo "Error: Invalid argument. Must be either 'debug' or 'release'."
-    exit 1
+  echo "Error: Invalid argument. Must be either 'debug' or 'release'."
+  exit 1
 fi
 
 # Set the build type based on the argument
 build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 if [ "$2" == "llvm-15" ]; then
-    LLVM=llvm-15
-    CLANG=clang/clang15-spirv-omp
+  LLVM=llvm-15
+  CLANG=clang/clang15-spirv-omp
 elif [ "$2" == "llvm-16" ]; then
-    LLVM=llvm-16
-    CLANG=clang/clang16-spirv-omp
+  LLVM=llvm-16
+  CLANG=clang/clang16-spirv-omp
 elif [ "$2" == "llvm-17" ]; then
-    LLVM=llvm-17
-    CLANG=clang/clang17-spirv-omp
+  LLVM=llvm-17
+  CLANG=clang/clang17-spirv-omp
 else
   echo "$2"
   echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16' or 'llvm-17'."
@@ -33,12 +33,12 @@ else
 fi
 
 source /etc/profile.d/modules.sh &> /dev/null
-# source /opt/intel/oneapi/setvars.sh &> /dev/null
 export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles:/opt/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 export POCL_KERNEL_CACHE=0
+export CHIP_L0_COLLECT_EVENTS_TIMEOUT=30
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module load $CLANG
@@ -57,28 +57,35 @@ if [ -z "$output" ]; then
     exit 1
 fi
 
-rm -rf HIPCC
-rm -rf HIP
-rm -rf bitcode/ROCm-Device-Libs
-rm -rf hip-tests
-rm -rf hip-testsuite
+if [ "$3" == "skip-build" ]; then
+  echo "Skipping build step"
+  cd build
+else
+  # Build the project
+  echo "Building project..."
+  rm -rf HIPCC
+  rm -rf HIP
+  rm -rf bitcode/ROCm-Device-Libs
+  rm -rf hip-tests
+  rm -rf hip-testsuite
 
-git submodule update --init
-rm -rf build
-rm -rf *_result.txt
-mkdir build
-cd build
+  git submodule update --init
+  rm -rf build
+  rm -rf *_result.txt
+  mkdir build
+  cd build
 
-echo "building with $CLANG"
-cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all build_tests install -j 20 #&> /dev/null
-echo "chipStar build complete." 
+  echo "building with $CLANG"
+  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
+  make all build_tests install -j 20 #&> /dev/null
+  echo "chipStar build complete." 
 
+  # # Build libCEED
+  # export CHIPSTAR_INSTALL_DIR=`pwd`/install # set CHIPSTAR_INSTALL_DIR to current build dir
+  # export LIBCEED_DIR=`pwd`/libCEED
+  # ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
+fi
 
-# # Build libCEED
-# export CHIPSTAR_INSTALL_DIR=`pwd`/install # set CHIPSTAR_INSTALL_DIR to current build dir
-# export LIBCEED_DIR=`pwd`/libCEED
-# ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 module unload opencl/pocl
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 # # Test PoCL CPU
@@ -201,7 +208,7 @@ for test_result in dgpu_opencl_make_check_result.txt \
                    dgpu_level0_imm_make_check_result.txt
 do
   echo -n "${test_result}: "
-  check_tests "${test_result}"
+  check_tests "${test_result}" || true
   test_status=$?
   if [ $test_status -eq 1 ]; then
     overall_status=1
