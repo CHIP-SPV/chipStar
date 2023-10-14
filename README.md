@@ -117,6 +117,39 @@ python3 $SOURCE_DIR/scripts/check.py $BUILD_DIR $DEVICE $BACKEND $PARALLEL 1
 
 Please refer to the [user documentation](docs/Using.md) for instructions on how to use the installed chipStar to build CUDA/HIP programs.
 
+## Environment Variables
+
+```bash
+CHIP_BE=<opencl/level0>                         # Selects the backend to use
+CHIP_PLATFORM=<N>                               # If there are multiple platforms present on the system, selects which one to use
+CHIP_DEVICE=<N>                                 # If there are multiple devices present on the system, selects which one to use
+CHIP_LOGLEVEL=<trace/debug/info/warn/err/crit>  # Sets the log level. If compiled in RELEASE, only err/crit are available
+CHIP_DUMP_SPIRV=<ON/OFF>                        # Dumps the generated SPIR-V code to a file
+CHIP_JIT_FLAGS=<flags>                          # String to override the default JIT flags (-x spir -cl-kernel-arg-info -cl-std=CL3.0)
+CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in milliseconds for collecting Level Zero events
+CHIP_L0_IMM_CMD_LISTS=<ON(default)/OFF>         # Use immediate command lists in Level Zero
+```
+
+Example:
+```bash
+╭─pvelesko@cupcake ~
+╰─$ clinfo -l
+Platform #0: Intel(R) OpenCL Graphics
+ `-- Device #0: Intel(R) Arc(TM) A380 Graphics
+Platform #1: Intel(R) OpenCL Graphics
+ `-- Device #0: Intel(R) UHD Graphics 770
+```
+
+Based on these values, if we want to run on OpenCL iGPU:
+```bash
+export CHIP_BE=opencl
+export CHIP_PLATFORM=1
+export CHIP_DEVICE=0
+```
+
+*NOTE: Level Zero doesn't have a clinfo equivalent. Normally if you have more than one Level Zero device, there will only be a single platform so set CHIP_PLATFORM=0 and then CHIP_DEVICE to the device you want to use.*
+*You can check the name of the device by running a sample which prints the name such as `build/samples/0_MatrixMultiply/MatrixMultiply`
+
 ## Troubleshooting
 
 ### Clang++ Cannot Find libstdc++ When Building chipStar
