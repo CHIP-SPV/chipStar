@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -e
+set -e
 
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
@@ -57,22 +57,22 @@ if [ -z "$output" ]; then
     exit 1
 fi
 
-rm -rf HIPCC
-rm -rf HIP
-rm -rf bitcode/ROCm-Device-Libs
-rm -rf hip-tests
-rm -rf hip-testsuite
+# rm -rf HIPCC
+# rm -rf HIP
+# rm -rf bitcode/ROCm-Device-Libs
+# rm -rf hip-tests
+# rm -rf hip-testsuite
 
-git submodule update --init
-rm -rf build
-rm -rf *_result.txt
-mkdir build
+# git submodule update --init
+# rm -rf build
+# rm -rf *_result.txt
+# mkdir build
 cd build
 
-echo "building with $CLANG"
-cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-make all build_tests install -j 20 #&> /dev/null
-echo "chipStar build complete." 
+# echo "building with $CLANG"
+# cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
+# make all build_tests install -j 20 #&> /dev/null
+# echo "chipStar build complete." 
 
 
 # Build libCEEDA
@@ -136,13 +136,13 @@ echo "end dgpu_level0_failed_imm_tests"
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
-module load opencl/intel-igpu
+module load opencl/igpu
 module list
 ctest --timeout 2000 -j 20 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 #pushd ${LIBCEED_DIR}
 #make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove -j 20 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
 #popd
-module unload opencl/intel-igpu
+module unload opencl/igpu
 echo "end igpu_opencl_failed_tests"
 
 # Test OpenCL dGPU

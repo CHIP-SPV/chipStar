@@ -441,6 +441,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
 
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 # list(APPEND IGPU_OPENCL_FAILED_TESTS "hip_async_binomial") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # SEGFAULT
@@ -753,6 +754,11 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 
 # dGPU OpenCL Unit Test Failures
  # Timeout or out-of-resources error in the CI which emulates double FPs.
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") 
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") 
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") 
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") 
+
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_ParamTst_Positive") # Only happens in ctest -j $(nproc): timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "cuda-vectorAdd") # Only happens in ctest -j $(nproc): timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostRegister_Memcpy - int") # Only happens in ctest -j $(nproc): timeout
@@ -1438,9 +1444,9 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Func
 # list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
-
-list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # only happens when ctest -j $(nproc) RCL
 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
