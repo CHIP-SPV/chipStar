@@ -196,16 +196,22 @@ option(STANDALONE_TESTS "Create a separate executable for each test instead of c
 
 # chipStar options
 option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemented in chipStar. If such a function is called, throw hipErrorNotSupported" ON)
+option(CHIP_LAZY_JIT "JIT kernels at the time of the first kernel invocation instead of at the start of the program execution" OFF)
+option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program startup" OFF)
 option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
+option(CHIP_QUEUE_SYNC "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" OFF)
+option(CHIP_IMM_LISTS "Enable/disable the use of immediate command queues" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
+option(CHIP_ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unreliable" OFF)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
 option(CHIP_DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" OFF)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(CHIP_USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "enable support for cl_intel_unified_shared_memory in the OpenCL backend" OFF)
@@ -216,8 +222,6 @@ option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
 # If your application does a lot of small allocations, it might be slow
 # https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
 option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
-
-option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -244,7 +248,29 @@ set(HIP_OFFLOAD_LINK_OPTIONS "" CACHE STRING "space separated list of compiler f
 
 # =============================================================================
 # chipStar CMAKE OPTIONS PARSING
+if(CHIP_USE_OCML_ROUNDED_OPS)
+  set(OCML_BASIC_ROUNDED_OPERATIONS ON)
+endif()
 
+if(CHIP_DUBIOUS_LOCKS)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_DUBIOUS_LOCKS)
+endif()
+
+if(CHIP_L0_FIRST_TOUCH)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_L0_FIRST_TOUCH)
+endif()
+
+if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+endif()
+
+if(CHIP_EXT_FLOAT_ATOMICS)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_EXT_FLOAT_ATOMICS)
+endif()
+
+if(CHIP_FAST_MATH)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_FAST_MATH)
+endif()
 
 set(DISABLE_OPAQUE_PTRS_OPT "")
 
@@ -268,6 +294,14 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
 
+if(CHIP_QUEUE_SYNC)
+  list(APPEND CHIP_SPV_DEFINITIONS ENFORCE_QUEUE_SYNC)
+endif()
+
+if(PER_THREAD_DEFAULT_STREAM)
+  list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
+endif()
+
 if(CHIP_VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
   add_compile_options("-v")
@@ -280,6 +314,10 @@ if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 else()
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_WARN)
+endif()
+
+if(CHIP_ERROR_IF_NOT_IMPLEMENTED)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_ERROR_ON_UNIMPL)
 endif()
 
 if(CHIP_BUILD_SHARED_LIBS)
@@ -309,6 +347,9 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
+
+# chipStar CMAKE OPTIONS PARSING
+# =============================================================================
 
 # =============================================================================
 # chipStar BINARIES & TESTS

@@ -1042,6 +1042,62 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 chipstar::Context::Context() {}
 chipstar::Context::~Context() { logDebug("~Context() {}", (void *)this); }
 
+void chipstar::Context::syncQueues(chipstar::Queue *TargetQueue) {
+  auto Dev = ::Backend->getActiveDevice();
+  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+
+  auto DefaultQueue = Dev->getDefaultQueue();
+#ifdef HIP_API_PER_THREAD_DEFAULT_STREAM
+  // The per-thread default stream is an implicit stream local to both the
+  // thread and the CUcontext, and which does not synchronize with other
+  // streams (just like explcitly created streams). The per-thread default
+  // stream is not a non-blocking stream and will synchronize with the
+  // legacy default stream if both are used in a program.
+
+  // since HIP_API_PER_THREAD_DEFAULT_STREAM is enabled, there is no legacy
+  // default stream thus no syncronization necessary
+  if (TargetQueue == DefaultQueue)
+    return;
+#endif
+  std::vector<chipstar::Queue *> QueuesToSyncWith;
+
+  // The per-thread default stream is not a non-blocking stream and will
+  // synchronize with the legacy default stream if both are used in a program
+  if (Dev->isPerThreadStreamUsedNoLock()) {
+    if (TargetQueue == Dev->getPerThreadDefaultQueueNoLock())
+      QueuesToSyncWith.push_back(DefaultQueue);
+    else if (TargetQueue == Dev->getLegacyDefaultQueue())
+      QueuesToSyncWith.push_back(Dev->getPerThreadDefaultQueueNoLock());
+  }
+
+  // Always sycn with all blocking queues
+  for (auto Queue : Dev->getQueuesNoLock()) {
+    if (Queue->getQueueFlags().isBlocking())
+      QueuesToSyncWith.push_back(Queue);
+  }
+
+  // default stream waits on all blocking streams to complete
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+
+  std::shared_ptr<chipstar::Event> SyncQueuesEvent;
+  if (TargetQueue == DefaultQueue) {
+    for (auto &q : QueuesToSyncWith) {
+      auto Ev = q->getLastEvent();
+      if (Ev)
+        EventsToWaitOn.push_back(Ev);
+    }
+    SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(EventsToWaitOn);
+    SyncQueuesEvent->Msg = "barrierSyncQueue";
+  } else { // blocking stream must wait until default stream is done
+    auto Ev = DefaultQueue->getLastEvent();
+    if (Ev)
+      EventsToWaitOn.push_back(Ev);
+    SyncQueuesEvent = TargetQueue->enqueueBarrierImpl(EventsToWaitOn);
+    SyncQueuesEvent->Msg = "barrierSyncQueue";
+  }
+  ::Backend->trackEvent(SyncQueuesEvent);
+}
+
 chipstar::Device *chipstar::Context::getDevice() {
   return ChipDevice_;
 }
@@ -1526,7 +1582,9 @@ chipstar::Queue::getSyncQueuesLastEvents() {
 
 ///////// Enqueue Operations //////////
 hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
   std::shared_ptr<chipstar::Event> ChipEvent;
   // Scope this so that we release mutex for finish()
   {
@@ -1556,7 +1614,9 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
   return hipSuccess;
 }
 void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
   std::shared_ptr<chipstar::Event> ChipEvent;
   auto AllocInfoDst =
       ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
@@ -1581,7 +1641,9 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
 void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
                                      size_t SPitch, size_t Width, size_t Height,
                                      hipMemcpyKind Kind) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
   std::shared_ptr<chipstar::Event> ChipEvent = nullptr;
 
   auto AllocInfoDst =
@@ -1618,6 +1680,10 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
                               size_t PatternSize) {
   {
+#ifdef ENFORCE_QUEUE_SYNC
+    ChipContext_->syncQueues(this);
+#endif
+
     std::shared_ptr<chipstar::Event> ChipEvent =
         memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
@@ -1629,7 +1695,9 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
 
 void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                                    size_t PatternSize) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
 
   std::shared_ptr<chipstar::Event> ChipEvent =
       memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
@@ -1639,7 +1707,9 @@ void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
 
 void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
                                      size_t Width, size_t Height) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
   size_t SizeBytes = Width;
   if (SizeBytes < 1)
     return;
@@ -1660,7 +1730,9 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
 
 void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
                                      hipExtent Extent) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
   std::shared_ptr<chipstar::Event> ChipEvent;
 
   size_t Width = Extent.width;
@@ -1686,7 +1758,9 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
 
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
                                 size_t SPitch, size_t Width, size_t Height) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
   std::shared_ptr<chipstar::Event> ChipEvent =
       memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
   ChipEvent->Msg = "memCopy2D";
@@ -1698,6 +1772,9 @@ void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
                                      size_t SPitch, size_t Width,
                                      size_t Height) {
   {
+#ifdef ENFORCE_QUEUE_SYNC
+    ChipContext_->syncQueues(this);
+#endif
     std::shared_ptr<chipstar::Event> ChipEvent =
         memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
     ChipEvent->Msg = "memCopy2DAsync";
@@ -1710,7 +1787,9 @@ void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
 void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                                 const void *Src, size_t SPitch, size_t SSPitch,
                                 size_t Width, size_t Height, size_t Depth) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
 
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
@@ -1723,7 +1802,9 @@ void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                      const void *Src, size_t SPitch,
                                      size_t SSPitch, size_t Width,
                                      size_t Height, size_t Depth) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
 
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
@@ -1809,7 +1890,9 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
   // Making this log info since hipLaunchKernel doesn't know enough about args
   logInfo("{}", InfoStr.str());
 
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
 
   auto TotalThreadsPerBlock =
       ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
@@ -1861,7 +1944,9 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
 }
 
 void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
-
+#ifdef ENFORCE_QUEUE_SYNC
+  ChipContext_->syncQueues(this);
+#endif
 
   std::shared_ptr<chipstar::Event> ChipEvent =
       std::shared_ptr<chipstar::Event>(memPrefetchImpl(Ptr, Count));

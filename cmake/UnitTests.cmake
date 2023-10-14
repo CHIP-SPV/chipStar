@@ -1,4 +1,9 @@
 # custom target to avoid tests that are known to fail
+#
+# Note that this list only contains tests external to chipStar,
+# such as those frome HIP's testsuite; the internal tests
+# should be disabled based on value CHIP_ENABLE_FAILING_TESTS option
+#  Necessary for some reason
 list(APPEND FAILING_FOR_ALL " ") 
 list(APPEND CPU_OPENCL_FAILED_TESTS " ") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS " ") 
