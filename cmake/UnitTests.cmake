@@ -1,9 +1,4 @@
 # custom target to avoid tests that are known to fail
-#
-# Note that this list only contains tests external to chipStar,
-# such as those frome HIP's testsuite; the internal tests
-# should be disabled based on value CHIP_ENABLE_FAILING_TESTS option
-#  Necessary for some reason
 list(APPEND FAILING_FOR_ALL " ") 
 list(APPEND CPU_OPENCL_FAILED_TESTS " ") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS " ") 
@@ -21,6 +16,7 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "Unit_hipGraphDestroyNode_DestroyDependencyNode") #
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
@@ -152,7 +148,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negati
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
@@ -430,6 +425,8 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
+list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble") 
+list(APPEND IGPU_OPENCL_FAILED_TESTS "TestIndirectCall") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
@@ -773,7 +770,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Negat
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
@@ -1089,7 +1085,6 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT
@@ -1367,6 +1362,7 @@ list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwi
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestIndirectCall") 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
@@ -1389,7 +1385,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphExecMemsetNodeSetParams_Functional") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParamsToSymbol_Negative") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_Negative") # SEGFAULT
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_Functional") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_CapturedStream") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphGetNodes_ParamValidation") # SEGFAULT

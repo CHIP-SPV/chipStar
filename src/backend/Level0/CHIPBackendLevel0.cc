@@ -1724,8 +1724,6 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
                                        std::string CHIPDeviceTypeStr,
                                        std::string CHIPDeviceStr) {
   logTrace("CHIPBackendLevel0 Initialize");
-  setUseImmCmdLists();
-  setCollectEventsTimeout();
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   ze_result_t Status;
   Status = zeInit(0);
@@ -1801,6 +1799,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
   Status = zeDeviceGetProperties(Dev, &DeviceProperties);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  std::string DeviceName = DeviceProperties.name;
   if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
     CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, 0);
     ChipL0Ctx->setDevice(ChipL0Dev);
@@ -1810,6 +1809,11 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
       (CHIPStaleEventMonitorLevel0 *)::Backend->createStaleEventMonitor_();
   CallbackEventMonitor_ = (CHIPCallbackEventMonitorLevel0 *)::Backend
                               ->createCallbackEventMonitor_();
+
+  // Run these lasts, as they may depend on the device properties being
+  // populated
+  setUseImmCmdLists(DeviceName);
+  setCollectEventsTimeout();
 }
 
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,

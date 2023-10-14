@@ -25,7 +25,7 @@
 
 #include <hip/devicelib/macros.hh>
 #include <hip/devicelib/single_precision/sp_math.hh>
-#include "CHIPSPVConfig.hh"
+#include "chipStarConfig.hh"
 
 /**
  * @brief Declare as extern - we state that these funcitons are implemented and

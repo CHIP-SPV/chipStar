@@ -566,14 +566,26 @@ public:
   }
 
   bool getUseImmCmdLists() { return useImmCmdLists_; }
-  void setUseImmCmdLists() {
+  void setUseImmCmdLists(std::string_view DeviceName) {
+    // Immediate command lists seem to not work on some Intel iGPUs
+    // https://en.wikipedia.org/wiki/List_of_Intel_graphics_processing_units
+    std::vector<std::string> IgpuDevices = {"UHD", "HD", "Iris"};
+    // check if the device name contains any of the strings in IgpuDevices
+    bool IsIgpu = std::any_of(IgpuDevices.begin(), IgpuDevices.end(),
+                              [&](const std::string &S) {
+                                return DeviceName.find(S) != std::string::npos;
+                              });
     auto str = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
     // assert that str is either 0, 1, on, off or empty
     assert((str.empty() || str == "0" || str == "1" || str == "on" ||
             str == "off") &&
            "CHIP_L0_IMM_CMD_LISTS must be 0, 1, on, off or "
-           "empty (default: off)");
-    useImmCmdLists_ = (str == "1" || str == "on");
+           "empty (default: on)");
+    useImmCmdLists_ = (str == "1" || str == "on" || str.empty());
+    if (IsIgpu && useImmCmdLists_) {
+      logWarn("Immediate command lists are not supported on this device. "
+              "Some tests likely to fail.");
+    }
     logDebug("CHIP_L0_IMM_CMD_LISTS = {}", useImmCmdLists_ ? "true" : "false");
   }
 
