@@ -24,7 +24,7 @@
 #define HIP_INCLUDE_DEVICELIB_DP_INTRINSICS_H
 
 #include <hip/devicelib/macros.hh>
-#include "chipStarConfig.hh"
+#include "CHIPSPVConfig.hh"
 
 /**
  * @brief Declare as extern - we state that these funcitons are implemented and

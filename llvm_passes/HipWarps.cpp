@@ -27,7 +27,7 @@
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Constants.h>
 
-#include "chipStarConfig.hh"
+#include "CHIPSPVConfig.hh"
 
 PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
 

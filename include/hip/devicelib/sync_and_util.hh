@@ -25,7 +25,7 @@
 
 #include <hip/devicelib/macros.hh>
 
-#include "chipStarConfig.hh"
+#include "CHIPSPVConfig.hh"
 
 #include <cstdint>
 
