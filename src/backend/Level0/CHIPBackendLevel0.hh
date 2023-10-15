@@ -224,6 +224,8 @@ protected:
   void initializeCmdListImm();
 
 public:
+  std::vector<ze_event_handle_t>
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
   std::mutex CmdListMtx;
   ze_command_list_handle_t getCmdList();
   size_t getMaxMemoryFillPatternSize() {
@@ -546,7 +548,7 @@ public:
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
-  bool useImmCmdLists_ = false;
+  bool useImmCmdLists_ = true; // default to immediate command lists
   int collectEventsTimeout_ = 30;
 
 public:

@@ -948,6 +948,16 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   delete Cbo;
 }
 
+std::vector<cl_event> CHIPQueueOpenCL::getSyncQueuesEventHandles() {
+  auto LastEvents = getSyncQueuesLastEvents();
+  std::vector<cl_event> EventHandles;
+  for (auto &Event : LastEvents) {
+    EventHandles.push_back(
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->ClEvent);
+  }
+  return EventHandles;
+}
+
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              chipstar::Queue::MEM_MAP_TYPE Type) {
   CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
@@ -961,22 +971,27 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
 
+  auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
+
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
     Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
-                             AllocInfo->HostPtr, AllocInfo->Size, 0, NULL,
-                             MemMapEventNative);
+                             AllocInfo->HostPtr, AllocInfo->Size,
+                             SyncQueuesEventHandles.size(),
+                             SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
     Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
-                             AllocInfo->HostPtr, AllocInfo->Size, 0, NULL,
-                             MemMapEventNative);
+                             AllocInfo->HostPtr, AllocInfo->Size,
+                             SyncQueuesEventHandles.size(),
+                             SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
     Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE,
                              CL_MAP_READ | CL_MAP_WRITE, AllocInfo->HostPtr,
-                             AllocInfo->Size, 0, NULL, MemMapEventNative);
+                             AllocInfo->Size, SyncQueuesEventHandles.size(),
+                             SyncQueuesEventHandles.data(), MemMapEventNative);
   } else {
     assert(0 && "Invalid MemMap Type");
   }
@@ -992,9 +1007,11 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
     return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
+  auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
 
   auto Status = clEnqueueSVMUnmap(
-      ClQueue_->get(), AllocInfo->HostPtr, 0, NULL,
+      ClQueue_->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
+      SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   assert(Status == CL_SUCCESS);
 }
@@ -1110,9 +1127,10 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto SvmAllocationsToKeepAlive =
       annotateSvmPointers(*OclContext, Kernel->get()->get());
 
+  auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
   auto Status = clEnqueueNDRangeKernel(
       ClQueue_->get(), Kernel->get()->get(), NumDims, GlobalOffset, Global,
-      Local, 0, nullptr,
+      Local, SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
@@ -1221,8 +1239,10 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
 #ifdef CHIP_DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockOpenCL)
 #endif
+    auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
     auto Status = ::clEnqueueSVMMemcpy(
-        ClQueue_->get(), CL_FALSE, Dst, Src, Size, 0, nullptr,
+        ClQueue_->get(), CL_FALSE, Dst, Src, Size,
+        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
   }
@@ -1244,8 +1264,10 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
+  auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
   int Retval = ::clEnqueueSVMMemFill(
-      ClQueue_->get(), Dst, Pattern, PatternSize, Size, 0, nullptr,
+      ClQueue_->get(), Dst, Pattern, PatternSize, Size,
+      SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
   updateLastEvent(Event);
@@ -1328,14 +1350,21 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
           std::static_pointer_cast<CHIPEventOpenCL>(WaitEvent)->getNativeRef());
     }
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
+    auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
+    for (auto &Event : Events) {
+      SyncQueuesEventHandles.push_back(Event);
+    }
     auto Status = clEnqueueBarrierWithWaitList(
-        ClQueue_->get(), Events.size(), Events.data(),
+        ClQueue_->get(), SyncQueuesEventHandles.size(),
+        SyncQueuesEventHandles.data(),
         &(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef()));
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
+    auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
     auto Status = clEnqueueBarrierWithWaitList(
-        ClQueue_->get(), 0, nullptr,
+        ClQueue_->get(), SyncQueuesEventHandles.size(),
+        SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }

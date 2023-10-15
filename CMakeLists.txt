@@ -29,7 +29,7 @@ add_compile_options(-Wno-format-extra-args -mf16c)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
--Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
+-Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument")
 
 # end temporary
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
@@ -201,7 +201,7 @@ option(CHIP_CACHE_KERNELS "Save the compiled kernel to disk to speed up program 
 option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
-option(CHIP_QUEUE_SYNC "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" ON)
+option(CHIP_QUEUE_SYNC "Enforce the correct HIP stream semantics of synchronizing queues with the default queue" OFF)
 option(CHIP_IMM_LISTS "Enable/disable the use of immediate command queues" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires LLVM 15" OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
@@ -209,13 +209,19 @@ option(CHIP_ENABLE_FAILING_TESTS "Enable tests which are known to fail or be unr
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
-option(CHIP_DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" ON)
+option(CHIP_DUBIOUS_LOCKS "Enable locks that don't seem necessary but make a lot of valgrind issues go away" OFF)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
 option(CHIP_USE_OCML_ROUNDED_OPS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "enable support for cl_intel_unified_shared_memory in the OpenCL backend" OFF)
 option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
+# This mitigation might be necessary on some systems with an older runtime. 
+# This mitigation makes memory resident (disable swapping) on the GPU
+# This has a significant impact on the cost of a GPU malloc 
+# If your application does a lot of small allocations, it might be slow
+# https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
+option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -248,6 +254,10 @@ endif()
 
 if(CHIP_DUBIOUS_LOCKS)
   list(APPEND CHIP_SPV_DEFINITIONS CHIP_DUBIOUS_LOCKS)
+endif()
+
+if(CHIP_L0_FIRST_TOUCH)
+  list(APPEND CHIP_SPV_DEFINITIONS CHIP_L0_FIRST_TOUCH)
 endif()
 
 if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
@@ -292,10 +302,6 @@ if(PER_THREAD_DEFAULT_STREAM)
   list(APPEND CHIP_SPV_DEFINITIONS HIP_API_PER_THREAD_DEFAULT_STREAM)
 endif()
 
-if(CHIP_IMM_LISTS)
-  list(APPEND CHIP_SPV_DEFINITIONS L0_IMM_QUEUES)
-endif()
-
 if(CHIP_VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
   add_compile_options("-v")
@@ -304,7 +310,7 @@ endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
 if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-  add_compile_options("-Wall")
+  add_compile_options("-Wall -gdwarf-4")
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 else()
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_WARN)

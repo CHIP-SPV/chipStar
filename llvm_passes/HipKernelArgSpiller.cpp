@@ -74,7 +74,10 @@ constexpr size_t MAX_KERNEL_PARAM_LIST_SIZE = 1024;
 /// to other than an integer, a floating-point, a vector or an aggregate type.
 /// Generally, the special types don't have size and/or they are not spillable.
 bool isSpecial(const Argument &Arg) {
-#if LLVM_VERSION_MAJOR == 16
+#if LLVM_VERSION_MAJOR == 17
+  Type *Ty = Arg.getType();
+  return Ty->isTargetExtTy();
+#elif LLVM_VERSION_MAJOR == 16
   // Can't detect image and sampler arguments/types straightforwardly in LLVM 16
   // because
   //

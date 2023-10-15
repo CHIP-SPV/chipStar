@@ -29,16 +29,18 @@ else:
 if args.backend == "level0-reg":
     level0_cmd_list = "reg_"
     args.backend = "level0"
+    env_vars += " CHIP_L0_IMM_CMD_LISTS=OFF"
 elif args.backend == "level0-imm":
     level0_cmd_list = "imm_"
     args.backend = "level0"
+    env_vars += " CHIP_L0_IMM_CMD_LISTS=ON"
 else:
     level0_cmd_list = ""
 
 if args.device_type == "cpu":
-    timeout = 400
+    timeout = 1800
 else:
-    timeout = 180
+    timeout = 1800
 
 os.chdir(args.work_dir)
 

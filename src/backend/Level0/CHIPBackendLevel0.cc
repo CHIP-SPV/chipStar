@@ -821,6 +821,28 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   }
 }
 
+std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
+    std::shared_ptr<chipstar::Event> TargetEvent) {
+  auto EventsToWaitOn = getSyncQueuesLastEvents();
+  // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
+  // that they don't get destroyed before MemCopyEvent
+  for (auto &Event : EventsToWaitOn) {
+    LOCK(Event->EventMtx);
+    std::static_pointer_cast<CHIPEventLevel0>(Event)->addDependency(
+        TargetEvent);
+  }
+
+  std::vector<ze_event_handle_t> EventHandles(EventsToWaitOn.size());
+  for (size_t i = 0; i < EventsToWaitOn.size(); i++) {
+    std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitOn[i];
+    std::shared_ptr<CHIPEventLevel0> ChipEventLz =
+        std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
+    CHIPASSERT(ChipEventLz);
+    EventHandles[i] = ChipEventLz->peek();
+  }
+  return EventHandles;
+}
+
 void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   chipstar::CallbackData *Callbackdata =
@@ -1103,10 +1125,11 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via GET_COMMAND_LIST
+  auto EventHandles = addDependenciesQueueSync(LaunchEvent);
   auto Status = zeCommandListAppendLaunchKernel(
       CommandList, KernelZe, &LaunchArgs,
-      std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(), 0,
-      nullptr);
+      std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(),
+      EventHandles.size(), EventHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   // #ifndef NDEBUG
@@ -1155,10 +1178,11 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
+  auto EventHandles = addDependenciesQueueSync(MemFillEvent);
   ze_result_t Status = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size,
-      std::static_pointer_cast<CHIPEventLevel0>(MemFillEvent)->peek(), 0,
-      nullptr);
+      std::static_pointer_cast<CHIPEventLevel0>(MemFillEvent)->peek(),
+      EventHandles.size(), EventHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList, MemFillEvent);
 
@@ -1198,11 +1222,13 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::memCopy3DAsyncImpl(
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
+  auto EventHandles = addDependenciesQueueSync(MemCopyRegionEvent);
+
   ze_result_t Status = zeCommandListAppendMemoryCopyRegion(
       CommandList, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
       Sspitch,
-      std::static_pointer_cast<CHIPEventLevel0>(MemCopyRegionEvent)->peek(), 0,
-      nullptr);
+      std::static_pointer_cast<CHIPEventLevel0>(MemCopyRegionEvent)->peek(),
+      EventHandles.size(), EventHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList, MemCopyRegionEvent);
 
@@ -1443,10 +1469,11 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via GET_COMMAND_LIST
+  auto EventHandles = addDependenciesQueueSync(MemCopyEvent);
   Status = zeCommandListAppendMemoryCopy(
       CommandList, Dst, Src, Size,
-      std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(), 0,
-      nullptr);
+      std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(),
+      EventHandles.size(), EventHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
   executeCommandList(CommandList, MemCopyEvent);
@@ -1500,7 +1527,9 @@ void CHIPQueueLevel0::executeCommandListReg(
   // Done via GET_COMMAND_LIST
   ze_event_handle_t EventHandle =
       std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent)->peek();
-  Status = zeCommandListAppendBarrier(CommandList, EventHandle, 0, nullptr);
+  auto EventHandles = addDependenciesQueueSync(LastCmdListEvent);
+  Status = zeCommandListAppendBarrier(CommandList, EventHandle,
+                                      EventHandles.size(), EventHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -1889,8 +1918,6 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                           Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-
-    return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();
@@ -1899,17 +1926,29 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
         zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
-
-    return Ptr;
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO Check if devices support cross-device sharing?
     ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorMemoryAllocation);
+  } else
+    CHIPERR_LOG_AND_THROW("Failed to allocate memory",
+                          hipErrorMemoryAllocation);
 
-    return Ptr;
+#ifdef CHIP_L0_FIRST_TOUCH
+  /*
+  Normally this would not be necessary but on some systems where the runtime is
+  not up-to-date, this issue persists.
+  https://github.com/intel/compute-runtime/issues/631
+  */
+  if (auto *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice())) {
+    ze_device_handle_t ZeDev = ChipDev->get();
+    auto Status = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                                hipErrorMemoryAllocation);
   }
-  CHIPERR_LOG_AND_THROW("Failed to allocate memory", hipErrorMemoryAllocation);
+#endif
+  return Ptr;
 }
 
 // CHIPDeviceLevelZero
