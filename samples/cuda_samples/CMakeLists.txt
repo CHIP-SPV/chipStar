@@ -113,6 +113,8 @@ add_cuda_sample(cuda-shfl 7_Warp/shfl shfl.cu)
 
 add_cuda_sample(cuda-shflscan 6_Advanced/shfl_scan shfl_scan.cu)
 
+add_cuda_sample(cuda-transpose 6_Advanced/transpose_wo_fptr transpose.cu)
+
 if(CHIP_ENABLE_UNCOMPILABLE_TESTS)
   # cppOverload: DISABLED: Due to the following error:
   #

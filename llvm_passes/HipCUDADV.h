@@ -231,6 +231,12 @@ namespace {
     bool IsVTable(Value* Val) {
       return vt2Cls.find(Val) != vt2Cls.end();
     }
+
+    // Get the class type via argument name 
+    Type* getArgClassTypeByName(Function* Func, int idx);
+
+     // Get the class type via argument type cast
+    Type* getArgClassTypeByCast(Function* Func, int idx);
     
   protected: 
     // Class to its base class 
@@ -352,18 +358,11 @@ namespace {
 	  unsigned idx = typeName.find(".base");
 	  if (idx != 0) {
 	    typeName = typeName.substr(0, idx);
-	    // llvm::outs() << " actual derived type name: " << typeName << "\n";
 	    ElemTy = getClassType(typeName);
 	  }
       
 	  cls2Bases[Ty].push_back(ElemTy);
 	  cls2Deriveds[ElemTy].push_back(Ty);
-	  
-	  llvm::outs() << "CHA  ";
-	  Ty->print(llvm::outs());
-	  llvm::outs() << " --> ";
-	  ElemTy->print(llvm::outs());
-	  llvm::outs() << "\n";
 	}
       }
     }
@@ -379,19 +378,12 @@ namespace {
       const char* name_ = llvm::itaniumDemangle(global.getName().str().c_str(), nullptr, nullptr, nullptr);
       if (name_) {
 	std::string ValName = name_;
-	// llvm::outs() << " global name: " << ValName << " --> " <<  global.getName().str().c_str() << "\n";
 	unsigned idx = ValName.find("vtable for ");
 	if (idx != 0)
 	  continue;
 
 	clsName = ValName.substr(11);
 	ClsTy = getClassType(clsName);
-
-	// llvm::outs() << "cls name: " << clsName << "\n";
-	// llvm::outs() << "           actual name: " << ValName << "  --> class name:   " << clsName << "     ------ "; // "\n";
-	// if (name2Type.find(clsName) != name2Type.end())
-	//   name2Type[clsName]->print(llvm::outs());
-	// llvm::outs() << "\n";
       }
 
       if (!ClsTy)
@@ -399,17 +391,11 @@ namespace {
       
       if (global.hasInitializer()) {
 	Value* InitVal = global.getInitializer();
-	// llvm::outs() << "Initializer:    ";
-	// InitVal->print(llvm::outs()); 
-	// llvm::outs() << "  type:  ";
-	// InitVal->getType()->print(llvm::outs());
 	if (InitVal->getType()->isStructTy()) {
 	  if (ConstantStruct* CSVal = dyn_cast<ConstantStruct>(InitVal)) {
 	    if (ConstantArray* CAVal = dyn_cast<ConstantArray>(CSVal->getOperand(0))) {
 	      for (int i = 0; i < CAVal->getNumOperands(); i ++) {
 		Value* ElemVal = CAVal->getOperand(i);
-		// llvm::outs() << "  " << CAVal->getNumOperands() << " " << i << "th element type: " ;
-		// ElemVal->getType()->print(llvm::outs());
 		if (Function* VF = dyn_cast<Function>(ElemVal)) {
 		  VTFInfo& VTF = VF2VTFInfo[VF];
 		  VTF.VF = VF;
@@ -525,11 +511,6 @@ namespace {
     for (auto& Ty : M.getIdentifiedStructTypes()) {
       std::string name = Ty->getName().str();
       name2Cls[name] = Ty;
-      // unsigned idx = name.find("class.");
-      // if (idx == 0) {
-	// llvm::outs() << "check class: " << name.substr(6) << "\n";
-	// name2Cls[name.substr(6)] = Ty;
-      // }
     }
 
     // Collect function names
@@ -548,18 +529,82 @@ namespace {
 	funcName = funcName.substr(idx + 2);
 	idx = funcName.find("(");
 	funcName = funcName.substr(0, idx);
-	// llvm::outs() << "class name: " << clsName << " function name: " << funcName << "\n";
 	if (clsName == funcName) {
 	  // Register the map between class and constructors
 	  cls2Cons[getClassType(clsName)].push_back(&func);
 	  // Register the map between constructor and its class
 	  con2Cls[&func] = getClassType(clsName);
-	  llvm::outs() << "Register " << funcName << " --> " << clsName << "\n";
+	  // llvm::outs() << "Register " << funcName << " --> " << clsName << "\n";
 	}
       }
     }
   };
 
+  // Get the class type via argument name                                                                              
+  Type* CHAInfo::getArgClassTypeByName(Function* Func, int ArgID) {
+     const char* funcName_ = llvm::itaniumDemangle(Func->getName().str().c_str(), nullptr, nullptr, nullptr);   
+     if (funcName_) {          
+       std::string funcName = funcName_;         
+       
+       unsigned NumArgs = Func->arg_size();
+       size_t pos = funcName.find("(");
+       funcName = funcName.substr(pos + 1);
+
+       int idx = 0;
+       while (idx < NumArgs && pos != std::string::npos) {
+	 pos = funcName.find(", ");
+	 if (pos != std::string::npos) {
+	   std::string TypeName = funcName.substr(0, pos);
+	   funcName = funcName.substr(pos + 2);
+
+	   pos = TypeName.find("*");
+	   if (pos != std::string::npos) {
+	     // The class type must have pointer 
+	     TypeName = TypeName.substr(0, pos);
+	     
+	     if (idx == ArgID)
+	       return getClassType(TypeName);
+	   }
+	   
+	   idx ++;
+	   
+	   continue;
+	 }
+	 pos = funcName.find(")");
+	 if (pos != std::string::npos) {
+           std::string TypeName = funcName.substr(0, pos);
+           if (idx == (NumArgs - 1))
+             return getClassType(TypeName);
+
+	   break;
+         }
+       }
+     }
+     
+     return nullptr; 
+  }
+
+  // Get the class type via argument type cast
+  Type* CHAInfo::getArgClassTypeByCast(Function* Func, int idx) {
+    if (idx < 0 || idx >= Func->arg_size())
+      return nullptr;
+
+    Argument* ObjArg = Func->getArg(idx);
+    // Check the use of ObjArg
+    for (Value::user_iterator AUI = ObjArg->user_begin(), AUE = ObjArg->user_end(); AUI != AUE; ++ AUI) {
+      if (AddrSpaceCastInst* AsInst = dyn_cast<AddrSpaceCastInst>(* AUI)) {
+	for (Value::user_iterator CUI = AsInst->user_begin(), CUE = AsInst->user_end(); CUI != CUE; ++ CUI) {
+	  if (GetElementPtrInst* GEPInst = dyn_cast<GetElementPtrInst>(* CUI)) {
+	    Type* SrcTy = GEPInst->getSourceElementType();
+	    return SrcTy;
+	  }
+	}
+      }
+    }
+    
+    return nullptr;
+  }
+  
   bool CHAInfo::RegisterWrapper(Type* clsTy, int offset, Function* newWrapFunc) {
     SmallVector<Function*, CLASS_LIST_SIZE >& wrappers = clsVF2Wrapper[clsTy];
     if (wrappers.size() != 0) {
@@ -590,18 +635,12 @@ namespace {
       if (!RegisterWrapper(clsTy, VTF.offset, nullptr))
 	continue;
 
-      llvm::outs() << "Check through wrapper detail \n";
-      
       // Collect class hierarchy information
       SmallVector<Type*, CLASS_LIST_SIZE> ClsTys;
       ClsTys.push_back(clsTy);
       if (Type* BaseClsTy = GetBaseClass(clsTy))
 	ClsTys.push_back(BaseClsTy);
       
-      llvm::outs() << "+++ ";
-      llvm::outs() << "check cls type: ";
-      clsTy->print(llvm::outs());
-      llvm::outs() << " -- ";
       // Check the VTable list again
       for (auto& checkPair : VF2VTFInfo) {
 	Function* NextVF = checkPair.first;
@@ -610,9 +649,6 @@ namespace {
 	  continue;
 
 	VTFInfo& NextVTF = checkPair.second;
-	llvm::outs() << "check cls type: ";
-	NextVTF.clsTy->print(llvm::outs());
-	llvm::outs() << " -- ";
 	
 	if (VTF.offset != NextVTF.offset)
 	  // Not same virtual function slot
@@ -635,15 +671,7 @@ namespace {
 	    ClsTys.push_back(NextVTF.clsTy);
 	}
       }
-      llvm::outs() << "\n";
-
-      // llvm::outs() << "check CH information:  ";
-      // for (auto& checkTy : ClsTys) {
-      // checkTy->print(llvm::outs());
-      // llvm::outs() << " , ";
-      // }
-      // llvm::outs() << "\n";
-
+      
       // Create the wrapper function
       Function* wrapperFunc = createWrapperFunc(VF, ClsTys, VTF.offset, M);
 
@@ -656,9 +684,10 @@ namespace {
   // Create wrapper function
   Function* CHAInfo::createWrapperFunc(Function* VF, SmallVector<Type*, CLASS_LIST_SIZE>& ClsTys,
 				       int Offset, Module& M) {
-    llvm::outs() << "Create wrapper function\n";
     if (VF == nullptr || ClsTys.size() == 0)
       return nullptr;
+
+    // M.dump();
 
     // The the base class
     Type* BaseClsTy = GetBaseClass(ClsTys);
@@ -675,6 +704,13 @@ namespace {
     BasicBlock* EntryBB = BasicBlock::Create(M.getContext(), "entry", WrapFunc);
     IRBuilder<> Builder(EntryBB);
 
+    // xxx ceate dummy return check 1
+    /*Value* RetVal_ = ConstantInt::get(Type::getInt32Ty(M.getContext()), 0);                                         
+    Builder.CreateRet(RetVal_);
+    if (RetVal_)
+      return WrapFunc;
+    */
+    
     Argument* ObjArg = WrapFunc->getArg(0);    
     // Load the object ID
     Type* IDTy = Type::getInt32Ty(M.getContext());
@@ -734,24 +770,13 @@ namespace {
       // Add the return if it is needed
       Value* RetInst = CurrBuilder.CreateRet(CallInst);
     }
-
-    // WrapFunc->dump();
+    
+    WrapFunc->dump();
     
     return WrapFunc;
   }
   
   void CHAInfo::analyze(Module& M) {
-    /* llvm::LoopAnalysisManager LAM;
-    llvm::FunctionAnalysisManager FAM;
-    llvm::PassBuilder PB;
-
-    PB.registerectorizerLast(EPC);
-    llvm::LoopPassManager LPM(true);
-
-    LPM.addPass(llvm::createLoopVectorizePass());
-    // LPM.run(F, LAM, FAM);
-    */
-      
     // Collect class hierarchy
     collectClsH(M);
 
@@ -770,13 +795,10 @@ namespace {
        return true;
      else if (Ty->isOpaquePointerTy() && Ty->getNumContainedTypes()) {
        Type* PtrTy = Ty->getPointerElementType();
-       PtrTy->print(llvm::outs()); 
        if (isa<StructType>(Ty->getPointerElementType()))
 	 return true;
      } else if (Ty->isPointerTy() && Ty->getNumContainedTypes()) {
-       llvm::outs() << "   pointer type   ";
-       Type* PtrTy = Ty->getPointerElementType();
-       PtrTy->print(llvm::outs()); 
+     
      }
 
      return false;
@@ -868,7 +890,7 @@ namespace {
 	  if (LoadInst* loadClsRef = dyn_cast<LoadInst>(GEPInst->getPointerOperand())) {
 	    // Load class reference;
 	    Value* ClsRefVal = loadClsRef->getPointerOperand();
-	   
+	    
 	    VTFCS.loadVTF = loadInst;
 	    VTFCS.getVTFOffset = GEPInst;
 	    VTFCS.loadVT = loadClsRef;
@@ -877,11 +899,43 @@ namespace {
 	      // Get the real offset
 	      VTFCS.VTFOffset = cha.getOriginalOffset(VTFCS.clsTy, offset);
 	      
-	      // llvm::outs() << "check VF call site : ";
-	      // VTFCS.clsTy->print(llvm::outs());
-	      // llvm::outs() << " --> " << VTFCS.VTFOffset << "\n";
-	      
 	      return true;
+	    } else  {
+	    }
+	  }
+	}
+      } else if (LoadInst* loadVT = dyn_cast<LoadInst>(loadInst->getPointerOperand())) {
+	if (AddrSpaceCastInst* asCast = dyn_cast<AddrSpaceCastInst>(loadVT->getPointerOperand())) {
+	  VTFCS.loadVTF = loadInst;
+	  VTFCS.getVTFOffset = nullptr;
+	  VTFCS.loadVT = loadVT;
+	  VTFCS.clsTy = checkClassRef(asCast->getPointerOperand(), cha);
+	  if (VTFCS.clsTy != nullptr) {
+	    // Get the real offset  
+	    VTFCS.VTFOffset = 2;
+	    
+	    return true;
+	  } else {
+	    Function* Func = asCast->getParent()->getParent();  
+	    Value* PtrOp = asCast->getPointerOperand();
+            if (Argument* Arg = dyn_cast<Argument>(PtrOp)) {
+	      int idx = 0;
+              for (; idx < Func->arg_size(); idx ++) {
+                if (Arg == Func->getArg(idx))
+                  break;
+              }
+
+	      if (Type* ClsTy = cha.getArgClassTypeByName(Func, idx)) {
+                VTFCS.VTFOffset = 2;
+		VTFCS.clsTy = dyn_cast<StructType>(ClsTy);
+
+		return true;
+	      } else if (Type* ClsTy = cha.getArgClassTypeByCast(Func, idx)) {
+		VTFCS.VTFOffset = 2;
+                VTFCS.clsTy = dyn_cast<StructType>(ClsTy);
+
+		return true;
+	      }
 	    }
 	  }
 	}
@@ -898,7 +952,6 @@ namespace {
       // Only function pointer can be considered
       return;
 
-    
     // Handle call function pointer
     VTFCallSite VTFCS;
     if (checkVTableInsts(CallVal, cha, VTFCS)) {
@@ -924,7 +977,6 @@ namespace {
       if (VTFCS.WF != nullptr)
 	continue;
       
-      llvm::outs() << "setup wrap function " << VTFCS.VTFOffset << "\n";
       // Get the wrapper function
       Function* WrapperFunc = cha.getWrapperFunction(VTFCS.clsTy, VTFCS.VTFOffset);
       VTFCS.WF = WrapperFunc;
@@ -938,14 +990,6 @@ namespace {
       if (VTFCS.WF == nullptr)
 	continue;
       
-      // llvm::outs() << "setup wrap function " << VTFCS.VTFOffset << "\n --- ";
-      // VTFCS.loadVT->print(llvm::outs());
-      // llvm::outs() << "  \n ---";
-      // VTFCS.getVTFOffset->print(llvm::outs());
-      // llvm::outs() << "  \n ---";
-      // VTFCS.loadVTF->print(llvm::outs());
-      // llvm::outs() << "  \n ---";
-
       // Get the wrapper function
       Function* WrapperFunc = cha.getWrapperFunction(VTFCS.clsTy, VTFCS.VTFOffset);
 
@@ -956,18 +1000,18 @@ namespace {
       FunctionType* FuncTy = WrapperFunc->getFunctionType();
       auto CalledFunc = callInst->getCalledFunction();
       
-      // CallInst::Create(FuncTy, WrapperFunc, Args, "WrapperCall", callInst);
       callInst->setCalledFunction(WrapperFunc);
-      
-      // Insert the new call instructino
 
-      // Erase the irrelevant instructions
+      // erase VF call check 0
       // callInst->eraseFromParent();
+      // erase wrapper function
+      // WrapperFunc->eraseFromParent();
+      
+      // Erase the irrelevant instructions
       VTFCS.loadVTF->eraseFromParent();
-      VTFCS.getVTFOffset->eraseFromParent();
+      if (VTFCS.getVTFOffset != nullptr)
+	VTFCS.getVTFOffset->eraseFromParent();
       VTFCS.loadVT->eraseFromParent();
-
-      // callInst->getParent()->getParent()->dump();
     }
   }
 
@@ -992,6 +1036,25 @@ namespace {
 	  }
 	}
       }
+
+      ConsFunc.dump();
+    }
+
+    // xxx Try to replace everything
+    for (Function& Func : M) {
+      for (BasicBlock& BB : Func) {
+        for (Instruction& I : BB) {
+          if (StoreInst* storeInst = dyn_cast<StoreInst>(&I)) {
+            if (GEPOperator* GEPOp = dyn_cast<GEPOperator>(storeInst->getValueOperand())) {
+              Value* PtrOp = GEPOp->getPointerOperand();
+              if (cha.IsVTable(PtrOp)) {
+                // Reset operand
+                storeInst->setOperand(0, ConstantInt::get(Type::getInt32Ty(M.getContext()), 1));
+              }
+            }
+          }
+        }
+      }
     }
 
     // Erase VTable related global values
@@ -1000,41 +1063,36 @@ namespace {
       if (GlobalVariable* GV = dyn_cast<GlobalVariable>(VT))
 	GV->eraseFromParent();
     }
+
+    // M.dump();
   }
   
   void CUDADeVirt::CHA(Module& M) {
     // Chech through global values to retrieve the class related objects
     for (llvm::GlobalVariable& global : M.globals()) {
-      llvm::outs() << "Name: " << global.getName() << "\n";
-
+      
       if (global.getType()->isStructTy()) {
-	llvm::outs() << "Type:    ";
 	global.getType()->print(llvm::outs());
 	if (IsStructType(global.getType()))
 	  llvm::outs() << " is struct type ";
 	llvm::outs() << " \n";
 	if (global.hasInitializer()) {
 	  llvm::outs() << "Initializer:    ";
-	  global.getInitializer()->print(llvm::outs()); // dump();
+	  global.getInitializer()->print(llvm::outs()); 
 	  llvm::outs() << "\n";
 	}
       }
-      
-      llvm::outs() << "------------\n";
     }
 
     ValueSymbolTable& SymTable = M.getValueSymbolTable();
     for (ValueSymbolTable::iterator it = SymTable.begin(); it != SymTable.end(); ++ it) {
-      Value* Val = it->second;
-      
-      llvm::outs() << it->first().str() << " \n";
-    
+      Value* Val = it->second;   
     }
 
     for (auto& Ty : M.getIdentifiedStructTypes()) {
       if (Ty->isStructTy()) {
-	Ty->print(llvm::outs());
-	llvm::outs() << "  \n ";
+	// Ty->print(llvm::outs());
+	// llvm::outs() << "  \n ";
       }
     }
   }
@@ -1060,10 +1118,6 @@ namespace {
 
     for (Function& func : M) {
       const char* funcName_ = llvm::itaniumDemangle(func.getName().str().c_str(), nullptr, nullptr, nullptr);
-      if (funcName_) {
-	// std::string funcName = funcName_;
-	// llvm::outs() << "check function name: " << funcName << "\n";
-      }
       
       for (BasicBlock& BB : func) {
 	for (Instruction& I : BB) {

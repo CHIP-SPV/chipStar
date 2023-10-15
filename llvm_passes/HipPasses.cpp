@@ -88,8 +88,11 @@ public:
 };
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  // Devirtualize virtual function calls
+  MPM.addPass(HipCUDADVPass());
+  
   MPM.addPass(HipSanityChecksPass());
-
+  
   /// For extracting name expression to lowered name expressions (hiprtc).
   MPM.addPass(HipEmitLoweredNamesPass());
 
@@ -103,9 +106,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Should be after the HipDynMemExternReplaceNewPass which relies on detecting
   // dynamic shared memories being modeled as zero length arrays.
   MPM.addPass(HipLowerZeroLengthArraysPass());
-
-  // Devirtualize virtual function calls
-  MPM.addPass(HipCUDADVPass());
 
   // Cooperative groiup related transformation
   MPM.addPass(HipTaskSyncPass());

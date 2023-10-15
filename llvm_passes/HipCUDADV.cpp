@@ -77,13 +77,13 @@ HipCUDADVPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-dyn-mem", LLVM_VERSION_STRING,
+  return {LLVM_PLUGIN_API_VERSION, "hip-cudadv", LLVM_VERSION_STRING,
           [](PassBuilder &PB) {
             PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &FPM,
+                [](StringRef Name, ModulePassManager &MPM,
                    ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-dyn-mem") {
-                    FPM.addPass(HipCUDADVPass());
+                  if (Name == "hip-cudadv") {
+                    MPM.addPass(HipCUDADVPass());
                     return true;
                   }
                   return false;

@@ -837,42 +837,42 @@ static inline cudaError_t cudaFreeAsync(void *Ptr, cudaStream_t Stream) {
   return hipFreeAsync(Ptr, Stream);
 }
 
-static inline cudaError_t cudaGraphCreate(cudaGraph_t* pGraph, unsigned int flags) {
-  return hipGraphCreate(pGraph, flags);
+static inline cudaError_t cudaGraphCreate(cudaGraph_t* g, unsigned int flags) {
+  return hipGraphCreate(g, flags);
 }
 
-static inline cudaError_t cudaGraphDestroy(cudaGraph_t graph) {
-  return hipGraphDestroy(graph);
+static inline cudaError_t cudaGraphDestroy(cudaGraph_t g) {
+  return hipGraphDestroy(g);
 }
 
-static inline cudaError_t cudaGraphAddDependencies(cudaGraph_t graph, 
-		                                   const cudaGraphNode_t *from, 
-			   			  const cudaGraphNode_t * to, 
-			  			  size_t numDependencies) {
-  return hipGraphAddDependencies(graph, from, to, numDependencies);
+static inline cudaError_t cudaGraphAddDependencies(cudaGraph_t g, 
+		                                   const cudaGraphNode_t * startNode, 
+			   			  const cudaGraphNode_t * endNode, 
+			  			  size_t dependencies) {
+  return hipGraphAddDependencies(g, startNode, endNode, dependencies);
 }
 
-static inline cudaError_t cudaGraphRemoveDependencies(cudaGraph_t graph,
-                                                   const cudaGraphNode_t *from,
-                                                  const cudaGraphNode_t * to,
-                                                  size_t numDependencies) {
-  return hipGraphRemoveDependencies(graph, from, to, numDependencies);
+static inline cudaError_t cudaGraphRemoveDependencies(cudaGraph_t g,
+                                                   const cudaGraphNode_t * startNode,
+                                                  const cudaGraphNode_t * endNode,
+                                                  size_t dependencies) {
+  return hipGraphRemoveDependencies(g, startNode, endNode, dependencies);
 }
 
-static inline cudaError_t cudaGraphGetEdges(cudaGraph_t graph, 
-		                            cudaGraphNode_t * from, 
-					    cudaGraphNode_t *to, 
-					    size_t *numEdges) {
-  return hipGraphGetEdges(graph, from, to, numEdges);
+static inline cudaError_t cudaGraphGetEdges(cudaGraph_t g, 
+		                            cudaGraphNode_t * startNode, 
+					    cudaGraphNode_t * endNode, 
+					    size_t* edges) {
+  return hipGraphGetEdges(g, startNode, endNode, edges);
 }
 
-static inline cudaError_t cudaGraphLaunch(cudaGraphExec_t graphExec, cudaStream_t stream) {
-  return hipGraphLaunch(graphExec, stream);
+static inline cudaError_t cudaGraphLaunch(cudaGraphExec_t gExec, cudaStream_t exec_stream) {
+  return hipGraphLaunch(gExec, exec_stream);
 }
 
-static inline cudaError_t cudaGraphExecKernelNodeSetParams(cudaGraphExec_t hGraphExec, cudaGraphNode_t node, 
-		                                            const cudaKernelNodeParams *pNodeParams) {
-  return hipGraphExecKernelNodeSetParams(hGraphExec, node, pNodeParams);
+static inline cudaError_t cudaGraphExecKernelNodeSetParams(cudaGraphExec_t gExec, cudaGraphNode_t node, 
+		                                            const cudaKernelNodeParams * nodeParams) {
+  return hipGraphExecKernelNodeSetParams(gExec, node, nodeParams);
 }
 
 static inline cudaError_t cudaMemGetInfo(size_t *Free, size_t *Total) {

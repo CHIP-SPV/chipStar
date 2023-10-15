@@ -33,7 +33,7 @@
  * between the host and device).  CPU can query CUDA events to determine
  * whether GPU has completed tasks.
  */
-
+ 
 // includes, system
 #include <stdio.h>
 

@@ -293,6 +293,8 @@ namespace CooperativeGroups
 
         vector<shared_ptr<CodeRegion> > controlStructures;
 
+      vector<CallInst *> inlineableFunctionCalls;
+      
         vector<LocalVariable> localVariables;
         vector<CallInst *> threadIdxCalls;
         std::vector<SerializedCGRegion> serializedCgRegions;
@@ -408,7 +410,7 @@ namespace CooperativeGroups
                 }
             }
 
-	    dbgs()<<"PreprocessBasicBlocks: done\n\n";
+	    // dbgs()<<"PreprocessBasicBlocks: done\n\n";
         }
 
         void analyzeKernel()
@@ -417,6 +419,7 @@ namespace CooperativeGroups
             controlStructures.clear();
             basicBlocks.clear();
             threadIdxCalls.clear();
+	    inlineableFunctionCalls.clear();
 
             PDT.recalculate(function);
             DT.recalculate(function);
@@ -434,19 +437,26 @@ namespace CooperativeGroups
                     // find cg sync statements
                     if (isSync(&I))
                     {
-                        Sync groupSync;
-                        groupSync.block = currBB;
+		      /*Sync groupSync;
+		      groupSync.block = currBB;
+		      
+		      vector<Instruction *> dependentInsts;
+		      findRelevantInstructions(&I, dependentInsts);
+		      groupSync.insts.insert(groupSync.insts.end(), dependentInsts.rbegin(), dependentInsts.rend());
+		      // groupSync.insts.push_back(&I);
+		      */
 
-                        vector<Instruction *> dependentInsts;
-                        findRelevantInstructions(&I, dependentInsts);
-                        groupSync.insts.insert(groupSync.insts.end(), dependentInsts.rbegin(), dependentInsts.rend());
-                        // groupSync.insts.push_back(&I);
-
-                        syncs.push_back(groupSync);
+		      Sync groupSync = createSync(&I);
+		      
+		      syncs.push_back(groupSync);
                     }
                     if (isThreadIdxCall(&I) && DT.dominates(tiledPartition.insts.back(), &I))
                     {
                         threadIdxCalls.push_back(dyn_cast<CallInst>(&I));
+                    }
+		    if (isInlineableFunctionCall(&I))
+                    {
+                        inlineableFunctionCalls.push_back(dyn_cast<CallInst>(&I));
                     }
                 }
 
@@ -458,7 +468,7 @@ namespace CooperativeGroups
                 }
 	    }
 
-	    dbgs()<<"AnalyzeKernel: found "<<syncs.size()<<" group syncs and "<<threadIdxCalls.size()<<" threadIdx calls\n\n";
+	    // dbgs()<<"AnalyzeKernel: found "<<syncs.size()<<" group syncs and "<<threadIdxCalls.size()<<" threadIdx calls\n\n";
 
             // Sort control flow constructs by post dominance
             auto postDominanceComparator = [this](const shared_ptr<CodeRegion> &a, const shared_ptr<CodeRegion> &b) -> bool
@@ -494,7 +504,12 @@ namespace CooperativeGroups
                 globalArray->setAlignment(llvm::Align(4));
 
                 // Copy value to shared array before tiled partition and thread check starts
-                auto serializeVariablesBB = tiledPartition.block->getSinglePredecessor()->getSinglePredecessor();
+		if (!tiledPartition.block->getSinglePredecessor())
+                {
+                    continue;
+                }
+		 
+		auto serializeVariablesBB = tiledPartition.block->getSinglePredecessor()->getSinglePredecessor();
                 builder.SetInsertPoint(serializeVariablesBB->getTerminator());
                 auto index = tiledPartition.threadIdx;
                 llvm::Type *castedArrayType = llvm::PointerType::get(arrayType, ADDR_SPACE_CONSTANT);
@@ -973,6 +988,17 @@ namespace CooperativeGroups
 	    return false;
         }
 
+      bool hasInlineableFunctionCall(CallInst *&callInst)
+      {
+	if (inlineableFunctionCalls.size() == 0)
+	  {
+	    return false;
+	  }
+	
+	callInst = inlineableFunctionCalls.front();
+	return true;
+      }
+      
         void handleSync(Sync sync)
         {
             auto cgRegion = extractCGRegion(sync);
@@ -984,8 +1010,8 @@ namespace CooperativeGroups
             serializedCgRegions.push_back(serializedCgRegion);
 
             handledGroupSyncs.insert(sync);
-
-            dbgs() << "HandleSync: transformation applied\n\n";
+	    
+            // dbgs() << "HandleSync: transformation applied\n\n";
         }
 
         void findLocalVariables()
@@ -1002,7 +1028,7 @@ namespace CooperativeGroups
                     continue;
                 }
 
-                dbgs()<<"FindLocalVariables: addrCastInst found: "<<formatInst(addrCastInst)<<"\n";
+                // dbgs()<<"FindLocalVariables: addrCastInst found: "<<formatInst(addrCastInst)<<"\n";
 
                 auto addrSpace = addrCastInst->getDestAddressSpace();
                 if (addrSpace != ADDR_SPACE_CONSTANT && addrSpace != ADDR_SPACE_LOCAL)
@@ -1010,7 +1036,7 @@ namespace CooperativeGroups
                     continue;
                 }
 
-                dbgs()<<"FindLocalVariables: addrCastInst is of correct address space\n";
+                // dbgs()<<"FindLocalVariables: addrCastInst is of correct address space\n";
 
                 auto allocainst = dyn_cast<AllocaInst>(addrCastInst->getOperand(0));
                 if (!allocainst || allocainst->getParent() != entryBlock)
@@ -1018,7 +1044,7 @@ namespace CooperativeGroups
                     continue;
                 }
 
-                dbgs()<<"FindLocalVariables: allocaInst found: "<<formatInst(allocainst)<<"\n";
+                // dbgs()<<"FindLocalVariables: allocaInst found: "<<formatInst(allocainst)<<"\n";
 
                 // Check if the alloca is NOT of a struct/class type
 		Type* allocatedType = allocainst->getAllocatedType();
@@ -1027,27 +1053,27 @@ namespace CooperativeGroups
                     continue;
                 }
 
-                dbgs()<<"FindLocalVariables: allocaInst is of correct type\n";
+                // dbgs()<<"FindLocalVariables: allocaInst is of correct type\n";
 
 
                 vector<LoadInst *> references;
                 for (auto *user : addrCastInst->users())
                 {
-                    dbgs()<<"FindLocalVariables: user: "<<formatInst(dyn_cast<Instruction>(user))<<"\n";
+		  // dbgs()<<"FindLocalVariables: user: "<<formatInst(dyn_cast<Instruction>(user))<<"\n";
                     auto loadInst = dyn_cast<LoadInst>(user);
                     if (!loadInst)
                     {
                         continue;
                     }
 
-                    dbgs()<<"FindLocalVariables: user: loadInst found: "<<formatInst(loadInst)<<"\n";
+                    // dbgs()<<"FindLocalVariables: user: loadInst found: "<<formatInst(loadInst)<<"\n";
 
                     if (!DT.dominates(tiledPartition.insts.back(), loadInst))
                     {
                         continue;
                     }
-
-                    dbgs()<<"FindLocalVariables: user: loadInst is after tiled partition\n";
+		    
+                    // dbgs()<<"FindLocalVariables: user: loadInst is after tiled partition\n";
 
                     references.push_back(dyn_cast<LoadInst>(user));
                 }
@@ -1540,9 +1566,44 @@ namespace CooperativeGroups
             }
         }
 
-        // Check if the given call instruction is a cooperative group symchronization related calls
-        // @_ZN18cooperative_groups11synchronizeENS_12thread_blockE
-        // @_ZNK18cooperative_groups12thread_group4syncEv(
+      Sync createSync(Instruction *I)
+      {
+	Sync groupSync;
+	groupSync.block = I->getParent();
+	
+	vector<Instruction *> dependentInsts;
+	findRelevantInstructions(I, dependentInsts);
+	groupSync.insts.insert(groupSync.insts.end(), dependentInsts.rbegin(), dependentInsts.rend());
+	// groupSync.insts.push_back(&I);
+	
+	return groupSync;
+      }
+
+      void inlineFunction(CallInst *callInst)
+      {
+	if (!callInst)
+	  {
+	    return;
+	  }
+
+	InlineFunctionInfo IFI; 
+	InlineResult result = InlineFunction(*callInst, IFI);
+	
+	if (!result.isSuccess())
+	  {
+	    dbgs() << "inlineFunction: failed to inline "<< 
+	      callInst->getCalledFunction()->getName() << ": " << result.getFailureReason() << "\n\n";
+	  }
+	else
+	  {
+	    dbgs() << "inlineFunction: inlined "<< 
+	      callInst->getCalledFunction()->getName() << "\n\n";
+	  }
+      }
+      
+      // Check if the given call instruction is a cooperative group symchronization related calls
+      // @_ZN18cooperative_groups11synchronizeENS_12thread_blockE
+      // @_ZNK18cooperative_groups12thread_group4syncEv(
         bool isSync(Instruction *I)
         {
             bool state = isThreadBlockSync(I) || isThreadGroupSync(I);
@@ -1608,26 +1669,64 @@ namespace CooperativeGroups
             return FuncNameStr.find("get_local_id") != FuncNameStr.npos;
         }
 
-        // Check if the given call instruction is tiled_partition
-        bool isTiledPartition(Instruction *I)
-        {
-
-            CallInst *callInst;
-            if (!(callInst = dyn_cast<CallInst>(I)))
-            {
-                return false;
-            }
-
-            auto FuncNameStr = callInst->getCalledFunction()->getName();
-
-            if (FuncNameStr.find("cooperative_groups") == FuncNameStr.npos || FuncNameStr.find("tiled_partition") == FuncNameStr.npos || FuncNameStr.find("thread_block") == FuncNameStr.npos)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
+      bool isInlineableFunctionCall(Instruction *I)
+      {
+	CallInst *callInst;
+	if (!(callInst = dyn_cast<CallInst>(I)))
+	  {
+	    return false;
+	  }
+	
+	llvm::Function *calledFunc = callInst->getCalledFunction();
+	if (!calledFunc)
+	  {
+	    return false;
+	  }
+	
+	// If the call is before tiled partition, it doesn't need to be inlined
+	if (!DT.dominates(tiledPartition.insts.back(), callInst))
+	  {
+	    return false;
+	  }
+	
+	// A function need to be inlined if it has a cg sync call inside
+	for (auto &BB : *calledFunc)
+	  {
+	    for (auto &I : BB)
+	      {
+		if (isSync(&I))
+		  {
+		    syncs.push_back(createSync(&I));
+                    
+		    cout<<"isInlineableFunctionCall: inlineable function: "<<calledFunc->getName().str()<<"\n";
+		    return true;
+		  }
+	      }
+	  }
+	
+	return false;
+      }
+      
+      // Check if the given call instruction is tiled_partition
+      bool isTiledPartition(Instruction *I)
+      {
+	
+	CallInst *callInst;
+	if (!(callInst = dyn_cast<CallInst>(I)))
+	  {
+	    return false;
+	  }
+	
+	auto FuncNameStr = callInst->getCalledFunction()->getName();
+	
+	if (FuncNameStr.find("cooperative_groups") == FuncNameStr.npos || FuncNameStr.find("tiled_partition") == FuncNameStr.npos || FuncNameStr.find("thread_block") == FuncNameStr.npos)
+	  {
+	    return false;
+	  }
+	
+	return true;
+      }
+      
 	bool isBasicBlockWithinRegion(CodeRegion region, BasicBlock *bb)
         {
             // // Print out region info, bb info
