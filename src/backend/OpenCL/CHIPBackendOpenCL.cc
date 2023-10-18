@@ -1529,7 +1529,7 @@ chipstar::EventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
 }
 
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {
-  return std::string("-x spir -cl-kernel-arg-info -cl-std=CL3.0");
+  return std::string("-cl-kernel-arg-info -cl-std=CL3.0");
 }
 
 void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,

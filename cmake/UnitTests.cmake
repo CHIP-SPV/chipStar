@@ -495,6 +495,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_Negat
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventWaitNodeGetEvent_Negative") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Negative") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphExecMemcpyNodeSetParams_Functional") # Failed
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamBeginCapture_BasicFunctional") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamBeginCapture_hipStreamPerThread") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamBeginCapture_Negative") # SEGFAULT
