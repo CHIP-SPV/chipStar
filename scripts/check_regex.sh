@@ -1,14 +1,47 @@
 #!/bin/bash
 
+set -e
+
 # Check if there are at least three arguments
-if [ $# -lt 3 ]; then
-  echo "Usage: $0 <rgx> <NUM_TRIES> <NUM_THREADS> [modules...]"
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 <rgx> [--num-tries=<value>] [--num-threads=<value>] [modules...]"
   exit 1
 fi
 
-# Check if 2nd and 3rd arguments are integers
-if ! [[ "$2" =~ ^[0-9]+$ ]] || ! [[ "$3" =~ ^[0-9]+$ ]]; then
-  echo "2nd and 3rd arguments must be integers"
+
+# Save the first argument to variable rgx
+rgx="$1"
+
+# Set default values for num_threads and num_tries
+num_threads=1
+num_tries=1
+
+# Check if the arguments include --num-threads and/or --num-tries
+for arg in "$@"
+do
+  case $arg in
+    --num-threads=*)
+      num_threads="${arg#*=}"
+      shift
+      ;;
+    --num-tries=*)
+      num_tries="${arg#*=}"
+      shift
+      ;;
+    *)
+      ;;
+  esac
+done
+
+# Check if the second and third arguments are integers
+if ! [[ "$num_threads" =~ ^[0-9]+$ ]] || ! [[ "$num_tries" =~ ^[0-9]+$ ]]; then
+  echo "Error: --num-threads and --num-tries arguments must be integers."
+  exit 1
+fi
+
+# Check if the number of threads and tries are greater than 0
+if [ "$num_threads" -lt 1 ] || [ "$num_tries" -lt 1 ]; then
+  echo "Error: --num-threads and --num-tries arguments must be greater than 0."
   exit 1
 fi
 
@@ -18,24 +51,14 @@ export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 
-# Save the first argument to variable rgx
-rgx="$1"
-# Save the second argument to variable NUM_TRIES
-NUM_TRIES="$2"
-# Save the third argument to variable NUM_THREADS
-NUM_THREADS="$3"
-
-# Shift to get rid of the first three arguments
-shift 3
-
 compiler="clang/clang17-spirv-omp"
 
-igpu_level0="levelzero/igpu"
-dgpu_level0="levelzero/igpu"
-igpu_opencl="opencl/intel-igpu"
-dgpu_opencl="opencl/intel-dgpu"
-cpu_opencl="opencl/intel-cpu"
-cpu_pocl="opencl/pocl-cpu-llvm-17"
+igpu_level0="level-zero/igpu"
+dgpu_level0="level-zero/igpu"
+igpu_opencl="opencl/igpu"
+dgpu_opencl="opencl/dgpu"
+cpu_opencl="opencl/cpu"
+cpu_pocl="opencl/pocl"
 
 module purge
 
@@ -50,7 +73,7 @@ function run_tests {
   TMP_FILE="check_regex_${SAFE_RGX}_${SAFE_PLATFORM}.tmp"
   module load "$compiler" $PLATFORM mkl
   echo "Testing $PLATFORM"
-  ctest -R "$rgx" -j "$NUM_THREADS" --repeat until-fail:"$NUM_TRIES" --timeout 180 --output-on-failure | tee "$TMP_FILE"
+  ctest -R "$rgx" -j "$num_threads" --repeat until-fail:"$num_tries" --timeout 180 --output-on-failure | tee "$TMP_FILE"
   echo "begin ${PLATFORM}" >> $FINAL_FILE
   awk '/tests passed, / {flag=1} flag' "$TMP_FILE" >> $FINAL_FILE
   echo "end ${PLATFORM}" >> $FINAL_FILE
