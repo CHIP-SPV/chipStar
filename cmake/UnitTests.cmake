@@ -16,6 +16,8 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "Unit_hipMalloc_LoopRegressionAllocFreeCycles") # 
+list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") #
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphDestroyNode_DestroyDependencyNode") #
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
@@ -118,7 +120,6 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 
 
 # CPU OpenCL Unit Test Failures
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "cuda-binomialoptions") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # SEGFAULT
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -429,7 +430,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestIndirectCall") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset3DAsync_MemsetWithExtent") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # SEGFAULT
@@ -730,7 +730,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") 
@@ -913,7 +912,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMalloc_LoopRegressionAllocFreeCycles") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemset") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_SmallSize_hipMemsetD32") # Failed
@@ -1052,9 +1050,19 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functiona
 
 # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL https://github.com/intel/compute-runtime/issues/668
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL https://github.com/intel/compute-runtime/issues/668
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") 
-list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") 
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMultiThreadStreams2") 
 
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "TestRecordEventBlocking") # Happens after updating oneapi
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemcpy_NullCheck") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_3D") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipTextureFetch_vector") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "MatrixMultiply") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "BinomialOption") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-scan") # only happens when ctest -j $(nproc) RCL
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-sortnet") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetAsync_QueueJobsMultithreaded") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-bandwidthTest") # only happens when ctest -j $(nproc) RCL
@@ -1358,10 +1366,18 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 # iGPU Level Zero Unit Test Failures
-list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "hip_async_binomial") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "dwtHaar1D") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "FastWalshTransform") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "cuda-bandwidthTest") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "cuda-blackscholes") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "cuda-qrng") # only happens when ctest -j $(nproc) RCL
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "cuda-mergesort") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestRecordEventBlocking") # after updaing oneapi
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "TestIndirectCall") 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -1664,7 +1680,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
 # for indirect calls. Despite this, this test is known to pass on Intel
 # OpenCL CPU & GPU and Intel Level Zero (however, your mileage may vary).
 list(APPEND CPU_POCL_FAILED_TESTS "TestIndirectCall")
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode")
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT

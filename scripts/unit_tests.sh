@@ -95,7 +95,7 @@ else
 
   echo "building with $CLANG"
   cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-  make all build_tests install -j $nproc #&> /dev/null
+  make all build_tests install -j 24 #&> /dev/null
   echo "chipStar build complete." 
 
   # # Build libCEED
@@ -117,7 +117,7 @@ fi
 echo "begin igpu_level0_failed_reg_tests"
 module load level-zero/igpu
 module list
-CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 2000 --repeat until-fail:${num_tries} -j $nproc --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 2000 --repeat until-fail:${num_tries} -j 4 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
@@ -140,7 +140,7 @@ echo "end igpu_level0_failed_reg_tests"
 echo "begin dgpu_level0_failed_reg_tests"
 module load level-zero/dgpu
 module list
-CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 2000 --repeat until-fail:${num_tries} -j $nproc --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 2000 --repeat until-fail:${num_tries} -j 4 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
@@ -151,7 +151,7 @@ echo "end dgpu_level0_failed_reg_tests"
 echo "begin dgpu_level0_failed_imm_tests"
 module load level-zero/dgpu
 module list
-CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 2000 --repeat until-fail:${num_tries} -j $nproc --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 2000 --repeat until-fail:${num_tries} -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # popd
@@ -162,7 +162,7 @@ echo "end dgpu_level0_failed_imm_tests"
 echo "begin igpu_opencl_failed_tests"
 module load opencl/igpu
 module list
-ctest --timeout 2000 --repeat until-fail:${num_tries} -j $nproc --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+ctest --timeout 2000 --repeat until-fail:${num_tries} -j 24 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 #pushd ${LIBCEED_DIR}
 #make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
 #popd
@@ -174,7 +174,7 @@ echo "begin dgpu_opencl_failed_tests"
 module load intel/opencl # sets ICD
 module load opencl/dgpu # sets CHIP_BE
 module list
-ctest --timeout 2000 --repeat until-fail:${num_tries} -j $nproc --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+ctest --timeout 2000 --repeat until-fail:${num_tries} -j 24 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
 # popd

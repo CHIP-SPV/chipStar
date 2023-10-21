@@ -22,8 +22,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument('work_dir', type=str, help='Path to build directory')
 parser.add_argument('device_type', type=str, choices=['cpu', 'igpu', 'dgpu'], help='Device type')
 parser.add_argument('backend', type=str, choices=['opencl', 'level0-reg', 'level0-imm', 'pocl'], help='Backend to use')
-parser.add_argument('--num_threads', type=int, nargs='?', default=os.cpu_count(), help='Number of threads to use (default: number of cores on the system)')
-parser.add_argument('--num_tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
+parser.add_argument('--num-threads', type=int, nargs='?', default=os.cpu_count(), help='Number of threads to use (default: number of cores on the system)')
+parser.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 
 args = parser.parse_args()
 

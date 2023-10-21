@@ -276,7 +276,7 @@ endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
 if(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-  add_compile_options("-Wall -gdwarf-4")
+  add_compile_options(-Wall -gdwarf-4 -O1)
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 else()
   list(APPEND CHIP_SPV_DEFINITIONS SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_WARN)
