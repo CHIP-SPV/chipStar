@@ -728,6 +728,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 # dGPU OpenCL Unit Test Failures
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # invalid free()
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") 

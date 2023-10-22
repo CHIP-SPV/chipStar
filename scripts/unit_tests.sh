@@ -151,7 +151,7 @@ echo "end dgpu_level0_failed_reg_tests"
 echo "begin dgpu_level0_failed_imm_tests"
 module load level-zero/dgpu
 module list
-CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 2000 --repeat until-fail:${num_tries} -j 20 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 2000 --repeat until-fail:${num_tries} -j 16 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # popd
