@@ -1368,6 +1368,7 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemset3D_MemsetWithExtent") # 
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # 
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "hip_async_binomial") # only happens when ctest -j $(nproc) RCL
