@@ -27,6 +27,13 @@ parser.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number 
 
 args = parser.parse_args()
 
+# print out the arguments
+print(f"work_dir: {args.work_dir}")
+print(f"device_type: {args.device_type}")
+print(f"backend: {args.backend}")
+print(f"num_threads: {args.num_threads}")
+print(f"num_tries: {args.num_tries}")
+
 if args.device_type == "cpu":
     device_type_stripped = "cpu"
 elif args.device_type in ["dgpu", "igpu"]:

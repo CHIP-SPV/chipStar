@@ -3,7 +3,7 @@
 set -e
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=1]"
+  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=1] [--num-threads=1]"
   exit 1
 fi
 
@@ -31,23 +31,72 @@ else
   exit 1
 fi
 
+shift
+shift
+
 # Set the number of tries based on the argument or default to 1
 num_tries=1
+num_threads=""
+timeout=200
 for arg in "$@"
 do
   case $arg in
+    --num-threads=*)
+      num_threads="${arg#*=}"
+      shift
+      ;;
+    --num-threads)
+      shift
+      num_threads="$1"
+      shift
+      ;;
     --num-tries=*)
       num_tries="${arg#*=}"
+      shift
+      ;;
+    --num-tries)
+      shift
+      num_tries="$1"
       shift
       ;;
     --skip-build)
       skip_build=true
       shift
       ;;
+    --timeout=*)
+      timeout="${arg#*=}"
+      shift
+      ;;
+    --timeout)
+      shift
+      timeout="$1"
+      shift
+      ;;
     *)
       ;;
   esac
 done
+
+
+# Use default -j option or override if num_threads is set
+function ctest_j_option {
+  local default_j=$1
+  if [ ! -z "$num_threads" ]; then
+    echo "-j $num_threads"
+  else
+    echo "-j $default_j"
+  fi
+}
+
+
+# Print out the arguments
+echo "build_type  = ${build_type}"
+echo "LLVM        = ${LLVM}"
+echo "CLANG       = ${CLANG}"
+echo "num_tries   = ${num_tries}"
+echo "num_threads = ${num_threads}"
+echo "skip_build  = ${skip_build}"
+echo "timeout     = ${timeout}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh &> /dev/null
@@ -109,7 +158,7 @@ fi
 # echo "begin cpu_pocl_failed_tests"
 # module load opencl/pocl
 # module list
-# ctest --timeout 2000 --repeat until-fail:${num_tries} -j 12 --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
+# ctest --schedule-random --timeout 600 --repeat until-fail:${num_tries} $(ctest_j_option 12) --output-on-failure -E "`cat ./test_lists/cpu_pocl_failed_tests.txt`" | tee cpu_pocl_make_check_result.txt
 # module unload opencl/pocl
 # echo "end cpu_pocl_failed_tests"
 
@@ -117,9 +166,9 @@ fi
 echo "begin igpu_level0_failed_reg_tests"
 module load level-zero/igpu
 module list
-CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 2000 --repeat until-fail:${num_tries} -j 4 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=OFF ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
 module unload level-zero/igpu
 echo "end igpu_level0_failed_reg_tests"
@@ -129,9 +178,9 @@ echo "end igpu_level0_failed_reg_tests"
 # echo "begin igpu_level0_failed_imm_tests"
 # module load level-zero/igpu
 # module list
-# CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 2000 --repeat until-fail:${num_tries} -j 12 --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
+# CHIP_L0_IMM_CMD_LISTS=ON ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 12) --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
 # # pushd ${LIBCEED_DIR}
-# # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# # make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # # popd
 # module unload level-zero/igpu
 # echo "end igpu_level0_failed_imm_tests"
@@ -140,9 +189,9 @@ echo "end igpu_level0_failed_reg_tests"
 echo "begin dgpu_level0_failed_reg_tests"
 module load level-zero/dgpu
 module list
-CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout 2000 --repeat until-fail:${num_tries} -j 4 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=OFF ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
+# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
 # popd
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_reg_tests"
@@ -151,9 +200,9 @@ echo "end dgpu_level0_failed_reg_tests"
 echo "begin dgpu_level0_failed_imm_tests"
 module load level-zero/dgpu
 module list
-CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout 2000 --repeat until-fail:${num_tries} -j 16 --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+CHIP_L0_IMM_CMD_LISTS=ON ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 8) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # popd
 module unload level-zero/dgpu
 echo "end dgpu_level0_failed_imm_tests"
@@ -162,9 +211,9 @@ echo "end dgpu_level0_failed_imm_tests"
 echo "begin igpu_opencl_failed_tests"
 module load opencl/igpu
 module list
-ctest --timeout 2000 --repeat until-fail:${num_tries} -j 24 --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
+ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 #pushd ${LIBCEED_DIR}
-#make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
+#make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
 #popd
 module unload opencl/igpu
 echo "end igpu_opencl_failed_tests"
@@ -174,9 +223,9 @@ echo "begin dgpu_opencl_failed_tests"
 module load intel/opencl # sets ICD
 module load opencl/dgpu # sets CHIP_BE
 module list
-ctest --timeout 2000 --repeat until-fail:${num_tries} -j 24 --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
+ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 8) --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} -j 12 PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
+# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
 # popd
 module unload opencl/dgpu intel/opencl
 echo "end dgpu_opencl_failed_tests"
@@ -185,7 +234,7 @@ echo "end dgpu_opencl_failed_tests"
 # echo "begin cpu_opencl_failed_tests"
 # module load opencl/cpu
 # module list
-# ctest --timeout 2000 --repeat until-fail:${num_tries} -j 12 --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
+# ctest --schedule-random --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 12) --output-on-failure -E "`cat ./test_lists/cpu_opencl_failed_tests.txt`" | tee cpu_opencl_make_check_result.txt
 # module unload opencl/cpu
 # echo "end cpu_opencl_failed_tests"
 

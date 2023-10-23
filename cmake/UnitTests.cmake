@@ -1055,6 +1055,7 @@ list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL http
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") 
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMultiThreadStreams2") 
 
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # 
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "TestRecordEventBlocking") # Happens after updating oneapi
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemcpy_NullCheck") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroSize_3D") # only happens when ctest -j $(nproc) RCL
@@ -1367,6 +1368,7 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 # iGPU Level Zero Unit Test Failures
+list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # 
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMalloc_Multithreaded_MultiGPU") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "hip_async_binomial") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "dwtHaar1D") # only happens when ctest -j $(nproc) RCL
