@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 chipStar developers
+ * Copyright (c) 2021-23 chipStar developers
  * Copyright (c) 2022 Henry Linjamäki / Parmance for Argonne National Laboratory
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -54,7 +54,9 @@
 #define __CUDA_ARCH__ 200
 #endif
 
+#ifndef __align__
 #define __align__(X)  __attribute__((aligned(X)))
+#endif
 
 #undef DEPRECATED
 #define DEPRECATED                                                             \

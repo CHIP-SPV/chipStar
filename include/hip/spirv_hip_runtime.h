@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015 - 2021 Advanced Micro Devices, Inc. All rights reserved.
+Copyright (c) 2015 - 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -83,5 +83,11 @@ THE SOFTWARE.
 #define __HIP_ARCH_HAS_DYNAMIC_PARALLEL__ (0)
 
 #endif /* Device feature flags */
+
+#if __HIP_CLANG_ONLY__
+#ifndef __align__
+#define __align__(X) __attribute__((aligned(X)))
+#endif
+#endif
 
 #endif
