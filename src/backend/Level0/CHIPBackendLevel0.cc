@@ -669,7 +669,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       // delete the event if refcount reached 1 (this->ChipEvent)
       if (ChipEvent.use_count() == 1) {
         if (ChipEvent->EventPool) {
-          ChipEvent->EventPool->returnSlot(ChipEvent->EventPoolIndex);
+          ChipEvent->EventPool->returnEvent(ChipEvent);
         }
 #ifndef NDEBUG
         ChipEvent->markDeleted();
@@ -1582,9 +1582,8 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
-    Events_.push_back(std::shared_ptr<CHIPEventLevel0>(
+    Events_.push(std::shared_ptr<CHIPEventLevel0>(
         new CHIPEventLevel0(Ctx_, this, i, Flags)));
-    FreeSlots_.push(i);
   }
 };
 
@@ -1600,7 +1599,11 @@ LZEventPool::~LZEventPool() {
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
-  Events_.clear(); // shared_ptr's will be deleted
+  // pop all Events_ until clear
+  while (!Events_.empty()) {
+    Events_.pop();
+  }
+
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
   // Done via destructor should not be called from multiple threads
@@ -1610,30 +1613,14 @@ LZEventPool::~LZEventPool() {
 };
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
-  std::shared_ptr<CHIPEventLevel0> Event;
-  {
-    int PoolIndex = getFreeSlot();
-    if (PoolIndex == -1)
-      return nullptr;
-    Event = Events_[PoolIndex];
-  }
-
+  std::shared_ptr<CHIPEventLevel0> Event = Events_.top();
+  Events_.pop();
   return Event;
 };
 
-int LZEventPool::getFreeSlot() {
-  if (FreeSlots_.size() == 0)
-    return -1;
-
-  auto Slot = FreeSlots_.top();
-  FreeSlots_.pop();
-
-  return Slot;
-}
-
-void LZEventPool::returnSlot(int Slot) {
-  LOCK(EventPoolMtx); // LZEventPool::FreeSlots_
-  FreeSlots_.push(Slot);
+void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
+  LOCK(EventPoolMtx); // LZEventPool::Events_
+  Events_.push(Event);
   return;
 }
 
