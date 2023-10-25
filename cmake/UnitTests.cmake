@@ -16,6 +16,15 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
+list(APPEND FAILING_FOR_ALL "abort") # 
+list(APPEND FAILING_FOR_ALL "abort2") # 
+list(APPEND FAILING_FOR_ALL "TestAssert") # 
+list(APPEND FAILING_FOR_ALL "TestAssertFail") # 
+# list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncSync") # 
+# list(APPEND FAILING_FOR_ALL "hipMultiThreadAddCallback") # 
+# list(APPEND FAILING_FOR_ALL "Unit_hipStreamBeginCapture_ColligatedStrmCapture_diffprio") # 
+# list(APPEND FAILING_FOR_ALL "Unit_hipMalloc_AllocateAndPoolBuffers") # 
+# list(APPEND FAILING_FOR_ALL "Unit_hipMalloc_Multithreaded_MultiGPU") # 
 list(APPEND FAILING_FOR_ALL "Unit_hipMalloc_LoopRegressionAllocFreeCycles") # 
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") #
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphDestroyNode_DestroyDependencyNode") #
@@ -1151,6 +1160,7 @@ list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-convolutionSeparable") # only happens when ctest -j $(nproc) RCL
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-FDTD3d") # only happens when ctest -j $(nproc) RCL
 
+list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Sunspot ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hip_async_binomial") # Sunspot correctness

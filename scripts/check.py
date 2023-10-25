@@ -58,7 +58,7 @@ else:
 if args.device_type == "cpu":
     timeout = 1800
 else:
-    timeout = 1800
+    timeout = 200
 
 os.chdir(args.work_dir)
 
