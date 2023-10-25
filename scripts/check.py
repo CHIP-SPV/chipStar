@@ -24,6 +24,7 @@ parser.add_argument('device_type', type=str, choices=['cpu', 'igpu', 'dgpu'], he
 parser.add_argument('backend', type=str, choices=['opencl', 'level0-reg', 'level0-imm', 'pocl'], help='Backend to use')
 parser.add_argument('--num-threads', type=int, nargs='?', default=os.cpu_count(), help='Number of threads to use (default: number of cores on the system)')
 parser.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
+parser.add_argument('--timeout', type=int, nargs='?', default=200, help='Timeout in seconds (default: 200)')
 
 args = parser.parse_args()
 
@@ -33,6 +34,7 @@ print(f"device_type: {args.device_type}")
 print(f"backend: {args.backend}")
 print(f"num_threads: {args.num_threads}")
 print(f"num_tries: {args.num_tries}")
+print(f"timeout: {args.timeout}")
 
 if args.device_type == "cpu":
     device_type_stripped = "cpu"
@@ -55,11 +57,6 @@ elif args.backend == "level0-imm":
 else:
     level0_cmd_list = ""
 
-if args.device_type == "cpu":
-    timeout = 1800
-else:
-    timeout = 200
-
 os.chdir(args.work_dir)
 
 cmd = "./samples/hipInfo/hipInfo"
@@ -70,7 +67,7 @@ if not texture_support:
 else:
     texture_cmd = ""
 
-cmd = f"{env_vars} ctest --output-on-failure --timeout {timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\"  -O checkpy_{args.device_type}_{args.backend}.txt"
+cmd = f"{env_vars} ctest --schedule-random --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\"  -O checkpy_{args.device_type}_{args.backend}.txt"
 res, ctest_return_code = run_cmd(cmd)
 # check if "0 tests failed" is in the output, if so return 0
 if "0 tests failed" in res:
