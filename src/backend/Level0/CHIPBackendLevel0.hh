@@ -23,8 +23,6 @@
 #ifndef CHIP_BACKEND_LEVEL0_H
 #define CHIP_BACKEND_LEVEL0_H
 
-// TODO: Should this be a cmake parameter? env? What is max size?
-#define EVENT_POOL_SIZE 1000
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
@@ -153,6 +151,22 @@ public:
     join();
   };
   virtual void monitor() override;
+};
+
+class CHIPEventPoolMonitorLevel0 : public chipstar::EventMonitor {
+  size_t EventPoolSize_ = 1;
+  std::vector<LZEventPool *> EventPools_;
+public:
+  CHIPContextLevel0 *ParentCtx_;
+
+  CHIPEventPoolMonitorLevel0(CHIPContextLevel0 *ParentCtx)
+      : ParentCtx_(ParentCtx) {}
+  ~CHIPEventPoolMonitorLevel0();
+  virtual void monitor() override;
+
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+
+  LZEventPool *getPoolWithAvailableEvent();
 };
 
 class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
@@ -305,28 +319,13 @@ public:
 
 class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
-  std::vector<LZEventPool *> EventPools_;
+
+  CHIPEventPoolMonitorLevel0 *EventPoolMonitor_ = nullptr;
 
 public:
   std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
-
-    // go through all pools and try to get an allocated event
-    LOCK(ContextMtx); // Context::EventPools
-    std::shared_ptr<CHIPEventLevel0> Event;
-    for (auto EventPool : EventPools_) {
-      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
-      if (EventPool->EventAvailable())
-        return EventPool->getEvent();
-    }
-
-    // no events available, create new pool, get event from there and return
-    logTrace("No available events found in {} event pools. Creating a new "
-             "event pool",
-             EventPools_.size());
-    auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
-    Event = NewEventPool->getEvent();
-    EventPools_.push_back(NewEventPool);
-    return Event;
+    assert(EventPoolMonitor_ != nullptr && "EventPoolMonitor_ is null");
+    return EventPoolMonitor_->getEventFromPool();
   }
 
   bool ownsZeContext = true;
@@ -335,10 +334,11 @@ public:
   }
   ze_context_handle_t ZeCtx;
   ze_driver_handle_t ZeDriver;
-  CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t &&ZeCtx)
-      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
-      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
+      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {
+        EventPoolMonitor_ = new CHIPEventPoolMonitorLevel0(this);
+        EventPoolMonitor_->start();
+      }
   virtual ~CHIPContextLevel0() override;
 
   void *allocateImpl(

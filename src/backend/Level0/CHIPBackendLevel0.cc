@@ -636,6 +636,56 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
   }
 }
 
+  CHIPEventPoolMonitorLevel0::~CHIPEventPoolMonitorLevel0() {
+    logTrace("CHIPEventPoolMonitorLevel0 DEST");
+    // delete all event pools
+    for (LZEventPool *Pool : EventPools_) {
+      delete Pool;
+    }
+    EventPools_.clear();
+    join();
+  };
+
+
+LZEventPool *CHIPEventPoolMonitorLevel0::getPoolWithAvailableEvent() {
+    for (auto EventPool : EventPools_) {
+      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
+      if (EventPool->EventAvailable())
+        return EventPool;
+    }
+
+    return nullptr;
+  }
+
+void CHIPEventPoolMonitorLevel0::monitor() {
+  while(true) {
+  LOCK(this->EventMonitorMtx);
+  auto AvailablePool = getPoolWithAvailableEvent();
+  if (AvailablePool)
+    continue;
+
+  // no events available, create new pool, get event from there and return
+  logDebug("No available events found in {} event pools. Creating a new "
+           "event pool with the size of {}", 
+           EventPools_.size(), EventPoolSize_);
+  auto NewEventPool = new LZEventPool(ParentCtx_, EventPoolSize_);
+  EventPoolSize_ = EventPoolSize_ * 2;
+  EventPools_.push_back(NewEventPool);
+  }
+}
+
+std::shared_ptr<CHIPEventLevel0>
+CHIPEventPoolMonitorLevel0::getEventFromPool() {
+  // Continuously check for events
+  while(true) {
+    LOCK(this->EventMonitorMtx);
+    auto AvailablePool = getPoolWithAvailableEvent();
+    if (AvailablePool) {
+      return AvailablePool->getEvent();
+    }
+  }
+}
+
 void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (true) {
@@ -1859,13 +1909,8 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
-  // delete all event pools
-  for (LZEventPool *Pool : EventPools_) {
-    delete Pool;
-  }
-  EventPools_.clear();
 
-  // delete all devicesA
+  // delete all devices
   delete static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
 
   // The application must not call this function from
