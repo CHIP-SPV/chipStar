@@ -36,7 +36,7 @@ shift
 
 # Set the number of tries based on the argument or default to 1
 num_tries=1
-num_threads=12
+num_threads=8
 timeout=200
 for arg in "$@"
 do
