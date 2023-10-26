@@ -25,7 +25,7 @@
 #ifndef SRC_FILESYSTEM_HH
 #define SRC_FILESYSTEM_HH
 
-#include "CHIPSPVConfig.hh"
+#include "chipStarConfig.hh"
 
 #if defined(HAS_FILESYSTEM) && HAS_FILESYSTEM == 1
 
