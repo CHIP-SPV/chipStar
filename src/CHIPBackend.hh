@@ -1640,8 +1640,6 @@ public:
    */
   virtual ~Context();
 
-  virtual void syncQueues(chipstar::Queue *TargetQueue);
-
   void setDevice(chipstar::Device *Device) { ChipDevice_ = Device; }
 
   /**
