@@ -16,10 +16,10 @@ list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 # It fails with "error: cannot find ROCm device library;
 #  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
 #  '-nogpulib' to build without ROCm device library"
-list(APPEND FAILING_FOR_ALL "abort") # 
-list(APPEND FAILING_FOR_ALL "abort2") # 
-list(APPEND FAILING_FOR_ALL "TestAssert") # 
-list(APPEND FAILING_FOR_ALL "TestAssertFail") # 
+list(APPEND FAILING_FOR_ALL "abort") # causes hung processes on i915 driver
+list(APPEND FAILING_FOR_ALL "abort2") # causes hung processes on i915 driver
+list(APPEND FAILING_FOR_ALL "TestAssert") # causes hung processes on i915 driver
+list(APPEND FAILING_FOR_ALL "TestAssertFail")# causes hung processes on i915 driver 
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
