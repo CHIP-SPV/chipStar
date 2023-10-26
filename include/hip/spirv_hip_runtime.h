@@ -27,7 +27,7 @@ THE SOFTWARE.
 #define __HIP_PLATFORM_SPIRV__
 #endif
 
-#include "CHIPSPVConfig.hh"
+#include "chipStarConfig.hh"
 
 #ifdef __cplusplus
 #include <cmath>
