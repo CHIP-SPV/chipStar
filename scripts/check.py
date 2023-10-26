@@ -88,7 +88,7 @@ if not texture_support:
 else:
     texture_cmd = ""
 
-cmd = f"{modules} {env_vars} ctest --schedule-random --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\"  -O checkpy_{args.device_type}_{args.backend}.txt"
+cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\"  -O checkpy_{args.device_type}_{args.backend}.txt"
 res, ctest_return_code = run_cmd(cmd)
 # check if "0 tests failed" is in the output, if so return 0
 if "0 tests failed" in res:
