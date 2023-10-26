@@ -36,7 +36,7 @@ __global__ void wait_kernel(int timeout) {
 
 void long_wait_kernel() { wait_kernel<<<1, 1>>>(10000); }
 
-void short_wait_kernel() { wait_kernel<<<1, 1>>>(100); }
+void short_wait_kernel() { wait_kernel<<<1, 1>>>(10); }
 
 int main() {
   std::chrono::time_point<std::chrono::system_clock> start, end;
