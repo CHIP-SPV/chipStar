@@ -742,18 +742,6 @@ static OVLD int __chip_atomic_exch_i(volatile local int *address, int val) {
 static OVLD int __chip_atomic_exch_i(volatile global int *address, int val) {
   return as_int(atomic_xchg((volatile global uint *)(address), as_uint(val)));
 }
-EXPORT int __chip_atomic_exch_i(DEFAULT_AS int *address, int val) {
-  volatile global int *gi = to_global(address);
-  if (gi)
-    return __chip_atomic_exch_i(gi, val);
-  volatile local int *li = to_local(address);
-  if (li)
-    return __chip_atomic_exch_i(li, val);
-  return 0;
-}
-EXPORT int __chip_atomic_exch_system_i(DEFAULT_AS int *address, int val) {
-  return __chip_atomic_exch_i(address, val);
-}
 
 static OVLD unsigned int
 __chip_atomic_exch_u(volatile local unsigned int *address, unsigned int val) {
@@ -762,21 +750,6 @@ __chip_atomic_exch_u(volatile local unsigned int *address, unsigned int val) {
 static OVLD unsigned int
 __chip_atomic_exch_u(volatile global unsigned int *address, unsigned int val) {
   return as_uint(atomic_xchg((volatile global uint *)(address), as_uint(val)));
-}
-EXPORT unsigned int __chip_atomic_exch_u(DEFAULT_AS unsigned int *address,
-                                         unsigned int val) {
-  volatile global unsigned int *gi = to_global(address);
-  if (gi)
-    return __chip_atomic_exch_u(gi, val);
-  volatile local unsigned int *li = to_local(address);
-  if (li)
-    return __chip_atomic_exch_u(li, val);
-  return 0;
-}
-EXPORT unsigned int
-__chip_atomic_exch_system_u(DEFAULT_AS unsigned int *address,
-                            unsigned int val) {
-  return __chip_atomic_exch_u(address, val);
 }
 
 static OVLD unsigned long int
@@ -793,32 +766,20 @@ __chip_atomic_exch_l (volatile global unsigned long int *address,
   return as_ulong(
       atom_xchg((volatile global unsigned long *)(address), as_ulong(val)));
 }
-EXPORT unsigned long int
-__chip_atomic_exch_l (DEFAULT_AS unsigned long int *address,
-                      unsigned long int val)
-{
-  volatile global unsigned long int *gi = to_global(address);
-  if (gi)
-    return __chip_atomic_exch_l (gi, val);
-  volatile local unsigned long int *li = to_local(address);
-  if (li)
-    return __chip_atomic_exch_l (li, val);
-  return 0;
-}
-EXPORT unsigned long int
-__chip_atomic_exch_system_ul(DEFAULT_AS unsigned long int *address,
-                             unsigned long int val) {
-  return __chip_atomic_exch_l (address, val);
+
+EXPORT float __chip_atomic_add_system_f32(DEFAULT_AS float *address,
+                                          float val) {
+  return __chip_atomic_add_f32(address, val);
 }
 
-EXPORT long int __chip_atomic_exch_system_l(DEFAULT_AS long int *address,
-                                            long int val) {
-  return __chip_atomic_exch_l ((DEFAULT_AS unsigned long int *)address, val);
+EXPORT double __chip_atomic_add_system_f64(DEFAULT_AS double *address,
+                                           double val) {
+  return __chip_atomic_add_f64(address, val);
 }
 
 /**************************************************************************************/
 /**************************************************************************************/
-#else
+#else // ifndef CHIP_EXT_FLOAT_ATOMICS
 /**************************************************************************************/
 /**************************************************************************************/
 
@@ -862,7 +823,7 @@ DEF_CHIP_ATOMIC2F (add, fetch_add)
 
 DEF_CHIP_ATOMIC2F (exch, exchange)
 
-#endif
+#endif // ifndef CHIP_EXT_FLOAT_ATOMICS
 
 /**************************************************************************************/
 /**************************************************************************************/
