@@ -91,5 +91,18 @@ int main() {
     assert(S3Out.a[i] == S3.a[i]);
   assert(S3Out.b == S3.b);
 
+  struct __align__(16) S4_t {
+    int a;
+  };
+  struct S5_t {
+    int a = 11;
+    S4_t b = {22};
+    int c = 33;
+  } S5;
+  auto S5Out = passThroughKernel(S5);
+  assert(S5Out.a == S5.a);
+  assert(S5Out.b.a == S5.b.a);
+  assert(S5Out.c == S5.c);
+
   return 0;
 }
