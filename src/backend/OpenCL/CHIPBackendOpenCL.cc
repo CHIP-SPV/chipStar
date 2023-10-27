@@ -1524,10 +1524,6 @@ chipstar::EventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor_() {
   return Evm;
 }
 
-chipstar::EventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
-  UNIMPLEMENTED(nullptr);
-}
-
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {
   return std::string("-cl-kernel-arg-info -cl-std=CL3.0");
 }

@@ -43,6 +43,7 @@ class LZCommandList;
 class LZEventPool;
 class CHIPExecItemLevel0;
 class CHIPKernelLevel0;
+class EventMonitorLevel0;
 
 class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
@@ -146,41 +147,103 @@ public:
 
 class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
 public:
+
   ~CHIPCallbackEventMonitorLevel0() {
     logTrace("CHIPCallbackEventMonitorLevel0 DEST");
     join();
   };
-  virtual void monitor() override;
+  // void monitor() override;
+
+  void monitorCallbacks();
+
+  CHIPCallbackEventMonitorLevel0() {
+    registerFunction(
+        [&]() {
+          CHIPCallbackDataLevel0 *CbData;
+          while (true) {
+            usleep(20000);
+            LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+            {
+
+              if (Stop) {
+                logTrace(
+                    "CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting "
+                    "thread");
+                if (Backend->CallbackQueue.size())
+                  logError(
+                      "Callback thread exiting while there are still active "
+                      "callbacks in the queue");
+                pthread_exit(0);
+              }
+
+              LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
+
+              if ((Backend->CallbackQueue.size() == 0))
+                continue;
+
+              // get the callback item
+              CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+
+              // Lock the item and members
+              assert(CbData);
+              LOCK( // Backend::CallbackQueue
+                  CbData->CallbackDataMtx);
+              Backend->CallbackQueue.pop();
+
+              // Update Status
+              logTrace(
+                  "CHIPCallbackEventMonitorLevel0::monitor() checking event "
+                  "status for {}",
+                  static_cast<void *>(CbData->GpuReady.get()));
+              CbData->GpuReady->updateFinishStatus(false);
+              if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+                // if not ready, push to the back
+                Backend->CallbackQueue.push(CbData);
+                continue;
+              }
+            }
+
+            CbData->execute(hipSuccess);
+            CbData->CpuCallbackComplete->hostSignal();
+            CbData->GpuAck->wait();
+
+            delete CbData;
+            pthread_yield();
+          }
+        },
+        100);
+  }
+  // void monitor() override;
 };
 
-class CHIPEventPoolMonitorLevel0 : public chipstar::EventMonitor {
-  size_t EventPoolSize_ = 1;
-  std::vector<LZEventPool *> EventPools_;
-public:
-  CHIPContextLevel0 *ParentCtx_;
-
-  CHIPEventPoolMonitorLevel0(CHIPContextLevel0 *ParentCtx)
-      : ParentCtx_(ParentCtx) {}
-  ~CHIPEventPoolMonitorLevel0();
-  virtual void monitor() override;
-
-  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
-
-  LZEventPool *getPoolWithAvailableEvent();
-};
-
-class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
+class EventMonitorLevel0 : public chipstar::EventMonitor {
   // variable for storing the how much time has passed since trying to exit
   // the monitor loop
   int TimeSinceStopRequested_ = 0;
   int LastPrint_ = 0;
 
+  size_t EventPoolSize_ = 1;
+  std::vector<LZEventPool *> EventPools_;
+
+
 public:
-  ~CHIPStaleEventMonitorLevel0() {
-    logTrace("CHIPStaleEventMonitorLevel0 DEST");
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+  CHIPContextLevel0 *ParentCtx_;
+  LZEventPool *getPoolWithAvailableEvent();
+
+  EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept;
+  ~EventMonitorLevel0() {
+    logTrace("EventMonitorLevel0 DEST");
+
+      // delete all event pools
+  for (LZEventPool *Pool : EventPools_) {
+    delete Pool;
+  }
+  EventPools_.clear();
+
+
     join();
   };
-  virtual void monitor() override;
 };
 
 class LZEventPool {
@@ -320,13 +383,8 @@ public:
 class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
 
-  CHIPEventPoolMonitorLevel0 *EventPoolMonitor_ = nullptr;
-
 public:
-  std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
-    assert(EventPoolMonitor_ != nullptr && "EventPoolMonitor_ is null");
-    return EventPoolMonitor_->getEventFromPool();
-  }
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
 
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {
@@ -336,9 +394,7 @@ public:
   ze_driver_handle_t ZeDriver;
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {
-        EventPoolMonitor_ = new CHIPEventPoolMonitorLevel0(this);
-        EventPoolMonitor_->start();
-      }
+  }
   virtual ~CHIPContextLevel0() override;
 
   void *allocateImpl(
@@ -548,7 +604,9 @@ class CHIPBackendLevel0 : public chipstar::Backend {
   bool useImmCmdLists_ = true; // default to immediate command lists
   int collectEventsTimeout_ = 30;
 
+
 public:
+  EventMonitorLevel0 *EventMonitor_ = nullptr;
   int getCollectEventsTimeout() { return collectEventsTimeout_; }
   void setCollectEventsTimeout() {
     auto str = readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
@@ -657,8 +715,8 @@ public:
     return Evm;
   }
 
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitorLevel0();
+  chipstar::EventMonitor *createEventMonitor_(CHIPContextLevel0 *ParentCtx)  {
+    auto Evm = new EventMonitorLevel0(ParentCtx);
     Evm->start();
     return Evm;
   }
