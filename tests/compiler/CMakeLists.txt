@@ -111,3 +111,4 @@ add_test(NAME "TestHipccMultiSource" COMMAND
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
+add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
