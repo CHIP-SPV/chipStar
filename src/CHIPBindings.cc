@@ -2413,12 +2413,6 @@ static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
   *Ptr = RetVal;
   logInfo("hipMallocInternal(ptr={}, size={})", (void *)RetVal, Size);
 
-  // currently required for PVC
-  bool firstTouch;
-  auto Status = Backend->getActiveDevice()->getDefaultQueue()->memCopy(
-      RetVal, &firstTouch, 1);
-  assert(Status == hipSuccess);
-
   return hipSuccess;
 }
 
