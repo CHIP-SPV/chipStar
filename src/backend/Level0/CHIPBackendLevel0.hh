@@ -80,6 +80,7 @@ public:
 
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
+  CHIPQueueLevel0* AssocQueue_ = nullptr;
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
@@ -94,17 +95,20 @@ private:
 
 public:
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
-  void associateCmdList(ze_command_list_handle_t CmdList) {
-    assert(AssocCmdList_ == nullptr && "command list already associated!");
-    AssocCmdList_ = CmdList;
-  }
 
-  void disassociateCmdList() {
-    assert(AssocCmdList_ != nullptr && "command list not associated!");
-    auto Status = zeCommandListDestroy(AssocCmdList_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    AssocCmdList_ = nullptr;
-  }
+  /**
+   * @brief Associate a command list with this event. When this event completes, the EventMonitor thread will return the command list handle back to the queue stack where it came from. 
+   * 
+   * @param ChipQueue queue where the event was created (and where the command list stack resides)
+   * @param CmdList command list to associate with this event
+   */
+  void associateCmdList(CHIPQueueLevel0* ChipQueue, ze_command_list_handle_t CmdList);
+
+  /**
+   * @brief Reset and then return the command list handle back to the queue stack where it came from.j
+   * 
+   */
+  void disassociateCmdList();
 
   uint32_t getValidTimestampBits();
   uint64_t getHostTimestamp() { return HostTimestamp_; }
@@ -233,15 +237,31 @@ protected:
   ze_command_queue_desc_t QueueDescriptor_;
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
-  ze_command_list_handle_t ZeCmdList_;
+  ze_command_list_handle_t ZeCmdListImm_;
+  size_t NumCmdListsCreated_ = 0;
+  std::mutex CmdListMtx;
+  std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
   void initializeCmdListImm();
 
 public:
   std::vector<ze_event_handle_t>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
-  std::mutex CmdListMtx;
+  /**
+   * @brief Either return the immediate command list for this queue or a regular command list depending on if ICL is used or not.
+   * If ICL is not used, the regular command list can be created new or returnend from the stack of previously created handles.
+   * 
+   * @return ze_command_list_handle_t 
+   */
   ze_command_list_handle_t getCmdList();
+
+  /**
+   * @brief reset the given command list and return it back to the stack
+   * 
+   * @param CmdList level-zero command list handle to be recycled
+   */
+  void returnCmdList(ze_command_list_handle_t CmdList);
+
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
   }

@@ -33,7 +33,6 @@
  * handle which is a thread safe operation
  */
 #define GET_COMMAND_LIST(Queue)                                                \
-  LOCK(Queue->CmdListMtx);                                                     \
   ze_command_list_handle_t CommandList;                                        \
   CommandList = Queue->getCmdList();
 
@@ -215,6 +214,27 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // CHIPEventLevel0
 // ***********************************************************************
 
+  void CHIPEventLevel0::associateCmdList(CHIPQueueLevel0* ChipQueue, ze_command_list_handle_t CmdList) {
+    logTrace("CHIPEventLevel0({})::associateCmdList({})",
+             (void *)this, (void *)CmdList);
+    assert(AssocCmdList_ == nullptr && "command list already associated!");
+    assert(AssocQueue_ == nullptr && "queue already associated!");
+    AssocCmdList_ = CmdList;
+    AssocQueue_ = ChipQueue;
+  }
+
+  void CHIPEventLevel0::disassociateCmdList() {
+    assert(AssocCmdList_ != nullptr && "command list not associated!");
+    assert(AssocQueue_ != nullptr && "queue not associated!");
+    logTrace("CHIPEventLevel0({})::disassociateCmdList({})",
+             (void *)this, (void *)AssocCmdList_);
+    auto Status = zeCommandListReset(AssocCmdList_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    AssocQueue_->returnCmdList(AssocCmdList_);
+    AssocCmdList_ = nullptr;
+    AssocQueue_ = nullptr;
+  }
+
 void CHIPEventLevel0::reset() {
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -235,10 +255,21 @@ ze_event_handle_t CHIPEventLevel0::peek() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  logTrace("~CHIPEventLevel0({}_", (void *)this);
+  logTrace("~CHIPEventLevel0({})", (void *)this);
+  // if in RECORDING state, wait to finish
+  if (EventStatus_ == EVENT_STATUS_RECORDING) {
+    logTrace("~CHIPEventLevel0({}) waiting for event to finish", (void *)this);
+    wait();
+  }
+
+  if(AssocCmdList_ || AssocQueue_) {
+    logError("~CHIPEventLevel0({}) disassociating command list {}", (void *)this, (void*)AssocCmdList_);
+    logError("~CHIPEventLevel0({}) disassociating queue {}", (void *)this, (void*)AssocQueue_);
+    assert(false);
+  }
+
   if (Event_) {
     auto Status = zeEventDestroy(Event_);
-    // '~CHIPEventLevel0' has a non-throwing exception specification
     assert(Status == ZE_RESULT_SUCCESS);
   }
 
@@ -785,6 +816,11 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
+  while(NumCmdListsCreated_ != ZeCmdListRegStack_.size()) {
+    logWarn("~CHIPQueueLevel0() {} NumCmdListsCreated_ {} != ZeCmdListRegStack_.size() {} sleeping 100ms",
+            (void *)this, NumCmdListsCreated_, ZeCmdListRegStack_.size());
+    usleep(100000);
+  }
   // From destructor post query only when queue is owned by CHIP
   // Non-owned command queues can be destroyed independently by the owner
   if (zeCmdQOwnership_) {
@@ -850,18 +886,33 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
   if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
-    return ZeCmdList_;
+    return ZeCmdListImm_;
   } else {
+    LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
     ze_command_list_handle_t ZeCmdList;
-#ifdef CHIP_DUBIOUS_LOCKS
-    LOCK(Backend->DubiousLockLevel0)
-#endif
-    auto Status =
+    if(ZeCmdListRegStack_.size()) {
+      ZeCmdList = ZeCmdListRegStack_.top();
+      ZeCmdListRegStack_.pop();
+    } else {
+      // If the cmd list stack for this queue was empty, create a new one
+      // This cmd list will eventually return to the stack for this queue
+      // via CHIPEventLevel0::dissassociateCmdList()
+      auto Status =
         zeCommandListCreate(ZeCtx_, ZeDev_, &CommandListDesc_, &ZeCmdList);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+      CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorInitializationError);
+      NumCmdListsCreated_++;
+    }
+
     return ZeCmdList;
   }
+}
+
+void CHIPQueueLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
+  assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
+         "ICL is used - this should never be called");
+  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
+  ZeCmdListRegStack_.push(ZeCmdList);
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
@@ -946,7 +997,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
 void CHIPQueueLevel0::initializeCmdListImm() {
   auto Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
-                                             &ZeCmdList_);
+                                             &ZeCmdListImm_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 }
@@ -1495,6 +1546,7 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
+  assert(CommandList);
 
   if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
     executeCommandListImm(Event);
@@ -1541,8 +1593,8 @@ void CHIPQueueLevel0::executeCommandListReg(
 #endif
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent);
-  EventLz->associateCmdList(CommandList);
+  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent); 
+  EventLz->associateCmdList(this, CommandList);
 
   updateLastEvent(LastCmdListEvent);
   Backend->trackEvent(LastCmdListEvent);
@@ -1656,6 +1708,7 @@ CHIPBackendLevel0::createCHIPEvent(chipstar::Context *ChipCtx,
   }
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
+  assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssocCmdList());
   return Event;
 }
 
