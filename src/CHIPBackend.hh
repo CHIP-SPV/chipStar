@@ -347,6 +347,41 @@ public:
   std::mutex EventMonitorMtx;
   volatile bool Stop = false;
 
+  struct FunctionWrapper {
+    std::function<void()> func;
+    int interval;
+    std::chrono::steady_clock::time_point last_invocation;
+  };
+
+  std::vector<FunctionWrapper> registeredFunctions;
+
+  void registerFunction(std::function<void()> func, int interval) {
+    registeredFunctions.push_back(
+        {func, interval, std::chrono::steady_clock::now()});
+  }
+
+  static void *monitorWrapper(void *Arg) {
+    auto Monitor = (EventMonitor *)Arg;
+    Monitor->monitor();
+    return 0;
+  }
+
+  void monitor() {
+    while (!Stop) {
+      auto current_time = std::chrono::steady_clock::now();
+      for (auto &funcWrap : registeredFunctions) {
+        auto time_passed =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - funcWrap.last_invocation)
+                .count();
+        if (time_passed >= funcWrap.interval) {
+          funcWrap.func();
+          funcWrap.last_invocation = current_time;
+        }
+      }
+    }
+  }
+
   void join() {
     assert(Thread_);
     logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
@@ -355,13 +390,6 @@ public:
       logError("Failed to call join() {}", Status);
     }
   }
-
-  static void *monitorWrapper(void *Arg) {
-    auto Monitor = (chipstar::EventMonitor *)Arg;
-    Monitor->monitor();
-    return 0;
-  }
-  virtual void monitor(){};
 
   void start() {
     logDebug("Starting chipstar::Event Monitor Thread");
@@ -2023,7 +2051,6 @@ public:
                      chipstar::Queue *ChipQ) = 0;
 
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;

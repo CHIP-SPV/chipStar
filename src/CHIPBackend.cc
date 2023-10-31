@@ -1042,9 +1042,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 chipstar::Context::Context() {}
 chipstar::Context::~Context() { logDebug("~Context() {}", (void *)this); }
 
-chipstar::Device *chipstar::Context::getDevice() {
-  return ChipDevice_;
-}
+chipstar::Device *chipstar::Context::getDevice() { return ChipDevice_; }
 
 void *chipstar::Context::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, chipstar::HostAllocFlags());
@@ -1170,9 +1168,6 @@ chipstar::Backend::Backend() {
 
 chipstar::Backend::~Backend() {
   logDebug("Backend Destructor. Deleting all pointers.");
-  //   assert(Events.size() == 0);
-  Events.clear();
-  UserEvents.clear();
   for (auto &Ctx : ChipContexts) {
     ::Backend->removeContext(Ctx);
     delete Ctx;
@@ -1225,7 +1220,6 @@ void chipstar::Backend::waitForThreadExit() {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     for (auto Dev : ::Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      LOCK(Dev->DeviceMtx);       // CHIPBackend::Events
       LOCK(::Backend->EventsMtx); // CHIPBackend::Events
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
@@ -1235,18 +1229,13 @@ void chipstar::Backend::waitForThreadExit() {
         logWarn("Make sure to call hipStreamDestroy() for all queues that have "
                 "been created via hipStreamCreate()");
         logWarn("Removing user-created streams without calling a destructor");
-        Dev->getQueuesNoLock().clear();
-        if (::Backend->Events.size()) {
-          logWarn("Clearing chipstar::Event list {}", ::Backend->Events.size());
-          ::Backend->Events.clear();
-        }
       }
-      /**
-       * Skip setting LastEvent for these queues. At this point, the main() has
-       * exited and the memory allocated for these queues has already been
-       * freed.
-       *
-       */
+      for (auto &Queue : Dev->getQueuesNoLock()) {
+        logDebug("Destroying queue {}", (void *)Queue);
+        Queue->finish();
+        Queue->updateLastEvent(nullptr);
+        Dev->removeQueue(Queue);
+      }
     }
   }
 }
@@ -1530,6 +1519,7 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
   std::shared_ptr<chipstar::Event> ChipEvent;
   // Scope this so that we release mutex for finish()
   {
+    LOCK(QueueMtx)
     auto AllocInfoDst =
         ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
     auto AllocInfoSrc =
@@ -1549,8 +1539,8 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
           AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopy";
-    this->finish();
   }
+  this->finish();
   ::Backend->trackEvent(ChipEvent);
 
   return hipSuccess;
@@ -1629,7 +1619,6 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
 
 void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                                    size_t PatternSize) {
-
 
   std::shared_ptr<chipstar::Event> ChipEvent =
       memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
@@ -1711,7 +1700,6 @@ void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                                 const void *Src, size_t SPitch, size_t SSPitch,
                                 size_t Width, size_t Height, size_t Depth) {
 
-
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3D";
@@ -1723,7 +1711,6 @@ void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                      const void *Src, size_t SPitch,
                                      size_t SSPitch, size_t Width,
                                      size_t Height, size_t Depth) {
-
 
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
@@ -1809,8 +1796,6 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
   // Making this log info since hipLaunchKernel doesn't know enough about args
   logInfo("{}", InfoStr.str());
 
-
-
   auto TotalThreadsPerBlock =
       ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
   auto DeviceProps = getDevice()->getDeviceProps();
@@ -1861,7 +1846,6 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
 }
 
 void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
-
 
   std::shared_ptr<chipstar::Event> ChipEvent =
       std::shared_ptr<chipstar::Event>(memPrefetchImpl(Ptr, Count));

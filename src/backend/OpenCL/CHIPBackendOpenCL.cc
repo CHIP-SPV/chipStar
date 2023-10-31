@@ -285,10 +285,6 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
 // ************************************************************************
 EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor(){};
 
-void EventMonitorOpenCL::monitor() {
-  logTrace("EventMonitorOpenCL::monitor()");
-  chipstar::EventMonitor::monitor();
-}
 
 // CHIPDeviceOpenCL
 // ************************************************************************
@@ -1522,10 +1518,6 @@ chipstar::EventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor_() {
   auto Evm = new EventMonitorOpenCL();
   Evm->start();
   return Evm;
-}
-
-chipstar::EventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
-  UNIMPLEMENTED(nullptr);
 }
 
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {

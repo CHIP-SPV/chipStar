@@ -45,6 +45,7 @@ class LZCommandList;
 class LZEventPool;
 class CHIPExecItemLevel0;
 class CHIPKernelLevel0;
+class EventMonitorLevel0;
 
 class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
@@ -80,6 +81,7 @@ public:
 
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
+  CHIPContextLevel0 *AssocContext_ = nullptr;
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
@@ -94,17 +96,24 @@ private:
 
 public:
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
-  void associateCmdList(ze_command_list_handle_t CmdList) {
-    assert(AssocCmdList_ == nullptr && "command list already associated!");
-    AssocCmdList_ = CmdList;
-  }
 
-  void disassociateCmdList() {
-    assert(AssocCmdList_ != nullptr && "command list not associated!");
-    auto Status = zeCommandListDestroy(AssocCmdList_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    AssocCmdList_ = nullptr;
-  }
+  /**
+   * @brief Associate a command list with this event. When this event completes,
+   * the EventMonitor thread will return the command list handle back to the
+   * queue stack where it came from.
+   *
+   * @param ChipQueue queue where the event was created (and where the command
+   * list stack resides)
+   * @param CmdList command list to associate with this event
+   */
+  void associateCmdList(CHIPContextLevel0 *ChipContext,
+                        ze_command_list_handle_t CmdList);
+
+  /**
+   * @brief Reset and then return the command list handle back to the context
+   * pointed by AssocContext_
+   */
+  void disassociateCmdList();
 
   uint32_t getValidTimestampBits();
   uint64_t getHostTimestamp() { return HostTimestamp_; }
@@ -161,26 +170,49 @@ public:
 };
 
 class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
+  void checkCallbacks_();
+
 public:
+  CHIPCallbackEventMonitorLevel0();
   ~CHIPCallbackEventMonitorLevel0() {
     logTrace("CHIPCallbackEventMonitorLevel0 DEST");
     join();
   };
-  virtual void monitor() override;
 };
 
-class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
+class EventMonitorLevel0 : public chipstar::EventMonitor {
   // variable for storing the how much time has passed since trying to exit
   // the monitor loop
   int TimeSinceStopRequested_ = 0;
   int LastPrint_ = 0;
 
+  size_t EventPoolSize_ = 1;
+  std::vector<LZEventPool *> EventPools_;
+
+  /**
+   * @brief Go through all events in Backend::Events, update their status, upon
+   * status change release dependencies and command lists, return to event pool
+   */
+  void checkEvents_();
+  /**
+   * @brief Check if stop was requested for this monitor, if so handle all
+   * outstanding events
+   */
+  void exitChecks_();
+
+  /**
+   * @brief Make sure that there are sufficient events available in the event
+   * pools
+   */
+  void checkEventPools_();
+
 public:
-  ~CHIPStaleEventMonitorLevel0() {
-    logTrace("CHIPStaleEventMonitorLevel0 DEST");
-    join();
-  };
-  virtual void monitor() override;
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+  CHIPContextLevel0 *ParentCtx_;
+  LZEventPool *getPoolWithAvailableEvent();
+
+  EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept;
+  ~EventMonitorLevel0();
 };
 
 class LZEventPool {
@@ -188,19 +220,16 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
-  std::stack<int> FreeSlots_;
-  std::vector<std::shared_ptr<CHIPEventLevel0>> Events_;
-
-  int getFreeSlot();
+  std::stack<std::shared_ptr<CHIPEventLevel0>> Events_;
 
 public:
   std::mutex EventPoolMtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
-  bool EventAvailable() { return FreeSlots_.size() > 0; }
+  bool EventAvailable() { return Events_.size() > 0; }
   ze_event_pool_handle_t get() { return EventPool_; }
 
-  void returnSlot(int Slot);
+  void returnEvent(std::shared_ptr<CHIPEventLevel0> Event);
 
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
@@ -215,6 +244,8 @@ class CHIPQueueLevel0 : public chipstar::Queue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
+  CHIPDeviceLevel0 *ChipDevLz_;
+  CHIPContextLevel0 *ChipCtxLz_;
 
   // The shared memory buffer
   void *SharedBuf_;
@@ -233,15 +264,24 @@ protected:
   ze_command_queue_desc_t QueueDescriptor_;
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
-  ze_command_list_handle_t ZeCmdList_;
+  ze_command_list_handle_t ZeCmdListImm_;
 
   void initializeCmdListImm();
 
 public:
+  std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
+
+  /**
+   * @brief Get the Cmd List object, either immediate or regular
+   *
+   * @return ze_command_list_handle_t
+   */
+  ze_command_list_handle_t getCmdList();
+  CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
+  CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
   std::vector<ze_event_handle_t>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
-  std::mutex CmdListMtx;
-  ze_command_list_handle_t getCmdList();
+
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
   }
@@ -255,9 +295,6 @@ public:
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   virtual ~CHIPQueueLevel0() override;
-
-  virtual void addCallback(hipStreamCallback_t Callback,
-                           void *UserData) override;
 
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
@@ -322,29 +359,32 @@ public:
 
 class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
-  std::vector<LZEventPool *> EventPools_;
 
 public:
-  std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+  std::mutex CmdListMtx;
+  size_t NumCmdListsCreated_ = 0;
+  size_t CmdListsRequested_ = 0;
+  size_t CmdListsReused_ = 0;
+  std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
-    // go through all pools and try to get an allocated event
-    LOCK(ContextMtx); // Context::EventPools
-    std::shared_ptr<CHIPEventLevel0> Event;
-    for (auto EventPool : EventPools_) {
-      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
-      if (EventPool->EventAvailable())
-        return EventPool->getEvent();
-    }
+public:
+  /**
+   * @brief Either return the immediate command list for this queue or a regular
+   * command list depending on if ICL is used or not. If ICL is not used, the
+   * regular command list can be created new or returnend from the stack of
+   * previously created handles.
+   *
+   * @return ze_command_list_handle_t
+   */
+  ze_command_list_handle_t getCmdListReg();
 
-    // no events available, create new pool, get event from there and return
-    logTrace("No available events found in {} event pools. Creating a new "
-             "event pool",
-             EventPools_.size());
-    auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
-    Event = NewEventPool->getEvent();
-    EventPools_.push_back(NewEventPool);
-    return Event;
-  }
+  /**
+   * @brief reset the given command list and return it back to the stack
+   *
+   * @param CmdList level-zero command list handle to be recycled
+   */
+  void returnCmdList(ze_command_list_handle_t CmdList);
 
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {
@@ -352,8 +392,6 @@ public:
   }
   ze_context_handle_t ZeCtx;
   ze_driver_handle_t ZeDriver;
-  CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t &&ZeCtx)
-      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   virtual ~CHIPContextLevel0() override;
@@ -566,6 +604,7 @@ class CHIPBackendLevel0 : public chipstar::Backend {
   int collectEventsTimeout_ = 30;
 
 public:
+  EventMonitorLevel0 *EventMonitor_ = nullptr;
   int getCollectEventsTimeout() { return collectEventsTimeout_; }
   void setCollectEventsTimeout() {
     auto str = readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
@@ -645,8 +684,8 @@ public:
     return Evm;
   }
 
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitorLevel0();
+  chipstar::EventMonitor *createEventMonitor_(CHIPContextLevel0 *ParentCtx) {
+    auto Evm = new EventMonitorLevel0(ParentCtx);
     Evm->start();
     return Evm;
   }
