@@ -79,6 +79,7 @@ public:
   using ActionFn = std::function<void()>;
 
 private:
+  ze_command_list_handle_t AssocCmdList_ = nullptr;
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
@@ -92,6 +93,19 @@ private:
   std::vector<ActionFn> Actions_;
 
 public:
+  ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
+  void associateCmdList(ze_command_list_handle_t CmdList) {
+    assert(AssocCmdList_ == nullptr && "command list already associated!");
+    AssocCmdList_ = CmdList;
+  }
+
+  void disassociateCmdList() {
+    assert(AssocCmdList_ != nullptr && "command list not associated!");
+    auto Status = zeCommandListDestroy(AssocCmdList_);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    AssocCmdList_ = nullptr;
+  }
+
   uint32_t getValidTimestampBits();
   uint64_t getHostTimestamp() { return HostTimestamp_; }
   unsigned int EventPoolIndex;
@@ -596,8 +610,6 @@ public:
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 
-  std::map<CHIPEventLevel0 *, ze_command_list_handle_t> EventCommandListMap;
-
   virtual void initializeImpl(std::string CHIPPlatformStr,
                               std::string CHIPDeviceTypeStr,
                               std::string CHIPDeviceStr) override;
@@ -614,33 +626,6 @@ public:
     auto Q = new CHIPQueueLevel0(ChipDevLz);
 
     return Q;
-  }
-
-  /**
-   * @brief Check if the given event is associated with a command list and if
-   * so, destroy it. This operation will lock the CommandListsMtx.
-   *
-   * @param ChipEvent
-   */
-  void destroyAssocCmdList(CHIPEventLevel0 *ChipEvent) {
-
-    // Check if this event is associated with a CommandList
-    bool CommandListFound =
-        static_cast<CHIPBackendLevel0 *>(::Backend)->EventCommandListMap.count(
-            ChipEvent);
-    if (CommandListFound) {
-      logTrace("Erase cmdlist assoc w/ event: {}", (void *)this);
-      auto CommandList = static_cast<CHIPBackendLevel0 *>(::Backend)
-                             ->EventCommandListMap[ChipEvent];
-      static_cast<CHIPBackendLevel0 *>(::Backend)->EventCommandListMap.erase(
-          ChipEvent);
-
-      // The application must not call this function
-      // from simultaneous threads with the same command list handle.
-      // Done via this is the only thread that calls it
-      auto Status = zeCommandListDestroy(CommandList);
-      CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    }
   }
 
   virtual std::shared_ptr<chipstar::Event>

@@ -662,7 +662,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
         ChipEvent->releaseDependencies();
         Backend->Events.erase(Backend->Events.begin() + EventIdx);
-        BackendZe->destroyAssocCmdList(ChipEvent.get());
+        if(ChipEvent->getAssocCmdList()) 
+          ChipEvent->disassociateCmdList();
         ChipEvent->doActions();
       }
 
@@ -695,8 +696,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         TimeSinceStopRequested_ = CurrTime;
 
       int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
-      bool AllEventsCleared = BackendZe->EventCommandListMap.size() == 0 &&
-                              Backend->Events.size() == 0;
+      bool AllEventsCleared = Backend->Events.size() == 0;
       if (AllEventsCleared) {
         pthread_exit(0);
       } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
@@ -706,24 +706,15 @@ void CHIPStaleEventMonitorLevel0::monitor() {
             BackendZe->getCollectEventsTimeout());
         int MaxPrintEntries = 10;
         int PrintedEntries = 0;
-        for (auto &MapEntry :
-             static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap) {
-          logError("Uncollected EventCommandListMap: "
-                   "entries: {} {}",
-                   (void *)MapEntry.first, MapEntry.first->Msg);
+        for (auto &Event : Backend->Events) {
+          auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+          logError("Uncollected Backend->Events: {} {} AssocCmdList {}", (void *)Event.get(),
+                   Event->Msg, (void*)EventLz->getAssocCmdList());
           PrintedEntries++;
           if (PrintedEntries > MaxPrintEntries)
             break;
         }
 
-        PrintedEntries = 0;
-        for (auto &Event : Backend->Events) {
-          logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
-                   Event->Msg);
-          PrintedEntries++;
-          if (PrintedEntries > MaxPrintEntries)
-            break;
-        }
         pthread_exit(0);
       } else {
         // print only once a second to avoid saturating stdout with logs
@@ -1536,17 +1527,19 @@ void CHIPQueueLevel0::executeCommandListReg(
   // Done via GET_COMMAND_LIST
   Status = zeCommandListClose(CommandList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  {
-    LOCK( // CHIPBackendLevel0::EventCommandListMap
-        static_cast<CHIPBackendLevel0 *>(Backend)->CommandListsMtx);
-    logTrace("assoc event {} {} w/ cmdlist", LastCmdListEvent->Msg,
-             (void *)LastCmdListEvent.get());
-    static_cast<CHIPBackendLevel0 *>(Backend)
-        ->EventCommandListMap[(CHIPEventLevel0 *)LastCmdListEvent.get()] =
-        CommandList;
+
+  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);;
+#ifdef CHIP_L0_WAIT_FOR_MEMORY
+  while(Status == ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY) {
+    logError("Out of device memory, sleeping for 100 ms and retrying");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
   }
+#endif
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent); 
+  EventLz->associateCmdList(CommandList);
 
   updateLastEvent(LastCmdListEvent);
   Backend->trackEvent(LastCmdListEvent);
@@ -1592,10 +1585,6 @@ LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
     logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
             "destruction");
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->EventCommandListMap.size())
-    logWarn(
-        "CHIPCommandListLevel0 objects still exist at the time of EventPool "
-        "destruction");
   if (Backend->UserEvents.size())
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
