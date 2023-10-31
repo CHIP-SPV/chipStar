@@ -555,6 +555,9 @@ class CHIPDeviceLevel0 : public chipstar::Device {
   // The handle of device properties
   ze_device_properties_t ZeDeviceProps_;
 
+  // Filled if ZE_extension_float_atomics extension is supported.
+  ze_float_atomic_ext_properties_t FpAtomicProps_;
+
   CHIPDeviceLevel0(ze_device_handle_t ZeDev, CHIPContextLevel0 *ChipCtx,
                    int Idx);
 
@@ -613,9 +616,20 @@ public:
   }
 
   CHIPModuleLevel0 *compile(const SPVModule &Src) override;
+
+  const ze_float_atomic_ext_properties_t &getFpAtomicProps() const noexcept {
+    return FpAtomicProps_;
+  }
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
+  // Set to true if the driver supports ZE_experimental_module_program
+  // extension.
+  bool hasExperimentalModuleProgramExt_ = false;
+
+  // Set to true if the driver supports ZE_extension_float_atomics extension.
+  bool hasFloatAtomics_ = false;
+
 public:
   void setUseImmCmdLists(std::string_view DeviceName) {
     // Immediate command lists seem to not work on some Intel iGPUs
@@ -683,6 +697,12 @@ public:
 
   virtual hipEvent_t getHipEvent(void *NativeEvent) override;
   virtual void *getNativeEvent(hipEvent_t HipEvent) override;
+
+  bool hasExperimentalModuleProgramExt() const noexcept {
+    return hasExperimentalModuleProgramExt_;
+  }
+
+  bool hasFloatAtomicsExt() const noexcept { return hasFloatAtomics_; }
 
 }; // CHIPBackendLevel0
 

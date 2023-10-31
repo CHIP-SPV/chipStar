@@ -858,7 +858,9 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
         //
         // Issue warning unless it's a builtin, magic chipStar or
         // llvm-spirv symbol.
-        if (!startsWith(LinkName, "spirv_") && !BuiltIns.count(Insn.getWord(1)))
+        if (!startsWith(LinkName, "spirv_") &&
+            !startsWith(LinkName, "__chip_") &&
+            !BuiltIns.count(Insn.getWord(1)))
           MissingDefs[Insn.getWord(1)] = LinkName;
     }
 

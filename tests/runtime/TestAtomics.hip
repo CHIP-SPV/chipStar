@@ -53,5 +53,18 @@ int main() {
       [] __device__(auto *x, auto y) { return atomicAdd(x, y); });
   assert(Res5 == (0x10000000000ll + 23));
 
+  auto Res6 = launchAtomicOp<10, float>(
+      0.0f, 1.0f, [] __device__(float *x, float y) { return atomicAdd(x, y); });
+  float Ref6 = 0.0f;
+  for (int i = 0; i < 10; i++)
+    Ref6 += 1.0f;
+  assert(Res6 == Ref6);
+
+  auto Res7 =
+      launchAtomicOp<1, float>(1.23f, 3.21f, [] __device__(auto *x, auto y) {
+        return atomicExch(x, y);
+      });
+  assert(Res7 == 3.21f);
+
   return 0;
 }

@@ -323,6 +323,10 @@ message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
+# Embed HIP device built-in implementations which are linked into users' device
+# programs at runtime based on device capabilities.
+target_sources(CHIP PRIVATE $<TARGET_OBJECTS:rtdevlib>)
+
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)
 
@@ -373,6 +377,7 @@ target_include_directories(CHIP
   "${CMAKE_BINARY_DIR}/include" # for chipStarConfig.hh, should be first
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_BINARY_DIR}/bitcode"
 )
 
 

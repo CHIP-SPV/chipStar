@@ -23,15 +23,20 @@
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
 
-/**
- *  CHIPQueueLevel0::getCmdList() will return an immediate command list handle
- * if level zero immediate command lists is used. There is only one such handle
- * for a queue and a queue can be shared between multiple threads thus this lock
- * is necessary.
- *
- * If immediate command lists are not used, getCmdList will create a new
- * handle which is a thread safe operation
- */
+// Auto-generated header that lives in <build-dir>/bitcode.
+#include "rtdevlib-modules.h"
+
+/// Converts driver version queried from zeDriverGetProperties to string.
+static std::string driverVersionToString(uint32_t DriverVersion) noexcept {
+  uint32_t Build = DriverVersion & 0xffffu;
+  uint32_t Minor = (DriverVersion >> 16u) & 0xffu;
+  uint32_t Major = (DriverVersion >> 24u) & 0xffu;
+  std::string Str;
+  Str += std::to_string(Major) + ".";
+  Str += std::to_string(Minor) + ".";
+  Str += std::to_string(Build);
+  return Str;
+}
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
@@ -1784,6 +1789,31 @@ void CHIPBackendLevel0::initializeImpl() {
   ze_driver_handle_t ZeDriver = ZeDrivers[ChipEnvVars.getPlatformIdx()];
 
   assert(ZeDriver != nullptr);
+
+  ze_driver_properties_t DriverProps;
+  DriverProps.stype = ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES;
+  DriverProps.pNext = nullptr;
+  Status = zeDriverGetProperties(ZeDriver, &DriverProps);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  logDebug("Driver version: {}",
+           driverVersionToString(DriverProps.driverVersion));
+
+  uint32_t ExtCount = 0;
+  Status = zeDriverGetExtensionProperties(ZeDriver, &ExtCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  std::vector<ze_driver_extension_properties_t> Extensions(ExtCount);
+  Status =
+      zeDriverGetExtensionProperties(ZeDriver, &ExtCount, Extensions.data());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  for (const auto &Ext : Extensions) {
+    if (std::string_view(Ext.name) == "ZE_experimental_module_program")
+      hasExperimentalModuleProgramExt_ = true;
+
+    if (std::string_view(Ext.name) == "ZE_extension_float_atomics")
+      hasFloatAtomics_ = true;
+  }
+
   // Load devices to device vector
   Status = zeDeviceGet(ZeDriver, &DeviceCount, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -1996,18 +2026,28 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // Initialize members used as input for zeDeviceGet*Properties() calls.
   ZeDeviceProps_.pNext = nullptr;
   ZeDeviceProps_.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+
   ze_device_memory_properties_t DeviceMemProps;
   DeviceMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_MEMORY_PROPERTIES;
   DeviceMemProps.pNext = nullptr;
+
   ze_device_compute_properties_t DeviceComputeProps;
   DeviceComputeProps.pNext = nullptr;
   DeviceMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES;
+
   ze_device_cache_properties_t DeviceCacheProps;
   DeviceCacheProps.pNext = nullptr;
   DeviceMemProps.stype = ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES;
+
+  std::memset(&FpAtomicProps_, 0, sizeof(FpAtomicProps_));
+  FpAtomicProps_.stype = ZE_STRUCTURE_TYPE_FLOAT_ATOMIC_EXT_PROPERTIES;
+
   ze_device_module_properties_t DeviceModuleProps;
-  DeviceModuleProps.pNext = nullptr;
+  bool HasFPAtomicsExt =
+      static_cast<CHIPBackendLevel0 *>(Backend)->hasFloatAtomicsExt();
+  DeviceModuleProps.pNext = HasFPAtomicsExt ? &FpAtomicProps_ : nullptr;
   DeviceModuleProps.stype = ZE_STRUCTURE_TYPE_DEVICE_MODULE_PROPERTIES;
+
   ze_device_image_properties_t DeviceImageProps;
   DeviceImageProps.pNext = nullptr;
   DeviceImageProps.stype = ZE_STRUCTURE_TYPE_DEVICE_IMAGE_PROPERTIES;
@@ -2403,55 +2443,107 @@ std::string resultToString(ze_result_t Status) {
 
 // CHIPModuleLevel0
 // ***********************************************************************
+
+/// Dumps build/link log into the error log stream. The 'Log' value must be
+/// valid handle. This function will destroy the log handle.
+static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
+  size_t LogSize;
+  auto Status = zeModuleBuildLogGetString(Log, &LogSize, nullptr);
+  if (Status == ZE_RESULT_SUCCESS) {
+    std::vector<char> LogVec(LogSize);
+    Status = zeModuleBuildLogGetString(Log, &LogSize, LogVec.data());
+    if (Status == ZE_RESULT_SUCCESS)
+      logError("ZE Build Log:\n{}", std::string_view(LogVec.data(), LogSize));
+  }
+
+  CHIPERR_CHECK_LOG_AND_THROW(zeModuleBuildLogDestroy(Log), ZE_RESULT_SUCCESS,
+                              hipErrorTbd);
+}
+
+static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
+                                    ze_device_handle_t ZeDev,
+                                    const ze_module_desc_t &ModuleDesc) {
+
+  ze_module_build_log_handle_t Log;
+  ze_module_handle_t Object;
+  auto BuildStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
+
+  if (BuildStatus != ZE_RESULT_SUCCESS)
+    dumpBuildLog(std::move(Log));
+
+  CHIPERR_CHECK_LOG_AND_THROW(BuildStatus, ZE_RESULT_SUCCESS, hipErrorTbd);
+  logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
+           resultToString(BuildStatus));
+
+  return Object;
+}
+
+static void appendDeviceLibrarySources(
+    std::vector<size_t> &SrcSizes, std::vector<const uint8_t *> &Sources,
+    std::vector<const char *> &BuildFlags,
+    const ze_float_atomic_ext_properties_t &FpAtomicProps) {
+
+  auto AppendSource = [&](auto &Source) -> void {
+    SrcSizes.push_back(Source.size());
+    Sources.push_back(Source.data());
+    BuildFlags.push_back("");
+  };
+
+  if (FpAtomicProps.fp32Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_GLOBAL_ADD &&
+      FpAtomicProps.fp32Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_LOCAL_ADD)
+    AppendSource(chipstar::atomicAddFloat_native);
+  else
+    AppendSource(chipstar::atomicAddFloat_emulation);
+
+  if (FpAtomicProps.fp64Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_GLOBAL_ADD &&
+      FpAtomicProps.fp64Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_LOCAL_ADD)
+    AppendSource(chipstar::atomicAddDouble_native);
+  else
+    AppendSource(chipstar::atomicAddDouble_emulation);
+
+  assert(SrcSizes.size() == Sources.size() &&
+         Sources.size() == BuildFlags.size());
+}
+
 void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   logTrace("CHIPModuleLevel0.compile()");
   consumeSPIRV();
 
-  ze_result_t Status;
+  auto *LzBackend = static_cast<CHIPBackendLevel0 *>(Backend);
+  if (!LzBackend->hasExperimentalModuleProgramExt())
+    CHIPERR_LOG_AND_THROW("Can't compile module. Level zero does not support "
+                          "multi-input compilation.",
+                          hipErrorTbd);
 
-  // Create module with global address aware
-  ze_module_desc_t ModuleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
-                                 nullptr,
+  auto *LzDev = static_cast<CHIPDeviceLevel0 *>(ChipDev);
+  std::vector<size_t> ILSizes(1, IlSize_);
+  std::vector<const uint8_t *> ILInputs(1, FuncIL_);
+  std::vector<const char *> BuildFlags(1, ChipEnvVars.getJitFlags().c_str());
+
+  appendDeviceLibrarySources(ILSizes, ILInputs, BuildFlags,
+                             LzDev->getFpAtomicProps());
+
+  ze_module_program_exp_desc_t ProgramDesc = {
+      ZE_STRUCTURE_TYPE_MODULE_PROGRAM_EXP_DESC,
+      nullptr,
+      static_cast<uint32_t>(ILSizes.size()),
+      ILSizes.data(),
+      ILInputs.data(),
+      BuildFlags.data(),
+      nullptr};
+
+  ze_module_desc_t ModuleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC, &ProgramDesc,
                                  ZE_MODULE_FORMAT_IL_SPIRV,
-                                 IlSize_,
-                                 FuncIL_,
-                                 ChipEnvVars.getJitFlags().c_str(),
-                                 nullptr};
+                                 // The driver ignores the following
+                                 // members when module program
+                                 // description is provided.
+                                 0, nullptr, nullptr, nullptr};
 
-  CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)(ChipDev->getContext());
-  CHIPDeviceLevel0 *LzDev = (CHIPDeviceLevel0 *)ChipDev;
-
-  ze_device_handle_t ZeDev = LzDev->get();
-  ze_context_handle_t ZeCtx = ChipCtxLz->get();
-
-  ze_module_build_log_handle_t Log;
-  auto BuildStatus =
-      zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &ZeModule_, &Log);
-  if (BuildStatus != ZE_RESULT_SUCCESS) {
-    size_t LogSize;
-    Status = zeModuleBuildLogGetString(Log, &LogSize, nullptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    char LogStr[LogSize];
-    Status = zeModuleBuildLogGetString(Log, &LogSize, LogStr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    logError("ZE Build Log: {}", std::string(LogStr).c_str());
-    // The application must not call this function from
-    // simultaneous threads with the same build log handle.
-    // Done via this function is only invoked via call_once
-    Status = zeModuleBuildLogDestroy(Log);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  }
-  CHIPERR_CHECK_LOG_AND_THROW(BuildStatus, ZE_RESULT_SUCCESS, hipErrorTbd);
-  logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
-           resultToString(BuildStatus));
-  // if (Status == ZE_RESULT_ERROR_MODULE_BUILD_FAILURE) {
-  //  CHIPERR_LOG_AND_THROW("chipstar::Module failed to JIT: " +
-  //  std::string(log_str),
-  //                        hipErrorUnknown);
-  //}
+  auto *ChipCtxLz = static_cast<CHIPContextLevel0 *>(ChipDev->getContext());
+  ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc);
 
   uint32_t KernelCount = 0;
-  Status = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
+  auto Status = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logTrace("Found {} kernels in this module.", KernelCount);
 

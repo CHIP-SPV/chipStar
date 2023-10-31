@@ -27,6 +27,9 @@
 
 #include "Utils.hh"
 
+// Auto-generated header that lives in <build-dir>/bitcode.
+#include "rtdevlib-modules.h"
+
 static cl_sampler createSampler(cl_context Ctx, const hipResourceDesc &ResDesc,
                                 const hipTextureDesc &TexDesc) {
 
@@ -365,11 +368,45 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
   return nullptr;
 }
 
+static cl_device_fp_atomic_capabilities_ext
+getFPAtomicCapabilities(cl::Device Dev, cl_device_info Info) noexcept {
+  assert(Info == CL_DEVICE_SINGLE_FP_ATOMIC_CAPABILITIES_EXT ||
+         Info == CL_DEVICE_DOUBLE_FP_ATOMIC_CAPABILITIES_EXT);
+
+  cl_int Err;
+  auto DevExts = Dev.getInfo<CL_DEVICE_EXTENSIONS>(&Err);
+  assert(Err == CL_SUCCESS && "Invalid device?");
+
+  if (DevExts.find("cl_ext_float_atomics") == std::string::npos) {
+    logDebug("cl_ext_float_atomics extension is not supported");
+    return 0;
+  }
+
+  cl_device_fp_atomic_capabilities_ext Capabilities;
+  Err = clGetDeviceInfo(Dev.get(), Info,
+                        sizeof(cl_device_fp_atomic_capabilities_ext),
+                        &Capabilities, nullptr);
+
+  if (Err == CL_SUCCESS)
+    return Capabilities;
+
+  logWarn("clGetDeviceInfo returned {} for fp atomic capability query",
+          resultToString(Err));
+  assert(!"OpenCL API violation?");
+
+  return 0;
+}
+
 CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
                                    cl::Device *DevIn, int Idx)
     : Device(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
+
+  Fp32AtomicAddCapabilities_ = getFPAtomicCapabilities(
+      *DevIn, CL_DEVICE_SINGLE_FP_ATOMIC_CAPABILITIES_EXT);
+  Fp64AtomicAddCapabilities_ = getFPAtomicCapabilities(
+      *DevIn, CL_DEVICE_DOUBLE_FP_ATOMIC_CAPABILITIES_EXT);
 }
 
 CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
@@ -709,6 +746,63 @@ CHIPModuleOpenCL::CHIPModuleOpenCL(const SPVModule &SrcMod) : Module(SrcMod) {}
 
 cl::Program *CHIPModuleOpenCL::get() { return &Program_; }
 
+/// Prints program log into error stream
+static void dumpProgramLog(CHIPDeviceOpenCL &ChipDev, cl::Program Prog) {
+  cl_int Err;
+  std::string Log =
+      Prog.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDev.get(), &Err);
+  if (Err == CL_SUCCESS)
+    logError("Program LOG for device #{}:{}:\n{}\n",
+             ChipDev.getDeviceId(), ChipDev.getName(), Log);
+}
+
+static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
+                             const void *IL, size_t Length,
+                             const std::string &Options = "") {
+  cl_int Err;
+  cl::Program Prog(clCreateProgramWithIL(Ctx.get(), IL, Length, &Err));
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+
+  cl_device_id DevId = ChipDev.get()->get();
+  Err = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0, nullptr,
+                         nullptr, nullptr, nullptr);
+  if (Err != CL_SUCCESS) {
+    dumpProgramLog(ChipDev, Prog);
+    CHIPERR_LOG_AND_THROW("Compile step failed.", hipErrorInitializationError);
+  }
+
+  return Prog;
+}
+
+template <size_t N>
+static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
+                             std::array<unsigned char, N> IL,
+                             const std::string &Options = "") {
+  return compileIL(Ctx, ChipDev, IL.data(), IL.size());
+}
+
+static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
+                                 std::vector<cl::Program> &Objects) {
+
+  // TODO: Minor optimization opportunity. Link modules based on
+  //       SPIR-V module inspection.
+
+  // TODO: Reuse already compiled modules.
+
+  if (ChipDev.hasFP32AtomicAdd())
+    Objects.push_back(compileIL(Ctx, ChipDev, chipstar::atomicAddFloat_native));
+  else
+    Objects.push_back(
+        compileIL(Ctx, ChipDev, chipstar::atomicAddFloat_emulation));
+
+  if (ChipDev.hasFP64AtomicAdd())
+    Objects.push_back(
+        compileIL(Ctx, ChipDev, chipstar::atomicAddDouble_native));
+  else
+    Objects.push_back(
+        compileIL(Ctx, ChipDev, chipstar::atomicAddDouble_emulation));
+}
+
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   // TODO make compile_ which calls consumeSPIRV()
@@ -720,27 +814,20 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   int Err;
   auto SrcBin = Src_->getBinary();
-  std::vector<char> BinaryVec(SrcBin.begin(), SrcBin.end());
-  Program_ = cl::Program(*(ChipCtxOcl->get()), BinaryVec, false, &Err);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
 
-  //   for (chipstar::Device  *chip_dev : chip_devices) {
-  std::string Name = ChipDevOcl->getName();
-  Err = Program_.build(ChipEnvVars.getJitFlags().c_str());
-  auto ErrBuild = Err;
+  cl::Program ClMainObj =
+      compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(), SrcBin.size(),
+                ChipEnvVars.getJitFlags());
 
-  std::string Log =
-      Program_.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDevOcl->ClDevice, &Err);
-  if (ErrBuild != CL_SUCCESS)
-    logError("Program BUILD LOG for device #{}:{}:\n{}\n",
-             ChipDevOcl->getDeviceId(), Name, Log);
-
-  CHIPERR_CHECK_LOG_AND_THROW(ErrBuild, CL_SUCCESS,
-                              hipErrorInitializationError);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
-
-  logTrace("Program BUILD LOG for device #{}:{}:\n{}\n",
-           ChipDevOcl->getDeviceId(), Name, Log);
+  std::vector<cl::Program> ClObjects;
+  ClObjects.push_back(ClMainObj);
+  appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
+  Program_ = cl::linkProgram(ClObjects, nullptr, nullptr, nullptr, &Err);
+  if (Err != CL_SUCCESS) {
+    dumpProgramLog(*ChipDevOcl, Program_);
+    CHIPERR_LOG_AND_THROW("Device library link step failed.",
+                          hipErrorInitializationError);
+  }
 
   std::vector<cl::Kernel> Kernels;
   Err = Program_.createKernels(&Kernels);

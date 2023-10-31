@@ -197,6 +197,9 @@ private:
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
                    int Idx);
 
+  cl_device_fp_atomic_capabilities_ext Fp32AtomicAddCapabilities_;
+  cl_device_fp_atomic_capabilities_ext Fp64AtomicAddCapabilities_;
+
 public:
   ~CHIPDeviceOpenCL() override {
     logTrace("CHIPDeviceOpenCL::~CHIPDeviceOpenCL");
@@ -230,6 +233,15 @@ public:
     auto CompiledModule = std::make_unique<CHIPModuleOpenCL>(SrcMod);
     CompiledModule->compile(this);
     return CompiledModule.release();
+  }
+
+  bool hasFP32AtomicAdd() noexcept {
+    return (Fp32AtomicAddCapabilities_ & CL_DEVICE_GLOBAL_FP_ATOMIC_ADD_EXT) &&
+           (Fp32AtomicAddCapabilities_ & CL_DEVICE_LOCAL_FP_ATOMIC_ADD_EXT);
+  }
+  bool hasFP64AtomicAdd() noexcept {
+    return (Fp64AtomicAddCapabilities_ & CL_DEVICE_GLOBAL_FP_ATOMIC_ADD_EXT) &&
+           (Fp64AtomicAddCapabilities_ & CL_DEVICE_LOCAL_FP_ATOMIC_ADD_EXT);
   }
 };
 
