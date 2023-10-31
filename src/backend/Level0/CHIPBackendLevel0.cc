@@ -662,7 +662,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
         ChipEvent->releaseDependencies();
         Backend->Events.erase(Backend->Events.begin() + EventIdx);
-        if(ChipEvent->getAssocCmdList()) 
+        if (ChipEvent->getAssocCmdList())
           ChipEvent->disassociateCmdList();
         ChipEvent->doActions();
       }
@@ -708,8 +708,9 @@ void CHIPStaleEventMonitorLevel0::monitor() {
         int PrintedEntries = 0;
         for (auto &Event : Backend->Events) {
           auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-          logError("Uncollected Backend->Events: {} {} AssocCmdList {}", (void *)Event.get(),
-                   Event->Msg, (void*)EventLz->getAssocCmdList());
+          logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
+                   (void *)Event.get(), Event->Msg,
+                   (void *)EventLz->getAssocCmdList());
           PrintedEntries++;
           if (PrintedEntries > MaxPrintEntries)
             break;
@@ -1528,17 +1529,19 @@ void CHIPQueueLevel0::executeCommandListReg(
   Status = zeCommandListClose(CommandList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);;
+  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+  ;
 #ifdef CHIP_L0_WAIT_FOR_MEMORY
-  while(Status == ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY) {
+  while (Status == ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY) {
     logError("Out of device memory, sleeping for 100 ms and retrying");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+    Status =
+        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
   }
 #endif
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent); 
+  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent);
   EventLz->associateCmdList(CommandList);
 
   updateLastEvent(LastCmdListEvent);
