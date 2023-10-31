@@ -39,7 +39,7 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 210
 #define CL_HPP_MINIMUM_OPENCL_VERSION 200
 
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces"
