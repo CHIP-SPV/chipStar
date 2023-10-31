@@ -80,7 +80,7 @@ public:
 
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
-  CHIPContextLevel0* AssocContext_ = nullptr;
+  CHIPContextLevel0 *AssocContext_ = nullptr;
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
@@ -97,16 +97,21 @@ public:
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
 
   /**
-   * @brief Associate a command list with this event. When this event completes, the EventMonitor thread will return the command list handle back to the queue stack where it came from. 
-   * 
-   * @param ChipQueue queue where the event was created (and where the command list stack resides)
+   * @brief Associate a command list with this event. When this event completes,
+   * the EventMonitor thread will return the command list handle back to the
+   * queue stack where it came from.
+   *
+   * @param ChipQueue queue where the event was created (and where the command
+   * list stack resides)
    * @param CmdList command list to associate with this event
    */
-  void associateCmdList(CHIPContextLevel0* ChipContext, ze_command_list_handle_t CmdList);
+  void associateCmdList(CHIPContextLevel0 *ChipContext,
+                        ze_command_list_handle_t CmdList);
 
   /**
-   * @brief Reset and then return the command list handle back to the queue stack where it came from.j
-   * 
+   * @brief Reset and then return the command list handle back to the queue
+   * stack where it came from.j
+   *
    */
   void disassociateCmdList();
 
@@ -219,8 +224,8 @@ class CHIPQueueLevel0 : public chipstar::Queue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
-  CHIPDeviceLevel0* ChipDevLz_;
-  CHIPContextLevel0* ChipCtxLz_;
+  CHIPDeviceLevel0 *ChipDevLz_;
+  CHIPContextLevel0 *ChipCtxLz_;
 
   // The shared memory buffer
   void *SharedBuf_;
@@ -336,18 +341,19 @@ class CHIPContextLevel0 : public chipstar::Context {
   std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
 public:
-
   /**
-   * @brief Either return the immediate command list for this queue or a regular command list depending on if ICL is used or not.
-   * If ICL is not used, the regular command list can be created new or returnend from the stack of previously created handles.
-   * 
-   * @return ze_command_list_handle_t 
+   * @brief Either return the immediate command list for this queue or a regular
+   * command list depending on if ICL is used or not. If ICL is not used, the
+   * regular command list can be created new or returnend from the stack of
+   * previously created handles.
+   *
+   * @return ze_command_list_handle_t
    */
   ze_command_list_handle_t getCmdList();
 
   /**
    * @brief reset the given command list and return it back to the stack
-   * 
+   *
    * @param CmdList level-zero command list handle to be recycled
    */
   void returnCmdList(ze_command_list_handle_t CmdList);

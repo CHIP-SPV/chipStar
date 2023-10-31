@@ -1042,9 +1042,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 chipstar::Context::Context() {}
 chipstar::Context::~Context() { logDebug("~Context() {}", (void *)this); }
 
-chipstar::Device *chipstar::Context::getDevice() {
-  return ChipDevice_;
-}
+chipstar::Device *chipstar::Context::getDevice() { return ChipDevice_; }
 
 void *chipstar::Context::allocate(size_t Size, hipMemoryType MemType) {
   return allocate(Size, 0, MemType, chipstar::HostAllocFlags());
@@ -1244,11 +1242,11 @@ void chipstar::Backend::waitForThreadExit() {
       }
       // {
       //   if (::Backend->Events.size()) {
-      //     logWarn("Clearing chipstar::Event list {}", ::Backend->Events.size());
+      //     logWarn("Clearing chipstar::Event list {}",
+      //     ::Backend->Events.size());
       //     ::Backend->Events.clear();
       //   }
       // }
-
     }
   }
 }
@@ -1632,7 +1630,6 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
 void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                                    size_t PatternSize) {
 
-
   std::shared_ptr<chipstar::Event> ChipEvent =
       memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
@@ -1713,7 +1710,6 @@ void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                                 const void *Src, size_t SPitch, size_t SSPitch,
                                 size_t Width, size_t Height, size_t Depth) {
 
-
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
   ChipEvent->Msg = "memCopy3D";
@@ -1725,7 +1721,6 @@ void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                      const void *Src, size_t SPitch,
                                      size_t SSPitch, size_t Width,
                                      size_t Height, size_t Depth) {
-
 
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
       Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
@@ -1811,8 +1806,6 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
   // Making this log info since hipLaunchKernel doesn't know enough about args
   logInfo("{}", InfoStr.str());
 
-
-
   auto TotalThreadsPerBlock =
       ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
   auto DeviceProps = getDevice()->getDeviceProps();
@@ -1863,7 +1856,6 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
 }
 
 void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
-
 
   std::shared_ptr<chipstar::Event> ChipEvent =
       std::shared_ptr<chipstar::Event>(memPrefetchImpl(Ptr, Count));
