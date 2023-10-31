@@ -80,7 +80,7 @@ public:
 
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
-  CHIPQueueLevel0* AssocQueue_ = nullptr;
+  CHIPContextLevel0* AssocContext_ = nullptr;
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
@@ -102,7 +102,7 @@ public:
    * @param ChipQueue queue where the event was created (and where the command list stack resides)
    * @param CmdList command list to associate with this event
    */
-  void associateCmdList(CHIPQueueLevel0* ChipQueue, ze_command_list_handle_t CmdList);
+  void associateCmdList(CHIPContextLevel0* ChipContext, ze_command_list_handle_t CmdList);
 
   /**
    * @brief Reset and then return the command list handle back to the queue stack where it came from.j
@@ -219,6 +219,8 @@ class CHIPQueueLevel0 : public chipstar::Queue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
+  CHIPDeviceLevel0* ChipDevLz_;
+  CHIPContextLevel0* ChipCtxLz_;
 
   // The shared memory buffer
   void *SharedBuf_;
@@ -238,29 +240,15 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdListImm_;
-  size_t NumCmdListsCreated_ = 0;
-  std::mutex CmdListMtx;
-  std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
   void initializeCmdListImm();
 
 public:
+  ze_command_list_handle_t getCmdList();
+  CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
+  CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
   std::vector<ze_event_handle_t>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
-  /**
-   * @brief Either return the immediate command list for this queue or a regular command list depending on if ICL is used or not.
-   * If ICL is not used, the regular command list can be created new or returnend from the stack of previously created handles.
-   * 
-   * @return ze_command_list_handle_t 
-   */
-  ze_command_list_handle_t getCmdList();
-
-  /**
-   * @brief reset the given command list and return it back to the stack
-   * 
-   * @param CmdList level-zero command list handle to be recycled
-   */
-  void returnCmdList(ze_command_list_handle_t CmdList);
 
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
@@ -343,8 +331,27 @@ public:
 class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
   std::vector<LZEventPool *> EventPools_;
+  std::mutex CmdListMtx;
+  size_t NumCmdListsCreated_ = 0;
+  std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
 public:
+
+  /**
+   * @brief Either return the immediate command list for this queue or a regular command list depending on if ICL is used or not.
+   * If ICL is not used, the regular command list can be created new or returnend from the stack of previously created handles.
+   * 
+   * @return ze_command_list_handle_t 
+   */
+  ze_command_list_handle_t getCmdList();
+
+  /**
+   * @brief reset the given command list and return it back to the stack
+   * 
+   * @param CmdList level-zero command list handle to be recycled
+   */
+  void returnCmdList(ze_command_list_handle_t CmdList);
+
   std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
 
     // go through all pools and try to get an allocated event
