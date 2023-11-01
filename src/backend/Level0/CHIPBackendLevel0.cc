@@ -911,6 +911,8 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdList() {
     NumCmdListsCreated_++;
   }
 
+  logDebug("{} CHIPContextLevel0::getCmdList() returning {}",
+           (void *)this, (void *)ZeCmdList);
   return ZeCmdList;
 }
 
@@ -918,6 +920,12 @@ void CHIPContextLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
   assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
          "ICL is used - this should never be called");
   LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
+  if (NumCmdListsCreated_ < ZeCmdListRegStack_.size() + 1) {
+    logError("{} CHIPContextLevel0::returnCmdList({}) returning more cmd lists "
+             "than created",
+             (void *)this, (void *)ZeCmdList);
+    assert(false);
+  }
   ZeCmdListRegStack_.push(ZeCmdList);
 }
 
