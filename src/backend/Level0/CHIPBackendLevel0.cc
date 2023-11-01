@@ -595,22 +595,24 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
     : chipstar::CallbackData(CallbackF, CallbackArgs, ChipQueue) {
   LOCK(Backend->BackendMtx) // ensure callback enqueues are submitted as one
 
-  chipstar::Context *Ctx = ChipQueue->getContext();
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+  auto ChipQueueLz = static_cast<CHIPQueueLevel0 *>(ChipQueue);
+  auto ChipContextLz =
+      static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
 
-  CpuCallbackComplete =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(Ctx);
+  CpuCallbackComplete = BackendLz->createCHIPEvent(ChipContextLz);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
-  GpuReady = static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueBarrierImplReg(
+  GpuReady = ChipQueueLz->enqueueBarrierImplReg(
       std::vector<std::shared_ptr<chipstar::Event>>());
   GpuReady->Msg = "GpuReady";
 
   std::vector<std::shared_ptr<chipstar::Event>> ChipEvs = {CpuCallbackComplete};
   std::shared_ptr WaitForCpuComplete =
-      static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueBarrierImplReg(ChipEvs);
+      ChipQueueLz->enqueueBarrierImplReg(ChipEvs);
   ChipQueue->updateLastEvent(WaitForCpuComplete);
 
-  GpuAck = static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueMarkerImplReg();
+  GpuAck = ChipQueueLz->enqueueMarkerImplReg();
   GpuAck->Msg = "GpuAck";
 }
 
@@ -911,8 +913,8 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdList() {
     NumCmdListsCreated_++;
   }
 
-  logDebug("{} CHIPContextLevel0::getCmdList() returning {}",
-           (void *)this, (void *)ZeCmdList);
+  logDebug("{} CHIPContextLevel0::getCmdList() returning {}", (void *)this,
+           (void *)ZeCmdList);
   return ZeCmdList;
 }
 
