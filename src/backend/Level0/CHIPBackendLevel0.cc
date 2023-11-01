@@ -670,99 +670,105 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
   }
 }
 
+void CHIPStaleEventMonitorLevel0::checkEvents_() {
+  for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
+    std::shared_ptr<CHIPEventLevel0> ChipEvent =
+        std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
+
+    assert(ChipEvent);
+
+    // updateFinishStatus will return true upon event state change.
+    // EventPool will be null only for user created events
+    // So, if these two conditions are met, that means we release the
+    // dependencies and remove this event from the track list
+    if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
+      ChipEvent->releaseDependencies();
+      Backend->Events.erase(Backend->Events.begin() + EventIdx);
+      if (ChipEvent->getAssocCmdList())
+        ChipEvent->disassociateCmdList();
+      ChipEvent->doActions();
+    }
+
+    // delete the event if refcount reached 1 (this->ChipEvent)
+    if (ChipEvent.use_count() == 1) {
+      if (ChipEvent->EventPool) {
+        ChipEvent->EventPool->returnSlot(ChipEvent->EventPoolIndex);
+      }
+#ifndef NDEBUG
+      ChipEvent->markDeleted();
+#endif
+    }
+
+  } // done collecting events to delete
+}
+
+void CHIPStaleEventMonitorLevel0::exitChecks_() {
+  CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
+  /**
+   * In the case that a user doesn't destroy all the
+   * created streams, we remove the streams and outstanding events in
+   * Backend::waitForThreadExit() but Backend has no knowledge of
+   * EventCommandListMap
+   */
+  if (Stop) {
+    // get current host time in seconds
+    int CurrTime = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+
+    // if this is the first time we are stopping, set the time
+    if (TimeSinceStopRequested_ == 0)
+      TimeSinceStopRequested_ = CurrTime;
+
+    int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
+    bool AllEventsCleared = Backend->Events.size() == 0;
+    if (AllEventsCleared) {
+      pthread_exit(0);
+    } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
+      logError("CHIPStaleEventMonitorLevel0 stop was called but not all events "
+               "have been cleared. Timeout of {} seconds has been reached.",
+               BackendZe->getCollectEventsTimeout());
+      int MaxPrintEntries = 10;
+      int PrintedEntries = 0;
+      for (auto &Event : Backend->Events) {
+        auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+        logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
+                 (void *)Event.get(), Event->Msg,
+                 (void *)EventLz->getAssocCmdList());
+        PrintedEntries++;
+        if (PrintedEntries > MaxPrintEntries)
+          break;
+      }
+
+      pthread_exit(0);
+    } else {
+      // print only once a second to avoid saturating stdout with logs
+      if (CurrTime - LastPrint_ >= 1) {
+        LastPrint_ = CurrTime;
+        logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
+                 "events have been cleared. Timeout of {} seconds has not "
+                 "been reached yet. Elapsed time: {} seconds",
+                 BackendZe->getCollectEventsTimeout(), EpasedTime);
+      }
+    }
+  }
+}
+
 void CHIPStaleEventMonitorLevel0::monitor() {
+
   // Stop is false and I have more events
   while (true) {
     usleep(20000);
     std::vector<chipstar::Event *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
-    auto BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
+    CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
 
-    LOCK(Backend->EventsMtx); // Backend::Events
-    LOCK(EventMonitorMtx);    // chipstar::EventMonitor::Stop
-    LOCK(                     // CHIPBackendLevel0::EventCommandListMap
-        static_cast<CHIPBackendLevel0 *>(::Backend)->CommandListsMtx);
+    LOCK(Backend->EventsMtx);          // Backend::Events
+    LOCK(EventMonitorMtx);             // chipstar::EventMonitor::Stop
+    LOCK(BackendZe->CommandListsMtx); // CHIPBackendLevel0::EventCommandListMap
 
-    for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
-      std::shared_ptr<CHIPEventLevel0> ChipEvent =
-          std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
-
-      assert(ChipEvent);
-
-      // updateFinishStatus will return true upon event state change.
-      // EventPool will be null only for user created events
-      // So, if these two conditions are met, that means we release the
-      // dependencies and remove this event from the track list
-      if (ChipEvent->updateFinishStatus(false) && ChipEvent->EventPool) {
-        ChipEvent->releaseDependencies();
-        Backend->Events.erase(Backend->Events.begin() + EventIdx);
-        if (ChipEvent->getAssocCmdList())
-          ChipEvent->disassociateCmdList();
-        ChipEvent->doActions();
-      }
-
-      // delete the event if refcount reached 1 (this->ChipEvent)
-      if (ChipEvent.use_count() == 1) {
-        if (ChipEvent->EventPool) {
-          ChipEvent->EventPool->returnSlot(ChipEvent->EventPoolIndex);
-        }
-#ifndef NDEBUG
-        ChipEvent->markDeleted();
-#endif
-      }
-
-    } // done collecting events to delete
-
-    /**
-     * In the case that a user doesn't destroy all the
-     * created streams, we remove the streams and outstanding events in
-     * Backend::waitForThreadExit() but Backend has no knowledge of
-     * EventCommandListMap
-     */
-    if (Stop) {
-      // get current host time in seconds
-      int CurrTime = std::chrono::duration_cast<std::chrono::seconds>(
-                         std::chrono::system_clock::now().time_since_epoch())
-                         .count();
-
-      // if this is the first time we are stopping, set the time
-      if (TimeSinceStopRequested_ == 0)
-        TimeSinceStopRequested_ = CurrTime;
-
-      int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
-      bool AllEventsCleared = Backend->Events.size() == 0;
-      if (AllEventsCleared) {
-        pthread_exit(0);
-      } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
-        logError(
-            "CHIPStaleEventMonitorLevel0 stop was called but not all events "
-            "have been cleared. Timeout of {} seconds has been reached.",
-            BackendZe->getCollectEventsTimeout());
-        int MaxPrintEntries = 10;
-        int PrintedEntries = 0;
-        for (auto &Event : Backend->Events) {
-          auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-          logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
-                   (void *)Event.get(), Event->Msg,
-                   (void *)EventLz->getAssocCmdList());
-          PrintedEntries++;
-          if (PrintedEntries > MaxPrintEntries)
-            break;
-        }
-
-        pthread_exit(0);
-      } else {
-        // print only once a second to avoid saturating stdout with logs
-        if (CurrTime - LastPrint_ >= 1) {
-          LastPrint_ = CurrTime;
-          logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
-                   "events have been cleared. Timeout of {} seconds has not "
-                   "been reached yet. Elapsed time: {} seconds",
-                   BackendZe->getCollectEventsTimeout(), EpasedTime);
-        }
-      }
-    }
-
+    checkEvents_();
+    exitChecks_();
   } // endless loop
 }
 // End EventMonitorLevel0

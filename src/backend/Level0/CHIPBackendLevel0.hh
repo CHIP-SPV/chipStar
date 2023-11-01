@@ -184,6 +184,19 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
   int TimeSinceStopRequested_ = 0;
   int LastPrint_ = 0;
 
+  
+
+  /**
+   * @brief Go through all events in Backend::Events, update their status, upon
+   * status change release dependencies and command lists, return to event pool
+   */
+  void checkEvents_();
+  /**
+   * @brief Check if stop was requested for this monitor, if so handle all
+   * outstanding events
+   */
+  void exitChecks_();
+
 public:
   ~CHIPStaleEventMonitorLevel0() {
     logTrace("CHIPStaleEventMonitorLevel0 DEST");
