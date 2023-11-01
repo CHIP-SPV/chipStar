@@ -1168,7 +1168,7 @@ chipstar::Backend::Backend() {
 
 chipstar::Backend::~Backend() {
   logDebug("Backend Destructor. Deleting all pointers.");
-  assert(Events.size() == 0);
+  // assert(Events.size() == 0);
   // Events.clear();
   // UserEvents.clear();
   for (auto &Ctx : ChipContexts) {

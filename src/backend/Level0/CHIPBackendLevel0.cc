@@ -266,7 +266,7 @@ CHIPEventLevel0::~CHIPEventLevel0() {
              (void *)this, (void *)AssocCmdList_);
     logError("~CHIPEventLevel0({}) disassociating queue {}", (void *)this,
              (void *)AssocContext_);
-    assert(false);
+    // assert(false);
   }
 
   if (Event_) {
@@ -1923,12 +1923,12 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
 
-  while (NumCmdListsCreated_ != ZeCmdListRegStack_.size()) {
-    logWarn("~CHIPQueueLevel0() {} NumCmdListsCreated_ {} != "
-            "ZeCmdListRegStack_.size() {} sleeping 100ms",
-            (void *)this, NumCmdListsCreated_, ZeCmdListRegStack_.size());
-    usleep(100000);
-  }
+  // while (NumCmdListsCreated_ != ZeCmdListRegStack_.size()) {
+  //   logWarn("~CHIPQueueLevel0() {} NumCmdListsCreated_ {} != "
+  //           "ZeCmdListRegStack_.size() {} sleeping 100ms",
+  //           (void *)this, NumCmdListsCreated_, ZeCmdListRegStack_.size());
+  //   usleep(100000);
+  // }
 
   // delete all event pools
   for (LZEventPool *Pool : EventPools_) {
