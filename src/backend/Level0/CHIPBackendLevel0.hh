@@ -362,7 +362,7 @@ public:
    *
    * @return ze_command_list_handle_t
    */
-  ze_command_list_handle_t getCmdList();
+  ze_command_list_handle_t getCmdListReg();
 
   /**
    * @brief reset the given command list and return it back to the stack

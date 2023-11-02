@@ -892,11 +892,11 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
   } else {
     logTrace("CHIPQueueLevel0::getCmdList() returning RCL {}",
              (void *)ZeCmdListImm_);
-    return ChipCtxLz_->getCmdList();
+    return ChipCtxLz_->getCmdListReg();
   }
 }
 
-ze_command_list_handle_t CHIPContextLevel0::getCmdList() {
+ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
   LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
   ze_command_list_handle_t ZeCmdList;
   if (ZeCmdListRegStack_.size()) {
@@ -1399,17 +1399,14 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
-
+logError("CHIPQueueLevel0::enqueueMarkerImplReg");
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
 
   MarkerEvent->Msg = "marker";
 
-  ze_command_list_handle_t CommandList = this->getCmdList();
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
-#endif
-  
+  ze_command_list_handle_t CommandList = this->ChipCtxLz_->getCmdListReg();
+
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via creating a new command list above
@@ -1467,6 +1464,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
+  logError("CHIPQueueLevel0::enqueueBarrierImplReg");
   std::shared_ptr<chipstar::Event> BarrierEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
   BarrierEvent->Msg = "barrier";
@@ -1493,7 +1491,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
   } // done gather Event_ handles to wait on
 
   // TODO Should this be memory or compute?
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  ze_command_list_handle_t CommandList = this->ChipCtxLz_->getCmdListReg();
 
 
   // The application must not call this function from
@@ -1591,7 +1589,6 @@ void CHIPQueueLevel0::executeCommandListReg(
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
-  ;
 #ifdef CHIP_L0_WAIT_FOR_MEMORY
   while (Status == ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY) {
     logError("Out of device memory, sleeping for 100 ms and retrying");
