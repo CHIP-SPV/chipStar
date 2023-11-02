@@ -761,7 +761,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
 
   // Stop is false and I have more events
   while (true) {
-    usleep(20000);
+    usleep(200);
     checkEvents_();
     exitChecks_();
   } // endless loop
