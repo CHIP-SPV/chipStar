@@ -601,7 +601,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   CpuCallbackComplete = BackendLz->createCHIPEvent(ChipContextLz);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
-  GpuReady = ChipQueueLz->enqueueBarrierImpl(
+  GpuReady = ChipQueueLz->enqueueBarrierImplReg(
       std::vector<std::shared_ptr<chipstar::Event>>());
   GpuReady->Msg = "GpuReady";
 
