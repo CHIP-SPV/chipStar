@@ -601,7 +601,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   CpuCallbackComplete = BackendLz->createCHIPEvent(ChipContextLz);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
-  GpuReady = ChipQueueLz->enqueueBarrierImplReg(
+  GpuReady = ChipQueueLz->enqueueBarrierImpl(
       std::vector<std::shared_ptr<chipstar::Event>>());
   GpuReady->Msg = "GpuReady";
 
@@ -886,8 +886,12 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
   if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+    logTrace("CHIPQueueLevel0::getCmdList() returning ICL {}",
+             (void *)ZeCmdListImm_);
     return ZeCmdListImm_;
   } else {
+    logTrace("CHIPQueueLevel0::getCmdList() returning RCL {}",
+             (void *)ZeCmdListImm_);
     return ChipCtxLz_->getCmdList();
   }
 }
@@ -917,15 +921,16 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdList() {
 }
 
 void CHIPContextLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
-  assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
-         "ICL is used - this should never be called");
+    // assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
+    //      "ICL is used - this should never be called");
   LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
-  if (NumCmdListsCreated_ < ZeCmdListRegStack_.size() + 1) {
-    logError("{} CHIPContextLevel0::returnCmdList({}) returning more cmd lists "
-             "than created",
-             (void *)this, (void *)ZeCmdList);
-    assert(false);
-  }
+  // TODO this check doesn't work since we use RCL for callbacks even when ICL
+  // if (NumCmdListsCreated_ < ZeCmdListRegStack_.size() + 1) {
+  //   logError("{} CHIPContextLevel0::returnCmdList({}) returning more cmd lists "
+  //            "than created",
+  //            (void *)this, (void *)ZeCmdList);
+  //   assert(false);
+  // }
   ZeCmdListRegStack_.push(ZeCmdList);
 }
 
