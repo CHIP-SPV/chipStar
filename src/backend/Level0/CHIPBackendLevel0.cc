@@ -32,7 +32,6 @@
  * If immediate command lists are not used, getCmdList will create a new
  * handle which is a thread safe operation
  */
-  
 
 static ze_image_type_t getImageType(unsigned HipTextureID) {
   switch (HipTextureID) {
@@ -398,7 +397,8 @@ void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)(ChipQueueLz->getSharedBufffer()), nullptr, 0, nullptr);
+      CommandList, (uint64_t *)(ChipQueueLz->getSharedBufffer()), nullptr, 0,
+      nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -921,12 +921,13 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
 }
 
 void CHIPContextLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
-    // assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
-    //      "ICL is used - this should never be called");
+  // assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
+  //      "ICL is used - this should never be called");
   LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
   // TODO this check doesn't work since we use RCL for callbacks even when ICL
   // if (NumCmdListsCreated_ < ZeCmdListRegStack_.size() + 1) {
-  //   logError("{} CHIPContextLevel0::returnCmdList({}) returning more cmd lists "
+  //   logError("{} CHIPContextLevel0::returnCmdList({}) returning more cmd
+  //   lists "
   //            "than created",
   //            (void *)this, (void *)ZeCmdList);
   //   assert(false);
@@ -1171,7 +1172,8 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-  ze_command_list_handle_t CommandList = this->getCmdList();;
+  ze_command_list_handle_t CommandList = this->getCmdList();
+  ;
 
   // Do we need to annotate indirect buffer accesses?
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
@@ -1237,7 +1239,8 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                           hipErrorTbd);
   }
 
-  ze_command_list_handle_t CommandList = this->getCmdList();;
+  ze_command_list_handle_t CommandList = this->getCmdList();
+  ;
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
@@ -1281,7 +1284,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::memCopy3DAsyncImpl(
   SrcRegion.width = Width;
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
-  ze_command_list_handle_t CommandList = this->getCmdList();;
+  ze_command_list_handle_t CommandList = this->getCmdList();
+  ;
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
@@ -1399,7 +1403,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
-logError("CHIPQueueLevel0::enqueueMarkerImplReg");
+  logError("CHIPQueueLevel0::enqueueMarkerImplReg");
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
 
@@ -1493,12 +1497,11 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
   // TODO Should this be memory or compute?
   ze_command_list_handle_t CommandList = this->ChipCtxLz_->getCmdListReg();
 
-
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
   auto Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
-                                      NumEventsToWaitFor, EventHandles);
+                                           NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandListReg(CommandList);
 
@@ -1515,7 +1518,8 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
   ze_result_t Status;
-  ze_command_list_handle_t CommandList = this->getCmdList();;
+  ze_command_list_handle_t CommandList = this->getCmdList();
+  ;
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via GET_COMMAND_LIST
@@ -1715,7 +1719,8 @@ CHIPBackendLevel0::createCHIPEvent(chipstar::Context *ChipCtx,
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
   assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssocCmdList());
-  logDebug("CHIPBackendLevel0::createCHIPEvent: Context {} Event {}", (void*)ChipCtx, (void*)Event.get());
+  logDebug("CHIPBackendLevel0::createCHIPEvent: Context {} Event {}",
+           (void *)ChipCtx, (void *)Event.get());
   return Event;
 }
 
