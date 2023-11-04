@@ -1174,7 +1174,8 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-  LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+  LOCK(CommandListMtx_);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   ;
 
   // Do we need to annotate indirect buffer accesses?
@@ -1241,7 +1242,8 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                           hipErrorTbd);
   }
 
-  LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+  LOCK(CommandListMtx_);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   ;
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -1286,7 +1288,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::memCopy3DAsyncImpl(
   SrcRegion.width = Width;
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
-  LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+  LOCK(CommandListMtx_);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   ;
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -1315,7 +1318,8 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   ImageCopyEvent->Msg = "memCopyToImage";
 
   if (!SrcRegion.isPitched()) {
-    LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+    LOCK(CommandListMtx_);
+    ze_command_list_handle_t CommandList = this->getCmdList();
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
     // Done via GET_COMMAND_LIST
@@ -1343,7 +1347,8 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
     DstZeRegion.height = 1;
     DstZeRegion.depth = 1;
 
-    LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+    LOCK(CommandListMtx_);
+    ze_command_list_handle_t CommandList = this->getCmdList();
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
     // Done via GET_COMMAND_LIST
@@ -1391,7 +1396,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
 
   MarkerEvent->Msg = "marker";
-  LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+  LOCK(CommandListMtx_);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
@@ -1453,7 +1459,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
   } // done gather Event_ handles to wait on
 
   // TODO Should this be memory or compute?
-  LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+  LOCK(CommandListMtx_);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via GET_COMMAND_LIST
@@ -1520,7 +1527,8 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
   ze_result_t Status;
-  LOCK(CommandListMtx_); ze_command_list_handle_t CommandList = this->getCmdList();
+  LOCK(CommandListMtx_);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   ;
   // The application must not call this function from simultaneous threads with
   // the same command list handle
@@ -1932,9 +1940,10 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
   // print cmd lists statistics
-  if(!static_cast<CHIPBackendLevel0*>(Backend)->getUseImmCmdLists() && CmdListsRequested_ > 0)
-    logDebug("Command lists requested: {}, reused {}%", CmdListsRequested_, 100 *
-      (CmdListsReused_ / CmdListsRequested_));
+  if (!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
+      CmdListsRequested_ > 0)
+    logDebug("Command lists requested: {}, reused {}%", CmdListsRequested_,
+             100 * (CmdListsReused_ / CmdListsRequested_));
 
   // while (NumCmdListsCreated_ != ZeCmdListRegStack_.size()) {
   //   logWarn("~CHIPQueueLevel0() {} NumCmdListsCreated_ {} != "

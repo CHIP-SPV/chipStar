@@ -184,7 +184,7 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
   int TimeSinceStopRequested_ = 0;
   int LastPrint_ = 0;
 
-    /**
+  /**
    * @brief Go through all events in Backend::Events, update their status, upon
    * status change release dependencies and command lists, return to event pool
    */
@@ -350,7 +350,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   std::vector<LZEventPool *> EventPools_;
   std::mutex CmdListMtx;
   size_t NumCmdListsCreated_ = 0;
-  size_t CmdListsRequested_ =0;
+  size_t CmdListsRequested_ = 0;
   size_t CmdListsReused_ = 0;
   std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
