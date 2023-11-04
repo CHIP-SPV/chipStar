@@ -262,8 +262,8 @@ protected:
 public:
   /**
    * @brief Get the Cmd List object, either immediate or regular
-   * 
-   * @return ze_command_list_handle_t 
+   *
+   * @return ze_command_list_handle_t
    */
   ze_command_list_handle_t getCmdList();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
