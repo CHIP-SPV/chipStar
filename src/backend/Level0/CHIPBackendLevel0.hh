@@ -256,6 +256,7 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdListImm_;
+  std::mutex CommandListMtx_;
 
   void initializeCmdListImm();
 
@@ -349,6 +350,8 @@ class CHIPContextLevel0 : public chipstar::Context {
   std::vector<LZEventPool *> EventPools_;
   std::mutex CmdListMtx;
   size_t NumCmdListsCreated_ = 0;
+  size_t CmdListsRequested_ =0;
+  size_t CmdListsReused_ = 0;
   std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
 
 public:
