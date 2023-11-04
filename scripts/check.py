@@ -4,15 +4,6 @@ import argparse
 import subprocess
 import hashlib
 
-# execute a command and return the output along with the return code
-def run_cmd(cmd):
-    cmd_hash = hashlib.md5(cmd.encode()).hexdigest()[0:10]
-    file_name = f"/tmp/{cmd_hash}_cmd.txt"
-    cmd = f"{cmd} | tee {file_name}"
-    # print(f"Running command: {cmd}")
-    return_code = subprocess.call(cmd, shell=True)
-    with open(file_name, "r") as f:
-        return f.read(), return_code
 
 parser = argparse.ArgumentParser(
                     prog='check.py',
@@ -29,6 +20,17 @@ parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default=
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
 
 args = parser.parse_args()
+
+# execute a command and return the output along with the return code
+def run_cmd(cmd):
+    cmd_hash = hashlib.md5(cmd.encode()).hexdigest()[0:10]
+    file_name = f"/tmp/{cmd_hash}_cmd.txt"
+    cmd = f"{cmd} | tee {file_name}"
+    if args.verbose:
+        print(f"check.py: {cmd}")
+    return_code = subprocess.call(cmd, shell=True)
+    with open(file_name, "r") as f:
+        return f.read(), return_code
 
 # print out the arguments
 if args.verbose:
