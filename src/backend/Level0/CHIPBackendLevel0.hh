@@ -109,9 +109,8 @@ public:
                         ze_command_list_handle_t CmdList);
 
   /**
-   * @brief Reset and then return the command list handle back to the queue
-   * stack where it came from.j
-   *
+   * @brief Reset and then return the command list handle back to the context
+   * pointed by AssocContext_
    */
   void disassociateCmdList();
 
@@ -256,11 +255,16 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdListImm_;
-  std::mutex CommandListMtx_;
+  std::mutex CommandListMtx_; /// prevent simultaneous access to ZeCmdListImm_
 
   void initializeCmdListImm();
 
 public:
+  /**
+   * @brief Get the Cmd List object, either immediate or regular
+   * 
+   * @return ze_command_list_handle_t 
+   */
   ze_command_list_handle_t getCmdList();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
