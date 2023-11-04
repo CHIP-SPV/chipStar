@@ -567,8 +567,10 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(Ctx);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
+  auto LastEvents = ChipQueue->getSyncQueuesLastEvents();
+
   GpuReady = static_cast<CHIPQueueLevel0 *>(ChipQueue)->enqueueBarrierImplReg(
-      std::vector<std::shared_ptr<chipstar::Event>>());
+      LastEvents);
   GpuReady->Msg = "GpuReady";
 
   std::vector<std::shared_ptr<chipstar::Event>> ChipEvs = {CpuCallbackComplete};
@@ -660,11 +662,10 @@ EventMonitorLevel0::getEventFromPool() {
 EventMonitorLevel0::EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept : ParentCtx_(ParentCtx) {
   logDebug("EventMonitorLevel0 created");
   registerFunction([&]() {
-  while (!Stop) {
     LOCK(this->EventMonitorMtx);
     auto AvailablePool = getPoolWithAvailableEvent();
     if (AvailablePool)
-      continue;
+      return;
 
     // no events available, create new pool, get event from there and return
     logDebug("No available events found in {} event pools. Creating a new "
@@ -673,14 +674,12 @@ EventMonitorLevel0::EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept : 
     auto NewEventPool = new LZEventPool(ParentCtx_, EventPoolSize_);
     EventPoolSize_ = EventPoolSize_ * 2;
     EventPools_.push_back(NewEventPool);
-  }
 }, 100);
 
   registerFunction(
       [&]() {
         // Stop is false and I have more events
-        while (true) {
-          usleep(20000);
+          // usleep(20000);
           std::vector<chipstar::Event *> EventsToDelete;
           std::vector<ze_command_list_handle_t> CommandListsToDelete;
           auto BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
@@ -784,7 +783,6 @@ EventMonitorLevel0::EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept : 
             }
           }
 
-        } // endless loop
       },
       100);
 }
@@ -889,19 +887,6 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
     EventHandles[i] = ChipEventLz->peek();
   }
   return EventHandles;
-}
-
-void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
-                                  void *UserData) {
-  chipstar::CallbackData *Callbackdata =
-      Backend->createCallbackData(Callback, UserData, this);
-
-  {
-    LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
-    Backend->CallbackQueue.push(Callbackdata);
-  }
-
-  return;
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {

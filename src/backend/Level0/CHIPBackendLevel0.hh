@@ -160,8 +160,7 @@ public:
     registerFunction(
         [&]() {
           CHIPCallbackDataLevel0 *CbData;
-          while (true) {
-            usleep(20000);
+            // usleep(20000);
             LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
             {
 
@@ -179,7 +178,7 @@ public:
               LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
 
               if ((Backend->CallbackQueue.size() == 0))
-                continue;
+                return;
 
               // get the callback item
               CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
@@ -199,7 +198,7 @@ public:
               if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
                 // if not ready, push to the back
                 Backend->CallbackQueue.push(CbData);
-                continue;
+                return;
               }
             }
 
@@ -209,7 +208,6 @@ public:
 
             delete CbData;
             pthread_yield();
-          }
         },
         100);
   }
@@ -315,9 +313,6 @@ public:
 
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   virtual ~CHIPQueueLevel0() override;
-
-  virtual void addCallback(hipStreamCallback_t Callback,
-                           void *UserData) override;
 
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
