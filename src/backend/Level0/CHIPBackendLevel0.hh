@@ -169,12 +169,13 @@ public:
 };
 
 class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
+  void checkCallbacks_();
 public:
+  CHIPCallbackEventMonitorLevel0();
   ~CHIPCallbackEventMonitorLevel0() {
     logTrace("CHIPCallbackEventMonitorLevel0 DEST");
     join();
   };
-  virtual void monitor() override;
 };
 
 class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
@@ -195,11 +196,11 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
   void exitChecks_();
 
 public:
+  CHIPStaleEventMonitorLevel0() noexcept;
   ~CHIPStaleEventMonitorLevel0() {
     logTrace("CHIPStaleEventMonitorLevel0 DEST");
     join();
   };
-  virtual void monitor() override;
 };
 
 class LZEventPool {

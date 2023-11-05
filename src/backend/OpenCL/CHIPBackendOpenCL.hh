@@ -80,7 +80,6 @@ public:
 class EventMonitorOpenCL : public chipstar::EventMonitor {
 public:
   EventMonitorOpenCL();
-  virtual void monitor() override;
 };
 
 class CHIPEventOpenCL : public chipstar::Event {
@@ -378,7 +377,6 @@ public:
   createCallbackData(hipStreamCallback_t Callback, void *UserData,
                      chipstar::Queue *ChipQueue) override;
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() override;
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() override;
 
   virtual hipEvent_t getHipEvent(void *NativeEvent) override;
   virtual void *getNativeEvent(hipEvent_t HipEvent) override;

@@ -619,7 +619,11 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // EventMonitorLevel0
 // ***********************************************************************
 
-void CHIPCallbackEventMonitorLevel0::monitor() {
+CHIPCallbackEventMonitorLevel0::CHIPCallbackEventMonitorLevel0() {
+  registerFunction([&](){checkCallbacks_();}, 100);
+}
+
+void CHIPCallbackEventMonitorLevel0::checkCallbacks_() {
   CHIPCallbackDataLevel0 *CbData;
   while (true) {
     usleep(20000);
@@ -650,7 +654,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
       Backend->CallbackQueue.pop();
 
       // Update Status
-      logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
+      logTrace("CHIPCallbackEventMonitorLevel0::checkCallbacks_() checking event "
                "status for {}",
                static_cast<void *>(CbData->GpuReady.get()));
       CbData->GpuReady->updateFinishStatus(false);
@@ -757,14 +761,9 @@ void CHIPStaleEventMonitorLevel0::exitChecks_() {
   }
 }
 
-void CHIPStaleEventMonitorLevel0::monitor() {
-
-  // Stop is false and I have more events
-  while (true) {
-    usleep(200);
-    checkEvents_();
-    exitChecks_();
-  } // endless loop
+CHIPStaleEventMonitorLevel0::CHIPStaleEventMonitorLevel0() noexcept {
+    registerFunction([&](){checkEvents_();}, 100);
+    registerFunction([&](){exitChecks_();}, 100);
 }
 // End EventMonitorLevel0
 
