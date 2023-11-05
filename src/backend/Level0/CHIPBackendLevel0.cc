@@ -694,18 +694,33 @@ LZEventPool *EventMonitorLevel0::getPoolWithAvailableEvent() {
 }
 
 std::shared_ptr<CHIPEventLevel0> EventMonitorLevel0::getEventFromPool() {
-  // Continuously check for events
+#ifndef DNDEBUG
+  // record start time, this will be used to calculate how much time we spent waiting for an available event
+  auto StartTime = std::chrono::high_resolution_clock::now();
+  auto EndTime = std::chrono::high_resolution_clock::now();
+#endif
+
+  std::shared_ptr<CHIPEventLevel0> Event;
+
   while (true) {
     LOCK(this->EventMonitorMtx);
     auto AvailablePool = getPoolWithAvailableEvent();
     if (AvailablePool) {
-      return AvailablePool->getEvent();
+      Event = AvailablePool->getEvent();
+      EndTime = std::chrono::high_resolution_clock::now();
+      break;
     }
-    logWarn("No available events found in {} event pools. Waiting for "
-            "events to be returned to the pool. Increase event pool monitoring "
-            "frequency?",
-            EventPools_.size());
   }
+
+#ifndef DNDEBUG
+  auto Duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      EndTime - StartTime)
+                      .count();
+  if (Duration > 1) {
+    logWarn("getEventFromPool() took {} milliseconds", Duration);
+  }
+#endif
+  return Event;
 }
 
 void EventMonitorLevel0::checkEventPools_() {
@@ -922,19 +937,6 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
     EventHandles[i] = ChipEventLz->peek();
   }
   return EventHandles;
-}
-
-void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
-                                  void *UserData) {
-  chipstar::CallbackData *Callbackdata =
-      Backend->createCallbackData(Callback, UserData, this);
-
-  {
-    LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
-    Backend->CallbackQueue.push(Callbackdata);
-  }
-
-  return;
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {

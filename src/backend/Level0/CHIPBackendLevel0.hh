@@ -295,9 +295,6 @@ public:
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   virtual ~CHIPQueueLevel0() override;
 
-  virtual void addCallback(hipStreamCallback_t Callback,
-                           void *UserData) override;
-
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
 
