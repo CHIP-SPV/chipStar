@@ -45,6 +45,7 @@ class LZCommandList;
 class LZEventPool;
 class CHIPExecItemLevel0;
 class CHIPKernelLevel0;
+class EventMonitorLevel0;
 
 class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
@@ -178,7 +179,7 @@ public:
   };
 };
 
-class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
+class EventMonitorLevel0 : public chipstar::EventMonitor {
   // variable for storing the how much time has passed since trying to exit
   // the monitor loop
   int TimeSinceStopRequested_ = 0;
@@ -196,9 +197,9 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
   void exitChecks_();
 
 public:
-  CHIPStaleEventMonitorLevel0() noexcept;
-  ~CHIPStaleEventMonitorLevel0() {
-    logTrace("CHIPStaleEventMonitorLevel0 DEST");
+  EventMonitorLevel0() noexcept;
+  ~EventMonitorLevel0() {
+    logTrace("EventMonitorLevel0 DEST");
     join();
   };
 };
@@ -698,7 +699,7 @@ public:
   }
 
   virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitorLevel0();
+    auto Evm = new EventMonitorLevel0();
     Evm->start();
     return Evm;
   }

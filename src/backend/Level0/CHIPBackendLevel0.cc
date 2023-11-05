@@ -674,7 +674,7 @@ void CHIPCallbackEventMonitorLevel0::checkCallbacks_() {
   }
 }
 
-void CHIPStaleEventMonitorLevel0::checkEvents_() {
+void EventMonitorLevel0::checkEvents_() {
   CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
   LOCK(Backend->EventsMtx);         // Backend::Events
   LOCK(BackendZe->CommandListsMtx); // CHIPBackendLevel0::EventCommandListMapk
@@ -708,7 +708,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents_() {
   } // done collecting events to delete
 }
 
-void CHIPStaleEventMonitorLevel0::exitChecks_() {
+void EventMonitorLevel0::exitChecks_() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
   /**
@@ -732,7 +732,7 @@ void CHIPStaleEventMonitorLevel0::exitChecks_() {
     if (AllEventsCleared) {
       pthread_exit(0);
     } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
-      logError("CHIPStaleEventMonitorLevel0 stop was called but not all events "
+      logError("EventMonitorLevel0 stop was called but not all events "
                "have been cleared. Timeout of {} seconds has been reached.",
                BackendZe->getCollectEventsTimeout());
       int MaxPrintEntries = 10;
@@ -752,7 +752,7 @@ void CHIPStaleEventMonitorLevel0::exitChecks_() {
       // print only once a second to avoid saturating stdout with logs
       if (CurrTime - LastPrint_ >= 1) {
         LastPrint_ = CurrTime;
-        logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
+        logDebug("EventMonitorLevel0 stop was called but not all "
                  "events have been cleared. Timeout of {} seconds has not "
                  "been reached yet. Elapsed time: {} seconds",
                  BackendZe->getCollectEventsTimeout(), EpasedTime);
@@ -761,7 +761,7 @@ void CHIPStaleEventMonitorLevel0::exitChecks_() {
   }
 }
 
-CHIPStaleEventMonitorLevel0::CHIPStaleEventMonitorLevel0() noexcept {
+EventMonitorLevel0::EventMonitorLevel0() noexcept {
     registerFunction([&](){checkEvents_();}, 100);
     registerFunction([&](){exitChecks_();}, 100);
 }
@@ -1864,7 +1864,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   }
 
   StaleEventMonitor_ =
-      (CHIPStaleEventMonitorLevel0 *)::Backend->createStaleEventMonitor_();
+      (EventMonitorLevel0 *)::Backend->createStaleEventMonitor_();
   CallbackEventMonitor_ = (CHIPCallbackEventMonitorLevel0 *)::Backend
                               ->createCallbackEventMonitor_();
 
@@ -1894,7 +1894,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
 
   StaleEventMonitor_ =
-      (CHIPStaleEventMonitorLevel0 *)::Backend->createStaleEventMonitor_();
+      (EventMonitorLevel0 *)::Backend->createStaleEventMonitor_();
   CallbackEventMonitor_ = (CHIPCallbackEventMonitorLevel0 *)::Backend
                               ->createCallbackEventMonitor_();
   setActiveDevice(ChipDev);
