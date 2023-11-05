@@ -1936,14 +1936,6 @@ CHIPContextLevel0::~CHIPContextLevel0() {
       CmdListsRequested_ > 0)
     logDebug("Command lists requested: {}, reused {}%", CmdListsRequested_,
              100 * (CmdListsReused_ / CmdListsRequested_));
-
-  // while (NumCmdListsCreated_ != ZeCmdListRegStack_.size()) {
-  //   logWarn("~CHIPQueueLevel0() {} NumCmdListsCreated_ {} != "
-  //           "ZeCmdListRegStack_.size() {} sleeping 100ms",
-  //           (void *)this, NumCmdListsCreated_, ZeCmdListRegStack_.size());
-  //   usleep(100000);
-  // }
-
   // delete all event pools
   for (LZEventPool *Pool : EventPools_) {
     delete Pool;
