@@ -2051,7 +2051,6 @@ public:
                      chipstar::Queue *ChipQ) = 0;
 
   virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
-  virtual chipstar::EventMonitor *createStaleEventMonitor_(){};
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;

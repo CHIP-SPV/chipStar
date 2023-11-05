@@ -171,6 +171,7 @@ public:
 
 class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
   void checkCallbacks_();
+
 public:
   CHIPCallbackEventMonitorLevel0();
   ~CHIPCallbackEventMonitorLevel0() {
@@ -185,6 +186,9 @@ class EventMonitorLevel0 : public chipstar::EventMonitor {
   int TimeSinceStopRequested_ = 0;
   int LastPrint_ = 0;
 
+  size_t EventPoolSize_ = 1;
+  std::vector<LZEventPool *> EventPools_;
+
   /**
    * @brief Go through all events in Backend::Events, update their status, upon
    * status change release dependencies and command lists, return to event pool
@@ -196,12 +200,19 @@ class EventMonitorLevel0 : public chipstar::EventMonitor {
    */
   void exitChecks_();
 
+  /**
+   * @brief Make sure that there are sufficient events available in the event
+   * pools
+   */
+  void checkEventPools_();
+
 public:
-  EventMonitorLevel0() noexcept;
-  ~EventMonitorLevel0() {
-    logTrace("EventMonitorLevel0 DEST");
-    join();
-  };
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+  CHIPContextLevel0 *ParentCtx_;
+  LZEventPool *getPoolWithAvailableEvent();
+
+  EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept;
+  ~EventMonitorLevel0();
 };
 
 class LZEventPool {
@@ -209,19 +220,16 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
-  std::stack<int> FreeSlots_;
-  std::vector<std::shared_ptr<CHIPEventLevel0>> Events_;
-
-  int getFreeSlot();
+  std::stack<std::shared_ptr<CHIPEventLevel0>> Events_;
 
 public:
   std::mutex EventPoolMtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
-  bool EventAvailable() { return FreeSlots_.size() > 0; }
+  bool EventAvailable() { return Events_.size() > 0; }
   ze_event_pool_handle_t get() { return EventPool_; }
 
-  void returnSlot(int Slot);
+  void returnEvent(std::shared_ptr<CHIPEventLevel0> Event);
 
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
@@ -353,7 +361,9 @@ public:
 
 class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
-  std::vector<LZEventPool *> EventPools_;
+
+public:
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
   std::mutex CmdListMtx;
   size_t NumCmdListsCreated_ = 0;
   size_t CmdListsRequested_ = 0;
@@ -378,35 +388,12 @@ public:
    */
   void returnCmdList(ze_command_list_handle_t CmdList);
 
-  std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
-
-    // go through all pools and try to get an allocated event
-    LOCK(ContextMtx); // Context::EventPools
-    std::shared_ptr<CHIPEventLevel0> Event;
-    for (auto EventPool : EventPools_) {
-      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
-      if (EventPool->EventAvailable())
-        return EventPool->getEvent();
-    }
-
-    // no events available, create new pool, get event from there and return
-    logTrace("No available events found in {} event pools. Creating a new "
-             "event pool",
-             EventPools_.size());
-    auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
-    Event = NewEventPool->getEvent();
-    EventPools_.push_back(NewEventPool);
-    return Event;
-  }
-
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {
     ownsZeContext = keepOwnership;
   }
   ze_context_handle_t ZeCtx;
   ze_driver_handle_t ZeDriver;
-  CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t &&ZeCtx)
-      : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   CHIPContextLevel0(ze_driver_handle_t ZeDriver, ze_context_handle_t ZeCtx)
       : ZeCtx(ZeCtx), ZeDriver(ZeDriver) {}
   virtual ~CHIPContextLevel0() override;
@@ -619,6 +606,7 @@ class CHIPBackendLevel0 : public chipstar::Backend {
   int collectEventsTimeout_ = 30;
 
 public:
+  EventMonitorLevel0 *EventMonitor_ = nullptr;
   int getCollectEventsTimeout() { return collectEventsTimeout_; }
   void setCollectEventsTimeout() {
     auto str = readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
@@ -698,8 +686,8 @@ public:
     return Evm;
   }
 
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new EventMonitorLevel0();
+  chipstar::EventMonitor *createEventMonitor_(CHIPContextLevel0 *ParentCtx) {
+    auto Evm = new EventMonitorLevel0(ParentCtx);
     Evm->start();
     return Evm;
   }
