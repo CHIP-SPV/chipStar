@@ -234,17 +234,19 @@ void CHIPEventLevel0::disassociateCmdList() {
 }
 
 void CHIPEventLevel0::reset() {
+  LOCK(EventMtx); // chipstar::Event::TrackCalled_
+  assert(EventStatus_ != EVENT_STATUS_RECORDING &&
+         "chipstar::Event::reset() called while recording!");
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  {
-    LOCK(EventMtx); // chipstar::Event::TrackCalled_
-    TrackCalled_ = false;
-    UserEvent_ = false;
-    EventStatus_ = EVENT_STATUS_INIT;
+  TrackCalled_ = false;
+  UserEvent_ = false;
+  EventStatus_ = EVENT_STATUS_INIT;
+  HostTimestamp_ = 0;
+  DeviceTimestamp_ = 0;
 #ifndef NDEBUG
-    Deleted_ = false;
+  Deleted_ = false;
 #endif
-  }
 }
 
 ze_event_handle_t CHIPEventLevel0::peek() {
@@ -366,19 +368,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 // kernel timings are enabled
 void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
   ze_result_t Status;
-
-  {
-    LOCK(EventMtx); // chipstar::Event::EventStatus_
-    if (EventStatus_ == EVENT_STATUS_RECORDED) {
-      logTrace("chipstar::Event {}: EVENT_STATUS_RECORDED ... Resetting event.",
-               (void *)this);
-      ze_result_t Status = zeEventHostReset(Event_);
-      EventStatus_ = EVENT_STATUS_INIT;
-      HostTimestamp_ = 0;
-      DeviceTimestamp_ = 0;
-      CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    }
-  }
+  this->reset();
 
   auto Dev = (CHIPDeviceLevel0 *)ChipQueue->getDevice();
   Status = zeDeviceGetGlobalTimestamps(Dev->get(), &HostTimestamp_,
