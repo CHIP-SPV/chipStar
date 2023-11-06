@@ -439,7 +439,11 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  assert(!Deleted_ && "chipstar::Event use after delete!");
+  if (Deleted_) {
+    logError("Event {} {} use after delete!", (void *)this, Msg);
+    assert(false);
+  }
+
   std::string EventStatusOld, EventStatusNew;
   {
     LOCK(EventMtx); // chipstar::Event::EventStatus_
@@ -751,8 +755,12 @@ void EventMonitorLevel0::checkEvents_() {
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
 
     assert(ChipEventLz);
-    assert(!ChipEventLz->isUserEvent() &&
-           "User events should not appear in EventMonitorLevel0");
+    if (ChipEventLz->isUserEvent()) {
+      logError(
+          "Event {} {}: User events should not appear in EventMonitorLevel0",
+          (void *)ChipEventLz.get(), ChipEventLz->Msg);
+      assert(false);
+    }
 
     // updateFinishStatus will return true upon event state change.
     if (ChipEventLz->updateFinishStatus(false)) {
