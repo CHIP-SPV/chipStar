@@ -235,8 +235,8 @@ void CHIPEventLevel0::disassociateCmdList() {
 
 void CHIPEventLevel0::reset() {
   LOCK(EventMtx); // chipstar::Event::TrackCalled_
-  assert(EventStatus_ != EVENT_STATUS_RECORDING &&
-         "chipstar::Event::reset() called while recording!");
+  if(EventStatus_ == EVENT_STATUS_RECORDING)
+    logWarn("CHIPEventLevel0::reset() {} {} called while recording!", (void *)this, Msg);
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   TrackCalled_ = false;
