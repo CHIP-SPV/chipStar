@@ -1519,6 +1519,7 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
   std::shared_ptr<chipstar::Event> ChipEvent;
   // Scope this so that we release mutex for finish()
   {
+    LOCK(QueueMtx)
     auto AllocInfoDst =
         ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
     auto AllocInfoSrc =
@@ -1538,8 +1539,8 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
           AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
 
     ChipEvent->Msg = "memCopy";
-    this->finish();
   }
+  this->finish();
   ::Backend->trackEvent(ChipEvent);
 
   return hipSuccess;
