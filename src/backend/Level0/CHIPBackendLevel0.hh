@@ -187,12 +187,12 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
    * @brief Go through all events in Backend::Events, update their status, upon
    * status change release dependencies and command lists, return to event pool
    */
-  void checkEvents_();
+  void checkEvents();
   /**
    * @brief Check if stop was requested for this monitor, if so handle all
    * outstanding events
    */
-  void exitChecks_();
+  void exitChecks();
 
 public:
   ~CHIPStaleEventMonitorLevel0() {

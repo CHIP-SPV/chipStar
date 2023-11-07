@@ -670,7 +670,7 @@ void CHIPCallbackEventMonitorLevel0::monitor() {
   }
 }
 
-void CHIPStaleEventMonitorLevel0::checkEvents_() {
+void CHIPStaleEventMonitorLevel0::checkEvents() {
   CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
   LOCK(Backend->EventsMtx);         // Backend::Events
   LOCK(BackendZe->CommandListsMtx); // CHIPBackendLevel0::EventCommandListMapk
@@ -704,7 +704,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents_() {
   } // done collecting events to delete
 }
 
-void CHIPStaleEventMonitorLevel0::exitChecks_() {
+void CHIPStaleEventMonitorLevel0::exitChecks() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
   /**
@@ -762,8 +762,8 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (true) {
     usleep(200);
-    checkEvents_();
-    exitChecks_();
+    checkEvents();
+    exitChecks();
   } // endless loop
 }
 // End EventMonitorLevel0
