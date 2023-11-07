@@ -355,7 +355,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   std::mutex CmdListMtx;
   size_t CmdListsRequested_ = 0;
   size_t CmdListsReused_ = 0;
-  std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;
+  std::stack<ze_command_list_handle_t> ZeCmdListRegPool_;
 
 public:
   /**

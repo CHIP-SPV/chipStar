@@ -894,12 +894,12 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
 }
 
 ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
-  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
+  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegPool_
   CmdListsRequested_++;
   ze_command_list_handle_t ZeCmdList;
-  if (ZeCmdListRegStack_.size()) {
-    ZeCmdList = ZeCmdListRegStack_.top();
-    ZeCmdListRegStack_.pop();
+  if (ZeCmdListRegPool_.size()) {
+    ZeCmdList = ZeCmdListRegPool_.top();
+    ZeCmdListRegPool_.pop();
     CmdListsReused_++;
   } else {
     // If the cmd list stack for this queue was empty, create a new one
@@ -919,8 +919,8 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
 }
 
 void CHIPContextLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
-  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
-  ZeCmdListRegStack_.push(ZeCmdList);
+  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegPool_
+  ZeCmdListRegPool_.push(ZeCmdList);
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
