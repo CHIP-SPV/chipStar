@@ -360,10 +360,8 @@ class CHIPContextLevel0 : public chipstar::Context {
 
 public:
   /**
-   * @brief Either return the immediate command list for this queue or a regular
-   * command list depending on if ICL is used or not. If ICL is not used, the
-   * regular command list can be created new or returnend from the stack of
-   * previously created handles.
+   * @brief Return a regular command list from a stack in this context, creating
+   * one if none are available.
    *
    * @return ze_command_list_handle_t
    */
