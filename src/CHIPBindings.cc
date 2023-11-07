@@ -2090,8 +2090,6 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
     RETURN(hipErrorStreamCaptureInvalidated);
   }
 
-  LOCK(ChipQueue->QueueMtx);
-
   chipstar::Device *Dev = Backend->getActiveDevice();
 
   // make sure nothing is pending in the stream
