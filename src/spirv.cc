@@ -867,6 +867,19 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
       MissingDefs.erase(Insn.getWord(1));
     }
 
+#ifdef CHIP_MALI_GPU_WORKAROUNDS
+    // (Old) Mali GPU drivers have issues consuming valid SPIR-V
+    // modules with NoWrite and NoReadWrite parameter attributes so
+    // drop them. Dropping these should not affect the module's
+    // behavior.
+    if (Insn.isDecoration(spv::DecorationFuncParamAttr)) {
+      auto FnAttr = parseFunctionParameterAttribute(Insn);
+      if (FnAttr == spv::FunctionParameterAttributeNoWrite ||
+          FnAttr == spv::FunctionParameterAttributeNoReadWrite)
+        continue;
+    }
+#endif
+
     std::vector<InstWord> TransformedInst;
     switch (workaroundLlvmSpirvIssue2008(Insn, TransformedInst, ResultIdMap,
                                          SampledImgs)) {
