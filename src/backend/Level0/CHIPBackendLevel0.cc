@@ -732,14 +732,14 @@ void CHIPStaleEventMonitorLevel0::exitChecks() {
       logError("CHIPStaleEventMonitorLevel0 stop was called but not all events "
                "have been cleared. Timeout of {} seconds has been reached.",
                BackendZe->getCollectEventsTimeout());
-      size_t MaxPrintEntries = std::min(Backend->Events.size(), size_t(10));  
-      for (size_t i = 0; i < MaxPrintEntries; i++) {  
+      size_t MaxPrintEntries = std::min(Backend->Events.size(), size_t(10));
+      for (size_t i = 0; i < MaxPrintEntries; i++) {
         auto Event = Backend->Events[i];
-        auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);  
-        logError("Uncollected Backend->Events: {} {} AssocCmdList {}",  
-                 (void *)Event.get(), Event->Msg,  
-                 (void *)EventLz->getAssocCmdList());  
-      } 
+        auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+        logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
+                 (void *)Event.get(), Event->Msg,
+                 (void *)EventLz->getAssocCmdList());
+      }
       pthread_exit(0);
     }
 
