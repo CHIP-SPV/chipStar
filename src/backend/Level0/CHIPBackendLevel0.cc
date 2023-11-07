@@ -617,7 +617,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 CHIPCallbackEventMonitorLevel0::CHIPCallbackEventMonitorLevel0() {
-  registerFunction([&]() { checkCallbacks_(); }, 1);
+  registerFunction([&]() { checkCallbacks_(); }, 10);
 }
 
 void CHIPCallbackEventMonitorLevel0::checkCallbacks_() {
@@ -741,9 +741,9 @@ EventMonitorLevel0::EventMonitorLevel0(CHIPContextLevel0 *ParentCtx) noexcept
   logDebug("EventMonitorLevel0 created");
   registerFunction([&]() { checkEventPools_(); }, 1);
 
-  registerFunction([&]() { checkEvents_(); }, 1);
+  registerFunction([&]() { checkEvents_(); }, 1000);
 
-  registerFunction([&]() { exitChecks_(); }, 1);
+  registerFunction([&]() { exitChecks_(); }, 100);
 }
 
 void EventMonitorLevel0::checkEvents_() {
