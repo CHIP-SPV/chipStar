@@ -387,15 +387,14 @@ void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
   LOCK(ChipQueueLz->CommandListMtx); // CHIPQueueLevel0::CommandList_
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdList();
   
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  auto EventsToWaitOn = ChipQueue->getSyncQueuesLastEvents();
+  auto EventToWaitOnHandles = ChipQueueLz->getEventListHandles(EventsToWaitOn);
+
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)(ChipQueueLz->getSharedBufffer()), nullptr, 0,
-      nullptr);
+      CommandList, (uint64_t *)(ChipQueueLz->getSharedBufffer()), nullptr, EventToWaitOnHandles.size(),
+      EventToWaitOnHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -812,6 +811,19 @@ hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
 // CHIPQueueLevelZero
 // ***********************************************************************
 
+std::vector<ze_event_handle_t> CHIPQueueLevel0::getEventListHandles(
+    const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitOn) {
+  std::vector<ze_event_handle_t> EventHandles(EventsToWaitOn.size());
+  for (size_t i = 0; i < EventsToWaitOn.size(); i++) {
+    std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitOn[i];
+    std::shared_ptr<CHIPEventLevel0> ChipEventLz =
+        std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
+    CHIPASSERT(ChipEventLz);
+    EventHandles[i] = ChipEventLz->peek();
+  }
+  return EventHandles;
+}
+
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
 
@@ -854,14 +866,8 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
         TargetEvent);
   }
 
-  std::vector<ze_event_handle_t> EventHandles(EventsToWaitOn.size());
-  for (size_t i = 0; i < EventsToWaitOn.size(); i++) {
-    std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitOn[i];
-    std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-        std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
-    CHIPASSERT(ChipEventLz);
-    EventHandles[i] = ChipEventLz->peek();
-  }
+  std::vector<ze_event_handle_t> EventHandles =
+      getEventListHandles(EventsToWaitOn);
   return EventHandles;
 }
 

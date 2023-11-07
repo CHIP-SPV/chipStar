@@ -261,6 +261,9 @@ protected:
 public:
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
 
+  std::vector<ze_event_handle_t> getEventListHandles(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
+
   /**
    * @brief Get the Cmd List object, either immediate or regular
    *
