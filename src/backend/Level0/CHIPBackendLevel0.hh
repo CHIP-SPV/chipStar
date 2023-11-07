@@ -353,7 +353,6 @@ class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
   std::vector<LZEventPool *> EventPools_;
   std::mutex CmdListMtx;
-  size_t NumCmdListsCreated_ = 0;
   size_t CmdListsRequested_ = 0;
   size_t CmdListsReused_ = 0;
   std::stack<ze_command_list_handle_t> ZeCmdListRegStack_;

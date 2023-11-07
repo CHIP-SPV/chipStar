@@ -911,7 +911,6 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
         zeCommandListCreate(this->ZeCtx, ChipDevLz->get(), &Desc, &ZeCmdList);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                                 hipErrorInitializationError);
-    NumCmdListsCreated_++;
   }
 
   logDebug("{} CHIPContextLevel0::getCmdList() returning {}", (void *)this,
@@ -920,17 +919,7 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
 }
 
 void CHIPContextLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
-  // assert(!static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists() &&
-  //      "ICL is used - this should never be called");
   LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegStack_
-  // TODO this check doesn't work since we use RCL for callbacks even when ICL
-  // if (NumCmdListsCreated_ < ZeCmdListRegStack_.size() + 1) {
-  //   logError("{} CHIPContextLevel0::returnCmdList({}) returning more cmd
-  //   lists "
-  //            "than created",
-  //            (void *)this, (void *)ZeCmdList);
-  //   assert(false);
-  // }
   ZeCmdListRegStack_.push(ZeCmdList);
 }
 
