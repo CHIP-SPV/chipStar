@@ -255,11 +255,12 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdListImm_;
-  std::mutex CommandListMtx_; /// prevent simultaneous access to ZeCmdListImm_
 
   void initializeCmdListImm();
 
 public:
+  std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
+
   /**
    * @brief Get the Cmd List object, either immediate or regular
    *
