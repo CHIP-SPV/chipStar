@@ -725,34 +725,31 @@ void CHIPStaleEventMonitorLevel0::exitChecks() {
 
     int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
     bool AllEventsCleared = Backend->Events.size() == 0;
-    if (AllEventsCleared) {
+    if (AllEventsCleared)
       pthread_exit(0);
-    } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
+
+    if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
       logError("CHIPStaleEventMonitorLevel0 stop was called but not all events "
                "have been cleared. Timeout of {} seconds has been reached.",
                BackendZe->getCollectEventsTimeout());
-      int MaxPrintEntries = 10;
-      int PrintedEntries = 0;
-      for (auto &Event : Backend->Events) {
-        auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-        logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
-                 (void *)Event.get(), Event->Msg,
-                 (void *)EventLz->getAssocCmdList());
-        PrintedEntries++;
-        if (PrintedEntries > MaxPrintEntries)
-          break;
-      }
-
+      size_t MaxPrintEntries = std::min(Backend->Events.size(), size_t(10));  
+      for (size_t i = 0; i < MaxPrintEntries; i++) {  
+        auto Event = Backend->Events[i];
+        auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);  
+        logError("Uncollected Backend->Events: {} {} AssocCmdList {}",  
+                 (void *)Event.get(), Event->Msg,  
+                 (void *)EventLz->getAssocCmdList());  
+      } 
       pthread_exit(0);
-    } else {
-      // print only once a second to avoid saturating stdout with logs
-      if (CurrTime - LastPrint_ >= 1) {
-        LastPrint_ = CurrTime;
-        logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
-                 "events have been cleared. Timeout of {} seconds has not "
-                 "been reached yet. Elapsed time: {} seconds",
-                 BackendZe->getCollectEventsTimeout(), EpasedTime);
-      }
+    }
+
+    // print only once a second to avoid saturating stdout with logs
+    if (CurrTime - LastPrint_ >= 1) {
+      LastPrint_ = CurrTime;
+      logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
+               "events have been cleared. Timeout of {} seconds has not "
+               "been reached yet. Elapsed time: {} seconds",
+               BackendZe->getCollectEventsTimeout(), EpasedTime);
     }
   }
 }
