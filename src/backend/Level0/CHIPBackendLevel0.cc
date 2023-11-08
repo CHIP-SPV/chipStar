@@ -390,39 +390,29 @@ void CHIPEventLevel0::recordStream(chipstar::Queue *ChipQueue) {
   auto EventsToWaitOn = ChipQueue->getSyncQueuesLastEvents();
   auto EventToWaitOnHandles = ChipQueueLz->getEventListHandles(EventsToWaitOn);
 
+  // create an Event for making a dependency chain
+  std::shared_ptr<chipstar::Event> Event =
+      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(
+          this->ChipContext_);
+  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+  auto EventLzHandle = EventLz->peek();
+
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)(ChipQueueLz->getSharedBufffer()), nullptr, EventToWaitOnHandles.size(),
+      CommandList, (uint64_t *)(ChipQueueLz->getSharedBufffer()), EventLzHandle, EventToWaitOnHandles.size(),
       EventToWaitOnHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendMemoryCopy(CommandList, &Timestamp_,
                                          ChipQueueLz->getSharedBufffer(),
-                                         sizeof(uint64_t), Event_, 0, nullptr);
+                                         sizeof(uint64_t), Event_, 1, &EventLzHandle);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  std::shared_ptr<chipstar::Event> DestroyCommandListEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(
-          this->ChipContext_);
-  DestroyCommandListEvent->Msg = "recordStreamComplete";
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
-  Status = zeCommandListAppendBarrier(
-      CommandList,
-      std::static_pointer_cast<CHIPEventLevel0>(DestroyCommandListEvent)
-          ->peek(),
-      0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  ChipQueueLz->executeCommandList(CommandList, DestroyCommandListEvent);
-  Backend->trackEvent(DestroyCommandListEvent);
+  // ChipQueueLz->executeCommandList(CommandList, DestroyCommandListEvent);
+  // Backend->trackEvent(DestroyCommandListEvent);
 
   LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDING;

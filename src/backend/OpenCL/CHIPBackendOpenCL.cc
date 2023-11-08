@@ -597,6 +597,14 @@ CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
   return std::shared_ptr<chipstar::Event>(Event);
 }
 
+void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
+  logTrace("chipstar::Queue::recordEvent({})", (void *)ChipEvent);
+  std::shared_ptr<chipstar::Event> MarkerEvent = enqueueMarker();
+  auto ChipEventCL = static_cast<CHIPEventOpenCL *>(ChipEvent);
+  ChipEventCL->takeOver(MarkerEvent);
+  ChipEventCL->setRecording();
+}
+
 void CHIPEventOpenCL::recordStream(chipstar::Queue *ChipQueue) {
   logTrace("chipstar::Event::recordStream()");
   std::shared_ptr<chipstar::Event> MarkerEvent = ChipQueue->enqueueMarker();

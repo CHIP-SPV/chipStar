@@ -660,6 +660,10 @@ protected:
   virtual ~Event() { logTrace("~Event() {}", (void *)this); };
 
 public:
+  void setRecording() {
+    assert(!Deleted_ && "chipstar::Event use after delete!");
+    EventStatus_ = EVENT_STATUS_RECORDING;
+  }
   void markTracked() { TrackCalled_ = true; }
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
@@ -2067,6 +2071,7 @@ protected:
   bool isPerThreadDefaultQueue_ = false;
 
 public:
+  virtual void recordEvent(chipstar::Event *Event) {};
   bool isDefaultLegacyQueue() { return isDefaultLegacyQueue_; }
   bool isDefaultPerThreadQueue() { return isPerThreadDefaultQueue_; }
   void setDefaultLegacyQueue(bool Status) { isDefaultLegacyQueue_ = Status; }
