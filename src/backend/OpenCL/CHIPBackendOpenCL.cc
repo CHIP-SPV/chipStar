@@ -1542,6 +1542,10 @@ void CHIPBackendOpenCL::initializeImpl() {
     SelectedDevType = CL_DEVICE_TYPE_CPU;
   else if (ChipEnvVars.Device.getType() == DeviceType::GPU)
     SelectedDevType = CL_DEVICE_TYPE_GPU;
+  else if (ChipEnvVars.Device.getType() == DeviceType::ACCEL)
+    SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
+  else if (ChipEnvVars.Device.getType() == DeviceType::DEFAULT)
+    SelectedDevType = CL_DEVICE_TYPE_GPU;
   else
     throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
   logTrace("Using Devices of type {}", ChipEnvVars.Device.str());

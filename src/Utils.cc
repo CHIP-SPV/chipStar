@@ -40,7 +40,6 @@ bool isConvertibleToInt(const std::string &str) {
 
 /// Read an environment variable and return its value as a string.
 std::string readEnvVar(std::string EnvVar, bool Lower) {
-  logDebug("Reading {} from env", EnvVar);
   const char *EnvVarIn = std::getenv(EnvVar.c_str());
   if (EnvVarIn == nullptr) {
     return std::string();

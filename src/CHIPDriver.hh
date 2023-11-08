@@ -178,44 +178,36 @@ public:
 
 class EnvVars {
 public:
-  int PlatformIdx;
-  DeviceType Device;
-  int DeviceIdx;
-  BackendType Backend;
-  bool DumpSpirv;
-  std::string JitFlags;
-  bool L0ImmCmdLists;
-  int L0CollectEventsTimeout;
+  int PlatformIdx = 0;
+  DeviceType Device = DeviceType::GPU;
+  int DeviceIdx = 0;
+  BackendType Backend = BackendType::DEFAULT;
+  bool DumpSpirv = false;
+  std::string JitFlags = CHIP_DEFAULT_JIT_FLAGS;
+  bool L0ImmCmdLists = true;
+  int L0CollectEventsTimeout = 0;
 
   EnvVars() : Device(DeviceType::GPU), Backend(BackendType::DEFAULT) {
     parseEnvironmentVariables();
     logDebugSettings();
   }
 
-  std::string str() const {
-    // String representation of ChipEnvVars
-    return "PlatformIdx: " + std::to_string(PlatformIdx) +
-           ", Device: " + Device.str() +
-           ", DeviceIdx: " + std::to_string(DeviceIdx) +
-           ", Backend: " + Backend.str() +
-           ", DumpSpirv: " + (DumpSpirv ? "true" : "false") +
-           ", JitFlags: " + JitFlags +
-           ", L0ImmCmdLists: " + (L0ImmCmdLists ? "true" : "false") +
-           ", L0CollectEventsTimeout: " +
-           std::to_string(L0CollectEventsTimeout);
-  }
-
 private:
   void parseEnvironmentVariables() {
     // Parse all the environment variables and set the class members
-    PlatformIdx = parseInt("CHIP_PLATFORM");
+    if (!readEnvVar("CHIP_PLATFORM").empty())
+      PlatformIdx = parseInt("CHIP_PLATFORM");
     Device = parseDeviceType("CHIP_DEVICE_TYPE");
-    DeviceIdx = parseInt("CHIP_DEVICE");
+    if (!readEnvVar("CHIP_DEVICE").empty())
+      DeviceIdx = parseInt("CHIP_DEVICE");
     Backend = parseBackendType("CHIP_BE");
-    DumpSpirv = parseBoolean("CHIP_DUMP_SPIRV");
+    if (!readEnvVar("CHIP_DUMP_SPIRV").empty())
+      DumpSpirv = parseBoolean("CHIP_DUMP_SPIRV");
     JitFlags = parseJitFlags("CHIP_JIT_FLAGS_OVERRIDE");
-    L0ImmCmdLists = parseBoolean("CHIP_L0_IMM_CMD_LISTS");
-    L0CollectEventsTimeout = parseInt("CHIP_L0_COLLECT_EVENTS_TIMEOUT");
+    if (!readEnvVar("CHIP_L0_IMM_CMD_LISTS").empty())
+      L0ImmCmdLists = parseBoolean("CHIP_L0_IMM_CMD_LISTS");
+    if (!readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT").empty())
+      L0CollectEventsTimeout = parseInt("CHIP_L0_COLLECT_EVENTS_TIMEOUT");
   }
 
   std::string parseJitFlags(const std::string &StrIn) {
@@ -242,7 +234,8 @@ private:
     } else if (str == "0" || str == "off") {
       return false;
     }
-    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + str,
+    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + str + "while parsing " +
+                              StrIn,
                           hipErrorInitializationError);
     return false; // This return is never reached
   }
@@ -257,10 +250,11 @@ private:
       return DeviceType(DeviceType::ACCEL);
     } else if (str == "fpga") {
       return DeviceType(DeviceType::FPGA);
-    } else if (str == "default") {
+    } else if (str == "") {
       return DeviceType(DeviceType::DEFAULT);
     }
-    CHIPERR_LOG_AND_THROW("Invalid device type value: " + str,
+    CHIPERR_LOG_AND_THROW("Invalid device type value: " + str +
+                              " while parsing " + StrIn,
                           hipErrorInitializationError);
     return DeviceType(DeviceType::GPU); // This return is never reached
   }
@@ -271,7 +265,7 @@ private:
       return BackendType(BackendType::OPENCL);
     } else if (str == "level0") {
       return BackendType(BackendType::LEVEL0);
-    } else if (str == "default") {
+    } else if (str == "") {
       return BackendType(BackendType::DEFAULT);
     }
     CHIPERR_LOG_AND_THROW("Invalid backend type value: " + str,
@@ -280,15 +274,14 @@ private:
 
   void logDebugSettings() const {
     // Log the current settings
-    logDebug("CHIP_PLATFORM=", std::to_string(PlatformIdx));
-    logDebug("CHIP_DEVICE_TYPE=", Device.str());
-    logDebug("CHIP_DEVICE=", std::to_string(DeviceIdx));
-    logDebug("CHIP_BE=", Backend.str());
-    logDebug("CHIP_DUMP_SPIRV=", DumpSpirv ? "on" : "off");
-    logDebug("CHIP_JIT_FLAGS_OVERRIDE=", JitFlags);
-    logDebug("CHIP_L0_IMM_CMD_LISTS=", L0ImmCmdLists ? "on" : "off");
-    logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT=",
-             std::to_string(L0CollectEventsTimeout));
+    logDebug("CHIP_PLATFORM={}", PlatformIdx);
+    logDebug("CHIP_DEVICE_TYPE={}", Device.str());
+    logDebug("CHIP_DEVICE={}", DeviceIdx);
+    logDebug("CHIP_BE={}", Backend.str());
+    logDebug("CHIP_DUMP_SPIRV={}", DumpSpirv ? "on" : "off");
+    logDebug("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags);
+    logDebug("CHIP_L0_IMM_CMD_LISTS={}", L0ImmCmdLists ? "on" : "off");
+    logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout);
   }
 };
 
