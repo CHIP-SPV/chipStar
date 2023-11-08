@@ -642,7 +642,6 @@ void CHIPStaleEventMonitorLevel0::monitor() {
     usleep(20000);
     std::vector<chipstar::Event *> EventsToDelete;
     std::vector<ze_command_list_handle_t> CommandListsToDelete;
-    auto BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
 
     LOCK(Backend->EventsMtx); // Backend::Events
     LOCK(EventMonitorMtx);    // chipstar::EventMonitor::Stop
@@ -699,11 +698,11 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       bool AllEventsCleared = Backend->Events.size() == 0;
       if (AllEventsCleared) {
         pthread_exit(0);
-      } else if (EpasedTime > BackendZe->getCollectEventsTimeout()) {
+      } else if (EpasedTime > ChipEnvVars.L0CollectEventsTimeout) {
         logError(
             "CHIPStaleEventMonitorLevel0 stop was called but not all events "
             "have been cleared. Timeout of {} seconds has been reached.",
-            BackendZe->getCollectEventsTimeout());
+            ChipEnvVars.L0CollectEventsTimeout);
         int MaxPrintEntries = 10;
         int PrintedEntries = 0;
         for (auto &Event : Backend->Events) {
@@ -724,7 +723,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
                    "events have been cleared. Timeout of {} seconds has not "
                    "been reached yet. Elapsed time: {} seconds",
-                   BackendZe->getCollectEventsTimeout(), EpasedTime);
+                   ChipEnvVars.L0CollectEventsTimeout, EpasedTime);
         }
       }
     }
@@ -849,7 +848,7 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+  if (ChipEnvVars.L0ImmCmdLists) {
     return ZeCmdList_;
   } else {
     ze_command_list_handle_t ZeCmdList;
@@ -918,7 +917,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+  if (ChipEnvVars.L0ImmCmdLists) {
     initializeCmdListImm();
   }
 }
@@ -939,7 +938,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+  if (ChipEnvVars.L0ImmCmdLists) {
     initializeCmdListImm();
   }
 }
@@ -1478,7 +1477,7 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+  if (ChipEnvVars.L0ImmCmdLists) {
     auto Event = getLastEvent();
     auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
     if (EventLZ) {
@@ -1496,7 +1495,7 @@ void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
 
-  if (static_cast<CHIPBackendLevel0 *>(Backend)->getUseImmCmdLists()) {
+  if (ChipEnvVars.L0ImmCmdLists) {
     executeCommandListImm(Event);
   } else {
     executeCommandListReg(CommandList);
@@ -1800,7 +1799,6 @@ void CHIPBackendLevel0::initializeImpl() {
   // Run these lasts, as they may depend on the device properties being
   // populated
   setUseImmCmdLists(DeviceName);
-  setCollectEventsTimeout();
 }
 
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
