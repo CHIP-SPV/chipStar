@@ -17,48 +17,37 @@ The name chipStar comes from `c`uda and `hip` and the word `Star` which means as
 
 ## Development Status and Maturity
 
-While chipStar 1.0 can already be used to run various large HPC applications successfully, it is still heavily in development mode with plenty of known issues and unimplemented features. Most importantly, there are various low-hanging performance optimizations that are still to be done; the development work so far has focused on functional correctness, not on performance issues. However, chipStar is ready for wider-range testing and we welcome community contributions in form of reproducible bug reports and good quality pull requests.
+While chipStar 1.1 can already be used to run various large HPC applications successfully, it is still heavily in development mode with plenty of known issues and unimplemented features. There are also known low-performance optimizations that are still to be done. However, we consider chipStar ready for wider-range testing and welcome community contributions in form of reproducible bug reports and good quality pull requests.
+
+Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release_notes/chipStar_1.0.rst) and [0.9](docs/release_notes/release-0.9.txt).
 
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 17 (LLVM 15/16 might also work)
+* Clang and LLVM 17 (Clang/LLVM 15 and 16 might also work)
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-17 llvm-17 clang-tools-17'.
-  * For the best results, install it from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-17) which has fixes that are not yet in the LLVM upstream project.
+  * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-17) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
   (e.g. llvm\_release\_170 for LLVM 17)
   [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
   * For the best results, install it from a chipStar [branch](https://github.com/CHIP-SPV/SPIRV-LLVM-Translator/tree/chipStar-llvm-17) which has fixes that are not yet upstreamed.
 
-### OpenCL Backend
-
-  * An OpenCL 2.0 or 3.0 driver with at least the following features supported:
-    * Coarse-grained buffer Shared Virtual Memory
-    * Generic address space
-    * SPIR-V input
-    * Program scope variables
-  * Further OpenCL extensions or features might be needed depending on the compiled CUDA/HIP application. For example, to support warp-primitives, the OpenCL 3.0 driver should support also some subgroup features such as shuffles, ballots and [cl_intel_required_subgroup_size]( https://registry.khronos.org/OpenCL/extensions/intel/cl_intel_required_subgroup_size.html).
-
-### Level Zero Backend
-
-  * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
-  * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
-* For HIP-SYCL and HIP-MKL Interoperability: [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
-
-## Compiling Clang, LLVM and SPIRV-LLVM-Translator
+### Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
 It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
-You can use a script include in chipStar repo: 
+For this you can use a script included in the chipStar repository:
+
 ```bash
 # chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir>
 chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0
 cd ./llvm-project/llvm/build_17
-make -j 16 
+make -j 16
 <sudo> make install
 ```
 
-Or do it manually:
+Or you can do the steps manually:
+
 ```bash
 git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-17
 cd llvm-project/llvm/projects
@@ -76,9 +65,26 @@ cmake -S llvm -B build \
 make -C build -j8 all install
 ```
 
+### OpenCL Backend
+
+  * An OpenCL 2.0 or 3.0 driver with at least the following features supported:
+    * Coarse-grained buffer Shared Virtual Memory
+    * Generic address space
+    * SPIR-V input
+    * Program scope variables
+  * Further OpenCL extensions or features might be needed depending on the compiled CUDA/HIP application. For example, to support warp-primitives, the OpenCL driver should support also additional subgroup features such as shuffles, ballots and [cl_intel_required_subgroup_size]( https://registry.khronos.org/OpenCL/extensions/intel/cl_intel_required_subgroup_size.html).
+
+### Level Zero Backend
+
+  * [Intel Compute Runtime](https://github.com/intel/compute-runtime) or [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
+  * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
+* For HIP-SYCL and HIP-MKL Interoperability: [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
+
 ## Downloading Sources
 
-You can download and unpack the latest release source package or clone the development branch via git. We aim to keep the main development branch stable, but it might have stability issues during the development cycle. To clone the sources from Github:
+You can download and unpack the latest released source package or clone the development branch via git. We aim to keep the `main` development branch stable, but it might have stability issues during the development cycle.
+
+To clone the sources from Github:
 
 ```bash
 git clone https://github.com/CHIP-SPV/chipStar.git
@@ -112,7 +118,7 @@ There's a script `check.py` which can be used to run unit tests and which filter
 # PARALLEL={N}                   # How many tests to run in parallel.
 # export CHIP_PLATFORM=N         # If there are multiple OpenCL platforms present on the system, selects which one to use
 
-python3 $SOURCE_DIR/scripts/check.py $BUILD_DIR $DEVICE $BACKEND $PARALLEL 1
+python3 $SOURCE_DIR/scripts/check.py --num-threads $PARALLEL $BUILD_DIR $DEVICE $BACKEND
 ```
 
 Please refer to the [user documentation](docs/Using.md) for instructions on how to use the installed chipStar to build CUDA/HIP programs.
