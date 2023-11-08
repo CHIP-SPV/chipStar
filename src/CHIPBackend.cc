@@ -226,7 +226,8 @@ void chipstar::Module::consumeSPIRV() {
 
   // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
   // dump here prior to parsing in case parsing crashes
-  dumpSpirv(Src_->getBinary());
+  if (ChipEnvVars.DumpSpirv)
+    dumpSpirv(Src_->getBinary());
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
