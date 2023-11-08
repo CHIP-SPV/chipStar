@@ -71,13 +71,6 @@ void __attribute__((destructor)) uninitializeBackend() {
     CHIPUninitialize();
 }
 
-void CHIPReadEnvVarsCallOnce() {
-}
-
-void CHIPReadEnvVars() {
-  std::call_once(EnvInitialized, &CHIPReadEnvVarsCallOnce);
-}
-
 static void createBackendObject() {
   assert(Backend == nullptr);
 
@@ -120,7 +113,6 @@ static void createBackendObject() {
 }
 
 void CHIPInitializeCallOnce() {
-  CHIPReadEnvVars();
   logDebug("CHIPDriver Initialize");
 
   createBackendObject();
@@ -151,7 +143,6 @@ extern void CHIPUninitialize() {
 
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles) {
-  CHIPReadEnvVars();
   logDebug("CHIPDriver REInitialize");
 
   // chipstar::Kernel compilation may have already taken place so we need save
