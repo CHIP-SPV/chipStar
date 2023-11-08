@@ -1712,9 +1712,7 @@ std::string CHIPBackendLevel0::getDefaultJitFlags() {
       "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
 }
 
-void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
-                                       std::string CHIPDeviceTypeStr,
-                                       std::string CHIPDeviceStr) {
+void CHIPBackendLevel0::initializeImpl() {
   logTrace("CHIPBackendLevel0 Initialize");
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   ze_result_t Status;
@@ -1724,22 +1722,19 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
     std::exit(1);
   }
 
-  int SelectedDeviceIdx = atoi(CHIPDeviceStr.c_str());
-
   bool AnyDeviceType = false;
   ze_device_type_t ZeDeviceType;
-  if (!CHIPDeviceTypeStr.compare("gpu")) {
+  if (ChipEnvVars.Device.getType() == DeviceType::GPU) {
     ZeDeviceType = ZE_DEVICE_TYPE_GPU;
-  } else if (!CHIPDeviceTypeStr.compare("fpga")) {
+  } else if (ChipEnvVars.Device.getType() == DeviceType::FPGA) {
     ZeDeviceType = ZE_DEVICE_TYPE_FPGA;
-  } else if (!CHIPDeviceTypeStr.compare("default")) {
+  } else if (ChipEnvVars.Device.getType() == DeviceType::DEFAULT) {
     // For 'default' pick all devices of any type.
     AnyDeviceType = true;
   } else {
     CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE must be either gpu or fpga",
                           hipErrorInitializationError);
   }
-  int PlatformIdx = std::atoi(CHIPPlatformStr.c_str());
   std::vector<ze_driver_handle_t> ZeDrivers;
   std::vector<ze_device_handle_t> ZeDevices;
 
@@ -1753,7 +1748,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   Status = zeDriverGet(&DriverCount, ZeDrivers.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  if (PlatformIdx >= DriverCount) {
+  if (ChipEnvVars.PlatformIdx >= DriverCount) {
     CHIPERR_LOG_AND_THROW("CHIP_PLATFORM for Level0 backend must be"
                           " < number of drivers",
                           hipErrorInitializationError);
@@ -1762,7 +1757,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
   // TODO Allow for multilpe platforms(drivers)
   // TODO Check platform ID is not the same as OpenCL. You can have
   // two OCL platforms but only one level0 driver
-  ze_driver_handle_t ZeDriver = ZeDrivers[PlatformIdx];
+  ze_driver_handle_t ZeDriver = ZeDrivers[ChipEnvVars.PlatformIdx];
 
   assert(ZeDriver != nullptr);
   // Load devices to device vector
@@ -1784,7 +1779,7 @@ void CHIPBackendLevel0::initializeImpl(std::string CHIPPlatformStr,
 
   // Filter in only devices of selected type and add them to the
   // backend as derivates of Device
-  auto Dev = ZeDevices[SelectedDeviceIdx];
+  auto Dev = ZeDevices[ChipEnvVars.DeviceIdx];
   ze_device_properties_t DeviceProperties{};
   DeviceProperties.pNext = nullptr;
   DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
@@ -2388,13 +2383,12 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   ze_result_t Status;
 
   // Create module with global address aware
-  std::string CompilerOptions = Backend->getJitFlags();
   ze_module_desc_t ModuleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC,
                                  nullptr,
                                  ZE_MODULE_FORMAT_IL_SPIRV,
                                  IlSize_,
                                  FuncIL_,
-                                 CompilerOptions.c_str(),
+                                 ChipEnvVars.JitFlags.c_str(),
                                  nullptr};
 
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)(ChipDev->getContext());

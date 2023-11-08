@@ -45,8 +45,9 @@ std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
 bool UsingDefaultBackend;
 chipstar::Backend *Backend = nullptr;
-std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
+
+EnvVars ChipEnvVars;
 
 // CUDA Driver API: "If cuInit() has not been called, any function
 // from the driver API will return CUDA_ERROR_NOT_INITIALIZED".
@@ -71,27 +72,91 @@ void __attribute__((destructor)) uninitializeBackend() {
 }
 
 void CHIPReadEnvVarsCallOnce() {
-  CHIPPlatformStr = readEnvVar("CHIP_PLATFORM");
-  if (CHIPPlatformStr.size() == 0)
-    CHIPPlatformStr = "0";
-
-  CHIPDeviceTypeStr = readEnvVar("CHIP_DEVICE_TYPE");
-  if (CHIPDeviceTypeStr.size() == 0)
-    CHIPDeviceTypeStr = "gpu";
-
-  CHIPDeviceStr = readEnvVar("CHIP_DEVICE");
-  if (CHIPDeviceStr.size() == 0)
-    CHIPDeviceStr = "0";
-
-  CHIPBackendType = readEnvVar("CHIP_BE");
-  if (CHIPBackendType.size() == 0) {
-    CHIPBackendType = "default";
+  auto PlatformStr = readEnvVar("CHIP_PLATFORM");
+  if (!isConvertibleToInt(PlatformStr)) {
+    CHIPERR_LOG_AND_THROW("Invalid CHIP_PLATFORM value: " + PlatformStr,
+                          hipErrorInitializationError);
+  } else {
+    ChipEnvVars.PlatformIdx = std::stoi(PlatformStr);
   }
 
-  logDebug("CHIP_PLATFORM={}", CHIPPlatformStr.c_str());
-  logDebug("CHIP_DEVICE_TYPE={}", CHIPDeviceTypeStr.c_str());
-  logDebug("CHIP_DEVICE={}", CHIPDeviceStr.c_str());
-  logDebug("CHIP_BE={}", CHIPBackendType.c_str());
+  auto DeviceTypeStr = readEnvVar("CHIP_DEVICE_TYPE");
+  if (!DeviceTypeStr.compare("gpu")) {
+    ChipEnvVars.Device = DeviceType::GPU;
+  } else if (!DeviceTypeStr.compare("cpu")) {
+    ChipEnvVars.Device = DeviceType::CPU;
+  } else {
+    CHIPERR_LOG_AND_THROW("Invalid CHIP_DEVICE_TYPE value: " + DeviceTypeStr,
+                          hipErrorInitializationError);
+  }
+
+  auto DeviceStr = readEnvVar("CHIP_DEVICE");
+  if (!isConvertibleToInt(DeviceStr)) {
+    CHIPERR_LOG_AND_THROW("Invalid CHIP_DEVICE value: " + DeviceStr,
+                          hipErrorInitializationError);
+  } else {
+    ChipEnvVars.DeviceIdx = std::stoi(DeviceStr);
+  }
+
+  auto BackendStr = readEnvVar("CHIP_BE");
+  if (!BackendStr.compare("opencl")) {
+    ChipEnvVars.Backend = BackendType::OPENCL;
+  } else if (!BackendStr.compare("level0")) {
+    ChipEnvVars.Backend = BackendType::LEVEL0;
+  } else {
+    CHIPERR_LOG_AND_THROW("Invalid CHIP_BE value: " + BackendStr,
+                          hipErrorInitializationError);
+  }
+
+  auto DumpSpirvStr = readEnvVar("CHIP_DUMP_SPIRV", true);
+  if (!DumpSpirvStr.compare("1") || !DumpSpirvStr.compare("on")) {
+    ChipEnvVars.DumpSpirv = true;
+  } else if (!DumpSpirvStr.compare("0") || !DumpSpirvStr.compare("off")) {
+    ChipEnvVars.DumpSpirv = false;
+  } else {
+    CHIPERR_LOG_AND_THROW("Invalid CHIP_DUMP_SPIRV value: " + DumpSpirvStr,
+                          hipErrorInitializationError);
+  }
+
+  auto JitFlagsOverrideStr = readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", true);
+  if (!JitFlagsOverrideStr.empty()) {
+    ChipEnvVars.JitFlags = JitFlagsOverrideStr;
+  }
+
+  auto L0ImmCmdListsStr = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
+  if (!L0ImmCmdListsStr.compare("1") || !L0ImmCmdListsStr.compare("on")) {
+    ChipEnvVars.L0ImmCmdLists = true;
+  } else if (!L0ImmCmdListsStr.compare("0") ||
+             !L0ImmCmdListsStr.compare("off")) {
+    ChipEnvVars.L0ImmCmdLists = false;
+  } else {
+    CHIPERR_LOG_AND_THROW("Invalid CHIP_L0_IMM_CMD_LISTS value: " +
+                              L0ImmCmdListsStr,
+                          hipErrorInitializationError);
+  }
+
+  auto L0CollectEventsTimeoutStr =
+      readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
+  if (!L0CollectEventsTimeoutStr.empty()) {
+    if (!isConvertibleToInt(L0CollectEventsTimeoutStr)) {
+      CHIPERR_LOG_AND_THROW("Invalid CHIP_L0_COLLECT_EVENTS_TIMEOUT value: " +
+                                L0CollectEventsTimeoutStr,
+                            hipErrorInitializationError);
+    } else {
+      ChipEnvVars.L0CollectEventsTimeout = std::stoi(L0CollectEventsTimeoutStr);
+    }
+  }
+
+  logDebug("CHIP_PLATFORM={}", ChipEnvVars.PlatformIdx);
+  logDebug("CHIP_DEVICE_TYPE={}", ChipEnvVars.Device.str());
+  logDebug("CHIP_DEVICE={}", ChipEnvVars.DeviceIdx);
+  logDebug("CHIP_BE={}", ChipEnvVars.Backend.str());
+  logDebug("CHIP_DUMP_SPIRV={}", ChipEnvVars.DumpSpirv ? "on" : "off");
+  logDebug("CHIP_JIT_FLAGS_OVERRIDE={}", ChipEnvVars.JitFlags);
+  logDebug("CHIP_L0_IMM_CMD_LISTS={}",
+           ChipEnvVars.L0ImmCmdLists ? "on" : "off");
+  logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}",
+           ChipEnvVars.L0CollectEventsTimeout);
 }
 
 void CHIPReadEnvVars() {
@@ -100,9 +165,8 @@ void CHIPReadEnvVars() {
 
 static void createBackendObject() {
   assert(Backend == nullptr);
-  const std::string ChipBe = CHIPBackendType;
 
-  if (!ChipBe.compare("opencl")) {
+  if (ChipEnvVars.Backend.getType() == BackendType::OPENCL) {
 #ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
@@ -111,7 +175,7 @@ static void createBackendObject() {
                           "was not compiled with OpenCL backend",
                           hipErrorInitializationError);
 #endif
-  } else if (!ChipBe.compare("level0")) {
+  } else if (ChipEnvVars.Backend.getType() == BackendType::LEVEL0) {
 #ifdef HAVE_LEVEL0
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
@@ -120,27 +184,23 @@ static void createBackendObject() {
                           "was not compiled with Level0 backend",
                           hipErrorInitializationError);
 #endif
-  } else if (!ChipBe.compare("default")) {
-#ifdef HAVE_LEVEL0
-    if (!Backend) {
-      logDebug("CHIPBE=default... trying Level0 Backend");
-      Backend = new CHIPBackendLevel0();
-    }
-#endif
+  } else if (ChipEnvVars.Backend.getType() == BackendType::DEFAULT) {
 #ifdef HAVE_OPENCL
     if (!Backend) {
       logDebug("CHIPBE=default... trying OpenCL Backend");
       Backend = new CHIPBackendOpenCL();
     }
 #endif
+#ifdef HAVE_LEVEL0
+    if (!Backend) {
+      logDebug("CHIPBE=default... trying Level0 Backend");
+      Backend = new CHIPBackendLevel0();
+    }
+#endif
     if (!Backend) {
       CHIPERR_LOG_AND_THROW("Could not initialize any backend.",
                             hipErrorInitializationError);
     }
-  } else {
-    CHIPERR_LOG_AND_THROW(
-        "Invalid chipStar Backend Selected. Accepted values : level0, opencl.",
-        hipErrorInitializationError);
   }
 }
 
@@ -150,7 +210,7 @@ void CHIPInitializeCallOnce() {
 
   createBackendObject();
 
-  Backend->initialize(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
+  Backend->initialize();
 }
 
 extern void CHIPInitialize() {
@@ -207,8 +267,5 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 }
 
 const char *CHIPGetBackendName() {
-  if (CHIPBackendType.size() == 0) {
-    CHIPBackendType = readEnvVar("CHIP_BE");
-  }
-  return CHIPBackendType.c_str();
+  return ChipEnvVars.Backend.str();
 }

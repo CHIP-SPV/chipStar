@@ -1152,16 +1152,6 @@ int chipstar::Backend::getQueuePriorityRange() {
   return MinQueuePriority_;
 }
 
-std::string chipstar::Backend::getJitFlags() {
-  std::string Flags;
-  if (CustomJitFlags != "") {
-    Flags = CustomJitFlags;
-  } else {
-    Flags = getDefaultJitFlags();
-  }
-  logDebug("JIT compiler flags: {}", Flags);
-  return Flags;
-}
 
 chipstar::Backend::Backend() {
   logDebug("Backend Base Constructor");
@@ -1250,11 +1240,8 @@ void chipstar::Backend::waitForThreadExit() {
     }
   }
 }
-void chipstar::Backend::initialize(std::string PlatformStr,
-                                   std::string DeviceTypeStr,
-                                   std::string DeviceIdStr) {
-  initializeImpl(PlatformStr, DeviceTypeStr, DeviceIdStr);
-  CustomJitFlags = readEnvVar("CHIP_JIT_FLAGS", false);
+void chipstar::Backend::initialize() {
+  initializeImpl();
   if (ChipContexts.size() == 0) {
     std::string Msg = "No CHIPContexts were initialized";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
