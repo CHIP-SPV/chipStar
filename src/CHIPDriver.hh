@@ -139,7 +139,7 @@ public:
     case ACCEL:
       return "accel";
     case FPGA:
-      return "fpga";  
+      return "fpga";
     case DEFAULT:
       return "default";
     default:
@@ -160,13 +160,13 @@ private:
 public:
   BackendType(Type TypeIn) : Type_(TypeIn) {}
 
-  const char* str() const {
+  const char *str() const {
     switch (Type_) {
     case OPENCL:
       return "opencl";
     case LEVEL0:
       return "level0";
-      case DEFAULT:
+    case DEFAULT:
       return "default";
     default:
       return "unknown";
@@ -225,7 +225,6 @@ private:
     }
     return str;
   }
-  
 
   int parseInt(const std::string &StrIn) {
     auto str = readEnvVar(StrIn);

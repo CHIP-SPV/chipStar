@@ -1583,7 +1583,8 @@ void CHIPBackendOpenCL::initializeImpl() {
   logTrace("{}", StrStream.str());
 
   if (ChipEnvVars.DeviceIdx >= SpirvDevices.size()) {
-    logCritical("Selected OpenCL device {} is out of range", ChipEnvVars.DeviceIdx);
+    logCritical("Selected OpenCL device {} is out of range",
+                ChipEnvVars.DeviceIdx);
     std::exit(1);
   }
 
