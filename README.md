@@ -39,9 +39,9 @@ It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
 For this you can use a script included in the chipStar repository:
 
 ```bash
-# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir>
-chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0
-cd ./llvm-project/llvm/build_17
+# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir> <static/dynamic>
+chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0 dynamic
+cd llvm-project/llvm/build_17
 make -j 16
 <sudo> make install
 ```
