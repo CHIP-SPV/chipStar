@@ -84,7 +84,7 @@ os.chdir(args.work_dir)
 
 cmd = f"{modules} {env_vars} ./samples/hipInfo/hipInfo"
 out, _ = run_cmd(cmd)
-texture_support = 0 < int(out.split("maxTexture1DLinear:")[1].split("\n")[0].strip())
+texture_support = "maxTexture1DLinear:" in out and 0 < int(out.split("maxTexture1DLinear:")[1].split("\n")[0].strip())
 if not texture_support:
     texture_cmd = "|[Tt]ex"
 else:
