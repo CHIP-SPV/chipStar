@@ -80,6 +80,7 @@ public:
 
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
+  CHIPContextLevel0 *AssocContext_ = nullptr;
   // Used for resolving device counter overflow
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
@@ -94,17 +95,24 @@ private:
 
 public:
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
-  void associateCmdList(ze_command_list_handle_t CmdList) {
-    assert(AssocCmdList_ == nullptr && "command list already associated!");
-    AssocCmdList_ = CmdList;
-  }
 
-  void disassociateCmdList() {
-    assert(AssocCmdList_ != nullptr && "command list not associated!");
-    auto Status = zeCommandListDestroy(AssocCmdList_);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    AssocCmdList_ = nullptr;
-  }
+  /**
+   * @brief Associate a command list with this event. When this event completes,
+   * the EventMonitor thread will return the command list handle back to the
+   * queue stack where it came from.
+   *
+   * @param ChipQueue queue where the event was created (and where the command
+   * list stack resides)
+   * @param CmdList command list to associate with this event
+   */
+  void associateCmdList(CHIPContextLevel0 *ChipContext,
+                        ze_command_list_handle_t CmdList);
+
+  /**
+   * @brief Reset and then return the command list handle back to the context
+   * pointed by AssocContext_
+   */
+  void disassociateCmdList();
 
   uint32_t getValidTimestampBits();
   uint64_t getHostTimestamp() { return HostTimestamp_; }
@@ -175,6 +183,17 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
   int TimeSinceStopRequested_ = 0;
   int LastPrint_ = 0;
 
+  /**
+   * @brief Go through all events in Backend::Events, update their status, upon
+   * status change release dependencies and command lists, return to event pool
+   */
+  void checkEvents();
+  /**
+   * @brief Check if stop was requested for this monitor, if so handle all
+   * outstanding events
+   */
+  void exitChecks();
+
 public:
   ~CHIPStaleEventMonitorLevel0() {
     logTrace("CHIPStaleEventMonitorLevel0 DEST");
@@ -215,6 +234,8 @@ class CHIPQueueLevel0 : public chipstar::Queue {
 protected:
   ze_context_handle_t ZeCtx_;
   ze_device_handle_t ZeDev_;
+  CHIPDeviceLevel0 *ChipDevLz_;
+  CHIPContextLevel0 *ChipCtxLz_;
 
   // The shared memory buffer
   void *SharedBuf_;
@@ -233,15 +254,23 @@ protected:
   ze_command_queue_desc_t QueueDescriptor_;
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
-  ze_command_list_handle_t ZeCmdList_;
+  ze_command_list_handle_t ZeCmdListImm_;
+  std::mutex CommandListMtx_; /// prevent simultaneous access to ZeCmdListImm_
 
   void initializeCmdListImm();
 
 public:
+  /**
+   * @brief Get the Cmd List object, either immediate or regular
+   *
+   * @return ze_command_list_handle_t
+   */
+  ze_command_list_handle_t getCmdList();
+  CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
+  CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
   std::vector<ze_event_handle_t>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
-  std::mutex CmdListMtx;
-  ze_command_list_handle_t getCmdList();
+
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
   }
@@ -323,8 +352,27 @@ public:
 class CHIPContextLevel0 : public chipstar::Context {
   OpenCLFunctionInfoMap FuncInfos_;
   std::vector<LZEventPool *> EventPools_;
+  std::mutex CmdListMtx;
+  size_t CmdListsRequested_ = 0;
+  size_t CmdListsReused_ = 0;
+  std::stack<ze_command_list_handle_t> ZeCmdListRegPool_;
 
 public:
+  /**
+   * @brief Return a regular command list from a stack in this context, creating
+   * one if none are available.
+   *
+   * @return ze_command_list_handle_t
+   */
+  ze_command_list_handle_t getCmdListReg();
+
+  /**
+   * @brief reset the given command list and return it back to the stack
+   *
+   * @param CmdList level-zero command list handle to be recycled
+   */
+  void returnCmdList(ze_command_list_handle_t CmdList);
+
   std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
 
     // go through all pools and try to get an allocated event

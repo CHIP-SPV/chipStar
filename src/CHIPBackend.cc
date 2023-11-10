@@ -1158,9 +1158,6 @@ chipstar::Backend::Backend() {
 
 chipstar::Backend::~Backend() {
   logDebug("Backend Destructor. Deleting all pointers.");
-  //   assert(Events.size() == 0);
-  Events.clear();
-  UserEvents.clear();
   for (auto &Ctx : ChipContexts) {
     ::Backend->removeContext(Ctx);
     delete Ctx;
@@ -1213,7 +1210,6 @@ void chipstar::Backend::waitForThreadExit() {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     for (auto Dev : ::Backend->getDevices()) {
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      LOCK(Dev->DeviceMtx);       // CHIPBackend::Events
       LOCK(::Backend->EventsMtx); // CHIPBackend::Events
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
@@ -1223,18 +1219,13 @@ void chipstar::Backend::waitForThreadExit() {
         logWarn("Make sure to call hipStreamDestroy() for all queues that have "
                 "been created via hipStreamCreate()");
         logWarn("Removing user-created streams without calling a destructor");
-        Dev->getQueuesNoLock().clear();
-        if (::Backend->Events.size()) {
-          logWarn("Clearing chipstar::Event list {}", ::Backend->Events.size());
-          ::Backend->Events.clear();
-        }
       }
-      /**
-       * Skip setting LastEvent for these queues. At this point, the main() has
-       * exited and the memory allocated for these queues has already been
-       * freed.
-       *
-       */
+      for (auto &Queue : Dev->getQueuesNoLock()) {
+        logDebug("Destroying queue {}", (void *)Queue);
+        Queue->finish();
+        Queue->updateLastEvent(nullptr);
+        Dev->removeQueue(Queue);
+      }
     }
   }
 }
