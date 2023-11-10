@@ -27,7 +27,7 @@ jobs:
           files-changed-only: true
           lines-changed-only: true
           extensions: 'cc,hh'
-          tidy-checks: 'readability-identifier-naming'
+          tidy-checks: 'readability-identifier-naming,readability-else-after-return'
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
