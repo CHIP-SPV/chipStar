@@ -227,9 +227,9 @@ private:
 
   std::string_view parseJitFlags(const std::string &StrIn) {
     auto str = readEnvVar(StrIn);
-    if (str.empty()) {
+    if (str.empty())
       return CHIP_DEFAULT_JIT_FLAGS;
-    }
+
     return JitFlags_;
   }
 
