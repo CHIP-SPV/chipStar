@@ -143,6 +143,7 @@ public:
     case Default:
       return "default";
     default:
+      assert(!"Unknown device type!");
       return "unknown";
     }
   }
@@ -169,6 +170,7 @@ public:
     case Default:
       return "default";
     default:
+      assert(!"Unknown backend type!");
       return "unknown";
     }
   }
