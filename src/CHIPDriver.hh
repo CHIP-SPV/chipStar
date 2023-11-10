@@ -226,17 +226,16 @@ private:
   }
 
   std::string_view parseJitFlags(const std::string &StrIn) {
-    auto str = readEnvVar(StrIn);
-    if (str.empty())
+    if (readEnvVar(StrIn).empty())
       return CHIP_DEFAULT_JIT_FLAGS;
 
     return JitFlags_;
   }
 
   int parseInt(const std::string &StrIn) {
-    auto str = readEnvVar(StrIn);
-    if (!isConvertibleToInt(str))
-      CHIPERR_LOG_AND_THROW("Invalid integer value: " + str,
+    const auto &Str = readEnvVar(StrIn);
+    if (!isConvertibleToInt(Str))
+      CHIPERR_LOG_AND_THROW("Invalid integer value: " + Str,
                             hipErrorInitializationError);
     return std::stoi(str);
   }
