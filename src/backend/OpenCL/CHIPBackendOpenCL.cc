@@ -723,7 +723,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   //   for (chipstar::Device  *chip_dev : chip_devices) {
   std::string Name = ChipDevOcl->getName();
-  Err = ClProgram.build(ChipEnvVars.JitFlags.c_str());
+  Err = ClProgram.build(ChipEnvVars.getJitFlags().c_str());
   auto ErrBuild = Err;
 
   std::string Log =
@@ -1538,17 +1538,17 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   // transform device type string into CL
   cl_bitfield SelectedDevType = 0;
-  if (ChipEnvVars.Device.getType() == DeviceType::CPU)
+  if (ChipEnvVars.getDevice().getType() == DeviceType::CPU)
     SelectedDevType = CL_DEVICE_TYPE_CPU;
-  else if (ChipEnvVars.Device.getType() == DeviceType::GPU)
+  else if (ChipEnvVars.getDevice().getType() == DeviceType::GPU)
     SelectedDevType = CL_DEVICE_TYPE_GPU;
-  else if (ChipEnvVars.Device.getType() == DeviceType::ACCEL)
+  else if (ChipEnvVars.getDevice().getType() == DeviceType::Accelerator)
     SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
-  else if (ChipEnvVars.Device.getType() == DeviceType::DEFAULT)
+  else if (ChipEnvVars.getDevice().getType() == DeviceType::Default)
     SelectedDevType = CL_DEVICE_TYPE_GPU;
   else
     throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
-  logTrace("Using Devices of type {}", ChipEnvVars.Device.str());
+  logTrace("Using Devices of type {}", ChipEnvVars.getDevice().str());
 
   std::vector<cl::Platform> Platforms;
   cl_int Err = cl::Platform::get(&Platforms);
@@ -1562,7 +1562,7 @@ void CHIPBackendOpenCL::initializeImpl() {
     StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
   logTrace("{}", StrStream.str());
-  int SelectedPlatformIdx = ChipEnvVars.PlatformIdx;
+  int SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
 
   cl::Platform SelectedPlatform = Platforms[SelectedPlatformIdx];
   logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
@@ -1570,7 +1570,7 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   StrStream.str("");
 
-  StrStream << "OpenCL Devices of type " << ChipEnvVars.Device.str()
+  StrStream << "OpenCL Devices of type " << ChipEnvVars.getDevice().str()
             << " with SPIR-V_1 support:\n";
   std::vector<cl::Device> SpirvDevices;
   std::vector<cl::Device> Dev;
@@ -1586,14 +1586,14 @@ void CHIPBackendOpenCL::initializeImpl() {
   }
   logTrace("{}", StrStream.str());
 
-  if (ChipEnvVars.DeviceIdx >= SpirvDevices.size()) {
+  if (ChipEnvVars.getDeviceIdx() >= SpirvDevices.size()) {
     logCritical("Selected OpenCL device {} is out of range",
-                ChipEnvVars.DeviceIdx);
+                ChipEnvVars.getDeviceIdx());
     std::exit(1);
   }
 
-  auto Device = SpirvDevices[ChipEnvVars.DeviceIdx];
-  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", ChipEnvVars.DeviceIdx,
+  auto Device = SpirvDevices[ChipEnvVars.getDeviceIdx()];
+  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", ChipEnvVars.getDeviceIdx(),
            Device.getInfo<CL_DEVICE_NAME>());
 
   // Create context which has devices

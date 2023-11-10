@@ -698,11 +698,11 @@ void CHIPStaleEventMonitorLevel0::monitor() {
       bool AllEventsCleared = Backend->Events.size() == 0;
       if (AllEventsCleared) {
         pthread_exit(0);
-      } else if (EpasedTime > ChipEnvVars.L0CollectEventsTimeout) {
+      } else if (EpasedTime > ChipEnvVars.getL0CollectEventsTimeout()) {
         logError(
             "CHIPStaleEventMonitorLevel0 stop was called but not all events "
             "have been cleared. Timeout of {} seconds has been reached.",
-            ChipEnvVars.L0CollectEventsTimeout);
+            ChipEnvVars.getL0CollectEventsTimeout());
         int MaxPrintEntries = 10;
         int PrintedEntries = 0;
         for (auto &Event : Backend->Events) {
@@ -723,7 +723,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
           logDebug("CHIPStaleEventMonitorLevel0 stop was called but not all "
                    "events have been cleared. Timeout of {} seconds has not "
                    "been reached yet. Elapsed time: {} seconds",
-                   ChipEnvVars.L0CollectEventsTimeout, EpasedTime);
+                   ChipEnvVars.getL0CollectEventsTimeout(), EpasedTime);
         }
       }
     }
@@ -848,7 +848,7 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
 }
 
 ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
-  if (ChipEnvVars.L0ImmCmdLists) {
+  if (ChipEnvVars.getL0ImmCmdLists()) {
     return ZeCmdList_;
   } else {
     ze_command_list_handle_t ZeCmdList;
@@ -917,7 +917,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-  if (ChipEnvVars.L0ImmCmdLists) {
+  if (ChipEnvVars.getL0ImmCmdLists()) {
     initializeCmdListImm();
   }
 }
@@ -938,7 +938,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-  if (ChipEnvVars.L0ImmCmdLists) {
+  if (ChipEnvVars.getL0ImmCmdLists()) {
     initializeCmdListImm();
   }
 }
@@ -1477,7 +1477,7 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
 
-  if (ChipEnvVars.L0ImmCmdLists) {
+  if (ChipEnvVars.getL0ImmCmdLists()) {
     auto Event = getLastEvent();
     auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
     if (EventLZ) {
@@ -1495,7 +1495,7 @@ void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
 
-  if (ChipEnvVars.L0ImmCmdLists) {
+  if (ChipEnvVars.getL0ImmCmdLists()) {
     executeCommandListImm(Event);
   } else {
     executeCommandListReg(CommandList);
@@ -1723,11 +1723,11 @@ void CHIPBackendLevel0::initializeImpl() {
 
   bool AnyDeviceType = false;
   ze_device_type_t ZeDeviceType;
-  if (ChipEnvVars.Device.getType() == DeviceType::GPU) {
+  if (ChipEnvVars.getDevice().getType() == DeviceType::GPU) {
     ZeDeviceType = ZE_DEVICE_TYPE_GPU;
-  } else if (ChipEnvVars.Device.getType() == DeviceType::FPGA) {
+  } else if (ChipEnvVars.getDevice().getType() == DeviceType::FPGA) {
     ZeDeviceType = ZE_DEVICE_TYPE_FPGA;
-  } else if (ChipEnvVars.Device.getType() == DeviceType::DEFAULT) {
+  } else if (ChipEnvVars.getDevice().getType() == DeviceType::Default) {
     // For 'default' pick all devices of any type.
     AnyDeviceType = true;
   } else {
@@ -1747,7 +1747,7 @@ void CHIPBackendLevel0::initializeImpl() {
   Status = zeDriverGet(&DriverCount, ZeDrivers.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  if (ChipEnvVars.PlatformIdx >= DriverCount) {
+  if (ChipEnvVars.getPlatformIdx() >= DriverCount) {
     CHIPERR_LOG_AND_THROW("CHIP_PLATFORM for Level0 backend must be"
                           " < number of drivers",
                           hipErrorInitializationError);
@@ -1756,7 +1756,7 @@ void CHIPBackendLevel0::initializeImpl() {
   // TODO Allow for multilpe platforms(drivers)
   // TODO Check platform ID is not the same as OpenCL. You can have
   // two OCL platforms but only one level0 driver
-  ze_driver_handle_t ZeDriver = ZeDrivers[ChipEnvVars.PlatformIdx];
+  ze_driver_handle_t ZeDriver = ZeDrivers[ChipEnvVars.getPlatformIdx()];
 
   assert(ZeDriver != nullptr);
   // Load devices to device vector
@@ -1778,7 +1778,7 @@ void CHIPBackendLevel0::initializeImpl() {
 
   // Filter in only devices of selected type and add them to the
   // backend as derivates of Device
-  auto Dev = ZeDevices[ChipEnvVars.DeviceIdx];
+  auto Dev = ZeDevices[ChipEnvVars.getDeviceIdx()];
   ze_device_properties_t DeviceProperties{};
   DeviceProperties.pNext = nullptr;
   DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
@@ -2386,7 +2386,7 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                                  ZE_MODULE_FORMAT_IL_SPIRV,
                                  IlSize_,
                                  FuncIL_,
-                                 ChipEnvVars.JitFlags.c_str(),
+                                 ChipEnvVars.getJitFlags().c_str(),
                                  nullptr};
 
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)(ChipDev->getContext());

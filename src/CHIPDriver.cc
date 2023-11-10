@@ -74,7 +74,7 @@ void __attribute__((destructor)) uninitializeBackend() {
 static void createBackendObject() {
   assert(Backend == nullptr);
 
-  if (ChipEnvVars.Backend.getType() == BackendType::OPENCL) {
+  if (ChipEnvVars.getBackend().getType() == BackendType::OpenCL) {
 #ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
@@ -83,7 +83,7 @@ static void createBackendObject() {
                           "was not compiled with OpenCL backend",
                           hipErrorInitializationError);
 #endif
-  } else if (ChipEnvVars.Backend.getType() == BackendType::LEVEL0) {
+  } else if (ChipEnvVars.getBackend().getType() == BackendType::Level0) {
 #ifdef HAVE_LEVEL0
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
@@ -92,7 +92,7 @@ static void createBackendObject() {
                           "was not compiled with Level0 backend",
                           hipErrorInitializationError);
 #endif
-  } else if (ChipEnvVars.Backend.getType() == BackendType::DEFAULT) {
+  } else if (ChipEnvVars.getBackend().getType() == BackendType::Default) {
 #ifdef HAVE_OPENCL
     if (!Backend) {
       logDebug("CHIPBE=default... trying OpenCL Backend");
@@ -172,4 +172,4 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   return hipSuccess;
 }
 
-const char *CHIPGetBackendName() { return ChipEnvVars.Backend.str(); }
+const char *CHIPGetBackendName() { return ChipEnvVars.getBackend().str(); }

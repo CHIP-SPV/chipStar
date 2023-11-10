@@ -572,7 +572,7 @@ public:
                               [&](const std::string &S) {
                                 return DeviceName.find(S) != std::string::npos;
                               });
-    if (IsIgpu && ChipEnvVars.L0ImmCmdLists) {
+    if (IsIgpu && ChipEnvVars.getL0ImmCmdLists()) {
       logWarn("Immediate command lists are not supported on this device. "
               "Some tests likely to fail.");
     }
