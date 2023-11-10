@@ -1912,8 +1912,7 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
   // print cmd lists statistics
-  if (!ChipEnvVars.getL0ImmCmdLists() &&
-      CmdListsRequested_ > 0)
+  if (!ChipEnvVars.getL0ImmCmdLists() && CmdListsRequested_ > 0)
     logDebug("Command lists requested: {}, reused {}%", CmdListsRequested_,
              100 * (CmdListsReused_ / CmdListsRequested_));
   // delete all event pools

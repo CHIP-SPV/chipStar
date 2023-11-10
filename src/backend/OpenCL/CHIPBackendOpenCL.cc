@@ -1593,8 +1593,8 @@ void CHIPBackendOpenCL::initializeImpl() {
   }
 
   auto Device = SpirvDevices[ChipEnvVars.getDeviceIdx()];
-  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", ChipEnvVars.getDeviceIdx(),
-           Device.getInfo<CL_DEVICE_NAME>());
+  logDebug("CHIP_DEVICE={} Selected OpenCL device {}",
+           ChipEnvVars.getDeviceIdx(), Device.getInfo<CL_DEVICE_NAME>());
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
