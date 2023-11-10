@@ -200,7 +200,7 @@ public:
   int getDeviceIdx() const { return DeviceIdx_; }
   BackendType getBackend() const { return Backend_; }
   bool getDumpSpirv() const { return DumpSpirv_; }
-  std::string getJitFlags() const { return JitFlags_; }
+  const std::string &getJitFlags() const { return JitFlags_; }
   bool getL0ImmCmdLists() const { return L0ImmCmdLists_; }
   int getL0CollectEventsTimeout() const { return L0CollectEventsTimeout_; }
 
