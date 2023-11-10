@@ -24,8 +24,8 @@ jobs:
         with:
           style: file
           version: 11
-          files-changed-only: true
-          lines-changed-only: true
+          files-changed-only: false
+          lines-changed-only: false
           extensions: 'cc,hh'
           tidy-checks: 'readability-identifier-naming,readability-else-after-return'
       - name: Fail fast?!
