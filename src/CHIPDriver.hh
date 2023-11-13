@@ -130,7 +130,7 @@ private:
 public:
   DeviceType(Type TypeIn) : Type_(TypeIn) {}
 
-  std::string str() const {
+  std::string_view str() const {
     switch (Type_) {
     case GPU:
       return "gpu";
@@ -237,50 +237,50 @@ private:
     if (!isConvertibleToInt(Str))
       CHIPERR_LOG_AND_THROW("Invalid integer value: " + Str,
                             hipErrorInitializationError);
-    return std::stoi(str);
+    return std::stoi(Str);
   }
 
   bool parseBoolean(const std::string &StrIn) {
-    auto str = readEnvVar(StrIn);
-    if (str == "1" || str == "on")
+    const auto &Str = readEnvVar(StrIn);
+    if (Str== "1" || Str== "on")
       return true;
-    if (str == "0" || str == "off")
+    if (Str== "0" || Str== "off")
       return false;
-    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + str + "while parsing " +
+    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + Str+ "while parsing " +
                               StrIn,
                           hipErrorInitializationError);
     return false; // This return is never reached
   }
 
   DeviceType parseDeviceType(const std::string &StrIn) {
-    auto str = readEnvVar(StrIn);
-    if (str == "gpu")
+    const auto &Str = readEnvVar(StrIn);
+    if (Str== "gpu")
       return DeviceType(DeviceType::GPU);
-    if (str == "cpu")
+    if (Str== "cpu")
       return DeviceType(DeviceType::CPU);
-    if (str == "accel")
+    if (Str== "accel")
       return DeviceType(DeviceType::Accelerator);
-    if (str == "fpga")
+    if (Str== "fpga")
       return DeviceType(DeviceType::FPGA);
-    if (str == "")
+    if (Str== "")
       return DeviceType(DeviceType::Default);
 
-    CHIPERR_LOG_AND_THROW("Invalid device type value: " + str +
+    CHIPERR_LOG_AND_THROW("Invalid device type value: " + Str+
                               " while parsing " + StrIn,
                           hipErrorInitializationError);
     return DeviceType(DeviceType::GPU); // This return is never reached
   }
 
   BackendType parseBackendType(const std::string &StrIn) {
-    auto str = readEnvVar(StrIn);
-    if (str == "opencl")
+    const auto &Str = readEnvVar(StrIn);
+    if (Str== "opencl")
       return BackendType(BackendType::OpenCL);
-    if (str == "level0")
+    if (Str== "level0")
       return BackendType(BackendType::Level0);
-    if (str == "")
+    if (Str== "")
       return BackendType(BackendType::Default);
 
-    CHIPERR_LOG_AND_THROW("Invalid backend type value: " + str,
+    CHIPERR_LOG_AND_THROW("Invalid backend type value: " + Str,
                           hipErrorInitializationError);
   }
 
