@@ -128,7 +128,7 @@ private:
   Type Type_;
 
 public:
-  DeviceType(Type TypeIn) : Type_(TypeIn) {}
+  DeviceType() {}
   DeviceType(const std::string &StrIn) {
     if (StrIn == "gpu")
       Type_ = DeviceType::GPU;
@@ -174,15 +174,31 @@ private:
   Type Type_;
 
 public:
-  BackendType(Type TypeIn) : Type_(TypeIn) {}
+  BackendType(){};
   BackendType(const std::string &StrIn) {
-    if (StrIn == "opencl")
+    if (StrIn == "opencl") {
       Type_ = BackendType::OpenCL;
-    else if (StrIn == "level0")
+#ifndef HAVE_OPENCL
+      assert(!"Invalid chipStar Backend Selected. This chipStar "
+              "was not compiled with OpenCL backend");
+#endif
+    } else if (StrIn == "level0") {
       Type_ = BackendType::Level0;
-    else if (StrIn == "")
-      Type_ = BackendType::Default;
-    else
+#ifndef HAVE_LEVEL0
+      assert(!"Invalid chipStar Backend Selected. This chipStar "
+              "was not compiled with OpenCL backend");
+#endif
+    } else if (StrIn == "") {
+#ifdef HAVE_OPENCL
+      Type_ = BackendType::OpenCL;
+#elif HAVE_LEVEL0
+      Type_ = BackendType::Level0;
+#else
+      CHIPERR_LOG_AND_THROW("Invalid chipStar Backend Selected. This chipStar "
+                            "was not compiled with OpenCL or Level0 backend",
+                            hipErrorInitializationError);
+#endif
+    } else
       CHIPERR_LOG_AND_THROW("Invalid backend type value: " + StrIn,
                             hipErrorInitializationError);
   }
@@ -207,16 +223,16 @@ public:
 class EnvVars {
 private:
   int PlatformIdx_ = 0;
-  DeviceType Device_ = DeviceType::GPU;
+  DeviceType Device_;
   int DeviceIdx_ = 0;
-  BackendType Backend_ = BackendType::Default;
+  BackendType Backend_;
   bool DumpSpirv_ = false;
   std::string JitFlags_ = CHIP_DEFAULT_JIT_FLAGS;
   bool L0ImmCmdLists_ = true;
   int L0CollectEventsTimeout_ = 0;
 
 public:
-  EnvVars() : Device_(DeviceType::GPU), Backend_(BackendType::Default) {
+  EnvVars() {
     parseEnvironmentVariables();
     logDebugSettings();
   }
