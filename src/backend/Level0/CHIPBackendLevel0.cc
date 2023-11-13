@@ -323,8 +323,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), EventPoolIndex(0),
-      EventPool(0) {
+      EventPoolHandle_(nullptr), EventPoolIndex(0), EventPool(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -364,9 +363,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : chipstar::Event((chipstar::Context *)(ChipCtx)), Event_(NativeEvent),
-      EventPoolHandle_(nullptr), EventPoolIndex(0),
-      EventPool(nullptr) {}
-
+      EventPoolHandle_(nullptr), EventPoolIndex(0), EventPool(nullptr) {}
 
 void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   ze_result_t Status;
@@ -374,45 +371,38 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
   ChipEventLz->reset();
 
-  Status = zeDeviceGetGlobalTimestamps(ChipDevLz_->get(), &ChipEventLz->getHostTimestamp(),
+  Status = zeDeviceGetGlobalTimestamps(ChipDevLz_->get(),
+                                       &ChipEventLz->getHostTimestamp(),
                                        &ChipEventLz->getDeviceTimestamp());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   ze_command_list_handle_t CommandList = ChipCtxLz_->getCmdListReg();
-  
+
   auto EventsToWaitOn = getSyncQueuesLastEvents();
   auto EventToWaitOnHandles = getEventListHandles(EventsToWaitOn);
 
   // create an Event for making a dependency chain
-  std::shared_ptr<chipstar::Event> Event =
+  std::shared_ptr<chipstar::Event> TimestampWriteComplete =
       static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(
           this->ChipContext_);
-  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-  auto EventLzHandle = EventLz->peek();
+  auto TimestampWriteCompleteLz =
+      std::static_pointer_cast<CHIPEventLevel0>(TimestampWriteComplete);
+  auto TimestampWriteCompleteLzHandle = TimestampWriteCompleteLz->peek();
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  // logDebug number of events to wait on, their void pointers, and the msg
-  // associated with them
-  for (auto &EventToWaitOn : EventsToWaitOn) {
-    logDebug("CHIPQueueLevel0::recordEvent() waiting on event {} msg={}",
-             (void *)EventToWaitOn.get(), EventToWaitOn->Msg);
-  }
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)getSharedBufffer(), EventLzHandle, EventToWaitOnHandles.size(),
+      CommandList, (uint64_t *)getSharedBufffer(),
+      TimestampWriteCompleteLzHandle, EventToWaitOnHandles.size(),
       EventToWaitOnHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  auto DestroyCommandListEvent = static_cast<CHIPBackendLevel0 *>(Backend)
-                                     ->createCHIPEvent(this->ChipContext_);
-  auto DestroyCommandListEventLz =
-      std::static_pointer_cast<CHIPEventLevel0>(DestroyCommandListEvent);
-
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendMemoryCopy(CommandList, &ChipEventLz->getTimestamp(),
-                                         getSharedBufffer(),
-                                         sizeof(uint64_t), ChipEventLz->peek(), 1, &EventLzHandle);
+  Status = zeCommandListAppendMemoryCopy(
+      CommandList, &ChipEventLz->getTimestamp(), getSharedBufffer(),
+      sizeof(uint64_t), ChipEventLz->peek(), 1,
+      &TimestampWriteCompleteLzHandle);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   executeCommandListReg(CommandList);
