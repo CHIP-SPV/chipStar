@@ -378,8 +378,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                        &ChipEventLz->DeviceTimestamp);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  LOCK(CommandListMtx); // CHIPQueueLevel0::CommandList_
-  ze_command_list_handle_t CommandList = getCmdList();
+  ze_command_list_handle_t CommandList = ChipCtxLz_->getCmdListReg();
   
   auto EventsToWaitOn = getSyncQueuesLastEvents();
   auto EventToWaitOnHandles = getEventListHandles(EventsToWaitOn);
@@ -416,8 +415,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                          sizeof(uint64_t), ChipEventLz->peek(), 1, &EventLzHandle);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  executeCommandList(CommandList, DestroyCommandListEvent);
-  Backend->trackEvent(DestroyCommandListEvent);
+  executeCommandListReg(CommandList);
 
   ChipEventLz->setRecording();
   ChipEventLz->Msg = "recordEvent";
