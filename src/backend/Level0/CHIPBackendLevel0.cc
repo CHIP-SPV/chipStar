@@ -943,9 +943,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
       ChipCtxLz_(static_cast<CHIPContextLevel0 *>(ChipDev->getContext())) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
   ze_result_t Status;
-  auto ChipDevLz = ChipDev;
-  auto Ctx = ChipDevLz->getContext();
-  auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
+  ChipDevLz_ = ChipDev;
+  auto Ctx = ChipDevLz_->getContext();
+  ChipCtxLz_ = (CHIPContextLevel0 *)Ctx;
 
   if (TheType == Compute) {
     QueueProperties_ = ChipDev->getComputeQueueProps();
@@ -962,13 +962,13 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   QueueType = TheType;
 
   SharedBuf_ =
-      ChipContextLz->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
+      ChipCtxLz_->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
 
   // Initialize the uint64_t part as 0
   *(uint64_t *)this->SharedBuf_ = 0;
 
-  ZeCtx_ = ChipContextLz->get();
-  ZeDev_ = ChipDevLz->get();
+  ZeCtx_ = ChipCtxLz_->get();
+  ZeDev_ = ChipDevLz_->get();
 
   logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
 #ifdef CHIP_DUBIOUS_LOCKS
@@ -986,16 +986,17 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  ze_command_queue_handle_t ZeCmdQ)
     : Queue(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {
-  auto ChipDevLz = ChipDev;
-  auto Ctx = ChipDevLz->getContext();
-  auto ChipContextLz = (CHIPContextLevel0 *)Ctx;
+  ChipDevLz_ = ChipDev;
+  auto Ctx = ChipDevLz_->getContext();
+  ChipCtxLz_ = (CHIPContextLevel0 *)Ctx;
+  
 
   QueueProperties_ = ChipDev->getComputeQueueProps();
   QueueDescriptor_ = ChipDev->getNextComputeQueueDesc();
   CommandListDesc_ = ChipDev->getCommandListComputeDesc();
 
-  ZeCtx_ = ChipContextLz->get();
-  ZeDev_ = ChipDevLz->get();
+  ZeCtx_ = ChipCtxLz_->get();
+  ZeDev_ = ChipDevLz_->get();
 
   ZeCmdQ_ = ZeCmdQ;
 
