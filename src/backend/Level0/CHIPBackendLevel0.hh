@@ -81,8 +81,11 @@ public:
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
   CHIPContextLevel0 *AssocContext_ = nullptr;
-  // Used for resolving device counter overflow
-  uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0, Timestamp_ = 0;
+  /// Device timestamp gets ultimately stored here
+  uint64_t Timestamp_ = 0;
+  /// Since device counters can overflow resulting in a negative time between
+  /// two events, we store host timestamp as well to correct for this
+  uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t Event_;
