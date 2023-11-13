@@ -82,18 +82,16 @@ private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
   CHIPContextLevel0 *AssocContext_ = nullptr;
   // Used for resolving device counter overflow
-  uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t Event_;
   ze_event_pool_handle_t EventPoolHandle_;
 
-  // The timestamp value
-  uint64_t Timestamp_;
-
   std::vector<ActionFn> Actions_;
 
 public:
+  ze_event_handle_t &get() { return Event_; }
+  uint64_t HostTimestamp = 0, DeviceTimestamp = 0, Timestamp = 0;
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
 
   /**
@@ -115,7 +113,7 @@ public:
   void disassociateCmdList();
 
   uint32_t getValidTimestampBits();
-  uint64_t getHostTimestamp() { return HostTimestamp_; }
+  uint64_t getHostTimestamp() { return HostTimestamp; }
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
   CHIPEventLevel0()
@@ -259,6 +257,7 @@ protected:
   void initializeCmdListImm();
 
 public:
+  virtual void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
 
   std::vector<ze_event_handle_t> getEventListHandles(
