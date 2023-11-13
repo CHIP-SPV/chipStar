@@ -249,20 +249,24 @@ public:
 private:
   void parseEnvironmentVariables() {
     // Parse all the environment variables and set the class members
-    if (!readEnvVar("CHIP_PLATFORM").empty()) {
+    if (!readEnvVar("CHIP_PLATFORM").empty())
       PlatformIdx_ = parseInt("CHIP_PLATFORM");
-      Device_ = DeviceType(readEnvVar("CHIP_DEVICE_TYPE"));
-    }
-    if (!readEnvVar("CHIP_DEVICE").empty()) {
+
+    Device_ = DeviceType(readEnvVar("CHIP_DEVICE_TYPE"));
+
+    if (!readEnvVar("CHIP_DEVICE").empty())
       DeviceIdx_ = parseInt("CHIP_DEVICE");
-      Backend_ = BackendType(readEnvVar("CHIP_BE"));
-    }
-    if (!readEnvVar("CHIP_DUMP_SPIRV").empty()) {
+
+    Backend_ = BackendType(readEnvVar("CHIP_BE"));
+
+    if (!readEnvVar("CHIP_DUMP_SPIRV").empty())
       DumpSpirv_ = parseBoolean("CHIP_DUMP_SPIRV");
-      JitFlags_ = parseJitFlags("CHIP_JIT_FLAGS_OVERRIDE");
-    }
+
+    JitFlags_ = parseJitFlags("CHIP_JIT_FLAGS_OVERRIDE");
+
     if (!readEnvVar("CHIP_L0_IMM_CMD_LISTS").empty())
       L0ImmCmdLists_ = parseBoolean("CHIP_L0_IMM_CMD_LISTS");
+
     if (!readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT").empty())
       L0CollectEventsTimeout_ = parseInt("CHIP_L0_COLLECT_EVENTS_TIMEOUT");
   }
