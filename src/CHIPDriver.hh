@@ -130,15 +130,15 @@ private:
 public:
   DeviceType(Type TypeIn) : Type_(TypeIn) {}
   DeviceType(const std::string &StrIn) {
-    if (StrIn== "gpu")
+    if (StrIn == "gpu")
       Type_ = DeviceType::GPU;
-    else if (StrIn== "cpu")
+    else if (StrIn == "cpu")
       Type_ = DeviceType::CPU;
-    else if (StrIn== "accel")
+    else if (StrIn == "accel")
       Type_ = DeviceType::Accelerator;
-    else if (StrIn== "fpga")
+    else if (StrIn == "fpga")
       Type_ = DeviceType::FPGA;
-    else if (StrIn== "")
+    else if (StrIn == "")
       Type_ = DeviceType::Default;
     else
       CHIPERR_LOG_AND_THROW("Invalid device type value: " + StrIn,
@@ -176,11 +176,11 @@ private:
 public:
   BackendType(Type TypeIn) : Type_(TypeIn) {}
   BackendType(const std::string &StrIn) {
-    if (StrIn== "opencl")
+    if (StrIn == "opencl")
       Type_ = BackendType::OpenCL;
-    else if (StrIn== "level0")
+    else if (StrIn == "level0")
       Type_ = BackendType::Level0;
-    else if (StrIn== "")
+    else if (StrIn == "")
       Type_ = BackendType::Default;
     else
       CHIPERR_LOG_AND_THROW("Invalid backend type value: " + StrIn,
@@ -268,11 +268,11 @@ private:
 
   bool parseBoolean(const std::string &StrIn) {
     const auto &Str = readEnvVar(StrIn);
-    if (Str== "1" || Str== "on")
+    if (Str == "1" || Str == "on")
       return true;
-    if (Str== "0" || Str== "off")
+    if (Str == "0" || Str == "off")
       return false;
-    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + Str+ "while parsing " +
+    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + Str + "while parsing " +
                               StrIn,
                           hipErrorInitializationError);
     return false; // This return is never reached

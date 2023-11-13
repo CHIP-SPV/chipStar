@@ -706,7 +706,6 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
 
 void CHIPStaleEventMonitorLevel0::exitChecks() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
-  CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
   /**
    * In the case that a user doesn't destroy all the
    * created streams, we remove the streams and outstanding events in
@@ -989,7 +988,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ChipDevLz_ = ChipDev;
   auto Ctx = ChipDevLz_->getContext();
   ChipCtxLz_ = (CHIPContextLevel0 *)Ctx;
-  
 
   QueueProperties_ = ChipDev->getComputeQueueProps();
   QueueDescriptor_ = ChipDev->getNextComputeQueueDesc();
