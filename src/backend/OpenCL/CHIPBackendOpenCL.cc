@@ -605,15 +605,6 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
   ChipEventCL->setRecording();
 }
 
-void CHIPEventOpenCL::recordStream(chipstar::Queue *ChipQueue) {
-  logTrace("chipstar::Event::recordStream()");
-  std::shared_ptr<chipstar::Event> MarkerEvent = ChipQueue->enqueueMarker();
-  this->takeOver(MarkerEvent);
-
-  this->EventStatus_ = EVENT_STATUS_RECORDING;
-  return;
-}
-
 void CHIPEventOpenCL::takeOver(
     const std::shared_ptr<chipstar::Event> &OtherIn) {
   logTrace("CHIPEventOpenCL::takeOver");

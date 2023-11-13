@@ -748,14 +748,6 @@ public:
   }
 
   /**
-   * @brief Enqueue this event in a given Queue
-   *
-   * @param chip_queue_ Queue in which to enque this event
-   * @return true
-   * @return false
-   */
-  virtual void recordStream(chipstar::Queue *ChipQueue) = 0;
-  /**
    * @brief Wait for this event to complete
    *
    * @return true
@@ -2071,7 +2063,7 @@ protected:
   bool isPerThreadDefaultQueue_ = false;
 
 public:
-  virtual void recordEvent(chipstar::Event *Event) {};
+  virtual void recordEvent(chipstar::Event *Event) = 0;
   bool isDefaultLegacyQueue() { return isDefaultLegacyQueue_; }
   bool isDefaultPerThreadQueue() { return isPerThreadDefaultQueue_; }
   void setDefaultLegacyQueue(bool Status) { isDefaultLegacyQueue_ = Status; }

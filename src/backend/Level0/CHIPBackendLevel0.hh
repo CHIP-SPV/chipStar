@@ -82,6 +82,7 @@ private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
   CHIPContextLevel0 *AssocContext_ = nullptr;
   // Used for resolving device counter overflow
+  uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0, Timestamp_ = 0;
   friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t Event_;
@@ -91,7 +92,9 @@ private:
 
 public:
   ze_event_handle_t &get() { return Event_; }
-  uint64_t HostTimestamp = 0, DeviceTimestamp = 0, Timestamp = 0;
+  uint64_t &getTimestamp() { return Timestamp_; }
+  uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
+  uint64_t &getHostTimestamp() { return HostTimestamp_; }
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
 
   /**
@@ -113,7 +116,6 @@ public:
   void disassociateCmdList();
 
   uint32_t getValidTimestampBits();
-  uint64_t getHostTimestamp() { return HostTimestamp; }
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
   CHIPEventLevel0()
@@ -124,8 +126,6 @@ public:
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, LZEventPool *EventPool,
                   unsigned int PoolIndex, chipstar::EventFlags Flags);
   virtual ~CHIPEventLevel0() override;
-
-  void recordStream(chipstar::Queue *ChipQueue) override;
 
   virtual bool wait() override;
 
