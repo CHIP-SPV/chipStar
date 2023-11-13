@@ -129,6 +129,21 @@ private:
 
 public:
   DeviceType(Type TypeIn) : Type_(TypeIn) {}
+  DeviceType(const std::string &StrIn) {
+    if (StrIn== "gpu")
+      Type_ = DeviceType::GPU;
+    else if (StrIn== "cpu")
+      Type_ = DeviceType::CPU;
+    else if (StrIn== "accel")
+      Type_ = DeviceType::Accelerator;
+    else if (StrIn== "fpga")
+      Type_ = DeviceType::FPGA;
+    else if (StrIn== "")
+      Type_ = DeviceType::Default;
+    else
+      CHIPERR_LOG_AND_THROW("Invalid device type value: " + StrIn,
+                            hipErrorInitializationError);
+  }
 
   std::string_view str() const {
     switch (Type_) {
@@ -160,6 +175,17 @@ private:
 
 public:
   BackendType(Type TypeIn) : Type_(TypeIn) {}
+  BackendType(const std::string &StrIn) {
+    if (StrIn== "opencl")
+      Type_ = BackendType::OpenCL;
+    else if (StrIn== "level0")
+      Type_ = BackendType::Level0;
+    else if (StrIn== "")
+      Type_ = BackendType::Default;
+    else
+      CHIPERR_LOG_AND_THROW("Invalid backend type value: " + StrIn,
+                            hipErrorInitializationError);
+  }
 
   const char *str() const {
     switch (Type_) {
@@ -209,11 +235,11 @@ private:
     // Parse all the environment variables and set the class members
     if (!readEnvVar("CHIP_PLATFORM").empty()) {
       PlatformIdx_ = parseInt("CHIP_PLATFORM");
-      Device_ = parseDeviceType("CHIP_DEVICE_TYPE");
+      Device_ = DeviceType(readEnvVar("CHIP_DEVICE_TYPE"));
     }
     if (!readEnvVar("CHIP_DEVICE").empty()) {
       DeviceIdx_ = parseInt("CHIP_DEVICE");
-      Backend_ = parseBackendType("CHIP_BE");
+      Backend_ = BackendType(readEnvVar("CHIP_BE"));
     }
     if (!readEnvVar("CHIP_DUMP_SPIRV").empty()) {
       DumpSpirv_ = parseBoolean("CHIP_DUMP_SPIRV");
@@ -250,38 +276,6 @@ private:
                               StrIn,
                           hipErrorInitializationError);
     return false; // This return is never reached
-  }
-
-  DeviceType parseDeviceType(const std::string &StrIn) {
-    const auto &Str = readEnvVar(StrIn);
-    if (Str== "gpu")
-      return DeviceType(DeviceType::GPU);
-    if (Str== "cpu")
-      return DeviceType(DeviceType::CPU);
-    if (Str== "accel")
-      return DeviceType(DeviceType::Accelerator);
-    if (Str== "fpga")
-      return DeviceType(DeviceType::FPGA);
-    if (Str== "")
-      return DeviceType(DeviceType::Default);
-
-    CHIPERR_LOG_AND_THROW("Invalid device type value: " + Str+
-                              " while parsing " + StrIn,
-                          hipErrorInitializationError);
-    return DeviceType(DeviceType::GPU); // This return is never reached
-  }
-
-  BackendType parseBackendType(const std::string &StrIn) {
-    const auto &Str = readEnvVar(StrIn);
-    if (Str== "opencl")
-      return BackendType(BackendType::OpenCL);
-    if (Str== "level0")
-      return BackendType(BackendType::Level0);
-    if (Str== "")
-      return BackendType(BackendType::Default);
-
-    CHIPERR_LOG_AND_THROW("Invalid backend type value: " + Str,
-                          hipErrorInitializationError);
   }
 
   void logDebugSettings() const {
