@@ -2063,6 +2063,8 @@ protected:
   bool isPerThreadDefaultQueue_ = false;
 
 public:
+  /// @brief Get the host/device timestamps and copy them to the event.
+  /// @param Event The event to update.
   virtual void recordEvent(chipstar::Event *Event) = 0;
   bool isDefaultLegacyQueue() { return isDefaultLegacyQueue_; }
   bool isDefaultPerThreadQueue() { return isPerThreadDefaultQueue_; }
