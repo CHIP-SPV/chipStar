@@ -56,4 +56,6 @@
 
 #cmakedefine CHIP_ERROR_IF_NOT_IMPLEMENTED
 
+#cmakedefine CHIP_DEFAULT_JIT_FLAGS "@CHIP_DEFAULT_JIT_FLAGS@"
+
 #endif

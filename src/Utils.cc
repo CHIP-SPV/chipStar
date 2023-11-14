@@ -40,7 +40,6 @@ bool isConvertibleToInt(const std::string &str) {
 
 /// Read an environment variable and return its value as a string.
 std::string readEnvVar(std::string EnvVar, bool Lower) {
-  logDebug("Reading {} from env", EnvVar);
   const char *EnvVarIn = std::getenv(EnvVar.c_str());
   if (EnvVarIn == nullptr) {
     return std::string();
@@ -65,11 +64,6 @@ std::string generateShortHash(std::string_view input, size_t length) {
 
 /// Dump the SPIR-V to a file
 void dumpSpirv(std::string_view Spirv) {
-  auto dump = readEnvVar("CHIP_DUMP_SPIRV");
-  if (dump.empty()) {
-    return;
-  }
-
   std::string hashSum = generateShortHash(Spirv, 6);
   std::string fileName = "hip-spirv-" + hashSum + ".spv";
   std::ofstream SpirvFile(fileName, std::ios::binary);

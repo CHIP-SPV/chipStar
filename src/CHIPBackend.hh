@@ -1818,12 +1818,6 @@ public:
 
   std::vector<chipstar::Context *> ChipContexts;
 
-  /**
-   * @brief User defined compiler options to pass to the JIT compiler
-   *
-   */
-  std::string CustomJitFlags;
-
   int getQueuePriorityRange();
 
   /**
@@ -1834,14 +1828,6 @@ public:
   virtual std::string getDefaultJitFlags() = 0;
 
   virtual int ReqNumHandles() = 0;
-  /**
-   * @brief Get the jit options object
-   * return CHIP_JIT_FLAGS if it is set, otherwise return default options as
-   * defined by Backend<implementation>::getDefaultJitFlags()
-   *
-   * @return std::string flags to pass to JIT compiler
-   */
-  std::string getJitFlags();
 
   // TODO
   // key for caching compiled modules. To get a cached compiled module on a
@@ -1873,8 +1859,7 @@ public:
    * @param device_type_str
    * @param device_ids_str
    */
-  void initialize(std::string PlatformStr, std::string DeviceTypeStr,
-                  std::string DeviceIdStr);
+  void initialize();
 
   /**
    * @brief Initialize this backend with given environment flags
@@ -1883,9 +1868,7 @@ public:
    * @param device_type_str
    * @param device_ids_str
    */
-  virtual void initializeImpl(std::string PlatformStr,
-                              std::string DeviceTypeStr,
-                              std::string DeviceIdStr) = 0;
+  virtual void initializeImpl() = 0;
 
   /**
    * @brief Initialize this backend with given Native handles

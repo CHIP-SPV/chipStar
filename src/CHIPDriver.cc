@@ -45,8 +45,9 @@ std::once_flag EnvInitialized;
 std::once_flag Uninitialized;
 bool UsingDefaultBackend;
 chipstar::Backend *Backend = nullptr;
-std::string CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr, CHIPBackendType;
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
+
+EnvVars ChipEnvVars;
 
 // CUDA Driver API: "If cuInit() has not been called, any function
 // from the driver API will return CUDA_ERROR_NOT_INITIALIZED".
@@ -70,39 +71,10 @@ void __attribute__((destructor)) uninitializeBackend() {
     CHIPUninitialize();
 }
 
-void CHIPReadEnvVarsCallOnce() {
-  CHIPPlatformStr = readEnvVar("CHIP_PLATFORM");
-  if (CHIPPlatformStr.size() == 0)
-    CHIPPlatformStr = "0";
-
-  CHIPDeviceTypeStr = readEnvVar("CHIP_DEVICE_TYPE");
-  if (CHIPDeviceTypeStr.size() == 0)
-    CHIPDeviceTypeStr = "gpu";
-
-  CHIPDeviceStr = readEnvVar("CHIP_DEVICE");
-  if (CHIPDeviceStr.size() == 0)
-    CHIPDeviceStr = "0";
-
-  CHIPBackendType = readEnvVar("CHIP_BE");
-  if (CHIPBackendType.size() == 0) {
-    CHIPBackendType = "default";
-  }
-
-  logDebug("CHIP_PLATFORM={}", CHIPPlatformStr.c_str());
-  logDebug("CHIP_DEVICE_TYPE={}", CHIPDeviceTypeStr.c_str());
-  logDebug("CHIP_DEVICE={}", CHIPDeviceStr.c_str());
-  logDebug("CHIP_BE={}", CHIPBackendType.c_str());
-}
-
-void CHIPReadEnvVars() {
-  std::call_once(EnvInitialized, &CHIPReadEnvVarsCallOnce);
-}
-
 static void createBackendObject() {
   assert(Backend == nullptr);
-  const std::string ChipBe = CHIPBackendType;
 
-  if (!ChipBe.compare("opencl")) {
+  if (ChipEnvVars.getBackend().getType() == BackendType::OpenCL) {
 #ifdef HAVE_OPENCL
     logDebug("CHIPBE=OPENCL... Initializing OpenCL Backend");
     Backend = new CHIPBackendOpenCL();
@@ -111,7 +83,7 @@ static void createBackendObject() {
                           "was not compiled with OpenCL backend",
                           hipErrorInitializationError);
 #endif
-  } else if (!ChipBe.compare("level0")) {
+  } else if (ChipEnvVars.getBackend().getType() == BackendType::Level0) {
 #ifdef HAVE_LEVEL0
     logDebug("CHIPBE=LEVEL0... Initializing Level0 Backend");
     Backend = new CHIPBackendLevel0();
@@ -120,37 +92,32 @@ static void createBackendObject() {
                           "was not compiled with Level0 backend",
                           hipErrorInitializationError);
 #endif
-  } else if (!ChipBe.compare("default")) {
-#ifdef HAVE_LEVEL0
-    if (!Backend) {
-      logDebug("CHIPBE=default... trying Level0 Backend");
-      Backend = new CHIPBackendLevel0();
-    }
-#endif
+  } else if (ChipEnvVars.getBackend().getType() == BackendType::Default) {
 #ifdef HAVE_OPENCL
     if (!Backend) {
       logDebug("CHIPBE=default... trying OpenCL Backend");
       Backend = new CHIPBackendOpenCL();
     }
 #endif
+#ifdef HAVE_LEVEL0
+    if (!Backend) {
+      logDebug("CHIPBE=default... trying Level0 Backend");
+      Backend = new CHIPBackendLevel0();
+    }
+#endif
     if (!Backend) {
       CHIPERR_LOG_AND_THROW("Could not initialize any backend.",
                             hipErrorInitializationError);
     }
-  } else {
-    CHIPERR_LOG_AND_THROW(
-        "Invalid chipStar Backend Selected. Accepted values : level0, opencl.",
-        hipErrorInitializationError);
   }
 }
 
 void CHIPInitializeCallOnce() {
-  CHIPReadEnvVars();
   logDebug("CHIPDriver Initialize");
 
   createBackendObject();
 
-  Backend->initialize(CHIPPlatformStr, CHIPDeviceTypeStr, CHIPDeviceStr);
+  Backend->initialize();
 }
 
 extern void CHIPInitialize() {
@@ -176,7 +143,6 @@ extern void CHIPUninitialize() {
 
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles) {
-  CHIPReadEnvVars();
   logDebug("CHIPDriver REInitialize");
 
   // chipstar::Kernel compilation may have already taken place so we need save
@@ -206,9 +172,4 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   return hipSuccess;
 }
 
-const char *CHIPGetBackendName() {
-  if (CHIPBackendType.size() == 0) {
-    CHIPBackendType = readEnvVar("CHIP_BE");
-  }
-  return CHIPBackendType.c_str();
-}
+const char *CHIPGetBackendName() { return ChipEnvVars.getBackend().str(); }

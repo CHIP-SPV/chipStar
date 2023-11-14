@@ -616,24 +616,7 @@ public:
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
-  bool useImmCmdLists_ = true; // default to immediate command lists
-  int collectEventsTimeout_ = 30;
-
 public:
-  int getCollectEventsTimeout() { return collectEventsTimeout_; }
-  void setCollectEventsTimeout() {
-    auto str = readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", true);
-    // assert that str can be converted to an int
-    if (str.empty())
-      str = "30";
-    assert(isConvertibleToInt(str) && "CHIP_L0_COLLECT_EVENTS_TIMEOUT "
-                                      "must be an integer or empty "
-                                      "(default: 30) measured in seconds");
-    collectEventsTimeout_ = std::stoi(str);
-    logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT = {}", collectEventsTimeout_);
-  }
-
-  bool getUseImmCmdLists() { return useImmCmdLists_; }
   void setUseImmCmdLists(std::string_view DeviceName) {
     // Immediate command lists seem to not work on some Intel iGPUs
     // https://en.wikipedia.org/wiki/List_of_Intel_graphics_processing_units
@@ -643,18 +626,10 @@ public:
                               [&](const std::string &S) {
                                 return DeviceName.find(S) != std::string::npos;
                               });
-    auto str = readEnvVar("CHIP_L0_IMM_CMD_LISTS", true);
-    // assert that str is either 0, 1, on, off or empty
-    assert((str.empty() || str == "0" || str == "1" || str == "on" ||
-            str == "off") &&
-           "CHIP_L0_IMM_CMD_LISTS must be 0, 1, on, off or "
-           "empty (default: on)");
-    useImmCmdLists_ = (str == "1" || str == "on" || str.empty());
-    if (IsIgpu && useImmCmdLists_) {
+    if (IsIgpu && ChipEnvVars.getL0ImmCmdLists()) {
       logWarn("Immediate command lists are not supported on this device. "
               "Some tests likely to fail.");
     }
-    logDebug("CHIP_L0_IMM_CMD_LISTS = {}", useImmCmdLists_ ? "true" : "false");
   }
 
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
@@ -664,9 +639,7 @@ public:
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 
-  virtual void initializeImpl(std::string CHIPPlatformStr,
-                              std::string CHIPDeviceTypeStr,
-                              std::string CHIPDeviceStr) override;
+  virtual void initializeImpl() override;
 
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
                                     int NumHandles) override;
