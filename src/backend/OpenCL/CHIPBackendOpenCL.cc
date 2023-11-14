@@ -571,8 +571,6 @@ uint64_t CHIPEventOpenCL::getFinishTime() {
                                  sizeof(int), &EventStatus_, NULL);
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
-  // CHIPERR_CHECK_LOG_AND_THROW(status, CL_SUCCESS, hipErrorTbd,
-  //                             "Failed to query event for profiling info.");
   return Ret;
 }
 
@@ -599,10 +597,17 @@ CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
 
 void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
   logTrace("chipstar::Queue::recordEvent({})", (void *)ChipEvent);
-  std::shared_ptr<chipstar::Event> MarkerEvent = enqueueMarker();
   auto ChipEventCL = static_cast<CHIPEventOpenCL *>(ChipEvent);
-  ChipEventCL->takeOver(MarkerEvent);
-  ChipEventCL->setRecording();
+
+  if (getLastEvent()  == nullptr) {
+    std::shared_ptr<chipstar::Event> MarkerEvent = enqueueMarker();
+    ChipEventCL->takeOver(MarkerEvent);
+    ChipEventCL->setRecording();
+  } else {
+    std::shared_ptr<chipstar::Event> LastEvent = getLastEvent();
+    ChipEventCL->takeOver(LastEvent);
+    ChipEventCL->setRecording();
+  }
 }
 
 void CHIPEventOpenCL::takeOver(
@@ -1085,8 +1090,11 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
-  auto Status = clEnqueueMarker(
-      this->get()->get(),
+
+  auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
+  auto Status = clEnqueueMarkerWithWaitList(
+      this->get()->get(), SyncQueuesEventHandles.size(),
+      SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MarkerEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   MarkerEvent->Msg = "marker";
