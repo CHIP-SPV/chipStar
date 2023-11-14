@@ -599,7 +599,7 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
   logTrace("chipstar::Queue::recordEvent({})", (void *)ChipEvent);
   auto ChipEventCL = static_cast<CHIPEventOpenCL *>(ChipEvent);
 
-  if (getLastEvent()  == nullptr) {
+  if (getLastEvent() == nullptr) {
     std::shared_ptr<chipstar::Event> MarkerEvent = enqueueMarker();
     ChipEventCL->takeOver(MarkerEvent);
     ChipEventCL->setRecording();
