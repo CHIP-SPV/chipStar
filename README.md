@@ -135,8 +135,8 @@ CHIP_PLATFORM=<N>                               # If there are multiple platform
 CHIP_DEVICE=<N>                                 # If there are multiple devices present on the system, selects which one to use. Defaults to 0
 CHIP_LOGLEVEL=<trace/debug/info/warn/err/crit>  # Sets the log level. If compiled in RELEASE, only err/crit are available
 CHIP_DUMP_SPIRV=<ON/OFF(default)>               # Dumps the generated SPIR-V code to a file
-CHIP_JIT_FLAGS=<flags>                          # String to override the default JIT flags. Defaults to -x spir -cl-kernel-arg-info -cl-std=CL3.0
-CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in milliseconds for collecting Level Zero events
+CHIP_JIT_FLAGS=<flags>                          # String to override the default JIT flags. Defaults to -cl-kernel-arg-info -cl-std=CL3.0
+CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in seconds for collecting Level Zero events
 CHIP_L0_IMM_CMD_LISTS=<ON(default)/OFF>         # Use immediate command lists in Level Zero
 ```
 
