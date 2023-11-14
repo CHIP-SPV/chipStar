@@ -226,7 +226,8 @@ void chipstar::Module::consumeSPIRV() {
 
   // dump the SPIR-V source into current directory if CHIP_DUMP_SPIRV is set
   // dump here prior to parsing in case parsing crashes
-  dumpSpirv(Src_->getBinary());
+  if (ChipEnvVars.getDumpSpirv())
+    dumpSpirv(Src_->getBinary());
 
   // Parse the SPIR-V fat binary to retrieve kernel function
   size_t NumWords = IlSize_ / 4;
@@ -1150,17 +1151,6 @@ int chipstar::Backend::getQueuePriorityRange() {
   return MinQueuePriority_;
 }
 
-std::string chipstar::Backend::getJitFlags() {
-  std::string Flags;
-  if (CustomJitFlags != "") {
-    Flags = CustomJitFlags;
-  } else {
-    Flags = getDefaultJitFlags();
-  }
-  logDebug("JIT compiler flags: {}", Flags);
-  return Flags;
-}
-
 chipstar::Backend::Backend() {
   logDebug("Backend Base Constructor");
   Logger = spdlog::default_logger();
@@ -1239,11 +1229,8 @@ void chipstar::Backend::waitForThreadExit() {
     }
   }
 }
-void chipstar::Backend::initialize(std::string PlatformStr,
-                                   std::string DeviceTypeStr,
-                                   std::string DeviceIdStr) {
-  initializeImpl(PlatformStr, DeviceTypeStr, DeviceIdStr);
-  CustomJitFlags = readEnvVar("CHIP_JIT_FLAGS", false);
+void chipstar::Backend::initialize() {
+  initializeImpl();
   if (ChipContexts.size() == 0) {
     std::string Msg = "No CHIPContexts were initialized";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
