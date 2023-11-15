@@ -444,8 +444,14 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   -I${CMAKE_BINARY_DIR}/include)
 
 # HIP applications need to link against libCHIP.so; add it to rpath
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-L${LIB_INSTALL_DIR}" "-lCHIP")
-list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-L${CMAKE_BINARY_DIR}" "-lCHIP")
+#
+# -no-hip-rt: Prevents linking amdhip64 library implicitly when doing
+#             combined compile and link or when the --hip-link is
+#             present at the link step.
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
+  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt")
+list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
+  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt")
 
 if(OpenCL_LIBRARY)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})

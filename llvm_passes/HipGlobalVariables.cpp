@@ -98,7 +98,11 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
 
   auto Name = std::string(ChipVarInfoPrefix) + GVar->getName().str();
   IRBuilder<> Builder(createKernelStub(
+#if LLVM_VERSION_MAJOR > 17
+      M, Name, {PointerType::get(M.getContext(), SpirvCrossWorkGroupAS)}));
+#else
       M, Name, {Type::getInt64PtrTy(M.getContext(), SpirvCrossWorkGroupAS)}));
+#endif
 
   const auto &DL = M.getDataLayout();
   auto *InfoArg = Builder.GetInsertBlock()->getParent()->getArg(0);
@@ -137,7 +141,12 @@ static void emitGlobalVarBindShadowKernel(Module &M, GlobalVariable *GVar,
 
   auto Name = std::string(ChipVarBindPrefix) + OriginalGVar->getName().str();
   IRBuilder<> Builder(createKernelStub(
+#if LLVM_VERSION_MAJOR > 17
+      M, Name, {PointerType::get(M.getContext(), SpirvCrossWorkGroupAS)}));
+#else
       M, Name, {Type::getInt8PtrTy(M.getContext(), SpirvCrossWorkGroupAS)}));
+#endif
+
   Value *BindArg = Builder.GetInsertBlock()->getParent()->getArg(0);
   BindArg = Builder.CreatePointerBitCastOrAddrSpaceCast(BindArg,
                                                         GVar->getValueType());
