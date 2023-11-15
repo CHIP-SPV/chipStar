@@ -723,7 +723,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   //   for (chipstar::Device  *chip_dev : chip_devices) {
   std::string Name = ChipDevOcl->getName();
-  Err = ClProgram.build(ChipEnvVars.getJitFlags().c_str());
+  Err = ClProgram.build(Backend->getJitFlags().c_str());
   auto ErrBuild = Err;
 
   std::string Log =
@@ -1532,23 +1532,27 @@ std::string CHIPBackendOpenCL::getDefaultJitFlags() {
   return std::string("-cl-kernel-arg-info -cl-std=CL3.0");
 }
 
-void CHIPBackendOpenCL::initializeImpl() {
+void CHIPBackendOpenCL::initializeImpl(std::string CHIPPlatformStr,
+                                       std::string CHIPDeviceTypeStr,
+                                       std::string CHIPDeviceStr) {
   logTrace("CHIPBackendOpenCL Initialize");
   MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
 
   // transform device type string into CL
   cl_bitfield SelectedDevType = 0;
-  if (ChipEnvVars.getDevice().getType() == DeviceType::CPU)
+  if (CHIPDeviceTypeStr == "all")
+    SelectedDevType = CL_DEVICE_TYPE_ALL;
+  else if (CHIPDeviceTypeStr == "cpu")
     SelectedDevType = CL_DEVICE_TYPE_CPU;
-  else if (ChipEnvVars.getDevice().getType() == DeviceType::GPU)
+  else if (CHIPDeviceTypeStr == "gpu")
     SelectedDevType = CL_DEVICE_TYPE_GPU;
-  else if (ChipEnvVars.getDevice().getType() == DeviceType::Accelerator)
+  else if (CHIPDeviceTypeStr == "default")
+    SelectedDevType = CL_DEVICE_TYPE_DEFAULT;
+  else if (CHIPDeviceTypeStr == "accel")
     SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
-  else if (ChipEnvVars.getDevice().getType() == DeviceType::Default)
-    SelectedDevType = CL_DEVICE_TYPE_GPU;
   else
     throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
-  logTrace("Using Devices of type {}", ChipEnvVars.getDevice().str());
+  logTrace("Using Devices of type {}", CHIPDeviceTypeStr);
 
   std::vector<cl::Platform> Platforms;
   cl_int Err = cl::Platform::get(&Platforms);
@@ -1562,7 +1566,12 @@ void CHIPBackendOpenCL::initializeImpl() {
     StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
   logTrace("{}", StrStream.str());
-  int SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
+  int SelectedPlatformIdx = atoi(CHIPPlatformStr.c_str());
+  if (SelectedPlatformIdx >= Platforms.size()) {
+    logCritical("Selected OpenCL platform {} is out of range",
+                SelectedPlatformIdx);
+    std::exit(1);
+  }
 
   cl::Platform SelectedPlatform = Platforms[SelectedPlatformIdx];
   logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
@@ -1570,7 +1579,7 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   StrStream.str("");
 
-  StrStream << "OpenCL Devices of type " << ChipEnvVars.getDevice().str()
+  StrStream << "OpenCL Devices of type " << CHIPDeviceTypeStr
             << " with SPIR-V_1 support:\n";
   std::vector<cl::Device> SpirvDevices;
   std::vector<cl::Device> Dev;
@@ -1586,15 +1595,15 @@ void CHIPBackendOpenCL::initializeImpl() {
   }
   logTrace("{}", StrStream.str());
 
-  if (ChipEnvVars.getDeviceIdx() >= SpirvDevices.size()) {
-    logCritical("Selected OpenCL device {} is out of range",
-                ChipEnvVars.getDeviceIdx());
+  int SelectedDeviceIdx = atoi(CHIPDeviceStr.c_str());
+  if (SelectedDeviceIdx >= SpirvDevices.size()) {
+    logCritical("Selected OpenCL device {} is out of range", SelectedDeviceIdx);
     std::exit(1);
   }
 
-  auto Device = SpirvDevices[ChipEnvVars.getDeviceIdx()];
-  logDebug("CHIP_DEVICE={} Selected OpenCL device {}",
-           ChipEnvVars.getDeviceIdx(), Device.getInfo<CL_DEVICE_NAME>());
+  auto Device = SpirvDevices[SelectedDeviceIdx];
+  logDebug("CHIP_DEVICE={} Selected OpenCL device {}", SelectedDeviceIdx,
+           Device.getInfo<CL_DEVICE_NAME>());
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context

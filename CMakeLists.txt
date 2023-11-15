@@ -216,7 +216,6 @@ option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
 # If your application does a lot of small allocations, it might be slow
 # https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
 option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
-set(CHIP_DEFAULT_JIT_FLAGS "-cl-kernel-arg-info -cl-std=CL3.0")
 
 option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 

@@ -359,7 +359,9 @@ public:
                                              hipStream_t ChipQueue) override;
 
   virtual void uninitialize() override { waitForThreadExit(); }
-  virtual void initializeImpl() override;
+  virtual void initializeImpl(std::string CHIPPlatformStr,
+                              std::string CHIPDeviceTypeStr,
+                              std::string CHIPDeviceStr) override;
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
                                     int NumHandles) override;
 
