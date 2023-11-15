@@ -383,8 +383,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
   // create an Event for making a dependency chain
   std::shared_ptr<chipstar::Event> TimestampWriteComplete =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(
-          this->ChipContext_);
+      Backend->createCHIPEvent(this->ChipContext_);
   auto TimestampWriteCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(TimestampWriteComplete);
   auto TimestampWriteCompleteLzHandle = TimestampWriteCompleteLz->peek();
@@ -450,26 +449,6 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
   return false;
 }
-
-/** This Doesn't work right now due to Level Zero Backend hanging?
-  unsinged long CHIPEventLevel0::getFinishTime() {
-
-    ze_kernel_Timestampresult_t res{};
-    auto Status = zeEventQueryKernelTimestamp(Event_, &res);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-    CHIPContextLevel0* chip_ctx_lz = (CHIPContextLevel0*)chip_context;
-    CHIPDeviceLevel0* chip_dev_lz =
-        (CHIPDeviceLevel0*)chip_ctx_lz->getDevices()[0];
-
-    auto props = chip_dev_lz->getDeviceProps();
-
-    uint64_t timerResolution = props->timerResolution;
-    uint32_t timestampValidBits = props->timestampValidBits;
-
-    return res.context.kernelEnd * timerResolution;
-  }
-  */
 
 uint32_t CHIPEventLevel0::getValidTimestampBits() {
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;

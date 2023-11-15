@@ -260,7 +260,7 @@ protected:
   void initializeCmdListImm();
 
 public:
-  virtual void recordEvent(chipstar::Event *ChipEvent) override;
+  void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
 
   std::vector<ze_event_handle_t> getEventListHandles(
