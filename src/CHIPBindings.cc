@@ -1341,6 +1341,7 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
                                                        Kind)) {
@@ -2406,6 +2407,8 @@ static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
     *Ptr = nullptr;
     return hipSuccess;
   }
+  // Lock the default queue in case map/unmap operations needed
+  LOCK(::Backend->getActiveDevice()->getDefaultQueue()->QueueMtx)
   void *RetVal = Backend->getActiveContext()->allocate(
       Size, hipMemoryType::hipMemoryTypeDevice);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
