@@ -811,6 +811,8 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
                             // updateLastEvent(nullptr)) hasn't been called yet,
                             // and the event monitor ends up waiting forever.
 
+  auto Status = zeFenceDestroy(ZeFence_);
+  assert(Status == ZE_RESULT_SUCCESS);
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
@@ -960,6 +962,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   if (ChipEnvVars.getL0ImmCmdLists()) {
     initializeCmdListImm();
   }
+
+  initializeFence();
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
@@ -981,6 +985,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   if (ChipEnvVars.getL0ImmCmdLists()) {
     initializeCmdListImm();
   }
+
+  initializeFence();
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1523,12 +1529,15 @@ void CHIPQueueLevel0::finish() {
     if (EventLZ)
       EventLZ->wait();
   } else {
-    zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
+    zeFenceHostSynchronize(ZeFence_, UINT64_MAX);
   }
 
   return;
 }
 
+void CHIPQueueLevel0::initializeFence() {
+  zeFenceCreate(ZeCmdQ_, &ZeFenceDesc_, &ZeFence_);
+}
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t CommandList,
     std::shared_ptr<chipstar::Event> Event) {
@@ -1568,7 +1577,11 @@ void CHIPQueueLevel0::executeCommandListReg(
   Status = zeCommandListClose(CommandList);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  Status = zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
+  Status = zeFenceReset(ZeFence_);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  Status =
+      zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, ZeFence_);
 #ifdef CHIP_L0_WAIT_FOR_MEMORY
   while (Status == ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY) {
     logError("Out of device memory, sleeping for 100 ms and retrying");
