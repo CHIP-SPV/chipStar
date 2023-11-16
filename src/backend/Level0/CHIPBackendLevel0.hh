@@ -81,19 +81,23 @@ public:
 private:
   ze_command_list_handle_t AssocCmdList_ = nullptr;
   CHIPContextLevel0 *AssocContext_ = nullptr;
-  // Used for resolving device counter overflow
+  /// Device timestamp gets ultimately stored here
+  uint64_t Timestamp_ = 0;
+  /// Since device counters can overflow resulting in a negative time between
+  /// two events, we store host timestamp as well to correct for this
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
   // The handler of event_pool and event
   ze_event_handle_t Event_;
   ze_event_pool_handle_t EventPoolHandle_;
 
-  // The timestamp value
-  uint64_t Timestamp_;
-
   std::vector<ActionFn> Actions_;
 
 public:
+  ze_event_handle_t &get() { return Event_; }
+  uint64_t &getTimestamp() { return Timestamp_; }
+  uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
+  uint64_t &getHostTimestamp() { return HostTimestamp_; }
   ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
 
   /**
@@ -115,7 +119,6 @@ public:
   void disassociateCmdList();
 
   uint32_t getValidTimestampBits();
-  uint64_t getHostTimestamp() { return HostTimestamp_; }
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
   CHIPEventLevel0()
@@ -126,8 +129,6 @@ public:
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx, LZEventPool *EventPool,
                   unsigned int PoolIndex, chipstar::EventFlags Flags);
   virtual ~CHIPEventLevel0() override;
-
-  void recordStream(chipstar::Queue *ChipQueue) override;
 
   virtual bool wait() override;
 
@@ -255,11 +256,16 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_;
   ze_command_list_handle_t ZeCmdListImm_;
-  std::mutex CommandListMtx_; /// prevent simultaneous access to ZeCmdListImm_
 
   void initializeCmdListImm();
 
 public:
+  void recordEvent(chipstar::Event *ChipEvent) override;
+  std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
+
+  std::vector<ze_event_handle_t> getEventListHandles(
+      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
+
   /**
    * @brief Get the Cmd List object, either immediate or regular
    *

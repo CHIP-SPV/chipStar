@@ -96,7 +96,6 @@ public:
                   chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;
 
-  virtual void recordStream(chipstar::Queue *ChipQueue) override;
   void takeOver(const std::shared_ptr<chipstar::Event> &Other);
   bool wait() override;
   float getElapsedTime(chipstar::Event *Other) override;
@@ -257,6 +256,7 @@ public:
   CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
+  virtual void recordEvent(chipstar::Event *ChipEvent) override;
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,

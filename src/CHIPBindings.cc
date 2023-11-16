@@ -2318,7 +2318,7 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
     return hipSuccess;
   }
 
-  ChipEvent->recordStream(ChipQueue);
+  ChipQueue->recordEvent(ChipEvent);
   return hipSuccess;
 }
 

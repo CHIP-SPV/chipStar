@@ -659,6 +659,10 @@ protected:
   virtual ~Event() { logTrace("~Event() {}", (void *)this); };
 
 public:
+  void setRecording() {
+    assert(!Deleted_ && "chipstar::Event use after delete!");
+    EventStatus_ = EVENT_STATUS_RECORDING;
+  }
   void markTracked() { TrackCalled_ = true; }
   bool isTrackCalled() { return TrackCalled_; }
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
@@ -742,14 +746,6 @@ public:
     };
   }
 
-  /**
-   * @brief Enqueue this event in a given Queue
-   *
-   * @param chip_queue_ Queue in which to enque this event
-   * @return true
-   * @return false
-   */
-  virtual void recordStream(chipstar::Queue *ChipQueue) = 0;
   /**
    * @brief Wait for this event to complete
    *
@@ -2049,6 +2045,9 @@ protected:
   bool isPerThreadDefaultQueue_ = false;
 
 public:
+  /// @brief Get the host/device timestamps and copy them to the event.
+  /// @param Event The event to update.
+  virtual void recordEvent(chipstar::Event *Event) = 0;
   bool isDefaultLegacyQueue() { return isDefaultLegacyQueue_; }
   bool isDefaultPerThreadQueue() { return isPerThreadDefaultQueue_; }
   void setDefaultLegacyQueue(bool Status) { isDefaultLegacyQueue_ = Status; }

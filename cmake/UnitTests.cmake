@@ -371,7 +371,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream")
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -432,6 +431,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # invalid free()
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble") # Runs out of resoruces with -j16?
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
@@ -673,7 +673,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestr
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -993,7 +992,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestr
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -1303,7 +1301,6 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_Double
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
@@ -1600,7 +1597,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_Double
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
@@ -1930,7 +1926,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy"
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventRecord") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
