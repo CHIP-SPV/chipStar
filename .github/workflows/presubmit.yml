@@ -238,6 +238,7 @@ jobs:
       - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
       - run: lscpu
       - run: ${{ env.OPENCL_ENV }} clinfo
+      - run: cat /proc/cpuinfo
       - run: mkdir -p build
       - name: CMake
         run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
