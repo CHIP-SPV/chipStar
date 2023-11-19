@@ -3,7 +3,7 @@
 set -e
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=1] [--num-threads=4]"
+  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=1] [--num-threads=4] [--timeout=200]"
   exit 1
 fi
 
