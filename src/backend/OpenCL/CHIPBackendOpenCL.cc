@@ -995,7 +995,8 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   } else {
     assert(0 && "Invalid MemMap Type");
   }
-  assert(Status == CL_SUCCESS);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd, "MemMap failed");
+  updateLastEvent(MemMapEvent);
 }
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
@@ -1014,7 +1015,8 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
       ClQueue_->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
       SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
-  assert(Status == CL_SUCCESS);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd, "MemUnmap failed");
+  updateLastEvent(MemMapEvent);
 }
 
 cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
