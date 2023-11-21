@@ -172,7 +172,10 @@ private:
 public:
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
-  virtual ~CHIPContextOpenCL() {}
+  virtual ~CHIPContextOpenCL() {
+    logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
+    SvmMemory.clear();
+  }
   void *allocateImpl(
       size_t Size, size_t Alignment, hipMemoryType MemType,
       chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
@@ -191,6 +194,10 @@ class CHIPDeviceOpenCL : public chipstar::Device {
 private:
   CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
                    int Idx);
+  ~CHIPDeviceOpenCL() override {
+    logTrace("CHIPDeviceOpenCL::~CHIPDeviceOpenCL");
+    delete AllocTracker;
+  }
 
 public:
   virtual CHIPContextOpenCL *createContext() override { return nullptr; }

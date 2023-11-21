@@ -1225,6 +1225,7 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
+  delete ClQueue_;
 }
 
 std::shared_ptr<chipstar::Event>
