@@ -552,18 +552,9 @@ void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  cl_event ClEvent, chipstar::EventFlags Flags,
                                  bool UserEvent)
-    : chipstar::Event((chipstar::Context *)(ChipContext), Flags) {
-  if (UserEvent) {
-    UserEvent_ = true;
-    cl_int Status;
-    ClEvent_ = clCreateUserEvent(ChipContext->get()->get(), &Status);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd,
-                                "clCreateUserEvent failed");
-  } else {
-    UserEvent_ = false;
-    ClEvent_ = ClEvent;
-  }
-  logTrace("CHIPEventOpenCL::CHIPEventOpenCL() ClEvent {}", (void *)ClEvent_);
+    : chipstar::Event((chipstar::Context *)(ChipContext), Flags),
+      ClEvent_(ClEvent) {
+  UserEvent_ = UserEvent;
 }
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
@@ -595,8 +586,14 @@ size_t CHIPEventOpenCL::getRefCount() {
 }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
-  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() ClEvent {} refcount {}", (void *)ClEvent_, getRefCount());
-  clReleaseEvent(ClEvent_);
+  if (wasCopied) {
+    ClEvent_ = nullptr;
+    return;
+  }
+
+  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() ClEvent {} refcount {}", ClEvent_ ? : (void *)ClEvent_, getRefCount(), 0);
+  // if(ClEvent_)
+    clReleaseEvent(ClEvent_);
   // assert that ClEvent_ has been refcounted to zero and destroyed
 
   ClEvent_ = nullptr;
@@ -631,6 +628,7 @@ void CHIPEventOpenCL::takeOver(
         std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
     LOCK(EventMtx); // chipstar::Event::Refc_
     this->ClEvent_ = Other->ClEvent_;
+    Other->wasCopied = true;
     this->Msg = Other->Msg;
   }
 }

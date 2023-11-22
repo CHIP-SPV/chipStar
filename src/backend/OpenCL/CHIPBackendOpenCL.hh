@@ -87,6 +87,7 @@ class CHIPEventOpenCL : public chipstar::Event {
 public:
   cl_event ClEvent_;
   friend class CHIPEventOpenCL;
+  bool wasCopied = false;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,

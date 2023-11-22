@@ -2338,12 +2338,20 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
   LOCK(Backend->UserEventsMtx);
-  Backend->UserEvents.erase(
-      std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(),
-                     [&ChipEvent](const std::shared_ptr<chipstar::Event> &x) {
-                       return x.get() == ChipEvent;
-                     }),
-      Backend->UserEvents.end());
+
+  auto it =
+      std::find_if(Backend->UserEvents.begin(), Backend->UserEvents.end(),
+                   [&ChipEvent](const std::shared_ptr<chipstar::Event> &x) {
+                     return x.get() == ChipEvent;
+                   });
+
+  if (it == Backend->UserEvents.end()) {
+    // Event not found, abort the program
+    std::abort();
+  }
+
+  // Erase the event
+  Backend->UserEvents.erase(it);
 
   RETURN(hipSuccess);
 

@@ -11,8 +11,14 @@ int main() {
     int* deviceData;
     hipMalloc(&deviceData, size * sizeof(int));
 
+    // create an event and record it
+    hipEvent_t start;
+    hipEventCreate(&start);    
+    hipEventRecord(start);
+
     // Copy data from host to device
     hipMemcpy(deviceData, hostData, size * sizeof(int), hipMemcpyHostToDevice);
+    hipEventDestroy(start);
 
     // Free device memory
     hipFree(deviceData);
