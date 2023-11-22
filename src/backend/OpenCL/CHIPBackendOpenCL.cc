@@ -365,20 +365,20 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
   return nullptr;
 }
 
-CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
-                                   cl::Device *DevIn, int Idx)
-    : Device(ChipCtx, Idx), ClDevice(DevIn), ClContext(ChipCtx->get()) {
+CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL* ChipCtx, cl::Device *ClDevice)
+    : Device(ChipCtx, 0), ClDevice(ClDevice), ClContext(ChipCtx->get()) {
   logTrace("CHIPDeviceOpenCL initialized via OpenCL device pointer and context "
            "pointer");
+  init();
 }
 
-CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
-                                           CHIPContextOpenCL *ChipContext,
-                                           int Idx) {
-  CHIPDeviceOpenCL *Dev = new CHIPDeviceOpenCL(ChipContext, ClDevice, Idx);
-  Dev->init();
-  return Dev;
-}
+// CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
+//                                            CHIPContextOpenCL *ChipContext,
+//                                            int Idx) {
+//   CHIPDeviceOpenCL *Dev = new CHIPDeviceOpenCL(ChipContext, ClDevice, Idx);
+//   Dev->init();
+//   return Dev;
+// }
 
 void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   logTrace("CHIPDeviceOpenCL->populate_device_properties()");
@@ -1623,7 +1623,7 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   // TODO for now only a single device is supported.
   cl::Device *clDev = new cl::Device(Device);
-  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(clDev, ChipContext, 0);
+  CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, clDev);
 
   // Add device to context & backend
   ChipContext->setDevice(ChipDev);
@@ -1632,28 +1632,28 @@ void CHIPBackendOpenCL::initializeImpl() {
 
 void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
                                              int NumHandles) {
-  logTrace("CHIPBackendOpenCL InitializeNative");
-  MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
-  cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
-  cl_device_id DevId = (cl_device_id)NativeHandles[1];
-  cl_context CtxId = (cl_context)NativeHandles[2];
+  // logTrace("CHIPBackendOpenCL InitializeNative");
+  // MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
+  // cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
+  // cl_device_id DevId = (cl_device_id)NativeHandles[1];
+  // cl_context CtxId = (cl_context)NativeHandles[2];
 
-  cl::Context Ctx(CtxId);
-  cl::Platform Plat(PlatId);
-  cl::Device *Dev = new cl::Device(DevId);
+  // cl::Context Ctx(CtxId);
+  // cl::Platform Plat(PlatId);
+  // cl::Device *Dev = new cl::Device(DevId);
 
-  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx, *Dev, Plat);
-  addContext(ChipContext);
+  // CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx, *Dev, Plat);
+  // addContext(ChipContext);
 
-  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, 0);
-  logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
+  // CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, 0);
+  // logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
-  // Add device to context & backend
-  ChipContext->setDevice(ChipDev);
+  // // Add device to context & backend
+  // ChipContext->setDevice(ChipDev);
 
-  setActiveDevice(ChipDev);
+  // setActiveDevice(ChipDev);
 
-  logTrace("OpenCL Context Initialized.");
+  // logTrace("OpenCL Context Initialized.");
 }
 
 hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {

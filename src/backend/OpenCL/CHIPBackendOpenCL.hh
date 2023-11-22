@@ -175,6 +175,7 @@ public:
   virtual ~CHIPContextOpenCL() override {
     logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
     SvmMemory.clear();
+    delete this->ChipDevice_;
   }
   void *allocateImpl(
       size_t Size, size_t Alignment, hipMemoryType MemType,
@@ -188,20 +189,20 @@ public:
   IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
     return SvmMemory.getSvmPointers();
   }
+
 };
 
 class CHIPDeviceOpenCL : public chipstar::Device {
 private:
-  CHIPDeviceOpenCL(CHIPContextOpenCL *ChipContext, cl::Device *ClDevice,
-                   int Idx);
+
   ~CHIPDeviceOpenCL() override {
     logTrace("CHIPDeviceOpenCL::~CHIPDeviceOpenCL");
     delete AllocTracker;
+    delete ClDevice;
   }
 
 public:
-  static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
-                                  CHIPContextOpenCL *ChipContext, int Idx);
+  CHIPDeviceOpenCL(CHIPContextOpenCL* ChipCtx, cl::Device *ClDevice);
   cl::Device *ClDevice;
   cl::Context *ClContext;
   cl::Device *get() { return ClDevice; }
