@@ -1,0 +1,297 @@
+CHIP debug [TID 577376] [1700661192.981019380] : CHIP_PLATFORM=1
+CHIP debug [TID 577376] [1700661192.981073708] : CHIP_DEVICE_TYPE=cpu
+CHIP debug [TID 577376] [1700661192.981077078] : CHIP_DEVICE=0
+CHIP debug [TID 577376] [1700661192.981085707] : CHIP_BE=opencl
+CHIP debug [TID 577376] [1700661192.981088318] : CHIP_DUMP_SPIRV=off
+CHIP debug [TID 577376] [1700661192.981095305] : CHIP_JIT_FLAGS_OVERRIDE=-cl-kernel-arg-info -cl-std=CL3.0
+CHIP debug [TID 577376] [1700661192.981097887] : CHIP_L0_IMM_CMD_LISTS=on
+CHIP debug [TID 577376] [1700661192.981100307] : CHIP_L0_COLLECT_EVENTS_TIMEOUT=0
+CHIP debug [TID 577376] [1700661193.034534893] : __hipRegisterFatBinary
+CHIP debug [TID 577376] [1700661193.034552419] : CHIPDriver Initialize
+CHIP debug [TID 577376] [1700661193.034556256] : CHIPBE=OPENCL... Initializing OpenCL Backend
+CHIP debug [TID 577376] [1700661193.034577204] : Backend Base Constructor
+CHIP trace [TID 577376] [1700661193.034583204] : CHIPBackendOpenCL Initialize
+CHIP trace [TID 577376] [1700661193.034591930] : Using Devices of type cpu
+CHIP trace [TID 577376] [1700661193.531089335] : 
+Found 4 OpenCL platforms:
+0. Intel(R) FPGA Emulation Platform for OpenCL(TM)
+1. Intel(R) OpenCL
+2. NVIDIA CUDA
+3. AMD Accelerated Parallel Processing
+
+CHIP debug [TID 577376] [1700661193.531122882] : CHIP_PLATFORM=1 Selected OpenCL platform Intel(R) OpenCL
+CHIP trace [TID 577376] [1700661193.531288637] : OpenCL Devices of type cpu with SPIR-V_1 support:
+13th Gen Intel(R) Core(TM) i9-13900K
+
+CHIP debug [TID 577376] [1700661193.531295711] : CHIP_DEVICE=0 Selected OpenCL device 13th Gen Intel(R) Core(TM) i9-13900K
+CHIP trace [TID 577376] [1700661193.573609685] : CHIPContextOpenCL Initialized via OpenCL Context pointer.
+CHIP debug [TID 577376] [1700661193.573639334] : Device does not support Intel USM
+CHIP trace [TID 577376] [1700661193.573644532] : Device supports fine grain SVM
+CHIP trace [TID 577376] [1700661193.573725841] : CHIPDeviceOpenCL initialized via OpenCL device pointer and context pointer
+CHIP trace [TID 577376] [1700661193.573732773] : CHIPDeviceOpenCL->populate_device_properties()
+CHIP debug [TID 577376] [1700661193.573854293] : Queue() 0x560bc2fa9d70
+CHIP trace [TID 577376] [1700661193.573873525] : Created OpenCL Queue ClQueue_->get() 0x560bc2ccf8d8
+CHIP trace [TID 577376] [1700661193.573876926] : OpenCL Context Initialized.
+CHIP debug [TID 577376] [1700661193.573907904] : Bundle entry ID 0 is: 'host-x86_64-unknown-linux--'
+
+CHIP debug [TID 577376] [1700661193.573912915] : Not a SPIR-V triple, ignoring
+
+CHIP debug [TID 577376] [1700661193.573915967] : Bundle entry ID 1 is: 'hip-spirv64----generic'
+
+CHIP debug [TID 577376] [1700661193.573958409] : Registered SPIR-V module 0x560bc3023280, source-binary=0x560bc0afe000
+CHIP debug [TID 577376] [1700661193.573973399] : chipstar::Module 0x560bc3023280: Register variable (0x560bc0b00098) size=4, name=__chipspv_abort_called
+CHIP debug [TID 577376] [1700661193.574037833] : Currently used memory on dev 13th Gen Intel(R) Core(TM) i9-13900K: 0 M
+
+CHIP trace [TID 577376] [1700661193.574057098] : Memory allocated: 0x560bc3050c80 / 4096
+
+CHIP debug [TID 577376] [1700661193.574126222] : chipstar::AllocationTracker::recordAllocation size: 4096 HOST 0x0 DEV 0x560bc3050c80 TYPE 1
+CHIP info [TID 577376] [1700661193.574130880] : hipMallocInternal(ptr=0x560bc3050c80, size=4096)
+CHIP info [TID 577376] [1700661193.574145052] : hipMemcpy Dst=0x560bc3050c80 Src=0x560bc304f920 Size=4096 Kind=hipMemcpyHostToDevice
+CHIP trace [TID 577376] [1700661193.574157885] : CHIPEventOpenCL::CHIPEventOpenCL() ClEvent 0x0
+CHIP trace [TID 577376] [1700661193.574160852] : CHIPBackendOpenCL::createCHIPEvent(0x560bc305afb8)
+CHIP trace [TID 577376] [1700661193.574169301] : clSVMmemcpy 0x560bc304f920 -> 0x560bc3050c80 / 4096 B
+
+CHIP debug [TID 577376] [1700661193.574228351] : Setting LastEvent for 0x560bc2fa9d70 0x0 -> 0x560bc305af30
+CHIP debug [TID 577376] [1700661193.574288532] : Tracking chipstar::Event 0x560bc2c38130 in Backend::Events
+CHIP info [TID 577376] [1700661193.574303317] : hipFreeInternal(ptr=0x560bc3050c80)
+CHIP trace [TID 577376] [1700661193.574336186] : clSVMFree on: 0x560bc3050c80
+
+CHIP debug [TID 577376] [1700661193.574356340] : Unregister module: 0x560bc3023280
+CHIP debug [TID 577376] [1700661193.574385890] : Modules left: 0
+CHIP debug [TID 577376] [1700661193.574389553] : Uninitializing CHIP...
+CHIP debug [TID 577376] [1700661194.074573003] : Setting LastEvent for 0x560bc2fa9d70 0x560bc305af30 -> 0x0
+CHIP debug [TID 577376] [1700661194.074623895] : Backend Destructor. Deleting all pointers.
+CHIP trace [TID 577376] [1700661194.074642857] : CHIPContextOpenCL::~CHIPContextOpenCL
+CHIP trace [TID 577376] [1700661194.074650858] : CHIPDeviceOpenCL::~CHIPDeviceOpenCL
+CHIP debug [TID 577376] [1700661194.074696249] : ~Device() 0x560bc305b620
+CHIP trace [TID 577376] [1700661194.074702039] : ~CHIPQueueOpenCL() 0x560bc2fa9d70
+CHIP trace [TID 577376] [1700661194.074705982] : ~CHIPQueueOpenCL() ClQueue_->get() 0x560bc2ccf8d8
+CHIP debug [TID 577376] [1700661194.074722402] : Setting LastEvent for 0x560bc2fa9d70 0x0 -> 0x0
+CHIP debug [TID 577376] [1700661194.074767824] : ~Context() 0x560bc2f7a8d0
+CHIP trace [TID 577376] [1700661194.074797985] : CHIPEventOpenCL::~CHIPEventOpenCL() ClEvent 0x560bc2f9b058
+CHIP trace [TID 577376] [1700661194.074802079] : ~Event() 0x560bc305af30
+OpenCL objects leaks:
+EVENT (0x560bc2f9b058) reference count: 1
+Trace location: /home/pvelesko/lttng-traces/iprof-20231122-075314
+
+BACKEND_OPENCL,BACKEND_HIP | 1 Hostnames | 1 Processes | 1 Threads | 
+
+                              Name |     Time | Time(%) | Calls |  Average |      Min |      Max |         
+            __hipRegisterFatBinary | 539.44ms |  49.82% |     1 | 539.44ms | 539.44ms | 539.44ms |         
+          __hipUnregisterFatBinary | 500.46ms |  46.22% |     1 | 500.46ms | 500.46ms | 500.46ms |         
+                   clCreateContext |  42.28ms |   3.90% |     1 |  42.28ms |  42.28ms |  42.28ms |         
+                         hipMemcpy | 159.29us |   0.01% |     1 | 159.29us | 159.29us | 159.29us |         
+                         hipMalloc | 109.85us |   0.01% |     1 | 109.85us | 109.85us | 109.85us |         
+                    clGetDeviceIDs |  58.41us |   0.01% |     2 |  29.21us |   5.29us |  53.12us |         
+                  __hipRegisterVar |  54.64us |   0.01% |     1 |  54.64us |  54.64us |  54.64us |         
+                          clFinish |  53.29us |   0.00% |     2 |  26.65us |   1.98us |  51.32us |         
+                           hipFree |  45.20us |   0.00% |     1 |  45.20us |  45.20us |  45.20us |         
+                   clGetDeviceInfo |  23.55us |   0.00% |    31 | 759.81ns |    217ns |  11.17us |         
+                 clGetPlatformInfo |  18.48us |   0.00% |    10 |   1.85us |    241ns |   9.31us |         
+                clEnqueueSVMMemcpy |  16.04us |   0.00% |     1 |  16.04us |  16.04us |  16.04us |         
+                   clReleaseDevice |  15.58us |   0.00% |     8 |   1.95us |    207ns |  11.81us |         
+clCreateCommandQueueWithProperties |  11.43us |   0.00% |     1 |  11.43us |  11.43us |  11.43us |         
+                  clReleaseContext |  10.74us |   0.00% |     7 |   1.53us |    317ns |   4.80us |         
+                  clGetPlatformIDs |   7.34us |   0.00% |     2 |   3.67us |   1.49us |   5.85us |         
+             clReleaseCommandQueue |   7.09us |   0.00% |     1 |   7.09us |   7.09us |   7.09us |         
+                    clRetainDevice |   6.80us |   0.00% |     8 | 850.50ns |    236ns |   4.04us |         
+                        clSVMAlloc |   5.49us |   0.00% |     1 |   5.49us |   5.49us |   5.49us |         
+                   clRetainContext |   3.48us |   0.00% |     6 | 580.67ns |    228ns |   1.92us |         
+                         clSVMFree |   2.75us |   0.00% |     1 |   2.75us |   2.75us |   2.75us |         
+                             Total |    1.08s | 100.00% |    88 |                                          
+
+Device profiling | 1 Hostnames | 1 Processes | 1 Threads | 1 Devices | 1 Subdevices | 
+
+              Name |  Time | Time(%) | Calls |  Average |   Min |   Max |         
+clEnqueueSVMMemcpy | 679ns | 100.00% |     1 | 679.00ns | 679ns | 679ns |         
+             Total | 679ns | 100.00% |     1 |                                    
+
+Explicit memory traffic (BACKEND_UNKNOWN) | 1 Hostnames | 1 Processes | 1 Threads | 
+
+              Name |   Byte | Byte(%) | Calls | Average |    Min |    Max |         
+clEnqueueSVMMemcpy | 4.10kB | 100.00% |     1 |  4.10kB | 4.10kB | 4.10kB |         
+             Total | 4.10kB | 100.00% |     1 |                                     
+
+╭─pvelesko@cupcake /space/pvelesko/chipStar/opencl-fix-sync ‹opencl-fix-sync●› 
+╰─$ 
+╭─pvelesko@cupcake /space/pvelesko/chipStar/opencl-fix-sync ‹opencl-fix-sync●› 
+╰─$ iprof -t -r /home/pvelesko/lttng-traces/iprof-20231122-075314                                                                                                                                                                                                                             130 ↵
+07:53:13.034524696 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:__hipRegisterFatBinary_entry: { data: 0x0000560bc0b00078 }
+07:53:13.530924359 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformIDs_entry: num_entries: 0, platforms: 0x0, num_platforms: 0x7fff9c8bb4dc
+07:53:13.530925847 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformIDs_exit: errcode_ret_val: CL_SUCCESS, num_platforms_val: 4, platforms_vals: []
+07:53:13.530954373 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformIDs_entry: num_entries: 4, platforms: 0x560bc2f6a220, num_platforms: 0x0
+07:53:13.530960225 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformIDs_exit: errcode_ret_val: CL_SUCCESS, num_platforms_val: 0, platforms_vals: [0x560bc2d67a38, 0x560bc2dfdde8, 0x560bc2e25c20, 0x7f73efbf0eb0]
+07:53:13.531000846 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2d67a38, param_name: CL_PLATFORM_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531010157 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 48, param_value_vals: ""
+07:53:13.531029778 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2d67a38, param_name: CL_PLATFORM_NAME, param_value_size: 48, param_value: 0x560bc2e01640, param_value_size_ret: 0x0
+07:53:13.531030721 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 48, param_value_vals: "Intel(R) FPGA Emulation Platform for OpenCL(TM)"
+07:53:13.531058794 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2dfdde8, param_name: CL_PLATFORM_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531062870 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 16, param_value_vals: ""
+07:53:13.531063380 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2dfdde8, param_name: CL_PLATFORM_NAME, param_value_size: 16, param_value: 0x560bc2e1bfb0, param_value_size_ret: 0x0
+07:53:13.531064303 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 16, param_value_vals: "Intel(R) OpenCL"
+07:53:13.531065141 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2e25c20, param_name: CL_PLATFORM_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531066565 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 12, param_value_vals: ""
+07:53:13.531066762 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2e25c20, param_name: CL_PLATFORM_NAME, param_value_size: 12, param_value: 0x560bc2e1bfb0, param_value_size_ret: 0x0
+07:53:13.531067096 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 12, param_value_vals: "NVIDIA CUDA"
+07:53:13.531067483 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x7f73efbf0eb0, param_name: CL_PLATFORM_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531067831 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 36, param_value_vals: ""
+07:53:13.531068013 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x7f73efbf0eb0, param_name: CL_PLATFORM_NAME, param_value_size: 36, param_value: 0x560bc2f6a220, param_value_size_ret: 0x0
+07:53:13.531068254 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 36, param_value_vals: "AMD Accelerated Parallel Processing"
+07:53:13.531113976 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2dfdde8, param_name: CL_PLATFORM_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531114511 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 16, param_value_vals: ""
+07:53:13.531114682 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_entry: platform: 0x560bc2dfdde8, param_name: CL_PLATFORM_NAME, param_value_size: 16, param_value: 0x560bc2e1bfb0, param_value_size_ret: 0x0
+07:53:13.531115031 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetPlatformInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 16, param_value_vals: "Intel(R) OpenCL"
+07:53:13.531160779 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceIDs_entry: platform: 0x560bc2dfdde8, device_type: [CL_DEVICE_TYPE_CPU], num_entries: 0, devices: 0x0, num_devices: 0x7fff9c8bb4cc
+07:53:13.531166071 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceIDs_exit: errcode_ret_val: CL_SUCCESS, num_devices_val: 1, devices_vals: []
+07:53:13.531180400 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceIDs_entry: platform: 0x560bc2dfdde8, device_type: [CL_DEVICE_TYPE_CPU], num_entries: 1, devices: 0x560bc2f723d0, num_devices: 0x0
+07:53:13.531232771 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl_devices:device_name: device: 0x560bc2dfeaa8, name: "13th Gen Intel(R) Core(TM) i9-13900K"
+07:53:13.531233522 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceIDs_exit: errcode_ret_val: CL_SUCCESS, num_devices_val: 1, devices_vals: [0x560bc2dfeaa8]
+07:53:13.531251244 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.531255280 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.531270265 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.531270700 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.531274234 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IL_VERSION_KHR, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531275038 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 11, param_value_vals: ""
+07:53:13.531275341 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IL_VERSION_KHR, param_value_size: 11, param_value: 0x560bc2f723d0, param_value_size_ret: 0x0
+07:53:13.531275776 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 11, param_value_vals: "SPIR-V_1.0"
+07:53:13.531278595 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531278977 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 37, param_value_vals: ""
+07:53:13.531279152 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_NAME, param_value_size: 37, param_value: 0x560bc2e044f0, param_value_size_ret: 0x0
+07:53:13.531279513 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 37, param_value_vals: "13th Gen Intel(R) Core(TM) i9-13900K"
+07:53:13.531282483 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.531282719 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.531285906 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.531287586 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.531292405 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.531292702 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.531292869 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb3d8
+07:53:13.531293289 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 37, param_value_vals: ""
+07:53:13.531293511 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_NAME, param_value_size: 37, param_value: 0x560bc2e04540, param_value_size_ret: 0x0
+07:53:13.531293922 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 37, param_value_vals: "13th Gen Intel(R) Core(TM) i9-13900K"
+07:53:13.531300129 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clCreateContext_entry: properties: 0, num_devices: 1, devices: 0x560bc2e04570, pfn_notify: 0x0, user_data: 0x0, errcode_ret: 0x7fff9c8bb4bc, properties_vals: [], devices_vals: [0x560bc2dfeaa8]
+07:53:13.573578550 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clCreateContext_exit: context: 0x560bc2e045b8, errcode_ret_val: CL_SUCCESS
+07:53:13.573587132 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_entry: context: 0x560bc2e045b8
+07:53:13.573589055 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573590225 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573591246 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573629730 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_EXTENSIONS, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8bb138
+07:53:13.573631031 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 799, param_value_vals: ""
+07:53:13.573632875 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_EXTENSIONS, param_value_size: 799, param_value: 0x560bc305a8d0, param_value_size_ret: 0x0
+07:53:13.573633355 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 799, param_value_vals: "cl_khr_spirv_linkonce_odr cl_khr_fp64 cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_3d_image_writes cl_khr_byte_addressable_store cl_khr_depth_images cl_khr_icd cl_khr_il_program cl_khr_subgroup_shuffle cl_khr_subgroup_shuffle_relative cl_khr_subgroup_extended_types cl_khr_subgroup_non_uniform_arithmetic cl_intel_subgroups cl_intel_subgroups_char cl_intel_subgroups_short cl_intel_subgroups_long cl_intel_required_subgroup_size cl_intel_spirv_subgroups cl_khr_int64_base_atomics cl_khr_int64_extended_atomics cl_intel_unified_shared_memory cl_intel_device_attribute_query cl_intel_exec_by_local_thread cl_intel_vec_len_hint cl_intel_device_partition_by_names cl_khr_spir cl_khr_image2d_from_buffer"
+07:53:13.573643941 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_SVM_CAPABILITIES, param_value_size: 8, param_value: 0x7fff9c8bb498, param_value_size_ret: 0x0
+07:53:13.573644308 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: [CL_DEVICE_SVM_COARSE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_SYSTEM, CL_DEVICE_SVM_ATOMICS]
+07:53:13.573648111 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_entry: context: 0x560bc2e045b8
+07:53:13.573648487 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573648624 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_entry: context: 0x560bc2e045b8
+07:53:13.573648872 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573648989 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573649268 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573652015 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573652253 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573652384 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_entry: context: 0x560bc2e045b8
+07:53:13.573652740 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573653020 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573653646 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573655958 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:13.573660756 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573661653 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573661897 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573662046 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:13.573662363 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573677759 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573678021 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573735615 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_MEM_ALLOC_SIZE, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573736081 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 33592127488
+07:53:13.573736282 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_NAME, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8baf18
+07:53:13.573736840 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 37, param_value_vals: ""
+07:53:13.573737122 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_NAME, param_value_size: 37, param_value: 0x560bc30a0ab0, param_value_size_ret: 0x0
+07:53:13.573737567 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 37, param_value_vals: "13th Gen Intel(R) Core(TM) i9-13900K"
+07:53:13.573739557 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_GLOBAL_MEM_SIZE, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573740045 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 67184254976
+07:53:13.573740559 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_LOCAL_MEM_SIZE, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573740853 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 32768
+07:53:13.573741432 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_WORK_GROUP_SIZE, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573741934 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 8192
+07:53:13.573746127 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_WORK_ITEM_SIZES, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8baf18
+07:53:13.573746440 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 24, param_value_vals: ""
+07:53:13.573759035 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_WORK_ITEM_SIZES, param_value_size: 24, param_value: 0x560bc30260b0, param_value_size_ret: 0x0
+07:53:13.573759477 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 24, param_value_vals: [ 8192, 8192, 8192 ]
+07:53:13.573768200 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_CLOCK_FREQUENCY, param_value_size: 4, param_value: 0x7fff9c8bb01c, param_value_size_ret: 0x0
+07:53:13.573779368 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 4, param_value_vals: 0
+07:53:13.573779808 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_COMPUTE_UNITS, param_value_size: 4, param_value: 0x7fff9c8bb01c, param_value_size_ret: 0x0
+07:53:13.573780096 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 4, param_value_vals: 32
+07:53:13.573780551 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573780960 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 2097152
+07:53:13.573781330 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573781559 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 131072
+07:53:13.573786434 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_SUB_GROUP_SIZES_INTEL, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8baf18
+07:53:13.573786888 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 40, param_value_vals: ""
+07:53:13.573798341 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_SUB_GROUP_SIZES_INTEL, param_value_size: 40, param_value: 0x560bc30a0ab0, param_value_size_ret: 0x0
+07:53:13.573798656 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 40, param_value_vals: [ 4, 8, 16, 32, 64 ]
+07:53:13.573810696 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_EXTENSIONS, param_value_size: 0, param_value: 0x0, param_value_size_ret: 0x7fff9c8baf18
+07:53:13.573811043 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 799, param_value_vals: ""
+07:53:13.573811285 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_EXTENSIONS, param_value_size: 799, param_value: 0x560bc305b2f0, param_value_size_ret: 0x0
+07:53:13.573811597 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 799, param_value_vals: "cl_khr_spirv_linkonce_odr cl_khr_fp64 cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_3d_image_writes cl_khr_byte_addressable_store cl_khr_depth_images cl_khr_icd cl_khr_il_program cl_khr_subgroup_shuffle cl_khr_subgroup_shuffle_relative cl_khr_subgroup_extended_types cl_khr_subgroup_non_uniform_arithmetic cl_intel_subgroups cl_intel_subgroups_char cl_intel_subgroups_short cl_intel_subgroups_long cl_intel_required_subgroup_size cl_intel_spirv_subgroups cl_khr_int64_base_atomics cl_khr_int64_extended_atomics cl_intel_unified_shared_memory cl_intel_device_attribute_query cl_intel_exec_by_local_thread cl_intel_vec_len_hint cl_intel_device_partition_by_names cl_khr_spir cl_khr_image2d_from_buffer"
+07:53:13.573817110 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_SVM_CAPABILITIES, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573817459 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: [CL_DEVICE_SVM_COARSE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_SYSTEM, CL_DEVICE_SVM_ATOMICS]
+07:53:13.573817931 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IMAGE2D_MAX_WIDTH, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573818186 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 16384
+07:53:13.573818646 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IMAGE2D_MAX_HEIGHT, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573818910 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 16384
+07:53:13.573819305 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IMAGE3D_MAX_WIDTH, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573819561 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 2048
+07:53:13.573820124 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IMAGE3D_MAX_HEIGHT, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573820341 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 2048
+07:53:13.573820966 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_entry: device: 0x560bc2dfeaa8, param_name: CL_DEVICE_IMAGE3D_MAX_DEPTH, param_value_size: 8, param_value: 0x7fff9c8bb018, param_value_size_ret: 0x0
+07:53:13.573821188 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clGetDeviceInfo_exit: errcode_ret_val: CL_SUCCESS, param_value_size_ret_val: 8, param_value_vals: 2048
+07:53:13.573858851 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clCreateCommandQueueWithProperties_entry: context: 0x560bc2e045b8, device: 0x560bc2dfeaa8, properties: 0x7fff9c8bafe0, errcode_ret: 0x7fff9c8bb004, properties_vals: [4243, 2, 0]
+07:53:13.573870282 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clCreateCommandQueueWithProperties_exit: command_queue: 0x560bc2ccf8d8, errcode_ret_val: CL_SUCCESS
+07:53:13.573879081 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:13.573879505 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573879646 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573879934 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573881944 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573882172 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573884414 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:13.573884621 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.573962079 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:__hipRegisterFatBinary_exit: { hipResult: 0x0000560bc3023280 }
+07:53:13.573966445 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:__hipRegisterVar_entry: { modules: 0x0000560bc3023280, var: 0x0000560bc0b00098, hostVar: 0x0000560bc0afc004, deviceVar: 0x0000560bc0afc004, ext: 0, size: 4, constant: 0, global: 0 }
+07:53:13.574021083 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:__hipRegisterVar_exit: {  }
+07:53:13.574023768 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:hipMalloc_entry: { ptr: 0x00007fff9c8bc140, size: 4096 }
+07:53:13.574043829 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clSVMAlloc_entry: context: 0x560bc2e045b8, flags: [CL_MEM_READ_WRITE, CL_MEM_SVM_FINE_GRAIN_BUFFER], size: 4096, alignment: 0
+07:53:13.574049321 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clSVMAlloc_exit: _retval: 0x560bc3050c80
+07:53:13.574049464 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_entry: context: 0x560bc2e045b8
+07:53:13.574049817 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.574049942 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_entry: context: 0x560bc2e045b8
+07:53:13.574050170 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clRetainContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.574076960 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:13.574077346 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.574133615 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:hipMalloc_exit: { hipResult: hipSuccess, ptr_val: 0x0000560bc3050c80 }
+07:53:13.574139391 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:hipMemcpy_entry: { dst: 0x0000560bc3050c80, src: 0x0000560bc304f920, sizeBytes: 4096, kind: hipMemcpyHostToDevice }
+07:53:13.574204885 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clEnqueueSVMMemcpy_entry: command_queue: 0x560bc2ccf8d8, blocking_copy: CL_FALSE, dst_ptr: 0x560bc3050c80, src_ptr: 0x560bc304f920, size: 4096, num_events_in_wait_list: 0, event_wait_list: 0x0, event: 0x560bc305afb8, event_wait_list_vals: []
+07:53:13.574220455 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl_profiling:event_profiling: status: 0, event: 0x560bc2f9b058
+07:53:13.574220929 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clEnqueueSVMMemcpy_exit: errcode_ret_val: CL_SUCCESS, event_val: 0x560bc2f9b058
+07:53:13.574235854 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clFinish_entry: command_queue: 0x560bc2ccf8d8
+07:53:13.574275827 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl_profiling:event_profiling_results: event: 0x560bc2f9b058, event_command_exec_status: 0, queued_status: 0, queued: 265362275810813, submit_status: 0, submit: 265362275812236, start_status: 0, start: 265362275872982, end_status: 0, end: 265362275873661
+07:53:13.574287170 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clFinish_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.574298681 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:hipMemcpy_exit: { hipResult: hipSuccess }
+07:53:13.574299839 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:hipFree_entry: { ptr: 0x0000560bc3050c80 }
+07:53:13.574307695 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clFinish_entry: command_queue: 0x560bc2ccf8d8
+07:53:13.574309673 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clFinish_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.574339581 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clSVMFree_entry: context: 0x560bc2e045b8, svm_pointer: 0x560bc3050c80
+07:53:13.574342329 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clSVMFree_exit: 
+07:53:13.574342810 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:13.574343239 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:13.574345036 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:hipFree_exit: { hipResult: hipSuccess }
+07:53:13.574355505 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:__hipUnregisterFatBinary_entry: { modules: 0x0000560bc3023280 }
+07:53:14.074679266 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:14.074691073 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:14.074712532 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseCommandQueue_entry: command_queue: 0x560bc2ccf8d8
+07:53:14.074719619 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseCommandQueue_exit: errcode_ret_val: CL_SUCCESS
+07:53:14.074755747 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_entry: device: 0x560bc2dfeaa8
+07:53:14.074756251 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseDevice_exit: errcode_ret_val: CL_SUCCESS
+07:53:14.074756976 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:14.074760692 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:14.074764942 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_entry: context: 0x560bc2e045b8
+07:53:14.074765616 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_opencl:clReleaseContext_exit: errcode_ret_val: CL_SUCCESS
+07:53:14.074810567 - cupcake - vpid: 577376, vtid: 577376 - lttng_ust_hip:__hipUnregisterFatBinary_exit: {  }

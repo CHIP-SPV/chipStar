@@ -85,7 +85,7 @@ public:
 
 class CHIPEventOpenCL : public chipstar::Event {
 public:
-  cl_event ClEvent;
+  cl_event ClEvent_;
   friend class CHIPEventOpenCL;
 
 public:
@@ -101,8 +101,8 @@ public:
   float getElapsedTime(chipstar::Event *Other) override;
   virtual void hostSignal() override;
   virtual bool updateFinishStatus(bool ThrowErrorIfNotReady = true) override;
-  cl_event *getNativePtr() { return &ClEvent; }
-  cl_event &getNativeRef() { return ClEvent; }
+  cl_event *getNativePtr() { return &ClEvent_; }
+  cl_event &getNativeRef() { return ClEvent_; }
   uint64_t getFinishTime();
   size_t getRefCount();
 };
