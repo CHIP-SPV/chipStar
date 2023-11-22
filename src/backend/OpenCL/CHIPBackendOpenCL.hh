@@ -232,7 +232,7 @@ public:
 class CHIPQueueOpenCL : public chipstar::Queue {
 protected:
   // Any reason to make these private/protected?
-  cl::CommandQueue *ClQueue_;
+  cl::CommandQueue ClQueue_;
 
   /**
    * @brief Map memory to device.
@@ -271,7 +271,7 @@ public:
   virtual void finish() override;
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
-  cl::CommandQueue *get();
+  cl::CommandQueue get();
   virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                    size_t PatternSize) override;
