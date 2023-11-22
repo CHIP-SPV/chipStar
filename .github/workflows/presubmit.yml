@@ -185,7 +185,7 @@ jobs:
     name: Build and test chipStar on ${{ matrix.backend }} (llvm-${{ matrix.version }})
     runs-on: ubuntu-latest
     env:
-      OPENCL_ENV: ${{ matrix.backend == 'intel' && 'LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel -name libtbb.so*)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)' || 'OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/' }}
+      OPENCL_ENV: ${{ matrix.backend == 'intel' && 'LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)' || 'OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/' }}
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/cpu_opencl_failed_tests.txt`"' || '"`cat ./test_lists/cpu_pocl_failed_tests.txt`"' }}
     strategy:
       matrix:
