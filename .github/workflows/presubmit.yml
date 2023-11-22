@@ -185,7 +185,7 @@ jobs:
     name: Build and test chipStar on ${{ matrix.backend }} (llvm-${{ matrix.version }})
     runs-on: ubuntu-latest
     env:
-      OPENCL_ENV: ${{ matrix.backend == 'intel' && 'LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libtbb.so.12)) OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)' || 'OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/' }}
+      OPENCL_ENV: ${{ matrix.backend == 'intel' && 'LD_LIBRARY_PATH=$(dirname $(find /opt/intel | grep libsvml.so)) OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)' || 'OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/' }}
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/cpu_opencl_failed_tests.txt`"' || '"`cat ./test_lists/cpu_pocl_failed_tests.txt`"' }}
     strategy:
       matrix:
@@ -236,6 +236,7 @@ jobs:
         if: ${{ matrix.backend == 'pocl' }}
       - run: sudo apt update
       - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
+      - run: find -name "libtbb.so.12" /opt/intel/oneapi
       - run: lscpu
       - run: OCL_ICD_ENABLE_TRACE=1 ${{ env.OPENCL_ENV }} clinfo
       - run: cat /proc/cpuinfo
