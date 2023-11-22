@@ -584,13 +584,18 @@ size_t CHIPEventOpenCL::getRefCount() {
   return RefCount;
 }
 
-CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
+CHIPEventOpenCL::~CHIPEventOpenCL() {
+  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() &ClEvent {}", (void *)&ClEvent);
+  ClEvent = nullptr;
+}
 
 std::shared_ptr<chipstar::Event>
 CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
   CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
+  logTrace("CHIPBackendOpenCL::createCHIPEvent({})",
+           (void *)Event->getNativePtr());
 
   return std::shared_ptr<chipstar::Event>(Event);
 }
@@ -764,17 +769,19 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,
                                                int Priority) {
-  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority);
+  assert(ClDevice);
+  assert(ClContext);
+  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, Priority, ClDevice, ClContext);
   NewQ->setFlags(Flags);
   return NewQ;
 }
 
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
                                                int NumHandles) {
-  cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
-  CHIPQueueOpenCL *NewQ =
-      new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
-  return NewQ;
+  // cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
+  // CHIPQueueOpenCL *NewQ =
+  //     new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
+  // return NewQ;
 }
 
 // CHIPKernelOpenCL
@@ -1178,8 +1185,9 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
 }
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
-                                 cl_command_queue Queue)
-    : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority) {
+                                 cl::Device *DeviceCl, cl::Context *ContextCl)
+    : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority),
+      ClContext_(ContextCl), ClDevice_(DeviceCl) {
 
   cl_queue_priority_khr PrioritySelection;
   switch (Priority_) {
@@ -1201,30 +1209,17 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
   if (PrioritySelection != CL_QUEUE_PRIORITY_MED_KHR)
     logWarn("CHIPQueueOpenCL is ignoring Priority value");
 
-  if (Queue)
-    ClQueue_ = new cl::CommandQueue(Queue);
-  else {
-    cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
-    cl::Device *ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
-    cl_int Status;
-    // Adding priority breaks correctness?
-    // cl_queue_properties QueueProperties[] = {
-    //     CL_QUEUE_PRIORITY_KHR, PrioritySelection, CL_QUEUE_PROPERTIES,
-    //     CL_QUEUE_PROFILING_ENABLE, 0};
-    cl_queue_properties QueueProperties[] = {CL_QUEUE_PROPERTIES,
-                                             CL_QUEUE_PROFILING_ENABLE, 0};
-
-    const cl_command_queue Q = clCreateCommandQueueWithProperties(
-        ClContext_->get(), ClDevice_->get(), QueueProperties, &Status);
-    ClQueue_ = new cl::CommandQueue(Q);
-
-    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
-                                hipErrorInitializationError);
-  }
+  cl_int Status;
+  cl::QueueProperties QueueProperties = cl::QueueProperties::Profiling;
+  ClQueue_ = new cl::CommandQueue(
+      *ClContext_, *ClDevice_, static_cast<cl_command_queue_properties>(QueueProperties), &Status);
+  logTrace("Created OpenCL Queue ClQueue_->get() {}", (void *)ClQueue_->get());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorInitializationError);
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
+  logTrace("~CHIPQueueOpenCL() ClQueue_->get() {}", (void *)ClQueue_->get());
   delete ClQueue_;
 }
 
@@ -1530,7 +1525,9 @@ chipstar::ExecItem *CHIPBackendOpenCL::createExecItem(dim3 GirdDim,
 };
 chipstar::Queue *CHIPBackendOpenCL::createCHIPQueue(chipstar::Device *ChipDev) {
   CHIPDeviceOpenCL *ChipDevCl = (CHIPDeviceOpenCL *)ChipDev;
-  return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY);
+  assert(ChipDevCl->ClDevice);
+  assert(ChipDevCl->ClContext);
+  return new CHIPQueueOpenCL(ChipDevCl, OCL_DEFAULT_QUEUE_PRIORITY, ChipDevCl->ClDevice, ChipDevCl->ClContext);
 }
 
 chipstar::CallbackData *CHIPBackendOpenCL::createCallbackData(

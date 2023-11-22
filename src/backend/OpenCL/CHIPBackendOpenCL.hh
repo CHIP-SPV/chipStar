@@ -172,7 +172,7 @@ private:
 public:
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
-  virtual ~CHIPContextOpenCL() {
+  virtual ~CHIPContextOpenCL() override {
     logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
     SvmMemory.clear();
   }
@@ -233,6 +233,8 @@ class CHIPQueueOpenCL : public chipstar::Queue {
 protected:
   // Any reason to make these private/protected?
   cl::CommandQueue *ClQueue_;
+  cl::Context *ClContext_;
+  cl::Device *ClDevice_;
 
   /**
    * @brief Map memory to device.
@@ -261,8 +263,9 @@ public:
   CHIPQueueOpenCL() = delete; // delete default constructor
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
   CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
-                  cl_command_queue Queue = nullptr);
+                  cl::Device *DeviceCl, cl::Context *ContextCl);
   virtual ~CHIPQueueOpenCL() override;
+
   virtual void recordEvent(chipstar::Event *ChipEvent) override;
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
