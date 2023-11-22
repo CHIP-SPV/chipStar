@@ -236,7 +236,7 @@ jobs:
         if: ${{ matrix.backend == 'pocl' }}
       - run: sudo apt update
       - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
-      - run: find -name "libtbb.so.12" /opt/intel/oneapi
+      - run: find /opt/intel/oneapi -name "libtbb.so.12" 
       - run: lscpu
       - run: OCL_ICD_ENABLE_TRACE=1 ${{ env.OPENCL_ENV }} clinfo
       - run: cat /proc/cpuinfo
