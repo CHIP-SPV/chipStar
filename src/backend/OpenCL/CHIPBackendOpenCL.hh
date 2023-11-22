@@ -114,7 +114,9 @@ protected:
 
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
-  virtual ~CHIPModuleOpenCL() {}
+  virtual ~CHIPModuleOpenCL() {
+    logTrace("CHIPModuleOpenCL::~CHIPModuleOpenCL");
+  }
   virtual void compile(chipstar::Device *ChipDevice) override;
   cl::Program *get();
 };
@@ -190,12 +192,10 @@ public:
   IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
     return SvmMemory.getSvmPointers();
   }
-
 };
 
 class CHIPDeviceOpenCL : public chipstar::Device {
 private:
-
   ~CHIPDeviceOpenCL() override {
     logTrace("CHIPDeviceOpenCL::~CHIPDeviceOpenCL");
     delete AllocTracker;
@@ -203,7 +203,7 @@ private:
   }
 
 public:
-  CHIPDeviceOpenCL(CHIPContextOpenCL* ChipCtx, cl::Device *ClDevice);
+  CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx, cl::Device *ClDevice);
   cl::Device *ClDevice;
   cl::Context *ClContext;
   cl::Device *get() { return ClDevice; }
@@ -315,7 +315,9 @@ public:
                    std::string HostFName, SPVFuncInfo *FuncInfo,
                    CHIPModuleOpenCL *Parent);
 
-  virtual ~CHIPKernelOpenCL() {}
+  virtual ~CHIPKernelOpenCL() {
+    logTrace("CHIPKernelOpenCL::~CHIPKernelOpenCL");
+  }
   SPVFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();

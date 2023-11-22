@@ -511,6 +511,11 @@ chipstar::Device::~Device() {
     ChipQueues_.erase(ChipQueues_.begin());
   }
 
+  // delete all entires in SrcModToCompiledMod_
+  for (auto &Kv : SrcModToCompiledMod_)
+    delete Kv.second;
+  SrcModToCompiledMod_.clear();
+
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
 }
