@@ -68,6 +68,25 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
                << "\n";
       }
     }
+    return;
+  }
+
+  const auto *Callee = CI->getCalledFunction();
+  assert(Callee);
+
+  if (!Callee->hasName()) {
+    const auto &Name = Callee->getName();
+    // Catch use of unexpected atomic built-ins. All HIP atomic operations
+    // should be mapped to corresponding OpenCL built-ins.
+    if (Name.startswith("__atomic_") || Name.startswith("__hip_atomic_")) {
+      dbgs() << "Warning: Use of unsupported built-in atomic function: "
+             << Callee->getName() << "\n";
+
+#ifndef NDEBUG
+      dbgs() << "Aborting (chipStar debug build mode policy)\n";
+      abort();
+#endif
+    }
   }
 }
 
