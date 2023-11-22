@@ -1337,13 +1337,6 @@ public:
   chipstar::Queue *createQueueAndRegister(const uintptr_t *NativeHandles,
                                           const size_t NumHandles);
 
-  void removeContext(chipstar::Context *Ctx);
-  virtual chipstar::Context *createContext() = 0;
-  chipstar::Context *createContextAndRegister() {
-    Ctx_ = createContext();
-    return Ctx_;
-  }
-
   size_t getMaxMallocSize() {
     if (MaxMallocSize_ < 1)
       CHIPERR_LOG_AND_THROW("MaxMallocSize was not set", hipErrorTbd);

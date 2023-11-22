@@ -561,7 +561,6 @@ class CHIPDeviceLevel0 : public chipstar::Device {
   ze_command_queue_desc_t getQueueDesc_(int Priority);
 
 public:
-  virtual CHIPContextLevel0 *createContext() override { return nullptr; }
   bool copyQueueIsAvailable() { return CopyQueueAvailable_; }
   ze_command_list_desc_t getCommandListComputeDesc() {
     return CommandListComputeDesc_;

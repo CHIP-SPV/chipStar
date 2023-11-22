@@ -879,8 +879,6 @@ hipSharedMemConfig chipstar::Device::getSharedMemConfig() {
   UNIMPLEMENTED(hipSharedMemBankSizeDefault);
 }
 
-void chipstar::Device::removeContext(chipstar::Context *Context) {}
-
 bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
   /**
    * If commands are still executing on the specified stream, some may complete

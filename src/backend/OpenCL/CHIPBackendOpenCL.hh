@@ -200,8 +200,6 @@ private:
   }
 
 public:
-  virtual CHIPContextOpenCL *createContext() override { return nullptr; }
-
   static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
                                   CHIPContextOpenCL *ChipContext, int Idx);
   cl::Device *ClDevice;
