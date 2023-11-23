@@ -586,17 +586,14 @@ size_t CHIPEventOpenCL::getRefCount() {
 }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
-  if (wasCopied) {
-    ClEvent_ = nullptr;
-    return;
+  // if (wasCopied) {
+  //   ClEvent_ = nullptr;
+  //   return;
+  // }
+  if(ClEvent_ && !UserEvent_) {
+    auto Status = clReleaseEvent(ClEvent_);
+    assert(Status == CL_SUCCESS);
   }
-
-  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() ClEvent {} refcount {}", ClEvent_ ? : (void *)ClEvent_, getRefCount(), 0);
-  // if(ClEvent_)
-    clReleaseEvent(ClEvent_);
-  // assert that ClEvent_ has been refcounted to zero and destroyed
-
-  ClEvent_ = nullptr;
 }
 
 std::shared_ptr<chipstar::Event>
@@ -604,8 +601,7 @@ CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
   CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
-  logTrace("CHIPBackendOpenCL::createCHIPEvent({})",
-           (void *)Event->ClEvent_);
+  logTrace("CHIPBackendOpenCL::createCHIPEvent({})", (void *)Event->ClEvent_);
 
   return std::shared_ptr<chipstar::Event>(Event);
 }
@@ -627,9 +623,10 @@ void CHIPEventOpenCL::takeOver(
     std::shared_ptr<CHIPEventOpenCL> Other =
         std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
     LOCK(EventMtx); // chipstar::Event::Refc_
+    // clRetainEvent(Other->ClEvent_);
     this->ClEvent_ = Other->ClEvent_;
     Other->wasCopied = true;
-    this->Msg = Other->Msg;
+    this->Msg = "userEventCopy: " + Other->Msg;
   }
 }
 
@@ -1241,7 +1238,8 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
       static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   std::shared_ptr<CHIPEventOpenCL> EventCl =
       std::static_pointer_cast<CHIPEventOpenCL>(Event);
-  logTrace("memcpy Event->clEvent_ {} recount {}", (void *)EventCl->ClEvent_, EventCl->getRefCount());
+  logTrace("memcpy Event->clEvent_ {} recount {}", (void *)EventCl->ClEvent_,
+           EventCl->getRefCount());
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
@@ -1264,12 +1262,13 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
     auto LastEvents = getSyncQueuesLastEvents();
     auto SyncQueuesEventHandles = getSyncQueuesEventsHandles(LastEvents);
     ;
-    auto Status = ::clEnqueueSVMMemcpy(
-        ClQueue_->get(), CL_FALSE, Dst, Src, Size,
-        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
-        &(EventCl->ClEvent_));
+    auto Status = ::clEnqueueSVMMemcpy(ClQueue_->get(), CL_FALSE, Dst, Src,
+                                       Size, SyncQueuesEventHandles.size(),
+                                       SyncQueuesEventHandles.data(),
+                                       &(EventCl->ClEvent_));
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
-        logTrace("memcpy Event->clEvent_ {} recount {}", (void *)EventCl->ClEvent_, EventCl->getRefCount());
+    logTrace("memcpy Event->clEvent_ {} recount {}", (void *)EventCl->ClEvent_,
+             EventCl->getRefCount());
   }
   updateLastEvent(Event);
   return Event;

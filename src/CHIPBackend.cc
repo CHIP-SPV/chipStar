@@ -1161,6 +1161,10 @@ chipstar::Backend::Backend() {
 
 chipstar::Backend::~Backend() {
   logDebug("Backend Destructor. Deleting all pointers.");
+  // delete all tracked events
+  Events.clear();
+  UserEvents.clear();
+
   for (auto &Ctx : ChipContexts) {
     ::Backend->removeContext(Ctx);
     delete Ctx;

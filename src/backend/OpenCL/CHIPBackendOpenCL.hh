@@ -177,6 +177,7 @@ public:
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() override {
     logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
+
     SvmMemory.clear();
     delete this->ChipDevice_;
   }
