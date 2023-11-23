@@ -982,14 +982,8 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
     return;
   }
 
-  auto MemMapEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
-  auto MemMapEventNative =
-      std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
-
   auto LastEvents = getSyncQueuesLastEvents();
   auto SyncQueuesEventHandles = getSyncQueuesEventsHandles(LastEvents);
-  ;
 
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
@@ -997,19 +991,19 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
     Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
                              AllocInfo->HostPtr, AllocInfo->Size,
                              SyncQueuesEventHandles.size(),
-                             SyncQueuesEventHandles.data(), MemMapEventNative);
+                             SyncQueuesEventHandles.data(), nullptr);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
     Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
                              AllocInfo->HostPtr, AllocInfo->Size,
                              SyncQueuesEventHandles.size(),
-                             SyncQueuesEventHandles.data(), MemMapEventNative);
+                             SyncQueuesEventHandles.data(), nullptr);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
     Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE,
                              CL_MAP_READ | CL_MAP_WRITE, AllocInfo->HostPtr,
                              AllocInfo->Size, SyncQueuesEventHandles.size(),
-                             SyncQueuesEventHandles.data(), MemMapEventNative);
+                             SyncQueuesEventHandles.data(), nullptr);
   } else {
     assert(0 && "Invalid MemMap Type");
   }
@@ -1017,21 +1011,20 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 }
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
-  auto MemMapEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
   CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
+
   if (C->allDevicesSupportFineGrainSVMorUSM()) {
     logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
     return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
+
   auto LastEvents = getSyncQueuesLastEvents();
   auto SyncQueuesEventHandles = getSyncQueuesEventsHandles(LastEvents);
 
-  auto Status = clEnqueueSVMUnmap(
-      ClQueue_->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
-      SyncQueuesEventHandles.data(),
-      std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
+  auto Status = clEnqueueSVMUnmap(ClQueue_->get(), AllocInfo->HostPtr,
+                                  SyncQueuesEventHandles.size(),
+                                  SyncQueuesEventHandles.data(), nullptr);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd,
                               "MemUnmap failed");
 }
