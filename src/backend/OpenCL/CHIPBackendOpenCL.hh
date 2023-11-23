@@ -264,6 +264,9 @@ public:
   CHIPQueueOpenCL(const CHIPQueueOpenCL &) = delete;
   CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
                   cl::Device *DeviceCl, cl::Context *ContextCl);
+  CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
+                cl::Device *DeviceCl, cl::Context *ContextCl, cl::CommandQueue *ClQueue);
+  
   virtual ~CHIPQueueOpenCL() override;
 
   virtual void recordEvent(chipstar::Event *ChipEvent) override;

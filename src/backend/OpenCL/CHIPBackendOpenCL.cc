@@ -782,10 +782,12 @@ chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,
 
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
                                                int NumHandles) {
-  // cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
-  // CHIPQueueOpenCL *NewQ =
-  //     new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY, CmdQ);
-  // return NewQ;
+  cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
+  cl::CommandQueue *ClCmdQ = new cl::CommandQueue(CmdQ, false);
+
+  CHIPQueueOpenCL *NewQ =
+      new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY,ClDevice, ClContext, ClCmdQ);
+  return NewQ;
 }
 
 // CHIPKernelOpenCL
@@ -1222,6 +1224,13 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorInitializationError);
 }
 
+CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
+                cl::Device *DeviceCl, cl::Context *ContextCl, cl::CommandQueue *ClQueue)
+    : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority), ClQueue_(ClQueue),
+      ClContext_(ContextCl), ClDevice_(DeviceCl) {
+        logTrace("Initialized CHIPQueueOpenCL with existing cl::CommandQueue");
+}
+
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
   logTrace("~CHIPQueueOpenCL() ClQueue_->get() {}", (void *)ClQueue_->get());
@@ -1644,29 +1653,30 @@ void CHIPBackendOpenCL::initializeImpl() {
 
 void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
                                              int NumHandles) {
-  // logTrace("CHIPBackendOpenCL InitializeNative");
-  // MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
-  // cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
-  // cl_device_id DevId = (cl_device_id)NativeHandles[1];
-  // cl_context CtxId = (cl_context)NativeHandles[2];
+  logTrace("CHIPBackendOpenCL InitializeNative");
+  MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
+  cl_platform_id PlatId = (cl_platform_id)NativeHandles[0];
+  cl_device_id DevId = (cl_device_id)NativeHandles[1];
+  cl_context CtxId = (cl_context)NativeHandles[2];
 
-  // cl::Context Ctx(CtxId);
-  // cl::Platform Plat(PlatId);
-  // cl::Device *Dev = new cl::Device(DevId);
+  cl::Context Ctx(CtxId);
+  cl::Platform Plat(PlatId);
+  cl::Device *Dev = new cl::Device(DevId);
 
-  // CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx, *Dev, Plat);
-  // addContext(ChipContext);
+  CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx, *Dev, Plat);
+  addContext(ChipContext);
 
-  // CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(Dev, ChipContext, 0);
-  // logTrace("CHIPDeviceOpenCL {}",
-  // ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
+  CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, Dev);
 
-  // // Add device to context & backend
-  // ChipContext->setDevice(ChipDev);
+  logTrace("CHIPDeviceOpenCL {}",
+  ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
-  // setActiveDevice(ChipDev);
+  // Add device to context & backend
+  ChipContext->setDevice(ChipDev);
 
-  // logTrace("OpenCL Context Initialized.");
+  setActiveDevice(ChipDev);
+
+  logTrace("OpenCL Context Initialized.");
 }
 
 hipEvent_t CHIPBackendOpenCL::getHipEvent(void *NativeEvent) {
