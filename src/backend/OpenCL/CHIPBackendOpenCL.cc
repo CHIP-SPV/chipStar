@@ -554,12 +554,17 @@ CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  bool UserEvent)
     : chipstar::Event((chipstar::Context *)(ChipContext), Flags),
       ClEvent_(ClEvent) {
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::CHIPEventOpenCL() Msg: {}", (void*)this, (void *)ClEvent_,
+           Msg);
   UserEvent_ = UserEvent;
 }
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  chipstar::EventFlags Flags)
-    : CHIPEventOpenCL(ChipContext, nullptr, Flags, false) {}
+    : CHIPEventOpenCL(ChipContext, nullptr, Flags, false) {
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::CHIPEventOpenCL() Msg: {}", (void*)this, (void *)ClEvent_,
+           Msg);
+}
 
 uint64_t CHIPEventOpenCL::getFinishTime() {
   int Status;
@@ -586,7 +591,7 @@ size_t CHIPEventOpenCL::getRefCount() {
 }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
-  logTrace("CHIPEventOpenCL::~CHIPEventOpenCL() {} Msg: {}", (void *)ClEvent_,
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::~CHIPEventOpenCL() Msg: {}", (void*)this, (void *)ClEvent_,
            Msg);
   if (ClEvent_ && !UserEvent_) {
     auto Status = clReleaseEvent(ClEvent_);
@@ -599,9 +604,10 @@ CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
   CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
-  logTrace("CHIPBackendOpenCL::createCHIPEvent({})", (void *)Event->ClEvent_);
+  // logTrace("{}(ClEvent_:{}) CHIPBackendOpenCL::createCHIPEvent()", (void *)Event->ClEvent_);
 
-  return std::shared_ptr<chipstar::Event>(Event);
+  auto SharedEvent = std::shared_ptr<chipstar::Event>(Event);
+  return SharedEvent;
 }
 
 void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
@@ -615,15 +621,13 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
 
 void CHIPEventOpenCL::recordCopy(
     const std::shared_ptr<chipstar::Event> &OtherIn) {
-  logTrace("CHIPEventOpenCL::recordCopy this {} other {}", (void *)this,
-           (void *)OtherIn.get());
-  {
-    std::shared_ptr<CHIPEventOpenCL> Other =
-        std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
-    LOCK(EventMtx); // chipstar::Event::Refc_
-    this->ClEvent_ = Other->ClEvent_;
-    this->Msg = "userEventCopy: " + Other->Msg;
-  }
+  std::shared_ptr<CHIPEventOpenCL> Other =
+      std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
+  logTrace(" CHIPEventOpenCL::recordCopy this {}(ClEvent_:{}) other {}(ClEvent_:{})", (void *)ClEvent_,
+           (void *)Other->ClEvent_);
+  LOCK(EventMtx); // chipstar::Event::Refc_
+  this->ClEvent_ = Other->ClEvent_;
+  this->Msg = "userEventCopy: " + Other->Msg;
 }
 
 bool CHIPEventOpenCL::wait() {
@@ -641,7 +645,7 @@ bool CHIPEventOpenCL::wait() {
 }
 
 bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  logTrace("CHIPEventOpenCL::updateFinishStatus()");
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::updateFinishStatus()", (void*)this, (void *)ClEvent_);
   if (ThrowErrorIfNotReady && this->ClEvent_ == nullptr)
     CHIPERR_LOG_AND_THROW("OpenCL has not been initialized cl_event is null",
                           hipErrorNotReady);
@@ -649,6 +653,7 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
   int UpdatedStatus;
   auto Status = clGetEventInfo(ClEvent_, CL_EVENT_COMMAND_EXECUTION_STATUS,
                                sizeof(int), &UpdatedStatus, NULL);
+  assert(Status == CL_SUCCESS);
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   if (ThrowErrorIfNotReady && UpdatedStatus != CL_COMPLETE) {
     CHIPERR_LOG_AND_THROW("chipstar::Event not yet ready", hipErrorNotReady);
@@ -785,8 +790,8 @@ chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
   cl_command_queue CmdQ = (cl_command_queue)NativeHandles[3];
   cl::CommandQueue *ClCmdQ = new cl::CommandQueue(CmdQ, false);
 
-  CHIPQueueOpenCL *NewQ =
-      new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY,ClDevice, ClContext, ClCmdQ);
+  CHIPQueueOpenCL *NewQ = new CHIPQueueOpenCL(this, OCL_DEFAULT_QUEUE_PRIORITY,
+                                              ClDevice, ClContext, ClCmdQ);
   return NewQ;
 }
 
@@ -1009,7 +1014,6 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
     assert(0 && "Invalid MemMap Type");
   }
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd, "MemMap failed");
-  updateLastEvent(MemMapEvent);
 }
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
@@ -1030,7 +1034,6 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd,
                               "MemUnmap failed");
-  updateLastEvent(MemMapEvent);
 }
 
 cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
@@ -1225,10 +1228,11 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
 }
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
-                cl::Device *DeviceCl, cl::Context *ContextCl, cl::CommandQueue *ClQueue)
-    : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority), ClQueue_(ClQueue),
-      ClContext_(ContextCl), ClDevice_(DeviceCl) {
-        logTrace("Initialized CHIPQueueOpenCL with existing cl::CommandQueue");
+                                 cl::Device *DeviceCl, cl::Context *ContextCl,
+                                 cl::CommandQueue *ClQueue)
+    : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority),
+      ClQueue_(ClQueue), ClContext_(ContextCl), ClDevice_(DeviceCl) {
+  logTrace("Initialized CHIPQueueOpenCL with existing cl::CommandQueue");
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
@@ -1668,8 +1672,7 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
 
   CHIPDeviceOpenCL *ChipDev = new CHIPDeviceOpenCL(ChipContext, Dev);
 
-  logTrace("CHIPDeviceOpenCL {}",
-  ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
+  logTrace("CHIPDeviceOpenCL {}", ChipDev->ClDevice->getInfo<CL_DEVICE_NAME>());
 
   // Add device to context & backend
   ChipContext->setDevice(ChipDev);
