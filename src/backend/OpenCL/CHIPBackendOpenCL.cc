@@ -554,16 +554,16 @@ CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  bool UserEvent)
     : chipstar::Event((chipstar::Context *)(ChipContext), Flags),
       ClEvent_(ClEvent) {
-  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::CHIPEventOpenCL() Msg: {}", (void*)this, (void *)ClEvent_,
-           Msg);
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::CHIPEventOpenCL() Msg: {}",
+           (void *)this, (void *)ClEvent_, Msg);
   UserEvent_ = UserEvent;
 }
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  chipstar::EventFlags Flags)
     : CHIPEventOpenCL(ChipContext, nullptr, Flags, false) {
-  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::CHIPEventOpenCL() Msg: {}", (void*)this, (void *)ClEvent_,
-           Msg);
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::CHIPEventOpenCL() Msg: {}",
+           (void *)this, (void *)ClEvent_, Msg);
 }
 
 uint64_t CHIPEventOpenCL::getFinishTime() {
@@ -591,8 +591,8 @@ size_t CHIPEventOpenCL::getRefCount() {
 }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
-  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::~CHIPEventOpenCL() Msg: {}", (void*)this, (void *)ClEvent_,
-           Msg);
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::~CHIPEventOpenCL() Msg: {}",
+           (void *)this, (void *)ClEvent_, Msg);
   if (ClEvent_ && !UserEvent_) {
     auto Status = clReleaseEvent(ClEvent_);
     assert(Status == CL_SUCCESS);
@@ -604,7 +604,8 @@ CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
   CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
-  // logTrace("{}(ClEvent_:{}) CHIPBackendOpenCL::createCHIPEvent()", (void *)Event->ClEvent_);
+  // logTrace("{}(ClEvent_:{}) CHIPBackendOpenCL::createCHIPEvent()", (void
+  // *)Event->ClEvent_);
 
   auto SharedEvent = std::shared_ptr<chipstar::Event>(Event);
   return SharedEvent;
@@ -623,8 +624,9 @@ void CHIPEventOpenCL::recordCopy(
     const std::shared_ptr<chipstar::Event> &OtherIn) {
   std::shared_ptr<CHIPEventOpenCL> Other =
       std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
-  logTrace(" CHIPEventOpenCL::recordCopy this {}(ClEvent_:{}) other {}(ClEvent_:{})", (void *)ClEvent_,
-           (void *)Other->ClEvent_);
+  logTrace(
+      " CHIPEventOpenCL::recordCopy this {}(ClEvent_:{}) other {}(ClEvent_:{})",
+      (void *)ClEvent_, (void *)Other->ClEvent_);
   LOCK(EventMtx); // chipstar::Event::Refc_
   this->ClEvent_ = Other->ClEvent_;
   this->Msg = "userEventCopy: " + Other->Msg;
@@ -645,7 +647,8 @@ bool CHIPEventOpenCL::wait() {
 }
 
 bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::updateFinishStatus()", (void*)this, (void *)ClEvent_);
+  logTrace("{}(ClEvent_:{}) CHIPEventOpenCL::updateFinishStatus()",
+           (void *)this, (void *)ClEvent_);
   if (ThrowErrorIfNotReady && this->ClEvent_ == nullptr)
     CHIPERR_LOG_AND_THROW("OpenCL has not been initialized cl_event is null",
                           hipErrorNotReady);
