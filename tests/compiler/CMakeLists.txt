@@ -113,3 +113,7 @@ add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
+
+# Check __FAST_MATH__ is set for -ffast-math and preprocessor guards
+# using it are not hiding errors.
+add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)

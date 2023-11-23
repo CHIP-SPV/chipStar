@@ -38,7 +38,14 @@ extern "C++" __device__ double atanh(double x); // OpenCL
 extern "C++" __device__ double cbrt(double x); // OpenCL
 extern "C++" __device__ double ceil(double x); // OpenCL
 extern "C++" __device__ double copysign(double x, double y); // OpenCL
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_cos(double x); // OpenCL
+extern "C++" inline __device__ double cos(double x) { return ::native_cos(x); }
+#else
 extern "C++" __device__ double cos(double x); // OpenCL
+#endif
+
 extern "C++" __device__ double cosh(double x); // OpenCL
 extern "C++" __device__ double cospi(double x); // OpenCL
 
@@ -69,9 +76,31 @@ extern "C++" inline __device__ double erfinv(double x) {
   return ::__ocml_erfinv_f64(x);
 }
 
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_exp(double x); // OpenCL
+extern "C++" inline __device__ double exp(double x) { return ::native_exp(x); }
+#else
 extern "C++" __device__ double exp(double x); // OpenCL
+#endif
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_exp10(double x); // OpenCL
+extern "C++" inline __device__ double exp10(double x) {
+  return ::native_exp10(x);
+}
+#else
 extern "C++" __device__ double exp10(double x); // OpenCL
-extern "C++" __device__ double exp2(double x); // OpenCL
+#endif
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_exp2(double x); // OpenCL
+extern "C++" inline __device__ double exp2(double x) {
+  return ::native_exp2(x);
+}
+#else
+extern "C++" __device__ double exp2(double x);  // OpenCL
+#endif
+
 extern "C++" __device__ double expm1(double x); // OpenCL
 extern "C++" __device__ double fabs(double x); // OpenCL
 extern "C++" __device__ double fdim(double x, double y); // OpenCL
@@ -116,10 +145,33 @@ extern "C++" inline __device__ long long int llround(double x) {
   return ::__chip_llround_f64(x);
 }
 
-extern "C++" __device__ double log(double x); // OpenCL
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_log(double x); // OpenCL
+extern "C++" inline __device__ double log(double x) { return ::native_log(x); }
+#else
+extern "C++" __device__ double log(double x);   // OpenCL
+#endif
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_log10(double x); // OpenCL
+extern "C++" inline __device__ double log10(double x) {
+  return ::native_log10(x);
+}
+#else
 extern "C++" __device__ double log10(double x); // OpenCL
+#endif
+
 extern "C++" __device__ double log1p(double x); // OpenCL
-extern "C++" __device__ double log2(double x); // OpenCL
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_log2(double x); // OpenCL
+extern "C++" inline __device__ double log2(double x) {
+  return ::native_log2(x);
+}
+#else
+extern "C++" __device__ double log2(double x);  // OpenCL
+#endif
+
 extern "C++" __device__ double logb(double x); // OpenCL
 
 extern "C" __device__  long int __chip_lrint_f64(double x); // Custom
@@ -214,7 +266,15 @@ extern "C++" inline __device__ double rnorm4d(double a, double b, double c,
 }
 
 extern "C++" __device__ double round(double x); // OpenCL
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_rsqrt(double x); // OpenCL
+extern "C++" inline __device__ double rsqrt(double x) {
+  return ::native_rsqrt(x);
+}
+#else
 extern "C++" __device__ double rsqrt(double x); // OpenCL
+#endif
 
 extern "C" __device__  double __ocml_scalb_f64(double x, double n);
 extern "C++" inline __device__ double scalbln(double x, long int n) {
@@ -229,7 +289,15 @@ extern "C++" inline __device__ double scalbn(double x, int n)  {
 }
 
 extern "C++" __device__ int 	signbit ( double  a ); // OpenCL
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_sin(double x); // OpenCL
+extern "C++" inline __device__ double sin(double x) {
+  return ::native_sin(x);
+}
+#else
 extern "C++" __device__ double sin(double x); // OpenCL
+#endif
 
 extern "C++" __device__ double sincos(double x, double *sptr); // OpenCL
 extern "C++" inline __device__ void sincos(double x, double *sptr,
@@ -248,8 +316,23 @@ extern "C++" inline __device__ void sincospi(double x, double *sptr,
 
 extern "C++" __device__ double sinh(double x); // OpenCL
 extern "C++" __device__ double sinpi(double x); // OpenCL
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_sqrt(double x); // OpenCL
+extern "C++" inline __device__ double sqrt(double x) {
+  return ::native_sqrt(x);
+}
+#else
 extern "C++" __device__ double sqrt(double x); // OpenCL
-extern "C++" __device__ double tan(double x); // OpenCL
+#endif
+
+#ifdef __FAST_MATH__
+extern "C++" __device__ double native_tan(double x); // OpenCL
+extern "C++" inline __device__ double tan(double x) { return ::native_tan(x); }
+#else
+extern "C++" __device__ double tan(double x);  // OpenCL
+#endif
+
 extern "C++" __device__ double tanh(double x); // OpenCL
 extern "C++" __device__ double tgamma(double x); // OpenCL
 extern "C++" __device__ double trunc(double x); // OpenCL
