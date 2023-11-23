@@ -656,9 +656,9 @@ protected:
    *
    */
   Event() : TrackCalled_(false), UserEvent_(false) {}
+  virtual ~Event() { logTrace("~Event() {}", (void *)this); };
 
 public:
-  virtual ~Event() { logTrace("~Event() {}", (void *)this); };
   void setRecording() {
     assert(!Deleted_ && "chipstar::Event use after delete!");
     EventStatus_ = EVENT_STATUS_RECORDING;
@@ -1982,7 +1982,6 @@ public:
   createCHIPEvent(chipstar::Context *ChipCtx,
                   chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) = 0;
-
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived

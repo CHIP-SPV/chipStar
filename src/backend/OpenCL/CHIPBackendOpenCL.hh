@@ -87,7 +87,6 @@ class CHIPEventOpenCL : public chipstar::Event {
 public:
   cl_event ClEvent_;
   friend class CHIPEventOpenCL;
-  bool wasCopied = false;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
@@ -97,7 +96,7 @@ public:
                   chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;
 
-  void takeOver(const std::shared_ptr<chipstar::Event> &Other);
+  void recordCopy(const std::shared_ptr<chipstar::Event> &Other);
   bool wait() override;
   float getElapsedTime(chipstar::Event *Other) override;
   virtual void hostSignal() override;
@@ -114,7 +113,7 @@ protected:
 
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
-  virtual ~CHIPModuleOpenCL() {
+  virtual ~CHIPModuleOpenCL() override {
     logTrace("CHIPModuleOpenCL::~CHIPModuleOpenCL");
   }
   virtual void compile(chipstar::Device *ChipDevice) override;
