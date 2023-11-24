@@ -24,7 +24,6 @@
 # =============================================================================
 
 # temporary
-set(CMAKE_WARN_DEPRECATED OFF)
 add_compile_options(-Wno-format-extra-args -mf16c)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
@@ -210,7 +209,6 @@ option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodul
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "enable support for cl_intel_unified_shared_memory in the OpenCL backend" OFF)
-option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
 # This mitigation might be necessary on some systems with an older runtime. 
 # This mitigation makes memory resident (disable swapping) on the GPU
 # This has a significant impact on the cost of a GPU malloc 
@@ -226,6 +224,10 @@ option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib fun
 # this option will strip the such attributes.
 option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
 consumption issues in ARM Mali GPU driver." OFF)
+
+if(CHIP_EXT_FLOAT_ATOMICS)
+  message(DEPRECATION "-DCHIP_EXT_FLOAT_ATOMICS is no longer effective.")
+endif()
 
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
@@ -664,11 +666,15 @@ install(EXPORT CHIPTargets
 #
 # enable the build_tests target
 SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
+
+set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
+set(CMAKE_WARN_DEPRECATED OFF)
 if(CHIP_USE_EXTERNAL_HIP_TESTS)
   add_subdirectory(hip-tests/catch catch)
 else()
   add_subdirectory(HIP/tests/catch catch)
 endif()
+set(CMAKE_WARN_DEPRECATED ${SAVED_WARN_DEPRECATED})
 
 if(CHIP_BUILD_TESTS)
   add_subdirectory(tests/cuda)

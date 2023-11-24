@@ -38,10 +38,6 @@ if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
   list(APPEND EXTRA_FLAGS "-DCHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE=1")
 endif()
 
-if(CHIP_EXT_FLOAT_ATOMICS)
-  list(APPEND EXTRA_FLAGS "-DCHIP_EXT_FLOAT_ATOMICS")
-endif()
-
 if("${LLVM_VERSION}" VERSION_LESS 14.0)
   # Definitions for pre-upstreamed HIP-Clang.
   set(BC_TRIPLE "spirv64")
@@ -85,8 +81,12 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
 endforeach()
 
 # required by ROCm-Device-Libs
-set(ROCM_DEVICELIB_STANDALONE_BUILD ON) 
+set(ROCM_DEVICELIB_STANDALONE_BUILD ON)
+
+set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
+set(CMAKE_WARN_DEPRECATED OFF)
 add_subdirectory(ROCm-Device-Libs EXCLUDE_FROM_ALL)
+set(CMAKE_WARN_DEPRECATED ${SAVED_WARN_DEPRECATED})
 
 # ROCm-Device-Libs provides OCML and its dependencies (OCLC, OCKL, etc.)
 # Since these targets don't seem to get exported as normal targets, we have to link this way.
