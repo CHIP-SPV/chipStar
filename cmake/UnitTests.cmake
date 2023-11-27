@@ -11,6 +11,47 @@ list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS " ")
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS " ") 
 list(APPEND CPU_POCL_FAILED_TESTS " ") 
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
+list(APPEND NON_PARALLEL_TESTS " ")
+
+list(APPEND NON_PARALLEL_TESTS "clock")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestwithTwoStream")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestDtoDonSameDevice")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double")
+list(APPEND NON_PARALLEL_TESTS "broadcast2")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetFunctional_SmallSize_3D")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_KernelLaunch - int")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_KernelLaunch - float")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_KernelLaunch - double")
+list(APPEND NON_PARALLEL_TESTS "fp16")
+list(APPEND NON_PARALLEL_TESTS "SimpleConvolution")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipHostMalloc_Basic")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMalloc_LoopRegressionAllocFreeCycles")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync")
+list(APPEND NON_PARALLEL_TESTS "cuda-scan")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3DAsync_ConcurrencyMthread")
+list(APPEND NON_PARALLEL_TESTS "cuda-bandwidthTest")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_QueueJobsMultithreaded")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset2DAsync_MultiThread")
+list(APPEND NON_PARALLEL_TESTS "DCT")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetFunctional_ZeroSize_3D")
+list(APPEND NON_PARALLEL_TESTS "cuda-matrixMul")
+list(APPEND NON_PARALLEL_TESTS "cuda-FDTD3d")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiThreadStreams1_AsyncSync")
+list(APPEND NON_PARALLEL_TESTS "FastWalshTransform")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiStream_sameDevice")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamCreate_MultistreamBasicFunctionalities")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_MultiThreadWithSerialization")
+list(APPEND NON_PARALLEL_TESTS "dwtHaar1D")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipHostRegister_Memcpy - int")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipHostRegister_Memcpy - float")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipHostRegister_Memcpy - double")
+list(APPEND NON_PARALLEL_TESTS "TestStlFunctionsDouble")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset_SetMemoryWithOffset")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
+list(APPEND NON_PARALLEL_TESTS "BitonicSort")
+list(APPEND NON_PARALLEL_TESTS "FloydWarshall")
 
 # This test gets enabled only if LLVM' FileCheck tool is found in PATH.
 # It fails with "error: cannot find ROCm device library;
@@ -731,6 +772,9 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 # dGPU OpenCL Unit Test Failures
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # flaky
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime") # flaky
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # flaky
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # invalid free()
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
@@ -2056,8 +2100,7 @@ string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_RCL_FAILED_TESTS_STR "${IGPU_LEVEL0_R
 string(REGEX REPLACE ";" "\$|" IGPU_LEVEL0_ICL_FAILED_TESTS_STR "${IGPU_LEVEL0_ICL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|"    CPU_POCL_FAILED_TESTS_STR "${CPU_POCL_FAILED_TESTS}")
 string(REGEX REPLACE ";" "\$|" ALL_FAILED_TESTS_STR "${ALL_FAILED_TESTS}")
-
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -E ${ALL_FAILED_TESTS_STR} VERBATIM)
+string(REGEX REPLACE ";" "\$|" NON_PARALLEL_TESTS_STR "${NON_PARALLEL_TESTS}")
 
 string(CONCAT DGPU_OPENCL_FAILED_TESTS_STR ${DGPU_OPENCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT IGPU_OPENCL_FAILED_TESTS_STR ${IGPU_OPENCL_FAILED_TESTS_STR} "\$|")
@@ -2068,6 +2111,7 @@ string(CONCAT IGPU_LEVEL0_RCL_FAILED_TESTS_STR ${IGPU_LEVEL0_RCL_FAILED_TESTS_ST
 string(CONCAT IGPU_LEVEL0_ICL_FAILED_TESTS_STR ${IGPU_LEVEL0_ICL_FAILED_TESTS_STR} "\$|")
 string(CONCAT CPU_POCL_FAILED_TESTS_STR ${CPU_POCL_FAILED_TESTS_STR} "\$|")
 string(CONCAT ALL_FAILED_TESTS_STR ${ALL_FAILED_TESTS_STR} "\$|")
+string(CONCAT NON_PARALLEL_TESTS_STR ${NON_PARALLEL_TESTS_STR} "\$|")
 
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/dgpu_opencl_failed_tests.txt" "\"${DGPU_OPENCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_opencl_failed_tests.txt" "\"${IGPU_OPENCL_FAILED_TESTS_STR}\"")
@@ -2078,14 +2122,4 @@ FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_reg_tests.txt" "\"
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/igpu_level0_failed_imm_tests.txt" "\"${IGPU_LEVEL0_ICL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/cpu_pocl_failed_tests.txt" "\"${CPU_POCL_FAILED_TESTS_STR}\"")
 FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/all_failed_tests.txt" "\"${ALL_FAILED_TESTS_STR}\"")
-
-# TODO fix-254 how do I make these read from the environment?
-# MULTI_TESTS_REPEAT=33 make multi_tests
-# Preferably without an additional reconfigure. Every way I tried escaping ${MULTI_TESTS_REPEAT} results in something undesirable like \${MULTI_TESTS_REPEAT}
-set(FLAKY_TESTS_REPEAT 100)
-set(MULTI_TESTS_REPEAT 10)
-set(PARALLEL_TESTS 1)
-
-set(TEST_OPTIONS -j ${PARALLEL_TESTS} --timeout 120 --output-on-failure)
-add_custom_target(flaky_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R ${FLAKY_TESTS} --repeat until-fail:${FLAKY_TESTS_REPEAT} USES_TERMINAL VERBATIM)
-add_custom_target(multi_tests COMMAND ${CMAKE_CTEST_COMMAND} ${TEST_OPTIONS} -R "[Aa]sync|[Mm]ulti[Tt]hread|[Mm]ulti[Ss]tream|[Tt]hread|[Ss]tream" --repeat until-fail:${MULTI_TESTS_REPEAT} USES_TERMINAL VERBATIM)
+FILE(WRITE "${CMAKE_BINARY_DIR}/test_lists/non_parallel_tests.txt" "\"${NON_PARALLEL_TESTS_STR}\"")
