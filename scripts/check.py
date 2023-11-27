@@ -18,6 +18,8 @@ parser.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number 
 parser.add_argument('--timeout', type=int, nargs='?', default=200, help='Timeout in seconds (default: 200)')
 parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default="on", help='load modulefiles automatically (default: on)')
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
+parser.add_argument('-c', '--categories', action='store_true', help='run tests by categories, including running a set of tests in a single thread')
 
 args = parser.parse_args()
 
@@ -90,10 +92,33 @@ if not texture_support:
 else:
     texture_cmd = ""
 
-cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\"  -O checkpy_{args.device_type}_{args.backend}.txt"
-res, ctest_return_code = run_cmd(cmd)
-# check if "0 tests failed" is in the output, if so return 0
-if "0 tests failed" in res:
-    exit(0)
+if args.categories:
+  cmd_deviceFunc = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -R deviceFunc -O checkpy_{args.device_type}_{args.backend}_device.txt"
+  cmd_graph = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -R \"[Gg]raph\" -O checkpy_{args.device_type}_{args.backend}_graph.txt"
+  cmd_single = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 1 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -R \"`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_single.txt"
+  cmd_other = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}|deviceFunc|[Gg]raph|`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_other.txt"
+  if(args.dry_run):
+      print(cmd_deviceFunc)
+      print(cmd_graph)
+      print(cmd_single)
+      print(cmd_other)
+      exit(0)
+  res_deviceFunc, err  = run_cmd(cmd_deviceFunc)
+  res_graph, err = run_cmd(cmd_graph)
+  res_single, err = run_cmd(cmd_single)
+  res_other, err = run_cmd(cmd_other)
+
+  if "0 tests failed" in res_deviceFunc and "0 tests failed" in res_graph and "0 tests failed" in res_single and "0 tests failed" in res_other:
+      exit(0)
+  else:
+      exit(1)
 else:
-    exit(ctest_return_code)
+  cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{args.backend}.txt"
+  if(args.dry_run):
+    print(cmd)
+    exit(0)
+  res, err = run_cmd(cmd)
+  if "0 tests failed" in res:
+      exit(0)
+  else:
+      exit(1)
