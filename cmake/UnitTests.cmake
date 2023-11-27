@@ -13,6 +13,7 @@ list(APPEND CPU_POCL_FAILED_TESTS " ")
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 list(APPEND NON_PARALLEL_TESTS " ")
 
+list(APPEND NON_PARALLEL_TESTS "clock")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestwithTwoStream")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestDtoDonSameDevice")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int")
