@@ -189,10 +189,10 @@ public:
               "was not compiled with OpenCL backend");
 #endif
     } else if (StrIn == "") {
-#ifdef HAVE_OPENCL
-      Type_ = BackendType::OpenCL;
-#elif HAVE_LEVEL0
+#ifdef HAVE_LEVEL0
       Type_ = BackendType::Level0;
+#elif HAVE_OPENCL
+      Type_ = BackendType::OpenCL;
 #else
       CHIPERR_LOG_AND_THROW("Invalid chipStar Backend Selected. This chipStar "
                             "was not compiled with OpenCL or Level0 backend",
