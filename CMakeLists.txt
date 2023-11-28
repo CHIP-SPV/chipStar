@@ -35,7 +35,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-set(CHIPSTAR_VERSION 1.2)
+set(CHIPSTAR_VERSION 1.1)
 project(chipStar
   VERSION ${CHIPSTAR_VERSION}
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
