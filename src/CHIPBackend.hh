@@ -1986,8 +1986,7 @@ public:
    */
   virtual std::shared_ptr<chipstar::Event>
   createEventShared(chipstar::Context *ChipCtx,
-                    chipstar::EventFlags Flags = chipstar::EventFlags(),
-                    bool UserEvent = false) = 0;
+                    chipstar::EventFlags Flags = chipstar::EventFlags()) = 0;
 
   /**
    * @brief Create an unmanaged chipstar::Event.

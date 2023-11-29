@@ -589,10 +589,11 @@ CHIPEventOpenCL::~CHIPEventOpenCL() {
     clReleaseEvent(ClEvent);
 }
 
-std::shared_ptr<chipstar::Event> CHIPBackendOpenCL::createEventShared(
-    chipstar::Context *ChipCtx, chipstar::EventFlags Flags, bool UserEvent) {
-  CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
-                                               nullptr, Flags, UserEvent);
+std::shared_ptr<chipstar::Event>
+CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
+                                     chipstar::EventFlags Flags) {
+  CHIPEventOpenCL *Event =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, false);
 
   return std::shared_ptr<chipstar::Event>(Event);
 }
