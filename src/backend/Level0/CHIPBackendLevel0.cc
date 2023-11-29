@@ -1335,7 +1335,8 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 
   std::shared_ptr<chipstar::Event> MarkerEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
 
   MarkerEvent->Msg = "marker";
   LOCK(CommandListMtx);
@@ -1355,7 +1356,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
   logError("CHIPQueueLevel0::enqueueMarkerImplReg");
   std::shared_ptr<chipstar::Event> MarkerEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
 
   MarkerEvent->Msg = "marker";
 
@@ -1376,7 +1378,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   std::shared_ptr<chipstar::Event> BarrierEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
   BarrierEvent->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
@@ -1421,7 +1424,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   logError("CHIPQueueLevel0::enqueueBarrierImplReg");
   std::shared_ptr<chipstar::Event> BarrierEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
   BarrierEvent->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
@@ -1520,7 +1524,8 @@ void CHIPQueueLevel0::executeCommandList(
 void CHIPQueueLevel0::executeCommandListReg(
     ze_command_list_handle_t CommandList) {
   std::shared_ptr<chipstar::Event> LastCmdListEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
 
   ze_result_t Status;
@@ -1655,9 +1660,8 @@ chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim,
   return ExecItem;
 };
 
-std::shared_ptr<chipstar::Event>
-CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
-                                   chipstar::EventFlags Flags, bool UserEvent) {
+std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
+    chipstar::Context *ChipCtx, chipstar::EventFlags Flags, bool UserEvent) {
   std::shared_ptr<chipstar::Event> Event;
   if (UserEvent) {
     Event = std::shared_ptr<chipstar::Event>(
@@ -1674,6 +1678,9 @@ CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
            (void *)ChipCtx, (void *)Event.get());
   return Event;
 }
+
+chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
+                                                chipstar::EventFlags Flags) {}
 
 void CHIPBackendLevel0::uninitialize() {
   /**
