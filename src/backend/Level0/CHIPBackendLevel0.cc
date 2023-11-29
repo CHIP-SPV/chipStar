@@ -1663,14 +1663,9 @@ chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim,
 std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
     chipstar::Context *ChipCtx, chipstar::EventFlags Flags, bool UserEvent) {
   std::shared_ptr<chipstar::Event> Event;
-  if (UserEvent) {
-    Event = std::shared_ptr<chipstar::Event>(
-        new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags));
-    Event->setUserEvent(true);
-  } else {
-    auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
-    Event = ZeCtx->getEventFromPool();
-  }
+
+  auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
+  Event = ZeCtx->getEventFromPool();
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
   assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssocCmdList());
@@ -1680,7 +1675,13 @@ std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
 }
 
 chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
-                                                chipstar::EventFlags Flags) {}
+                                                chipstar::EventFlags Flags) {
+  auto Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+  Event->setUserEvent(true);
+  logDebug("CHIPBackendLevel0::createEventd: Context {} Event {}",
+           (void *)ChipCtx, (void *)Event);
+  return Event;
+}
 
 void CHIPBackendLevel0::uninitialize() {
   /**
