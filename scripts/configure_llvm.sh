@@ -8,6 +8,18 @@ if [ $# -ne 3 ]; then
   exit 1
 fi
 
+# check version argument
+if [ "$1" != "15" ] && [ "$1" != "16" ] && [ "$1" != "17" ]; then
+  echo "Invalid version. Must be 15, 16, or 17."
+  exit 1
+fi
+
+# check build_type argument
+if [ "$3" != "static" ] && [ "$3" != "dynamic" ]; then
+  echo "Invalid build_type. Must be 'static' or 'dynamic'."
+  exit 1
+fi
+
 # if an error is enountered, exit
 set -e
 
