@@ -96,7 +96,7 @@ public:
                   chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;
 
-  void takeOver(const std::shared_ptr<chipstar::Event> &Other);
+  void recordEventCopy(const std::shared_ptr<chipstar::Event> &Other);
   bool wait() override;
   float getElapsedTime(chipstar::Event *Other) override;
   virtual void hostSignal() override;

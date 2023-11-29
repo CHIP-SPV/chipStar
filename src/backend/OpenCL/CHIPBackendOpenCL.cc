@@ -584,10 +584,10 @@ size_t CHIPEventOpenCL::getRefCount() {
   return RefCount;
 }
 
-CHIPEventOpenCL::~CHIPEventOpenCL() { 
-  if(ClEvent)
+CHIPEventOpenCL::~CHIPEventOpenCL() {
+  if (ClEvent)
     clReleaseEvent(ClEvent);
-  }
+}
 
 std::shared_ptr<chipstar::Event> CHIPBackendOpenCL::createEventShared(
     chipstar::Context *ChipCtx, chipstar::EventFlags Flags, bool UserEvent) {
@@ -609,20 +609,17 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
   auto ChipEventCL = static_cast<CHIPEventOpenCL *>(ChipEvent);
 
   std::shared_ptr<chipstar::Event> LastEvent = getLastEvent();
-  ChipEventCL->takeOver(LastEvent ? LastEvent : enqueueMarker());
+  ChipEventCL->recordEventCopy(LastEvent ? LastEvent : enqueueMarker());
   ChipEventCL->setRecording();
 }
 
-void CHIPEventOpenCL::takeOver(
+void CHIPEventOpenCL::recordEventCopy(
     const std::shared_ptr<chipstar::Event> &OtherIn) {
-  logTrace("CHIPEventOpenCL::takeOver");
-  {
-    std::shared_ptr<CHIPEventOpenCL> Other =
-        std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
-    LOCK(EventMtx); // chipstar::Event::Refc_
-    this->ClEvent = Other->ClEvent;
-    this->Msg = Other->Msg;
-  }
+  logTrace("CHIPEventOpenCL::recordEventCopy");
+  std::shared_ptr<CHIPEventOpenCL> Other =
+      std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
+  this->ClEvent = Other->ClEvent;
+  this->Msg = "recordEventCopy: " + Other->Msg;
 }
 
 bool CHIPEventOpenCL::wait() {
