@@ -584,7 +584,10 @@ size_t CHIPEventOpenCL::getRefCount() {
   return RefCount;
 }
 
-CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
+CHIPEventOpenCL::~CHIPEventOpenCL() { 
+  if(ClEvent)
+    clReleaseEvent(ClEvent);
+  }
 
 std::shared_ptr<chipstar::Event> CHIPBackendOpenCL::createEventShared(
     chipstar::Context *ChipCtx, chipstar::EventFlags Flags, bool UserEvent) {
