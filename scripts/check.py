@@ -16,7 +16,7 @@ parser.add_argument('backend', type=str, choices=['opencl', 'level0-reg', 'level
 parser.add_argument('--num-threads', type=int, nargs='?', default=os.cpu_count(), help='Number of threads to use (default: number of cores on the system)')
 parser.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 parser.add_argument('--timeout', type=int, nargs='?', default=200, help='Timeout in seconds (default: 200)')
-parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default="on", help='load modulefiles automatically (default: on)')
+parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default="off", help='load modulefiles automatically (default: on)')
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
 parser.add_argument('-c', '--categories', action='store_true', help='run tests by categories, including running a set of tests in a single thread')
@@ -84,7 +84,7 @@ if args.modules == "on":
 
 os.chdir(args.work_dir)
 
-cmd = f"{modules} {env_vars} ./samples/hipInfo/hipInfo"
+cmd = f"{modules} {env_vars} ./hipInfo"
 out, _ = run_cmd(cmd)
 texture_support = 0 < int(out.split("maxTexture1DLinear:")[1].split("\n")[0].strip())
 if not texture_support:
