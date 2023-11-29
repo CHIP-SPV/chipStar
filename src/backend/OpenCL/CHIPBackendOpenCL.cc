@@ -595,7 +595,11 @@ std::shared_ptr<chipstar::Event> CHIPBackendOpenCL::createEventShared(
 }
 
 chipstar::Event *CHIPBackendOpenCL::createEvent(chipstar::Context *ChipCtx,
-                                                chipstar::EventFlags Flags) {}
+                                                chipstar::EventFlags Flags) {
+  CHIPEventOpenCL *Event =
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, true);
+  return Event;
+}
 
 void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
   logTrace("chipstar::Queue::recordEvent({})", (void *)ChipEvent);

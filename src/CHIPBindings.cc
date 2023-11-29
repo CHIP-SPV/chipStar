@@ -2282,14 +2282,9 @@ static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
                                                          unsigned Flags) {
   chipstar::EventFlags EventFlags{Flags};
 
-  auto ChipEvent =
-      Backend->createEventShared(Backend->getActiveContext(), EventFlags, true);
-  {
-    LOCK(Backend->UserEventsMtx);
-    Backend->UserEvents.push_back(ChipEvent);
-  }
+  *Event =
+      Backend->createEvent(Backend->getActiveContext(), EventFlags);
 
-  *Event = ChipEvent.get();
   return hipSuccess;
 }
 
