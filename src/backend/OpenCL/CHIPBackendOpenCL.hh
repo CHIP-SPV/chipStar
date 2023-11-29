@@ -90,8 +90,7 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
-                  chipstar::EventFlags Flags = chipstar::EventFlags(),
-                  bool UserEvent = false);
+                  chipstar::EventFlags Flags = chipstar::EventFlags());
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;

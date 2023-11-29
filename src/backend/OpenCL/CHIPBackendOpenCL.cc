@@ -549,16 +549,13 @@ void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 // ************************************************************************
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
-                                 cl_event ClEvent, chipstar::EventFlags Flags,
-                                 bool UserEvent)
+                                 cl_event ClEvent, chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipContext), Flags),
-      ClEvent(ClEvent) {
-  UserEvent_ = UserEvent;
-}
+      ClEvent(ClEvent) {}
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  chipstar::EventFlags Flags)
-    : CHIPEventOpenCL(ChipContext, nullptr, Flags, false) {}
+    : CHIPEventOpenCL(ChipContext, nullptr, Flags) {}
 
 uint64_t CHIPEventOpenCL::getFinishTime() {
   int Status;
@@ -593,7 +590,7 @@ std::shared_ptr<chipstar::Event>
 CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
                                      chipstar::EventFlags Flags) {
   CHIPEventOpenCL *Event =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, false);
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags);
 
   return std::shared_ptr<chipstar::Event>(Event);
 }
@@ -601,7 +598,8 @@ CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
 chipstar::Event *CHIPBackendOpenCL::createEvent(chipstar::Context *ChipCtx,
                                                 chipstar::EventFlags Flags) {
   CHIPEventOpenCL *Event =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags, true);
+      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags);
+  Event->setUserEvent(true);
   return Event;
 }
 
