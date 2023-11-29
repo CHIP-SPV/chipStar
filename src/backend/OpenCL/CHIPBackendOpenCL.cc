@@ -587,7 +587,7 @@ size_t CHIPEventOpenCL::getRefCount() {
 CHIPEventOpenCL::~CHIPEventOpenCL() { ClEvent = nullptr; }
 
 std::shared_ptr<chipstar::Event>
-CHIPBackendOpenCL::createCHIPEvent(chipstar::Context *ChipCtx,
+CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
                                    chipstar::EventFlags Flags, bool UserEvent) {
   CHIPEventOpenCL *Event = new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx,
                                                nullptr, Flags, UserEvent);
@@ -965,7 +965,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   }
 
   auto MemMapEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
 
@@ -998,7 +998,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
   auto MemMapEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
   CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
   if (C->allDevicesSupportFineGrainSVMorUSM()) {
     logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
@@ -1024,7 +1024,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   cl_int Err;
 
   std::shared_ptr<chipstar::Event> HoldBackEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
 
   std::static_pointer_cast<CHIPEventOpenCL>(HoldBackEvent)->ClEvent =
       clCreateUserEvent(ClContext_->get(), &Err);
@@ -1045,7 +1045,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // guarantees. We need to enforce CUDA ordering using user events.
 
   std::shared_ptr<chipstar::Event> CallbackEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
 
   std::static_pointer_cast<CHIPEventOpenCL>(CallbackEvent)->ClEvent =
       clCreateUserEvent(ClContext_->get(), &Err);
@@ -1083,7 +1083,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
 
   auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
   auto Status = clEnqueueMarkerWithWaitList(
@@ -1101,7 +1101,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(OclContext);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   assert(Kernel && "Kernel in chipstar::ExecItem is NULL!");
@@ -1220,7 +1220,7 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   std::shared_ptr<chipstar::Event> Event =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
   logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
@@ -1263,7 +1263,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
   std::shared_ptr<chipstar::Event> Event =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
   auto SyncQueuesEventHandles = getSyncQueuesEventHandles();
   int Retval = ::clEnqueueSVMMemFill(
@@ -1338,7 +1338,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
   LOCK(Backend->DubiousLockOpenCL)
 #endif
   std::shared_ptr<chipstar::Event> Event =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createCHIPEvent(
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           this->ChipContext_);
   cl_int RefCount;
   clGetEventInfo(

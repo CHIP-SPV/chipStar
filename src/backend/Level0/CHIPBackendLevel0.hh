@@ -656,7 +656,7 @@ public:
   }
 
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(chipstar::Context *ChipCtx,
+  createEventShared(chipstar::Context *ChipCtx,
                   chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
 

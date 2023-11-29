@@ -369,7 +369,7 @@ public:
 
   virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) override;
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(chipstar::Context *ChipCtx,
+  createEventShared(chipstar::Context *ChipCtx,
                   chipstar::EventFlags Flags = chipstar::EventFlags(),
                   bool UserEvent = false) override;
   virtual chipstar::CallbackData *
