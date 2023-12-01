@@ -112,7 +112,9 @@ protected:
 
 public:
   CHIPModuleOpenCL(const SPVModule &SrcMod);
-  virtual ~CHIPModuleOpenCL() {}
+  virtual ~CHIPModuleOpenCL() {
+    logTrace("CHIPModuleOpenCL::~CHIPModuleOpenCL");
+  }
   virtual void compile(chipstar::Device *ChipDevice) override;
   cl::Program *get();
 };
@@ -171,7 +173,11 @@ private:
 public:
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
-  virtual ~CHIPContextOpenCL() {}
+  virtual ~CHIPContextOpenCL() {
+    logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
+    SvmMemory.clear();
+    delete ChipDevice_;
+  }
   void *allocateImpl(
       size_t Size, size_t Alignment, hipMemoryType MemType,
       chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
@@ -192,6 +198,12 @@ private:
                    int Idx);
 
 public:
+  ~CHIPDeviceOpenCL() override {
+    logTrace("CHIPDeviceOpenCL::~CHIPDeviceOpenCL");
+    delete AllocTracker;
+    delete ClDevice;
+  }
+
   virtual CHIPContextOpenCL *createContext() override { return nullptr; }
 
   static CHIPDeviceOpenCL *create(cl::Device *ClDevice,
@@ -303,7 +315,9 @@ public:
                    std::string HostFName, SPVFuncInfo *FuncInfo,
                    CHIPModuleOpenCL *Parent);
 
-  virtual ~CHIPKernelOpenCL() {}
+  virtual ~CHIPKernelOpenCL() {
+    logTrace("CHIPKernelOpenCL::~CHIPKernelOpenCL");
+  }
   SPVFuncInfo *getFuncInfo() const;
   std::string getName();
   cl::Kernel *get();
