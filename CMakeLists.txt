@@ -338,11 +338,9 @@ file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
 add_subdirectory(bin)
 
 # once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
-add_custom_target(hipInfoBin
+add_custom_target(hipInfoBin ALL
   COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
-  DEPENDS hipcc.bin devicelib_bc)
-# make sure that hipInfoBin gets built along with CHIP
-add_dependencies(CHIP hipInfoBin)
+  DEPENDS hipcc.bin CHIP devicelib_bc)
 
 include(UnitTests)
 
