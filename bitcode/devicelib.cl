@@ -181,11 +181,19 @@ EXPORT unsigned /* long */ long __bitextract_u64(unsigned /* long */ long src0,
   return width == 0 ? 0 : (src0 << (64 - offset - width)) >> (64 - width);
 }
 
-EXPORT unsigned int __bitinsert_u32(unsigned int src0, unsigned int src1,
-                                    unsigned int src2, unsigned int src3) {
-  unsigned long offset = src2 & 31;
-  unsigned long width = src3 & 31;
-  unsigned long mask = (1 << width) - 1;
+EXPORT unsigned int __chip_bitinsert_u32(uint src0, uint src1, uint raw_offset,
+                                         uint raw_width) {
+  uint offset = raw_offset & 31u;
+  uint width = raw_width & 31u;
+  uint mask = (1u << width) - 1u;
+  return ((src0 & ~(mask << offset)) | ((src1 & mask) << offset));
+}
+
+EXPORT ulong __chip_bitinsert_u64(ulong src0, ulong src1, ulong raw_offset,
+                                  ulong raw_width) {
+  ulong offset = raw_offset & 63ul;
+  ulong width = raw_width & 63ul;
+  ulong mask = (1ul << width) - 1ul;
   return ((src0 & ~(mask << offset)) | ((src1 & mask) << offset));
 }
 

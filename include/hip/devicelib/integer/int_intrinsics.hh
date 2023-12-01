@@ -25,6 +25,35 @@
 
 #include <hip/devicelib/macros.hh>
 
+#ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+// __bitinsert_* intrinsics are not found in the HIP programming
+// manual but they are provided by hipamd.
+//
+// They replace a 'width' bits sized block in 'src0' staring at 'offset'
+// with least significant bits extracted from 'src1'.
+
+extern "C" __device__ unsigned int __chip_bitinsert_u32(unsigned int src0,
+                                                        unsigned int src1,
+                                                        unsigned int offset,
+                                                        unsigned int width);
+extern "C++" inline __device__ unsigned int
+__bitinsert_u32(unsigned int src0, unsigned int src1, unsigned int offset,
+                unsigned int width) {
+  return __chip_bitinsert_u32(src0, src1, offset, width);
+}
+
+extern "C" __device__ uint64_t __chip_bitinsert_u64(uint64_t src0,
+                                                    uint64_t src1,
+                                                    uint64_t offset,
+                                                    uint64_t width);
+extern "C++" inline __device__ uint64_t __bitinsert_u64(uint64_t src0,
+                                                        uint64_t src1,
+                                                        uint64_t offset,
+                                                        uint64_t width) {
+  return __chip_bitinsert_u64(src0, src1, offset, width);
+}
+#endif // CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+
 extern "C" __device__ unsigned int __chip_brev(unsigned int x); // Custom
 extern "C++" inline __device__ unsigned int __brev(unsigned int x) {
   return __chip_brev(x);
