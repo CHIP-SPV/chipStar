@@ -1,9 +1,14 @@
 #!/bin/bash
 
 set -e
+
+num_tries=1
+num_threads=24
+timeout=200
+
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=1] [--num-threads=4]"
+  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -34,10 +39,6 @@ fi
 shift
 shift
 
-# Set the number of tries based on the argument or default to 1
-num_tries=1
-num_threads=24
-timeout=200
 for arg in "$@"
 do
   case $arg in
