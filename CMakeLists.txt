@@ -217,8 +217,6 @@ option(CHIP_EXT_FLOAT_ATOMICS "Use cl_ext_float_atomics." ON)
 # https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
 option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
 
-option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
-
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
 # to be portable across multiple devices. It should be more portable to
@@ -340,7 +338,7 @@ include(UnitTests)
 target_compile_definitions(
   CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
-target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
+target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
 if(HAS_EXPERIMENTAL_FILESYSTEM)
   target_link_libraries(CHIP PUBLIC stdc++fs)

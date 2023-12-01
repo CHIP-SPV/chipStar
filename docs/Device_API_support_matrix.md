@@ -7,9 +7,9 @@
 | Feature                       | HIP API # of funcs  | # of impl in chipStar |  chipStar notes |
 |-------------------------------|---------------------|-----------------------|---------------------------|
 | Coordinate Built-Ins          |        12           |       12              | |
-| Warp Size variable            |      supported      |     supported         | chipStar support probably low effort, but requires guarantee from driver side to respect warpSize (cl_intel_required_subgroup_size) |
-| Timer functions               |        2            |        0              | missing: clock, clock64; seems already available in intel GPU hardware & driver (TODO: unclear about HW clock bit width), possibly needs software (SPIR-V) support |
-| Atomic functions              |      ~30            |      ~30               | all supported, but a few (on float/double types) are emulated, proper impl requires OpenCL/driver/HW support |
+| Warp Size variable            |      supported      |     supported         | implemented, but requires support from driver side to respect warpSize (= cl_intel_required_subgroup_size extension) |
+| Timer functions               |        2            |        2              | currently only fallback implementations of clock, clock64 are available |
+| Atomic functions              |      ~30            |      ~30               | all supported; the implementation is efficient only if cl_ext_float_atomics is present & supported by backend & HW|
 | Vector Types                  |       48            |       48              | |
 | Memory-Fence Instructions     |        3            |        2              | \_\_threadfence_system is unsupported |
 | Synchronization Functions     |        4            |        4              | |
