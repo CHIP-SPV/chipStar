@@ -27,6 +27,11 @@
 #include <fstream>
 #include <random>
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <link.h>
+
 bool isConvertibleToInt(const std::string &str) {
   try {
     std::stoi(str);
@@ -138,16 +143,33 @@ std::optional<std::string> readFromFile(const fs::path Path) {
   return std::nullopt;
 }
 
+static int dlIterateCallback(struct dl_phdr_info *Info,
+                               size_t Size, void *Data) {
+  std::string *Res = static_cast<std::string *>(Data);
+  std::string DlName(Info->dlpi_name);
+  size_t Pos = DlName.find("/libCHIP.so");
+  if (Pos == std::string::npos)
+    return 0;
+
+  DlName.erase(Pos);
+  Res->assign(DlName);
+  return 1;
+}
+
 std::optional<fs::path> getHIPCCPath() {
   static std::once_flag Flag;
   static std::optional<fs::path> HIPCCPath;
 
-  std::call_once(Flag, []() {
+  std::string LibCHIPPath("/dev/null");
+  dl_iterate_phdr(dlIterateCallback, static_cast<void*>(&LibCHIPPath));
+
+  std::call_once(Flag, [&]() {
     for (const auto &ExeCand : {
+           fs::path(LibCHIPPath) / "bin/hipcc",
 #if !CHIP_DEBUG_BUILD
            fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
 #endif
-               fs::path(CHIP_BUILD_DIR) / "bin/hipcc"
+           fs::path(CHIP_BUILD_DIR) / "bin/hipcc"
          })
       if (canExecuteHipcc(ExeCand)) {
         HIPCCPath = ExeCand;
@@ -155,6 +177,7 @@ std::optional<fs::path> getHIPCCPath() {
       }
   });
 
+  logDebug("HIPCC path: {}", HIPCCPath->c_str());
   return HIPCCPath;
 }
 
