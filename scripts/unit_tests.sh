@@ -263,8 +263,4 @@ done
 #   fi
 # done
 
-if [ $overall_status -eq 0 ]; then
-  exit 0
-else
-  exit 1
-fi
+exit $overall_status
