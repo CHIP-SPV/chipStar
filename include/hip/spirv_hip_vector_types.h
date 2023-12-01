@@ -149,7 +149,12 @@ inline constexpr unsigned int next_pot(unsigned int x) {
 template <typename T, unsigned int n> struct HIP_vector_base;
 
 template <typename T> struct HIP_vector_base<T, 1> {
-  using Native_vec_ = __NATIVE_VECTOR__(1, T);
+  // SPIR-V does not support one element vector types without
+  // extensions and the current Clang -> SPIR-V translator tool chain
+  // used by CHIP-SPV does not include a legalization phase to lower
+  // one element vectors to scalars. Therefore, define Native_vec_ to
+  // be a scalar here.
+  using Native_vec_ = T /*__NATIVE_VECTOR__(1, T) */;
 
   union {
     Native_vec_ data;
