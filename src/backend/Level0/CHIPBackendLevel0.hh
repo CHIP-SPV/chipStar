@@ -655,10 +655,13 @@ public:
     return Q;
   }
 
-  virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(chipstar::Context *ChipCtx,
-                  chipstar::EventFlags Flags = chipstar::EventFlags(),
-                  bool UserEvent = false) override;
+  virtual std::shared_ptr<chipstar::Event> createEventShared(
+      chipstar::Context *ChipCtx,
+      chipstar::EventFlags Flags = chipstar::EventFlags()) override;
+
+  virtual chipstar::Event *
+  createEvent(chipstar::Context *ChipCtx,
+              chipstar::EventFlags Flags = chipstar::EventFlags()) override;
 
   virtual chipstar::CallbackData *
   createCallbackData(hipStreamCallback_t Callback, void *UserData,

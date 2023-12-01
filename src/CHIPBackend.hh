@@ -1976,19 +1976,28 @@ public:
   virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) = 0;
 
   /**
-   * @brief Create an chipstar::Event, adding it to the Backend chipstar::Event
-   * list.
+   * @brief Create a managed chipstar::Event, adding it to the Backend
+   * chipstar::Event list. These are managed events for internal chipstar use.
    *
    * @param ChipCtx Context in which to create the event in
    * @param Flags Events falgs
-   * @param UserEvent Is this a user event? If so, increase refcount to 2 to
-   * prevent it from being garbage collected.
-   * @return chipstar::Event* chipstar::Event
+   * @param UserEvent Is this a user event?
+   * @return std::shared_ptr<chipstar::Event>
    */
   virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(chipstar::Context *ChipCtx,
-                  chipstar::EventFlags Flags = chipstar::EventFlags(),
-                  bool UserEvent = false) = 0;
+  createEventShared(chipstar::Context *ChipCtx,
+                    chipstar::EventFlags Flags = chipstar::EventFlags()) = 0;
+
+  /**
+   * @brief Create an unmanaged chipstar::Event.
+   *
+   * @param ChipCtx Context in which to create the event in
+   * @param Flags Events falgs
+   * @return chipstar::Event*
+   */
+  virtual chipstar::Event *
+  createEvent(chipstar::Context *ChipCtx,
+              chipstar::EventFlags Flags = chipstar::EventFlags()) = 0;
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived

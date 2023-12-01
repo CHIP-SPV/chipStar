@@ -2282,14 +2282,9 @@ static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
                                                          unsigned Flags) {
   chipstar::EventFlags EventFlags{Flags};
 
-  auto ChipEvent =
-      Backend->createCHIPEvent(Backend->getActiveContext(), EventFlags, true);
-  {
-    LOCK(Backend->UserEventsMtx);
-    Backend->UserEvents.push_back(ChipEvent);
-  }
+  *Event =
+      Backend->createEvent(Backend->getActiveContext(), EventFlags);
 
-  *Event = ChipEvent.get();
   return hipSuccess;
 }
 
@@ -2335,15 +2330,7 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Event);
-  chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
-
-  LOCK(Backend->UserEventsMtx);
-  Backend->UserEvents.erase(
-      std::remove_if(Backend->UserEvents.begin(), Backend->UserEvents.end(),
-                     [&ChipEvent](const std::shared_ptr<chipstar::Event> &x) {
-                       return x.get() == ChipEvent;
-                     }),
-      Backend->UserEvents.end());
+  delete Event;
 
   RETURN(hipSuccess);
 

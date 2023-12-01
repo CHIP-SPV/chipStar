@@ -90,13 +90,12 @@ public:
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
-                  chipstar::EventFlags Flags = chipstar::EventFlags(),
-                  bool UserEvent = false);
+                  chipstar::EventFlags Flags = chipstar::EventFlags());
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                   chipstar::EventFlags Flags = chipstar::EventFlags());
   virtual ~CHIPEventOpenCL() override;
 
-  void takeOver(const std::shared_ptr<chipstar::Event> &Other);
+  void recordEventCopy(const std::shared_ptr<chipstar::Event> &Other);
   bool wait() override;
   float getElapsedTime(chipstar::Event *Other) override;
   virtual void hostSignal() override;
@@ -368,10 +367,12 @@ public:
   virtual int ReqNumHandles() override { return 4; }
 
   virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) override;
-  virtual std::shared_ptr<chipstar::Event>
-  createCHIPEvent(chipstar::Context *ChipCtx,
-                  chipstar::EventFlags Flags = chipstar::EventFlags(),
-                  bool UserEvent = false) override;
+  virtual std::shared_ptr<chipstar::Event> createEventShared(
+      chipstar::Context *ChipCtx,
+      chipstar::EventFlags Flags = chipstar::EventFlags()) override;
+  virtual chipstar::Event *
+  createEvent(chipstar::Context *ChipCtx,
+              chipstar::EventFlags Flags = chipstar::EventFlags()) override;
   virtual chipstar::CallbackData *
   createCallbackData(hipStreamCallback_t Callback, void *UserData,
                      chipstar::Queue *ChipQueue) override;

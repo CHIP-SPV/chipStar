@@ -383,7 +383,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
   // create an Event for making a dependency chain
   std::shared_ptr<chipstar::Event> TimestampWriteComplete =
-      Backend->createCHIPEvent(this->ChipContext_);
+      Backend->createEventShared(this->ChipContext_);
   auto TimestampWriteCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(TimestampWriteComplete);
   auto TimestampWriteCompleteLzHandle = TimestampWriteCompleteLz->peek();
@@ -555,7 +555,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
 
-  CpuCallbackComplete = BackendLz->createCHIPEvent(ChipContextLz);
+  CpuCallbackComplete = BackendLz->createEventShared(ChipContextLz);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
 
   GpuReady = ChipQueueLz->enqueueBarrierImplReg(
@@ -1100,7 +1100,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> LaunchEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
 
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
   LaunchEvent->Msg = "launch " + ChipKernel->getName();
@@ -1167,7 +1167,7 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemFillEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   MemFillEvent->Msg = "memFill";
 
   // Check that requested pattern is a power of 2
@@ -1214,7 +1214,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::memCopy3DAsyncImpl(
     size_t Sspitch, size_t Width, size_t Height, size_t Depth) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyRegionEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   MemCopyRegionEvent->Msg = "memCopy3DAsync";
 
   ze_copy_region_t DstRegion;
@@ -1256,7 +1256,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   logTrace("CHIPQueueLevel0::memCopyToImage");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> ImageCopyEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   ImageCopyEvent->Msg = "memCopyToImage";
 
   if (!SrcRegion.isPitched()) {
@@ -1335,7 +1335,8 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 
   std::shared_ptr<chipstar::Event> MarkerEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
 
   MarkerEvent->Msg = "marker";
   LOCK(CommandListMtx);
@@ -1355,7 +1356,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
   logError("CHIPQueueLevel0::enqueueMarkerImplReg");
   std::shared_ptr<chipstar::Event> MarkerEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
 
   MarkerEvent->Msg = "marker";
 
@@ -1376,7 +1378,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   std::shared_ptr<chipstar::Event> BarrierEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
   BarrierEvent->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
@@ -1421,7 +1424,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   logError("CHIPQueueLevel0::enqueueBarrierImplReg");
   std::shared_ptr<chipstar::Event> BarrierEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
   BarrierEvent->Msg = "barrier";
   size_t NumEventsToWaitFor = 0;
 
@@ -1467,7 +1471,7 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipCtxZe);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   ze_result_t Status;
   LOCK(CommandListMtx);
   ze_command_list_handle_t CommandList = this->getCmdList();
@@ -1520,7 +1524,8 @@ void CHIPQueueLevel0::executeCommandList(
 void CHIPQueueLevel0::executeCommandListReg(
     ze_command_list_handle_t CommandList) {
   std::shared_ptr<chipstar::Event> LastCmdListEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createCHIPEvent(ChipContext_);
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipContext_);
   LastCmdListEvent->Msg = "CmdListFinishTracker";
 
   ze_result_t Status;
@@ -1655,23 +1660,26 @@ chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim,
   return ExecItem;
 };
 
-std::shared_ptr<chipstar::Event>
-CHIPBackendLevel0::createCHIPEvent(chipstar::Context *ChipCtx,
-                                   chipstar::EventFlags Flags, bool UserEvent) {
+std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
+    chipstar::Context *ChipCtx, chipstar::EventFlags Flags) {
   std::shared_ptr<chipstar::Event> Event;
-  if (UserEvent) {
-    Event = std::shared_ptr<chipstar::Event>(
-        new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags));
-    Event->setUserEvent(true);
-  } else {
-    auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
-    Event = ZeCtx->getEventFromPool();
-  }
+
+  auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
+  Event = ZeCtx->getEventFromPool();
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
   assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssocCmdList());
-  logDebug("CHIPBackendLevel0::createCHIPEvent: Context {} Event {}",
+  logDebug("CHIPBackendLevel0::createEventShared: Context {} Event {}",
            (void *)ChipCtx, (void *)Event.get());
+  return Event;
+}
+
+chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
+                                                chipstar::EventFlags Flags) {
+  auto Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
+  Event->setUserEvent(true);
+  logDebug("CHIPBackendLevel0::createEventd: Context {} Event {}",
+           (void *)ChipCtx, (void *)Event);
   return Event;
 }
 
