@@ -207,7 +207,7 @@ echo "end dgpu_opencl_failed_tests"
 
 function check_tests {
   file="$1"
-  if grep -q " 0 tests failed out of" "$file"; then
+  if ! grep -q "The following tests FAILED" "$file"; then
     echo "PASS"
     return 0
   else
