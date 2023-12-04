@@ -221,6 +221,12 @@ set(CHIP_DEFAULT_JIT_FLAGS "-cl-kernel-arg-info -cl-std=CL3.0")
 
 option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 
+# (old) ARM Mali GPU driver is known to fail to process valid SPIR-V
+# modules with NoRwrite and NoReadWrite parameter attributes. Enabling
+# this option will strip the such attributes.
+option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
+consumption issues in ARM Mali GPU driver." OFF)
+
 # Warpsize would optimally be a device-specific, queried and made
 # effective at runtime. However, we need to fix the warpsize since SPIR-Vs need
 # to be portable across multiple devices. It should be more portable to

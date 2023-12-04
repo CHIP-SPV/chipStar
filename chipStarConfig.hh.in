@@ -60,4 +60,6 @@
 
 #cmakedefine CHIP_DEFAULT_JIT_FLAGS "@CHIP_DEFAULT_JIT_FLAGS@"
 
+#cmakedefine CHIP_MALI_GPU_WORKAROUNDS
+
 #endif
