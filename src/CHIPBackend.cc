@@ -513,7 +513,13 @@ chipstar::Device::~Device() {
 
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
+
+  // delete all entires in SrcModToCompiledMod_
+  for (auto &Kv : SrcModToCompiledMod_)
+    delete Kv.second;
+  SrcModToCompiledMod_.clear();
 }
+
 chipstar::Queue *chipstar::Device::getLegacyDefaultQueue() {
   return LegacyDefaultQueue;
 }
