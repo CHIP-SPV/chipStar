@@ -1583,34 +1583,51 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   StrStream << "OpenCL Devices of type " << ChipEnvVars.getDevice().str()
             << " with SPIR-V_1 support:\n";
-  std::vector<cl::Device> SpirvDevices;
+  std::vector<cl::Device> SupportedDevices;
   std::vector<cl::Device> Dev;
   Err = SelectedPlatform.getDevices(SelectedDevType, &Dev);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
   for (auto D : Dev) {
-    std::string Ver = D.getInfo<CL_DEVICE_IL_VERSION>(&Err);
-    if ((Err == CL_SUCCESS) && (Ver.rfind("SPIR-V_1.", 0) == 0)) {
-      std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
-      StrStream << DeviceName << "\n";
-      SpirvDevices.push_back(D);
+
+    std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
+
+    StrStream << DeviceName << " ";
+    std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&Err);
+    if ((Err != CL_SUCCESS) ||
+        (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
+      StrStream << " no SPIR-V support.\n";
+      continue;
     }
+
+    // We require at least CG SVM or Device USM.
+    std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
+    cl_device_svm_capabilities SVMCapabilities =
+        D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
+
+    if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
+        DevExts.find("cl_intel_unified_shared_memory") == std::string::npos) {
+      StrStream << " no SVM/USM support.\n";
+      continue;
+    }
+
+    StrStream << " is supported.\n";
+    SupportedDevices.push_back(D);
   }
   logTrace("{}", StrStream.str());
 
-  if (ChipEnvVars.getDeviceIdx() >= SpirvDevices.size()) {
+  if (ChipEnvVars.getDeviceIdx() >= SupportedDevices.size()) {
     logCritical("Selected OpenCL device {} is out of range",
                 ChipEnvVars.getDeviceIdx());
     std::exit(1);
   }
 
-  auto Device = SpirvDevices[ChipEnvVars.getDeviceIdx()];
+  auto Device = SupportedDevices[ChipEnvVars.getDeviceIdx()];
   logDebug("CHIP_DEVICE={} Selected OpenCL device {}",
            ChipEnvVars.getDeviceIdx(), Device.getInfo<CL_DEVICE_NAME>());
 
   // Create context which has devices
   // Create queues that have devices each of which has an associated context
-  // TODO Change this to spirv_enabled_devices
-  cl::Context Ctx(SpirvDevices);
+  cl::Context Ctx(SupportedDevices);
   CHIPContextOpenCL *ChipContext =
       new CHIPContextOpenCL(Ctx, Device, SelectedPlatform);
   ::Backend->addContext(ChipContext);

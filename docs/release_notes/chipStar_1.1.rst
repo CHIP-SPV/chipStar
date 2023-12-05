@@ -58,7 +58,9 @@ Previous versions of chipStar used command queue barriers excessively for
 synchronization, which led to limited opportunities for asynchronous execution.
 In chipStar 1.1, command queue synchronization is done using event dependencies,
 which leads to more task parallelism opportunities presented to the drivers,
-speeding up various workloads significantly.
+speeding up various workloads significantly. Workloads that do not exploit
+parallelism but enqueue a lot of very small kernels (in the 10's of microseconds
+range) may also benefit as the barrier itself could dominate the execution time.
 
 ==============
 Minor Features

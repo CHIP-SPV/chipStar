@@ -74,7 +74,12 @@ There are several transformations (LLVM passes) done on the LLVM IR of the devic
 * HipAbort.cpp - special handling for abort() calls from the device side (to cause a host abort currently).
 * HipDefrost.cpp - removes freeze from instructions (workaround for the llvm-spirv translator).
 * HipDynMem.cpp - replaces dynamically sized shared-memory variables (`extern __shared__ type variable[];`) with a kernel argument. This is because in OpenCL, dynamically-sized local memory can only be passed as kernel argument.
+* HipEmitLoweredNames.cpp - required processing for hiprtcGetLoweredName()
 * HipGlobalVariable.cpp - creates special kernels that handle access and modification of global scope variables.
+* HipKernelArgSpiller.cpp - Reduces the size of large kernel parameter lists by spilling them into a device buffer
+* HipLowerSwitch.cpp - Lowers switch instructions with a "non-standard" integer bitwidth (e.g. i4) to bitwidth supported by SPIRV-LLVM-Translator
+* HipLowerZeroLengthArrays.cpp - Lowers occurrences of zero length array types (unsupported by SPIRV-LLVM-Translator)
+* HipSanityChecks.cpp - sanity checks on the LLVM IR just before HIP-to-SPIR-V lowering
 * HipPasses.cpp - defines a pass plugin that runs a collection of LLVM passes (= rest of the files in this directory).
 * HipPrintf.cpp - pass to convert calls to the CUDA/HIP printf() to OpenCL/SPIR-V compatible printf() calls.
 * HipStripUsedIntrinsics.cpp - pass to remove llvm.used and llvm.compiler.used intrinsic variables.

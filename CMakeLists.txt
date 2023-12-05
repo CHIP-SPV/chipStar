@@ -353,7 +353,7 @@ include(UnitTests)
 target_compile_definitions(
   CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
-target_link_libraries(CHIP INTERFACE ${CHIP_INTERFACE_LIBS})
+target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
 if(HAS_EXPERIMENTAL_FILESYSTEM)
   target_link_libraries(CHIP PUBLIC stdc++fs)
