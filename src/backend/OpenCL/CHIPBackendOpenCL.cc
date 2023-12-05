@@ -998,6 +998,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
     assert(0 && "Invalid MemMap Type");
   }
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd, "clEnqueueSVMMap Failed");
+  updateLastEvent(MemMapEvent);
 }
 
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
@@ -1017,6 +1018,7 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
       SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd, "clEnqueueSVMUnmap Failed");
+  updateLastEvent(MemMapEvent);
 }
 
 cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
