@@ -62,6 +62,24 @@ speeding up various workloads significantly. Workloads that do not exploit
 parallelism but enqueue a lot of very small kernels (in the 10's of microseconds
 range) may also benefit as the barrier itself could dominate the execution time.
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Improved portability to other platforms & devices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The portability of chipStar has been improved & tested with ARM Mali G52 GPU device.
+
+To build chipStar that works with ARM Mali G52:
+
+1) build LLVM and SPIRV-LLVM-Translator as described in the README.md
+
+2) build chipStar with -DCHIP_MALI_GPU_WORKAROUNDS=ON cmake option
+
+There are some limitations. Kernels that require subgroups will not work,
+because chipStar currently implements subgroups with the ``cl_intel_subgroups``
+extension.
+
+
+
 ==============
 Minor Features
 ==============
@@ -75,6 +93,11 @@ Minor Features
 * Support __align__ attribute in HIP code (#659).
 
 * Level Zero command lists are now recycled (#665).
+
+* Improved support for fast-math compilation. Note that this requires using
+  Clang's -ffast-math flag, not CUDA's -use-fast-math flag.
+
+
 
 ==============
 Major Bugfixes
