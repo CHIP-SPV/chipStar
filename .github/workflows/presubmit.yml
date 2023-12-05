@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [16, 17]
+        version: [15, 16, 17]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [16]
+        version: [15, 16]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -189,7 +189,7 @@ jobs:
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/cpu_opencl_failed_tests.txt`"' || '"`cat ./test_lists/cpu_pocl_failed_tests.txt`"' }}
     strategy:
       matrix:
-        version: [16, 17]
+        version: [15, 16, 17]
         backend: [pocl, intel]
         exclude:
           - backend: pocl
