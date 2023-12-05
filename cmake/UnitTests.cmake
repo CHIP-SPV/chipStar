@@ -13,6 +13,8 @@ list(APPEND CPU_POCL_FAILED_TESTS " ")
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 list(APPEND NON_PARALLEL_TESTS " ")
 
+list(APPEND NON_PARALLEL_TESTS "hiptest")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamPerThread_MemcpyAsync")
 list(APPEND NON_PARALLEL_TESTS "MatrixMultiply")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy2DFromArray_PinnedMemSameGPU")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3D_SeekSetArrayPortion")
