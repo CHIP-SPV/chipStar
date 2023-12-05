@@ -979,19 +979,19 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
-    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
+    Status = clEnqueueSVMMap(ClQueue_->get(), CL_FALSE, CL_MAP_READ,
                              AllocInfo->HostPtr, AllocInfo->Size,
                              SyncQueuesEventHandles.size(),
                              SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
-    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
+    Status = clEnqueueSVMMap(ClQueue_->get(), CL_FALSE, CL_MAP_WRITE,
                              AllocInfo->HostPtr, AllocInfo->Size,
                              SyncQueuesEventHandles.size(),
                              SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
-    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE,
+    Status = clEnqueueSVMMap(ClQueue_->get(), CL_FALSE,
                              CL_MAP_READ | CL_MAP_WRITE, AllocInfo->HostPtr,
                              AllocInfo->Size, SyncQueuesEventHandles.size(),
                              SyncQueuesEventHandles.data(), MemMapEventNative);
