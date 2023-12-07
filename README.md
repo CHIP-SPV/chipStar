@@ -39,9 +39,9 @@ It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
 For this you can use a script included in the chipStar repository:
 
 ```bash
-# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir>
-chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0
-cd ./llvm-project/llvm/build_17
+# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir> <static/dynamic>
+chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0 dynamic
+cd llvm-project/llvm/build_17
 make -j 16
 <sudo> make install
 ```
@@ -113,12 +113,16 @@ NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` 
 There's a script `check.py` which can be used to run unit tests and which filters out known failing tests for different platforms. Its usage is as follows.
 
 ```bash
-# BACKEND={opencl/level0/pocl}   # Which backend/driver you wish to test, "opencl" = Intel OpenCL runtime, "level0" = Intel LevelZero runtime, "pocl" = PoCL OpenCL runtime
+# BACKEND={opencl/level0-{reg,imm}/pocl}
+# ^ Which backend/driver/platform you wish to test:
+# "opencl" = Intel OpenCL runtime, "level0" = Intel LevelZero runtime with regular command lists (reg) or immediate command lists (imm), "pocl" = PoCL OpenCL runtime
 # DEVICE={cpu,igpu,dgpu}         # What kind of device to test.
+# ^ This selects the expected test pass lists.
+#   'igpu' is a Intel Iris Xe iGPU, 'dgpu' a typical recent Intel dGPU such as Data Center GPU Max series or an Arc.
 # PARALLEL={N}                   # How many tests to run in parallel.
 # export CHIP_PLATFORM=N         # If there are multiple OpenCL platforms present on the system, selects which one to use
 
-python3 $SOURCE_DIR/scripts/check.py --num-threads $PARALLEL $BUILD_DIR $DEVICE $BACKEND
+python3 $SOURCE_DIR/scripts/check.py -m off --num-threads $PARALLEL $BUILD_DIR $DEVICE $BACKEND
 ```
 
 Please refer to the [user documentation](docs/Using.md) for instructions on how to use the installed chipStar to build CUDA/HIP programs.
@@ -131,8 +135,8 @@ CHIP_PLATFORM=<N>                               # If there are multiple platform
 CHIP_DEVICE=<N>                                 # If there are multiple devices present on the system, selects which one to use. Defaults to 0
 CHIP_LOGLEVEL=<trace/debug/info/warn/err/crit>  # Sets the log level. If compiled in RELEASE, only err/crit are available
 CHIP_DUMP_SPIRV=<ON/OFF(default)>               # Dumps the generated SPIR-V code to a file
-CHIP_JIT_FLAGS=<flags>                          # String to override the default JIT flags. Defaults to -x spir -cl-kernel-arg-info -cl-std=CL3.0
-CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in milliseconds for collecting Level Zero events
+CHIP_JIT_FLAGS=<flags>                          # String to override the default JIT flags. Defaults to -cl-kernel-arg-info -cl-std=CL3.0
+CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in seconds for collecting Level Zero events
 CHIP_L0_IMM_CMD_LISTS=<ON(default)/OFF>         # Use immediate command lists in Level Zero
 ```
 
