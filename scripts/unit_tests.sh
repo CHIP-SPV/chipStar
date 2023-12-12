@@ -2,8 +2,15 @@
 
 set -e
 
+# read the file /opt/actions-runner/num-threads.txt and set the number of threads to the value in the file
+# if the file does not exist, set the number of threads to 24
+if [ -f "/opt/actions-runner/num-threads.txt" ]; then
+  num_threads=$(cat /opt/actions-runner/num-threads.txt)
+else
+  num_threads=24
+fi
+
 num_tries=1
-num_threads=24
 timeout=200
 
 # Check if at least one argument is provided
