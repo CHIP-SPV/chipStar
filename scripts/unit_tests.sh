@@ -2,8 +2,15 @@
 
 set -e
 
+# read the file /opt/actions-runner/num-threads.txt and set the number of threads to the value in the file
+# if the file does not exist, set the number of threads to 24
+if [ -f "/opt/actions-runner/num-threads.txt" ]; then
+  num_threads=$(cat /opt/actions-runner/num-threads.txt)
+else
+  num_threads=24
+fi
+
 num_tries=1
-num_threads=24
 timeout=200
 
 # Check if at least one argument is provided
@@ -23,13 +30,13 @@ build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 if [ "$2" == "llvm-15" ]; then
   LLVM=llvm-15
-  CLANG=clang/clang15-spirv-omp
+  CLANG=llvm/15.0/dynamic
 elif [ "$2" == "llvm-16" ]; then
   LLVM=llvm-16
-  CLANG=clang/clang16-spirv-omp
+  CLANG=llvm/16.0/dynamic
 elif [ "$2" == "llvm-17" ]; then
   LLVM=llvm-17
-  CLANG=clang/clang17-spirv-omp
+  CLANG=llvm/17.0/dynamic
 else
   echo "$2"
   echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16' or 'llvm-17'."
@@ -95,10 +102,9 @@ export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 export POCL_KERNEL_CACHE=0
-export CHIP_L0_COLLECT_EVENTS_TIMEOUT=30
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG intel/opencl # leave intel/opencl loaded otherwise hip_sycl_interop samples segfault upon exit
+module load $CLANG opencl/dgpu # leave intel/opencl loaded otherwise hip_sycl_interop samples segfault upon exit
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
@@ -141,6 +147,8 @@ else
   # export LIBCEED_DIR=`pwd`/libCEED
   # ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 fi
+
+module unload opencl/dgpu
 
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 
