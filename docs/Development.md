@@ -46,7 +46,7 @@ Found HIP installation: /home/michal/0/build/b_chip_sycl, version 5.1.0
 # runs the chipStar LLVM passes
 /usr/local/bin/opt hipmath-hip-spirv64-generic-link.bc -load-pass-plugin /chip_build_dir/lib/libLLVMHipSpvPasses.so -passes=hip-post-link-passes -o hipmath-hip-spirv64-generic-lower.bc
 # convert device LLVM IR bitcode to SPIR-V
-/usr/local/bin/llvm-spirv  --spirv-max-version=1.1 --spirv-ext=+all hipmath-hip-spirv64-generic-lower.bc -o hipmath-hip-spirv64-generic.out
+/usr/local/bin/llvm-spirv  --spirv-max-version=1.2 --spirv-ext=+all hipmath-hip-spirv64-generic-lower.bc -o hipmath-hip-spirv64-generic.out
 # converts the SPIR-V to a clang "offload bundle" format
 /usr/local/bin/clang-offload-bundler -type=o -bundle-align=4096 -targets=host-x86_64-unknown-linux,hip-spirv64----generic -inputs=... -outputs=...
 
