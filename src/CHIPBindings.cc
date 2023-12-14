@@ -1865,11 +1865,19 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
   NULLCHECK(RuntimeVersion);
 
   std::stringstream strStream(CHIPSTAR_VERSION);
-  std::vector<int> subVersion(3,0);
+  std::vector<int> subVersion;
   while(strStream.good()) {
     std::string substr;
     getline(strStream, substr, '.');
     subVersion.push_back(atoi(substr.c_str()));
+  }
+
+  if (subVersion.size() > 3){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  for(auto i = subVersion.size(); i < 3; ++i){
+    subVersion.push_back(0);
   }
 
   /*
@@ -1877,7 +1885,8 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
     Minor : 2 digits
     Patch : 3 digits
     For 1.1 chipStar runtime version will be <01><01><000>
-   */
+  */
+
   if (RuntimeVersion) {
     *RuntimeVersion = subVersion[0]*100000+subVersion[1]*1000+subVersion[2];
     RETURN(hipSuccess);
