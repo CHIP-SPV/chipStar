@@ -53,7 +53,8 @@ endif()
 
 set(BITCODE_CL_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
-  --target=${BC_TRIPLE} -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm
+  -cl-ext=+cl_khr_subgroup --target=${BC_TRIPLE}
+  -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm
   ${EXTRA_FLAGS})
 set(BITCODE_C_COMPILE_FLAGS
   --target=${BC_TRIPLE} -O2 -x c -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE}
@@ -153,19 +154,25 @@ install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
 # with the extension's atomic operations. Otherwise, the runtime links
 # in a slower, emulated version.
 #
-# RTDEVLIB_SOURCES defines OpenCL C sources for the rtdevlib. They are
+# RTDEVLIB_SOURCES* defines OpenCL C sources for the rtdevlib. They are
 # compiled to SPIR-V binary and embedded into the CHIP
 # library. <build-dir>/bitcode/rtdevlib-modules.h declares the
 # embedded modules as 'std::array <basename-of-the-source>'.
-
+#
 # Use only characters allowed in C/C++/OpenCL-C language for the
 # source names.
-set(RTDEVLIB_SOURCES
+#
+# Sources requiring SPIR-V 1.2 at most.
+set(RTDEVLIB_SOURCES_v1_2
   atomicAddFloat_native atomicAddFloat_emulation
   atomicAddDouble_native atomicAddDouble_emulation)
 
+# Sources requiring SPIR-V 1.3 at most.
+set(RTDEVLIB_SOURCES_v1_3
+  ballot_native)
+
 # Alias for add_opencl_bitcode.
-foreach(SOURCE IN LISTS RTDEVLIB_SOURCES)
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2 RTDEVLIB_SOURCES_v1_3)
  add_opencl_bitcode(
    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
@@ -176,7 +183,8 @@ add_custom_target("rtdevlib-bitcodes" DEPENDS ${RTDEVLIB_BITCODES})
 
 # Compile LLVM bitcode to SPIR-V binary which is then embedded into
 # std::array<unsigned char, N> <ARRAY_NAME>.
-function(embed_spirv_in_cpp ARRAY_NAME BC_SOURCE OUTPUT_SOURCE OUTPUT_HEADER)
+function(embed_spirv_in_cpp
+    ARRAY_NAME BC_SOURCE OUTPUT_SOURCE OUTPUT_HEADER MAX_SPIRV_VERSION)
   set(SPIRV_EXTENSIONS "+SPV_EXT_shader_atomic_float_add")
   get_filename_component(SOURCE_BASENAME "${BC_SOURCE}" NAME_WLE)
   # Name of the intermediate SPIR-V binary. The name of the C array will be
@@ -186,7 +194,9 @@ function(embed_spirv_in_cpp ARRAY_NAME BC_SOURCE OUTPUT_SOURCE OUTPUT_HEADER)
     OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
     DEPENDS "${BC_SOURCE}"
     BYPRODUCTS "${SPIR_BINARY}"
-    COMMAND "${LLVM_SPIRV}" --spirv-ext=${SPIRV_EXTENSIONS}
+    COMMAND "${LLVM_SPIRV}"
+    --spirv-ext=${SPIRV_EXTENSIONS}
+    --spirv-max-version=${MAX_SPIRV_VERSION}
     "${BC_SOURCE}" -o "${SPIR_BINARY}"
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
     ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
@@ -195,13 +205,27 @@ function(embed_spirv_in_cpp ARRAY_NAME BC_SOURCE OUTPUT_SOURCE OUTPUT_HEADER)
   )
 endfunction()
 
-foreach(SOURCE IN LISTS RTDEVLIB_SOURCES)
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
   embed_spirv_in_cpp(
     ${SOURCE}
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc"
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.h"
+    "1.2")
+  list(APPEND RTDEVLIB_SOURCES_v1_2
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.cc")
+  list(APPEND RTDEVLIB_HEADERS
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.h")
-  list(APPEND RTDEVLIB_SOURCES
+endforeach()
+
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
+  embed_spirv_in_cpp(
+    ${SOURCE}
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.h"
+    "1.3")
+  list(APPEND RTDEVLIB_SOURCES_v1_3
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.cc")
   list(APPEND RTDEVLIB_HEADERS
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.h")
@@ -220,4 +244,5 @@ add_custom_command(
 
 add_custom_target(rtdevlib-header DEPENDS ${RTDEVLIB_HEADER})
 
-add_library(rtdevlib OBJECT ${RTDEVLIB_SOURCES} ${RTDEVLIB_HEADER})
+add_library(rtdevlib OBJECT
+  ${RTDEVLIB_SOURCES_v1_2} ${RTDEVLIB_SOURCES_v1_3} ${RTDEVLIB_HEADER})
