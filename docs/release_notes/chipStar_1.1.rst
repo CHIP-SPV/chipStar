@@ -4,7 +4,7 @@ Release Notes for chipStar 1.1
 
 This release cycle focused on stabilization and performance improvements
 over the 1.0 release. The release was measured to run some benchmarks up
-to P% faster than 1.0. Further highlights are described in the following.
+to 80% faster than 1.0. Further highlights are described in the following.
 
 ==================
 Major New Features
