@@ -55,8 +55,6 @@
 #include "CHIPBindingsInternal.hh"
 #include "hipCtx.hh"
 
-#include<sstream>
-
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
 #define GRAPH(x) static_cast<CHIPGraph *>(x)
@@ -1864,31 +1862,8 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
   CHIPInitialize();
   NULLCHECK(RuntimeVersion);
 
-  std::stringstream strStream(CHIPSTAR_VERSION);
-  std::vector<int> subVersion;
-  while(strStream.good()) {
-    std::string substr;
-    getline(strStream, substr, '.');
-    subVersion.push_back(atoi(substr.c_str()));
-  }
-
-  if (subVersion.size() > 3){
-    RETURN(hipErrorInvalidValue);
-  }
-
-  for(auto i = subVersion.size(); i < 3; ++i){
-    subVersion.push_back(0);
-  }
-
-  /*
-    Major : 2 digits
-    Minor : 2 digits
-    Patch : 3 digits
-    For 1.1 chipStar runtime version will be <01><01><000>
-  */
-
   if (RuntimeVersion) {
-    *RuntimeVersion = subVersion[0]*100000+subVersion[1]*1000+subVersion[2];
+    *RuntimeVersion = atoi(CHIPSTAR_VERSION);
     RETURN(hipSuccess);
   } else
     RETURN(hipErrorInvalidValue);
