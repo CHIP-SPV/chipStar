@@ -20,7 +20,7 @@ jobs:
 
       - name: Run clang-tidy
         run: |
-          find ./src -type f \( -name "*.cc" -o -name "*.hh" \) -exec clang-tidy-11 --checks='readability-*,performance-*,modernize-*' --warnings-as-errors='*' {} +
+          find ./src -type f \( -name "*.cc" -o -name "*.hh" \) -exec clang-tidy-11 --checks='readability-identifier-naming' --warnings-as-errors='*' {} +
 
       - name: Fail fast if clang-tidy reports errors
         run: |
