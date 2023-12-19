@@ -29,6 +29,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <regex>
 
 #include "common.hh"
 #include "spirv.hh"
@@ -810,6 +811,9 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   Dst.reserve(NumBytes);
   Dst.append(Bytes, (const char *)WordsPtr); // Copy the header.
 
+  // Matches chipStar device library and SPIR-V translator symbols.
+  auto CompilerMagicSymbol =
+      std::regex(R"RE((__spirv_|__chip_|_Z\d*__chip_).*)RE");
   std::set<std::string_view> EntryPoints;
   std::unordered_set<InstWord> BuiltIns;
   std::unordered_map<InstWord, std::string_view> MissingDefs;
@@ -858,8 +862,8 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
         //
         // Issue warning unless it's a builtin, magic chipStar or
         // llvm-spirv symbol.
-        if (!startsWith(LinkName, "spirv_") &&
-            !startsWith(LinkName, "__chip_") &&
+        if (!std::regex_match(LinkName.begin(), LinkName.end(),
+                              CompilerMagicSymbol) &&
             !BuiltIns.count(Insn.getWord(1)))
           MissingDefs[Insn.getWord(1)] = LinkName;
     }

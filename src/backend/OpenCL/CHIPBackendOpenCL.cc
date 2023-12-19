@@ -407,6 +407,10 @@ CHIPDeviceOpenCL::CHIPDeviceOpenCL(CHIPContextOpenCL *ChipCtx,
       *DevIn, CL_DEVICE_SINGLE_FP_ATOMIC_CAPABILITIES_EXT);
   Fp64AtomicAddCapabilities_ = getFPAtomicCapabilities(
       *DevIn, CL_DEVICE_DOUBLE_FP_ATOMIC_CAPABILITIES_EXT);
+
+  auto DevExts = DevIn->getInfo<CL_DEVICE_EXTENSIONS>();
+  HasSubgroupBallot_ =
+      DevExts.find("cl_khr_subgroup_ballot") != std::string::npos;
 }
 
 CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
@@ -789,18 +793,23 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   // TODO: Reuse already compiled modules.
 
+  auto AppendSource = [&](auto &Source) -> void {
+    Objects.push_back(compileIL(Ctx, ChipDev, Source));
+  };
+
   if (ChipDev.hasFP32AtomicAdd())
-    Objects.push_back(compileIL(Ctx, ChipDev, chipstar::atomicAddFloat_native));
+    AppendSource(chipstar::atomicAddFloat_native);
   else
-    Objects.push_back(
-        compileIL(Ctx, ChipDev, chipstar::atomicAddFloat_emulation));
+    AppendSource(chipstar::atomicAddFloat_emulation);
 
   if (ChipDev.hasFP64AtomicAdd())
-    Objects.push_back(
-        compileIL(Ctx, ChipDev, chipstar::atomicAddDouble_native));
+    AppendSource(chipstar::atomicAddDouble_native);
   else
-    Objects.push_back(
-        compileIL(Ctx, ChipDev, chipstar::atomicAddDouble_emulation));
+    AppendSource(chipstar::atomicAddDouble_emulation);
+
+  if (ChipDev.hasBallot())
+    AppendSource(chipstar::ballot_native);
+  // No fall-back implementation for ballot - let linker raise an error.
 }
 
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {

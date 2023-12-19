@@ -93,3 +93,5 @@ add_hip_runtime_test(TestBitInsert.hip)
 # Imports __bitinsert_*.
 target_compile_definitions(TestBitInsert
   PRIVATE CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
+
+add_hip_runtime_test(TestBallot.hip)

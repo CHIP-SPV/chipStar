@@ -820,14 +820,8 @@ __SHFL_DOWN(ulong);
 __SHFL_DOWN(float);
 __SHFL_DOWN(double);
 
-__attribute__((overloadable)) uint4 sub_group_ballot(int predicate);
-EXPORT OVLD ulong __chip_ballot(int predicate) {
-#if DEFAULT_WARP_SIZE <= 32
-  return sub_group_ballot(predicate).x;
-#else
-  return sub_group_ballot(predicate).x | (sub_group_ballot(predicate).y << 32);
-#endif
-}
+// The definition is linked at runtime from one of the ballot*.cl files.
+EXPORT OVLD ulong __chip_ballot(int predicate);
 
 EXPORT OVLD int __chip_all(int predicate) {
   return __chip_ballot(predicate) == ~0;
