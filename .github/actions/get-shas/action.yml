@@ -32,7 +32,7 @@ runs:
     - id: spirv-llvm-sha
       run: scripts/get_sha.sh >> $GITHUB_OUTPUT
       env:
-        URL: https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ inputs.version }}
+        URL: https://api.github.com/repos/KhronosGroup/SPIRV-LLVM-Translator/git/ref/heads/llvm_release_${{ inputs.version }}0
         TOKEN: u:${{github.token}}
       shell: bash
     - id: pocl-sha

@@ -37,10 +37,10 @@ LINK_TYPE=$3
 # set the brach name for checkuot based on only-necessary-spirv-exts
 if [ "$4" == "on" ]; then
   LLVM_BRANCH="spirv-ext-fixes-${VERSION}"
-  TRANSLATOR_BRANCH="chipStar-llvm-${VERSION}"
+  TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
 else
   LLVM_BRANCH="chipStar-llvm-${VERSION}"
-  TRANSLATOR_BRANCH="chipStar-llvm-${VERSION}"
+  TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
 fi
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
@@ -49,7 +49,7 @@ export LLVM_DIR=`pwd`/llvm-project/llvm
 if [ ! -d llvm-project ]; then
   git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH} --depth 1
   cd ${LLVM_DIR}/projects
-  git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b ${TRANSLATOR_BRANCH} --depth 1
+  git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git -b ${TRANSLATOR_BRANCH} --depth 1
   cd ${LLVM_DIR}
 else
   # Warn the user, error out
