@@ -30,13 +30,13 @@ build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 if [ "$2" == "llvm-15" ]; then
   LLVM=llvm-15
-  CLANG=llvm/15.0/dynamic
+  CLANG=llvm/15.0-unpatched-spirv
 elif [ "$2" == "llvm-16" ]; then
   LLVM=llvm-16
-  CLANG=llvm/16.0/dynamic
+  CLANG=llvm/16.0-unpatched-spirv
 elif [ "$2" == "llvm-17" ]; then
   LLVM=llvm-17
-  CLANG=llvm/17.0/dynamic
+  CLANG=llvm/17.0-unpatched-spirv
 else
   echo "$2"
   echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16' or 'llvm-17'."
