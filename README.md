@@ -29,17 +29,17 @@ Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release
   * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-17) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
   (e.g. llvm\_release\_170 for LLVM 17)
-  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
+,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
 
 ### Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
-It's recommended to use the chipStar forks of LLVM and SPIRV-LLVM-Translator.
+It's recommended to use the chipStar fork of LLVM which has a few patches not yet upstreamed.
 For this you can use a script included in the chipStar repository:
 
 ```bash
 # chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir> <static/dynamic>
-chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0 dynamic
+chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0 dynamic on
 cd llvm-project/llvm/build_17
 make -j 16
 <sudo> make install
@@ -51,6 +51,7 @@ Or you can do the steps manually:
 git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-17
 cd llvm-project/llvm/projects
 git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-17
+cd ../..
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
 # DLLVM_TARGETS_TO_BUILD Speed up compilation by building only the necessary CPU host target
@@ -67,11 +68,11 @@ make -C build -j8 all install
 ### OpenCL Backend
 
   * An OpenCL 2.0 or 3.0 driver with at least the following features supported:
-    * Coarse-grained buffer Shared Virtual Memory
-    * Generic address space
+    * Coarse-grained buffer shared virtual memory (SVM)
     * SPIR-V input
+    * Generic address space
     * Program scope variables
-  * Further OpenCL extensions or features might be needed depending on the compiled CUDA/HIP application. For example, to support warp-primitives, the OpenCL driver should support also additional subgroup features such as shuffles, ballots and [cl_intel_required_subgroup_size]( https://registry.khronos.org/OpenCL/extensions/intel/cl_intel_required_subgroup_size.html).
+  * Further OpenCL extensions or features might be needed depending on the compiled CUDA/HIP application. For example, to support warp-primitives, the OpenCL driver should support also additional subgroup features such as shuffles, ballots and [cl_intel_required_subgroup_size]( https://registry.khronos.org/OpenCL/extensions/intel,/cl_intel_required_subgroup_size.html).
 
 ### Level Zero Backend
 
