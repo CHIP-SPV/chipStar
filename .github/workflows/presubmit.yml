@@ -99,7 +99,7 @@ jobs:
         if: steps.llvm.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
         with:
-          repository: CHIP-SPV/SPIRV-LLVM-Translator
+          repository: KhronosGroup/SPIRV-LLVM-Translator
           ref: ${{ steps.get-shas.outputs.spirv-llvm-sha }}
           path: llvm-${{ matrix.version }}/llvm/projects/SPIRV-LLVM-Translator
         if: steps.llvm.outputs.cache-hit != 'true'

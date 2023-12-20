@@ -199,6 +199,7 @@ private:
 
   cl_device_fp_atomic_capabilities_ext Fp32AtomicAddCapabilities_;
   cl_device_fp_atomic_capabilities_ext Fp64AtomicAddCapabilities_;
+  bool HasSubgroupBallot_ = false;
 
 public:
   ~CHIPDeviceOpenCL() override {
@@ -243,6 +244,8 @@ public:
     return (Fp64AtomicAddCapabilities_ & CL_DEVICE_GLOBAL_FP_ATOMIC_ADD_EXT) &&
            (Fp64AtomicAddCapabilities_ & CL_DEVICE_LOCAL_FP_ATOMIC_ADD_EXT);
   }
+
+  bool hasBallot() const noexcept override { return HasSubgroupBallot_; }
 };
 
 class CHIPQueueOpenCL : public chipstar::Queue {

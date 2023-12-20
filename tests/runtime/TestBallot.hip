@@ -1,0 +1,42 @@
+#include "CHIPDriver.hh"
+#include <hip/hip_runtime.h>
+#include <cstdint>
+#include <cstdlib>
+
+__global__ void k(uint64_t *Out, uint64_t In) {
+  auto Votes = __ballot((In >> threadIdx.x) & 1u);
+  if (threadIdx.x == 0)
+    *Out = Votes;
+}
+
+void checkBallot(unsigned BlockSize, uint64_t In) {
+  uint64_t *OutD, OutH = ~In;
+  (void)hipMalloc(&OutD, sizeof(uint64_t));
+  k<<<1, BlockSize>>>(OutD, In);
+  (void)hipMemcpy(&OutH, OutD, sizeof(uint64_t), hipMemcpyHostToDevice);
+
+  hipDeviceProp_t Props{};
+  (void)hipGetDeviceProperties(&Props, 0);
+
+  if (Props.warpSize < 64 && OutH >> Props.warpSize) {
+    printf("Error: Garbage bits in the __ballot result!\n");
+    exit(1);
+  }
+
+  if (OutH != In) {
+    printf("BlockSize=%u:\nError: Expected '%lu'. Got '%lu'\n", BlockSize, In,
+           OutH);
+    exit(1);
+  }
+  (void)hipFree(OutD);
+}
+
+int main() {
+  if (!Backend->getActiveDevice()->hasBallot()) {
+    printf("SKIP: device does not support __ballot()\n");
+    return 2;
+  }
+
+  checkBallot(32, 0xBADF00D1);
+  return 0;
+}

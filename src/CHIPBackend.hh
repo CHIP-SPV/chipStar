@@ -1596,6 +1596,8 @@ public:
   void invalidateDeviceVariables();
   void deallocateDeviceVariables();
 
+  virtual bool hasBallot() const noexcept { return false; }
+
 protected:
   /**
    * @brief The backend hook for reset().
