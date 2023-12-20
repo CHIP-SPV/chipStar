@@ -1863,7 +1863,8 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
   NULLCHECK(RuntimeVersion);
 
   if (RuntimeVersion) {
-    *RuntimeVersion = 1;
+    *RuntimeVersion = CHIPSTAR_MAJOR_VERSION * 10000000 +
+                      CHIPSTAR_MINOR_VERSION * 100000 + CHIPSTAR_PATCH_VERSION;
     RETURN(hipSuccess);
   } else
     RETURN(hipErrorInvalidValue);
