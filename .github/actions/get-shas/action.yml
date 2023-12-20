@@ -1,9 +1,12 @@
 name: 'Get SHAs'
 description: 'Get SHAs of tips of branches we use.'
 inputs:
-  version:
+  llvm-version:
     description: 'LLVM version'
     required: true
+  pocl-version:
+    description: 'pocl version'
+    required: false
 outputs:
   llvm-sha:
     description: 'SHA of llvm-projetc to checkout'
@@ -16,28 +19,28 @@ outputs:
     value: ${{ steps.pocl-sha.outputs.sha }}
   llvm-cache-key:
     description: 'Key to use when caching LLVM builds'
-    value: ${{ runner.os }}-build-cache-llvm-${{ inputs.version }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
+    value: ${{ runner.os }}-build-cache-llvm-${{ inputs.llvm-version }}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
   pocl-cache-key:
     description: 'Key to use when caching pocl builds'
-    value: ${{ runner.os }}-build-cache-pocl-llvm-${{ inputs.version }}-${{steps.pocl-sha.outputs.sha}}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
+    value: ${{ runner.os }}-build-cache-pocl-${{ inputs.pocl-version }}-llvm-${{ inputs.llvm-version }}-${{steps.pocl-sha.outputs.sha}}-${{ steps.llvm-sha.outputs.sha }}-${{ steps.spirv-llvm-sha.outputs.sha }}
 runs:
   using: "composite"
   steps:
     - id: llvm-sha
       run: scripts/get_sha.sh >> $GITHUB_OUTPUT
       env:
-        URL: https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ inputs.version }}
+        URL: https://api.github.com/repos/CHIP-SPV/llvm-project/git/ref/heads/chipStar-llvm-${{ inputs.llvm-version }}
         TOKEN: u:${{github.token}}
       shell: bash
     - id: spirv-llvm-sha
       run: scripts/get_sha.sh >> $GITHUB_OUTPUT
       env:
-        URL: https://api.github.com/repos/KhronosGroup/SPIRV-LLVM-Translator/git/ref/heads/llvm_release_${{ inputs.version }}0
+        URL: https://api.github.com/repos/CHIP-SPV/SPIRV-LLVM-Translator/git/ref/heads/chipStar-llvm-${{ inputs.llvm-version }}
         TOKEN: u:${{github.token}}
       shell: bash
     - id: pocl-sha
       run: scripts/get_sha.sh >> $GITHUB_OUTPUT
       env:
-        URL: https://api.github.com/repos/pocl/pocl/git/refs/tags/v4.0
+        URL: https://api.github.com/repos/pocl/pocl/git/refs/tags/v${{ inputs.pocl-version }}.0
         TOKEN: u:${{ github.token }}
       shell: bash
