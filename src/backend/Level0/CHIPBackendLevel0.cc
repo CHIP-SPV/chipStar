@@ -1741,6 +1741,25 @@ std::string CHIPBackendLevel0::getDefaultJitFlags() {
       "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
 }
 
+void CHIPBackendLevel0::initializeCommon(ze_driver_handle_t ZeDriver) {
+  ze_result_t Status;
+  uint32_t ExtCount = 0;
+  Status = zeDriverGetExtensionProperties(ZeDriver, &ExtCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  std::vector<ze_driver_extension_properties_t> Extensions(ExtCount);
+  Status =
+      zeDriverGetExtensionProperties(ZeDriver, &ExtCount, Extensions.data());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  for (const auto &Ext : Extensions) {
+    if (std::string_view(Ext.name) == "ZE_experimental_module_program")
+      hasExperimentalModuleProgramExt_ = true;
+
+    if (std::string_view(Ext.name) == "ZE_extension_float_atomics")
+      hasFloatAtomics_ = true;
+  }
+}
+
 void CHIPBackendLevel0::initializeImpl() {
   logTrace("CHIPBackendLevel0 Initialize");
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
@@ -1789,6 +1808,7 @@ void CHIPBackendLevel0::initializeImpl() {
   ze_driver_handle_t ZeDriver = ZeDrivers[ChipEnvVars.getPlatformIdx()];
 
   assert(ZeDriver != nullptr);
+  initializeCommon(ZeDriver);
 
   ze_driver_properties_t DriverProps;
   DriverProps.stype = ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES;
@@ -1797,22 +1817,6 @@ void CHIPBackendLevel0::initializeImpl() {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   logDebug("Driver version: {}",
            driverVersionToString(DriverProps.driverVersion));
-
-  uint32_t ExtCount = 0;
-  Status = zeDriverGetExtensionProperties(ZeDriver, &ExtCount, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  std::vector<ze_driver_extension_properties_t> Extensions(ExtCount);
-  Status =
-      zeDriverGetExtensionProperties(ZeDriver, &ExtCount, Extensions.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  for (const auto &Ext : Extensions) {
-    if (std::string_view(Ext.name) == "ZE_experimental_module_program")
-      hasExperimentalModuleProgramExt_ = true;
-
-    if (std::string_view(Ext.name) == "ZE_extension_float_atomics")
-      hasFloatAtomics_ = true;
-  }
 
   // Load devices to device vector
   Status = zeDeviceGet(ZeDriver, &DeviceCount, nullptr);
@@ -1864,6 +1868,8 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
   ze_driver_handle_t Drv = (ze_driver_handle_t)NativeHandles[0];
   ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];
   ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[2];
+
+  initializeCommon(Drv);
 
   CHIPContextLevel0 *ChipCtx = new CHIPContextLevel0(Drv, Ctx);
   ChipCtx->setZeContextOwnership(false);

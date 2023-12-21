@@ -655,6 +655,8 @@ public:
   virtual void uninitialize() override;
   std::mutex CommandListsMtx;
 
+  void initializeCommon(ze_driver_handle_t ZeDriver);
+
   virtual void initializeImpl() override;
 
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
