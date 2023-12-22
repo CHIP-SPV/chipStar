@@ -1783,8 +1783,8 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
-chipstar::Context *PrimaryContext = nullptr;
-std::stack<chipstar::Context *> ChipCtxStack;
+  chipstar::Context *PrimaryContext = nullptr;
+  std::stack<chipstar::Context *> ChipCtxStack;
 
   std::shared_ptr<chipstar::Event> userEventLookup(chipstar::Event *EventPtr) {
     std::lock_guard<std::mutex> Lock(UserEventsMtx);

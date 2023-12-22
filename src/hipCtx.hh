@@ -63,7 +63,8 @@ hipError_t hipCtxDestroy(hipCtx_t ctx) {
   }
 
   // Need to remove the ctx of calling thread if its the top one
-  if (!Backend->ChipCtxStack.empty() && Backend->ChipCtxStack.top() == ChipCtx) {
+  if (!Backend->ChipCtxStack.empty() &&
+      Backend->ChipCtxStack.top() == ChipCtx) {
     Backend->ChipCtxStack.pop();
   }
 

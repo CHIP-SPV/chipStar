@@ -758,8 +758,8 @@ static void dumpProgramLog(CHIPDeviceOpenCL &ChipDev, cl::Program Prog) {
   std::string Log =
       Prog.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDev.get(), &Err);
   if (Err == CL_SUCCESS)
-    logError("Program LOG for device #{}:{}:\n{}\n",
-             ChipDev.getDeviceId(), ChipDev.getName(), Log);
+    logError("Program LOG for device #{}:{}:\n{}\n", ChipDev.getDeviceId(),
+             ChipDev.getName(), Log);
 }
 
 static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
