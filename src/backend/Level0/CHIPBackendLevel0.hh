@@ -620,8 +620,6 @@ public:
   const ze_float_atomic_ext_properties_t &getFpAtomicProps() const noexcept {
     return FpAtomicProps_;
   }
-
-  bool hasBallot() const noexcept override { return true; }
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {
