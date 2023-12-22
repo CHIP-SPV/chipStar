@@ -245,6 +245,10 @@ chipstar::Module::~Module() {
   for (auto *K : ChipKernels_)
     delete K;
   ChipKernels_.clear();
+
+  for (auto *V : ChipVars_)
+    delete V;
+  ChipVars_.clear();
 }
 
 void chipstar::Module::addKernel(chipstar::Kernel *Kernel) {
