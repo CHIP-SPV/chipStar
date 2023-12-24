@@ -2962,7 +2962,10 @@ hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
     return hipSuccess;
   }
 
-  return Backend->getActiveDevice()->getDefaultQueue()->memCopy(Dst, Src,
+  auto Queue = Backend->getActiveDevice()->getDefaultQueue();
+  LOCK(Queue->QueueMtx);
+
+  return Queue->memCopy(Dst, Src,
                                                                 SizeBytes);
 }
 
