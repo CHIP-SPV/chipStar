@@ -510,6 +510,12 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 chipstar::Device::~Device() {
   LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
+
+  // Call finish() for PerThreadDefaultQueue to ensure that all
+  // outstanding work items are completed.
+  if (PerThreadDefaultQueue)
+    PerThreadDefaultQueue->finish();
+
   while (this->ChipQueues_.size() > 0) {
     delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
@@ -563,6 +569,10 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
+    // use an atomic operation to increment NumThreadsAlive
+    // this is used to track the number of threads created
+    // and to delete the queue when the last thread is destroyed
+    NumThreadsAlive.fetch_add(1, std::memory_order_relaxed);
   }
 
   return PerThreadDefaultQueue.get();
@@ -1145,17 +1155,6 @@ hipError_t chipstar::Context::free(void *Ptr) {
 
 // Backend
 //*************************************************************************************
-int chipstar::Backend::getPerThreadQueuesActive() {
-  LOCK(
-      ::Backend->BackendMtx); // Prevent adding/removing devices while iterating
-  int Active = 0;
-  for (auto Dev : getDevices()) {
-    if (Dev->isPerThreadStreamUsed()) {
-      Active++;
-    }
-  }
-  return Active;
-}
 int chipstar::Backend::getQueuePriorityRange() {
   assert(MinQueuePriority_);
   return MinQueuePriority_;
@@ -1189,30 +1188,26 @@ void chipstar::Backend::trackEvent(
 }
 
 void chipstar::Backend::waitForThreadExit() {
-  /**
-   * If the main thread just creates a bunch of other threads and tries to exit
-   * right away, it could be the case that all those threads are not yet done
-   * with initialization. In particular, these threads might not have yet
-   * created their per-thread queues which is how we keep track of threads.
-   *
-   * So we just wait for 0.5 seconds before starting to check for thread exit.
-   */
-  pthread_yield();
-  // TODO fix-255 is there a better way to do this?
-  unsigned long long int sleepMicroSeconds = 500000;
-  usleep(sleepMicroSeconds);
-
-  while (true) {
-    {
-      auto NumPerThreadQueuesActive = ::Backend->getPerThreadQueuesActive();
-      if (!NumPerThreadQueuesActive)
+  // go through all devices checking their NumThreadsAlive until all they're all
+  // 1 or 0 (0 would indicate that hipStreamPerThread was never used and 1 would
+  // indicate main thread used hipStreamPerThread)
+  bool AllThreadsExited = false;
+  while (!AllThreadsExited) {
+    AllThreadsExited = true;
+    for (auto &Dev : getDevices()) {
+      if (Dev->NumThreadsAlive.load(std::memory_order_relaxed) > 1) {
+        AllThreadsExited = false;
         break;
-
-      logDebug("Backend::waitForThreadExit() per-thread queues still active "
-               "{}. Sleeping for 1s..",
-               NumPerThreadQueuesActive);
+      }
     }
-    sleep(1);
+
+    // logDebug and wait for 1 second
+    if (!AllThreadsExited) {
+      logWarn("Waiting for all per-thread queues to exit... This condition "
+              "would indicate that the main thread didn't call "
+              "join()");
+      sleep(1);
+    }
   }
 
   // Cleanup all queues
@@ -1458,9 +1453,13 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
 
 chipstar::Queue::~Queue() {
   updateLastEvent(nullptr);
+  // TODO probably don't need this
   if (PerThreadQueueForDevice) {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);
   }
+
+  // atomic decrement for number of threads alive
+  this->ChipDevice_->NumThreadsAlive.fetch_sub(1, std::memory_order_relaxed);
 };
 
 std::vector<std::shared_ptr<chipstar::Event>>
@@ -1497,17 +1496,6 @@ chipstar::Queue::getSyncQueuesLastEvents() {
         EventsToWaitOn.push_back(Ev);
     }
   }
-
-  // if (this->isDefaultLegacyQueue()) {
-  //   //  add LastEvent from all other blocking streams
-  //   for (auto &q : Dev->getQueuesNoLock()) {
-  //     if (q->getQueueFlags().isBlocking()) {
-  //       auto Ev = q->getLastEvent();
-  //       if (Ev)
-  //         EventsToWaitOn.push_back(Ev);
-  //     }
-  //   }
-  // }
 
   return EventsToWaitOn;
 }
