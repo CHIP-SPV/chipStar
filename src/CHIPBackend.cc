@@ -1252,6 +1252,7 @@ void chipstar::Backend::initialize() {
 }
 
 void chipstar::Backend::setActiveContext(chipstar::Context *ChipContext) {
+  LOCK(::Backend->ActiveCtxMtx); // writing Backend::ChipCtxStack
   ChipCtxStack.push(ChipContext);
 }
 
@@ -1260,6 +1261,7 @@ void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
 }
 
 chipstar::Context *chipstar::Backend::getActiveContext() {
+  LOCK(::Backend->ActiveCtxMtx); // reading Backend::ChipCtxStack
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
     logDebug("Context stack is empty for thread {}", pthread_self());

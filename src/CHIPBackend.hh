@@ -1810,6 +1810,7 @@ public:
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
+  mutable std::mutex ActiveCtxMtx;
   std::mutex CallbackQueueMtx;
   std::vector<std::shared_ptr<chipstar::Event>> Events;
   std::vector<std::shared_ptr<chipstar::Event>> UserEvents;
