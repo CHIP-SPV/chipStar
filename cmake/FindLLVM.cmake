@@ -22,16 +22,22 @@
 #   THE SOFTWARE.
 #
 #=============================================================================
+if(DEFINED LLVM_CONFIG_BIN)
+  # if it was cached to NOT_FOUND, unset it
+  if(LLVM_CONFIG_BIN STREQUAL "LLVM_CONFIG_BIN-NOTFOUND")
+    message(STATUS "LLVM_CONFIG_BIN was set to LLVM_CONFIG_BIN-NOTFOUND. Unsetting...")
+    unset(LLVM_CONFIG_BIN CACHE)
+  endif()
 
-if(NOT DEFINED LLVM_CONFIG_BIN)
+  # if it was set to a path, check that it exists
+  if(NOT EXISTS ${LLVM_CONFIG_BIN})
+    message(FATAL_ERROR "Provided LLVM_CONFIG_BIN (${LLVM_CONFIG_BIN}) does not exist")
+  endif()
+else() # if it was not defined, look for it
   find_program(LLVM_CONFIG_BIN NAMES llvm-config)
   if(NOT LLVM_CONFIG_BIN)
       message(FATAL_ERROR "Can't find llvm-config. Please provide CMake argument -DLLVM_CONFIG_BIN=/path/to/llvm-config<-version>")
   endif()
-else() # check that LLVM_CONFIG_BIN points to existing binary
-    if(NOT EXISTS ${LLVM_CONFIG_BIN})
-        message(FATAL_ERROR "Provided LLVM_CONFIG_BIN (${LLVM_CONFIG_BIN}) does not exist")
-    endif()
 endif()
 message(STATUS "Using llvm-config: ${LLVM_CONFIG_BIN}")
 
