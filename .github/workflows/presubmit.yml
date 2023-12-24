@@ -62,11 +62,11 @@ jobs:
   llvm:
     needs: [pre_job, spirv-tools]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    name: Build and cache llvm-${{ matrix.version }}
+    name: Build and cache llvm-${{ matrix.llvm-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [15, 16, 17]
+        llvm-version: [15, 16, 17]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -81,13 +81,14 @@ jobs:
       - id: get-shas
         uses: ./.github/actions/get-shas
         with:
-          version: ${{ matrix.version }}
+          pocl-version: ${{ matrix.pocl-version }}
+          llvm-version: ${{ matrix.llvm-version }}
       - uses: actions/cache@v3
         id: llvm
         env:
-          cache-name: cache-llvm-${{ matrix.version }}
+          cache-name: cache-llvm-${{ matrix.llvm-version }}
         with:
-          path: ~/opt/llvm/${{ matrix.version }}
+          path: ~/opt/llvm/${{ matrix.llvm-version }}
           key: ${{ steps.get-shas.outputs.llvm-cache-key }}
       - run: sudo apt update; sudo apt install -y gcc cmake
         if: steps.llvm.outputs.cache-hit != 'true'
@@ -95,50 +96,57 @@ jobs:
         with:
           repository: CHIP-SPV/llvm-project
           ref: ${{ steps.get-shas.outputs.llvm-sha }}
-          path: llvm-${{ matrix.version }}
+          path: llvm-${{ matrix.llvm-version }}
         if: steps.llvm.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
         with:
           repository: KhronosGroup/SPIRV-LLVM-Translator
           ref: ${{ steps.get-shas.outputs.spirv-llvm-sha }}
-          path: llvm-${{ matrix.version }}/llvm/projects/SPIRV-LLVM-Translator
+          path: llvm-${{ matrix.llvm-version }}/llvm/projects/SPIRV-LLVM-Translator
         if: steps.llvm.outputs.cache-hit != 'true'
-      - run: mkdir -p llvm-${{ matrix.version }}/build
+      - run: mkdir -p llvm-${{ matrix.llvm-version }}/build
         if: steps.llvm.outputs.cache-hit != 'true'
-      - run: cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm/${{ matrix.version }} -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_SPIRV_INCLUDE_TESTS=OFF
+      - run: cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm/${{ matrix.llvm-version }} -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_SPIRV_INCLUDE_TESTS=OFF
         env:
           PKG_CONFIG_PATH: ~/opt/SPIRV-Tools/v2023.2/lib/pkgconfig/
-        working-directory: llvm-${{ matrix.version }}
+        working-directory: llvm-${{ matrix.llvm-version }}
         if: steps.llvm.outputs.cache-hit != 'true'
       - run: cmake --build . --parallel 4
-        working-directory: llvm-${{ matrix.version }}/build
+        working-directory: llvm-${{ matrix.llvm-version }}/build
         if: steps.llvm.outputs.cache-hit != 'true'
       - run: cmake --install .
-        working-directory: llvm-${{ matrix.version }}/build
+        working-directory: llvm-${{ matrix.llvm-version }}/build
         if: steps.llvm.outputs.cache-hit != 'true'
 
   pocl:
     needs: [pre_job, llvm, spirv-tools]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    name: Build and cache pocl (llvm-${{ matrix.version }})
+    name: Build and cache pocl ${{ matrix.pocl-version }} (llvm-${{ matrix.llvm-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [15, 16]
+        pocl-version: [4, 5]
+        llvm-version: [15, 16, 17]
+        exclude:
+          - pocl-version: 4
+            llvm-version: 17
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
       - id: get-shas
         uses: ./.github/actions/get-shas
         with:
-          version: ${{ matrix.version }}
+          pocl-version: ${{ matrix.pocl-version }}
+          llvm-version: ${{ matrix.llvm-version }}
       - uses: actions/cache@v3
         id: pocl
         env:
-          cache-name: cache-pocl
+          cache-name: cache-pocl-${{ matrix.pocl-version }}-llvm-${{ matrix.llvm-version }}
         with:
-          path: ~/opt/pocl/4.0
+          path: ~/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}
           key: ${{ steps.get-shas.outputs.pocl-cache-key }}
+      - name: Check PoCL Key
+        run: echo ${{ steps.get-shas.outputs.pocl-cache-key }}
       - uses: actions/cache@v3
         id: spirv-tools
         env:
@@ -151,9 +159,9 @@ jobs:
       - uses: actions/cache@v3
         id: llvm
         env:
-          cache-name: cache-llvm-${{ matrix.version }}
+          cache-name: cache-llvm-${{ matrix.llvm-version }}
         with:
-          path: ~/opt/llvm/${{ matrix.version }}
+          path: ~/opt/llvm/${{ matrix.llvm-version }}
           key: ${{ steps.get-shas.outputs.llvm-cache-key }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
@@ -169,33 +177,46 @@ jobs:
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: mkdir -p pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
-      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro
+      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }} -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro
         working-directory: pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
-      - run: cmake --build . --parallel 4
+      - run: cmake --build . --parallel $(nproc)
         working-directory: pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: cmake --install .
         working-directory: pocl/build
         if: steps.pocl.outputs.cache-hit != 'true'
+      - name: Check PoCL Installation
+        run: ls $HOME/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}/etc/OpenCL/vendors/
 
   chipstar:
     needs: [pre_job, llvm, spirv-tools, pocl]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    name: Build and test chipStar on ${{ matrix.backend }} (llvm-${{ matrix.version }})
+    name: Build and test chipStar on ${{ matrix.backend }} ${{matrix.pocl-version }} (llvm-${{ matrix.llvm-version }})
     runs-on: ubuntu-latest
     env:
-      OPENCL_ENV: ${{ matrix.backend == 'intel' && 'LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)' || 'OPENCL_VENDOR_PATH=$HOME/opt/pocl/4.0/etc/OpenCL/vendors/' }}
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/cpu_opencl_failed_tests.txt`"' || '"`cat ./test_lists/cpu_pocl_failed_tests.txt`"' }}
     strategy:
       matrix:
-        version: [15, 16, 17]
+        pocl-version: [4, 5]
+        llvm-version: [15, 16, 17]
         backend: [pocl, intel]
         exclude:
           - backend: pocl
-            version: 17
+            pocl-version: 4
+            llvm-version: 17
+          - backend: intel
+            pocl-version: 4
+          - backend: intel
+            pocl-version: 5
       fail-fast: false
     steps:
+      - name: Set OPENCL_ENV for intel
+        if: matrix.backend == 'intel'
+        run: echo "OPENCL_ENV=LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)" >> $GITHUB_ENV
+      - name: Set OPENCL_ENV for other
+        if: matrix.backend == 'pocl'
+        run: echo "OPENCL_ENV=OPENCL_VENDOR_PATH=$HOME/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}/etc/OpenCL/vendors/" >> $GITHUB_ENV
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -210,23 +231,26 @@ jobs:
       - id: get-shas
         uses: ./.github/actions/get-shas
         with:
-          version: ${{ matrix.version }}
+          pocl-version: ${{ matrix.pocl-version }}
+          llvm-version: ${{ matrix.llvm-version }}
       - uses: actions/cache@v3
         id: llvm
         env:
-          cache-name: cache-llvm-${{ matrix.version }}
+          cache-name: cache-llvm-${{ matrix.llvm-version }}
         with:
-          path: ~/opt/llvm/${{ matrix.version }}
+          path: ~/opt/llvm/${{ matrix.llvm-version }}
           key: ${{ steps.get-shas.outputs.llvm-cache-key }}
           fail-on-cache-miss: true
       - uses: actions/cache@v3
         id: pocl
         env:
-          cache-name: cache-pocl
+          cache-name: cache-pocl-${{ matrix.pocl-version }}-llvm-${{ matrix.llvm-version }}
         with:
-          path: ~/opt/pocl/4.0
+          path: ~/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}
           key: ${{ steps.get-shas.outputs.pocl-cache-key }}
           fail-on-cache-miss: true
+      - name: Check PoCL Installation
+        run: ls $HOME/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}
         if: ${{ matrix.backend == 'pocl' }}
       - run: wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
         if: ${{ matrix.backend == 'intel' }}
@@ -239,7 +263,7 @@ jobs:
       - run: ${{ env.OPENCL_ENV }} clinfo
       - run: mkdir -p build
       - name: CMake
-        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.version }}/bin/llvm-config
+        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config
         working-directory: build
       - name: Build
         run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
@@ -253,5 +277,5 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.version }}
+          name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.llvm-version }}
           path: build/Testing/Temporary/LastTest.log
