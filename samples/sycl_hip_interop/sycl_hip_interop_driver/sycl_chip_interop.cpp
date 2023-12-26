@@ -110,6 +110,20 @@ int main() {
     // Initialize chipStar Level-Zero Backend via providing native runtime
     // information
 
+#if __INTEL_LLVM_COMPILER >= 20240000
+    std::variant<ze_command_queue_handle_t, ze_command_list_handle_t> queue_var =
+      get_native<sycl::backend::ext_oneapi_level_zero>(myQueue);
+    auto ptr_l0_queue_h = std::get_if<ze_command_queue_handle_t>(&queue_var);
+    auto ptr_icl_h = std::get_if<ze_command_list_handle_t>(&queue_var);
+
+    uintptr_t Args[] = {
+        (uintptr_t)get_native<sycl::backend::ext_oneapi_level_zero>(Plt),
+        (uintptr_t)get_native<sycl::backend::ext_oneapi_level_zero>(Devs[0]),
+        (uintptr_t)get_native<sycl::backend::ext_oneapi_level_zero>(Ctx),
+        ptr_l0_queue_h != nullptr ? (uintptr_t)(*ptr_l0_queue_h) : (uintptr_t)(*ptr_icl_h)};
+
+    hipInitFromNativeHandles(Args, 4);
+#else
     std::variant<ze_command_queue_handle_t, ze_command_list_handle_t> queue_var =
       get_native<sycl::backend::level_zero>(myQueue);
     auto ptr_l0_queue_h = std::get_if<ze_command_queue_handle_t>(&queue_var);
@@ -122,6 +136,7 @@ int main() {
         ptr_l0_queue_h != nullptr ? (uintptr_t)(*ptr_l0_queue_h) : (uintptr_t)(*ptr_icl_h)};
 
     hipInitFromNativeHandles(Args, 4);
+#endif
 
 #ifdef USM
     // Run GEMM test via chipStar Level-Zero Backend and USM data transfer
