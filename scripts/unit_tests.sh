@@ -138,8 +138,8 @@ else
   cd build
 
   echo "building with $CLANG"
-  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-  make all build_tests install -j 24 #&> /dev/null
+  cmake ../ -DCMAKE_BUILD_TYPE="$build_type"
+  make all build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 
   # # Build libCEED
