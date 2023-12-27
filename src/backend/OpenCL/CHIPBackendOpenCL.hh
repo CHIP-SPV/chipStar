@@ -245,7 +245,7 @@ public:
            (Fp64AtomicAddCapabilities_ & CL_DEVICE_LOCAL_FP_ATOMIC_ADD_EXT);
   }
 
-  bool hasBallot() const noexcept override { return HasSubgroupBallot_; }
+  bool hasBallot() const noexcept { return HasSubgroupBallot_; }
 };
 
 class CHIPQueueOpenCL : public chipstar::Queue {

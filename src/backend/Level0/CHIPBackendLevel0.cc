@@ -2175,6 +2175,10 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.arch.hasDoubles =
       (DeviceModuleProps.flags & ZE_DEVICE_MODULE_FLAG_FP64) ? 1 : 0;
 
+  // Ballot seems to work despite not having ZE_extension_subgroups
+  // being advertised.
+  HipDeviceProps_.arch.hasWarpBallot = 1;
+
   HipDeviceProps_.clockInstructionRate = ZeDeviceProps_.coreClockRate;
   HipDeviceProps_.concurrentKernels = 1;
   HipDeviceProps_.pciDomainID = 0;

@@ -509,6 +509,8 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   else
     HipDeviceProps_.arch.hasDoubles = 0;
 
+  HipDeviceProps_.arch.hasWarpBallot = HasSubgroupBallot_;
+
   // TODO: OpenCL lacks queries for these. Generate best guesses which are
   // unlikely breaking the program logic.
   HipDeviceProps_.clockInstructionRate = 2465;

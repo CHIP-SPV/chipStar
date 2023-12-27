@@ -9,14 +9,12 @@ __global__ void k(uint64_t *Out, uint64_t In) {
     *Out = Votes;
 }
 
-void checkBallot(unsigned BlockSize, uint64_t In) {
+void checkBallot(unsigned BlockSize, uint64_t In,
+                 const hipDeviceProp_t &Props) {
   uint64_t *OutD, OutH = ~In;
   (void)hipMalloc(&OutD, sizeof(uint64_t));
   k<<<1, BlockSize>>>(OutD, In);
-  (void)hipMemcpy(&OutH, OutD, sizeof(uint64_t), hipMemcpyHostToDevice);
-
-  hipDeviceProp_t Props{};
-  (void)hipGetDeviceProperties(&Props, 0);
+  (void)hipMemcpy(&OutH, OutD, sizeof(uint64_t), hipMemcpyDeviceToHost);
 
   if (Props.warpSize < 64 && OutH >> Props.warpSize) {
     printf("Error: Garbage bits in the __ballot result!\n");
@@ -32,11 +30,13 @@ void checkBallot(unsigned BlockSize, uint64_t In) {
 }
 
 int main() {
-  if (!Backend->getActiveDevice()->hasBallot()) {
+  hipDeviceProp_t Props;
+  (void)hipGetDeviceProperties(&Props, 0);
+  if (!Props.arch.hasWarpBallot) {
     printf("SKIP: device does not support __ballot()\n");
     return 2;
   }
 
-  checkBallot(32, 0xBADF00D1);
+  checkBallot(32, 0xBADF00D1, Props);
   return 0;
 }
