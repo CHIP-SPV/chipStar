@@ -584,7 +584,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   constexpr char ArchName[] = "unavailable";
   static_assert(sizeof(ArchName) <= sizeof(HipDeviceProps_.gcnArchName),
                 "Buffer overflow!");
-  std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(sizeof(ArchName)));
+  std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(ArchName));
 }
 
 void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
