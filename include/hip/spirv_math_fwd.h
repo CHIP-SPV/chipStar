@@ -79,6 +79,7 @@ extern "C"
     __device__ _Float16 __ocml_sin_f16(_Float16);
     __device__ __attribute__((const)) _Float16 __ocml_sqrt_f16(_Float16);
     __device__ __attribute__((const)) _Float16 __ocml_trunc_f16(_Float16);
+    __device__ __attribute__((const)) _Float16 __ocml_fmax_f16(_Float16, _Float16);
 
     typedef _Float16 __2f16 __attribute__((ext_vector_type(2)));
     typedef short __2i16 __attribute__((ext_vector_type(2)));
