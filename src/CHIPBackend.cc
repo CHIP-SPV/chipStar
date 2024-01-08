@@ -245,6 +245,10 @@ chipstar::Module::~Module() {
   for (auto *K : ChipKernels_)
     delete K;
   ChipKernels_.clear();
+
+  for (auto *V : ChipVars_)
+    delete V;
+  ChipVars_.clear();
 }
 
 void chipstar::Module::addKernel(chipstar::Kernel *Kernel) {
@@ -1248,6 +1252,7 @@ void chipstar::Backend::initialize() {
 }
 
 void chipstar::Backend::setActiveContext(chipstar::Context *ChipContext) {
+  LOCK(::Backend->ActiveCtxMtx); // writing Backend::ChipCtxStack
   ChipCtxStack.push(ChipContext);
 }
 
@@ -1256,6 +1261,7 @@ void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
 }
 
 chipstar::Context *chipstar::Backend::getActiveContext() {
+  LOCK(::Backend->ActiveCtxMtx); // reading Backend::ChipCtxStack
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
     logDebug("Context stack is empty for thread {}", pthread_self());

@@ -131,6 +131,13 @@ void CHIPUninitializeCallOnce() {
       logWarn("Program still has unloaded HIP modules at program exit.");
       logInfo("Unloaded module count: {}", getSPVRegister().getNumSources());
     }
+
+    // call deallocateDeviceVariables on all devices.
+
+    for (auto Dev : Backend->getDevices()) {
+      Dev->deallocateDeviceVariables();
+    }
+
     Backend->uninitialize();
     delete Backend;
     Backend = nullptr;

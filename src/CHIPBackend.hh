@@ -1783,6 +1783,9 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
+  chipstar::Context *PrimaryContext = nullptr;
+  std::stack<chipstar::Context *> ChipCtxStack;
+
   std::shared_ptr<chipstar::Event> userEventLookup(chipstar::Event *EventPtr) {
     std::lock_guard<std::mutex> Lock(UserEventsMtx);
     for (auto &UserEvent : UserEvents) {
@@ -1807,6 +1810,7 @@ public:
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
+  mutable std::mutex ActiveCtxMtx;
   std::mutex CallbackQueueMtx;
   std::vector<std::shared_ptr<chipstar::Event>> Events;
   std::vector<std::shared_ptr<chipstar::Event>> UserEvents;
@@ -2352,8 +2356,6 @@ public:
 
 } // namespace chipstar
 
-inline chipstar::Context *PrimaryContext = nullptr;
 inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
-inline thread_local std::stack<chipstar::Context *> ChipCtxStack;
 
 #endif

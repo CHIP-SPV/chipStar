@@ -63,8 +63,9 @@ hipError_t hipCtxDestroy(hipCtx_t ctx) {
   }
 
   // Need to remove the ctx of calling thread if its the top one
-  if (!ChipCtxStack.empty() && ChipCtxStack.top() == ChipCtx) {
-    ChipCtxStack.pop();
+  if (!Backend->ChipCtxStack.empty() &&
+      Backend->ChipCtxStack.top() == ChipCtx) {
+    Backend->ChipCtxStack.pop();
   }
 
   // decrease refcount and delete if 0
@@ -77,11 +78,11 @@ hipError_t hipCtxPopCurrent(hipCtx_t *ctx) {
   CHIP_TRY
   CHIPInitialize();
 
-  if (ChipCtxStack.empty()) {
+  if (Backend->ChipCtxStack.empty()) {
     *ctx = nullptr;
   } else {
-    *ctx = ChipCtxStack.top();
-    ChipCtxStack.pop();
+    *ctx = Backend->ChipCtxStack.top();
+    Backend->ChipCtxStack.pop();
   }
 
   RETURN(hipSuccess);
@@ -94,11 +95,11 @@ hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
 
   auto ChipCtx = static_cast<chipstar::Context *>(ctx);
   if (!ChipCtx) {
-    if (!ChipCtxStack.empty()) {
-      ChipCtxStack.pop();
+    if (!Backend->ChipCtxStack.empty()) {
+      Backend->ChipCtxStack.pop();
     }
   } else {
-    ChipCtxStack.push(ChipCtx);
+    Backend->ChipCtxStack.push(ChipCtx);
   }
 
   RETURN(hipSuccess);

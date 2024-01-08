@@ -186,7 +186,7 @@ public:
       Type_ = BackendType::Level0;
 #ifndef HAVE_LEVEL0
       assert(!"Invalid chipStar Backend Selected. This chipStar "
-              "was not compiled with OpenCL backend");
+              "was not compiled with Level Zero backend");
 #endif
     } else if (StrIn == "") {
 #ifdef HAVE_LEVEL0
