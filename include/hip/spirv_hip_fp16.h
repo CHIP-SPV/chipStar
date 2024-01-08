@@ -1565,6 +1565,13 @@ THE SOFTWARE.
             {
                 return __half_raw{-static_cast<__half_raw>(x).data};
             }
+            inline
+            __device__
+            __half __hmax(__half x, __half y)
+            {
+                return __half_raw{__ocml_fmax_f16(static_cast<__half_raw>(x).data,
+                    static_cast<__half_raw>(y).data)};
+            }
 
             inline
             __HOST_DEVICE__
