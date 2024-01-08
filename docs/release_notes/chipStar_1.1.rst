@@ -109,3 +109,8 @@ Major Bugfixes
 
 * Do not pass ``-x spir`` to clBuildProgram() in OpenCL backend. '-x spir' requests compilation of the old SPIR 1.2/2.0 whereas we use the new SPIR-V which doesn't need the build flag, as long as we call clCreateProgramWithIL(). Passing the flag might fail if the device doesn't support the old SPIR even though it supports the new SPIR-V.
 
+===============
+Known Issues
+===============
+
+* certain combinations of drivers, hardware and OpenCL backend causes chipStar to crash at exit. As a workaround, the user can set the CHIP_SKIP_UNINIT env variable to skip the uninitialization of the chipStar library.

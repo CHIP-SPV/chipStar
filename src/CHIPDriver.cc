@@ -126,6 +126,10 @@ extern void CHIPInitialize() {
 
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
+  if (ChipEnvVars.getSkipUninit()) {
+    logWarn("Uninitialization skipped");
+    return;
+  }
   if (Backend) {
     if (getSPVRegister().getNumSources()) {
       logWarn("Program still has unloaded HIP modules at program exit.");
