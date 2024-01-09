@@ -227,6 +227,7 @@ private:
   int DeviceIdx_ = 0;
   BackendType Backend_;
   bool DumpSpirv_ = false;
+  bool SkipUninit_ = false;
   std::string JitFlags_ = CHIP_DEFAULT_JIT_FLAGS;
   bool L0ImmCmdLists_ = true;
   int L0CollectEventsTimeout_ = 0;
@@ -242,6 +243,7 @@ public:
   int getDeviceIdx() const { return DeviceIdx_; }
   BackendType getBackend() const { return Backend_; }
   bool getDumpSpirv() const { return DumpSpirv_; }
+  bool getSkipUninit() const { return SkipUninit_; }
   const std::string &getJitFlags() const { return JitFlags_; }
   bool getL0ImmCmdLists() const { return L0ImmCmdLists_; }
   int getL0CollectEventsTimeout() const { return L0CollectEventsTimeout_; }
@@ -261,6 +263,9 @@ private:
 
     if (!readEnvVar("CHIP_DUMP_SPIRV").empty())
       DumpSpirv_ = parseBoolean("CHIP_DUMP_SPIRV");
+
+    if (!readEnvVar("CHIP_SKIP_UNINIT").empty())
+      SkipUninit_ = parseBoolean("CHIP_SKIP_UNINIT");
 
     JitFlags_ = parseJitFlags("CHIP_JIT_FLAGS_OVERRIDE");
 
@@ -308,6 +313,7 @@ private:
     logDebug("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags_);
     logDebug("CHIP_L0_IMM_CMD_LISTS={}", L0ImmCmdLists_ ? "on" : "off");
     logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
+    logDebug("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
   }
 };
 
