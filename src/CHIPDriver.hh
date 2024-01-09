@@ -313,7 +313,7 @@ private:
     logDebug("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags_);
     logDebug("CHIP_L0_IMM_CMD_LISTS={}", L0ImmCmdLists_ ? "on" : "off");
     logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
-    logDebug("CHIP_SKIP_UNINIT={}", SkipUninit_  ? "on" : "off");
+    logDebug("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
   }
 };
 
