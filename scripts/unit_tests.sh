@@ -104,7 +104,7 @@ export CHIP_LOGLEVEL=err
 export POCL_KERNEL_CACHE=0
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load mkl compiler $CLANG opencl/dgpu
+module load oneapi/mkl oneapi/compiler $CLANG opencl/dgpu
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
