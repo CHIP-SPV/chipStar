@@ -7,7 +7,7 @@ set -e
 if [ -f "/opt/actions-runner/num-threads.txt" ]; then
   num_threads=$(cat /opt/actions-runner/num-threads.txt)
 else
-  num_threads=24
+  num_threads=$(nproc)
 fi
 
 num_tries=1
