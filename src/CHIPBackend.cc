@@ -513,9 +513,8 @@ chipstar::Device::~Device() {
 
   // Call finish() for PerThreadDefaultQueue to ensure that all
   // outstanding work items are completed.
-  // TODO - this causes a sporadic hang for dgpu
-  // if (PerThreadDefaultQueue)
-  //   PerThreadDefaultQueue->finish();
+  if (PerThreadDefaultQueue)
+    PerThreadDefaultQueue->finish();
 
   while (this->ChipQueues_.size() > 0) {
     delete ChipQueues_[0];
