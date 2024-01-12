@@ -510,6 +510,12 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 chipstar::Device::~Device() {
   LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
+
+  // Call finish() for PerThreadDefaultQueue to ensure that all
+  // outstanding work items are completed.
+  if (PerThreadDefaultQueue)
+    PerThreadDefaultQueue->finish();
+
   while (this->ChipQueues_.size() > 0) {
     delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
