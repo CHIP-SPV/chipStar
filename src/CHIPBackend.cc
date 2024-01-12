@@ -1202,19 +1202,6 @@ void chipstar::Backend::waitForThreadExit() {
   unsigned long long int sleepMicroSeconds = 500000;
   usleep(sleepMicroSeconds);
 
-  while (true) {
-    {
-      auto NumPerThreadQueuesActive = ::Backend->getPerThreadQueuesActive();
-      if (!NumPerThreadQueuesActive)
-        break;
-
-      logDebug("Backend::waitForThreadExit() per-thread queues still active "
-               "{}. Sleeping for 1s..",
-               NumPerThreadQueuesActive);
-    }
-    sleep(1);
-  }
-
   // Cleanup all queues
   {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
