@@ -1436,6 +1436,8 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Func
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # HIP-SYCL Interop segfault MKL 2023 ICPX 2023
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop_no_buffers") # HIP-SYCL Interop segfault MKL 2023 ICPX 2023 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
