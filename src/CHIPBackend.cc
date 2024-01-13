@@ -569,6 +569,9 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
+
+    // use stdout to print current thread id and queue ptr 
+    std::cout << "Thread id: " << std::this_thread::get_id() << " Queue ptr: " << PerThreadDefaultQueue.get() << std::endl;
   }
 
   return PerThreadDefaultQueue.get();
@@ -1450,6 +1453,8 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
     : Queue(ChipDevice, Flags, 0){};
 
 chipstar::Queue::~Queue() {
+  // print out thread id 
+  std::cout << "~Queue() thread id: " << std::this_thread::get_id() << std::endl;
   updateLastEvent(nullptr);
   if (PerThreadQueueForDevice) {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);
