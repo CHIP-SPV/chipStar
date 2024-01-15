@@ -151,7 +151,7 @@ else
   # ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 fi
 
-module unload opencl/dgpu
+module unload opencl/dgpu oneapi/compiler/2023.2.3
 
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 

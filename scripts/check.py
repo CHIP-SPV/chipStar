@@ -67,7 +67,7 @@ else:
 # setup module load line
 modules = ""
 if args.modules == "on":
-  modules =  ". /etc/profile.d/modules.sh && module load "
+  modules =  ". /etc/profile.d/modules.sh && export MODULEPATH=/space/modulefiles && module load "
   if args.backend == "opencl" and args.device_type == "cpu":
       modules += "opencl/cpu"
   elif args.backend == "opencl" and args.device_type == "igpu":
