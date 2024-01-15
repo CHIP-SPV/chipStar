@@ -13,6 +13,7 @@ list(APPEND CPU_POCL_FAILED_TESTS " ")
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 list(APPEND NON_PARALLEL_TESTS " ")
 
+list(APPEND NON_PARALLEL_TESTS "hipMultiThreadAddCallback") # added after adding MKL back into testing
 list(APPEND NON_PARALLEL_TESTS "TestLargeGlobalVar")
 list(APPEND NON_PARALLEL_TESTS "cuda-asyncAPI")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_Negative")
