@@ -510,12 +510,6 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 chipstar::Device::~Device() {
   LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
-
-  // Call finish() for PerThreadDefaultQueue to ensure that all
-  // outstanding work items are completed.
-  if (PerThreadDefaultQueue)
-    PerThreadDefaultQueue->finish();
-
   while (this->ChipQueues_.size() > 0) {
     delete ChipQueues_[0];
     ChipQueues_.erase(ChipQueues_.begin());
@@ -569,9 +563,6 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-
-    // use stdout to print current thread id and queue ptr 
-    std::cout << "Thread id: " << std::this_thread::get_id() << " Queue ptr: " << PerThreadDefaultQueue.get() << std::endl;
   }
 
   return PerThreadDefaultQueue.get();
@@ -1211,6 +1202,19 @@ void chipstar::Backend::waitForThreadExit() {
   unsigned long long int sleepMicroSeconds = 500000;
   usleep(sleepMicroSeconds);
 
+  while (true) {
+    {
+      auto NumPerThreadQueuesActive = ::Backend->getPerThreadQueuesActive();
+      if (!NumPerThreadQueuesActive)
+        break;
+
+      logDebug("Backend::waitForThreadExit() per-thread queues still active "
+               "{}. Sleeping for 1s..",
+               NumPerThreadQueuesActive);
+    }
+    sleep(1);
+  }
+
   // Cleanup all queues
   {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
@@ -1453,8 +1457,6 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
     : Queue(ChipDevice, Flags, 0){};
 
 chipstar::Queue::~Queue() {
-  // print out thread id 
-  std::cout << "~Queue() thread id: " << std::this_thread::get_id() << std::endl;
   updateLastEvent(nullptr);
   if (PerThreadQueueForDevice) {
     PerThreadQueueForDevice->setPerThreadStreamUsed(false);

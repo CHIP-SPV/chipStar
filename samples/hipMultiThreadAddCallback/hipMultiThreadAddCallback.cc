@@ -41,7 +41,7 @@ multiple Threads.
 #endif
 
 static constexpr size_t N = 4096;
-static constexpr int numThreads = 3;
+static constexpr int numThreads = 1000;
 static std::atomic<int> Cb_count{0}, Data_mismatch{0};
 static hipStream_t mystream;
 static float *A1_h, *C1_h;
@@ -85,7 +85,6 @@ static void HIPRT_CB Thread1_Callback(hipStream_t stream, hipError_t status,
 
   // Increment the Cb_count to indicate that the callback is processed.
   ++Cb_count;
-  std::cout << "Hello from thread id: " << std::this_thread::get_id() << "\n";
 }
 
 static void HIPRT_CB Thread2_Callback(hipStream_t stream, hipError_t status,
@@ -103,8 +102,6 @@ static void HIPRT_CB Thread2_Callback(hipStream_t stream, hipError_t status,
 
   // Increment the Cb_count to indicate that the callback is processed.
   ++Cb_count;
-  // hello from thread id
-  std::cout << "Hello from thread id: " << std::this_thread::get_id() << "\n";
 }
 
 void Thread1_func() {
