@@ -25,11 +25,17 @@ args = parser.parse_args()
 
 # execute a command and return the output along with the return code
 def run_cmd(cmd):
-    cmd_hash = hashlib.md5(cmd.encode()).hexdigest()[0:10]
+    # get current milliseconds
+    cur_ms = subprocess.check_output("date +%s%3N", shell=True).decode('utf-8').strip()
+    cmd_hash = hashlib.sha256(cmd.encode('utf-8')+ cur_ms.encode('utf-8')).hexdigest()
+
     file_name = f"/tmp/{cmd_hash}_cmd.txt"
     cmd = f"{cmd} | tee {file_name}"
     if args.verbose:
         print(f"check.py: {cmd}")
+    if args.dry_run:
+        print(cmd)
+        return "", 0
     return_code = subprocess.call(cmd, shell=True)
     with open(file_name, "r") as f:
         return f.read(), return_code
@@ -86,8 +92,15 @@ os.chdir(args.work_dir)
 
 cmd = f"{modules} {env_vars} ./hipInfo"
 out, _ = run_cmd(cmd)
-texture_support = 0 < int(out.split("maxTexture1DLinear:")[1].split("\n")[0].strip())
-double_support = 0 < int(out.split("arch.hasDoubles:")[1].split("\n")[0].strip())
+
+texture_support = False
+if ("maxTexture1DLinear:" in out):
+    texture_support = 0 < int(out.split("maxTexture1DLinear:")[1].split("\n")[0].strip())
+
+double_support = False
+if ("arch.hasDoubles:" in out):
+    double_support = 0 < int(out.split("arch.hasDoubles:")[1].split("\n")[0].strip())
+
 if double_support:
     double_cmd = ""
 else:
@@ -104,12 +117,7 @@ if args.categories:
   cmd_graph = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"[Gg]raph\" -O checkpy_{args.device_type}_{args.backend}_graph.txt"
   cmd_single = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 1 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_single.txt"
   cmd_other = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}|deviceFunc|[Gg]raph|`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_other.txt"
-  if(args.dry_run):
-      print(cmd_deviceFunc)
-      print(cmd_graph)
-      print(cmd_single)
-      print(cmd_other)
-      exit(0)
+
   res_deviceFunc, err  = run_cmd(cmd_deviceFunc)
   res_graph, err = run_cmd(cmd_graph)
   res_single, err = run_cmd(cmd_single)
@@ -121,9 +129,7 @@ if args.categories:
       exit(1)
 else:
   cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{args.backend}.txt"
-  if(args.dry_run):
-    print(cmd)
-    exit(0)
+
   res, err = run_cmd(cmd)
   if "0 tests failed" in res:
       exit(0)
