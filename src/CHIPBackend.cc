@@ -564,10 +564,6 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-    // use an atomic operation to increment NumPerThreadQueues
-    // this is used to track the number of threads created
-    // and to delete the queue when the last thread is destroyed
-    NumPerThreadQueues.fetch_add(1, std::memory_order_relaxed);
   }
 
   return PerThreadDefaultQueue.get();
@@ -1441,6 +1437,11 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags,
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
   logDebug("Queue() {}", (void *)this);
+
+    // use an atomic operation to increment NumPerThreadQueues
+    // this is used to track the number of threads created
+    // and to delete the queue when the last thread is destroyed
+    ChipDevice->NumPerThreadQueues.fetch_add(1, std::memory_order_relaxed);
 };
 
 chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
