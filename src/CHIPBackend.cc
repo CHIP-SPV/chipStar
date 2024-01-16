@@ -564,6 +564,11 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
+
+    // use an atomic operation to increment NumQueuesAlive
+    // this is used to track the number of threads created
+    // and to delete the queue when the last thread is destroyed
+    NumQueuesAlive.fetch_add(1, std::memory_order_relaxed);
   }
 
   return PerThreadDefaultQueue.get();
@@ -1179,6 +1184,15 @@ void chipstar::Backend::trackEvent(
 }
 
 void chipstar::Backend::waitForThreadExit() {
+  // first, we must delay the main thread so that at least all other threads have gotten past
+  // libCHIP.so!chipstar::Device::getPerThreadDefaultQueueNoLock
+  // libCHIP.so!chipstar::Backend::findQueue
+  // libCHIP.so!hipMemcpyAsyncInternal
+  // libCHIP.so!hipMemcpyAsync
+  pthread_yield();
+  unsigned long long int sleepMicroSeconds = 500000;
+  usleep(sleepMicroSeconds);
+
   // go through all devices checking their NumQueuesAlive until all they're all
   // 1 or 0 (0 would indicate that hipStreamPerThread was never used and 1 would
   // indicate main thread used hipStreamPerThread)
@@ -1437,11 +1451,6 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags,
     : Priority_(Priority), QueueFlags_(Flags), ChipDevice_(ChipDevice) {
   ChipContext_ = ChipDevice->getContext();
   logDebug("Queue() {}", (void *)this);
-
-    // use an atomic operation to increment NumQueuesAlive
-    // this is used to track the number of threads created
-    // and to delete the queue when the last thread is destroyed
-    ChipDevice->NumQueuesAlive.fetch_add(1, std::memory_order_relaxed);
 };
 
 chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
@@ -1451,7 +1460,8 @@ chipstar::Queue::~Queue() {
   updateLastEvent(nullptr);
 
   // atomic decrement for number of threads alive
-  this->ChipDevice_->NumQueuesAlive.fetch_sub(1, std::memory_order_relaxed);
+  if (this->isDefaultPerThreadQueue())
+    this->ChipDevice_->NumQueuesAlive.fetch_sub(1, std::memory_order_relaxed);
 };
 
 std::vector<std::shared_ptr<chipstar::Event>>
