@@ -564,10 +564,10 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-    // use an atomic operation to increment NumThreadsAlive
+    // use an atomic operation to increment NumPerThreadQueues
     // this is used to track the number of threads created
     // and to delete the queue when the last thread is destroyed
-    NumThreadsAlive.fetch_add(1, std::memory_order_relaxed);
+    NumPerThreadQueues.fetch_add(1, std::memory_order_relaxed);
   }
 
   return PerThreadDefaultQueue.get();
@@ -1183,14 +1183,14 @@ void chipstar::Backend::trackEvent(
 }
 
 void chipstar::Backend::waitForThreadExit() {
-  // go through all devices checking their NumThreadsAlive until all they're all
+  // go through all devices checking their NumPerThreadQueues until all they're all
   // 1 or 0 (0 would indicate that hipStreamPerThread was never used and 1 would
   // indicate main thread used hipStreamPerThread)
   bool AllThreadsExited = false;
   while (!AllThreadsExited) {
     AllThreadsExited = true;
     for (auto &Dev : getDevices()) {
-      if (Dev->NumThreadsAlive.load(std::memory_order_relaxed) > 1) {
+      if (Dev->NumPerThreadQueues.load(std::memory_order_relaxed) > 1) {
         AllThreadsExited = false;
         break;
       }
@@ -1450,7 +1450,7 @@ chipstar::Queue::~Queue() {
   updateLastEvent(nullptr);
 
   // atomic decrement for number of threads alive
-  this->ChipDevice_->NumThreadsAlive.fetch_sub(1, std::memory_order_relaxed);
+  this->ChipDevice_->NumPerThreadQueues.fetch_sub(1, std::memory_order_relaxed);
 };
 
 std::vector<std::shared_ptr<chipstar::Event>>

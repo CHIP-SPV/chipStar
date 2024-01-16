@@ -1286,7 +1286,7 @@ protected:
 public:
   // atomic int for counting number of threads that were created
   // for this device
-  std::atomic<int> NumThreadsAlive = 0;
+  std::atomic<int> NumPerThreadQueues = 0;
 
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   std::mutex DeviceVarMtx;
@@ -1899,7 +1899,7 @@ public:
    * crash as those other threads still rely on the shared backend to be alive.
    * This function waits for all threads to exit before destroying the backend.
    *
-   * This is done by each Queue constructor incrementing NumThreadsAlive
+   * This is done by each Queue constructor incrementing NumPerThreadQueues
    * atomically and each Queue destructor decrementing it.
    *
    */
