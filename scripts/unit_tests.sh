@@ -7,7 +7,7 @@ set -e
 if [ -f "/opt/actions-runner/num-threads.txt" ]; then
   num_threads=$(cat /opt/actions-runner/num-threads.txt)
 else
-  num_threads=24
+  num_threads=$(nproc)
 fi
 
 num_tries=1
@@ -104,7 +104,10 @@ export CHIP_LOGLEVEL=err
 export POCL_KERNEL_CACHE=0
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
-module load $CLANG opencl/dgpu # leave intel/opencl loaded otherwise hip_sycl_interop samples segfault upon exit
+module use ~/modulefiles
+module use /space/modulefiles
+module load oneapi/mkl/2023.2.3 oneapi/compiler/2023.2.3 $CLANG opencl/dgpu
+which icpx
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
@@ -138,8 +141,8 @@ else
   cd build
 
   echo "building with $CLANG"
-  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" &> /dev/null
-  make all build_tests install -j 24 #&> /dev/null
+  cmake ../ -DCMAKE_BUILD_TYPE="$build_type"
+  make all build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 
   # # Build libCEED
@@ -148,7 +151,7 @@ else
   # ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 fi
 
-module unload opencl/dgpu
+module unload opencl/dgpu oneapi/compiler/2023.2.3
 
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 

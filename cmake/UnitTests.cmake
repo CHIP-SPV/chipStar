@@ -13,6 +13,7 @@ list(APPEND CPU_POCL_FAILED_TESTS " ")
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 list(APPEND NON_PARALLEL_TESTS " ")
 
+list(APPEND NON_PARALLEL_TESTS "hipMultiThreadAddCallback") # added after adding MKL back into testing
 list(APPEND NON_PARALLEL_TESTS "TestLargeGlobalVar")
 list(APPEND NON_PARALLEL_TESTS "cuda-asyncAPI")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_Negative")
@@ -1436,6 +1437,8 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Func
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # Timeout Using MKL 2023.2.3 
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop_no_buffers") # Timeout Using MKL 2023.2.3 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
