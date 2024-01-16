@@ -551,11 +551,6 @@ bool chipstar::Device::isPerThreadStreamUsedNoLock() {
   return PerThreadStreamUsed_;
 }
 
-void chipstar::Device::setPerThreadStreamUsed(bool Status) {
-  LOCK(DeviceMtx); // chipstar::Device::PerThreadStreamUsed
-  PerThreadStreamUsed_ = Status;
-}
-
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   LOCK(DeviceMtx); // chipstar::Device::PerThreadStreamUsed
   return getPerThreadDefaultQueueNoLock();
@@ -1453,10 +1448,6 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
 
 chipstar::Queue::~Queue() {
   updateLastEvent(nullptr);
-  // TODO probably don't need this
-  if (PerThreadQueueForDevice) {
-    PerThreadQueueForDevice->setPerThreadStreamUsed(false);
-  }
 
   // atomic decrement for number of threads alive
   this->ChipDevice_->NumThreadsAlive.fetch_sub(1, std::memory_order_relaxed);

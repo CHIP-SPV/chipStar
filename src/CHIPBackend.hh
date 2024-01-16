@@ -1316,7 +1316,6 @@ public:
 
   bool isPerThreadStreamUsed();
   bool isPerThreadStreamUsedNoLock();
-  void setPerThreadStreamUsed(bool Status);
 
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
