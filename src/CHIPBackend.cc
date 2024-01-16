@@ -1184,7 +1184,8 @@ void chipstar::Backend::trackEvent(
 }
 
 void chipstar::Backend::waitForThreadExit() {
-  // first, we must delay the main thread so that at least all other threads have gotten past
+  // first, we must delay the main thread so that at least all other threads
+  // have gotten past
   // libCHIP.so!chipstar::Device::getPerThreadDefaultQueueNoLock
   // libCHIP.so!chipstar::Backend::findQueue
   // libCHIP.so!hipMemcpyAsyncInternal
