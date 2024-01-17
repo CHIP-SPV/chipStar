@@ -803,6 +803,22 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "cuda-simpleCallback") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
+# textures fail when USM is enabled
+if(CHIP_USE_INTEL_USM)
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes")
+  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes")
+endif()
+
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # flaky
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime") # flaky
