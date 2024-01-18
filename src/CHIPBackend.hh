@@ -1284,6 +1284,10 @@ protected:
   bool PerThreadStreamUsed_ = false;
 
 public:
+  // atomic int for counting number of threads that were created
+  // for this device
+  std::atomic<int> NumQueuesAlive = 0;
+
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
@@ -1312,7 +1316,6 @@ public:
 
   bool isPerThreadStreamUsed();
   bool isPerThreadStreamUsedNoLock();
-  void setPerThreadStreamUsed(bool Status);
 
   /**
    * @brief Get the Default Queue object. If HIP_API_PER_THREAD_DEFAULT_STREAM
@@ -1806,7 +1809,6 @@ public:
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) = 0;
 
-  int getPerThreadQueuesActive();
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
   mutable std::mutex BackendMtx;
@@ -1891,6 +1893,14 @@ public:
 
   /**
    * @brief Wait for all per-thread queues to finish
+   *
+   * If the main thread just creates a bunch of other threads and tries to exit
+   * right away without calling join(), destroying the backend would cause a
+   * crash as those other threads still rely on the shared backend to be alive.
+   * This function waits for all threads to exit before destroying the backend.
+   *
+   * This is done by each Queue constructor incrementing NumQueuesAlive
+   * atomically and each Queue destructor decrementing it.
    *
    */
   void waitForThreadExit();

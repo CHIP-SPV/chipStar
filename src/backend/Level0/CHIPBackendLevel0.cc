@@ -1663,8 +1663,9 @@ chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim,
   return ExecItem;
 };
 
-std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
-    chipstar::Context *ChipCtx, chipstar::EventFlags Flags) {
+std::shared_ptr<chipstar::Event>
+CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
+                                     chipstar::EventFlags Flags) {
   std::shared_ptr<chipstar::Event> Event;
 
   auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
