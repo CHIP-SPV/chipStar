@@ -371,6 +371,10 @@ if(HAS_EXPERIMENTAL_FILESYSTEM)
   target_link_libraries(CHIP PUBLIC stdc++fs)
 endif()
 
+# Prioritize picking up headers from clang in case icpx is also used
+# https://github.com/CHIP-SPV/chipStar/issues/759
+include_directories(CHIP PUBLIC ${CLANG_ROOT_PATH}/lib/clang/${LLVM_VERSION_MAJOR}/include)
+
 # Previously these were set to SYSTEM which resulted in CMake picking up
 # OpenCL headers from the system where the version might differ resulting in errors.
 target_include_directories(CHIP

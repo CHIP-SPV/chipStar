@@ -18,7 +18,6 @@ find_package(MKL CONFIG
 
 # Manually include MKL dirs so that they get cached
 if(MKL_FOUND) 
-  include_directories(${MKL_INCLUDE})
   add_link_options(-L${MKL_ROOT}/lib/${MKL_ARCH})
 endif()
 

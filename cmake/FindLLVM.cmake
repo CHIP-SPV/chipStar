@@ -125,3 +125,4 @@ enable_language(C CXX)
 # required by ROCm-Device-Libs, must be after project() call
 find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH}/lib/cmake/llvm)
 find_package(Clang REQUIRED CONFIG NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH}/lib/cmake/clang)
+
