@@ -23,6 +23,8 @@
 #
 #=============================================================================
 
+set(CHIP_SKIP_TEST 77)
+
 function(add_hip_runtime_test MAIN_SOURCE)
   get_filename_component(EXEC_NAME ${MAIN_SOURCE} NAME_WLE)
   set_source_files_properties(${MAIN_SOURCE} PROPERTIES LANGUAGE CXX)
@@ -35,10 +37,13 @@ function(add_hip_runtime_test MAIN_SOURCE)
   target_include_directories("${EXEC_NAME}"
     PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
 
+  target_compile_definitions("${EXEC_NAME}"
+    PRIVATE CHIP_SKIP_TEST=${CHIP_SKIP_TEST})
+
   add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
 
   set_tests_properties("${EXEC_NAME}" PROPERTIES
-    SKIP_REGULAR_EXPRESSION "SKIP")
+    SKIP_RETURN_CODE ${CHIP_SKIP_TEST})
 
 endfunction()
 
