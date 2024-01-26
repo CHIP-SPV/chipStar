@@ -11,6 +11,12 @@ __device__ int Foo = 123;
 __global__ void bar(int *Dst) { *Dst = Foo; }
 
 int main() {
+  const char *LazyJit = std::getenv("CHIP_LAZY_JIT");
+  if (LazyJit && std::string_view(LazyJit) == "0") {
+    printf("CHIP_LAZY_JIT is set to 0. Skip testing.\n");
+    return CHIP_SKIP_TEST;
+  }
+
   // Check the source binary is registered.
   assert(getSPVRegister().getNumSources() == 1);
 

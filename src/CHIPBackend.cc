@@ -997,6 +997,42 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
   // Found the source module, now compile it.
   auto *Mod = getOrCreateModule(*SrcMod);
 
+  // Bind host pointers to their backend counterparts.
+  for (const auto &Info : SrcMod->Kernels) {
+    std::string NameTmp(Info.Name.begin(), Info.Name.end());
+    chipstar::Kernel *Kernel = Mod->getKernelByName(NameTmp);
+    assert(Kernel && "chipstar::Kernel went missing?");
+    Kernel->setHostPtr(Info.Ptr);
+    HostPtrToCompiledMod_[Info.Ptr] = Mod;
+  }
+
+  for (const auto &Info : SrcMod->Variables) {
+    // Global device variables in the original HIP sources have been
+    // converted by a global variable pass (HipGlobalVariables.cpp)
+    // and they are accessible through specially named shadow
+    // kernels.
+    std::string NameTmp(Info.Name.begin(), Info.Name.end());
+    std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + NameTmp;
+
+    if (!Mod->hasKernel(VarInfoKernelName)) {
+      // The kernel compilation pipe is allowed to remove device-side unused
+      // global variables from the device modules. This is utilized in the
+      // abort implementation to signal that abort is not called in the
+      // module. The lack of the variable in the device module is used as a
+      // quick (and dirty) way to not query for the global flag value after
+      // each kernel execution (reading of which requires kernel launches).
+      logTrace(
+          "Device variable {} not found in the module -- removed as unused?",
+          Info.Name);
+      continue;
+    }
+    auto *Var = new chipstar::DeviceVar(&Info);
+    Mod->addDeviceVariable(Var);
+
+    DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+    HostPtrToCompiledMod_[Info.Ptr] = Mod;
+  }
+
 #ifndef NDEBUG
   {
     LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
@@ -1022,43 +1058,9 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
   logDebug("Compile module {}", static_cast<const void *>(&SrcMod));
 
   auto *Module = compile(SrcMod);
-  if (!Module) // Probably a compile error.
+  if (!Module) { // Probably a compile error.
+    logWarn("Compile module returned NULL, probably error");
     return nullptr;
-
-  // Bind host pointers to their backend counterparts.
-  for (const auto &Info : SrcMod.Kernels) {
-    std::string NameTmp(Info.Name.begin(), Info.Name.end());
-    chipstar::Kernel *Kernel = Module->getKernelByName(NameTmp);
-    assert(Kernel && "chipstar::Kernel went missing?");
-    Kernel->setHostPtr(Info.Ptr);
-    HostPtrToCompiledMod_[Info.Ptr] = Module;
-  }
-
-  for (const auto &Info : SrcMod.Variables) {
-    // Global device variables in the original HIP sources have been
-    // converted by a global variable pass (HipGlobalVariables.cpp)
-    // and they are accessible through specially named shadow
-    // kernels.
-    std::string NameTmp(Info.Name.begin(), Info.Name.end());
-    std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + NameTmp;
-
-    if (!Module->hasKernel(VarInfoKernelName)) {
-      // The kernel compilation pipe is allowed to remove device-side unused
-      // global variables from the device modules. This is utilized in the
-      // abort implementation to signal that abort is not called in the
-      // module. The lack of the variable in the device module is used as a
-      // quick (and dirty) way to not query for the global flag value after
-      // each kernel execution (reading of which requires kernel launches).
-      logTrace(
-          "Device variable {} not found in the module -- removed as unused?",
-          Info.Name);
-      continue;
-    }
-    auto *Var = new chipstar::DeviceVar(&Info);
-    Module->addDeviceVariable(Var);
-
-    DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
-    HostPtrToCompiledMod_[Info.Ptr] = Module;
   }
 
   SrcModToCompiledMod_.insert(std::make_pair(&SrcMod, Module));

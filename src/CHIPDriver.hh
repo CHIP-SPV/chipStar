@@ -228,6 +228,7 @@ private:
   BackendType Backend_;
   bool DumpSpirv_ = false;
   bool SkipUninit_ = false;
+  bool LazyJit_ = true;
   std::string JitFlags_ = CHIP_DEFAULT_JIT_FLAGS;
   bool L0ImmCmdLists_ = true;
   unsigned long L0EventTimeout_ = 0;
@@ -246,6 +247,7 @@ public:
   bool getDumpSpirv() const { return DumpSpirv_; }
   bool getSkipUninit() const { return SkipUninit_; }
   const std::string &getJitFlags() const { return JitFlags_; }
+  bool getLazyJit() const { return LazyJit_; }
   bool getL0ImmCmdLists() const { return L0ImmCmdLists_; }
   int getL0CollectEventsTimeout() const { return L0CollectEventsTimeout_; }
   unsigned long getL0EventTimeout() const {
@@ -273,6 +275,9 @@ private:
 
     if (!readEnvVar("CHIP_SKIP_UNINIT").empty())
       SkipUninit_ = parseBoolean("CHIP_SKIP_UNINIT");
+
+    if (!readEnvVar("CHIP_LAZY_JIT").empty())
+      LazyJit_ = parseBoolean("CHIP_LAZY_JIT");
 
     JitFlags_ = parseJitFlags("CHIP_JIT_FLAGS_OVERRIDE");
 
