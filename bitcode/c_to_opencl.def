@@ -20,9 +20,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-// Some libstd++ math calls results in non-overloaded (and non-mangled)
-// C math function calls that do not link with the overloaded (and
-// mangled) math builtin functions in OpenCL.
+// A subset of HIP device built-ins are mapped to compiler built-ins
+// for getting benefits from LLVM optimizers. The compiler built-ins
+// either map to LLVM intrinsics or C math calls. This file has
+// definitions for mapping the C math calls to corresponding OpenCL
+// built-ins.
 //
 // We can't define non-overloaded function that would call the builtin
 // by the same in OpenCL in the same translation unit. To get around
@@ -38,30 +40,78 @@
 
 // Note: Include guards are not desired here.
 
-#define MAP_PREFIX _chip_spv_c_to_opencl_
-
-// DEF_UNARY_FN_MAP(NAME, TYPE)
+// DEF_UNARY_FN_MAP(FROM_FN, TO_FN, TYPE)
 #ifndef DEF_UNARY_FN_MAP
 #define DEF_UNARY_FN_MAP
 #endif
 
-// DEF_BINARY_FN_MAP(NAME, TYPE)
+// DEF_BINARY_FN_MAP(FROM_FN, TO_FN, TYPE)
 #ifndef DEF_BINARY_FN_MAP
 #define DEF_BINARY_FN_MAP
 #endif
 
-DEF_UNARY_FN_MAP(lgamma, double)
-DEF_UNARY_FN_MAP(tan, double)
-DEF_UNARY_FN_MAP(asin, double)
-DEF_UNARY_FN_MAP(acos, double)
-DEF_UNARY_FN_MAP(atan, double)
-DEF_UNARY_FN_MAP(sinh, double)
-DEF_UNARY_FN_MAP(cosh, double)
-DEF_UNARY_FN_MAP(tanh, double)
-DEF_UNARY_FN_MAP(erf, double)
-DEF_UNARY_FN_MAP(erfc, double)
+DEF_UNARY_FN_MAP(acos, acos, double)
+DEF_UNARY_FN_MAP(acosf, acos, float)
+DEF_UNARY_FN_MAP(asin, asin, double)
+DEF_UNARY_FN_MAP(asinf, asin, float)
+DEF_UNARY_FN_MAP(atan, atan, double)
+DEF_UNARY_FN_MAP(atanf, atan, float)
+DEF_UNARY_FN_MAP(cbrt, cbrt, double)
+DEF_UNARY_FN_MAP(cbrtf, cbrt, float)
+DEF_UNARY_FN_MAP(ceil, ceil, double)
+DEF_UNARY_FN_MAP(ceilf, ceil, float)
+DEF_UNARY_FN_MAP(cos, cos, double)
+DEF_UNARY_FN_MAP(cosf, cos, float)
+DEF_UNARY_FN_MAP(cosh, cosh, double)
+DEF_UNARY_FN_MAP(coshf, cosh, float)
+DEF_UNARY_FN_MAP(erf, erf, double)
+DEF_UNARY_FN_MAP(erff, erf, float)
+DEF_UNARY_FN_MAP(erfc, erfc, double)
+DEF_UNARY_FN_MAP(erfcf, erfc, float)
+DEF_UNARY_FN_MAP(exp, exp, double)
+DEF_UNARY_FN_MAP(expf, exp, float)
+DEF_UNARY_FN_MAP(expm1, expm1, double)
+DEF_UNARY_FN_MAP(expm1f, expm1, float)
+DEF_UNARY_FN_MAP(exp2, exp2, double)
+DEF_UNARY_FN_MAP(exp2f, exp2, float)
+DEF_UNARY_FN_MAP(fabs, fabs, double)
+DEF_UNARY_FN_MAP(fabsf, fabs, float)
+DEF_UNARY_FN_MAP(floor, floor, double)
+DEF_UNARY_FN_MAP(floorf, floor, float)
+DEF_UNARY_FN_MAP(lgamma, lgamma, double)
+DEF_UNARY_FN_MAP(lgammaf, lgamma, float)
+DEF_UNARY_FN_MAP(log, log, double)
+DEF_UNARY_FN_MAP(logf, log, float)
+DEF_UNARY_FN_MAP(log10, log10, double)
+DEF_UNARY_FN_MAP(log10f, log10, float)
+DEF_UNARY_FN_MAP(rint, rint, double)
+DEF_UNARY_FN_MAP(rintf, rint, float)
+DEF_UNARY_FN_MAP(round, round, double)
+DEF_UNARY_FN_MAP(roundf, round, float)
+DEF_UNARY_FN_MAP(signbit, signbit, double)
+DEF_UNARY_FN_MAP(signbitf, signbit, float)
+DEF_UNARY_FN_MAP(sin, sin, double)
+DEF_UNARY_FN_MAP(sinf, sin, float)
+DEF_UNARY_FN_MAP(sinh, sinh, double)
+DEF_UNARY_FN_MAP(sinhf, sinh, float)
+DEF_UNARY_FN_MAP(sqrt, sqrt, double)
+DEF_UNARY_FN_MAP(sqrtf, sqrt, float)
+DEF_UNARY_FN_MAP(tan, tan, double)
+DEF_UNARY_FN_MAP(tanf, tan, float)
+DEF_UNARY_FN_MAP(tanh, tanh, double)
+DEF_UNARY_FN_MAP(tanhf, tanh, float)
+DEF_UNARY_FN_MAP(trunc, trunc, double)
+DEF_UNARY_FN_MAP(truncf, trunc, float)
 
-DEF_BINARY_FN_MAP(copysign, double)
-DEF_BINARY_FN_MAP(nextafter, double)
+DEF_BINARY_FN_MAP(copysign, copysign, double)
+DEF_BINARY_FN_MAP(fmax, fmax, double)
+DEF_BINARY_FN_MAP(fmaxf, fmax, float)
+DEF_BINARY_FN_MAP(fmin, fmin, double)
+DEF_BINARY_FN_MAP(fminf, fmin, float)
+DEF_BINARY_FN_MAP(fmod, fmod, double)
+DEF_BINARY_FN_MAP(fmodf, fmod, float)
+DEF_BINARY_FN_MAP(hypot, hypot, double)
+DEF_BINARY_FN_MAP(hypotf, hypot, float)
+DEF_BINARY_FN_MAP(nextafter, nextafter, double)
 
 #undef MAPPING_PREFIX

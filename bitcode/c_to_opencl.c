@@ -22,12 +22,15 @@
 
 // See c_to_opencl.def for details.
 
-#define DEF_UNARY_FN_MAP(NAME_, TYPE_)                                         \
-  extern TYPE_ MAP_PREFIX##NAME_(TYPE_);                                       \
-  TYPE_ NAME_(TYPE_ x) { return MAP_PREFIX##NAME_(x); }
-#define DEF_BINARY_FN_MAP(NAME_, TYPE_)                                        \
-  extern TYPE_ MAP_PREFIX##NAME_(TYPE_, TYPE_);                                \
-  TYPE_ NAME_(TYPE_ x, TYPE_ y) { return MAP_PREFIX##NAME_(x, y); }
+#define DEF_UNARY_FN_MAP(FROM_FN_, TO_FN_, TYPE_)                              \
+  extern TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_);                                 \
+  TYPE_ FROM_FN_(TYPE_ x) { return __chip_c2ocl_##FROM_FN_(x); }
+
+#define DEF_BINARY_FN_MAP(FROM_FN_, TO_FN_, TYPE_)                             \
+  extern TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_, TYPE_);                          \
+  TYPE_ FROM_FN_(TYPE_ x, TYPE_ y) { return __chip_c2ocl_##FROM_FN_(x, y); }
+
 #include "c_to_opencl.def"
+
 #undef UNARY_FN
 #undef BINARY_FN

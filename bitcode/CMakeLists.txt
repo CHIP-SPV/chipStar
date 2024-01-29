@@ -34,10 +34,6 @@ if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
   list(APPEND EXTRA_FLAGS ${DISABLE_OPAQUE_PTRS_OPT})
 endif()
 
-if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
-  list(APPEND EXTRA_FLAGS "-DCHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE=1")
-endif()
-
 if("${LLVM_VERSION}" VERSION_LESS 14.0)
   # Definitions for pre-upstreamed HIP-Clang.
   set(BC_TRIPLE "spirv64")
@@ -109,18 +105,15 @@ set(OCML_LIB_PATHS
   ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_isa_version_803.lib.bc
 )
 
-if(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
-    # add support for calling certain LLVM builtins that are not supported by HIP/CUDA
-    add_custom_command(
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
-    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
-    -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
-    -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
-    COMMENT "Building c_to_opencl.bc"
-    VERBATIM)
-    list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
-endif()
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
+  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
+  -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  COMMENT "Building c_to_opencl.bc"
+  VERBATIM)
+list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
 
 # devicelib
 add_custom_command(
