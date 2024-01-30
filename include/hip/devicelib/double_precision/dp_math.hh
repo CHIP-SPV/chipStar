@@ -217,7 +217,7 @@ extern "C++" __device__ double fmod(double x, double y); // OpenCL
 extern "C++" __device__ double frexp(double x, int *nptr); // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_hypot)
-static __device__ double hypot(double x, double y) {
+static inline __device__ double hypot(double x, double y) {
   return __builtin_hypot(x, y);
 }
 #else
