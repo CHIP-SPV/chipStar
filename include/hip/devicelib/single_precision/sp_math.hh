@@ -38,9 +38,7 @@
  * function declared in 1. cosf(x) -> cos(x)
  */
 #if defined __has_builtin && __has_builtin(__builtin_acosf)
-extern "C++" inline __device__ float acosf(float x) {
-  return __builtin_acos(x);
-}
+static inline __device__ float acosf(float x) { return __builtin_acos(x); }
 #else
 extern "C++" __device__ float acos(float x); // OpenCL
 extern "C++" inline __device__ float acosf(float x) { return ::acos(x); }
@@ -50,9 +48,7 @@ extern "C++" __device__ float acosh(float x); // OpenCL
 extern "C++" inline __device__ float acoshf(float x) { return ::acosh(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_asinf)
-extern "C++" inline __device__ float asinf(float x) {
-  return __builtin_asinf(x);
-}
+static inline __device__ float asinf(float x) { return __builtin_asinf(x); }
 #else
 extern "C++" __device__ float asin(float x); // OpenCL
 extern "C++" inline __device__ float asinf(float x) { return ::asin(x); }
@@ -67,9 +63,7 @@ extern "C++" inline __device__ float atan2f(float y, float x) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_atanf)
-extern "C++" inline __device__ float atanf(float x) {
-  return __builtin_atanf(x);
-}
+static inline __device__ float atanf(float x) { return __builtin_atanf(x); }
 #else
 extern "C++" __device__ float atan(float x); // OpenCL
 extern "C++" inline __device__ float atanf(float x) { return ::atan(x); }
@@ -79,18 +73,14 @@ extern "C++" __device__ float atanh(float x); // OpenCL
 extern "C++" inline __device__ float atanhf(float x) { return ::atanh(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_cbrtf)
-extern "C++" inline __device__ float cbrtf(float x) {
-  return __builtin_cbrtf(x);
-}
+static inline __device__ float cbrtf(float x) { return __builtin_cbrtf(x); }
 #else
 extern "C++" __device__ float cbrt(float x); // OpenCL
 extern "C++" inline __device__ float cbrtf(float x) { return ::cbrt(x); }
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_ceilf)
-extern "C++" inline __device__ float ceilf(float x) {
-  return __builtin_ceilf(x);
-}
+static inline __device__ float ceilf(float x) { return __builtin_ceilf(x); }
 #else
 extern "C++" __device__ float ceil(float x); // OpenCL
 extern "C++" inline __device__ float ceilf(float x) { return ::ceil(x); }
@@ -102,9 +92,7 @@ extern "C++" inline __device__ float copysignf(float x, float y) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_cosf)
-extern "C++" inline __device__ float cosf(float x) {
-  return __builtin_cosf(x);
-}
+static inline __device__ float cosf(float x) { return __builtin_cosf(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_cos(float x); // OpenCL
 extern "C++" inline __device__ float cosf(float x) {
@@ -118,9 +106,7 @@ extern "C++" inline __device__ float cosf(float x) {
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_coshf)
-extern "C++" inline __device__ float coshf(float x) {
-  return __builtin_coshf(x);
-}
+static inline __device__ float coshf(float x) { return __builtin_coshf(x); }
 #else
 extern "C++" __device__ float cosh(float x); // OpenCL
 extern "C++" inline __device__ float coshf(float x) { return ::cosh(x); }
@@ -136,9 +122,7 @@ extern "C" __device__  float __ocml_i1_f32(float x); // OCML
 extern "C++" inline __device__ float cyl_bessel_i1f(float x) { return ::__ocml_i1_f32(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_erfcf)
-extern "C++" inline __device__ float erfcf(float x) {
-  return __builtin_erfcf(x);
-}
+static inline __device__ float erfcf(float x) { return __builtin_erfcf(x); }
 #else
 extern "C++" __device__ float erfc(float x); // OpenCL
 extern "C++" inline __device__ float erfcf(float x) { return ::erfc(x); }
@@ -167,9 +151,7 @@ extern "C++" inline __device__ float exp10f(float x) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_exp2f)
-extern "C++" inline __device__ float exp2f(float x) {
-  return __builtin_exp2f(x);
-}
+static inline __device__ float exp2f(float x) { return __builtin_exp2f(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float exp2(float x); // OpenCL
 extern "C++" inline __device__ float exp2f(float x) { return ::native_exp2(x); }
@@ -179,7 +161,7 @@ extern "C++" inline __device__ float exp2f(float x) { return ::exp2(x); }
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_expf)
-extern "C++" inline __device__ float expf(float x) { return __builtin_expf(x); }
+static inline __device__ float expf(float x) { return __builtin_expf(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_exp(float x); // OpenCL
 extern "C++" inline __device__ float expf(float x) { return ::native_exp(x); }
@@ -190,18 +172,14 @@ extern "C++" inline __device__ float expf(float x) { return ::exp(x); }
 
 
 #if defined __has_builtin && __has_builtin(__builtin_expm1f)
-extern "C++" inline __device__ float expm1f(float x) {
-  return __builtin_expm1f(x);
-}
+static inline __device__ float expm1f(float x) { return __builtin_expm1f(x); }
 #else
 extern "C++" __device__ float expm1(float x); // OpenCL
 extern "C++" inline __device__ float expm1f(float x) { return ::expm1(x); }
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_fabsf)
-extern "C++" inline __device__ float fabsf(float x) {
-  return __builtin_fabsf(x);
-}
+static inline __device__ float fabsf(float x) { return __builtin_fabsf(x); }
 #else
 extern "C++" __device__ float fabs(float x); // OpenCL
 extern "C++" inline __device__ float fabsf(float x) { return ::fabs(x); }
@@ -222,9 +200,7 @@ extern "C++" inline __device__ float fdividef(float x, float y) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_floorf)
-extern "C++" inline __device__ float floorf(float x) {
-  return __builtin_floorf(x);
-}
+static inline __device__ float floorf(float x) { return __builtin_floorf(x); }
 #else
 extern "C++" __device__ float floor(float x); // OpenCL
 extern "C++" inline __device__ float floorf(float x) { return ::floor(x); }
@@ -236,7 +212,7 @@ extern "C++" inline __device__ float fmaf(float x, float y, float z) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_fmaxf)
-extern "C++" inline __device__ float fmaxf(float x, float y) {
+static inline __device__ float fmaxf(float x, float y) {
   return __builtin_fmaxf(x, y);
 }
 #else
@@ -247,7 +223,7 @@ extern "C++" inline __device__ float fmaxf(float x, float y) {
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_fminf)
-extern "C++" inline __device__ float fminf(float x, float y) {
+static inline __device__ float fminf(float x, float y) {
   return __builtin_fminf(x, y);
 }
 #else
@@ -258,7 +234,7 @@ extern "C++" inline __device__ float fminf(float x, float y) {
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_fmodf)
-extern "C++" inline __device__ float fmodf(float x, float y) {
+static inline __device__ float fmodf(float x, float y) {
   return __builtin_fmodf(x, y);
 }
 #else
@@ -274,7 +250,7 @@ extern "C++" inline __device__ float frexpf(float x, int *nptr) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_hypotf)
-extern "C++" inline __device__ float hypotf(float x, float y) {
+static inline __device__ float hypotf(float x, float y) {
   return __builtin_hypotf(x, y);
 }
 #else
@@ -313,10 +289,8 @@ extern "C++" inline __device__ float ldexpf(float x, int exp) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_lgammaf)
-extern "C++" inline __device__ float lgammaf(float x) {
-  return __builtin_lgammaf(x);
-}
-extern "C++" inline __device__ float lgamma(float x) {
+static inline __device__ float lgammaf(float x) { return __builtin_lgammaf(x); }
+static inline __device__ float lgamma(float x) {
   return __builtin_lgammaf(x);
 }
 #else
@@ -338,9 +312,7 @@ extern "C++" inline __device__ long long int llroundf(float x) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_log10f)
-extern "C++" inline __device__ float log10f(float x) {
-  return __builtin_log10(x);
-}
+static inline __device__ float log10f(float x) { return __builtin_log10(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_log10(float x); // OpenCL
 extern "C++" inline __device__ float log10f(float x) {
@@ -370,7 +342,7 @@ extern "C++" __device__ float logb(float x); // OpenCL
 extern "C++" inline __device__ float logbf(float x) { return ::logb(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_logf)
-extern "C++" inline __device__ float logf(float x) { return __builtin_log(x); }
+static inline __device__ float logf(float x) { return __builtin_log(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_log(float x); // OpenCL
 extern "C++" inline __device__ float logf(float x) {
@@ -465,7 +437,7 @@ extern "C++" inline __device__ float norm(int dim, const float *p) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_powf)
-extern "C++" inline __device__ float powf(float x, float y) {
+static inline __device__ float powf(float x, float y) {
   return __builtin_powf(x, y);
 }
 #else
@@ -495,9 +467,7 @@ extern "C++" inline __device__ float rhypotf(float x, float y) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_rintf)
-extern "C++" inline __device__ float rintf(float x) {
-  return __builtin_rintf(x);
-}
+static inline __device__ float rintf(float x) { return __builtin_rintf(x); }
 #else
 extern "C++" __device__ float rint(float x); // OpenCL
 extern "C++" inline __device__ float rintf(float x) { return ::rint(x); }
@@ -527,9 +497,7 @@ extern "C++" inline __device__ float rnorm(int dim, const float *p) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_roundf)
-extern "C++" inline __device__ float roundf(float x) {
-  return __builtin_roundf(x);
-}
+static inline __device__ float roundf(float x) { return __builtin_roundf(x); }
 #else
 extern "C++" __device__ float round(float x); // OpenCL
 extern "C++" inline __device__ float roundf(float x) {
@@ -558,9 +526,7 @@ extern "C++" inline __device__ float scalblnf(float x, long int n) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_signbitf)
-extern "C++" inline __device__ int signbitf(float a) {
-  return __builtin_signbitf(a);
-}
+static inline __device__ int signbitf(float a) { return __builtin_signbitf(a); }
 #else
 extern "C" __device__  int __ocml_signbit_f32(float a); // OCML
 extern "C++" inline __device__ int signbitf(float a) {
@@ -582,7 +548,7 @@ extern "C++" inline __device__ void sincospif(float x, float *sptr,
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_sinf)
-extern "C++" inline __device__ float sinf(float x) { return __builtin_sinf(x); }
+static inline __device__ float sinf(float x) { return __builtin_sinf(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_sin(float x); // OpenCL
 extern "C++" inline __device__ float sinf(float x) { return ::native_sin(x); }
@@ -592,9 +558,7 @@ extern "C++" inline __device__ float sinf(float x) { return ::sin(x); }
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_sinhf)
-extern "C++" inline __device__ float sinhf(float x) {
-  return __builtin_sinhf(x);
-}
+static inline __device__ float sinhf(float x) { return __builtin_sinhf(x); }
 #else
 extern "C++" __device__ float sinh(float x); // OpenCL
 extern "C++" inline __device__ float sinhf(float x) { return ::sinh(x); }
@@ -604,9 +568,7 @@ extern "C++" __device__ float sinpi(float x); // OpenCL
 extern "C++" inline __device__ float sinpif(float x) { return ::sinpi(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_sqrtf)
-extern "C++" inline __device__ float sqrtf(float x) {
-  return __builtin_sqrtf(x);
-}
+static inline __device__ float sqrtf(float x) { return __builtin_sqrtf(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_sqrt(float x); // OpenCL
 extern "C++" inline __device__ float sqrtf(float x) {
@@ -620,7 +582,7 @@ extern "C++" inline __device__ float sqrtf(float x) {
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_tanf)
-extern "C++" inline __device__ float tanf(float x) { return __builtin_tanf(x); }
+static inline __device__ float tanf(float x) { return __builtin_tanf(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_tan(float x); // OpenCL
 extern "C++" inline __device__ float tanf(float x) { return ::native_tan(x); }
@@ -630,9 +592,7 @@ extern "C++" inline __device__ float tanf(float x) { return ::tan(x); }
 #endif
 
 #if defined __has_builtin && __has_builtin(__builtin_tanhf)
-extern "C++" inline __device__ float tanhf(float x) {
-  return __builtin_tanhf(x);
-}
+static inline __device__ float tanhf(float x) { return __builtin_tanhf(x); }
 #else
 extern "C++" __device__ float tanh(float x); // OpenCL
 extern "C++" inline __device__ float tanhf(float x) { return ::tanh(x); }
@@ -642,9 +602,7 @@ extern "C++" __device__ float tgamma(float x); // OpenCL
 extern "C++" inline __device__ float tgammaf(float x) { return ::tgamma(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_truncf)
-extern "C++" inline __device__ float truncf(float x) {
-  return __builtin_truncf(x);
-}
+static inline __device__ float truncf(float x) { return __builtin_truncf(x); }
 #else
 extern "C++" __device__ float trunc(float x); // OpenCL
 extern "C++" inline __device__ float truncf(float x) { return ::trunc(x); }
