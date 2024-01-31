@@ -17,7 +17,7 @@ find_package(MKL CONFIG
 	PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
 
 # Manually include MKL dirs so that they get cached
-if(MKL_FOUND) 
+if(MKL_FOUND)
   add_link_options(-L${MKL_ROOT}/lib/${MKL_ARCH})
 endif()
 
