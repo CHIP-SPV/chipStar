@@ -104,7 +104,7 @@ export POCL_KERNEL_CACHE=0
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module use ~/modulefiles
-module load mkl/2024.0 compiler/2024.0.2 $CLANG opencl/dgpu
+module load mkl/2023.2.0 compiler/2023.2.1 $CLANG opencl/dgpu
 which icpx
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
