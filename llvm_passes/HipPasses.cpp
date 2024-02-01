@@ -37,9 +37,19 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
-
+#include "llvm/Transforms/IPO/Internalize.h"
 
 using namespace llvm;
+
+// A predicate for internalize pass
+//
+// This internalizes all non-kernel functions so unused ones get removed by DCE
+// pass.
+static bool internalizeSPIRVFunctions(const GlobalValue &GV) {
+  const auto *F = dyn_cast<Function>(&GV);
+  // Returning true means preserve GV.
+  return !(F && F->getCallingConv() == CallingConv::SPIR_FUNC);
+}
 
 // A pass that removes noinline and optnone attributes from functions.
 class RemoveNoInlineOptNoneAttrsPass
@@ -137,6 +147,10 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Remove dead code left over by HIP lowering passes and kept alive by
   // llvm.used and llvm.compiler.used intrinsic variable.
   MPM.addPass(HipStripUsedIntrinsicsPass());
+
+  // Internalize all __device__ functions (spir_kernels) so the follow-up DCE
+  // passes cleans-ups the unused ones.
+  MPM.addPass(InternalizePass(internalizeSPIRVFunctions));
   MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
   MPM.addPass(GlobalDCEPass());
 
