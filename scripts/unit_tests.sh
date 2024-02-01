@@ -97,7 +97,6 @@ echo "timeout     = ${timeout}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh &> /dev/null
-export MODULEPATH=$MODULEPATH:/home/pvelesko/modulefiles:/opt/intel/oneapi/modulefiles:/opt/modulefiles
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
@@ -105,9 +104,7 @@ export POCL_KERNEL_CACHE=0
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module use ~/modulefiles
-module use /space/modulefiles
-module load oneapi/mkl/2023.2.3 oneapi/compiler/2023.2.3 $CLANG opencl/dgpu
-which icpx
+module load $CLANG opencl/dgpu
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
