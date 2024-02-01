@@ -34,7 +34,7 @@ int main() {
   (void)hipGetDeviceProperties(&Props, 0);
   if (!Props.arch.hasWarpBallot) {
     printf("SKIP: device does not support __ballot()\n");
-    return 2;
+    return CHIP_SKIP_TEST;
   }
 
   checkBallot(32, 0xBADF00D1, Props);
