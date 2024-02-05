@@ -770,14 +770,8 @@ public:
   virtual void hostSignal() = 0;
 
 #ifndef NDEBUG
-  void markDeleted(bool State = true) {
-    LOCK(EventMtx); // Deleted_
-    Deleted_ = State;
-  }
-  bool isDeleted() {
-    LOCK(EventMtx); // Deleted_
-    return Deleted_;
-  }
+  void markDeleted(bool State = true) { Deleted_ = State; }
+  bool isDeleted() { return Deleted_; }
 #endif
 };
 

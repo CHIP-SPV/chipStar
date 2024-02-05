@@ -430,20 +430,17 @@ bool CHIPEventLevel0::wait() {
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   assert(!Deleted_ && "chipstar::Event use after delete!");
   std::string EventStatusOld, EventStatusNew;
-  {
-    LOCK(EventMtx); // chipstar::Event::EventStatus_
 
-    EventStatusOld = getEventStatusStr();
+  EventStatusOld = getEventStatusStr();
 
-    ze_result_t Status = zeEventQueryStatus(Event_);
-    if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
-      CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
-    }
-    if (Status == ZE_RESULT_SUCCESS)
-      EventStatus_ = EVENT_STATUS_RECORDED;
-
-    EventStatusNew = getEventStatusStr();
+  ze_result_t Status = zeEventQueryStatus(Event_);
+  if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
+    CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
   }
+  if (Status == ZE_RESULT_SUCCESS)
+    EventStatus_ = EVENT_STATUS_RECORDED;
+
+  EventStatusNew = getEventStatusStr();
   // logTrace("CHIPEventLevel0::updateFinishStatus() {} Refc: {} {}: {} ->
   // {}",
   //          (void *)this, getCHIPRefc(), Msg, EventStatusOld,
@@ -484,8 +481,11 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
 
-  if(this == Other)
+  if (this == Other)
     return 0.0f;
+
+  LOCK(this->EventMtx);  // chipstar::Event::EventStatus_
+  LOCK(Other->EventMtx); // chipstar::Event::EventStatus_
   this->updateFinishStatus();
   Other->updateFinishStatus();
   if (!this->isFinished() || !Other->isFinished())
@@ -641,6 +641,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
   for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
+    LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
 
     assert(ChipEventLz);
     assert(!ChipEventLz->isUserEvent() &&

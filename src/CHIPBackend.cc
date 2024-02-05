@@ -214,7 +214,6 @@ chipstar::Event::Event(chipstar::Context *Ctx, chipstar::EventFlags Flags)
 
 void chipstar::Event::releaseDependencies() {
   assert(!Deleted_ && "chipstar::Event use after delete!");
-  LOCK(EventMtx); // chipstar::Event::DependsOnList
   DependsOnList.clear();
 }
 
