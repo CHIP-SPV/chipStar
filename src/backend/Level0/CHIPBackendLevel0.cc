@@ -484,6 +484,8 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
 
+  if(this == Other)
+    return 0.0f;
   this->updateFinishStatus();
   Other->updateFinishStatus();
   if (!this->isFinished() || !Other->isFinished())
