@@ -1002,6 +1002,8 @@ public:
 
   SPVFuncInfo *findFunctionInfo(const std::string &FName);
 
+  const SPVModuleInfo &getInfo() const noexcept { return ModuleInfo_; }
+
   const SPVModule &getSourceModule() const { return *Src_; }
 };
 
