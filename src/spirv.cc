@@ -562,7 +562,7 @@ public:
     return valid();
   }
 
-  bool fillModuleInfo(OpenCLFunctionInfoMap &ModuleMap) {
+  bool fillModuleInfo(SPVModuleInfo &ModuleInfo) {
     if (!valid())
       return false;
 
@@ -577,7 +577,7 @@ public:
         for (auto &Kv : SpilledArgAnnotations_[KernelName])
           FnInfo->SpilledArgs_.insert(Kv);
 
-      ModuleMap.emplace(std::make_pair(i.second, FnInfo));
+      ModuleInfo.FuncInfoMap.emplace(std::make_pair(i.second, FnInfo));
     }
     KernelInfoMap_.clear();
 
@@ -898,8 +898,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   return true;
 }
 
-bool parseSPIR(InstWord *Stream, size_t NumWords,
-               OpenCLFunctionInfoMap &Output) {
+bool parseSPIR(InstWord *Stream, size_t NumWords, SPVModuleInfo &Output) {
   SPIRVmodule Mod;
   if (!Mod.parseSPIRV(Stream, NumWords))
     return false;

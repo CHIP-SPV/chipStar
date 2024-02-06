@@ -348,7 +348,6 @@ public:
 }; // end CHIPQueueLevel0
 
 class CHIPContextLevel0 : public chipstar::Context {
-  OpenCLFunctionInfoMap FuncInfos_;
   std::vector<LZEventPool *> EventPools_;
   std::mutex CmdListMtx;
   size_t CmdListsRequested_ = 0;

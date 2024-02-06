@@ -859,7 +859,7 @@ class Module : public ihipModule_t {
   /// this module is attached to.
   bool DeviceVariablesInitialized_ = false;
 
-  OpenCLFunctionInfoMap FuncInfos_;
+  SPVModuleInfo ModuleInfo_;
 
 protected:
   uint8_t *FuncIL_;

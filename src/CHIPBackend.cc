@@ -244,7 +244,7 @@ void chipstar::Module::consumeSPIRV() {
   BinaryData_ = new uint32_t[NumWords + 1];
   std::memcpy(BinaryData_, FuncIL_, IlSize_);
   // Extract kernel function information
-  bool Res = parseSPIR(BinaryData_, NumWords, FuncInfos_);
+  bool Res = parseSPIR(BinaryData_, NumWords, ModuleInfo_);
   delete[] BinaryData_;
   if (!Res) {
     CHIPERR_LOG_AND_THROW("SPIR-V parsing failed", hipErrorUnknown);
@@ -432,7 +432,8 @@ void chipstar::Module::deallocateDeviceVariablesNoLock(
 }
 
 SPVFuncInfo *chipstar::Module::findFunctionInfo(const std::string &FName) {
-  return FuncInfos_.count(FName) ? FuncInfos_.at(FName).get() : nullptr;
+  auto &FuncInfos = ModuleInfo_.FuncInfoMap;
+  return FuncInfos.count(FName) ? FuncInfos.at(FName).get() : nullptr;
 }
 
 // Kernel
