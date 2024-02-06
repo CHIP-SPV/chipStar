@@ -11,9 +11,8 @@
 // (c) 2021 Parmance for Argonne National Laboratory and
 // (c) 2022 Pekka Jääskeläinen / Intel
 // (c) 2023 chipStar developers
+// (c) 2024 Henry Linjamäki / Intel
 //===----------------------------------------------------------------------===//
-
-
 
 #include "HipAbort.h"
 #include "HipDefrost.h"
@@ -29,6 +28,7 @@
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
+#include "HipIGBADetector.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -142,6 +142,8 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)));
   MPM.addPass(HipFixOpenCLMDPass());
+
+  MPM.addPass(HipIGBADetectorPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14
