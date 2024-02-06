@@ -516,6 +516,12 @@ class SPIRVmodule {
   std::map<std::string_view, std::vector<std::pair<uint16_t, uint16_t>>>
       SpilledArgAnnotations_;
 
+  // This flag indicates if the module may have indirect global buffer
+  // accesses (IGBA) in any kernel. This is told by a magic variable
+  // created by HipIGBADetectorPass. Defaults to true in case the
+  // variable is not found.
+  bool MayHaveIGBAs_ = true;
+
   bool MemModelCL_;
   bool KernelCapab_;
   bool ExtIntOpenCL_;
@@ -580,6 +586,8 @@ public:
       ModuleInfo.FuncInfoMap.emplace(std::make_pair(i.second, FnInfo));
     }
     KernelInfoMap_.clear();
+
+    ModuleInfo.MayHaveIGBAs = MayHaveIGBAs_;
 
     return true;
   }
@@ -722,6 +730,14 @@ private:
             uint16_t ArgSize = Annotation >> 16u;
             SpillAnnotation.push_back(std::make_pair(ArgIndex, ArgSize));
           }
+        }
+
+        // A magic variable created by HipIGBADetector.cpp.
+        if (Name == "__chip_module_may_have_IGBAs") {
+          // Get initializer operand.
+          auto *Init = getInstruction(Inst->getWord(4));
+          // Init is known to be 8-bit unsigned constant.
+          MayHaveIGBAs_ = Init->getWord(3);
         }
       }
 
