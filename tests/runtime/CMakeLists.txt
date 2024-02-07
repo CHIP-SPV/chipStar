@@ -101,3 +101,7 @@ target_compile_definitions(TestBitInsert
   PRIVATE CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
 
 add_hip_runtime_test(TestBallot.hip)
+
+add_hip_runtime_test(TestPositiveIGBADetection1.hip)
+add_hip_runtime_test(TestPositiveIGBADetection2.hip)
+add_hip_runtime_test(TestNegativeIGBADetection.hip)
