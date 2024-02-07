@@ -666,7 +666,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
     // delete the event if refcount reached 1 (this->ChipEvent)
     if (ChipEventLz.use_count() == 1) {
       if (ChipEventLz->EventPool) {
-        ChipEventLz->EventPool->returnSlot(ChipEventLz->EventPoolIndex);
+        ChipEventLz->EventPool->returnEvent(ChipEventLz);
       }
 #ifndef NDEBUG
       ChipEventLz->markDeleted();
@@ -1607,9 +1607,10 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
-    Events_.push_back(std::shared_ptr<CHIPEventLevel0>(
-        new CHIPEventLevel0(Ctx_, this, i, Flags)));
-    FreeSlots_.push(i);
+    auto NewEvent = std::shared_ptr<CHIPEventLevel0>(
+        new CHIPEventLevel0(Ctx_, this, i, Flags));
+    Events_.push_back(NewEvent);
+    AvailableEvents_.push(NewEvent);
   }
 };
 
@@ -1621,6 +1622,8 @@ LZEventPool::~LZEventPool() {
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
+  while (AvailableEvents_.size())
+    AvailableEvents_.pop();
   Events_.clear(); // shared_ptr's will be deleted
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
@@ -1632,30 +1635,18 @@ LZEventPool::~LZEventPool() {
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   std::shared_ptr<CHIPEventLevel0> Event;
-  {
-    int PoolIndex = getFreeSlot();
-    if (PoolIndex == -1)
-      return nullptr;
-    Event = Events_[PoolIndex];
-  }
+  if (!AvailableEvents_.size())
+    return nullptr;
+
+  Event = AvailableEvents_.top();
+  AvailableEvents_.pop();
 
   return Event;
 };
 
-int LZEventPool::getFreeSlot() {
-  if (FreeSlots_.size() == 0)
-    return -1;
-
-  auto Slot = FreeSlots_.top();
-  FreeSlots_.pop();
-
-  return Slot;
-}
-
-void LZEventPool::returnSlot(int Slot) {
-  LOCK(EventPoolMtx); // LZEventPool::FreeSlots_
-  FreeSlots_.push(Slot);
-  return;
+void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
+  LOCK(EventPoolMtx);
+  AvailableEvents_.push(Event);
 }
 
 // End EventPool
