@@ -239,6 +239,8 @@ void CHIPEventLevel0::unassignCmdList() {
 }
 
 void CHIPEventLevel0::reset() {
+  logTrace("CHIPEventLevel0::reset() {} msg: {} handle: {}", (void *)this, Msg,
+           (void *)Event_);
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   {
@@ -264,7 +266,8 @@ ze_event_handle_t CHIPEventLevel0::peek() {
 }
 
 CHIPEventLevel0::~CHIPEventLevel0() {
-  logTrace("~CHIPEventLevel0({})", (void *)this);
+  logTrace("~CHIPEventLevel0() {} msg: {} handle: {}", (void *)this, Msg,
+           (void *)Event_);
   // if in RECORDING state, wait to finish
   if (EventStatus_ == EVENT_STATUS_RECORDING) {
     logTrace("~CHIPEventLevel0({}) waiting for event to finish", (void *)this);
@@ -279,10 +282,8 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     // assert(false);
   }
 
-  if (Event_) {
-    auto Status = zeEventDestroy(Event_);
-    assert(Status == ZE_RESULT_SUCCESS);
-  }
+  auto Status = zeEventDestroy(Event_);
+  assert(Status == ZE_RESULT_SUCCESS);
 
   if (isUserEvent()) {
     assert(!TrackCalled_ &&
@@ -454,10 +455,7 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
     EventStatusNew = getEventStatusStr();
   }
-  // logTrace("CHIPEventLevel0::updateFinishStatus() {} Refc: {} {}: {} ->
-  // {}",
-  //          (void *)this, getCHIPRefc(), Msg, EventStatusOld,
-  //          EventStatusNew);
+
   if (EventStatusNew != EventStatusOld) {
     return true;
   }
@@ -546,7 +544,8 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
 
 void CHIPEventLevel0::hostSignal() {
   assert(!Deleted_ && "chipstar::Event use after delete!");
-  logTrace("CHIPEventLevel0::hostSignal()");
+  logTrace("CHIPEventLevel0::hostSignal() {} Msg: {} Handle: {}", (void *)this,
+           Msg, (void *)Event_);
   auto Status = zeEventHostSignal(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
@@ -1669,6 +1668,7 @@ CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
 
   auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
   Event = ZeCtx->getEventFromPool();
+  assert(Event && "LZEventPool returned a null event");
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
   assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssocCmdList());
@@ -1681,7 +1681,7 @@ chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
                                                 chipstar::EventFlags Flags) {
   auto Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
   Event->setUserEvent(true);
-  logDebug("CHIPBackendLevel0::createEventd: Context {} Event {}",
+  logDebug("CHIPBackendLevel0::createEvent: Context {} Event {}",
            (void *)ChipCtx, (void *)Event);
   return Event;
 }

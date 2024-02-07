@@ -668,10 +668,11 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(const std::shared_ptr<chipstar::Event> &Event) {
-    assert(!Deleted_ && "Event use after delete!");
-    DependsOnList.push_back(Event);
-  }
+  /// @brief Add an event on which this event depends, preventing that event
+  /// from getting recycled
+  /// @param Event
+  void addDependency(const std::shared_ptr<chipstar::Event> &Event);
+  /// @brief Release dependencies, allowing them to be recycled
   void releaseDependencies();
   chipstar::EventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
