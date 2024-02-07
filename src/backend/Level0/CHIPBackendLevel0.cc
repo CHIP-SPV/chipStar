@@ -662,8 +662,9 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
       ChipEventLz->doActions();
     }
 
-    // delete the event if refcount reached 1 (this->ChipEvent)
-    if (ChipEventLz.use_count() == 1) {
+    // delete the event if refcount reached 2
+    // this->ChipEvent and LZEventPool::Events_ 
+    if (ChipEventLz.use_count() == 2) {
       if (ChipEventLz->EventPool) {
         ChipEventLz->EventPool->returnEvent(ChipEventLz);
       }
