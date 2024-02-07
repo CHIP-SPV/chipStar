@@ -208,19 +208,17 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
-  std::stack<int> FreeSlots_;
   std::vector<std::shared_ptr<CHIPEventLevel0>> Events_;
-
-  int getFreeSlot();
+  std::stack<std::shared_ptr<CHIPEventLevel0>> AvailableEvents_;
 
 public:
   std::mutex EventPoolMtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
-  bool EventAvailable() { return FreeSlots_.size() > 0; }
+  bool EventAvailable() { return AvailableEvents_.size() > 0; }
   ze_event_pool_handle_t get() { return EventPool_; }
 
-  void returnSlot(int Slot);
+  void returnEvent(std::shared_ptr<CHIPEventLevel0> Event);
 
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
