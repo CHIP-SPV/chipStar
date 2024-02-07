@@ -241,6 +241,11 @@ void CHIPEventLevel0::unassignCmdList() {
 void CHIPEventLevel0::reset() {
   logTrace("CHIPEventLevel0::reset() {} msg: {} handle: {}", (void *)this, Msg,
            (void *)Event_);
+  if (DependsOnList.size() > 0)
+    logWarn("CHIPEventLevel0::reset() called while event has dependencies");
+  DependsOnList.clear();
+  // assert(DependsOnList.empty() && "CHIPEventLevel0::reset() called while "
+  //                                 "event has dependencies");
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   {
@@ -385,6 +390,8 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   ze_command_list_handle_t CommandList = ChipCtxLz_->getCmdListReg();
 
   auto EventsToWaitOn = getSyncQueuesLastEvents();
+  for (auto &Event : EventsToWaitOn)
+    ChipEventLz->addDependency(Event);
   auto EventToWaitOnHandles = getEventListHandles(EventsToWaitOn);
 
   // create an Event for making a dependency chain
@@ -402,6 +409,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
       EventToWaitOnHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
+  ChipEventLz->addDependency(TimestampWriteComplete);
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendMemoryCopy(
@@ -663,7 +671,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
     }
 
     // delete the event if refcount reached 2
-    // this->ChipEvent and LZEventPool::Events_ 
+    // this->ChipEvent and LZEventPool::Events_
     if (ChipEventLz.use_count() == 2) {
       if (ChipEventLz->EventPool) {
         ChipEventLz->EventPool->returnEvent(ChipEventLz);
