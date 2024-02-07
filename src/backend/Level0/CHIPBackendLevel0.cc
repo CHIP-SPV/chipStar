@@ -417,10 +417,20 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
 bool CHIPEventLevel0::wait() {
   assert(!Deleted_ && "chipstar::Event use after delete!");
-  logTrace("CHIPEventLevel0::wait() {} msg={}", (void *)this, Msg);
+  logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
+           ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
-  ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  ze_result_t Status =
+      zeEventHostSynchronize(Event_, ChipEnvVars.getL0EventTimeout());
+  if (Status == ZE_RESULT_NOT_READY) {
+    logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
+             "seconds.\n"
+             "Aborting now... segfaults, illegal instructions and other "
+             "undefined behavior may follow.",
+             (void *)this, Msg, (void *)Event_,
+             ChipEnvVars.getL0EventTimeout() / 1e9);
+    std::abort();
+  }
 
   LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDED;
@@ -1501,10 +1511,8 @@ void CHIPQueueLevel0::finish() {
   if (ChipEnvVars.getL0ImmCmdLists()) {
     auto Event = getLastEvent();
     auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
-    if (EventLZ) {
-      auto EventHandle = EventLZ->peek();
-      zeEventHostSynchronize(EventHandle, UINT64_MAX);
-    }
+    if (EventLZ)
+      EventLZ->wait();
   } else {
     zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
   }
