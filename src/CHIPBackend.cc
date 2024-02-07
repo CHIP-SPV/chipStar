@@ -1680,7 +1680,7 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
         ChipEvent->Msg = "memFillAsync3D";
         ::Backend->trackEvent(ChipEvent);
       } else
-        memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
+        memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
     }
 }
 
