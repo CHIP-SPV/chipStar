@@ -1403,9 +1403,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipContext_);
   BarrierEvent->Msg = "barrier";
-  size_t NumEventsToWaitFor = 0;
 
-  NumEventsToWaitFor = EventsToWaitFor.size();
+  auto QueueSyncEvents = addDependenciesQueueSync(BarrierEvent);
+  size_t NumEventsToWaitFor = QueueSyncEvents.size() + EventsToWaitFor.size();
 
   ze_event_handle_t *EventHandles = nullptr;
   ze_event_handle_t SignalEventHandle = nullptr;
@@ -1415,13 +1415,17 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 
   if (NumEventsToWaitFor > 0) {
     EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
-    for (size_t i = 0; i < NumEventsToWaitFor; i++) {
+    for (size_t i = 0; i < EventsToWaitFor.size(); i++) {
       std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitFor[i];
       std::shared_ptr<CHIPEventLevel0> ChipEventLz =
           std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
       CHIPASSERT(ChipEventLz);
       EventHandles[i] = ChipEventLz->peek();
       BarrierEvent->addDependency(ChipEventLz);
+    }
+
+    for (size_t i = 0; i < QueueSyncEvents.size(); i++) {
+      EventHandles[i + EventsToWaitFor.size()] = QueueSyncEvents[i];
     }
   } // done gather Event_ handles to wait on
 
@@ -1448,9 +1452,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipContext_);
   BarrierEvent->Msg = "barrier";
-  size_t NumEventsToWaitFor = 0;
 
-  NumEventsToWaitFor = EventsToWaitFor.size();
+  auto QueueSyncEvents = addDependenciesQueueSync(BarrierEvent);
+  size_t NumEventsToWaitFor = QueueSyncEvents.size() + EventsToWaitFor.size();
 
   ze_event_handle_t *EventHandles = nullptr;
   ze_event_handle_t SignalEventHandle = nullptr;
@@ -1460,13 +1464,17 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
 
   if (NumEventsToWaitFor > 0) {
     EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
-    for (size_t i = 0; i < NumEventsToWaitFor; i++) {
+    for (size_t i = 0; i < EventsToWaitFor.size(); i++) {
       std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitFor[i];
       std::shared_ptr<CHIPEventLevel0> ChipEventLz =
           std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
       CHIPASSERT(ChipEventLz);
       EventHandles[i] = ChipEventLz->peek();
       BarrierEvent->addDependency(ChipEventLz);
+    }
+
+    for (size_t i = 0; i < QueueSyncEvents.size(); i++) {
+      EventHandles[i + EventsToWaitFor.size()] = QueueSyncEvents[i];
     }
   } // done gather Event_ handles to wait on
 
