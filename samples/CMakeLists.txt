@@ -115,6 +115,7 @@ set(SAMPLES
     11_device
     hipStreamSemantics
     hipKernelLaunchIsNonBlocking
+    hipAddCallback
     hipMultiThreadAddCallback
     hipInfo
     hipSymbol
