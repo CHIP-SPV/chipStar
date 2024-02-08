@@ -599,54 +599,103 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 void CHIPCallbackEventMonitorLevel0::monitor() {
+  // CHIPCallbackDataLevel0 *CbData;
+  // while (true) {
+  //   usleep(200);
+  //   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+  //   {
+
+  //     if (Stop) {
+  //       logTrace("CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting "
+  //                "thread");
+  //       if (Backend->CallbackQueue.size())
+  //         logError("Callback thread exiting while there are still active "
+  //                  "callbacks in the queue");
+  //       pthread_exit(0);
+  //     }
+
+  //     LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
+
+  //     if ((Backend->CallbackQueue.size() == 0))
+  //       continue;
+
+  //     // get the callback item
+  //     CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+
+  //     // Lock the item and members
+  //     assert(CbData);
+  //     LOCK( // Backend::CallbackQueue
+  //         CbData->CallbackDataMtx);
+  //     Backend->CallbackQueue.pop();
+
+  //     // Update Status
+  //     logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
+  //              "status for {}",
+  //              static_cast<void *>(CbData->GpuReady.get()));
+  //     CbData->GpuReady->updateFinishStatus(false);
+  //     if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+  //       // if not ready, push to the back
+  //       Backend->CallbackQueue.push(CbData);
+  //       continue;
+  //     }
+  //   }
+
+  //   CbData->execute(hipSuccess);
+  //   CbData->CpuCallbackComplete->hostSignal();
+  //   CbData->GpuAck->wait();
+
+  //   delete CbData;
+  //   pthread_yield();
+  // }
+}
+
+void CHIPStaleEventMonitorLevel0::checkCallbacks() {
   CHIPCallbackDataLevel0 *CbData;
-  while (true) {
-    usleep(20000);
-    LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
-    {
+  // usleep(200);
+  LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+  {
 
-      if (Stop) {
-        logTrace("CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting "
-                 "thread");
-        if (Backend->CallbackQueue.size())
-          logError("Callback thread exiting while there are still active "
-                   "callbacks in the queue");
-        pthread_exit(0);
-      }
-
-      LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
-
-      if ((Backend->CallbackQueue.size() == 0))
-        continue;
-
-      // get the callback item
-      CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
-
-      // Lock the item and members
-      assert(CbData);
-      LOCK( // Backend::CallbackQueue
-          CbData->CallbackDataMtx);
-      Backend->CallbackQueue.pop();
-
-      // Update Status
-      logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
-               "status for {}",
-               static_cast<void *>(CbData->GpuReady.get()));
-      CbData->GpuReady->updateFinishStatus(false);
-      if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
-        // if not ready, push to the back
-        Backend->CallbackQueue.push(CbData);
-        continue;
-      }
+    if (Stop) {
+      logTrace("CHIPCallbackEventMonitorLevel0 out of callbacks. Exiting "
+               "thread");
+      if (Backend->CallbackQueue.size())
+        logError("Callback thread exiting while there are still active "
+                 "callbacks in the queue");
+      pthread_exit(0);
     }
 
-    CbData->execute(hipSuccess);
-    CbData->CpuCallbackComplete->hostSignal();
-    CbData->GpuAck->wait();
+    LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
 
-    delete CbData;
-    pthread_yield();
+    if ((Backend->CallbackQueue.size() == 0))
+      return;
+
+    // get the callback item
+    CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+
+    // Lock the item and members
+    assert(CbData);
+    LOCK( // Backend::CallbackQueue
+        CbData->CallbackDataMtx);
+    Backend->CallbackQueue.pop();
+
+    // Update Status
+    logTrace("CHIPCallbackEventMonitorLevel0::monitor() checking event "
+             "status for {}",
+             static_cast<void *>(CbData->GpuReady.get()));
+    CbData->GpuReady->updateFinishStatus(false);
+    if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+      // if not ready, push to the back
+      Backend->CallbackQueue.push(CbData);
+      return;
+    }
   }
+
+  CbData->execute(hipSuccess);
+  CbData->CpuCallbackComplete->hostSignal();
+  CbData->GpuAck->wait();
+
+  delete CbData;
+  pthread_yield();
 }
 
 void CHIPStaleEventMonitorLevel0::checkEvents() {
@@ -738,6 +787,7 @@ void CHIPStaleEventMonitorLevel0::monitor() {
   // Stop is false and I have more events
   while (true) {
     usleep(200);
+    checkCallbacks();
     checkEvents();
     exitChecks();
   } // endless loop
@@ -1951,6 +2001,13 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   // delete all event pools
   for (LZEventPool *Pool : EventPools_)
     delete Pool;
+
+  if (Backend->Events.size()) {
+    logWarn("Backend->Events still exist at the time of Context "
+            "destruction...");
+    Backend->Events.clear();
+  }
+
   EventPools_.clear();
 
   // delete all devicesA
