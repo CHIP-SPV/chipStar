@@ -195,6 +195,8 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
    */
   void exitChecks();
 
+  void checkCallbacks();
+
 public:
   ~CHIPStaleEventMonitorLevel0() {
     logTrace("CHIPStaleEventMonitorLevel0 DEST");
