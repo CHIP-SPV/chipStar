@@ -1494,8 +1494,9 @@ chipstar::Queue::getSyncQueuesLastEvents() {
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  if (this->getLastEvent())
-    EventsToWaitOn.push_back(this->getLastEvent());
+  auto thisLastEvent = this->getLastEvent();
+  if (thisLastEvent)
+    EventsToWaitOn.push_back(thisLastEvent);
 
   // If this stream is default legacy stream, sync with all other streams on
   // this device
