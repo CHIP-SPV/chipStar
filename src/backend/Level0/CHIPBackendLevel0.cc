@@ -895,8 +895,8 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
   // that they don't get destroyed before MemCopyEvent
   for (auto &Event : EventsToWaitOn) {
     LOCK(Event->EventMtx);
-    std::static_pointer_cast<CHIPEventLevel0>(Event)->addDependency(
-        TargetEvent);
+    std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
+        ->addDependency(Event);
   }
 
   std::vector<ze_event_handle_t> EventHandles =
