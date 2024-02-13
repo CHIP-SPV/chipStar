@@ -216,20 +216,20 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // CHIPEventLevel0
 // ***********************************************************************
 
-void CHIPEventLevel0::associateCmdList(CHIPContextLevel0 *ChipContext,
-                                       ze_command_list_handle_t CmdList) {
-  logTrace("CHIPEventLevel0({})::associateCmdList({})", (void *)this,
+void CHIPEventLevel0::assignCmdList(CHIPContextLevel0 *ChipContext,
+                                    ze_command_list_handle_t CmdList) {
+  logTrace("CHIPEventLevel0({})::assignCmdList({})", (void *)this,
            (void *)CmdList);
-  assert(AssocCmdList_ == nullptr && "command list already associated!");
-  assert(AssocContext_ == nullptr && "queue already associated!");
+  assert(AssocCmdList_ == nullptr && "command list already assigned!");
+  assert(AssocContext_ == nullptr && "queue already assigned!");
   AssocCmdList_ = CmdList;
   AssocContext_ = ChipContext;
 }
 
-void CHIPEventLevel0::disassociateCmdList() {
-  assert(AssocCmdList_ != nullptr && "command list not associated!");
-  assert(AssocContext_ != nullptr && "queue not associated!");
-  logTrace("CHIPEventLevel0({})::disassociateCmdList({})", (void *)this,
+void CHIPEventLevel0::unassignCmdList() {
+  assert(AssocCmdList_ != nullptr && "command list not assigned!");
+  assert(AssocContext_ != nullptr && "queue not assigned!");
+  logTrace("CHIPEventLevel0({})::unassignCmdList({})", (void *)this,
            (void *)AssocCmdList_);
   auto Status = zeCommandListReset(AssocCmdList_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -659,7 +659,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
       ChipEventLz->releaseDependencies();
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
       if (ChipEventLz->getAssocCmdList())
-        ChipEventLz->disassociateCmdList();
+        ChipEventLz->unassignCmdList();
       ChipEventLz->doActions();
     }
 
@@ -1571,7 +1571,7 @@ void CHIPQueueLevel0::executeCommandListReg(
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent);
-  EventLz->associateCmdList(this->ChipCtxLz_, CommandList);
+  EventLz->assignCmdList(this->ChipCtxLz_, CommandList);
 
   updateLastEvent(LastCmdListEvent);
   Backend->trackEvent(LastCmdListEvent);
