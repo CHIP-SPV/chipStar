@@ -1925,14 +1925,22 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
-  // print cmd lists statistics
-  if (!ChipEnvVars.getL0ImmCmdLists() && CmdListsRequested_ > 0)
-    logDebug("Command lists requested: {}, reused {}%", CmdListsRequested_,
-             100 * (CmdListsReused_ / CmdListsRequested_));
+
+  // print out reuse statistics
+  if (CmdListsRequested_ != 0)
+    logInfo("Command list reuse: {}%",
+            100 * (CmdListsReused_ / CmdListsRequested_));
+  else
+    logInfo("Command list reuse: N/A (No command lists requested)");
+
+  if (EventsRequested_ != 0)
+    logInfo("Events reuse: {}%", 100 * (EventsReused_ / EventsRequested_));
+  else
+    logInfo("Events reuse: N/A (No events requested)");
+
   // delete all event pools
-  for (LZEventPool *Pool : EventPools_) {
+  for (LZEventPool *Pool : EventPools_)
     delete Pool;
-  }
   EventPools_.clear();
 
   // delete all devicesA
@@ -1941,9 +1949,8 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   // The application must not call this function from
   // simultaneous threads with the same context handle.
   // Done via destructor should not be called from multiple threads
-  if (ownsZeContext) {
+  if (ownsZeContext)
     zeContextDestroy(this->ZeCtx);
-  }
 }
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
