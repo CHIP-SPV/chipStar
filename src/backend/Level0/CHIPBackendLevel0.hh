@@ -361,6 +361,8 @@ class CHIPContextLevel0 : public chipstar::Context {
   std::mutex CmdListMtx;
   size_t CmdListsRequested_ = 0;
   size_t CmdListsReused_ = 0;
+  size_t EventsRequested_ = 0;
+  size_t EventsReused_ = 0;
   std::stack<ze_command_list_handle_t> ZeCmdListRegPool_;
 
 public:
@@ -380,14 +382,16 @@ public:
   void returnCmdList(ze_command_list_handle_t CmdList);
 
   std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
-
     // go through all pools and try to get an allocated event
     LOCK(ContextMtx); // Context::EventPools
+    EventsRequested_++;
     std::shared_ptr<CHIPEventLevel0> Event;
     for (auto EventPool : EventPools_) {
       LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
-      if (EventPool->EventAvailable())
+      if (EventPool->EventAvailable()) {
+        EventsReused_++;
         return EventPool->getEvent();
+      }
     }
 
     // no events available, create new pool, get event from there and return
