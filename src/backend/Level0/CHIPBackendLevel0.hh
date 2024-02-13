@@ -109,14 +109,14 @@ public:
    * list stack resides)
    * @param CmdList command list to associate with this event
    */
-  void associateCmdList(CHIPContextLevel0 *ChipContext,
+  void assignCmdList(CHIPContextLevel0 *ChipContext,
                         ze_command_list_handle_t CmdList);
 
   /**
    * @brief Reset and then return the command list handle back to the context
    * pointed by AssocContext_
    */
-  void disassociateCmdList();
+  void unassignCmdList();
 
   uint32_t getValidTimestampBits();
   unsigned int EventPoolIndex;
