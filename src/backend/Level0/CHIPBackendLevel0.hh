@@ -23,8 +23,6 @@
 #ifndef CHIP_BACKEND_LEVEL0_H
 #define CHIP_BACKEND_LEVEL0_H
 
-// TODO: Should this be a cmake parameter? env? What is max size?
-#define EVENT_POOL_SIZE 1000
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
@@ -364,6 +362,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
   std::stack<ze_command_list_handle_t> ZeCmdListRegPool_;
+  size_t EventPoolSize_ = 1;
 
 public:
   /**
@@ -398,7 +397,8 @@ public:
     logTrace("No available events found in {} event pools. Creating a new "
              "event pool",
              EventPools_.size());
-    auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
+    auto NewEventPool = new LZEventPool(this, EventPoolSize_);
+    EventPoolSize_ *= 2;
     Event = NewEventPool->getEvent();
     EventPools_.push_back(NewEventPool);
     return Event;
