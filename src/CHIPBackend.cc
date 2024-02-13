@@ -1597,13 +1597,9 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
 
   // perform the copy
   for (size_t i = 0; i < Height; ++i) {
-    // capture the event on last iteration
-    if (i == Height - 1) {
-      ChipEvent = memCopyAsyncImpl(Dst, Src, Width);
-      ChipEvent->Msg = "memCopyAsync2D";
-    } else {
-      memCopyAsyncImpl(Dst, Src, Width);
-    }
+    ChipEvent = memCopyAsyncImpl(Dst, Src, Width);
+    ChipEvent->Msg = "memCopyAsync2D";
+    ::Backend->trackEvent(ChipEvent);
     Src = (char *)Src + SPitch;
     Dst = (char *)Dst + DPitch;
   }
@@ -1612,9 +1608,6 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
     this->MemMap(AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
   if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
     this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
-
-  if (ChipEvent)
-    ::Backend->trackEvent(ChipEvent);
 }
 
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
@@ -1649,13 +1642,9 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
   for (size_t i = 0; i < Height; i++) {
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    // capture the returned event on last iteration, otherwise don't
-    if (i == Height - 1) {
-      ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
-      ChipEvent->Msg = "memFillAsync2D";
-      ::Backend->trackEvent(ChipEvent);
-    } else
-      memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+    ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+    ChipEvent->Msg = "memFillAsync2D";
+    ::Backend->trackEvent(ChipEvent);
   }
 }
 
@@ -1675,13 +1664,9 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
       size_t SizeBytes = Width;
       auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
       char *DstP = (char *)Dst;
-      // capture the returned event on last iteration, otherwise don't
-      if (i == Depth - 1 && j == Height - 1) {
-        ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
-        ChipEvent->Msg = "memFillAsync3D";
-        ::Backend->trackEvent(ChipEvent);
-      } else
-        memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+      ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
+      ChipEvent->Msg = "memFillAsync3D";
+      ::Backend->trackEvent(ChipEvent);
     }
 }
 
