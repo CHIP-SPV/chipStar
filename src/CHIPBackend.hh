@@ -639,10 +639,7 @@ protected:
   chipstar::EventFlags Flags_;
   std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
 
-#ifndef NDEBUG
-  // A debug flag for cathing use-after-delete.
   bool Deleted_ = false;
-#endif
 
   /**
    * @brief Events are always created with a context
@@ -660,7 +657,7 @@ protected:
 
 public:
   void setRecording() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     EventStatus_ = EVENT_STATUS_RECORDING;
   }
   void markTracked() { TrackCalled_ = true; }
@@ -691,7 +688,7 @@ public:
    * @return Context* pointer to context on which this event was created
    */
   chipstar::Context *getContext() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     return ChipContext_;
   }
 
@@ -712,7 +709,7 @@ public:
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
@@ -723,7 +720,7 @@ public:
    * @return false not recorded
    */
   bool isFinished() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     return (EventStatus_ == EVENT_STATUS_RECORDED);
   }
 
@@ -770,16 +767,19 @@ public:
    */
   virtual void hostSignal() = 0;
 
-#ifndef NDEBUG
   void markDeleted(bool State = true) {
-    LOCK(EventMtx); // Deleted_
+#ifndef NDEBUG
     Deleted_ = State;
-  }
-  bool isDeleted() {
-    LOCK(EventMtx); // Deleted_
-    return Deleted_;
-  }
 #endif
+  }
+  void isDeletedSanityCheck() {
+#ifndef NDEBUG
+    if (Deleted_) {
+      logError("chipstar::Event use after delete!");
+      std::abort();
+    }
+#endif
+  }
 };
 
 class Program {
@@ -2128,6 +2128,8 @@ public:
 
   virtual std::shared_ptr<chipstar::Event> getLastEvent() {
     LOCK(LastEventMtx); // Queue::LastEvent_
+    if (LastEvent_)
+      LastEvent_->isDeletedSanityCheck();
     return LastEvent_;
   }
 
