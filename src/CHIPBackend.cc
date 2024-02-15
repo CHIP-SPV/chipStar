@@ -214,14 +214,14 @@ chipstar::Event::Event(chipstar::Context *Ctx, chipstar::EventFlags Flags)
 
 void chipstar::Event::addDependency(
     const std::shared_ptr<chipstar::Event> &Event) {
-  assert(!Deleted_ && "Event use after delete!");
+  isDeletedSanityCheck();
   logDebug("Event {} Msg {} now depends on event {} msg:{}", (void *)this, Msg,
            (void *)Event.get(), Event->Msg);
   DependsOnList.push_back(Event);
 }
 
 void chipstar::Event::releaseDependencies() {
-  assert(!Deleted_ && "chipstar::Event use after delete!");
+  isDeletedSanityCheck();
   LOCK(EventMtx); // chipstar::Event::DependsOnList
   for (auto &Dep : DependsOnList)
     logDebug("Event {} msg: {} no longer depends on event {}", (void *)this,
@@ -1184,9 +1184,7 @@ void chipstar::Backend::trackEvent(
     const std::shared_ptr<chipstar::Event> &Event) {
   LOCK(::Backend->EventsMtx); // trackImpl Backend::Events
   LOCK(Event->EventMtx);      // writing bool chipstar::Event::TrackCalled_
-  //   assert(!isUserEvent() && "Attemped to track a user event!");
-  //   assert(!Deleted_ && "chipstar::Event use after delete!");
-  //   assert(!TrackCalled_ && "chipstar::Event already tracked!");
+  Event->isDeletedSanityCheck();
 
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
   assert(!Event->isTrackCalled());
@@ -1495,8 +1493,10 @@ chipstar::Queue::getSyncQueuesLastEvents() {
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   auto thisLastEvent = this->getLastEvent();
-  if (thisLastEvent)
+  if (thisLastEvent) {
+    thisLastEvent->isDeletedSanityCheck();
     EventsToWaitOn.push_back(thisLastEvent);
+  }
 
   // If this stream is default legacy stream, sync with all other streams on
   // this device

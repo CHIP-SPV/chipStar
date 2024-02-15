@@ -218,6 +218,7 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 
 void CHIPEventLevel0::assignCmdList(CHIPContextLevel0 *ChipContext,
                                     ze_command_list_handle_t CmdList) {
+  isDeletedSanityCheck();
   logTrace("CHIPEventLevel0({})::assignCmdList({})", (void *)this,
            (void *)CmdList);
   assert(AssignedCmdList_ == nullptr && "command list already assigned!");
@@ -244,8 +245,6 @@ void CHIPEventLevel0::reset() {
   if (DependsOnList.size() > 0)
     logWarn("CHIPEventLevel0::reset() called while event has dependencies");
   DependsOnList.clear();
-  // assert(DependsOnList.empty() && "CHIPEventLevel0::reset() called while "
-  //                                 "event has dependencies");
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   {
@@ -259,14 +258,12 @@ void CHIPEventLevel0::reset() {
     Timestamp_ = 0;
     HostTimestamp_ = 0;
     DeviceTimestamp_ = 0;
-#ifndef NDEBUG
-    Deleted_ = false;
-#endif
+    markDeleted(false);
   }
 }
 
 ze_event_handle_t CHIPEventLevel0::peek() {
-  assert(!Deleted_ && "chipstar::Event use after delete!");
+  isDeletedSanityCheck();
   return Event_;
 }
 
@@ -425,7 +422,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 }
 
 bool CHIPEventLevel0::wait() {
-  assert(!Deleted_ && "chipstar::Event use after delete!");
+  isDeletedSanityCheck();
   logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
            ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
@@ -447,7 +444,7 @@ bool CHIPEventLevel0::wait() {
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  assert(!Deleted_ && "chipstar::Event use after delete!");
+  isDeletedSanityCheck();
   std::string EventStatusOld, EventStatusNew;
   {
     LOCK(EventMtx); // chipstar::Event::EventStatus_
@@ -472,6 +469,7 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 }
 
 uint32_t CHIPEventLevel0::getValidTimestampBits() {
+  isDeletedSanityCheck();
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
   CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevice();
   auto Props = ChipDevLz->getDeviceProps();
@@ -479,6 +477,7 @@ uint32_t CHIPEventLevel0::getValidTimestampBits() {
 }
 
 unsigned long CHIPEventLevel0::getFinishTime() {
+  isDeletedSanityCheck();
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipContext_;
   CHIPDeviceLevel0 *ChipDevLz = (CHIPDeviceLevel0 *)ChipCtxLz->getDevice();
   auto Props = ChipDevLz->getDeviceProps();
@@ -551,7 +550,7 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
 }
 
 void CHIPEventLevel0::hostSignal() {
-  assert(!Deleted_ && "chipstar::Event use after delete!");
+  isDeletedSanityCheck();
   logTrace("CHIPEventLevel0::hostSignal() {} Msg: {} Handle: {}", (void *)this,
            Msg, (void *)Event_);
   auto Status = zeEventHostSignal(Event_);
@@ -705,6 +704,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
   for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
+    ChipEventLz->isDeletedSanityCheck();
 
     assert(ChipEventLz);
     assert(!ChipEventLz->isUserEvent() &&
@@ -719,15 +719,16 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
       ChipEventLz->doActions();
     }
 
+    ChipEventLz->isDeletedSanityCheck();
+
     // delete the event if refcount reached 2
     // this->ChipEvent and LZEventPool::Events_
     if (ChipEventLz.use_count() == 2) {
       if (ChipEventLz->EventPool) {
+        ChipEventLz->isDeletedSanityCheck();
         ChipEventLz->EventPool->returnEvent(ChipEventLz);
       }
-#ifndef NDEBUG
       ChipEventLz->markDeleted();
-#endif
     }
 
   } // done collecting events to delete
@@ -891,12 +892,19 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
   auto EventsToWaitOn = getSyncQueuesLastEvents();
+  for (auto &Event : EventsToWaitOn)
+    Event->isDeletedSanityCheck();
+
   // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
   // that they don't get destroyed before MemCopyEvent
   for (auto &Event : EventsToWaitOn) {
     LOCK(Event->EventMtx);
     std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
         ->addDependency(Event);
+  }
+
+  for (auto &Event : EventsToWaitOn) {
+    Event->isDeletedSanityCheck();
   }
 
   std::vector<ze_event_handle_t> EventHandles =
@@ -1711,6 +1719,8 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
 };
 
 void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
+  Event->isDeletedSanityCheck();
+  Event->markDeleted();
   LOCK(EventPoolMtx);
   logTrace("Returning event {} handle {}", (void *)Event.get(),
            (void *)Event.get()->get());
@@ -1743,6 +1753,7 @@ CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
   assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssignedCmdList());
   logDebug("CHIPBackendLevel0::createEventShared: Context {} Event {}",
            (void *)ChipCtx, (void *)Event.get());
+  Event->isDeletedSanityCheck();
   return Event;
 }
 
