@@ -1465,6 +1465,17 @@ chipstar::Queue::~Queue() {
     this->ChipDevice_->NumQueuesAlive.fetch_sub(1, std::memory_order_relaxed);
 };
 
+void chipstar::Queue::updateLastEvent(
+    const std::shared_ptr<chipstar::Event> &NewEvent) {
+  LOCK(LastEventMtx); // CHIPQueue::LastEvent_
+  logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
+           (void *)LastEvent_.get(), (void *)NewEvent.get());
+  if (NewEvent == LastEvent_) // TODO: should I compare NewEvent.get()
+    return;
+
+  LastEvent_ = NewEvent;
+}
+
 std::vector<std::shared_ptr<chipstar::Event>>
 chipstar::Queue::getSyncQueuesLastEvents() {
   auto Dev = ::Backend->getActiveDevice();
