@@ -728,7 +728,6 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
         ChipEventLz->isDeletedSanityCheck();
         ChipEventLz->EventPool->returnEvent(ChipEventLz);
       }
-      ChipEventLz->markDeleted();
     }
 
   } // done collecting events to delete
