@@ -158,7 +158,6 @@ int main() {
 
   // Wait until all the threads finish their execution
   for (int i = 0; i < numThreads; i++) {
-    std::cout << "Joining Tid#" << i << "\n";
     T[i].join();
   }
 
