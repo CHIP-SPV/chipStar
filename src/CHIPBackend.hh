@@ -1632,6 +1632,10 @@ protected:
 
 public:
   mutable std::mutex ContextMtx;
+  ///@brief stream sync semantics dictate that default stream must sync with
+  ///other streams in the same context. The purpose of this mutex is to prevent
+  ///updates to Queue::LastEvent until we are done with enqueues
+  mutable std::mutex ContextLastEventMtx;
 
   /**
    * @brief Destroy the Context object

@@ -1476,6 +1476,7 @@ chipstar::Queue::~Queue() {
 
 void chipstar::Queue::updateLastEvent(
     const std::shared_ptr<chipstar::Event> &NewEvent) {
+  LOCK(this->ChipContext_->ContextLastEventMtx);
   LOCK(LastEventMtx); // CHIPQueue::LastEvent_
   logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
            (void *)LastEvent_.get(), (void *)NewEvent.get());
@@ -1488,8 +1489,8 @@ void chipstar::Queue::updateLastEvent(
 std::vector<std::shared_ptr<chipstar::Event>>
 chipstar::Queue::getSyncQueuesLastEvents() {
   auto Dev = ::Backend->getActiveDevice();
-
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+  LOCK(this->ChipContext_->ContextLastEventMtx);
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   auto thisLastEvent = this->getLastEvent();
