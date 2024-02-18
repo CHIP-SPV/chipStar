@@ -722,9 +722,8 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
 
     ChipEventLz->isDeletedSanityCheck();
 
-    // delete the event if refcount reached 2
-    // this->ChipEvent and LZEventPool::Events_
-    if (ChipEventLz.use_count() == 2) {
+    // delete the event if refcount reached 1 (this->ChipEventLz)
+    if (ChipEventLz.use_count() == 1) {
       if (ChipEventLz->EventPool) {
         ChipEventLz->isDeletedSanityCheck();
         ChipEventLz->EventPool->returnEvent(ChipEventLz);
@@ -1683,8 +1682,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
     chipstar::EventFlags Flags;
     auto NewEvent = std::shared_ptr<CHIPEventLevel0>(
         new CHIPEventLevel0(Ctx_, this, i, Flags));
-    Events_.push_back(NewEvent);
-    AvailableEvents_.push(NewEvent);
+    Events_.push(NewEvent);
   }
 };
 
@@ -1696,9 +1694,8 @@ LZEventPool::~LZEventPool() {
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
-  while (AvailableEvents_.size())
-    AvailableEvents_.pop();
-  Events_.clear(); // shared_ptr's will be deleted
+  while (Events_.size())
+    Events_.pop();
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
   // Done via destructor should not be called from multiple threads
@@ -1709,11 +1706,11 @@ LZEventPool::~LZEventPool() {
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   std::shared_ptr<CHIPEventLevel0> Event;
-  if (!AvailableEvents_.size())
+  if (!Events_.size())
     return nullptr;
 
-  Event = AvailableEvents_.top();
-  AvailableEvents_.pop();
+  Event = Events_.top();
+  Events_.pop();
 
   return Event;
 };
@@ -1724,7 +1721,7 @@ void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
   LOCK(EventPoolMtx);
   logTrace("Returning event {} handle {}", (void *)Event.get(),
            (void *)Event.get()->get());
-  AvailableEvents_.push(Event);
+  Events_.push(Event);
 }
 
 // End EventPool
