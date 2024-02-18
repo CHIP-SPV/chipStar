@@ -79,8 +79,8 @@ public:
   using ActionFn = std::function<void()>;
 
 private:
-  ze_command_list_handle_t AssocCmdList_ = nullptr;
-  CHIPContextLevel0 *AssocContext_ = nullptr;
+  ze_command_list_handle_t AssignedCmdList_ = nullptr;
+  CHIPContextLevel0 *AssignedContext_ = nullptr;
   /// Device timestamp gets ultimately stored here
   uint64_t Timestamp_ = 0;
   /// Since device counters can overflow resulting in a negative time between
@@ -98,23 +98,23 @@ public:
   uint64_t &getTimestamp() { return Timestamp_; }
   uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
   uint64_t &getHostTimestamp() { return HostTimestamp_; }
-  ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
+  ze_command_list_handle_t getAssignedCmdList() { return AssignedCmdList_; }
 
   /**
-   * @brief Associate a command list with this event. When this event completes,
+   * @brief Assign a command list with this event. When this event completes,
    * the EventMonitor thread will return the command list handle back to the
    * queue stack where it came from.
    *
    * @param ChipQueue queue where the event was created (and where the command
    * list stack resides)
-   * @param CmdList command list to associate with this event
+   * @param CmdList command list to Assign with this event
    */
   void assignCmdList(CHIPContextLevel0 *ChipContext,
                         ze_command_list_handle_t CmdList);
 
   /**
    * @brief Reset and then return the command list handle back to the context
-   * pointed by AssocContext_
+   * pointed by AssignedContext_
    */
   void unassignCmdList();
 

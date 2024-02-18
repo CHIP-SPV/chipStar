@@ -220,22 +220,22 @@ void CHIPEventLevel0::assignCmdList(CHIPContextLevel0 *ChipContext,
                                     ze_command_list_handle_t CmdList) {
   logTrace("CHIPEventLevel0({})::assignCmdList({})", (void *)this,
            (void *)CmdList);
-  assert(AssocCmdList_ == nullptr && "command list already assigned!");
-  assert(AssocContext_ == nullptr && "queue already assigned!");
-  AssocCmdList_ = CmdList;
-  AssocContext_ = ChipContext;
+  assert(AssignedCmdList_ == nullptr && "command list already assigned!");
+  assert(AssignedContext_ == nullptr && "queue already assigned!");
+  AssignedCmdList_ = CmdList;
+  AssignedContext_ = ChipContext;
 }
 
 void CHIPEventLevel0::unassignCmdList() {
-  assert(AssocCmdList_ != nullptr && "command list not assigned!");
-  assert(AssocContext_ != nullptr && "queue not assigned!");
+  assert(AssignedCmdList_ != nullptr && "command list not assigned!");
+  assert(AssignedContext_ != nullptr && "queue not assigned!");
   logTrace("CHIPEventLevel0({})::unassignCmdList({})", (void *)this,
-           (void *)AssocCmdList_);
-  auto Status = zeCommandListReset(AssocCmdList_);
+           (void *)AssignedCmdList_);
+  auto Status = zeCommandListReset(AssignedCmdList_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  AssocContext_->returnCmdList(AssocCmdList_);
-  AssocCmdList_ = nullptr;
-  AssocContext_ = nullptr;
+  AssignedContext_->returnCmdList(AssignedCmdList_);
+  AssignedCmdList_ = nullptr;
+  AssignedContext_ = nullptr;
 }
 
 void CHIPEventLevel0::reset() {
@@ -271,11 +271,11 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     wait();
   }
 
-  if (AssocCmdList_ || AssocContext_) {
+  if (AssignedCmdList_ || AssignedContext_) {
     logError("~CHIPEventLevel0({}) disassociating command list {}",
-             (void *)this, (void *)AssocCmdList_);
+             (void *)this, (void *)AssignedCmdList_);
     logError("~CHIPEventLevel0({}) disassociating queue {}", (void *)this,
-             (void *)AssocContext_);
+             (void *)AssignedContext_);
     // assert(false);
   }
 
@@ -658,7 +658,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
     if (ChipEventLz->updateFinishStatus(false)) {
       ChipEventLz->releaseDependencies();
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
-      if (ChipEventLz->getAssocCmdList())
+      if (ChipEventLz->getAssignedCmdList())
         ChipEventLz->unassignCmdList();
       ChipEventLz->doActions();
     }
@@ -709,7 +709,7 @@ void CHIPStaleEventMonitorLevel0::exitChecks() {
         auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
         logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
                  (void *)Event.get(), Event->Msg,
-                 (void *)EventLz->getAssocCmdList());
+                 (void *)EventLz->getAssignedCmdList());
       }
       pthread_exit(0);
     }
@@ -1680,7 +1680,7 @@ CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
   Event = ZeCtx->getEventFromPool();
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
-  assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssocCmdList());
+  assert(!std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssignedCmdList());
   logDebug("CHIPBackendLevel0::createEventShared: Context {} Event {}",
            (void *)ChipCtx, (void *)Event.get());
   return Event;
