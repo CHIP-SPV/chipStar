@@ -30,11 +30,11 @@
 // by the same in OpenCL in the same translation unit. To get around
 // it we define the former in C source file, for example:
 //
-//   double lgamma(double) { return <MAP_PREFIX>lgamma(x); }
+//   double lgamma(double) { return __chip_c2ocl_lgamma(x); }
 //
 // And on the OpenCL side we call the corresponding OpenCL builtin:
 //
-//   double <MAP_PREFIX>lgamma(double x) { return tan(x); }
+//   double __chip_c2ocl_lgamma(double x) { return lgamma(x); }
 //
 // In this file we define the functions which receive this treatment.
 
@@ -113,5 +113,3 @@ DEF_BINARY_FN_MAP(fmodf, fmod, float)
 DEF_BINARY_FN_MAP(hypot, hypot, double)
 DEF_BINARY_FN_MAP(hypotf, hypot, float)
 DEF_BINARY_FN_MAP(nextafter, nextafter, double)
-
-#undef MAPPING_PREFIX

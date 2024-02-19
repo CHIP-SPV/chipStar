@@ -848,7 +848,6 @@ EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
 EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
 // See c_to_opencl.def for details.
-#define MAP_PREFIX __chip_c2ocl_
 #define DEF_UNARY_FN_MAP(FROM_FN_, TO_FN_, TYPE_)                              \
   TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_ x) { return TO_FN_(x); }
 #define DEF_BINARY_FN_MAP(FROM_FN_, TO_FN_, TYPE_)                             \
