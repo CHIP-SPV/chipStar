@@ -2153,15 +2153,7 @@ public:
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
   virtual void
-  updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent) {
-    LOCK(LastEventMtx); // CHIPQueue::LastEvent_
-    logDebug("Setting LastEvent for {} {} -> {}", (void *)this,
-             (void *)LastEvent_.get(), (void *)NewEvent.get());
-    if (NewEvent == LastEvent_) // TODO: should I compare NewEvent.get()
-      return;
-
-    LastEvent_ = NewEvent;
-  }
+  updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent);
 
   /**
    * @brief Blocking memory copy

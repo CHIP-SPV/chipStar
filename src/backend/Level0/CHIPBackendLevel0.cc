@@ -216,20 +216,20 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // CHIPEventLevel0
 // ***********************************************************************
 
-void CHIPEventLevel0::associateCmdList(CHIPContextLevel0 *ChipContext,
-                                       ze_command_list_handle_t CmdList) {
-  logTrace("CHIPEventLevel0({})::associateCmdList({})", (void *)this,
+void CHIPEventLevel0::assignCmdList(CHIPContextLevel0 *ChipContext,
+                                    ze_command_list_handle_t CmdList) {
+  logTrace("CHIPEventLevel0({})::assignCmdList({})", (void *)this,
            (void *)CmdList);
-  assert(AssocCmdList_ == nullptr && "command list already associated!");
-  assert(AssocContext_ == nullptr && "queue already associated!");
+  assert(AssocCmdList_ == nullptr && "command list already assigned!");
+  assert(AssocContext_ == nullptr && "queue already assigned!");
   AssocCmdList_ = CmdList;
   AssocContext_ = ChipContext;
 }
 
-void CHIPEventLevel0::disassociateCmdList() {
-  assert(AssocCmdList_ != nullptr && "command list not associated!");
-  assert(AssocContext_ != nullptr && "queue not associated!");
-  logTrace("CHIPEventLevel0({})::disassociateCmdList({})", (void *)this,
+void CHIPEventLevel0::unassignCmdList() {
+  assert(AssocCmdList_ != nullptr && "command list not assigned!");
+  assert(AssocContext_ != nullptr && "queue not assigned!");
+  logTrace("CHIPEventLevel0({})::unassignCmdList({})", (void *)this,
            (void *)AssocCmdList_);
   auto Status = zeCommandListReset(AssocCmdList_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -417,10 +417,20 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
 bool CHIPEventLevel0::wait() {
   assert(!Deleted_ && "chipstar::Event use after delete!");
-  logTrace("CHIPEventLevel0::wait() {} msg={}", (void *)this, Msg);
+  logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
+           ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
-  ze_result_t Status = zeEventHostSynchronize(Event_, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  ze_result_t Status =
+      zeEventHostSynchronize(Event_, ChipEnvVars.getL0EventTimeout());
+  if (Status == ZE_RESULT_NOT_READY) {
+    logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
+             "seconds.\n"
+             "Aborting now... segfaults, illegal instructions and other "
+             "undefined behavior may follow.",
+             (void *)this, Msg, (void *)Event_,
+             ChipEnvVars.getL0EventTimeout() / 1e9);
+    std::abort();
+  }
 
   LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDED;
@@ -649,7 +659,7 @@ void CHIPStaleEventMonitorLevel0::checkEvents() {
       ChipEventLz->releaseDependencies();
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
       if (ChipEventLz->getAssocCmdList())
-        ChipEventLz->disassociateCmdList();
+        ChipEventLz->unassignCmdList();
       ChipEventLz->doActions();
     }
 
@@ -1501,10 +1511,8 @@ void CHIPQueueLevel0::finish() {
   if (ChipEnvVars.getL0ImmCmdLists()) {
     auto Event = getLastEvent();
     auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
-    if (EventLZ) {
-      auto EventHandle = EventLZ->peek();
-      zeEventHostSynchronize(EventHandle, UINT64_MAX);
-    }
+    if (EventLZ)
+      EventLZ->wait();
   } else {
     zeCommandQueueSynchronize(ZeCmdQ_, UINT64_MAX);
   }
@@ -1563,7 +1571,7 @@ void CHIPQueueLevel0::executeCommandListReg(
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent);
-  EventLz->associateCmdList(this->ChipCtxLz_, CommandList);
+  EventLz->assignCmdList(this->ChipCtxLz_, CommandList);
 
   updateLastEvent(LastCmdListEvent);
   Backend->trackEvent(LastCmdListEvent);
@@ -1917,14 +1925,22 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
 
 CHIPContextLevel0::~CHIPContextLevel0() {
   logTrace("~CHIPContextLevel0() {}", (void *)this);
-  // print cmd lists statistics
-  if (!ChipEnvVars.getL0ImmCmdLists() && CmdListsRequested_ > 0)
-    logDebug("Command lists requested: {}, reused {}%", CmdListsRequested_,
-             100 * (CmdListsReused_ / CmdListsRequested_));
+
+  // print out reuse statistics
+  if (CmdListsRequested_ != 0)
+    logInfo("Command list reuse: {}%",
+            100 * (CmdListsReused_ / CmdListsRequested_));
+  else
+    logInfo("Command list reuse: N/A (No command lists requested)");
+
+  if (EventsRequested_ != 0)
+    logInfo("Events reuse: {}%", 100 * (EventsReused_ / EventsRequested_));
+  else
+    logInfo("Events reuse: N/A (No events requested)");
+
   // delete all event pools
-  for (LZEventPool *Pool : EventPools_) {
+  for (LZEventPool *Pool : EventPools_)
     delete Pool;
-  }
   EventPools_.clear();
 
   // delete all devicesA
@@ -1933,9 +1949,8 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   // The application must not call this function from
   // simultaneous threads with the same context handle.
   // Done via destructor should not be called from multiple threads
-  if (ownsZeContext) {
+  if (ownsZeContext)
     zeContextDestroy(this->ZeCtx);
-  }
 }
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
