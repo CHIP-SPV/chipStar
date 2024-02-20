@@ -108,7 +108,7 @@ public:
    * @param CmdList command list to Assign with this event
    */
   void assignCmdList(CHIPContextLevel0 *ChipContext,
-                        ze_command_list_handle_t CmdList);
+                     ze_command_list_handle_t CmdList);
 
   /**
    * @brief Reset and then return the command list handle back to the context
@@ -167,16 +167,7 @@ public:
   virtual ~CHIPCallbackDataLevel0() override {}
 };
 
-class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
-public:
-  ~CHIPCallbackEventMonitorLevel0() {
-    logTrace("CHIPCallbackEventMonitorLevel0 DEST");
-    join();
-  };
-  virtual void monitor() override;
-};
-
-class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
+class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
   // variable for storing the how much time has passed since trying to exit
   // the monitor loop
   int TimeSinceStopRequested_ = 0;
@@ -196,8 +187,8 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
   void checkCallbacks();
 
 public:
-  ~CHIPStaleEventMonitorLevel0() {
-    logTrace("CHIPStaleEventMonitorLevel0 DEST");
+  ~CHIPEventMonitorLevel0() {
+    logTrace("CHIPEventMonitorLevel0 DEST");
     join();
   };
   virtual void monitor() override;
@@ -688,14 +679,8 @@ public:
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 
-  virtual chipstar::EventMonitor *createCallbackEventMonitor_() override {
-    auto Evm = new CHIPCallbackEventMonitorLevel0();
-    Evm->start();
-    return Evm;
-  }
-
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitorLevel0();
+  virtual chipstar::EventMonitor *createEventMonitor_() override {
+    auto Evm = new CHIPEventMonitorLevel0();
     Evm->start();
     return Evm;
   }

@@ -1773,8 +1773,7 @@ public:
  */
 class Backend {
 protected:
-  chipstar::EventMonitor *CallbackEventMonitor_ = nullptr;
-  chipstar::EventMonitor *StaleEventMonitor_ = nullptr;
+  chipstar::EventMonitor *EventMonitor_ = nullptr;
 
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
@@ -2024,8 +2023,7 @@ public:
   createCallbackData(hipStreamCallback_t Callback, void *UserData,
                      chipstar::Queue *ChipQ) = 0;
 
-  virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() = 0;
+  virtual chipstar::EventMonitor *createEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
