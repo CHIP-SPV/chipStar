@@ -1465,34 +1465,70 @@ hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
 //*****************************************************************************
 //*****************************************************************************
 
+// In new HIP launch API, the compiler (clang) emits approximately
+// the following (pseudo) code for a_kernel<<<G, B, M, S>>>(A, B, ...)
+// call:
+//
+//   if (__hipPushCallConfiguration(G, B, M, S))
+//     __device_stub_a_kernel(A, B, ...);
+//
+// And:
+//
+//   void __device_stub_a_kernel(T0 A, T1 B, ...) {
+//     dim3 G, B;
+//     size_t M;
+//     hipStream_t S;
+//     __popPopCallConfiguration(&G, &B, &M, &S);
+//     void *Args[] = { &A, &B, ... };
+//     hipLaunchKernel(__device_stub_a_kernel, G, B, Args, M, S);
+//   }
+
+struct CallConfig {
+  dim3 GridDim;
+  dim3 BlockDim;
+  size_t SharedMem;
+  hipStream_t Stream;
+  CallConfig(dim3 TheGridDim, dim3 TheBlockDim, size_t TheSharedMem,
+             hipStream_t TheStream)
+      : GridDim(TheGridDim), BlockDim(TheBlockDim), SharedMem(TheSharedMem),
+        Stream(TheStream) {}
+};
+
+static thread_local std::stack<CallConfig> CallConfigStack;
+
 hipError_t __hipPushCallConfiguration(dim3 GridDim, dim3 BlockDim,
-                                      size_t SharedMem, hipStream_t Stream) {
+                                      size_t SharedMem,
+                                      hipStream_t Stream) try {
   logDebug("__hipPushCallConfiguration()");
-  CHIP_TRY
-  CHIPInitialize();
 
-  auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  CallConfigStack.emplace(GridDim, BlockDim, SharedMem, Stream);
 
-  RETURN(Backend->configureCall(GridDim, BlockDim, SharedMem, ChipQueue));
-  CHIP_CATCH
-  RETURN(hipSuccess);
+  return hipSuccess;
+} catch (...) {
+  logError("Unexpected error in hipPushCallConfiguration()");
+  return hipErrorUnknown;
 }
 
 hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
-                                     size_t *SharedMem, hipStream_t *Stream) {
-  logDebug("__hipPopCallConfiguration()");
-  CHIP_TRY
-  CHIPInitialize();
+                                     size_t *SharedMem,
+                                     hipStream_t *Stream) try {
 
-  auto *ExecItem = ChipExecStack.top();
-  ChipExecStack.pop();
-  *GridDim = ExecItem->getGrid();
-  *BlockDim = ExecItem->getBlock();
-  *SharedMem = ExecItem->getSharedMem();
-  *Stream = ExecItem->getQueue();
-  delete ExecItem;
-  RETURN(hipSuccess);
-  CHIP_CATCH
+  logDebug("__hipPopCallConfiguration()");
+
+  // __hipPopCallConfiguration() is called almost immediately after
+  // __hipPushCallConfiguration() so this should never be empty.
+  assert(CallConfigStack.size());
+
+  *GridDim = CallConfigStack.top().GridDim;
+  *BlockDim = CallConfigStack.top().BlockDim;
+  *SharedMem = CallConfigStack.top().SharedMem;
+  *Stream = CallConfigStack.top().Stream;
+  CallConfigStack.pop();
+
+  return hipSuccess;
+} catch (...) {
+  logError("Unexpected error in hipPopCallConfiguration()");
+  return hipErrorUnknown;
 }
 
 hipError_t hipGetDevice(int *DeviceId) {
