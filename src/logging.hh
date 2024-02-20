@@ -94,4 +94,8 @@ void logCritical(const char *Fmt, const TypeArgs &...Args) {
 #define logCritical(...) void(0)
 #endif
 
+inline bool shouldLog(spdlog::level::level_enum MsgLevel) {
+  return spdlog::default_logger()->should_log(MsgLevel);
+}
+
 #endif
