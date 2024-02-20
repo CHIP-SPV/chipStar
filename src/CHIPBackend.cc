@@ -379,16 +379,19 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
 
 void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
                                                     chipstar::Queue *Queue) {
-  auto Err = allocateDeviceVariablesNoLock(Device, Queue);
-  (void)Err;
-
-  // Mark initialized if the module does not have any device variables.
-  auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
-  DeviceVariablesInitialized_ |= ChipVars_.empty() && !NonSymbolResetKernel;
-
   if (DeviceVariablesInitialized_) {
     // Can't be initialized if no storage is not allocated.
     assert(DeviceVariablesAllocated_ && "Should have storage.");
+    return;
+  }
+
+  auto Err = allocateDeviceVariablesNoLock(Device, Queue);
+  (void)Err;
+
+  // Skip if the module does not have device variables needing initialization.
+  auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
+  if (ChipVars_.empty() && !NonSymbolResetKernel) {
+    DeviceVariablesInitialized_ = true;
     return;
   }
 
