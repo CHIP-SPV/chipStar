@@ -3,6 +3,7 @@ import os
 import argparse
 import subprocess
 import hashlib
+import time
 
 
 parser = argparse.ArgumentParser(
@@ -14,12 +15,16 @@ parser.add_argument('work_dir', type=str, help='Path to build directory')
 parser.add_argument('device_type', type=str, choices=['cpu', 'igpu', 'dgpu'], help='Device type')
 parser.add_argument('backend', type=str, choices=['opencl', 'level0-reg', 'level0-imm', 'pocl'], help='Backend to use')
 parser.add_argument('--num-threads', type=int, nargs='?', default=os.cpu_count(), help='Number of threads to use (default: number of cores on the system)')
-parser.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 parser.add_argument('--timeout', type=int, nargs='?', default=200, help='Timeout in seconds (default: 200)')
 parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default="off", help='load modulefiles automatically (default: off)')
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
 parser.add_argument('-c', '--categories', action='store_true', help='run tests by categories, including running a set of tests in a single thread')
+
+# --total-runtime cannot be used with --num-tries
+group = parser.add_mutually_exclusive_group()
+group.add_argument('--total-runtime', type=int, nargs='?', default=0, help='Set --num-tries such that the total runtime is approximately this value in minutes')
+group.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 
 args = parser.parse_args()
 
@@ -110,28 +115,44 @@ if not texture_support:
 else:
     texture_cmd = ""
 
+def run_tests(num_tries):
+  if args.categories:
+    cmd_deviceFunc = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R deviceFunc -O checkpy_{args.device_type}_{args.backend}_device.txt"
+    cmd_graph = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"[Gg]raph\" -O checkpy_{args.device_type}_{args.backend}_graph.txt"
+    cmd_single = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j 1 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_single.txt"
+    cmd_other = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}|deviceFunc|[Gg]raph|`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_other.txt"
 
+    res_deviceFunc, err  = run_cmd(cmd_deviceFunc)
+    res_graph, err = run_cmd(cmd_graph)
+    res_single, err = run_cmd(cmd_single)
+    res_other, err = run_cmd(cmd_other)
 
-if args.categories:
-  cmd_deviceFunc = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R deviceFunc -O checkpy_{args.device_type}_{args.backend}_device.txt"
-  cmd_graph = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"[Gg]raph\" -O checkpy_{args.device_type}_{args.backend}_graph.txt"
-  cmd_single = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j 1 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_single.txt"
-  cmd_other = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}|deviceFunc|[Gg]raph|`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_other.txt"
-
-  res_deviceFunc, err  = run_cmd(cmd_deviceFunc)
-  res_graph, err = run_cmd(cmd_graph)
-  res_single, err = run_cmd(cmd_single)
-  res_other, err = run_cmd(cmd_other)
-
-  if "0 tests failed" in res_deviceFunc and "0 tests failed" in res_graph and "0 tests failed" in res_single and "0 tests failed" in res_other:
-      exit(0)
+    if "0 tests failed" in res_deviceFunc and "0 tests failed" in res_graph and "0 tests failed" in res_single and "0 tests failed" in res_other:
+        exit(0)
+    else:
+        exit(1)
   else:
-      exit(1)
-else:
-  cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{args.num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{args.backend}.txt"
-
+    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{args.backend}.txt"
   res, err = run_cmd(cmd)
-  if "0 tests failed" in res:
-      exit(0)
-  else:
-      exit(1)
+  return res, err
+
+
+# if --total-runtime is set, calculate the number of tries by running run_tests and checking the time
+num_tries = 1
+if args.total_runtime:
+    t_start = time.time()
+    run_tests(1)
+    t_end = time.time()
+    # calculate the total time
+    total_time = t_end - t_start
+    # calculate the number of tries
+    num_tries = int(args.total_runtime * 60 / total_time)
+    print(f"Running tests {num_tries} times to get a total runtime of {args.total_runtime} minutes")
+else:
+    num_tries = args.num_tries
+
+res, err = run_tests(num_tries)
+if "0 tests failed" in res:
+    exit(0)
+else:
+    exit(1)
