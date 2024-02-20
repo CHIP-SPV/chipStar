@@ -639,10 +639,7 @@ protected:
   chipstar::EventFlags Flags_;
   std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
 
-#ifndef NDEBUG
-  // A debug flag for cathing use-after-delete.
   bool Deleted_ = false;
-#endif
 
   /**
    * @brief Events are always created with a context
@@ -660,7 +657,7 @@ protected:
 
 public:
   void setRecording() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     EventStatus_ = EVENT_STATUS_RECORDING;
   }
   void markTracked() { TrackCalled_ = true; }
@@ -668,10 +665,11 @@ public:
   void setTrackCalled(bool Val) { TrackCalled_ = Val; }
   bool isUserEvent() { return UserEvent_; }
   void setUserEvent(bool Val) { UserEvent_ = Val; }
-  void addDependency(const std::shared_ptr<chipstar::Event> &Event) {
-    assert(!Deleted_ && "Event use after delete!");
-    DependsOnList.push_back(Event);
-  }
+  /// @brief Add an event on which this event depends, preventing that event
+  /// from getting recycled
+  /// @param Event
+  void addDependency(const std::shared_ptr<chipstar::Event> &Event);
+  /// @brief Release dependencies, allowing them to be recycled
   void releaseDependencies();
   chipstar::EventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
@@ -690,7 +688,7 @@ public:
    * @return Context* pointer to context on which this event was created
    */
   chipstar::Context *getContext() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     return ChipContext_;
   }
 
@@ -711,7 +709,7 @@ public:
    * @return false event is in init or invalid state
    */
   bool isRecordingOrRecorded() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     return EventStatus_ >= EVENT_STATUS_RECORDING;
   }
 
@@ -722,7 +720,7 @@ public:
    * @return false not recorded
    */
   bool isFinished() {
-    assert(!Deleted_ && "chipstar::Event use after delete!");
+    isDeletedSanityCheck();
     return (EventStatus_ == EVENT_STATUS_RECORDED);
   }
 
@@ -769,16 +767,19 @@ public:
    */
   virtual void hostSignal() = 0;
 
-#ifndef NDEBUG
   void markDeleted(bool State = true) {
-    LOCK(EventMtx); // Deleted_
+#ifndef NDEBUG
     Deleted_ = State;
-  }
-  bool isDeleted() {
-    LOCK(EventMtx); // Deleted_
-    return Deleted_;
-  }
 #endif
+  }
+  void isDeletedSanityCheck() {
+#ifndef NDEBUG
+    if (Deleted_) {
+      logError("chipstar::Event use after delete!");
+      std::abort();
+    }
+#endif
+  }
 };
 
 class Program {
@@ -1772,8 +1773,7 @@ public:
  */
 class Backend {
 protected:
-  chipstar::EventMonitor *CallbackEventMonitor_ = nullptr;
-  chipstar::EventMonitor *StaleEventMonitor_ = nullptr;
+  chipstar::EventMonitor *EventMonitor_ = nullptr;
 
   int MinQueuePriority_;
   int MaxQueuePriority_ = 0;
@@ -2023,8 +2023,7 @@ public:
   createCallbackData(hipStreamCallback_t Callback, void *UserData,
                      chipstar::Queue *ChipQ) = 0;
 
-  virtual chipstar::EventMonitor *createCallbackEventMonitor_() = 0;
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() = 0;
+  virtual chipstar::EventMonitor *createEventMonitor_() = 0;
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
@@ -2127,6 +2126,8 @@ public:
 
   virtual std::shared_ptr<chipstar::Event> getLastEvent() {
     LOCK(LastEventMtx); // Queue::LastEvent_
+    if (LastEvent_)
+      LastEvent_->isDeletedSanityCheck();
     return LastEvent_;
   }
 

@@ -1628,13 +1628,7 @@ chipstar::CallbackData *CHIPBackendOpenCL::createCallbackData(
   UNIMPLEMENTED(nullptr);
 }
 
-chipstar::EventMonitor *CHIPBackendOpenCL::createCallbackEventMonitor_() {
-  auto Evm = new EventMonitorOpenCL();
-  Evm->start();
-  return Evm;
-}
-
-chipstar::EventMonitor *CHIPBackendOpenCL::createStaleEventMonitor_() {
+chipstar::EventMonitor *CHIPBackendOpenCL::createEventMonitor_() {
   UNIMPLEMENTED(nullptr);
 }
 

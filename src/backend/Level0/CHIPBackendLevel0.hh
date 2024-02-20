@@ -23,8 +23,6 @@
 #ifndef CHIP_BACKEND_LEVEL0_H
 #define CHIP_BACKEND_LEVEL0_H
 
-// TODO: Should this be a cmake parameter? env? What is max size?
-#define EVENT_POOL_SIZE 1000
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
@@ -79,8 +77,8 @@ public:
   using ActionFn = std::function<void()>;
 
 private:
-  ze_command_list_handle_t AssocCmdList_ = nullptr;
-  CHIPContextLevel0 *AssocContext_ = nullptr;
+  ze_command_list_handle_t AssignedCmdList_ = nullptr;
+  CHIPContextLevel0 *AssignedContext_ = nullptr;
   /// Device timestamp gets ultimately stored here
   uint64_t Timestamp_ = 0;
   /// Since device counters can overflow resulting in a negative time between
@@ -98,23 +96,23 @@ public:
   uint64_t &getTimestamp() { return Timestamp_; }
   uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
   uint64_t &getHostTimestamp() { return HostTimestamp_; }
-  ze_command_list_handle_t getAssocCmdList() { return AssocCmdList_; }
+  ze_command_list_handle_t getAssignedCmdList() { return AssignedCmdList_; }
 
   /**
-   * @brief Associate a command list with this event. When this event completes,
+   * @brief Assign a command list with this event. When this event completes,
    * the EventMonitor thread will return the command list handle back to the
    * queue stack where it came from.
    *
    * @param ChipQueue queue where the event was created (and where the command
    * list stack resides)
-   * @param CmdList command list to associate with this event
+   * @param CmdList command list to Assign with this event
    */
   void assignCmdList(CHIPContextLevel0 *ChipContext,
-                        ze_command_list_handle_t CmdList);
+                     ze_command_list_handle_t CmdList);
 
   /**
    * @brief Reset and then return the command list handle back to the context
-   * pointed by AssocContext_
+   * pointed by AssignedContext_
    */
   void unassignCmdList();
 
@@ -169,16 +167,7 @@ public:
   virtual ~CHIPCallbackDataLevel0() override {}
 };
 
-class CHIPCallbackEventMonitorLevel0 : public chipstar::EventMonitor {
-public:
-  ~CHIPCallbackEventMonitorLevel0() {
-    logTrace("CHIPCallbackEventMonitorLevel0 DEST");
-    join();
-  };
-  virtual void monitor() override;
-};
-
-class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
+class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
   // variable for storing the how much time has passed since trying to exit
   // the monitor loop
   int TimeSinceStopRequested_ = 0;
@@ -195,9 +184,11 @@ class CHIPStaleEventMonitorLevel0 : public chipstar::EventMonitor {
    */
   void exitChecks();
 
+  void checkCallbacks();
+
 public:
-  ~CHIPStaleEventMonitorLevel0() {
-    logTrace("CHIPStaleEventMonitorLevel0 DEST");
+  ~CHIPEventMonitorLevel0() {
+    logTrace("CHIPEventMonitorLevel0 DEST");
     join();
   };
   virtual void monitor() override;
@@ -208,19 +199,16 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
-  std::stack<int> FreeSlots_;
-  std::vector<std::shared_ptr<CHIPEventLevel0>> Events_;
-
-  int getFreeSlot();
+  std::stack<std::shared_ptr<CHIPEventLevel0>> Events_;
 
 public:
   std::mutex EventPoolMtx;
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
-  bool EventAvailable() { return FreeSlots_.size() > 0; }
+  bool EventAvailable() { return Events_.size() > 0; }
   ze_event_pool_handle_t get() { return EventPool_; }
 
-  void returnSlot(int Slot);
+  void returnEvent(std::shared_ptr<CHIPEventLevel0> Event);
 
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
@@ -364,6 +352,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
   std::stack<ze_command_list_handle_t> ZeCmdListRegPool_;
+  size_t EventPoolSize_ = 1;
 
 public:
   /**
@@ -398,7 +387,8 @@ public:
     logTrace("No available events found in {} event pools. Creating a new "
              "event pool",
              EventPools_.size());
-    auto NewEventPool = new LZEventPool(this, EVENT_POOL_SIZE);
+    auto NewEventPool = new LZEventPool(this, EventPoolSize_);
+    EventPoolSize_ *= 2;
     Event = NewEventPool->getEvent();
     EventPools_.push_back(NewEventPool);
     return Event;
@@ -689,14 +679,8 @@ public:
     return new CHIPCallbackDataLevel0(Callback, UserData, ChipQueue);
   }
 
-  virtual chipstar::EventMonitor *createCallbackEventMonitor_() override {
-    auto Evm = new CHIPCallbackEventMonitorLevel0();
-    Evm->start();
-    return Evm;
-  }
-
-  virtual chipstar::EventMonitor *createStaleEventMonitor_() override {
-    auto Evm = new CHIPStaleEventMonitorLevel0();
+  virtual chipstar::EventMonitor *createEventMonitor_() override {
+    auto Evm = new CHIPEventMonitorLevel0();
     Evm->start();
     return Evm;
   }
