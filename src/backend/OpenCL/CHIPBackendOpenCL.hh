@@ -382,6 +382,9 @@ public:
 
 class CHIPBackendOpenCL : public chipstar::Backend {
 public:
+  /// OpenCL events don't require tracking so override and do nothing
+  virtual void
+  trackEvent(const std::shared_ptr<chipstar::Event> &Event) override{};
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
