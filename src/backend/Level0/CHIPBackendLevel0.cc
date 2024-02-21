@@ -670,7 +670,7 @@ void CHIPEventMonitorLevel0::checkEvents() {
   } // done collecting events to delete
 }
 
-void CHIPEventMonitorLevel0::exitChecks() {
+void CHIPEventMonitorLevel0::checkExit() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   /**
    * In the case that a user doesn't destroy all the
@@ -726,7 +726,7 @@ void CHIPEventMonitorLevel0::monitor() {
     usleep(200);
     checkCallbacks();
     checkEvents();
-    exitChecks();
+    checkExit();
   } // endless loop
 }
 // End EventMonitorLevel0
