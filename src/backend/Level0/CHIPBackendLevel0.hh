@@ -182,7 +182,7 @@ class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
    * @brief Check if stop was requested for this monitor, if so handle all
    * outstanding events
    */
-  void exitChecks();
+  void checkExit();
 
   void checkCallbacks();
 

@@ -601,16 +601,6 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
   CHIPCallbackDataLevel0 *CbData;
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   {
-
-    if (Stop) {
-      logTrace("checkCallbacks: out of callbacks. Exiting "
-               "thread");
-      if (Backend->CallbackQueue.size())
-        logError("Callback thread exiting while there are still active "
-                 "callbacks in the queue");
-      pthread_exit(0);
-    }
-
     LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
 
     if ((Backend->CallbackQueue.size() == 0))
@@ -680,7 +670,7 @@ void CHIPEventMonitorLevel0::checkEvents() {
   } // done collecting events to delete
 }
 
-void CHIPEventMonitorLevel0::exitChecks() {
+void CHIPEventMonitorLevel0::checkExit() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   /**
    * In the case that a user doesn't destroy all the
@@ -736,7 +726,7 @@ void CHIPEventMonitorLevel0::monitor() {
     usleep(200);
     checkCallbacks();
     checkEvents();
-    exitChecks();
+    checkExit();
   } // endless loop
 }
 // End EventMonitorLevel0
