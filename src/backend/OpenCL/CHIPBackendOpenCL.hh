@@ -321,10 +321,14 @@ public:
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 };
 
+// Used for a kernel pool with a custom deleter that, instead of
+// deleting, returns the "borrowed" object back to the pool.
+template <typename T>
+using Borrowed = std::unique_ptr<T, std::function<void(T *)>>;
+
 class CHIPKernelOpenCL : public chipstar::Kernel {
 private:
   std::string Name_;
-  cl::Kernel OclKernel_;
   size_t MaxDynamicLocalSize_;
   size_t MaxWorkGroupSize_;
   size_t StaticLocalSize_;
@@ -333,7 +337,17 @@ private:
   CHIPModuleOpenCL *Module;
   CHIPDeviceOpenCL *Device;
 
+  // Pool of kernels that can be "borrowed" via
+  // borrowUniqueKernelHandle(). Their custom deleter return the borrowed
+  // object back to this pool.
+  std::stack<std::unique_ptr<cl::Kernel>> KernelPool_;
+  std::mutex KernelPoolMutex_;
+
 public:
+  // This is for acquiring unique kernel handles. Note that this class
+  // intentionally does not have cl_kernel/cl::Kernel getter function.
+  friend class CHIPExecItemOpenCL;
+
   CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
                    std::string HostFName, SPVFuncInfo *FuncInfo,
                    CHIPModuleOpenCL *Parent);
@@ -343,26 +357,30 @@ public:
   }
   SPVFuncInfo *getFuncInfo() const;
   std::string getName();
-  cl::Kernel *get();
-  CHIPKernelOpenCL *clone();
 
   CHIPModuleOpenCL *getModule() override { return Module; }
   const CHIPModuleOpenCL *getModule() const override { return Module; }
   virtual hipError_t getAttributes(hipFuncAttributes *Attr) override;
+
+private:
+  // Only allowed for CHIPExecItemOpenCL instances.
+  Borrowed<cl::Kernel> borrowUniqueKernelHandle();
 };
 
 class CHIPExecItemOpenCL : public chipstar::ExecItem {
 private:
-  std::unique_ptr<CHIPKernelOpenCL> ChipKernel_;
-  cl::Kernel *ClKernel_;
+  CHIPKernelOpenCL *ChipKernel_;
+  Borrowed<cl::Kernel> ClKernel_;
 
 public:
   CHIPExecItemOpenCL(const CHIPExecItemOpenCL &Other)
       : CHIPExecItemOpenCL(Other.GridDim_, Other.BlockDim_, Other.SharedMem_,
                            Other.ChipQueue_) {
     // TOOD Graphs Is this safe?
-    ClKernel_ = Other.ClKernel_;
-    ChipKernel_.reset(Other.ChipKernel_->clone());
+
+    ChipKernel_ = Other.ChipKernel_;
+    ClKernel_ = ChipKernel_->borrowUniqueKernelHandle();
+
     // ChipKernel cloning currently does not copy the argument setup
     // of the cl_kernel, therefore, mark arguments being unset.
     this->ArgsSetup = false;
@@ -372,12 +390,10 @@ public:
                      hipStream_t ChipQueue)
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
-  virtual ~CHIPExecItemOpenCL() override {
-    // TODO delete ClKernel_?
-  }
+  virtual ~CHIPExecItemOpenCL() override {}
   SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
-  cl::Kernel *get();
+  cl_kernel getKernelHandle();
 
   virtual chipstar::ExecItem *clone() const override {
     auto NewExecItem = new CHIPExecItemOpenCL(*this);
@@ -385,7 +401,7 @@ public:
   }
 
   void setKernel(chipstar::Kernel *Kernel) override;
-  CHIPKernelOpenCL *getKernel() override { return ChipKernel_.get(); }
+  CHIPKernelOpenCL *getKernel() override { return ChipKernel_; }
 };
 
 class CHIPBackendOpenCL : public chipstar::Backend {
