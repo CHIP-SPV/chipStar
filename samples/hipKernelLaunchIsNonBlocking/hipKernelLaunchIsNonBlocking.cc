@@ -112,4 +112,8 @@ int main() {
   } else {
     std::cout << "FAILED!" << std::endl;
   }
+
+  CHECK(hipStreamDestroy(q));
+  CHECK(hipEventDestroy(start));
+  CHECK(hipEventDestroy(stop));
 }
