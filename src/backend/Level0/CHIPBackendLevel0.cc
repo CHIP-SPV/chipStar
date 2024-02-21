@@ -601,16 +601,6 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
   CHIPCallbackDataLevel0 *CbData;
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   {
-
-    if (Stop) {
-      logTrace("checkCallbacks: out of callbacks. Exiting "
-               "thread");
-      if (Backend->CallbackQueue.size())
-        logError("Callback thread exiting while there are still active "
-                 "callbacks in the queue");
-      pthread_exit(0);
-    }
-
     LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
 
     if ((Backend->CallbackQueue.size() == 0))
