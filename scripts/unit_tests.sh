@@ -42,7 +42,7 @@ elif [ "$2" == "llvm-18" ]; then
   CLANG=llvm/18.0-unpatched-spirv
 else
   echo "$2"
-  echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16', 'llvm-17' ir 'llvm-18'."
+  echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16', 'llvm-17' or 'llvm-18'."
   exit 1
 fi
 
