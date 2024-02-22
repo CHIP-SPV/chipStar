@@ -310,7 +310,8 @@ public:
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override;
-  std::vector<cl_event> getSyncQueuesEventHandles();
+  std::vector<cl_event>
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 };
 
 class CHIPKernelOpenCL : public chipstar::Kernel {
