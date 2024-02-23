@@ -107,7 +107,7 @@ export POCL_KERNEL_CACHE=0
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module use ~/modulefiles
-module load $CLANG opencl/dgpu
+module load mkl/2024.0 compiler/2024.0.2 $CLANG opencl/dgpu 
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
@@ -151,7 +151,7 @@ else
   # ../scripts/compile_libceed.sh ${CHIPSTAR_INSTALL_DIR}
 fi
 
-module unload opencl/dgpu oneapi/compiler/2023.2.3
+module unload opencl/dgpu
 
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 

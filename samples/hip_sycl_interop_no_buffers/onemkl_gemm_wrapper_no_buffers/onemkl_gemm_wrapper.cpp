@@ -112,15 +112,7 @@ int oneMKLGemmTest(uintptr_t* nativeHandlers, const char* hip_backend, float* A,
     sycl_devices[0] = sycl_device;
     sycl::context sycl_context = sycl::ext::oneapi::level_zero::make_context(sycl_devices, (pi_native_handle)hContext, 1);
 
-    bool isImmCmdList = true;
-    // query the environemtn for CHIP_L0_IMM_CMD_LIST flag, if it's OFF, off or 0, then set isImmCmdList to false
-    char* env = getenv("CHIP_L0_IMM_CMD_LIST");
-    if (env != NULL) {
-      if (!strcmp(env, "OFF") || !strcmp(env, "off") || !strcmp(env, "0")) {
-        isImmCmdList = false;
-      }
-    }
-
+    bool isImmCmdList = false;
 #if __INTEL_LLVM_COMPILER >= 20240000
     sycl_queue = sycl::ext::oneapi::level_zero::make_queue(sycl_context, sycl_device, (pi_native_handle)hQueue,
                                                            isImmCmdList, 1, sycl::property::queue::in_order());
