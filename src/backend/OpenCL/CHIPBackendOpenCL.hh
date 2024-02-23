@@ -87,6 +87,7 @@ class CHIPEventOpenCL : public chipstar::Event {
 public:
   cl_event ClEvent;
   friend class CHIPEventOpenCL;
+  std::shared_ptr<chipstar::Event> RecordedEvent;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,

@@ -625,6 +625,7 @@ size_t CHIPEventOpenCL::getRefCount() {
 }
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
+  this->RecordedEvent = nullptr;
   if (ClEvent)
     clReleaseEvent(ClEvent);
 }
@@ -661,6 +662,7 @@ void CHIPEventOpenCL::recordEventCopy(
   std::shared_ptr<CHIPEventOpenCL> Other =
       std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
   this->ClEvent = Other->ClEvent;
+  this->RecordedEvent = Other; 
   this->Msg = "recordEventCopy: " + Other->Msg;
 }
 
