@@ -74,7 +74,7 @@ constexpr size_t MAX_KERNEL_PARAM_LIST_SIZE = 1024;
 /// to other than an integer, a floating-point, a vector or an aggregate type.
 /// Generally, the special types don't have size and/or they are not spillable.
 bool isSpecial(const Argument &Arg) {
-#if LLVM_VERSION_MAJOR == 17
+#if LLVM_VERSION_MAJOR >= 17
   Type *Ty = Arg.getType();
   return Ty->isTargetExtTy();
 #elif LLVM_VERSION_MAJOR == 16
@@ -311,7 +311,11 @@ static bool spillKernelArgs(Function *F) {
     auto *LocalCopy = createEntryAlloca(B, AllocaTy);
     auto AllocSizeInBitsOpt = LocalCopy->getAllocationSizeInBits(DL);
     assert(AllocSizeInBitsOpt);
+#if LLVM_VERSION_MAJOR > 17
+    size_t AllocSizeInBits = AllocSizeInBitsOpt->getFixedValue();
+#else
     size_t AllocSizeInBits = AllocSizeInBitsOpt->getFixedSize();
+#endif
     assert(AllocSizeInBits % 8u == 0);
     size_t AllocSize = AllocSizeInBits / 8u;
     B.CreateMemCpy(LocalCopy, LocalCopy->getAlign(), NewArg, SrcAlign,

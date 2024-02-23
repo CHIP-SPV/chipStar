@@ -15,7 +15,7 @@ timeout=200
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17> [--skip-build] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
+  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17|llvm-18> [--skip-build] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -37,9 +37,12 @@ elif [ "$2" == "llvm-16" ]; then
 elif [ "$2" == "llvm-17" ]; then
   LLVM=llvm-17
   CLANG=llvm/17.0-unpatched-spirv
+elif [ "$2" == "llvm-18" ]; then
+  LLVM=llvm-18
+  CLANG=llvm/18.0-unpatched-spirv
 else
   echo "$2"
-  echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16' or 'llvm-17'."
+  echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16', 'llvm-17' or 'llvm-18'."
   exit 1
 fi
 
