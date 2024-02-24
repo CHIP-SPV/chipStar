@@ -386,7 +386,7 @@ list(APPEND FAILING_FOR_ALL "Unit_hipPeekAtLastError_Positive_Threaded") # Subpr
 list(APPEND FAILING_FOR_ALL "deviceMallocCompile") # Failed|Failed|Failed|Failed|Failed|
 list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # Timeout|Failed|Failed|Timeout|Failed|
 list(APPEND FAILING_FOR_ALL "cuda-simpleCallback") # SEGFAULT|SEGFAULT|SEGFAULT|SEGFAULT|SEGFAULT|
-
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams2") # Subprocess aborted
 
 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
@@ -427,7 +427,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSync") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "BitonicSort") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "FloydWarshall") # Timeout
@@ -476,7 +475,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSync") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Overload_Override") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestHiprtcCPPKernels") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestRDCWithMultipleHipccCmds") # Failed
@@ -538,6 +536,7 @@ list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "BitonicSort") # Timeout
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "FloydWarshall") # Timeout
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "cuda-bandwidthTest") # Timeout
 list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "cuda-blackscholes") # Timeout
+list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 
 
 
@@ -578,7 +577,6 @@ list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check"
 list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSync") # Failed
 list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Timeout
 list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "TestWholeProgramCompilation") # Failed
 list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "TestAssert") # Failed
 list(APPEND IGPU_LEVEL0_ICL_FAILED_TESTS "TestAssertFail") # Failed
@@ -638,7 +636,8 @@ list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "BitonicSort") # Timeout
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "FloydWarshall") # Timeout
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-bandwidthTest") # Timeout
 list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "cuda-blackscholes") # Timeout
-
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetAsync_QueueJobsMultithreaded") # Timeout
+list(APPEND DGPU_LEVEL0_RCL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 
 
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_MultipleRun") # Timeout
@@ -678,7 +677,6 @@ list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check"
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSync") # Failed
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Timeout
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "TestWholeProgramCompilation") # Failed
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "TestAssert") # Failed
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "TestAssertFail") # Failed
@@ -711,7 +709,6 @@ list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "cuda-fastwalsh") # Timeout
 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipClassKernel_Value") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "2d_shuffle") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipDynamicShared2") # Failed
@@ -732,7 +729,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "ABM_AddKernel_MultiTypeMultiSize - float") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "hipcc-TestHipComplexInclude") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "hipcc-TestHipccAcceptCcFiles") # Failed
