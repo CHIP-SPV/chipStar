@@ -1,6 +1,25 @@
 #!/bin/bash
-num_tries=100
-num_threads=20
+num_tries=100 # default value
+num_threads=$(nproc) # default value
+
+for arg in "$@"
+do
+    case $arg in
+        --num-tries=*)
+        num_tries="${arg#*=}"
+        shift # Remove --num-tries=N from processing
+        ;;
+        --num-threads=*)
+        num_threads="${arg#*=}"
+        shift # Remove --num-threads=N from processing
+        ;;
+        *)
+        other_args+=("$1") # Add to array of other arguments
+        shift # Remove generic argument from processing
+        ;;
+    esac
+done
+
 source /usr/local/Modules/init/bash
 
 # OpenCL dGPU
