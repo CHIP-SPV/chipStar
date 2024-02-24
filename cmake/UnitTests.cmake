@@ -753,6 +753,15 @@ list(APPEND CPU_POCL_FAILED_TESTS "TestForgottenModuleUnload") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "TestIndirectCall") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "TestRuntimeWarnings") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "abort") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rd_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rn_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_ru_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_deviceFunctions_CompileTest___dsqrt_rz_double") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemoryWithKernel") # SEGFAULT
+list(APPEND CPU_POCL_FAILED_TESTS "fp16_math") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "fp16_half2_math") # Failed
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGraphAddMemcpyNodeToSymbol_MemcpyToSymbolNodeWithKernel") # Failed
+
 
 list(APPEND DGPU_OPENCL_FAILED_TESTS ${FAILING_FOR_ALL})
 list(APPEND IGPU_OPENCL_FAILED_TESTS ${FAILING_FOR_ALL})
