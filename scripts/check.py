@@ -86,9 +86,9 @@ if args.modules == "on":
   elif args.backend == "opencl" and args.device_type == "dgpu":
       modules += "opencl/dgpu"
   elif args.backend == "level0" and args.device_type == "igpu":
-      modules += "intel/opencl level-zero/igpu"
+      modules += "level-zero/igpu"
   elif args.backend == "level0" and args.device_type == "dgpu":
-      modules += "intel/opencl level-zero/dgpu"
+      modules += "level-zero/dgpu"
   elif args.backend == "pocl" and args.device_type == "cpu":
       modules += "opencl/pocl"
   modules += " &&  module list;"
