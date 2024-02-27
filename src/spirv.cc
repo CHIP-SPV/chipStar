@@ -42,10 +42,6 @@ const std::string OpenCLStd{"OpenCL.std"};
 //       them with instruction words.
 using InstWord = uint32_t;
 
-static InstWord getSPVVersion(int Major, int Minor) {
-  return (Major << 16) | (Minor << 8);
-}
-
 static std::string_view parseLiteralString(const InstWord *WordBegin,
                                            size_t NumWords);
 
@@ -208,18 +204,8 @@ static bool parseHeader(const InstWord *&WordBuffer, size_t &NumWords) {
   }
   ++WordBuffer;
 
-  if (*WordBuffer < getSPVVersion(1, 0) || *WordBuffer > getSPVVersion(1, 2)) {
-    logError("Unsupported SPIR-V version.");
-    return false;
-  }
-  ++WordBuffer;
-
-  // GENERATOR
-  ++WordBuffer;
-
-  // BOUND
-  // InstWord Bound = *WordBuffer;
-  ++WordBuffer;
+  // Jump over VERSION, GENERATOR and BOUND words.
+  WordBuffer += 3;
 
   // RESERVED
   if (*WordBuffer != 0) {
