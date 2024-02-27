@@ -4434,7 +4434,7 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   SPVRegister::Handle ModHandle =
       getSPVRegister().registerSource(SPIRVModuleSpan);
 
-  if (ChipEnvVars.getLazyJit() == false) {
+  if (!ChipEnvVars.getLazyJit()) {
     logDebug("Lazy JIT disabled, compiling module now");
     const SPVModule *SMod = getSPVRegister().getSource(ModHandle);
     Backend->getActiveDevice()->getOrCreateModule(*SMod);
