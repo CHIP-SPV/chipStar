@@ -57,9 +57,9 @@ using SPVFunctionInfoMap = std::map<std::string, std::shared_ptr<SPVFuncInfo>>;
 struct SPVModuleInfo {
   SPVFunctionInfoMap FuncInfoMap;
 
-  /// Set to true if the module may have indirect global buffer
-  /// accesses (IGBA) in any kernel.
-  bool MayHaveIGBAs = true;
+  /// Set to true if the module is known not to have indirect global
+  /// buffer accesses (IGBA) in any kernel.
+  bool HasNoIGBAs = false;
 };
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);

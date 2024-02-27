@@ -235,9 +235,8 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
   // If we have determined that the module does not have indirect
   // global memory accesses (IGBAs; see HipIGBADetectorPass), we may
   // skip the annotation.
-  if (!ModInfo.MayHaveIGBAs)
+  if (ModInfo.HasNoIGBAs)
     return nullptr;
-
 
   std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocKeepAlives;
   std::vector<void *> AnnotationList;

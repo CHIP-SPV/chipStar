@@ -9,17 +9,14 @@
 #include <hip/hip_runtime.h>
 #include "CHIPBackend.hh"
 
-struct SomeStruct {
-  int Bar;
-  int *Ptr;
-};
-
-__global__ void k(SomeStruct Args) { *Args.Ptr = 123; }
+__global__ void k(uintptr_t Arg) {
+  auto *Ptr = reinterpret_cast<int *>(Arg);
+  *Ptr = 123;
+}
 
 int main() {
   auto *ChipKernel = Backend->getActiveDevice()->findKernel(
       HostPtr(reinterpret_cast<const void *>(k)));
-  if (ChipKernel->getModule()->getInfo().MayHaveIGBAs)
-    return 0;
-  return 1;
+  // HasNoIGBAs should be false here.
+  return ChipKernel->getModule()->getInfo().HasNoIGBAs;
 }

@@ -5,17 +5,20 @@
 // information.
 // SPDX-License-Identifier: MIT
 
-// Check we detect that the device code does not have indirect global
-// buffer accesses.
+// Check indirect global buffer access (IGBA) detection.
 #include <hip/hip_runtime.h>
 #include "CHIPBackend.hh"
 
-__global__ void k(int *Out) { *Out = 123; }
+struct SomeStruct {
+  int Bar;
+  int *Ptr;
+};
+
+__global__ void k(SomeStruct Args) { *Args.Ptr = 123; }
 
 int main() {
   auto *ChipKernel = Backend->getActiveDevice()->findKernel(
       HostPtr(reinterpret_cast<const void *>(k)));
-  if (!ChipKernel->getModule()->getInfo().MayHaveIGBAs)
-    return 0;
-  return 1;
+  // HasNoIGBAs should be false here.
+  return ChipKernel->getModule()->getInfo().HasNoIGBAs;
 }

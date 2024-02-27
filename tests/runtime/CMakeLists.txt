@@ -102,6 +102,6 @@ target_compile_definitions(TestBitInsert
 
 add_hip_runtime_test(TestBallot.hip)
 
-add_hip_runtime_test(TestPositiveIGBADetection1.hip)
-add_hip_runtime_test(TestPositiveIGBADetection2.hip)
-add_hip_runtime_test(TestNegativeIGBADetection.hip)
+add_hip_runtime_test(TestNegativeHasNoIGBAs1.hip)
+add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
+add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
