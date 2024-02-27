@@ -14,7 +14,7 @@
 //
 // Where the result is one if the are potential IGBAs and otherwise zero.
 //
-// If there were be an IGPA in the module, there has to to be a load instruction
+// If there would be an IGPA in the module, there has to to be a load instruction
 // with a pointer operand which is either loaded from memory or crafted from an
 // integer (which OTOH is loaded from somewhere else). The analysis is very
 // simple and naive: we look for pointer load and inttoptr instructions in the
