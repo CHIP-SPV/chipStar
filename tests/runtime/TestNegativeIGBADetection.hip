@@ -1,3 +1,10 @@
+// Copyright (c) 2024 chipStar developers
+//
+// Part of the chipStar project, under the MIT License.
+// See https://github.com/CHIP-SPV/chipStar/blob/main/LICENSE for license
+// information.
+// SPDX-License-Identifier: MIT
+
 // Check we detect that the device code does not have indirect global
 // buffer accesses.
 #include <hip/hip_runtime.h>
