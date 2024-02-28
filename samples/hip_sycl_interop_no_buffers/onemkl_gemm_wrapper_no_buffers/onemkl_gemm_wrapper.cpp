@@ -98,46 +98,51 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, const char *hip_backend, float *A,
         sycl::opencl::make_context((pi_native_handle)hContext);
     sycl_queue =
         sycl::opencl::make_queue(sycl_context, (pi_native_handle)hQueue);
-  } else {
-    // Extract the native information
-    ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[0];
-    ze_device_handle_t hDevice = (ze_device_handle_t)nativeHandlers[1];
-    ze_context_handle_t hContext = (ze_context_handle_t)nativeHandlers[2];
-    ze_command_queue_handle_t hQueue =
-        (ze_command_queue_handle_t)nativeHandlers[3];
-    ze_command_list_handle_t hCommandList =
-        (ze_command_list_handle_t)nativeHandlers[4];
+  } else if (!hipBackend.compare("level0")) {
+      // Extract the native information
+      ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[0];
+      ze_device_handle_t hDevice = (ze_device_handle_t)nativeHandlers[1];
+      ze_context_handle_t hContext = (ze_context_handle_t)nativeHandlers[2];
+      ze_command_queue_handle_t hQueue =
+          (ze_command_queue_handle_t)nativeHandlers[3];
+      ze_command_list_handle_t hCommandList =
+          (ze_command_list_handle_t)nativeHandlers[4];
 
-    bool isImmCmdList = hCommandList ? true : false;
+      bool isImmCmdList = hCommandList ? true : false;
 
-    auto keep_ownership =
-        static_cast<sycl::ext::oneapi::level_zero::ownership>(1);
-    sycl::platform sycl_platform =
-        sycl::ext::oneapi::level_zero::make_platform((pi_native_handle)hDriver);
+      auto keep_ownership =
+          static_cast<sycl::ext::oneapi::level_zero::ownership>(1);
+      sycl::platform sycl_platform =
+          sycl::ext::oneapi::level_zero::make_platform(
+              (pi_native_handle)hDriver);
 
-    // make devices from converted platform and L0 device
-    sycl::device sycl_device = sycl::ext::oneapi::level_zero::make_device(
-        sycl_platform, (pi_native_handle)hDevice);
+      // make devices from converted platform and L0 device
+      sycl::device sycl_device = sycl::ext::oneapi::level_zero::make_device(
+          sycl_platform, (pi_native_handle)hDevice);
 
-    std::vector<sycl::device> sycl_devices(1);
-    sycl_devices[0] = sycl_device;
-    sycl::context sycl_context = sycl::ext::oneapi::level_zero::make_context(
-        sycl_devices, (pi_native_handle)hContext, 1);
+      std::vector<sycl::device> sycl_devices(1);
+      sycl_devices[0] = sycl_device;
+      sycl::context sycl_context = sycl::ext::oneapi::level_zero::make_context(
+          sycl_devices, (pi_native_handle)hContext, 1);
 
 #if __INTEL_LLVM_COMPILER >= 20240000
-    if (isImmCmdList) {
-      sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
-          sycl_context, sycl_device, (pi_native_handle)hCommandList, true, 1,
-          sycl::property::queue::in_order());
-    } else {
-      sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
-          sycl_context, sycl_device, (pi_native_handle)hQueue, false, 1,
-          sycl::property::queue::in_order());
-    }
+      if (isImmCmdList) {
+        sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
+            sycl_context, sycl_device, (pi_native_handle)hCommandList, true, 1,
+            sycl::property::queue::in_order());
+      } else {
+        sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
+            sycl_context, sycl_device, (pi_native_handle)hQueue, false, 1,
+            sycl::property::queue::in_order());
+      }
 #else
-    sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
-        sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
+      sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
+          sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
 #endif
+    }
+  else {
+    std::cout << "Unsupported backend: " << hipBackend << std::endl;
+    std::abort();
   }
   // Test the oneMKL
   return onemkl_gemm(sycl_queue, A, B, C, M, N, K, ldA, ldB, ldC, alpha, beta);

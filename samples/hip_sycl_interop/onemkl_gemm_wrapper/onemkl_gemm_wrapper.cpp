@@ -101,7 +101,7 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, const char *hip_backend, float *A,
         sycl::opencl::make_context((pi_native_handle)hContext);
     sycl_queue =
         sycl::opencl::make_queue(sycl_context, (pi_native_handle)hQueue);
-  } else {
+  } else if (!hipBackend.compare("level0")) {
     // handle L0 here
     // Extract the native information
     ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[0];
@@ -140,6 +140,9 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, const char *hip_backend, float *A,
     sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
         sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
 #endif
+  } else {
+    std::cout << "Unsupported backend: " << hipBackend << std::endl;
+    std::abort();
   }
 
   // Test the oneMKL
