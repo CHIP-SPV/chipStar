@@ -87,6 +87,7 @@ class CHIPEventOpenCL : public chipstar::Event {
 public:
   cl_event ClEvent;
   friend class CHIPEventOpenCL;
+  std::shared_ptr<chipstar::Event> RecordedEvent;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
@@ -310,7 +311,8 @@ public:
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override;
-  std::vector<cl_event> getSyncQueuesEventHandles();
+  std::vector<cl_event>
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 };
 
 class CHIPKernelOpenCL : public chipstar::Kernel {
@@ -382,6 +384,9 @@ public:
 
 class CHIPBackendOpenCL : public chipstar::Backend {
 public:
+  /// OpenCL events don't require tracking so override and do nothing
+  virtual void
+  trackEvent(const std::shared_ptr<chipstar::Event> &Event) override{};
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;

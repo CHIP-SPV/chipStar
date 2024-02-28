@@ -1798,7 +1798,12 @@ public:
     }
     return nullptr;
   }
-  void trackEvent(const std::shared_ptr<chipstar::Event> &Event);
+
+  /**
+   * @brief Add event to the backend's event list for monitoring, if necessary
+   *
+   */
+  virtual void trackEvent(const std::shared_ptr<chipstar::Event> &Event);
 
 #ifdef CHIP_DUBIOUS_LOCKS
   std::mutex DubiousLockOpenCL;
