@@ -4888,13 +4888,9 @@ int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
     logError("hipGetBackendNativeHandles: both NativeHandles and NumHandles "
              "are null");
     return hipErrorInvalidValue;
-  } else if (NativeHandles && !NumHandles) {
-    logError("hipGetBackendNativeHandles: NativeHandles is not null but "
-             "NumHandles is null");
-    return hipErrorInvalidValue;
-  } else if (!NativeHandles && NumHandles) {
-    logError("hipGetBackendNativeHandles: NativeHandles is null but NumHandles "
-             "is not null");
+  } else if (NativeHandles && NumHandles) {
+    logError("hipGetBackendNativeHandles: both NativeHandles and NumHandles "
+             "are not null");
     return hipErrorInvalidValue;
   }
 
