@@ -25,7 +25,7 @@
 #define SVM_ALIGNMENT 128
 
 void MemoryManager::init(cl::Context C, cl::Device D, CHIPContextUSMExts &U,
-                          bool FineGrain, bool IntelUSM) {
+                         bool FineGrain, bool IntelUSM) {
   Device_ = D;
   Context_ = C;
   USM = U;
@@ -44,7 +44,7 @@ MemoryManager &MemoryManager::operator=(MemoryManager &&Rhs) {
 }
 
 void *MemoryManager::allocate(size_t Size, size_t Alignment,
-                               hipMemoryType MemType) {
+                              hipMemoryType MemType) {
   // 0 passed for the alignment will use the default alignment which is equal to
   // the largest data type supported.
   void *Ptr;
