@@ -1418,11 +1418,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::memCopy3DAsyncImpl(
 hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
                                               int *NumHandles) {
   logTrace("CHIPQueueOpenCL::getBackendHandles");
-  if (*NumHandles < 4) {
-    logError("getBackendHandles requires space for 4 handles");
-    return hipErrorInvalidValue;
+  if (NumHandles) {
+    *NumHandles = 4;
+    return hipSuccess;
   }
-  *NumHandles = 4;
 
   // Get queue handler
   NativeInfo[3] = (uintptr_t)ClQueue_->get();

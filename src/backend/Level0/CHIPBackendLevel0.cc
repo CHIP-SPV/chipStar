@@ -1332,11 +1332,13 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
 hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
                                               int *NumHandles) {
   logTrace("CHIPQueueLevel0::getBackendHandles");
-  if (*NumHandles < 4) {
-    logError("getBackendHandles requires space for 4 handles");
-    return hipErrorInvalidValue;
+  if (NumHandles) {
+    *NumHandles = 5;
+    return hipSuccess;
   }
-  *NumHandles = 4;
+
+  // get the immediate command list handle
+  NativeInfo[4] = (uintptr_t)ZeCmdListImm_;
 
   // Get queue handler
   NativeInfo[3] = (uintptr_t)ZeCmdQ_;
