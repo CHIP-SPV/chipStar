@@ -4884,27 +4884,18 @@ int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
   logDebug("hipGetBackendNativeHandles");
 
   // Check the arugments
-  if (Stream == 0 && NativeHandles == 0 && NumHandles == 0) {
-    logError("hipGetBackendNativeHandles: All arguments are null");
+  if (NativeHandles == 0 && NumHandles == 0) {
+    logError("hipGetBackendNativeHandles: both NativeHandles and NumHandles "
+             "are null");
     return hipErrorInvalidValue;
-  }
-
-  // If NumHandles is not null, make sure that Stream and NativeHandles are null
-  if (NumHandles != 0) {
-    if (Stream != 0 || NativeHandles != 0) {
-      logError("hipGetBackendNativeHandles: NumHandles is not null, but Stream "
-               "or NativeHandles are not null");
-      return hipErrorInvalidValue;
-    }
-  }
-
-  // If NumHandles is null, make sure that Stream and NativeHandles are not null
-  if (NumHandles == 0) {
-    if (Stream == 0 || NativeHandles == 0) {
-      logError("hipGetBackendNativeHandles: NumHandles is null, but Stream or "
-               "NativeHandles are null");
-      return hipErrorInvalidValue;
-    }
+  } else if (NativeHandles && !NumHandles) {
+    logError("hipGetBackendNativeHandles: NativeHandles is not null but "
+             "NumHandles is null");
+    return hipErrorInvalidValue;
+  } else if (!NativeHandles && NumHandles) {
+    logError("hipGetBackendNativeHandles: NativeHandles is null but NumHandles "
+             "is not null");
+    return hipErrorInvalidValue;
   }
 
   auto ChipQueue =
