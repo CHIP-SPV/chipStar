@@ -125,14 +125,15 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, const char *hip_backend, float *A,
         sycl_devices, (pi_native_handle)hContext, 1);
 
 #if __INTEL_LLVM_COMPILER >= 20240000
-    if (isImmCmdList)
+    if (isImmCmdList) {
       sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
           sycl_context, sycl_device, (pi_native_handle)hCommandList, true, 1,
           sycl::property::queue::in_order());
-    if (!isImmCmdList)
+    } else {
       sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
           sycl_context, sycl_device, (pi_native_handle)hQueue, false, 1,
           sycl::property::queue::in_order());
+    }
 #else
     sycl_queue = sycl::ext::oneapi::level_zero::make_queue(
         sycl_context, sycl_device, (pi_native_handle)hQueue, 1);
