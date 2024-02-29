@@ -4431,7 +4431,15 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   if (SPIRVModuleSpan.empty())
     CHIPERR_LOG_AND_THROW(ErrorMsg, hipErrorInitializationError);
 
-  auto ModHandle = getSPVRegister().registerSource(SPIRVModuleSpan);
+  SPVRegister::Handle ModHandle =
+      getSPVRegister().registerSource(SPIRVModuleSpan);
+
+  if (!ChipEnvVars.getLazyJit()) {
+    logDebug("Lazy JIT disabled, compiling module now");
+    const SPVModule *SMod = getSPVRegister().getSource(ModHandle);
+    Backend->getActiveDevice()->getOrCreateModule(*SMod);
+  }
+
   logDebug("Registered SPIR-V module {}, source-binary={}",
            static_cast<const void *>(ModHandle.Module),
            static_cast<const void *>(SPIRVModuleSpan.data()));
