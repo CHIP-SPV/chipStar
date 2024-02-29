@@ -164,7 +164,7 @@ set(CHIP_SRC
 if(OpenCL_LIBRARY)
   list(APPEND CHIP_SRC
     src/backend/OpenCL/CHIPBackendOpenCL.cc
-    src/backend/OpenCL/SVMemoryRegion.cc)
+    src/backend/OpenCL/MemoryManager.cc)
 endif()
 
 if(LevelZero_LIBRARY)

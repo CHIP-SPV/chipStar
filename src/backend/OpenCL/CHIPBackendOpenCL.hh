@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 chipStar developers
+ * Copyright (c) 2021-24 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -130,10 +130,10 @@ struct CHIPContextUSMExts {
 using const_svm_alloc_iterator = ConstMapKeyIterator<
     std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
 
-class SVMemoryRegion {
+class MemoryManager {
   // ContextMutex should be enough
 
-  std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> SvmAllocations_;
+  std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> Allocations_;
   cl::Context Context_;
   cl::Device Device_;
 
@@ -144,7 +144,7 @@ class SVMemoryRegion {
 public:
   void init(cl::Context C, cl::Device D, CHIPContextUSMExts &U, bool FineGrain,
             bool IntelUSM);
-  SVMemoryRegion &operator=(SVMemoryRegion &&Rhs);
+  MemoryManager &operator=(MemoryManager &&Rhs);
   void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType);
   bool free(void *P);
   bool hasPointer(const void *Ptr);
@@ -155,12 +155,15 @@ public:
               cl::CommandQueue &Queue);
   void clear();
 
-  size_t getNumAllocations() const { return SvmAllocations_.size(); }
+  size_t getNumAllocations() const { return Allocations_.size(); }
   IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
     return IteratorRange<const_svm_alloc_iterator>(
-        const_svm_alloc_iterator(SvmAllocations_.begin()),
-        const_svm_alloc_iterator(SvmAllocations_.end()));
+        const_svm_alloc_iterator(Allocations_.begin()),
+        const_svm_alloc_iterator(Allocations_.end()));
   }
+
+  bool usesUSM() const noexcept { return UseIntelUSM; }
+  bool usesSVM() const noexcept { return !usesUSM(); }
 };
 
 class CHIPContextOpenCL : public chipstar::Context {
@@ -169,14 +172,14 @@ private:
   bool SupportsIntelUSM;
   bool SupportsFineGrainSVM;
   CHIPContextUSMExts USM;
-  SVMemoryRegion SvmMemory;
+  MemoryManager MemManager_;
 
 public:
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {
     logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
-    SvmMemory.clear();
+    MemManager_.clear();
     delete ChipDevice_;
   }
   void *allocateImpl(
@@ -187,10 +190,14 @@ public:
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();
 
-  size_t getNumAllocations() const { return SvmMemory.getNumAllocations(); }
+  size_t getNumAllocations() const { return MemManager_.getNumAllocations(); }
   IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
-    return SvmMemory.getSvmPointers();
+    assert(MemManager_.usesSVM());
+    return MemManager_.getSvmPointers();
   }
+
+  bool usesUSM() const noexcept { return MemManager_.usesUSM(); }
+  bool usesSVM() const noexcept { return MemManager_.usesSVM(); }
 };
 
 class CHIPDeviceOpenCL : public chipstar::Device {

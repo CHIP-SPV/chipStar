@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 chipStar developers
+ * Copyright (c) 2021-24 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +24,8 @@
 
 #define SVM_ALIGNMENT 128
 
-void SVMemoryRegion::init(cl::Context C, cl::Device D, CHIPContextUSMExts &U,
-                          bool FineGrain, bool IntelUSM) {
+void MemoryManager::init(cl::Context C, cl::Device D, CHIPContextUSMExts &U,
+                         bool FineGrain, bool IntelUSM) {
   Device_ = D;
   Context_ = C;
   USM = U;
@@ -33,8 +33,8 @@ void SVMemoryRegion::init(cl::Context C, cl::Device D, CHIPContextUSMExts &U,
   UseIntelUSM = IntelUSM;
 }
 
-SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
-  SvmAllocations_ = std::move(Rhs.SvmAllocations_);
+MemoryManager &MemoryManager::operator=(MemoryManager &&Rhs) {
+  Allocations_ = std::move(Rhs.Allocations_);
   Context_ = std::move(Rhs.Context_);
   Device_ = std::move(Rhs.Device_);
   USM = std::move(Rhs.USM);
@@ -43,8 +43,8 @@ SVMemoryRegion &SVMemoryRegion::operator=(SVMemoryRegion &&Rhs) {
   return *this;
 }
 
-void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
-                               hipMemoryType MemType) {
+void *MemoryManager::allocate(size_t Size, size_t Alignment,
+                              hipMemoryType MemType) {
   // 0 passed for the alignment will use the default alignment which is equal to
   // the largest data type supported.
   void *Ptr;
@@ -84,30 +84,30 @@ void *SVMemoryRegion::allocate(size_t Size, size_t Alignment,
     };
     auto SPtr = std::shared_ptr<void>(Ptr, Deleter);
     logTrace("Memory allocated: {} / {}\n", Ptr, Size);
-    assert(SvmAllocations_.find(SPtr) == SvmAllocations_.end());
-    SvmAllocations_.emplace(SPtr, Size);
+    assert(Allocations_.find(SPtr) == Allocations_.end());
+    Allocations_.emplace(SPtr, Size);
   } else
     CHIPERR_LOG_AND_THROW("clSVMAlloc failed", hipErrorMemoryAllocation);
 
   return Ptr;
 }
 
-bool SVMemoryRegion::free(void *Ptr) {
-  auto I = SvmAllocations_.find(Ptr);
-  if (I != SvmAllocations_.end())
-    SvmAllocations_.erase(I);
+bool MemoryManager::free(void *Ptr) {
+  auto I = Allocations_.find(Ptr);
+  if (I != Allocations_.end())
+    Allocations_.erase(I);
   return true;
 }
 
-bool SVMemoryRegion::hasPointer(const void *Ptr) {
+bool MemoryManager::hasPointer(const void *Ptr) {
   logTrace("hasPointer on: {}\n", Ptr);
-  return (SvmAllocations_.find((void *)Ptr) != SvmAllocations_.end());
+  return (Allocations_.find((void *)Ptr) != Allocations_.end());
 }
 
-bool SVMemoryRegion::pointerSize(void *Ptr, size_t *Size) {
+bool MemoryManager::pointerSize(void *Ptr, size_t *Size) {
   logTrace("pointerSize on: {}\n", Ptr);
-  auto I = SvmAllocations_.find(Ptr);
-  if (I != SvmAllocations_.end()) {
+  auto I = Allocations_.find(Ptr);
+  if (I != Allocations_.end()) {
     *Size = I->second;
     return true;
   } else {
@@ -115,9 +115,9 @@ bool SVMemoryRegion::pointerSize(void *Ptr, size_t *Size) {
   }
 }
 
-bool SVMemoryRegion::pointerInfo(void *Ptr, void **Base, size_t *Size) {
+bool MemoryManager::pointerInfo(void *Ptr, void **Base, size_t *Size) {
   logTrace("pointerInfo on: {}\n", Ptr);
-  for (auto I : SvmAllocations_) {
+  for (auto I : Allocations_) {
     if ((I.first.get() <= Ptr) &&
         (Ptr < ((const char *)I.first.get() + I.second))) {
       if (Base)
@@ -130,4 +130,4 @@ bool SVMemoryRegion::pointerInfo(void *Ptr, void **Base, size_t *Size) {
   return false;
 }
 
-void SVMemoryRegion::clear() { SvmAllocations_.clear(); }
+void MemoryManager::clear() { Allocations_.clear(); }
