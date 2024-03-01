@@ -38,12 +38,11 @@ static cl_kernel Kernel = 0;
 static cl_program Program = 0;
 
 void* runOpenCLKernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHandles, unsigned Blocks, unsigned Threads, unsigned Arg1, void *Arg2, void *Arg3) {
-  assert (NumHandles == 4);
   int Err = 0;
   //cl_platform_id Plat = (cl_platform_id)NativeHandles[0];
-  cl_device_id Dev = (cl_device_id)NativeHandles[1];
-  cl_context Ctx = (cl_context)NativeHandles[2];
-  cl_command_queue CQ = (cl_command_queue)NativeHandles[3];
+  cl_device_id Dev = (cl_device_id)NativeHandles[2];
+  cl_context Ctx = (cl_context)NativeHandles[3];
+  cl_command_queue CQ = (cl_command_queue)NativeHandles[4];
 
   cl_event DepEv = (cl_event)NativeEventDep;
 

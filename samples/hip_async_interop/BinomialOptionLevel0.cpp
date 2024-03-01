@@ -78,9 +78,9 @@ static ze_command_list_handle_t getCmdListForCmdQueue(ze_context_handle_t Contex
 void* runLevel0Kernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHandles, unsigned Blocks, unsigned Threads, unsigned Arg1, void *Arg2, void *Arg3) {
   ze_result_t Err = ZE_RESULT_SUCCESS;
   //ze_driver_handle_t Driv = (ze_driver_handle_t)NativeHandles[0];
-  ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[1];
-  ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[2];
-  ze_command_queue_handle_t CQ = (ze_command_queue_handle_t)NativeHandles[3];
+  ze_device_handle_t Dev = (ze_device_handle_t)NativeHandles[2];
+  ze_context_handle_t Ctx = (ze_context_handle_t)NativeHandles[3];
+  ze_command_queue_handle_t CQ = (ze_command_queue_handle_t)NativeHandles[4];
 
   ze_command_list_handle_t CommandList = getCmdListForCmdQueue(Ctx, Dev);
 

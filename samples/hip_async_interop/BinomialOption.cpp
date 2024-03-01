@@ -340,10 +340,8 @@ void *BinomialOption::runNativeKernel(void *NativeEventDep,
                                       uintptr_t *NativeHandles, int NumHandles,
                                       unsigned Blocks, unsigned Threads,
                                       unsigned Arg1, void *Arg2, void *Arg3) {
-  const char *EnvBe = std::getenv("CHIP_BE");
-  if (EnvBe == nullptr)
-    EnvBe = "opencl";
-  std::string Backend{EnvBe};
+  std::string Backend((char*)NativeHandles[0]);
+
   if (Backend.compare("opencl") == 0) {
 #ifdef HAVE_OPENCL
     return runOpenCLKernel(NativeEventDep, NativeHandles, NumHandles, Blocks,
