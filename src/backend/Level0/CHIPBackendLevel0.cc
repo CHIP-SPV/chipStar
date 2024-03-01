@@ -1333,26 +1333,28 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
                                               int *NumHandles) {
   logTrace("CHIPQueueLevel0::getBackendHandles");
   if (NumHandles) {
-    *NumHandles = 5;
+    *NumHandles = 6;
     return hipSuccess;
   }
 
   // get the immediate command list handle
-  NativeInfo[4] = (uintptr_t)ZeCmdListImm_;
+  NativeInfo[5] = (uintptr_t)ZeCmdListImm_;
 
   // Get queue handler
-  NativeInfo[3] = (uintptr_t)ZeCmdQ_;
+  NativeInfo[4] = (uintptr_t)ZeCmdQ_;
 
   // Get context handler
   CHIPContextLevel0 *Ctx = (CHIPContextLevel0 *)ChipContext_;
-  NativeInfo[2] = (uintptr_t)Ctx->get();
+  NativeInfo[3] = (uintptr_t)Ctx->get();
 
   // Get device handler
   CHIPDeviceLevel0 *Dev = (CHIPDeviceLevel0 *)ChipDevice_;
-  NativeInfo[1] = (uintptr_t)Dev->get();
+  NativeInfo[2] = (uintptr_t)Dev->get();
 
   // Get driver handler
-  NativeInfo[0] = (uintptr_t)Ctx->ZeDriver;
+  NativeInfo[1] = (uintptr_t)Ctx->ZeDriver;
+
+  NativeInfo[0] = (uintptr_t)ChipEnvVars.getBackend().str();
   return hipSuccess;
 }
 

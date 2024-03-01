@@ -1419,24 +1419,26 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
                                               int *NumHandles) {
   logTrace("CHIPQueueOpenCL::getBackendHandles");
   if (NumHandles) {
-    *NumHandles = 4;
+    *NumHandles = 5;
     return hipSuccess;
   }
 
   // Get queue handler
-  NativeInfo[3] = (uintptr_t)ClQueue_->get();
+  NativeInfo[4] = (uintptr_t)ClQueue_->get();
 
   // Get context handler
   cl::Context *Ctx = ((CHIPContextOpenCL *)ChipContext_)->get();
-  NativeInfo[2] = (uintptr_t)Ctx->get();
+  NativeInfo[3] = (uintptr_t)Ctx->get();
 
   // Get device handler
   cl::Device *Dev = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
-  NativeInfo[1] = (uintptr_t)Dev->get();
+  NativeInfo[2] = (uintptr_t)Dev->get();
 
   // Get platform handler
   cl_platform_id Plat = Dev->getInfo<CL_DEVICE_PLATFORM>();
-  NativeInfo[0] = (uintptr_t)Plat;
+  NativeInfo[1] = (uintptr_t)Plat;
+
+  NativeInfo[0] = (uintptr_t)ChipEnvVars.getBackend().str();
   return hipSuccess;
 }
 

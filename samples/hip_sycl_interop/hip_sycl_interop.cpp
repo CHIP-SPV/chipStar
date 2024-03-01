@@ -61,8 +61,6 @@ void VerifyResult(float *c_A, float *c_B) {
 }
 
 int main() {
-  const char *hip_backend = hipGetBackendName();
-
   float *A = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *B = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C = (float *)malloc(WIDTH * WIDTH * sizeof(float));
@@ -120,7 +118,7 @@ int main() {
   CHECK(error);
 
   // Invoke oneMKL GEEM
-  oneMKLGemmTest(nativeHandlers, hip_backend, A, B, C, m, m, k, ldA, ldB, ldC,
+  oneMKLGemmTest(nativeHandlers, A, B, C, m, m, k, ldA, ldB, ldC,
                  alpha, beta);
 
   // check results

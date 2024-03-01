@@ -105,8 +105,6 @@ void CHIPUninitializeCallOnce();
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles);
 
-const char *CHIPGetBackendName();
-
 /**
  * Number of fat binaries registerer through __hipRegisterFatBinary(). On
  * program exit this value (non-zero) will postpone chipStar runtime

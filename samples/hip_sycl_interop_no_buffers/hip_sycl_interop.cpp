@@ -60,8 +60,6 @@ void VerifyResult(float *c_A, float *c_B) {
 }
 
 int main() {
-  const char *hip_backend = hipGetBackendName();
-
   float *A = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *B = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C = (float *)malloc(WIDTH * WIDTH * sizeof(float));
@@ -120,7 +118,7 @@ int main() {
   hipMemcpy(d_B, B, WIDTH * WIDTH * sizeof(float), hipMemcpyHostToDevice);
 
   // Invoke oneMKL GEMM
-  oneMKLGemmTest(nativeHandlers, hip_backend, d_A, d_B, d_C, WIDTH, WIDTH,
+  oneMKLGemmTest(nativeHandlers, d_A, d_B, d_C, WIDTH, WIDTH,
                  WIDTH, ldA, ldB, ldC, alpha, beta);
 
   // copy back C

@@ -4935,11 +4935,6 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   return E;
 }
 
-const char *hipGetBackendName() {
-  logDebug("hipGetCHIPBackend");
-  return CHIPGetBackendName();
-}
-
 hipError_t hipProfilerStart() {
   CHIP_TRY
   CHIPInitialize();

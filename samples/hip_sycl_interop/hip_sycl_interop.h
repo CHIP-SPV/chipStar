@@ -25,7 +25,7 @@
 
 extern "C" {
 // Run GEMM test via oneMKL
-int oneMKLGemmTest(uintptr_t *nativeHandlers, const char* hip_backend, float *A, float *B, float *C,
+int oneMKLGemmTest(uintptr_t *nativeHandlers, float *A, float *B, float *C,
                    int M, int N, int K, int ldA, int ldB, int ldC, float alpha,
                    float beta);
 }
