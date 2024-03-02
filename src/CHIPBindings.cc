@@ -2283,8 +2283,7 @@ static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
                                                          unsigned Flags) {
   chipstar::EventFlags EventFlags{Flags};
 
-  *Event =
-      Backend->createEvent(Backend->getActiveContext(), EventFlags);
+  *Event = Backend->createEvent(Backend->getActiveContext(), EventFlags);
 
   return hipSuccess;
 }
@@ -2965,8 +2964,7 @@ hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
   auto Queue = Backend->getActiveDevice()->getDefaultQueue();
   LOCK(Queue->QueueMtx);
 
-  return Queue->memCopy(Dst, Src,
-                                                                SizeBytes);
+  return Queue->memCopy(Dst, Src, SizeBytes);
 }
 
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
@@ -4865,11 +4863,45 @@ hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
 // as compiler for sycl and the use of hipError_t mandates inclusion
 // of hip/hip_runtime.h which is not compatible which icpx
 
+/**
+ * @brief Return native handles to the chipStar backend objects. This function
+ * is meant to be called twice:
+ * 1. First call to get the NumHandles. All other arguments must be null.
+ * 2. Use the NumHandles to allocate the NativeHandles array and call the
+ * function again to get the handles. NumHandles must be null;
+ *
+ * Example:
+ *
+ * int numItems;
+ * auto Error = hipGetBackendNativeHandles(0, 0, &numItems);
+ * assert(Error == hipSuccess);
+ * uintptr_t nativeHandlers[numItems];
+ * auto Error = hipGetBackendNativeHandles((uintptr_t)stream, nativeHandlers,
+ * 0); assert(Error == hipSuccess);
+ * @param Stream
+ * @param NativeEvent This pointer must be allocated to the size of at least
+ * NumHandles, and gets
+ * @param NumHandles This pointer gets set to the required array size for
+ * NativeHandles
+ * @return int/hipError_t success or failure
+ */
 int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
                                int *NumHandles) {
   CHIP_TRY
   CHIPInitialize();
   logDebug("hipGetBackendNativeHandles");
+
+  // Check the arugments
+  if (NativeHandles == 0 && NumHandles == 0) {
+    logError("hipGetBackendNativeHandles: both NativeHandles and NumHandles "
+             "are null");
+    return hipErrorInvalidValue;
+  } else if (NativeHandles && NumHandles) {
+    logError("hipGetBackendNativeHandles: both NativeHandles and NumHandles "
+             "are not null");
+    return hipErrorInvalidValue;
+  }
+
   auto ChipQueue =
       Backend->findQueue(reinterpret_cast<chipstar::Queue *>(Stream));
   RETURN(ChipQueue->getBackendHandles(NativeHandles, NumHandles));
@@ -4909,11 +4941,6 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   E = Backend->getHipEvent(NativeEvent);
   CHIP_CATCH_NO_RETURN
   return E;
-}
-
-const char *hipGetBackendName() {
-  logDebug("hipGetCHIPBackend");
-  return CHIPGetBackendName();
 }
 
 hipError_t hipProfilerStart() {

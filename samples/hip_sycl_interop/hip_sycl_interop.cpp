@@ -61,8 +61,6 @@ void VerifyResult(float *c_A, float *c_B) {
 }
 
 int main() {
-  const char* hip_backend = hipGetBackendName();
-
   float *A = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *B = (float *)malloc(WIDTH * WIDTH * sizeof(float));
   float *C = (float *)malloc(WIDTH * WIDTH * sizeof(float));
@@ -111,13 +109,17 @@ int main() {
 
   assert(stream != nullptr);
 
-  uintptr_t nativeHandlers[4];
-  int numItems = 4;
-  error = (hipError_t)hipGetBackendNativeHandles((uintptr_t)stream, nativeHandlers, &numItems);
+  int numHandles;
+  error = (hipError_t)hipGetBackendNativeHandles(0, 0, &numHandles);
+  CHECK(error);
+  uintptr_t nativeHandlers[numHandles];
+  error = (hipError_t)hipGetBackendNativeHandles((uintptr_t)stream,
+                                                 nativeHandlers, 0);
   CHECK(error);
 
   // Invoke oneMKL GEEM
-  oneMKLGemmTest(nativeHandlers, hip_backend, A, B, C, m, m, k, ldA, ldB, ldC, alpha, beta);
+  oneMKLGemmTest(nativeHandlers, A, B, C, m, m, k, ldA, ldB, ldC,
+                 alpha, beta);
 
   // check results
   std::cout << "Verify results between OneMKL & Serial: ";

@@ -182,5 +182,3 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
   return hipSuccess;
 }
-
-const char *CHIPGetBackendName() { return ChipEnvVars.getBackend().str(); }

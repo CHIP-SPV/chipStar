@@ -41,7 +41,6 @@ void* hipGetNativeEventFromHipEvent(void* HipEvent);
 
 void* hipGetHipEventFromNativeEvent(void* NativeEvent);
 
-const char* hipGetBackendName();
 #ifdef __cplusplus
 }
 #endif

@@ -69,9 +69,14 @@ void matrixMultiplyCPUReference(const float *__restrict A,
 }
 
 int main() {
-  const char* val = hipGetBackendName();
-  std::string envVar(val);
-  if (!envVar.compare("opencl")) {
+  int NumHandles;
+  int Err = hipGetBackendNativeHandles(0, 0, &NumHandles);
+  assert(Err == 0);
+  uintptr_t NativeHandles[NumHandles];
+  Err = hipGetBackendNativeHandles((uintptr_t)0, NativeHandles, 0);
+  assert(Err == 0);
+  std::string BackendName((char*)NativeHandles[0]);
+  if (!BackendName.compare("opencl")) {
     std::cout << "HIP_SKIP_THIS_TEST" << std::endl;
     exit(0);
   }
