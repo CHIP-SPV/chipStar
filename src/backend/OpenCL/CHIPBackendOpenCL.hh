@@ -137,13 +137,13 @@ class MemoryManager {
   cl::Context Context_;
   cl::Device Device_;
 
+  CHIPContextOpenCL *ChipCtxCl;
   CHIPContextUSMExts USM;
   bool UseSVMFineGrain;
   bool UseIntelUSM;
 
 public:
-  void init(cl::Context C, cl::Device D, CHIPContextUSMExts &U, bool FineGrain,
-            bool IntelUSM);
+  void init(CHIPContextOpenCL *ChipCtxCl);
   MemoryManager &operator=(MemoryManager &&Rhs);
   void *allocate(size_t Size, size_t Alignment, hipMemoryType MemType);
   bool free(void *P);
@@ -169,12 +169,12 @@ public:
 class CHIPContextOpenCL : public chipstar::Context {
 private:
   cl::Context ClContext;
-  bool SupportsIntelUSM;
-  bool SupportsFineGrainSVM;
-  CHIPContextUSMExts USM;
-  MemoryManager MemManager_;
 
 public:
+  CHIPContextUSMExts USM;
+  MemoryManager MemManager_;
+  bool SupportsIntelUSM;
+  bool SupportsFineGrainSVM;
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {

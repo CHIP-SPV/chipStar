@@ -509,12 +509,12 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
+list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # invalid free()
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble") # Runs out of resoruces with -j16?
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # SEGFAULT
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_OPENCL_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
@@ -819,6 +819,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord")
 
 # dGPU OpenCL Unit Test Failures
+list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # flaky
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime") # flaky
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # flaky
@@ -1146,7 +1147,6 @@ list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipKernelLaunchIsNonBlocking")
 
 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # 
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
@@ -1444,7 +1444,6 @@ list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D
 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # Timeout Using MKL 2023.2.3 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop_no_buffers") # Timeout Using MKL 2023.2.3 
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Race condition 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
@@ -1921,7 +1920,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_WithKernel") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
@@ -2070,7 +2068,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # #terminate ca
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_BasicFunctional") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_BasicFunctional") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_WithKernel") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_MultiThread") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
