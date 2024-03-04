@@ -24,13 +24,31 @@
 
 #define SVM_ALIGNMENT 128
 
-void MemoryManager::init(cl::Context C, cl::Device D, CHIPContextUSMExts &U,
-                         bool FineGrain, bool IntelUSM) {
-  Device_ = D;
-  Context_ = C;
-  USM = U;
-  UseSVMFineGrain = FineGrain;
-  UseIntelUSM = IntelUSM;
+void MemoryManager::init(CHIPContextOpenCL* ChipCtxCl_) {
+
+  ChipCtxCl = ChipCtxCl_;
+  CHIPDeviceOpenCL* ChipDevCl = (CHIPDeviceOpenCL*)ChipCtxCl->getDevice();
+  Device_ = *ChipDevCl->get();
+  Context_ = *ChipCtxCl_->get();
+
+  std::memset(&USM, 0, sizeof(USM));
+
+  cl_device_svm_capabilities DeviceSVMCapabilities;
+  int Err = Device_.getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
+  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  ChipCtxCl->SupportsFineGrainSVM =
+      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
+  if (ChipCtxCl->SupportsFineGrainSVM) {
+    logTrace("Device supports fine grain SVM");
+  } else {
+    logTrace("Device does not support fine grain SVM");
+  }
+
+
+
+  USM = ChipCtxCl->USM;
+  UseSVMFineGrain = ChipCtxCl->SupportsFineGrainSVM;
+  UseIntelUSM = ChipCtxCl->SupportsIntelUSM;
 }
 
 MemoryManager &MemoryManager::operator=(MemoryManager &&Rhs) {
@@ -130,4 +148,7 @@ bool MemoryManager::pointerInfo(void *Ptr, void **Base, size_t *Size) {
   return false;
 }
 
-void MemoryManager::clear() { Allocations_.clear(); }
+void MemoryManager::clear() { 
+  Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
+  Allocations_.clear();
+  }

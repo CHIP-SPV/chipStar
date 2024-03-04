@@ -975,6 +975,7 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
 //*************************************************************************
 
 bool CHIPContextOpenCL::allDevicesSupportFineGrainSVMorUSM() {
+  // TODO ok now, but what if we have more devices per context?
   return SupportsFineGrainSVM || SupportsIntelUSM;
 }
 
@@ -988,10 +989,10 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
                                      cl::Platform Plat) {
   logTrace("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
 
+  ClContext = CtxIn;
   std::string DevExts = Dev.getInfo<CL_DEVICE_EXTENSIONS>();
-  std::memset(&USM, 0, sizeof(USM));
 
-#ifdef CHIP_USE_INTEL_USM
+  #ifdef CHIP_USE_INTEL_USM
   SupportsIntelUSM =
       DevExts.find("cl_intel_unified_shared_memory") != std::string::npos;
 #else
@@ -1015,19 +1016,7 @@ CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
     logDebug("Device does not support Intel USM");
   }
 
-  cl_device_svm_capabilities DeviceSVMCapabilities;
-  int Err = Dev.getInfo(CL_DEVICE_SVM_CAPABILITIES, &DeviceSVMCapabilities);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  SupportsFineGrainSVM =
-      DeviceSVMCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER;
-  if (SupportsFineGrainSVM) {
-    logTrace("Device supports fine grain SVM");
-  } else {
-    logTrace("Device does not support fine grain SVM");
-  }
-
-  ClContext = CtxIn;
-  MemManager_.init(ClContext, Dev, USM, SupportsFineGrainSVM, SupportsIntelUSM);
+  
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
@@ -1387,7 +1376,7 @@ void CHIPQueueOpenCL::finish() {
   LOCK(Backend->DubiousLockOpenCL)
 #endif
   auto Status = ClQueue_->finish();
-  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_ABORT(Status, CL_SUCCESS, hipErrorTbd);
 }
 
 std::shared_ptr<chipstar::Event>
@@ -1754,6 +1743,7 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   // Add device to context & backend
   ChipContext->setDevice(ChipDev);
+  ChipContext->MemManager_.init(ChipContext);
   logTrace("OpenCL Context Initialized.");
 };
 
