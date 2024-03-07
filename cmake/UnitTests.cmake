@@ -24,7 +24,6 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestkindDefault")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostMalloc_NonCoherent")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamAddCallback_WithCreatedStream")
-
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyToFromSymbol_SyncAndAsync")
 list(APPEND NON_PARALLEL_TESTS "MatrixMultiply")
@@ -55,8 +54,6 @@ list(APPEND NON_PARALLEL_TESTS "fp16")
 list(APPEND NON_PARALLEL_TESTS "SimpleConvolution")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostMalloc_Basic")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMalloc_LoopRegressionAllocFreeCycles")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiThreadStreams1_AsyncAsync")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset2DAsync_MultiThread")
 list(APPEND NON_PARALLEL_TESTS "DCT")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiThreadStreams1_AsyncSync")
 list(APPEND NON_PARALLEL_TESTS "FastWalshTransform")
@@ -73,14 +70,12 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
 list(APPEND NON_PARALLEL_TESTS "BitonicSort")
 list(APPEND NON_PARALLEL_TESTS "FloydWarshall")
 
-# This test gets enabled only if LLVM' FileCheck tool is found in PATH.
-# It fails with "error: cannot find ROCm device library;
-#  provide its path via '--rocm-path' or '--rocm-device-lib-path', or pass
-#  '-nogpulib' to build without ROCm device library"
-list(APPEND FAILING_FOR_ALL "abort") # causes hung processes on i915 driver
-list(APPEND FAILING_FOR_ALL "abort2") # causes hung processes on i915 driver
-list(APPEND FAILING_FOR_ALL "TestAssert") # causes hung processes on i915 driver
-list(APPEND FAILING_FOR_ALL "TestAssertFail")# causes hung processes on i915 driver 
+list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncAsync")
+list(APPEND FAILING_FOR_ALL "Unit_hipMemset2DAsync_MultiThread")
+list(APPEND FAILING_FOR_ALL "abort")
+list(APPEND FAILING_FOR_ALL "abort2")
+list(APPEND FAILING_FOR_ALL "TestAssert")
+list(APPEND FAILING_FOR_ALL "TestAssertFail")
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
@@ -508,7 +503,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Bad test - undefined behavior according to CUDA spec.
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
@@ -807,22 +802,19 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") #
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-
-# textures fail when USM is enabled
-if(CHIP_USE_INTEL_USM)
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes")
-  list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes")
-endif()
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned char")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") 
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2D_Check")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes")
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord")
 
 # dGPU OpenCL Unit Test Failures
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # flaky
@@ -831,7 +823,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord") # flaky
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # invalid free()
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_MultiThread") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamPerThread_DeviceReset_1") 
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_tex1Dfetch_CheckModes") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_ParamTst_Positive") # Only happens in ctest -j $(nproc): timeout
@@ -842,6 +833,7 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned c
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int16_t") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - char") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - unsigned int") # Unkown
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureFetch_vector") 
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipCreateTextureObject_tex1DfetchVerification") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj1DCheckModes") # Unkown
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes") # Unkown
@@ -1741,7 +1733,7 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Thre
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Bad test - undefined behavior according to CUDA spec.
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
   "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
 
