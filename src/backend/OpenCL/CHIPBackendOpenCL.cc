@@ -230,57 +230,48 @@ static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
 static std::unique_ptr<std::vector<std::shared_ptr<void>>>
 annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
                          cl_kernel KernelAPIHandle) {
-  // By default we pass every allocated SVM pointer at this point to
+  // By default we pass every allocated SVM/USM pointer at this point to
   // the clSetKernelExecInfo() since any of them could be potentially
   // be accessed indirectly by the kernel.
   //
   // TODO: Optimization. Don't call clSetKernelExecInfo() if the
   //       kernel is known not to access any buffer indirectly
   //       discovered through kernel code inspection.
+  //
+  // NOTE: For USM tried to use CL_KERNEL_EXEC_INFO_​INDIRECT_*_ACCESS_INTEL
+  //       instead of CL_KERNEL_EXEC_INFO_​USM_PTRS_INTEL but that lead to
+  //       CL_OUT_OF_RESOURCES errors on clEnqueueNDRangeKernel() calls and
+  //       segmentation faults inside the driver on multi-threaded cases.
 
-  std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
-  if (Ctx.usesUSM()) {
-    cl_bool Enable = CL_TRUE;
-    for (auto Param : {CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
-                       CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
-                       CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL}) {
-      auto Status =
-          clSetKernelExecInfo(KernelAPIHandle, Param, sizeof(cl_bool), &Enable);
-      CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
-    }
-
-    return SvmKeepAlives;
-  }
-
-  // Annotate SVM pointers.
-  assert(Ctx.usesSVM());
-
-  std::vector<void *> SvmAnnotationList;
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocKeepAlives;
+  std::vector<void *> AnnotationList;
   LOCK(Ctx.ContextMtx); // CHIPContextOpenCL::MemManager_
-  auto NumSvmAllocations = Ctx.getNumAllocations();
-  if (NumSvmAllocations) {
-    SvmAnnotationList.reserve(NumSvmAllocations);
-    SvmKeepAlives.reset(new std::vector<std::shared_ptr<void>>());
-    SvmKeepAlives->reserve(NumSvmAllocations);
-    for (std::shared_ptr<void> Ptr : Ctx.getSvmPointers()) {
-      SvmAnnotationList.push_back(Ptr.get());
-      SvmKeepAlives->push_back(Ptr);
+  auto NumAllocations = Ctx.getNumAllocations();
+  if (NumAllocations) {
+    AnnotationList.reserve(NumAllocations);
+    AllocKeepAlives.reset(new std::vector<std::shared_ptr<void>>());
+    AllocKeepAlives->reserve(NumAllocations);
+    for (std::shared_ptr<void> Ptr : Ctx.getAllocPointers()) {
+      AnnotationList.push_back(Ptr.get());
+      AllocKeepAlives->push_back(Ptr);
     }
 
     // TODO: Optimization. Don't call this function again if we know the
-    //       SvmAnnotationList hasn't changed since the last call.
+    //       AnnotationList hasn't changed since the last call.
     auto Status = clSetKernelExecInfo(
-        KernelAPIHandle, CL_KERNEL_EXEC_INFO_SVM_PTRS,
-        SvmAnnotationList.size() * sizeof(void *), SvmAnnotationList.data());
+        KernelAPIHandle,
+        Ctx.usesSVM() ? CL_KERNEL_EXEC_INFO_SVM_PTRS
+                      : CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
+        AnnotationList.size() * sizeof(void *), AnnotationList.data());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
 
-  return SvmKeepAlives;
+  return AllocKeepAlives;
 }
 
 struct KernelEventCallbackData {
   std::shared_ptr<chipstar::ArgSpillBuffer> ArgSpillBuffer;
-  std::unique_ptr<std::vector<std::shared_ptr<void>>> SvmKeepAlives;
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocKeepAlives;
 };
 static void CL_CALLBACK kernelEventCallback(cl_event Event,
                                             cl_int CommandExecStatus,
@@ -1275,13 +1266,13 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
     //   shared by exec item, which might get destroyed before the
     //   kernel is launched/completed
     //
-    // * Annotated indirect pointers may need to outlive the kernel
-    //   execution. The OpenCL spec does not clearly specify how long
-    //   the pointers, annotated via clSetKernelExecInfo(), needs to
-    //   live.
+    // * Annotated indirect SVM/USM pointers may need to outlive the
+    //   kernel execution. The OpenCL spec does not clearly specify
+    //   how long the pointers, annotated via clSetKernelExecInfo(),
+    //   needs to live.
     auto *CBData = new KernelEventCallbackData;
     CBData->ArgSpillBuffer = SpillBuf;
-    CBData->SvmKeepAlives = std::move(AllocationsToKeepAlive);
+    CBData->AllocKeepAlives = std::move(AllocationsToKeepAlive);
     Status = clSetEventCallback(
         std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativeRef(),
         CL_COMPLETE, kernelEventCallback, CBData);

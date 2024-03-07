@@ -127,7 +127,7 @@ struct CHIPContextUSMExts {
   clMemFreeINTEL_fn clMemFreeINTEL;
 };
 
-using const_svm_alloc_iterator = ConstMapKeyIterator<
+using const_alloc_iterator = ConstMapKeyIterator<
     std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
 
 class MemoryManager {
@@ -156,10 +156,10 @@ public:
   void clear();
 
   size_t getNumAllocations() const { return Allocations_.size(); }
-  IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
-    return IteratorRange<const_svm_alloc_iterator>(
-        const_svm_alloc_iterator(Allocations_.begin()),
-        const_svm_alloc_iterator(Allocations_.end()));
+  IteratorRange<const_alloc_iterator> getAllocPointers() const {
+    return IteratorRange<const_alloc_iterator>(
+        const_alloc_iterator(Allocations_.begin()),
+        const_alloc_iterator(Allocations_.end()));
   }
 
   bool usesUSM() const noexcept { return UseIntelUSM; }
@@ -191,9 +191,8 @@ public:
   cl::Context *get();
 
   size_t getNumAllocations() const { return MemManager_.getNumAllocations(); }
-  IteratorRange<const_svm_alloc_iterator> getSvmPointers() const {
-    assert(MemManager_.usesSVM());
-    return MemManager_.getSvmPointers();
+  IteratorRange<const_alloc_iterator> getAllocPointers() const {
+    return MemManager_.getAllocPointers();
   }
 
   bool usesUSM() const noexcept { return MemManager_.usesUSM(); }
