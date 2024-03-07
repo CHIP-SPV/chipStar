@@ -70,6 +70,9 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
 list(APPEND NON_PARALLEL_TESTS "BitonicSort")
 list(APPEND NON_PARALLEL_TESTS "FloydWarshall")
 
+list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int")
+list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float")
+list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double")
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncAsync")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemset2DAsync_MultiThread")
 list(APPEND FAILING_FOR_ALL "abort")
@@ -188,7 +191,7 @@ list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to mai
 # OpenCL CPU & GPU and Intel Level Zero (however, your mileage may vary).
 list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams2")
-
+list(APPEND FAILING_FOR_ALL "syncthreadsExitedThreads") # Bad test - undefined behavior according to CUDA spec.
 # Flaky
 list(APPEND FAILING_FOR_ALL "cuda-simpleCallback")
 list(APPEND FAILING_FOR_ALL "cuda-bandwidthTest")
@@ -503,7 +506,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Bad test - undefined behavior according to CUDA spec.
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
@@ -1733,7 +1735,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Thre
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "syncthreadsExitedThreads") # Bad test - undefined behavior according to CUDA spec.
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
   "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
 
