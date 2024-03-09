@@ -637,7 +637,6 @@ protected:
   bool UserEvent_ = false;
   event_status_e EventStatus_;
   chipstar::EventFlags Flags_;
-  std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
 
   bool Deleted_ = false;
 
@@ -656,6 +655,7 @@ protected:
   virtual ~Event() { logTrace("~Event() {}", (void *)this); };
 
 public:
+  std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
   void setRecording() {
     isDeletedSanityCheck();
     EventStatus_ = EVENT_STATUS_RECORDING;

@@ -455,16 +455,19 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
     if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
       CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
     }
-    if (Status == ZE_RESULT_SUCCESS)
+    if (Status == ZE_RESULT_SUCCESS) {
       EventStatus_ = EVENT_STATUS_RECORDED;
+      releaseDependencies();
+      doActions();
+      if (getAssignedCmdList())
+        unassignCmdList();
+    }
 
     EventStatusNew = getEventStatusStr();
   }
 
-  if (EventStatusNew != EventStatusOld) {
+  if (EventStatusNew != EventStatusOld)
     return true;
-  }
-
   return false;
 }
 
@@ -649,12 +652,10 @@ void CHIPEventMonitorLevel0::checkEvents() {
            "User events should not appear in EventMonitorLevel0");
 
     // updateFinishStatus will return true upon event state change.
-    if (ChipEventLz->updateFinishStatus(false)) {
-      ChipEventLz->releaseDependencies();
+    ChipEventLz->updateFinishStatus(false);
+
+    if (ChipEventLz->DependsOnList.size() == 0) {
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
-      if (ChipEventLz->getAssignedCmdList())
-        ChipEventLz->unassignCmdList();
-      ChipEventLz->doActions();
     }
 
     ChipEventLz->isDeletedSanityCheck();
