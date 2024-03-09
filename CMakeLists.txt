@@ -355,6 +355,7 @@ add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 file(MAKE_DIRECTORY ${HIPCC_BUILD_PATH})
 file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
+file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 
 add_subdirectory(bin)
 
