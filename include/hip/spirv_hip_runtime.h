@@ -48,6 +48,28 @@ THE SOFTWARE.
 #include <hip/spirv_texture_functions.h>
 #include <hip/spirv_hip_ldg.h>
 
+struct ihipEvent_t {};
+struct ihipCtx_t {};
+struct ihipStream_t {};
+struct ihipModule_t {};
+struct ihipModuleSymbol_t {};
+struct ihipGraph {};
+struct hipGraphNode {};
+struct hipGraphExec {};
+
+typedef struct hipArray {
+    void* data;  // FIXME: generalize this
+    struct hipChannelFormatDesc desc;
+    unsigned int type;
+    unsigned int width;
+    unsigned int height;
+    unsigned int depth;
+    enum hipArray_Format Format;
+    unsigned int NumChannels;
+    bool isDrv;
+    unsigned int textureType;
+}hipArray;
+
 // Feature tests:
 #if (defined(__HCC_ACCELERATOR__) && (__HCC_ACCELERATOR__ != 0)) ||            \
     __HIP_DEVICE_COMPILE__

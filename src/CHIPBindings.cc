@@ -46,7 +46,7 @@
 #include "CHIPException.hh"
 #include "common.hh"
 #include "hip/hip_interop.h"
-#include "hip/hip_runtime_api.h"
+#include "hip/spirv_hip_runtime.h"
 #include "hip/spirv_spt.h"
 #include "hip_conversions.hh"
 #include "macros.hh"
@@ -72,6 +72,233 @@
   reinterpret_cast<CHIPGraphNode **>(const_cast<hipGraphNode_t *>(x))
 
 hipError_t hipFreeArray(hipArray *Array);
+
+hipError_t hipMallocMipmappedArray(hipMipmappedArray_t *mipmappedArray,
+                                   const struct hipChannelFormatDesc *desc,
+                                   struct hipExtent extent,
+                                   unsigned int numLevels,
+                                   unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDeviceGetGraphMemAttribute(int device,
+                                         hipGraphMemAttributeType attr,
+                                         void *value) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDeviceGraphMemTrim(int device) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDeviceSetGraphMemAttribute(int device,
+                                         hipGraphMemAttributeType attr,
+                                         void *value) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDrvGetErrorName(hipError_t hipError, const char **errorString) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipDrvGetErrorString(hipError_t hipError, const char **errorString) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipFreeMipmappedArray(hipMipmappedArray_t mipmappedArray) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipFuncSetAttribute(const void *func, hipFuncAttribute attr,
+                               int value) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGetMipmappedArrayLevel(hipArray_t *levelArray,
+                                     hipMipmappedArray_const_t mipmappedArray,
+                                     unsigned int level) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphAddMemAllocNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
+                                   const hipGraphNode_t *pDependencies,
+                                   size_t numDependencies,
+                                   hipMemAllocNodeParams *pNodeParams) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphAddMemFreeNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
+                                  const hipGraphNode_t *pDependencies,
+                                  size_t numDependencies, void *dptr) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphDebugDotPrint(hipGraph_t graph, const char *path,
+                                 unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphKernelNodeCopyAttributes(hipGraphNode_t hSrc,
+                                            hipGraphNode_t hDst) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphKernelNodeGetAttribute(hipGraphNode_t hNode,
+                                          hipKernelNodeAttrID attr,
+                                          hipKernelNodeAttrValue *value) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphKernelNodeSetAttribute(hipGraphNode_t hNode,
+                                          hipKernelNodeAttrID attr,
+                                          const hipKernelNodeAttrValue *value) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphMemAllocNodeGetParams(hipGraphNode_t node,
+                                         hipMemAllocNodeParams *pNodeParams) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphMemFreeNodeGetParams(hipGraphNode_t node, void *dptr) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphNodeGetEnabled(hipGraphExec_t hGraphExec,
+                                  hipGraphNode_t hNode,
+                                  unsigned int *isEnabled) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphNodeSetEnabled(hipGraphExec_t hGraphExec,
+                                  hipGraphNode_t hNode,
+                                  unsigned int isEnabled) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipGraphUpload(hipGraphExec_t graphExec, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMallocMipmappedArray(hipMipmappedArray_t mipmappedArray,
+                                   const struct hipChannelFormatDesc desc,
+                                   struct hipExtent extent,
+                                   unsigned int numLevels, unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemAddressFree(void *devPtr, size_t size) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemAddressReserve(void **ptr, size_t size, size_t alignment,
+                                void *addr, unsigned long long flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemCreate(hipMemGenericAllocationHandle_t *handle, size_t size,
+                        const hipMemAllocationProp *prop,
+                        unsigned long long flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t
+hipMemGetAllocationGranularity(size_t *granularity,
+                               const hipMemAllocationProp *prop,
+                               hipMemAllocationGranularity_flags option) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemMap(void *ptr, size_t size, size_t offset,
+                     hipMemGenericAllocationHandle_t handle,
+                     unsigned long long flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemPoolExportPointer(hipMemPoolPtrExportData *shareData,
+                                   void *ptr) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t
+hipMemPoolExportToShareableHandle(void *shareableHandle, hipMemPool_t memPool,
+                                  hipMemAllocationHandleType handleType,
+                                  unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemPoolImportFromShareableHandle(
+    hipMemPool_t *memPool, void *shareableHandle,
+    hipMemAllocationHandleType handleType, unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemPoolImportPointer(void **ptr, hipMemPool_t memPool,
+                                   hipMemPoolPtrExportData *shareData) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemRelease(hipMemGenericAllocationHandle_t handle) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemRetainAllocationHandle(hipMemGenericAllocationHandle_t *handle,
+                                        void *addr) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipMemUnmap(void *ptr, size_t size) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipSignalExternalSemaphoresAsync(
+    const hipExternalSemaphore_t *extSemArray,
+    const hipExternalSemaphoreSignalParams *paramsArray,
+    unsigned int numExtSems, hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipStreamGetDevice(hipStream_t stream, hipDevice_t *device) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipStreamUpdateCaptureDependencies(hipStream_t stream,
+                                              hipGraphNode_t *dependencies,
+                                              size_t numDependencies,
+                                              unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipStreamWaitValue32(hipStream_t stream, void *ptr, uint32_t value,
+                                unsigned int flags, uint32_t mask) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipStreamWaitValue64(hipStream_t stream, void *ptr, uint64_t value,
+                                unsigned int flags, uint64_t mask) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipStreamWriteValue32(hipStream_t stream, void *ptr, uint32_t value,
+                                 unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipStreamWriteValue64(hipStream_t stream, void *ptr, uint64_t value,
+                                 unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipThreadExchangeStreamCaptureMode(hipStreamCaptureMode *mode) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipWaitExternalSemaphoresAsync(
+    const hipExternalSemaphore_t *extSemArray,
+    const hipExternalSemaphoreWaitParams *paramsArray, unsigned int numExtSems,
+    hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
 
 hipError_t hipDeviceGetP2PAttribute(int *value, hipDeviceP2PAttr attr,
                                     int srcDevice, int dstDevice) {
@@ -1255,7 +1482,7 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
       attributes->devicePointer = const_cast<void *>(ptr);
       attributes->hostPointer = AllocInfo->HostPtr;
       attributes->isManaged = AllocInfo->Managed;
-      attributes->memoryType = AllocInfo->MemoryType;
+      // attributes->memoryType = AllocInfo->MemoryType;
 
       // Seems strange but the expected behavior is that if
       // hipPointerGetAttributes gets called with an offset host pointer, the

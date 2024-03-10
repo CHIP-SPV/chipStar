@@ -2087,7 +2087,6 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.pciDeviceID = 0x40 + getDeviceId();
   HipDeviceProps_.isMultiGpuBoard = 0;
   HipDeviceProps_.canMapHostMemory = 1;
-  HipDeviceProps_.gcnArch = 0;
   HipDeviceProps_.integrated =
       (ZeDeviceProps_.flags & ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) ? 1 : 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
