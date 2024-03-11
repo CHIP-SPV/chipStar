@@ -71,6 +71,10 @@
 #define DECONST_NODES(x)                                                       \
   reinterpret_cast<CHIPGraphNode **>(const_cast<hipGraphNode_t *>(x))
 
+hipError_t hipModuleGetTexRef(textureReference** texRef, hipModule_t hmod, const char* name) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
 hipError_t hipFreeArray(hipArray *Array);
 
 hipError_t hipStreamAttachMemAsync(hipStream_t stream, void *dev_ptr,
@@ -4071,6 +4075,10 @@ hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
   CHIP_CATCH
 }
 
+hipError_t hipFuncGetAttribute(int* value, hipFunction_attribute attrib, hipFunction_t hfunc) {
+  UNIMPLEMENTED(hipErrorTbd);
+}
+
 hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
                               hipModule_t Hmod, const char *Name) {
   CHIP_TRY
@@ -5109,6 +5117,33 @@ hipError_t hipLaunchCooperativeKernel_spt(const void *f, dim3 gridDim,
                                           dim3 blockDim, void **kernelParams,
                                           uint32_t sharedMemBytes,
                                           hipStream_t hStream) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipModuleLaunchCooperativeKernel(
+    hipFunction_t f, unsigned int gridDimX, unsigned int gridDimY,
+    unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY,
+    unsigned int blockDimZ, unsigned int sharedMemBytes, hipStream_t stream,
+    void **kernelParams) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipModuleLaunchCooperativeKernelMultiDevice(
+    hipFunctionLaunchParams *launchParamsList, unsigned int numDevices,
+    unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t hipLaunchCooperativeKernel(const void *f, dim3 gridDim,
+                                      dim3 blockDimX, void **kernelParams,
+                                      unsigned int sharedMemBytes,
+                                      hipStream_t stream) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
+hipError_t
+hipLaunchCooperativeKernelMultiDevice(hipLaunchParams *launchParamsList,
+                                      int numDevices, unsigned int flags) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
