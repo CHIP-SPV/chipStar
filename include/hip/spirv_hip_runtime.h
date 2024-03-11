@@ -57,6 +57,8 @@ struct ihipGraph {};
 struct hipGraphNode {};
 struct hipGraphExec {};
 
+#define __managed__ __device__
+
 typedef struct hipArray {
     void* data;  // FIXME: generalize this
     struct hipChannelFormatDesc desc;
