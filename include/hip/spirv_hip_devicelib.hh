@@ -158,6 +158,79 @@ EXPORT unsigned long long clock64() {
 //       loss can be avoided.
 EXPORT clock_t clock() { return (clock_t)clock64(); }
 
+// Given a 32/64-bit value exec mask and an integer value base (between 0 and WAVEFRONT_SIZE),
+// find the n-th (given by offset) set bit in the exec mask from the base bit, and return the bit position.
+// If not found, return -1.
+__device__  static int32_t __fns64(uint64_t mask, uint32_t base, int32_t offset) {
+  uint64_t temp_mask = mask;
+  int32_t temp_offset = offset;
+
+  if (offset == 0) {
+    temp_mask &= (1 << base);
+    temp_offset = 1;
+  }
+  else if (offset < 0) {
+    temp_mask = __builtin_bitreverse64(mask);
+    base = 63 - base;
+    temp_offset = -offset;
+  }
+
+  temp_mask = temp_mask & ((~0ULL) << base);
+  if (__builtin_popcountll(temp_mask) < temp_offset)
+    return -1;
+  int32_t total = 0;
+  for (int i = 0x20; i > 0; i >>= 1) {
+    uint64_t temp_mask_lo = temp_mask & ((1ULL << i) - 1);
+    int32_t pcnt = __builtin_popcountll(temp_mask_lo);
+    if (pcnt < temp_offset) {
+      temp_mask = temp_mask >> i;
+      temp_offset -= pcnt;
+      total += i;
+    }
+    else {
+      temp_mask = temp_mask_lo;
+    }
+  }
+  if (offset < 0)
+    return 63 - total;
+  else
+    return total;
+}
+
+__device__ static int32_t __fns32(uint64_t mask, uint32_t base, int32_t offset) {
+  uint64_t temp_mask = mask;
+  int32_t temp_offset = offset;
+  if (offset == 0) {
+    temp_mask &= (1 << base);
+    temp_offset = 1;
+  }
+  else if (offset < 0) {
+    temp_mask = __builtin_bitreverse64(mask);
+    base = 63 - base;
+    temp_offset = -offset;
+  }
+  temp_mask = temp_mask & ((~0ULL) << base);
+  if (__builtin_popcountll(temp_mask) < temp_offset)
+    return -1;
+  int32_t total = 0;
+  for (int i = 0x20; i > 0; i >>= 1) {
+    uint64_t temp_mask_lo = temp_mask & ((1ULL << i) - 1);
+    int32_t pcnt = __builtin_popcountll(temp_mask_lo);
+    if (pcnt < temp_offset) {
+      temp_mask = temp_mask >> i;
+      temp_offset -= pcnt;
+      total += i;
+    }
+    else {
+      temp_mask = temp_mask_lo;
+    }
+  }
+  if (offset < 0)
+    return 63 - total;
+  else
+    return total;
+}
+
 #include <hip/spirv_hip_runtime.h>
 
 #endif
