@@ -73,11 +73,15 @@
 
 hipError_t hipFreeArray(hipArray *Array);
 
+hipError_t hipStreamAttachMemAsync(hipStream_t stream, void *dev_ptr,
+                                   size_t length, unsigned int flags) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
 hipError_t hipMallocMipmappedArray(hipMipmappedArray_t *mipmappedArray,
                                    const struct hipChannelFormatDesc *desc,
                                    struct hipExtent extent,
-                                   unsigned int numLevels,
-                                   unsigned int flags) {
+                                   unsigned int numLevels, unsigned int flags) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
