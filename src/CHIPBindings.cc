@@ -77,6 +77,10 @@ hipError_t hipModuleGetTexRef(textureReference** texRef, hipModule_t hmod, const
 
 hipError_t hipFreeArray(hipArray *Array);
 
+hipError_t hipFuncSetSharedMemConfig(const void* func, hipSharedMemConfig config) {
+  UNIMPLEMENTED(hipErrorNotSupported);
+}
+
 hipError_t hipStreamAttachMemAsync(hipStream_t stream, void *dev_ptr,
                                    size_t length, unsigned int flags) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -4889,6 +4893,8 @@ hipOccupancyMaxActiveBlocksPerMultiprocessor(int *NumBlocks, const void *Func,
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
+
+  
 
 hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
     int *NumBlocks, const void *Func, int BlockSize, size_t DynSharedMemPerBlk,
