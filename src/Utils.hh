@@ -144,4 +144,7 @@ template <class T> struct PointerCmp {
   }
 };
 
+void copyKernelArgs(std::vector<void *> &ArgList, std::vector<char> &ArgData,
+                    void **CopyFrom, const SPVFuncInfo &FuncInfo);
+
 #endif

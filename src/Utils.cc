@@ -259,3 +259,41 @@ bool startsWith(std::string_view Str, std::string_view WithStr) {
   return Str.size() >= WithStr.size() &&
          Str.substr(0, WithStr.size()) == WithStr;
 }
+
+/// Deep copies kernel arguments pointed by 'CopyArg'. Bytes of the
+/// argument values are stored in 'ArgData'. 'ArgList[I]' points to
+/// the argument value in 'ArgData' for Ith kernel argument.
+void copyKernelArgs(std::vector<void *> &ArgList, std::vector<char> &ArgData,
+                    void **CopyFrom, const SPVFuncInfo &FuncInfo) {
+
+  ArgList.clear();
+  ArgData.clear();
+
+  std::vector<size_t> Offsets;
+  size_t CurrOffset = 0;
+
+  auto CopyArgData = [&](const SPVFuncInfo::ClientArg &Arg) {
+    assert((Arg.Kind == SPVTypeKind::POD || Arg.Kind == SPVTypeKind::Pointer) &&
+           "Unexpected argument kind.");
+
+    size_t Size = Arg.Size;
+    size_t Alignment = roundUpToPowerOfTwo(Size);
+    assert(Size && Alignment && "Invalid arg size or alignment!");
+
+    CurrOffset = roundUp(CurrOffset, Alignment);
+    logDebug("arg {} tgt offset: {}", Arg.Index, CurrOffset);
+    Offsets.push_back(CurrOffset);
+    assert(CurrOffset >= ArgData.size());
+
+    ArgData.resize(CurrOffset + Size, 0);
+    std::memcpy(ArgData.data() + CurrOffset, Arg.Data, Size);
+
+    CurrOffset += Size;
+  };
+  FuncInfo.visitClientArgs(CopyFrom, CopyArgData);
+
+  ArgList.reserve(Offsets.size());
+  char *BasePtr = ArgData.data();
+  for (auto Offset : Offsets)
+    ArgList.push_back(static_cast<void *>(BasePtr + Offset));
+}

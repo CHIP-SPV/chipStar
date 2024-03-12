@@ -34,7 +34,7 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
       ::Backend->createExecItem(GridDim, BlockDim, SharedMemSize, Q);
   EI->setKernel(K);
 
-  EI->copyArgs(Args);
+  EI->setArgs(Args);
   EI->setupAllArgs();
 
   auto ChipQueue = EI->getQueue();
@@ -497,11 +497,6 @@ void *chipstar::ArgSpillBuffer ::allocate(const SPVFuncInfo::Arg &Arg) {
 
 // ExecItem
 //*************************************************************************************
-void chipstar::ExecItem::copyArgs(void **Args) {
-  for (int i = 0; i < getNumArgs(); i++) {
-    Args_.push_back(Args[i]);
-  }
-}
 
 chipstar::ExecItem::ExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                              hipStream_t ChipQueue)
@@ -1890,7 +1885,7 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
   chipstar::ExecItem *ExItem =
       ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExItem->setKernel(ChipKernel);
-  ExItem->copyArgs(Args);
+  ExItem->setArgs(Args);
   ExItem->setupAllArgs();
   launch(ExItem);
   delete ExItem;
