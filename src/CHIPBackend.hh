@@ -500,6 +500,9 @@ private:
   std::unordered_set<chipstar::AllocationInfo *> AllocInfos_;
   std::unordered_map<void *, chipstar::AllocationInfo *> PtrToAllocInfo_;
 
+  size_t NumHostAllocations_ = 0;
+  size_t NumManagedAllocations_ = 0;
+
 public:
   mutable std::mutex AllocationTrackerMtx;
 
@@ -522,6 +525,7 @@ public:
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
     AllocInfo->MemoryType = hipMemoryTypeManaged;
     AllocInfo->IsHostRegistered = true;
+    NumManagedAllocations_ += 1;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -604,6 +608,20 @@ public:
     assert(AllocInfo && "Null pointer passed to eraseRecord");
     assert(AllocInfos_.count(AllocInfo) &&
            "Not a member of the allocation tracker!");
+
+    switch (AllocInfo->MemoryType) {
+    default:
+      break;
+    case hipMemoryTypeHost:
+      assert(NumHostAllocations_ > 0);
+      NumHostAllocations_ -= 1;
+      break;
+    case hipMemoryTypeManaged:
+      assert(NumManagedAllocations_ > 0);
+      NumManagedAllocations_ -= 1;
+      break;
+    }
+
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -623,6 +641,10 @@ public:
   }
 
   size_t getNumAllocations() const { return AllocInfos_.size(); }
+
+  // Return the number of host type allocations.
+  size_t getNumHostAllocations() const { return NumHostAllocations_; }
+  size_t getNumManagedAllocations() const { return NumManagedAllocations_; }
 };
 
 class DeviceVar {
