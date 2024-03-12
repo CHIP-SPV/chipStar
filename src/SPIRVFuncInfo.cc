@@ -85,7 +85,7 @@ std::string_view SPVFuncInfo::Arg::getKindAsString() const {
 }
 
 /// Client side kernel argument visitor.
-void SPVFuncInfo::visitClientArgsImpl(const std::vector<void *> &ClientArgList,
+void SPVFuncInfo::visitClientArgsImpl(void **ClientArgList,
                                       ClientArgVisitor Visitor) const {
 
   unsigned ArgListIndex = 0;
@@ -113,12 +113,10 @@ void SPVFuncInfo::visitClientArgsImpl(const std::vector<void *> &ClientArgList,
       // Image argument replaced hipTextureObject_t argument.
       ArgKind = SPVTypeKind::Pointer;
 
-    auto *ArgData =
-        ClientArgList.empty() ? nullptr : ClientArgList[ArgListIndex];
+    auto *ArgData = !ClientArgList ? nullptr : ClientArgList[ArgListIndex];
 
     // Clang generated argument list should not have nullptrs in it.
-    assert((ClientArgList.empty() || ArgData) &&
-           "nullptr in the argument list");
+    assert((!ClientArgList || ArgData) && "nullptr in the argument list");
 
     ClientArg CArg{
         {{ArgKind, ArgTI.StorageClass, ArgSize}, ArgListIndex, ArgData}};
@@ -128,19 +126,18 @@ void SPVFuncInfo::visitClientArgsImpl(const std::vector<void *> &ClientArgList,
 }
 
 /// Visit client-visible kernel arguments
-void SPVFuncInfo::visitClientArgs(const std::vector<void *> &ClientArgList,
+void SPVFuncInfo::visitClientArgs(void **ClientArgList,
                                   ClientArgVisitor Visitor) const {
-  assert(ClientArgList.size() == getNumClientArgs());
   visitClientArgsImpl(ClientArgList, Visitor);
 }
 
 /// Visit client-visible kernel arguments without the argument value
 /// (Arg::Data will be nullptr).
 void SPVFuncInfo::visitClientArgs(ClientArgVisitor Visitor) const {
-  visitClientArgsImpl(std::vector<void *>(), Visitor);
+  visitClientArgsImpl(nullptr, Visitor);
 }
 
-void SPVFuncInfo::visitKernelArgsImpl(const std::vector<void *> &ClientArgList,
+void SPVFuncInfo::visitKernelArgsImpl(void **ClientArgList,
                                       KernelArgVisitor Visitor) const {
   unsigned ArgIndex = 0;
   unsigned ArgListIndex = 0;
@@ -156,7 +153,7 @@ void SPVFuncInfo::visitKernelArgsImpl(const std::vector<void *> &ClientArgList,
       ArgListIndex--;
 
     const void *ArgData = nullptr;
-    if (!ClientArgList.empty() && !ArgTI.isWorkgroupPtr()) {
+    if (ClientArgList && !ArgTI.isWorkgroupPtr()) {
       ArgData = ClientArgList[ArgListIndex];
 
       // Clang geerated  argument list should not have nullptrs in it.
@@ -172,15 +169,14 @@ void SPVFuncInfo::visitKernelArgsImpl(const std::vector<void *> &ClientArgList,
 }
 
 // Visit kernel arguments
-void SPVFuncInfo::visitKernelArgs(const std::vector<void *> &ClientArgList,
+void SPVFuncInfo::visitKernelArgs(void **ClientArgList,
                                   KernelArgVisitor Visitor) const {
-  assert(ClientArgList.size() == getNumClientArgs());
   visitKernelArgsImpl(ClientArgList, Visitor);
 }
 
 /// Visit kernel arguments without argument list (Arg::Data will be nullptr)
 void SPVFuncInfo::visitKernelArgs(KernelArgVisitor Visitor) const {
-  visitKernelArgsImpl(std::vector<void *>(), Visitor);
+  visitKernelArgsImpl(nullptr, Visitor);
 }
 
 /// Return HIP user visible kernel argument count.

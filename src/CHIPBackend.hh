@@ -1154,12 +1154,12 @@ protected:
 
   chipstar::Queue *ChipQueue_;
 
-  std::vector<void *> Args_;
+  void **Args_;
 
   std::shared_ptr<chipstar::ArgSpillBuffer> ArgSpillBuffer_;
 
 public:
-  void copyArgs(void **Args);
+  void setArgs(void **Args) { Args_ = Args; }
   void setQueue(chipstar::Queue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() {
@@ -1171,7 +1171,7 @@ public:
   /**
    * @brief Return argument list.
    */
-  const std::vector<void *> &getArgs() const { return Args_; }
+  void **getArgs() const { return Args_; }
 
   /**
    * @brief Deleted default constructor

@@ -125,18 +125,22 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
   Params_.extra = TheParams->extra;
   Params_.func = TheParams->func;
   Params_.gridDim = TheParams->gridDim;
-  Params_.kernelParams = TheParams->kernelParams;
   Params_.sharedMemBytes = TheParams->sharedMemBytes;
+
   auto Dev = Backend->getActiveDevice();
   chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
   if (!ChipKernel)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
+
+  copyKernelArgs(ArgList_, ArgData_, TheParams->kernelParams,
+                 *ChipKernel->getFuncInfo());
+  Params_.kernelParams = ArgList_.data();
+
   ExecItem_ = Backend->createExecItem(Params_.gridDim, Params_.blockDim,
                                       Params_.sharedMemBytes, nullptr);
   ExecItem_->setKernel(ChipKernel);
-
-  ExecItem_->copyArgs(TheParams->kernelParams);
+  ExecItem_->setArgs(TheParams->kernelParams);
   ExecItem_->setupAllArgs();
 }
 
@@ -149,7 +153,6 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   Params_.extra = nullptr;
   Params_.func = const_cast<void *>(HostFunction);
   Params_.gridDim = GridDim;
-  Params_.kernelParams = Args;
   Params_.sharedMemBytes = SharedMem;
 
   auto Dev = Backend->getActiveDevice();
@@ -157,10 +160,13 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   if (!ChipKernel)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
+
+  copyKernelArgs(ArgList_, ArgData_, Args, *ChipKernel->getFuncInfo());
+  Params_.kernelParams = ArgList_.data();
+
   ExecItem_ = Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setKernel(ChipKernel);
-
-  ExecItem_->copyArgs(Args);
+  ExecItem_->setArgs(Params_.kernelParams);
   ExecItem_->setupAllArgs();
 }
 
