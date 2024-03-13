@@ -133,6 +133,7 @@ Please refer to the [user documentation](docs/Using.md) for instructions on how 
 CHIP_BE=<opencl/level0>                         # Selects the backend to use. If both Level Zero and OpenCL are available, Level Zero is used by default
 CHIP_PLATFORM=<N>                               # If there are multiple platforms present on the system, selects which one to use. Defaults to 0
 CHIP_DEVICE=<N>                                 # If there are multiple devices present on the system, selects which one to use. Defaults to 0
+CHIP_DEVICE_TYPE=<gpu/cpu/accel/fpga> or empty  # Selects which type of device to use. Defaults to empty.
 CHIP_LOGLEVEL=<trace/debug/info/warn/err/crit>  # Sets the log level. If compiled in RELEASE, only err/crit are available
 CHIP_DUMP_SPIRV=<ON/OFF(default)>               # Dumps the generated SPIR-V code to a file
 CHIP_JIT_FLAGS=<flags>                          # String to override the default JIT flags. Defaults to -cl-kernel-arg-info -cl-std=CL3.0

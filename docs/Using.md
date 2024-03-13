@@ -14,11 +14,20 @@ If set to "default" (or unset), it automatically selects any available backend i
 #### CHIP_LOGLEVEL
 
 Selects the verbosity of debug info during execution.
-Possible values: trace, debug (default for Debug builds), warn (default for non-Debug builds), err, crit
+Possible values: `trace`, `debug` (default for Debug builds), `warn` (default for non-Debug builds), `err`, `crit`.
+
+Note that the values `trace` and `debug` need chipStar to be compiled in DEBUG mode.
 
 Setting this value to `debug` will print information coming from the chipStar functions which are shared between the backends.
 
 Settings this value to `trace` will print `debug`, as well as debug infomarmation from the backend implementation itself such as results from low-level Level Zero API calls.
+
+#### CHIP_DEVICE_TYPE
+Selects which type of device to use. 
+
+Possible values for Level 0 backend are: `gpu` and `fpga`. Leaving it empty uses all available devices.
+
+Possible values for OpenCL backend are: `gpu`, `cpu` , `accel`. Leaving it empty uses GPU devices.
 
 #### HIP_PLATFORM
 
