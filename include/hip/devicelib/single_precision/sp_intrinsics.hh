@@ -41,6 +41,7 @@
  */
 
 extern "C++" __device__ float native_cos(float x); // OpenCL
+extern "C++" __device__ float cos(float x);        // OpenCL
 extern "C++" inline __device__ float __cosf(float x) {
 #ifdef CHIP_FAST_MATH
   return native_cos(x);
@@ -50,6 +51,7 @@ extern "C++" inline __device__ float __cosf(float x) {
 }
 
 extern "C++" __device__ float native_exp10(float x); // OpenCL
+extern "C++" __device__ float exp10(float x);        // OpenCL
 extern "C++" inline __device__ float __exp10f(float x) {
 #ifdef CHIP_FAST_MATH
   return native_exp10(x);
@@ -59,6 +61,7 @@ extern "C++" inline __device__ float __exp10f(float x) {
 }
 
 extern "C++" __device__ float native_exp(float x); // OpenCL
+extern "C++" __device__ float exp(float x);        // OpenCL
 extern "C++" inline __device__ float __expf(float x) {
 #ifdef CHIP_FAST_MATH
   return native_exp(x);
@@ -144,6 +147,7 @@ extern "C++" inline __device__ float __fdiv_rz(float x, float y) {
 #endif
 
 extern "C++" __device__ float native_divide(float x, float y); // OpenCL
+extern "C++" __device__ float divide(float x, float y);        // OpenCL
 extern "C++" inline __device__ float __fdividef(float x, float y) {
 #ifdef CHIP_FAST_MATH
   return native_divide(x, y);
@@ -347,6 +351,7 @@ extern "C++" inline __device__ float __fsub_rz(float x, float y) {
 #endif
 
 extern "C++" __device__ float native_log10(float x); // OpenCL
+extern "C++" __device__ float log10(float x);        // OpenCL
 extern "C++" inline __device__ float __log10f(float x) {
 #ifdef CHIP_FAST_MATH
     return native_log10(x);
@@ -356,6 +361,7 @@ extern "C++" inline __device__ float __log10f(float x) {
 }
 
 extern "C++" __device__ float native_log2(float x); // OpenCL
+extern "C++" __device__ float log2(float x);        // OpenCL
 extern "C++" inline __device__ float __log2f(float x) {
 #ifdef CHIP_FAST_MATH
     return native_log2(x);
@@ -365,6 +371,7 @@ extern "C++" inline __device__ float __log2f(float x) {
 }
 
 extern "C++" __device__ float native_log(float x); // OpenCL
+extern "C++" __device__ float log(float x);        // OpenCL
 extern "C++" inline __device__ float __logf(float x) {
 #ifdef CHIP_FAST_MATH
     return native_log(x);
@@ -374,6 +381,7 @@ extern "C++" inline __device__ float __logf(float x) {
 }
 
 extern "C++" __device__ float native_exp2(float x); // OpenCL
+extern "C++" __device__ float exp2(float x);        // OpenCL
 // extern "C++" inline __device__ float native_log2 ( float  x, float  y ); //
 // OpenCL (already declared)
 extern "C++" inline __device__ float __powf(float x, float y) {
@@ -392,6 +400,7 @@ extern "C++" inline __device__ float __saturatef(float x) {
 // extern "C++" __device__ float native_cos(float x); // OpenCL (already
 // declared)
 extern "C++" __device__ float native_sin(float x); // OpenCL
+extern "C++" __device__ float sin(float x);        // OpenCL
 extern "C++" inline __device__ void __sincosf(float x, float *sptr,
                                               float *cptr) {
 #ifdef CHIP_FAST_MATH
@@ -409,6 +418,7 @@ extern "C++" inline __device__ void __sincosf(float x, float *sptr,
 extern "C++" inline __device__ float __sinf(float x) { return native_sin(x); }
 
 extern "C++" __device__ float native_tan(float x); // OpenCL
+extern "C++" __device__ float tan(float x);        // OpenCL
 extern "C++" inline __device__ float __tanf(float x) {
 #ifdef CHIP_FAST_MATH
     return native_tan(x);
