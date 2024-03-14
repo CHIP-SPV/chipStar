@@ -579,9 +579,13 @@ public:
       assert(Fi != KernelInfoMap_.end());
       auto FnInfo = Fi->second;
 
-      if (SpilledArgAnnotations_.count(KernelName))
-        for (auto &Kv : SpilledArgAnnotations_[KernelName])
-          FnInfo->SpilledArgs_.insert(Kv);
+      if (SpilledArgAnnotations_.count(KernelName)) {
+        FnInfo->HasByRefArgs_ = true;
+        for (auto &Kv : SpilledArgAnnotations_[KernelName]) {
+          FnInfo->ArgTypeInfo_[Kv.first].Kind = SPVTypeKind::PODByRef;
+          FnInfo->ArgTypeInfo_[Kv.first].Size = Kv.second;
+        }
+      }
 
       ModuleInfo.FuncInfoMap.emplace(std::make_pair(i.second, FnInfo));
     }
