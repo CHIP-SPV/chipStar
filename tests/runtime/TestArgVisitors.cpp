@@ -34,6 +34,12 @@ int main() {
   ArgInfo.emplace_back(
       SPVArgTypeInfo{SPVTypeKind::POD, SPVStorageClass::CrossWorkgroup, 16});
 
+  // Arg 5: Simulate PODByRef - a POD argument too large to fit in
+  // driver's argument buffer so it is instead passed indirectly via a
+  // device buffer.
+  ArgInfo.emplace_back(SPVArgTypeInfo{
+      SPVTypeKind::PODByRef, SPVStorageClass::CrossWorkgroup, 1 << 20});
+
   // Simulate dynamic shared memory pointer. HipDynMem.cpp inserts it
   // at the end of the paremeter list
   ArgInfo.emplace_back(
@@ -42,13 +48,13 @@ int main() {
   SPVFuncInfo FI(ArgInfo);
 
   // Simulate client-side arguments.
-  int a, b, c, d, e;
-  std::vector<void *> ArgList{&a, &b, &c, &d, &e};
+  int a, b, c, d, e, f;
+  std::vector<void *> ArgList{&a, &b, &c, &d, &e, &f};
 
   // Test visitors.
 
-  assert(FI.getNumClientArgs() == 5);
-  assert(FI.getNumKernelArgs() == 8);
+  assert(FI.getNumClientArgs() == 6);
+  assert(FI.getNumKernelArgs() == 9);
 
   unsigned ArgIdx = 0;
   FI.visitClientArgs([&](const SPVFuncInfo::ClientArg &Arg) {
@@ -74,7 +80,9 @@ int main() {
     else if (Arg.Index == 4)
       assert(Arg.Kind == SPVTypeKind::POD);
     // Skip workgroup pointer for dynamic shared pointer.
-    else {
+    else if (Arg.Index == 5) {
+      assert(Arg.Kind == SPVTypeKind::POD);
+    } else {
       assert(false && "Broken test.");
       exit(1);
     }
@@ -113,6 +121,9 @@ int main() {
       assert(Arg.Kind == SPVTypeKind::POD);
       assert(Arg.Data == ArgList.at(4));
     } else if (Arg.Index == 7) {
+      assert(Arg.Kind == SPVTypeKind::PODByRef);
+      assert(Arg.Data == ArgList.at(5));
+    } else if (Arg.Index == 8) {
       assert(Arg.Kind == SPVTypeKind::Pointer);
       assert(Arg.isWorkgroupPtr());
       assert(Arg.Data == nullptr);
