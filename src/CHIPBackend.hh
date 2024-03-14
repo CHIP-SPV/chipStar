@@ -1310,7 +1310,10 @@ class Device {
 protected:
   std::string DeviceName_;
   chipstar::Context *Ctx_;
-  std::vector<chipstar::Queue *> ChipQueues_;
+
+  /// List of user created queues.
+  std::vector<chipstar::Queue *> UserQueues_;
+
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1341,7 +1344,10 @@ public:
   std::mutex DeviceMtx;
   std::mutex QueueAddRemoveMtx;
 
-  std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
+  std::vector<chipstar::Queue *> getQueuesNoLock() { return UserQueues_; }
+
+  /// Return the number of user created queues.
+  size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<chipstar::Queue>
@@ -2131,9 +2137,9 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
-  std::pair<SharedEventVector, LockGuardVector> getSyncQueuesLastEvents();
   std::pair<SharedEventVector, LockGuardVector>
-  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent);
+  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent,
+                          bool IncludeSelfLastEvent);
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}

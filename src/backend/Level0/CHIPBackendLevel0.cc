@@ -830,7 +830,8 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents(TargetEvent);
+  auto [EventsToWaitOn, EventLocks] =
+      getSyncQueuesLastEvents(TargetEvent, true);
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 
