@@ -55,7 +55,11 @@ Note that long-running GPU compute kernels can trigger hang detection mechanism 
 
 ### Compiling CUDA applications directly with chipStar
 
-Compilation of CUDA sources without changing the sources, can be done in two ways: The first way is to replace calls of the nvcc compiler with calls of the wrapper script <CHIP-install-path>/bin/cuspv in Makefiles. The wrapper script will call clang with the correct flags. The other way is by using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::device)`. However, the project must be compiled with a Clang version supported by HIP. Note that it's not necessary to have Nvidia's CUDA installed.
+Compilation of CUDA sources without changing the sources, can be done in two ways.
+
+The first way is to replace calls of the nvcc compiler with calls of the wrapper script `<CHIP-install-path>/bin/cuspvc` in Makefiles. The wrapper script will call clang with the correct flags. 
+
+The other way is by using CMake: use `find_package(HIP REQUIRED CONFIG)` and then use `target_link_libraries(<YOUR_TARGET> hip::device)`. However, the project must be compiled with a Clang version supported by HIP. Note that it's not necessary to have Nvidia's CUDA installed.
 
 ### Compiling a HIP application using chipStar
 
