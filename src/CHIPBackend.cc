@@ -523,7 +523,7 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 }
 
 chipstar::Device::~Device() {
-  LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
+  LOCK(DeviceMtx); // chipstar::Device::UserQueues_
   logDebug("~Device() {}", (void *)this);
 
   // Call finish() for PerThreadDefaultQueue to ensure that all
@@ -531,10 +531,9 @@ chipstar::Device::~Device() {
   if (PerThreadDefaultQueue)
     PerThreadDefaultQueue->finish();
 
-  while (this->ChipQueues_.size() > 0) {
-    delete ChipQueues_[0];
-    ChipQueues_.erase(ChipQueues_.begin());
-  }
+  for (auto *Queue : UserQueues_)
+    delete Queue;
+  UserQueues_.clear();
 
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
@@ -844,13 +843,13 @@ void chipstar::Device::eraseModule(chipstar::Module *Module) {
 }
 
 void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
-  LOCK(DeviceMtx) // writing chipstar::Device::ChipQueues_
+  LOCK(DeviceMtx) // writing chipstar::Device::UserQueues_
   logDebug("{} Device::addQueue({})", (void *)this, (void *)ChipQueue);
 
   auto QueueFound =
-      std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
-  if (QueueFound == ChipQueues_.end()) {
-    ChipQueues_.push_back(ChipQueue);
+      std::find(UserQueues_.begin(), UserQueues_.end(), ChipQueue);
+  if (QueueFound == UserQueues_.end()) {
+    UserQueues_.push_back(ChipQueue);
   } else {
     CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
                           "already present in the backend queue list",
@@ -882,8 +881,8 @@ chipstar::Device::createQueueAndRegister(const uintptr_t *NativeHandles,
 }
 
 std::vector<chipstar::Queue *> &chipstar::Device::getQueues() {
-  LOCK(DeviceMtx); // reading chipstar::Device::ChipQueues_
-  return ChipQueues_;
+  LOCK(DeviceMtx); // reading chipstar::Device::UserQueues_
+  return UserQueues_;
 }
 
 hipError_t chipstar::Device::setPeerAccess(chipstar::Device *Peer, int Flags,
@@ -921,19 +920,19 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
    *
    * Choosing not to call Queue->finish()
    */
-  LOCK(DeviceMtx) // reading chipstar::Device::ChipQueues_
+  LOCK(DeviceMtx) // reading chipstar::Device::UserQueues_
   ChipQueue->updateLastEvent(nullptr);
 
   // Remove from device queue list
   auto FoundQueue =
-      std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
-  if (FoundQueue == ChipQueues_.end()) {
+      std::find(UserQueues_.begin(), UserQueues_.end(), ChipQueue);
+  if (FoundQueue == UserQueues_.end()) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
         "device queue list";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
-  ChipQueues_.erase(FoundQueue);
+  UserQueues_.erase(FoundQueue);
 
   delete ChipQueue;
   return true;
@@ -1433,7 +1432,7 @@ chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
   auto Dev = ::Backend->getActiveDevice();
-  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+  LOCK(Dev->DeviceMtx); // chipstar::Device::UserQueues_ via getQueuesNoLock()
 
   if (ChipQueue == hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueueNoLock();
@@ -1491,18 +1490,20 @@ void chipstar::Queue::updateLastEvent(
   LastEvent_ = NewEvent;
 }
 
+/// Return a list of events from other queues that the current queue needs to
+/// synchronize with for modeling the implicit synchronization behavior of the
+/// NULL stream.
 std::vector<std::shared_ptr<chipstar::Event>>
 chipstar::Queue::getSyncQueuesLastEvents() {
   auto Dev = ::Backend->getActiveDevice();
-
-  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
-
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  auto thisLastEvent = this->getLastEvent();
-  if (thisLastEvent) {
-    thisLastEvent->isDeletedSanityCheck();
-    EventsToWaitOn.push_back(thisLastEvent);
-  }
+
+  // No need for default-stream implicit synchronization if there are
+  // no user created blocking queues.
+  if (!Dev->getNumUserQueues())
+    return EventsToWaitOn;
+
+  LOCK(Dev->DeviceMtx); // chipstar::Device::UserQueues_ via getQueuesNoLock()
 
   // If this stream is default legacy stream, sync with all other streams on
   // this device

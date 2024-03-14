@@ -379,6 +379,10 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   ze_command_list_handle_t CommandList = ChipCtxLz_->getCmdListReg();
 
   auto EventsToWaitOn = getSyncQueuesLastEvents();
+  if (auto ThisLastEvent = this->getLastEvent()) {
+    ThisLastEvent->isDeletedSanityCheck();
+    EventsToWaitOn.push_back(ThisLastEvent);
+  }
   for (auto &Event : EventsToWaitOn)
     ChipEventLz->addDependency(Event);
   auto EventToWaitOnHandles = getEventListHandles(EventsToWaitOn);
@@ -822,6 +826,10 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
   auto EventsToWaitOn = getSyncQueuesLastEvents();
+  if (auto ThisLastEvent = this->getLastEvent()) {
+    ThisLastEvent->isDeletedSanityCheck();
+    EventsToWaitOn.push_back(ThisLastEvent);
+  }
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 

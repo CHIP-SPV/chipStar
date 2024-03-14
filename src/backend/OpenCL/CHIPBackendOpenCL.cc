@@ -1059,6 +1059,7 @@ std::vector<cl_event> CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
   auto LastEvents = getSyncQueuesLastEvents();
   std::vector<cl_event> EventHandles;
+  EventHandles.reserve(LastEvents.size());
   for (auto &Event : LastEvents) {
     LOCK(Event->EventMtx);
     TargetEvent->addDependency(Event);

@@ -1287,7 +1287,10 @@ class Device {
 protected:
   std::string DeviceName_;
   chipstar::Context *Ctx_;
-  std::vector<chipstar::Queue *> ChipQueues_;
+
+  /// List of user created queues.
+  std::vector<chipstar::Queue *> UserQueues_;
+
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1317,7 +1320,10 @@ public:
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
 
-  std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
+  std::vector<chipstar::Queue *> getQueuesNoLock() { return UserQueues_; }
+
+  /// Return the number of user created queues.
+  size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<chipstar::Queue>
