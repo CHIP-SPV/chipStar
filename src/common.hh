@@ -41,16 +41,7 @@
 #include <queue>
 #include <stack>
 
-/// The implementation of ihipEvent_t. The chipstar::Event class inherits this
-/// so ihipEvent_t pointers may carry chipstar::Event instances.
-struct ihipEvent_t {};
-struct ihipCtx_t {};
-struct ihipStream_t {};
-struct ihipModule_t {};
-struct ihipModuleSymbol_t {};
-struct ihipGraph {};
-struct hipGraphNode {};
-struct hipGraphExec {};
+
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
 bool parseSPIR(uint32_t *Stream, size_t NumWords,

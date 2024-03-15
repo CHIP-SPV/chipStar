@@ -123,7 +123,6 @@ set(SAMPLES
     hip-cuda
     printf
     shuffles
-    simple_kernel
     clock
     graphMatrixMultiply
     graphs
