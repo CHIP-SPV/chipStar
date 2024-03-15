@@ -433,7 +433,6 @@ public:
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemOpenCL() override {}
-  SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl_kernel getKernelHandle();
 
