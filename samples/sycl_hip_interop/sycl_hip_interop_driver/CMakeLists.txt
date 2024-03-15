@@ -13,7 +13,7 @@ install(TARGETS sycl_chip_interop
     RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
 add_test(NAME "sycl_chip_interop"
-    COMMAND "${CMAKE_CURRENT_BINARY_DIR}/sycl_chip_interop"
+    COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/sycl_chip_interop"
 )
 
 set_tests_properties("sycl_chip_interop" PROPERTIES
@@ -35,7 +35,7 @@ install(TARGETS sycl_chip_interop_usm
 
 add_dependencies(samples sycl_chip_interop sycl_chip_interop_usm)
 add_test(NAME "sycl_chip_interop_usm"
-    COMMAND "${CMAKE_CURRENT_BINARY_DIR}/sycl_chip_interop_usm"
+    COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/sycl_chip_interop_usm"
 )
 
 set_tests_properties("sycl_chip_interop_usm" PROPERTIES

@@ -15,4 +15,4 @@ configure_file(
   COPYONLY)
 add_test(
   NAME shuffles
-  COMMAND "${CMAKE_COMMAND}" -P ${CMAKE_CURRENT_BINARY_DIR}/run-shuffles.cmake)
+  COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_COMMAND}" -P ${CMAKE_CURRENT_BINARY_DIR}/run-shuffles.cmake)

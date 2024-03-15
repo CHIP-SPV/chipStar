@@ -25,7 +25,7 @@ function(add_cuda_sample_args)
     RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}/cuda_samples")
 
   add_test(NAME "${CUDA_NAME}"
-    COMMAND "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${CUDA_ARGS})
+    COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${CUDA_ARGS})
   set_property(TEST "${CUDA_NAME}" PROPERTY LABELS "internal;cuda")
 
 endfunction()

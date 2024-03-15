@@ -40,7 +40,7 @@ function(add_hip_runtime_test MAIN_SOURCE)
   target_compile_definitions("${EXEC_NAME}"
     PRIVATE CHIP_SKIP_TEST=${CHIP_SKIP_TEST})
 
-  add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+  add_test(NAME ${EXEC_NAME} COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
 
   set_tests_properties("${EXEC_NAME}" PROPERTIES
     SKIP_RETURN_CODE ${CHIP_SKIP_TEST})

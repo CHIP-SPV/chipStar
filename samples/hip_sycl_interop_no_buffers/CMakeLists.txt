@@ -6,7 +6,7 @@ target_link_options(hip_sycl_interop_no_buffers PRIVATE -fsycl -L${CMAKE_BINARY_
 target_link_libraries(hip_sycl_interop_no_buffers onemkl_gemm_wrapper_no_buffers)
 
 add_test(NAME "hip_sycl_interop_no_buffers"
-         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/hip_sycl_interop_no_buffers" 
+         COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/hip_sycl_interop_no_buffers" 
          )
 
 set_tests_properties("hip_sycl_interop_no_buffers" PROPERTIES
