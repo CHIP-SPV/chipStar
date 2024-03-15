@@ -1056,16 +1056,20 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 }
 
 std::vector<cl_event> CHIPQueueOpenCL::addDependenciesQueueSync(
-    std::shared_ptr<chipstar::Event> TargetEvent) {
+    std::shared_ptr<chipstar::Event> &TargetEvent) {
   auto LastEvents = getSyncQueuesLastEvents();
   std::vector<cl_event> EventHandles;
-  EventHandles.reserve(LastEvents.size());
-  for (auto &Event : LastEvents) {
-    LOCK(Event->EventMtx);
-    TargetEvent->addDependency(Event);
-    EventHandles.push_back(
-        std::static_pointer_cast<CHIPEventOpenCL>(Event)->ClEvent);
+
+  if (LastEvents.size()) {
+    EventHandles.reserve(LastEvents.size());
+    for (auto &Event : LastEvents) {
+      LOCK(Event->EventMtx);
+      TargetEvent->addDependency(Event);
+      EventHandles.push_back(
+          std::static_pointer_cast<CHIPEventOpenCL>(Event)->ClEvent);
+    }
   }
+
   return EventHandles;
 }
 
