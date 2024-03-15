@@ -15,6 +15,7 @@ function(add_compile_test)
   add_test(NAME ${TEST_NAME}
     COMMAND bash -c "${CMAKE_BINARY_DIR}/bin/cuspvc ${TEST_COMPILE_OPTIONS} ${TEST_SOURCES} 2>&1"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+
 endfunction()
 
 add_compile_test(NAME activemask SOURCES activemask.cu
