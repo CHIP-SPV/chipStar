@@ -113,7 +113,8 @@ int main() {
     std::cout << "FAILED!" << std::endl;
   }
 
-  CHECK(hipStreamDestroy(q));
-  CHECK(hipEventDestroy(start));
-  CHECK(hipEventDestroy(stop));
+  // Can't guarantee the test completes within test time limit. The
+  // kernel may take very long time and backends may have to wait its
+  // completion before they can release their resources.
+  std::quick_exit(!(notReady == hipErrorNotReady));
 }
