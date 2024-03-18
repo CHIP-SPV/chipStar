@@ -1747,7 +1747,6 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
   if (CopyEvents.empty())
     return nullptr;
 
-
   return CopyEvents.back();
 }
 
@@ -1805,7 +1804,6 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
   std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExItem);
   std::shared_ptr<chipstar::Event> RegisteredVarOutEvent =
       RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::POST_KERNEL);
-
 }
 
 std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueBarrier(

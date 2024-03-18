@@ -300,7 +300,8 @@ public:
    */
   void executeCommandList(ze_command_list_handle_t CommandList,
                           std::shared_ptr<chipstar::Event> Event = nullptr);
-  void executeCommandListReg(ze_command_list_handle_t CommandList);
+  void executeCommandListReg(std::shared_ptr<chipstar::Event> Event,
+                             ze_command_list_handle_t CommandList);
   void executeCommandListImm(std::shared_ptr<chipstar::Event> Event);
 
   ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
