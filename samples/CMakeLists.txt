@@ -53,7 +53,7 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
     add_test(NAME "${TEST_NAME}"
-             COMMAND "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${TEST_EXEC_ARGS}
+             COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${TEST_EXEC_ARGS}
              )
 
     set_tests_properties("${TEST_NAME}" PROPERTIES

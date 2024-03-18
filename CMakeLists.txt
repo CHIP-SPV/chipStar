@@ -223,6 +223,13 @@ option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extensio
 option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
 set(CHIP_DEFAULT_JIT_FLAGS "-cl-kernel-arg-info -cl-std=CL3.0")
 
+option(CHIP_PROFILE_TESTS "Attach iprof to each test under ctest" OFF)
+if (CHIP_PROFILE_TESTS)
+  set(HIP_PROFILE_TESTS_COMMAND "iprof" "-m" "full" "--")
+  else()
+  set(HIP_PROFILE_TESTS_COMMAND "")
+endif()
+
 option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib functions with explicit rounding mode such as __dadd_rd. Otherwise, rounding mode will be ignored" OFF)
 
 # (old) ARM Mali GPU driver is known to fail to process valid SPIR-V
