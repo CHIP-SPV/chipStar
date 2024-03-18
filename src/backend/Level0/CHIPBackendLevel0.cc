@@ -1533,7 +1533,14 @@ void CHIPQueueLevel0::finish() {
     if (EventLZ)
       EventLZ->wait();
   } else {
-    zeFenceHostSynchronize(ZeFence_, UINT64_MAX);
+
+    // if zero, then operates exactly like zeFenceQueryStatus; if UINT64_MAX,
+    // then function will not return until complete or device is lost.
+    auto Timeout = ChipEnvVars.getL0EventTimeout()
+                       ? ChipEnvVars.getL0EventTimeout()
+                       : UINT64_MAX;
+    auto Status = zeFenceHostSynchronize(ZeFence_, Timeout);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
 
   return;
