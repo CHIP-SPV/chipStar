@@ -1526,13 +1526,8 @@ void CHIPQueueLevel0::finish() {
     if (EventLZ)
       EventLZ->wait();
   } else {
-
-    // if zero, then operates exactly like zeFenceQueryStatus; if UINT64_MAX,
-    // then function will not return until complete or device is lost.
-    auto Timeout = ChipEnvVars.getL0EventTimeout()
-                       ? ChipEnvVars.getL0EventTimeout()
-                       : UINT64_MAX;
-    auto Status = zeFenceHostSynchronize(ZeFence_, Timeout);
+    auto Status =
+        zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
     CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   }
 
