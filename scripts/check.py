@@ -67,13 +67,16 @@ else:
 if args.backend == "level0-reg":
     level0_cmd_list = "reg_"
     args.backend = "level0"
+    backend_full = "level0_reg"
     env_vars += " CHIP_L0_IMM_CMD_LISTS=OFF"
 elif args.backend == "level0-imm":
     level0_cmd_list = "imm_"
     args.backend = "level0"
+    backend_full = "level0_imm"
     env_vars += " CHIP_L0_IMM_CMD_LISTS=ON"
 else:
     level0_cmd_list = ""
+    backend_full = args.backend
 
 # setup module load line
 modules = ""
@@ -132,7 +135,7 @@ def run_tests(num_tries):
     else:
         exit(1)
   else:
-    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{args.backend}.txt"
+    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{backend_full}.txt"
   res, err = run_cmd(cmd)
   return res, err
 
