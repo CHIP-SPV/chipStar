@@ -894,19 +894,6 @@ chipstar::Queue *CHIPDeviceOpenCL::createQueue(const uintptr_t *NativeHandles,
 
 SPVFuncInfo *CHIPKernelOpenCL::getFuncInfo() const { return FuncInfo_; }
 std::string CHIPKernelOpenCL::getName() { return Name_; }
-cl::Kernel *CHIPKernelOpenCL::get() { return &OclKernel_; }
-
-/// Clones the instance but with separate cl_kernel handle.
-CHIPKernelOpenCL *CHIPKernelOpenCL::clone() {
-  cl_int Err;
-  // NOTE: clCloneKernel is not used here due to its experience on
-  // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
-  // called on the original cl_kernel.
-  auto Cloned = clCreateKernel(Module->get()->get(), Name_.c_str(), &Err);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
-  return new CHIPKernelOpenCL(cl::Kernel(Cloned, false), Device, Name_,
-                              getFuncInfo(), Module);
-}
 
 hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
 
@@ -927,30 +914,58 @@ hipError_t CHIPKernelOpenCL::getAttributes(hipFuncAttributes *Attr) {
   return hipSuccess;
 }
 
+Borrowed<cl::Kernel> CHIPKernelOpenCL::borrowUniqueKernelHandle() {
+  LOCK(KernelPoolMutex_); // For KernelPool_.
+
+  auto ReturnToPool = [&](cl::Kernel *k) -> void {
+    LOCK(KernelPoolMutex_);
+    KernelPool_.emplace(k);
+  };
+
+  if (KernelPool_.size()) {
+    auto *Kernel = KernelPool_.top().release();
+    KernelPool_.pop();
+    Kernel->setSVMPointers({}); // Clear CL_KERNEL_EXEC_INFO_SVM_PTRS.
+    return Borrowed<cl::Kernel>(Kernel, ReturnToPool);
+  }
+
+  // NOTE: clCloneKernel is not used here due to its experience on
+  // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
+  // called on the original cl_kernel.
+  cl_int Err;
+  auto *NewK = new cl::Kernel(*Module->get(), Name_.c_str(), &Err);
+  if (Err != CL_SUCCESS) {
+    delete NewK;
+    CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
+                                "Failed to create kernel");
+  }
+
+  return Borrowed<cl::Kernel>(NewK, ReturnToPool);
+}
+
 CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
                                    std::string HostFName, SPVFuncInfo *FuncInfo,
                                    CHIPModuleOpenCL *Parent)
     : Kernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
-  OclKernel_ = ClKernel;
   int Err = 0;
   // TODO attributes
-  cl_uint NumArgs = OclKernel_.getInfo<CL_KERNEL_NUM_ARGS>(&Err);
+  cl_uint NumArgs = ClKernel.getInfo<CL_KERNEL_NUM_ARGS>(&Err);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                               "Failed to get num args for kernel");
   assert(FuncInfo_->getNumKernelArgs() == NumArgs);
 
   MaxWorkGroupSize_ =
-      OclKernel_.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*Device->get());
+      ClKernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(*Device->get());
   StaticLocalSize_ =
-      OclKernel_.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*Device->get());
+      ClKernel.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(*Device->get());
   MaxDynamicLocalSize_ =
       (size_t)Device->getAttr(hipDeviceAttributeMaxSharedMemoryPerBlock) -
       StaticLocalSize_;
   PrivateSize_ =
-      OclKernel_.getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(*Device->get());
+      ClKernel.getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(*Device->get());
 
-  Name_ = OclKernel_.getInfo<CL_KERNEL_FUNCTION_NAME>();
+  Name_ = ClKernel.getInfo<CL_KERNEL_FUNCTION_NAME>();
 
   if (NumArgs > 0) {
     logTrace("Kernel {} numArgs: {} \n", Name_, NumArgs);
@@ -1211,6 +1226,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
+  cl_kernel KernelHandle = ChipOclExecItem->getKernelHandle();
   assert(Kernel && "Kernel in chipstar::ExecItem is NULL!");
   logTrace("Launching Kernel {}", Kernel->getName());
 
@@ -1233,12 +1249,12 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
 #endif
 
   auto AllocationsToKeepAlive =
-      annotateIndirectPointers(*OclContext, Kernel->get()->get());
+      annotateIndirectPointers(*OclContext, KernelHandle);
 
   auto SyncQueuesEventHandles = addDependenciesQueueSync(LaunchEvent);
   auto Status = clEnqueueNDRangeKernel(
-      ClQueue_->get(), Kernel->get()->get(), NumDims, GlobalOffset, Global,
-      Local, SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+      ClQueue_->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
+      SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
@@ -1491,7 +1507,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
 // CHIPExecItemOpenCL
 //*************************************************************************
 
-cl::Kernel *CHIPExecItemOpenCL::get() { return ClKernel_; }
+cl_kernel CHIPExecItemOpenCL::getKernelHandle() {
+  return ClKernel_.get()->get();
+}
 
 void CHIPExecItemOpenCL::setupAllArgs() {
   if (!ArgsSetup) {
@@ -1509,6 +1527,8 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
   }
 
+  cl_kernel KernelHandle = ClKernel_.get()->get();
+
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     switch (Arg.Kind) {
     default:
@@ -1519,8 +1539,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
           *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
       cl_mem Image = TexObj->getImage();
       logTrace("set image arg {} for tex {}\n", Arg.Index, (void *)TexObj);
-      Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, sizeof(cl_mem),
-                             &Image);
+      Err = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_mem), &Image);
       CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                   "clSetKernelArg failed for image argument.");
       break;
@@ -1530,8 +1549,8 @@ void CHIPExecItemOpenCL::setupAllArgs() {
           *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
       cl_sampler Sampler = TexObj->getSampler();
       logTrace("set sampler arg {} for tex {}\n", Arg.Index, (void *)TexObj);
-      Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index,
-                             sizeof(cl_sampler), &Sampler);
+      Err = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_sampler),
+                             &Sampler);
       CHIPERR_CHECK_LOG_AND_THROW(
           Err, CL_SUCCESS, hipErrorTbd,
           "clSetKernelArg failed for sampler argument.");
@@ -1540,8 +1559,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     case SPVTypeKind::POD: {
       logTrace("clSetKernelArg {} SIZE {} to {}\n", Arg.Index, Arg.Size,
                Arg.Data);
-      Err =
-          ::clSetKernelArg(Kernel->get()->get(), Arg.Index, Arg.Size, Arg.Data);
+      Err = ::clSetKernelArg(KernelHandle, Arg.Index, Arg.Size, Arg.Data);
       CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                   "clSetKernelArg failed");
       break;
@@ -1550,13 +1568,12 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       CHIPASSERT(Arg.Size == sizeof(void *));
       if (Arg.isWorkgroupPtr()) {
         logTrace("setLocalMemSize to {}\n", SharedMem_);
-        Err = ::clSetKernelArg(Kernel->get()->get(), Arg.Index, SharedMem_,
-                               nullptr);
+        Err = ::clSetKernelArg(KernelHandle, Arg.Index, SharedMem_, nullptr);
       } else {
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {} (value {})\n",
                  Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
         Err = ::clSetKernelArgSVMPointer(
-            Kernel->get()->get(), Arg.Index,
+            KernelHandle, Arg.Index,
             // Unlike clSetKernelArg() which takes address to the argument,
             // this function takes the argument value directly.
             *(const void **)Arg.Data);
@@ -1569,8 +1586,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
               "clSetKernelArgSVMPointer {} SIZE {} to {} (value {}) returned "
               "error, setting the arg to nullptr\n",
               Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
-          Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), Arg.Index,
-                                           nullptr);
+          Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, nullptr);
         }
       }
       CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
@@ -1580,8 +1596,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     case SPVTypeKind::PODByRef: {
       auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
       assert(SpillSlot);
-      Err = ::clSetKernelArgSVMPointer(Kernel->get()->get(), Arg.Index,
-                                       SpillSlot);
+      Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, SpillSlot);
       CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
                                   "clSetKernelArgSVMPointer failed");
       break;
@@ -1600,13 +1615,12 @@ void CHIPExecItemOpenCL::setupAllArgs() {
 
 void CHIPExecItemOpenCL::setKernel(chipstar::Kernel *Kernel) {
   assert(Kernel && "Kernel is nullptr!");
-  // Make a clone of the kernel so the its cl_kernel object is not
-  // shared among other threads (sharing cl_kernel is discouraged by
-  // the OpenCL spec).
-  auto *Clone = static_cast<CHIPKernelOpenCL *>(Kernel)->clone();
-  ChipKernel_.reset(Clone);
 
-  // Arguments set on the original cl_kernel are not copied.
+  ChipKernel_ = static_cast<CHIPKernelOpenCL *>(Kernel);
+  ClKernel_ = ChipKernel_->borrowUniqueKernelHandle();
+
+  // "New" kernel handle (could be recycled one) so arguments needs to
+  // be set up again.
   ArgsSetup = false;
 }
 

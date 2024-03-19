@@ -379,16 +379,19 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
 
 void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
                                                     chipstar::Queue *Queue) {
-  auto Err = allocateDeviceVariablesNoLock(Device, Queue);
-  (void)Err;
-
-  // Mark initialized if the module does not have any device variables.
-  auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
-  DeviceVariablesInitialized_ |= ChipVars_.empty() && !NonSymbolResetKernel;
-
   if (DeviceVariablesInitialized_) {
     // Can't be initialized if no storage is not allocated.
     assert(DeviceVariablesAllocated_ && "Should have storage.");
+    return;
+  }
+
+  auto Err = allocateDeviceVariablesNoLock(Device, Queue);
+  (void)Err;
+
+  // Skip if the module does not have device variables needing initialization.
+  auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
+  if (ChipVars_.empty() && !NonSymbolResetKernel) {
+    DeviceVariablesInitialized_ = true;
     return;
   }
 
@@ -1771,29 +1774,31 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
 }
 
 void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
-  std::stringstream InfoStr;
-  InfoStr << "\nLaunching kernel " << ExItem->getKernel()->getName() << "\n";
-  InfoStr << "GridDim: <" << ExItem->getGrid().x << ", " << ExItem->getGrid().y
-          << ", " << ExItem->getGrid().z << ">";
-  InfoStr << " BlockDim: <" << ExItem->getBlock().x << ", "
-          << ExItem->getBlock().y << ", " << ExItem->getBlock().z << ">\n";
-  InfoStr << "SharedMem: " << ExItem->getSharedMem() << "\n";
+  if (shouldLog(spdlog::level::info)) {
+    std::stringstream InfoStr;
+    InfoStr << "\nLaunching kernel " << ExItem->getKernel()->getName() << "\n";
+    InfoStr << "GridDim: <" << ExItem->getGrid().x << ", "
+            << ExItem->getGrid().y << ", " << ExItem->getGrid().z << ">";
+    InfoStr << " BlockDim: <" << ExItem->getBlock().x << ", "
+            << ExItem->getBlock().y << ", " << ExItem->getBlock().z << ">\n";
+    InfoStr << "SharedMem: " << ExItem->getSharedMem() << "\n";
 
-  const auto &FuncInfo = *ExItem->getKernel()->getFuncInfo();
-  InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
-  auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
-    InfoStr << "Arg " << Arg.Index << ": " << Arg.getKindAsString() << " "
-            << Arg.Size << " " << Arg.Data;
-    if (Arg.Kind == SPVTypeKind::Pointer && !Arg.isWorkgroupPtr()) {
-      void *PtrVal = *static_cast<void **>(const_cast<void *>(Arg.Data));
-      InfoStr << " (" << PtrVal << ")";
-    }
-    InfoStr << "\n";
-  };
-  FuncInfo.visitKernelArgs(ExItem->getArgs(), Visitor);
+    const auto &FuncInfo = *ExItem->getKernel()->getFuncInfo();
+    InfoStr << "NumArgs: " << FuncInfo.getNumKernelArgs() << "\n";
+    auto Visitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+      InfoStr << "Arg " << Arg.Index << ": " << Arg.getKindAsString() << " "
+              << Arg.Size << " " << Arg.Data;
+      if (Arg.Kind == SPVTypeKind::Pointer && !Arg.isWorkgroupPtr()) {
+        void *PtrVal = *static_cast<void **>(const_cast<void *>(Arg.Data));
+        InfoStr << " (" << PtrVal << ")";
+      }
+      InfoStr << "\n";
+    };
+    FuncInfo.visitKernelArgs(ExItem->getArgs(), Visitor);
 
-  // Making this log info since hipLaunchKernel doesn't know enough about args
-  logInfo("{}", InfoStr.str());
+    // Making this log info since hipLaunchKernel doesn't know enough about args
+    logInfo("{}", InfoStr.str());
+  }
 
   auto TotalThreadsPerBlock =
       ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
