@@ -86,6 +86,8 @@ if(NOT DEFINED LevelZero_LIBRARY)
   find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH NO_CACHE)
 endif()
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 if(LevelZero_LIBRARY)
   get_filename_component(LevelZeroLib_DIR ${LevelZero_LIBRARY} DIRECTORY CACHE)
   # Check if the library is in the system path
