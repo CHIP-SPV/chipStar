@@ -825,6 +825,17 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 
+  // check that TargetEvent is not part of EventsToWaitOn
+  #ifdef DEBUG
+  for (auto &Event : EventsToWaitOn) {
+    if (Event == TargetEvent) {
+      logError("CHIPQueueLevel0::addDependenciesQueueSync() TargetEvent is "
+               "part of EventsToWaitOn");
+      std::abort();
+    }
+  }
+  #endif
+
   // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
   // that they don't get destroyed before MemCopyEvent
   for (auto &Event : EventsToWaitOn) {
