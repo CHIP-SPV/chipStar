@@ -1305,6 +1305,8 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   CHIPASSERT(SrcRegion.getNumDims() == 2 &&
              "UNIMPLEMENTED: 3D pitched image copy.");
   const char *SrcRow = (const char *)Src;
+  LOCK(CommandListMtx);
+  ze_command_list_handle_t CommandList = this->getCmdList();
   for (size_t Row = 0; Row < SrcRegion.Size[1]; Row++) {
     bool LastRow = Row == SrcRegion.Size[1] - 1;
     ze_image_region_t DstZeRegion{};
@@ -1315,8 +1317,6 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
     DstZeRegion.height = 1;
     DstZeRegion.depth = 1;
 
-    LOCK(CommandListMtx);
-    ze_command_list_handle_t CommandList = this->getCmdList();
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
     // Done via LOCK(CommandListMtx)
@@ -1327,9 +1327,9 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
             : nullptr,
         0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-    executeCommandList(CommandList, ImageCopyEvent);
     SrcRow += SrcRegion.Pitch[0];
   }
+  executeCommandList(CommandList, ImageCopyEvent);
   return ImageCopyEvent;
 };
 
