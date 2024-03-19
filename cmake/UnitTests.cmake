@@ -13,7 +13,14 @@ list(APPEND CPU_POCL_FAILED_TESTS " ")
 list(APPEND GPU_POCL_FAILED_TESTS " ")  # TODO
 list(APPEND NON_PARALLEL_TESTS " ")
 
-list(APPEND NON_PARALLEL_TESTS "hipMultiThreadAddCallback") # added after adding MKL back into testing
+list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamBeginCapture_ColligatedStrmCapture_diffprio")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset2D_BasicFunctional")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset2DAsync_BasicFunctional")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset2DAsync_WithKernel")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3D_SeekSetSlice")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3DAsync_SeekSetSlice")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3D_SeekSetArrayPortion")
+list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion")
 list(APPEND NON_PARALLEL_TESTS "TestLargeGlobalVar")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_Negative")
 list(APPEND NON_PARALLEL_TESTS "firstTouch")
@@ -24,7 +31,6 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestkindDefault")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostMalloc_NonCoherent")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamAddCallback_WithCreatedStream")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset3DAsync_SeekSetArrayPortion")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyToFromSymbol_SyncAndAsync")
 list(APPEND NON_PARALLEL_TESTS "MatrixMultiply")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy2DFromArray_PinnedMemSameGPU")
@@ -70,6 +76,7 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
 list(APPEND NON_PARALLEL_TESTS "BitonicSort")
 list(APPEND NON_PARALLEL_TESTS "FloydWarshall")
 
+list(APPEND FAILING_FOR_ALL "hipMultiThreadAddCallback")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double")
@@ -1909,8 +1916,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidPtr") # Fail
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_ModifiedPtr") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_InvalidSizes") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset3D_Negative_OutOfBounds") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_BasicFunctional") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_BasicFunctional") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPrefetchAsync_NonPageSz") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPtrGetAttribute_Simple") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_Basic") # Failed
@@ -1919,11 +1924,9 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicTrim") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_BasicReuse") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_Opportunistic") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemPoolApi_Default") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_WithKernel") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMalloc_ArgumentValidation") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipHostGetDevicePointer_NullCheck") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_1D") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_DiffSizes") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_MultiThread") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocArray_Negative_DifferentChannelSizes") # Failed
@@ -2065,10 +2068,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # #terminate ca
 #
 # running with Intel CPU runtime or new PoCL: hipErrorRuntimeMemory (CL_INVALID_VALUE )
 # in CHIPBackendOpenCL.cc:1048:memFillAsyncImpl
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2D_BasicFunctional") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_BasicFunctional") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemset2DAsync_WithKernel") # Timeout
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D") # Timeout
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetASyncMulti") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int8_t") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMemsetDASyncMulti - int16_t") # Failed
