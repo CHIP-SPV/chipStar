@@ -25,6 +25,30 @@
 
 set(CHIP_SKIP_TEST 77)
 
+add_custom_target(TestTemplatedKernelArgs ALL
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc.bin -c 
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip 
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
+    &&
+    ${CMAKE_BINARY_DIR}/bin/hipcc.bin -o TestTemplatedKernelArgs
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplatedKernels.hip
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o 
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+
+  DEPENDS 
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip  
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplatedKernels.hip
+    hipcc.bin CHIP
+
+  COMMENT "Building TestTemplatedKernelArgs"
+)
+add_test(NAME TestTemplatedKernelArgs COMMAND TestTemplatedKernelArgs)
+set_tests_properties(TestTemplatedKernelArgs PROPERTIES
+         FAIL_REGULAR_EXPRESSION "device function is already registered"
+         TIMEOUT 60
+         )
+
 function(add_hip_runtime_test MAIN_SOURCE)
   get_filename_component(EXEC_NAME ${MAIN_SOURCE} NAME_WLE)
   set_source_files_properties(${MAIN_SOURCE} PROPERTIES LANGUAGE CXX)
