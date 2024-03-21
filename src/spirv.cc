@@ -516,6 +516,12 @@ class SPIRVmodule {
   std::map<std::string_view, std::vector<std::pair<uint16_t, uint16_t>>>
       SpilledArgAnnotations_;
 
+  // This flag indicates if the module is known not to have indirect
+  // global buffer accesses (IGBA) in any kernel. This is told by a
+  // magic variable created by HipIGBADetectorPass. Defaults to false
+  // in case the variable is not found.
+  bool HasNoIGBAs_ = false;
+
   bool MemModelCL_;
   bool KernelCapab_;
   bool ExtIntOpenCL_;
@@ -562,7 +568,7 @@ public:
     return valid();
   }
 
-  bool fillModuleInfo(OpenCLFunctionInfoMap &ModuleMap) {
+  bool fillModuleInfo(SPVModuleInfo &ModuleInfo) {
     if (!valid())
       return false;
 
@@ -577,9 +583,11 @@ public:
         for (auto &Kv : SpilledArgAnnotations_[KernelName])
           FnInfo->SpilledArgs_.insert(Kv);
 
-      ModuleMap.emplace(std::make_pair(i.second, FnInfo));
+      ModuleInfo.FuncInfoMap.emplace(std::make_pair(i.second, FnInfo));
     }
     KernelInfoMap_.clear();
+
+    ModuleInfo.HasNoIGBAs = HasNoIGBAs_;
 
     return true;
   }
@@ -722,6 +730,14 @@ private:
             uint16_t ArgSize = Annotation >> 16u;
             SpillAnnotation.push_back(std::make_pair(ArgIndex, ArgSize));
           }
+        }
+
+        // A magic variable created by HipIGBADetector.cpp.
+        if (Name == "__chip_module_has_no_IGBAs") {
+          // Get initializer operand.
+          auto *Init = getInstruction(Inst->getWord(4));
+          // Init is known to be 8-bit unsigned constant.
+          HasNoIGBAs_ = Init->getWord(3);
         }
       }
 
@@ -898,8 +914,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
   return true;
 }
 
-bool parseSPIR(InstWord *Stream, size_t NumWords,
-               OpenCLFunctionInfoMap &Output) {
+bool parseSPIR(InstWord *Stream, size_t NumWords, SPVModuleInfo &Output) {
   SPIRVmodule Mod;
   if (!Mod.parseSPIRV(Stream, NumWords))
     return false;

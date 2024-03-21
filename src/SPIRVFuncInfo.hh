@@ -132,7 +132,4 @@ private:
 
 typedef std::map<int32_t, std::shared_ptr<SPVFuncInfo>> SPVFuncInfoMap;
 
-typedef std::map<std::string, std::shared_ptr<SPVFuncInfo>>
-    OpenCLFunctionInfoMap;
-
 #endif

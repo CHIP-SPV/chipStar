@@ -52,9 +52,18 @@ struct ihipGraph {};
 struct hipGraphNode {};
 struct hipGraphExec {};
 
+using SPVFunctionInfoMap = std::map<std::string, std::shared_ptr<SPVFuncInfo>>;
+
+struct SPVModuleInfo {
+  SPVFunctionInfoMap FuncInfoMap;
+
+  /// Set to true if the module is known not to have indirect global
+  /// buffer accesses (IGBA) in any kernel.
+  bool HasNoIGBAs = false;
+};
+
 bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst);
-bool parseSPIR(uint32_t *Stream, size_t NumWords,
-               OpenCLFunctionInfoMap &FuncInfoMap);
+bool parseSPIR(uint32_t *Stream, size_t NumWords, SPVModuleInfo &ModuleInfo);
 
 /// A prefix given to lowered global scope device variables.
 constexpr char ChipVarPrefix[] = "__chip_var_";

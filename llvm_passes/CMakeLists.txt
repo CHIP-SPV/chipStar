@@ -1,7 +1,7 @@
 #=============================================================================
 #   CMake build system files
 #
-#   Copyright (c) 2021-22 chipStar developers
+#   Copyright (c) 2021-24 chipStar developers
 #
 #   Permission is hereby granted, free of charge, to any person obtaining a copy
 #   of this software and associated documentation files (the "Software"), to deal
@@ -115,7 +115,7 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
-    HipLowerMemset.cpp ${EXTRA_OBJS})
+    HipLowerMemset.cpp HipIGBADetector.cpp ${EXTRA_OBJS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES
