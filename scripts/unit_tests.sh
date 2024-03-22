@@ -105,6 +105,9 @@ export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 export POCL_KERNEL_CACHE=0
 
+# set event timeout to be 10 less than timeout
+export CHIP_L0_EVENT_TIMEOUT=$(($timeout - 10))
+
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module use ~/modulefiles
 module load mkl/2024.0 compiler/2024.0.2 $CLANG opencl/dgpu 
