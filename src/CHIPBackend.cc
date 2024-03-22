@@ -1234,8 +1234,8 @@ void chipstar::Backend::waitForThreadExit() {
   {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     for (auto Dev : ::Backend->getDevices()) {
-      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
       LOCK(::Backend->EventsMtx); // CHIPBackend::Events
+      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
         logWarn("Not all user created streams have been destoyed... Queues "
