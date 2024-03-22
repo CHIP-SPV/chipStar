@@ -843,7 +843,6 @@ void chipstar::Device::eraseModule(chipstar::Module *Module) {
 }
 
 void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
-  LOCK(DeviceMtx) // writing chipstar::Device::ChipQueues_
   logDebug("{} Device::addQueue({})", (void *)this, (void *)ChipQueue);
 
   auto QueueFound =
@@ -865,6 +864,7 @@ chipstar::Queue *
 chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
                                          int Priority) {
 
+  LOCK(DeviceMtx) // writing chipstar::Device::ChipQueues_
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
