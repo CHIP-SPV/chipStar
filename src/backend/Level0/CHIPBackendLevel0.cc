@@ -727,7 +727,7 @@ void CHIPEventMonitorLevel0::monitor() {
 // CHIPKernelLevelZero
 // ***********************************************************************
 
-ze_kernel_handle_t CHIPKernelLevel0::get() { return ZeKernel_; }
+ze_kernel_handle_t &CHIPKernelLevel0::get() { return ZeKernel_; }
 
 CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
                                    CHIPDeviceLevel0 *Dev, std::string HostFName,
@@ -825,8 +825,8 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 
-  // check that TargetEvent is not part of EventsToWaitOn
-  #ifdef DEBUG
+// check that TargetEvent is not part of EventsToWaitOn
+#ifdef DEBUG
   for (auto &Event : EventsToWaitOn) {
     if (Event == TargetEvent) {
       logError("CHIPQueueLevel0::addDependenciesQueueSync() TargetEvent is "
@@ -834,7 +834,7 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::addDependenciesQueueSync(
       std::abort();
     }
   }
-  #endif
+#endif
 
   // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
   // that they don't get destroyed before MemCopyEvent
@@ -1067,7 +1067,7 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
     };
   }
 }
-ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
+ze_command_queue_desc_t &CHIPDeviceLevel0::getQueueDesc_(int Priority) {
   ze_command_queue_desc_t QueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                        nullptr, // pNext
                                        0,       // ordinal
