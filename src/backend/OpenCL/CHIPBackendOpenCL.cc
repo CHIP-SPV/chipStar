@@ -1361,12 +1361,15 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
         false);
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
-    ClProfilingQueue_ = cl::CommandQueue(
-        clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
-                                           QPropsForProfiling, &Status),
-        false);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
-                                hipErrorInitializationError);
+
+    if (!ChipEnvVars.getOCLDisableQueueProfiling()) {
+      ClProfilingQueue_ = cl::CommandQueue(
+          clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
+                                             QPropsForProfiling, &Status),
+          false);
+      CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
+                                  hipErrorInitializationError);
+    }
 
     QueueMode_ = Regular;
   }
@@ -1546,6 +1549,12 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
 void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   if (QueueMode_ == ToMode)
     return;
+
+  if (ToMode == Profiling && ChipEnvVars.getOCLDisableQueueProfiling()) {
+    logWarn("Queue profiling is disabled by request. hipEventElapsedTime() "
+            "will not work.");
+    return;
+  }
 
   // Can't switch mode if the queue is used for interop. Otherwise, we
   // may cause situations where commands enqueued via HIP and other
