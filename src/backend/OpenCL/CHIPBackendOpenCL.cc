@@ -666,7 +666,7 @@ void CHIPEventOpenCL::recordEventCopy(
   std::shared_ptr<CHIPEventOpenCL> Other =
       std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
   this->ClEvent = Other->ClEvent;
-  this->RecordedEvent = Other; 
+  this->RecordedEvent = Other;
   this->Msg = "recordEventCopy: " + Other->Msg;
 }
 
@@ -1057,9 +1057,9 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 
 std::vector<cl_event> CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  auto LastEvents = getSyncQueuesLastEvents();
+  auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents();
   std::vector<cl_event> EventHandles;
-  for (auto &Event : LastEvents) {
+  for (auto &Event : EventsToWaitOn) {
     LOCK(Event->EventMtx);
     TargetEvent->addDependency(Event);
     EventHandles.push_back(

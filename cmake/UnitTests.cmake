@@ -75,7 +75,6 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemset_SetMemoryWithOffset")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
 list(APPEND NON_PARALLEL_TESTS "BitonicSort")
 list(APPEND NON_PARALLEL_TESTS "FloydWarshall")
-
 list(APPEND FAILING_FOR_ALL "hipMultiThreadAddCallback")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float")

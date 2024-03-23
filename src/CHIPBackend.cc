@@ -1490,16 +1490,19 @@ void chipstar::Queue::updateLastEvent(
   LastEvent_ = NewEvent;
 }
 
-std::vector<std::shared_ptr<chipstar::Event>>
+std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
 chipstar::Queue::getSyncQueuesLastEvents() {
   auto Dev = ::Backend->getActiveDevice();
 
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
   auto thisLastEvent = this->getLastEvent();
   if (thisLastEvent) {
     thisLastEvent->isDeletedSanityCheck();
+    EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+        thisLastEvent->EventMtx));
     EventsToWaitOn.push_back(thisLastEvent);
   }
 
@@ -1510,25 +1513,36 @@ chipstar::Queue::getSyncQueuesLastEvents() {
     for (auto &q : Dev->getQueuesNoLock()) {
       if (q->getQueueFlags().isBlocking()) {
         auto Ev = q->getLastEvent();
-        if (Ev)
+        if (Ev) {
+          EventLocks.push_back(
+              std::make_unique<std::unique_lock<std::mutex>>(Ev->EventMtx));
           EventsToWaitOn.push_back(Ev);
+        }
       }
     }
   } else if (this->getQueueFlags().isBlocking()) {
     // sync with default legacy stream
     auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
-    if (Ev)
+    if (Ev) {
+      EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+          Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+                          // for _std::move_ or _std::forward_ here
       EventsToWaitOn.push_back(Ev);
+    }
 
     // sync with default per-thread stream
     if (Dev->isPerThreadStreamUsedNoLock()) {
       Ev = Dev->getPerThreadDefaultQueueNoLock()->getLastEvent();
-      if (Ev)
+      if (Ev) {
+        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+            Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+                            // for _std::move_ or _std::forward_ here
         EventsToWaitOn.push_back(Ev);
+      }
     }
   }
 
-  return EventsToWaitOn;
+  return {EventsToWaitOn, std::move(EventLocks)};
 }
 
 ///////// Enqueue Operations //////////

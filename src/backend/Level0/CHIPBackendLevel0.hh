@@ -265,7 +265,7 @@ public:
   ze_command_list_handle_t getCmdList();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
-  std::vector<ze_event_handle_t>
+  std::pair<std::vector<ze_event_handle_t>, chipstar::SharedEventVector>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
   size_t getMaxMemoryFillPatternSize() {
@@ -558,7 +558,7 @@ class CHIPDeviceLevel0 : public chipstar::Device {
   CHIPDeviceLevel0(ze_device_handle_t ZeDev, CHIPContextLevel0 *ChipCtx,
                    int Idx);
 
-  ze_command_queue_desc_t &getQueueDesc_(int Priority);
+  ze_command_queue_desc_t getQueueDesc_(int Priority);
 
 public:
   virtual CHIPContextLevel0 *createContext() override { return nullptr; }

@@ -44,6 +44,7 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
+#include <utility>
 
 #include "SPVRegister.hh"
 
@@ -88,6 +89,10 @@ class Device;
 class EventMonitor;
 class Texture;
 class Context;
+
+using SharedEventVector = std::vector<std::shared_ptr<chipstar::Event>>;
+using LockGuardVector =
+    std::vector<std::unique_ptr<std::unique_lock<std::mutex>>>;
 
 class RegionDesc {
 public:
@@ -2084,7 +2089,7 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
-  std::vector<std::shared_ptr<chipstar::Event>> getSyncQueuesLastEvents();
+  std::pair<SharedEventVector, LockGuardVector> getSyncQueuesLastEvents();
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}
