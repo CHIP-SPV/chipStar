@@ -821,7 +821,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   }
 }
 
-std::pair<std::vector<ze_event_handle_t>, chipstar::SharedEventVector>
+std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
   auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents();
@@ -853,7 +853,7 @@ CHIPQueueLevel0::addDependenciesQueueSync(
 
   std::vector<ze_event_handle_t> EventHandles =
       getEventListHandles(EventsToWaitOn);
-  return {EventHandles, EventsToWaitOn};
+  return {EventHandles, std::move(EventLocks)};
 }
 
 void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,

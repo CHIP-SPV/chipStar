@@ -1055,7 +1055,8 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   delete Cbo;
 }
 
-std::vector<cl_event> CHIPQueueOpenCL::addDependenciesQueueSync(
+std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
+CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
   auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents();
   std::vector<cl_event> EventHandles;
@@ -1064,7 +1065,7 @@ std::vector<cl_event> CHIPQueueOpenCL::addDependenciesQueueSync(
     EventHandles.push_back(
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->ClEvent);
   }
-  return EventHandles;
+  return {EventHandles, std::move(EventLocks)};
 }
 
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
@@ -1081,7 +1082,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
 
-  auto SyncQueuesEventHandles = addDependenciesQueueSync(MemMapEvent);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MemMapEvent);
 
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
@@ -1118,7 +1119,7 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
     return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
-  auto SyncQueuesEventHandles = addDependenciesQueueSync(MemMapEvent);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MemMapEvent);
 
   auto Status = clEnqueueSVMUnmap(
       ClQueue_->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
@@ -1201,7 +1202,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_);
 
-  auto SyncQueuesEventHandles = addDependenciesQueueSync(MarkerEvent);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MarkerEvent);
   auto Status = clEnqueueMarkerWithWaitList(
       this->get()->get(), SyncQueuesEventHandles.size(),
       SyncQueuesEventHandles.data(),
@@ -1245,7 +1246,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto AllocationsToKeepAlive = annotateIndirectPointers(
       *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
 
-  auto SyncQueuesEventHandles = addDependenciesQueueSync(LaunchEvent);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
   auto Status = clEnqueueNDRangeKernel(
       ClQueue_->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
       SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
@@ -1359,7 +1360,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
 #ifdef CHIP_DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockOpenCL)
 #endif
-    auto SyncQueuesEventHandles = addDependenciesQueueSync(Event);
+    auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     auto Status = ::clEnqueueSVMMemcpy(
         ClQueue_->get(), CL_FALSE, Dst, Src, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
@@ -1385,7 +1386,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_);
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
-  auto SyncQueuesEventHandles = addDependenciesQueueSync(Event);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
   int Retval = ::clEnqueueSVMMemFill(
       ClQueue_->get(), Dst, Pattern, PatternSize, Size,
       SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
@@ -1472,7 +1473,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
           std::static_pointer_cast<CHIPEventOpenCL>(WaitEvent)->getNativeRef());
     }
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
-    auto SyncQueuesEventHandles = addDependenciesQueueSync(Event);
+    auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     for (auto &Event : Events) {
       SyncQueuesEventHandles.push_back(Event);
     }
@@ -1483,7 +1484,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
-    auto SyncQueuesEventHandles = addDependenciesQueueSync(Event);
+    auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     auto Status = clEnqueueBarrierWithWaitList(
         ClQueue_->get(), SyncQueuesEventHandles.size(),
         SyncQueuesEventHandles.data(),

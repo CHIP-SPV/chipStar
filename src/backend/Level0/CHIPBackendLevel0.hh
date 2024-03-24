@@ -265,7 +265,7 @@ public:
   ze_command_list_handle_t getCmdList();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
-  std::pair<std::vector<ze_event_handle_t>, chipstar::SharedEventVector>
+  std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
   size_t getMaxMemoryFillPatternSize() {
