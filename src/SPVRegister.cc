@@ -60,16 +60,23 @@ void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
 
-  // Host pointer should be associated with one source module and function.
-  // assert(!HostPtrLookup_.count(Ptr) && "Host-pointer is already mapped.");
-  if (HostPtrLookup_.count(Ptr) && HostPtrLookup_.at(Ptr)->Parent != SrcMod) {
-    // Apparently templated kernels, by the same signature defined in
-    // different TUs, causes these cases - which probably should not
-    // happen in the whole [device] program compilation mode because
-    // it means the some kernel invocations will launch kernels from
-    // wrong modules! A bug in Clang?
-    logWarn("A device function is already registered and mapped to a different "
-            "module.");
+  if (HostPtrLookup_.count(Ptr)) {
+    // In case of **templated** and **inline qualified** __global__
+    // functions, there may be duplicate __hipRegisterFunction()
+    // calls.
+    //
+    // What happens is that a same template/inline function may be
+    // instantiated in multiple translation units. This results in
+    // repeated definitions and __hipRegisterFunction() calls to
+    // registers them across multiple object files. The definitions in
+    // template and inline functions are attributed specially so that
+    // the host linker won't give multiple definition error but
+    // instead picks one of them, drops the duplicates and updates
+    // references to point to the picked one. The end result is that
+    // the final executable has multiple __hipRegisterFunction() calls
+    // to register the same function.
+    //
+    // Therefore, record the first one and ignore the duplicates.
     return;
   }
 
