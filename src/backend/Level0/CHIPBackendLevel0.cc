@@ -406,9 +406,9 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
         sizeof(uint64_t), ChipEventLz->peek(), 1,
         &TimestampWriteCompleteLzHandle);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    executeCommandListReg(TimestampWriteComplete, CommandList);
   }
 
-  executeCommandListReg(TimestampWriteComplete, CommandList);
 
   ChipEventLz->setRecording();
   ChipEventLz->Msg = "recordEvent";
@@ -495,7 +495,7 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
    */
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
-
+  LOCK(Backend->EventsMtx); // chipstar::Backend::Events_
   this->updateFinishStatus();
   Other->updateFinishStatus();
   if (!this->isFinished() || !Other->isFinished())
@@ -583,7 +583,10 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   std::vector<std::shared_ptr<chipstar::Event>> ChipEvs = {CpuCallbackComplete};
   std::shared_ptr WaitForCpuComplete =
       ChipQueueLz->enqueueBarrierImplReg(ChipEvs);
-  ChipQueue->updateLastEvent(WaitForCpuComplete);
+  {
+    LOCK(Backend->EventsMtx);
+    ChipQueue->updateLastEvent(WaitForCpuComplete);
+  }
 
   GpuAck = ChipQueueLz->enqueueMarkerImplReg();
   GpuAck->Msg = "GpuAck";
@@ -633,7 +636,7 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
 }
 
 void CHIPEventMonitorLevel0::checkEvents() {
-  CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
+  LOCK(Backend->EventsMtx);
   for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
@@ -647,7 +650,6 @@ void CHIPEventMonitorLevel0::checkEvents() {
     ChipEventLz->updateFinishStatus(false);
 
     if (ChipEventLz->DependsOnList.size() == 0) {
-      LOCK(Backend->EventsMtx);
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
     }
 
@@ -1402,6 +1404,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
       CommandList,
       std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  LOCK(Backend->EventsMtx);
   executeCommandListReg(MarkerEvent, CommandList);
 
   return MarkerEvent;

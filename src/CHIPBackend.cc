@@ -1187,7 +1187,6 @@ chipstar::Backend::~Backend() {
 
 void chipstar::Backend::trackEvent(
     const std::shared_ptr<chipstar::Event> &Event) {
-  LOCK(::Backend->EventsMtx); // trackImpl Backend::Events
   LOCK(Event->EventMtx);      // writing bool chipstar::Event::TrackCalled_
   Event->isDeletedSanityCheck();
 
@@ -1233,8 +1232,8 @@ void chipstar::Backend::waitForThreadExit() {
   // Cleanup all queues
   {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
+    LOCK(::Backend->EventsMtx); // CHIPBackend::Events
     for (auto Dev : ::Backend->getDevices()) {
-      LOCK(::Backend->EventsMtx); // CHIPBackend::Events
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
@@ -1498,6 +1497,8 @@ chipstar::Queue::getSyncQueuesLastEvents() {
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+    EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+        ::Backend->EventsMtx));
   auto thisLastEvent = this->getLastEvent();
   if (thisLastEvent) {
     thisLastEvent->isDeletedSanityCheck();
