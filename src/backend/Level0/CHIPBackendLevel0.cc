@@ -1289,7 +1289,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   std::shared_ptr<chipstar::Event> ImageCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   ImageCopyEvent->Msg = "memCopyToImage";
-
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(ImageCopyEvent);
   if (!SrcRegion.isPitched()) {
     LOCK(CommandListMtx);
     ze_command_list_handle_t CommandList = this->getCmdList();
@@ -1298,8 +1298,8 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
     // Done via LOCK(CommandListMtx)
     ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, Src, 0,
-        std::static_pointer_cast<CHIPEventLevel0>(ImageCopyEvent)->peek(), 0,
-        nullptr);
+        std::static_pointer_cast<CHIPEventLevel0>(ImageCopyEvent)->peek(), EventHandles.size(),
+        EventHandles.data());
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     executeCommandList(CommandList, ImageCopyEvent);
 
@@ -1330,7 +1330,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
         LastRow
             ? std::static_pointer_cast<CHIPEventLevel0>(ImageCopyEvent)->peek()
             : nullptr,
-        0, nullptr);
+        EventHandles.size(), EventHandles.data());
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     SrcRow += SrcRegion.Pitch[0];
   }
