@@ -634,7 +634,6 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
 
 void CHIPEventMonitorLevel0::checkEvents() {
   CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
-  LOCK(Backend->EventsMtx);         // Backend::Events
   for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
@@ -648,6 +647,7 @@ void CHIPEventMonitorLevel0::checkEvents() {
     ChipEventLz->updateFinishStatus(false);
 
     if (ChipEventLz->DependsOnList.size() == 0) {
+      LOCK(Backend->EventsMtx);
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
     }
 
