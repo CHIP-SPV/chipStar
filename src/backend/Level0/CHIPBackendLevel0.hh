@@ -648,7 +648,6 @@ public:
                                              hipStream_t ChipQueue) override;
 
   virtual void uninitialize() override;
-  std::mutex CommandListsMtx;
 
   void initializeCommon(ze_driver_handle_t ZeDriver);
 

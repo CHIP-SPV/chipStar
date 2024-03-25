@@ -635,7 +635,6 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
 void CHIPEventMonitorLevel0::checkEvents() {
   CHIPBackendLevel0 *BackendZe = static_cast<CHIPBackendLevel0 *>(Backend);
   LOCK(Backend->EventsMtx);         // Backend::Events
-  LOCK(BackendZe->CommandListsMtx); // CHIPBackendLevel0::EventCommandListMapk
   for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
