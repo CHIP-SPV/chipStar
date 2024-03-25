@@ -1517,11 +1517,14 @@ chipstar::Queue::getSyncQueuesLastEvents() {
         if (Ev) {
           // check if Ev is already in EventsToWaitOn
           if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
-              EventsToWaitOn.end())
-            std::abort();
-          EventLocks.push_back(
-              std::make_unique<std::unique_lock<std::mutex>>(Ev->EventMtx));
-          EventsToWaitOn.push_back(Ev);
+              EventsToWaitOn.end()) {
+            logError("Event {} is already in the list of events to wait on",
+                     (void *)Ev.get());
+          } else {
+            EventLocks.push_back(
+                std::make_unique<std::unique_lock<std::mutex>>(Ev->EventMtx));
+            EventsToWaitOn.push_back(Ev);
+          }
         }
       }
     }
@@ -1530,12 +1533,15 @@ chipstar::Queue::getSyncQueuesLastEvents() {
     auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
     if (Ev) {
       if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
-          EventsToWaitOn.end())
-        std::abort();
-      EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
-          Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
-                          // for _std::move_ or _std::forward_ here
-      EventsToWaitOn.push_back(Ev);
+          EventsToWaitOn.end()) {
+        logError("Event {} is already in the list of events to wait on",
+                 (void *)Ev.get());
+      } else {
+        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+            Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+                            // for _std::move_ or _std::forward_ here
+        EventsToWaitOn.push_back(Ev);
+      }
     }
 
     // sync with default per-thread stream
