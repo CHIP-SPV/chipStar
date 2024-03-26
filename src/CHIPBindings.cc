@@ -1568,6 +1568,7 @@ hipError_t hipSetDevice(int DeviceId) {
 }
 
 static inline hipError_t hipDeviceSynchronizeInternal(void) {
+  LOCK(Backend->GlobalLastEventMtx); // prevents devices from being destroyed while iterating
   auto Dev = Backend->getActiveDevice();
   {
     LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
