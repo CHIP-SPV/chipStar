@@ -1058,7 +1058,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
 CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents();
+  auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents(TargetEvent);
   std::vector<cl_event> EventHandles;
   for (auto &Event : EventsToWaitOn) {
     TargetEvent->addDependency(Event);
