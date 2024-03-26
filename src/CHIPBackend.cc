@@ -522,7 +522,8 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 }
 
 chipstar::Device::~Device() {
-  LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
+  LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
+  LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
   logDebug("~Device() {}", (void *)this);
 
   // Call finish() for PerThreadDefaultQueue to ensure that all
@@ -538,7 +539,8 @@ chipstar::Device::~Device() {
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
 
-  // delete all entires in SrcModToCompiledMod_
+  // delete all entries in SrcModToCompiledMod_
+  HostPtrToCompiledMod_.clear();
   for (auto &Kv : SrcModToCompiledMod_)
     delete Kv.second;
   SrcModToCompiledMod_.clear();
@@ -1001,6 +1003,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     chipstar::Kernel *Kernel = Mod->getKernelByName(NameTmp);
     assert(Kernel && "chipstar::Kernel went missing?");
     Kernel->setHostPtr(Info.Ptr);
+    LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }
 
@@ -1028,6 +1031,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     Mod->addDeviceVariable(Var);
 
     DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+    LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }
 
