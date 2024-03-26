@@ -23,7 +23,7 @@ parser.add_argument('-c', '--categories', action='store_true', help='run tests b
 
 # --total-runtime cannot be used with --num-tries
 group = parser.add_mutually_exclusive_group()
-group.add_argument('--total-runtime', type=int, nargs='?', default=0, help='Set --num-tries such that the total runtime is approximately this value in minutes')
+group.add_argument('--total-runtime', type=str, nargs='?', default=0, help='Set --num-tries such that the total runtime is approximately this value in hours')
 group.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 
 args = parser.parse_args()
@@ -149,8 +149,15 @@ if args.total_runtime:
     # calculate the total time
     total_time = t_end - t_start
     # calculate the number of tries
-    num_tries = int(args.total_runtime * 60 / total_time)
-    print(f"Running tests {num_tries} times to get a total runtime of {args.total_runtime} minutes")
+    # make sure that args.total_runtime ends in either m or h
+    if args.total_runtime[-1] == "m":
+        num_tries = int(float(args.total_runtime[:-1]) * 60 / total_time)
+    elif args.total_runtime[-1] == "h":
+        num_tries = int(float(args.total_runtime[:-1]) * 60 * 60 / total_time)
+    else:
+        print("Error: --total-runtime should end in either m or h")
+        exit(1)
+    print(f"Running tests {num_tries} times to get a total runtime of {args.total_runtime} hours")
 else:
     num_tries = args.num_tries
 
