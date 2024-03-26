@@ -2090,6 +2090,7 @@ public:
   }
 
   std::pair<SharedEventVector, LockGuardVector> getSyncQueuesLastEvents();
+  std::pair<SharedEventVector, LockGuardVector> getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent);
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}

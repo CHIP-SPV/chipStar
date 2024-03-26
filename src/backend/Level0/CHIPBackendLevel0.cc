@@ -821,7 +821,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents();
+  auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents(TargetEvent);
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 
@@ -1368,7 +1368,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipContext_);
-
+  addDependenciesQueueSync(MarkerEvent); // locks
   MarkerEvent->Msg = "marker";
   LOCK(CommandListMtx);
   ze_command_list_handle_t CommandList = this->getCmdList();
@@ -1388,7 +1388,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipContext_);
-
+  addDependenciesQueueSync(MarkerEvent); // locks
   MarkerEvent->Msg = "marker";
 
   ze_command_list_handle_t CommandList = this->ChipCtxLz_->getCmdListReg();

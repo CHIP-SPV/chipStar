@@ -1187,7 +1187,6 @@ chipstar::Backend::~Backend() {
 
 void chipstar::Backend::trackEvent(
     const std::shared_ptr<chipstar::Event> &Event) {
-  LOCK(Event->EventMtx); // writing bool chipstar::Event::TrackCalled_
   Event->isDeletedSanityCheck();
 
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
@@ -1487,6 +1486,90 @@ void chipstar::Queue::updateLastEvent(
     return;
 
   LastEvent_ = NewEvent;
+}
+
+std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
+chipstar::Queue::getSyncQueuesLastEvents(
+    std::shared_ptr<chipstar::Event> Event) {
+  auto Dev = ::Backend->getActiveDevice();
+
+  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+
+
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
+
+
+
+  auto thisLastEvent = this->getLastEvent();
+  assert(Event.get() != thisLastEvent.get());
+  if (thisLastEvent) {
+    thisLastEvent->isDeletedSanityCheck();
+    EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+        thisLastEvent->EventMtx));
+    EventsToWaitOn.push_back(thisLastEvent);
+  }
+
+    EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(Event->EventMtx));
+
+  // If this stream is default legacy stream, sync with all other streams on
+  // this device
+  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+    // add LastEvent from all other non-blocking queues
+    for (auto &q : Dev->getQueuesNoLock()) {
+      if (q->getQueueFlags().isBlocking()) {
+        auto Ev = q->getLastEvent();
+        if (Ev) {
+          // check if Ev is already in EventsToWaitOn
+          if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
+              EventsToWaitOn.end()) {
+            logError("Event {} is already in the list of events to wait on",
+                     (void *)Ev.get());
+          } else {
+            EventLocks.push_back(
+                std::make_unique<std::unique_lock<std::mutex>>(Ev->EventMtx));
+            EventsToWaitOn.push_back(Ev);
+          }
+        }
+      }
+    }
+  } else if (this->getQueueFlags().isBlocking()) {
+    // sync with default legacy stream
+    auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
+    if (Ev) {
+      if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
+          EventsToWaitOn.end()) {
+        logError("Event {} is already in the list of events to wait on",
+                 (void *)Ev.get());
+      } else {
+        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+            Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+                            // for _std::move_ or _std::forward_ here
+        EventsToWaitOn.push_back(Ev);
+      }
+    }
+
+    // sync with default per-thread stream
+    if (Dev->isPerThreadStreamUsedNoLock()) {
+      Ev = Dev->getPerThreadDefaultQueueNoLock()->getLastEvent();
+      if (Ev) {
+        if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
+            EventsToWaitOn.end())
+          std::abort();
+        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+            Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+                            // for _std::move_ or _std::forward_ here
+        EventsToWaitOn.push_back(Ev);
+      }
+    }
+  }
+
+  return {EventsToWaitOn, std::move(EventLocks)};
 }
 
 std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
