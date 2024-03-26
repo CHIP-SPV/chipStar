@@ -1348,16 +1348,13 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
         *static_cast<CHIPContextOpenCL *>(ChipContext_)->get();
     cl::Device &ClDevice = *static_cast<CHIPDeviceOpenCL *>(ChipDevice_)->get();
 
-    cl_queue_properties QPropsForRegular[] = {CL_QUEUE_PRIORITY_KHR,
-      PrioritySelection, 0};
-    cl_queue_properties QPropsForProfiling[] = {
-        CL_QUEUE_PRIORITY_KHR, PrioritySelection, CL_QUEUE_PROPERTIES,
-        CL_QUEUE_PROFILING_ENABLE, 0};
+    cl_queue_properties QPropsForProfiling[] = {CL_QUEUE_PROPERTIES,
+                                                CL_QUEUE_PROFILING_ENABLE, 0};
 
     cl_int Status;
     ClRegularQueue_ = cl::CommandQueue(
         clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
-                                           QPropsForRegular, &Status),
+                                           nullptr, &Status),
         false);
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
