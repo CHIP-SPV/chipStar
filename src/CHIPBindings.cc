@@ -1571,7 +1571,7 @@ static inline hipError_t hipDeviceSynchronizeInternal(void) {
   LOCK(Backend->GlobalLastEventMtx); // prevents devices from being destroyed while iterating
   auto Dev = Backend->getActiveDevice();
   {
-    LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
+    LOCK(Dev->QueueAddRemoveMtx); // prevents queues from being destryed while iterating
     for (auto Q : Dev->getQueuesNoLock()) {
       Q->finish();
     }
@@ -2134,6 +2134,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   // make sure nothing is pending in the stream
   ChipQueue->finish();
 
+  LOCK(Dev->QueueAddRemoveMtx);
   if (Dev->removeQueue(ChipQueue))
     RETURN(hipSuccess);
   else

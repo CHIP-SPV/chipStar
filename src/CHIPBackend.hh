@@ -50,6 +50,8 @@
 
 #define DEFAULT_QUEUE_PRIORITY 1
 
+using unique_lock = std::unique_lock<std::mutex>;
+
 inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
   switch (Kind) {
   case hipMemcpyHostToHost:
@@ -1299,6 +1301,7 @@ public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
+  std::mutex QueueAddRemoveMtx;
 
   std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
 
