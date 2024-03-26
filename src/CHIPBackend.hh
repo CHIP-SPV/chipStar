@@ -1443,12 +1443,6 @@ public:
    * @param chip_queue_  chipstar::Queue to be added
    */
   void addQueue(chipstar::Queue *ChipQueue);
-  /**
-   * @brief Get the Queues object
-   *
-   * @return std::vector<chipstar::Queue*>
-   */
-  std::vector<chipstar::Queue *> &getQueues();
 
   /**
    * @brief Remove a queue from this device's queue vector

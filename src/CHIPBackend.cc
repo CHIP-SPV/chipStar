@@ -880,11 +880,6 @@ chipstar::Device::createQueueAndRegister(const uintptr_t *NativeHandles,
   return ChipQueue;
 }
 
-std::vector<chipstar::Queue *> &chipstar::Device::getQueues() {
-  LOCK(DeviceMtx); // reading chipstar::Device::ChipQueues_
-  return ChipQueues_;
-}
-
 hipError_t chipstar::Device::setPeerAccess(chipstar::Device *Peer, int Flags,
                                            bool CanAccessPeer) {
   UNIMPLEMENTED(hipSuccess);
