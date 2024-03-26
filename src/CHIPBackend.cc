@@ -1493,13 +1493,13 @@ chipstar::Queue::getSyncQueuesLastEvents(
     std::shared_ptr<chipstar::Event> Event) {
   auto Dev = ::Backend->getActiveDevice();
 
-  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
-
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
 
 
 
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(::Backend->GlobalLastEventMtx));
   EventLocks.push_back(
       std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
 
@@ -1509,8 +1509,8 @@ chipstar::Queue::getSyncQueuesLastEvents(
   assert(Event.get() != thisLastEvent.get());
   if (thisLastEvent) {
     thisLastEvent->isDeletedSanityCheck();
-    EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
-        thisLastEvent->EventMtx));
+    // EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+    //     thisLastEvent->EventMtx));
     EventsToWaitOn.push_back(thisLastEvent);
   }
 
@@ -1531,8 +1531,8 @@ chipstar::Queue::getSyncQueuesLastEvents(
             logError("Event {} is already in the list of events to wait on",
                      (void *)Ev.get());
           } else {
-            EventLocks.push_back(
-                std::make_unique<std::unique_lock<std::mutex>>(Ev->EventMtx));
+            // EventLocks.push_back(
+            //     std::make_unique<std::unique_lock<std::mutex>>(Ev->EventMtx));
             EventsToWaitOn.push_back(Ev);
           }
         }
@@ -1547,9 +1547,9 @@ chipstar::Queue::getSyncQueuesLastEvents(
         logError("Event {} is already in the list of events to wait on",
                  (void *)Ev.get());
       } else {
-        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
-            Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
-                            // for _std::move_ or _std::forward_ here
+        // EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+        //     Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+        //                     // for _std::move_ or _std::forward_ here
         EventsToWaitOn.push_back(Ev);
       }
     }
@@ -1561,9 +1561,9 @@ chipstar::Queue::getSyncQueuesLastEvents(
         if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
             EventsToWaitOn.end())
           std::abort();
-        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
-            Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
-                            // for _std::move_ or _std::forward_ here
+        // EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+        //     Ev->EventMtx)); // _unique_lock_ is a _move-only_ type, so no need
+        //                     // for _std::move_ or _std::forward_ here
         EventsToWaitOn.push_back(Ev);
       }
     }
@@ -1574,6 +1574,7 @@ chipstar::Queue::getSyncQueuesLastEvents(
 
 std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
 chipstar::Queue::getSyncQueuesLastEvents() {
+  std::abort();
   auto Dev = ::Backend->getActiveDevice();
 
   LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
