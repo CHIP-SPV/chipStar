@@ -568,24 +568,42 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipQueueLz = static_cast<CHIPQueueLevel0 *>(ChipQueue);
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
+  
+  ze_command_list_handle_t CommandList = ChipContextLz->getCmdListReg();
 
+  // GpuReady syncs with previous events
+  GpuReady = BackendLz->createEventShared(ChipContextLz);
+  GpuReady->Msg = "GpuReady";
+  auto GpuReadyLz = std::static_pointer_cast<CHIPEventLevel0>(GpuReady);
+  auto [QueueSyncEvents, EventLocks] = ChipQueueLz->addDependenciesQueueSync(GpuReady);
+  // Add a barrier so that it signals
+  auto Status = zeCommandListAppendBarrier(CommandList, GpuReadyLz->get(),
+                                           QueueSyncEvents.size(), QueueSyncEvents.data());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+
+  // This will get triggered manually
   CpuCallbackComplete = BackendLz->createEventShared(ChipContextLz);
   CpuCallbackComplete->Msg = "CpuCallbackComplete";
+  auto CpuCallbackCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(CpuCallbackComplete);
 
-  GpuReady = ChipQueueLz->enqueueBarrierImplReg(
-      std::vector<std::shared_ptr<chipstar::Event>>());
-  GpuReady->Msg = "GpuReady";
 
-  std::vector<std::shared_ptr<chipstar::Event>> ChipEvs = {CpuCallbackComplete};
-  std::shared_ptr WaitForCpuComplete =
-      ChipQueueLz->enqueueBarrierImplReg(ChipEvs);
-  {
-    LOCK(Backend->EventsMtx);
-    ChipQueue->updateLastEvent(WaitForCpuComplete);
-  }
-
-  GpuAck = ChipQueueLz->enqueueMarkerImplReg();
+  // This will get triggered when the CPU is done
+  GpuAck = BackendLz->createEventShared(ChipContextLz);
   GpuAck->Msg = "GpuAck";
+  auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
+  Status = zeCommandListAppendBarrier(CommandList, GpuAckLz->get(),
+                                           1, &CpuCallbackCompleteLz->get());
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  // Close & Execute cmd lis
+  Status = zeCommandListClose(CommandList);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  Status =
+      zeCommandQueueExecuteCommandLists(ChipQueueLz->getCmdQueue(), 1, &CommandList, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+
+  ChipQueueLz->updateLastEvent(GpuAck);
 }
 
 // End CHIPCallbackDataLevel0
