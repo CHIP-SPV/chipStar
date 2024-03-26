@@ -20,6 +20,8 @@ parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default=
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
 parser.add_argument('-c', '--categories', action='store_true', help='run tests by categories, including running a set of tests in a single thread')
+parser.add_argument('--regex-include', type=str, nargs='?', default="", help='Tests to be run must also match this regex (known failures will still be excluded)')
+parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Specifically exclude tests that match this regex (known failures will still be excluded)')
 
 # --total-runtime cannot be used with --num-tries
 group = parser.add_mutually_exclusive_group()
@@ -135,7 +137,9 @@ def run_tests(num_tries):
     else:
         exit(1)
   else:
-    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{backend_full}.txt"
+    if len(args.regex_exclude) > 0:
+        args.regex_exclude = f"{args.regex_exclude}|"
+    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -R {args.regex_include} -E \"{args.regex_exclude}`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{backend_full}.txt"
   res, err = run_cmd(cmd)
   return res, err
 
