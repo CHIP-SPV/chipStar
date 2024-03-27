@@ -11,7 +11,7 @@ else
 fi
 
 num_tries=1
-// deafult timeout is 30 minutes
+# deafult timeout is 30 minutes
 timeout=1800
 
 # Check if at least one argument is provided
