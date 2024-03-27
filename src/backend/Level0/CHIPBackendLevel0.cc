@@ -1558,17 +1558,25 @@ void CHIPQueueLevel0::finish() {
 #ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
+    ze_result_t Status;
+    Status = zeCommandListHostSynchronize(ZeCmdListImm_, ChipEnvVars.getL0EventTimeout());
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  if (ChipEnvVars.getL0ImmCmdLists()) {
-    auto Event = getLastEvent();
-    auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
-    if (EventLZ)
-      EventLZ->wait();
-  } else {
-    auto Status =
+    Status =
         zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
     CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  }
+
+
+  // if (ChipEnvVars.getL0ImmCmdLists()) {
+  //   auto Event = getLastEvent();
+  //   auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
+  //   if (EventLZ)
+  //     EventLZ->wait();
+  // } else {
+  //   auto Status =
+  //       zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
+  //   CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  // }
 
   return;
 }
