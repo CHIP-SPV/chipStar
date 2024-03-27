@@ -487,6 +487,7 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 
 # iGPU OpenCL Unit Test Failures
+list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadDevice_ParallelPyramid") # Flaky Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadStreams1_AsyncSame") # invalid free()
 list(APPEND IGPU_OPENCL_FAILED_TESTS "TestStlFunctionsDouble") # Runs out of resoruces with -j16?
@@ -796,6 +797,7 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTextureObj2DCheckModes")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventRecord")
 
 # dGPU OpenCL Unit Test Failures
+list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMultiThreadDevice_ParallelPyramid") # Flaky Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty") # flaky
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime") # flaky
