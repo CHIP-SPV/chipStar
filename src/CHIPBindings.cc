@@ -1568,14 +1568,13 @@ hipError_t hipSetDevice(int DeviceId) {
 }
 
 static inline hipError_t hipDeviceSynchronizeInternal(void) {
-  LOCK(Backend->GlobalLastEventMtx); // prevents devices from being destroyed while iterating
+  LOCK(Backend->GlobalLastEventMtx); // prevents devices from being destroyed
+                                     // while iterating
   auto Dev = Backend->getActiveDevice();
-  {
-    LOCK(Dev->QueueAddRemoveMtx); // prevents queues from being destryed while iterating
-    for (auto Q : Dev->getQueuesNoLock()) {
-      Q->finish();
-    }
-  }
+  LOCK(Dev->QueueAddRemoveMtx); // prevents queues from being destryed while
+                                // iterating
+  for (auto Q : Dev->getQueuesNoLock())
+    Q->finish();
 
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
