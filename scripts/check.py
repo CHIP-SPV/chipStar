@@ -20,10 +20,12 @@ parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default=
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
 parser.add_argument('-c', '--categories', action='store_true', help='run tests by categories, including running a set of tests in a single thread')
+parser.add_argument('--regex-include', type=str, nargs='?', default="", help='Tests to be run must also match this regex (known failures will still be excluded)')
+parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Specifically exclude tests that match this regex (known failures will still be excluded)')
 
 # --total-runtime cannot be used with --num-tries
 group = parser.add_mutually_exclusive_group()
-group.add_argument('--total-runtime', type=int, nargs='?', default=0, help='Set --num-tries such that the total runtime is approximately this value in minutes')
+group.add_argument('--total-runtime', type=str, nargs='?', default=0, help='Set --num-tries such that the total runtime is approximately this value in hours')
 group.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 
 args = parser.parse_args()
@@ -67,13 +69,16 @@ else:
 if args.backend == "level0-reg":
     level0_cmd_list = "reg_"
     args.backend = "level0"
+    backend_full = "level0_reg"
     env_vars += " CHIP_L0_IMM_CMD_LISTS=OFF"
 elif args.backend == "level0-imm":
     level0_cmd_list = "imm_"
     args.backend = "level0"
+    backend_full = "level0_imm"
     env_vars += " CHIP_L0_IMM_CMD_LISTS=ON"
 else:
     level0_cmd_list = ""
+    backend_full = args.backend
 
 # setup module load line
 modules = ""
@@ -132,7 +137,11 @@ def run_tests(num_tries):
     else:
         exit(1)
   else:
-    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{args.backend}.txt"
+    if len(args.regex_exclude) > 0:
+        args.regex_exclude = f"{args.regex_exclude}|"
+    if len(args.regex_include) > 0:
+        args.regex_include = f"-R {args.regex_include}"
+    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {args.regex_include} -E \"{args.regex_exclude}`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{backend_full}.txt"
   res, err = run_cmd(cmd)
   return res, err
 
@@ -146,8 +155,15 @@ if args.total_runtime:
     # calculate the total time
     total_time = t_end - t_start
     # calculate the number of tries
-    num_tries = int(args.total_runtime * 60 / total_time)
-    print(f"Running tests {num_tries} times to get a total runtime of {args.total_runtime} minutes")
+    # make sure that args.total_runtime ends in either m or h
+    if args.total_runtime[-1] == "m":
+        num_tries = int(float(args.total_runtime[:-1]) * 60 / total_time)
+    elif args.total_runtime[-1] == "h":
+        num_tries = int(float(args.total_runtime[:-1]) * 60 * 60 / total_time)
+    else:
+        print("Error: --total-runtime should end in either m or h")
+        exit(1)
+    print(f"Running tests {num_tries} times to get a total runtime of {args.total_runtime} hours")
 else:
     num_tries = args.num_tries
 
