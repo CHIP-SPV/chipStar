@@ -866,7 +866,7 @@ chipstar::Queue *
 chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
                                          int Priority) {
 
-  LOCK(DeviceMtx) // writing chipstar::Device::ChipQueues_
+  LOCK(QueueAddRemoveMtx) // writing chipstar::Device::ChipQueues_
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
@@ -876,6 +876,7 @@ chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
 chipstar::Queue *
 chipstar::Device::createQueueAndRegister(const uintptr_t *NativeHandles,
                                          const size_t NumHandles) {
+  LOCK(QueueAddRemoveMtx) // writing chipstar::Device::ChipQueues_
   auto ChipQueue = createQueue(NativeHandles, NumHandles);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
