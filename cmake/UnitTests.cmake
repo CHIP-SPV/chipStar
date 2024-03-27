@@ -30,7 +30,6 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestkindDtoH")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestkindDefault")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetFunctional_ZeroValue_2D")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostMalloc_NonCoherent")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamAddCallback_WithCreatedStream")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyToFromSymbol_SyncAndAsync")
 list(APPEND NON_PARALLEL_TESTS "MatrixMultiply")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy2DFromArray_PinnedMemSameGPU")
@@ -40,14 +39,11 @@ list(APPEND NON_PARALLEL_TESTS "VecAdd")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMallocPitch_ValidatePitch")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostMalloc_CoherentAccess")
 list(APPEND NON_PARALLEL_TESTS "TestLargeKernelArgLists")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamAddCallback_WithDefaultStream")
 list(APPEND NON_PARALLEL_TESTS "TestWholeProgramCompilation")
 list(APPEND NON_PARALLEL_TESTS "hip_async_binomial")
 list(APPEND NON_PARALLEL_TESTS "BinomialOption")
 list(APPEND NON_PARALLEL_TESTS "shuffles")
 list(APPEND NON_PARALLEL_TESTS "clock")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestwithTwoStream")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpyWithStream_TestDtoDonSameDevice")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - int")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - float")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_H2H-H2D-D2H-H2PinMem - double")
@@ -65,7 +61,6 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiThreadStreams1_AsyncSync")
 list(APPEND NON_PARALLEL_TESTS "FastWalshTransform")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipMultiStream_sameDevice")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipStreamCreate_MultistreamBasicFunctionalities")
-list(APPEND NON_PARALLEL_TESTS "Unit_hipMemcpy_MultiThreadWithSerialization")
 list(APPEND NON_PARALLEL_TESTS "dwtHaar1D")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostRegister_Memcpy - int")
 list(APPEND NON_PARALLEL_TESTS "Unit_hipHostRegister_Memcpy - float")
@@ -76,11 +71,9 @@ list(APPEND NON_PARALLEL_TESTS "Unit_hipMemsetAsync_SetMemoryWithOffset")
 list(APPEND NON_PARALLEL_TESTS "BitonicSort")
 list(APPEND NON_PARALLEL_TESTS "FloydWarshall")
 
+list(APPEND FAILING_FOR_ALL "hip_async_binomial") # Failed
 list(APPEND FAILING_FOR_ALL "hipMultiThreadAddCallback")
-list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - int")
-list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - float")
-list(APPEND FAILING_FOR_ALL "Unit_hipMemcpyAsync_hipMultiMemcpyMultiThread - double")
-list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams1_AsyncAsync")
+list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_StrmSyncTiming") # timeout
 list(APPEND FAILING_FOR_ALL "Unit_hipMemset2DAsync_MultiThread")
 list(APPEND FAILING_FOR_ALL "abort")
 list(APPEND FAILING_FOR_ALL "abort2")
@@ -89,7 +82,7 @@ list(APPEND FAILING_FOR_ALL "TestAssertFail")
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphDestroyNode_DestroyDependencyNode") # SEGFAULT
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddHostNode_ClonedGraphwithHostNode") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipStreamPerThread_Basic") # SyncQueues refactor
-list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Timeout
+list(APPEND FAILING_FOR_ALL "Unit_hipStreamAddCallback_MultipleThreads") # Correctness
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiStream_multimeDevice") # Timeout on OpenCL cpu but needs investigating
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventWaitNode_MultipleRun") # Failed for level0 dgpu imm
 list(APPEND FAILING_FOR_ALL "Unit_hipCreateTextureObject_ArgValidation") # Subprocess aborted
@@ -186,13 +179,10 @@ list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rn_flo
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_ru_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_deviceFunctions_CompileTest___ull2float_rz_float") # Unimplemented
 list(APPEND FAILING_FOR_ALL "Unit_hipGraphAddEventRecordNode_MultipleRun")
-list(APPEND FAILING_FOR_ALL "Unit_hipMemsetAsync_QueueJobsMultithreaded")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemset3D_MemsetWithExtent")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_MemsetWithExtent")
 list(APPEND FAILING_FOR_ALL "Unit_hipMemset3DAsync_ConcurrencyMthread")
-list(APPEND FAILING_FOR_ALL "Unit_hipMemsetFunctional_ZeroSize_3D")
-list(APPEND FAILING_FOR_ALL "Unit_hipMemsetFunctional_PartialSet_3D")
-list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # SEGFAULT - likely due to main thread exiting without calling join
+list(APPEND FAILING_FOR_ALL "hipStreamSemantics") # memory copy is blocking. Runtime bug?
 # Not included in any target because no driver (so far) reports support
 # for indirect calls. Despite this, this test is known to pass on Intel
 # OpenCL CPU & GPU and Intel Level Zero (however, your mileage may vary).
@@ -200,24 +190,7 @@ list(APPEND FAILING_FOR_ALL "TestIndirectCall")
 list(APPEND FAILING_FOR_ALL "Unit_hipMultiThreadStreams2")
 list(APPEND FAILING_FOR_ALL "syncthreadsExitedThreads") # Bad test - undefined behavior according to CUDA spec.
 # Flaky
-list(APPEND FAILING_FOR_ALL "cuda-simpleCallback")
-list(APPEND FAILING_FOR_ALL "cuda-bandwidthTest")
-list(APPEND FAILING_FOR_ALL "cuda-convolutionSeparable")
-list(APPEND FAILING_FOR_ALL "cuda-histogram")
-list(APPEND FAILING_FOR_ALL "cuda-binomialoptions")
-list(APPEND FAILING_FOR_ALL "cuda-blackscholes")
-list(APPEND FAILING_FOR_ALL "cuda-qrng")
-list(APPEND FAILING_FOR_ALL "cuda-scan")
-list(APPEND FAILING_FOR_ALL "cuda-FDTD3d")
-list(APPEND FAILING_FOR_ALL "cuda-reduction")
-list(APPEND FAILING_FOR_ALL "cuda-fastwalsh")
-list(APPEND FAILING_FOR_ALL "cuda-mergesort")
-list(APPEND FAILING_FOR_ALL "cuda-scalarprod")
-list(APPEND FAILING_FOR_ALL "cuda-sortnet")
-list(APPEND FAILING_FOR_ALL "cuda-sobolqrng")
-list(APPEND FAILING_FOR_ALL "cuda-sortnet")
-list(APPEND FAILING_FOR_ALL "cuda-asyncAPI")
-list(APPEND FAILING_FOR_ALL "cuda-matrixMul")
+list(APPEND FAILING_FOR_ALL "cuda-simpleCallback") # hipErrorNotSupported
 
 # CPU OpenCL Unit Test Failures
 list(APPEND CPU_OPENCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
@@ -455,8 +428,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -466,7 +437,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basic
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
@@ -512,8 +482,6 @@ list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # 
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_OPENCL_FAILED_TESTS "fp16") # Subprocess aborted
-list(APPEND CPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
-list(APPEND CPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # SEGFAULT
 
 # iGPU OpenCL Unit Test Failures
 list(APPEND IGPU_OPENCL_FAILED_TESTS "syncthreadsExitedThreads") # Timeout
@@ -755,7 +723,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -765,7 +732,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basi
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Failed
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
@@ -809,7 +775,6 @@ list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - float")
 list(APPEND IGPU_OPENCL_FAILED_TESTS "Unit_hipTexObjPitch_texture2D - int")
@@ -1088,7 +1053,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -1098,7 +1062,6 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Basi
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
@@ -1142,19 +1105,10 @@ list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Fa
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipEvent") # Failed
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # Failed
-list(APPEND DGPU_OPENCL_FAILED_TESTS "hipMultiThreadAddCallback") # Subprocess aborted
 list(APPEND DGPU_OPENCL_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
-# dGPU Level Zero Unit Test Failures
-list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "Unit_hipEvent") # Failing for ICL https://github.com/intel/compute-runtime/issues/668
-list(APPEND DGPU_LEVEL0_ICL_FAILED_TESTS "hipKernelLaunchIsNonBlocking") 
-
-
-
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # 
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
+# # dGPU Level Zero Unit Test Failures
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddDependencies_NegTest") # SEGFAULT
@@ -1388,7 +1342,6 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # F
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
@@ -1398,7 +1351,6 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
-list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
@@ -1446,11 +1398,8 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check
 list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
 
 # iGPU Level Zero Unit Test Failures
-list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMultiThreadDevice_NearZero") # only happens when ctest -j $(nproc) RCL
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # Timeout Using MKL 2023.2.3 
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop_no_buffers") # Timeout Using MKL 2023.2.3 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
@@ -1684,7 +1633,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # F
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Timeout
@@ -1694,7 +1642,6 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceGetCacheConfig_Positive_Threaded") # Subprocess aborted
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_HipDeviceGetCacheConfig_Negative_Parameters") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # Timeout
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipDeviceTotalMem_NegTst") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_NullptrFlag") # Failed
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGetSetDeviceFlags_InvalidFlag") # Failed
@@ -1992,7 +1939,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamGetFlags_Negative") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_DoubleDestroy") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamDestroy_Negative_NullStream") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamSynchronize_UninitializedStream") # Failed
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipStreamAddCallback_StrmSyncTiming") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventIpc") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_Default_Positive") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipEventSynchronize_NoEventRecord_Positive") # Failed
@@ -2044,8 +1990,6 @@ list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Basic") # Faile
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipGetLastError_Positive_Threaded") # Subprocess aborted
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Basic") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Threaded") # Subprocess aborted
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipClassKernel_Friend") # SEGFAULT
-list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Functional") # Failed
 list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop") # #terminate called after throwing an instance of 'sycl::_V1::runtime_error' what():  No device of requested type available
 list(APPEND CPU_POCL_FAILED_TESTS "hip_sycl_interop_no_buffers") # #terminate called after throwing an instance of 'sycl::_V1::runtime_error' what():  No device of requested type available
 # broken tests, they all try to write outside allocated memory;

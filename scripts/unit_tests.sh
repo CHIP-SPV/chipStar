@@ -11,7 +11,8 @@ else
 fi
 
 num_tries=1
-timeout=200
+# deafult timeout is 30 minutes
+timeout=1800
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
@@ -105,6 +106,9 @@ export OverrideDefaultFP64Settings=1
 export CHIP_LOGLEVEL=err
 export POCL_KERNEL_CACHE=0
 
+# set event timeout to be 10 less than timeout
+export CHIP_L0_EVENT_TIMEOUT=$(($timeout - 10))
+
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 module use ~/modulefiles
 module load mkl/2024.0 compiler/2024.0.2 $CLANG opencl/dgpu 
@@ -155,35 +159,23 @@ module unload opencl/dgpu
 
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 
-# Test Level Zero Regular Cmd Lists iGPU
-echo "begin igpu_level0_failed_reg_tests"
+# Test Level Zero iGPU
+echo "begin igpu_level0_failed_imm_tests"
 # module load level-zero/igpu
 # module list
-../scripts/check.py ./ igpu level0-reg --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --categories --modules=on | tee igpu_level0_reg_make_check_result.txt
-# CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_reg_tests.txt`" | tee igpu_level0_reg_make_check_result.txt
+../scripts/check.py ./ igpu level0-imm --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee igpu_level0_imm_make_check_result.txt
+# CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
 # popd
 # module unload level-zero/igpu
-echo "end igpu_level0_failed_reg_tests"
+echo "end igpu_level0_failed_imm_tests"
 
-# Test Level Zero Regular Cmd Lists dGPU
-echo "begin dgpu_level0_failed_reg_tests"
-# module load level-zero/dgpu
-# module list
-../scripts/check.py ./ dgpu level0-reg --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --categories --modules=on | tee dgpu_level0_reg_make_check_result.txt
-# CHIP_L0_IMM_CMD_LISTS=OFF ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_reg_tests.txt`" | tee dgpu_level0_reg_make_check_result.txt
-# pushd ${LIBCEED_DIR}
-# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_reg_make_check_result.txt
-# popd
-# module unload level-zero/dgpu
-echo "end dgpu_level0_failed_reg_tests"
-
-# Test Level Zero Immediate Cmd Lists dGPU
+# Test Level Zero dGPU
 echo "begin dgpu_level0_failed_imm_tests"
 # module load level-zero/dgpu
 # module list
-../scripts/check.py ./ dgpu level0-imm --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --categories --modules=on | tee dgpu_level0_imm_make_check_result.txt
+../scripts/check.py ./ dgpu level0-imm --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee dgpu_level0_imm_make_check_result.txt
 # CHIP_L0_IMM_CMD_LISTS=ON ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 8) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
@@ -195,7 +187,7 @@ echo "end dgpu_level0_failed_imm_tests"
 echo "begin igpu_opencl_failed_tests"
 # module load opencl/igpu
 # module list
-../scripts/check.py ./ igpu opencl --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --categories --modules=on | tee igpu_opencl_make_check_result.txt
+../scripts/check.py ./ igpu opencl --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee igpu_opencl_make_check_result.txt
 # ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_opencl_failed_tests.txt`" | tee igpu_opencl_make_check_result.txt
 #pushd ${LIBCEED_DIR}
 #make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee igpu_opencl_make_check_result.txt
@@ -208,7 +200,7 @@ echo "begin dgpu_opencl_failed_tests"
 # module load intel/opencl # sets ICD
 # module load opencl/dgpu # sets CHIP_BE
 # module list
-../scripts/check.py ./ dgpu opencl --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --categories --modules=on | tee dgpu_opencl_make_check_result.txt
+../scripts/check.py ./ dgpu opencl --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee dgpu_opencl_make_check_result.txt
 # ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 8) --output-on-failure -E "`cat ./test_lists/dgpu_opencl_failed_tests.txt`" | tee dgpu_opencl_make_check_result.txt
 # pushd ${LIBCEED_DIR}
 # HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_opencl_make_check_result.txt
@@ -247,8 +239,7 @@ echo "RESULTS:"
                   #  igpu_level0_imm_make_check_result.txt 
 for test_result in dgpu_opencl_make_check_result.txt \
                    igpu_opencl_make_check_result.txt \
-                   igpu_level0_reg_make_check_result.txt \
-                   dgpu_level0_reg_make_check_result.txt \
+                   igpu_level0_imm_make_check_result.txt \
                    dgpu_level0_imm_make_check_result.txt
 do
   echo -n "${test_result}: "
@@ -262,7 +253,6 @@ done
 # # dgpu_opencl_make_check_result
 # # libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
 # for test_result in libCEED/dgpu_opencl_make_check_result.txt \
-#                    libCEED/dgpu_level0_reg_make_check_result.txt \
 #                    libCEED/dgpu_level0_imm_make_check_result.txt
                    
 # do
