@@ -318,7 +318,7 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override;
   std::vector<cl_event>
-  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> &TargetEvent);
 };
 
 // Used for a kernel pool with a custom deleter that, instead of
@@ -391,7 +391,6 @@ public:
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
   virtual ~CHIPExecItemOpenCL() override {}
-  SPVFuncInfo FuncInfo;
   virtual void setupAllArgs() override;
   cl_kernel getKernelHandle();
 
