@@ -1560,23 +1560,11 @@ void CHIPQueueLevel0::finish() {
 #endif
     ze_result_t Status;
     Status = zeCommandListHostSynchronize(ZeCmdListImm_, ChipEnvVars.getL0EventTimeout());
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd, "zeCommandListHostSynchronize timeout out");
 
     Status =
         zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-
-  // if (ChipEnvVars.getL0ImmCmdLists()) {
-  //   auto Event = getLastEvent();
-  //   auto EventLZ = std::static_pointer_cast<CHIPEventLevel0>(Event);
-  //   if (EventLZ)
-  //     EventLZ->wait();
-  // } else {
-  //   auto Status =
-  //       zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
-  //   CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // }
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd, "zeCommandQueueSynchronize timeout out");
 
   return;
 }
@@ -1601,23 +1589,6 @@ void CHIPQueueLevel0::executeCommandListReg(
     ze_command_list_handle_t CommandList) {
 
   ze_result_t Status;
-
-  // Associate this event with the command list. Once the events are signaled,
-  // EventMonitorLevel0 will destroy the command list
-
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
-  // if (LastCmdListEvent) {
-  //   ze_event_handle_t EventHandle =
-  //       std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent)->peek();
-  //   auto [EventHandles, EventLocks] =
-  //       addDependenciesQueueSync(LastCmdListEvent);
-  //   Status = zeCommandListAppendBarrier(
-  //       CommandList, EventHandle, EventHandles.size(), EventHandles.data());
-  //   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  // } else {
-  // }
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
