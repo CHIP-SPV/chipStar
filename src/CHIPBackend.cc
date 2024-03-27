@@ -1187,6 +1187,8 @@ chipstar::Backend::~Backend() {
 
 void chipstar::Backend::trackEvent(
     const std::shared_ptr<chipstar::Event> &Event) {
+  if (Event->isUserEvent())
+    return;
   Event->isDeletedSanityCheck();
 
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);

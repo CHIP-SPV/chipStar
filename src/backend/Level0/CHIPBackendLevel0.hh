@@ -140,7 +140,7 @@ public:
 
   void reset();
 
-  ze_event_handle_t peek();
+  ze_event_handle_t &peek();
 
   /// Bind an action which is promised to be executed when the event is
   /// finished.
