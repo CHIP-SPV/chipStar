@@ -11,7 +11,8 @@ else
 fi
 
 num_tries=1
-timeout=3000
+// deafult timeout is 30 minutes
+timeout=1800
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
