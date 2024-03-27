@@ -920,7 +920,7 @@ ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
     ze_command_list_desc_t Desc = ChipDevLz->getCommandListComputeDesc();
     auto Status =
         zeCommandListCreate(this->ZeCtx, ChipDevLz->get(), &Desc, &ZeCmdList);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
                                 hipErrorInitializationError);
   }
 
