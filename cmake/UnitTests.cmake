@@ -1418,8 +1418,6 @@ list(APPEND DGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Func
 list(APPEND IGPU_LEVEL0_RCL_FAILED_TESTS "Unit_hipMemsetFunctional_PartialSet_3D") # only happens when ctest -j $(nproc) RCL
 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "cuda-bandwidthTest") # Timeout Using MKL 2023.2.3 
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop") # Timeout Using MKL 2023.2.3 
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hip_sycl_interop_no_buffers") # Timeout Using MKL 2023.2.3 
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "deviceMallocCompile") # Unimplemented
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphAddEmptyNode_NegTest") # SEGFAULT
