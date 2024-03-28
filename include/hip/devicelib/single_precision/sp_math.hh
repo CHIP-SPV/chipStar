@@ -38,7 +38,7 @@
  * function declared in 1. cosf(x) -> cos(x)
  */
 #if defined __has_builtin && __has_builtin(__builtin_acosf)
-static inline __device__ float acosf(float x) { return __builtin_acos(x); }
+static inline __device__ float acosf(float x) { return __builtin_acosf(x); }
 #else
 extern "C++" __device__ float acos(float x); // OpenCL
 extern "C++" inline __device__ float acosf(float x) { return ::acos(x); }
@@ -312,7 +312,7 @@ extern "C++" inline __device__ long long int llroundf(float x) {
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_log10f)
-static inline __device__ float log10f(float x) { return __builtin_log10(x); }
+static inline __device__ float log10f(float x) { return __builtin_log10f(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_log10(float x); // OpenCL
 extern "C++" inline __device__ float log10f(float x) {
@@ -342,7 +342,7 @@ extern "C++" __device__ float logb(float x); // OpenCL
 extern "C++" inline __device__ float logbf(float x) { return ::logb(x); }
 
 #if defined __has_builtin && __has_builtin(__builtin_logf)
-static inline __device__ float logf(float x) { return __builtin_log(x); }
+static inline __device__ float logf(float x) { return __builtin_logf(x); }
 #elif defined __FAST_MATH__
 extern "C++" __device__ float native_log(float x); // OpenCL
 extern "C++" inline __device__ float logf(float x) {
