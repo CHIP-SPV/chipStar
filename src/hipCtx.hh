@@ -159,7 +159,8 @@ hipError_t hipCtxSynchronize(void) {
   CHIP_TRY
   CHIPInitialize();
   auto Dev = Backend->getActiveDevice();
-  for (auto &Q : Dev->getQueues()) {
+  LOCK(Dev->QueueAddRemoveMtx);
+  for (auto &Q : Dev->getQueuesNoLock()) {
     Q->finish();
   }
   RETURN(hipSuccess);

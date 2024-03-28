@@ -1568,13 +1568,13 @@ hipError_t hipSetDevice(int DeviceId) {
 }
 
 static inline hipError_t hipDeviceSynchronizeInternal(void) {
+  LOCK(Backend->GlobalLastEventMtx); // prevents devices from being destroyed
+                                     // while iterating
   auto Dev = Backend->getActiveDevice();
-  {
-    LOCK(Dev->DeviceMtx); // prevents queues from being destryed while iterating
-    for (auto Q : Dev->getQueuesNoLock()) {
-      Q->finish();
-    }
-  }
+  LOCK(Dev->QueueAddRemoveMtx); // prevents queues from being destryed while
+                                // iterating
+  for (auto Q : Dev->getQueuesNoLock())
+    Q->finish();
 
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
@@ -2133,6 +2133,7 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   // make sure nothing is pending in the stream
   ChipQueue->finish();
 
+  LOCK(Dev->QueueAddRemoveMtx);
   if (Dev->removeQueue(ChipQueue))
     RETURN(hipSuccess);
   else
@@ -2344,6 +2345,7 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
   auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
     return hipSuccess;

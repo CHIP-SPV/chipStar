@@ -522,7 +522,8 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 }
 
 chipstar::Device::~Device() {
-  LOCK(DeviceMtx); // chipstar::Device::ChipQueues_
+  LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
+  LOCK(DeviceVarMtx);      // chipstar::Device::HostPtrToCompiledMod_
   logDebug("~Device() {}", (void *)this);
 
   // Call finish() for PerThreadDefaultQueue to ensure that all
@@ -538,7 +539,8 @@ chipstar::Device::~Device() {
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
 
-  // delete all entires in SrcModToCompiledMod_
+  // delete all entries in SrcModToCompiledMod_
+  HostPtrToCompiledMod_.clear();
   for (auto &Kv : SrcModToCompiledMod_)
     delete Kv.second;
   SrcModToCompiledMod_.clear();
@@ -843,7 +845,6 @@ void chipstar::Device::eraseModule(chipstar::Module *Module) {
 }
 
 void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
-  LOCK(DeviceMtx) // writing chipstar::Device::ChipQueues_
   logDebug("{} Device::addQueue({})", (void *)this, (void *)ChipQueue);
 
   auto QueueFound =
@@ -865,6 +866,7 @@ chipstar::Queue *
 chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
                                          int Priority) {
 
+  LOCK(QueueAddRemoveMtx) // writing chipstar::Device::ChipQueues_
   auto ChipQueue = createQueue(Flags, Priority);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
@@ -874,15 +876,11 @@ chipstar::Device::createQueueAndRegister(chipstar::QueueFlags Flags,
 chipstar::Queue *
 chipstar::Device::createQueueAndRegister(const uintptr_t *NativeHandles,
                                          const size_t NumHandles) {
+  LOCK(QueueAddRemoveMtx) // writing chipstar::Device::ChipQueues_
   auto ChipQueue = createQueue(NativeHandles, NumHandles);
   // Add the queue handle to the device and the Backend
   addQueue(ChipQueue);
   return ChipQueue;
-}
-
-std::vector<chipstar::Queue *> &chipstar::Device::getQueues() {
-  LOCK(DeviceMtx); // reading chipstar::Device::ChipQueues_
-  return ChipQueues_;
 }
 
 hipError_t chipstar::Device::setPeerAccess(chipstar::Device *Peer, int Flags,
@@ -1006,6 +1004,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     chipstar::Kernel *Kernel = Mod->getKernelByName(NameTmp);
     assert(Kernel && "chipstar::Kernel went missing?");
     Kernel->setHostPtr(Info.Ptr);
+    LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }
 
@@ -1033,6 +1032,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     Mod->addDeviceVariable(Var);
 
     DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+    LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }
 
@@ -1187,8 +1187,8 @@ chipstar::Backend::~Backend() {
 
 void chipstar::Backend::trackEvent(
     const std::shared_ptr<chipstar::Event> &Event) {
-  LOCK(::Backend->EventsMtx); // trackImpl Backend::Events
-  LOCK(Event->EventMtx);      // writing bool chipstar::Event::TrackCalled_
+  if (Event->isUserEvent())
+    return;
   Event->isDeletedSanityCheck();
 
   logDebug("Tracking chipstar::Event {} in Backend::Events", (void *)this);
@@ -1233,9 +1233,10 @@ void chipstar::Backend::waitForThreadExit() {
   // Cleanup all queues
   {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
+    LOCK(::Backend->EventsMtx);  // CHIPBackend::Events
     for (auto Dev : ::Backend->getDevices()) {
+      LOCK(Dev->QueueAddRemoveMtx);
       Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      LOCK(::Backend->EventsMtx); // CHIPBackend::Events
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
         logWarn("Not all user created streams have been destoyed... Queues "
@@ -1432,7 +1433,7 @@ chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
   auto Dev = ::Backend->getActiveDevice();
-  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+  LOCK(Dev->QueueAddRemoveMtx);
 
   if (ChipQueue == hipStreamPerThread) {
     return Dev->getPerThreadDefaultQueueNoLock();
@@ -1490,18 +1491,30 @@ void chipstar::Queue::updateLastEvent(
   LastEvent_ = NewEvent;
 }
 
-std::vector<std::shared_ptr<chipstar::Event>>
-chipstar::Queue::getSyncQueuesLastEvents() {
-  auto Dev = ::Backend->getActiveDevice();
-
-  LOCK(Dev->DeviceMtx); // chipstar::Device::ChipQueues_ via getQueuesNoLock()
+std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
+chipstar::Queue::getSyncQueuesLastEvents(
+    std::shared_ptr<chipstar::Event> Event) {
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+  EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
+      ::Backend->GlobalLastEventMtx));
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
+
+  auto Dev = ::Backend->getActiveDevice();
+  LOCK(Dev->QueueAddRemoveMtx);
+
   auto thisLastEvent = this->getLastEvent();
+  assert(Event.get() != thisLastEvent.get());
   if (thisLastEvent) {
     thisLastEvent->isDeletedSanityCheck();
     EventsToWaitOn.push_back(thisLastEvent);
   }
+
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(Event->EventMtx));
 
   // If this stream is default legacy stream, sync with all other streams on
   // this device
@@ -1510,25 +1523,44 @@ chipstar::Queue::getSyncQueuesLastEvents() {
     for (auto &q : Dev->getQueuesNoLock()) {
       if (q->getQueueFlags().isBlocking()) {
         auto Ev = q->getLastEvent();
-        if (Ev)
-          EventsToWaitOn.push_back(Ev);
+        if (Ev) {
+          // check if Ev is already in EventsToWaitOn
+          if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
+              EventsToWaitOn.end()) {
+            logError("Event {} is already in the list of events to wait on",
+                     (void *)Ev.get());
+          } else {
+            EventsToWaitOn.push_back(Ev);
+          }
+        }
       }
     }
   } else if (this->getQueueFlags().isBlocking()) {
     // sync with default legacy stream
     auto Ev = Dev->getLegacyDefaultQueue()->getLastEvent();
-    if (Ev)
-      EventsToWaitOn.push_back(Ev);
+    if (Ev) {
+      if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
+          EventsToWaitOn.end()) {
+        logError("Event {} is already in the list of events to wait on",
+                 (void *)Ev.get());
+      } else {
+        EventsToWaitOn.push_back(Ev);
+      }
+    }
 
     // sync with default per-thread stream
     if (Dev->isPerThreadStreamUsedNoLock()) {
       Ev = Dev->getPerThreadDefaultQueueNoLock()->getLastEvent();
-      if (Ev)
+      if (Ev) {
+        if (std::find(EventsToWaitOn.begin(), EventsToWaitOn.end(), Ev) !=
+            EventsToWaitOn.end())
+          std::abort();
         EventsToWaitOn.push_back(Ev);
+      }
     }
   }
 
-  return EventsToWaitOn;
+  return {EventsToWaitOn, std::move(EventLocks)};
 }
 
 ///////// Enqueue Operations //////////
