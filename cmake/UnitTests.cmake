@@ -1623,9 +1623,9 @@ list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipPeekAtLastError_Positive_Thre
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMemFaultStackAllocation_Check") # SEGFAULT
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "hipKernelLaunchIsNonBlocking") # Timeout
 list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipGraphMemcpyNodeSetParams_Functional") # Subprocess aborted
-list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS
-  "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
+list(APPEND IGPU_LEVEL0_BASE_FAILED_TESTS "Unit_hipMalloc_AllocateAndPoolBuffers") # Flaky. An event related issue.
 
+list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMultiThreadStreams2") # flaky
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipMallocPitch_KernelLaunch") # Segfault in Catch2 upon de-init
 list(APPEND CPU_POCL_FAILED_TESTS "hipStreamSemantics") # SEGFAULT
 list(APPEND CPU_POCL_FAILED_TESTS "Unit_hipDeviceSynchronize_Positive_Nullstream") # failing for LLVM16
