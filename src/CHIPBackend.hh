@@ -44,10 +44,13 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
+#include <utility>
 
 #include "SPVRegister.hh"
 
 #define DEFAULT_QUEUE_PRIORITY 1
+
+using unique_lock = std::unique_lock<std::mutex>;
 
 inline std::string hipMemcpyKindToString(hipMemcpyKind Kind) {
   switch (Kind) {
@@ -88,6 +91,10 @@ class Device;
 class EventMonitor;
 class Texture;
 class Context;
+
+using SharedEventVector = std::vector<std::shared_ptr<chipstar::Event>>;
+using LockGuardVector =
+    std::vector<std::unique_ptr<std::unique_lock<std::mutex>>>;
 
 class RegionDesc {
 public:
@@ -1294,6 +1301,7 @@ public:
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
+  std::mutex QueueAddRemoveMtx;
 
   std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
 
@@ -1435,12 +1443,6 @@ public:
    * @param chip_queue_  chipstar::Queue to be added
    */
   void addQueue(chipstar::Queue *ChipQueue);
-  /**
-   * @brief Get the Queues object
-   *
-   * @return std::vector<chipstar::Queue*>
-   */
-  std::vector<chipstar::Queue *> &getQueues();
 
   /**
    * @brief Remove a queue from this device's queue vector
@@ -1818,6 +1820,7 @@ public:
 
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
+  mutable std::mutex GlobalLastEventMtx;
   mutable std::mutex BackendMtx;
   mutable std::mutex ActiveCtxMtx;
   std::mutex CallbackQueueMtx;
@@ -2084,7 +2087,9 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
-  std::vector<std::shared_ptr<chipstar::Event>> getSyncQueuesLastEvents();
+  std::pair<SharedEventVector, LockGuardVector> getSyncQueuesLastEvents();
+  std::pair<SharedEventVector, LockGuardVector>
+  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent);
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}
