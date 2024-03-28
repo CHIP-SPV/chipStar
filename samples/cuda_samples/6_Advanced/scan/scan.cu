@@ -164,7 +164,7 @@ __global__ void uniformUpdate(
 ////////////////////////////////////////////////////////////////////////////////
 //Derived as 32768 (max power-of-two gridDim.x) * 4 * THREADBLOCK_SIZE
 //Due to scanExclusiveShared<<<>>>() 1D block addressing
-extern "C" const uint MAX_BATCH_ELEMENTS = 64 * 1048576;
+extern "C" const uint MAX_BATCH_ELEMENTS = 32 * 1048576;
 extern "C" const uint MIN_SHORT_ARRAY_SIZE = 4;
 extern "C" const uint MAX_SHORT_ARRAY_SIZE = 4 * THREADBLOCK_SIZE;
 extern "C" const uint MIN_LARGE_ARRAY_SIZE = 8 * THREADBLOCK_SIZE;
