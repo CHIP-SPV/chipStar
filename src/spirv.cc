@@ -278,7 +278,7 @@ public:
             (getWord(1) == (InstWord)spv::SourceLanguageOpenCL_CPP));
   }
 
-  bool isEntryPoint() {
+  bool isEntryPoint() const {
     return (Opcode_ == spv::Op::OpEntryPoint) &&
            (getWord(1) == (InstWord)spv::ExecutionModelKernel);
   }
@@ -797,6 +797,18 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
     ReplacementInsn[3] = ResultIdMap[Insn.getOperand(0)];
     return FilterAction::Replace;
   }
+
+#ifdef CHIP_POWERVR_GPU_WORKAROUNDS
+  // for PowerVR, replace _Z prefix with Z_
+  if (Insn.isEntryPoint()) {
+    ReplacementInsn.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
+    char *P = (char *)(ReplacementInsn.data() + 3);
+    if (P[0] == '_' && P[1] == 'Z') {
+      P[0] = 'Z'; P[1] = '_';
+    }
+    return FilterAction::Replace;
+  }
+#endif
 
   return FilterAction::Keep;
 }

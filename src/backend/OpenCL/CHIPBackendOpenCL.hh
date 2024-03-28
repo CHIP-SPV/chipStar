@@ -253,6 +253,7 @@ public:
   }
 
   bool hasBallot() const noexcept { return HasSubgroupBallot_; }
+  bool hasDoubles() const { return HipDeviceProps_.arch.hasDoubles; }
 };
 
 class CHIPQueueOpenCL : public chipstar::Queue {

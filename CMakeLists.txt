@@ -243,6 +243,15 @@ option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib fun
 option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
 consumption issues in ARM Mali GPU driver." OFF)
 
+# the PowerVR OpenCL implementation for some reason demangles SPIR-V function
+# names, e.g. a SPIRV with a "_Z8testfunc" kernel turned into a cl_program
+# returns "testfunc" in clGetProgramInfo(CL_PROGRAM_KERNEL_NAMES, ...)
+# This is a major issue not only for finding kernels, but also potential
+# name conflicts with function overloads.
+option(CHIP_POWERVR_GPU_WORKAROUNDS "Apply work-arounds for issues in \
+Imagination PowerVR GPU driver." OFF)
+
+
 if(CHIP_EXT_FLOAT_ATOMICS)
   message(DEPRECATION "-DCHIP_EXT_FLOAT_ATOMICS is no longer effective.")
 endif()

@@ -4765,12 +4765,19 @@ extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
   CHIP_TRY
   // NOTE: CHIP backend initialization is undesired here. See the
   //       rationale in __hipRegisterFatBinary().
-
+  std::string DeviceNameStr(DeviceName);
+#ifdef CHIP_POWERVR_GPU_WORKAROUNDS
+  // for PowerVR, replace _Z prefix with Z_
+  if (DeviceName[0] == '_' && DeviceName[1] == 'Z') {
+    DeviceNameStr[0] = 'Z'; DeviceNameStr[1] = '_';
+  }
+#endif
   logDebug("chipstar::Module {}: register function ({}) {}",
            static_cast<const void *>(Data),
-           static_cast<const void *>(HostFunction), DeviceName);
+           static_cast<const void *>(HostFunction), DeviceNameStr);
   SPVRegister::Handle ModHandle{reinterpret_cast<void *>(Data)};
-  getSPVRegister().bindFunction(ModHandle, HostPtr(HostFunction), DeviceName);
+  getSPVRegister().bindFunction(ModHandle, HostPtr(HostFunction),
+                                DeviceNameStr);
   CHIP_CATCH_NO_RETURN
 }
 

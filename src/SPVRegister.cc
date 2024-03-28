@@ -55,7 +55,7 @@ SPVRegister::Handle SPVRegister::registerSource(std::string_view SourceModule) {
 /// Associates the given host-pointer with a function by name in the
 /// source module (Handle).
 void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
-                               std::string_view Name) {
+                               const std::string &Name) {
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
@@ -87,7 +87,7 @@ void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
 /// Associates the given host-pointer with a variable by name in the
 /// source module (Handle).
 void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
-                               std::string_view Name, size_t Size) {
+                               const std::string &Name, size_t Size) {
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");

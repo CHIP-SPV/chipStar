@@ -57,7 +57,7 @@ struct SPVGlobalObject {
   /// The module the object is associated with.
   SPVModule *Parent = nullptr;
   HostPtr Ptr;           ///< The host-pointer the entity is associated with.
-  std::string_view Name; ///< The name of the entity in the device.
+  std::string Name; ///< The name of the entity in the device.
 };
 
 struct SPVFunction : public SPVGlobalObject {};
@@ -105,8 +105,8 @@ public:
 
   Handle registerSource(std::string_view SourceModule);
 
-  void bindFunction(Handle Handle, HostPtr Ptr, std::string_view Name);
-  void bindVariable(Handle Handle, HostPtr Ptr, std::string_view Name,
+  void bindFunction(Handle Handle, HostPtr Ptr, const std::string &Name);
+  void bindVariable(Handle Handle, HostPtr Ptr, const std::string &Name,
                     size_t Size);
 
   void unregisterSource(Handle Src);
