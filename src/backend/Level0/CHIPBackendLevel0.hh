@@ -96,7 +96,7 @@ public:
   uint64_t &getTimestamp() { return Timestamp_; }
   uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
   uint64_t &getHostTimestamp() { return HostTimestamp_; }
-  ze_command_list_handle_t getAssignedCmdList() { return AssignedCmdList_; }
+  ze_command_list_handle_t &getAssignedCmdList() { return AssignedCmdList_; }
 
   /**
    * @brief Assign a command list with this event. When this event completes,
@@ -140,7 +140,7 @@ public:
 
   void reset();
 
-  ze_event_handle_t peek();
+  ze_event_handle_t &peek();
 
   /// Bind an action which is promised to be executed when the event is
   /// finished.
@@ -206,7 +206,7 @@ public:
   LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size);
   ~LZEventPool();
   bool EventAvailable() { return Events_.size() > 0; }
-  ze_event_pool_handle_t get() { return EventPool_; }
+  ze_event_pool_handle_t &get() { return EventPool_; }
 
   void returnEvent(std::shared_ptr<CHIPEventLevel0> Event);
 
@@ -265,7 +265,7 @@ public:
   ze_command_list_handle_t getCmdList();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
-  std::vector<ze_event_handle_t>
+  std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
   size_t getMaxMemoryFillPatternSize() {
@@ -304,7 +304,7 @@ public:
                              ze_command_list_handle_t CommandList);
   void executeCommandListImm(std::shared_ptr<chipstar::Event> Event);
 
-  ze_command_queue_handle_t getCmdQueue() { return ZeCmdQ_; }
+  ze_command_queue_handle_t &getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
 
   virtual std::shared_ptr<chipstar::Event>
@@ -451,7 +451,7 @@ public:
    *
    * @return ze_module_handle_t
    */
-  ze_module_handle_t get() { return ZeModule_; }
+  ze_module_handle_t &get() { return ZeModule_; }
 };
 
 class CHIPKernelLevel0 : public chipstar::Kernel {
@@ -480,7 +480,7 @@ public:
   CHIPKernelLevel0(ze_kernel_handle_t ZeKernel, CHIPDeviceLevel0 *Dev,
                    std::string FuncName, SPVFuncInfo *FuncInfo,
                    CHIPModuleLevel0 *Parent);
-  ze_kernel_handle_t get();
+  ze_kernel_handle_t &get();
 
   CHIPModuleLevel0 *getModule() override { return Module; }
   const CHIPModuleLevel0 *getModule() const override { return Module; }
@@ -563,16 +563,16 @@ class CHIPDeviceLevel0 : public chipstar::Device {
 public:
   virtual CHIPContextLevel0 *createContext() override { return nullptr; }
   bool copyQueueIsAvailable() { return CopyQueueAvailable_; }
-  ze_command_list_desc_t getCommandListComputeDesc() {
+  ze_command_list_desc_t &getCommandListComputeDesc() {
     return CommandListComputeDesc_;
   }
-  ze_command_list_desc_t getCommandListCopyDesc() {
+  ze_command_list_desc_t &getCommandListCopyDesc() {
     return CommandListCopyDesc_;
   }
-  ze_command_queue_group_properties_t getComputeQueueProps() {
+  ze_command_queue_group_properties_t &getComputeQueueProps() {
     return ComputeQueueProperties_;
   }
-  ze_command_queue_group_properties_t getCopyQueueProps() {
+  ze_command_queue_group_properties_t &getCopyQueueProps() {
     return CopyQueueProperties_;
   }
   ze_command_queue_desc_t
@@ -648,7 +648,6 @@ public:
                                              hipStream_t ChipQueue) override;
 
   virtual void uninitialize() override;
-  std::mutex CommandListsMtx;
 
   void initializeCommon(ze_driver_handle_t ZeDriver);
 
