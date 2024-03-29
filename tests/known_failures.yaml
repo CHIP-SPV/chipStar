@@ -1,3 +1,4 @@
+TOTAL_TESTS: 1397
 ALL:
   TestAssert: ''
   TestAssertFail: ''

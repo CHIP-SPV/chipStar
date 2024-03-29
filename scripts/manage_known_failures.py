@@ -35,15 +35,17 @@ args = parser.parse_args()
 categories = ["ALL", "OPENCL_GPU", "OPENCL_CPU", "OPENCL_POCL", "LEVEL0_GPU"]
 
 
-def dump_known_failures_to_yaml(known_failures, filename):
-    with open(filename, "w") as file:
+def dump_known_failures_to_yaml(known_failures, yaml_path, total_tests):
+    known_failures["TOTAL_TESTS"] = total_tests
+    with open(yaml_path, 'w') as file:
         yaml.dump(known_failures, file)
 
 
-def load_known_failures_from_yaml(filename):
-    with open(filename, "r") as file:
+def load_known_failures_from_yaml(yaml_path):
+    with open(yaml_path, 'r') as file:
         known_failures = yaml.safe_load(file)
-    return known_failures
+    total_tests = known_failures.pop("TOTAL_TESTS", None)
+    return known_failures, int(total_tests)
 
 
 def prune_tests_map(tests_map):
@@ -81,11 +83,23 @@ def prune_tests_map(tests_map):
 
     return tests_map
 
-def pretty_print_known_failures(known_failures):
+def pretty_print_known_failures(known_failures, total_tests):
+    all_tests = set(known_failures.get("ALL", {}).keys())
     for category, tests in known_failures.items():
-        print(f"{category}:")
-        for test, note in tests.items():
-            print(f"\t{test} *** notes: {note}")
+        if category == "ALL":
+            continue
+        category_failures = set(tests.keys())
+        unique_failures = category_failures - all_tests
+        total_failures = category_failures.union(all_tests)
+        num_unique_failures = len(unique_failures)
+        num_total_failures = len(total_failures)
+        pass_rate = ((total_tests - num_total_failures) / total_tests) * 100
+        print(f"{category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%")
+        for test in unique_failures:
+            print(f"\t{test}")
+    num_all_failures = len(all_tests)
+    all_pass_rate = ((total_tests - num_all_failures) / total_tests) * 100
+    print(f"ALL - Total Failures: {num_all_failures}, Pass Rate: {all_pass_rate:.2f}%")
 
 
 def generate_test_string(tests_map, output_dir):
@@ -100,7 +114,7 @@ def generate_test_string(tests_map, output_dir):
 
 
 def main():
-    known_failures = load_known_failures_from_yaml(args.known_failures_path)
+    known_failures, total_tests = load_known_failures_from_yaml(args.known_failures_path)
     if args.generate:
         print("Generating test_lists files")
         # make sure output_dir exists, if not create it
@@ -110,9 +124,9 @@ def main():
     elif args.cleanup:
         print("Cleaning up known_failures.yaml")
         known_failures = prune_tests_map(known_failures)
-        dump_known_failures_to_yaml(known_failures, args.known_failures_path)
+        dump_known_failures_to_yaml(known_failures, args.known_failures_path, total_tests)
     elif args.print:
-        pretty_print_known_failures(known_failures)
+        pretty_print_known_failures(known_failures, total_tests)
     else:
         print("No action specified. Use --generate, --cleanup, or --print")
 
