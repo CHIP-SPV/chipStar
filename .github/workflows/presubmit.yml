@@ -195,7 +195,7 @@ jobs:
     name: Build and test chipStar on ${{ matrix.backend }} ${{matrix.pocl-version }} (llvm-${{ matrix.llvm-version }})
     runs-on: ubuntu-latest
     env:
-      EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/cpu_opencl_failed_tests.txt`"' || '"`cat ./test_lists/cpu_pocl_failed_tests.txt`"' }}
+      EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
     strategy:
       matrix:
         pocl-version: [4, 5]

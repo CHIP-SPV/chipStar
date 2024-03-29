@@ -363,7 +363,14 @@ add_custom_target(hipInfoBin ALL
   COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
   DEPENDS hipcc.bin CHIP devicelib_bc)
 
-include(UnitTests)
+execute_process(
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py --generate
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml ${CMAKE_BINARY_DIR}/test_lists
+  RESULT_VARIABLE result_var
+  ERROR_VARIABLE error_var
+)
+message("Result: ${result_var}")
+message("Error: ${error_var}")
 
 # chipStar BINARIES & TESTS
 # =============================================================================

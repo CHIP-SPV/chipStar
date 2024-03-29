@@ -12,14 +12,13 @@ parser = argparse.ArgumentParser(
                     epilog='have a nice day')
 
 parser.add_argument('work_dir', type=str, help='Path to build directory')
-parser.add_argument('device_type', type=str, choices=['cpu', 'igpu', 'dgpu'], help='Device type')
-parser.add_argument('backend', type=str, choices=['opencl', 'level0-reg', 'level0-imm', 'pocl'], help='Backend to use')
+parser.add_argument('device_type', type=str, choices=['cpu', 'igpu', 'dgpu', 'pocl'], help='Device type')
+parser.add_argument('backend', type=str, choices=['opencl', 'level0'], help='Backend to use')
 parser.add_argument('--num-threads', type=int, nargs='?', default=os.cpu_count(), help='Number of threads to use (default: number of cores on the system)')
 parser.add_argument('--timeout', type=int, nargs='?', default=200, help='Timeout in seconds (default: 200)')
 parser.add_argument('-m', '--modules', type=str, choices=['on', 'off'], default="off", help='load modulefiles automatically (default: off)')
 parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
-parser.add_argument('-c', '--categories', action='store_true', help='run tests by categories, including running a set of tests in a single thread')
 parser.add_argument('--regex-include', type=str, nargs='?', default="", help='Tests to be run must also match this regex (known failures will still be excluded)')
 parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Specifically exclude tests that match this regex (known failures will still be excluded)')
 
@@ -56,30 +55,13 @@ if args.verbose:
   print(f"num_tries: {args.num_tries}")
   print(f"timeout: {args.timeout}")
 
-if args.device_type == "cpu":
+if args.device_type in ["cpu", "pocl"]:
     device_type_stripped = "cpu"
 elif args.device_type in ["dgpu", "igpu"]:
     device_type_stripped = "gpu"
 
-if args.backend in ["pocl", "opencl"]:
-    env_vars = f"CHIP_BE=opencl CHIP_DEVICE_TYPE={device_type_stripped}"
-else:
-    env_vars = f"CHIP_BE=level0 CHIP_DEVICE_TYPE={device_type_stripped}"
-
-if args.backend == "level0-reg":
-    level0_cmd_list = "reg_"
-    args.backend = "level0"
-    backend_full = "level0_reg"
-    env_vars += " CHIP_L0_IMM_CMD_LISTS=OFF"
-elif args.backend == "level0-imm":
-    level0_cmd_list = "imm_"
-    args.backend = "level0"
-    backend_full = "level0_imm"
-    env_vars += " CHIP_L0_IMM_CMD_LISTS=ON"
-else:
-    level0_cmd_list = ""
-    backend_full = args.backend
-
+env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE={device_type_stripped}"
+    
 # setup module load line
 modules = ""
 if args.modules == "on":
@@ -94,7 +76,7 @@ if args.modules == "on":
       modules += "level-zero/igpu"
   elif args.backend == "level0" and args.device_type == "dgpu":
       modules += "level-zero/dgpu"
-  elif args.backend == "pocl" and args.device_type == "cpu":
+  elif args.backend == "opencl" and args.device_type == "pocl":
       modules += "opencl/pocl"
   modules += " &&  module list;"
 
@@ -120,28 +102,15 @@ if not texture_support:
 else:
     texture_cmd = ""
 
+all_test_list = f"./test_lists/ALL.txt"
+failed_test_list = f"./test_lists/{args.backend.upper()}_{device_type_stripped.upper()}.txt"
+
 def run_tests(num_tries):
-  if args.categories:
-    cmd_deviceFunc = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R deviceFunc -O checkpy_{args.device_type}_{args.backend}_device.txt"
-    cmd_graph = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j 100 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"[Gg]raph\" -O checkpy_{args.device_type}_{args.backend}_graph.txt"
-    cmd_single = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j 1 -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}\" -R \"`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_single.txt"
-    cmd_other = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -E \"`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}{double_cmd}|deviceFunc|[Gg]raph|`cat ./test_lists/non_parallel_tests.txt`\" -O checkpy_{args.device_type}_{args.backend}_other.txt"
-
-    res_deviceFunc, err  = run_cmd(cmd_deviceFunc)
-    res_graph, err = run_cmd(cmd_graph)
-    res_single, err = run_cmd(cmd_single)
-    res_other, err = run_cmd(cmd_other)
-
-    if "0 tests failed" in res_deviceFunc and "0 tests failed" in res_graph and "0 tests failed" in res_single and "0 tests failed" in res_other:
-        exit(0)
-    else:
-        exit(1)
-  else:
-    if len(args.regex_exclude) > 0:
-        args.regex_exclude = f"{args.regex_exclude}|"
-    if len(args.regex_include) > 0:
-        args.regex_include = f"-R {args.regex_include}"
-    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {args.regex_include} -E \"{args.regex_exclude}`cat ./test_lists/{args.device_type}_{args.backend}_failed_{level0_cmd_list}tests.txt`{texture_cmd}\" -O checkpy_{args.device_type}_{backend_full}.txt"
+  if len(args.regex_exclude) > 0:
+      args.regex_exclude = f"{args.regex_exclude}|"
+  if len(args.regex_include) > 0:
+      args.regex_include = f"-R {args.regex_include}"
+  cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {args.regex_include} -E \"{args.regex_exclude}`cat {failed_test_list}`|`cat {all_test_list}`{texture_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
   res, err = run_cmd(cmd)
   return res, err
 
