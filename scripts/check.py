@@ -29,6 +29,11 @@ group.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number o
 
 args = parser.parse_args()
 
+# make sure that args.total_runtime end in either m or h
+if args.total_runtime[-1] not in ["m", "h"]:
+    print("Error: --total-runtime should end in either m or h")
+    exit(1)
+
 # execute a command and return the output along with the return code
 def run_cmd(cmd):
     # get current milliseconds
