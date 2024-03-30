@@ -24,15 +24,16 @@ parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Sp
 
 # --total-runtime cannot be used with --num-tries
 group = parser.add_mutually_exclusive_group()
-group.add_argument('--total-runtime', type=str, nargs='?', default=0, help='Set --num-tries such that the total runtime is approximately this value in hours')
+group.add_argument('--total-runtime', type=str, nargs='?', default=None, help='Set --num-tries such that the total runtime is approximately this value in hours')
 group.add_argument('--num-tries', type=int, nargs='?', default=1, help='Number of tries (default: 1)')
 
 args = parser.parse_args()
 
 # make sure that args.total_runtime end in either m or h
-if str(args.total_runtime[-1]) not in ["m", "h"]:
-    print("Error: --total-runtime should end in either m or h")
-    exit(1)
+if args.total_runtime is not None:
+    if str(args.total_runtime[-1]) not in ["m", "h"]:
+        print("Error: --total-runtime should end in either 'm' or 'h'")
+        exit(1)
 
 # execute a command and return the output along with the return code
 def run_cmd(cmd):
