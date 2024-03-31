@@ -987,8 +987,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-  if (ChipEnvVars.getL0ImmCmdLists())
-    initializeCmdListImm();
+  initializeCmdListImm();
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
@@ -1007,8 +1006,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-  if (ChipEnvVars.getL0ImmCmdLists())
-    initializeCmdListImm();
+  initializeCmdListImm();
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1750,9 +1748,6 @@ void CHIPBackendLevel0::initializeImpl() {
   }
 
   EventMonitor_ = (CHIPEventMonitorLevel0 *)::Backend->createEventMonitor_();
-  // Run these lasts, as they may depend on the device properties being
-  // populated
-  setUseImmCmdLists(DeviceName);
 }
 
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,

@@ -323,7 +323,7 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
 
-  /**
+  /*
    * @brief Execute a given FencedCmdList, move it to the backend tracker, and
    * update LastEvent
    *
@@ -332,7 +332,6 @@ public:
    */
   void executeCommandList(Borrowed<FencedCmdList> &CommandList,
                           std::shared_ptr<chipstar::Event> Event);
-  /**
 
   /**
    * @brief Execute a given immediate command list (by doing nothing), and
@@ -647,21 +646,6 @@ public:
    * @see CHIPEventMonitorLevel0::checkCmdLists
    */
   std::vector<Borrowed<FencedCmdList>> ActiveCmdLists;
-
-  void setUseImmCmdLists(std::string_view DeviceName) {
-    // Immediate command lists seem to not work on some Intel iGPUs
-    // https://en.wikipedia.org/wiki/List_of_Intel_graphics_processing_units
-    std::vector<std::string> IgpuDevices = {"UHD", "HD", "Iris"};
-    // check if the device name contains any of the strings in IgpuDevices
-    bool IsIgpu = std::any_of(IgpuDevices.begin(), IgpuDevices.end(),
-                              [&](const std::string &S) {
-                                return DeviceName.find(S) != std::string::npos;
-                              });
-    if (IsIgpu && ChipEnvVars.getL0ImmCmdLists()) {
-      logWarn("Immediate command lists are not supported on this device. "
-              "Some tests likely to fail.");
-    }
-  }
 
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
