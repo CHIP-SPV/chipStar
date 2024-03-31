@@ -86,15 +86,18 @@ def pretty_print_known_failures(known_failures, total_tests):
     for category, tests in known_failures.items():
         if category == "ALL":
             continue
-        category_failures = set(tests.keys())
+        category_failures = set(tests.keys()) if tests else set()
         unique_failures = category_failures - all_tests
         total_failures = category_failures.union(all_tests)
         num_unique_failures = len(unique_failures)
         num_total_failures = len(total_failures)
         pass_rate = ((total_tests - num_total_failures) / total_tests) * 100
-        print(f"{category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%")
-        for test in unique_failures:
-            print(f"\t{test}")
+        if tests:
+            print(f"{category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%")
+            for test in unique_failures:
+                print(f"\t{test}")
+        else:
+            print(f"{category} - Unique Failures: 0, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%")
     num_all_failures = len(all_tests)
     all_pass_rate = ((total_tests - num_all_failures) / total_tests) * 100
     print(f"ALL - Total Failures: {num_all_failures}, Pass Rate: {all_pass_rate:.2f}%")
