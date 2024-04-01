@@ -216,29 +216,6 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 // CHIPEventLevel0
 // ***********************************************************************
 
-void CHIPEventLevel0::assignCmdList(CHIPContextLevel0 *ChipContext,
-                                    ze_command_list_handle_t CmdList) {
-  isDeletedSanityCheck();
-  logTrace("CHIPEventLevel0({})::assignCmdList({})", (void *)this,
-           (void *)CmdList);
-  assert(AssignedCmdList_ == nullptr && "command list already assigned!");
-  assert(AssignedContext_ == nullptr && "queue already assigned!");
-  AssignedCmdList_ = CmdList;
-  AssignedContext_ = ChipContext;
-}
-
-void CHIPEventLevel0::unassignCmdList() {
-  assert(AssignedCmdList_ != nullptr && "command list not assigned!");
-  assert(AssignedContext_ != nullptr && "queue not assigned!");
-  logTrace("CHIPEventLevel0({})::unassignCmdList({})", (void *)this,
-           (void *)AssignedCmdList_);
-  auto Status = zeCommandListReset(AssignedCmdList_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  AssignedContext_->returnCmdList(AssignedCmdList_);
-  AssignedCmdList_ = nullptr;
-  AssignedContext_ = nullptr;
-}
-
 void CHIPEventLevel0::reset() {
   logTrace("CHIPEventLevel0::reset() {} msg: {} handle: {}", (void *)this, Msg,
            (void *)Event_);
@@ -385,12 +362,12 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                        &ChipEventLz->getDeviceTimestamp());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  ze_command_list_handle_t CommandList = ChipCtxLz_->getCmdListReg();
+  Borrowed<FencedCmdList> CommandList = ChipCtxLz_->getCmdListReg();
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)getSharedBufffer(),
+      CommandList->getCmdList(), (uint64_t *)getSharedBufffer(),
       TimestampWriteCompleteLz->peek(), EventsToWaitOn.size(),
       EventsToWaitOn.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
@@ -398,20 +375,21 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   Status = zeCommandListAppendMemoryCopy(
-      CommandList, &ChipEventLz->getTimestamp(), getSharedBufffer(),
-      sizeof(uint64_t), TimestampMemcpyCompleteLz->peek(), 1,
-      &TimestampWriteCompleteLz->peek());
+      CommandList->getCmdList(), &ChipEventLz->getTimestamp(),
+      getSharedBufffer(), sizeof(uint64_t), TimestampMemcpyCompleteLz->peek(),
+      1, &TimestampWriteCompleteLz->peek());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   // Prevent these events from getting collection
   ChipEventLz->addDependency(TimestampWriteCompleteLz);
   ChipEventLz->addDependency(TimestampMemcpyCompleteLz);
 
-  Status = zeCommandListAppendBarrier(CommandList, ChipEventLz->get(), 1,
-                                      &TimestampMemcpyCompleteLz->get());
+  Status =
+      zeCommandListAppendBarrier(CommandList->getCmdList(), ChipEventLz->get(),
+                                 1, &TimestampMemcpyCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  executeCommandListReg(TimestampMemcpyCompleteLz, CommandList);
+  executeCommandList(CommandList, TimestampMemcpyCompleteLz);
 
   ChipEventLz->setRecording();
   ChipEventLz->Msg = "recordEvent";
@@ -456,8 +434,6 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
       EventStatus_ = EVENT_STATUS_RECORDED;
       releaseDependencies();
       doActions();
-      if (getAssignedCmdList())
-        unassignCmdList();
     }
 
     EventStatusNew = getEventStatusStr();
@@ -502,8 +478,10 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   this->updateFinishStatus();
   Other->updateFinishStatus();
   if (!this->isFinished() || !Other->isFinished())
-    CHIPERR_LOG_AND_THROW("One of the events for getElapsedTime() was done yet",
-                          hipErrorNotReady);
+    std::abort();
+  // CHIPERR_LOG_AND_ABORT("One of the events for getElapsedTime() was done
+  // yet",
+  //                       hipErrorNotReady);
 
   uint32_t Started = this->getFinishTime();
   uint32_t Finished = Other->getFinishTime();
@@ -576,7 +554,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
 
-  ze_command_list_handle_t CommandList = ChipContextLz->getCmdListReg();
+  Borrowed<FencedCmdList> CommandList = ChipContextLz->getCmdListReg();
 
   // GpuReady syncs with previous events
   GpuReady = BackendLz->createEventShared(ChipContextLz);
@@ -585,9 +563,9 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto [QueueSyncEvents, EventLocks] =
       ChipQueueLz->addDependenciesQueueSync(GpuReady);
   // Add a barrier so that it signals
-  auto Status = zeCommandListAppendBarrier(CommandList, GpuReadyLz->get(),
-                                           QueueSyncEvents.size(),
-                                           QueueSyncEvents.data());
+  auto Status = zeCommandListAppendBarrier(
+      CommandList->getCmdList(), GpuReadyLz->get(), QueueSyncEvents.size(),
+      QueueSyncEvents.data());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   // This will get triggered manually
@@ -600,18 +578,12 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   GpuAck = BackendLz->createEventShared(ChipContextLz);
   GpuAck->Msg = "GpuAck";
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
-  Status = zeCommandListAppendBarrier(CommandList, GpuAckLz->get(), 1,
-                                      &CpuCallbackCompleteLz->get());
+  Status =
+      zeCommandListAppendBarrier(CommandList->getCmdList(), GpuAckLz->get(), 1,
+                                 &CpuCallbackCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
-  // Close & Execute cmd lis
-  Status = zeCommandListClose(CommandList);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  Status = zeCommandQueueExecuteCommandLists(ChipQueueLz->getCmdQueue(), 1,
-                                             &CommandList, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  ChipQueueLz->updateLastEvent(GpuAck);
+  ChipQueueLz->executeCommandList(CommandList, GpuAck);
 }
 
 // End CHIPCallbackDataLevel0
@@ -655,6 +627,19 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
 
   delete CbData;
   pthread_yield();
+}
+
+void CHIPEventMonitorLevel0::checkCmdLists() {
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+  LOCK(Backend->EventsMtx);
+  LOCK(BackendLz->ActiveCmdListsMtx);
+  // go through CmdLists, calling isFinished on each and remove those that are
+  // finished
+  BackendLz->ActiveCmdLists.erase(
+      std::remove_if(BackendLz->ActiveCmdLists.begin(),
+                     BackendLz->ActiveCmdLists.end(),
+                     [](const auto &CmdList) { return CmdList->isFinished(); }),
+      BackendLz->ActiveCmdLists.end());
 }
 
 void CHIPEventMonitorLevel0::checkEvents() {
@@ -720,8 +705,7 @@ void CHIPEventMonitorLevel0::checkExit() {
         auto Event = Backend->Events[i];
         auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
         logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
-                 (void *)Event.get(), Event->Msg,
-                 (void *)EventLz->getAssignedCmdList());
+                 (void *)Event.get(), Event->Msg);
       }
       pthread_exit(0);
     }
@@ -744,6 +728,7 @@ void CHIPEventMonitorLevel0::monitor() {
     usleep(200);
     checkCallbacks();
     checkEvents();
+    checkCmdLists();
     checkExit();
   } // endless loop
 }
@@ -829,8 +814,6 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
                             // updateLastEvent(nullptr)) hasn't been called yet,
                             // and the event monitor ends up waiting forever.
 
-  auto Status = zeFenceDestroy(ZeFence_);
-  assert(Status == ZE_RESULT_SUCCESS);
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
@@ -892,46 +875,61 @@ void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
   return;
 }
 
-ze_command_list_handle_t CHIPQueueLevel0::getCmdList() {
-  if (ChipEnvVars.getL0ImmCmdLists()) {
-    logTrace("CHIPQueueLevel0::getCmdList() returning ICL {}",
-             (void *)ZeCmdListImm_);
-    return ZeCmdListImm_;
-  } else {
-    logTrace("CHIPQueueLevel0::getCmdList() returning RCL {}",
-             (void *)ZeCmdListImm_);
-    return ChipCtxLz_->getCmdListReg();
-  }
+ze_command_list_handle_t CHIPQueueLevel0::getCmdListImm() {
+  return ZeCmdListImm_;
 }
 
-ze_command_list_handle_t CHIPContextLevel0::getCmdListReg() {
-  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegPool_
+std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
+  // go through all pools and try to get an allocated event
+  LOCK(ContextMtx); // Context::EventPools
+  EventsRequested_++;
+  std::shared_ptr<CHIPEventLevel0> Event;
+  for (auto EventPool : EventPools_) {
+    LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
+    if (EventPool->EventAvailable()) {
+      EventsReused_++;
+      return EventPool->getEvent();
+    }
+  }
+
+  // no events available, create new pool, get event from there and return
+  logTrace("No available events found in {} event pools. Creating a new "
+           "event pool",
+           EventPools_.size());
+  auto NewEventPool = new LZEventPool(this, EventPoolSize_);
+  EventPoolSize_ *= 2;
+  Event = NewEventPool->getEvent();
+  EventPools_.push_back(NewEventPool);
+  return Event;
+}
+
+Borrowed<FencedCmdList> CHIPContextLevel0::getCmdListReg() {
+  auto ReturnToPool = [&](FencedCmdList *CmdList) -> void {
+    LOCK(FencedCmdListsMtx_);
+    CmdList->reset();
+    FencedCmdListsPool_.emplace(CmdList);
+  };
+
+  LOCK(FencedCmdListsMtx_) // CHIPQueueLevel0::FencedCmdListsPool
   CmdListsRequested_++;
-  ze_command_list_handle_t ZeCmdList;
-  if (ZeCmdListRegPool_.size()) {
-    ZeCmdList = ZeCmdListRegPool_.top();
-    ZeCmdListRegPool_.pop();
+  if (!FencedCmdListsPool_.empty()) {
     CmdListsReused_++;
+    auto cmdList = std::move(FencedCmdListsPool_.top());
+    FencedCmdListsPool_.pop();
+    return Borrowed<FencedCmdList>(cmdList.release(), ReturnToPool);
   } else {
     // If the cmd list stack for this queue was empty, create a new one
     // This cmd list will eventually return to the stack for this queue
     // via CHIPEventLevel0::dissassociateCmdList()
     auto ChipDevLz = static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
-    ze_command_list_desc_t Desc = ChipDevLz->getCommandListComputeDesc();
-    auto Status =
-        zeCommandListCreate(this->ZeCtx, ChipDevLz->get(), &Desc, &ZeCmdList);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
+    ze_context_handle_t ZeCtx = get();
+    ze_device_handle_t ZeDev = ChipDevLz->get();
+    ze_command_list_desc_t ZeCmdListDesc =
+        ChipDevLz->getCommandListComputeDesc();
+
+    auto CmdList = std::make_unique<FencedCmdList>(ZeDev, ZeCtx, ZeCmdListDesc);
+    return Borrowed<FencedCmdList>(CmdList.release(), ReturnToPool);
   }
-
-  logDebug("{} CHIPContextLevel0::getCmdList() returning {}", (void *)this,
-           (void *)ZeCmdList);
-  return ZeCmdList;
-}
-
-void CHIPContextLevel0::returnCmdList(ze_command_list_handle_t ZeCmdList) {
-  LOCK(CmdListMtx) // CHIPQueueLevel0::ZeCmdListRegPool_
-  ZeCmdListRegPool_.push(ZeCmdList);
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
@@ -989,11 +987,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
                               hipErrorInitializationError);
 
-  if (ChipEnvVars.getL0ImmCmdLists()) {
-    initializeCmdListImm();
-  }
-
-  initializeFence();
+  initializeCmdListImm();
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
@@ -1012,11 +1006,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   ZeCmdQ_ = ZeCmdQ;
 
-  if (ChipEnvVars.getL0ImmCmdLists()) {
-    initializeCmdListImm();
-  }
-
-  initializeFence();
+  initializeCmdListImm();
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1177,7 +1167,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   ze_group_count_t LaunchArgs = {X, Y, Z};
   // if using immediate command lists, lock the mutex
   LOCK(CommandListMtx); // TODO this is probably not needed when using RCL
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
 
   // Do we need to annotate indirect buffer accesses?
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
@@ -1239,7 +1229,7 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   }
 
   LOCK(CommandListMtx);
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1284,7 +1274,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::memCopy3DAsyncImpl(
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
   LOCK(CommandListMtx);
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1314,7 +1304,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(ImageCopyEvent);
   if (!SrcRegion.isPitched()) {
     LOCK(CommandListMtx);
-    ze_command_list_handle_t CommandList = this->getCmdList();
+    auto CommandList = this->getCmdListImm();
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
     // Done via LOCK(CommandListMtx)
@@ -1333,7 +1323,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
              "UNIMPLEMENTED: 3D pitched image copy.");
   const char *SrcRow = (const char *)Src;
   LOCK(CommandListMtx);
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
   for (size_t Row = 0; Row < SrcRegion.Size[1]; Row++) {
     bool LastRow = Row == SrcRegion.Size[1] - 1;
     ze_image_region_t DstZeRegion{};
@@ -1397,7 +1387,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   addDependenciesQueueSync(MarkerEvent); // locks
   MarkerEvent->Msg = "marker";
   LOCK(CommandListMtx);
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1406,28 +1396,6 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
       std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList, MarkerEvent);
-
-  return MarkerEvent;
-}
-
-std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImplReg() {
-  std::shared_ptr<chipstar::Event> MarkerEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-          ChipContext_);
-  addDependenciesQueueSync(MarkerEvent); // locks
-  MarkerEvent->Msg = "marker";
-
-  ze_command_list_handle_t CommandList = this->ChipCtxLz_->getCmdListReg();
-
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via creating a new command list above
-  auto Status = zeCommandListAppendSignalEvent(
-      CommandList,
-      std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  LOCK(Backend->EventsMtx);
-  executeCommandListReg(MarkerEvent, CommandList);
 
   return MarkerEvent;
 }
@@ -1466,7 +1434,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 
   // TODO Should this be memory or compute?
   LOCK(CommandListMtx);
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1474,55 +1442,6 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
                                            NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   executeCommandList(CommandList, BarrierEvent);
-
-  if (EventHandles)
-    delete[] EventHandles;
-
-  return BarrierEvent;
-}
-
-std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImplReg(
-    const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
-  std::shared_ptr<chipstar::Event> BarrierEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-          ChipContext_);
-  BarrierEvent->Msg = "barrier";
-
-  auto [QueueSyncEvents, EventLocks] = addDependenciesQueueSync(BarrierEvent);
-  size_t NumEventsToWaitFor = QueueSyncEvents.size() + EventsToWaitFor.size();
-
-  ze_event_handle_t *EventHandles = nullptr;
-  ze_event_handle_t SignalEventHandle = nullptr;
-
-  SignalEventHandle =
-      std::static_pointer_cast<CHIPEventLevel0>(BarrierEvent)->peek();
-
-  if (NumEventsToWaitFor > 0) {
-    EventHandles = new ze_event_handle_t[NumEventsToWaitFor];
-    for (size_t i = 0; i < EventsToWaitFor.size(); i++) {
-      std::shared_ptr<chipstar::Event> ChipEvent = EventsToWaitFor[i];
-      std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-          std::static_pointer_cast<CHIPEventLevel0>(ChipEvent);
-      CHIPASSERT(ChipEventLz);
-      EventHandles[i] = ChipEventLz->peek();
-      BarrierEvent->addDependency(ChipEventLz);
-    }
-
-    for (size_t i = 0; i < QueueSyncEvents.size(); i++) {
-      EventHandles[i + EventsToWaitFor.size()] = QueueSyncEvents[i];
-    }
-  } // done gather Event_ handles to wait on
-
-  // TODO Should this be memory or compute?
-  ze_command_list_handle_t CommandList = this->ChipCtxLz_->getCmdListReg();
-
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via creating a new command list above
-  auto Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
-                                           NumEventsToWaitFor, EventHandles);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  executeCommandListReg(BarrierEvent, CommandList);
 
   if (EventHandles)
     delete[] EventHandles;
@@ -1538,7 +1457,7 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   ze_result_t Status;
   LOCK(CommandListMtx);
-  ze_command_list_handle_t CommandList = this->getCmdList();
+  auto CommandList = this->getCmdListImm();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via LOCK(CommandListMtx)
@@ -1571,59 +1490,19 @@ void CHIPQueueLevel0::finish() {
   return;
 }
 
-void CHIPQueueLevel0::initializeFence() {
-  zeFenceCreate(ZeCmdQ_, &ZeFenceDesc_, &ZeFence_);
-}
 void CHIPQueueLevel0::executeCommandList(
-    ze_command_list_handle_t CommandList,
-    std::shared_ptr<chipstar::Event> Event) {
-  assert(CommandList);
-
-  if (ChipEnvVars.getL0ImmCmdLists()) {
-    executeCommandListImm(Event);
-  } else {
-    executeCommandListReg(Event, CommandList);
-  }
-};
-
-void CHIPQueueLevel0::executeCommandListReg(
-    std::shared_ptr<chipstar::Event> LastCmdListEvent,
-    ze_command_list_handle_t CommandList) {
-
-  ze_result_t Status;
-
-  // The application must not call this function from
-  // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
-  Status = zeCommandListClose(CommandList);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  Status = zeFenceReset(ZeFence_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  Status =
-      zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, ZeFence_);
-#ifdef CHIP_L0_WAIT_FOR_MEMORY
-  while (Status == ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY) {
-    logError("Out of device memory, sleeping for 100 ms and retrying");
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    Status =
-        zeCommandQueueExecuteCommandLists(ZeCmdQ_, 1, &CommandList, nullptr);
-  }
-#endif
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-
-  auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(LastCmdListEvent);
-  EventLz->assignCmdList(this->ChipCtxLz_, CommandList);
-
-  updateLastEvent(LastCmdListEvent);
-  Backend->trackEvent(LastCmdListEvent);
-};
-
-void CHIPQueueLevel0::executeCommandListImm(
-    std::shared_ptr<chipstar::Event> Event) {
+    Borrowed<FencedCmdList> &CmdList, std::shared_ptr<chipstar::Event> Event) {
   updateLastEvent(Event);
-};
+  CmdList->execute(getCmdQueue());
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+  LOCK(BackendLz->ActiveCmdListsMtx);
+  BackendLz->ActiveCmdLists.push_back(std::move(CmdList));
+}
+
+void CHIPQueueLevel0::executeCommandList(
+    ze_command_list_handle_t &CmdList, std::shared_ptr<chipstar::Event> Event) {
+  updateLastEvent(Event);
+}
 
 // End CHIPQueueLevelZero
 
@@ -1717,8 +1596,6 @@ CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
   assert(Event && "LZEventPool returned a null event");
 
   std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
-  assert(
-      !std::static_pointer_cast<CHIPEventLevel0>(Event)->getAssignedCmdList());
   logDebug("CHIPBackendLevel0::createEventShared: Context {} Event {}",
            (void *)ChipCtx, (void *)Event.get());
   Event->isDeletedSanityCheck();
@@ -1871,9 +1748,6 @@ void CHIPBackendLevel0::initializeImpl() {
   }
 
   EventMonitor_ = (CHIPEventMonitorLevel0 *)::Backend->createEventMonitor_();
-  // Run these lasts, as they may depend on the device properties being
-  // populated
-  setUseImmCmdLists(DeviceName);
 }
 
 void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,

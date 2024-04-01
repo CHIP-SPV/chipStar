@@ -402,9 +402,6 @@ ALL:
   hipStreamSemantics: ''
   syncthreadsExitedThreads: ''
 LEVEL0_GPU:
-  Unit_hipMemsetAsync_SetMemoryWithOffset: ''
-  Unit_hipMemset_SetMemoryWithOffset: ''
-  hipKernelLaunchIsNonBlocking: ''
 OPENCL_CPU:
   2d_shuffle: ''
   Unit_hipClassKernel_Value: ''

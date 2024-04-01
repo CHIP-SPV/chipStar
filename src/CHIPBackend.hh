@@ -48,6 +48,11 @@
 
 #include "SPVRegister.hh"
 
+// Used for pool management (kernel, command lists) instead of
+// deleting, returns the "borrowed" object back to the pool.
+template <typename T>
+using Borrowed = std::unique_ptr<T, std::function<void(T *)>>;
+
 #define DEFAULT_QUEUE_PRIORITY 1
 
 using unique_lock = std::unique_lock<std::mutex>;
@@ -1443,6 +1448,12 @@ public:
    * @param chip_queue_  chipstar::Queue to be added
    */
   void addQueue(chipstar::Queue *ChipQueue);
+  /**
+   * @brief Get the Queues object
+   *
+   * @return std::vector<chipstar::Queue*>
+   */
+  std::vector<chipstar::Queue *> &getQueues();
 
   /**
    * @brief Remove a queue from this device's queue vector

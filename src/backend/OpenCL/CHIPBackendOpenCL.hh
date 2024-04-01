@@ -321,11 +321,6 @@ public:
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 };
 
-// Used for a kernel pool with a custom deleter that, instead of
-// deleting, returns the "borrowed" object back to the pool.
-template <typename T>
-using Borrowed = std::unique_ptr<T, std::function<void(T *)>>;
-
 class CHIPKernelOpenCL : public chipstar::Kernel {
 private:
   std::string Name_;

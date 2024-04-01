@@ -77,8 +77,6 @@ public:
   using ActionFn = std::function<void()>;
 
 private:
-  ze_command_list_handle_t AssignedCmdList_ = nullptr;
-  CHIPContextLevel0 *AssignedContext_ = nullptr;
   /// Device timestamp gets ultimately stored here
   uint64_t Timestamp_ = 0;
   /// Since device counters can overflow resulting in a negative time between
@@ -96,26 +94,6 @@ public:
   uint64_t &getTimestamp() { return Timestamp_; }
   uint64_t &getDeviceTimestamp() { return DeviceTimestamp_; }
   uint64_t &getHostTimestamp() { return HostTimestamp_; }
-  ze_command_list_handle_t &getAssignedCmdList() { return AssignedCmdList_; }
-
-  /**
-   * @brief Assign a command list with this event. When this event completes,
-   * the EventMonitor thread will return the command list handle back to the
-   * queue stack where it came from.
-   *
-   * @param ChipQueue queue where the event was created (and where the command
-   * list stack resides)
-   * @param CmdList command list to Assign with this event
-   */
-  void assignCmdList(CHIPContextLevel0 *ChipContext,
-                     ze_command_list_handle_t CmdList);
-
-  /**
-   * @brief Reset and then return the command list handle back to the context
-   * pointed by AssignedContext_
-   */
-  void unassignCmdList();
-
   uint32_t getValidTimestampBits();
   unsigned int EventPoolIndex;
   LZEventPool *EventPool;
@@ -186,6 +164,8 @@ class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
 
   void checkCallbacks();
 
+  void checkCmdLists();
+
 public:
   ~CHIPEventMonitorLevel0() {
     logTrace("CHIPEventMonitorLevel0 DEST");
@@ -219,6 +199,59 @@ enum LevelZeroQueueType {
   Copy,
 };
 
+class FencedCmdList {
+  ze_command_list_handle_t ZeCmdList_ = nullptr;
+  ze_fence_handle_t ZeFence_ = nullptr;
+  ze_fence_desc_t ZeFenceDesc_ = {ZE_STRUCTURE_TYPE_FENCE_DESC, nullptr, 0};
+
+public:
+  FencedCmdList(ze_device_handle_t &DevLz, ze_context_handle_t &CtxLz,
+                ze_command_list_desc_t &Desc) {
+    auto Status = zeCommandListCreate(CtxLz, DevLz, &Desc, &ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to create command list");
+  }
+
+  bool reset() {
+    auto Status = zeCommandListReset(ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to reset command list");
+    return true;
+  }
+
+  void execute(ze_command_queue_handle_t &CmdQLz) {
+    auto Status = zeFenceCreate(CmdQLz, &ZeFenceDesc_, &ZeFence_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to create fence");
+    Status = zeCommandListClose(ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to close command list");
+
+    Status =
+        zeCommandQueueExecuteCommandLists(CmdQLz, 1, &ZeCmdList_, ZeFence_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to execute command list");
+  }
+
+  bool isFinished() {
+    auto Status = zeFenceQueryStatus(ZeFence_);
+    return Status == ZE_RESULT_SUCCESS;
+  }
+
+  ~FencedCmdList() {
+    auto Status = zeCommandListDestroy(ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to destroy command list");
+
+    Status = zeFenceDestroy(ZeFence_);
+    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
+                                "Failed to destroy fence");
+  }
+
+  ze_command_list_handle_t &getCmdList() { return ZeCmdList_; }
+  ze_fence_handle_t &getFence() { return ZeFence_; }
+};
+
 class CHIPQueueLevel0 : public chipstar::Queue {
 protected:
   ze_context_handle_t ZeCtx_;
@@ -244,11 +277,8 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_ = 0;
   ze_command_list_handle_t ZeCmdListImm_ = 0;
-  ze_fence_desc_t ZeFenceDesc_ = {ZE_STRUCTURE_TYPE_FENCE_DESC, nullptr, 0};
-  ze_fence_handle_t ZeFence_;
 
   void initializeCmdListImm();
-  void initializeFence();
 
 public:
   void recordEvent(chipstar::Event *ChipEvent) override;
@@ -262,7 +292,7 @@ public:
    *
    * @return ze_command_list_handle_t
    */
-  ze_command_list_handle_t getCmdList();
+  ze_command_list_handle_t getCmdListImm();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
   std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
@@ -293,16 +323,25 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
 
-  /**
-   * @brief Execute a given command list
+  /*
+   * @brief Execute a given FencedCmdList, move it to the backend tracker, and
+   * update LastEvent
    *
-   * @param CommandList a handle to either a compute or copy command list
+   * @param CommandList a handle to the command list to execute
+   * @param Event an optional event to update LastEvent
    */
-  void executeCommandList(ze_command_list_handle_t CommandList,
-                          std::shared_ptr<chipstar::Event> Event = nullptr);
-  void executeCommandListReg(std::shared_ptr<chipstar::Event> Event,
-                             ze_command_list_handle_t CommandList);
-  void executeCommandListImm(std::shared_ptr<chipstar::Event> Event);
+  void executeCommandList(Borrowed<FencedCmdList> &CommandList,
+                          std::shared_ptr<chipstar::Event> Event);
+
+  /**
+   * @brief Execute a given immediate command list (by doing nothing), and
+   * update LastEvent
+   *
+   * @param CommandList a handle to the command list to execute
+   * @param Event an optional event to update LastEvent
+   */
+  void executeCommandList(ze_command_list_handle_t &CommandList,
+                          std::shared_ptr<chipstar::Event> Event);
 
   ze_command_queue_handle_t &getCmdQueue() { return ZeCmdQ_; }
   void *getSharedBufffer() { return SharedBuf_; };
@@ -328,14 +367,10 @@ public:
                                        int *NumHandles) override;
 
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
-  std::shared_ptr<chipstar::Event> enqueueMarkerImplReg();
 
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
       override;
-
-  std::shared_ptr<chipstar::Event> enqueueBarrierImplReg(
-      const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
 
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override {
@@ -349,53 +384,28 @@ public:
 
 class CHIPContextLevel0 : public chipstar::Context {
   std::vector<LZEventPool *> EventPools_;
-  std::mutex CmdListMtx;
   size_t CmdListsRequested_ = 0;
   size_t CmdListsReused_ = 0;
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
-  std::stack<ze_command_list_handle_t> ZeCmdListRegPool_;
   size_t EventPoolSize_ = 1;
+  std::mutex FencedCmdListsMtx_;
+  std::stack<std::unique_ptr<FencedCmdList>> FencedCmdListsPool_;
 
 public:
   /**
    * @brief Return a regular command list from a stack in this context, creating
    * one if none are available.
    *
-   * @return ze_command_list_handle_t
+   * @return Borrowed<FencedCmdList> a unique_ptr to FencedCmdList which will
+   * return back to the pool upon destruction
    */
-  ze_command_list_handle_t getCmdListReg();
+  Borrowed<FencedCmdList> getCmdListReg();
 
   /**
-   * @brief reset the given command list and return it back to the stack
-   *
-   * @param CmdList level-zero command list handle to be recycled
+   * @brief Ger a shared_event from the pool, creating one if none are
    */
-  void returnCmdList(ze_command_list_handle_t CmdList);
-
-  std::shared_ptr<CHIPEventLevel0> getEventFromPool() {
-    // go through all pools and try to get an allocated event
-    LOCK(ContextMtx); // Context::EventPools
-    EventsRequested_++;
-    std::shared_ptr<CHIPEventLevel0> Event;
-    for (auto EventPool : EventPools_) {
-      LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
-      if (EventPool->EventAvailable()) {
-        EventsReused_++;
-        return EventPool->getEvent();
-      }
-    }
-
-    // no events available, create new pool, get event from there and return
-    logTrace("No available events found in {} event pools. Creating a new "
-             "event pool",
-             EventPools_.size());
-    auto NewEventPool = new LZEventPool(this, EventPoolSize_);
-    EventPoolSize_ *= 2;
-    Event = NewEventPool->getEvent();
-    EventPools_.push_back(NewEventPool);
-    return Event;
-  }
+  std::shared_ptr<CHIPEventLevel0> getEventFromPool();
 
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {
@@ -628,20 +638,14 @@ class CHIPBackendLevel0 : public chipstar::Backend {
   bool hasFloatAtomics_ = false;
 
 public:
-  void setUseImmCmdLists(std::string_view DeviceName) {
-    // Immediate command lists seem to not work on some Intel iGPUs
-    // https://en.wikipedia.org/wiki/List_of_Intel_graphics_processing_units
-    std::vector<std::string> IgpuDevices = {"UHD", "HD", "Iris"};
-    // check if the device name contains any of the strings in IgpuDevices
-    bool IsIgpu = std::any_of(IgpuDevices.begin(), IgpuDevices.end(),
-                              [&](const std::string &S) {
-                                return DeviceName.find(S) != std::string::npos;
-                              });
-    if (IsIgpu && ChipEnvVars.getL0ImmCmdLists()) {
-      logWarn("Immediate command lists are not supported on this device. "
-              "Some tests likely to fail.");
-    }
-  }
+  std::mutex ActiveCmdListsMtx;
+  /**
+   * @brief Command lists that are currently being executed. Each FencedCmdList
+   * contains a fence which gets signalled once the regular command list has
+   * finished execution. This is used to recycle the command list.
+   * @see CHIPEventMonitorLevel0::checkCmdLists
+   */
+  std::vector<Borrowed<FencedCmdList>> ActiveCmdLists;
 
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
