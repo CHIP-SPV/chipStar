@@ -116,7 +116,9 @@ def run_tests(num_tries):
       args.regex_exclude = f"{args.regex_exclude}|"
   if len(args.regex_include) > 0:
       args.regex_include = f"-R {args.regex_include}"
-  cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {args.regex_include} -E \"{args.regex_exclude}`cat {failed_test_list}`|`cat {all_test_list}`{texture_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
+  # if failed_test_list is not empty, separator is |, otherwise it is empty
+  separator = "|" if os.path.exists(failed_test_list) and os.path.getsize(failed_test_list) > 0 else ""
+  cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {args.regex_include} -E \"{args.regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
   res, err = run_cmd(cmd)
   return res, err
 
