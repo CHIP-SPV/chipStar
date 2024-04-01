@@ -705,6 +705,11 @@ SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
+if(CHIP_USE_EXTERNAL_HIP_TESTS)
+  add_subdirectory(hip-tests/catch catch)
+else()
+  add_subdirectory(HIP/tests/catch catch)
+endif()
 set(CMAKE_WARN_DEPRECATED ${SAVED_WARN_DEPRECATED})
 
 if(CHIP_BUILD_TESTS)
