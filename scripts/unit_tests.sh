@@ -160,28 +160,28 @@ module unload opencl/dgpu
 # module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 
 # Test Level Zero iGPU
-echo "begin igpu_level0_failed_imm_tests"
+echo "begin igpu_level0_failed_tests"
 # module load level-zero/igpu
 # module list
-../scripts/check.py ./ igpu level0 --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee igpu_level0_imm_make_check_result.txt
-# ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_imm_tests.txt`" | tee igpu_level0_imm_make_check_result.txt
+../scripts/check.py ./ igpu level0 --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee igpu_level0_make_check_result.txt
+# ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 4) --output-on-failure -E "`cat ./test_lists/igpu_level0_failed_tests.txt`" | tee igpu_level0_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
 # popd
 # module unload level-zero/igpu
-echo "end igpu_level0_failed_imm_tests"
+echo "end igpu_level0_failed_tests"
 
 # Test Level Zero dGPU
-echo "begin dgpu_level0_failed_imm_tests"
+echo "begin dgpu_level0_failed_tests"
 # module load level-zero/dgpu
 # module list
-../scripts/check.py ./ dgpu level0 --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee dgpu_level0_imm_make_check_result.txt
-# ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 8) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_imm_tests.txt`" | tee dgpu_level0_imm_make_check_result.txt
+../scripts/check.py ./ dgpu level0 --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee dgpu_level0_make_check_result.txt
+# ctest --timeout $timeout --repeat until-fail:${num_tries} $(ctest_j_option 8) --output-on-failure -E "`cat ./test_lists/dgpu_level0_failed_tests.txt`" | tee dgpu_level0_make_check_result.txt
 # pushd ${LIBCEED_DIR}
-# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_imm_make_check_result.txt
+# HIP_DIR=${CHIPSTAR_INSTALL_DIR} make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" prove --repeat until-fail:${num_tries} $(ctest_j_option 12) PROVE_OPS="-j" | tee dgpu_level0_make_check_result.txt
 # popd
 # module unload level-zero/dgpu
-echo "end dgpu_level0_failed_imm_tests"
+echo "end dgpu_level0_failed_tests"
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
@@ -236,11 +236,11 @@ overall_status=0
 set +e
 echo "RESULTS:"
 # ICL broken for iGP
-                  #  igpu_level0_imm_make_check_result.txt 
+                  #  igpu_level0_make_check_result.txt 
 for test_result in dgpu_opencl_make_check_result.txt \
                    igpu_opencl_make_check_result.txt \
-                   igpu_level0_imm_make_check_result.txt \
-                   dgpu_level0_imm_make_check_result.txt
+                   igpu_level0_make_check_result.txt \
+                   dgpu_level0_make_check_result.txt
 do
   echo -n "${test_result}: "
   check_tests "${test_result}"
@@ -253,7 +253,7 @@ done
 # # dgpu_opencl_make_check_result
 # # libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
 # for test_result in libCEED/dgpu_opencl_make_check_result.txt \
-#                    libCEED/dgpu_level0_imm_make_check_result.txt
+#                    libCEED/dgpu_level0_make_check_result.txt
                    
 # do
 #   echo -n "${test_result}: "
