@@ -45,7 +45,6 @@ function(add_hip_runtime_test MAIN_SOURCE)
   set_tests_properties("${EXEC_NAME}" PROPERTIES
     SKIP_RETURN_CODE ${CHIP_SKIP_TEST})
 
-  add_dependencies(build_tests "${EXEC_NAME}")
 endfunction()
 
 # add_shell_test(<script-file>)

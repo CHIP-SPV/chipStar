@@ -1494,7 +1494,7 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
       attributes->devicePointer = const_cast<void *>(ptr);
       attributes->hostPointer = AllocInfo->HostPtr;
       attributes->isManaged = AllocInfo->Managed;
-      // attributes->memoryType = AllocInfo->MemoryType;
+      attributes->type = AllocInfo->MemoryType;  
 
       // Seems strange but the expected behavior is that if
       // hipPointerGetAttributes gets called with an offset host pointer, the
