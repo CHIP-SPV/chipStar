@@ -71,6 +71,11 @@ THE SOFTWARE.
 #pragma push_macro("__HIP_OVERLOAD")
 #pragma push_macro("__HIP_OVERLOAD2")
 
+__device__ void* device_malloc(unsigned int size);
+__device__ void device_free(void* ptr);
+EXPORT void* malloc(size_t size) { return device_malloc(size); }
+EXPORT void free(void* ptr) { device_free(ptr); };
+
 // __hip_enable_if::type is a type function which returns __T if __B is true.
 template <bool __B, class __T = void> struct __hip_enable_if {};
 
@@ -157,6 +162,16 @@ EXPORT unsigned long long clock64() {
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
 EXPORT clock_t clock() { return (clock_t)clock64(); }
+
+EXPORT unsigned long long wall_clock64() {
+  atomicAdd(&__chip_clk_counter, 1);
+  return __chip_clk_counter;
+}
+// TODO: This is a temporary implementation of clock(),
+//       in future it will be changed with more reliable implementation.
+//       It is encouraged to use clock64() over clock() so that chance of data
+//       loss can be avoided.
+EXPORT clock_t wall_clock() { return (clock_t)wall_clock64(); }
 
 #include <hip/spirv_hip_runtime.h>
 

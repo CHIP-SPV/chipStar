@@ -43,6 +43,9 @@
 #error __opencl_c_generic_address_space needed!
 #endif
 
+NOOPT void* device_malloc(unsigned int size) {return (void*)0;};
+NOOPT void device_free(void* ptr) {};
+
 // Given a 32/64-bit value exec mask and an integer value base (between 0 and WAVEFRONT_SIZE),
 // find the n-th (given by offset) set bit in the exec mask from the base bit, and return the bit position.
 // If not found, return -1.
