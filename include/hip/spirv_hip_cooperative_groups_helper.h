@@ -66,37 +66,40 @@ template <unsigned int size>
 using is_power_of_2 = std::integral_constant<bool, (size & (size - 1)) == 0>;
 
 template <unsigned int size>
-using is_valid_wavefront = std::integral_constant<bool, (size <= __AMDGCN_WAVEFRONT_SIZE)>;
+using is_valid_wavefront =
+    std::integral_constant<bool, (size <= __AMDGCN_WAVEFRONT_SIZE)>;
 
 template <unsigned int size>
 using is_valid_tile_size =
-    std::integral_constant<bool, is_power_of_2<size>::value && is_valid_wavefront<size>::value>;
+    std::integral_constant<bool, is_power_of_2<size>::value &&
+                                     is_valid_wavefront<size>::value>;
 
 template <typename T>
 using is_valid_type =
-    std::integral_constant<bool, std::is_integral<T>::value || std::is_floating_point<T>::value>;
-
+    std::integral_constant<bool, std::is_integral<T>::value ||
+                                     std::is_floating_point<T>::value>;
 
 // TODO Cooperative Groups
-uint32_t __device__ __ockl_multi_grid_num_grids() {return 0;}; 
-uint32_t __device__ __ockl_multi_grid_grid_rank() {return 0;}; 
-uint32_t __device__ __ockl_multi_grid_size() {return 0;}; 
-uint32_t __device__ __ockl_multi_grid_thread_rank() {return 0;}; 
-uint32_t __device__ __ockl_multi_grid_is_valid() {return 0;}; 
-uint32_t __device__ __ockl_multi_grid_sync() {return 0;}; 
-uint32_t __device__ __ockl_grid_sync() {return 0;}; 
-uint32_t __device__ __ockl_grid_is_valid() {return 0;}; 
-void __device__ __builtin_amdgcn_fence(int, const char*){};
-unsigned int __device__ __builtin_amdgcn_mbcnt_lo(unsigned int, unsigned int){return 0;};
-unsigned int __device__ __builtin_amdgcn_read_exec(void){return 0;};
-
+uint32_t __device__ __ockl_multi_grid_num_grids() { return 0; };
+uint32_t __device__ __ockl_multi_grid_grid_rank() { return 0; };
+uint32_t __device__ __ockl_multi_grid_size() { return 0; };
+uint32_t __device__ __ockl_multi_grid_thread_rank() { return 0; };
+uint32_t __device__ __ockl_multi_grid_is_valid() { return 0; };
+uint32_t __device__ __ockl_multi_grid_sync() { return 0; };
+uint32_t __device__ __ockl_grid_sync() { return 0; };
+uint32_t __device__ __ockl_grid_is_valid() { return 0; };
+void __device__ __builtin_amdgcn_fence(int, const char *){};
+unsigned int __device__ __builtin_amdgcn_mbcnt_lo(unsigned int, unsigned int) {
+  return 0;
+};
+unsigned int __device__ __builtin_amdgcn_read_exec(void) { return 0; };
 
 namespace internal {
 
 /**
-* @brief Enums representing different cooperative group types
-* @note  This enum is only applicable on Linux.
-*
+ * @brief Enums representing different cooperative group types
+ * @note  This enum is only applicable on Linux.
+ *
  */
 typedef enum {
   cg_invalid,
@@ -110,59 +113,67 @@ typedef enum {
  *  @ingroup CooperativeG
  *  @{
  *  This section describes the cooperative groups functions of HIP runtime API.
- *  
- *  The cooperative groups provides flexible thread parallel programming algorithms, threads
- *  cooperate and share data to perform collective computations.
  *
- *  @note  Cooperative groups feature is implemented on Linux, under developement
- *  on Windows.
+ *  The cooperative groups provides flexible thread parallel programming
+ * algorithms, threads cooperate and share data to perform collective
+ * computations.
+ *
+ *  @note  Cooperative groups feature is implemented on Linux, under
+ * developement on Windows.
  *
  */
 /**
  *
  * @brief  Functionalities related to multi-grid cooperative group type
- * @note  The following cooperative groups functions are only applicable on Linux.
+ * @note  The following cooperative groups functions are only applicable on
+ * Linux.
  *
  */
 
-
-
 namespace multi_grid {
 
-
-
 __CG_STATIC_QUALIFIER__ uint32_t num_grids() {
-  return static_cast<uint32_t>(__ockl_multi_grid_num_grids()); }
+  return static_cast<uint32_t>(__ockl_multi_grid_num_grids());
+}
 
 __CG_STATIC_QUALIFIER__ uint32_t grid_rank() {
-  return static_cast<uint32_t>(__ockl_multi_grid_grid_rank()); }
+  return static_cast<uint32_t>(__ockl_multi_grid_grid_rank());
+}
 
-__CG_STATIC_QUALIFIER__ uint32_t size() { return static_cast<uint32_t>(__ockl_multi_grid_size()); }
+__CG_STATIC_QUALIFIER__ uint32_t size() {
+  return static_cast<uint32_t>(__ockl_multi_grid_size());
+}
 
 __CG_STATIC_QUALIFIER__ uint32_t thread_rank() {
-  return static_cast<uint32_t>(__ockl_multi_grid_thread_rank()); }
+  return static_cast<uint32_t>(__ockl_multi_grid_thread_rank());
+}
 
-__CG_STATIC_QUALIFIER__ bool is_valid() { return static_cast<bool>(__ockl_multi_grid_is_valid()); }
+__CG_STATIC_QUALIFIER__ bool is_valid() {
+  return static_cast<bool>(__ockl_multi_grid_is_valid());
+}
 
 __CG_STATIC_QUALIFIER__ void sync() { __ockl_multi_grid_sync(); }
 
-}  // namespace multi_grid
+} // namespace multi_grid
 
 /**
  *  @brief Functionalities related to grid cooperative group type
- *  @note  The following cooperative groups functions are only applicable on Linux.
+ *  @note  The following cooperative groups functions are only applicable on
+ * Linux.
  */
 namespace grid {
 
 __CG_STATIC_QUALIFIER__ uint32_t size() {
-  return static_cast<uint32_t>((blockDim.z * gridDim.z) * (blockDim.y * gridDim.y) *
-                    (blockDim.x * gridDim.x));
+  return static_cast<uint32_t>((blockDim.z * gridDim.z) *
+                               (blockDim.y * gridDim.y) *
+                               (blockDim.x * gridDim.x));
 }
 
 __CG_STATIC_QUALIFIER__ uint32_t thread_rank() {
   // Compute global id of the workgroup to which the current thread belongs to
-  uint32_t blkIdx = static_cast<uint32_t>((blockIdx.z * gridDim.y * gridDim.x) +
-                               (blockIdx.y * gridDim.x) + (blockIdx.x));
+  uint32_t blkIdx =
+      static_cast<uint32_t>((blockIdx.z * gridDim.y * gridDim.x) +
+                            (blockIdx.y * gridDim.x) + (blockIdx.x));
 
   // Compute total number of threads being passed to reach current workgroup
   // within grid
@@ -170,32 +181,38 @@ __CG_STATIC_QUALIFIER__ uint32_t thread_rank() {
       static_cast<uint32_t>(blkIdx * (blockDim.x * blockDim.y * blockDim.z));
 
   // Compute thread local rank within current workgroup
-  uint32_t local_thread_rank = static_cast<uint32_t>((threadIdx.z * blockDim.y * blockDim.x) +
-                                          (threadIdx.y * blockDim.x) + (threadIdx.x));
+  uint32_t local_thread_rank =
+      static_cast<uint32_t>((threadIdx.z * blockDim.y * blockDim.x) +
+                            (threadIdx.y * blockDim.x) + (threadIdx.x));
 
   return (num_threads_till_current_workgroup + local_thread_rank);
 }
 
-__CG_STATIC_QUALIFIER__ bool is_valid() { return static_cast<bool>(__ockl_grid_is_valid()); }
+__CG_STATIC_QUALIFIER__ bool is_valid() {
+  return static_cast<bool>(__ockl_grid_is_valid());
+}
 
 __CG_STATIC_QUALIFIER__ void sync() { __ockl_grid_sync(); }
 
-}  // namespace grid
+} // namespace grid
 
 /**
- *  @brief Functionalities related to `workgroup` (thread_block in CUDA terminology)
- *  cooperative group type
- *  @note  The following cooperative groups functions are only applicable on Linux.
+ *  @brief Functionalities related to `workgroup` (thread_block in CUDA
+ * terminology) cooperative group type
+ *  @note  The following cooperative groups functions are only applicable on
+ * Linux.
  */
 namespace workgroup {
 
 __CG_STATIC_QUALIFIER__ dim3 group_index() {
-  return (dim3(static_cast<uint32_t>(blockIdx.x), static_cast<uint32_t>(blockIdx.y),
+  return (dim3(static_cast<uint32_t>(blockIdx.x),
+               static_cast<uint32_t>(blockIdx.y),
                static_cast<uint32_t>(blockIdx.z)));
 }
 
 __CG_STATIC_QUALIFIER__ dim3 thread_index() {
-  return (dim3(static_cast<uint32_t>(threadIdx.x), static_cast<uint32_t>(threadIdx.y),
+  return (dim3(static_cast<uint32_t>(threadIdx.x),
+               static_cast<uint32_t>(threadIdx.y),
                static_cast<uint32_t>(threadIdx.z)));
 }
 
@@ -205,59 +222,62 @@ __CG_STATIC_QUALIFIER__ uint32_t size() {
 
 __CG_STATIC_QUALIFIER__ uint32_t thread_rank() {
   return (static_cast<uint32_t>((threadIdx.z * blockDim.y * blockDim.x) +
-                     (threadIdx.y * blockDim.x) + (threadIdx.x)));
+                                (threadIdx.y * blockDim.x) + (threadIdx.x)));
 }
 
-__CG_STATIC_QUALIFIER__ bool is_valid() {
-  return true;
-}
+__CG_STATIC_QUALIFIER__ bool is_valid() { return true; }
 
 __CG_STATIC_QUALIFIER__ void sync() { __syncthreads(); }
 
 __CG_STATIC_QUALIFIER__ dim3 block_dim() {
-  return (dim3(static_cast<uint32_t>(blockDim.x), static_cast<uint32_t>(blockDim.y),
-          static_cast<uint32_t>(blockDim.z)));
+  return (dim3(static_cast<uint32_t>(blockDim.x),
+               static_cast<uint32_t>(blockDim.y),
+               static_cast<uint32_t>(blockDim.z)));
 }
 
-}  // namespace workgroup
+} // namespace workgroup
 
 namespace tiled_group {
 
 // enforce ordering for memory intructions
-__CG_STATIC_QUALIFIER__ void sync() { __builtin_amdgcn_fence(__ATOMIC_ACQ_REL, "agent"); }
+__CG_STATIC_QUALIFIER__ void sync() {
+  __builtin_amdgcn_fence(__ATOMIC_ACQ_REL, "agent");
+}
 
-}  // namespace tiled_group
+} // namespace tiled_group
 
 namespace coalesced_group {
 
 // enforce ordering for memory intructions
-__CG_STATIC_QUALIFIER__ void sync() { __builtin_amdgcn_fence(__ATOMIC_ACQ_REL, "agent"); }
+__CG_STATIC_QUALIFIER__ void sync() {
+  __builtin_amdgcn_fence(__ATOMIC_ACQ_REL, "agent");
+}
 
 // Masked bit count
 //
 // For each thread, this function returns the number of active threads which
 // have i-th bit of x set and come before the current thread.
-__CG_STATIC_QUALIFIER__ unsigned int masked_bit_count(lane_mask x, unsigned int add = 0) {
-  unsigned int counter=0;
-    #if __AMDGCN_WAVEFRONT_SIZE == 32
-      counter = __builtin_amdgcn_mbcnt_lo(x, add);
-    #else
-      counter = __builtin_amdgcn_mbcnt_lo(static_cast<lane_mask>(x), add);
-      counter = __builtin_amdgcn_mbcnt_hi(static_cast<lane_mask>(x >> 32), counter);
-    #endif
+__CG_STATIC_QUALIFIER__ unsigned int masked_bit_count(lane_mask x,
+                                                      unsigned int add = 0) {
+  unsigned int counter = 0;
+#if __AMDGCN_WAVEFRONT_SIZE == 32
+  counter = __builtin_amdgcn_mbcnt_lo(x, add);
+#else
+  counter = __builtin_amdgcn_mbcnt_lo(static_cast<lane_mask>(x), add);
+  counter = __builtin_amdgcn_mbcnt_hi(static_cast<lane_mask>(x >> 32), counter);
+#endif
 
-    return counter;
+  return counter;
 }
 
-}  // namespace coalesced_group
+} // namespace coalesced_group
 
+} // namespace internal
 
-}  // namespace internal
-
-}  // namespace cooperative_groups
+} // namespace cooperative_groups
 /**
-*  @}
-*/
+ *  @}
+ */
 
-#endif  // __cplusplus
-#endif  // HIP_INCLUDE_HIP_AMD_DETAIL_HIP_COOPERATIVE_GROUPS_HELPER_H
+#endif // __cplusplus
+#endif // HIP_INCLUDE_HIP_AMD_DETAIL_HIP_COOPERATIVE_GROUPS_HELPER_H

@@ -41,8 +41,6 @@
 #include <queue>
 #include <stack>
 
-
-
 using SPVFunctionInfoMap = std::map<std::string, std::shared_ptr<SPVFuncInfo>>;
 
 struct SPVModuleInfo {

@@ -42,27 +42,30 @@ __bitinsert_u32(unsigned int src0, unsigned int src1, unsigned int offset,
   return __chip_bitinsert_u32(src0, src1, offset, width);
 }
 
-extern "C" __device__ unsigned long long int __chip_bitinsert_u64(unsigned long long int src0,
-                                                    unsigned long long int src1,
-                                                    unsigned long long int offset,
-                                                    unsigned long long int width);
-extern "C++" inline __device__ unsigned long long int __bitinsert_u64(unsigned long long int src0,
-                                                        unsigned long long int src1,
-                                                        unsigned long long int offset,
-                                                        unsigned long long int width) {
+extern "C" __device__ unsigned long long int
+__chip_bitinsert_u64(unsigned long long int src0, unsigned long long int src1,
+                     unsigned long long int offset,
+                     unsigned long long int width);
+extern "C++" inline __device__ unsigned long long int
+__bitinsert_u64(unsigned long long int src0, unsigned long long int src1,
+                unsigned long long int offset, unsigned long long int width) {
   return __chip_bitinsert_u64(src0, src1, offset, width);
 }
 #endif // CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
 
 // int was replaced with int
 // int64_t was replaced with long long int
-extern "C" __device__  int __chip__fns32(unsigned long long int mask, unsigned int base, int offset);
-extern "C++" inline __device__  int __fns32(unsigned long long int mask, unsigned int base, int offset) {
+extern "C" __device__ int __chip__fns32(unsigned long long int mask,
+                                        unsigned int base, int offset);
+extern "C++" inline __device__ int __fns32(unsigned long long int mask,
+                                           unsigned int base, int offset) {
   return __chip__fns32(mask, base, offset);
 }
 
-extern "C" __device__ int __chip__fns64(unsigned long long int mask, unsigned int base, int offset);
-extern "C++" inline __device__ int __fns64(unsigned long long int mask, unsigned int base, int offset) {
+extern "C" __device__ int __chip__fns64(unsigned long long int mask,
+                                        unsigned int base, int offset);
+extern "C++" inline __device__ int __fns64(unsigned long long int mask,
+                                           unsigned int base, int offset) {
   return __chip__fns64(mask, base, offset);
 }
 

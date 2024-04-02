@@ -71,13 +71,15 @@
 #define DECONST_NODES(x)                                                       \
   reinterpret_cast<CHIPGraphNode **>(const_cast<hipGraphNode_t *>(x))
 
-hipError_t hipModuleGetTexRef(textureReference** texRef, hipModule_t hmod, const char* name) {
+hipError_t hipModuleGetTexRef(textureReference **texRef, hipModule_t hmod,
+                              const char *name) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipFreeArray(hipArray *Array);
 
-hipError_t hipFuncSetSharedMemConfig(const void* func, hipSharedMemConfig config) {
+hipError_t hipFuncSetSharedMemConfig(const void *func,
+                                     hipSharedMemConfig config) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
@@ -1494,7 +1496,7 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
       attributes->devicePointer = const_cast<void *>(ptr);
       attributes->hostPointer = AllocInfo->HostPtr;
       attributes->isManaged = AllocInfo->Managed;
-      attributes->type = AllocInfo->MemoryType;  
+      attributes->type = AllocInfo->MemoryType;
 
       // Seems strange but the expected behavior is that if
       // hipPointerGetAttributes gets called with an offset host pointer, the
@@ -4079,7 +4081,8 @@ hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
   CHIP_CATCH
 }
 
-hipError_t hipFuncGetAttribute(int* value, hipFunction_attribute attrib, hipFunction_t hfunc) {
+hipError_t hipFuncGetAttribute(int *value, hipFunction_attribute attrib,
+                               hipFunction_t hfunc) {
   UNIMPLEMENTED(hipErrorTbd);
 }
 
@@ -4893,8 +4896,6 @@ hipOccupancyMaxActiveBlocksPerMultiprocessor(int *NumBlocks, const void *Func,
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
-
-  
 
 hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
     int *NumBlocks, const void *Func, int BlockSize, size_t DynSharedMemPerBlk,

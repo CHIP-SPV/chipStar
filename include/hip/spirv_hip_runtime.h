@@ -60,17 +60,17 @@ struct hipGraphExec {};
 #define __managed__ __device__
 
 typedef struct hipArray {
-    void* data;  // FIXME: generalize this
-    struct hipChannelFormatDesc desc;
-    unsigned int type;
-    unsigned int width;
-    unsigned int height;
-    unsigned int depth;
-    enum hipArray_Format Format;
-    unsigned int NumChannels;
-    bool isDrv;
-    unsigned int textureType;
-}hipArray;
+  void *data; // FIXME: generalize this
+  struct hipChannelFormatDesc desc;
+  unsigned int type;
+  unsigned int width;
+  unsigned int height;
+  unsigned int depth;
+  enum hipArray_Format Format;
+  unsigned int NumChannels;
+  bool isDrv;
+  unsigned int textureType;
+} hipArray;
 
 // Feature tests:
 #if (defined(__HCC_ACCELERATOR__) && (__HCC_ACCELERATOR__ != 0)) ||            \
