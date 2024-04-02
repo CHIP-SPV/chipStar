@@ -71,10 +71,10 @@ THE SOFTWARE.
 #pragma push_macro("__HIP_OVERLOAD")
 #pragma push_macro("__HIP_OVERLOAD2")
 
-__device__ void* device_malloc(unsigned int size);
-__device__ void device_free(void* ptr);
-EXPORT void* malloc(size_t size) { return device_malloc(size); }
-EXPORT void free(void* ptr) { device_free(ptr); };
+__device__ void *device_malloc(unsigned int size);
+__device__ void device_free(void *ptr);
+EXPORT void *malloc(size_t size) { return device_malloc(size); }
+EXPORT void free(void *ptr) { device_free(ptr); };
 
 // __hip_enable_if::type is a type function which returns __T if __B is true.
 template <bool __B, class __T = void> struct __hip_enable_if {};
