@@ -43,6 +43,8 @@ CUDA features not present in HIP are unsupported unless explicitly stated otherw
 
 * Cooperative Groups API
 
+* Device-side malloc/free
+
 #### partially supported
 
 * Texture Objects of 1D/2D type are supported; 3D, LOD, Grad,
