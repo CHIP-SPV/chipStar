@@ -41,6 +41,7 @@ function(add_hipcc_test MAIN_SOURCE)
     COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
     ${TESTOPT_HIPCC_OPTIONS}
     ${CMAKE_CURRENT_SOURCE_DIR}/${MAIN_SOURCE} -o /dev/null)
+    
 endfunction()
 
 # add_shell_test(<script-file>)

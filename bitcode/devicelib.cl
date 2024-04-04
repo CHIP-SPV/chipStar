@@ -43,6 +43,84 @@
 #error __opencl_c_generic_address_space needed!
 #endif
 
+NOOPT void* device_malloc(unsigned int size) {return (void*)0;};
+NOOPT void device_free(void* ptr) {};
+
+// Given a 32/64-bit value exec mask and an integer value base (between 0 and WAVEFRONT_SIZE),
+// find the n-th (given by offset) set bit in the exec mask from the base bit, and return the bit position.
+// If not found, return -1.
+// In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
+EXPORT int __chip__fns64(unsigned long int mask, unsigned int base, int offset) {
+  unsigned long int temp_mask = mask;
+  int temp_offset = offset;
+
+  if (offset == 0) {
+    temp_mask &= (1 << base);
+    temp_offset = 1;
+  }
+  else if (offset < 0) {
+    temp_mask = __builtin_bitreverse64(mask);
+    base = 63 - base;
+    temp_offset = -offset;
+  }
+
+  temp_mask = temp_mask & ((~0ULL) << base);
+  if (__builtin_popcountll(temp_mask) < temp_offset)
+    return -1;
+  int total = 0;
+  for (int i = 0x20; i > 0; i >>= 1) {
+    unsigned long int temp_mask_lo = temp_mask & ((1ULL << i) - 1);
+    int pcnt = __builtin_popcountll(temp_mask_lo);
+    if (pcnt < temp_offset) {
+      temp_mask = temp_mask >> i;
+      temp_offset -= pcnt;
+      total += i;
+    }
+    else {
+      temp_mask = temp_mask_lo;
+    }
+  }
+  if (offset < 0)
+    return 63 - total;
+  else
+    return total;
+}
+
+EXPORT int __chip__fns32(unsigned long int mask, unsigned int base, int offset) {
+  unsigned long int temp_mask = mask;
+  int temp_offset = offset;
+  if (offset == 0) {
+    temp_mask &= (1 << base);
+    temp_offset = 1;
+  }
+  else if (offset < 0) {
+    temp_mask = __builtin_bitreverse64(mask);
+    base = 63 - base;
+    temp_offset = -offset;
+  }
+  temp_mask = temp_mask & ((~0ULL) << base);
+  if (__builtin_popcountll(temp_mask) < temp_offset)
+    return -1;
+  int total = 0;
+  for (int i = 0x20; i > 0; i >>= 1) {
+    unsigned long int temp_mask_lo = temp_mask & ((1ULL << i) - 1);
+    int pcnt = __builtin_popcountll(temp_mask_lo);
+    if (pcnt < temp_offset) {
+      temp_mask = temp_mask >> i;
+      temp_offset -= pcnt;
+      total += i;
+    }
+    else {
+      temp_mask = temp_mask_lo;
+    }
+  }
+  if (offset < 0)
+    return 63 - total;
+  else
+    return total;
+}
+
+
 EXPORT unsigned /* long */ long int
 __chip_umul64hi(unsigned /* long */ long int x,
                 unsigned /* long */ long int y) {

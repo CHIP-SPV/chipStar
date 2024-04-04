@@ -41,17 +41,6 @@
 #include <queue>
 #include <stack>
 
-/// The implementation of ihipEvent_t. The chipstar::Event class inherits this
-/// so ihipEvent_t pointers may carry chipstar::Event instances.
-struct ihipEvent_t {};
-struct ihipCtx_t {};
-struct ihipStream_t {};
-struct ihipModule_t {};
-struct ihipModuleSymbol_t {};
-struct ihipGraph {};
-struct hipGraphNode {};
-struct hipGraphExec {};
-
 using SPVFunctionInfoMap = std::map<std::string, std::shared_ptr<SPVFuncInfo>>;
 
 struct SPVModuleInfo {

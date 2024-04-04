@@ -78,12 +78,13 @@ static Constant *getLoweredConstantOrNull(Constant *C) {
           (NewPtr ? NewPtr : OrigPtr), NewIndices, GEP->isInBounds());
       return NewGEP;
 
-    } else if (isa<AddrSpaceCastOperator>(CE) || isa<BitCastOperator>(CE)) {
+    } else if (isa<AddrSpaceCastOperator>(CE) || isa<BitCastOperator>(CE) ||
+               CE->getOpcode() == Instruction::IntToPtr) {
       auto *LoweredOpd0 = getLoweredConstantOrNull(CE->getOperand(0));
       auto *LoweredTy = getLoweredTypeOrNull(CE->getType());
       if (LoweredOpd0 || LoweredTy)
-        return ConstantExpr::getPointerCast(
-            LoweredOpd0 ? LoweredOpd0 : CE->getOperand(0),
+        return ConstantExpr::getCast(
+            CE->getOpcode(), LoweredOpd0 ? LoweredOpd0 : CE->getOperand(0),
             LoweredTy ? LoweredTy : CE->getType());
       return nullptr;
 

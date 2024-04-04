@@ -1,5 +1,6 @@
 TOTAL_TESTS: 1397
 ALL:
+  Print_Out_Attributes: 'old HIP tests + new HIP API'
   TestAssert: ''
   TestAssertFail: ''
   TestIndirectCall: ''

@@ -524,7 +524,6 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.pciDeviceID = 0x40 + getDeviceId();
   HipDeviceProps_.isMultiGpuBoard = 0;
   HipDeviceProps_.canMapHostMemory = 1;
-  HipDeviceProps_.gcnArch = 0;
   HipDeviceProps_.integrated = 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
       HipDeviceProps_.sharedMemPerBlock * 16;
