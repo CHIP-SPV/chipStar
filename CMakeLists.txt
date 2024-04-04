@@ -475,14 +475,12 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
 if(OpenCL_LIBRARY)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
-  target_link_libraries(CHIP PUBLIC OpenCL)
 endif()
 
 if(LevelZero_LIBRARY)
   include_directories(CHIP PUBLIC ${LevelZeroInclude_DIR})
   target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZeroLib_DIR})
   target_link_directories(CHIP PUBLIC ${LevelZeroLib_DIR})
-  target_link_libraries(CHIP PUBLIC ze_loader)
 endif()
 
 if(CHIP_SET_RPATH)
