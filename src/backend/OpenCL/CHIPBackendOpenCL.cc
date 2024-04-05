@@ -246,6 +246,23 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
   if (ModInfo.HasNoIGBAs)
     return nullptr;
 
+  cl_kernel_exec_info PtrListName;
+  switch (Ctx.getAllocStrategy()) {
+  default:
+    assert(!"Unexpected allocation strategy!");
+    return nullptr;
+  case AllocationStrategy::CoarseGrainSVM:
+  case AllocationStrategy::FineGrainSVM:
+    PtrListName = CL_KERNEL_EXEC_INFO_SVM_PTRS;
+    break;
+  case AllocationStrategy::IntelUSM:
+    PtrListName = CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL;
+    break;
+  case AllocationStrategy::BufferDevAddr:
+    PtrListName = CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT;
+    break;
+  }
+
   std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocKeepAlives;
   std::vector<void *> AnnotationList;
   LOCK(Ctx.ContextMtx); // CHIPContextOpenCL::MemManager_
@@ -261,11 +278,9 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
 
     // TODO: Optimization. Don't call this function again if we know the
     //       AnnotationList hasn't changed since the last call.
-    auto Status = clSetKernelExecInfo(
-        KernelAPIHandle,
-        Ctx.usesSVM() ? CL_KERNEL_EXEC_INFO_SVM_PTRS
-                      : CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
-        AnnotationList.size() * sizeof(void *), AnnotationList.data());
+    auto Status = clSetKernelExecInfo(KernelAPIHandle, PtrListName,
+                                      AnnotationList.size() * sizeof(void *),
+                                      AnnotationList.data());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   }
 
@@ -371,7 +386,7 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
   // (from device) and then to the image.
   auto SrcSize = SrcDesc.getAllocationSize();
   auto HostData = std::unique_ptr<char[]>(new char[SrcSize]);
-  Q->memCopyAsyncImpl(HostData.get(), SrcPtr, SrcSize);
+  Q->memCopyAsyncImpl(HostData.get(), SrcPtr, SrcSize, hipMemcpyDeviceToHost);
   memCopyToImage(Q->get()->get(), Result->getImage(), HostData.get(), SrcDesc);
   auto Status = Q->enqueueDeleteHostArray(HostData.get());
   if (Status == CL_SUCCESS)
@@ -434,6 +449,8 @@ CHIPDeviceOpenCL *CHIPDeviceOpenCL::create(cl::Device *ClDevice,
                                            CHIPContextOpenCL *ChipContext,
                                            int Idx) {
   CHIPDeviceOpenCL *Dev = new CHIPDeviceOpenCL(ChipContext, ClDevice, Idx);
+  ChipContext->setDevice(Dev);
+  ChipContext->MemManager_.init(ChipContext);
   Dev->init();
   return Dev;
 }
@@ -601,6 +618,15 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   static_assert(sizeof(ArchName) <= sizeof(HipDeviceProps_.gcnArchName),
                 "Buffer overflow!");
   std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(ArchName));
+
+  if (getContext()->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
+    // Using cl_mem buffers and extension to obtain their fixed device
+    // address means that the device addresses may alias with host
+    // allocations.
+    HipDeviceProps_.unifiedAddressing = false;
+  } else {
+    HipDeviceProps_.unifiedAddressing = true;
+  }
 }
 
 void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
@@ -994,7 +1020,8 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
 
 bool CHIPContextOpenCL::allDevicesSupportFineGrainSVMorUSM() {
   // TODO ok now, but what if we have more devices per context?
-  return SupportsFineGrainSVM || SupportsIntelUSM;
+  return MemManager_.getAllocStrategy() == AllocationStrategy::FineGrainSVM ||
+         MemManager_.getAllocStrategy() == AllocationStrategy::IntelUSM;
 }
 
 void CHIPContextOpenCL::freeImpl(void *Ptr) {
@@ -1004,35 +1031,9 @@ void CHIPContextOpenCL::freeImpl(void *Ptr) {
 
 cl::Context *CHIPContextOpenCL::get() { return &ClContext; }
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
-                                     cl::Platform Plat) {
+                                     cl::Platform Plat)
+    : Platform_(Plat), ClContext(CtxIn) {
   logTrace("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
-
-  ClContext = CtxIn;
-  std::string DevExts = Dev.getInfo<CL_DEVICE_EXTENSIONS>();
-
-#ifdef CHIP_USE_INTEL_USM
-  SupportsIntelUSM =
-      DevExts.find("cl_intel_unified_shared_memory") != std::string::npos;
-#else
-  SupportsIntelUSM = false;
-#endif
-  if (SupportsIntelUSM) {
-    logDebug("Device supports Intel USM");
-    USM.clSharedMemAllocINTEL =
-        (clSharedMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
-            Plat(), "clSharedMemAllocINTEL");
-    USM.clDeviceMemAllocINTEL =
-        (clDeviceMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
-            Plat(), "clDeviceMemAllocINTEL");
-    USM.clHostMemAllocINTEL =
-        (clHostMemAllocINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
-            Plat(), "clHostMemAllocINTEL");
-    USM.clMemFreeINTEL =
-        (clMemFreeINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
-            Plat(), "clMemFreeINTEL");
-  } else {
-    logDebug("Device does not support Intel USM");
-  }
 }
 
 void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
@@ -1075,7 +1076,10 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                              chipstar::Queue::MEM_MAP_TYPE Type) {
   CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
-  if (C->allDevicesSupportFineGrainSVMorUSM()) {
+  if (C->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
+    CHIPERR_LOG_AND_THROW("Insufficient device memory capabilities for MemMap.",
+                          hipErrorTbd);
+  } else if (C->allDevicesSupportFineGrainSVMorUSM()) {
     logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
     return;
   }
@@ -1120,7 +1124,10 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_);
   CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
-  if (C->allDevicesSupportFineGrainSVMorUSM()) {
+  if (C->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
+    CHIPERR_LOG_AND_THROW("Insufficient device memory capabilities for MemMap.",
+                          hipErrorTbd);
+  } else if (C->allDevicesSupportFineGrainSVMorUSM()) {
     logDebug("Device supports fine grain SVM or USM. Skipping MemMap/Unmap");
     return;
   }
@@ -1381,11 +1388,12 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 }
 
 std::shared_ptr<chipstar::Event>
-CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
+CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
+                                  hipMemcpyKind Kind) {
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_);
-  logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
+
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
     // HIP seems to handle Dst == Src as a special (no-operation) case.
@@ -1407,12 +1415,81 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
       auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
     std::vector<cl_event> SyncQueuesEventHandles =
         getOpenCLHandles(EventsToWait);
+    auto *Ctx = getContext();
 
-    auto Status = ::clEnqueueSVMMemcpy(
-        get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
-        SyncQueuesEventHandles.data(),
-        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
+    switch (Ctx->getAllocStrategy()) {
+    default:
+      assert(!"Unexpected allocation strategy!");
+      CHIPERR_LOG_AND_THROW("Internal error: Unexpected allocation strategy!",
+                            hipErrorRuntimeMemory);
+    case AllocationStrategy::IntelUSM:
+    case AllocationStrategy::CoarseGrainSVM:
+    case AllocationStrategy::FineGrainSVM: {
+      logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
+      auto Status = ::clEnqueueSVMMemcpy(
+          get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
+          SyncQueuesEventHandles.data(),
+          std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
+      break;
+    }
+
+    case AllocationStrategy::BufferDevAddr: {
+      cl_int Status = CL_SUCCESS;
+      switch (Kind) {
+      default:
+      case hipMemcpyHostToHost: // Covered up-front.
+        assert(!"Unexpected hipMemcpyKind");
+
+      case hipMemcpyDefault: // Invalid flag under BufferDevAddr (can't
+                             // distinguish host and device allocations apart as
+                             // they may alias).
+        CHIPERR_LOG_AND_THROW("Invalid flag (HipMemcpyDefault)",
+                              hipErrorRuntimeMemory);
+
+      case hipMemcpyHostToDevice: {
+        auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
+        if (!DstBuf)
+          CHIPERR_LOG_AND_THROW("Invalid destination pointer.",
+                                hipErrorRuntimeMemory);
+        logTrace("clEnqueueWriteBuffer {} -> {} / {} B\n", Src, Dst, Size);
+        Status = ::clEnqueueWriteBuffer(
+            get()->get(), DstBuf, CL_FALSE, DstOffset, Size, Src,
+            SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+            std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+        break;
+      }
+      case hipMemcpyDeviceToHost: {
+        auto [SrcBuf, SrcOffset] = Ctx->translateDevPtrToBuffer(Src);
+        if (!SrcBuf)
+          CHIPERR_LOG_AND_THROW("Invalid source pointer.",
+                                hipErrorRuntimeMemory);
+        logTrace("clEnqueueReadBuffer {} -> {} / {} B\n", Src, Dst, Size);
+        Status = ::clEnqueueReadBuffer(
+            get()->get(), SrcBuf, CL_FALSE, SrcOffset, Size, Dst,
+            SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+            std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+        break;
+      }
+      case hipMemcpyDeviceToDevice: {
+        auto [SrcBuf, SrcOffset] = Ctx->translateDevPtrToBuffer(Src);
+        auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
+        if (!SrcBuf || !DstBuf)
+          CHIPERR_LOG_AND_THROW(!SrcBuf ? "Invalid source pointer."
+                                        : "Invalid destination pointer.",
+                                hipErrorRuntimeMemory);
+        logTrace("clEnqueueCopyBuffer {} -> {} / {} B\n", Src, Dst, Size);
+        Status = ::clEnqueueCopyBuffer(
+            get()->get(), SrcBuf, DstBuf, SrcOffset, DstOffset, Size,
+            SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+            std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+        break;
+      }
+      } // switch (Kind)
+      CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
+      break;
+    }
+    } // switch (Ctx->getAllocStrategy())
   }
   updateLastEvent(Event);
   return Event;
@@ -1432,23 +1509,39 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_);
-  logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
+
   auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
   std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  auto *Ctx = getContext();
 
-  int Retval = ::clEnqueueSVMMemFill(
-      get()->get(), Dst, Pattern, PatternSize, Size,
-      SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
-      std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-  CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+  if (Ctx->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
+    logTrace("clEnqueueFillBuffer {} / {} B\n", Dst, Size);
+    auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
+    if (!DstBuf)
+      CHIPERR_LOG_AND_THROW("Invalid destination pointer.",
+                            hipErrorRuntimeMemory);
+    int Retval = ::clEnqueueFillBuffer(
+        get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
+        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+    CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+  } else {
+    logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
+    int Retval = ::clEnqueueSVMMemFill(
+        get()->get(), Dst, Pattern, PatternSize, Size,
+        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+    CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+  }
+
   updateLastEvent(Event);
   return Event;
 };
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src,
-                                    size_t Spitch, size_t Width,
-                                    size_t Height) {
+                                    size_t Spitch, size_t Width, size_t Height,
+                                    hipMemcpyKind Kind) {
   UNIMPLEMENTED(nullptr);
   std::shared_ptr<chipstar::Event> ChipEvent;
 
@@ -1457,17 +1550,19 @@ CHIPQueueOpenCL::memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src,
     void *SrcP = ((unsigned char *)Src + Offset * Spitch);
     // capture the event on last iteration
     if (Offset == Height - 1)
-      ChipEvent = memCopyAsyncImpl(DstP, SrcP, Width);
+      ChipEvent = memCopyAsyncImpl(DstP, SrcP, Width, Kind);
     else
-      memCopyAsyncImpl(DstP, SrcP, Width);
+      memCopyAsyncImpl(DstP, SrcP, Width, Kind);
   }
 
   return ChipEvent;
 };
 
-std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::memCopy3DAsyncImpl(
-    void *Dst, size_t Dpitch, size_t Dspitch, const void *Src, size_t Spitch,
-    size_t Sspitch, size_t Width, size_t Height, size_t Depth) {
+std::shared_ptr<chipstar::Event>
+CHIPQueueOpenCL::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
+                                    const void *Src, size_t Spitch,
+                                    size_t Sspitch, size_t Width, size_t Height,
+                                    size_t Depth, hipMemcpyKind Kind) {
   UNIMPLEMENTED(nullptr);
 };
 
@@ -1613,6 +1708,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     return;
   }
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)getKernel();
+  CHIPContextOpenCL *Ctx = Kernel->getContext();
   SPVFuncInfo *FuncInfo = Kernel->getFuncInfo();
   int Err = 0;
 
@@ -1661,26 +1757,42 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     }
     case SPVTypeKind::Pointer: {
       CHIPASSERT(Arg.Size == sizeof(void *));
+
       if (Arg.isWorkgroupPtr()) {
         logTrace("setLocalMemSize to {}\n", SharedMem_);
         Err = ::clSetKernelArg(KernelHandle, Arg.Index, SharedMem_, nullptr);
-      } else {
-        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {} (value {})\n",
-                 Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
-        Err = ::clSetKernelArgSVMPointer(
-            KernelHandle, Arg.Index,
-            // Unlike clSetKernelArg() which takes address to the argument,
-            // this function takes the argument value directly.
-            *(const void **)Arg.Data);
+        break;
+      }
+
+      auto *DevPtr = *reinterpret_cast<const void *const *>(Arg.Data);
+      if (Ctx->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
+        Err = Ctx->clSetKernelArgDevicePointerEXT(KernelHandle, Arg.Index,
+                                                  DevPtr);
         if (Err != CL_SUCCESS) {
           // ROCm seems to allow passing invalid pointers to kernels if they are
           // not derefenced (see test_device_adjacent_difference of rocPRIM).
           // If the setting of the arg fails, let's assume this might be such a
           // case and convert it to a null pointer.
+          logWarn("clSetKernelArgDevicePointerEXT {} SIZE {} to {} (value {}) "
+                  "returned error, setting the arg to nullptr\n",
+                  Arg.Index, Arg.Size, Arg.Data, DevPtr);
+          Err = Ctx->clSetKernelArgDevicePointerEXT(KernelHandle, Arg.Index,
+                                                    nullptr);
+        }
+      } else {
+        logTrace("clSetKernelArgSVMPointer {} SIZE {} to {} (value {})\n",
+                 Arg.Index, Arg.Size, Arg.Data, DevPtr);
+        Err = ::clSetKernelArgSVMPointer(
+            KernelHandle, Arg.Index,
+            // Unlike clSetKernelArg() which takes address to the argument,
+            // this function takes the argument value directly.
+            DevPtr);
+        if (Err != CL_SUCCESS) {
+          // Perhaps an invalid pointer - pass nullptr in its place.
           logWarn(
               "clSetKernelArgSVMPointer {} SIZE {} to {} (value {}) returned "
               "error, setting the arg to nullptr\n",
-              Arg.Index, Arg.Size, Arg.Data, *(const void **)Arg.Data);
+              Arg.Index, Arg.Size, Arg.Data, DevPtr);
           Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, nullptr);
         }
       }
@@ -1703,7 +1815,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   if (FuncInfo->hasByRefArgs())
     ChipQueue_->memCopyAsync(ArgSpillBuffer_->getDeviceBuffer(),
                              ArgSpillBuffer_->getHostBuffer(),
-                             ArgSpillBuffer_->getSize());
+                             ArgSpillBuffer_->getSize(), hipMemcpyHostToDevice);
 
   return;
 }
@@ -1791,6 +1903,7 @@ void CHIPBackendOpenCL::initializeImpl() {
   std::vector<cl::Device> Dev;
   Err = SelectedPlatform.getDevices(SelectedDevType, &Dev);
   CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+
   for (auto D : Dev) {
 
     std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
@@ -1803,14 +1916,15 @@ void CHIPBackendOpenCL::initializeImpl() {
       continue;
     }
 
-    // We require at least CG SVM or Device USM.
+    // We require at least CG SVM, Device USM or cl_ext_buffer_device_address.
     std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
     cl_device_svm_capabilities SVMCapabilities =
         D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
 
     if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
-        DevExts.find("cl_intel_unified_shared_memory") == std::string::npos) {
-      StrStream << " no SVM/USM support.\n";
+        DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
+        DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
+      StrStream << " insufficient device memory capabilities.\n";
       continue;
     }
 
@@ -1838,11 +1952,7 @@ void CHIPBackendOpenCL::initializeImpl() {
 
   // TODO for now only a single device is supported.
   cl::Device *clDev = new cl::Device(Device);
-  CHIPDeviceOpenCL *ChipDev = CHIPDeviceOpenCL::create(clDev, ChipContext, 0);
-
-  // Add device to context & backend
-  ChipContext->setDevice(ChipDev);
-  ChipContext->MemManager_.init(ChipContext);
+  CHIPDeviceOpenCL::create(clDev, ChipContext, 0);
   logTrace("OpenCL Context Initialized.");
 };
 

@@ -162,13 +162,14 @@ void chipstar::AllocationTracker::recordAllocation(
   LOCK(AllocationTrackerMtx); // writing chipstar::AllocTracker::PtrToAllocInfo_
                               // chipstar::AllocTracker::AllocInfos_
   // TODO AllocInfo turned into class and constructor take care of this
-  if (MemoryType == hipMemoryTypeHost) {
+  if (MemoryType == hipMemoryTypeHost && Flags.isMapped()) {
     AllocInfo->HostPtr = AllocInfo->DevPtr;
     // Map onto host so that the data can be potentially initialized on host
     ::Backend->getActiveDevice()->getDefaultQueue()->MemMap(
         AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
-    NumHostAllocations_ += 1;
   }
+
+  NumHostAllocations_ += (MemoryType == hipMemoryTypeHost);
 
   if (MemoryType == hipMemoryTypeUnified)
     AllocInfo->HostPtr = AllocInfo->DevPtr;
@@ -340,7 +341,7 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
   size_t VarInfoBufSize = sizeof(CHIPVarInfo) * ChipVars_.size();
   auto *Ctx = Device->getContext();
   CHIPVarInfo *VarInfoBufD = (CHIPVarInfo *)Ctx->allocate(
-      VarInfoBufSize, hipMemoryType::hipMemoryTypeUnified);
+      VarInfoBufSize, hipMemoryType::hipMemoryTypeDevice);
   assert(VarInfoBufD && "Could not allocate space for a shadow kernel.");
   auto VarInfoBufH = std::make_unique<CHIPVarInfo[]>(ChipVars_.size());
 
@@ -351,7 +352,8 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
     queueVariableInfoShadowKernel(Queue, this, Var, &VarInfoBufD[I]);
     VarInfos.push_back(std::make_pair(Var, &VarInfoBufH[I]));
   }
-  Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize);
+  Queue->memCopyAsync(VarInfoBufH.get(), VarInfoBufD, VarInfoBufSize,
+                      hipMemcpyDeviceToHost);
   Queue->finish();
 
   // Allocate storage for the device variables.
@@ -364,7 +366,7 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
 
     auto *Var = VarInfo.first;
     Var->setDevAddr(
-        Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeUnified));
+        Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
     Var->markHasInitializer(HasInitializer);
     // Sanity check for object sizes reported by the shadow kernels vs
     // __hipRegisterVar.
@@ -640,9 +642,8 @@ chipstar::DeviceVar *chipstar::Device::getGlobalVar(const void *HostPtr) {
   return nullptr;
 }
 
-int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) {
-  hipDeviceProp_t Prop = {};
-  copyDeviceProperties(&Prop);
+int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
+  const hipDeviceProp_t &Prop = HipDeviceProps_;
 
   switch (Attr) {
   case hipDeviceAttributeMaxThreadsPerBlock:
@@ -817,6 +818,9 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) {
         "Device::getAttr(hipDeviceAttributeCanUseStreamWaitValue path "
         "unimplemented",
         hipErrorTbd);
+    break;
+  case hipDeviceAttributeUnifiedAddressing:
+    return Prop.unifiedAddressing;
     break;
   default:
     CHIPERR_LOG_AND_THROW("Device::getAttr asked for an unkown attribute",
@@ -1096,11 +1100,21 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
       // UNIMPLEMENTED(nullptr);
       if (Flags.isNumaUser())
         UNIMPLEMENTED(nullptr);
-    if (Flags.isPortable())
-      UNIMPLEMENTED(nullptr);
     if (Flags.isWriteCombined())
       logWarn("hipHostAllocWriteCombined is not supported. Ignoring.");
     // UNIMPLEMENTED(nullptr);
+  }
+
+  if (MemType == hipMemoryType::hipMemoryTypeHost && !Flags.isMapped()) {
+    // UVA implies hipHostMallocMapped and it is set on up-front if
+    // the device supports UVA.
+    assert(!ChipDev->hasUnifiedVirtualAddressing());
+
+    // The allocation is only host accessible.
+    auto *HostPtr = std::aligned_alloc(Alignment, Size);
+    ChipDev->AllocTracker->recordAllocation(
+        nullptr, HostPtr, ChipDev->getDeviceId(), Size, Flags, MemType);
+    return HostPtr;
   }
 
   if (Size > ChipDev->getMaxMallocSize()) {
@@ -1154,9 +1168,15 @@ hipError_t chipstar::Context::free(void *Ptr) {
     // test suite excepts hipErrorInvalidValue. Go with the latter.
     return hipErrorInvalidValue;
 
-  ChipDev->AllocTracker->releaseMemReservation(AllocInfo->Size);
+  if (AllocInfo->DevPtr)
+    ChipDev->AllocTracker->releaseMemReservation(AllocInfo->Size);
+  if (AllocInfo->MemoryType == hipMemoryTypeHost && AllocInfo->HostPtr &&
+      AllocInfo->HostPtr != AllocInfo->DevPtr)
+    std::free(AllocInfo->HostPtr);
+  else
+    freeImpl(Ptr);
   ChipDev->AllocTracker->eraseRecord(AllocInfo);
-  freeImpl(Ptr);
+
   return hipSuccess;
 }
 
@@ -1569,54 +1589,50 @@ chipstar::Queue::getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> Event,
   return {EventsToWaitOn, std::move(EventLocks)};
 }
 
+static void unmapHostAlloc(const void *Ptr) {
+  auto *Dev = ::Backend->getActiveDevice();
+  auto *AI = Dev->AllocTracker->getAllocInfo(Ptr);
+  if (AI && AI->isMappedHostAllocation())
+    Dev->getDefaultQueue()->MemUnmap(AI);
+}
+
+static void mapHostAlloc(const void *Ptr,
+                         chipstar::Queue::MEM_MAP_TYPE MapType =
+                             chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
+  auto *Dev = ::Backend->getActiveDevice();
+  auto *AI = Dev->AllocTracker->getAllocInfo(Ptr);
+  if (AI && AI->isMappedHostAllocation())
+    Dev->getDefaultQueue()->MemMap(AI, MapType);
+}
+
 ///////// Enqueue Operations //////////
-hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size) {
+hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size,
+                                    hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent;
-  // Scope this so that we release mutex for finish()
-  {
-    auto AllocInfoDst =
-        ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
-    auto AllocInfoSrc =
-        ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Src);
-    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      ::Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoDst);
-    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      ::Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfoSrc);
+  unmapHostAlloc(Src);
+  unmapHostAlloc(Dst);
 
-    ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+  ChipEvent = memCopyAsyncImpl(Dst, Src, Size, Kind);
 
-    if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-      ::Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
-    if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-      ::Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+  mapHostAlloc(Src);
+  mapHostAlloc(Dst);
 
-    ChipEvent->Msg = "memCopy";
-    this->finish();
-  }
-
+  ChipEvent->Msg = "memCopy";
+  this->finish();
   return hipSuccess;
 }
-void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size) {
+void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size,
+                                   hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent;
-  auto AllocInfoDst =
-      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
-  auto AllocInfoSrc =
-      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Src);
-  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-    this->MemUnmap(AllocInfoDst);
-  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-    this->MemUnmap(AllocInfoSrc);
+  unmapHostAlloc(Src);
+  unmapHostAlloc(Dst);
 
-  ChipEvent = memCopyAsyncImpl(Dst, Src, Size);
+  ChipEvent = memCopyAsyncImpl(Dst, Src, Size, Kind);
 
-  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-    this->MemMap(AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
-  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-    this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+  mapHostAlloc(Src);
+  mapHostAlloc(Dst);
 
   ChipEvent->Msg = "memCopyAsync";
 }
@@ -1627,27 +1643,19 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
 
   std::shared_ptr<chipstar::Event> ChipEvent = nullptr;
 
-  auto AllocInfoDst =
-      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Dst);
-  auto AllocInfoSrc =
-      ::Backend->getActiveDevice()->AllocTracker->getAllocInfo(Src);
-  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-    this->MemUnmap(AllocInfoDst);
-  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-    this->MemUnmap(AllocInfoSrc);
+  unmapHostAlloc(Src);
+  unmapHostAlloc(Dst);
 
   // perform the copy
   for (size_t i = 0; i < Height; ++i) {
-    ChipEvent = memCopyAsyncImpl(Dst, Src, Width);
+    ChipEvent = memCopyAsyncImpl(Dst, Src, Width, Kind);
     ChipEvent->Msg = "memCopyAsync2D";
     Src = (char *)Src + SPitch;
     Dst = (char *)Dst + DPitch;
   }
 
-  if (AllocInfoDst && AllocInfoDst->MemoryType == hipMemoryTypeHost)
-    this->MemMap(AllocInfoDst, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
-  if (AllocInfoSrc && AllocInfoSrc->MemoryType == hipMemoryTypeHost)
-    this->MemMap(AllocInfoSrc, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
+  mapHostAlloc(Src);
+  mapHostAlloc(Dst);
 }
 
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
@@ -1707,20 +1715,21 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
 }
 
 void chipstar::Queue::memCopy2D(void *Dst, size_t DPitch, const void *Src,
-                                size_t SPitch, size_t Width, size_t Height) {
+                                size_t SPitch, size_t Width, size_t Height,
+                                hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent =
-      memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
+      memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height, Kind);
   ChipEvent->Msg = "memCopy2D";
   finish();
 }
 
 void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
-                                     size_t SPitch, size_t Width,
-                                     size_t Height) {
+                                     size_t SPitch, size_t Width, size_t Height,
+                                     hipMemcpyKind Kind) {
   {
     std::shared_ptr<chipstar::Event> ChipEvent =
-        memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height);
+        memCopy2DAsyncImpl(Dst, DPitch, Src, SPitch, Width, Height, Kind);
     ChipEvent->Msg = "memCopy2DAsync";
     this->finish();
   }
@@ -1729,10 +1738,11 @@ void chipstar::Queue::memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
 
 void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                                 const void *Src, size_t SPitch, size_t SSPitch,
-                                size_t Width, size_t Height, size_t Depth) {
+                                size_t Width, size_t Height, size_t Depth,
+                                hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
-      Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
+      Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth, Kind);
   ChipEvent->Msg = "memCopy3D";
   finish();
 }
@@ -1740,10 +1750,11 @@ void chipstar::Queue::memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
 void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                                      const void *Src, size_t SPitch,
                                      size_t SSPitch, size_t Width,
-                                     size_t Height, size_t Depth) {
+                                     size_t Height, size_t Depth,
+                                     hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent = memCopy3DAsyncImpl(
-      Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth);
+      Dst, DPitch, DSPitch, Src, SPitch, SSPitch, Width, Height, Depth, Kind);
   ChipEvent->Msg = "memCopy3DAsync";
 }
 
@@ -1772,7 +1783,7 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
   auto PreKernel = ExecState == MANAGED_MEM_STATE::PRE_KERNEL;
   std::vector<std::shared_ptr<chipstar::Event>> CopyEvents;
   auto ArgVisitor = [&](const chipstar::AllocationInfo &AllocInfo) -> void {
-    if (AllocInfo.MemoryType == hipMemoryTypeHost) {
+    if (AllocInfo.isMappedHostAllocation()) {
       logDebug("Sync host memory {} ({})", AllocInfo.HostPtr,
                (PreKernel ? "Unmap" : "Map"));
       if (PreKernel)
@@ -1785,7 +1796,9 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
       void *Dst = PreKernel ? AllocInfo.DevPtr : AllocInfo.HostPtr;
       logDebug("Sync managed memory {} -> {} ({})", Src, Dst,
                (PreKernel ? "host-to-device" : "device-to-host"));
-      CopyEvents.push_back(this->memCopyAsyncImpl(Dst, Src, AllocInfo.Size));
+      CopyEvents.push_back(this->memCopyAsyncImpl(
+          Dst, Src, AllocInfo.Size,
+          PreKernel ? hipMemcpyHostToDevice : hipMemcpyDeviceToHost));
     }
   };
   AllocTracker->visitAllocations(ArgVisitor);

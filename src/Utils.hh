@@ -123,20 +123,22 @@ public:
 
 // A less comparator for comparing mixed raw and smart pointers.
 //
-// From https://stackoverflow.com/questions/18939882. Formatted for
-// chipStar.
+// Originally from https://stackoverflow.com/questions/18939882. Improved and
+// formatted for chipStar.
 template <class T> struct PointerCmp {
   typedef std::true_type is_transparent;
   struct Helper {
-    T *Ptr;
+    const T *Ptr;
     Helper() : Ptr(nullptr) {}
     Helper(Helper const &) = default;
-    Helper(T *p) : Ptr(p) {}
+    Helper(const T *p) : Ptr(p) {}
     template <class U> Helper(std::shared_ptr<U> const &Sp) : Ptr(Sp.get()) {}
     template <class U, class... Ts>
     Helper(std::unique_ptr<U, Ts...> const &Up) : Ptr(Up.get()) {}
     // && optional: enforces rvalue use only
-    bool operator<(Helper o) const { return std::less<T *>()(Ptr, o.Ptr); }
+    bool operator<(Helper o) const {
+      return std::less<const T *>()(Ptr, o.Ptr);
+    }
   };
 
   bool operator()(Helper const &&lhs, Helper const &&rhs) const {

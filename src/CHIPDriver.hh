@@ -234,6 +234,7 @@ private:
   unsigned long L0EventTimeout_ = 0;
   int L0CollectEventsTimeout_ = 0;
   bool OCLDisableQueueProfiling_ = false;
+  std::optional<std::string> OclUseAllocStrategy_;
 
 public:
   EnvVars() {
@@ -257,6 +258,9 @@ public:
     return L0EventTimeout_ * 1e9;
   }
   bool getOCLDisableQueueProfiling() const { return OCLDisableQueueProfiling_; }
+  const std::optional<std::string> &getOclUseAllocStrategy() const noexcept {
+    return OclUseAllocStrategy_;
+  }
 
 private:
   void parseEnvironmentVariables() {
@@ -293,6 +297,10 @@ private:
       OCLDisableQueueProfiling_ = parseBoolean(DisableQProfilingEnv);
       logDebug("{}={}", DisableQProfilingEnv, OCLDisableQueueProfiling_);
     }
+
+    constexpr char OclUseAllocStrategyEnv[] = "CHIP_OCL_USE_ALLOC_STRATEGY";
+    if (auto Str = readEnvVar(OclUseAllocStrategyEnv, true); !Str.empty())
+      OclUseAllocStrategy_ = Str;
   }
 
   std::string_view parseJitFlags(const std::string &StrIn) {
