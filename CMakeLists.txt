@@ -67,6 +67,8 @@ foreach(dir ${REQUIRED_DIRECTORIES})
     endif()
 endforeach()
 
+add_subdirectory(spirv-extractor)
+
 # =============================================================================
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
