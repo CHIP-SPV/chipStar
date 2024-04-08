@@ -67,8 +67,6 @@ foreach(dir ${REQUIRED_DIRECTORIES})
     endif()
 endforeach()
 
-add_subdirectory(spirv-extractor)
-
 # =============================================================================
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
@@ -375,6 +373,8 @@ file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
 file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 
 add_subdirectory(bin)
+
+add_subdirectory(spirv-extractor)
 
 # once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
 add_custom_command(
