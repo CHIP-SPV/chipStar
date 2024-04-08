@@ -49,7 +49,7 @@ std::string_view extractSPIRVModule(const char *Bundle, std::string &ErrorMsg,
   using EntryT = __ClangOffloadBundleDesc;
 
   auto NumBundles = copyAs<uint64_t>(Bundle, offsetof(HeaderT, numBundles));
-  std::cout << "Number of bundles: " << NumBundles << std::endl;
+  // std::cout << "Number of bundles: " << NumBundles << std::endl;
 
   const char *Desc = Bundle + offsetof(HeaderT, desc);
 
@@ -70,20 +70,20 @@ std::string_view extractSPIRVModule(const char *Bundle, std::string &ErrorMsg,
 
     const char *Triple = Desc + offsetof(EntryT, triple);
     std::string_view EntryID(Triple, TripleSize);
-    std::cout << "Bundle entry ID " << i << " is: '" << EntryID << "'\n"
-              << "  Offset: " << Offset << "\n"
-              << "  Size: " << Size << "\n"
-              << "  TripleSize: " << TripleSize << std::endl;
+    // std::cout << "Bundle entry ID " << i << " is: '" << EntryID << "'\n"
+    //           << "  Offset: " << Offset << "\n"
+    //           << "  Size: " << Size << "\n"
+    //           << "  TripleSize: " << TripleSize << std::endl;
 
     std::string_view SPIRVBundleID = "hip-spirv64";
     if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID ||
         EntryID == "hip-spir64-unknown-unknown") {
-      std::cout << "Found SPIR-V binary, offset: " << Offset
-                << ", size: " << Size << std::endl;
+      // std::cout << "Found SPIR-V binary, offset: " << Offset
+      //           << ", size: " << Size << std::endl;
 
       return std::string_view(Bundle + Offset, Size / sizeof(uint32_t));
     }
-    std::cout << "Not a SPIR-V triple, ignoring\n";
+    // std::cout << "Not a SPIR-V triple, ignoring\n";
     Desc +=
         offsetof(EntryT, triple) + TripleSize; // Move to the next descriptor
   }
@@ -130,21 +130,23 @@ bool usesDoubles(const std::string_view &spirvHumanReadable) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 3 || argc > 5) {
-    std::cerr
-        << "Usage: " << argv[0]
-        << " [--check-for-doubles] [-o <output_filename>] <fatbinary_path>"
-        << std::endl;
+  if (argc < 3) {
+    std::cerr << "Usage: " << argv[0]
+              << " [--check-for-doubles] [-o <output_filename>] "
+                 "<fatbinary_path> [-- <additional_args>...]"
+              << std::endl;
     return 1;
   }
 
   std::string outputFilename;
   bool dumpToFile = false;
   bool checkForDoubles = false;
+  std::vector<std::string> additionalArgs;
 
-  for (int i = 1; i < argc - 1; ++i) {
+  int i = 1;
+  while (i < argc) {
     if (std::string(argv[i]) == "-o") {
-      if (i + 1 < argc - 1) {
+      if (i + 1 < argc) {
         dumpToFile = true;
         outputFilename = argv[++i];
       } else {
@@ -153,13 +155,26 @@ int main(int argc, char *argv[]) {
       }
     } else if (std::string(argv[i]) == "--check-for-doubles") {
       checkForDoubles = true;
+    } else if (std::string(argv[i]) == "--") {
+      ++i;
+      break;
     } else {
-      std::cerr << "Invalid option: " << argv[i] << std::endl;
-      return 1;
+      break;
     }
+    ++i;
   }
 
-  std::string fatbinaryPath = argv[argc - 1];
+  if (i >= argc) {
+    std::cerr << "Missing fatbinary path" << std::endl;
+    return 1;
+  }
+
+  std::string fatbinaryPath = argv[i++];
+
+  // Collect additional arguments
+  while (i < argc) {
+    additionalArgs.emplace_back(argv[i++]);
+  }
 
   if (!dumpToFile) {
     outputFilename =
@@ -224,12 +239,24 @@ int main(int argc, char *argv[]) {
   }
 
   auto spirvText = disassembleSPIRV(spirvBinary);
+  bool hasDoubles = usesDoubles(spirvText);
 
+  int exitCode = 0;
   if (checkForDoubles) {
-    std::cout << "SPIR-V uses doubles: "
-              << (usesDoubles(spirvText) ? "true" : "false") << std::endl;
-    return 1;
-  } else if (dumpToFile) {
+    if (hasDoubles)
+      std::cout << "HIP_SKIP_THIS_TEST: Kernel uses doubles" << std::endl;
+    else {
+      // Execute the binary with additional arguments
+      std::string command = fatbinaryPath;
+      for (const auto &arg : additionalArgs) {
+        command += " " + arg;
+      }
+      exitCode = system(command.c_str());
+    }
+    return exitCode;
+  }
+
+  if (dumpToFile) {
     std::ofstream outputFile(outputFilename);
     if (!outputFile) {
       std::cerr << "Failed to open file: " << outputFilename << std::endl;
@@ -241,5 +268,5 @@ int main(int argc, char *argv[]) {
     std::cout << spirvText << std::endl;
   }
 
-  return 0;
+  return hasDoubles;
 }
