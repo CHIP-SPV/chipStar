@@ -93,7 +93,6 @@ std::string_view extractSPIRVModule(const char *Bundle, std::string &ErrorMsg,
 }
 
 std::string_view disassembleSPIRV(const std::string_view &spirvBinary) {
-  std::string_view spirvHumanReadable;
   spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
   spv_text text = nullptr;
   spv_diagnostic diagnostic = nullptr;
@@ -130,10 +129,10 @@ bool usesDoubles(const std::string_view &spirvHumanReadable) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 3) {
+  if (argc < 2) {
     std::cerr << "Usage: " << argv[0]
               << " [--check-for-doubles] [-o <output_filename>] "
-                 "<fatbinary_path> [-- <additional_args>...]"
+                 "<fatbinary_path> [<additional_args>...]"
               << std::endl;
     return 1;
   }
@@ -155,9 +154,6 @@ int main(int argc, char *argv[]) {
       }
     } else if (std::string(argv[i]) == "--check-for-doubles") {
       checkForDoubles = true;
-    } else if (std::string(argv[i]) == "--") {
-      ++i;
-      break;
     } else {
       break;
     }
