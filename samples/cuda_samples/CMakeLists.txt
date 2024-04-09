@@ -25,8 +25,12 @@ function(add_cuda_sample_args)
     RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}/cuda_samples")
 
   add_test(NAME "${CUDA_NAME}"
-    COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${CUDA_ARGS})
-  set_property(TEST "${CUDA_NAME}" PROPERTY LABELS "internal;cuda")
+    COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} "${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME}" ${CUDA_ARGS})
+
+  set_target_properties("${CUDA_NAME}" PROPERTIES 
+    PASS_REGULAR_EXPRESSION "${TEST_PASS}"
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
+    LABELS "internal;cuda")
 
 endfunction()
 

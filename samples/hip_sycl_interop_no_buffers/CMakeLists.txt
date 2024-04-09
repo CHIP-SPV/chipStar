@@ -6,10 +6,11 @@ target_link_options(hip_sycl_interop_no_buffers PRIVATE -fsycl -L${MKL_ROOT}/lib
 target_link_libraries(hip_sycl_interop_no_buffers onemkl_gemm_wrapper_no_buffers)
 
 add_test(NAME "hip_sycl_interop_no_buffers"
-         COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/hip_sycl_interop_no_buffers" 
+         COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} "${CMAKE_CURRENT_BINARY_DIR}/hip_sycl_interop_no_buffers"
          )
 
 set_tests_properties("hip_sycl_interop_no_buffers" PROPERTIES
          PASS_REGULAR_EXPRESSION "${TEST_PASS}"
+         SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
          TIMEOUT 60
          )

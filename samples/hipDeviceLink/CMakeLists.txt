@@ -8,7 +8,8 @@ add_chip_binary(
 target_link_libraries(hipTestDeviceLink deviceRDCInternal)
 
 add_test(NAME hipTestDeviceLink
-  COMMAND "${CMAKE_CURRENT_BINARY_DIR}/hipTestDeviceLink")
+  COMMAND ${SKIP_DOUBLE_TESTS} "${CMAKE_CURRENT_BINARY_DIR}/hipTestDeviceLink")
 
 set_tests_properties(hipTestDeviceLink PROPERTIES
-  PASS_REGULAR_EXPRESSION PASSED)
+  PASS_REGULAR_EXPRESSION PASSED
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
