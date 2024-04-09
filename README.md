@@ -228,3 +228,5 @@ overhead of software emulation:
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
 ```
+
+If you device does not support emulation, you can skip these tests providing `-DSKIP_TESTS_WITH_DOUBLES=ON` option at cmake configure time.
