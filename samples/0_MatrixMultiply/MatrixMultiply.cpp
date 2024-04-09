@@ -80,8 +80,8 @@
 #ifndef MM_SHARED
 
 // Simple version, myGEMM2
-__global__ void gpuMatrixMul(const double *__restrict A,
-                             const double *__restrict B, double *__restrict C,
+__global__ void gpuMatrixMul(const float *__restrict A,
+                             const float *__restrict B, float *__restrict C,
                              uint M, uint N, uint K)
 
 {
@@ -92,7 +92,7 @@ __global__ void gpuMatrixMul(const double *__restrict A,
       hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y; // Col ID of C (0..N)
 
   // Compute a single element (loop over K)
-  double acc = 0.0f;
+  float acc = 0.0f;
   for (uint k = 0; k < K; k++) {
 #ifdef USE_FMA
     acc = fmaf(A[k * M + globalRow], B[globalCol * K + k], acc);
@@ -114,8 +114,8 @@ __global__ void gpuMatrixMul(const double *__restrict A,
 #define RTS 4
 
 // Tiled and coalesced version, myGEMM4
-__global__ void gpuMatrixMul(const double *__restrict A,
-                             const double *__restrict B, double *__restrict C,
+__global__ void gpuMatrixMul(const float *__restrict A,
+                             const float *__restrict B, float *__restrict C,
                              uint M, uint N, uint K) {
   // Thread identifiers
   const uint row = hipThreadIdx_x; // Local row ID (max: TS)
@@ -124,11 +124,11 @@ __global__ void gpuMatrixMul(const double *__restrict A,
   const uint globalCol = TS * hipBlockIdx_y + col; // Col ID of C (0..N)
 
   // Local memory to fit a tile of TS*TS elements of A and B
-  __shared__ double Asub[TS][TS];
-  __shared__ double Bsub[TS][TS];
+  __shared__ float Asub[TS][TS];
+  __shared__ float Bsub[TS][TS];
 
   // Initialise the accumulation registers
-  double acc[WPT];
+  float acc[WPT];
   for (uint w = 0; w < WPT; w++) {
     acc[w] = 0.0f;
   }
@@ -172,12 +172,12 @@ __global__ void gpuMatrixMul(const double *__restrict A,
 /*****************************************************************************/
 
 // CPU implementation of matrix transpose
-void matrixMultiplyCPUReference(const double *__restrict A,
-                                const double *__restrict B,
-                                double *__restrict C) {
+void matrixMultiplyCPUReference(const float *__restrict A,
+                                const float *__restrict B,
+                                float *__restrict C) {
   for (uint i = 0; i < WIDTH; i++) {
     for (uint j = 0; j < WIDTH; j++) {
-      double acc = 0.0f;
+      float acc = 0.0f;
       for (uint k = 0; k < WIDTH; k++) {
 #ifdef USE_FMA
         acc = __builtin_fmaf(A[k * WIDTH + j], B[i * WIDTH + k], acc);
@@ -196,16 +196,16 @@ int main() {
   hipError_t err;
   std::mt19937 gen(SEED);
   auto rnd =
-      std::bind(std::uniform_real_distribution<double>{100.0f, 1000.0f}, gen);
+      std::bind(std::uniform_real_distribution<float>{100.0f, 1000.0f}, gen);
 
-  double *Matrix1;
-  double *Matrix2;
-  double *MultiplyMatrix;
-  double *cpuMultiplyMatrix;
+  float *Matrix1;
+  float *Matrix2;
+  float *MultiplyMatrix;
+  float *cpuMultiplyMatrix;
 
-  double *gpuMatrix1;
-  double *gpuMatrix2;
-  double *gpuMultiplyMatrix;
+  float *gpuMatrix1;
+  float *gpuMatrix2;
+  float *gpuMultiplyMatrix;
 
   hipDeviceProp_t devProp;
   err = hipGetDeviceProperties(&devProp, 0);
@@ -221,10 +221,10 @@ int main() {
 
   size_t i, j;
 
-  Matrix1 = new double[NUM];
-  Matrix2 = new double[NUM];
-  MultiplyMatrix = new double[NUM];
-  cpuMultiplyMatrix = new double[NUM];
+  Matrix1 = new float[NUM];
+  Matrix2 = new float[NUM];
+  MultiplyMatrix = new float[NUM];
+  cpuMultiplyMatrix = new float[NUM];
   for (int i = 0; i < NUM; i++) {
     Matrix1[i] = 0;
     Matrix2[i] = 0;
@@ -241,21 +241,21 @@ int main() {
   float minMs, tempMs;
 
   // allocate the memory on the device side
-  err = hipMalloc((void **)&gpuMatrix1, NUM * sizeof(double));
+  err = hipMalloc((void **)&gpuMatrix1, NUM * sizeof(float));
   ERR_CHECK;
-  err = hipMalloc((void **)&gpuMatrix2, NUM * sizeof(double));
+  err = hipMalloc((void **)&gpuMatrix2, NUM * sizeof(float));
   ERR_CHECK;
-  err = hipMalloc((void **)&gpuMultiplyMatrix, NUM * sizeof(double));
+  err = hipMalloc((void **)&gpuMultiplyMatrix, NUM * sizeof(float));
   ERR_CHECK;
 
   auto timeGPU1 = std::chrono::high_resolution_clock::now();
 
   // Memory transfer from host to device
-  err = hipMemcpy(gpuMatrix1, Matrix1, NUM * sizeof(double),
+  err = hipMemcpy(gpuMatrix1, Matrix1, NUM * sizeof(float),
                   hipMemcpyHostToDevice);
   ERR_CHECK;
 
-  err = hipMemcpy(gpuMatrix2, Matrix2, NUM * sizeof(double),
+  err = hipMemcpy(gpuMatrix2, Matrix2, NUM * sizeof(float),
                   hipMemcpyHostToDevice);
   ERR_CHECK;
 
@@ -279,7 +279,7 @@ int main() {
   }
 
   // Memory transfer from device to host
-  err = hipMemcpy(MultiplyMatrix, gpuMultiplyMatrix, NUM * sizeof(double),
+  err = hipMemcpy(MultiplyMatrix, gpuMultiplyMatrix, NUM * sizeof(float),
                   hipMemcpyDeviceToHost);
   ERR_CHECK;
 
@@ -319,12 +319,12 @@ int main() {
 
   // verify the results
   size_t errors = 0;
-  double eps = FLT_EPSILON * 4;
+  float eps = FLT_EPSILON * 4;
   for (i = 0; i < WIDTH; i++) {
     for (j = 0; j < WIDTH; j++) {
-      double cpu = cpuMultiplyMatrix[i * WIDTH + j];
-      double gpu = MultiplyMatrix[i * WIDTH + j];
-      double diff = std::fabs(gpu - cpu);
+      float cpu = cpuMultiplyMatrix[i * WIDTH + j];
+      float gpu = MultiplyMatrix[i * WIDTH + j];
+      float diff = std::fabs(gpu - cpu);
       if (diff > std::max(std::fabs(cpu), std::fabs(gpu)) * eps) {
         errors++;
         if (errors < 10)
