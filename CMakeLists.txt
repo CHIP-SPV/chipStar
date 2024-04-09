@@ -378,7 +378,7 @@ add_subdirectory(bin)
 
 if (SKIP_TESTS_WITH_DOUBLES)
   add_subdirectory(spirv-extractor)
-  set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirvExtractor" "--check-for-doubles")
+  set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
   else()
   set(SKIP_DOUBLE_TESTS "")
 endif()
