@@ -244,10 +244,11 @@ option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
 consumption issues in ARM Mali GPU driver." OFF)
 
 # the PowerVR OpenCL implementation for some reason demangles SPIR-V function
-# names, e.g. a SPIRV with a "_Z8testfunc" kernel turned into a cl_program
-# returns "testfunc" in clGetProgramInfo(CL_PROGRAM_KERNEL_NAMES, ...)
+# names, e.g. a SPIRV with a "_Z8testfunc" kernel compiled into a cl_program
+# returns "testfunc" from clGetProgramInfo(CL_PROGRAM_KERNEL_NAMES, ...).
 # This is a major issue not only for finding kernels, but also potential
-# name conflicts with function overloads.
+# name conflicts with function overloads. The workaround changes the kernel
+# names from _Zkernel to Z_kernel
 option(CHIP_POWERVR_GPU_WORKAROUNDS "Apply work-arounds for issues in \
 Imagination PowerVR GPU driver." OFF)
 

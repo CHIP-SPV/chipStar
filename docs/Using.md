@@ -99,7 +99,7 @@ Before using the hipGetNativeEvent, the event must be recorded in a Stream.
 With OpenCL, both get*Event APIs increase the refcount of the cl_event and each side (HIP and the user application) are responsible for releasing the event when they’re done with it.
 With Level0, the event pool from which it was allocated remains the responsibility of the side that allocated it (e.g. getNativeEvent returns a ze_event handle but the pool is still managed by chipStar). This could lead to issues if e.g. a pool is released but an event allocated from it still exists as a dependency in some command enqueued by the opposite API. Since chipStar's Level0 backend never releases event pools, this can be resolved by not releasing eventpools allocated on the application side.
 
-A simplie example code that uses the OpenCL interop:
+A simple example code that uses the OpenCL interop:
 
 ```C
     void* runNativeKernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHandles, unsigned Blocks, unsigned Threads, unsigned Arg1, void *Arg2, void *Arg3) {

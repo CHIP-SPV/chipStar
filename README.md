@@ -110,7 +110,7 @@ NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` 
 
 ### Building on ARM + Mali
 
-to build chipStar for use with an ARM Mali G52 GPU, use these steps:
+To build chipStar for use with an ARM Mali G52 GPU, use these steps:
 
 1) build LLVM and SPIRV-LLVM-Translator as described above
 
@@ -126,7 +126,7 @@ with driver version OpenCL 3.0 v1.r40p0-01eac0.
 
 ### Building on RISC-V + PowerVR
 
-to build chipStar for use with a PowerVR GPU, use these steps:
+To build chipStar for use with a PowerVR GPU, use these steps:
 
 1) build LLVM and SPIRV-LLVM-Translator as described above
 

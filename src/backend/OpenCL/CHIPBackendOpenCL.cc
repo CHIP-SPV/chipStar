@@ -865,7 +865,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
     if (!FuncInfo) {
       continue; // TODO
       CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
-                          hipErrorInitializationError);
+                            hipErrorInitializationError);
     }
     CHIPKernelOpenCL *ChipKernel =
         new CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);

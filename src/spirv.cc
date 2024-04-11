@@ -802,9 +802,10 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
   // for PowerVR, replace _Z prefix with Z_
   if (Insn.isEntryPoint()) {
     ReplacementInsn.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
-    char *P = (char *)(ReplacementInsn.data() + 3);
+    char *P = reinterpret_cast<char *>(ReplacementInsn.data() + 3);
     if (P[0] == '_' && P[1] == 'Z') {
-      P[0] = 'Z'; P[1] = '_';
+      P[0] = 'Z';
+      P[1] = '_';
     }
     return FilterAction::Replace;
   }
