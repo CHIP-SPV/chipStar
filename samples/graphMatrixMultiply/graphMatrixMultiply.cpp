@@ -40,6 +40,10 @@
 
 #define SEED 19284975223
 
+#ifndef FLT_EPSILON
+#define FLT_EPSILON      1.1920928955078125e-7f
+#endif
+
 void verifyResults(float* cpuRes, float* gpuRes) {
   // verify the results
   size_t errors = 0;

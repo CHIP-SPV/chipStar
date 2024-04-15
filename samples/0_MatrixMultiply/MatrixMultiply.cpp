@@ -30,6 +30,10 @@
 #include <cmath>
 #include <cfloat>
 
+#ifndef FLT_EPSILON
+#define FLT_EPSILON      1.1920928955078125e-7f
+#endif
+
 // hip header file
 #include "hip/hip_runtime.h"
 
