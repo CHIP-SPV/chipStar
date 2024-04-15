@@ -217,7 +217,7 @@ option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodul
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
-option(CHIP_BUILD_BLAS "When enabled, hipBLAS will be built and installed along chipStar" ON)
+option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" ON)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 
 # This mitigation might be necessary on some systems with an older runtime. 
@@ -538,11 +538,6 @@ target_link_options(deviceRDC INTERFACE
   --hip-path=${CMAKE_INSTALL_PREFIX})
 target_link_libraries(deviceRDC INTERFACE device)
 
-# TODO Check not setting it , errors in hipblas
-set(hip_DIR ${CMAKE_CURRENT_BINARY_DIR})
-add_subdirectory(H4I-MKLShim)
-add_subdirectory(H4I-HipBLAS)
-add_dependencies(hipblas CHIP MKLShim)
 
 
 
@@ -715,6 +710,12 @@ install(EXPORT CHIPTargets
 #
 # enable the build_tests target
 SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
+
+if (CHIP_BUILD_HIPBLAS)
+  add_subdirectory(H4I-MKLShim)
+  add_subdirectory(H4I-HipBLAS)
+  add_dependencies(hipblas CHIP MKLShim)
+endif()
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
