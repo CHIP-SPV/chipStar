@@ -537,6 +537,16 @@ target_link_options(deviceRDC INTERFACE
   --hip-path=${CMAKE_INSTALL_PREFIX})
 target_link_libraries(deviceRDC INTERFACE device)
 
+
+# set(hip_DIR ${CMAKE_CURRENT_BINARY_DIR})
+# message(WARNING "hip_DIR: ${hip_DIR}")
+add_subdirectory(H4I-MKLShim)
+# add_subdirectory(H4I-HipBLAS)
+# add_dependencies(MKLShim CHIP)
+# add_dependencies(hipblas CHIP MKLShim)
+
+
+
 # HIP OFFLOAD FLAGS
 # =============================================================================
 
@@ -623,6 +633,7 @@ INSTALL(TARGETS CHIP host device deviceRDC
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 INSTALL(EXPORT hip-targets DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR} NAMESPACE hip::)
+# export(EXPORT hip-targets FILE "${CHIP_BUILD_DIR}/hip-targets.cmake" NAMESPACE hip::)
 
 # hip-config.cmake generation
 include(CMakePackageConfigHelpers)
