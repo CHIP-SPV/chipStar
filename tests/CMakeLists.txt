@@ -19,4 +19,5 @@ add_subdirectory(fromLibCeed)
 add_subdirectory(hiprtc)
 add_subdirectory(post-install)
 add_subdirectory(runtime)
+add_subdirectory(libraries)
 
