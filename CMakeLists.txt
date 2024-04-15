@@ -217,6 +217,7 @@ option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodul
 option(CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE "Enable non-compliant devicelib code such as calling LLVM builtins from inside kernel code. Enables certain unsigned long devicelib func variants" OFF)
 option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
+option(CHIP_BUILD_BLAS "When enabled, hipBLAS will be built and installed along chipStar" ON)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 
 # This mitigation might be necessary on some systems with an older runtime. 
@@ -537,13 +538,11 @@ target_link_options(deviceRDC INTERFACE
   --hip-path=${CMAKE_INSTALL_PREFIX})
 target_link_libraries(deviceRDC INTERFACE device)
 
-
-# set(hip_DIR ${CMAKE_CURRENT_BINARY_DIR})
-# message(WARNING "hip_DIR: ${hip_DIR}")
+# TODO Check not setting it , errors in hipblas
+set(hip_DIR ${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(H4I-MKLShim)
-# add_subdirectory(H4I-HipBLAS)
-# add_dependencies(MKLShim CHIP)
-# add_dependencies(hipblas CHIP MKLShim)
+add_subdirectory(H4I-HipBLAS)
+add_dependencies(hipblas CHIP MKLShim)
 
 
 
@@ -634,6 +633,9 @@ INSTALL(TARGETS CHIP host device deviceRDC
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 INSTALL(EXPORT hip-targets DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR} NAMESPACE hip::)
 # export(EXPORT hip-targets FILE "${CHIP_BUILD_DIR}/hip-targets.cmake" NAMESPACE hip::)
+
+add_library(hip::host ALIAS host)
+add_library(hip::device ALIAS device)
 
 # hip-config.cmake generation
 include(CMakePackageConfigHelpers)
