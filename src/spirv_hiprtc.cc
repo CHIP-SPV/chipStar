@@ -292,8 +292,15 @@ static hiprtcResult compile(chipstar::Program &Program, int NumRawOptions,
   else
     logError("Could not read logfile (unknown reason).");
 
-  if (!ExecSuccess)
-    return HIPRTC_ERROR_COMPILATION;
+if (!ExecSuccess) {
+  auto SourceCode = readFromFile(SourceFile);
+  if (SourceCode) {
+    logError("Failed to compile source code: \n{}", SourceFile.string());
+  } else {
+    logError("Could not read source file '{}' (unknown reason).", SourceFile.string());
+  }
+  return HIPRTC_ERROR_COMPILATION;
+}
 
   auto Bundle = readFromFile(OutputFile);
   if (!Bundle) {
