@@ -41,10 +41,10 @@
 #define SEED 19284975223
 
 #ifndef FLT_EPSILON
-#define FLT_EPSILON      1.1920928955078125e-7f
+#define FLT_EPSILON 1.1920928955078125e-7f
 #endif
 
-void verifyResults(float* cpuRes, float* gpuRes) {
+void verifyResults(float *cpuRes, float *gpuRes) {
   // verify the results
   size_t errors = 0;
   float eps = FLT_EPSILON * 4;
@@ -64,7 +64,7 @@ void verifyResults(float* cpuRes, float* gpuRes) {
     }
   }
 
-    if (errors != 0) {
+  if (errors != 0) {
     std::cout << "Verification FAILED: " << errors << "  errors\n";
   } else {
     std::cout << "Verification PASSED!\n";
@@ -141,7 +141,8 @@ int main(int argc, char **argv) {
   ERR_CHECK;
 
   // t1 = stream kernels
-  std::cout << "\nRunning " << ITERS << " iterations of basic matrix multiply\n";
+  std::cout << "\nRunning " << ITERS
+            << " iterations of basic matrix multiply\n";
   auto tMatrixMultiplyBasic =
       matrixMultiplyBasic(gpuMatrix1, gpuMatrix2, Matrix1, Matrix2,
                           gpuMultiplyMatrix, MultiplyMatrix, events, ITERS);
@@ -149,10 +150,11 @@ int main(int argc, char **argv) {
   // verify the results
   verifyResults(cpuMultiplyMatrix, MultiplyMatrix);
 
-  std::cout << "\nRunning " << ITERS << " iterations of graph basic matrix multiply\n";
-  auto tMatrixMultiplyGraphBasic =
-    matrixMultiplyGraphBasic(gpuMatrix1, gpuMatrix2, Matrix1, Matrix2,
-                        gpuMultiplyMatrix, MultiplyMatrix, events, ITERS);
+  std::cout << "\nRunning " << ITERS
+            << " iterations of graph basic matrix multiply\n";
+  auto tMatrixMultiplyGraphBasic = matrixMultiplyGraphBasic(
+      gpuMatrix1, gpuMatrix2, Matrix1, Matrix2, gpuMultiplyMatrix,
+      MultiplyMatrix, events, ITERS);
   std::cout << "GPU real time taken(ms): " << tMatrixMultiplyGraphBasic << "\n";
   // verify the results
   verifyResults(cpuMultiplyMatrix, MultiplyMatrix);
@@ -161,23 +163,17 @@ int main(int argc, char **argv) {
   // for (i = 0; i < ITERS; ++i) {
   //   err = hipEventElapsedTime(&tempMs, events[i * 2], events[i * 2 + 1]);
   //   ERR_CHECK;
-  //   std::cout << "hipLaunchKernel " << i << " time taken: " << tempMs << "\n";
-  //   if (tempMs < minMs)
+  //   std::cout << "hipLaunchKernel " << i << " time taken: " << tempMs <<
+  //   "\n"; if (tempMs < minMs)
   //     minMs = tempMs;
   // }
 
   std::cout << "hipLaunchKernel BEST TIME: " << minMs << "\n";
 
-
   for (uint w = 0; w < (ITERS * 2); w++) {
     err = hipEventDestroy(events[w]);
     ERR_CHECK;
   }
-
-
-
-
-
 
   // free the resources on device side
   err = hipFree(gpuMatrix1);
@@ -192,5 +188,4 @@ int main(int argc, char **argv) {
   delete[] Matrix2;
   delete[] MultiplyMatrix;
   delete[] cpuMultiplyMatrix;
-
 }

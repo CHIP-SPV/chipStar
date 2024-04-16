@@ -1,7 +1,8 @@
 /*
  * Copyright (c) 2021-22 chipStar developers
  * Copyright (c) 2019 Michal Babej / Tampere University
- * Copyright (c) 2014 Cedric Nugteren, SURFsara https://github.com/CNugteren/myGEMM.git
+ * Copyright (c) 2014 Cedric Nugteren, SURFsara
+ * https://github.com/CNugteren/myGEMM.git
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +32,7 @@
 #include <cfloat>
 
 #ifndef FLT_EPSILON
-#define FLT_EPSILON      1.1920928955078125e-7f
+#define FLT_EPSILON 1.1920928955078125e-7f
 #endif
 
 // hip header file
@@ -41,10 +42,10 @@
 
 // Defined = use the MatMul with shared memory, not defined = use simplest
 // possible MatMul
-//#define MM_SHARED
+// #define MM_SHARED
 
 // Defined = use FMA instruction
-//#define USE_FMA
+// #define USE_FMA
 
 // the required shared memory is (2 * 4 * THREADS_PER_BLOCK * THREADS_PER_BLOCK)
 // bytes
