@@ -312,6 +312,10 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
   cl_context CLCtx = ((CHIPContextOpenCL *)getContext())->get()->get();
   cl_sampler Sampler = createSampler(CLCtx, *ResDesc, *TexDesc);
 
+  std::unique_ptr<CHIPTextureOpenCL> Result;
+  chipstar::RegionDesc SrcDesc;
+  void *SrcPtr = nullptr;
+
   if (ResDesc->resType == hipResourceTypeArray) {
     hipArray *Array = ResDesc->res.array.array;
     // Checked in CHIPBindings already.
@@ -324,16 +328,10 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     cl_mem Image = createImage(CLCtx, Array->textureType, Array->desc,
                                NormalizedFloat, Width, Height, Depth);
 
-    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
-    logTrace("Created texture: {}", (void *)Tex.get());
-
-    chipstar::RegionDesc SrcRegion = chipstar::RegionDesc::from(*Array);
-    memCopyToImage(Q->get()->get(), Image, Array->data, SrcRegion);
-
-    return Tex.release();
-  }
-
-  if (ResDesc->resType == hipResourceTypeLinear) {
+    Result = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
+    SrcDesc = chipstar::RegionDesc::from(*Array);
+    SrcPtr = Array->data;
+  } else if (ResDesc->resType == hipResourceTypeLinear) {
     auto &Res = ResDesc->res.linear;
     auto TexelByteSize = getChannelByteSize(Res.desc);
     size_t Width = Res.sizeInBytes / TexelByteSize;
@@ -341,35 +339,42 @@ CHIPDeviceOpenCL::createTexture(const hipResourceDesc *ResDesc,
     cl_mem Image =
         createImage(CLCtx, hipTextureType1D, Res.desc, NormalizedFloat, Width);
 
-    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
-    logTrace("Created texture: {}", (void *)Tex.get());
-
-    // Copy data to image.
-    auto SrcDesc = chipstar::RegionDesc::get1DRegion(Width, TexelByteSize);
-    memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
-
-    return Tex.release();
-  }
-
-  if (ResDesc->resType == hipResourceTypePitch2D) {
+    Result = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
+    SrcDesc = chipstar::RegionDesc::get1DRegion(Width, TexelByteSize);
+    SrcPtr = Res.devPtr;
+  } else if (ResDesc->resType == hipResourceTypePitch2D) {
     auto &Res = ResDesc->res.pitch2D;
     assert(Res.pitchInBytes >= Res.width); // Checked in CHIPBindings.
 
     cl_mem Image = createImage(CLCtx, hipTextureType2D, Res.desc,
                                NormalizedFloat, Res.width, Res.height);
 
-    auto Tex = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
-    logTrace("Created texture: {}", (void *)Tex.get());
-
-    // Copy data to image.
-    auto SrcDesc = chipstar::RegionDesc::from(*ResDesc);
-    memCopyToImage(Q->get()->get(), Image, Res.devPtr, SrcDesc);
-
-    return Tex.release();
+    Result = std::make_unique<CHIPTextureOpenCL>(*ResDesc, Image, Sampler);
+    SrcDesc = chipstar::RegionDesc::from(*ResDesc);
+    SrcPtr = Res.devPtr;
+  } else {
+    assert(!"Unsupported/unimplemented texture resource type.");
+    return nullptr;
   }
+  assert(Result && SrcPtr);
 
-  CHIPASSERT(false && "Unsupported/unimplemented texture resource type.");
-  return nullptr;
+  // Copy data to image. For simplicity use an unified but unoptimal
+  // way to copy data to image by copying the data first to host
+  // (from device) and then to the image.
+  auto SrcSize = SrcDesc.getAllocationSize();
+  auto HostData = std::unique_ptr<char[]>(new char[SrcSize]);
+  Q->memCopyAsyncImpl(HostData.get(), SrcPtr, SrcSize);
+  memCopyToImage(Q->get()->get(), Result->getImage(), HostData.get(), SrcDesc);
+  auto Status = Q->enqueueDeleteHostArray(HostData.get());
+  if (Status == CL_SUCCESS)
+    HostData.release();
+
+  // The texture might be used in another, non-blocking stream . Avoid
+  // data race by flushing the queue now.
+  Q->finish();
+
+  logTrace("Created texture: {}", (void *)Result.get());
+  return Result.release();
 }
 
 static cl_device_fp_atomic_capabilities_ext
