@@ -70,8 +70,10 @@
 #define CL_MEM_DEVICE_PTR_EXT 0xff01
 #endif
 
+typedef cl_ulong cl_mem_device_address_EXT;
+
 typedef cl_int(CL_API_CALL *clSetKernelArgDevicePointerEXT_fn)(
-    cl_kernel kernel, cl_uint arg_index, const void *arg_value);
+    cl_kernel kernel, cl_uint arg_index, cl_mem_device_address_EXT dev_addr);
 
 #endif // cl_ext_buffer_device_address
 
@@ -260,7 +262,11 @@ public:
                   Platform_(), "clSetKernelArgDevicePointerEXT"));
     }
     assert(clSetKernelArgDevicePointerEXT_);
-    return clSetKernelArgDevicePointerEXT_(Kernel, ArgIdx, DevPtr);
+    static_assert(
+        sizeof(cl_mem_device_address_EXT) == sizeof(void *),
+        "sizeof(cl_mem_device_address_EXT) does not match host pointer size!");
+    auto IntPtr = reinterpret_cast<cl_mem_device_address_EXT>(DevPtr);
+    return clSetKernelArgDevicePointerEXT_(Kernel, ArgIdx, IntPtr);
   }
 
   std::pair<cl_mem, size_t> translateDevPtrToBuffer(const void *DevPtr) const {
