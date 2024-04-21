@@ -321,15 +321,15 @@ private:
 
   void logDebugSettings() const {
     // Log the current settings
-    logDebug("CHIP_PLATFORM={}", PlatformIdx_);
-    logDebug("CHIP_DEVICE_TYPE={}", Device_.str());
-    logDebug("CHIP_DEVICE={}", DeviceIdx_);
-    logDebug("CHIP_BE={}", Backend_.str());
-    logDebug("CHIP_DUMP_SPIRV={}", DumpSpirv_ ? "on" : "off");
-    logDebug("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags_);
-    logDebug("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
-    logDebug("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
-    logDebug("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
+    logInfo("CHIP_PLATFORM={}", PlatformIdx_);
+    logInfo("CHIP_DEVICE_TYPE={}", Device_.str());
+    logInfo("CHIP_DEVICE={}", DeviceIdx_);
+    logInfo("CHIP_BE={}", Backend_.str());
+    logInfo("CHIP_DUMP_SPIRV={}", DumpSpirv_ ? "on" : "off");
+    logInfo("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags_);
+    logInfo("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
+    logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
+    logInfo("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
   }
 };
 

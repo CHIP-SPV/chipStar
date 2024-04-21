@@ -1805,7 +1805,7 @@ void CHIPBackendOpenCL::initializeImpl() {
     StrStream << " is supported.\n";
     SupportedDevices.push_back(D);
   }
-  logTrace("{}", StrStream.str());
+  logInfo("{}", StrStream.str());
 
   if (ChipEnvVars.getDeviceIdx() >= SupportedDevices.size()) {
     logCritical("Selected OpenCL device {} is out of range",
