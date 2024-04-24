@@ -654,8 +654,11 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
   logTrace("chipstar::Queue::recordEvent({})", (void *)ChipEvent);
   auto ChipEventCL = static_cast<CHIPEventOpenCL *>(ChipEvent);
 
-  std::shared_ptr<chipstar::Event> LastEvent = getLastEvent();
-  ChipEventCL->recordEventCopy(LastEvent ? LastEvent : enqueueMarker());
+  // Need profiling command queue for querying timestamps for possible
+  // later hipEventElapsedTime() calls.
+  switchModeTo(Profiling);
+
+  ChipEventCL->recordEventCopy(enqueueMarker());
   ChipEventCL->setRecording();
 }
 
@@ -1084,24 +1087,25 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   auto [SyncQueuesEventHandles, EventLocks] =
       addDependenciesQueueSync(MemMapEvent);
 
+  auto QueueHandle = get()->get();
   cl_int Status;
   if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ");
-    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_READ,
-                             AllocInfo->HostPtr, AllocInfo->Size,
-                             SyncQueuesEventHandles.size(),
-                             SyncQueuesEventHandles.data(), MemMapEventNative);
+    Status =
+        clEnqueueSVMMap(QueueHandle, CL_TRUE, CL_MAP_READ, AllocInfo->HostPtr,
+                        AllocInfo->Size, SyncQueuesEventHandles.size(),
+                        SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_WRITE");
-    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE, CL_MAP_WRITE,
-                             AllocInfo->HostPtr, AllocInfo->Size,
-                             SyncQueuesEventHandles.size(),
-                             SyncQueuesEventHandles.data(), MemMapEventNative);
+    Status =
+        clEnqueueSVMMap(QueueHandle, CL_TRUE, CL_MAP_WRITE, AllocInfo->HostPtr,
+                        AllocInfo->Size, SyncQueuesEventHandles.size(),
+                        SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
-    Status = clEnqueueSVMMap(ClQueue_->get(), CL_TRUE,
-                             CL_MAP_READ | CL_MAP_WRITE, AllocInfo->HostPtr,
-                             AllocInfo->Size, SyncQueuesEventHandles.size(),
+    Status = clEnqueueSVMMap(QueueHandle, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+                             AllocInfo->HostPtr, AllocInfo->Size,
+                             SyncQueuesEventHandles.size(),
                              SyncQueuesEventHandles.data(), MemMapEventNative);
   } else {
     assert(0 && "Invalid MemMap Type");
@@ -1123,13 +1127,23 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
       addDependenciesQueueSync(MemMapEvent);
 
   auto Status = clEnqueueSVMUnmap(
-      ClQueue_->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
+      get()->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
       SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   assert(Status == CL_SUCCESS);
 }
 
-cl::CommandQueue *CHIPQueueOpenCL::get() { return ClQueue_; }
+cl::CommandQueue *CHIPQueueOpenCL::get() {
+  switch (QueueMode_) {
+  default:
+    assert(!"Unknown queue mode!");
+    // Fallthrough.
+  case Profiling:
+    return &ClProfilingQueue_;
+  case Regular:
+    return &ClRegularQueue_;
+  }
+}
 
 void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
@@ -1187,7 +1201,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
 
   updateLastEvent(CallbackCompleted);
-  ClQueue_->flush();
+  get()->flush();
 
   // Now the CB can start executing in the background:
   clSetUserEventStatus(
@@ -1251,7 +1265,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto [SyncQueuesEventHandles, EventLocks] =
       addDependenciesQueueSync(LaunchEvent);
   auto Status = clEnqueueNDRangeKernel(
-      ClQueue_->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
+      get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
       SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -1289,7 +1303,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
 }
 
 CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
-                                 cl_command_queue Queue)
+                                 cl_command_queue QueueForInterop)
     : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority) {
 
   cl_queue_priority_khr PrioritySelection;
@@ -1312,31 +1326,57 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
   if (PrioritySelection != CL_QUEUE_PRIORITY_MED_KHR)
     logWarn("CHIPQueueOpenCL is ignoring Priority value");
 
-  if (Queue)
-    ClQueue_ = new cl::CommandQueue(Queue);
-  else {
-    cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
-    cl::Device *ClDevice_ = ((CHIPDeviceOpenCL *)ChipDevice_)->get();
+  if (QueueForInterop) {
+    auto QFromUser = cl::CommandQueue(QueueForInterop);
+
     cl_int Status;
-    // Adding priority breaks correctness?
-    // cl_queue_properties QueueProperties[] = {
-    //     CL_QUEUE_PRIORITY_KHR, PrioritySelection, CL_QUEUE_PROPERTIES,
-    //     CL_QUEUE_PROFILING_ENABLE, 0};
-    cl_queue_properties QueueProperties[] = {CL_QUEUE_PROPERTIES,
-                                             CL_QUEUE_PROFILING_ENABLE, 0};
-
-    const cl_command_queue Q = clCreateCommandQueueWithProperties(
-        ClContext_->get(), ClDevice_->get(), QueueProperties, &Status);
-    ClQueue_ = new cl::CommandQueue(Q);
-
+    cl_command_queue_properties QProps =
+        QFromUser.getInfo<CL_QUEUE_PROPERTIES>(&Status);
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
+
+    bool ProfilingIsEnabled = CL_QUEUE_PROFILING_ENABLE & QProps;
+    if (ProfilingIsEnabled) {
+      ClProfilingQueue_ = QFromUser;
+      QueueMode_ = Profiling;
+    } else {
+      logWarn("Provided queue has profiling disable. hipEventElapsedTime() "
+              "calls will fail.");
+      ClRegularQueue_ = QFromUser;
+      QueueMode_ = Regular;
+    }
+    UsedInInterOp = true;
+  } else {
+    cl::Context &ClContext =
+        *static_cast<CHIPContextOpenCL *>(ChipContext_)->get();
+    cl::Device &ClDevice = *static_cast<CHIPDeviceOpenCL *>(ChipDevice_)->get();
+
+    cl_queue_properties QPropsForProfiling[] = {CL_QUEUE_PROPERTIES,
+                                                CL_QUEUE_PROFILING_ENABLE, 0};
+
+    cl_int Status;
+    ClRegularQueue_ = cl::CommandQueue(
+        clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
+                                           nullptr, &Status),
+        false);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
+                                hipErrorInitializationError);
+
+    if (!ChipEnvVars.getOCLDisableQueueProfiling()) {
+      ClProfilingQueue_ = cl::CommandQueue(
+          clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
+                                             QPropsForProfiling, &Status),
+          false);
+      CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
+                                  hipErrorInitializationError);
+    }
+
+    QueueMode_ = Regular;
   }
 }
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
-  delete ClQueue_;
 }
 
 std::shared_ptr<chipstar::Event>
@@ -1356,7 +1396,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
     // a maker here, so we can return an event.
     cl::Event MarkerEvent;
     auto Status = clEnqueueMarker(
-        ClQueue_->get(),
+        get()->get(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
   } else {
@@ -1365,8 +1405,8 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
 #endif
     auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     auto Status = ::clEnqueueSVMMemcpy(
-        ClQueue_->get(), CL_FALSE, Dst, Src, Size,
-        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+        get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
+        SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorRuntimeMemory);
   }
@@ -1378,7 +1418,7 @@ void CHIPQueueOpenCL::finish() {
 #ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockOpenCL)
 #endif
-  auto Status = ClQueue_->finish();
+  auto Status = get()->finish();
   CHIPERR_CHECK_LOG_AND_ABORT(Status, CL_SUCCESS, hipErrorTbd);
 }
 
@@ -1391,7 +1431,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
   auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
   int Retval = ::clEnqueueSVMMemFill(
-      ClQueue_->get(), Dst, Pattern, PatternSize, Size,
+      get()->get(), Dst, Pattern, PatternSize, Size,
       SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
@@ -1433,8 +1473,12 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
     return hipSuccess;
   }
 
+  // Interop API expects one queue handle. Switch to the profiling queue which
+  // works for the interop user and for us in case we need profiling later.
+  switchModeTo(Profiling);
+
   // Get queue handler
-  NativeInfo[4] = (uintptr_t)ClQueue_->get();
+  NativeInfo[4] = (uintptr_t)get()->get();
 
   // Get context handler
   cl::Context *Ctx = ((CHIPContextOpenCL *)ChipContext_)->get();
@@ -1481,7 +1525,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
       SyncQueuesEventHandles.push_back(Event);
     }
     auto Status = clEnqueueBarrierWithWaitList(
-        ClQueue_->get(), SyncQueuesEventHandles.size(),
+        get()->get(), SyncQueuesEventHandles.size(),
         SyncQueuesEventHandles.data(),
         &(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef()));
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -1489,7 +1533,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     // auto Status = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
     auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     auto Status = clEnqueueBarrierWithWaitList(
-        ClQueue_->get(), SyncQueuesEventHandles.size(),
+        get()->get(), SyncQueuesEventHandles.size(),
         SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
@@ -1500,6 +1544,47 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
   updateLastEvent(Event);
   return Event;
+}
+
+void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
+  if (QueueMode_ == ToMode)
+    return;
+
+  if (ToMode == Profiling && ChipEnvVars.getOCLDisableQueueProfiling()) {
+    logWarn("Queue profiling is disabled by request. hipEventElapsedTime() "
+            "will not work.");
+    return;
+  }
+
+  // Can't switch mode if the queue is used for interop. Otherwise, we
+  // may cause situations where commands enqueued via HIP and other
+  // API end up be executed out of order.
+  if (UsedInInterOp)
+    CHIPERR_LOG_AND_THROW("Can't switch mode for a queue used of interop.",
+                          hipErrorTbd);
+
+  logDebug("Queue {}: switching mode to {}", (void *)this,
+           ToMode == Profiling ? "profiling" : "regular");
+
+  // Make sure commands are executed in-order across the current and
+  // switched-to queue.
+  auto &FromQ = *get();
+  auto &ToQ = ToMode == Profiling ? ClProfilingQueue_ : ClRegularQueue_;
+  assert(FromQ.get());
+  assert(ToQ.get());
+
+  cl_event SwitchEv;
+  cl_int Status;
+  Status = clEnqueueMarkerWithWaitList(FromQ.get(), 0, nullptr, &SwitchEv);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+
+  Status = clEnqueueBarrierWithWaitList(ToQ.get(), 1, &SwitchEv, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS, hipErrorTbd);
+
+  auto *ChipEv = new CHIPEventOpenCL(
+      static_cast<CHIPContextOpenCL *>(ChipContext_), SwitchEv);
+  updateLastEvent(std::shared_ptr<chipstar::Event>(ChipEv));
+  QueueMode_ = ToMode;
 }
 
 // CHIPExecItemOpenCL
