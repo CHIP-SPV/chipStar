@@ -1063,7 +1063,6 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
   auto [EventsToWaitOn, EventLocks] = getSyncQueuesLastEvents(TargetEvent);
   std::vector<cl_event> EventHandles;
   for (auto &Event : EventsToWaitOn) {
-    TargetEvent->addDependency(Event);
     EventHandles.push_back(
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->ClEvent);
   }
