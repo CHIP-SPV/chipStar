@@ -5,7 +5,7 @@ set -e
 
 # check arguments
 if [ $# -ne 4 ]; then
-  echo "Usage: $0 <version> <install_dir> <build_type>"
+  echo "Usage: $0 <version> <install_dir> <link_type>"
   echo "version: LLVM version 15, 16, 17, 18"
   echo "build_type: static or dynamic"
   echo "only_necessary_spirv_exts: on or off"
@@ -14,7 +14,7 @@ fi
 
 # check version argument
 if [ "$1" != "15" ] && [ "$1" != "16" ] && [ "$1" != "17" ] && [ "$1" != "18" ]; then
-  echo "Invalid version. Must be 15, 16, or 17."
+  echo "Invalid version. Must be 15, 16, 17 or 18."
   exit 1
 fi
 
@@ -44,38 +44,36 @@ else
 fi
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
-LLVM_BRANCH="release/${VERSION}.x"
-SPIRV_BRANCH="llvm_release_${VERSION}0"
 
 # check if llvm-project exists, if not clone it
 if [ ! -d llvm-project ]; then
-  # convert 18 to 1.8
-  
-  git clone https://github.com/llvm/llvm-project.git -b ${LLVM_BRANCH} --depth 1
+  git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH} \
+    --depth 1
   cd ${LLVM_DIR}/projects
-  git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git -b ${SPIRV_BRANCH} --depth 1
+  git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git \
+    -b ${TRANSLATOR_BRANCH} --depth 1
   cd ${LLVM_DIR}
 else
-  # Warn the user, error out
+  # Warn the user.
   echo "llvm-project directory already exists. Assuming it's cloned from chipStar."
   cd ${LLVM_DIR}
-  # check if already on the desired branch 
+  # check if already on the desired branch
   if [ `git branch --show-current` == ${LLVM_BRANCH} ]; then
     echo "Already on branch ${LLVM_BRANCH}"
   else
     echo "Switching to branch ${LLVM_BRANCH}"
-    git br -D ${LLVM_BRANCH} &> /dev/null
+    git branch -D ${LLVM_BRANCH} &> /dev/null
     git fetch origin ${LLVM_BRANCH}:${LLVM_BRANCH}
     git checkout ${LLVM_BRANCH}
   fi
   cd ${LLVM_DIR}/projects/SPIRV-LLVM-Translator
   # check if already on the desired branch
-  if [ `git branch --show-current` == ${LLVM_BRANCH} ]; then
-    echo "Already on branch ${SPIRV_BRANCH}"
+  if [ `git branch --show-current` == ${TRANSLATOR_BRANCH} ]; then
+    echo "Already on branch ${TRANSLATOR_BRANCH}"
   else
-    echo "Switching to branch ${SPIRV_BRANCH}"
-    git br -D ${SPIRV_BRANCH} &> /dev/null
-    git fetch origin ${SPIRV_BRANCH}:${SPIRV_BRANCH}
+    echo "Switching to branch ${TRANSLATOR_BRANCH}"
+    git branch -D ${TRANSLATOR_BRANCH} &> /dev/null
+    git fetch origin ${TRANSLATOR_BRANCH}:${TRANSLATOR_BRANCH}
     git checkout chipStar-llvm-${VERSION}
   fi
   cd ${LLVM_DIR}
@@ -98,7 +96,8 @@ if [ "$LINK_TYPE" == "static" ]; then
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_PROJECTS="clang;openmp" \
     -DLLVM_TARGETS_TO_BUILD=host \
-    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV"
+    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
+    -DLLVM_ENABLE_ASSERTIONS=On
 elif [ "$LINK_TYPE" == "dynamic" ]; then
   cmake ../ \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
