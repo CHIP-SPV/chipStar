@@ -276,6 +276,8 @@ protected:
   ze_command_list_desc_t CommandListDesc_;
   ze_command_queue_handle_t ZeCmdQ_ = 0;
   ze_command_list_handle_t ZeCmdListImm_ = 0;
+  ze_command_list_handle_t ZeCmdListInterop_ = nullptr;
+
 
   void initializeCmdListImm();
 

@@ -818,6 +818,17 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
   auto [EventsToWaitOn, EventLocks] =
       getSyncQueuesLastEvents(TargetEvent, true);
+
+  // create a new event
+  auto NewEvent = std::static_pointer_cast<CHIPEventLevel0>(
+      Backend->createEventShared(ChipContext_));
+  if (this->ZeCmdListInterop_) {
+    ze_result_t Status =
+        zeCommandListAppendBarrier(ZeCmdListInterop_, NewEvent->get(), 0, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    EventsToWaitOn.push_back(NewEvent);
+  }
+
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 
@@ -1346,8 +1357,16 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
     return hipSuccess;
   }
 
+  // create a new synchronous cmd list
+  CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
+  auto Desc = ((CHIPDeviceLevel0 *)ChipDevice_)->getNextComputeQueueDesc();
+  Desc.flags = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+  auto Status = zeCommandListCreateImmediate(
+      ChipCtxZe->get(), ((CHIPDeviceLevel0 *)ChipDevice_)->get(), &Desc,
+      &ZeCmdListInterop_);
+  assert(Status == ZE_RESULT_SUCCESS);
   // get the immediate command list handle
-  NativeInfo[5] = (uintptr_t)ZeCmdListImm_;
+  NativeInfo[5] = (uintptr_t)ZeCmdListInterop_;
 
   // Get queue handler
   NativeInfo[4] = (uintptr_t)ZeCmdQ_;
