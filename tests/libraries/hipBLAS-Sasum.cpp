@@ -27,7 +27,7 @@
 
 int main() {
   int n = 1000; // Size of the vector
-  int incx = 1;    // Stride between consecutive elements
+  int incx = 1; // Stride between consecutive elements
 
   // Allocate memory on the host
   std::vector<float> h_x(n);

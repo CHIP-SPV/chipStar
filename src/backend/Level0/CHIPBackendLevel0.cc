@@ -823,8 +823,8 @@ CHIPQueueLevel0::addDependenciesQueueSync(
   auto InteropCmdListEvent = std::static_pointer_cast<CHIPEventLevel0>(
       Backend->createEventShared(ChipContext_));
   if (this->ZeCmdListInterop_) {
-    ze_result_t Status =
-        zeCommandListAppendBarrier(ZeCmdListInterop_, InteropCmdListEvent->get(), 0, nullptr);
+    ze_result_t Status = zeCommandListAppendBarrier(
+        ZeCmdListInterop_, InteropCmdListEvent->get(), 0, nullptr);
     CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
     EventsToWaitOn.push_back(InteropCmdListEvent);
   }
