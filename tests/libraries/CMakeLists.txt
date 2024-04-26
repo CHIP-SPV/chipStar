@@ -1,4 +1,6 @@
 if (CHIP_BUILD_HIPBLAS)
     add_hip_test(hipBLAS-Sasum.cpp)
+    add_hip_test(hipBLAS-Sgemm.cpp)
     target_link_libraries(hipBLAS-Sasum hipblas)
+    target_link_libraries(hipBLAS-Sgemm hipblas)
 endif()
