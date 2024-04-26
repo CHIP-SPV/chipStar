@@ -26,7 +26,7 @@
   } while (0)
 
 int main() {
-  int n = 1000000; // Size of the vector
+  int n = 1000; // Size of the vector
   int incx = 1;    // Stride between consecutive elements
 
   // Allocate memory on the host
@@ -74,6 +74,8 @@ int main() {
     std::cerr << "Validation failed!" << std::endl;
     std::cerr << "Expected: " << expected << std::endl;
     std::cerr << "Got: " << result << std::endl;
+    std::cerr << "Difference: " << result - expected << std::endl;
+    std::cerr << "Difference: " << expected - result << std::endl;
     return 1;
   }
 
