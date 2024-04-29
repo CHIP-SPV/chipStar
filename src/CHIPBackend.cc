@@ -1810,7 +1810,7 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
     FuncInfo.visitKernelArgs(ExItem->getArgs(), Visitor);
 
     // Making this log info since hipLaunchKernel doesn't know enough about args
-    logInfo("{}", InfoStr.str());
+    logDebug("{}", InfoStr.str());
   }
 
   auto TotalThreadsPerBlock =
