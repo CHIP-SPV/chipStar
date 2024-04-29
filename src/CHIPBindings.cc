@@ -3223,7 +3223,7 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
 hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
                              hipMemcpyKind Kind) {
   logDebug("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
-          hipMemcpyKindToString(Kind));
+           hipMemcpyKindToString(Kind));
 
   if (SizeBytes == 0)
     return hipSuccess;

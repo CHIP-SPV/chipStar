@@ -1355,10 +1355,10 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
                                                 CL_QUEUE_PROFILING_ENABLE, 0};
 
     cl_int Status;
-    ClRegularQueue_ = cl::CommandQueue(
-        clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
-                                           nullptr, &Status),
-        false);
+    ClRegularQueue_ =
+        cl::CommandQueue(clCreateCommandQueueWithProperties(
+                             ClContext.get(), ClDevice.get(), nullptr, &Status),
+                         false);
     CHIPERR_CHECK_LOG_AND_THROW(Status, CL_SUCCESS,
                                 hipErrorInitializationError);
 
