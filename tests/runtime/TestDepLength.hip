@@ -1,6 +1,8 @@
+// Check for the ability of enqueueing a lot of async operations.
+// If last event dependency chain is mismanaged, this will create
+// an excessively long linked list of events resulting in a stack overflow.
 #include <hip/hip_runtime.h>
 #include <iostream>
-#include <cstdlib> // For std::atoi
 
 #define CHECK(cmd)                                                             \
   {                                                                            \
@@ -32,11 +34,9 @@ int main(int argc, char *argv[]) {
   *hostData = 'x';
 
   // Perform N asynchronous memory copies from host to device
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < N; ++i)
     CHECK(hipMemcpyAsync(deviceData, hostData, size, hipMemcpyHostToDevice,
                          stream));
-    hipDeviceSynchronize(); // Wait for the copy to complete
-  }
 
   // Wait for all operations in the stream to complete
   CHECK(hipStreamSynchronize(stream));
