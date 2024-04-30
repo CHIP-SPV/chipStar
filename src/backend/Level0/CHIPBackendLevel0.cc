@@ -1476,10 +1476,13 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
   ze_result_t Status;
-  Status = zeCommandListHostSynchronize(ZeCmdListImm_,
-                                        ChipEnvVars.getL0EventTimeout());
-  CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeCommandListHostSynchronize timeout out");
+  LOCK(Backend->GlobalLastEventMtx);
+  auto LastEvent = getLastEvent();
+  if(LastEvent) LastEvent->wait();
+  // Status = zeCommandListHostSynchronize(ZeCmdListImm_,
+  //                                       ChipEnvVars.getL0EventTimeout());
+  // CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
+  //                             "zeCommandListHostSynchronize timeout out");
 
   Status = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
   CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
