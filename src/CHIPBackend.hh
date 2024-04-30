@@ -122,7 +122,8 @@ public:
         ", " + std::to_string(Size[2]) + "), Offset=(" +
         std::to_string(Offset[0]) + ", " + std::to_string(Offset[1]) + ", " +
         std::to_string(Offset[2]) + "), Pitch=(" + std::to_string(Pitch[0]) +
-        "," + std::to_string(Pitch[1]) + ")";
+        "," + std::to_string(Pitch[1]) +
+        "), EltSize=" + std::to_string(ElementSize);
     return Result;
   }
 
@@ -177,7 +178,7 @@ public:
     return R;
   }
 
-  static chipstar::RegionDesc get1DRegion(size_t TheWidth, size_t TheHeight,
+  static chipstar::RegionDesc get1DRegion(size_t TheWidth,
                                           size_t ElementByteSize = 1) {
     auto R = get2DRegion(TheWidth, 1, ElementByteSize);
     R.NumDims = 1;
