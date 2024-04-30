@@ -1160,9 +1160,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       clCreateUserEvent(ClContext_->get(), &Err);
 
   std::vector<std::shared_ptr<chipstar::Event>> WaitForEvents{HoldBackEvent};
-  std::shared_ptr<chipstar::Event> LastEvent = getLastEvent();
-  if (LastEvent != nullptr)
-    WaitForEvents.push_back(LastEvent);
 
   // Enqueue a barrier used to ensure the callback is not called too early,
   // otherwise it would be (at worst) executed in this host thread when
