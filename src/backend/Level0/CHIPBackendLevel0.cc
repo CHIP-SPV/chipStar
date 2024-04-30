@@ -421,23 +421,20 @@ bool CHIPEventLevel0::wait() {
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   isDeletedSanityCheck();
   std::string EventStatusOld, EventStatusNew;
-  {
-    LOCK(EventMtx); // chipstar::Event::EventStatus_
 
-    EventStatusOld = getEventStatusStr();
+  EventStatusOld = getEventStatusStr();
 
-    ze_result_t Status = zeEventQueryStatus(Event_);
-    if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
-      CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
-    }
-    if (Status == ZE_RESULT_SUCCESS) {
-      EventStatus_ = EVENT_STATUS_RECORDED;
-      releaseDependencies();
-      doActions();
-    }
-
-    EventStatusNew = getEventStatusStr();
+  ze_result_t Status = zeEventQueryStatus(Event_);
+  if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
+    CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
   }
+  if (Status == ZE_RESULT_SUCCESS) {
+    EventStatus_ = EVENT_STATUS_RECORDED;
+    releaseDependencies();
+    doActions();
+  }
+
+  EventStatusNew = getEventStatusStr();
 
   if (EventStatusNew != EventStatusOld)
     return true;
@@ -648,6 +645,7 @@ void CHIPEventMonitorLevel0::checkEvents() {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
     ChipEventLz->isDeletedSanityCheck();
+    LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
 
     assert(ChipEventLz);
     assert(!ChipEventLz->isUserEvent() &&
