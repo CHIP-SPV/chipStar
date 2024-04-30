@@ -65,6 +65,4 @@
 
 #cmakedefine CHIP_MALI_GPU_WORKAROUNDS
 
-#cmakedefine CHIP_POWERVR_GPU_WORKAROUNDS
-
 #endif

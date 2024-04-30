@@ -126,11 +126,8 @@ with driver version OpenCL 3.0 v1.r40p0-01eac0.
 
 ### Building on RISC-V + PowerVR
 
-To build chipStar for use with a PowerVR GPU, use these steps:
-
-1) build LLVM and SPIRV-LLVM-Translator as described above
-
-2) build chipStar with -DCHIP_POWERVR_GPU_WORKAROUNDS=ON cmake option
+To build chipStar for use with a PowerVR GPU, build using the normal steps.
+There is an automatic workaround applied for PowerVR OpenCL implementation.
 
 There are some limitations - kernels using double type will not work,
 kernels using subgroups may not work, you may also run into unexpected
@@ -139,7 +136,8 @@ OpenCL errors like CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST.
 Note that chipStar relies on proprietary OpenCL implementation
 provided by Imagination Technologies. We have successfully managed to
 compile & run chipStar with a VisionFive2 device, using VisionFive2's
-pre-built Debian image 202403, driver version 1.19.
+pre-built Debian image 202403, driver version 1.19. Other SBCs may require
+additional workarounds.
 
 ## Running Unit Tests
 

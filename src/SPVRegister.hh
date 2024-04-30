@@ -97,6 +97,13 @@ private:
   std::unordered_map<const void *, SPVGlobalObject *> HostPtrLookup_;
 
 public:
+  // the PowerVR OpenCL implementation for some reason demangles SPIR-V function
+  // names, e.g. a SPIRV with a "_Z8testfunc" kernel turned into a cl_program
+  // returns "testfunc" in clGetProgramInfo(CL_PROGRAM_KERNEL_NAMES, ...)
+  // This is a major issue not only for finding kernels, but also potential
+  // name conflicts with function overloads.
+  bool ApplyPowerVRWorkaround;
+
   /// A handle for an incomplete SPIR-V module used in the registration
   /// process. Contents of it are not meant to be accessed by clients.
   struct Handle {
@@ -105,7 +112,7 @@ public:
 
   Handle registerSource(std::string_view SourceModule);
 
-  void bindFunction(Handle Handle, HostPtr Ptr, const std::string &Name);
+  void bindFunction(Handle Handle, HostPtr Ptr, const char *Name);
   void bindVariable(Handle Handle, HostPtr Ptr, const std::string &Name,
                     size_t Size);
 

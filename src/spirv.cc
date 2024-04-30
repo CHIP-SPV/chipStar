@@ -798,23 +798,11 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
     return FilterAction::Replace;
   }
 
-#ifdef CHIP_POWERVR_GPU_WORKAROUNDS
-  // for PowerVR, replace _Z prefix with Z_
-  if (Insn.isEntryPoint()) {
-    ReplacementInsn.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
-    char *P = reinterpret_cast<char *>(ReplacementInsn.data() + 3);
-    if (P[0] == '_' && P[1] == 'Z') {
-      P[0] = 'Z';
-      P[1] = '_';
-    }
-    return FilterAction::Replace;
-  }
-#endif
-
   return FilterAction::Keep;
 }
 
-bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
+bool filterSPIRV(const char *Bytes, size_t NumBytes,
+                 bool ApplyPowerVRWorkaround, std::string &Dst) {
   logTrace("filterSPIRV");
 
   auto *WordsPtr = (const InstWord *)Bytes;
@@ -918,7 +906,16 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     }
     }
 
-    Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
+    // see SPVRegister::ApplyPowerVRWorkaround
+    if (ApplyPowerVRWorkaround && Insn.isEntryPoint()) {
+      TransformedInst.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
+      char *Temp = reinterpret_cast<char *>(TransformedInst.data() + 3);
+      std::swap(Temp[0], Temp[1]);
+      Dst.append((const char *)&*TransformedInst.begin(),
+                 (const char *)&*TransformedInst.end());
+    } else {
+      Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
+    }
   }
 
   for (auto &[Ignored, Name] : MissingDefs)
