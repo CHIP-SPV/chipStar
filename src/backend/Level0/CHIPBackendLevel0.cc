@@ -1742,6 +1742,7 @@ void CHIPBackendLevel0::initializeImpl() {
   Status = zeDeviceGetProperties(Dev, &DeviceProperties);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
   std::string DeviceName = DeviceProperties.name;
+  logInfo("Device: {}", DeviceName);
   if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
     CHIPDeviceLevel0 *ChipL0Dev = CHIPDeviceLevel0::create(Dev, ChipL0Ctx, 0);
     ChipL0Ctx->setDevice(ChipL0Dev);

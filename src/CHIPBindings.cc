@@ -2680,7 +2680,7 @@ static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
-  logInfo("hipMallocInternal(ptr={}, size={})", (void *)RetVal, Size);
+  logDebug("hipMallocInternal(ptr={}, size={})", (void *)RetVal, Size);
 
   return hipSuccess;
 }
@@ -2776,7 +2776,7 @@ hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
 }
 
 static inline hipError_t hipFreeInternal(void *Ptr) {
-  logInfo("hipFreeInternal(ptr={})", (void *)Ptr);
+  logDebug("hipFreeInternal(ptr={})", (void *)Ptr);
 
   auto Status = hipDeviceSynchronizeInternal();
   ERROR_IF((Status != hipSuccess), hipErrorTbd);
@@ -3222,8 +3222,8 @@ hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
 
 hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
                              hipMemcpyKind Kind) {
-  logInfo("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
-          hipMemcpyKindToString(Kind));
+  logDebug("hipMemcpy Dst={} Src={} Size={} Kind={}", Dst, Src, SizeBytes,
+           hipMemcpyKindToString(Kind));
 
   if (SizeBytes == 0)
     return hipSuccess;
@@ -3475,7 +3475,7 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
 
 static inline hipError_t hipMemsetInternal(void *Dst, int Value,
                                            size_t SizeBytes) {
-  logInfo("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
+  logDebug("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
 
   char CharVal = Value;
 
@@ -4463,7 +4463,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIP_TRY
   CHIPInitialize();
   NULLCHECK(Module);
-  logInfo("hipModuleUnload(Module={}", (void *)Module);
+  logDebug("hipModuleUnload(Module={}", (void *)Module);
 
   auto *ChipModule = reinterpret_cast<chipstar::Module *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();
