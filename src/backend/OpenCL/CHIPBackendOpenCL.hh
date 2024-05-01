@@ -339,8 +339,6 @@ public:
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override;
-  std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
-  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
 private:
   void switchModeTo(QueueMode Mode);
