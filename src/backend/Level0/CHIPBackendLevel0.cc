@@ -1771,6 +1771,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   LOCK(::Backend->BackendMtx); // CHIPBackendLevel0::EventMonitor
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
+  ChipDev->LegacyDefaultQueue->setDefaultLegacyQueue(true);
 
   EventMonitor_ = (CHIPEventMonitorLevel0 *)::Backend->createEventMonitor_();
   setActiveDevice(ChipDev);
