@@ -1570,6 +1570,7 @@ void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
   LOCK(EventPoolMtx);
   logTrace("Returning event {} handle {}", (void *)Event.get(),
            (void *)Event.get()->get());
+  Event->reset();
   Events_.push(Event);
 }
 
