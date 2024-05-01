@@ -378,11 +378,8 @@ ALL:
   Unit_hipStreamIsCapturing_hipStreamPerThread: ''
   Unit_hipStreamPerThread_Basic: ''
   Unit_hipStreamSynchronize_UninitializedStream: ''
-  Unit_hipTextureObj1DCheckRGBAModes - array: ''
-  Unit_hipTextureObj1DCheckRGBAModes - buffer: ''
   Unit_hipTextureObj1DCheckSRGBAModes - array: ''
   Unit_hipTextureObj1DCheckSRGBAModes - buffer: ''
-  Unit_hipTextureObj2DCheckRGBAModes: ''
   Unit_hipTextureObj2DCheckSRGBAModes: ''
   Unit_hipUserObj_Negative_Test: ''
   Unit_hipUserObjectCreate_Functional_1: ''
@@ -414,7 +411,6 @@ OPENCL_CPU:
   unroll: ''
 OPENCL_GPU:
   TestStlFunctionsDouble: ''
-  Unit_hipCreateTextureObject_tex1DfetchVerification: ''
   Unit_hipEventRecord: ''
   Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: ''
   Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: ''
@@ -428,17 +424,6 @@ OPENCL_GPU:
   Unit_hipStreamAddCallback_ParamTst_Positive: Timeout dgpu
   Unit_hipStreamPerThread_DeviceReset_1: ''
   Unit_hipStreamPerThread_MultiThread: ''
-  Unit_hipTexObjPitch_texture2D - char: ''
-  Unit_hipTexObjPitch_texture2D - float: ''
-  Unit_hipTexObjPitch_texture2D - int: ''
-  Unit_hipTexObjPitch_texture2D - int16_t: ''
-  Unit_hipTexObjPitch_texture2D - unsigned char: ''
-  Unit_hipTexObjPitch_texture2D - unsigned int: ''
-  Unit_hipTextureFetch_vector: ''
-  Unit_hipTextureObj1DCheckModes: ''
-  Unit_hipTextureObj2DCheckModes: ''
-  Unit_hipTextureObj2D_Check: ''
-  Unit_tex1Dfetch_CheckModes: ''
   hipTestDeviceSymbol: ''
 OPENCL_POCL:
   BinomialOption: ''
@@ -468,3 +453,8 @@ OPENCL_POCL:
   hip_async_binomial: ''
   hip_sycl_interop: ''
   hip_sycl_interop_no_buffers: ''
+  # Results differs a tiny bit compared to CPU computed reference values for
+  # the following three texture tests.
+  Unit_hipTextureObj1DCheckRGBAModes - array: ''
+  Unit_hipTextureObj1DCheckRGBAModes - buffer: ''
+  Unit_hipTextureObj2DCheckRGBAModes: ''

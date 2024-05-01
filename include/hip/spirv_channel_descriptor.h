@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015 - 2021 Advanced Micro Devices, Inc. All rights reserved.
+Copyright (c) 2015 - 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,19 +23,16 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_CHANNEL_DESCRIPTOR_H
 #define HIP_INCLUDE_HIP_SPIRV_CHANNEL_DESCRIPTOR_H
 
-//#include "channel_descriptor.h"
-
+#if !defined(__HIPCC_RTC__)
 #include <hip/hip_common.h>
 #include <hip/driver_types.h>
 #include <hip/spirv_hip_vector_types.h>
+#endif
 
 #ifdef __cplusplus
 
-extern "C" HIP_PUBLIC_API hipChannelFormatDesc
-hipCreateChannelDesc(int x, int y, int z, int w, hipChannelFormatKind f);
-
-inline hipChannelFormatDesc hipCreateChannelDesc(int x, int y, int z, int w,
-                                                 hipChannelFormatKind f) {
+extern "C" HIP_PUBLIC_API inline hipChannelFormatDesc
+hipCreateChannelDesc(int x, int y, int z, int w, hipChannelFormatKind f) {
   return {x, y, z, w, f};
 }
 
@@ -51,7 +48,12 @@ static inline hipChannelFormatDesc hipCreateChannelDescHalf1() {
 
 static inline hipChannelFormatDesc hipCreateChannelDescHalf2() {
   int e = (int)sizeof(unsigned short) * 8;
-  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindFloat);
+  return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindFloat);
+}
+
+static inline hipChannelFormatDesc hipCreateChannelDescHalf4() {
+  int e = (int)sizeof(unsigned short) * 8;
+  return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindFloat);
 }
 
 template <typename T>
@@ -59,297 +61,254 @@ static inline hipChannelFormatDesc hipCreateChannelDesc() {
   return hipCreateChannelDesc(0, 0, 0, 0, hipChannelFormatKindNone);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<char>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<char>() {
   int e = (int)sizeof(char) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<signed char>() {
-  int e = (int)sizeof(signed char) * 8;
-  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
-}
-
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<unsigned char>() {
-  int e = (int)sizeof(unsigned char) * 8;
-  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
-}
-
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uchar1>() {
-  int e = (int)sizeof(unsigned char) * 8;
-  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
-}
-
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<char1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<signed char>() {
   int e = (int)sizeof(signed char) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uchar2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<unsigned char>() {
   int e = (int)sizeof(unsigned char) * 8;
-  return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindSigned);
+  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<char2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uchar1>() {
+  int e = (int)sizeof(unsigned char) * 8;
+  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
+}
+
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<char1>() {
+  int e = (int)sizeof(signed char) * 8;
+  return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
+}
+
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uchar2>() {
+  int e = (int)sizeof(unsigned char) * 8;
+  return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindUnsigned);
+}
+
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<char2>() {
   int e = (int)sizeof(signed char) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindSigned);
 }
 
-#ifndef __GNUC__  // vector3 is the same as vector4
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uchar3>() {
+#ifndef __GNUC__ // vector3 is the same as vector4
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uchar3>() {
   int e = (int)sizeof(unsigned char) * 8;
-  return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindSigned);
+  return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<char3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<char3>() {
   int e = (int)sizeof(signed char) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindSigned);
 }
 #endif
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uchar4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uchar4>() {
   int e = (int)sizeof(unsigned char) * 8;
-  return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindSigned);
+  return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<char4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<char4>() {
   int e = (int)sizeof(signed char) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<unsigned short>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<unsigned short>() {
   int e = (int)sizeof(unsigned short) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<signed short>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<signed short>() {
   int e = (int)sizeof(signed short) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ushort1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ushort1>() {
   int e = (int)sizeof(unsigned short) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<short1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<short1>() {
   int e = (int)sizeof(signed short) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ushort2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ushort2>() {
   int e = (int)sizeof(unsigned short) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<short2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<short2>() {
   int e = (int)sizeof(signed short) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindSigned);
 }
 
 #ifndef __GNUC__
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ushort3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ushort3>() {
   int e = (int)sizeof(unsigned short) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<short3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<short3>() {
   int e = (int)sizeof(signed short) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindSigned);
 }
 #endif
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ushort4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ushort4>() {
   int e = (int)sizeof(unsigned short) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<short4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<short4>() {
   int e = (int)sizeof(signed short) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<unsigned int>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<unsigned int>() {
   int e = (int)sizeof(unsigned int) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<signed int>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<signed int>() {
   int e = (int)sizeof(signed int) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uint1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uint1>() {
   int e = (int)sizeof(unsigned int) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<int1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<int1>() {
   int e = (int)sizeof(signed int) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uint2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uint2>() {
   int e = (int)sizeof(unsigned int) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<int2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<int2>() {
   int e = (int)sizeof(signed int) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindSigned);
 }
 
 #ifndef __GNUC__
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uint3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uint3>() {
   int e = (int)sizeof(unsigned int) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<int3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<int3>() {
   int e = (int)sizeof(signed int) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindSigned);
 }
 #endif
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<uint4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<uint4>() {
   int e = (int)sizeof(unsigned int) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<int4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<int4>() {
   int e = (int)sizeof(signed int) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<float>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<float>() {
   int e = (int)sizeof(float) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindFloat);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<float1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<float1>() {
   int e = (int)sizeof(float) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindFloat);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<float2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<float2>() {
   int e = (int)sizeof(float) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindFloat);
 }
 
 #ifndef __GNUC__
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<float3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<float3>() {
   int e = (int)sizeof(float) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindFloat);
 }
 #endif
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<float4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<float4>() {
   int e = (int)sizeof(float) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindFloat);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<unsigned long>() {
+#if !defined(__LP64__)
+
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<unsigned long>() {
   int e = (int)sizeof(unsigned long) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<signed long>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<signed long>() {
   int e = (int)sizeof(signed long) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ulong1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ulong1>() {
   int e = (int)sizeof(unsigned long) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<long1>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<long1>() {
   int e = (int)sizeof(signed long) * 8;
   return hipCreateChannelDesc(e, 0, 0, 0, hipChannelFormatKindSigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ulong2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ulong2>() {
   int e = (int)sizeof(unsigned long) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<long2>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<long2>() {
   int e = (int)sizeof(signed long) * 8;
   return hipCreateChannelDesc(e, e, 0, 0, hipChannelFormatKindSigned);
 }
 
 #ifndef __GNUC__
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ulong3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ulong3>() {
   int e = (int)sizeof(unsigned long) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<long3>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<long3>() {
   int e = (int)sizeof(signed long) * 8;
   return hipCreateChannelDesc(e, e, e, 0, hipChannelFormatKindSigned);
 }
 #endif
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<ulong4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<ulong4>() {
   int e = (int)sizeof(unsigned long) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindUnsigned);
 }
 
-template <>
-inline hipChannelFormatDesc hipCreateChannelDesc<long4>() {
+template <> inline hipChannelFormatDesc hipCreateChannelDesc<long4>() {
   int e = (int)sizeof(signed long) * 8;
   return hipCreateChannelDesc(e, e, e, e, hipChannelFormatKindSigned);
 }
+#endif /* !__LP64__ */
 
 #else
 
 struct hipChannelFormatDesc hipCreateChannelDesc(int x, int y, int z, int w,
                                                  enum hipChannelFormatKind f);
 
-#endif
+#endif /* __cplusplus */
 
-#endif
+#endif /* !HIP_INCLUDE_HIP_SPIRV_CHANNEL_DESCRIPTOR_H */

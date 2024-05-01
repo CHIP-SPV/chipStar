@@ -134,7 +134,7 @@ extern "C" __device__ NativeUint4 _chip_tex2du(hipTextureObject_t TexObj,
     Pos.x = X;                                                                 \
     Pos.y = Y;                                                                 \
     auto Res = _IFN(TexObj, Pos);                                              \
-    *RetVal = make_##_RES_TY(Res.x, Res.y, Res.z, Res.y);                      \
+    *RetVal = make_##_RES_TY(Res.x, Res.y, Res.z, Res.w);                      \
   }                                                                            \
   __asm__("")
 
