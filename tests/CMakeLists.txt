@@ -21,3 +21,16 @@ add_subdirectory(post-install)
 add_subdirectory(runtime)
 add_subdirectory(libraries)
 
+add_test(
+  NAME hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_COMMAND=${CMAKE_BINARY_DIR}/catch/catch_tests/unit/memory/hipMemset
+    -DTEST_ARGS=Unit_hipMemsetAsync_SetMemoryWithOffset
+    -DTIMEOUT=30
+    -DVALGRIND_COMMAND=valgrind
+    -DVALGRIND_ARGS=--tool=helgrind
+    -DVIOLATED_THRESHOLD=0
+    -DCONFLICTS_THRESHOLD=2
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/run_helgrind_test.cmake
+)
+
