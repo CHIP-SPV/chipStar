@@ -222,19 +222,16 @@ void CHIPEventLevel0::reset() {
   DependsOnList.clear();
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  {
-    LOCK(EventMtx); // chipstar::Event::TrackCalled_
-    TrackCalled_ = false;
-    UserEvent_ = false;
-    if (EventStatus_ == EVENT_STATUS_RECORDING)
-      logWarn("CHIPEventLevel0::reset() called while event is recording");
+  TrackCalled_ = false;
+  UserEvent_ = false;
+  if (EventStatus_ == EVENT_STATUS_RECORDING)
+    logWarn("CHIPEventLevel0::reset() called while event is recording");
 
-    EventStatus_ = EVENT_STATUS_INIT;
-    Timestamp_ = 0;
-    HostTimestamp_ = 0;
-    DeviceTimestamp_ = 0;
-    markDeleted(false);
-  }
+  EventStatus_ = EVENT_STATUS_INIT;
+  Timestamp_ = 0;
+  HostTimestamp_ = 0;
+  DeviceTimestamp_ = 0;
+  markDeleted(false);
 }
 
 ze_event_handle_t &CHIPEventLevel0::peek() {
