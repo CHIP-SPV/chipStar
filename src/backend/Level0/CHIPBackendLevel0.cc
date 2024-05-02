@@ -1360,7 +1360,7 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
   // create a new synchronous cmd list
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   auto Desc = ((CHIPDeviceLevel0 *)ChipDevice_)->getNextComputeQueueDesc();
-  Desc.flags = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+  Desc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
   auto Status = zeCommandListCreateImmediate(
       ChipCtxZe->get(), ((CHIPDeviceLevel0 *)ChipDevice_)->get(), &Desc,
       &ZeCmdListInterop_);
