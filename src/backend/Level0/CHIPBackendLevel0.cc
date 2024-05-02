@@ -1529,8 +1529,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
-    auto NewEvent = std::shared_ptr<CHIPEventLevel0>(
-        new CHIPEventLevel0(Ctx_, this, i, Flags));
+    auto NewEvent = std::make_shared<CHIPEventLevel0>(Ctx_, this, i, Flags);
     Events_.push(NewEvent);
   }
 };
