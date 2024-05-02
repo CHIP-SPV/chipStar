@@ -131,7 +131,8 @@ There is an automatic workaround applied for an [issue](https://github.com/CHIP-
 
 There are some limitations: kernels using double type will not work,
 kernels using subgroups may not work, you may also run into unexpected
-OpenCL errors like CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST.
+OpenCL errors like CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST and
+other issues.
 
 Note that chipStar relies on the proprietary OpenCL implementation
 provided by Imagination Technologies. We have successfully managed to

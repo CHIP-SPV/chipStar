@@ -4710,7 +4710,7 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
 
   assert(Backend);
   std::string DevName = Backend->getActiveDevice()->getName();
-  getSPVRegister().ApplyPowerVRWorkaround =
+  getSPVRegister().PreventNameDemangling =
       (DevName.find("PowerVR") != std::string::npos);
 
   std::string ErrorMsg;

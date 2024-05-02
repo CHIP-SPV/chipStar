@@ -802,7 +802,7 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
 }
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes,
-                 bool ApplyPowerVRWorkaround, std::string &Dst) {
+                 bool PreventNameDemangling, std::string &Dst) {
   logTrace("filterSPIRV");
 
   auto *WordsPtr = (const InstWord *)Bytes;
@@ -906,8 +906,8 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes,
     }
     }
 
-    // see SPVRegister::ApplyPowerVRWorkaround
-    if (ApplyPowerVRWorkaround && Insn.isEntryPoint()) {
+    // see SPVRegister::PreventNameDemangling
+    if (PreventNameDemangling && Insn.isEntryPoint()) {
       TransformedInst.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
       char *Temp = reinterpret_cast<char *>(TransformedInst.data() + 3);
       std::swap(Temp[0], Temp[1]);

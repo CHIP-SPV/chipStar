@@ -61,7 +61,7 @@ void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
 
   std::string FuncName(Name);
-  if (ApplyPowerVRWorkaround) {
+  if (PreventNameDemangling) {
     std::swap(FuncName[0], FuncName[1]);
   }
 
@@ -166,7 +166,7 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
 
   bool Success = filterSPIRV(SrcMod->OriginalBinary_.data(),
                              SrcMod->OriginalBinary_.size(),
-                             ApplyPowerVRWorkaround, SrcMod->FinalizedBinary_);
+                             PreventNameDemangling, SrcMod->FinalizedBinary_);
   assert(Success && "SPIRV post processing failed!");
   // Can't be empty. There should be at least a SPIR-V header.
   assert(SrcMod->FinalizedBinary_.size() && "Empty finalized source");

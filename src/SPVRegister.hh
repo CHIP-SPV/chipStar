@@ -102,7 +102,7 @@ public:
   // returns "testfunc" in clGetProgramInfo(CL_PROGRAM_KERNEL_NAMES, ...)
   // This is a major issue not only for finding kernels, but also potential
   // name conflicts with function overloads.
-  bool ApplyPowerVRWorkaround;
+  bool PreventNameDemangling;
 
   /// A handle for an incomplete SPIR-V module used in the registration
   /// process. Contents of it are not meant to be accessed by clients.

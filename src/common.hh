@@ -52,7 +52,8 @@ struct SPVModuleInfo {
 };
 
 bool filterSPIRV(const char *Bytes, size_t NumBytes,
-                 bool ApplyPowerVRWorkaround, std::string &Dst);
+                 bool PreventNameDemangling, std::string &Dst);
+
 bool parseSPIR(uint32_t *Stream, size_t NumWords, SPVModuleInfo &ModuleInfo);
 
 /// A prefix given to lowered global scope device variables.
