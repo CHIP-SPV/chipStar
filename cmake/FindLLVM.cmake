@@ -58,6 +58,16 @@ execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--version"
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "Using LLVM_VERSION: ${LLVM_VERSION}")
 
+# Get the include directory
+execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--includedir"
+  RESULT_VARIABLE RES
+  OUTPUT_VARIABLE LLVM_INCLUDE_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+message(STATUS "Using LLVM_INCLUDE_DIR: ${LLVM_INCLUDE_DIR}")
+
+# Cache the include directory
+include_directories(${LLVM_INCLUDE_DIR})
+
 # Set the compilers
 find_program(CMAKE_CXX_COMPILER_PATH NAMES clang++ NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN})
 if(NOT CMAKE_CXX_COMPILER_PATH)
