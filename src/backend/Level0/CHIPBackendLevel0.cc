@@ -1472,7 +1472,6 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
   ze_result_t Status;
-  LOCK(Backend->GlobalLastEventMtx);
   auto LastEvent = getLastEvent();
   if(LastEvent) LastEvent->wait();
   // Status = zeCommandListHostSynchronize(ZeCmdListImm_,
