@@ -119,23 +119,23 @@ To build chipStar for use with an ARM Mali G52 GPU, use these steps:
 There are some limitations - kernels using double type will not work,
 and kernels using subgroups may not work.
 
-Note that chipStar relies on proprietary OpenCL implementation
-provided by ARM. We have successfully managed to compile & run
+Note that chipStar relies on the proprietary OpenCL implementation
+provided by ARM. We have successfully managed to compile and run
 chipStar with an Odroid N2 device, using Ubuntu 22.04.2 LTS,
 with driver version OpenCL 3.0 v1.r40p0-01eac0.
 
 ### Building on RISC-V + PowerVR
 
-To build chipStar for use with a PowerVR GPU, build using the normal steps.
-There is an automatic workaround applied for PowerVR OpenCL implementation.
+To build chipStar for use with a PowerVR GPU, the default steps can be followed.
+There is an automatic workaround applied for an [issue](https://github.com/CHIP-SPV/chipStar/pull/828) in PowerVR's OpenCL implementation.
 
-There are some limitations - kernels using double type will not work,
+There are some limitations: kernels using double type will not work,
 kernels using subgroups may not work, you may also run into unexpected
 OpenCL errors like CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST.
 
-Note that chipStar relies on proprietary OpenCL implementation
+Note that chipStar relies on the proprietary OpenCL implementation
 provided by Imagination Technologies. We have successfully managed to
-compile & run chipStar with a VisionFive2 device, using VisionFive2's
+compile and run chipStar with a VisionFive2 device, using VisionFive2's
 pre-built Debian image 202403, driver version 1.19. Other SBCs may require
 additional workarounds.
 
