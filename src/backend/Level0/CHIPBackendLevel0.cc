@@ -1844,6 +1844,7 @@ CHIPContextLevel0::~CHIPContextLevel0() {
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy,
                                       chipstar::HostAllocFlags Flags) {
+  LOCK(ContextMtx);
   void *Ptr = 0;
 
   ze_device_mem_alloc_flags_t DeviceFlags =
