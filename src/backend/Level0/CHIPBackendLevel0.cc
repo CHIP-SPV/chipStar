@@ -1574,7 +1574,7 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   return Event;
 };
 
-void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
+void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> &Event) {
   Event->isDeletedSanityCheck();
   Event->markDeleted();
   LOCK(EventPoolMtx);
