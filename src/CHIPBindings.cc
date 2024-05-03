@@ -4119,7 +4119,6 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
                                           hipMemcpyKind Kind,
                                           hipStream_t Stream) {
 
-  CHIPInitialize();
   if (!Symbol)
     CHIPERR_LOG_AND_THROW("Destination is invalid symbol!",
                           hipErrorInvalidSymbol);
