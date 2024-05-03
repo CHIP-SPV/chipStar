@@ -1498,8 +1498,6 @@ chipstar::Queue::getSyncQueuesLastEvents(
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
 
-  EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
-      ::Backend->GlobalLastEventMtx));
   EventLocks.push_back(
       std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
 

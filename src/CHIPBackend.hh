@@ -1842,7 +1842,6 @@ public:
 
   std::mutex SetActiveMtx;
   std::mutex QueueCreateDestroyMtx;
-  mutable std::mutex GlobalLastEventMtx;
   mutable std::mutex BackendMtx;
   mutable std::mutex ActiveCtxMtx;
   std::mutex CallbackQueueMtx;
