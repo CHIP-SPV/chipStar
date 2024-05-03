@@ -188,7 +188,7 @@ public:
   bool EventAvailable() { return Events_.size() > 0; }
   ze_event_pool_handle_t &get() { return EventPool_; }
 
-  void returnEvent(std::shared_ptr<CHIPEventLevel0> Event);
+  void returnEvent(std::shared_ptr<CHIPEventLevel0> &Event);
 
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
