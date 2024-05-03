@@ -1497,11 +1497,13 @@ void CHIPQueueLevel0::executeCommandList(
   auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
   LOCK(BackendLz->ActiveCmdListsMtx);
   BackendLz->ActiveCmdLists.push_back(std::move(CmdList));
+  Backend->trackEvent(Event);
 }
 
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t &CmdList, std::shared_ptr<chipstar::Event> Event) {
   updateLastEvent(Event);
+  Backend->trackEvent(Event);
 }
 
 // End CHIPQueueLevelZero
