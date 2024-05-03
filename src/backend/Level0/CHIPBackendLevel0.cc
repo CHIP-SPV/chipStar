@@ -427,9 +427,8 @@ bool CHIPEventLevel0::wait() {
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   isDeletedSanityCheck();
-  std::string EventStatusOld, EventStatusNew;
 
-  EventStatusOld = getEventStatusStr();
+  auto EventStatusOld = EventStatus_;
 
   ze_result_t Status = zeEventQueryStatus(Event_);
   if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
@@ -441,11 +440,7 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
     doActions();
   }
 
-  EventStatusNew = getEventStatusStr();
-
-  if (EventStatusNew != EventStatusOld)
-    return true;
-  return false;
+  return EventStatusOld != EventStatus_;
 }
 
 uint32_t CHIPEventLevel0::getValidTimestampBits() {
