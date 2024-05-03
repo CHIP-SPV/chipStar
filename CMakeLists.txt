@@ -363,9 +363,15 @@ file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 add_subdirectory(bin)
 
 # once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
-add_custom_target(hipInfoBin ALL
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
   COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
-  DEPENDS hipcc.bin CHIP devicelib_bc)
+  DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
+)
+
+add_custom_target(hipInfoBin ALL
+  DEPENDS ${CMAKE_BINARY_DIR}/hipInfo
+)
 
 execute_process(
   COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py 
