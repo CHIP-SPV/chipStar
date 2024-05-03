@@ -1503,8 +1503,6 @@ chipstar::Queue::getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> Event,
   if (!NumUserQueues && !IncludeSelfLastEvent)
     return {EventsToWaitOn, std::move(EventLocks)};
 
-  EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
-      ::Backend->GlobalLastEventMtx));
   EventLocks.push_back(
       std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
 
