@@ -397,16 +397,27 @@ bool CHIPEventLevel0::wait() {
   logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
            ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
-  ze_result_t Status =
-      zeEventHostSynchronize(Event_, ChipEnvVars.getL0EventTimeout());
-  if (Status == ZE_RESULT_NOT_READY) {
-    logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
-             "seconds.\n"
-             "Aborting now... segfaults, illegal instructions and other "
-             "undefined behavior may follow.",
-             (void *)this, Msg, (void *)Event_,
-             ChipEnvVars.getL0EventTimeout() / 1e9);
-    std::abort();
+  ze_result_t Status = ZE_RESULT_NOT_READY;
+  uint64_t timeout = ChipEnvVars.getL0EventTimeout();
+  auto start_time = std::chrono::high_resolution_clock::now();
+
+  while (Status == ZE_RESULT_NOT_READY) {
+    LOCK(EventMtx); // chipstar::Event::EventStatus_
+    Status = zeEventHostSynchronize(Event_, 1);
+
+    auto current_time = std::chrono::high_resolution_clock::now();
+    auto elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            current_time - start_time)
+                            .count();
+
+    if (elapsed_time >= timeout) {
+      logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
+               "seconds.\n"
+               "Aborting now... segfaults, illegal instructions and other "
+               "undefined behavior may follow.",
+               (void *)this, Msg, (void *)Event_, timeout / 1e9);
+      std::abort();
+    }
   }
 
   LOCK(EventMtx); // chipstar::Event::EventStatus_
@@ -698,8 +709,8 @@ void CHIPEventMonitorLevel0::checkExit() {
       for (size_t i = 0; i < MaxPrintEntries; i++) {
         auto Event = Backend->Events[i];
         auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-        logError("Uncollected Backend->Events: {} {}",
-                 (void *)Event.get(), Event->Msg);
+        logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
+                 Event->Msg);
       }
       pthread_exit(0);
     }
@@ -1473,7 +1484,8 @@ void CHIPQueueLevel0::finish() {
 #endif
   ze_result_t Status;
   auto LastEvent = getLastEvent();
-  if(LastEvent) LastEvent->wait();
+  if (LastEvent)
+    LastEvent->wait();
   // Status = zeCommandListHostSynchronize(ZeCmdListImm_,
   //                                       ChipEnvVars.getL0EventTimeout());
   // CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
