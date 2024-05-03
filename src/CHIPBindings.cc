@@ -473,6 +473,7 @@ hipError_t hipInit(unsigned int flags) {
   CHIP_TRY
   if (flags)
     RETURN(hipErrorInvalidValue);
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -521,6 +522,7 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
 
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraph *Graph = new CHIPGraph();
   *pGraph = Graph;
@@ -530,6 +532,7 @@ hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
 
 hipError_t hipGraphDestroy(hipGraph_t graph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   delete graph;
   RETURN(hipSuccess);
@@ -540,6 +543,7 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
                                    const hipGraphNode_t *to,
                                    size_t numDependencies) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
   if (!FoundNode)
@@ -555,6 +559,7 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
                                       const hipGraphNode_t *to,
                                       size_t numDependencies) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
   if (!FoundNode)
@@ -568,6 +573,7 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
 hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
                             hipGraphNode_t *to, size_t *numEdges) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Edges = GRAPH(graph)->getEdges();
   if (!to && !from) {
@@ -589,6 +595,7 @@ hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
 hipError_t hipGraphGetNodes(hipGraph_t graph, hipGraphNode_t *nodes,
                             size_t *numNodes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Nodes = GRAPH(graph)->getNodes();
   *nodes = *(Nodes.data());
@@ -600,6 +607,7 @@ hipError_t hipGraphGetNodes(hipGraph_t graph, hipGraphNode_t *nodes,
 hipError_t hipGraphGetRootNodes(hipGraph_t graph, hipGraphNode_t *pRootNodes,
                                 size_t *pNumRootNodes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Nodes = GRAPH(graph)->getRootNodes();
   *pRootNodes = *(Nodes.data());
@@ -612,6 +620,7 @@ hipError_t hipGraphNodeGetDependencies(hipGraphNode_t node,
                                        hipGraphNode_t *pDependencies,
                                        size_t *pNumDependencies) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Deps = NODE(node)->getDependencies();
   *pNumDependencies = Deps.size();
@@ -628,6 +637,7 @@ hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
                                          hipGraphNode_t *pDependentNodes,
                                          size_t *pNumDependentNodes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Deps = NODE(node)->getDependants();
   *pNumDependentNodes = Deps.size();
@@ -642,6 +652,7 @@ hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
 
 hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   *pType = NODE(node)->getType();
   RETURN(hipSuccess);
@@ -650,6 +661,7 @@ hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
 
 hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   /**
    * have to resort to these shenanigans to call the proper derived destructor
@@ -696,6 +708,7 @@ hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
 
 hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraph *CloneGraph = new CHIPGraph(*GRAPH(originalGraph));
   *pGraphClone = CloneGraph;
@@ -707,6 +720,7 @@ hipError_t hipGraphNodeFindInClone(hipGraphNode_t *pNode,
                                    hipGraphNode_t originalNode,
                                    hipGraph_t clonedGraph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Node = GRAPH(clonedGraph)->getClonedNodeFromOriginal(NODE(originalNode));
   *pNode = Node;
@@ -718,6 +732,7 @@ hipError_t hipGraphInstantiate(hipGraphExec_t *pGraphExec, hipGraph_t graph,
                                hipGraphNode_t *pErrorNode, char *pLogBuffer,
                                size_t bufferSize) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphExec *GraphExec = new CHIPGraphExec(GRAPH(graph));
   *pGraphExec = GraphExec;
@@ -730,6 +745,7 @@ hipError_t hipGraphInstantiateWithFlags(hipGraphExec_t *pGraphExec,
                                         hipGraph_t graph,
                                         unsigned long long flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // flags not yet defined in HIP API.
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -738,6 +754,7 @@ hipError_t hipGraphInstantiateWithFlags(hipGraphExec_t *pGraphExec,
 
 hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(stream));
@@ -749,6 +766,7 @@ hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
 
 hipError_t hipGraphExecDestroy(hipGraphExec_t graphExec) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   delete graphExec;
   RETURN(hipSuccess);
@@ -759,6 +777,7 @@ hipError_t hipGraphExecUpdate(hipGraphExec_t hGraphExec, hipGraph_t hGraph,
                               hipGraphNode_t *hErrorNode_out,
                               hipGraphExecUpdateResult *updateResult_out) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // TODO Graphs - hipGraphExecUpdate
   /**
@@ -872,6 +891,7 @@ hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  size_t numDependencies,
                                  const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeKernel *Node = new CHIPGraphNodeKernel{pNodeParams};
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
@@ -885,6 +905,7 @@ hipError_t hipGraphAddKernelNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
 hipError_t hipGraphKernelNodeGetParams(hipGraphNode_t node,
                                        hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   *pNodeParams = ((CHIPGraphNodeKernel *)node)->getParams();
   RETURN(hipSuccess);
@@ -894,6 +915,7 @@ hipError_t hipGraphKernelNodeGetParams(hipGraphNode_t node,
 hipError_t hipGraphKernelNodeSetParams(hipGraphNode_t node,
                                        const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   ((CHIPGraphNodeKernel *)node)->setParams(*pNodeParams);
   RETURN(hipSuccess);
@@ -904,6 +926,7 @@ hipError_t
 hipGraphExecKernelNodeSetParams(hipGraphExec_t hGraphExec, hipGraphNode_t node,
                                 const hipKernelNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // Graph obtained from hipGraphExec_t is a clone of the original
   CHIPGraph *Graph = EXEC(hGraphExec)->getOriginalGraphPtr();
@@ -923,6 +946,7 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  size_t numDependencies,
                                  const hipMemcpy3DParms *pCopyParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   // graphs test seems wrong - normally we expect hipErrorInvalidHandle
@@ -960,6 +984,7 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
 hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
                                        hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   hipMemcpy3DParms Params =
       static_cast<CHIPGraphNodeMemcpy *>(node)->getParams();
@@ -971,6 +996,7 @@ hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
 hipError_t hipGraphMemcpyNodeSetParams(hipGraphNode_t node,
                                        const hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   static_cast<CHIPGraphNodeMemcpy *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
@@ -981,6 +1007,7 @@ hipError_t hipGraphExecMemcpyNodeSetParams(hipGraphExec_t hGraphExec,
                                            hipGraphNode_t node,
                                            hipMemcpy3DParms *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(node));
@@ -1004,6 +1031,7 @@ hipError_t hipGraphAddMemcpyNode1D(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                    const void *src, size_t count,
                                    hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeMemcpy *Node = new CHIPGraphNodeMemcpy(dst, src, count, kind);
   *pGraphNode = Node;
@@ -1018,6 +1046,7 @@ hipError_t hipGraphMemcpyNodeSetParams1D(hipGraphNode_t node, void *dst,
                                          const void *src, size_t count,
                                          hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto CastNode = static_cast<CHIPGraphNodeMemcpy *>(node);
   if (!CastNode)
@@ -1034,6 +1063,7 @@ hipError_t hipGraphExecMemcpyNodeSetParams1D(hipGraphExec_t hGraphExec,
                                              const void *src, size_t count,
                                              hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(node));
@@ -1058,6 +1088,7 @@ hipError_t hipGraphAddMemcpyNodeFromSymbol(hipGraphNode_t *pGraphNode,
                                            const void *symbol, size_t count,
                                            size_t offset, hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeMemcpyFromSymbol *Node =
       new CHIPGraphNodeMemcpyFromSymbol(dst, symbol, count, offset, kind);
@@ -1074,6 +1105,7 @@ hipError_t hipGraphMemcpyNodeSetParamsFromSymbol(hipGraphNode_t node, void *dst,
                                                  size_t count, size_t offset,
                                                  hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   static_cast<CHIPGraphNodeMemcpyFromSymbol *>(node)->setParams(
       dst, symbol, count, offset, kind);
@@ -1085,6 +1117,7 @@ hipError_t hipGraphExecMemcpyNodeSetParamsFromSymbol(
     hipGraphExec_t hGraphExec, hipGraphNode_t node, void *dst,
     const void *symbol, size_t count, size_t offset, hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // Graph obtained from hipGraphExec_t is a clone of the original
   CHIPGraph *Graph = EXEC(hGraphExec)->getOriginalGraphPtr();
@@ -1108,6 +1141,7 @@ hipError_t hipGraphAddMemcpyNodeToSymbol(hipGraphNode_t *pGraphNode,
                                          size_t count, size_t offset,
                                          hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeMemcpyToSymbol *Node = new CHIPGraphNodeMemcpyToSymbol(
       const_cast<void *>(src), symbol, count, offset, kind);
@@ -1125,6 +1159,7 @@ hipError_t hipGraphMemcpyNodeSetParamsToSymbol(hipGraphNode_t node,
                                                size_t offset,
                                                hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   static_cast<CHIPGraphNodeMemcpyToSymbol *>(node)->setParams(
       const_cast<void *>(src), symbol, count, offset, kind);
@@ -1136,6 +1171,7 @@ hipError_t hipGraphExecMemcpyNodeSetParamsToSymbol(
     hipGraphExec_t hGraphExec, hipGraphNode_t node, const void *symbol,
     const void *src, size_t count, size_t offset, hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(node));
@@ -1159,6 +1195,7 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  size_t numDependencies,
                                  const hipMemsetParams *pMemsetParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeMemset *Node = new CHIPGraphNodeMemset(pMemsetParams);
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
@@ -1172,6 +1209,7 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
 hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
                                        hipMemsetParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   hipMemsetParams Params =
       static_cast<CHIPGraphNodeMemset *>(node)->getParams();
@@ -1183,6 +1221,7 @@ hipError_t hipGraphMemsetNodeGetParams(hipGraphNode_t node,
 hipError_t hipGraphMemsetNodeSetParams(hipGraphNode_t node,
                                        const hipMemsetParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   static_cast<CHIPGraphNodeMemset *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
@@ -1193,6 +1232,7 @@ hipError_t hipGraphExecMemsetNodeSetParams(hipGraphExec_t hGraphExec,
                                            hipGraphNode_t node,
                                            const hipMemsetParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(node));
@@ -1215,6 +1255,7 @@ hipError_t hipGraphAddHostNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                size_t numDependencies,
                                const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeHost *Node = new CHIPGraphNodeHost(pNodeParams);
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
@@ -1228,6 +1269,7 @@ hipError_t hipGraphAddHostNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
 hipError_t hipGraphHostNodeGetParams(hipGraphNode_t node,
                                      hipHostNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   hipHostNodeParams Params =
       static_cast<CHIPGraphNodeHost *>(node)->getParams();
@@ -1239,6 +1281,7 @@ hipError_t hipGraphHostNodeGetParams(hipGraphNode_t node,
 hipError_t hipGraphHostNodeSetParams(hipGraphNode_t node,
                                      const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   static_cast<CHIPGraphNodeHost *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
@@ -1249,6 +1292,7 @@ hipError_t hipGraphExecHostNodeSetParams(hipGraphExec_t hGraphExec,
                                          hipGraphNode_t node,
                                          const hipHostNodeParams *pNodeParams) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(node));
@@ -1272,6 +1316,7 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
                                      size_t numDependencies,
                                      hipGraph_t childGraph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeGraph *Node = new CHIPGraphNodeGraph(GRAPH(childGraph));
   *pGraphNode = Node;
@@ -1285,6 +1330,7 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
 hipError_t hipGraphChildGraphNodeGetGraph(hipGraphNode_t node,
                                           hipGraph_t *pGraph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   *pGraph = static_cast<CHIPGraphNodeGraph *>(node)->getGraph();
   RETURN(hipSuccess);
@@ -1295,6 +1341,7 @@ hipError_t hipGraphExecChildGraphNodeSetParams(hipGraphExec_t hGraphExec,
                                                hipGraphNode_t node,
                                                hipGraph_t childGraph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   static_cast<CHIPGraphNodeGraph *>(node)->setGraph(GRAPH(childGraph));
   RETURN(hipSuccess);
@@ -1305,6 +1352,7 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                 const hipGraphNode_t *pDependencies,
                                 size_t numDependencies) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
@@ -1320,6 +1368,7 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
                                       size_t numDependencies,
                                       hipEvent_t event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeEventRecord *Node =
       new CHIPGraphNodeEventRecord(static_cast<chipstar::Event *>(event));
@@ -1333,6 +1382,7 @@ hipError_t hipGraphAddEventRecordNode(hipGraphNode_t *pGraphNode,
 hipError_t hipGraphEventRecordNodeGetEvent(hipGraphNode_t node,
                                            hipEvent_t *event_out) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto CastNode = static_cast<CHIPGraphNodeEventRecord *>(node);
   if (!CastNode)
@@ -1346,6 +1396,7 @@ hipError_t hipGraphEventRecordNodeGetEvent(hipGraphNode_t node,
 hipError_t hipGraphEventRecordNodeSetEvent(hipGraphNode_t node,
                                            hipEvent_t event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto CastNode = static_cast<CHIPGraphNodeEventRecord *>(node);
   if (!CastNode)
@@ -1360,6 +1411,7 @@ hipError_t hipGraphExecEventRecordNodeSetEvent(hipGraphExec_t hGraphExec,
                                                hipGraphNode_t hNode,
                                                hipEvent_t event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(hNode));
@@ -1383,6 +1435,7 @@ hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
                                     const hipGraphNode_t *pDependencies,
                                     size_t numDependencies, hipEvent_t event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   CHIPGraphNodeWaitEvent *Node =
       new CHIPGraphNodeWaitEvent(static_cast<chipstar::Event *>(event));
@@ -1397,6 +1450,7 @@ hipError_t hipGraphAddEventWaitNode(hipGraphNode_t *pGraphNode,
 hipError_t hipGraphEventWaitNodeGetEvent(hipGraphNode_t node,
                                          hipEvent_t *event_out) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto CastNode = static_cast<CHIPGraphNodeWaitEvent *>(node);
   if (!CastNode)
@@ -1412,6 +1466,7 @@ hipError_t hipGraphEventWaitNodeGetEvent(hipGraphNode_t node,
 hipError_t hipGraphEventWaitNodeSetEvent(hipGraphNode_t node,
                                          hipEvent_t event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto CastNode = static_cast<CHIPGraphNodeWaitEvent *>(node);
   if (!CastNode)
@@ -1428,6 +1483,7 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
                                              hipGraphNode_t hNode,
                                              hipEvent_t event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ExecNode =
       EXEC(hGraphExec)->getOriginalGraphPtr()->nodeLookup(NODE(hNode));
@@ -1449,6 +1505,7 @@ hipError_t hipGraphExecEventWaitNodeSetEvent(hipGraphExec_t hGraphExec,
 hipError_t hipStreamBeginCapture(hipStream_t stream,
                                  hipStreamCaptureMode mode) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ChipQueue = static_cast<chipstar::Queue *>(stream);
 
@@ -1465,6 +1522,7 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
 
 hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ChipQueue = static_cast<chipstar::Queue *>(stream);
 
@@ -1485,6 +1543,7 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
 hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
                                    const void *ptr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   for (auto Dev : Backend->getDevices()) {
@@ -1514,18 +1573,21 @@ hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes,
 hipError_t hipIpcOpenMemHandle(void **DevPtr, hipIpcMemHandle_t Handle,
                                unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 hipError_t hipIpcCloseMemHandle(void *DevPtr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -1534,6 +1596,7 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
 hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
                                hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
@@ -1551,6 +1614,7 @@ hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
 hipError_t hipMemcpyPeer(void *Dst, int DstDeviceId, const void *Src,
                          int SrcDeviceId, size_t SizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -1559,6 +1623,7 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
                                    hipMemRangeAttribute Attribute,
                                    const void *DevPtr, size_t Count) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -1568,6 +1633,7 @@ hipError_t hipMemcpyPeerAsync(void *Dst, int DstDeviceId, const void *Src,
                               int SrcDevice, size_t SizeBytes,
                               hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -1601,6 +1667,7 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
 hipError_t hipMemcpyAsync(void *Dst, const void *Src, size_t SizeBytes,
                           hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, Kind, Stream));
   CHIP_CATCH
@@ -1656,6 +1723,7 @@ hipError_t hipMemcpy2DAsync(void *Dst, size_t DPitch, const void *Src,
                             size_t SPitch, size_t Width, size_t Height,
                             hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpy2DAsyncInternal(Dst, DPitch, Src, SPitch, Width, Height, Kind,
                                   Stream));
@@ -1696,6 +1764,7 @@ hipMemcpyParam2DAsyncInternal(const hip_Memcpy2D *PCopy, hipStream_t Stream) {
 hipError_t hipMemcpyParam2DAsync(const hip_Memcpy2D *PCopy,
                                  hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PCopy);
   RETURN(hipMemcpyParam2DAsyncInternal(PCopy, Stream));
@@ -1774,6 +1843,7 @@ hipError_t __hipPopCallConfiguration(dim3 *GridDim, dim3 *BlockDim,
 
 hipError_t hipGetDevice(int *DeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DeviceId);
 
@@ -1786,6 +1856,7 @@ hipError_t hipGetDevice(int *DeviceId) {
 
 hipError_t hipGetDeviceCount(int *Count) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Count);
 
@@ -1797,6 +1868,7 @@ hipError_t hipGetDeviceCount(int *Count) {
 
 hipError_t hipSetDevice(int DeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   ERROR_CHECK_DEVNUM(DeviceId);
@@ -1825,6 +1897,7 @@ static inline hipError_t hipDeviceSynchronizeInternal(void) {
 
 hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipDeviceSynchronizeInternal());
   CHIP_CATCH
@@ -1832,6 +1905,7 @@ hipError_t hipDeviceSynchronize(void) {
 
 hipError_t hipDeviceReset(void) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   chipstar::Device *ChipDev = Backend->getActiveDevice();
@@ -1843,6 +1917,7 @@ hipError_t hipDeviceReset(void) {
 
 hipError_t hipDeviceGet(hipDevice_t *Device, int Ordinal) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Device);
   ERROR_CHECK_DEVNUM(Ordinal);
@@ -1858,6 +1933,7 @@ hipError_t hipDeviceGet(hipDevice_t *Device, int Ordinal) {
 hipError_t hipDeviceComputeCapability(int *Major, int *Minor,
                                       hipDevice_t Device) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Major, Minor);
   ERROR_CHECK_DEVNUM(Device);
@@ -1877,6 +1953,7 @@ hipError_t hipDeviceComputeCapability(int *Major, int *Minor,
 hipError_t hipDeviceGetAttribute(int *RetPtr, hipDeviceAttribute_t Attr,
                                  int DeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(RetPtr);
   ERROR_CHECK_DEVNUM(DeviceId);
@@ -1892,6 +1969,7 @@ hipError_t hipDeviceGetAttribute(int *RetPtr, hipDeviceAttribute_t Attr,
 
 hipError_t hipGetDeviceProperties(hipDeviceProp_t *Prop, int DeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Prop);
   ERROR_CHECK_DEVNUM(DeviceId);
@@ -1904,6 +1982,7 @@ hipError_t hipGetDeviceProperties(hipDeviceProp_t *Prop, int DeviceId) {
 
 hipError_t hipDeviceGetLimit(size_t *PValue, enum hipLimit_t Limit) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PValue);
 
@@ -1925,6 +2004,7 @@ hipError_t hipDeviceGetLimit(size_t *PValue, enum hipLimit_t Limit) {
 
 hipError_t hipDeviceGetName(char *Name, int Len, hipDevice_t Device) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Name)
     RETURN(hipErrorInvalidValue);
@@ -1943,6 +2023,7 @@ hipError_t hipDeviceGetName(char *Name, int Len, hipDevice_t Device) {
 
 hipError_t hipDeviceTotalMem(size_t *Bytes, hipDevice_t Device) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Bytes);
   ERROR_CHECK_DEVNUM(Device);
@@ -1956,6 +2037,7 @@ hipError_t hipDeviceTotalMem(size_t *Bytes, hipDevice_t Device) {
 
 hipError_t hipDeviceSetCacheConfig(hipFuncCache_t CacheCfg) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   Backend->getActiveDevice()->setCacheConfig(CacheCfg);
@@ -1966,6 +2048,7 @@ hipError_t hipDeviceSetCacheConfig(hipFuncCache_t CacheCfg) {
 
 hipError_t hipDeviceGetCacheConfig(hipFuncCache_t *CacheCfg) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(CacheCfg);
 
@@ -1978,6 +2061,7 @@ hipError_t hipDeviceGetCacheConfig(hipFuncCache_t *CacheCfg) {
 
 hipError_t hipDeviceGetSharedMemConfig(hipSharedMemConfig *Cfg) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Cfg);
 
@@ -1990,6 +2074,7 @@ hipError_t hipDeviceGetSharedMemConfig(hipSharedMemConfig *Cfg) {
 
 hipError_t hipDeviceSetSharedMemConfig(hipSharedMemConfig Cfg) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   Backend->getActiveDevice()->setSharedMemConfig(Cfg);
@@ -2000,6 +2085,7 @@ hipError_t hipDeviceSetSharedMemConfig(hipSharedMemConfig Cfg) {
 
 hipError_t hipFuncSetCacheConfig(const void *Func, hipFuncCache_t Cfg) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Func);
 
@@ -2011,6 +2097,7 @@ hipError_t hipFuncSetCacheConfig(const void *Func, hipFuncCache_t Cfg) {
 
 hipError_t hipDeviceGetPCIBusId(char *PciBusId, int Len, int DeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PciBusId);
   ERROR_CHECK_DEVNUM(DeviceId);
@@ -2030,6 +2117,7 @@ hipError_t hipDeviceGetPCIBusId(char *PciBusId, int Len, int DeviceId) {
 
 hipError_t hipDeviceGetByPCIBusId(int *DeviceId, const char *PciBusId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DeviceId, PciBusId);
 
@@ -2052,6 +2140,7 @@ hipError_t hipDeviceGetByPCIBusId(int *DeviceId, const char *PciBusId) {
 
 hipError_t hipSetDeviceFlags(unsigned Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   RETURN(hipSuccess);
@@ -2061,6 +2150,7 @@ hipError_t hipSetDeviceFlags(unsigned Flags) {
 hipError_t hipDeviceCanAccessPeer(int *CanAccessPeer, int DeviceId,
                                   int PeerDeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(CanAccessPeer);
   ERROR_CHECK_DEVNUM(DeviceId);
@@ -2082,6 +2172,7 @@ hipError_t hipDeviceCanAccessPeer(int *CanAccessPeer, int DeviceId,
 
 hipError_t hipDeviceEnablePeerAccess(int PeerDeviceId, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   chipstar::Device *Dev = Backend->getActiveDevice();
@@ -2093,6 +2184,7 @@ hipError_t hipDeviceEnablePeerAccess(int PeerDeviceId, unsigned int Flags) {
 
 hipError_t hipDeviceDisablePeerAccess(int PeerDeviceId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   chipstar::Device *Dev = Backend->getActiveDevice();
@@ -2104,6 +2196,7 @@ hipError_t hipDeviceDisablePeerAccess(int PeerDeviceId) {
 
 hipError_t hipChooseDevice(int *DeviceId, const hipDeviceProp_t *Prop) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DeviceId, Prop);
 
@@ -2119,6 +2212,7 @@ hipError_t hipChooseDevice(int *DeviceId, const hipDeviceProp_t *Prop) {
 
 hipError_t hipDriverGetVersion(int *DriverVersion) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DriverVersion);
 
@@ -2134,6 +2228,7 @@ hipError_t hipDriverGetVersion(int *DriverVersion) {
 
 hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(RuntimeVersion);
 
@@ -2314,6 +2409,7 @@ hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
 
 hipError_t hipStreamCreate(hipStream_t *Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamCreateWithPriorityInternal(Stream, 0, 1));
   CHIP_CATCH
@@ -2321,6 +2417,7 @@ hipError_t hipStreamCreate(hipStream_t *Stream) {
 
 hipError_t hipStreamCreateWithFlags(hipStream_t *Stream, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamCreateWithPriorityInternal(Stream, Flags, 1));
   CHIP_CATCH
@@ -2329,6 +2426,7 @@ hipError_t hipStreamCreateWithFlags(hipStream_t *Stream, unsigned int Flags) {
 hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
                                        int Priority) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamCreateWithPriorityInternal(Stream, Flags, Priority));
   CHIP_CATCH
@@ -2337,6 +2435,7 @@ hipError_t hipStreamCreateWithPriority(hipStream_t *Stream, unsigned int Flags,
 hipError_t hipDeviceGetStreamPriorityRange(int *LeastPriority,
                                            int *GreatestPriority) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(LeastPriority, GreatestPriority);
 
@@ -2351,6 +2450,7 @@ hipError_t hipDeviceGetStreamPriorityRange(int *LeastPriority,
 
 hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (Stream == hipStreamPerThread)
     CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
@@ -2397,6 +2497,7 @@ static inline hipError_t hipStreamQueryInternal(hipStream_t Stream) {
 
 hipError_t hipStreamQuery(hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamQueryInternal(Stream));
   CHIP_CATCH
@@ -2416,6 +2517,7 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
 
 hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamSynchronizeInternal(Stream));
   CHIP_CATCH
@@ -2450,6 +2552,7 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
 hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
                               unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamWaitEventInternal(Stream, Event, Flags));
   CHIP_CATCH
@@ -2457,6 +2560,7 @@ hipError_t hipStreamWaitEvent(hipStream_t Stream, hipEvent_t Event,
 
 int hipGetStreamDeviceId(hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   chipstar::Device *Device =
       Backend->findQueue(static_cast<chipstar::Queue *>(Stream))->getDevice();
@@ -2480,6 +2584,7 @@ static inline hipError_t hipStreamGetFlagsInternal(hipStream_t Stream,
 
 hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Flags);
   RETURN(hipStreamGetFlagsInternal(Stream, Flags));
@@ -2505,6 +2610,7 @@ static inline hipError_t hipStreamGetPriorityInternal(hipStream_t Stream,
 
 hipError_t hipStreamGetPriority(hipStream_t Stream, int *Priority) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipStreamGetPriorityInternal(Stream, Priority));
   CHIP_CATCH
@@ -2514,6 +2620,7 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
                                 hipStreamCallback_t Callback, void *UserData,
                                 unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (Flags)
     CHIPERR_LOG_AND_THROW(
@@ -2540,6 +2647,7 @@ hipError_t hipStreamAddCallback(hipStream_t Stream,
 hipError_t hipMemGetAddressRange(hipDeviceptr_t *Base, size_t *Size,
                                  hipDeviceptr_t Ptr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Base, Size, Ptr);
 
@@ -2566,6 +2674,7 @@ static inline hipError_t hipEventCreateWithFlagsInternal(hipEvent_t *Event,
 
 hipError_t hipEventCreate(hipEvent_t *Event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
   RETURN(hipEventCreateWithFlagsInternal(Event, 0));
@@ -2574,6 +2683,7 @@ hipError_t hipEventCreate(hipEvent_t *Event) {
 
 hipError_t hipEventCreateWithFlags(hipEvent_t *Event, unsigned Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
   RETURN(hipEventCreateWithFlagsInternal(Event, Flags));
@@ -2596,6 +2706,7 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
 
 hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // TODO: Why does this check fail for OpenCL but not for Level0
   NULLCHECK(Event);
@@ -2605,6 +2716,7 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
 
 hipError_t hipEventDestroy(hipEvent_t Event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
   delete Event;
@@ -2616,6 +2728,7 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
 
 hipError_t hipEventSynchronize(hipEvent_t Event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
   chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
@@ -2628,6 +2741,7 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
 
 hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Ms)
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
@@ -2653,6 +2767,7 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
 
 hipError_t hipEventQuery(hipEvent_t Event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
   chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
@@ -2685,6 +2800,7 @@ static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
 
 hipError_t hipMalloc(void **Ptr, size_t Size) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Ptr);
   RETURN(hipMallocInternal(Ptr, Size));
@@ -2693,6 +2809,7 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
 
 hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DevPtr);
 
@@ -2754,6 +2871,7 @@ static inline hipError_t hipHostMallocInternal(void **Ptr, size_t Size,
 
 hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipHostMallocInternal(Ptr, Size, Flags));
   CHIP_CATCH
@@ -2761,6 +2879,7 @@ hipError_t hipHostMalloc(void **Ptr, size_t Size, unsigned int Flags) {
 
 hipError_t hipMallocHost(void **Ptr, size_t Size) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipHostMallocInternal(Ptr, Size, hipHostMallocDefault));
   CHIP_CATCH
@@ -2768,6 +2887,7 @@ hipError_t hipMallocHost(void **Ptr, size_t Size) {
 
 hipError_t hipHostAlloc(void **Ptr, size_t Size, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipHostMallocInternal(Ptr, Size, Flags));
   CHIP_CATCH
@@ -2786,6 +2906,7 @@ static inline hipError_t hipFreeInternal(void *Ptr) {
 
 hipError_t hipFree(void *Ptr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipFreeInternal(Ptr));
   CHIP_CATCH
@@ -2805,6 +2926,7 @@ static inline hipError_t hipHostFreeInternal(void *Ptr) {
 
 hipError_t hipHostFree(void *Ptr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipHostFreeInternal(Ptr));
   CHIP_CATCH
@@ -2812,6 +2934,7 @@ hipError_t hipHostFree(void *Ptr) {
 
 hipError_t hipFreeHost(void *Ptr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipHostFreeInternal(Ptr));
   CHIP_CATCH
@@ -2821,6 +2944,7 @@ hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
   CHIP_TRY
   UNIMPLEMENTED(hipErrorTbd);
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Ptr);
 
@@ -2842,6 +2966,7 @@ hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
 hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
                         int DstDevId) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Ptr);
 
@@ -2858,6 +2983,7 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
 hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
                                    unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DevPtr, HostPtr);
 
@@ -2876,6 +3002,7 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
 
 hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(FlagsPtr, HostPtr);
 
@@ -2891,6 +3018,7 @@ hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
 hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
                            unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!HostPtr || !SizeBytes)
     RETURN(hipErrorInvalidValue);
@@ -2932,6 +3060,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
 
 hipError_t hipHostUnregister(void *HostPtr) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!HostPtr)
     CHIPERR_LOG_AND_THROW("Host pointer is nullptr!", hipErrorInvalidValue);
@@ -2975,6 +3104,7 @@ static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
 hipError_t hipMallocPitch(void **Ptr, size_t *Pitch, size_t Width,
                           size_t Height) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   RETURN(hipMallocPitch3DInternal(Ptr, Pitch, Width, Height, 0));
@@ -2986,6 +3116,7 @@ hipError_t hipMalloc3DArray(hipArray **Array,
                             const struct hipChannelFormatDesc *Desc,
                             struct hipExtent Extent, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Array, Desc);
 
@@ -3056,6 +3187,7 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
   // TODO: Sink the logic here into hipMalloc3DArray and call it when
   // it is implemented.
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Array, Desc);
 
@@ -3089,6 +3221,7 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
 hipError_t hipArrayCreate(hipArray **Array,
                           const HIP_ARRAY_DESCRIPTOR *AllocateArray) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Array, AllocateArray);
 
@@ -3149,6 +3282,7 @@ hipError_t hipArrayCreate(hipArray **Array,
 
 hipError_t hipFreeArray(hipArray *Array) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Array)
     RETURN(hipErrorInvalidValue);
@@ -3169,6 +3303,7 @@ hipError_t hipFreeArray(hipArray *Array) {
 
 hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr);
 
@@ -3191,6 +3326,7 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
 
 hipError_t hipMemGetInfo(size_t *Free, size_t *Total) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Free, Total);
 
@@ -3207,6 +3343,7 @@ hipError_t hipMemGetInfo(size_t *Free, size_t *Total) {
 
 hipError_t hipMemPtrGetInfo(void *Ptr, size_t *Size) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Ptr, Size);
 
@@ -3247,6 +3384,7 @@ hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
                      hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, Kind));
   CHIP_CATCH
@@ -3255,6 +3393,7 @@ hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
 hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t Dst, hipDeviceptr_t Src,
                               size_t SizeBytes, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice,
                                 Stream));
@@ -3264,6 +3403,7 @@ hipError_t hipMemcpyDtoDAsync(hipDeviceptr_t Dst, hipDeviceptr_t Src,
 hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
                          size_t SizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToDevice));
   CHIP_CATCH
@@ -3272,6 +3412,7 @@ hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
 hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
                               hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, hipMemcpyHostToDevice,
                                 Stream));
@@ -3280,6 +3421,7 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
 
 hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, hipMemcpyHostToDevice));
   CHIP_CATCH
@@ -3288,6 +3430,7 @@ hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
 hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
                               hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyAsyncInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost,
                                 Stream));
@@ -3296,6 +3439,7 @@ hipError_t hipMemcpyDtoHAsync(void *Dst, hipDeviceptr_t Src, size_t SizeBytes,
 
 hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyInternal(Dst, Src, SizeBytes, hipMemcpyDeviceToHost));
   CHIP_CATCH
@@ -3327,6 +3471,7 @@ static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
 hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
                           hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!SizeBytes)
     return hipSuccess;
@@ -3379,6 +3524,7 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
 hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
                             size_t Height, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemset2DAsyncInternal(Dst, Pitch, Value, Width, Height, Stream));
   CHIP_CATCH
@@ -3387,6 +3533,7 @@ hipError_t hipMemset2DAsync(void *Dst, size_t Pitch, int Value, size_t Width,
 hipError_t hipMemset2D(void *Dst, size_t Pitch, int Value, size_t Width,
                        size_t Height) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
@@ -3450,6 +3597,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
 hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
                             hipExtent Extent, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr.ptr);
   RETURN(hipMemset3DAsyncInternal(PitchedDevPtr, Value, Extent, Stream));
@@ -3459,6 +3607,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
 hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
                        hipExtent Extent) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PitchedDevPtr.ptr);
 
@@ -3519,6 +3668,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
 
 hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!SizeBytes)
     return hipSuccess;
@@ -3530,6 +3680,7 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
 hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
                             size_t Count, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Count)
     return hipSuccess;
@@ -3557,6 +3708,7 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
 hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
                        size_t SizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!SizeBytes)
     return hipSuccess;
@@ -3568,6 +3720,7 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
 hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
                              size_t Count, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Count)
     return hipSuccess;
@@ -3593,6 +3746,7 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
 hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
                         size_t Count) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Count)
     return hipSuccess;
@@ -3608,6 +3762,7 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
 hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
                              hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Count)
     return hipSuccess;
@@ -3633,6 +3788,7 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
 
 hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (!Count)
     return hipSuccess;
@@ -3647,6 +3803,7 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
 
 hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(PCopy);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
@@ -3661,6 +3818,7 @@ hipError_t hipMemcpyParam2D(const hip_Memcpy2D *PCopy) {
 hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
                        size_t Width, size_t Height, hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   if (SPitch < 1 || DPitch < 1 || Width > DPitch) {
@@ -3731,6 +3889,7 @@ hipError_t hipMemcpy2DToArrayAsync(hipArray *Dst, size_t WOffset,
                                    size_t SPitch, size_t Width, size_t Height,
                                    hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   RETURN(hipMemcpy2DToArrayAsyncInternal(Dst, WOffset, HOffset, Src, SPitch,
@@ -3742,6 +3901,7 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
                               const void *Src, size_t SPitch, size_t Width,
                               size_t Height, hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
@@ -3827,6 +3987,7 @@ hipError_t hipMemcpy2DFromArrayAsync(void *Dst, size_t DPitch,
                                      size_t Height, hipMemcpyKind Kind,
                                      hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   RETURN(hipMemcpy2DFromArrayAsyncInternal(Dst, DPitch, Src, WOffset, HOffset,
@@ -3838,6 +3999,7 @@ hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
                                 size_t WOffset, size_t HOffset, size_t Width,
                                 size_t Height, hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
@@ -3854,6 +4016,7 @@ hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
 hipError_t hipMemcpyToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
                             const void *Src, size_t Count, hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, Src);
 
@@ -3866,6 +4029,7 @@ hipError_t hipMemcpyFromArray(void *Dst, hipArray_const_t SrcArray,
                               size_t WOffset, size_t HOffset, size_t Count,
                               hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, SrcArray);
 
@@ -3878,6 +4042,7 @@ hipError_t hipMemcpyFromArray(void *Dst, hipArray_const_t SrcArray,
 hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
                          size_t Count) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dst, SrcArray);
   if (SrcOffset > Count)
@@ -3897,6 +4062,7 @@ hipError_t hipMemcpyAtoH(void *Dst, hipArray *SrcArray, size_t SrcOffset,
 hipError_t hipMemcpyHtoA(hipArray *DstArray, size_t DstOffset,
                          const void *SrcHost, size_t Count) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(SrcHost, DstArray);
 
@@ -4044,6 +4210,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
 hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
                             hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Params);
   RETURN(hipMemcpy3DAsyncInternal(Params, Stream));
@@ -4052,6 +4219,7 @@ hipError_t hipMemcpy3DAsync(const struct hipMemcpy3DParms *Params,
 
 hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Params);
 
@@ -4067,6 +4235,7 @@ hipError_t hipMemcpy3D(const struct hipMemcpy3DParms *Params) {
 hipError_t hipFuncGetAttributes(hipFuncAttributes *Attr,
                                 const void *HostFunction) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   chipstar::Device *Dev = Backend->getActiveDevice();
@@ -4087,6 +4256,7 @@ hipError_t hipFuncGetAttribute(int *value, hipFunction_attribute attrib,
 hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
                               hipModule_t Hmod, const char *Name) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dptr, Bytes, Hmod, Name);
   auto ChipModule = static_cast<chipstar::Module *>(Hmod);
@@ -4100,6 +4270,7 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
 
 hipError_t hipGetSymbolSize(size_t *Size, const void *Symbol) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Size, Symbol);
 
@@ -4150,6 +4321,7 @@ hipError_t hipMemcpyToSymbolAsync(const void *Symbol, const void *Src,
                                   size_t SizeBytes, size_t Offset,
                                   hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyToSymbolAsyncInternal(Symbol, Src, SizeBytes, Offset, Kind,
                                         Stream));
@@ -4160,6 +4332,7 @@ hipError_t hipMemcpyToSymbol(const void *Symbol, const void *Src,
                              size_t SizeBytes, size_t Offset,
                              hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
 
@@ -4208,6 +4381,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
                                     size_t SizeBytes, size_t Offset,
                                     hipMemcpyKind Kind, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipMemcpyFromSymbolAsyncInternal(Dst, Symbol, SizeBytes, Offset, Kind,
                                           Stream));
@@ -4217,6 +4391,7 @@ hipError_t hipMemcpyFromSymbolAsync(void *Dst, const void *Symbol,
 hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
                                size_t Offset, hipMemcpyKind Kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
@@ -4251,6 +4426,7 @@ static inline hipError_t hipModuleLoadDataInternal(hipModule_t *ModuleHandle,
 
 hipError_t hipModuleLoadData(hipModule_t *ModuleHandle, const void *Image) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(ModuleHandle, Image);
   RETURN(hipModuleLoadDataInternal(ModuleHandle, Image));
@@ -4261,6 +4437,7 @@ hipError_t hipModuleLoadDataEx(hipModule_t *Module, const void *Image,
                                unsigned int NumOptions, hipJitOption *Options,
                                void **OptionValues) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Module, Image);
   RETURN(hipModuleLoadDataInternal(Module, Image));
@@ -4294,6 +4471,7 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
                            dim3 BlockDim, void **Args, size_t SharedMem,
                            hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(HostFunction, Args);
   RETURN(hipLaunchKernelInternal(HostFunction, GridDim, BlockDim, Args,
@@ -4338,6 +4516,7 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
                        const hipTextureDesc *TexDesc,
                        const struct hipResourceViewDesc *ResViewDesc) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(TexObject, ResDesc, TexDesc);
 
@@ -4405,6 +4584,7 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
 
 hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // TODO CRITCAL look into the define for hipTextureObject_t
   if (TextureObject == nullptr)
@@ -4418,6 +4598,7 @@ hipError_t hipDestroyTextureObject(hipTextureObject_t TextureObject) {
 hipError_t hipGetTextureObjectResourceDesc(hipResourceDesc *ResDesc,
                                            hipTextureObject_t TextureObject) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   if (TextureObject == nullptr)
     RETURN(hipErrorInvalidValue);
@@ -4429,6 +4610,7 @@ hipError_t hipGetTextureObjectResourceDesc(hipResourceDesc *ResDesc,
 
 hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Module, FuncName);
 
@@ -4458,6 +4640,7 @@ hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
 
 hipError_t hipModuleUnload(hipModule_t Module) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Module);
   logDebug("hipModuleUnload(Module={}", (void *)Module);
@@ -4474,6 +4657,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
 hipError_t hipModuleGetFunction(hipFunction_t *Function, hipModule_t Module,
                                 const char *Name) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Function, Module, Name);
   auto ChipModule = (chipstar::Module *)Module;
@@ -4550,6 +4734,7 @@ hipError_t hipModuleLaunchKernel(hipFunction_t Kernel, unsigned int GridDimX,
                                  hipStream_t Stream, void *KernelParams[],
                                  void *Extra[]) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   RETURN(hipModuleLaunchKernelInternal(
       Kernel, GridDimX, GridDimY, GridDimZ, BlockDimX, BlockDimY, BlockDimZ,
@@ -4570,6 +4755,7 @@ hipError_t hipExtModuleLaunchKernel(
   NULLCHECK(Kernel);
   // Null checks on the KernelParams and Extra arguments are performed by
   // hipModuleLaunchKernelInternal().
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   // TODO: Process flags (hipExtAnyOrderLaunch).
@@ -4611,6 +4797,7 @@ hipError_t hipExtModuleLaunchKernel(
 
 hipError_t hipLaunchByPtr(const void *HostFunction) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(HostFunction);
 
@@ -4641,6 +4828,7 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
 hipError_t hipConfigureCall(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                             hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   logDebug("hipConfigureCall()");
@@ -4696,6 +4884,7 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   //        case) and they go away if we have the CHIP runtime initialized
   //        early. Should find the causes, fix them and then and then remove the
   //        CHIPInitialize() call.
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   const __CudaFatBinaryWrapper *Wrapper =
@@ -4773,6 +4962,7 @@ extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
 
 hipError_t hipSetupArgument(const void *Arg, size_t Size, size_t Offset) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   // Development focus has been on the new HIP launch API so this path
   // is likely bitrotted.
@@ -4824,6 +5014,7 @@ variable in host code const void **deviceAddress, // actually variable name
 
 hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(DevPtr, Symbol);
 
@@ -4840,12 +5031,14 @@ hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
 hipError_t hipIpcOpenEventHandle(hipEvent_t *Event,
                                  hipIpcEventHandle_t Handle) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *Handle, hipEvent_t Event) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4861,6 +5054,7 @@ hipError_t hipModuleOccupancyMaxPotentialBlockSizeWithFlags(
     int *GridSize, int *BlockSize, hipFunction_t Func,
     size_t DynSharedMemPerBlk, int BlockSizeLimit, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4870,6 +5064,7 @@ hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessor(
     int *NumBlocks, hipFunction_t Func, int BlockSize,
     size_t DynSharedMemPerBlk) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4879,6 +5074,7 @@ hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
     int *NumBlocks, hipFunction_t Func, int BlockSize,
     size_t DynSharedMemPerBlk, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4889,6 +5085,7 @@ hipOccupancyMaxActiveBlocksPerMultiprocessor(int *NumBlocks, const void *Func,
                                              int BlockSize,
                                              size_t DynSharedMemPerBlk) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4898,6 +5095,7 @@ hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
     int *NumBlocks, const void *Func, int BlockSize, size_t DynSharedMemPerBlk,
     unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4908,6 +5106,7 @@ hipError_t hipOccupancyMaxPotentialBlockSize(int *GridSize, int *BlockSize,
                                              size_t DynSharedMemPerBlk,
                                              int BlockSizeLimit) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4915,6 +5114,7 @@ hipError_t hipOccupancyMaxPotentialBlockSize(int *GridSize, int *BlockSize,
 
 hipError_t hipGetDeviceFlags(unsigned int *Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -4927,6 +5127,7 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
 hipError_t hipMemcpy_spt(void *dst, const void *src, size_t sizeBytes,
                          hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   hipError_t Res =
       hipMemcpyAsyncInternal(dst, src, sizeBytes, kind, hipStreamPerThread);
@@ -4940,6 +5141,7 @@ hipError_t hipMemcpyToSymbol_spt(const void *symbol, const void *src,
                                  size_t sizeBytes, size_t offset,
                                  hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(symbol, src);
   hipError_t Res = hipMemcpyToSymbolAsyncInternal(
@@ -4954,6 +5156,7 @@ hipError_t hipMemcpyFromSymbol_spt(void *dst, const void *symbol,
                                    size_t sizeBytes, size_t offset,
                                    hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(dst, symbol);
   hipError_t Res = hipMemcpyFromSymbolAsyncInternal(
@@ -4968,6 +5171,7 @@ hipError_t hipMemcpy2D_spt(void *dst, size_t dpitch, const void *src,
                            size_t spitch, size_t width, size_t height,
                            hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   hipError_t Res = hipMemcpy2DAsyncInternal(dst, dpitch, src, spitch, width,
                                             height, kind, hipStreamPerThread);
@@ -4981,6 +5185,7 @@ hipError_t hipMemcpy2DToArray_spt(hipArray *dst, size_t wOffset, size_t hOffset,
                                   const void *src, size_t spitch, size_t width,
                                   size_t height, hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(dst, src);
   hipError_t Res =
@@ -4997,6 +5202,7 @@ hipError_t hipMemcpy2DFromArray_spt(void *dst, size_t dpitch,
                                     size_t hOffset, size_t width, size_t height,
                                     hipMemcpyKind kind) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(dst, src);
   hipError_t Res = hipMemcpy2DFromArrayAsyncInternal(dst, dpitch, src, wOffset,
@@ -5010,6 +5216,7 @@ hipError_t hipMemcpy2DFromArray_spt(void *dst, size_t dpitch,
 
 hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms *p) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(p);
   hipError_t Res = hipMemcpy3DAsyncInternal(p, hipStreamPerThread);
@@ -5021,6 +5228,7 @@ hipError_t hipMemcpy3D_spt(const struct hipMemcpy3DParms *p) {
 
 hipError_t hipMemset_spt(void *dst, int value, size_t sizeBytes) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(dst);
   hipError_t Res =
@@ -5034,6 +5242,7 @@ hipError_t hipMemset_spt(void *dst, int value, size_t sizeBytes) {
 hipError_t hipMemset2D_spt(void *dst, size_t pitch, int value, size_t width,
                            size_t height) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(dst);
   hipError_t Res = hipMemset2DAsyncInternal(dst, pitch, value, width, height,
@@ -5047,6 +5256,7 @@ hipError_t hipMemset2D_spt(void *dst, size_t pitch, int value, size_t width,
 hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int value,
                            hipExtent extent) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(pitchedDevPtr.ptr);
   hipError_t Res = hipMemset3DAsyncInternal(pitchedDevPtr, value, extent,
@@ -5060,6 +5270,7 @@ hipError_t hipMemset3D_spt(hipPitchedPtr pitchedDevPtr, int value,
 hipError_t hipMemcpyAsync_spt(void *dst, const void *src, size_t sizeBytes,
                               hipMemcpyKind kind, hipStream_t stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipMemcpyAsyncInternal(dst, src, sizeBytes, kind, Queue));
@@ -5068,6 +5279,7 @@ hipError_t hipMemcpyAsync_spt(void *dst, const void *src, size_t sizeBytes,
 
 hipError_t hipStreamQuery_spt(hipStream_t stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipStreamQueryInternal(Queue));
@@ -5076,6 +5288,7 @@ hipError_t hipStreamQuery_spt(hipStream_t stream) {
 
 hipError_t hipStreamSynchronize_spt(hipStream_t stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipStreamSynchronizeInternal(Queue));
@@ -5084,6 +5297,7 @@ hipError_t hipStreamSynchronize_spt(hipStream_t stream) {
 
 hipError_t hipStreamGetPriority_spt(hipStream_t stream, int *priority) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipStreamGetPriorityInternal(Queue, priority));
@@ -5093,6 +5307,7 @@ hipError_t hipStreamGetPriority_spt(hipStream_t stream, int *priority) {
 hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event,
                                   unsigned int flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipStreamWaitEventInternal(Queue, event, flags));
@@ -5101,6 +5316,7 @@ hipError_t hipStreamWaitEvent_spt(hipStream_t stream, hipEvent_t event,
 
 hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
   auto Queue = Stream ? Stream : hipStreamPerThread;
@@ -5110,6 +5326,7 @@ hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
 
 hipError_t hipStreamGetFlags_spt(hipStream_t stream, unsigned int *flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(flags);
   auto Queue = stream ? stream : hipStreamPerThread;
@@ -5155,6 +5372,7 @@ hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
                                dim3 dimBlocks, void **args,
                                size_t sharedMemBytes, hipStream_t stream) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(function_address, args);
   auto Queue = stream ? stream : hipStreamPerThread;
@@ -5196,6 +5414,7 @@ hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
 int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
                                int *NumHandles) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   logDebug("hipGetBackendNativeHandles");
 
@@ -5227,6 +5446,7 @@ void *hipGetNativeEventFromHipEvent(void *HipEvent) {
   logDebug("hipGetNativeEventFromHipEvent");
   void *E = nullptr;
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   if (HipEvent == NULL)
@@ -5241,6 +5461,7 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
   logDebug("hipGetHipEventFromNativeEvent");
   hipEvent_t E = nullptr;
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   if (NativeEvent == NULL)
@@ -5253,6 +5474,7 @@ void *hipGetHipEventFromNativeEvent(void *NativeEvent) {
 
 hipError_t hipProfilerStart() {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
@@ -5260,6 +5482,7 @@ hipError_t hipProfilerStart() {
 
 hipError_t hipProfilerStop() {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH

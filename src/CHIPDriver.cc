@@ -34,6 +34,9 @@
  */
 #include "CHIPDriver.hh"
 
+/// Prevent more than one HIP API call from executing at the same time
+std::mutex ApiMtx;
+
 #include <string>
 #include <memory>
 
