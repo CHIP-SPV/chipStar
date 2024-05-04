@@ -656,20 +656,8 @@ void CHIPEventMonitorLevel0::checkEvents() {
     // updateFinishStatus will return true upon event state change.
     ChipEventLz->updateFinishStatus(false);
 
-    if (ChipEventLz->DependsOnList.size() == 0) {
+    if (ChipEventLz->DependsOnList.size() == 0)
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
-    }
-
-    ChipEventLz->isDeletedSanityCheck();
-
-    // delete the event if refcount reached 1 (this->ChipEventLz)
-    if (ChipEventLz.use_count() == 1) {
-      if (ChipEventLz->EventPool) {
-        ChipEventLz->isDeletedSanityCheck();
-        ChipEventLz->EventPool->returnEvent(ChipEventLz);
-      }
-    }
-
   } // done collecting events to delete
 }
 
@@ -884,6 +872,9 @@ std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   LOCK(ContextMtx); // Context::EventPools
   EventsRequested_++;
   std::shared_ptr<CHIPEventLevel0> Event;
+
+
+
   for (auto EventPool : EventPools_) {
     LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
     if (EventPool->EventAvailable()) {
@@ -1534,8 +1525,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
-    auto NewEvent = std::make_shared<CHIPEventLevel0>(Ctx_, this, i, Flags);
-    Events_.push(NewEvent);
+    Events_.push(new CHIPEventLevel0(Ctx_, this, i, Flags));
   }
 };
 
@@ -1558,22 +1548,23 @@ LZEventPool::~LZEventPool() {
 };
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
-  std::shared_ptr<CHIPEventLevel0> Event;
+    auto deleter = [this](CHIPEventLevel0 *ptr) {
+    returnEvent(ptr);
+  };
+
   if (!Events_.size())
     return nullptr;
 
-  Event = Events_.top();
+  auto Event = Events_.top();
   Events_.pop();
 
-  return Event;
+  return std::shared_ptr<CHIPEventLevel0>(Event, deleter);
 };
 
-void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> &Event) {
+void LZEventPool::returnEvent(CHIPEventLevel0 *Event) {
   Event->isDeletedSanityCheck();
   Event->markDeleted();
   LOCK(EventPoolMtx);
-  logTrace("Returning event {} handle {}", (void *)Event.get(),
-           (void *)Event.get()->get());
   Events_.push(Event);
 }
 
