@@ -179,7 +179,7 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
-  std::stack<std::shared_ptr<CHIPEventLevel0>> Events_;
+  std::stack<CHIPEventLevel0*> Events_;
 
 public:
   std::mutex EventPoolMtx;
@@ -188,7 +188,7 @@ public:
   bool EventAvailable() { return Events_.size() > 0; }
   ze_event_pool_handle_t &get() { return EventPool_; }
 
-  void returnEvent(std::shared_ptr<CHIPEventLevel0> &Event);
+  void returnEvent(CHIPEventLevel0 *Event);
 
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
