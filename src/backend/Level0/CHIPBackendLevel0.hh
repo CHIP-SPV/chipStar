@@ -96,7 +96,6 @@ public:
   uint64_t &getHostTimestamp() { return HostTimestamp_; }
   uint32_t getValidTimestampBits();
   unsigned int EventPoolIndex;
-  LZEventPool *EventPool;
   CHIPEventLevel0()
       : CHIPEventLevel0((CHIPContextLevel0 *)Backend->getActiveContext()) {}
   CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
