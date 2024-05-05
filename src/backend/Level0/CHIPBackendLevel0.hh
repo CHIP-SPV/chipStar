@@ -178,7 +178,7 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
-  std::stack<CHIPEventLevel0*> Events_;
+  std::stack<CHIPEventLevel0 *> Events_;
 
 public:
   std::mutex EventPoolMtx;

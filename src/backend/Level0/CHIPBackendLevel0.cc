@@ -872,8 +872,6 @@ std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   EventsRequested_++;
   std::shared_ptr<CHIPEventLevel0> Event;
 
-
-
   for (auto EventPool : EventPools_) {
     LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
     if (EventPool->EventAvailable()) {
@@ -1547,9 +1545,7 @@ LZEventPool::~LZEventPool() {
 };
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
-    auto deleter = [this](CHIPEventLevel0 *ptr) {
-    returnEvent(ptr);
-  };
+  auto Deleter = [this](CHIPEventLevel0 *Ptr) { returnEvent(Ptr); };
 
   if (!Events_.size())
     return nullptr;
@@ -1557,7 +1553,7 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   auto Event = Events_.top();
   Events_.pop();
 
-  return std::shared_ptr<CHIPEventLevel0>(Event, deleter);
+  return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
 };
 
 void LZEventPool::returnEvent(CHIPEventLevel0 *Event) {
