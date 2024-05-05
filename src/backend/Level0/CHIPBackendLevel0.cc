@@ -704,8 +704,8 @@ void CHIPEventMonitorLevel0::checkExit() {
       for (size_t i = 0; i < MaxPrintEntries; i++) {
         auto Event = Backend->Events[i];
         auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-        logError("Uncollected Backend->Events: {} {}",
-                 (void *)Event.get(), Event->Msg);
+        logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
+                 Event->Msg);
       }
       pthread_exit(0);
     }
