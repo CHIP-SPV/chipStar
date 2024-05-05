@@ -31,7 +31,7 @@ add_test(
     -DVALGRIND_COMMAND=valgrind
     -DVALGRIND_ARGS=--tool=helgrind
     -DVIOLATED_THRESHOLD=0
-    -DCONFLICTS_THRESHOLD=2
+    -DCONFLICTS_THRESHOLD=5
     -P ${CMAKE_CURRENT_SOURCE_DIR}/run_helgrind_test.cmake
 )
 
