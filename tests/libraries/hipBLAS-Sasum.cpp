@@ -25,6 +25,78 @@
     }                                                                          \
   } while (0)
 
+void hipblasSasumTest(hipblasHandle_t handle, int n, float *d_x, int incx, const std::vector<float> &h_x) {
+  float result;
+  CHECK_HIPBLAS_ERROR(hipblasSasum(handle, n, d_x, incx, &result));
+  
+  float expected = 0.0f;
+  for (int i = 0; i < n; i++) {
+    expected += std::abs(h_x[i]);
+  }
+
+  float tolerance = 1e-5;
+  if (std::abs(result - expected) > tolerance) {
+    std::cerr << "Validation of Sasum failed!" << std::endl;
+    std::cerr << "Expected: " << expected << ", Got: " << result << std::endl;
+    std::cerr << "Difference: " << std::abs(result - expected) << std::endl;
+  }
+}
+
+void hipblasSdotTest(hipblasHandle_t handle, int n, float *d_x, int incx, const std::vector<float> &h_x) {
+  float result;
+  CHECK_HIPBLAS_ERROR(hipblasSdot(handle, n, d_x, incx, d_x, incx, &result));
+
+  float expected = 0.0f;
+  for (int i = 0; i < n; i++) {
+    expected += h_x[i] * h_x[i];
+  }
+
+  float tolerance = 1e-5;
+  if (std::abs(result - expected) > tolerance) {
+    std::cerr << "Validation of Sdot failed!" << std::endl;
+    std::cerr << "Expected: " << expected << ", Got: " << result << std::endl;
+    std::cerr << "Difference: " << std::abs(result - expected) << std::endl;
+  }
+}
+
+void hipblasSnrm2Test(hipblasHandle_t handle, int n, float *d_x, int incx, const std::vector<float> &h_x) {
+  float result;
+  CHECK_HIPBLAS_ERROR(hipblasSnrm2(handle, n, d_x, incx, &result));
+
+  float expected = 0.0f;
+  for (int i = 0; i < n; i++) {
+    expected += h_x[i] * h_x[i];
+  }
+  expected = std::sqrt(expected);
+
+  float tolerance = 1e-5;
+  if (std::abs(result - expected) > tolerance) {
+    std::cerr << "Validation of Snrm2 failed!" << std::endl;
+    std::cerr << "Expected: " << expected << ", Got: " << result << std::endl;
+    std::cerr << "Difference: " << std::abs(result - expected) << std::endl;
+  }
+}
+
+void hipblasIsamaxTest(hipblasHandle_t handle, int n, float *d_x, int incx, const std::vector<float> &h_x) {
+  int result;
+  CHECK_HIPBLAS_ERROR(hipblasIsamax(handle, n, d_x, incx, &result));
+
+  int expected = 0;
+  float max_val = std::abs(h_x[0]);
+  for (int i = 1; i < n; i++) {
+    if (std::abs(h_x[i * incx]) > max_val) {
+      max_val = std::abs(h_x[i * incx]);
+      expected = i;
+    }
+  }
+
+  if (std::abs(h_x[result * incx]) != max_val) {
+    std::cerr << "Validation of Isamax failed!" << std::endl;
+    std::cerr << "Expected value: " << max_val << ", Got: " << std::abs(h_x[result * incx]) << std::endl;
+    std::cerr << "Expected index: " << expected << ", Got: " << result << std::endl;
+  }
+}
+
 int main() {
   int n = 1000; // Size of the vector
   int incx = 1; // Stride between consecutive elements
@@ -44,36 +116,19 @@ int main() {
   // Copy data from host to device
   CHECK_HIP_ERROR(
       hipMemcpy(d_x, h_x.data(), n * sizeof(float), hipMemcpyHostToDevice));
+
   // Create a HIPBLAS handle
   hipblasHandle_t handle;
   CHECK_HIPBLAS_ERROR(hipblasCreate(&handle));
 
-  // Call hipblasSasum
-  float result;
-  CHECK_HIPBLAS_ERROR(hipblasSasum(handle, n, d_x, incx, &result));
+  // Call test functions
+  hipblasSasumTest(handle, n, d_x, incx, h_x);
+  hipblasSdotTest(handle, n, d_x, incx, h_x);
+  hipblasSnrm2Test(handle, n, d_x, incx, h_x);
+  hipblasIsamaxTest(handle, n, d_x, incx, h_x);
 
   // Destroy the HIPBLAS handle
   CHECK_HIPBLAS_ERROR(hipblasDestroy(handle));
-
-
-  // Compute the expected result on the host
-  float expected = 0.0f;
-  for (int i = 0; i < n; i++) {
-    expected += std::abs(h_x[i]);
-  }
-
-  // Compare the results
-  float tolerance = 1e-5;
-  if (std::abs(result - expected) > tolerance) {
-    std::cerr << "Validation failed!" << std::endl;
-    std::cerr << "Expected: " << expected << std::endl;
-    std::cerr << "Got: " << result << std::endl;
-    std::cerr << "Difference: " << result - expected << std::endl;
-    std::cerr << "Difference: " << expected - result << std::endl;
-    return 1;
-  }
-
-  std::cout << "Validation passed!" << std::endl;
 
   // Free device memory
   CHECK_HIP_ERROR(hipFree(d_x));
