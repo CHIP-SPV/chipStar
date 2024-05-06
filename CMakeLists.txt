@@ -71,7 +71,7 @@ endforeach()
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
 endif()
 
 if(OpenCL_LIBRARY)
@@ -479,14 +479,12 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
 if(OpenCL_LIBRARY)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
-  target_link_libraries(CHIP PUBLIC OpenCL)
 endif()
 
 if(LevelZero_LIBRARY)
   include_directories(CHIP PUBLIC ${LevelZeroInclude_DIR})
   target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZeroLib_DIR})
   target_link_directories(CHIP PUBLIC ${LevelZeroLib_DIR})
-  target_link_libraries(CHIP PUBLIC ze_loader)
 endif()
 
 if(CHIP_SET_RPATH)

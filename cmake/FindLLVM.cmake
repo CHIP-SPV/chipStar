@@ -90,7 +90,7 @@ endif()
 message(STATUS "Using llvm-link: ${LLVM_LINK}")
 
 if(NOT DEFINED LLVM_SPIRV)
-  find_program(LLVM_SPIRV NAMES llvm-spirv FIND_TARGET NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
+  find_program(LLVM_SPIRV NAMES llvm-spirv llvm-spirv-${LLVM_VERSION_MAJOR} FIND_TARGET NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
   if(NOT LLVM_SPIRV)
     message(FATAL_ERROR "Can't find llvm-spirv. Please provide CMake argument -DLLVM_SPIRV=/path/to/llvm-spirv<-version>")
   endif()
