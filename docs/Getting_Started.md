@@ -3,7 +3,7 @@
 ```bash
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
-sudo ./llvm.sh 
+sudo ./llvm.sh <version e.g. 17>
 ```
 
 ### Install Base Packages
