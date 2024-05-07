@@ -27,27 +27,14 @@
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--cmakedir"
-		OUTPUT_VARIABLE LLVM_DIR
-		OUTPUT_STRIP_TRAILING_WHITESPACE
-		RESULT_VARIABLE RES)
-
-if(NOT RES EQUAL 0)
-  message(FATAL_ERROR "failed to run llvm-config (${LLVM_CONFIG_BIN})")
-endif()
-
-message(STATUS "LLVM CMake directory: ${LLVM_DIR}")
-
-find_package(LLVM REQUIRED CONFIG HINTS "${LLVM_DIR}" PATHS "${LLVM_DIR}" NO_DEFAULT_PATH)
-
-if(NOT DEFINED LLVM_VERSION)
-  message(FATAL "Could not determine LLVM version.")
-endif()
-
 ######################################
 
 add_definitions(${LLVM_DEFINITIONS})
 
+# abort if LLVM_INCLUDE_DIRS is empty or not set
+if(NOT LLVM_INCLUDE_DIRS)
+  message(FATAL_ERROR "LLVM_INCLUDE_DIRS is empty or not set")
+endif()
 include_directories(${LLVM_INCLUDE_DIRS} ${CMAKE_BINARY_DIR}/include)
 
 if(NOT LLVM_ENABLE_RTTI)
@@ -116,6 +103,12 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
     HipLowerMemset.cpp HipIGBADetector.cpp ${EXTRA_OBJS})
+
+# If trying to recompile with LLVM unloaded, the inlcude path is not found
+target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
+target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
+target_compile_options(LLVMHipDefrost PRIVATE -I/${LLVM_INCLUDE_DIRS})
+target_compile_options(LLVMHipPasses PRIVATE -I/${LLVM_INCLUDE_DIRS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES

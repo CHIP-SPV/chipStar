@@ -704,8 +704,8 @@ void CHIPEventMonitorLevel0::checkExit() {
       for (size_t i = 0; i < MaxPrintEntries; i++) {
         auto Event = Backend->Events[i];
         auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-        logError("Uncollected Backend->Events: {} {} AssocCmdList {}",
-                 (void *)Event.get(), Event->Msg);
+        logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
+                 Event->Msg);
       }
       pthread_exit(0);
     }
@@ -1771,6 +1771,7 @@ void CHIPBackendLevel0::initializeFromNative(const uintptr_t *NativeHandles,
 
   LOCK(::Backend->BackendMtx); // CHIPBackendLevel0::EventMonitor
   ChipDev->LegacyDefaultQueue = ChipDev->createQueue(NativeHandles, NumHandles);
+  ChipDev->LegacyDefaultQueue->setDefaultLegacyQueue(true);
 
   EventMonitor_ = (CHIPEventMonitorLevel0 *)::Backend->createEventMonitor_();
   setActiveDevice(ChipDev);
@@ -1844,6 +1845,7 @@ CHIPContextLevel0::~CHIPContextLevel0() {
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
                                       hipMemoryType MemTy,
                                       chipstar::HostAllocFlags Flags) {
+  LOCK(ContextMtx);
   void *Ptr = 0;
 
   ze_device_mem_alloc_flags_t DeviceFlags =
