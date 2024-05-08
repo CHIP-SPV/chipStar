@@ -4,8 +4,7 @@ find_program(ICPX_EXECUTABLE NAMES icpx
 
 if(ICPX_EXECUTABLE)
 	get_filename_component(ICPX_CORE_BINDIR ${ICPX_EXECUTABLE} DIRECTORY)
-	get_filename_component(ICPX_CORE_LIBDIR "${ICPX_CORE_BINDIR}/../../linux/compiler/lib/intel64_lin" ABSOLUTE)
-	get_filename_component(ICPX_SYCL_LIBDIR "${ICPX_CORE_BINDIR}/../../linux/lib" ABSOLUTE)
+	get_filename_component(ICPX_CORE_LIBDIR "${ICPX_CORE_BINDIR}/../lib" ABSOLUTE)
 endif()
 
 # the ENABLE_OMP_OFFLOAD is only required to unhide MKL::sycl in intel's MKLConfig.cmake file
@@ -22,8 +21,7 @@ if(MKL_FOUND)
   add_link_options(-L${MKL_ROOT}/lib/${MKL_ARCH})
 endif()
 
-# message(STATUS "ICPX : ${ICPX_EXECUTABLE} MKL: ${MKL_FOUND} ")
-set(INTEL_LIBS -L${ICPX_SYCL_LIBDIR} -L${ICPX_CORE_LIBDIR} -lsvml -lintlc -lirng -limf -lsycl)
+set(INTEL_LIBS -L${ICPX_CORE_LIBDIR} -lsvml -lintlc -lirng -limf -lsycl)
 
 if(ICPX_EXECUTABLE AND MKL_FOUND)
   message(STATUS "Found both MLK and ICPX")
