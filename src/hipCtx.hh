@@ -42,6 +42,7 @@
 
 hipError_t hipCtxCreate(hipCtx_t *ctx, unsigned int flags, hipDevice_t device) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   ERROR_CHECK_DEVNUM(device);
@@ -56,6 +57,7 @@ hipError_t hipCtxCreate(hipCtx_t *ctx, unsigned int flags, hipDevice_t device) {
 
 hipError_t hipCtxDestroy(hipCtx_t ctx) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto ChipCtx = static_cast<chipstar::Context *>(ctx);
   if (ChipCtx == nullptr) {
@@ -76,6 +78,7 @@ hipError_t hipCtxDestroy(hipCtx_t ctx) {
 
 hipError_t hipCtxPopCurrent(hipCtx_t *ctx) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   if (Backend->ChipCtxStack.empty()) {
@@ -91,6 +94,7 @@ hipError_t hipCtxPopCurrent(hipCtx_t *ctx) {
 
 hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   auto ChipCtx = static_cast<chipstar::Context *>(ctx);
@@ -108,6 +112,7 @@ hipError_t hipCtxPushCurrent(hipCtx_t ctx) {
 
 hipError_t hipCtxSetCurrent(hipCtx_t ctx) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   Backend->setActiveContext(static_cast<chipstar::Context *>(ctx));
   RETURN(hipSuccess);
@@ -116,6 +121,7 @@ hipError_t hipCtxSetCurrent(hipCtx_t ctx) {
 
 hipError_t hipCtxGetCurrent(hipCtx_t *ctx) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   *ctx = Backend->getActiveContext();
   RETURN(hipSuccess);
@@ -124,6 +130,7 @@ hipError_t hipCtxGetCurrent(hipCtx_t *ctx) {
 
 hipError_t hipCtxGetDevice(hipDevice_t *device) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   *device = Backend->getActiveContext()->getDevice()->getDeviceId();
   RETURN(hipSuccess);
@@ -157,6 +164,7 @@ hipError_t hipCtxGetSharedMemConfig(hipSharedMemConfig *pConfig) {
 
 hipError_t hipCtxSynchronize(void) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
   auto Dev = Backend->getActiveDevice();
   LOCK(Dev->QueueAddRemoveMtx);
@@ -194,6 +202,7 @@ hipError_t hipDevicePrimaryCtxRelease(hipDevice_t Device) {
   // HIP_RETURN(hipSuccess);
 
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   ERROR_CHECK_DEVNUM(Device);
@@ -218,6 +227,7 @@ hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *Context, hipDevice_t Device) {
   // HIP_RETURN(hipSuccess);
 
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   NULLCHECK(Context);
@@ -231,6 +241,7 @@ hipError_t hipDevicePrimaryCtxRetain(hipCtx_t *Context, hipDevice_t Device) {
 
 hipError_t hipDevicePrimaryCtxReset(hipDevice_t Device) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   ERROR_CHECK_DEVNUM(Device);
@@ -243,6 +254,7 @@ hipError_t hipDevicePrimaryCtxReset(hipDevice_t Device) {
 
 hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t Device, unsigned int Flags) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   if (static_cast<unsigned int>(Device) >= Backend->getDevices().size()) {
@@ -257,6 +269,7 @@ hipError_t hipDevicePrimaryCtxSetFlags(hipDevice_t Device, unsigned int Flags) {
 hipError_t hipDevicePrimaryCtxGetState(hipDevice_t Device, unsigned int *Flags,
                                        int *Active) {
   CHIP_TRY
+  LOCK(ApiMtx);
   CHIPInitialize();
 
   if (static_cast<unsigned int>(Device) >= Backend->getDevices().size()) {

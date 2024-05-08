@@ -38,6 +38,9 @@
 #include <mutex>
 #include <atomic>
 
+/// Prevent more than one HIP API call from executing at the same time
+extern std::mutex ApiMtx;
+
 #include "Utils.hh"
 #include "CHIPException.hh"
 #include "chipStarConfig.hh"

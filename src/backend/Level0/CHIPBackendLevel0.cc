@@ -222,19 +222,16 @@ void CHIPEventLevel0::reset() {
   DependsOnList.clear();
   auto Status = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
-  {
-    LOCK(EventMtx); // chipstar::Event::TrackCalled_
-    TrackCalled_ = false;
-    UserEvent_ = false;
-    if (EventStatus_ == EVENT_STATUS_RECORDING)
-      logWarn("CHIPEventLevel0::reset() called while event is recording");
+  TrackCalled_ = false;
+  UserEvent_ = false;
+  if (EventStatus_ == EVENT_STATUS_RECORDING)
+    logWarn("CHIPEventLevel0::reset() called while event is recording");
 
-    EventStatus_ = EVENT_STATUS_INIT;
-    Timestamp_ = 0;
-    HostTimestamp_ = 0;
-    DeviceTimestamp_ = 0;
-    markDeleted(false);
-  }
+  EventStatus_ = EVENT_STATUS_INIT;
+  Timestamp_ = 0;
+  HostTimestamp_ = 0;
+  DeviceTimestamp_ = 0;
+  markDeleted(false);
 }
 
 ze_event_handle_t &CHIPEventLevel0::peek() {
@@ -264,7 +261,6 @@ CHIPEventLevel0::~CHIPEventLevel0() {
 
   Event_ = nullptr;
   EventPoolHandle_ = nullptr;
-  EventPool = nullptr;
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
@@ -274,7 +270,6 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
     : chipstar::Event((chipstar::Context *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr) {
   LOCK(TheEventPool->EventPoolMtx); // CHIPEventPool::EventPool_ via get()
-  EventPool = TheEventPool;
   EventPoolIndex = ThePoolIndex;
   EventPoolHandle_ = TheEventPool->get();
 
@@ -298,7 +293,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipCtx), Flags), Event_(nullptr),
-      EventPoolHandle_(nullptr), EventPoolIndex(0), EventPool(0) {
+      EventPoolHandle_(nullptr), EventPoolIndex(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
@@ -338,7 +333,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  ze_event_handle_t NativeEvent)
     : chipstar::Event((chipstar::Context *)(ChipCtx)), Event_(NativeEvent),
-      EventPoolHandle_(nullptr), EventPoolIndex(0), EventPool(nullptr) {}
+      EventPoolHandle_(nullptr), EventPoolIndex(0) {}
 
 void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   ze_result_t Status;
@@ -381,8 +376,8 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   // Prevent these events from getting collection
-  ChipEventLz->addDependency(TimestampWriteCompleteLz);
-  ChipEventLz->addDependency(TimestampMemcpyCompleteLz);
+  TimestampWriteCompleteLz->addDependency(TimestampMemcpyCompleteLz);
+  Backend->trackEvent(TimestampWriteCompleteLz);
 
   Status =
       zeCommandListAppendBarrier(CommandList->getCmdList(), ChipEventLz->get(),
@@ -396,52 +391,54 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 }
 
 bool CHIPEventLevel0::wait() {
-  LOCK(EventMtx); // chipstar::Event::EventStatus_
   isDeletedSanityCheck();
   logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
            ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
-  ze_result_t Status =
-      zeEventHostSynchronize(Event_, ChipEnvVars.getL0EventTimeout());
-  if (Status == ZE_RESULT_NOT_READY) {
-    logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
-             "seconds.\n"
-             "Aborting now... segfaults, illegal instructions and other "
-             "undefined behavior may follow.",
-             (void *)this, Msg, (void *)Event_,
-             ChipEnvVars.getL0EventTimeout() / 1e9);
-    std::abort();
+  ze_result_t Status = ZE_RESULT_NOT_READY;
+  uint64_t timeout = ChipEnvVars.getL0EventTimeout();
+  auto start_time = std::chrono::high_resolution_clock::now();
+
+  while (Status == ZE_RESULT_NOT_READY) {
+    LOCK(EventMtx); // chipstar::Event::EventStatus_
+    Status = zeEventHostSynchronize(Event_, 1);
+
+    auto current_time = std::chrono::high_resolution_clock::now();
+    auto elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            current_time - start_time)
+                            .count();
+
+    if (elapsed_time >= timeout) {
+      logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
+               "seconds.\n"
+               "Aborting now... segfaults, illegal instructions and other "
+               "undefined behavior may follow.",
+               (void *)this, Msg, (void *)Event_, timeout / 1e9);
+      std::abort();
+    }
   }
 
-  // LOCK(EventMtx); // chipstar::Event::EventStatus_
+  LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDED;
   return true;
 }
 
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   isDeletedSanityCheck();
-  std::string EventStatusOld, EventStatusNew;
-  {
-    LOCK(EventMtx); // chipstar::Event::EventStatus_
 
-    EventStatusOld = getEventStatusStr();
+  auto EventStatusOld = EventStatus_;
 
-    ze_result_t Status = zeEventQueryStatus(Event_);
-    if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
-      CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
-    }
-    if (Status == ZE_RESULT_SUCCESS) {
-      EventStatus_ = EVENT_STATUS_RECORDED;
-      releaseDependencies();
-      doActions();
-    }
-
-    EventStatusNew = getEventStatusStr();
+  ze_result_t Status = zeEventQueryStatus(Event_);
+  if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
+    CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
+  }
+  if (Status == ZE_RESULT_SUCCESS) {
+    EventStatus_ = EVENT_STATUS_RECORDED;
+    releaseDependencies();
+    doActions();
   }
 
-  if (EventStatusNew != EventStatusOld)
-    return true;
-  return false;
+  return EventStatusOld != EventStatus_;
 }
 
 uint32_t CHIPEventLevel0::getValidTimestampBits() {
@@ -648,6 +645,7 @@ void CHIPEventMonitorLevel0::checkEvents() {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
         std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
     ChipEventLz->isDeletedSanityCheck();
+    LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
 
     assert(ChipEventLz);
     assert(!ChipEventLz->isUserEvent() &&
@@ -656,20 +654,8 @@ void CHIPEventMonitorLevel0::checkEvents() {
     // updateFinishStatus will return true upon event state change.
     ChipEventLz->updateFinishStatus(false);
 
-    if (ChipEventLz->DependsOnList.size() == 0) {
+    if (ChipEventLz->DependsOnList.size() == 0)
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
-    }
-
-    ChipEventLz->isDeletedSanityCheck();
-
-    // delete the event if refcount reached 1 (this->ChipEventLz)
-    if (ChipEventLz.use_count() == 1) {
-      if (ChipEventLz->EventPool) {
-        ChipEventLz->isDeletedSanityCheck();
-        ChipEventLz->EventPool->returnEvent(ChipEventLz);
-      }
-    }
-
   } // done collecting events to delete
 }
 
@@ -885,6 +871,7 @@ std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   LOCK(ContextMtx); // Context::EventPools
   EventsRequested_++;
   std::shared_ptr<CHIPEventLevel0> Event;
+
   for (auto EventPool : EventPools_) {
     LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
     if (EventPool->EventAvailable()) {
@@ -1479,10 +1466,9 @@ void CHIPQueueLevel0::finish() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
   ze_result_t Status;
-  Status = zeCommandListHostSynchronize(ZeCmdListImm_,
-                                        ChipEnvVars.getL0EventTimeout());
-  CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeCommandListHostSynchronize timeout out");
+  auto LastEvent = getLastEvent();
+  if (LastEvent)
+    LastEvent->wait();
 
   Status = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
   CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
@@ -1498,11 +1484,13 @@ void CHIPQueueLevel0::executeCommandList(
   auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
   LOCK(BackendLz->ActiveCmdListsMtx);
   BackendLz->ActiveCmdLists.push_back(std::move(CmdList));
+  Backend->trackEvent(Event);
 }
 
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t &CmdList, std::shared_ptr<chipstar::Event> Event) {
   updateLastEvent(Event);
+  Backend->trackEvent(Event);
 }
 
 // End CHIPQueueLevelZero
@@ -1530,9 +1518,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
-    auto NewEvent = std::shared_ptr<CHIPEventLevel0>(
-        new CHIPEventLevel0(Ctx_, this, i, Flags));
-    Events_.push(NewEvent);
+    Events_.push(new CHIPEventLevel0(Ctx_, this, i, Flags));
   }
 };
 
@@ -1544,8 +1530,11 @@ LZEventPool::~LZEventPool() {
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
-  while (Events_.size())
+  while (Events_.size()) {
+    delete Events_.top();
     Events_.pop();
+  }
+
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
   // Done via destructor should not be called from multiple threads
@@ -1555,22 +1544,21 @@ LZEventPool::~LZEventPool() {
 };
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
-  std::shared_ptr<CHIPEventLevel0> Event;
+  auto Deleter = [this](CHIPEventLevel0 *Ptr) { returnEvent(Ptr); };
+
   if (!Events_.size())
     return nullptr;
 
-  Event = Events_.top();
+  auto Event = Events_.top();
   Events_.pop();
 
-  return Event;
+  return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
 };
 
-void LZEventPool::returnEvent(std::shared_ptr<CHIPEventLevel0> Event) {
+void LZEventPool::returnEvent(CHIPEventLevel0 *Event) {
   Event->isDeletedSanityCheck();
   Event->markDeleted();
   LOCK(EventPoolMtx);
-  logTrace("Returning event {} handle {}", (void *)Event.get(),
-           (void *)Event.get()->get());
   Events_.push(Event);
 }
 
