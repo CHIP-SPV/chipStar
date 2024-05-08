@@ -2451,6 +2451,7 @@ hipError_t hipDeviceGetStreamPriorityRange(int *LeastPriority,
 hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
+  LOCK(Backend->EventsMtx);
   CHIPInitialize();
   if (Stream == hipStreamPerThread)
     CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",

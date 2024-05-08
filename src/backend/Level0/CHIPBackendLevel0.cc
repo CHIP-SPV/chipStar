@@ -376,8 +376,8 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
 
   // Prevent these events from getting collection
-  ChipEventLz->addDependency(TimestampWriteCompleteLz);
-  ChipEventLz->addDependency(TimestampMemcpyCompleteLz);
+  TimestampWriteCompleteLz->addDependency(TimestampMemcpyCompleteLz);
+  Backend->trackEvent(TimestampWriteCompleteLz);
 
   Status =
       zeCommandListAppendBarrier(CommandList->getCmdList(), ChipEventLz->get(),
@@ -1469,10 +1469,6 @@ void CHIPQueueLevel0::finish() {
   auto LastEvent = getLastEvent();
   if (LastEvent)
     LastEvent->wait();
-  // Status = zeCommandListHostSynchronize(ZeCmdListImm_,
-  //                                       ChipEnvVars.getL0EventTimeout());
-  // CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-  //                             "zeCommandListHostSynchronize timeout out");
 
   Status = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
   CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
@@ -1534,8 +1530,11 @@ LZEventPool::~LZEventPool() {
     logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
             "destruction");
 
-  while (Events_.size())
+  while (Events_.size()) {
+    delete Events_.top();
     Events_.pop();
+  }
+
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
   // Done via destructor should not be called from multiple threads
