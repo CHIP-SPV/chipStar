@@ -34,7 +34,7 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
       ::Backend->createExecItem(GridDim, BlockDim, SharedMemSize, Q);
   EI->setKernel(K);
 
-  EI->copyArgs(Args);
+  EI->setArgs(Args);
   EI->setupAllArgs();
 
   auto ChipQueue = EI->getQueue();
@@ -167,6 +167,7 @@ void chipstar::AllocationTracker::recordAllocation(
     // Map onto host so that the data can be potentially initialized on host
     ::Backend->getActiveDevice()->getDefaultQueue()->MemMap(
         AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
+    NumHostAllocations_ += 1;
   }
 
   if (MemoryType == hipMemoryTypeUnified)
@@ -496,11 +497,6 @@ void *chipstar::ArgSpillBuffer ::allocate(const SPVFuncInfo::Arg &Arg) {
 
 // ExecItem
 //*************************************************************************************
-void chipstar::ExecItem::copyArgs(void **Args) {
-  for (int i = 0; i < getNumArgs(); i++) {
-    Args_.push_back(Args[i]);
-  }
-}
 
 chipstar::ExecItem::ExecItem(dim3 GridDim, dim3 BlockDim, size_t SharedMem,
                              hipStream_t ChipQueue)
@@ -531,10 +527,9 @@ chipstar::Device::~Device() {
   if (PerThreadDefaultQueue)
     PerThreadDefaultQueue->finish();
 
-  while (this->ChipQueues_.size() > 0) {
-    delete ChipQueues_[0];
-    ChipQueues_.erase(ChipQueues_.begin());
-  }
+  for (auto *Queue : UserQueues_)
+    delete Queue;
+  UserQueues_.clear();
 
   delete LegacyDefaultQueue;
   LegacyDefaultQueue = nullptr;
@@ -848,9 +843,9 @@ void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
   logDebug("{} Device::addQueue({})", (void *)this, (void *)ChipQueue);
 
   auto QueueFound =
-      std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
-  if (QueueFound == ChipQueues_.end()) {
-    ChipQueues_.push_back(ChipQueue);
+      std::find(UserQueues_.begin(), UserQueues_.end(), ChipQueue);
+  if (QueueFound == UserQueues_.end()) {
+    UserQueues_.push_back(ChipQueue);
   } else {
     CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
                           "already present in the backend queue list",
@@ -918,19 +913,19 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
    *
    * Choosing not to call Queue->finish()
    */
-  LOCK(DeviceMtx) // reading chipstar::Device::ChipQueues_
+  LOCK(DeviceMtx) // reading chipstar::Device::UserQueues_
   ChipQueue->updateLastEvent(nullptr);
 
   // Remove from device queue list
   auto FoundQueue =
-      std::find(ChipQueues_.begin(), ChipQueues_.end(), ChipQueue);
-  if (FoundQueue == ChipQueues_.end()) {
+      std::find(UserQueues_.begin(), UserQueues_.end(), ChipQueue);
+  if (FoundQueue == UserQueues_.end()) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
         "device queue list";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorUnknown);
   }
-  ChipQueues_.erase(FoundQueue);
+  UserQueues_.erase(FoundQueue);
 
   delete ChipQueue;
   return true;
@@ -1491,12 +1486,22 @@ void chipstar::Queue::updateLastEvent(
   LastEvent_ = NewEvent;
 }
 
+/// Return a list of events from other queues that the current queue needs to
+/// synchronize with for modeling the implicit synchronization behavior of the
+/// NULL stream. Called queue's last event is included if 'IncludeSelfLastEvent'
+/// is true.
 std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
-chipstar::Queue::getSyncQueuesLastEvents(
-    std::shared_ptr<chipstar::Event> Event) {
+chipstar::Queue::getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> Event,
+                                         bool IncludeSelfLastEvent) {
 
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
   std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+  // No need for default-stream implicit synchronization if there are
+  // no user created blocking queues.
+  auto NumUserQueues = ChipDevice_->getNumUserQueues();
+  if (!NumUserQueues && !IncludeSelfLastEvent)
+    return {EventsToWaitOn, std::move(EventLocks)};
 
   EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(
       ::Backend->GlobalLastEventMtx));
@@ -1515,6 +1520,9 @@ chipstar::Queue::getSyncQueuesLastEvents(
 
   EventLocks.push_back(
       std::make_unique<std::unique_lock<std::mutex>>(Event->EventMtx));
+
+  if (!NumUserQueues)
+    return {EventsToWaitOn, std::move(EventLocks)};
 
   // If this stream is default legacy stream, sync with all other streams on
   // this device
@@ -1758,9 +1766,13 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
   //       the kernel does not have any, we only need inspect kernels
   //       pointer arguments for allocations to be synchronized.
 
-  std::vector<std::shared_ptr<chipstar::Event>> CopyEvents;
+  auto *AllocTracker = ::Backend->getActiveDevice()->AllocTracker;
+  if (!AllocTracker->getNumHostAllocations() &&
+      !AllocTracker->getNumManagedAllocations())
+    return nullptr; // Nothing to synchronize.
+
   auto PreKernel = ExecState == MANAGED_MEM_STATE::PRE_KERNEL;
-  auto &AllocTracker = ::Backend->getActiveDevice()->AllocTracker;
+  std::vector<std::shared_ptr<chipstar::Event>> CopyEvents;
   auto ArgVisitor = [&](const chipstar::AllocationInfo &AllocInfo) -> void {
     if (AllocInfo.MemoryType == hipMemoryTypeHost) {
       logDebug("Sync host memory {} ({})", AllocInfo.HostPtr,
@@ -1873,7 +1885,7 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
   chipstar::ExecItem *ExItem =
       ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
   ExItem->setKernel(ChipKernel);
-  ExItem->copyArgs(Args);
+  ExItem->setArgs(Args);
   ExItem->setupAllArgs();
   launch(ExItem);
   delete ExItem;

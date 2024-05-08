@@ -39,9 +39,8 @@ enum class SPVTypeKind : unsigned {
   Pointer, // The type is a pointer of any storage class.
 
   // Kinds that may only appear in SPVFuncInfo::KernelArg.
-  PODByRef, // Same as PODB except the value is passed in an
-            // intermediate device buffer and a pointer to its
-            // location given to the kernel.
+  PODByRef, // Same as POD except the value is passed indirectly via
+            // a device buffer.
   Image,    // The type is a image.
   Sampler,  // The type is a sample.
 
@@ -75,9 +74,8 @@ class SPVFuncInfo {
 
   std::vector<SPVArgTypeInfo> ArgTypeInfo_;
 
-  /// Spilled argument annotations represented as pairs of argument
-  /// index (key) and argument size (value).
-  std::map<uint16_t, uint16_t> SpilledArgs_;
+  /// Set to true if any argument is SPVTypeKind::PODByRef.
+  bool HasByRefArgs_ = false;
 
 public:
   /// A structure for argument info passed by the visitor methods.
@@ -103,11 +101,9 @@ public:
   SPVFuncInfo(const std::vector<SPVArgTypeInfo> &Info) : ArgTypeInfo_(Info) {}
 
   void visitClientArgs(ClientArgVisitor Fn) const;
-  void visitClientArgs(const std::vector<void *> &ArgList,
-                       ClientArgVisitor Fn) const;
+  void visitClientArgs(void **ArgList, ClientArgVisitor Fn) const;
   void visitKernelArgs(KernelArgVisitor Fn) const;
-  void visitKernelArgs(const std::vector<void *> &ArgList,
-                       KernelArgVisitor Fn) const;
+  void visitKernelArgs(void **ArgList, KernelArgVisitor Fn) const;
 
   /// Return visible kernel argument count.
   ///
@@ -119,15 +115,11 @@ public:
   unsigned getNumKernelArgs() const { return ArgTypeInfo_.size(); }
 
   /// Return true is any argument is passed via intermediate buffer.
-  bool hasByRefArgs() const { return SpilledArgs_.size(); }
+  bool hasByRefArgs() const noexcept { return HasByRefArgs_; }
 
 private:
-  void visitClientArgsImpl(const std::vector<void *> &ArgList,
-                           ClientArgVisitor Fn) const;
-  void visitKernelArgsImpl(const std::vector<void *> &ArgList,
-                           KernelArgVisitor Fn) const;
-  bool isSpilledArg(unsigned KernelArgIndex) const;
-  unsigned getSpilledArgSize(unsigned KernelArgIndex) const;
+  void visitClientArgsImpl(void **ArgList, ClientArgVisitor Fn) const;
+  void visitKernelArgsImpl(void **ArgList, KernelArgVisitor Fn) const;
 };
 
 typedef std::map<int32_t, std::shared_ptr<SPVFuncInfo>> SPVFuncInfoMap;

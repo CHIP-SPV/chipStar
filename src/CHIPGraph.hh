@@ -261,6 +261,12 @@ public:
 
 class CHIPGraphNodeKernel : public CHIPGraphNode {
 private:
+  /// A block holding the bytes of the kernel arguments.
+  std::vector<char> ArgData_;
+
+  /// pointer to start of the kernel argument data for each kernel argument.
+  std::vector<void *> ArgList_;
+
   hipKernelNodeParams Params_;
   chipstar::ExecItem *ExecItem_;
 

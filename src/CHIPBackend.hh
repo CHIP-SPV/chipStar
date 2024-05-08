@@ -500,6 +500,9 @@ private:
   std::unordered_set<chipstar::AllocationInfo *> AllocInfos_;
   std::unordered_map<void *, chipstar::AllocationInfo *> PtrToAllocInfo_;
 
+  size_t NumHostAllocations_ = 0;
+  size_t NumManagedAllocations_ = 0;
+
 public:
   mutable std::mutex AllocationTrackerMtx;
 
@@ -522,6 +525,7 @@ public:
     this->PtrToAllocInfo_[HostPtr] = AllocInfo;
     AllocInfo->MemoryType = hipMemoryTypeManaged;
     AllocInfo->IsHostRegistered = true;
+    NumManagedAllocations_ += 1;
   }
 
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
@@ -604,6 +608,20 @@ public:
     assert(AllocInfo && "Null pointer passed to eraseRecord");
     assert(AllocInfos_.count(AllocInfo) &&
            "Not a member of the allocation tracker!");
+
+    switch (AllocInfo->MemoryType) {
+    default:
+      break;
+    case hipMemoryTypeHost:
+      assert(NumHostAllocations_ > 0);
+      NumHostAllocations_ -= 1;
+      break;
+    case hipMemoryTypeManaged:
+      assert(NumManagedAllocations_ > 0);
+      NumManagedAllocations_ -= 1;
+      break;
+    }
+
     PtrToAllocInfo_.erase(AllocInfo->DevPtr);
     if (AllocInfo->HostPtr)
       PtrToAllocInfo_.erase(AllocInfo->HostPtr);
@@ -623,6 +641,10 @@ public:
   }
 
   size_t getNumAllocations() const { return AllocInfos_.size(); }
+
+  // Return the number of host type allocations.
+  size_t getNumHostAllocations() const { return NumHostAllocations_; }
+  size_t getNumManagedAllocations() const { return NumManagedAllocations_; }
 };
 
 class DeviceVar {
@@ -1155,12 +1177,12 @@ protected:
 
   chipstar::Queue *ChipQueue_;
 
-  std::vector<void *> Args_;
+  void **Args_;
 
   std::shared_ptr<chipstar::ArgSpillBuffer> ArgSpillBuffer_;
 
 public:
-  void copyArgs(void **Args);
+  void setArgs(void **Args) { Args_ = Args; }
   void setQueue(chipstar::Queue *Queue) { ChipQueue_ = Queue; }
   std::mutex ExecItemMtx;
   size_t getNumArgs() {
@@ -1172,7 +1194,7 @@ public:
   /**
    * @brief Return argument list.
    */
-  const std::vector<void *> &getArgs() const { return Args_; }
+  void **getArgs() const { return Args_; }
 
   /**
    * @brief Deleted default constructor
@@ -1288,7 +1310,10 @@ class Device {
 protected:
   std::string DeviceName_;
   chipstar::Context *Ctx_;
-  std::vector<chipstar::Queue *> ChipQueues_;
+
+  /// List of user created queues.
+  std::vector<chipstar::Queue *> UserQueues_;
+
   std::once_flag PropsPopulated_;
 
   hipDeviceAttribute_t Attrs_;
@@ -1319,7 +1344,10 @@ public:
   std::mutex DeviceMtx;
   std::mutex QueueAddRemoveMtx;
 
-  std::vector<chipstar::Queue *> getQueuesNoLock() { return ChipQueues_; }
+  std::vector<chipstar::Queue *> getQueuesNoLock() { return UserQueues_; }
+
+  /// Return the number of user created queues.
+  size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
   inline static thread_local std::unique_ptr<chipstar::Queue>
@@ -2109,9 +2137,9 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
-  std::pair<SharedEventVector, LockGuardVector> getSyncQueuesLastEvents();
   std::pair<SharedEventVector, LockGuardVector>
-  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent);
+  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent,
+                          bool IncludeSelfLastEvent);
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}
