@@ -1,0 +1,84 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &size_range
+    - { M: -1, N: -1, KL: -1, KU: -1, lda: -1 }
+    - { M: 1000, N: 1000, KL: 150, KU: 84, lda: 1000 }
+
+  - &incx_incy_range
+    - { incx:  2, incy:  1 }
+    - { incx:  0, incy: -1 }
+    - { incx: -1, incy: -1 }
+
+  - &alpha_beta_range
+    - { alpha:  1.0, beta:  0.0 }
+    - { alpha: -1.0, beta: -1.0 }
+    - { alpha:  2.0, beta:  1.0 }
+    - { alpha:  0.0, beta:  1.0 }
+
+  - &batch_count_range
+    - [ -1, 0, 1, 5 ]
+
+Tests:
+  - name: gbmv_general
+    category: quick
+    function: gbmv
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    alpha_beta: *alpha_beta_range
+    matrix_size: *size_range
+    incx_incy: *incx_incy_range
+    api: [ FORTRAN, C ]
+
+  - name: gbmv_batched_general
+    category: quick
+    function: gbmv_batched
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    alpha_beta: *alpha_beta_range
+    matrix_size: *size_range
+    incx_incy: *incx_incy_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: gbmv_strided_batched_general
+    category: quick
+    function: gbmv_strided_batched
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    alpha_beta: *alpha_beta_range
+    matrix_size: *size_range
+    incx_incy: *incx_incy_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: gbmv_bad_arg
+    category: pre_checkin
+    function:
+      - gbmv_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: gbmv_bad_arg
+    category: pre_checkin
+    function:
+      - gbmv_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+
+  - name: gbmv_bad_arg
+    category: pre_checkin
+    function:
+      - gbmv_batched_bad_arg
+      - gbmv_strided_batched_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+...

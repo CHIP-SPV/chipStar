@@ -1,0 +1,83 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &N_range
+    - [ -1, 1000 ]
+
+  - &incx_incy_range
+    - { incx:  2, incy:  1 }
+    - { incx:  0, incy: -1 }
+    - { incx: -1, incy: -1 }
+
+  - &alpha_beta_range
+    - { alpha:  1.0, alphai:  0.0, beta:  0.0, betai:  0.0 }
+    - { alpha: -1.0, alphai:  1.5, beta: -1.0, betai:  2.0 }
+    - { alpha:  2.0, alphai: -1.5, beta:  1.0, betai:  1.5 }
+    - { alpha:  0.0, alphai:  0.0, beta:  1.0, betai:  0.0 }
+
+  - &batch_count_range
+    - [ -1, 0, 2 ]
+
+Tests:
+  - name: hpmv_general
+    category: quick
+    function: hpmv
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    alpha_beta: *alpha_beta_range
+    N: *N_range
+    incx_incy: *incx_incy_range
+    api: [ FORTRAN, C ]
+
+  - name: hpmv_batched_general
+    category: quick
+    function: hpmv_batched
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    alpha_beta: *alpha_beta_range
+    N: *N_range
+    incx_incy: *incx_incy_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: hpmv_strided_batched_general
+    category: quick
+    function: hpmv_strided_batched
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    alpha_beta: *alpha_beta_range
+    N: *N_range
+    incx_incy: *incx_incy_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: hpmv_bad_arg
+    category: pre_checkin
+    function:
+      - hpmv_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: hpmv_bad_arg
+    category: pre_checkin
+    function:
+      - hpmv_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+
+  - name: hpmv_bad_arg
+    category: pre_checkin
+    function:
+      - hpmv_batched_bad_arg
+      - hpmv_strided_batched_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+...

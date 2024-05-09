@@ -1,0 +1,60 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &N_range
+    - [ -1, 10, 500, 1000, 7111, 10000 ]
+
+  - &incx_range
+    - [-1, 1 ]
+
+  - &batch_count_range
+    - [ -1, 0, 1, 2, 10 ]
+
+Tests:
+  - name: nrm2_ex_general
+    category: quick
+    function: nrm2_ex
+    precision: *nrm2_ex_precisions
+    N: *N_range
+    incx: *incx_range
+    api: [ FORTRAN, C ]
+
+  - name: nrm2_batched_ex_general
+    category: quick
+    function: nrm2_batched_ex
+    precision: *nrm2_ex_precisions
+    N: *N_range
+    incx: *incx_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: nrm2_strided_batched_ex_general
+    category: quick
+    function: nrm2_strided_batched_ex
+    precision: *nrm2_ex_precisions
+    N: *N_range
+    incx: *incx_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: nrm2_ex_bad_arg
+    category: pre_checkin
+    function:
+      - nrm2_ex_bad_arg: *nrm2_ex_precisions
+      - nrm2_batched_ex_bad_arg: *nrm2_ex_precisions
+      - nrm2_strided_batched_ex_bad_arg: *nrm2_ex_precisions
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: nrm2_ex_bad_arg
+    category: pre_checkin
+    function:
+      - nrm2_ex_bad_arg: *nrm2_ex_precisions
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+...

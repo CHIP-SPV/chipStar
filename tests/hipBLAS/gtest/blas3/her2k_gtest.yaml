@@ -1,0 +1,74 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &size_range
+    - { N: -1, K: -1, lda: -1, ldc: -1 }
+    - { N: 11, K:  6, lda: 11, ldc: 11 }
+    - { N: 16, K: 15, lda: 33, ldc: 35 }
+    - { N: 32, K: 12, lda: 32, ldc: 33 }
+    - { N: 65, K:  4, lda: 65, ldc: 65 }
+
+  - &alpha_beta_range
+    - { alpha: -0.5, alphai: 1.5, beta: 2.0, betai: 1.5 }
+    - { alpha:  2.0, alphai: 1.0, beta: 2.0, betai: 1.0 }
+    - { alpha:  0.0, alphai: 0.0, beta: 0.0, betai: 0.0 }
+
+  - &batch_count_range
+    - [ -1, 0, 1, 5 ]
+
+Tests:
+  - name: her2k_general
+    category: quick
+    function: her2k
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    transA: [ 'N', 'T', 'C' ]
+    matrix_size: *size_range
+    alpha_beta: *alpha_beta_range
+    api: [ FORTRAN, C ]
+
+  - name: her2k_batched_general
+    category: quick
+    function: her2k_batched
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    transA: [ 'N', 'T', 'C' ]
+    matrix_size: *size_range
+    alpha_beta: *alpha_beta_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: her2k_strided_batched_general
+    category: quick
+    function: her2k_strided_batched
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    transA: [ 'N', 'T', 'C' ]
+    matrix_size: *size_range
+    alpha_beta: *alpha_beta_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: her2k_bad_arg
+    category: pre_checkin
+    function:
+      - her2k_bad_arg
+      - her2k_batched_bad_arg
+      - her2k_strided_batched_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: her2k_bad_arg
+    category: pre_checkin
+    function:
+      - her2k_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+...

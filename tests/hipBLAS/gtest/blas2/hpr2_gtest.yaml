@@ -1,0 +1,82 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &N_range
+    - [ -1, 11, 16, 32, 65 ]
+
+  - &incx_incy_range
+    - { incx:  2, incy:  1 }
+    - { incx:  0, incy:  0 }
+    - { incx: -1, incy: -1 }
+
+  - &alpha_beta_range
+    - { alpha: -0.5, alphai:  1.5 }
+    - { alpha:  2.0, alphai: -1.0 }
+    - { alpha:  0.0, alphai:  0.0 }
+
+  - &batch_count_range
+    - [ -1, 0, 1, 2, 10 ]
+
+Tests:
+  - name: hpr2_general
+    category: quick
+    function: hpr2
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    alpha_beta: *alpha_beta_range
+    N: *N_range
+    incx_incy: *incx_incy_range
+    api: [ FORTRAN, C ]
+
+  - name: hpr2_batched_general
+    category: quick
+    function: hpr2_batched
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    alpha_beta: *alpha_beta_range
+    N: *N_range
+    incx_incy: *incx_incy_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: hpr2_strided_batched_general
+    category: quick
+    function: hpr2_strided_batched
+    precision: *single_double_precisions_complex
+    uplo: [ 'L', 'U' ]
+    alpha_beta: *alpha_beta_range
+    N: *N_range
+    incx_incy: *incx_incy_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: hpr2_bad_arg
+    category: pre_checkin
+    function:
+      - hpr2_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: hpr2_bad_arg
+    category: pre_checkin
+    function:
+      - hpr2_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+
+  - name: hpr2_bad_arg
+    category: pre_checkin
+    function:
+      - hpr2_batched_bad_arg
+      - hpr2_strided_batched_bad_arg
+    precision: *single_double_precisions_complex
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+...

@@ -1,0 +1,75 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &size_range
+    - { M:  -1, N:  -1, lda:  -1, ldb:  -1, ldc:  -1 }
+    - { M:   5, N:   5, lda:   5, ldb:   5, ldc:   5 }
+    - { M:   3, N:  33, lda:  33, ldb:  34, ldc:  35 }
+    - { M:  10, N:  10, lda: 100, ldb:  10, ldc:  10 }
+    - { M: 600, N: 500, lda: 500, ldb: 600, ldc: 500 }
+
+  - &alpha_beta_range
+    - { alpha: 2.0, alphai: -3.0, beta: 0.0, betai:  0.0 }
+    - { alpha: 3.0, alphai:  1.0, beta: 1.0, betai: -1.0 }
+    - { alpha: 0.0, alphai:  0.0, beta: 2.0, betai: -5.0 }
+    - { alpha: 0.0, alphai:  0.0, beta: 0.0, betai:  0.0 }
+
+  - &batch_count_range
+    - [ -1, 0, 1, 5 ]
+
+Tests:
+  - name: geam_general
+    category: quick
+    function: geam
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    transB: [ 'N', 'T', 'C' ]
+    matrix_size: *size_range
+    alpha_beta: *alpha_beta_range
+    api: [ FORTRAN, C ]
+
+  - name: geam_batched_general
+    category: quick
+    function: geam_batched
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    transB: [ 'N', 'T', 'C' ]
+    matrix_size: *size_range
+    alpha_beta: *alpha_beta_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: geam_strided_batched_general
+    category: quick
+    function: geam_strided_batched
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    transB: [ 'N', 'T', 'C' ]
+    matrix_size: *size_range
+    alpha_beta: *alpha_beta_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: geam_bad_arg
+    category: pre_checkin
+    function:
+      - geam_bad_arg
+      - geam_batched_bad_arg
+      - geam_strided_batched_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: geam_bad_arg
+    category: pre_checkin
+    function:
+      - geam_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+...

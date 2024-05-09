@@ -1,0 +1,84 @@
+---
+include: hipblas_common.yaml
+
+Definitions:
+  - &size_range
+    - { N: -1, K: -1, lda: -1 }
+    - { N: 11, K:  5, lda: 11 }
+    - { N: 16, K:  8, lda: 16 }
+    - { N: 32, K: 16, lda: 32 }
+    - { N: 65, K: 64, lda: 65 }
+
+  - &incx_range
+    - [ -1, 0, 2 ]
+
+
+  - &batch_count_range
+    - [ -1, 0, 1, 2, 10 ]
+
+Tests:
+  - name: tbsv_general
+    category: quick
+    function: tbsv
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    uplo: [ 'L', 'U' ]
+    diag: [ 'N', 'U' ]
+    matrix_size: *size_range
+    incx: *incx_range
+    api: [ FORTRAN, C ]
+
+
+  - name: tbsv_batched_general
+    category: quick
+    function: tbsv_batched
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    uplo: [ 'L', 'U' ]
+    diag: [ 'N', 'U' ]
+    matrix_size: *size_range
+    incx: *incx_range
+    batch_count: *batch_count_range
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: tbsv_strided_batched_general
+    category: quick
+    function: tbsv_strided_batched
+    precision: *single_double_precisions_complex_real
+    transA: [ 'N', 'T', 'C' ]
+    uplo: [ 'L', 'U' ]
+    diag: [ 'N', 'U' ]
+    matrix_size: *size_range
+    incx: *incx_range
+    batch_count: *batch_count_range
+    stride_scale: [ 1.0, 2.5 ]
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: tbsv_bad_arg
+    category: pre_checkin
+    function:
+      - tbsv_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+
+  - name: tbsv_bad_arg
+    category: pre_checkin
+    function:
+      - tbsv_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    bad_arg_all: false
+    backend_flags: NVIDIA
+
+  - name: tbsv_bad_arg
+    category: pre_checkin
+    function:
+      - tbsv_batched_bad_arg
+      - tbsv_strided_batched_bad_arg
+    precision: *single_double_precisions_complex_real
+    api: [ FORTRAN, C ]
+    backend_flags: AMD
+...
