@@ -16,9 +16,7 @@ else
     exit 1
 fi
 
-module load HIP/hipBLAS/main/debug-reg mkl
-module list
 rm -rf libCEED
-git clone https://github.com/CHIP-SPV/libCEED.git -b jed/chip-spv-pvelesko
+git clone https://github.com/CHIP-SPV/libCEED.git -b chipStar
 cd libCEED
-make FC= CC=clang CXX=clang++ BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j
+make FC= CC=hipcc CXX=hipcc BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j 
