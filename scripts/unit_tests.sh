@@ -233,8 +233,6 @@ function check_libceed {
 overall_status=0
 set +e
 echo "RESULTS:"
-# ICL broken for iGP
-                  #  igpu_level0_make_check_result.txt 
 for test_result in dgpu_opencl_make_check_result.txt \
                    igpu_opencl_make_check_result.txt \
                    igpu_level0_make_check_result.txt \
@@ -248,6 +246,10 @@ do
   fi
 done
 
+for test_result in dgpu_opencl_make_check_result.txt \
+                   igpu_opencl_make_check_result.txt \
+                   igpu_level0_make_check_result.txt \
+                   dgpu_level0_make_check_result.txt
 do
   echo -n "${test_result}: "
   check_libceed "${test_result}"
