@@ -220,13 +220,13 @@ function check_tests {
 
 function check_libceed {
   file="$1"
-  if grep -q "Result: PASS" "$file"; then
-    echo "PASS"
-    return 0
-  else
+  if grep -q "not ok" "$file"; then
     echo "FAIL"
     awk '/Test Summary Report/,EOF' "$file"
     return 1
+  else
+    echo "PASS"
+    return 0
   fi
 }
 
@@ -248,18 +248,13 @@ do
   fi
 done
 
-# # dgpu_opencl_make_check_result
-# # libCEED/cpu_pocl_make_check_result.txt https://github.com/CHIP-SPV/H4I-MKLShim/issues/15
-# for test_result in libCEED/dgpu_opencl_make_check_result.txt \
-#                    libCEED/dgpu_level0_make_check_result.txt
-                   
-# do
-#   echo -n "${test_result}: "
-#   check_libceed "${test_result}"
-#   test_status=$?
-#   if [ $test_status -eq 1 ]; then
-#     overall_status=1
-#   fi
-# done
+do
+  echo -n "${test_result}: "
+  check_libceed "${test_result}"
+  test_status=$?
+  if [ $test_status -eq 1 ]; then
+    overall_status=1
+  fi
+done
 
 exit $overall_status
