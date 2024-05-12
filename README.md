@@ -110,6 +110,38 @@ make all build_tests install -j8
 
 NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` package), but only libOpenCL.so.1 installed, CMake fails to find it and disables the OpenCL backend. This [issue](https://github.com/CHIP-SPV/chipStar/issues/542) describes a workaround.
 
+### Building on ARM + Mali
+
+To build chipStar for use with an ARM Mali G52 GPU, use these steps:
+
+1) build LLVM and SPIRV-LLVM-Translator as described above
+
+2) build chipStar with -DCHIP_MALI_GPU_WORKAROUNDS=ON cmake option
+
+There are some limitations - kernels using double type will not work,
+and kernels using subgroups may not work.
+
+Note that chipStar relies on the proprietary OpenCL implementation
+provided by ARM. We have successfully managed to compile and run
+chipStar with an Odroid N2 device, using Ubuntu 22.04.2 LTS,
+with driver version OpenCL 3.0 v1.r40p0-01eac0.
+
+### Building on RISC-V + PowerVR
+
+To build chipStar for use with a PowerVR GPU, the default steps can be followed.
+There is an automatic workaround applied for an [issue](https://github.com/CHIP-SPV/chipStar/pull/828) in PowerVR's OpenCL implementation.
+
+There are some limitations: kernels using double type will not work,
+kernels using subgroups may not work, you may also run into unexpected
+OpenCL errors like CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST and
+other issues.
+
+Note that chipStar relies on the proprietary OpenCL implementation
+provided by Imagination Technologies. We have successfully managed to
+compile and run chipStar with a VisionFive2 device, using VisionFive2's
+pre-built Debian image 202403, driver version 1.19. Other SBCs may require
+additional workarounds.
+
 ## Running Unit Tests
 
 There's a script `check.py` which can be used to run unit tests and which filters out known failing tests for different platforms. Its usage is as follows.

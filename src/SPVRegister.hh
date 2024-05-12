@@ -57,7 +57,7 @@ struct SPVGlobalObject {
   /// The module the object is associated with.
   SPVModule *Parent = nullptr;
   HostPtr Ptr;           ///< The host-pointer the entity is associated with.
-  std::string_view Name; ///< The name of the entity in the device.
+  std::string Name; ///< The name of the entity in the device.
 };
 
 struct SPVFunction : public SPVGlobalObject {};
@@ -97,6 +97,13 @@ private:
   std::unordered_map<const void *, SPVGlobalObject *> HostPtrLookup_;
 
 public:
+  // the PowerVR OpenCL implementation for some reason demangles SPIR-V function
+  // names, e.g. a SPIRV with a "_Z8testfunc" kernel turned into a cl_program
+  // returns "testfunc" in clGetProgramInfo(CL_PROGRAM_KERNEL_NAMES, ...)
+  // This is a major issue not only for finding kernels, but also potential
+  // name conflicts with function overloads.
+  bool PreventNameDemangling;
+
   /// A handle for an incomplete SPIR-V module used in the registration
   /// process. Contents of it are not meant to be accessed by clients.
   struct Handle {
@@ -105,8 +112,8 @@ public:
 
   Handle registerSource(std::string_view SourceModule);
 
-  void bindFunction(Handle Handle, HostPtr Ptr, std::string_view Name);
-  void bindVariable(Handle Handle, HostPtr Ptr, std::string_view Name,
+  void bindFunction(Handle Handle, HostPtr Ptr, const char *Name);
+  void bindVariable(Handle Handle, HostPtr Ptr, const std::string &Name,
                     size_t Size);
 
   void unregisterSource(Handle Src);

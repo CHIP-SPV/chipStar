@@ -55,10 +55,15 @@ SPVRegister::Handle SPVRegister::registerSource(std::string_view SourceModule) {
 /// Associates the given host-pointer with a function by name in the
 /// source module (Handle).
 void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
-                               std::string_view Name) {
+                               const char *Name) {
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
+
+  std::string FuncName(Name);
+  if (PreventNameDemangling) {
+    std::swap(FuncName[0], FuncName[1]);
+  }
 
   if (HostPtrLookup_.count(Ptr)) {
     // In case of **templated** and **inline qualified** __global__
@@ -80,14 +85,14 @@ void SPVRegister::bindFunction(SPVRegister::Handle Handle, HostPtr Ptr,
     return;
   }
 
-  SrcMod->Kernels.emplace_back(SPVFunction{SrcMod, Ptr, Name});
+  SrcMod->Kernels.emplace_back(SPVFunction{SrcMod, Ptr, std::move(FuncName)});
   HostPtrLookup_.emplace(std::make_pair(Ptr, &SrcMod->Kernels.back()));
 }
 
 /// Associates the given host-pointer with a variable by name in the
 /// source module (Handle).
 void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
-                               std::string_view Name, size_t Size) {
+                               const std::string &Name, size_t Size) {
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
@@ -159,9 +164,9 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
   //       into smaller independent ones (is possible) for reducing
   //       compilation time in the backend.
 
-  bool Success =
-      filterSPIRV(SrcMod->OriginalBinary_.data(),
-                  SrcMod->OriginalBinary_.size(), SrcMod->FinalizedBinary_);
+  bool Success = filterSPIRV(SrcMod->OriginalBinary_.data(),
+                             SrcMod->OriginalBinary_.size(),
+                             PreventNameDemangling, SrcMod->FinalizedBinary_);
   assert(Success && "SPIRV post processing failed!");
   // Can't be empty. There should be at least a SPIR-V header.
   assert(SrcMod->FinalizedBinary_.size() && "Empty finalized source");

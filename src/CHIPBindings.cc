@@ -4895,6 +4895,11 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
                           hipErrorInitializationError);
   }
 
+  assert(Backend);
+  std::string DevName = Backend->getActiveDevice()->getName();
+  getSPVRegister().PreventNameDemangling =
+      (DevName.find("PowerVR") != std::string::npos);
+
   std::string ErrorMsg;
   auto SPIRVModuleSpan = extractSPIRVModule(Wrapper->binary, ErrorMsg);
   if (SPIRVModuleSpan.empty())
@@ -4942,7 +4947,7 @@ extern "C" void __hipUnregisterFatBinary(void *Data) {
 
 extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
                                       char *DeviceFunction,
-                                      const char *DeviceName,
+                                      const char *FuncDeviceName,
                                       unsigned int ThreadLimit, void *Tid,
                                       void *Bid, dim3 *BlockDim, dim3 *GridDim,
                                       int *WSize) {
@@ -4955,9 +4960,10 @@ extern "C" void __hipRegisterFunction(void **Data, const void *HostFunction,
 
   logDebug("chipstar::Module {}: register function ({}) {}",
            static_cast<const void *>(Data),
-           static_cast<const void *>(HostFunction), DeviceName);
+           static_cast<const void *>(HostFunction), FuncDeviceName);
   SPVRegister::Handle ModHandle{reinterpret_cast<void *>(Data)};
-  getSPVRegister().bindFunction(ModHandle, HostPtr(HostFunction), DeviceName);
+  getSPVRegister().bindFunction(ModHandle, HostPtr(HostFunction),
+                                FuncDeviceName);
   CHIP_CATCH_NO_RETURN
 }
 

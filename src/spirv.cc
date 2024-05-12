@@ -278,7 +278,7 @@ public:
             (getWord(1) == (InstWord)spv::SourceLanguageOpenCL_CPP));
   }
 
-  bool isEntryPoint() {
+  bool isEntryPoint() const {
     return (Opcode_ == spv::Op::OpEntryPoint) &&
            (getWord(1) == (InstWord)spv::ExecutionModelKernel);
   }
@@ -805,7 +805,8 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
   return FilterAction::Keep;
 }
 
-bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
+bool filterSPIRV(const char *Bytes, size_t NumBytes,
+                 bool PreventNameDemangling, std::string &Dst) {
   logTrace("filterSPIRV");
 
   auto *WordsPtr = (const InstWord *)Bytes;
@@ -909,7 +910,16 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes, std::string &Dst) {
     }
     }
 
-    Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
+    // see SPVRegister::PreventNameDemangling
+    if (PreventNameDemangling && Insn.isEntryPoint()) {
+      TransformedInst.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
+      char *Temp = reinterpret_cast<char *>(TransformedInst.data() + 3);
+      std::swap(Temp[0], Temp[1]);
+      Dst.append((const char *)&*TransformedInst.begin(),
+                 (const char *)&*TransformedInst.end());
+    } else {
+      Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
+    }
   }
 
   for (auto &[Ignored, Name] : MissingDefs)

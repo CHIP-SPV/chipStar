@@ -825,13 +825,16 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   else
     AppendSource(chipstar::atomicAddFloat_emulation);
 
-  if (ChipDev.hasFP64AtomicAdd())
-    AppendSource(chipstar::atomicAddDouble_native);
-  else
-    AppendSource(chipstar::atomicAddDouble_emulation);
+  if (ChipDev.hasDoubles()) {
+    if (ChipDev.hasFP64AtomicAdd())
+      AppendSource(chipstar::atomicAddDouble_native);
+    else
+      AppendSource(chipstar::atomicAddDouble_emulation);
+  }
 
   if (ChipDev.hasBallot())
     AppendSource(chipstar::ballot_native);
+
   // No fall-back implementation for ballot - let linker raise an error.
 }
 
@@ -874,9 +877,8 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
       continue; // TODO
-      // CHIPERR_LOG_AND_THROW("Failed to find kernel in
-      // OpenCLFunctionInfoMap",
-      //                      hipErrorInitializationError);
+      CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
+                            hipErrorInitializationError);
     }
     CHIPKernelOpenCL *ChipKernel =
         new CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);
