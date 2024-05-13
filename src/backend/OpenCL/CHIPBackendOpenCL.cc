@@ -865,10 +865,7 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 }
 
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
-
-  // TODO make compile_ which calls consumeSPIRV()
   logTrace("CHIPModuleOpenCL::compile()");
-  consumeSPIRV();
   CHIPDeviceOpenCL *ChipDevOcl = (CHIPDeviceOpenCL *)ChipDev;
   CHIPContextOpenCL *ChipCtxOcl =
       (CHIPContextOpenCL *)(ChipDevOcl->getContext());

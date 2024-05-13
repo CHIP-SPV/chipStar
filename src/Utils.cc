@@ -68,19 +68,21 @@ std::string generateShortHash(std::string_view input, size_t length) {
 }
 
 /// Dump the SPIR-V to a file
-void dumpSpirv(std::string_view Spirv) {
-  std::string hashSum = generateShortHash(Spirv, 6);
-  std::string fileName = "hip-spirv-" + hashSum + ".spv";
-  std::ofstream SpirvFile(fileName, std::ios::binary);
-
+///
+/// On success return the path to the file.
+std::optional<fs::path> dumpSpirv(std::string_view Spirv) {
+  std::string HashSum = generateShortHash(Spirv, 6);
+  std::string FileName = "hip-spirv-" + HashSum + ".spv";
+  std::ofstream SpirvFile(FileName, std::ios::binary);
   if (!SpirvFile) {
-    std::cerr << "Error: Could not open file " << fileName << " for writing"
+    std::cerr << "Error: Could not open file " << FileName << " for writing"
               << std::endl;
-    return;
+    return std::nullopt;
   }
 
   SpirvFile.write(Spirv.data(), Spirv.size());
   SpirvFile.close();
+  return FileName;
 }
 
 /// Returns true if the hipcc can be executed by the user.

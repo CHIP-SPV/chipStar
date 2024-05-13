@@ -26,6 +26,7 @@ THE SOFTWARE.
 #define SRC_SPVREGISTER_HH
 
 #include "Utils.hh"
+#include "common.hh"
 
 #include <string_view>
 #include <memory>
@@ -74,7 +75,9 @@ class SPVModule {
 
   /// Post-processed, finalized source. It's empty if the
   /// post-processing step has not been performed (yet).
-  std::string FinalizedBinary_;
+  std::vector<uint32_t> FinalizedBinary_;
+
+  SPVModuleInfo ModuleInfo_;
 
 public:
   // Using lists for iterator stability.
@@ -85,7 +88,14 @@ public:
 
   std::string_view getBinary() const {
     assert(FinalizedBinary_.size() && "Has not finalized yet!");
-    return FinalizedBinary_;
+    return std::string_view(
+        reinterpret_cast<const char *>(FinalizedBinary_.data()),
+        FinalizedBinary_.size() * sizeof(uint32_t));
+  }
+
+  const SPVModuleInfo &getInfo() const {
+    assert(FinalizedBinary_.size() && "Has not finalized yet!");
+    return ModuleInfo_;
   }
 };
 

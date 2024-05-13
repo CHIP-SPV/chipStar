@@ -2419,7 +2419,6 @@ static void appendDeviceLibrarySources(
 
 void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   logTrace("CHIPModuleLevel0.compile()");
-  consumeSPIRV();
 
   auto *LzBackend = static_cast<CHIPBackendLevel0 *>(Backend);
   if (!LzBackend->hasExperimentalModuleProgramExt())
@@ -2428,8 +2427,11 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                           hipErrorTbd);
 
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(ChipDev);
-  std::vector<size_t> ILSizes(1, IlSize_);
-  std::vector<const uint8_t *> ILInputs(1, FuncIL_);
+
+  std::string_view SPIRVBin = Src_->getBinary();
+  std::vector<size_t> ILSizes(1, SPIRVBin.size());
+  std::vector<const uint8_t *> ILInputs(
+      1, reinterpret_cast<const uint8_t *>(SPIRVBin.data()));
   std::vector<const char *> BuildFlags(1, ChipEnvVars.getJitFlags().c_str());
 
   appendDeviceLibrarySources(ILSizes, ILInputs, BuildFlags,

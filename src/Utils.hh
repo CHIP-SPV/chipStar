@@ -35,7 +35,15 @@
 bool isConvertibleToInt(const std::string &str);
 
 std::string readEnvVar(std::string EnvVar, bool Lower = true);
-void dumpSpirv(std::string_view Spirv);
+
+std::optional<fs::path> dumpSpirv(std::string_view Spirv);
+
+inline std::optional<fs::path> dumpSpirv(const std::vector<uint32_t> &Spirv,
+                                         std::string_view Path = "") {
+  auto Str = std::string_view(reinterpret_cast<const char *>(Spirv.data()),
+                              Spirv.size() * sizeof(uint32_t));
+  return dumpSpirv(Str);
+}
 
 /// Reinterpret the pointed region, starting from BaseAddr +
 /// ByteOffset, as a value of the given type.

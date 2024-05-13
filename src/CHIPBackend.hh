@@ -908,11 +908,7 @@ class Module : public ihipModule_t {
   /// this module is attached to.
   bool DeviceVariablesInitialized_ = false;
 
-  SPVModuleInfo ModuleInfo_;
-
 protected:
-  uint8_t *FuncIL_;
-  size_t IlSize_;
   std::mutex Mtx_;
   // Global variables
   std::vector<chipstar::DeviceVar *> ChipVars_;
@@ -922,8 +918,6 @@ protected:
   const SPVModule *Src_;
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
-
-  uint32_t *BinaryData_;
 
   /**
    * @brief hidden default constuctor. Only derived type constructor should be
@@ -1026,12 +1020,6 @@ public:
   chipstar::Kernel *getKernel(const void *HostFPtr);
 
   /**
-   * @brief consume SPIRV and fill in SPVFuncINFO
-   *
-   */
-  void consumeSPIRV();
-
-  /**
    * @brief Record a device variable
    *
    * Takes ownership of the variable.
@@ -1051,7 +1039,7 @@ public:
 
   SPVFuncInfo *findFunctionInfo(const std::string &FName);
 
-  const SPVModuleInfo &getInfo() const noexcept { return ModuleInfo_; }
+  const SPVModuleInfo &getInfo() const noexcept { return Src_->getInfo(); }
 
   const SPVModule &getSourceModule() const { return *Src_; }
 };
