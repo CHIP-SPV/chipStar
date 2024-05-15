@@ -23,6 +23,8 @@
 // Implementations for 32-bit floating point atomic operations using
 // OpenCL built-in extension.
 
+#include "cl_utils.h"
+
 #ifndef __opencl_c_generic_address_space
 #error __opencl_c_generic_address_space needed!
 #endif
@@ -37,9 +39,10 @@
 /* https://registry.khronos.org/OpenCL/extensions/ext/cl_ext_float_atomics.html
  */
 #define DEF_CHIP_ATOMIC2F_ORDER_SCOPE(NAME, OP, ORDER, SCOPE)                  \
-  float __chip_atomic_##NAME##_f32(float *address, float i) {                  \
-    return atomic_##OP##_explicit((volatile __generic float *)address, i,      \
-                                  memory_order_##ORDER, memory_scope_##SCOPE); \
+  float __chip_atomic_##NAME##_f32(__chip_obfuscated_ptr_t address, float i) { \
+    return atomic_##OP##_explicit(                                             \
+        (volatile __generic float *)UNCOVER_OBFUSCATED_PTR(address), i, \
+        memory_order_##ORDER, memory_scope_##SCOPE);                           \
   }
 
 #define DEF_CHIP_ATOMIC2F(NAME, OP)                                            \

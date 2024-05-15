@@ -23,6 +23,8 @@
 // Implementations for 64-bit floating point atomic operations using
 // OpenCL built-in extension.
 
+#include "cl_utils.h"
+
 #ifndef __opencl_c_generic_address_space
 #error __opencl_c_generic_address_space needed!
 #endif
@@ -37,9 +39,11 @@
 /* https://registry.khronos.org/OpenCL/extensions/ext/cl_ext_float_atomics.html
  */
 #define DEF_CHIP_ATOMIC2F_ORDER_SCOPE(NAME, OP, ORDER, SCOPE)                  \
-  double __chip_atomic_##NAME##_f64(double *address, double i) {               \
-    return atomic_##OP##_explicit((volatile __generic double *)address, i,     \
-                                  memory_order_##ORDER, memory_scope_##SCOPE); \
+  double __chip_atomic_##NAME##_f64(__chip_obfuscated_ptr_t address,           \
+                                    double i) {                                \
+    return atomic_##OP##_explicit(                                             \
+        (volatile __generic double *)UNCOVER_OBFUSCATED_PTR(address), i,       \
+        memory_order_##ORDER, memory_scope_##SCOPE);                           \
   }
 
 #define DEF_CHIP_ATOMIC2F(NAME, OP)                                            \
