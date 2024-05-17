@@ -219,7 +219,7 @@ option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their pre
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" OFF)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
-option(SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
+option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 
 # This mitigation might be necessary on some systems with an older runtime. 
 # This mitigation makes memory resident (disable swapping) on the GPU
@@ -376,7 +376,7 @@ file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 
 add_subdirectory(bin)
 
-if (SKIP_TESTS_WITH_DOUBLES)
+if (CHIP_SKIP_TESTS_WITH_DOUBLES)
   add_subdirectory(spirv-extractor)
   set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
   else()
