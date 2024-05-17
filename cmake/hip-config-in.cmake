@@ -73,6 +73,11 @@ if(WIN32)
   message(FATAL_ERROR "Windows not yet supported for chipStar")
 endif()
 
+set(HIP_VERSION "@HIP_VERSION@" CACHE STRING "hip version")
+set(HIP_VERSION_MAJOR "@HIP_VERSION_MAJOR@" CACHE STRING "hip major version")
+set(HIP_VERSION_MINOR "@HIP_VERSION_MINOR@" CACHE STRING "hip minor version")
+set(HIP_VERSION_PATCH "@HIP_VERSION_PATCH@" CACHE STRING "hip patch version")
+
 set(HIP_PATH "@HIP_PATH@" CACHE PATH "Path to the chipStar installation")
 set(HIP_COMPILER "@HIP_COMPILER@" CACHE STRING "C++ compiler")
 set(HIP_RUNTIME "@HIP_RUNTIME@" CACHE STRING "" FORCE)
@@ -161,3 +166,5 @@ set(HIP_LIBRARIES ${hip_LIBRARIES})
 set(HIP_LIBRARY ${hip_LIBRARY})
 set(HIP_HIPCC_EXECUTABLE ${hip_HIPCC_EXECUTABLE})
 set(HIP_HIPCONFIG_EXECUTABLE ${hip_HIPCONFIG_EXECUTABLE})
+
+
