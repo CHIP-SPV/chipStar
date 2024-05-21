@@ -74,6 +74,10 @@ add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
+if (CHIP_BUILD_HIPBLAS)
+    add_hipcc_test(hipBlas-ccompat.c HIPCC_OPTIONS -c)
+endif()
+
 add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
@@ -118,3 +122,4 @@ add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check __FAST_MATH__ is set for -ffast-math and preprocessor guards
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
+
