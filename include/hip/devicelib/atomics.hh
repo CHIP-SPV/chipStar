@@ -26,6 +26,13 @@
 #include <hip/host_defines.h>
 #include <hip/devicelib/macros.hh>
 
+// See bitcode/README-devicelib.md for the purpose of "obfuscated pointers".
+typedef unsigned long __chip_obfuscated_ptr_t;
+inline __device__ __chip_obfuscated_ptr_t __chip_obfuscate_ptr(void *ptr) {
+  static_assert(sizeof(__chip_obfuscated_ptr_t) == sizeof(void *), "");
+  return reinterpret_cast<__chip_obfuscated_ptr_t>(ptr);
+}
+
 // Copied from HIP programming guide:
 // https://docs.amd.com/bundle/HIP-Programming-Guide-v5.0/page/Programming_with_HIP.html
 // Slightly modified to group operations
@@ -63,14 +70,16 @@ atomicAdd(unsigned long long *address, unsigned long long val) {
   return __chip_atomic_add_l(address, val);
 }
 
-extern "C" __device__ float __chip_atomic_add_f32(float *address, float val);
+extern "C" __device__ float
+__chip_atomic_add_f32(__chip_obfuscated_ptr_t address, float val);
 extern "C++" inline __device__ float atomicAdd(float *address, float val) {
-  return __chip_atomic_add_f32(address, val);
+  return __chip_atomic_add_f32(__chip_obfuscate_ptr(address), val);
 }
 
-extern "C" __device__ double __chip_atomic_add_f64(double *address, double val);
+extern "C" __device__ double
+__chip_atomic_add_f64(__chip_obfuscated_ptr_t address, double val);
 extern "C++" inline __device__ double atomicAdd(double *address, double val) {
-  return __chip_atomic_add_f64(address, val);
+  return __chip_atomic_add_f64(__chip_obfuscate_ptr(address), val);
 }
 
 extern "C" __device__ int __chip_atomic_add_system_i(int *address, int val);
@@ -92,18 +101,18 @@ atomicAdd_system(unsigned long long *address, unsigned long long val) {
   return __chip_atomic_add_system_l(address, val);
 }
 
-extern "C" __device__ float __chip_atomic_add_system_f32(float *address,
-                                                         float val);
+extern "C" __device__ float
+__chip_atomic_add_system_f32(__chip_obfuscated_ptr_t address, float val);
 extern "C++" inline __device__ float atomicAdd_system(float *address,
                                                       float val) {
-  return __chip_atomic_add_system_f32(address, val);
+  return __chip_atomic_add_system_f32(__chip_obfuscate_ptr(address), val);
 }
 
-extern "C" __device__ double __chip_atomic_add_system_f64(double *address,
-                                                          double val);
+extern "C" __device__ double
+__chip_atomic_add_system_f64(__chip_obfuscated_ptr_t address, double val);
 extern "C++" inline __device__ double atomicAdd_system(double *address,
                                                        double val) {
-  return __chip_atomic_add_system_f64(address, val);
+  return __chip_atomic_add_system_f64(__chip_obfuscate_ptr(address), val);
 }
 
 extern "C" __device__ int __chip_atomic_sub_i(int *address, int val);
@@ -432,7 +441,7 @@ atomicXor_system(unsigned long long *address, unsigned long long val) {
 
 // Undocumented
 extern "C++" inline __device__ void atomicAddNoRet(float *address, float val) {
-  (void)__chip_atomic_add_f32(address, val);
+  (void)__chip_atomic_add_f32(__chip_obfuscate_ptr(address), val);
 }
 
 #endif // HIP_INLUDE_DEVICELIB_ATOMICS

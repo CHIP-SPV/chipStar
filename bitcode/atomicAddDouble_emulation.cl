@@ -22,6 +22,8 @@
 
 // Implementations for emulated 64-bit floating point atomic add operations.
 
+#include "cl_utils.h"
+
 #ifndef __opencl_c_generic_address_space
 #error __opencl_c_generic_address_space needed!
 #endif
@@ -57,16 +59,17 @@ static OVERLOADED double __chip_atomic_add_f64(volatile global double *address,
   return as_double(r);
 }
 
-double __chip_atomic_add_f64(generic double *address, double val) {
-  volatile global double *gi = to_global(address);
+double __chip_atomic_add_f64(__chip_obfuscated_ptr_t address, double val) {
+  volatile global double *gi = to_global(UNCOVER_OBFUSCATED_PTR(address));
   if (gi)
     return __chip_atomic_add_f64(gi, val);
-  volatile local double *li = to_local(address);
+  volatile local double *li = to_local(UNCOVER_OBFUSCATED_PTR(address));
   if (li)
     return __chip_atomic_add_f64(li, val);
   return 0;
 }
 
-double __chip_atomic_add_system_f64(generic double *address, double val) {
+double __chip_atomic_add_system_f64(__chip_obfuscated_ptr_t address,
+                                    double val) {
   return __chip_atomic_add_f64(address, val);
 }

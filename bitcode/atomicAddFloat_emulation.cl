@@ -22,6 +22,8 @@
 
 // Implementations for emulated 32-bit floating point atomic add operations.
 
+#include "cl_utils.h"
+
 #ifndef __opencl_c_generic_address_space
 #error __opencl_c_generic_address_space needed!
 #endif
@@ -57,16 +59,16 @@ static OVERLOADED float __chip_atomic_add_f32(volatile global float *address,
   return as_float(r);
 }
 
-float __chip_atomic_add_f32(generic float *address, float val) {
-  volatile global float *gi = to_global(address);
+float __chip_atomic_add_f32(__chip_obfuscated_ptr_t address, float val) {
+  volatile global float *gi = to_global(UNCOVER_OBFUSCATED_PTR(address));
   if (gi)
     return __chip_atomic_add_f32(gi, val);
-  volatile local float *li = to_local(address);
+  volatile local float *li = to_local(UNCOVER_OBFUSCATED_PTR(address));
   if (li)
     return __chip_atomic_add_f32(li, val);
   return 0;
 }
 
-float __chip_atomic_add_system_f32(generic float *address, float val) {
+float __chip_atomic_add_system_f32(__chip_obfuscated_ptr_t address, float val) {
   return __chip_atomic_add_f32(address, val);
 }
