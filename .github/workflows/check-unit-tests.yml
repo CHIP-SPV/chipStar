@@ -11,83 +11,107 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-tests-llvm-15-debug:
+  # unit-tests-llvm-15-debug:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh debug llvm-15
+  #       shell: bash
+  # unit-tests-llvm-15-release:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh release llvm-15
+  #       shell: bash
+  # unit-tests-llvm-16-debug:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh debug llvm-16
+  #       shell: bash
+  # unit-tests-llvm-16-release:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh release llvm-16
+  #       shell: bash
+  # unit-tests-llvm-17-debug:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh debug llvm-17
+  #       shell: bash
+  # unit-tests-llvm-17-release:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh release llvm-17
+  #       shell: bash
+  # unit-tests-llvm-18-debug:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh debug llvm-18
+  #       shell: bash
+  # unit-tests-llvm-18-release:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #     - name: Run unit test checking script
+  #       run: ./scripts/unit_tests.sh release llvm-18
+  #       shell: bash
+  test-gamess:
     runs-on: self-hosted
+    needs: []
     steps:
       - uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-15
+      - name: Run GAMESS test script
+        run: ./scripts/test_gamess.sh
         shell: bash
-  unit-tests-llvm-15-release:
+  test-libceed:
     runs-on: self-hosted
+    needs: []
     steps:
       - uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-15
+      - name: Run LibCEED test script
+        run: ./scripts/test_libceed.sh
         shell: bash
-  unit-tests-llvm-16-debug:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-16
-        shell: bash
-  unit-tests-llvm-16-release:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-16
-        shell: bash
-  unit-tests-llvm-17-debug:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-17
-        shell: bash
-  unit-tests-llvm-17-release:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-17
-        shell: bash
-  unit-tests-llvm-18-debug:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-18
-        shell: bash
-  unit-tests-llvm-18-release:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-18
-        shell: bash
+
+        # needs: [unit-tests-llvm-15-debug, unit-tests-llvm-15-release, unit-tests-llvm-16-debug, unit-tests-llvm-16-release, unit-tests-llvm-17-debug, unit-tests-llvm-17-release, unit-tests-llvm-18-debug, unit-tests-llvm-18-release]

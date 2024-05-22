@@ -144,45 +144,34 @@ else
   mkdir build
   cd build
 
+  export CHIPSTAR_INSTALL_DIR=/home/pvelesko/install/HIP/chipStar/testing # set CHIPSTAR_INSTALL_DIR to current build dir
   echo "building with $CLANG"
-  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON
+  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON -DCMAKE_INSTALL_PREFIX=${CHIPSTAR_INSTALL_DIR}
   make all build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 fi
-
 module unload opencl/dgpu
-
-# module load HIP/hipBLAS/main/release # for libCEED NOTE: Must be after build step otherwise it will cause link issues.
 
 # Test Level Zero iGPU
 echo "begin igpu_level0_failed_tests"
-# module load level-zero/igpu
-# module list
 ../scripts/check.py ./ igpu level0 --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee igpu_level0_make_check_result.txt
 # module unload level-zero/igpu
 echo "end igpu_level0_failed_tests"
 
 # Test Level Zero dGPU
 echo "begin dgpu_level0_failed_tests"
-# module load level-zero/dgpu
-# module list
 ../scripts/check.py ./ dgpu level0 --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee dgpu_level0_make_check_result.txt
 # module unload level-zero/dgpu
 echo "end dgpu_level0_failed_tests"
 
 # Test OpenCL iGPU
 echo "begin igpu_opencl_failed_tests"
-# module load opencl/igpu
-# module list
 ../scripts/check.py ./ igpu opencl --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee igpu_opencl_make_check_result.txt
 # module unload opencl/igpu
 echo "end igpu_opencl_failed_tests"
 
 # Test OpenCL dGPU
 echo "begin dgpu_opencl_failed_tests"
-# module load intel/opencl # sets ICD
-# module load opencl/dgpu # sets CHIP_BE
-# module list
 ../scripts/check.py ./ dgpu opencl --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee dgpu_opencl_make_check_result.txt
 # module unload opencl/dgpu intel/opencl
 echo "end dgpu_opencl_failed_tests"
@@ -198,7 +187,6 @@ function check_tests {
     return 1
   fi
 }
-
 overall_status=0
 set +e
 echo "RESULTS:"
