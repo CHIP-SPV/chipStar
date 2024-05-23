@@ -320,7 +320,8 @@ public:
   virtual void finish() override;
 
   virtual std::shared_ptr<chipstar::Event>
-  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
+  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
+                   hipMemcpyKind Kind) override;
 
   /*
    * @brief Execute a given FencedCmdList, move it to the backend tracker, and
@@ -351,12 +352,12 @@ public:
 
   virtual std::shared_ptr<chipstar::Event>
   memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src, size_t Spitch,
-                     size_t Width, size_t Height) override;
+                     size_t Width, size_t Height, hipMemcpyKind Kind) override;
 
   virtual std::shared_ptr<chipstar::Event>
   memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch, const void *Src,
                      size_t Spitch, size_t Sspitch, size_t Width, size_t Height,
-                     size_t Depth) override;
+                     size_t Depth, hipMemcpyKind Kind) override;
 
   virtual std::shared_ptr<chipstar::Event>
   memCopyToImage(ze_image_handle_t TexStorage, const void *Src,

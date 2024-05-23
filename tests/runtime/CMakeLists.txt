@@ -107,3 +107,4 @@ add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
 add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
 
 add_hip_runtime_test(CatchMemLeak1.hip)
+add_hip_runtime_test(TestBufferDevAddr.hip)

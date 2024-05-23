@@ -53,6 +53,30 @@
 
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
 
+// Temporary definitions (copied from <POCL>/include/CL/cl_ext_pocl.h)
+// until the extension is made official.
+#ifndef cl_ext_buffer_device_address
+#define cl_ext_buffer_device_address
+
+#ifndef CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT
+#define CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT 0x11B8
+#endif
+
+#ifndef CL_MEM_DEVICE_ADDRESS_EXT
+#define CL_MEM_DEVICE_ADDRESS_EXT (1ul << 31)
+#endif
+
+#ifndef CL_MEM_DEVICE_PTR_EXT
+#define CL_MEM_DEVICE_PTR_EXT 0xff01
+#endif
+
+typedef cl_ulong cl_mem_device_address_EXT;
+
+typedef cl_int(CL_API_CALL *clSetKernelArgDevicePointerEXT_fn)(
+    cl_kernel kernel, cl_uint arg_index, cl_mem_device_address_EXT dev_addr);
+
+#endif // cl_ext_buffer_device_address
+
 std::string resultToString(int Status);
 
 class CHIPContextOpenCL;
@@ -130,17 +154,35 @@ struct CHIPContextUSMExts {
 using const_alloc_iterator = ConstMapKeyIterator<
     std::map<std::shared_ptr<void>, size_t, PointerCmp<void>>>;
 
-class MemoryManager {
-  // ContextMutex should be enough
+/// Used to select a strategy for managing HIP allocations.
+enum class AllocationStrategy {
+  Unset = 0,
+  CoarseGrainSVM,
+  FineGrainSVM,
+  IntelUSM,
+  /// Use regular cl_mem buffers and an experimental
+  /// cl_ext_buffer_device_address extension to obtain their fixed
+  /// device addresses.
+  BufferDevAddr
+};
 
+class MemoryManager {
+private:
+  // ContextMutex should be enough
   std::map<std::shared_ptr<void>, size_t, PointerCmp<void>> Allocations_;
   cl::Context Context_;
   cl::Device Device_;
 
   CHIPContextOpenCL *ChipCtxCl;
-  CHIPContextUSMExts USM;
-  bool UseSVMFineGrain;
-  bool UseIntelUSM;
+
+  /// Valid and used when AllocStrategy_ == IntelUSM.
+  CHIPContextUSMExts USM_;
+
+  /// Used when AllocStrategy_ == BufferDevAddr.
+  std::map<const void *, cl_mem> DevPtrToBuffer_;
+
+  /// The allocation strategy to use.
+  AllocationStrategy AllocStrategy_;
 
 public:
   void init(CHIPContextOpenCL *ChipCtxCl);
@@ -162,19 +204,30 @@ public:
         const_alloc_iterator(Allocations_.end()));
   }
 
-  bool usesUSM() const noexcept { return UseIntelUSM; }
-  bool usesSVM() const noexcept { return !usesUSM(); }
+  AllocationStrategy getAllocStrategy() const noexcept {
+    return AllocStrategy_;
+  }
+
+  std::pair<cl_mem, size_t> translateDevPtrToBuffer(const void *DevPtr) const;
+
+private:
+  std::shared_ptr<void> allocateSVM(size_t Size, size_t Alignment,
+                                    hipMemoryType MemType, bool FineGrain);
+  std::shared_ptr<void> allocateUSM(size_t Size, size_t Alignment,
+                                    hipMemoryType MemType);
+  std::shared_ptr<void> allocateBufferDevAddr(size_t Size, size_t Alignment,
+                                              hipMemoryType MemType);
 };
 
 class CHIPContextOpenCL : public chipstar::Context {
 private:
+  cl::Platform Platform_;
   cl::Context ClContext;
+  mutable clSetKernelArgDevicePointerEXT_fn clSetKernelArgDevicePointerEXT_ =
+      nullptr;
 
 public:
-  CHIPContextUSMExts USM;
   MemoryManager MemManager_;
-  bool SupportsIntelUSM;
-  bool SupportsFineGrainSVM;
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {
@@ -195,8 +248,32 @@ public:
     return MemManager_.getAllocPointers();
   }
 
-  bool usesUSM() const noexcept { return MemManager_.usesUSM(); }
-  bool usesSVM() const noexcept { return MemManager_.usesSVM(); }
+  AllocationStrategy getAllocStrategy() const noexcept {
+    return MemManager_.getAllocStrategy();
+  }
+
+  cl_int clSetKernelArgDevicePointerEXT(cl_kernel Kernel, cl_uint ArgIdx,
+                                        const void *DevPtr) const {
+    assert(getAllocStrategy() == AllocationStrategy::BufferDevAddr);
+    if (!clSetKernelArgDevicePointerEXT_) {
+      clSetKernelArgDevicePointerEXT_ =
+          reinterpret_cast<clSetKernelArgDevicePointerEXT_fn>(
+              clGetExtensionFunctionAddressForPlatform(
+                  Platform_(), "clSetKernelArgDevicePointerEXT"));
+    }
+    assert(clSetKernelArgDevicePointerEXT_);
+    static_assert(
+        sizeof(cl_mem_device_address_EXT) == sizeof(void *),
+        "sizeof(cl_mem_device_address_EXT) does not match host pointer size!");
+    auto IntPtr = reinterpret_cast<cl_mem_device_address_EXT>(DevPtr);
+    return clSetKernelArgDevicePointerEXT_(Kernel, ArgIdx, IntPtr);
+  }
+
+  std::pair<cl_mem, size_t> translateDevPtrToBuffer(const void *DevPtr) const {
+    return MemManager_.translateDevPtrToBuffer(DevPtr);
+  }
+
+  const cl::Platform &getPlatform() const { return Platform_; }
 };
 
 class CHIPDeviceOpenCL : public chipstar::Device {
@@ -254,6 +331,10 @@ public:
 
   bool hasBallot() const noexcept { return HasSubgroupBallot_; }
   bool hasDoubles() const { return HipDeviceProps_.arch.hasDoubles; }
+
+  CHIPContextOpenCL *getContext() override {
+    return static_cast<CHIPContextOpenCL *>(this->Device::getContext());
+  }
 };
 
 template <typename T>
@@ -326,18 +407,19 @@ public:
                            void *UserData) override;
   virtual void finish() override;
   virtual std::shared_ptr<chipstar::Event>
-  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) override;
+  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
+                   hipMemcpyKind Kind) override;
   cl::CommandQueue *get();
   virtual std::shared_ptr<chipstar::Event>
   memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                    size_t PatternSize) override;
   virtual std::shared_ptr<chipstar::Event>
   memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src, size_t Spitch,
-                     size_t Width, size_t Height) override;
+                     size_t Width, size_t Height, hipMemcpyKind Kind) override;
   virtual std::shared_ptr<chipstar::Event>
   memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch, const void *Src,
                      size_t Spitch, size_t Sspitch, size_t Width, size_t Height,
-                     size_t Depth) override;
+                     size_t Depth, hipMemcpyKind Kind) override;
 
   virtual hipError_t getBackendHandles(uintptr_t *NativeInfo,
                                        int *NumHandles) override;
@@ -364,6 +446,10 @@ public:
     return CallbackEv.setCallback(CL_COMPLETE, deleteArrayCallback<T>,
                                   reinterpret_cast<void *>(HostPtr));
   }
+
+  CHIPContextOpenCL *getContext() override {
+    return static_cast<CHIPContextOpenCL *>(ChipContext_);
+  };
 
 private:
   void switchModeTo(QueueMode Mode);
@@ -404,6 +490,11 @@ public:
   CHIPModuleOpenCL *getModule() override { return Module; }
   const CHIPModuleOpenCL *getModule() const override { return Module; }
   virtual hipError_t getAttributes(hipFuncAttributes *Attr) override;
+
+  CHIPContextOpenCL *getContext() {
+    assert(Device);
+    return Device->getContext();
+  }
 
 private:
   // Only allowed for CHIPExecItemOpenCL instances.

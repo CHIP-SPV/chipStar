@@ -71,6 +71,14 @@
 #define DECONST_NODES(x)                                                       \
   reinterpret_cast<CHIPGraphNode **>(const_cast<hipGraphNode_t *>(x))
 
+/// Check 'Kind' is valid for the target device. Throw an exception if not.
+static void checkMemcpyKind(chipstar::Device &Dev, hipMemcpyKind Kind) {
+  if (Kind == hipMemcpyDefault && !Dev.hasUnifiedVirtualAddressing())
+    CHIPERR_LOG_AND_THROW(
+        "Can't determine copy direction without unified virtual addressing.",
+        hipErrorInvalidMemcpyDirection);
+}
+
 hipError_t hipModuleGetTexRef(textureReference **texRef, hipModule_t hmod,
                               const char *name) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -493,7 +501,8 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
     return;
 
   int32_t AbortFlag = 0;
-  hipError_t Err = Q.memCopy(&AbortFlag, Var->getDevAddr(), sizeof(int32_t));
+  hipError_t Err = Q.memCopy(&AbortFlag, Var->getDevAddr(), sizeof(int32_t),
+                             hipMemcpyDeviceToHost);
   if (Err != hipSuccess)
     // We know the abort flag exist so what went wrong on the copy?
     CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
@@ -512,7 +521,8 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
   // Just act like nothing happened. Reset the flag so we let there be more
   // aborts.
   AbortFlag = 0;
-  Err = Q.memCopy(Var->getDevAddr(), &AbortFlag, sizeof(int32_t));
+  Err = Q.memCopy(Var->getDevAddr(), &AbortFlag, sizeof(int32_t),
+                  hipMemcpyHostToDevice);
   if (Err != hipSuccess)
     // Device->host copy succeeded. What went wrong with host->device copy?
     CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
@@ -1600,13 +1610,14 @@ hipError_t hipMemcpyWithStream(void *Dst, const void *Src, size_t SizeBytes,
   CHIPInitialize();
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     RETURN(hipErrorStreamCaptureInvalidated);
   }
 
-  auto Status = ChipQueue->memCopy(Dst, Src, SizeBytes);
+  auto Status = ChipQueue->memCopy(Dst, Src, SizeBytes, Kind);
   RETURN(Status);
   CHIP_CATCH
 };
@@ -1648,6 +1659,7 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
   LOCK(ChipQueue->QueueMtx);
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemcpy>(Dst, Src, SizeBytes,
@@ -1659,7 +1671,7 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
     memcpy(Dst, Src, SizeBytes);
     return hipSuccess;
   } else {
-    ChipQueue->memCopyAsync(Dst, Src, SizeBytes);
+    ChipQueue->memCopyAsync(Dst, Src, SizeBytes, Kind);
     return hipSuccess;
   }
 }
@@ -1689,6 +1701,7 @@ hipMemcpy2DAsyncInternal(void *Dst, size_t DPitch, const void *Src,
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
   LOCK(ChipQueue->QueueMtx); // prevent interruptions
 
   const hipMemcpy3DParms Params = {
@@ -2855,9 +2868,16 @@ static inline hipError_t hipHostMallocInternal(void **Ptr, size_t Size,
     return hipSuccess;
   }
 
+  auto *ActiveDev = Backend->getActiveDevice();
+  if (ActiveDev->hasUnifiedVirtualAddressing()) {
+    // UVA implies hipHostMallocMapped and hipHostMallocPortable.
+    // [https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__UNIFIED.html]
+    Flags |= hipHostMallocMapped | hipHostMallocPortable;
+  }
+
   auto FlagsParsed = chipstar::HostAllocFlags(Flags);
 
-  void *RetVal = Backend->getActiveContext()->allocate(
+  void *RetVal = ActiveDev->getContext()->allocate(
       Size, 0x1000, hipMemoryType::hipMemoryTypeHost, FlagsParsed);
   ERROR_IF((RetVal == nullptr), hipErrorMemoryAllocation);
 
@@ -3377,9 +3397,10 @@ hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
   }
 
   auto Queue = Backend->getActiveDevice()->getDefaultQueue();
+  checkMemcpyKind(*Queue->getDevice(), Kind);
   LOCK(Queue->QueueMtx);
 
-  return Queue->memCopy(Dst, Src, SizeBytes);
+  return Queue->memCopy(Dst, Src, SizeBytes, Kind);
 }
 
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
@@ -3827,6 +3848,7 @@ hipError_t hipMemcpy2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
   }
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
 
   hipError_t Res = hipMemcpy2DAsyncInternal(Dst, DPitch, Src, SPitch, Width,
                                             Height, Kind, ChipQueue);
@@ -3847,6 +3869,7 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
     return hipSuccess;
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
   LOCK(ChipQueue->QueueMtx);
 
   const hipMemcpy3DParms Params = {
@@ -3879,7 +3902,7 @@ hipMemcpy2DToArrayAsyncInternal(hipArray *Dst, size_t WOffset, size_t HOffset,
     if (Kind == hipMemcpyHostToHost)
       memcpy(DstP, SrcP, Width);
     else
-      ChipQueue->memCopyAsync(DstP, SrcP, Width);
+      ChipQueue->memCopyAsync(DstP, SrcP, Width, Kind);
   }
 
   return hipSuccess;
@@ -3906,6 +3929,7 @@ hipError_t hipMemcpy2DToArray(hipArray *Dst, size_t WOffset, size_t HOffset,
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
 
   auto Res = hipMemcpy2DToArrayAsyncInternal(Dst, WOffset, HOffset, Src, SPitch,
                                              Width, Height, Kind, ChipQueue);
@@ -3923,6 +3947,7 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
                                   size_t HOffset, size_t Width, size_t Height,
                                   hipMemcpyKind Kind, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
   LOCK(ChipQueue->QueueMtx);
 
   const hipMemcpy3DParms Params = {
@@ -3976,7 +4001,7 @@ hipMemcpy2DFromArrayAsyncInternal(void *Dst, size_t DPitch,
     if (Kind == hipMemcpyHostToHost)
       memcpy(DstP, SrcP, Width);
     else
-      ChipQueue->memCopyAsync(DstP, SrcP, Width);
+      ChipQueue->memCopyAsync(DstP, SrcP, Width, Kind);
   }
 
   return hipSuccess;
@@ -4004,6 +4029,7 @@ hipError_t hipMemcpy2DFromArray(void *Dst, size_t DPitch, hipArray_const_t Src,
   CHIPInitialize();
   NULLCHECK(Dst, Src);
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
+  checkMemcpyKind(*ChipQueue->getDevice(), Kind);
 
   auto Res = hipMemcpy2DFromArrayAsyncInternal(
       Dst, DPitch, Src, WOffset, HOffset, Width, Height, Kind, ChipQueue);
@@ -4187,7 +4213,8 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   size_t srcSlicePitch = SrcPitch * YSize;
   size_t dstSlicePitch = DstPitch * YSize;
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch))
-    ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth);
+    ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth,
+                            Params->kind);
   else {
     // TODO What am I doing wrong here?
     // ChipQueue->memCopy3DAsync(DstPtr, DstPitch, dstSlicePitch, SrcPtr,
@@ -4201,7 +4228,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
         if (Params->kind == hipMemcpyHostToHost)
           memcpy(Dst, Src, WidthInBytes);
         else
-          ChipQueue->memCopyAsync(Dst, Src, WidthInBytes);
+          ChipQueue->memCopyAsync(Dst, Src, WidthInBytes, Params->kind);
       }
     }
   }
@@ -4314,7 +4341,8 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
   void *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Found the symbol but not its device address?");
 
-  ChipQueue->memCopyAsync((void *)((intptr_t)DevPtr + Offset), Src, SizeBytes);
+  ChipQueue->memCopyAsync((void *)((intptr_t)DevPtr + Offset), Src, SizeBytes,
+                          Kind);
   return hipSuccess;
 }
 
@@ -4374,7 +4402,8 @@ hipError_t hipMemcpyFromSymbolAsyncInternal(void *Dst, const void *Symbol,
                           hipErrorInvalidValue);
   void *DevPtr = Var->getDevAddr();
 
-  ChipQueue->memCopyAsync(Dst, (void *)((intptr_t)DevPtr + Offset), SizeBytes);
+  ChipQueue->memCopyAsync(Dst, (void *)((intptr_t)DevPtr + Offset), SizeBytes,
+                          Kind);
   return hipSuccess;
 }
 

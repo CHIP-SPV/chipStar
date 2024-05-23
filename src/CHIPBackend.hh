@@ -487,6 +487,10 @@ struct AllocationInfo {
   bool isDeviceAccessible() const {
     return MemoryType == hipMemoryTypeHost ? Flags.isMapped() : true;
   }
+
+  bool isMappedHostAllocation() const {
+    return MemoryType == hipMemoryTypeHost && Flags.isMapped();
+  }
 };
 
 /**
@@ -904,11 +908,7 @@ class Module : public ihipModule_t {
   /// this module is attached to.
   bool DeviceVariablesInitialized_ = false;
 
-  SPVModuleInfo ModuleInfo_;
-
 protected:
-  uint8_t *FuncIL_;
-  size_t IlSize_;
   std::mutex Mtx_;
   // Global variables
   std::vector<chipstar::DeviceVar *> ChipVars_;
@@ -918,8 +918,6 @@ protected:
   const SPVModule *Src_;
   // Kernel JIT compilation can be lazy
   std::once_flag Compiled_;
-
-  uint32_t *BinaryData_;
 
   /**
    * @brief hidden default constuctor. Only derived type constructor should be
@@ -1022,12 +1020,6 @@ public:
   chipstar::Kernel *getKernel(const void *HostFPtr);
 
   /**
-   * @brief consume SPIRV and fill in SPVFuncINFO
-   *
-   */
-  void consumeSPIRV();
-
-  /**
    * @brief Record a device variable
    *
    * Takes ownership of the variable.
@@ -1047,7 +1039,7 @@ public:
 
   SPVFuncInfo *findFunctionInfo(const std::string &FName);
 
-  const SPVModuleInfo &getInfo() const noexcept { return ModuleInfo_; }
+  const SPVModuleInfo &getInfo() const noexcept { return Src_->getInfo(); }
 
   const SPVModule &getSourceModule() const { return *Src_; }
 };
@@ -1466,7 +1458,7 @@ public:
    * @return Context* pointer to the Context object this Device
    * was created with
    */
-  chipstar::Context *getContext();
+  virtual chipstar::Context *getContext();
 
   /**
    * @brief Construct an additional queue for this device
@@ -1534,7 +1526,7 @@ public:
    * @param attr attribute to query
    * @return int attribute value. In case invalid query returns -1;
    */
-  int getAttr(hipDeviceAttribute_t Attr);
+  int getAttr(hipDeviceAttribute_t Attr) const;
 
   /**
    * @brief Get the total global memory available for this device.
@@ -1653,6 +1645,12 @@ public:
   void prepareDeviceVariables(HostPtr Ptr);
   void invalidateDeviceVariables();
   void deallocateDeviceVariables();
+
+  bool hasUnifiedVirtualAddressing() const {
+    auto AttrUA = getAttr(hipDeviceAttributeUnifiedAddressing);
+    assert(AttrUA >= 0);
+    return AttrUA;
+  }
 
 protected:
   /**
@@ -2225,7 +2223,8 @@ public:
    * @param size Transfer size
    * @return hipError_t
    */
-  hipError_t memCopy(void *Dst, const void *Src, size_t Size);
+  hipError_t memCopy(void *Dst, const void *Src, size_t Size,
+                     hipMemcpyKind Kind);
 
   /**
    * @brief Non-blocking memory copy
@@ -2236,8 +2235,10 @@ public:
    * @return hipError_t
    */
   virtual std::shared_ptr<chipstar::Event>
-  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) = 0;
-  void memCopyAsync(void *Dst, const void *Src, size_t Size);
+  memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
+                   hipMemcpyKind Kind) = 0;
+  void memCopyAsync(void *Dst, const void *Src, size_t Size,
+                    hipMemcpyKind Kind);
   void memCopyAsync2D(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
                       size_t Width, size_t Height, hipMemcpyKind Kind);
 
@@ -2273,26 +2274,30 @@ public:
 
   // The memory copy 2D support
   virtual void memCopy2D(void *Dst, size_t DPitch, const void *Src,
-                         size_t SPitch, size_t Width, size_t Height);
+                         size_t SPitch, size_t Width, size_t Height,
+                         hipMemcpyKind Kind);
 
   virtual std::shared_ptr<chipstar::Event>
   memCopy2DAsyncImpl(void *Dst, size_t DPitch, const void *Src, size_t SPitch,
-                     size_t Width, size_t Height) = 0;
+                     size_t Width, size_t Height, hipMemcpyKind Kind) = 0;
   virtual void memCopy2DAsync(void *Dst, size_t DPitch, const void *Src,
-                              size_t SPitch, size_t Width, size_t Height);
+                              size_t SPitch, size_t Width, size_t Height,
+                              hipMemcpyKind Kind);
 
   // The memory copy 3D support
   virtual void memCopy3D(void *Dst, size_t DPitch, size_t DSPitch,
                          const void *Src, size_t SPitch, size_t SSPitch,
-                         size_t Width, size_t Height, size_t Depth);
+                         size_t Width, size_t Height, size_t Depth,
+                         hipMemcpyKind Kind);
 
   virtual std::shared_ptr<chipstar::Event>
   memCopy3DAsyncImpl(void *Dst, size_t DPitch, size_t DSPitch, const void *Src,
                      size_t SPitch, size_t SSPitch, size_t Width, size_t Height,
-                     size_t Depth) = 0;
+                     size_t Depth, hipMemcpyKind Kind) = 0;
   virtual void memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
                               const void *Src, size_t SPitch, size_t SSPitch,
-                              size_t Width, size_t Height, size_t Depth);
+                              size_t Width, size_t Height, size_t Depth,
+                              hipMemcpyKind Kind);
 
   /**
    * @brief Submit a chipstar::ExecItem to this queue for execution. ExecItem
@@ -2414,7 +2419,7 @@ public:
   virtual hipError_t getBackendHandles(uintptr_t *NativeHandles,
                                        int *NumHandles) = 0;
 
-  chipstar::Context *getContext() { return ChipContext_; }
+  virtual chipstar::Context *getContext() { return ChipContext_; }
   void setFlags(chipstar::QueueFlags TheFlags) { QueueFlags_ = TheFlags; }
 };
 

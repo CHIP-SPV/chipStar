@@ -35,7 +35,15 @@
 bool isConvertibleToInt(const std::string &str);
 
 std::string readEnvVar(std::string EnvVar, bool Lower = true);
-void dumpSpirv(std::string_view Spirv);
+
+std::optional<fs::path> dumpSpirv(std::string_view Spirv);
+
+inline std::optional<fs::path> dumpSpirv(const std::vector<uint32_t> &Spirv,
+                                         std::string_view Path = "") {
+  auto Str = std::string_view(reinterpret_cast<const char *>(Spirv.data()),
+                              Spirv.size() * sizeof(uint32_t));
+  return dumpSpirv(Str);
+}
 
 /// Reinterpret the pointed region, starting from BaseAddr +
 /// ByteOffset, as a value of the given type.
@@ -123,20 +131,22 @@ public:
 
 // A less comparator for comparing mixed raw and smart pointers.
 //
-// From https://stackoverflow.com/questions/18939882. Formatted for
-// chipStar.
+// Originally from https://stackoverflow.com/questions/18939882. Improved and
+// formatted for chipStar.
 template <class T> struct PointerCmp {
   typedef std::true_type is_transparent;
   struct Helper {
-    T *Ptr;
+    const T *Ptr;
     Helper() : Ptr(nullptr) {}
     Helper(Helper const &) = default;
-    Helper(T *p) : Ptr(p) {}
+    Helper(const T *p) : Ptr(p) {}
     template <class U> Helper(std::shared_ptr<U> const &Sp) : Ptr(Sp.get()) {}
     template <class U, class... Ts>
     Helper(std::unique_ptr<U, Ts...> const &Up) : Ptr(Up.get()) {}
     // && optional: enforces rvalue use only
-    bool operator<(Helper o) const { return std::less<T *>()(Ptr, o.Ptr); }
+    bool operator<(Helper o) const {
+      return std::less<const T *>()(Ptr, o.Ptr);
+    }
   };
 
   bool operator()(Helper const &&lhs, Helper const &&rhs) const {

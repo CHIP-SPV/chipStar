@@ -324,6 +324,25 @@ public:
     return hasResultType() ? getWord(2) : getWord(1);
   }
 
+  /// Return true if the instruction is a kind that may forward
+  /// reference instructions (OpName, OpDecorate, ...)
+  ///
+  /// The reference (Result ID) is returned via 'TargetResultID' if it
+  /// is not nullptr;
+  bool isForwardReferencing(InstWord *TargetResultID = nullptr) const {
+    switch (getOpcode()) {
+      // NOTE: this switch is not exhaustive. Extended on-demand basis.
+    default:
+      return false;
+    case spv::OpName:
+    case spv::OpDecorate:
+      if (TargetResultID)
+        *TargetResultID = getWord(1);
+      return true;
+      // TODO: OpEntryFunction
+    }
+  }
+
   bool isFunctionType() const { return (Opcode_ == spv::Op::OpTypeFunction); }
   bool isFunction() const { return (Opcode_ == spv::Op::OpFunction); }
   bool isConstant() const { return (Opcode_ == spv::Op::OpConstant); }
@@ -555,7 +574,7 @@ public:
     return AllOk;
   }
 
-  bool parseSPIRV(const InstWord *Stream, size_t NumWords) {
+  bool analyzeSPIRV(const InstWord *Stream, size_t NumWords) {
     KernelCapab_ = false;
     ExtIntOpenCL_ = false;
     HeaderOK_ = false;
@@ -805,18 +824,24 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
   return FilterAction::Keep;
 }
 
-bool filterSPIRV(const char *Bytes, size_t NumBytes,
-                 bool PreventNameDemangling, std::string &Dst) {
-  logTrace("filterSPIRV");
+// TODO/FIXME: 'const char *Bytes' --> 'const uint32_t *Words' as this function
+// expects the Bytes to be aligned to 32-bits.
+bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
+                     bool PreventNameDemangling, std::vector<uint32_t> &Dst) {
+  assert(reinterpret_cast<uintptr_t>(Bytes) % sizeof(InstWord) == 0 &&
+         "Expected SPIR-V word aligned input!");
+  logTrace("preprocessSPIRV");
 
-  auto *WordsPtr = (const InstWord *)Bytes;
+  auto *WordsBegin = reinterpret_cast<const InstWord *>(Bytes);
+  auto *WordsPtr = WordsBegin;
   size_t NumWords = NumBytes / sizeof(InstWord);
+  Dst.clear();
+  Dst.reserve(NumWords);
 
   if (!parseHeader(WordsPtr, NumWords))
     return false; // Invalid SPIR-V binary.
 
-  Dst.reserve(NumBytes);
-  Dst.append(Bytes, (const char *)WordsPtr); // Copy the header.
+  Dst.insert(Dst.end(), WordsBegin, WordsPtr); // Copy the header.
 
   // Matches chipStar device library and SPIR-V translator symbols.
   auto CompilerMagicSymbol =
@@ -904,8 +929,7 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes,
     case FilterAction::Drop:
       continue;
     case FilterAction::Replace: {
-      Dst.append((const char *)&*TransformedInst.begin(),
-                 (const char *)&*TransformedInst.end());
+      Dst.insert(Dst.end(), TransformedInst.begin(), TransformedInst.end());
       continue;
     }
     }
@@ -915,11 +939,11 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes,
       TransformedInst.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
       char *Temp = reinterpret_cast<char *>(TransformedInst.data() + 3);
       std::swap(Temp[0], Temp[1]);
-      Dst.append((const char *)&*TransformedInst.begin(),
-                 (const char *)&*TransformedInst.end());
-    } else {
-      Dst.append((const char *)(WordsPtr + I), InsnSize * sizeof(InstWord));
+      Dst.insert(Dst.end(), TransformedInst.begin(), TransformedInst.end());
+      continue;
     }
+
+    Dst.insert(Dst.end(), WordsPtr + I, WordsPtr + I + InsnSize);
   }
 
   for (auto &[Ignored, Name] : MissingDefs)
@@ -928,9 +952,71 @@ bool filterSPIRV(const char *Bytes, size_t NumBytes,
   return true;
 }
 
-bool parseSPIR(InstWord *Stream, size_t NumWords, SPVModuleInfo &Output) {
+bool postprocessSPIRV(std::vector<uint32_t> &Input) {
+  logTrace("postprocessSPIRV");
+
+  std::vector<uint32_t> Result;
+  Result.reserve(Input.size());
+
+  // Copy the header.
+  assert(Input.size() >= 5 && "SPIR-V header missing?");
+  Result.insert(Result.end(), Input.begin(), std::next(Input.begin(), 5));
+
+  // Processing in two pass for dealing with forward ID references.
+
+  // Instructions and decorators with the result ID to be erased.
+  std::set<InstWord> InstructionsToErase;
+
+  // First pass.
+  size_t InsnSize = 0;
+  constexpr size_t PastHeader = 5;
+  for (size_t I = PastHeader; I < Input.size(); I += InsnSize) {
+    SPIRVinst Insn(&Input.at(I));
+    InsnSize = Insn.size();
+    assert(InsnSize && "Invalid instruction size, will loop forever!");
+
+    if (Insn.isDecoration(spv::DecorationLinkageAttributes)) {
+      const auto LinkName = parseLinkageAttributeName(Insn);
+
+      // Remove chipStar runtime metadata variables which are
+      // expressed as global-scope variables. This is accommodation
+      // for mesa/rusticl that does not support them yet. Also, the
+      // variables are essentially dead code for the driver.
+      if (LinkName == "__chip_module_has_no_IGBAs" ||
+          startsWith(LinkName, "__chip_spilled_args_"))
+        InstructionsToErase.insert(Insn.getWord(1));
+    }
+  }
+
+  // Second pass.
+  for (size_t I = PastHeader; I < Input.size(); I += InsnSize) {
+    SPIRVinst Insn(&Input.at(I));
+    InsnSize = Insn.size();
+    assert(InsnSize && "Invalid instruction size, will loop forever!");
+
+    InstWord FwdRefID;
+    if (Insn.isForwardReferencing(&FwdRefID) &&
+        InstructionsToErase.count(FwdRefID)) {
+      logTrace("filter out fwd ref id={}", FwdRefID);
+      continue;
+    }
+
+    if (Insn.hasResultID() && InstructionsToErase.count(Insn.getResultID())) {
+      logTrace("filter out inst id={}", Insn.getResultID());
+      continue;
+    }
+
+    Result.insert(Result.end(), &Input.at(I), &Input.at(I) + InsnSize);
+  }
+
+  Input = std::move(Result);
+
+  return true;
+}
+
+bool analyzeSPIRV(InstWord *Stream, size_t NumWords, SPVModuleInfo &Output) {
   SPIRVmodule Mod;
-  if (!Mod.parseSPIRV(Stream, NumWords))
+  if (!Mod.analyzeSPIRV(Stream, NumWords))
     return false;
   return Mod.fillModuleInfo(Output);
 }

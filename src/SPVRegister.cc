@@ -36,6 +36,7 @@ THE SOFTWARE.
 #include "common.hh"
 #include "logging.hh"
 #include "macros.hh"
+#include "CHIPDriver.hh"
 
 #include <mutex>
 #include <utility>
@@ -164,12 +165,46 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
   //       into smaller independent ones (is possible) for reducing
   //       compilation time in the backend.
 
-  bool Success = filterSPIRV(SrcMod->OriginalBinary_.data(),
-                             SrcMod->OriginalBinary_.size(),
-                             PreventNameDemangling, SrcMod->FinalizedBinary_);
-  assert(Success && "SPIRV post processing failed!");
+  auto DumpBinary = [](const std::vector<uint32_t> &Bin) -> void {
+    if (ChipEnvVars.getDumpSpirv()) {
+      if (auto DumpPath = dumpSpirv(Bin))
+        logDebug("Dumped SPIR-V binary to '{}'", DumpPath->c_str());
+    }
+  };
+
+  std::vector<uint32_t> Binary;
+
+  if (!preprocessSPIRV(SrcMod->OriginalBinary_.data(),
+                       SrcMod->OriginalBinary_.size(), PreventNameDemangling,
+                       Binary)) {
+    logError("Failure in SPIR-V preprocessing.");
+    if (ChipEnvVars.getDumpSpirv())
+      if (auto DumpPath = dumpSpirv(SrcMod->OriginalBinary_))
+        logDebug("Dumped SPIR-V binary to {}", *DumpPath->c_str());
+    CHIPERR_LOG_AND_THROW("SPIR-V preprocessing failure.", hipErrorTbd);
+  }
+
   // Can't be empty. There should be at least a SPIR-V header.
-  assert(SrcMod->FinalizedBinary_.size() && "Empty finalized source");
+  assert(Binary.size() && "Empty finalized source");
+
+  if (!analyzeSPIRV(Binary.data(), Binary.size(), SrcMod->ModuleInfo_)) {
+    logError("Failure in SPIR-V analysis.");
+    DumpBinary(Binary);
+    // Metadata is essential for chipStar's functionality. Bail out.
+    CHIPERR_LOG_AND_THROW("SPIR-V analysis failure.", hipErrorTbd);
+  }
+
+  // Strip chipStar runtime metadata.
+  if (!postprocessSPIRV(Binary)) {
+    logError("Failure in SPIR-V postprocessing.");
+    DumpBinary(Binary);
+    // Failing in postprocessing means we don't have valid SPIR-V. Bail out.
+    CHIPERR_LOG_AND_THROW("SPIR-V postprocessing failure.", hipErrorTbd);
+  }
+
+  DumpBinary(Binary);
+
+  SrcMod->FinalizedBinary_ = std::move(Binary);
   return SrcMod;
 }
 

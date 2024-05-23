@@ -1234,14 +1234,17 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopy2DAsyncImpl(void *Dst, size_t Dpitch, const void *Src,
-                                    size_t Spitch, size_t Width,
-                                    size_t Height) {
-  return memCopy3DAsyncImpl(Dst, Dpitch, 0, Src, Spitch, 0, Width, Height, 0);
+                                    size_t Spitch, size_t Width, size_t Height,
+                                    hipMemcpyKind Kind) {
+  return memCopy3DAsyncImpl(Dst, Dpitch, 0, Src, Spitch, 0, Width, Height, 0,
+                            Kind);
 };
 
-std::shared_ptr<chipstar::Event> CHIPQueueLevel0::memCopy3DAsyncImpl(
-    void *Dst, size_t Dpitch, size_t Dspitch, const void *Src, size_t Spitch,
-    size_t Sspitch, size_t Width, size_t Height, size_t Depth) {
+std::shared_ptr<chipstar::Event>
+CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
+                                    const void *Src, size_t Spitch,
+                                    size_t Sspitch, size_t Width, size_t Height,
+                                    size_t Depth, hipMemcpyKind Kind) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyRegionEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
@@ -1438,7 +1441,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 }
 
 std::shared_ptr<chipstar::Event>
-CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size) {
+CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
+                                  hipMemcpyKind Kind) {
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
@@ -2131,6 +2135,8 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   static_assert(sizeof(ArchName) <= sizeof(HipDeviceProps_.gcnArchName),
                 "Buffer overflow!");
   std::strncpy(HipDeviceProps_.gcnArchName, ArchName, sizeof(ArchName));
+
+  HipDeviceProps_.unifiedAddressing = true;
 }
 
 chipstar::Queue *CHIPDeviceLevel0::createQueue(chipstar::QueueFlags Flags,
@@ -2413,7 +2419,6 @@ static void appendDeviceLibrarySources(
 
 void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   logTrace("CHIPModuleLevel0.compile()");
-  consumeSPIRV();
 
   auto *LzBackend = static_cast<CHIPBackendLevel0 *>(Backend);
   if (!LzBackend->hasExperimentalModuleProgramExt())
@@ -2422,8 +2427,11 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                           hipErrorTbd);
 
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(ChipDev);
-  std::vector<size_t> ILSizes(1, IlSize_);
-  std::vector<const uint8_t *> ILInputs(1, FuncIL_);
+
+  std::string_view SPIRVBin = Src_->getBinary();
+  std::vector<size_t> ILSizes(1, SPIRVBin.size());
+  std::vector<const uint8_t *> ILInputs(
+      1, reinterpret_cast<const uint8_t *>(SPIRVBin.data()));
   std::vector<const char *> BuildFlags(1, ChipEnvVars.getJitFlags().c_str());
 
   appendDeviceLibrarySources(ILSizes, ILInputs, BuildFlags,
@@ -2584,7 +2592,7 @@ void CHIPExecItemLevel0::setupAllArgs() {
   if (FuncInfo->hasByRefArgs())
     ChipQueue_->memCopyAsync(ArgSpillBuffer_->getDeviceBuffer(),
                              ArgSpillBuffer_->getHostBuffer(),
-                             ArgSpillBuffer_->getSize());
+                             ArgSpillBuffer_->getSize(), hipMemcpyHostToDevice);
 
   return;
 }

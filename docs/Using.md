@@ -54,6 +54,30 @@ compiled just before kernel launches.
 A debug option for forcing queue profiling to be disabled in the
 OpenCL backend. The default setting is `0`.
 
+#### CHIP\_OCL\_USE\_ALLOC\_STRATEGY
+
+Defines the allocation strategy the OpenCL backend uses for managing
+HIP allocations. The valid case-insensitive choices and their meaning
+are:
+
+* `intelusm` or `usm`: The backend uses Intel Unified Shared Memory
+  (USM) extension for HIP allocations. The OpenCL devices must support
+  `cl_intel_unified_shared_memory` extension to use this strategy.
+
+* `svm`: The backend uses shared virtual memory (SVM). The OpenCL
+  devices must support at least coarse grain SVM to use this strategy.
+
+* `bufferdevaddr`: The backend uses `cl_mem` buffers and experimental
+  `cl_ext_buffer_devive_address` extension. Note: unified virtual
+  addressing is not available when using this strategy. Consequently,
+  `hipMemcpyDefault` flag is not supported and `hipMallocHost()`
+  allocations are not implicitly mapped and portable. The OpenCL
+  devices must support the `cl_ext_buffer_devive_address`
+  extension to use this strategy.
+
+If this variable is not set, the backend chooses the first available
+strategy in this order: `usm`, `svm`, `bufferdevaddr`.
+
 ### Disabling GPU hangcheck
 
 Note that long-running GPU compute kernels can trigger hang detection mechanism in the GPU driver, which will cause the kernel execution to be terminated and the runtime will report an error. Consult the documentation of your GPU driver on how to disable this hangcheck.

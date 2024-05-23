@@ -51,10 +51,12 @@ struct SPVModuleInfo {
   bool HasNoIGBAs = false;
 };
 
-bool filterSPIRV(const char *Bytes, size_t NumBytes,
-                 bool PreventNameDemangling, std::string &Dst);
-
-bool parseSPIR(uint32_t *Stream, size_t NumWords, SPVModuleInfo &ModuleInfo);
+// Processing done before analysis.
+bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
+                     bool PreventNameDemangling, std::vector<uint32_t> &Dst);
+bool analyzeSPIRV(uint32_t *Stream, size_t NumWords, SPVModuleInfo &ModuleInfo);
+// Processing done after analysis.
+bool postprocessSPIRV(std::vector<uint32_t> &Binary);
 
 /// A prefix given to lowered global scope device variables.
 constexpr char ChipVarPrefix[] = "__chip_var_";
