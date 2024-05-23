@@ -8,7 +8,7 @@ function(add_hip_test MAIN_SOURCE)
   target_include_directories("${EXEC_NAME}"
     PUBLIC ${CMAKE_SOURCE_DIR}/HIP/include ${CMAKE_SOURCE_DIR}/include)
 
-  add_test(NAME ${EXEC_NAME} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+  add_test(NAME ${EXEC_NAME} COMMAND ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
   add_dependencies(build_tests "${EXEC_NAME}")
 endfunction()
 

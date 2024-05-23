@@ -19,3 +19,6 @@
 [submodule "H4I-HipBLAS"]
 	path = H4I-HipBLAS
 	url = git@github.com:CHIP-SPV/H4I-HipBLAS.git
+[submodule "spirv-extractor/SPIRV-Tools"]
+	path = spirv-extractor/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git

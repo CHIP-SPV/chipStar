@@ -7,10 +7,11 @@ target_link_libraries(hip_sycl_interop onemkl_gemm_wrapper -L${CMAKE_BINARY_DIR}
 target_include_directories(hip_sycl_interop PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
 
 add_test(NAME "hip_sycl_interop"
-    COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/hip_sycl_interop"
+    COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SHIP_DOUBLE_TESTS} "${CMAKE_CURRENT_BINARY_DIR}/hip_sycl_interop"
 )
 
 set_tests_properties("hip_sycl_interop" PROPERTIES
     PASS_REGULAR_EXPRESSION "${TEST_PASS}"
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
     TIMEOUT 60
 )
