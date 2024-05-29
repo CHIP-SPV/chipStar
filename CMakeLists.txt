@@ -24,7 +24,7 @@
 # =============================================================================
 
 # temporary
-add_compile_options(-Wno-format-extra-args -mf16c)
+add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
@@ -320,6 +320,15 @@ else()
   message(STATUS "Buiding chipStar as a static library")
   add_library(CHIP STATIC ${CHIP_SRC})
   set(CHIP_LIB_NAME "libCHIP.a")
+endif()
+
+# Check if the compiler supports F16C
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|i[3-6]86)$")
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag("-mf16c" COMPILER_SUPPORTS_F16C)
+    if(COMPILER_SUPPORTS_F16C) 
+      add_compile_options(-mf16c) 
+    endif()
 endif()
 
 include(CheckIPOSupported)
