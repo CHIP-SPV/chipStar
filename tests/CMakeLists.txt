@@ -35,3 +35,4 @@ add_test(
     -P ${CMAKE_CURRENT_SOURCE_DIR}/run_helgrind_test.cmake
 )
 
+include(HeCBench.cmake)
