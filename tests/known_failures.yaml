@@ -404,9 +404,9 @@ ALL:
   hipMultiThreadAddCallback: ''
   hipStreamSemantics: ''
   syncthreadsExitedThreads: ''
-LEVEL0_GPU:
+LEVEL0_GPU_CUPCAKE:
   CatchMemLeak1: ''
-OPENCL_CPU:
+OPENCL_CPU_CUPCAKE:
   2d_shuffle: ''
   Unit_hipClassKernel_Value: ''
   Unit_hipMemsetFunctional_PartialSet_1D: ''
@@ -414,7 +414,7 @@ OPENCL_CPU:
   hipConstantTestDeviceSymbol: ''
   hipDynamicShared2: ''
   unroll: ''
-OPENCL_GPU:
+OPENCL_GPU_CUPCAKE:
   TestStlFunctionsDouble: ''
   Unit_hipEventRecord: ''
   Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: ''
@@ -430,7 +430,66 @@ OPENCL_GPU:
   Unit_hipStreamPerThread_DeviceReset_1: ''
   Unit_hipStreamPerThread_MultiThread: ''
   hipTestDeviceSymbol: ''
-OPENCL_POCL:
+OPENCL_POCL_CUPCAKE:
+  BinomialOption: ''
+  DCT: ''
+  Histogram: ''
+  RecursiveGaussian: ''
+  TestUndefKernelArg: ''
+  Unit_deviceFunctions_CompileTest___dsqrt_rd_double: ''
+  Unit_deviceFunctions_CompileTest___dsqrt_rn_double: ''
+  Unit_deviceFunctions_CompileTest___dsqrt_ru_double: ''
+  Unit_deviceFunctions_CompileTest___dsqrt_rz_double: ''
+  Unit_deviceFunctions_CompileTest_rnorm_double: ''
+  Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalConstMemory: ''
+  Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemory: ''
+  Unit_hipGraphAddMemcpyNodeFromSymbol_GlobalMemoryWithKernel: ''
+  Unit_hipGraphAddMemcpyNodeToSymbol_GlobalConstMemory: ''
+  Unit_hipGraphAddMemcpyNodeToSymbol_GlobalMemory: ''
+  Unit_hipGraphAddMemcpyNodeToSymbol_MemcpyToSymbolNodeWithKernel: ''
+  Unit_hipGraphMemcpyNodeSetParamsFromSymbol_Functional: ''
+  Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional: ''
+  Unit_hipMallocPitch_KernelLaunch: ''
+  Unit_hipMemsetFunctional_PartialSet_1D: ''
+  Unit_hipMultiThreadStreams2: ''
+  dwtHaar1D: ''
+  fp16_half2_math: ''
+  fp16_math: ''
+  hip_async_binomial: ''
+  hip_sycl_interop: ''
+  hip_sycl_interop_no_buffers: ''
+  # Results differs a tiny bit compared to CPU computed reference values for
+  # the following three texture tests.
+  Unit_hipTextureObj1DCheckRGBAModes - array: ''
+  Unit_hipTextureObj1DCheckRGBAModes - buffer: ''
+  Unit_hipTextureObj2DCheckRGBAModes: ''
+LEVEL0_GPU_MEATLOAF:
+  CatchMemLeak1: ''
+OPENCL_CPU_MEATLOAF:
+  2d_shuffle: ''
+  Unit_hipClassKernel_Value: ''
+  Unit_hipMemsetFunctional_PartialSet_1D: ''
+  fp16: ''
+  hipConstantTestDeviceSymbol: ''
+  hipDynamicShared2: ''
+  unroll: ''
+OPENCL_GPU_MEATLOAF:
+  TestStlFunctionsDouble: ''
+  Unit_hipEventRecord: ''
+  Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: ''
+  Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: ''
+  Unit_hipMalloc_Multithreaded_MultiGPU: ''
+  Unit_hipMemsetFunctional_PartialSet_1D: ''
+  Unit_hipMemsetFunctional_SmallSize_hipMemset: ''
+  Unit_hipMemsetFunctional_SmallSize_hipMemsetD16: ''
+  Unit_hipMemsetFunctional_SmallSize_hipMemsetD32: ''
+  Unit_hipMemsetFunctional_SmallSize_hipMemsetD8: ''
+  Unit_hipMultiThreadStreams1_AsyncSame: ''
+  Unit_hipStreamAddCallback_ParamTst_Positive: Timeout dgpu
+  Unit_hipStreamPerThread_DeviceReset_1: ''
+  Unit_hipStreamPerThread_MultiThread: ''
+  hipTestDeviceSymbol: ''
+OPENCL_POCL_MEATLOAF:
   BinomialOption: ''
   DCT: ''
   Histogram: ''
