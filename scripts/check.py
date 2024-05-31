@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import hashlib
 import time
+import platform
 
 
 parser = argparse.ArgumentParser(
@@ -61,6 +62,9 @@ if args.verbose:
   print(f"num_tries: {args.num_tries}")
   print(f"timeout: {args.timeout}")
 
+# platform agnostic way of getting hostname
+hostname = platform.uname().node
+
 if args.device_type in ["cpu", "pocl"]:
     device_type_stripped = "cpu"
 elif args.device_type in ["dgpu", "igpu"]:
@@ -109,7 +113,7 @@ else:
     texture_cmd = ""
 
 all_test_list = f"./test_lists/ALL.txt"
-failed_test_list = f"./test_lists/{args.backend.upper()}_{device_type_stripped.upper()}.txt"
+failed_test_list = f"./test_lists/{args.backend.upper()}_{device_type_stripped.upper()}_{hostname.upper()}.txt"
 
 def run_tests(num_tries):
   if len(args.regex_exclude) > 0:
