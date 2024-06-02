@@ -145,7 +145,12 @@ else
   cd build
 
   echo "building with $CLANG"
-  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON
+  # if debug, add -O1 for some reason this is necessary on the CI machine.
+  if [ "$build_type" == "DEBUG" ]; then
+    cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON -DCMAKE_CXX_FLAGS="-O1"
+  else
+    cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON
+  fi
   make all build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 fi
