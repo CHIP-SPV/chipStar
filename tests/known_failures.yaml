@@ -415,6 +415,7 @@ OPENCL_CPU:
   hipDynamicShared2: ''
   unroll: ''
 OPENCL_GPU:
+  Unit_hipEvent: ''
   TestStlFunctionsDouble: ''
   Unit_hipEventRecord: ''
   Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: ''
