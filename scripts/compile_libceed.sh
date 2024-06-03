@@ -1,5 +1,6 @@
 #!/bin/bash
 source /etc/profile.d/modules.sh &> /dev/null
+module use ~/modulefiles
 HIP_DIR=$1
 echo "Building LibCEED with HIP_DIR: ${HIP_DIR}"
 if which clang >/dev/null 2>&1; then

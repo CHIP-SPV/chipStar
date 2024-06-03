@@ -22,3 +22,6 @@
 [submodule "spirv-extractor/SPIRV-Tools"]
 	path = spirv-extractor/SPIRV-Tools
 	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "HeCBench"]
+	path = HeCBench
+	url = https://github.com/franz/HeCBench.git
