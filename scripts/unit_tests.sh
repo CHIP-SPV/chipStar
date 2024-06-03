@@ -31,16 +31,16 @@ build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 if [ "$2" == "llvm-15" ]; then
   LLVM=llvm-15
-  CLANG=llvm/15.0-unpatched-spirv
+  CLANG=llvm/15.0
 elif [ "$2" == "llvm-16" ]; then
   LLVM=llvm-16
-  CLANG=llvm/16.0-unpatched-spirv
+  CLANG=llvm/16.0
 elif [ "$2" == "llvm-17" ]; then
   LLVM=llvm-17
-  CLANG=llvm/17.0-unpatched-spirv
+  CLANG=llvm/17.0
 elif [ "$2" == "llvm-18" ]; then
   LLVM=llvm-18
-  CLANG=llvm/18.0-unpatched-spirv
+  CLANG=llvm/18.0
 else
   echo "$2"
   echo "Invalid 2nd argument. Use either 'llvm-15', 'llvm-16', 'llvm-17' or 'llvm-18'."
@@ -145,7 +145,12 @@ else
   cd build
 
   echo "building with $CLANG"
-  cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON
+  # if debug, add -O1 for some reason this is necessary on the CI machine.
+  if [ "$build_type" == "DEBUG" ]; then
+    cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON -DCMAKE_CXX_FLAGS="-O1"
+  else
+    cmake ../ -DCMAKE_BUILD_TYPE="$build_type" -DCHIP_BUILD_HIPBLAS=ON
+  fi
   make all build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 fi

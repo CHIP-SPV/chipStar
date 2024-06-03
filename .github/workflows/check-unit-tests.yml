@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   unit-tests-llvm-15-debug:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -22,7 +22,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-15
         shell: bash
   unit-tests-llvm-15-release:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -32,7 +32,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-15
         shell: bash
   unit-tests-llvm-16-debug:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -42,7 +42,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-16
         shell: bash
   unit-tests-llvm-16-release:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -52,7 +52,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-16
         shell: bash
   unit-tests-llvm-17-debug:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -62,7 +62,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-17
         shell: bash
   unit-tests-llvm-17-release:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -72,7 +72,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-17
         shell: bash
   unit-tests-llvm-18-debug:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
@@ -82,7 +82,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-18
         shell: bash
   unit-tests-llvm-18-release:
-    runs-on: self-hosted
+    runs-on: X64
     steps:
       - uses: actions/checkout@v2
         with:
