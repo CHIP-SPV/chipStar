@@ -2,6 +2,8 @@
 import yaml
 import argparse
 import os
+import re
+import platform
 
 parser = argparse.ArgumentParser(
     prog="check.py",
@@ -104,11 +106,27 @@ def pretty_print_known_failures(known_failures, total_tests):
 
 def generate_test_string(tests_map, output_dir):
     test_string_map = {}
-    for category, tests in tests_map.items():
+    # platform agnostic way of getting hostname
+    hostname = platform.uname().node
+    for category, tests in tests_map['ANY'].items():
         test_string = "$|".join(tests.keys()) + "$" if tests else ""
         test_string_map[category] = test_string
+
+    # use host key as a pattern to find match in hostname
+    for host_pattern in tests_map.keys():
+        if re.search(host_pattern, hostname) != None:
+            # proccess the categories of given host and either create or add tests to categories
+            for category, tests in tests_map[host_pattern].items():
+                if tests:
+                    test_string = "$|".join(tests.keys()) + "$"
+                    if category in test_string_map:
+                        test_string_map[category] += "|" + test_string
+                    else:
+                        test_string_map[category] = test_string
+    # dump categories to files
+    for category in test_string_map.keys():
         with open(f"{output_dir}/{category}.txt", "+w") as file:
-            file.write(test_string)
+            file.write(test_string_map[category])
     return test_string_map
 
 
