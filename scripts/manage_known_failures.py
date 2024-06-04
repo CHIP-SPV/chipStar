@@ -49,6 +49,8 @@ def load_known_failures_from_yaml(yaml_path):
 
 
 def prune_tests_map(tests_map):
+    # runtime failure for now needs update to work with machine specific failures
+    raise RuntimeError('Prune tests map is not implemented for current format!')
     # Define the categories to check
     categories_to_check = ["OPENCL_GPU", "OPENCL_CPU", "OPENCL_POCL", "LEVEL0_GPU"]
     opencl_categories = ["OPENCL_GPU", "OPENCL_CPU", "OPENCL_POCL"]
@@ -84,9 +86,9 @@ def prune_tests_map(tests_map):
     return tests_map
 
 def pretty_print_known_failures(known_failures, total_tests):
-    all_tests = set(known_failures.get("ALL", {}).keys())
-    summaries = []
-    for category, tests in known_failures.items():
+    all_tests = set(known_failures.get("ANY", {}).get("ALL",{}).keys())
+    summaries = {}
+    for category, tests in known_failures["ANY"].items():
         category_failures = set(tests.keys()) if tests else set()
         unique_failures = category_failures - all_tests
         total_failures = category_failures.union(all_tests)
@@ -94,14 +96,34 @@ def pretty_print_known_failures(known_failures, total_tests):
         num_total_failures = len(total_failures)
         pass_rate = ((total_tests - num_total_failures) / total_tests) * 100
         summary = f"{category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%"
-        summaries.append(summary)
+        summaries[category] = []
+        summaries[category].append(summary)
         print(summary)
         if tests and category != "ALL":
             for test in unique_failures:
                 print(f"\t{test}")
+
+    for machine in list(known_failures.keys())[1:]:
+        for category, tests in known_failures[machine].items():
+            category_failures = set(tests.keys()) if tests else set()
+            common_category_failures = set(known_failures.get("ANY", {}).get(category,{}).keys())
+            all_machine_failures = set(known_failures.get(machine, {}).get("ALL",{}).keys())
+            unique_failures = category_failures - all_tests - common_category_failures - all_machine_failures
+            total_failures = category_failures.union(all_tests).union(common_category_failures).union(all_machine_failures)
+            num_unique_failures = len(unique_failures)
+            num_total_failures = len(total_failures)
+            pass_rate = ((total_tests - num_total_failures) / total_tests) * 100
+            summary = f"{machine} {category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%"
+            summaries[category].append(summary)
+            print(summary)
+            if tests and category != "ALL":
+                for test in unique_failures:
+                    print(f"\t{test}")
     print("\nSummary:")
-    for summary in summaries:
-        print(summary)
+    for category in summaries.values():
+        print()
+        for summary in category:
+            print(summary)
 
 
 def generate_test_string(tests_map, output_dir):
