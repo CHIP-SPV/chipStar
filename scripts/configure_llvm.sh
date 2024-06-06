@@ -34,6 +34,9 @@ VERSION=$1
 INSTALL_DIR=$2
 LINK_TYPE=$3
 
+# get the gcc base path to use in cmake flags
+gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
+
 # set the brach name for checkuot based on only-necessary-spirv-exts
 if [ "$4" == "on" ]; then
   LLVM_BRANCH="spirv-ext-fixes-${VERSION}"
@@ -62,7 +65,6 @@ else
     echo "Already on branch ${LLVM_BRANCH}"
   else
     echo "Switching to branch ${LLVM_BRANCH}"
-    git branch -D ${LLVM_BRANCH} &> /dev/null
     git fetch origin ${LLVM_BRANCH}:${LLVM_BRANCH}
     git checkout ${LLVM_BRANCH}
   fi
@@ -72,9 +74,8 @@ else
     echo "Already on branch ${TRANSLATOR_BRANCH}"
   else
     echo "Switching to branch ${TRANSLATOR_BRANCH}"
-    git branch -D ${TRANSLATOR_BRANCH} &> /dev/null
     git fetch origin ${TRANSLATOR_BRANCH}:${TRANSLATOR_BRANCH}
-    git checkout chipStar-llvm-${VERSION}
+    git checkout ${TRANSLATOR_BRANCH}
   fi
   cd ${LLVM_DIR}
 fi
@@ -97,6 +98,10 @@ if [ "$LINK_TYPE" == "static" ]; then
     -DLLVM_ENABLE_PROJECTS="clang;openmp" \
     -DLLVM_TARGETS_TO_BUILD=host \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
+    -DCMAKE_CXX_COMPILER=g++ \
+    -DCMAKE_C_COMPILER=gcc \
+    -DGCC_INSTALL_PREFIX=${gcc_base_path}\
+    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
     -DLLVM_ENABLE_ASSERTIONS=On
 elif [ "$LINK_TYPE" == "dynamic" ]; then
   cmake ../ \
@@ -109,6 +114,10 @@ elif [ "$LINK_TYPE" == "dynamic" ]; then
     -DLLVM_BUILD_LLVM_DYLIB=ON \
     -DLLVM_PARALLEL_LINK_JOBS=2 \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_COMPILER=g++ \
+    -DCMAKE_C_COMPILER=gcc \
+    -DGCC_INSTALL_PREFIX=${gcc_base_path}\
+    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
     -DLLVM_ENABLE_ASSERTIONS=On
 else
   echo "Invalid link_type. Must be 'static' or 'dynamic'."
