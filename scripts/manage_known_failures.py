@@ -2,6 +2,8 @@
 import yaml
 import argparse
 import os
+import re
+import platform
 
 parser = argparse.ArgumentParser(
     prog="check.py",
@@ -47,6 +49,8 @@ def load_known_failures_from_yaml(yaml_path):
 
 
 def prune_tests_map(tests_map):
+    # runtime failure for now needs update to work with machine specific failures
+    raise RuntimeError('Prune tests map is not implemented for current format!')
     # Define the categories to check
     categories_to_check = ["OPENCL_GPU", "OPENCL_CPU", "OPENCL_POCL", "LEVEL0_GPU"]
     opencl_categories = ["OPENCL_GPU", "OPENCL_CPU", "OPENCL_POCL"]
@@ -82,9 +86,9 @@ def prune_tests_map(tests_map):
     return tests_map
 
 def pretty_print_known_failures(known_failures, total_tests):
-    all_tests = set(known_failures.get("ALL", {}).keys())
-    summaries = []
-    for category, tests in known_failures.items():
+    all_tests = set(known_failures.get("ANY", {}).get("ALL",{}).keys())
+    summaries = {}
+    for category, tests in known_failures["ANY"].items():
         category_failures = set(tests.keys()) if tests else set()
         unique_failures = category_failures - all_tests
         total_failures = category_failures.union(all_tests)
@@ -92,23 +96,59 @@ def pretty_print_known_failures(known_failures, total_tests):
         num_total_failures = len(total_failures)
         pass_rate = ((total_tests - num_total_failures) / total_tests) * 100
         summary = f"{category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%"
-        summaries.append(summary)
+        summaries[category] = []
+        summaries[category].append(summary)
         print(summary)
         if tests and category != "ALL":
             for test in unique_failures:
                 print(f"\t{test}")
+
+    for machine in list(known_failures.keys())[1:]:
+        for category, tests in known_failures[machine].items():
+            category_failures = set(tests.keys()) if tests else set()
+            common_category_failures = set(known_failures.get("ANY", {}).get(category,{}).keys())
+            all_machine_failures = set(known_failures.get(machine, {}).get("ALL",{}).keys())
+            unique_failures = category_failures - all_tests - common_category_failures - all_machine_failures
+            total_failures = category_failures.union(all_tests).union(common_category_failures).union(all_machine_failures)
+            num_unique_failures = len(unique_failures)
+            num_total_failures = len(total_failures)
+            pass_rate = ((total_tests - num_total_failures) / total_tests) * 100
+            summary = f"{machine} {category} - Unique Failures: {num_unique_failures}, Total Failures: {num_total_failures}, Pass Rate: {pass_rate:.2f}%"
+            summaries[category].append(summary)
+            print(summary)
+            if tests and category != "ALL":
+                for test in unique_failures:
+                    print(f"\t{test}")
     print("\nSummary:")
-    for summary in summaries:
-        print(summary)
+    for category in summaries.values():
+        print()
+        for summary in category:
+            print(summary)
 
 
 def generate_test_string(tests_map, output_dir):
     test_string_map = {}
-    for category, tests in tests_map.items():
+    # platform agnostic way of getting hostname
+    hostname = platform.uname().node
+    for category, tests in tests_map['ANY'].items():
         test_string = "$|".join(tests.keys()) + "$" if tests else ""
         test_string_map[category] = test_string
+
+    # use host key as a pattern to find match in hostname
+    for host_pattern in tests_map.keys():
+        if re.search(host_pattern, hostname) != None:
+            # proccess the categories of given host and either create or add tests to categories
+            for category, tests in tests_map[host_pattern].items():
+                if tests:
+                    test_string = "$|".join(tests.keys()) + "$"
+                    if category in test_string_map:
+                        test_string_map[category] += "|" + test_string
+                    else:
+                        test_string_map[category] = test_string
+    # dump categories to files
+    for category in test_string_map.keys():
         with open(f"{output_dir}/{category}.txt", "+w") as file:
-            file.write(test_string)
+            file.write(test_string_map[category])
     return test_string_map
 
 
