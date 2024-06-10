@@ -111,3 +111,4 @@ add_hip_runtime_test(TestBufferDevAddr.hip)
 
 add_hip_runtime_test(OpenCLCallbacks.cpp)
 add_hip_runtime_test(OpenCLCallbacks-buffer.cpp)
+add_hip_runtime_test(LevelZeroCallbacks.cpp)
