@@ -207,12 +207,12 @@ int main() {
   err = zeEventHostSignal(user_event1);
   CHECK_ERROR(err);
 
-  err = zeCommandQueueSynchronize(command_queue, UINT32_MAX);
-  CHECK_ERROR(err);
+//   err = zeCommandQueueSynchronize(command_queue, UINT32_MAX);
+//   CHECK_ERROR(err);
 
   // Wait for events
-//   err = zeEventHostSynchronize(kernel_event, UINT32_MAX);
-//   CHECK_ERROR(err);
+  err = zeEventHostSynchronize(kernel_event, UINT32_MAX);
+  CHECK_ERROR(err);
 //   err = zeEventHostSynchronize(barrier_event1, UINT64_MAX);
 //   if(err == ZE_RESULT_NOT_READY) {
 //     std::cout << "Error: ZE_RESULT_NOT_READY" << err << std::endl;
