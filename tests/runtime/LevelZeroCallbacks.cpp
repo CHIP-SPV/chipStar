@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <level_zero/ze_api.h>
 #include <iostream>
+#include <string.h>
 
 #define CHECK_ERROR(err) \
   if (err != ZE_RESULT_SUCCESS) { \
@@ -13,7 +14,7 @@ void callbackFunction(ze_event_handle_t hEvent, void *user_data) {
   printf("callback complete\n");
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   ze_result_t err;
   ze_context_handle_t context = NULL;
   ze_driver_handle_t driver = NULL;
@@ -28,11 +29,28 @@ int main() {
   ze_event_handle_t barrier_event1 = NULL;
   ze_event_handle_t barrier_event2 = NULL;
 
-  // Initialize Level Zero
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " --immediate | --regular" << std::endl;
+    return -1;
+  }
+
+  bool useImmediate = false;
+  if (strcmp(argv[1], "--immediate") == 0) {
+    useImmediate = true;
+    std::cout << "Using immediate command list." << std::endl;
+  } else if (strcmp(argv[1], "--regular") == 0) {
+    useImmediate = false;
+    std::cout << "Using regular command list." << std::endl;
+  } else {
+    std::cerr << "Invalid argument. Use --immediate or --regular." << std::endl;
+    return -1;
+  }
+
+  std::cout << "Initializing Level Zero." << std::endl;
   err = zeInit(ZE_INIT_FLAG_GPU_ONLY);
   CHECK_ERROR(err);
 
-  // Discover all the driver instances
+  std::cout << "Discovering all driver instances." << std::endl;
   uint32_t driver_count = 0;
   err = zeDriverGet(&driver_count, NULL);
   CHECK_ERROR(err);
@@ -41,11 +59,11 @@ int main() {
   err = zeDriverGet(&driver_count, drivers);
   CHECK_ERROR(err);
 
-  // Find the first driver
   driver = drivers[0];
   free(drivers);
+  std::cout << "First driver selected." << std::endl;
 
-  // Get all devices
+  std::cout << "Getting all devices." << std::endl;
   uint32_t device_count = 0;
   err = zeDeviceGet(driver, &device_count, NULL);
   CHECK_ERROR(err);
@@ -54,16 +72,16 @@ int main() {
   err = zeDeviceGet(driver, &device_count, devices);
   CHECK_ERROR(err);
 
-  // Find the first device
   device = devices[0];
   free(devices);
+  std::cout << "First device selected." << std::endl;
 
-  // Create context
+  std::cout << "Creating context." << std::endl;
   ze_context_desc_t context_desc = { ZE_STRUCTURE_TYPE_CONTEXT_DESC, NULL, 0 };
   err = zeContextCreate(driver, &context_desc, &context);
   CHECK_ERROR(err);
 
-  // Create command queue
+  std::cout << "Creating command queue." << std::endl;
   ze_command_queue_desc_t command_queue_desc = {
     ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
     NULL,
@@ -76,17 +94,31 @@ int main() {
   err = zeCommandQueueCreate(context, device, &command_queue_desc, &command_queue);
   CHECK_ERROR(err);
 
-  // Create command list
+  std::cout << "Creating command list." << std::endl;
   ze_command_list_desc_t command_list_desc = {
     ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC,
     NULL,
     0,
     0
   };
-  err = zeCommandListCreate(context, device, &command_list_desc, &command_list);
+
+  if (useImmediate) {
+    ze_command_queue_desc_t immediate_queue_desc = {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
+      NULL,
+      0,
+      0,
+      0,
+      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL
+    };
+    err = zeCommandListCreateImmediate(context, device, &immediate_queue_desc, &command_list);
+  } else {
+    err = zeCommandListCreate(context, device, &command_list_desc, &command_list);
+  }
   CHECK_ERROR(err);
 
-  // Allocate device memory
+  std::cout << "Allocating device memory." << std::endl;
   ze_device_mem_alloc_desc_t device_mem_alloc_desc = {
     ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
     NULL,
@@ -102,8 +134,7 @@ int main() {
   err = zeMemAllocDevice(context, &device_mem_alloc_desc, 10, 1, device, &ptr2);
   CHECK_ERROR(err);
 
-  // Load SPIR-V binary
-  std::cout << "Loading SPIR-V binary" << std::endl;
+  std::cout << "Loading SPIR-V binary." << std::endl;
   FILE *file = fopen("simple_kernel.spv", "rb");
   if (!file) {
     fprintf(stderr, "Failed to open SPIR-V binary\n");
@@ -116,7 +147,7 @@ int main() {
   fread(spirv, 1, size, file);
   fclose(file);
 
-  // Create and compile module
+  std::cout << "Creating and compiling module." << std::endl;
   ze_module_desc_t module_desc = {
     ZE_STRUCTURE_TYPE_MODULE_DESC,
     NULL,
@@ -131,7 +162,7 @@ int main() {
   CHECK_ERROR(err);
   free(spirv);
 
-  // Create kernel
+  std::cout << "Creating kernel." << std::endl;
   ze_kernel_desc_t kernel_desc = {
     ZE_STRUCTURE_TYPE_KERNEL_DESC,
     NULL,
@@ -141,7 +172,7 @@ int main() {
   err = zeKernelCreate(module, &kernel_desc, &kernel);
   CHECK_ERROR(err);
 
-  // Set kernel args
+  std::cout << "Setting kernel arguments." << std::endl;
   err = zeKernelSetArgumentValue(kernel, 0, sizeof(ptr1), &ptr1);
   CHECK_ERROR(err);
   err = zeKernelSetArgumentValue(kernel, 1, sizeof(ptr2), &ptr2);
@@ -150,7 +181,7 @@ int main() {
   err = zeKernelSetArgumentValue(kernel, 2, sizeof(size_t), &n);
   CHECK_ERROR(err);
 
-  // Create events
+  std::cout << "Creating events." << std::endl;
   ze_event_pool_desc_t event_pool_desc = {
     ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
     NULL,
@@ -184,50 +215,37 @@ int main() {
   err = zeEventCreate(event_pool, &event_desc, &barrier_event2);
   CHECK_ERROR(err);
 
-  // Enqueue barriers
+  std::cout << "Enqueuing barriers and kernel launch." << std::endl;
   err = zeCommandListAppendBarrier(command_list, barrier_event1, 1, &user_event1);
   CHECK_ERROR(err);
 
-  // Enqueue kernel
   ze_group_count_t dispatch = { 10, 1, 1 };
   err = zeCommandListAppendLaunchKernel(command_list, kernel, &dispatch, kernel_event, 1, &barrier_event1);
-  CHECK_ERROR(err)
-
-//   err = zeCommandListAppendBarrier(command_list, barrier_event2, 1, &user_event2);
-//   CHECK_ERROR(err);
-
-  // Close and execute command list
-  err = zeCommandListClose(command_list);
-  CHECK_ERROR(err);
-  err = zeCommandQueueExecuteCommandLists(command_queue, 1, &command_list, NULL);
   CHECK_ERROR(err);
 
-  
-  std::cout << "Signaling user event 1" << std::endl;
+  if (!useImmediate) {
+    std::cout << "Closing and executing command list." << std::endl;
+    err = zeCommandListClose(command_list);
+    CHECK_ERROR(err);
+    err = zeCommandQueueExecuteCommandLists(command_queue, 1, &command_list, NULL);
+    CHECK_ERROR(err);
+  }
+
+  std::cout << "Signaling user event 1." << std::endl;
   err = zeEventHostSignal(user_event1);
   CHECK_ERROR(err);
 
-//   err = zeCommandQueueSynchronize(command_queue, UINT32_MAX);
-//   CHECK_ERROR(err);
-
-  // Wait for events
+  std::cout << "Waiting for kernel event synchronization." << std::endl;
   err = zeEventHostSynchronize(kernel_event, UINT32_MAX);
   CHECK_ERROR(err);
-//   err = zeEventHostSynchronize(barrier_event1, UINT64_MAX);
-//   if(err == ZE_RESULT_NOT_READY) {
-//     std::cout << "Error: ZE_RESULT_NOT_READY" << err << std::endl;
-//   }
-//   CHECK_ERROR(err);
-//   err = zeEventHostSynchronize(barrier_event2, UINT32_MAX);
-//   CHECK_ERROR(err);
 
-  // Free device memory
+  std::cout << "Freeing device memory." << std::endl;
   err = zeMemFree(context, ptr2);
   CHECK_ERROR(err);
   err = zeMemFree(context, ptr1);
   CHECK_ERROR(err);
 
-  // Cleanup
+  std::cout << "Cleaning up resources." << std::endl;
   zeEventDestroy(barrier_event2);
   zeEventDestroy(barrier_event1);
   zeEventDestroy(kernel_event);
