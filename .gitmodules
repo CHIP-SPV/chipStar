@@ -15,10 +15,10 @@
 	url = https://github.com/ROCm-Developer-Tools/hip-tests.git
 [submodule "H4I-MKLShim"]
 	path = H4I-MKLShim
-	url = git@github.com:CHIP-SPV/H4I-MKLShim.git
+	url = https://github.com/CHIP-SPV/H4I-MKLShim.git
 [submodule "H4I-HipBLAS"]
 	path = H4I-HipBLAS
-	url = git@github.com:CHIP-SPV/H4I-HipBLAS.git
+	url = https://github.com/CHIP-SPV/H4I-HipBLAS.git
 [submodule "spirv-extractor/SPIRV-Tools"]
 	path = spirv-extractor/SPIRV-Tools
 	url = https://github.com/KhronosGroup/SPIRV-Tools.git

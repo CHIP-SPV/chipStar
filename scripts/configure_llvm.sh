@@ -3,36 +3,74 @@
 # if an error is enountered, exit
 set -e
 
-# check arguments
-if [ $# -ne 4 ]; then
-  echo "Usage: $0 <version> <install_dir> <link_type>"
-  echo "version: LLVM version 15, 16, 17, 18"
-  echo "build_type: static or dynamic"
-  echo "only_necessary_spirv_exts: on or off"
+# default values for optional arguments
+LINK_TYPE="static"
+ONLY_NECESSARY_SPIRV_EXTS="off"
+BINUTILS_HEADER_LOCATION=""
+
+# parse named arguments
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --version)
+      VERSION="$2"
+      shift 2
+      ;;
+    --install-dir)
+      INSTALL_DIR="$2"
+      shift 2
+      ;;
+    --link-type)
+      LINK_TYPE="$2"
+      shift 2
+      ;;
+    --only-necessary-spirv-exts)
+      ONLY_NECESSARY_SPIRV_EXTS="$2"
+      shift 2
+      ;;
+    --binutils-header-location)
+      BINUTILS_HEADER_LOCATION="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+  esac
+done
+
+# check mandatory argument version
+if [ -z "$VERSION" ]; then
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>"
+  echo "--version: LLVM version 15, 16, 17, 18"
+  echo "--install-dir: installation directory"
+  echo "--link-type: static or dynamic (default: static)"
+  echo "--only-necessary-spirv-exts: on or off (default: off)"
+  echo "--binutils-header-location: path to binutils header (default: empty)"
+  exit 1
+fi
+# Check if install-dir argument is provided
+if [ -z "$INSTALL_DIR" ]; then
+  echo "Error: --install-dir argument is required."
   exit 1
 fi
 
-# check version argument
-if [ "$1" != "15" ] && [ "$1" != "16" ] && [ "$1" != "17" ] && [ "$1" != "18" ]; then
+# validate version argument
+if [ "$VERSION" != "15" ] && [ "$VERSION" != "16" ] && [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ]; then
   echo "Invalid version. Must be 15, 16, 17 or 18."
   exit 1
 fi
 
-# check link_type argument
-if [ "$3" != "static" ] && [ "$3" != "dynamic" ]; then
-  echo "Invalid link_type. Must be 'static' or 'dynamic'."
+# validate LINK_TYPE argument
+if [ "$LINK_TYPE" != "static" ] && [ "$LINK_TYPE" != "dynamic" ]; then
+  echo "Invalid LINK_TYPE. Must be 'static' or 'dynamic'."
   exit 1
 fi
 
-# check only-necessary-spirv-exts argument
-if [ "$4" != "on" ] && [ "$4" != "off" ]; then
+# validate only-necessary-spirv-exts argument
+if [ "$ONLY_NECESSARY_SPIRV_EXTS" != "on" ] && [ "$ONLY_NECESSARY_SPIRV_EXTS" != "off" ]; then
   echo "Invalid only_necessary_spirv_exts. Must be 'on' or 'off'."
   exit 1
 fi
-
-VERSION=$1
-INSTALL_DIR=$2
-LINK_TYPE=$3
 
 # get the gcc base path to use in cmake flags
 gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
@@ -90,6 +128,49 @@ else
   exit 1
 fi
 
+# Check if /usr/include/plugin-api.h exists
+if [ -n "${BINUTILS_HEADER_LOCATION}" ]; then
+  if [ ! -f "${BINUTILS_HEADER_LOCATION}/plugin-api.h" ]; then
+    echo "Error: plugin-api.h not found in the specified --binutils-header-location (${BINUTILS_HEADER_LOCATION})"
+    exit 1
+  else
+    echo "plugin-api.h was found at ${BINUTILS_HEADER_LOCATION}"
+    BINUTILS_HEADER_DIR=${BINUTILS_HEADER_LOCATION}
+  fi
+elif [ -f /usr/include/plugin-api.h ]; then
+  echo "plugin-api.h was found at /usr/include/plugin-api.h"
+  BINUTILS_HEADER_DIR=/usr/include
+else
+  echo "plugin-api.h was not found at /usr/include/plugin-api.h"
+  echo "Installing binutils-dev from source..."
+
+  # Define the installation location
+  BINUTILS_INSTALL_DIR=${INSTALL_DIR}/binutils
+  
+  # Create the installation directory if it doesn't exist
+  mkdir -p ${BINUTILS_INSTALL_DIR}
+  
+  # Download the binutils source
+  BINUTILS_VERSION="2.36.1"
+  wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
+  
+  # Extract the source
+  tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
+  cd binutils-${BINUTILS_VERSION}
+  
+  # Configure, compile, and install binutils
+  ./configure --prefix=${BINUTILS_INSTALL_DIR}
+  make -j$(nproc)
+  make install
+  
+  # Clean up
+  cd ..
+  rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
+  
+  echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
+  BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+fi
+
 # Add build type condition
 if [ "$LINK_TYPE" == "static" ]; then
   cmake ../  \
@@ -102,7 +183,8 @@ if [ "$LINK_TYPE" == "static" ]; then
     -DCMAKE_C_COMPILER=gcc \
     -DGCC_INSTALL_PREFIX=${gcc_base_path}\
     -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
-    -DLLVM_ENABLE_ASSERTIONS=On
+    -DLLVM_ENABLE_ASSERTIONS=On \
+    -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}
 elif [ "$LINK_TYPE" == "dynamic" ]; then
   cmake ../ \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
@@ -118,6 +200,7 @@ elif [ "$LINK_TYPE" == "dynamic" ]; then
     -DCMAKE_C_COMPILER=gcc \
     -DGCC_INSTALL_PREFIX=${gcc_base_path}\
     -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
+    -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
     -DLLVM_ENABLE_ASSERTIONS=On
 else
   echo "Invalid link_type. Must be 'static' or 'dynamic'."
