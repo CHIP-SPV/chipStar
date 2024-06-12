@@ -28,17 +28,22 @@ int main() {
     ze_driver_handle_t driver = nullptr;
     result = zeDriverGet(&driverCount, &driver);
     CHECK_RESULT(result);
-
-    std::cout << "Getting device..." << std::endl;
+    std::cout << "Getting devices..." << std::endl;
     uint32_t deviceCount = 0;
     result = zeDeviceGet(driver, &deviceCount, nullptr);
     CHECK_RESULT(result);
 
-    ze_device_handle_t device = nullptr;
-    result = zeDeviceGet(driver, &deviceCount, &device);
-    CHECK_RESULT(result);
+    if (deviceCount == 0) {
+        std::cerr << "No devices found." << std::endl;
+        exit(1);
+    }
 
-    std::cout << "Creating context..." << std::endl;
+    ze_device_handle_t* devices = new ze_device_handle_t[deviceCount];
+    result = zeDeviceGet(driver, &deviceCount, devices);
+    CHECK_RESULT(result);
+    ze_device_handle_t device = devices[0];
+
+    std::cout << "Creating context for the first device..." << std::endl;
     ze_context_handle_t context;
     ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
     result = zeContextCreate(driver, &contextDesc, &context);
