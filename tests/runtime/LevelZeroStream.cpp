@@ -118,7 +118,7 @@ int main() {
 
     std::cout << "Setting up synchronization..." << std::endl;
     ze_event_pool_handle_t eventPool;
-    ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, 1};
+    ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, 0, 10};
     result = zeEventPoolCreate(context, &eventPoolDesc, 1, &device, &eventPool);
     CHECK_RESULT(result);
     ze_event_handle_t userEvent1, userEvent2, kernelEvent1, kernelEvent2, memCopyOutEvent1, memCopyOutEvent2;
