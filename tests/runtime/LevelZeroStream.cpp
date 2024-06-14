@@ -97,19 +97,13 @@ int main() {
 
     std::cout << "Setting up command lists and queues..." << std::endl;
     ze_command_queue_desc_t cmdQueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, 0, 0, ZE_COMMAND_QUEUE_PRIORITY_NORMAL, ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS};
-    ze_command_list_handle_t immCmdList1;
-    result = zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &immCmdList1);
+    ze_command_list_handle_t immCmdList;
+    result = zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &immCmdList);
     CHECK_RESULT(result);
 
-    ze_command_list_handle_t immCmdList2;
-    result = zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &immCmdList2);
-    CHECK_RESULT(result);
-
-    ze_command_list_handle_t cmdList1, cmdList2;
+    ze_command_list_handle_t cmdList;
     ze_command_list_desc_t cmdListDesc = {ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC, nullptr, 0};
-    result = zeCommandListCreate(context, device, &cmdListDesc, &cmdList1);
-    CHECK_RESULT(result);
-    result = zeCommandListCreate(context, device, &cmdListDesc, &cmdList2);
+    result = zeCommandListCreate(context, device, &cmdListDesc, &cmdList);
     CHECK_RESULT(result);
 
     ze_command_queue_handle_t cmdQueue;
@@ -121,71 +115,44 @@ int main() {
     ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, 0, 10};
     result = zeEventPoolCreate(context, &eventPoolDesc, 1, &device, &eventPool);
     CHECK_RESULT(result);
-    ze_event_handle_t userEvent1, userEvent2, kernelEvent1, kernelEvent2, memCopyOutEvent1, memCopyOutEvent2;
+    ze_event_handle_t userEvent, GpuReadyEvent, GpuCompleteEvent, UnusedEvent;
     ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
-    result = zeEventCreate(eventPool, &eventDesc, &userEvent1);
-    CHECK_RESULT(result);
-    result = zeEventCreate(eventPool, &eventDesc, &userEvent2);
-    CHECK_RESULT(result);
-    eventDesc.index = 1;
-    result = zeEventCreate(eventPool, &eventDesc, &kernelEvent1);
+    result = zeEventCreate(eventPool, &eventDesc, &userEvent);
+    result = zeEventCreate(eventPool, &eventDesc, &GpuReadyEvent);
     CHECK_RESULT(result);
     eventDesc.index = 2;
-    result = zeEventCreate(eventPool, &eventDesc, &kernelEvent2);
+    result = zeEventCreate(eventPool, &eventDesc, &GpuCompleteEvent);
     CHECK_RESULT(result);
     eventDesc.index = 3;
-    result = zeEventCreate(eventPool, &eventDesc, &memCopyOutEvent1);
+    result = zeEventCreate(eventPool, &eventDesc, &UnusedEvent);
     CHECK_RESULT(result);
-    eventDesc.index = 4;
-    result = zeEventCreate(eventPool, &eventDesc, &memCopyOutEvent2);
-    CHECK_RESULT(result);
-
-    std::cout << "Launching kernels..." << std::endl;
 
     // Level Zero API calls based on the trace
     bool gpuReadyValue = true;
-    ze_group_count_t launchArgs = {1, 1, 1};
-    zeCommandListAppendLaunchKernel(immCmdList1, kernel, &launchArgs, kernelEvent1, 1, &userEvent1);
-    zeCommandListAppendLaunchKernel(immCmdList2, kernel, &launchArgs, kernelEvent2, 1, &userEvent2);
+    zeCommandListAppendMemoryCopy(cmdList,  &GpuReady1, &gpuReadyValue, sizeof(GpuReady1), GpuReadyEvent,0, nullptr);
 
-    zeCommandListAppendMemoryCopy(cmdList1,  &GpuReady1, &gpuReadyValue, sizeof(GpuReady1), memCopyOutEvent1, 1, &userEvent1);
-    zeCommandListAppendMemoryCopy(cmdList2,  &GpuReady2, &gpuReadyValue, sizeof(GpuReady2), memCopyOutEvent2, 1, &userEvent2);
+    zeCommandListAppendBarrier(cmdList, UnusedEvent, 1, &GpuReadyEvent);
+    zeCommandListAppendBarrier(cmdList, GpuCompleteEvent, 1, &userEvent);
 
-    zeCommandListAppendBarrier(cmdList1, nullptr, 1, &memCopyOutEvent1);
-    zeCommandListAppendBarrier(cmdList1, nullptr, 1, &kernelEvent1);
-    zeCommandListAppendBarrier(cmdList2, nullptr, 1, &memCopyOutEvent2);
-    zeCommandListAppendBarrier(cmdList2, nullptr, 1, &kernelEvent2);
-
-    result = zeCommandListClose(cmdList1);
+    result = zeCommandListClose(cmdList);
     CHECK_RESULT(result);
-    result = zeCommandListClose(cmdList2);
-    CHECK_RESULT(result);
-    result = zeCommandQueueExecuteCommandLists(cmdQueue, 1, &cmdList1, nullptr);
-    CHECK_RESULT(result);
-    result = zeCommandQueueExecuteCommandLists(cmdQueue, 1, &cmdList2, nullptr);
+    result = zeCommandQueueExecuteCommandLists(cmdQueue, 1, &cmdList, nullptr);
     CHECK_RESULT(result);
 
-    std::thread monitorThread1(monitorGpuReady, std::ref(GpuReady1));
-    std::thread monitorThread2(monitorGpuReady, std::ref(GpuReady2));
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::thread eventSyncThread([&]() {
+        ze_result_t res = ZE_RESULT_NOT_READY;
+        while (res != ZE_RESULT_SUCCESS)
+            res = zeEventHostSynchronize(userEvent, 1);
+        std::cout << "GPU READY: Executing host callback!!!" << std::endl;
+        result = zeEventHostSignal(userEvent);
+        CHECK_RESULT(result);
+    });
+    eventSyncThread.join();
 
 
-    std::cout << "Signaling user event" << std::endl;
-    result = zeEventHostSignal(userEvent1);
+    result = zeCommandListDestroy(immCmdList);
     CHECK_RESULT(result);
-    result = zeEventHostSignal(userEvent2);
-    CHECK_RESULT(result);
-
-    monitorThread1.join();
-    monitorThread2.join();
-
-    result = zeCommandListDestroy(immCmdList1);
-    CHECK_RESULT(result);
-    result = zeCommandListDestroy(immCmdList2);
-    CHECK_RESULT(result);
-    result = zeCommandListDestroy(cmdList1);
-    CHECK_RESULT(result);
-    result = zeCommandListDestroy(cmdList2);
+    result = zeCommandListDestroy(cmdList);
     CHECK_RESULT(result);
     result = zeContextDestroy(context);
     CHECK_RESULT(result);
