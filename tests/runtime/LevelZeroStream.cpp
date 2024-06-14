@@ -149,6 +149,10 @@ int main() {
     });
     eventSyncThread.join();
 
+    std::cout << "Waiting for GPU to complete..." << std::endl;
+    ze_result_t res = ZE_RESULT_NOT_READY;
+    while (res != ZE_RESULT_SUCCESS)
+        res = zeEventHostSynchronize(GpuCompleteEvent, 1);
 
     result = zeCommandListDestroy(immCmdList);
     CHECK_RESULT(result);
