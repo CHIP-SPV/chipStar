@@ -49,4 +49,4 @@ RUN mkdir -p pocl; \
     cd build; \
     cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/pocl/4.0-15 -DCMAKE_BUILD_TYPE=Release -DWITH_LLVM_CONFIG=$HOME/opt/llvm/15/bin/llvm-config -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
     cmake --build . --parallel 4; \
-    cmake --install .
+    cmake --install .q
