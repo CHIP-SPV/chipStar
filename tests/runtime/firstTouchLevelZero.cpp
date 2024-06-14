@@ -1,0 +1,137 @@
+#include <level_zero/ze_api.h>
+#include <iostream>
+#include <vector>
+#include <fstream>
+
+int main() {
+    ze_result_t result = zeInit(0);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeInit failed" << std::endl;
+        return 1;
+    }
+
+    uint32_t driverCount = 0;
+    result = zeDriverGet(&driverCount, nullptr);
+    if (result != ZE_RESULT_SUCCESS || driverCount == 0) {
+        std::cerr << "zeDriverGet failed" << std::endl;
+        return 1;
+    }
+
+    std::vector<ze_driver_handle_t> drivers(driverCount);
+    result = zeDriverGet(&driverCount, drivers.data());
+    ze_driver_handle_t driverHandle = drivers[0];
+
+    uint32_t deviceCount = 0;
+    result = zeDeviceGet(driverHandle, &deviceCount, nullptr);
+    if (result != ZE_RESULT_SUCCESS || deviceCount == 0) {
+        std::cerr << "zeDeviceGet failed" << std::endl;
+        return 1;
+    }
+
+    std::vector<ze_device_handle_t> devices(deviceCount);
+    result = zeDeviceGet(driverHandle, &deviceCount, devices.data());
+    ze_device_handle_t deviceHandle = devices[0];
+
+    ze_context_handle_t context;
+    ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
+    result = zeContextCreate(driverHandle, &contextDesc, &context);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeContextCreate failed" << std::endl;
+        return 1;
+    }
+
+    // Load SPIR-V binary
+    std::ifstream file("firstTouch.spv", std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open firstTouch.spv" << std::endl;
+        return 1;
+    }
+
+    size_t fileSize = file.tellg();
+    std::vector<uint8_t> spirvBinary(fileSize);
+    file.seekg(0, std::ios::beg);
+    file.read(reinterpret_cast<char*>(spirvBinary.data()), fileSize);
+    file.close();
+
+    ze_module_handle_t module;
+    ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, ZE_MODULE_FORMAT_IL_SPIRV, spirvBinary.size(), spirvBinary.data(), nullptr, nullptr};
+    result = zeModuleCreate(context, deviceHandle, &moduleDesc, &module, nullptr);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeModuleCreate failed with error code: " << result << std::endl;
+        return 1;
+    }
+
+    ze_kernel_handle_t kernel;
+    ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr, 0, "setOne"};
+    result = zeKernelCreate(module, &kernelDesc, &kernel);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeKernelCreate failed with error code: " << result << std::endl;
+        return 1;
+    }
+
+    int* deviceBuffer;
+    result = zeMemAllocDevice(context, nullptr, sizeof(int), 1, deviceHandle, (void**)&deviceBuffer);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeMemAllocDevice failed" << std::endl;
+        return 1;
+    }
+
+    result = zeKernelSetArgumentValue(kernel, 0, sizeof(deviceBuffer), &deviceBuffer);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeKernelSetArgumentValue failed" << std::endl;
+        return 1;
+    }
+
+    ze_command_queue_handle_t commandQueue;
+    ze_command_queue_desc_t commandQueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, 0, 0, ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS};
+    result = zeCommandQueueCreate(context, deviceHandle, &commandQueueDesc, &commandQueue);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeCommandQueueCreate failed" << std::endl;
+        return 1;
+    }
+
+    ze_command_list_handle_t commandList;
+    ze_command_list_desc_t commandListDesc = {ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC, nullptr, 0};
+    result = zeCommandListCreateImmediate(context, deviceHandle, &commandQueueDesc, &commandList);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeCommandListCreateImmediate failed" << std::endl;
+        return 1;
+    }
+
+    ze_group_count_t launchArgs = {1, 1, 1};
+    result = zeCommandListAppendLaunchKernel(commandList, kernel, &launchArgs, nullptr, 0, nullptr);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeCommandListAppendLaunchKernel failed" << std::endl;
+        return 1;
+    }
+
+    result = zeCommandQueueSynchronize(commandQueue, UINT64_MAX);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeCommandQueueSynchronize failed" << std::endl;
+        return 1;
+    }
+
+    int hostBuffer = 0;
+    result = zeCommandListAppendMemoryCopy(commandList, &hostBuffer, deviceBuffer, sizeof(int), nullptr, 0, nullptr);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeCommandListAppendMemoryCopy failed" << std::endl;
+        return 1;
+    }
+
+    result = zeCommandQueueSynchronize(commandQueue, UINT64_MAX);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeCommandQueueSynchronize failed" << std::endl;
+        return 1;
+    }
+
+    std::cout << "Result: " << hostBuffer << std::endl;
+
+    zeMemFree(context, deviceBuffer);
+    zeKernelDestroy(kernel);
+    zeModuleDestroy(module);
+    zeCommandListDestroy(commandList);
+    zeCommandQueueDestroy(commandQueue);
+    zeContextDestroy(context);
+
+    return 0;
+}
