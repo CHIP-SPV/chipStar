@@ -55,6 +55,7 @@ function(add_shell_test SCRIPT)
     COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
 endfunction()
 
+file(COPY ${CMAKE_SOURCE_DIR}/tests/runtime/inputs DESTINATION ${CMAKE_BINARY_DIR}/tests/runtime)
 # TODO - this should check if immediate cmd lists are being used
 add_hip_runtime_test(TestRecordEventBlocking.cpp)
 # This test checks if zeEventQuery is a blocking operation

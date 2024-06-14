@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <unistd.h>
 
 int main() {
     ze_result_t result = zeInit(0);
@@ -41,10 +42,17 @@ int main() {
     }
 
     // Load SPIR-V binary
-    //std::ifstream file("firstTouch.spv", std::ios::binary | std::ios::ate);
-    std::ifstream file("hip-spirv-9b6ceb.spv", std::ios::binary | std::ios::ate);
+    char executablePath[1024];
+    ssize_t count = readlink("/proc/self/exe", executablePath, sizeof(executablePath) - 1);
+    if (count == -1) {
+        std::cerr << "Failed to get executable path" << std::endl;
+        return 1;
+    }
+    executablePath[count] = '\0';
+    std::string directoryPath = std::string(executablePath).substr(0, std::string(executablePath).find_last_of('/'));
+    std::ifstream file(directoryPath + "/inputs/firstTouch.spv", std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        std::cerr << "Failed to open hip-spirv-9b6ceb.spv" << std::endl;
+        std::cerr << "Failed to open " << directoryPath + "/inputs/firstTouch.spv" << std::endl;
         return 1;
     }
 
