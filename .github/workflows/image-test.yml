@@ -1,0 +1,78 @@
+name: image-test
+
+on:
+  push:
+    paths-ignore: "docs/**"
+  pull_request:
+    paths-ignore: "docs/**"
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          paths_ignore: '["docs/**"]'
+          do_not_skip: '["pull_request"]'
+
+
+
+  chipstar:
+    needs: [pre_job]
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    name: Build and test chipStar on POCL 4 (llvm-15)
+    runs-on: ubuntu-latest
+    container:
+      image: krisitanpn/teststar:latest
+    env:
+      EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
+    strategy:
+      matrix:
+        pocl-version: [4]
+        llvm-version: [15]
+        backend: [pocl]
+      fail-fast: false
+    steps:
+      - name: Examin
+        run: ls -la /; ls -la /root/; ls -la /root/opt; pwd 
+      - name: Set OPENCL_ENV for intel
+        if: matrix.backend == 'intel'
+        run: echo "OPENCL_ENV=LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)" >> $GITHUB_ENV
+      - name: Set OPENCL_ENV for other
+        if: matrix.backend == 'pocl'
+        run: echo "OPENCL_ENV=OPENCL_VENDOR_PATH=/root/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}/etc/OpenCL/vendors/" >> $GITHUB_ENV
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Check PoCL Installation
+        run: ls /root/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}
+        if: ${{ matrix.backend == 'pocl' }}
+      - run: wget -O- https:/apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+        if: ${{ matrix.backend == 'intel' }}
+      - run: echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https:/apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        if: ${{ matrix.backend == 'intel' }}
+      - run: sudo add-apt-repository ppa:ocl-icd/ppa
+        if: ${{ matrix.backend == 'pocl' }}
+      - run: mkdir -p build
+      - name: CMake
+        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=/root/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release
+        working-directory: build
+      - name: Build
+        run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
+        working-directory: build
+      - name: Build Tests
+        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
+        working-directory: build
+      - name: Test OpenCL
+        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
+        working-directory: build
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.llvm-version }}
+          path: build/Testing/Temporary/LastTest.log
