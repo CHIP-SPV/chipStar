@@ -56,8 +56,6 @@ jobs:
         if: ${{ matrix.backend == 'intel' }}
       - run: echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https:/apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
         if: ${{ matrix.backend == 'intel' }}
-      - run: sudo add-apt-repository ppa:ocl-icd/ppa
-        if: ${{ matrix.backend == 'pocl' }}
       - run: mkdir -p build
       - name: CMake
         run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=/root/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release
