@@ -111,20 +111,46 @@ int main() {
     CHECK_RESULT(result);
 
     std::cout << "Setting up synchronization..." << std::endl;
-    ze_event_pool_handle_t eventPool;
-    ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 10};
-    result = zeEventPoolCreate(context, &eventPoolDesc, 1, &device, &eventPool);
+
+    // Create event pool of size 1
+    ze_event_pool_handle_t eventPool1;
+    ze_event_pool_desc_t eventPoolDesc1 = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 1};
+    result = zeEventPoolCreate(context, &eventPoolDesc1, 1, &device, &eventPool1);
     CHECK_RESULT(result);
+
+    // Create event pool of size 2
+    ze_event_pool_handle_t eventPool2;
+    ze_event_pool_desc_t eventPoolDesc2 = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 2};
+    result = zeEventPoolCreate(context, &eventPoolDesc2, 1, &device, &eventPool2);
+    CHECK_RESULT(result);
+
+    // Create event pool of size 4
+    ze_event_pool_handle_t eventPool4;
+    ze_event_pool_desc_t eventPoolDesc4 = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr, ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 4};
+    result = zeEventPoolCreate(context, &eventPoolDesc4, 1, &device, &eventPool4);
+    CHECK_RESULT(result);
+
+    // Create events
     ze_event_handle_t userEvent, GpuReadyEvent, GpuCompleteEvent, UnusedEvent;
     ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
-    result = zeEventCreate(eventPool, &eventDesc, &userEvent);
-    result = zeEventCreate(eventPool, &eventDesc, &GpuReadyEvent);
+
+    // Create userEvent in eventPool1
+    result = zeEventCreate(eventPool1, &eventDesc, &userEvent);
     CHECK_RESULT(result);
-    eventDesc.index = 2;
-    result = zeEventCreate(eventPool, &eventDesc, &GpuCompleteEvent);
+
+    // Create GpuReadyEvent in eventPool2
+    eventDesc.index = 0;
+    result = zeEventCreate(eventPool2, &eventDesc, &GpuReadyEvent);
     CHECK_RESULT(result);
-    eventDesc.index = 3;
-    result = zeEventCreate(eventPool, &eventDesc, &UnusedEvent);
+
+    // Create GpuCompleteEvent in eventPool2
+    eventDesc.index = 1;
+    result = zeEventCreate(eventPool2, &eventDesc, &GpuCompleteEvent);
+    CHECK_RESULT(result);
+
+    // Create UnusedEvent in eventPool4
+    eventDesc.index = 0;
+    result = zeEventCreate(eventPool4, &eventDesc, &UnusedEvent);
     CHECK_RESULT(result);
 
     // Level Zero API calls based on the trace
