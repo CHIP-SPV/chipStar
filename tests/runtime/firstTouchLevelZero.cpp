@@ -6,14 +6,14 @@
 int main() {
     ze_result_t result = zeInit(0);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeInit failed" << std::endl;
+        std::cerr << "zeInit failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     uint32_t driverCount = 0;
     result = zeDriverGet(&driverCount, nullptr);
     if (result != ZE_RESULT_SUCCESS || driverCount == 0) {
-        std::cerr << "zeDriverGet failed" << std::endl;
+        std::cerr << "zeDriverGet failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
@@ -24,7 +24,7 @@ int main() {
     uint32_t deviceCount = 0;
     result = zeDeviceGet(driverHandle, &deviceCount, nullptr);
     if (result != ZE_RESULT_SUCCESS || deviceCount == 0) {
-        std::cerr << "zeDeviceGet failed" << std::endl;
+        std::cerr << "zeDeviceGet failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
@@ -36,14 +36,15 @@ int main() {
     ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
     result = zeContextCreate(driverHandle, &contextDesc, &context);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeContextCreate failed" << std::endl;
+        std::cerr << "zeContextCreate failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     // Load SPIR-V binary
-    std::ifstream file("firstTouch.spv", std::ios::binary | std::ios::ate);
+    //std::ifstream file("firstTouch.spv", std::ios::binary | std::ios::ate);
+    std::ifstream file("hip-spirv-9b6ceb.spv", std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        std::cerr << "Failed to open firstTouch.spv" << std::endl;
+        std::cerr << "Failed to open hip-spirv-9b6ceb.spv" << std::endl;
         return 1;
     }
 
@@ -55,30 +56,39 @@ int main() {
 
     ze_module_handle_t module;
     ze_module_desc_t moduleDesc = {ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, ZE_MODULE_FORMAT_IL_SPIRV, spirvBinary.size(), spirvBinary.data(), nullptr, nullptr};
-    result = zeModuleCreate(context, deviceHandle, &moduleDesc, &module, nullptr);
+    ze_module_build_log_handle_t buildLog;
+    result = zeModuleCreate(context, deviceHandle, &moduleDesc, &module, &buildLog);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeModuleCreate failed with error code: " << result << std::endl;
+        std::cerr << "zeModuleCreate failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     ze_kernel_handle_t kernel;
-    ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr, 0, "setOne"};
+    ze_kernel_desc_t kernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr, ZE_KERNEL_FLAG_FORCE_RESIDENCY, "_Z6setOne4Data"};
     result = zeKernelCreate(module, &kernelDesc, &kernel);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeKernelCreate failed with error code: " << result << std::endl;
+        std::cerr << "zeKernelCreate failed with error code: " << std::hex << "0x" << result << std::endl;
+        return 1;
+    }
+
+    // Set indirect access flags
+    result = zeKernelSetIndirectAccess(kernel, ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST | ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE);
+    if (result != ZE_RESULT_SUCCESS) {
+        std::cerr << "zeKernelSetIndirectAccess failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     int* deviceBuffer;
-    result = zeMemAllocDevice(context, nullptr, sizeof(int), 1, deviceHandle, (void**)&deviceBuffer);
+    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
+    result = zeMemAllocDevice(context, &deviceMemAllocDesc, sizeof(int), 1, deviceHandle, (void**)&deviceBuffer);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeMemAllocDevice failed" << std::endl;
+        std::cerr << "zeMemAllocDevice failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     result = zeKernelSetArgumentValue(kernel, 0, sizeof(deviceBuffer), &deviceBuffer);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeKernelSetArgumentValue failed" << std::endl;
+        std::cerr << "zeKernelSetArgumentValue failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
@@ -86,7 +96,7 @@ int main() {
     ze_command_queue_desc_t commandQueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, 0, 0, ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS};
     result = zeCommandQueueCreate(context, deviceHandle, &commandQueueDesc, &commandQueue);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeCommandQueueCreate failed" << std::endl;
+        std::cerr << "zeCommandQueueCreate failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
@@ -94,37 +104,43 @@ int main() {
     ze_command_list_desc_t commandListDesc = {ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC, nullptr, 0};
     result = zeCommandListCreateImmediate(context, deviceHandle, &commandQueueDesc, &commandList);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeCommandListCreateImmediate failed" << std::endl;
+        std::cerr << "zeCommandListCreateImmediate failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     ze_group_count_t launchArgs = {1, 1, 1};
     result = zeCommandListAppendLaunchKernel(commandList, kernel, &launchArgs, nullptr, 0, nullptr);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeCommandListAppendLaunchKernel failed" << std::endl;
+        std::cerr << "zeCommandListAppendLaunchKernel failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     result = zeCommandQueueSynchronize(commandQueue, UINT64_MAX);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeCommandQueueSynchronize failed" << std::endl;
+        std::cerr << "zeCommandQueueSynchronize failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     int hostBuffer = 0;
     result = zeCommandListAppendMemoryCopy(commandList, &hostBuffer, deviceBuffer, sizeof(int), nullptr, 0, nullptr);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeCommandListAppendMemoryCopy failed" << std::endl;
+        std::cerr << "zeCommandListAppendMemoryCopy failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     result = zeCommandQueueSynchronize(commandQueue, UINT64_MAX);
     if (result != ZE_RESULT_SUCCESS) {
-        std::cerr << "zeCommandQueueSynchronize failed" << std::endl;
+        std::cerr << "zeCommandQueueSynchronize failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
     std::cout << "Result: " << hostBuffer << std::endl;
+    if (hostBuffer == 1) {
+        std::cout << "PASSED" << std::endl;
+    } else {
+        std::cout << "FAILED" << std::endl;
+    }
+
 
     zeMemFree(context, deviceBuffer);
     zeKernelDestroy(kernel);
