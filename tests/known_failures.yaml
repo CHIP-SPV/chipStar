@@ -1,6 +1,7 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    LevelZeroStream: 'Hangs on event query when multiple event pools are used'
     # Invalid test (if it is the one from HIP/ submodule instead of hip-tests/).
     # The source allocation 'Ah' is not initialized (this is fixed in hip-tests/)
     # and input is therefore random. Because of this the test is known to fail
