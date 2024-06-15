@@ -338,9 +338,9 @@ if(SUPPORTS_IPO)
   set_property(TARGET CHIP PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 else()
   message(NOTICE "To enable IPO with clang you may need to re-configure \
-LLVM/Clang with -DLLVM_BINUTILS_INCDIR for locating plugin-api.h from \
-binutils-dev package.")
-  message(STATUS "IPO error: ${IPO_ERROR}")
+  LLVM/Clang with -DLLVM_BINUTILS_INCDIR for locating plugin-api.h from \
+  binutils-dev package. You may use scripts/configure_llvm.sh to compile a LLVM \
+  with binutils-dev support.")
 endif()
 
 set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})

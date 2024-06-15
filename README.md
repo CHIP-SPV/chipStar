@@ -38,8 +38,15 @@ It's recommended to use the chipStar fork of LLVM which has a few patches not ye
 For this you can use a script included in the chipStar repository:
 
 ```bash
-# chipStar/scripts/configure_llvm.sh <version 15/16/17> <install_dir> <static/dynamic>
-chipStar/scripts/configure_llvm.sh 17 /opt/install/llvm/17.0 dynamic on
+./scripts/configure_llvm.sh
+Usage: ./configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
+--version: LLVM version 15, 16, 17, 18
+--install-dir: installation directory
+--link-type: static or dynamic (default: static)
+--only-necessary-spirv-exts: on or off (default: off)
+--binutils-header-location: path to binutils header (default: empty)
+
+./scripts/configure_llvm.sh --version 17 --install-dir /opt/install/llvm/17.0
 cd llvm-project/llvm/build_17
 make -j 16
 <sudo> make install
