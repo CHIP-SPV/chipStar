@@ -2,6 +2,11 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
+#include <unistd.h>
+#include <string.h>
+#include <cstring>
+
+#define PATH_MAX 4096
 
 #define CHECK_RESULT(res) if (res != ZE_RESULT_SUCCESS) { std::cerr << "Error: " << res << " at line " << __LINE__ << std::endl; exit(res); }
 
@@ -50,13 +55,22 @@ int main() {
     CHECK_RESULT(result);
 
     std::cout << "Loading kernel..." << std::endl;
-    const char* kernelSource = "simple_kernel.spv";
+    char kernelSource[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", kernelSource, PATH_MAX);
+    if (count == -1) {
+        std::cerr << "Failed to get executable path" << std::endl;
+        exit(1);
+    }
+    std::string exePath = std::string(kernelSource, count);
+    std::string exeDir = exePath.substr(0, exePath.find_last_of('/'));
+    std::string kernelPath = exeDir + "/inputs/simple_kernel.spv";
+    strncpy(kernelSource, kernelPath.c_str(), PATH_MAX);
     size_t kernelSize;
     uint8_t* pKernelBinary;
 
     FILE* fp = fopen(kernelSource, "rb");
     if (!fp) {
-        std::cerr << "Failed to load kernel" << std::endl;
+        std::cerr << "Failed to load kernel at " << kernelSource << std::endl;
         exit(1);
     }
     fseek(fp, 0, SEEK_END);

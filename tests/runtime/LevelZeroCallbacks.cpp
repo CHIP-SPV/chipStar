@@ -3,6 +3,7 @@
 #include <level_zero/ze_api.h>
 #include <iostream>
 #include <string.h>
+#include <unistd.h>
 
 #define CHECK_ERROR(err) \
   if (err != ZE_RESULT_SUCCESS) { \
@@ -29,21 +30,12 @@ int main(int argc, char *argv[]) {
   ze_event_handle_t barrier_event1 = NULL;
   ze_event_handle_t barrier_event2 = NULL;
 
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " --immediate | --regular" << std::endl;
-    return -1;
-  }
-
-  bool useImmediate = false;
-  if (strcmp(argv[1], "--immediate") == 0) {
-    useImmediate = true;
-    std::cout << "Using immediate command list." << std::endl;
-  } else if (strcmp(argv[1], "--regular") == 0) {
+  bool useImmediate = true;
+  if (argc == 2 && strcmp(argv[1], "--regular") == 0) {
     useImmediate = false;
     std::cout << "Using regular command list." << std::endl;
   } else {
-    std::cerr << "Invalid argument. Use --immediate or --regular." << std::endl;
-    return -1;
+    std::cout << "Using immediate command list." << std::endl;
   }
 
   std::cout << "Initializing Level Zero." << std::endl;
@@ -135,7 +127,17 @@ int main(int argc, char *argv[]) {
   CHECK_ERROR(err);
 
   std::cout << "Loading SPIR-V binary." << std::endl;
-  FILE *file = fopen("simple_kernel.spv", "rb");
+  #define PATH_MAX 4096
+  char kernelPath[PATH_MAX];
+  ssize_t count = readlink("/proc/self/exe", kernelPath, PATH_MAX);
+  if (count == -1) {
+    std::cerr << "Failed to get executable path" << std::endl;
+    return -1;
+  }
+  std::string exePath = std::string(kernelPath, count);
+  std::string exeDir = exePath.substr(0, exePath.find_last_of('/'));
+  std::string fullPath = exeDir + "/inputs/simple_kernel.spv";
+  FILE *file = fopen(fullPath.c_str(), "rb");
   if (!file) {
     fprintf(stderr, "Failed to open SPIR-V binary\n");
     return -1;
