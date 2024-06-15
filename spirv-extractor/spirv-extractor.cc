@@ -49,7 +49,6 @@ std::string_view extractSPIRVModule(const char *Bundle, std::string &ErrorMsg,
   using EntryT = __ClangOffloadBundleDesc;
 
   auto NumBundles = copyAs<uint64_t>(Bundle, offsetof(HeaderT, numBundles));
-  // std::cout << "Number of bundles: " << NumBundles << std::endl;
 
   const char *Desc = Bundle + offsetof(HeaderT, desc);
 
@@ -70,22 +69,14 @@ std::string_view extractSPIRVModule(const char *Bundle, std::string &ErrorMsg,
 
     const char *Triple = Desc + offsetof(EntryT, triple);
     std::string_view EntryID(Triple, TripleSize);
-    // std::cout << "Bundle entry ID " << i << " is: '" << EntryID << "'\n"
-    //           << "  Offset: " << Offset << "\n"
-    //           << "  Size: " << Size << "\n"
-    //           << "  TripleSize: " << TripleSize << std::endl;
 
     std::string_view SPIRVBundleID = "hip-spirv64";
     if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID ||
         EntryID == "hip-spir64-unknown-unknown") {
-      // std::cout << "Found SPIR-V binary, offset: " << Offset
-      //           << ", size: " << Size << std::endl;
 
       return std::string_view(Bundle + Offset, Size / sizeof(uint32_t));
     }
-    // std::cout << "Not a SPIR-V triple, ignoring\n";
-    Desc +=
-        offsetof(EntryT, triple) + TripleSize; // Move to the next descriptor
+    Desc += offsetof(EntryT, triple) + TripleSize;
   }
 
   ErrorMsg = "Couldn't find SPIR-V binary in the bundle!";
@@ -131,7 +122,7 @@ bool usesDoubles(const std::string_view &spirvHumanReadable) {
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cerr << "Usage: " << argv[0]
-              << " [--check-for-doubles] [-o <output_filename>] "
+              << " [--check-for-doubles] [-o <output_filename>] [-h] "
                  "<fatbinary_path> [<additional_args>...]"
               << std::endl;
     return 1;
@@ -140,6 +131,7 @@ int main(int argc, char *argv[]) {
   std::string outputFilename;
   bool dumpToFile = false;
   bool checkForDoubles = false;
+  bool helpRequested = false;
   std::vector<std::string> additionalArgs;
 
   int i = 1;
@@ -154,10 +146,20 @@ int main(int argc, char *argv[]) {
       }
     } else if (std::string(argv[i]) == "--check-for-doubles") {
       checkForDoubles = true;
+    } else if (std::string(argv[i]) == "-h") {
+      helpRequested = true;
     } else {
       break;
     }
     ++i;
+  }
+
+  if (helpRequested) {
+    std::cerr << "Usage: " << argv[0]
+              << " [--check-for-doubles] [-o <output_filename>] [-h] "
+                 "<fatbinary_path> [<additional_args>...]"
+              << std::endl;
+    return 0;
   }
 
   if (i >= argc) {
@@ -253,13 +255,39 @@ int main(int argc, char *argv[]) {
   }
 
   if (dumpToFile) {
-    std::ofstream outputFile(outputFilename);
-    if (!outputFile) {
+    std::ofstream outputFileText(outputFilename + ".txt");
+    if (!outputFileText) {
+      std::cerr << "Failed to open file: " << outputFilename + ".txt" << std::endl;
+      return 1;
+    }
+    outputFileText << spirvText;
+    outputFileText.close();
+
+
+  spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+  spv_binary binary = nullptr;
+  spv_diagnostic diagnostic = nullptr;
+
+  spv_result_t result = spvTextToBinary(
+      context, spirvText.data(), spirvText.size(), &binary, &diagnostic);
+
+  if (result == SPV_SUCCESS) {
+    std::ofstream outputFileBinary(outputFilename, std::ios::binary);
+    if (!outputFileBinary) {
       std::cerr << "Failed to open file: " << outputFilename << std::endl;
       return 1;
     }
-    outputFile << spirvText;
-    outputFile.close();
+    outputFileBinary.write(reinterpret_cast<const char*>(binary->code), binary->wordCount * sizeof(uint32_t));
+    outputFileBinary.close();
+    spvBinaryDestroy(binary);
+  } else {
+    std::cerr << "Failed to assemble SPIR-V: " << diagnostic->error << std::endl;
+    spvDiagnosticDestroy(diagnostic);
+    spvContextDestroy(context);
+    return 1;
+  }
+
+  spvContextDestroy(context);
   } else {
     std::cout << spirvText << std::endl;
   }
