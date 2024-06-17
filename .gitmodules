@@ -1,22 +1,30 @@
 [submodule "HIP"]
 	path = HIP
 	url = https://github.com/CHIP-SPV/HIP.git
+	branch = origin/chipStar
 [submodule "hip-testsuite"]
 	path = hip-testsuite
 	url = https://github.com/CHIP-SPV/hip-testsuite.git
+	branch = origin/spirv
 [submodule "bitcode/ROCm-Device-Libs"]
 	path = bitcode/ROCm-Device-Libs
 	url = https://github.com/CHIP-SPV/ROCm-Device-Libs.git
+	branch = origin/chipstar
 [submodule "HIPCC"]
 	path = HIPCC
 	url = https://github.com/CHIP-SPV/HIPCC.git
+	branch = origin/chipStar
 [submodule "hip-tests"]
 	path = hip-tests
-	url = https://github.com/ROCm-Developer-Tools/hip-tests.git
+	url = https://github.com/CHIP-SPV/hip-tests.git
+	branch = origin/develop-chipstar
 [submodule "H4I-MKLShim"]
 	path = H4I-MKLShim
 	url = https://github.com/CHIP-SPV/H4I-MKLShim.git
+	branch = origin/develop
 [submodule "H4I-HipBLAS"]
 	path = H4I-HipBLAS
 	url = https://github.com/CHIP-SPV/H4I-HipBLAS.git
+	branch = origin/develop
+
 
