@@ -435,362 +435,366 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
   HIP_vector_type &operator=(HIP_vector_type &&) = default;
 
   // Operators
-  __HOST_DEVICE__
-  HIP_vector_type &operator++() noexcept { return *this += HIP_vector_type{1}; }
-  __HOST_DEVICE__
-  HIP_vector_type operator++(int) noexcept {
-    auto tmp(*this);
-    ++*this;
-    return tmp;
-  }
+  #ifndef __CUDACC__
+    __HOST_DEVICE__
+    HIP_vector_type &operator++() noexcept { return *this += HIP_vector_type{1}; }
+    __HOST_DEVICE__
+    HIP_vector_type operator++(int) noexcept {
+      auto tmp(*this);
+      ++*this;
+      return tmp;
+    }
 
-  __HOST_DEVICE__
-  HIP_vector_type &operator--() noexcept { return *this -= HIP_vector_type{1}; }
-  __HOST_DEVICE__
-  HIP_vector_type operator--(int) noexcept {
-    auto tmp(*this);
-    --*this;
-    return tmp;
-  }
+    __HOST_DEVICE__
+    HIP_vector_type &operator--() noexcept { return *this -= HIP_vector_type{1}; }
+    __HOST_DEVICE__
+    HIP_vector_type operator--(int) noexcept {
+      auto tmp(*this);
+      --*this;
+      return tmp;
+    }
 
-  __HOST_DEVICE__
-  HIP_vector_type &operator+=(const HIP_vector_type &x) noexcept {
-    data += x.data;
-    return *this;
-  }
-  template <typename U, typename std::enable_if<
-                            std::is_convertible<U, T>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &operator+=(U x) noexcept {
-    return *this += HIP_vector_type{x};
-  }
-
-  __HOST_DEVICE__
-  HIP_vector_type &operator-=(const HIP_vector_type &x) noexcept {
-    data -= x.data;
-    return *this;
-  }
-  template <typename U, typename std::enable_if<
-                            std::is_convertible<U, T>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &operator-=(U x) noexcept {
-    return *this -= HIP_vector_type{x};
-  }
-
-  __HOST_DEVICE__
-  HIP_vector_type& operator*=(const HIP_vector_type& x) noexcept
-  {
-      data *= x.data;
+    __HOST_DEVICE__
+    HIP_vector_type &operator+=(const HIP_vector_type &x) noexcept {
+      data += x.data;
       return *this;
-  }
+    }
+    template <typename U, typename std::enable_if<
+                              std::is_convertible<U, T>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &operator+=(U x) noexcept {
+      return *this += HIP_vector_type{x};
+    }
 
-  friend __HOST_DEVICE__ inline constexpr HIP_vector_type operator*(
-  HIP_vector_type x, const HIP_vector_type& y) noexcept
-  {
-    return HIP_vector_type{ x } *= y;
-  }
+    __HOST_DEVICE__
+    HIP_vector_type &operator-=(const HIP_vector_type &x) noexcept {
+      data -= x.data;
+      return *this;
+    }
+    template <typename U, typename std::enable_if<
+                              std::is_convertible<U, T>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &operator-=(U x) noexcept {
+      return *this -= HIP_vector_type{x};
+    }
 
-  template <typename U, typename std::enable_if<
-                            std::is_convertible<U, T>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &operator*=(U x) noexcept {
-    return *this *= HIP_vector_type{x};
-  }
+    __HOST_DEVICE__
+    HIP_vector_type& operator*=(const HIP_vector_type& x) noexcept
+    {
+        data *= x.data;
+        return *this;
+    }
 
-  friend __HOST_DEVICE__ inline constexpr HIP_vector_type
-  operator/(HIP_vector_type x, const HIP_vector_type &y) noexcept {
-    return HIP_vector_type{x} /= y;
-  }
+    friend __HOST_DEVICE__ inline constexpr HIP_vector_type operator*(
+    HIP_vector_type x, const HIP_vector_type& y) noexcept
+    {
+      return HIP_vector_type{ x } *= y;
+    }
 
-  __HOST_DEVICE__
-  HIP_vector_type &operator/=(const HIP_vector_type &x) noexcept {
-    data /= x.data;
-    return *this;
-  }
-  template <typename U, typename std::enable_if<
-                            std::is_convertible<U, T>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &operator/=(U x) noexcept {
-    return *this /= HIP_vector_type{x};
-  }
+    template <typename U, typename std::enable_if<
+                              std::is_convertible<U, T>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &operator*=(U x) noexcept {
+      return *this *= HIP_vector_type{x};
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_signed<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type operator-() const noexcept {
-    auto tmp(*this);
-    tmp.data = -tmp.data;
-    return tmp;
-  }
+    friend __HOST_DEVICE__ inline constexpr HIP_vector_type
+    operator/(HIP_vector_type x, const HIP_vector_type &y) noexcept {
+      return HIP_vector_type{x} /= y;
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type operator~() const noexcept {
-    HIP_vector_type r{*this};
-    r.data = ~r.data;
-    return r;
-  }
+    __HOST_DEVICE__
+    HIP_vector_type &operator/=(const HIP_vector_type &x) noexcept {
+      data /= x.data;
+      return *this;
+    }
+    template <typename U, typename std::enable_if<
+                              std::is_convertible<U, T>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &operator/=(U x) noexcept {
+      return *this /= HIP_vector_type{x};
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &
-  operator%=(const HIP_vector_type &x) noexcept {
-    data %= x.data;
-    return *this;
-  }
+    template <typename U = T,
+              typename std::enable_if<std::is_signed<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type operator-() const noexcept {
+      auto tmp(*this);
+      tmp.data = -tmp.data;
+      return tmp;
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &
-  operator^=(const HIP_vector_type &x) noexcept {
-    data ^= x.data;
-    return *this;
-  }
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type operator~() const noexcept {
+      HIP_vector_type r{*this};
+      r.data = ~r.data;
+      return r;
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &
-  operator|=(const HIP_vector_type &x) noexcept {
-    data |= x.data;
-    return *this;
-  }
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &
+    operator%=(const HIP_vector_type &x) noexcept {
+      data %= x.data;
+      return *this;
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &
-  operator&=(const HIP_vector_type &x) noexcept {
-    data &= x.data;
-    return *this;
-  }
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &
+    operator^=(const HIP_vector_type &x) noexcept {
+      data ^= x.data;
+      return *this;
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &
-  operator>>=(const HIP_vector_type &x) noexcept {
-    data >>= x.data;
-    return *this;
-  }
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &
+    operator|=(const HIP_vector_type &x) noexcept {
+      data |= x.data;
+      return *this;
+    }
 
-  template <typename U = T,
-            typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
-  __HOST_DEVICE__ HIP_vector_type &
-  operator<<=(const HIP_vector_type &x) noexcept {
-    data <<= x.data;
-    return *this;
-  }
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &
+    operator&=(const HIP_vector_type &x) noexcept {
+      data &= x.data;
+      return *this;
+    }
+
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &
+    operator>>=(const HIP_vector_type &x) noexcept {
+      data >>= x.data;
+      return *this;
+    }
+
+    template <typename U = T,
+              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+    __HOST_DEVICE__ HIP_vector_type &
+    operator<<=(const HIP_vector_type &x) noexcept {
+      data <<= x.data;
+      return *this;
+    }
+  #endif
 };
 
-template <typename T, unsigned int n>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator+(const HIP_vector_type<T, n> &x,
-          const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} += y;
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator+(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} += HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator+(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} += y;
-}
-
-template <typename T, unsigned int n>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator-(const HIP_vector_type<T, n> &x,
-          const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} -= y;
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator-(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} -= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator-(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} -= y;
-}
-
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator*(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} *= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator*(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} *= y;
-}
-
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator/(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} /= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator/(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} /= y;
-}
-
-template <typename V>
-__HOST_DEVICE__ inline constexpr bool _hip_any_zero(const V &x,
-                                                    int n) noexcept {
-  return (n == -1) ? true : ((x[n] == 0) ? false : _hip_any_zero(x, n - 1));
-}
-
-template <typename T, unsigned int n>
-__HOST_DEVICE__ inline constexpr bool
-operator==(const HIP_vector_type<T, n> &x,
-           const HIP_vector_type<T, n> &y) noexcept {
-  return _hip_any_zero(x.data == y.data, n - 1);
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr bool operator==(const HIP_vector_type<T, n> &x,
-                                                 U y) noexcept {
-  return x == HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr bool
-operator==(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} == y;
-}
-
-template <typename T, unsigned int n>
-__HOST_DEVICE__ inline constexpr bool
-operator!=(const HIP_vector_type<T, n> &x,
-           const HIP_vector_type<T, n> &y) noexcept {
-  return !(x == y);
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr bool operator!=(const HIP_vector_type<T, n> &x,
-                                                 U y) noexcept {
-  return !(x == y);
-}
-template <typename T, unsigned int n, typename U>
-__HOST_DEVICE__ inline constexpr bool
-operator!=(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return !(x == y);
-}
-
-template <typename T, unsigned int n,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator%(const HIP_vector_type<T, n> &x,
-          const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} %= y;
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator%(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} %= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator%(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} %= y;
-}
-
-template <typename T, unsigned int n,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator^(const HIP_vector_type<T, n> &x,
-          const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} ^= y;
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator^(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} ^= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator^(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} ^= y;
-}
-
-template <typename T, unsigned int n,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator|(const HIP_vector_type<T, n> &x,
-          const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} |= y;
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator|(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} |= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator|(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} |= y;
-}
-
-template <typename T, unsigned int n,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator&(const HIP_vector_type<T, n> &x,
-          const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} &= y;
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator&(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} &= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator&(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} &= y;
-}
-
-template <typename T, unsigned int n,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator>>(const HIP_vector_type<T, n> &x,
-           const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} >>= y;
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator>>(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} >>= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator>>(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} >>= y;
-}
-
-template <typename T, unsigned int n,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator<<(const HIP_vector_type<T, n> &x,
-           const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} <<= y;
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator<<(const HIP_vector_type<T, n> &x, U y) noexcept {
-  return HIP_vector_type<T, n>{x} <<= HIP_vector_type<T, n>{y};
-}
-template <typename T, unsigned int n, typename U,
-          typename std::enable_if<std::is_arithmetic<U>::value>::type,
-          typename std::enable_if<std::is_integral<T>{}> * = nullptr>
-__HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
-operator<<(U x, const HIP_vector_type<T, n> &y) noexcept {
-  return HIP_vector_type<T, n>{x} <<= y;
-}
+#ifndef __CUDACC__
+  template <typename T, unsigned int n>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator+(const HIP_vector_type<T, n> &x,
+            const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} += y;
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator+(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} += HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator+(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} += y;
+  }
+  
+  template <typename T, unsigned int n>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator-(const HIP_vector_type<T, n> &x,
+            const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} -= y;
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator-(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} -= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator-(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} -= y;
+  }
+  
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator*(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} *= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator*(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} *= y;
+  }
+  
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator/(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} /= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator/(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} /= y;
+  }
+  
+  template <typename V>
+  __HOST_DEVICE__ inline constexpr bool _hip_any_zero(const V &x,
+                                                      int n) noexcept {
+    return (n == -1) ? true : ((x[n] == 0) ? false : _hip_any_zero(x, n - 1));
+  }
+  
+  template <typename T, unsigned int n>
+  __HOST_DEVICE__ inline constexpr bool
+  operator==(const HIP_vector_type<T, n> &x,
+             const HIP_vector_type<T, n> &y) noexcept {
+    return _hip_any_zero(x.data == y.data, n - 1);
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr bool operator==(const HIP_vector_type<T, n> &x,
+                                                   U y) noexcept {
+    return x == HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr bool
+  operator==(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} == y;
+  }
+  
+  template <typename T, unsigned int n>
+  __HOST_DEVICE__ inline constexpr bool
+  operator!=(const HIP_vector_type<T, n> &x,
+             const HIP_vector_type<T, n> &y) noexcept {
+    return !(x == y);
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr bool operator!=(const HIP_vector_type<T, n> &x,
+                                                   U y) noexcept {
+    return !(x == y);
+  }
+  template <typename T, unsigned int n, typename U>
+  __HOST_DEVICE__ inline constexpr bool
+  operator!=(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return !(x == y);
+  }
+  
+  template <typename T, unsigned int n,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator%(const HIP_vector_type<T, n> &x,
+            const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} %= y;
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator%(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} %= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator%(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} %= y;
+  }
+  
+  template <typename T, unsigned int n,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator^(const HIP_vector_type<T, n> &x,
+            const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} ^= y;
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator^(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} ^= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator^(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} ^= y;
+  }
+  
+  template <typename T, unsigned int n,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator|(const HIP_vector_type<T, n> &x,
+            const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} |= y;
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator|(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} |= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator|(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} |= y;
+  }
+  
+  template <typename T, unsigned int n,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator&(const HIP_vector_type<T, n> &x,
+            const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} &= y;
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator&(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} &= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator&(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} &= y;
+  }
+  
+  template <typename T, unsigned int n,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator>>(const HIP_vector_type<T, n> &x,
+             const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} >>= y;
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator>>(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} >>= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator>>(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} >>= y;
+  }
+  
+  template <typename T, unsigned int n,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator<<(const HIP_vector_type<T, n> &x,
+             const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} <<= y;
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator<<(const HIP_vector_type<T, n> &x, U y) noexcept {
+    return HIP_vector_type<T, n>{x} <<= HIP_vector_type<T, n>{y};
+  }
+  template <typename T, unsigned int n, typename U,
+            typename std::enable_if<std::is_arithmetic<U>::value>::type,
+            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+  __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
+  operator<<(U x, const HIP_vector_type<T, n> &y) noexcept {
+    return HIP_vector_type<T, n>{x} <<= y;
+  }
+#endif
 
 #define __MAKE_VECTOR_TYPE__(CUDA_name, T)                                     \
   using CUDA_name##1 = HIP_vector_type<T, 1>;                                  \
