@@ -180,6 +180,7 @@ int main() {
     CHECK_RESULT(result);
 
     std::thread eventSyncThread([&]() {
+        std::cout << "Waiting for user event..." << std::endl;
         ze_result_t res = ZE_RESULT_NOT_READY;
         while (res != ZE_RESULT_SUCCESS)
             res = zeEventHostSynchronize(userEvent, 1);
