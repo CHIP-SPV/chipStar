@@ -42,9 +42,9 @@ void TestCallback(hipStream_t stream, hipError_t status, void* userData) {
   for (int i = 0; i < NUM; i ++)
     TransposeData[i] += 1.0f;
 
-  GlobalMtx.lock();
-  StreamCount ++;
-  GlobalMtx.unlock();
+  //GlobalMtx.lock();
+  //StreamCount ++;
+  //GlobalMtx.unlock();
   
   // std::cout << "Invoke CALLBACK " << TransposeData[0] << std::endl;
 
@@ -53,16 +53,16 @@ void TestCallback(hipStream_t stream, hipError_t status, void* userData) {
 
 __global__ void matrixTranspose_static_shared(float* out, float* in,
                                               const int width) {
-    __shared__ float sharedMem[WIDTH * WIDTH];
+    //__shared__ float sharedMem[WIDTH * WIDTH];
 
-    int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
-    int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
+    //int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+    //int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
-    sharedMem[y * width + x] = in[x * width + y];
+    //sharedMem[y * width + x] = in[x * width + y];
 
-    __syncthreads();
+    //__syncthreads();
 
-    out[y * width + x] = sharedMem[y * width + x];
+    //out[y * width + x] = sharedMem[y * width + x];
 }
 
 __global__ void matrixTranspose_dynamic_shared(float* out, float* in,
@@ -82,25 +82,25 @@ __global__ void matrixTranspose_dynamic_shared(float* out, float* in,
 
 void MultipleStream(float** data, float* randArray, float** gpuTransposeMatrix,
                     float** TransposeMatrix, int width) {
-    const int num_streams = 2;
+    const int num_streams = 1;
     hipStream_t streams[num_streams];
 
     for (int i = 0; i < num_streams; i++) hipStreamCreate(&streams[i]);
 
     for (int i = 0; i < num_streams; i++) {
         hipMalloc((void**)&data[i], NUM * sizeof(float));
-        hipMemcpyAsync(data[i], randArray, NUM * sizeof(float), hipMemcpyHostToDevice, streams[i]);
+//        hipMemcpyAsync(data[i], randArray, NUM * sizeof(float), hipMemcpyHostToDevice, streams[i]);
     }
 
-    hipLaunchKernelGGL(matrixTranspose_static_shared,
-                    dim3(WIDTH / THREADS_PER_BLOCK_X, WIDTH / THREADS_PER_BLOCK_Y),
-                    dim3(THREADS_PER_BLOCK_X, THREADS_PER_BLOCK_Y), 0, streams[0],
-                    gpuTransposeMatrix[0], data[0], width);
+   // hipLaunchKernelGGL(matrixTranspose_static_shared,
+   //                 dim3(WIDTH / THREADS_PER_BLOCK_X, WIDTH / THREADS_PER_BLOCK_Y),
+   //                 dim3(THREADS_PER_BLOCK_X, THREADS_PER_BLOCK_Y), 0, streams[0],
+   //                 gpuTransposeMatrix[0], data[0], width);
 
-    hipLaunchKernelGGL(matrixTranspose_static_shared,
-                    dim3(WIDTH / THREADS_PER_BLOCK_X, WIDTH / THREADS_PER_BLOCK_Y),
-                    dim3(THREADS_PER_BLOCK_X, THREADS_PER_BLOCK_Y), 0, streams[1],
-                    gpuTransposeMatrix[1], data[1], width);
+    //hipLaunchKernelGGL(matrixTranspose_static_shared,
+    //                dim3(WIDTH / THREADS_PER_BLOCK_X, WIDTH / THREADS_PER_BLOCK_Y),
+    //                dim3(THREADS_PER_BLOCK_X, THREADS_PER_BLOCK_Y), 0, streams[1],
+    //                gpuTransposeMatrix[1], data[1], width);
     
     /*
     hipLaunchKernelGGL(matrixTranspose_dynamic_shared,
@@ -115,7 +115,11 @@ void MultipleStream(float** data, float* randArray, float** gpuTransposeMatrix,
     // id1 = 0;
     // id2 = 1;
     hipStreamAddCallback(streams[0], TestCallback, (void* )TransposeMatrix[0], 0);
-    hipStreamAddCallback(streams[1], TestCallback, (void* )TransposeMatrix[1], 0);
+//    hipStreamAddCallback(streams[1], TestCallback, (void* )TransposeMatrix[1], 0);
+    std::cout << "Callback done\n";
+  hipDeviceSynchronize();
+    std::cout << "hipDeviceSync done\n";
+
 }
 
 int main() {
@@ -139,7 +143,6 @@ int main() {
   
   MultipleStream(data, randArray, gpuTransposeMatrix, TransposeMatrix, width);
   
-  hipDeviceSynchronize();
 
 /*  
   // Spin on stream counter to wait for the termination of event callbacks
