@@ -184,9 +184,11 @@ int main() {
         while (res != ZE_RESULT_SUCCESS)
             res = zeEventHostSynchronize(userEvent, 1);
         std::cout << "GPU READY: Executing host callback!!!" << std::endl;
-        result = zeEventHostSignal(userEvent);
-        CHECK_RESULT(result);
     });
+
+    std::cout << "Signaling user event..." << std::endl;
+    result = zeEventHostSignal(userEvent);
+    CHECK_RESULT(result);
 
     std::cout << "Waiting for GPU to complete..." << std::endl;
     ze_result_t res = ZE_RESULT_NOT_READY;
