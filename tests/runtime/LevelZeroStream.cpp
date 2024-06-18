@@ -187,13 +187,13 @@ int main() {
         result = zeEventHostSignal(userEvent);
         CHECK_RESULT(result);
     });
-    eventSyncThread.join();
 
     std::cout << "Waiting for GPU to complete..." << std::endl;
     ze_result_t res = ZE_RESULT_NOT_READY;
     while (res != ZE_RESULT_SUCCESS)
         res = zeEventHostSynchronize(GpuCompleteEvent, 1);
 
+    eventSyncThread.join();
     result = zeCommandListDestroy(immCmdList);
     CHECK_RESULT(result);
     result = zeCommandListDestroy(cmdList);
