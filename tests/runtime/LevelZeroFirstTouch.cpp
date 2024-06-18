@@ -86,15 +86,21 @@ int main() {
         return 1;
     }
 
-    int* deviceBuffer;
+    struct Data {
+        int *A_d;
+    } typedef Data;
+
+    // Create a Data object and allocate memory for A_d on the device
+    Data data;
     ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
-    result = zeMemAllocDevice(context, &deviceMemAllocDesc, sizeof(int), 1, deviceHandle, (void**)&deviceBuffer);
+    result = zeMemAllocDevice(context, &deviceMemAllocDesc, sizeof(int), 1, deviceHandle, (void**)&data.A_d);
     if (result != ZE_RESULT_SUCCESS) {
         std::cerr << "zeMemAllocDevice failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
     }
 
-    result = zeKernelSetArgumentValue(kernel, 0, sizeof(deviceBuffer), &deviceBuffer);
+    // Set the kernel argument to the Data object
+    result = zeKernelSetArgumentValue(kernel, 0, sizeof(Data), &data);
     if (result != ZE_RESULT_SUCCESS) {
         std::cerr << "zeKernelSetArgumentValue failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
@@ -129,8 +135,8 @@ int main() {
         return 1;
     }
 
-    int hostBuffer = 0;
-    result = zeCommandListAppendMemoryCopy(commandList, &hostBuffer, deviceBuffer, sizeof(int), nullptr, 0, nullptr);
+    int A_h[1] = {0};
+    result = zeCommandListAppendMemoryCopy(commandList, A_h, data.A_d, sizeof(int), nullptr, 0, nullptr);
     if (result != ZE_RESULT_SUCCESS) {
         std::cerr << "zeCommandListAppendMemoryCopy failed with error code: " << std::hex << "0x" << result << std::endl;
         return 1;
@@ -142,15 +148,14 @@ int main() {
         return 1;
     }
 
-    std::cout << "Result: " << hostBuffer << std::endl;
-    if (hostBuffer == 1) {
+    std::cout << "Result: " << A_h[0] << std::endl;
+    if (A_h[0] == 1) {
         std::cout << "PASSED" << std::endl;
     } else {
         std::cout << "FAILED" << std::endl;
     }
 
-
-    zeMemFree(context, deviceBuffer);
+    zeMemFree(context, data.A_d);
     zeKernelDestroy(kernel);
     zeModuleDestroy(module);
     zeCommandListDestroy(commandList);
