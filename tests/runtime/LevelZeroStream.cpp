@@ -176,14 +176,19 @@ int main() {
 
     result = zeCommandListClose(cmdList);
     CHECK_RESULT(result);
-    result = zeCommandQueueExecuteCommandLists(cmdQueue, 1, &cmdList, nullptr);
+    ze_fence_handle_t fence;
+    ze_fence_desc_t fenceDesc = {ZE_STRUCTURE_TYPE_FENCE_DESC, nullptr, 0};
+    result = zeFenceCreate(cmdQueue, &fenceDesc, &fence);
+    CHECK_RESULT(result);
+
+    result = zeCommandQueueExecuteCommandLists(cmdQueue, 1, &cmdList, fence);
     CHECK_RESULT(result);
 
     std::thread eventSyncThread([&]() {
-        std::cout << "Waiting for user event..." << std::endl;
+        std::cout << "Waiting for fence to signal..." << std::endl;
         ze_result_t res = ZE_RESULT_NOT_READY;
         while (res != ZE_RESULT_SUCCESS)
-            res = zeEventHostSynchronize(userEvent, 1);
+            res = zeFenceHostSynchronize(fence, 1);
         std::cout << "GPU READY: Executing host callback!!!" << std::endl;
     });
 
@@ -196,8 +201,10 @@ int main() {
     while (res != ZE_RESULT_SUCCESS)
         res = zeEventHostSynchronize(GpuCompleteEvent, 1);
 
-    eventSyncThread.join();
     std::cout << "Joining callback thread..." << std::endl;
+    eventSyncThread.join();
+    
+    std::cout << "Destroying command lists..." << std::endl;
     result = zeCommandListDestroy(immCmdList);
     CHECK_RESULT(result);
     result = zeCommandListDestroy(cmdList);
