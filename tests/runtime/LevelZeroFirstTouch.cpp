@@ -92,7 +92,7 @@ int main() {
 
     // Create a Data object and allocate memory for A_d on the device
     Data data;
-    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
+    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED, 0};
     result = zeMemAllocDevice(context, &deviceMemAllocDesc, sizeof(int), 1, deviceHandle, (void**)&data.A_d);
     if (result != ZE_RESULT_SUCCESS) {
         std::cerr << "zeMemAllocDevice failed with error code: " << std::hex << "0x" << result << std::endl;
