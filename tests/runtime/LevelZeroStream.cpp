@@ -197,6 +197,7 @@ int main() {
         res = zeEventHostSynchronize(GpuCompleteEvent, 1);
 
     eventSyncThread.join();
+    std::cout << "Joining callback thread..." << std::endl;
     result = zeCommandListDestroy(immCmdList);
     CHECK_RESULT(result);
     result = zeCommandListDestroy(cmdList);
