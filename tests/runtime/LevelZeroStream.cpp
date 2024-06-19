@@ -143,7 +143,7 @@ int main() {
     CHECK_RESULT(result);
 
     // Create events
-    ze_event_handle_t userEvent, GpuReadyEvent, GpuCompleteEvent, UnusedEvent;
+    ze_event_handle_t userEvent, GpuReadyEvent, GpuAck, UnusedEvent;
     ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0, ZE_EVENT_SCOPE_FLAG_HOST, ZE_EVENT_SCOPE_FLAG_HOST};
 
     // Create userEvent in eventPool1
@@ -157,7 +157,7 @@ int main() {
 
     // Create GpuCompleteEvent in eventPool2
     eventDesc.index = 1;
-    result = zeEventCreate(eventPool2, &eventDesc, &GpuCompleteEvent);
+    result = zeEventCreate(eventPool2, &eventDesc, &GpuAck);
     CHECK_RESULT(result);
 
     // Create UnusedEvent in eventPool4
@@ -183,7 +183,7 @@ int main() {
 
     CHECK_RESULT(result);
     zeCommandListAppendBarrier(cmdList, UnusedEvent, 1, &GpuReadyEvent);
-    zeCommandListAppendBarrier(cmdList, GpuCompleteEvent, 1, &userEvent);
+    zeCommandListAppendBarrier(cmdList, GpuAck, 1, &userEvent);
 
     result = zeCommandListClose(cmdList);
     CHECK_RESULT(result);
@@ -208,16 +208,21 @@ int main() {
         result = zeEventHostSignal(userEvent);
         CHECK_RESULT(result);
 
-        std::cout << "Waiting for fence to signal..." << std::endl;
+  
+
+        std::cout << "Waiting for GpuAck to signal..." << std::endl;
         res = ZE_RESULT_NOT_READY;
         while (res != ZE_RESULT_SUCCESS)
-            res = zeFenceHostSynchronize(fence, 1);
+            res = zeEventHostSynchronize(GpuAck, 1);
+        std::cout << "Callback monitor thread is done" << std::endl;
     });
 
-    std::cout << "Waiting for GPU to complete..." << std::endl;
+
+    std::cout << "Waiting for fence to signal..." << std::endl;
     ze_result_t res = ZE_RESULT_NOT_READY;
     while (res != ZE_RESULT_SUCCESS)
-        res = zeEventHostSynchronize(GpuCompleteEvent, 1);
+        res = zeFenceHostSynchronize(fence, 1);
+
 
     std::cout << "Joining callback thread..." << std::endl;
     eventSyncThread.join();
