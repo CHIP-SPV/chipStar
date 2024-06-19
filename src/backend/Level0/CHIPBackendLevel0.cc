@@ -1153,27 +1153,22 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-  // if using immediate command lists, lock the mutex
-  LOCK(CommandListMtx); // TODO this is probably not needed when using RCL
+  LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImm();
 
-  // Do we need to annotate indirect buffer accesses?
-  auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
-  if (true /* !LzDev->hasOnDemandPaging() */) {
-    // The baseline answer is yes (unless we would know that the
-    // kernel won't access buffers indirectly).
-    auto Status = zeKernelSetIndirectAccess(
-        KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
-  }
+  // annotate the kernel for indirect access to handle the case where the kernel
+  // argument is SoA
+  auto Status = zeKernelSetIndirectAccess(
+      KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
+                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
+                              hipErrorInitializationError);
 
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via LOCK(CommandListMtx)
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
-  auto Status = zeCommandListAppendLaunchKernel(
+  Status = zeCommandListAppendLaunchKernel(
       CommandList, KernelZe, &LaunchArgs,
       std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(),
       EventHandles.size(), EventHandles.data());
