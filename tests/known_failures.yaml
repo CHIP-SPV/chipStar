@@ -473,3 +473,23 @@ cupcake:
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
+x1921.*b0n0: # Sunspot compute
+  ALL:
+  LEVEL0_GPU:
+    OpenCLCallbacks: ''
+    OpenCLCallbacks-buffer: ''
+    Unit_hipStreamAddCallback_WithDefaultStream: ''
+    Unit_hipStreamAddCallback_WithCreatedStream: ''
+    stream: ''
+    hipAddCallback: ''
+    cuda-bandwidthTest: ''
+    
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
+
+
+	# 930 - hip_async_binomial (Failed)
+	# 944 - clock (Failed)
+	# 950 - sycl_chip_interop (SEGFAULT)
+	# 951 - sycl_chip_interop_usm (SEGFAULT)
