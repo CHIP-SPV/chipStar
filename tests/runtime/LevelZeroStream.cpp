@@ -169,9 +169,10 @@ int main() {
     bool gpuReadyValue = true;
     float hostData[SIZE];
     float *gpuData;
-    result = zeMemAllocDevice(context, nullptr, SIZE * sizeof(float), 1, device, (void**)&gpuData);
+    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
+    result = zeMemAllocDevice(context, &deviceMemAllocDesc, SIZE * sizeof(float), 1, device, (void**)&gpuData);
     CHECK_RESULT(result);
-    result = zeCommandListAppendMemoryCopy(cmdList, hostData, gpuData, SIZE * sizeof(float), GpuReadyEvent, 0, nullptr);
+    result = zeCommandListAppendMemoryCopy(immCmdList, hostData, gpuData, SIZE * sizeof(float), GpuReadyEvent, 0, nullptr);
     CHECK_RESULT(result);
     zeCommandListAppendBarrier(cmdList, UnusedEvent, 1, &GpuReadyEvent);
     zeCommandListAppendBarrier(cmdList, GpuCompleteEvent, 1, &userEvent);
