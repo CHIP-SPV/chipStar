@@ -7,7 +7,6 @@
 #include <cstring>
 
 #define PATH_MAX 4096
-#define SIZE 257
 
 #define CHECK_RESULT(res) if (res != ZE_RESULT_SUCCESS) { std::cerr << "Error: " << res << " at line " << __LINE__ << std::endl; exit(res); }
 
@@ -18,7 +17,7 @@ void monitorGpuReady(std::atomic<bool>& GpuReady) {
     std::cout << "GPU is now ready." << std::endl;
 }
 
-int main() {
+void test(int SIZE) {
     std::cout << "Initializing Level Zero..." << std::endl;
     ze_result_t result = zeInit(0);
     CHECK_RESULT(result);
@@ -235,5 +234,13 @@ int main() {
     result = zeContextDestroy(context);
     CHECK_RESULT(result);
 
-    return 0;
+    return;
+}
+
+int main() {
+  std::cout << "Testing with SIZE = 256" << std::endl;
+  test(256);
+
+  std::cout << "\n\nTesting with SIZE = 257" << std::endl;
+  test(257);
 }
