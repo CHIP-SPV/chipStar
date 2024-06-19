@@ -164,6 +164,11 @@ int main() {
     eventDesc.index = 0;
     result = zeEventCreate(eventPool4, &eventDesc, &UnusedEvent);
     CHECK_RESULT(result);
+    
+    eventDesc.index = 1;
+    ze_event_handle_t memCopyEvent;
+    result = zeEventCreate(eventPool4, &eventDesc, &memCopyEvent);
+    CHECK_RESULT(result);
 
     // Level Zero API calls based on the trace
     bool gpuReadyValue = true;
@@ -172,7 +177,10 @@ int main() {
     ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED, 0};
     result = zeMemAllocDevice(context, &deviceMemAllocDesc, SIZE * sizeof(float), 1, device, (void**)&gpuData);
     CHECK_RESULT(result);
-    result = zeCommandListAppendMemoryCopy(immCmdList, hostData, gpuData, SIZE * sizeof(float), GpuReadyEvent, 0, nullptr);
+    result = zeCommandListAppendMemoryCopy(immCmdList, hostData, gpuData, SIZE * sizeof(float), memCopyEvent, 0, nullptr);
+    CHECK_RESULT(result);
+    zeCommandListAppendBarrier(immCmdList, GpuReadyEvent, 1, &memCopyEvent);
+
     CHECK_RESULT(result);
     zeCommandListAppendBarrier(cmdList, UnusedEvent, 1, &GpuReadyEvent);
     zeCommandListAppendBarrier(cmdList, GpuCompleteEvent, 1, &userEvent);
@@ -188,16 +196,23 @@ int main() {
     CHECK_RESULT(result);
 
     std::thread eventSyncThread([&]() {
-        std::cout << "Waiting for fence to signal..." << std::endl;
+        std::cout << "Waiting for GpuReadyEvent signal..." << std::endl;
         ze_result_t res = ZE_RESULT_NOT_READY;
         while (res != ZE_RESULT_SUCCESS)
-            res = zeFenceHostSynchronize(fence, 1);
-        std::cout << "GPU READY: Executing host callback!!!" << std::endl;
-    });
+            res = zeEventHostSynchronize(GpuReadyEvent, 1);
+        CHECK_RESULT(res);
 
-    std::cout << "Signaling user event..." << std::endl;
-    result = zeEventHostSignal(userEvent);
-    CHECK_RESULT(result);
+        std::cout << "GPU READY: Executing host callback!!!" << std::endl;
+
+        std::cout << "Signaling user event..." << std::endl;
+        result = zeEventHostSignal(userEvent);
+        CHECK_RESULT(result);
+
+        std::cout << "Waiting for fence to signal..." << std::endl;
+        res = ZE_RESULT_NOT_READY;
+        while (res != ZE_RESULT_SUCCESS)
+            res = zeFenceHostSynchronize(fence, 1);
+    });
 
     std::cout << "Waiting for GPU to complete..." << std::endl;
     ze_result_t res = ZE_RESULT_NOT_READY;
