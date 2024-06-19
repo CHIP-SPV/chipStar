@@ -4,6 +4,12 @@
 #include <fstream>
 #include <unistd.h>
 
+
+    struct Data {
+        int *A_d;
+    } typedef Data;
+
+
 int main() {
     ze_result_t result = zeInit(0);
     if (result != ZE_RESULT_SUCCESS) {
@@ -86,9 +92,7 @@ int main() {
         return 1;
     }
 
-    struct Data {
-        int *A_d;
-    } typedef Data;
+
 
     // Create a Data object and allocate memory for A_d on the device
     Data data;
