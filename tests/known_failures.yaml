@@ -483,13 +483,10 @@ x1921.*b0n0: # Sunspot compute
     stream: ''
     hipAddCallback: ''
     cuda-bandwidthTest: ''
-    
+    hip_async_binomial: ''
+    sycl_chip_interop: ''
+    sycl_chip_interop_usm: ''
+    clock: ''
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
-
-
-	# 930 - hip_async_binomial (Failed)
-	# 944 - clock (Failed)
-	# 950 - sycl_chip_interop (SEGFAULT)
-	# 951 - sycl_chip_interop_usm (SEGFAULT)
