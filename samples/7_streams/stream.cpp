@@ -23,13 +23,8 @@ THE SOFTWARE.
 
 #include "hip/hip_runtime.h"
 
-#define WIDTH 32
-
-#define NUM (WIDTH * WIDTH)
-
-#define THREADS_PER_BLOCK_X 4
-#define THREADS_PER_BLOCK_Y 4
-#define THREADS_PER_BLOCK_Z 1
+// #define NUM  256 // pass
+ #define NUM  257 // hangs
 
 using namespace std;
 
@@ -48,7 +43,6 @@ void TestCallback(hipStream_t stream, hipError_t status, void* userData) {
 
 int main() {
   float *TransposeMatrix, *gpuTransposeMatrix, *randArray;
-  int width = WIDTH;
   TransposeMatrix = (float*)calloc(NUM , sizeof(float));
   hipMalloc((void**)&gpuTransposeMatrix, NUM * sizeof(float));
 
