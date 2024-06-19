@@ -1159,7 +1159,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 
   // Do we need to annotate indirect buffer accesses?
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
-  if (!LzDev->hasOnDemandPaging()) {
+  if (true /* !LzDev->hasOnDemandPaging() */) {
     // The baseline answer is yes (unless we would know that the
     // kernel won't access buffers indirectly).
     auto Status = zeKernelSetIndirectAccess(
