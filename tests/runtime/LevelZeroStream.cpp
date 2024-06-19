@@ -169,7 +169,7 @@ int main() {
     bool gpuReadyValue = true;
     float hostData[SIZE];
     float *gpuData;
-    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
+    ze_device_mem_alloc_desc_t deviceMemAllocDesc = {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED, 0};
     result = zeMemAllocDevice(context, &deviceMemAllocDesc, SIZE * sizeof(float), 1, device, (void**)&gpuData);
     CHECK_RESULT(result);
     result = zeCommandListAppendMemoryCopy(immCmdList, hostData, gpuData, SIZE * sizeof(float), GpuReadyEvent, 0, nullptr);
