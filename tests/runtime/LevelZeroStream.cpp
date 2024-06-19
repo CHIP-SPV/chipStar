@@ -7,11 +7,9 @@
 #include <cstring>
 
 #define PATH_MAX 4096
+#define SIZE 257
 
 #define CHECK_RESULT(res) if (res != ZE_RESULT_SUCCESS) { std::cerr << "Error: " << res << " at line " << __LINE__ << std::endl; exit(res); }
-
-std::atomic<bool> GpuReady1(false);
-std::atomic<bool> GpuReady2(false);
 
 void monitorGpuReady(std::atomic<bool>& GpuReady) {
     while (!GpuReady) {
@@ -169,8 +167,12 @@ int main() {
 
     // Level Zero API calls based on the trace
     bool gpuReadyValue = true;
-    zeCommandListAppendMemoryCopy(cmdList,  &GpuReady1, &gpuReadyValue, sizeof(GpuReady1), GpuReadyEvent,0, nullptr);
-
+    float hostData[SIZE];
+    float *gpuData;
+    result = zeMemAllocDevice(context, nullptr, SIZE * sizeof(float), 1, device, (void**)&gpuData);
+    CHECK_RESULT(result);
+    result = zeCommandListAppendMemoryCopy(cmdList, hostData, gpuData, SIZE * sizeof(float), GpuReadyEvent, 0, nullptr);
+    CHECK_RESULT(result);
     zeCommandListAppendBarrier(cmdList, UnusedEvent, 1, &GpuReadyEvent);
     zeCommandListAppendBarrier(cmdList, GpuCompleteEvent, 1, &userEvent);
 
