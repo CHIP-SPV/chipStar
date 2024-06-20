@@ -23,7 +23,7 @@ jobs:
       - name: Exploring
         run: pwd; echo $HOME; ls /home/chipStarUser
       - name: Exploring
-        run: strings `type -p bash` | grep bashrc
+        run: strings /usr/bin/bash | grep bashrc
       - name: Trying to get ml to work
         run: source /home/chipStarUser/.bashrc; ml; ml avail
       - name: C/C++ Linter
