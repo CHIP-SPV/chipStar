@@ -30,18 +30,33 @@ get_filename_component(CLANG_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
 set(prop "$<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>")
 set(CHIP_INCLUDES "$<$<BOOL:${prop}>:-I$<JOIN:${prop}, -I>>")
 
-add_executable(cucc ${CMAKE_CURRENT_SOURCE_DIR}/cucc.cc)
-target_include_directories(cucc PRIVATE ${CMAKE_SOURCE_DIR}/HIPCC/src)
-target_link_libraries(cucc CHIP)
+# Generate cuspvc tool that is usable within build directory.
+# TODO: Deprecate cuspvc
+configure_file(cuspvc-build.in cuspvc-build.in @ONLY)
+file(
+  GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc
+  INPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-build.in)
 
-# Install the cucc target
-install(TARGETS cucc
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# Generate cuspv tool that will be installed.
+# TODO: Deprecate cuspvc
+configure_file(cuspvc-install.in cuspvc-install @ONLY)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-install
+  DESTINATION bin RENAME cuspvc)
 
-# Create a symlink to nvcc which points to cucc in both build and install directories
-install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/bin/cucc ${CMAKE_INSTALL_PREFIX}/bin/nvcc)")
-file(CREATE_LINK ${HIPCC_BUILD_PATH}/cucc ${HIPCC_BUILD_PATH}/nvcc SYMBOLIC)
+# Generate cucc tool that is usable within build directory.
+set(CUCC_HIP_PATH ${CMAKE_BINARY_DIR})
+configure_file(cucc.in cucc @ONLY)
+
+# This cucc variant is for the install destination.
+set(CUCC_HIP_PATH ${CMAKE_INSTALL_PREFIX})
+configure_file(cucc.in cucc-install @ONLY)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc-install
+  DESTINATION bin RENAME cucc)
+
+# Run static type check on cucc if there is a tool available for it.
+find_program(MYPY NAMES mypy)
+if(MYPY)
+  add_test(NAME cucc-static-type-check
+    COMMAND ${MYPY} ${CMAKE_CURRENT_SOURCE_DIR}/cucc.in)
+endif()
