@@ -13,10 +13,14 @@ concurrency:
 jobs:
   cpp-linter:
     runs-on: ubuntu-latest
+    container:
+      image: krisitanpn/teststar:base
     steps:
       - uses: actions/checkout@v2
       - name: Install clang
-        run: sudo apt install clang-11 --install-suggests
+        run: sudo apt install clang-15 --install-suggests
+      - name: Exploring
+        run: pwd; ml avail; ml
       - name: C/C++ Linter
         uses: cpp-linter/cpp-linter-action@v2.9.0
         id: linter
@@ -24,9 +28,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: file
-          version: 11
-          files-changed-only: true
-          lines-changed-only: true
+          version: 15
+          files-changed-only: false
+          lines-changed-only: false
           extensions: 'cc,hh'
           tidy-checks: '-*,readability-*,modernize-*,clang-analyzer-*'
       - name: Fail fast?!
