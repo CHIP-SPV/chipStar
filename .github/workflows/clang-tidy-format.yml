@@ -14,36 +14,12 @@ jobs:
   cpp-linter:
     runs-on: ubuntu-latest
     container:
-      image: krisitanpn/teststar:base
+      image: krisitanpn/teststar:cpp-linter
       options: --user chipStarUser
     steps:
       - uses: actions/checkout@v2
-      - name: Install clang
-        run: sudo apt install -y clang-15 --install-suggests
-      - name: Exploring
-        run: pwd; echo $HOME; ls /home/chipStarUser
-      - name: Exploring
-        run: strings /usr/bin/bash | grep bashrc
       - shell: bash
-        run:  id
-      - shell: bash
-        run:   env; ml; ml avail; ml StdEnv; ml;
-      - shell: bash
-        run:  source /home/chipStarUser/.bashrc; ml; ml avail
-      - shell: bash
-        run:  ml; ml avail
-      - name: C/C++ Linter
-        uses: cpp-linter/cpp-linter-action@v2.9.0
-        id: linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          style: file
-          version: 15
-          files-changed-only: false
-          lines-changed-only: false
-          extensions: 'cc,hh'
-          tidy-checks: '-*,readability-*,modernize-*,clang-analyzer-*'
+        run:  ml; ml avail; . /home/chipStarUser/venv/bin/activate; cpp-linter
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1

@@ -98,10 +98,20 @@ RUN echo 'if [ -f /etc/bash.bashrc ]; then' | tee -a  ~/.bashrc; \
     echo '   . /etc/bash.bashrc' | tee -a  ~/.bashrc; \
     echo 'fi' | tee -a  ~/.bashrc
 
+
+
 ENV BASH_ENV=/apps/lmod/8.7/init/bash 
 ENV MODULEPATH_ROOT=/apps/modulefiles
 ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
 
+RUN sudo add-apt-repository --remove ppa:ocl-icd/ppa; \
+    sudo apt-update; \
+    sudo apt install -y clang-15 --install-suggests; \
+    sudo apt install -y clang-format-15 clang-tidy-15; \
+    sudo apt install -y python3-venv; \
+    python3 -m venv "~/venv"; \
+    source "~/venv/bin/activate"; \
+    pip3 install  clang-tools==0.13.0 cpp-linter==1.10.0
 # RUN sudo apt install -y gpg-agent wget; \
 #     wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null; \
 #     echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list; \
