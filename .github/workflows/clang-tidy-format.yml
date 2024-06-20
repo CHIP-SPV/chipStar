@@ -18,9 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install clang
-        run: sudo apt install clang-15 --install-suggests
+        run: sudo apt install -y clang-15 --install-suggests
       - name: Exploring
-        run: pwd; ml avail; ml
+        run: pwd; ml avail; ml; echo $HOME; ls /home/chipStarUser
       - name: C/C++ Linter
         uses: cpp-linter/cpp-linter-action@v2.9.0
         id: linter
