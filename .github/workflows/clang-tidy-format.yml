@@ -15,12 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: krisitanpn/teststar:base
+      options: --user chipStarUser
     steps:
       - uses: actions/checkout@v2
       - name: Install clang
         run: sudo apt install -y clang-15 --install-suggests
       - name: Exploring
-        run: pwd; ml avail; ml; echo $HOME; ls /home/chipStarUser
+        run: pwd; echo $HOME; ls /home/chipStarUser
+      - name: Exploring
+        run: strings `type -p bash` | grep bashrc
+      - name: Trying to get ml to work
+        run: source /home/chipStarUser/.bashrc; ml; ml avail
       - name: C/C++ Linter
         uses: cpp-linter/cpp-linter-action@v2.9.0
         id: linter
