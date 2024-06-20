@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - shell: bash
-        run:  ml; ml avail; . /home/chipStarUser/venv/bin/activate; cpp-linter
+        run:  ml; ml avail; ml StdEnv; . /home/chipStarUser/venv/bin/activate; cpp-linter
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
