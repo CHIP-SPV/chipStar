@@ -94,9 +94,13 @@ RUN echo 'if [ -z "$__Init_Default_Modules" ]; then' | sudo tee /etc/profile.d/z
     echo 'fi' | sudo tee -a /etc/profile.d/z01_StdEnv.sh
 
  
-RUN echo 'if [ -f /etc/bashrc ]; then' | tee -a  ~/.bashrc; \
-    echo '   . /etc/bashrc' | tee -a  ~/.bashrc; \
+RUN echo 'if [ -f /etc/bash.bashrc ]; then' | tee -a  ~/.bashrc; \
+    echo '   . /etc/bash.bashrc' | tee -a  ~/.bashrc; \
     echo 'fi' | tee -a  ~/.bashrc
+
+ENV BASH_ENV=/apps/lmod/8.7/init/bash 
+ENV MODULEPATH_ROOT=/apps/modulefiles
+ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
 
 # RUN sudo apt install -y gpg-agent wget; \
 #     wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null; \
