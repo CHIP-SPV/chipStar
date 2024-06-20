@@ -27,6 +27,8 @@ jobs:
       - shell: bash
         run:  id
       - shell: bash
+        run:  env; set -x; . ~/.bashrc ; . /etc/profile.d/z00_lmod.sh; ml
+      - shell: bash
         run:  source /home/chipStarUser/.bashrc; ml; ml avail
       - shell: bash
         run:  ml; ml avail
