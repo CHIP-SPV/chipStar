@@ -27,7 +27,7 @@ jobs:
       - shell: bash
         run:  id
       - shell: bash
-        run:   ml; ml avail; ml StdEnv; ml;
+        run:   env; ml; ml avail; ml StdEnv; ml;
       - shell: bash
         run:  source /home/chipStarUser/.bashrc; ml; ml avail
       - shell: bash
