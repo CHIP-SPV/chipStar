@@ -25,7 +25,7 @@ jobs:
       - name: Exploring
         run: strings /usr/bin/bash | grep bashrc
       - name: Trying to get ml to work
-        run: source /home/chipStarUser/.bashrc; ml; ml avail
+        run:  ml; ml avail
       - name: C/C++ Linter
         uses: cpp-linter/cpp-linter-action@v2.9.0
         id: linter
