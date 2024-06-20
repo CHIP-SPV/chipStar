@@ -17,6 +17,7 @@ jobs:
       image: krisitanpn/teststar:base
       options: --user chipStarUser
     steps:
+      - shell: bash
       - uses: actions/checkout@v2
       - name: Install clang
         run: sudo apt install -y clang-15 --install-suggests
