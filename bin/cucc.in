@@ -131,7 +131,8 @@ def prepare_argparser() -> argparse.ArgumentParser:
     # is potentially more relaxed than --use_fast_math so we may not use it.
     parser.add_argument("-use_fast_math", "--use_fast_math",
                         nargs=0, action=IgnoredOption)
-
+    parser.add_argument("-gencode", "--gencode",
+                        nargs=1, action=IgnoredOption)
     return parser
 
 def get_hip_path() -> str:
