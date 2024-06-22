@@ -234,9 +234,9 @@ extern "C++" inline __device__ double j0(double x) {
   return ::__ocml_j0_f64(x);
 }
 
-extern "C" __device__  double __ocml_j0_f64(double x); // OCML
+extern "C" __device__  double __ocml_j1_f64(double x); // OCML
 extern "C++" inline __device__ double j1(double x) {
-  return ::__ocml_j0_f64(x);
+  return ::__ocml_j1_f64(x);
 }
 
 extern "C" __device__  double __chip_jn_f64(int n, double x); // Custom 
