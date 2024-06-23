@@ -18,8 +18,27 @@ jobs:
       options: --user chipStarUser
     steps:
       - uses: actions/checkout@v2
-      - shell: bash
-        run:  ml; ml avail; ml StdEnv; . /home/chipStarUser/venv/bin/activate; cpp-linter
+      - name: linter
+        run:  ml; ml avail; ml StdEnv; . /home/chipStarUser/venv/bin/activate; \
+           cpp-linter \
+          --style="file" \
+          --extensions=cc,hh \
+          --tidy-checks="-*,readability-*,modernize-*,clang-analyzer-*" \
+          --repo-root=. \
+          --version=11 \
+          --verbosity=info \
+          --lines-changed-only=false \
+          --files-changed-only=false \
+          --thread-comments=false \
+          --no-lgtm=true \
+          --step-summary=false \
+          --ignore=".github" \
+          --database= \
+          --file-annotations=true \
+          --extra-arg="" \
+          --tidy-review="false" \
+          --format-review="false"
+        shell: bash
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
