@@ -51,7 +51,6 @@ jobs:
           tidy-checks: '-*,readability-*,modernize-*,clang-analyzer-*'
           extra-args: '-I./spirv-extractor/SPIRV-Tools/include/ -I./HIP/include/ -I./include/ -std=c++17'
           ignore: '.github|llvm_passes/SPIRVImageType.cc|src/Filesystem.hh|src/common.hh|include/hip/devicelib/sync_and_util.hh|include/hip/devicelib/double_precision/dp_intrinsics.hh'
-        shell: bash
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
