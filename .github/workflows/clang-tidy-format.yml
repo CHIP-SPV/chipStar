@@ -18,32 +18,43 @@ jobs:
       options: --user chipStarUser
     steps:
       - uses: actions/checkout@v2
-      - name: linter
-        run: |
-          ml; ml avail; ml StdEnv; \
-            export PATH=/home/chipStarUser/venv/bin:$PATH; \
-            ls /home/chipStarUser/venv/bin; \
-            echo $PATH; \
-            /home/chipStarUser/venv/bin/cpp-linter \
-            --style="file" \
-            --extensions=cc,hh \
-            --tidy-checks="-*,readability-*,modernize-*,clang-analyzer-*" \
-            --repo-root=. \
-            --version=11 \
-            --verbosity=info \
-            --lines-changed-only=false \
-            --files-changed-only=false \
-            --thread-comments=false \
-            --no-lgtm=true \
-            --step-summary=false \
-            --ignore=".github" \
-            --database= \
-            --file-annotations=true \
-            --extra-arg="" \
-            --tidy-review="false" \
-            --format-review="false"
+        with:
+          submodules: recursive
+      
+      name: Load modules
+        run: ml StdEnv; 
+          echo "CPATH=$CPATH" >> $GITHUB_ENV;
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV;
+          echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV;
+          echo "PATH=$PATH" >> $GITHUB_ENV;
+        shell: bash
+      name: show env
+        run: ml StdEnv; 
+          echo "$CPATH";
+          echo "$LD_LIBRARY_PATH";
+          echo "$LIBRARY_PATH";
+          echo "$PATH";
+        shell: bash
+      name: C/C++ Linter
+        uses: cpp-linter/cpp-linter-action@v2.9.0
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          version: 11
+          files-changed-only: false
+          lines-changed-only: false
+          extensions: 'cc,hh'
+          tidy-checks: '-*,readability-*,modernize-*,clang-analyzer-*'
+          extra-args: '-I./spirv-extractor/SPIRV-Tools/include/ -I./HIP/include/ -I./include/ -std=c++17'
+          ignore: '.github|llvm_passes/SPIRVImageType.cc|src/Filesystem.hh|src/common.hh|include/hip/devicelib/sync_and_util.hh|include/hip/devicelib/double_precision/dp_intrinsics.hh'
+        env:
+          CPATH: ${{ env.CPATH }}
+          LD_LIBRARY_PATH: ${{ env.LD_LIBRARY_PATH }}
+          LIBRARY_PATH: ${{ env.LIBRARY_PATH }}
+          PATH: ${{ env.PATH }}
         shell: bash
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
-
