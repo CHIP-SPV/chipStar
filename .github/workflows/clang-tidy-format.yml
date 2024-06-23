@@ -19,7 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: linter
-        run:  ml; ml avail; ml StdEnv; export PATH=/home/chipStarUser/venv/bin:$PATH; ls /home/chipStarUser/venv/bin; echo $PATH; /home/chipStarUser/venv/bin/cpp-linter \
+        run: |
+        ml; ml avail; ml StdEnv; \
+          export PATH=/home/chipStarUser/venv/bin:$PATH; \
+          ls /home/chipStarUser/venv/bin; \
+          echo $PATH; \
+          /home/chipStarUser/venv/bin/cpp-linter \
           --style="file" \
           --extensions=cc,hh \
           --tidy-checks="-*,readability-*,modernize-*,clang-analyzer-*" \
