@@ -2,16 +2,13 @@ FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND noninteractive
 
-SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-ci"]
 
-# Get the basic stuff
+# Get the basic stuff and create chipStarUser user with sudo privileges
 RUN apt-get update && \
     apt-get -y upgrade && \
-    apt-get install -y \
-    sudo
-
-# Create chipStarUser user with sudo privileges
-RUN useradd -ms /bin/bash chipStarUser && \
+    apt-get install -y sudo; \
+    useradd -ms /bin/bash chipStarUser && \
     usermod -aG sudo chipStarUser; \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
@@ -27,6 +24,7 @@ RUN sudo apt update; sudo apt install -y gcc g++ cmake python3 git software-prop
 
 ADD configure_llvm.sh /home/chipStarUser/configure_llvm.sh
 
+# Install and setup lmod with StdEnv and non-interactive support
 RUN sudo chown chipStarUser:chipStarUser configure_llvm.sh; \
     wget https://sourceforge.net/projects/lmod/files/Lmod-8.7.tar.bz2; \
     tar -xvf Lmod-8.7.tar.bz2; \
@@ -43,23 +41,38 @@ RUN sudo chown chipStarUser:chipStarUser configure_llvm.sh; \
     echo '      fi'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
     echo '    done'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
     echo '  fi'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
-    echo 'fi' | sudo tee -a /etc/bash.bashrc > /dev/null; 
+    echo 'fi' | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo 'if [ -z "$__Init_Default_Modules" ]; then' | sudo tee /etc/profile.d/z01_StdEnv.sh; \
+    echo '    export __Init_Default_Modules=1;' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    ## ability to predefine elsewhere the default list' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    LMOD_SYSTEM_DEFAULT_MODULES=${LMOD_SYSTEM_DEFAULT_MODULES:-"StdEnv"}' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    export LMOD_SYSTEM_DEFAULT_MODULES' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    module --initial_load --no_redirect restore' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo 'else' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    module refresh' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo 'fi' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo 'if [ -f /etc/bash.bashrc ]; then' | tee -a  ~/.bashrc; \
+    echo '   . /etc/bash.bashrc' | tee -a  ~/.bashrc; \
+    echo 'fi' | tee -a  ~/.bashrc
 
-RUN ./configure_llvm.sh 15 /apps/llvm/15 static off; \
-    cd llvm-project/llvm/build_15; \
+ENV BASH_ENV=/apps/lmod/8.7/init/bash 
+ENV MODULEPATH_ROOT=/apps/modulefiles
+ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
+
+# Install default llvm + pocl stack and set up defaultly loaded environment (StdEnv)
+RUN export LLVM_VERSION=15; \
+    ./configure_llvm.sh ${LLVM_VERSION} /apps/llvm/${LLVM_VERSION} static off; \
+    cd llvm-project/llvm/build_${LLVM_VERSION}; \
     make -j 16; \
-    sudo make install
-
-RUN sudo mkdir -p /apps/modulefiles/Core/llvm/; \
-    echo 'prepend_path("CPATH","/apps/llvm/15/include")' | sudo tee  /apps/modulefiles/Core/llvm/15.lua; \
-    echo 'prepend_path("LD_LIBRARY_PATH","/apps/llvm/15/lib")' | sudo tee -a /apps/modulefiles/Core/llvm/15.lua; \
-    echo 'prepend_path("LIBRARY_PATH","/apps/llvm/15/lib")' | sudo tee -a /apps/modulefiles/Core/llvm/15.lua; \
-    echo 'prepend_path("PATH","/apps/llvm/15/libexec")' | sudo tee -a /apps/modulefiles/Core/llvm/15.lua; \
-    echo 'prepend_path("PATH","/apps/llvm/15/bin")' | sudo tee -a /apps/modulefiles/Core/llvm/15.lua; \
-    echo 'prepend_path("PKG_CONFIG_PATH","/apps/llvm/15/lib/pkgconfig/")' | sudo tee -a /apps/modulefiles/Core/llvm/15.lua
-
-SHELL ["/bin/bash", "-ci"]
-RUN ml avail; ml llvm/15; \
+    sudo make install; \
+    sudo mkdir -p /apps/modulefiles/Core/llvm/; \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | sudo tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | sudo tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | sudo tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | sudo tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | sudo tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | sudo tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    ml avail; ml llvm/${LLVM_VERSION}; \
     mkdir -p pocl; \
     cd pocl; \
     git init; \
@@ -69,49 +82,25 @@ RUN ml avail; ml llvm/15; \
     git log -1 --format='%H'; \ 
     mkdir -p build; \
     cd build; \
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/4.0-llvm-15 -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/4.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
     cmake --build . --parallel 4; \
-    sudo cmake --install .
-
-RUN sudo mkdir -p /apps/modulefiles/Core/pocl/; \
-    echo 'prepend_path("CPATH","/apps/llvm/15/include")' | sudo tee  /apps/modulefiles/Core/pocl/4.0-llvm-15.lua; \
-    echo 'prepend_path("LD_LIBRARY_PATH","/apps/pocl/4.0-llvm-15/lib")' | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-15.lua; \
-    echo 'prepend_path("LIBRARY_PATH","/apps/llvm/15/lib")' | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-15.lua; \
-    echo 'prepend_path("PATH","/apps/pocl/4.0-llvm-15/bin")' | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-15.lua; \
-    echo 'prepend_path("XDG_DATA_DIRS","/apps/pocl/4.0-llvm-15/share")' | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-15.lua; \
-    echo 'setenv("OPENCL_VENDOR_PATH","/apps/pocl/4.0-llvm-15/etc/OpenCL/vendors")' | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-15.lua;
-
-RUN echo 'load("llvm/15", "pocl/4.0-llvm-15")' | sudo tee  /apps/modulefiles/Core/StdEnv.lua
- 
-RUN echo 'if [ -z "$__Init_Default_Modules" ]; then' | sudo tee /etc/profile.d/z01_StdEnv.sh; \
-    echo '    export __Init_Default_Modules=1;' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo '    ## ability to predefine elsewhere the default list' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo '    LMOD_SYSTEM_DEFAULT_MODULES=${LMOD_SYSTEM_DEFAULT_MODULES:-"StdEnv"}' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo '    export LMOD_SYSTEM_DEFAULT_MODULES' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo '    module --initial_load --no_redirect restore' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo 'else' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo '    module refresh' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
-    echo 'fi' | sudo tee -a /etc/profile.d/z01_StdEnv.sh
-
- 
-RUN echo 'if [ -f /etc/bash.bashrc ]; then' | tee -a  ~/.bashrc; \
-    echo '   . /etc/bash.bashrc' | tee -a  ~/.bashrc; \
-    echo 'fi' | tee -a  ~/.bashrc
+    sudo cmake --install . ; \
+    sudo mkdir -p /apps/modulefiles/Core/pocl/; \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | sudo tee  /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/lib\")" | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/bin\")" | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/share\")" | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
+    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | sudo tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
+    echo "load(\"llvm/${LLVM_VERSION}\", \"pocl/4.0-llvm-${LLVM_VERSION}\")" | sudo tee  /apps/modulefiles/Core/StdEnv.lua
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#//                                                                                                                                        //
+#//                                                         End of base image                                                              //
+#//                                                                                                                                        //
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
-ENV BASH_ENV=/apps/lmod/8.7/init/bash 
-ENV MODULEPATH_ROOT=/apps/modulefiles
-ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
-
-RUN sudo add-apt-repository --remove ppa:ocl-icd/ppa; \
-    sudo apt-update; \
-    sudo apt install -y clang-15 --install-suggests; \
-    sudo apt install -y clang-format-15 clang-tidy-15; \
-    sudo apt install -y python3-venv; \
-    python3 -m venv "/home/chipStarUser/venv"; \
-    source "/home/chipStarUser/venv/bin/activate"; \
-    pip3 install  clang-tools==0.13.0 cpp-linter==1.10.0
 # RUN sudo apt install -y gpg-agent wget; \
 #     wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null; \
 #     echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list; \
