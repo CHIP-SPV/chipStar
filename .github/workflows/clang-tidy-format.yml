@@ -63,7 +63,7 @@ jobs:
             --file-annotations=true \
             --extra-arg='-std=c++17' \
             --tidy-review="false" \
-            --format-review="false" 
+            --format-review="false"
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
