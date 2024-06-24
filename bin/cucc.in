@@ -132,7 +132,7 @@ def prepare_argparser() -> argparse.ArgumentParser:
     parser.add_argument("-use_fast_math", "--use_fast_math",
                         nargs=0, action=IgnoredOption)
     parser.add_argument("-gencode", "--gencode",
-                        nargs=1, action=IgnoredOption)
+                        nargs="?", action=IgnoredOption)
     return parser
 
 def get_hip_path() -> str:
