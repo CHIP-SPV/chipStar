@@ -29,7 +29,8 @@ jobs:
         shell: bash
 
       - name: Add includes
-        run: export CPATH=`pwd`/include/:$CPATH;
+        run: touch `pwd`/include/chipStarConfig.hh
+          export CPATH=`pwd`/include/:$CPATH;
           export CPATH=`pwd`/HIP/include/:$CPATH;
           export CPATH=`pwd`/spirv-extractor/SPIRV-Tools/include/:$CPATH;
           echo "CPATH=$CPATH" >> $GITHUB_ENV;
@@ -61,7 +62,7 @@ jobs:
             --ignore=".github" \
             --database= \
             --file-annotations=true \
-            --extra-arg='-std=c++17' \
+            --extra-arg="-std=c++17" \
             --tidy-review="false" \
             --format-review="false"
       - name: Fail fast?!
