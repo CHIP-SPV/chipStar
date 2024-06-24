@@ -35,6 +35,7 @@ jobs:
       #   shell: bash
       - name: C/C++ Linter
         id: linter
+        shell: bash
         run: |
           ml; ml avail; ml StdEnv; . /home/chipStarUser/venv/bin/activate; echo $PATH; \
             cpp-linter \
