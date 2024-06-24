@@ -66,7 +66,7 @@ jobs:
             --format-review="false" 
       - name: Check output
         shell: bash
-        run: echo $GITHUB_OUTPUT | grep checks
+        run: cat $GITHUB_OUTPUT; echo $GITHUB_OUTPUT
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
