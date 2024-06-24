@@ -53,7 +53,11 @@
 #pragma pop_macro("__NVCC__")
 
 // for memset
+#ifdef __cplusplus
 #include <cstring>
+#else
+#error "cuda_runtime.h is only supported with C++"
+#endif
 
 // Needed for some CUDA samples.
 #ifndef __DRIVER_TYPES_H__
