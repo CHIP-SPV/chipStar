@@ -106,6 +106,32 @@ static_assert(sizeof(unsigned short) == 2, "size of unsigned short should be 2 b
 /*! \brief Struct to represent a 16 bit brain floating point number. */
 struct __hip_bfloat16 {
   unsigned short data;
+
+  // Default constructor
+  __HOST_DEVICE__ __hip_bfloat16() : data(0) {}
+
+  // Add implicit conversion constructor from float
+  __HOST_DEVICE__ __hip_bfloat16(float f) {
+    union {
+      float fp32;
+      unsigned int u32;
+    } u = {f};
+    if (~u.u32 & 0x7f800000) {
+      u.u32 += 0x7fff + ((u.u32 >> 16) & 1);
+    }
+    this->data = u.u32 >> 16;
+  }
+
+  // Add implicit conversion operator to float
+  __HOST_DEVICE__ operator float() const {
+    unsigned int uval = 0;
+    uval = this->data << 16;
+    union {
+      unsigned int u32;
+      float fp32;
+    } u = {uval};
+    return u.fp32;
+  }
 };
 
 /*! \brief Struct to represent two 16 bit brain floating point numbers. */
@@ -969,5 +995,187 @@ __device__ __hip_bfloat162 h2sqrt(const __hip_bfloat162 h) {
 __device__ __hip_bfloat162 h2trunc(const __hip_bfloat162 h) {
   return __hip_bfloat162{htrunc(h.x), htrunc(h.y)};
 }
+
+// Conversion functions with specific rounding modes
+__device__ int __bfloat162int_rd(const __hip_bfloat16 h) {
+  return static_cast<int>(floorf(__bfloat162float(h)));
+}
+
+__device__ int __bfloat162int_rn(const __hip_bfloat16 h) {
+  return static_cast<int>(roundf(__bfloat162float(h)));
+}
+
+__device__ int __bfloat162int_ru(const __hip_bfloat16 h) {
+  return static_cast<int>(ceilf(__bfloat162float(h)));
+}
+
+// Conversion functions for 64-bit integers
+__device__ long long int __bfloat162ll_rd(const __hip_bfloat16 h) {
+  return static_cast<long long int>(floorf(__bfloat162float(h)));
+}
+
+__device__ long long int __bfloat162ll_rn(const __hip_bfloat16 h) {
+  return static_cast<long long int>(roundf(__bfloat162float(h)));
+}
+
+__device__ long long int __bfloat162ll_ru(const __hip_bfloat16 h) {
+  return static_cast<long long int>(ceilf(__bfloat162float(h)));
+}
+
+// Conversion functions for unsigned types
+__device__ unsigned int __bfloat162uint_rd(const __hip_bfloat16 h) {
+  return static_cast<unsigned int>(floorf(__bfloat162float(h)));
+}
+
+__device__ unsigned int __bfloat162uint_rn(const __hip_bfloat16 h) {
+  return static_cast<unsigned int>(roundf(__bfloat162float(h)));
+}
+
+__device__ unsigned int __bfloat162uint_ru(const __hip_bfloat16 h) {
+  return static_cast<unsigned int>(ceilf(__bfloat162float(h)));
+}
+
+__device__ unsigned long long int __bfloat162ull_rd(const __hip_bfloat16 h) {
+  return static_cast<unsigned long long int>(floorf(__bfloat162float(h)));
+}
+
+__device__ unsigned long long int __bfloat162ull_rn(const __hip_bfloat16 h) {
+  return static_cast<unsigned long long int>(roundf(__bfloat162float(h)));
+}
+
+__device__ unsigned long long int __bfloat162ull_ru(const __hip_bfloat16 h) {
+  return static_cast<unsigned long long int>(ceilf(__bfloat162float(h)));
+}
+
+// Additional conversion functions
+__host__ __device__ __hip_bfloat162 __float2bfloat162_rn(const float a) { return __hip_bfloat162{__float2bfloat16(a), __float2bfloat16(a)}; }
+__host__ __device__ __hip_bfloat162 __floats2bfloat162_rn(const float a, const float b) { return __hip_bfloat162{__float2bfloat16(a), __float2bfloat16(b)}; }
+
+// Load/store instructions
+__device__ __hip_bfloat16 __ldca(const __hip_bfloat16* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat162 __ldca(const __hip_bfloat162* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat16 __ldcg(const __hip_bfloat16* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat162 __ldcg(const __hip_bfloat162* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat16 __ldcs(const __hip_bfloat16* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat162 __ldcs(const __hip_bfloat162* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat16 __ldcv(const __hip_bfloat16* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat162 __ldcv(const __hip_bfloat162* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat16 __ldg(const __hip_bfloat16* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat162 __ldg(const __hip_bfloat162* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat16 __ldlu(const __hip_bfloat16* ptr) { 
+    return *ptr;
+}
+__device__ __hip_bfloat162 __ldlu(const __hip_bfloat162* ptr) { 
+    return *ptr;
+}
+
+__device__ void __stcg(__hip_bfloat16* ptr, __hip_bfloat16 value) { 
+    *ptr = value;
+}
+__device__ void __stcg(__hip_bfloat162* ptr, __hip_bfloat162 value) { 
+    *ptr = value;
+}
+__device__ void __stcs(__hip_bfloat16* ptr, __hip_bfloat16 value) { 
+    *ptr = value;
+}
+__device__ void __stcs(__hip_bfloat162* ptr, __hip_bfloat162 value) { 
+    *ptr = value;
+}
+__device__ void __stwb(__hip_bfloat16* ptr, __hip_bfloat16 value) { 
+    *ptr = value;
+}
+__device__ void __stwb(__hip_bfloat162* ptr, __hip_bfloat162 value) { 
+    *ptr = value;
+}
+__device__ void __stwt(__hip_bfloat16* ptr, __hip_bfloat16 value) { 
+    *ptr = value;
+}
+__device__ void __stwt(__hip_bfloat162* ptr, __hip_bfloat162 value) { 
+    *ptr = value;
+}
+
+// Shuffle operations
+__device__ __hip_bfloat16 __shfl_down_sync(unsigned mask, __hip_bfloat16 var, unsigned int delta, int width = 32) {
+    float f = __bfloat162float(var);
+    float shuffled = __shfl_down_sync(mask, f, delta, width);
+    return __float2bfloat16(shuffled);
+}
+
+__device__ __hip_bfloat162 __shfl_down_sync(unsigned mask, __hip_bfloat162 var, unsigned int delta, int width = 32) {
+    float x = __bfloat162float(var.x);
+    float y = __bfloat162float(var.y);
+    float shuffled_x = __shfl_down_sync(mask, x, delta, width);
+    float shuffled_y = __shfl_down_sync(mask, y, delta, width);
+    return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
+}
+
+__device__ __hip_bfloat16 __shfl_sync(unsigned mask, __hip_bfloat16 var, int delta, int width = 32) {
+    float f = __bfloat162float(var);
+    float shuffled = __shfl_sync(mask, f, delta, width);
+    return __float2bfloat16(shuffled);
+}
+
+__device__ __hip_bfloat162 __shfl_sync(unsigned mask, __hip_bfloat162 var, int delta, int width = 32) {
+    float x = __bfloat162float(var.x);
+    float y = __bfloat162float(var.y);
+    float shuffled_x = __shfl_sync(mask, x, delta, width);
+    float shuffled_y = __shfl_sync(mask, y, delta, width);
+    return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
+}
+
+__device__ __hip_bfloat16 __shfl_up_sync(unsigned mask, __hip_bfloat16 var, unsigned int delta, int width = 32) {
+    float f = __bfloat162float(var);
+    float shuffled = __shfl_up_sync(mask, f, delta, width);
+    return __float2bfloat16(shuffled);
+}
+
+__device__ __hip_bfloat162 __shfl_up_sync(unsigned mask, __hip_bfloat162 var, unsigned int delta, int width = 32) {
+    float x = __bfloat162float(var.x);
+    float y = __bfloat162float(var.y);
+    float shuffled_x = __shfl_up_sync(mask, x, delta, width);
+    float shuffled_y = __shfl_up_sync(mask, y, delta, width);
+    return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
+}
+
+__device__ __hip_bfloat16 __shfl_xor_sync(unsigned mask, __hip_bfloat16 var, int delta, int width = 32) {
+    float f = __bfloat162float(var);
+    float shuffled = __shfl_xor_sync(mask, f, delta, width);
+    return __float2bfloat16(shuffled);
+}
+
+__device__ __hip_bfloat162 __shfl_xor_sync(unsigned mask, __hip_bfloat162 var, int delta, int width = 32) {
+    float x = __bfloat162float(var.x);
+    float y = __bfloat162float(var.y);
+    float shuffled_x = __shfl_xor_sync(mask, x, delta, width);
+    float shuffled_y = __shfl_xor_sync(mask, y, delta, width);
+    return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
+}
+
+// make_bfloat162
+__host__ __device__ __hip_bfloat162 make_bfloat162(__hip_bfloat16 x, __hip_bfloat16 y) {
+    return __hip_bfloat162{x, y};
+}
+
+
 
 #endif
