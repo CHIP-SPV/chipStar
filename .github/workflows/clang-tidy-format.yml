@@ -31,7 +31,7 @@ jobs:
       - name: Add includes
         run: export CPATH=`pwd`/include/:$CPATH;
           export CPATH=`pwd`/HIP/include/:$CPATH;
-          export CPATH=`pwd`spirv-extractor/SPIRV-Tools/include/:$CPATH;
+          export CPATH=`pwd`/spirv-extractor/SPIRV-Tools/include/:$CPATH;
           echo "CPATH=$CPATH" >> $GITHUB_ENV;
         shell: bash
 
@@ -61,12 +61,9 @@ jobs:
             --ignore=".github" \
             --database= \
             --file-annotations=true \
-            --extra-arg="-std=c++17" \
+            --extra-arg='-std=c++17' \
             --tidy-review="false" \
             --format-review="false" 
-      - name: Check output
-        shell: bash
-        run: cat $GITHUB_OUTPUT; echo $GITHUB_OUTPUT
       - name: Fail fast?!
         if: steps.linter.outputs.checks-failed > 0
         run: exit 1
