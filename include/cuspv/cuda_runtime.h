@@ -774,9 +774,10 @@ template <typename T>
 static inline cudaError_t cudaMalloc(T **ptr, size_t size) {
   return hipMalloc((void **)ptr, size);
 }
-static inline cudaError_t cudaMallocManaged(void **DevPtr, size_t Size,
+template <typename T>
+static inline cudaError_t cudaMallocManaged(T **DevPtr, size_t Size,
                                             unsigned int Flags = cudaMemAttachGlobal) {
-  return hipMallocManaged(DevPtr, Size, Flags);
+  return hipMallocManaged((void**)DevPtr, Size, Flags);
 }
 static inline cudaError_t cudaMallocHost(void **Ptr, size_t Size) {
   return hipHostMalloc(Ptr, Size, 0);
