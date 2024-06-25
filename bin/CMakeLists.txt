@@ -23,35 +23,27 @@
 #
 #=============================================================================
 
+
+# copy in cucc.py to build directory
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cucc.py
+               ${CMAKE_CURRENT_BINARY_DIR}/cucc
+               COPYONLY)
+
+# create a symbolic link from cucc to nvcc
 file(CREATE_LINK 
-  ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
+  ${CMAKE_CURRENT_BINARY_DIR}/cucc
   ${CMAKE_CURRENT_BINARY_DIR}/nvcc
   SYMBOLIC
 )
 
-file(CREATE_LINK 
-  ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
-  ${CMAKE_CURRENT_BINARY_DIR}/cucc
-  SYMBOLIC
-)
-
-# copy in cucc.py to build directory and set execute permissions
-install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/cucc.py
-  DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
-  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-)
-
-# Install the cucc.py file
+# Install the cucc.py file and rename it to cucc
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
-  DESTINATION bin RENAME cucc)
+  DESTINATION bin RENAME cucc
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 # Install the nvcc symlink
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/nvcc
-  DESTINATION bin
-  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-)
-
-
+install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink cucc nvcc
+                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin)")
 
 
 # Run static type check on cucc if there is a tool available for it.
