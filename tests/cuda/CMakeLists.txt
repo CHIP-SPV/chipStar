@@ -11,7 +11,7 @@ function(add_legacy_compile_test)
     "${list_args}")
 
   add_test(NAME ${TEST_NAME}
-    COMMAND bash -c "${CMAKE_BINARY_DIR}/bin/cuspvc ${TEST_COMPILE_OPTIONS} ${TEST_SOURCES} 2>&1"
+    COMMAND bash -c "${CMAKE_BINARY_DIR}/bin/cucc ${TEST_COMPILE_OPTIONS} ${TEST_SOURCES} 2>&1"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 endfunction()
 
