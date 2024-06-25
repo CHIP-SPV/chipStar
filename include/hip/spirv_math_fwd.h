@@ -225,7 +225,6 @@ __device__ __attribute__((const)) double __ocml_fma_rtz_f64(double, double,
     __device__ __attribute__((pure)) __2f16 __ocml_log_2f16(__2f16);
     __device__ __attribute__((pure)) __2f16 __ocml_log10_2f16(__2f16);
     __device__ __attribute__((pure)) __2f16 __ocml_log2_2f16(__2f16);
-    __device__ inline
     __device__ __attribute__((const)) __2f16 __ocml_rint_2f16(__2f16);
     __device__ __attribute__((const)) __2f16 __ocml_rsqrt_2f16(__2f16);
     __device__ __2f16 __ocml_sin_2f16(__2f16);
