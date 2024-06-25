@@ -54,11 +54,11 @@ jobs:
             --repo-root=. \
             --version=15 \
             --verbosity=info \
-            --lines-changed-only=false \
-            --files-changed-only=false \
-            --thread-comments=false \
+            --lines-changed-only="true" \
+            --files-changed-only="true" \
+            --thread-comments="false" \
             --no-lgtm=true \
-            --step-summary=false \
+            --step-summary="false" \
             --ignore=".github" \
             --database= \
             --file-annotations=true \
