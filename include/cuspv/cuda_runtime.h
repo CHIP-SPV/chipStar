@@ -56,7 +56,7 @@
 #ifdef __cplusplus
 #include <cstring>
 #else
-#error "cuda_runtime.h is only supported with C++"
+#warning "cuda_runtime.h is not C compatible"
 #endif
 
 // Needed for some CUDA samples.
