@@ -137,8 +137,11 @@ def prepare_argparser() -> argparse.ArgumentParser:
 
 def get_hip_path() -> str:
     """Get HIP path
+    cucc resides in <instal_dir/build_dir>/../bin
+    so HIP path is always one level up.
     """
-    return "@CUCC_HIP_PATH@"
+    import os
+    return os.path.abspath(os.path.join(os.getcwd(), '..'))
 
 def get_hipcc() -> str:
     """Get path to hipcc executable
