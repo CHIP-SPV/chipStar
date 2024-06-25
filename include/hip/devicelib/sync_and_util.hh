@@ -36,10 +36,21 @@ extern "C++" inline __device__ uint64_t __ballot(int predicate) {
   return __chip_ballot(predicate);
 }
 
+extern "C++" __device__ uint64_t __chip_ballot_sync(unsigned mask, int predicate); // Custom
+extern "C++" inline __device__ uint64_t __ballot_sync(unsigned mask, int predicate) {
+  return __chip_ballot_sync(mask, predicate);
+}
+
 extern "C++" __device__  int __chip_all(int predicate); // Custom
 extern "C++" inline __device__ int __all(int predicate) {
   return __chip_all(predicate);
 }
+
+extern "C++" __device__ int __chip_all_sync(unsigned mask, int predicate); // Custom
+extern "C++" inline __device__ int __all_sync(unsigned mask, int predicate) {
+  return __chip_all_sync(mask, predicate);
+}
+
 
 extern "C++" __device__  int __chip_any(int predicate); // Custom
 extern "C++" inline __device__ int __any(int predicate) {

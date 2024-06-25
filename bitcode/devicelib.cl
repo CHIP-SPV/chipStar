@@ -994,6 +994,42 @@ EXPORT OVLD int __chip_any(int predicate) {
   return __chip_ballot(predicate) != 0;
 }
 
+EXPORT OVLD unsigned __chip_ballot_sync(unsigned mask, int predicate) {
+  if (mask == 0) {
+    return 0;
+  } else if (mask == 0xFFFFFFFF) {
+    return __chip_ballot(predicate);
+  } else {
+    if (get_sub_group_local_id() == 0) {
+      printf("warning: Partial mask in __ballot_sync is not fully supported\n");
+    }
+    return __chip_ballot(predicate) & mask;
+  }
+}
+
+EXPORT OVLD int __chip_any_sync(unsigned mask, int predicate) {
+  if (mask == 0) {
+    return 0;
+  } else if (mask == 0xFFFFFFFF) {
+    return __chip_any(predicate);
+  } else {
+    unsigned ballot = __chip_ballot(predicate) & mask;
+    return ballot != 0;
+  }
+}
+
+EXPORT OVLD int __chip_all_sync(unsigned mask, int predicate) {
+  if (mask == 0) {
+    return 1;
+  } else if (mask == 0xFFFFFFFF) {
+    return __chip_all(predicate);
+  } else {
+    unsigned ballot = __chip_ballot(predicate);
+    return (ballot & mask) == mask;
+  }
+}
+
+
 EXPORT OVLD unsigned __chip_lane_id() { return get_sub_group_local_id(); }
 
 EXPORT OVLD void __chip_syncwarp() {
