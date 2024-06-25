@@ -24,7 +24,7 @@
 #=============================================================================
 
 
-# copy in cucc.py to build directory
+# copy in cucc.py to build directory and rename to cucc
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cucc.py
                ${CMAKE_CURRENT_BINARY_DIR}/cucc
                COPYONLY)
@@ -37,8 +37,8 @@ file(CREATE_LINK
 )
 
 # Install the cucc.py file and rename it to cucc
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
-  DESTINATION bin RENAME cucc
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc
+  DESTINATION bin
   PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 # Install the nvcc symlink
