@@ -141,7 +141,8 @@ def get_hip_path() -> str:
     so HIP path is always one level up.
     """
     import os
-    return os.path.abspath(os.path.join(os.getcwd(), '..'))
+    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return path
 
 def get_hipcc() -> str:
     """Get path to hipcc executable

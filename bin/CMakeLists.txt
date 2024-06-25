@@ -23,29 +23,36 @@
 #
 #=============================================================================
 
-# For telling cuspvc where to look for clang.
-get_filename_component(CLANG_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+file(CREATE_LINK 
+  ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
+  ${CMAKE_CURRENT_BINARY_DIR}/nvcc
+  SYMBOLIC
+)
 
-# Read includes, prepend each one with -I.
-set(prop "$<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>")
-set(CHIP_INCLUDES "$<$<BOOL:${prop}>:-I$<JOIN:${prop}, -I>>")
+file(CREATE_LINK 
+  ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
+  ${CMAKE_CURRENT_BINARY_DIR}/cucc
+  SYMBOLIC
+)
 
-# Generate cuspvc tool that is usable within build directory.
-# TODO: Deprecate cuspvc
-configure_file(cuspvc-build.in cuspvc-build.in @ONLY)
-file(
-  GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc
-  INPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-build.in)
+# copy in cucc.py to build directory and set execute permissions
+install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/cucc.py
+  DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
 
-# Generate cuspv tool that will be installed.
-# TODO: Deprecate cuspvc
-configure_file(cuspvc-install.in cuspvc-install @ONLY)
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-install
-  DESTINATION bin RENAME cuspvc)
-
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc-install
+# Install the cucc.py file
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc.py
   DESTINATION bin RENAME cucc)
+
+# Install the nvcc symlink
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/nvcc
+  DESTINATION bin
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
+
+
+
 
 # Run static type check on cucc if there is a tool available for it.
 find_program(MYPY NAMES mypy)
