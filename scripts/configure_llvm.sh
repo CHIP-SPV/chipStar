@@ -176,7 +176,7 @@ if [ "$LINK_TYPE" == "static" ]; then
   cmake ../  \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
     -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_ENABLE_PROJECTS="clang;openmp" \
+    -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
     -DLLVM_TARGETS_TO_BUILD=host \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
     -DCMAKE_CXX_COMPILER=g++ \
@@ -189,7 +189,7 @@ elif [ "$LINK_TYPE" == "dynamic" ]; then
   cmake ../ \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
     -DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib \
-    -DLLVM_ENABLE_PROJECTS="clang;openmp" \
+    -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
     -DLLVM_TARGETS_TO_BUILD=host \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
     -DLLVM_LINK_LLVM_DYLIB=ON \
