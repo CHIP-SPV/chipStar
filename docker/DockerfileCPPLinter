@@ -1,4 +1,4 @@
-FROM krisitanpn/teststar:base
+FROM pveleskopglc/chipstar:base
 
 ENV DEBIAN_FRONTEND noninteractive
 
