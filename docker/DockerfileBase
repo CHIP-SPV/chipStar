@@ -9,7 +9,8 @@ RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get install -y sudo; \
     useradd -ms /bin/bash chipStarUser && \
-    usermod -aG sudo chipStarUser; \
+    groupadd -f video && groupadd -f render && \
+    usermod -aG sudo,video,render chipStarUser; \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Set as default user
@@ -22,7 +23,7 @@ RUN sudo apt update; sudo apt install -y gcc g++ cmake python3 git software-prop
     sudo apt update; \
     sudo apt install -y python3-dev python3-yaml libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev wget lua5.3 lua-bit32:amd64 lua-posix:amd64 lua-posix-dev liblua5.3-0:amd64 liblua5.3-dev:amd64 tcl tcl-dev tcl8.6 tcl8.6-dev:amd64 libtcl8.6:amd64
 
-ADD configure_llvm.sh /home/chipStarUser/configure_llvm.sh
+ADD ../scripts/configure_llvm.sh /home/chipStarUser/configure_llvm.sh
 
 # Install and setup lmod with StdEnv and non-interactive support
 RUN sudo chown chipStarUser:chipStarUser configure_llvm.sh; \
@@ -60,7 +61,7 @@ ENV MODULEPATH_ROOT=/apps/modulefiles
 ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
 
 # Install default llvm + pocl stack and set up defaultly loaded environment (StdEnv)
-RUN export LLVM_VERSION=15; \
+RUN export LLVM_VERSION=18; \
     ./configure_llvm.sh ${LLVM_VERSION} /apps/llvm/${LLVM_VERSION} static off; \
     cd llvm-project/llvm/build_${LLVM_VERSION}; \
     make -j 16; \
@@ -83,7 +84,7 @@ RUN export LLVM_VERSION=15; \
     mkdir -p build; \
     cd build; \
     cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/4.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
-    cmake --build . --parallel 4; \
+    cmake --build . --parallel $(nproc); \
     sudo cmake --install . ; \
     sudo mkdir -p /apps/modulefiles/Core/pocl/; \
     echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | sudo tee  /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
@@ -98,54 +99,3 @@ RUN export LLVM_VERSION=15; \
 #//                                                         End of base image                                                              //
 #//                                                                                                                                        //
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-# RUN sudo apt install -y gpg-agent wget; \
-#     wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null; \
-#     echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list; \
-#     sudo apt update; \
-#     sudo apt install -y intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl
-
-# RUN git clone https://github.com/intel/compute-runtime neo; \
-#     cd neo; mkdir build; cd build;\
-#     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/intel -DNEO_SKIP_UNIT_TESTS=1 ../; \
-#     make -j 4; \
-#     sudo make install
-
-
-
-    
-# RUN chmod 744 configure_llvm.sh; configure_llvm.sh 
-# #Install SPIRV tools
-# RUN git clone --depth 1 --branch v2023.2 https://github.com/KhronosGroup/SPIRV-Tools.git; \
-#     mkdir -p /SPIRV-Tools/build; \
-#     cd /SPIRV-Tools; python3 utils/git-sync-deps; \
-#     cd build; \
-#     cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/SPIRV-Tools/v2023.2 -DSPIRV_SKIP_TESTS=ON; \
-#     cmake --build . --parallel 4; \
-#     cmake --install .
-
-# #Install LLVM with Chipstar patch
-# RUN mkdir -p llvm-15; \
-#     cd llvm-15; \
-#     git init; \
-#     git remote add origin https://github.com/CHIP-SPV/llvm-project; \
-#     git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin 7368327d27341d07719772570071ab0caa5b76fc; \
-#     git checkout --progress --force 7368327d27341d07719772570071ab0caa5b76fc; \
-#     git log -1 --format='%H'; \
-#     mkdir -p llvm/projects/SPIRV-LLVM-Translator; \
-#     cd llvm/projects/SPIRV-LLVM-Translator; \
-#     git init; \
-#     git remote add origin https://github.com/KhronosGroup/SPIRV-LLVM-Translator; \
-#     git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin 13168c2d1822a6e6ca6c2f36dbfa3a23c49cc5fd; \
-#     git checkout --progress --force 13168c2d1822a6e6ca6c2f36dbfa3a23c49cc5fd; \
-#     git log -1 --format='%H'; \
-#     export PKG_CONFIG_PATH=${HOME}/opt/SPIRV-Tools/v2023.2/lib/pkgconfig/; \
-#     mkdir -p /llvm-15/build; cd /llvm-15; \
-#     cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm/15 -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_SPIRV_INCLUDE_TESTS=OFF; \
-#     cd build; \
-#     cmake --build . --parallel 4; \
-#     cmake --install .
-
-# #Install POCL

@@ -5,14 +5,14 @@ build-all: image-base image-cpp-linter
 publish-all: publish-base publish-cpp-linter
 
 image-cpp-linter: image-base
-	docker build -t krisitanpn/teststar:cpp-linter --progress=plain -f ./DockerfileCPPLinter .
+	docker build -t pveleskopglc/chipStar:cpp-linter --progress=plain -f ./DockerfileCPPLinter .
 image-base:
-	docker build -t krisitanpn/teststar:base --progress=plain -f ./DockerfileBase .
+	docker build -t pveleskopglc/chipStar:base --progress=plain -f ./DockerfileBase .
 
 publish-cpp-linter: image-cpp-linter
-	docker push krisitanpn/teststar:cpp-linter
+	docker push pveleskopglc/chipStar:cpp-linter
 publish-base: image-base
-	docker push krisitanpn/teststar:base
+	docker push pveleskopglc/chipStar:base
 
 base: image-base publish-base
 
