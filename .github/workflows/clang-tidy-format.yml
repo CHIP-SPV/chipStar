@@ -14,7 +14,7 @@ jobs:
   cpp-linter:
     runs-on: ubuntu-latest
     container:
-      image: pveleskopgc/chipstar:cpp-linter
+      image: pveleskopglc/chipstar:cpp-linter
       options: --user chipStarUser
     steps:
       - uses: actions/checkout@v2
