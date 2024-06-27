@@ -65,7 +65,7 @@ ENV BASH_ENV=/apps/lmod/8.7/init/bash
 ENV MODULEPATH_ROOT=/apps/modulefiles
 ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
 
-# Install default llvm + pocl stack and set up defaultly loaded environment (StdEnv)
+# Install default llvm stack and set up defaultly loaded environment (StdEnv)
 RUN export LLVM_VERSION=15; \
     ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off; \
     cd llvm-project/llvm/build_${LLVM_VERSION}; \
@@ -79,15 +79,16 @@ RUN export LLVM_VERSION=15; \
     echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
     echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
     ml avail; ml llvm/${LLVM_VERSION}; \
-    rm -rf /home/chipStarUser/llvm-project; \
-    git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl; \
+    rm -rf /home/chipStarUser/llvm-project;
+
+# Install pocl
+RUN cd /home/chipStarUser && git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl; \
     cd pocl; \
-    git log -1 --format='%H'; \
     mkdir -p build; \
     cd build; \
     cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/5.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
     cmake --build . --parallel $(nproc); \
-    sudo cmake --install . ; \
+    cmake --install . ; \
     rm -rf /home/chipStarUser/pocl; \
     mkdir -p /apps/modulefiles/Core/pocl/; \
     echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
@@ -97,8 +98,78 @@ RUN export LLVM_VERSION=15; \
     echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
     echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
     echo "load(\"llvm/${LLVM_VERSION}\", \"pocl/5.0-llvm-${LLVM_VERSION}\")" | tee  /apps/modulefiles/Core/StdEnv.lua
+
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
-#//                                                         End of base image                                                              //
+#//                                                         Begin OneAPI layer                                                             //
+#//                                                                                                                                        //
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+# Download and install Miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    bash miniconda.sh -b -p /apps/conda && \
+    rm miniconda.sh
+
+# Set up conda environment
+ENV PATH="/apps/conda/bin:${PATH}"
+RUN conda init bash && \
+    conda config --add channels intel && \
+    conda create -n oneapi-2024.1 -y
+
+# Install OneAPI packages
+RUN conda run -n oneapi-2024.1 conda install -y \
+    dpcpp-cpp-rt=2024.1.0=intel_963 \
+    dpcpp_impl_linux-64=2024.1.0=intel_963 \
+    icc_rt=2024.1.0=intel_963 \
+    intel-cmplr-lib-rt=2024.1.0=intel_963 \
+    intel-cmplr-lic-rt=2024.1.0=intel_963 \
+    intel-opencl-rt=2024.1.0=intel_963 \
+    intel-openmp=2024.1.0=intel_963 \
+    mkl=2024.1.0=intel_691 \
+    mkl-devel=2024.1.0=intel_691 \
+    mkl-devel-dpcpp=2024.1.0=intel_691 \
+    mkl-dpcpp=2024.1.0=intel_691 \
+    mkl-include=2024.1.0=intel_691 \
+    onedpl-devel=2022.5.0=intel_215 \
+    onemkl-sycl-blas=2024.1.0=intel_691 \
+    onemkl-sycl-datafitting=2024.1.0=intel_691 \
+    onemkl-sycl-dft=2024.1.0=intel_691 \
+    onemkl-sycl-lapack=2024.1.0=intel_691 \
+    onemkl-sycl-rng=2024.1.0=intel_691 \
+    onemkl-sycl-sparse=2024.1.0=intel_691 \
+    onemkl-sycl-stats=2024.1.0=intel_691 \
+    onemkl-sycl-vm=2024.1.0=intel_691 \
+    tbb=2021.12.0=intel_495 \
+    level-zero=1.17.6
+
+# Install Level Zero headers system-wide
+RUN mkdir -p /tmp/level-zero-headers && \
+    cd /tmp/level-zero-headers && \
+    git clone https://github.com/oneapi-src/level-zero.git && \
+    cd level-zero && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j && \
+    sudo make install && \
+    cd ~/ && \
+    rm -rf /tmp/level-zero-headers
+
+
+# Create a module file for OneAPI
+RUN mkdir -p /apps/modulefiles/oneapi && \
+    echo "#%Module" > /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prereq opencl/ocl-icd-loader" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"PATH\", \"/apps/conda/envs/oneapi-2024.1/bin\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib64\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib64\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"PKG_CONFIG_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib/pkgconfig\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
+    echo "prepend_path(\"CMAKE_PREFIX_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib/cmake\")" >> /apps/modulefiles/oneapi/2024.1.0
+
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#//                                                                                                                                        //
+#//                                                         End OneAPI layer                                                              //
 #//                                                                                                                                        //
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
