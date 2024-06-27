@@ -82,7 +82,7 @@ RUN export LLVM_VERSION=15; \
     rm -rf /home/chipStarUser/llvm-project;
 
 # Install pocl
-RUN cd /home/chipStarUser && git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl; \
+RUN export LLVM_VERSION=15; ml llvm/${LLVM_VERSION} && cd /home/chipStarUser && git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl; \
     cd pocl; \
     mkdir -p build; \
     cd build; \
@@ -157,16 +157,22 @@ RUN mkdir -p /tmp/level-zero-headers && \
 
 
 # Create a module file for OneAPI
-RUN mkdir -p /apps/modulefiles/oneapi && \
-    echo "#%Module" > /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prereq opencl/ocl-icd-loader" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"PATH\", \"/apps/conda/envs/oneapi-2024.1/bin\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"LD_LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"LD_LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib64\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"LIBRARY_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib64\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"PKG_CONFIG_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib/pkgconfig\")" >> /apps/modulefiles/oneapi/2024.1.0 && \
-    echo "prepend_path(\"CMAKE_PREFIX_PATH\", \"/apps/conda/envs/oneapi-2024.1/lib/cmake\")" >> /apps/modulefiles/oneapi/2024.1.0
+RUN mkdir -p /apps/modulefiles/Core/oneapi && \
+    echo 'local version = "2024.1.0"' > /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'local base = "/apps/conda/envs/oneapi-" .. version' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo '' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("PATH", pathJoin(base, "bin"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LD_LIBRARY_PATH", pathJoin(base, "lib"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LD_LIBRARY_PATH", pathJoin(base, "lib64"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LIBRARY_PATH", pathJoin(base, "lib"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LIBRARY_PATH", pathJoin(base, "lib64"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("PKG_CONFIG_PATH", pathJoin(base, "lib/pkgconfig"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("CMAKE_PREFIX_PATH", pathJoin(base, "lib/cmake"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("XDG_DATA_DIRS", pathJoin(base, "share"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("OPENCL_VENDOR_PATH", "/apps/conda/envs/oneapi-2024.1/etc/OpenCL/vendors")' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo '' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("ONEAPI_ROOT", base)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("ONEAPI_VERSION", version)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua
 
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
