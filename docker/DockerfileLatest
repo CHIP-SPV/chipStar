@@ -20,7 +20,9 @@ ENV CHIP_LOGLEVEL=info
 
 RUN module load oneapi/2024.1.0
 
-RUN module load oneapi/2024.1.0 && which icpx
+RUN ls /apps/conda/envs/oneapi-2024.1.0/bin
+
+RUN module load oneapi/2024.1.0;which icpx
 
 RUN module load oneapi/2024.1.0 && which icpx && git clone https://github.com/CHIP-SPV/chipStar.git && \
     cd chipStar && \
