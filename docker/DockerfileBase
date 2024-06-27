@@ -155,6 +155,8 @@ RUN mkdir -p /tmp/level-zero-headers && \
     cd ~/ && \
     rm -rf /tmp/level-zero-headers
 
+# Delete Intel OpenCL Loader
+RUN rm /apps/conda/envs/oneapi-2024.1.0/lib/libOpenCL.so.1
 
 # Create a module file for OneAPI
 RUN mkdir -p /apps/modulefiles/Core/oneapi && \
