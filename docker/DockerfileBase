@@ -114,10 +114,10 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
 ENV PATH="/apps/conda/bin:${PATH}"
 RUN conda init bash && \
     conda config --add channels intel && \
-    conda create -n oneapi-2024.1 -y
+    conda create -n oneapi-2024.1.0 -y
 
 # Install OneAPI packages
-RUN conda run -n oneapi-2024.1 conda install -y \
+RUN conda run -n oneapi-2024.1.0 conda install -y \
     dpcpp-cpp-rt=2024.1.0=intel_963 \
     dpcpp_impl_linux-64=2024.1.0=intel_963 \
     icc_rt=2024.1.0=intel_963 \
