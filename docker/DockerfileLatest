@@ -1,0 +1,38 @@
+FROM pveleskopglc/chipstar:base
+
+ENV DEBIAN_FRONTEND noninteractive
+
+SHELL ["/bin/bash", "-ci"]
+
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#//                                                                                                                                        //
+#//                                                      Begin chipStar latest layer                                                      //
+#//                                                                                                                                        //
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+RUN pip install pyyaml
+
+RUN module load llvm/15 
+
+RUN sudo apt-get install vim-common -y # for xxd
+
+RUN git clone https://github.com/CHIP-SPV/chipStar.git && \
+    cd chipStar && \
+    git submodule update --init --recursive && \
+    mkdir build && \
+    cd build && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_HIPBLAS=ON && \
+    make -j$(nproc) && \
+    sudo make install && \
+
+RUN cd ~/chipStar/build && \
+    export CHIP_BE=opencl && \
+    export CHIP_DEVICE_TYPE=cpu && \
+    make build_tests -j;
+
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#//                                                                                                                                        //
+#//                                                      End of chipStar latest layer                                                      //
+#//                                                                                                                                        //
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
