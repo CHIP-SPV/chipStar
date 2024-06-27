@@ -18,8 +18,6 @@ ENV CHIP_BE=opencl
 ENV CHIP_DEVICE_TYPE=cpu
 ENV CHIP_LOGLEVEL=info
 
-RUN module load oneapi/2024.1.0
-
 RUN ls /apps/conda/envs/oneapi-2024.1.0/bin
 
 RUN module load oneapi/2024.1.0;which icpx
