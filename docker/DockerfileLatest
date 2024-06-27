@@ -18,6 +18,10 @@ ENV CHIP_BE=opencl
 ENV CHIP_DEVICE_TYPE=cpu
 ENV CHIP_LOGLEVEL=info
 
+RUN module load oneapi/2024.1.0
+
+RUN module load oneapi/2024.1.0 && which icpx
+
 RUN module load oneapi/2024.1.0 && which icpx && git clone https://github.com/CHIP-SPV/chipStar.git && \
     cd chipStar && \
     git submodule update --init --recursive && \
