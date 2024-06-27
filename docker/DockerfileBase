@@ -169,7 +169,7 @@ RUN mkdir -p /apps/modulefiles/Core/oneapi && \
     echo 'prepend_path("PKG_CONFIG_PATH", pathJoin(base, "lib/pkgconfig"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'prepend_path("CMAKE_PREFIX_PATH", pathJoin(base, "lib/cmake"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'prepend_path("XDG_DATA_DIRS", pathJoin(base, "share"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
-    echo 'setenv("OPENCL_VENDOR_PATH", "/apps/conda/envs/oneapi-2024.1/etc/OpenCL/vendors")' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("OPENCL_VENDOR_PATH", "/apps/conda/envs/oneapi-2024.1.0/etc/OpenCL/vendors")' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo '' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'setenv("ONEAPI_ROOT", base)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'setenv("ONEAPI_VERSION", version)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua
