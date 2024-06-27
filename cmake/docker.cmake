@@ -1,6 +1,8 @@
 # Define Docker image names and tags
 set(DOCKER_BASE_IMAGE "pveleskopglc/chipstar:base")
 set(DOCKER_CPP_LINTER_IMAGE "pveleskopglc/chipstar:cpp-linter")
+set(DOCKER_CPP_LATEST_IMAGE "pveleskopglc/chipstar:latest")
+set(DOCKER_CPP_FULL_IMAGE "pveleskopglc/chipstar:cpp-full")
 
 # Function to add custom target with visible output
 function(add_docker_target target_name)
@@ -30,32 +32,32 @@ add_docker_target(docker-build-cpp-linter
 )
 
 add_docker_target(docker-build-full
-    COMMAND docker build -t ${DOCKER_CPP_LINTER_IMAGE} --progress=plain -f ${CMAKE_SOURCE_DIR}/docker/DockerfileFull ${CMAKE_SOURCE_DIR}
+    COMMAND docker build -t ${DOCKER_CPP_FULL_IMAGE} --progress=plain -f ${CMAKE_SOURCE_DIR}/docker/DockerfileFull ${CMAKE_SOURCE_DIR}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Building full Docker image"
     DEPENDS docker-build-base
 )
 
-# add_docker_target(docker-build-release
-#     COMMAND docker build -t ${DOCKER_CPP_LINTER_IMAGE} --progress=plain -f ${CMAKE_SOURCE_DIR}/docker/DockerfileRelease ${CMAKE_SOURCE_DIR}
-#     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#     COMMENT "Building release Docker image"
-#     DEPENDS docker-build-base
-# )
+add_docker_target(docker-build-latest
+    COMMAND docker build -t ${DOCKER_CPP_LATEST_IMAGE} --progress=plain -f ${CMAKE_SOURCE_DIR}/docker/DockerfileLatest ${CMAKE_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Building latest Docker image"
+    DEPENDS docker-build-base
+)
 
 add_docker_target(docker-publish-full
-    COMMAND docker push ${DOCKER_CPP_LINTER_IMAGE}
+    COMMAND docker push ${DOCKER_CPP_FULL_IMAGE}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Publishing full Docker image"
     DEPENDS docker-build-full
 )
 
-# add_docker_target(docker-publish-release
-#     COMMAND docker push ${DOCKER_CPP_LINTER_IMAGE}
-#     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#     COMMENT "Publishing release Docker image"
-#     DEPENDS docker-build-release
-# )
+add_docker_target(docker-publish-latest
+    COMMAND docker push ${DOCKER_CPP_LATEST_IMAGE}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Publishing latest Docker image"
+    DEPENDS docker-build-latest
+)
 
 # Docker publish targets
 add_docker_target(docker-publish-base
@@ -75,13 +77,13 @@ add_docker_target(docker-publish-cpp-linter
 # Convenience targets
 add_docker_target(docker-build-all
     COMMAND ${CMAKE_COMMAND} -E echo "Building all Docker images"
-    DEPENDS docker-build-base docker-build-cpp-linter docker-build-full #docker-build-release
+    DEPENDS docker-build-base docker-build-cpp-linter docker-build-full docker-build-latest
     COMMENT "Building all Docker images"
 )
 
 add_docker_target(docker-publish-all
     COMMAND ${CMAKE_COMMAND} -E echo "Publishing all Docker images"
-    DEPENDS docker-publish-base docker-publish-cpp-linter docker-publish-full #docker-publish-release
+    DEPENDS docker-publish-base docker-publish-cpp-linter docker-publish-full docker-publish-latest
     COMMENT "Publishing all Docker images"
 )
 
