@@ -14,7 +14,9 @@ RUN pip install pyyaml
 
 RUN sudo apt-get install vim-common -y # for xxd
 
-CMD export CHIP_BE=opencl; export CHIP_DEVICE_TYPE=cpu; export CHIP_LOGLEVEL=info;
+ENV CHIP_BE=opencl
+ENV CHIP_DEVICE_TYPE=cpu
+ENV CHIP_LOGLEVEL=info
 
 RUN module load oneapi/2024.1.0 && which icpx && git clone https://github.com/CHIP-SPV/chipStar.git && \
     cd chipStar && \
@@ -27,7 +29,7 @@ RUN module load oneapi/2024.1.0 && which icpx && git clone https://github.com/CH
     sudo make install 
 
 
-RUN cd ~/chipStar/build/samples/0_MatrixMultiply/MatrixMultiply
+RUN /home/chipStarUser/chipStar/build/samples/0_MatrixMultiply/MatrixMultiply
 
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
