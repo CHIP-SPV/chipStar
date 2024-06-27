@@ -15,6 +15,11 @@ If you wish to cite chipStar in academic publications, please refer to the [HIPC
 
 The name chipStar comes from `c`uda and `hip` and the word `Star` which means asterisk, a typical shell wildcard, denoting the intention to make "CUDA and HIP applications run everywhere". The project was previously called CHIP-SPV.
 
+## Getting Started
+
+Quickest way to get started is by using a prebuilt Docker container. Please refer to [Docker README](docker/docker.md)
+If you want to build everything yourself, you can follow a detailed [Getting Started](docs/Getting_Started.md)
+
 ## Development Status and Maturity
 
 While chipStar 1.1 can already be used to run various large HPC applications successfully, it is still heavily in development mode with plenty of known issues and unimplemented features. There are also known low-performance optimizations that are still to be done. However, we consider chipStar ready for wider-range testing and welcome community contributions in form of reproducible bug reports and good quality pull requests.
