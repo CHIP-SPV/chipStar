@@ -9,7 +9,9 @@ SHELL ["/bin/bash", "-ci"]
 #//                                                      Begin chipStar latest layer                                                      //
 #//                                                                                                                                        //
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
- 
+
+RUN clinfo -l
+
 RUN pip install pyyaml
 
 RUN sudo apt-get install vim-common -y # for xxd
