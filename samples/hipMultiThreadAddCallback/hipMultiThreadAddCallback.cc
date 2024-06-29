@@ -33,11 +33,9 @@ multiple Threads.
 #include "hip/hip_runtime.h"
 
 #ifndef NDEBUG
-#define HIPCHECK(x) assert(x == hipSuccess)
 #define HIP_CHECK(x) assert(x == hipSuccess)
 #else
-#define HIPCHECK(x) x
-#define HIP_CHECK(x) x
+#define HIP_CHECK(x) do { (void)(x); } while (0)
 #endif
 
 static constexpr size_t N = 4096;
@@ -46,10 +44,6 @@ static std::atomic<int> Cb_count{0}, Data_mismatch{0};
 static hipStream_t mystream;
 static float *A1_h, *C1_h;
 
-#if HT_AMD
-#define HIPRT_CB
-#endif
-// TODO
 #define HIPRT_CB
 
 static __global__ void device_function(float *C_d, float *A_d, size_t Num) {
@@ -74,7 +68,7 @@ static void HIPRT_CB Thread1_Callback(hipStream_t stream, hipError_t status,
                                       void *userData) {
   assert(stream == mystream);
   assert(userData == nullptr);
-  HIPCHECK(status);
+  HIP_CHECK(status);
 
   for (size_t i = 0; i < N; i++) {
     // Validate the data and update Data_mismatch
@@ -91,7 +85,7 @@ static void HIPRT_CB Thread2_Callback(hipStream_t stream, hipError_t status,
                                       void *userData) {
   assert(stream == mystream);
   assert(userData == nullptr);
-  HIPCHECK(status);
+  HIP_CHECK(status);
 
   for (size_t i = 0; i < N; i++) {
     // Validate the data and update Data_mismatch
@@ -105,11 +99,11 @@ static void HIPRT_CB Thread2_Callback(hipStream_t stream, hipError_t status,
 }
 
 void Thread1_func() {
-  HIPCHECK(hipStreamAddCallback(mystream, Thread1_Callback, nullptr, 0));
+  HIP_CHECK(hipStreamAddCallback(mystream, Thread1_Callback, nullptr, 0));
 }
 
 void Thread2_func() {
-  HIPCHECK(hipStreamAddCallback(mystream, Thread2_Callback, nullptr, 0));
+  HIP_CHECK(hipStreamAddCallback(mystream, Thread2_Callback, nullptr, 0));
 }
 
 /**

@@ -898,6 +898,91 @@ __SHFL_DOWN(ulong);
 __SHFL_DOWN(float);
 __SHFL_DOWN(double);
 
+#define __SHFL_SYNC(T)                                                         \
+  EXPORT OVLD T __shfl_sync(unsigned mask, T var, int srcLane, int width) {    \
+    if (mask == 0) {                                                           \
+      return 0;                                                                \
+    } else if (mask == 0xFFFFFFFF) {                                           \
+      return __shfl(var, srcLane, width);                                      \
+    } else {                                                                   \
+      if (get_sub_group_local_id() == 0) {                                     \
+        printf("warning: Partial mask in __shfl_sync is not fully supported\n");\
+      }                                                                        \
+      return __shfl(var, srcLane, width);                                      \
+    }                                                                          \
+  }
+
+#define __SHFL_UP_SYNC(T)                                                      \
+  EXPORT OVLD T __shfl_up_sync(unsigned mask, T var, unsigned int delta, int width) { \
+    if (mask == 0) {                                                           \
+      return 0;                                                                \
+    } else if (mask == 0xFFFFFFFF) {                                           \
+      return __shfl_up(var, delta, width);                                     \
+    } else {                                                                   \
+      if (get_sub_group_local_id() == 0) {                                     \
+        printf("warning: Partial mask in __shfl_up_sync is not fully supported\n");\
+      }                                                                        \
+      return __shfl_up(var, delta, width);                                     \
+    }                                                                          \
+  }
+
+#define __SHFL_DOWN_SYNC(T)                                                    \
+  EXPORT OVLD T __shfl_down_sync(unsigned mask, T var, unsigned int delta, int width) { \
+    if (mask == 0) {                                                           \
+      return 0;                                                                \
+    } else if (mask == 0xFFFFFFFF) {                                           \
+      return __shfl_down(var, delta, width);                                   \
+    } else {                                                                   \
+      if (get_sub_group_local_id() == 0) {                                     \
+        printf("warning: Partial mask in __shfl_down_sync is not fully supported\n");\
+      }                                                                        \
+      return __shfl_down(var, delta, width);                                   \
+    }                                                                          \
+  }
+
+#define __SHFL_XOR_SYNC(T)                                                     \
+  EXPORT OVLD T __shfl_xor_sync(unsigned mask, T var, int laneMask, int width) { \
+    if (mask == 0) {                                                           \
+      return 0;                                                                \
+    } else if (mask == 0xFFFFFFFF) {                                           \
+      return __shfl_xor(var, laneMask, width);                                 \
+    } else {                                                                   \
+      if (get_sub_group_local_id() == 0) {                                     \
+        printf("warning: Partial mask in __shfl_xor_sync is not fully supported\n");\
+      }                                                                        \
+      return __shfl_xor(var, laneMask, width);                                 \
+    }                                                                          \
+  }
+
+__SHFL_SYNC(int);
+__SHFL_SYNC(uint);
+__SHFL_SYNC(long);
+__SHFL_SYNC(ulong);
+__SHFL_SYNC(float);
+__SHFL_SYNC(double);
+
+__SHFL_UP_SYNC(int);
+__SHFL_UP_SYNC(uint);
+__SHFL_UP_SYNC(long);
+__SHFL_UP_SYNC(ulong);
+__SHFL_UP_SYNC(float);
+__SHFL_UP_SYNC(double);
+
+__SHFL_DOWN_SYNC(int);
+__SHFL_DOWN_SYNC(uint);
+__SHFL_DOWN_SYNC(long);
+__SHFL_DOWN_SYNC(ulong);
+__SHFL_DOWN_SYNC(float);
+__SHFL_DOWN_SYNC(double);
+
+__SHFL_XOR_SYNC(int);
+__SHFL_XOR_SYNC(uint);
+__SHFL_XOR_SYNC(long);
+__SHFL_XOR_SYNC(ulong);
+__SHFL_XOR_SYNC(float);
+__SHFL_XOR_SYNC(double);
+
+
 // The definition is linked at runtime from one of the ballot*.cl files.
 EXPORT OVLD ulong __chip_ballot(int predicate);
 
@@ -908,6 +993,42 @@ EXPORT OVLD int __chip_all(int predicate) {
 EXPORT OVLD int __chip_any(int predicate) {
   return __chip_ballot(predicate) != 0;
 }
+
+EXPORT OVLD unsigned __chip_ballot_sync(unsigned mask, int predicate) {
+  if (mask == 0) {
+    return 0;
+  } else if (mask == 0xFFFFFFFF) {
+    return __chip_ballot(predicate);
+  } else {
+    if (get_sub_group_local_id() == 0) {
+      printf("warning: Partial mask in __ballot_sync is not fully supported\n");
+    }
+    return __chip_ballot(predicate) & mask;
+  }
+}
+
+EXPORT OVLD int __chip_any_sync(unsigned mask, int predicate) {
+  if (mask == 0) {
+    return 0;
+  } else if (mask == 0xFFFFFFFF) {
+    return __chip_any(predicate);
+  } else {
+    unsigned ballot = __chip_ballot(predicate) & mask;
+    return ballot != 0;
+  }
+}
+
+EXPORT OVLD int __chip_all_sync(unsigned mask, int predicate) {
+  if (mask == 0) {
+    return 1;
+  } else if (mask == 0xFFFFFFFF) {
+    return __chip_all(predicate);
+  } else {
+    unsigned ballot = __chip_ballot(predicate);
+    return (ballot & mask) == mask;
+  }
+}
+
 
 EXPORT OVLD unsigned __chip_lane_id() { return get_sub_group_local_id(); }
 

@@ -53,7 +53,11 @@
 #pragma pop_macro("__NVCC__")
 
 // for memset
+#ifdef __cplusplus
 #include <cstring>
+#else
+#warning "cuda_runtime.h is not C compatible"
+#endif
 
 // Needed for some CUDA samples.
 #ifndef __DRIVER_TYPES_H__
@@ -319,6 +323,9 @@
   hipDeviceAttributePhysicalMultiProcessorCount
 #define cudaDevAttrAmdSpecificEnd hipDeviceAttributeAmdSpecificEnd
 #define cudaDevAttrVendorSpecificBegin hipDeviceAttributeVendorSpecificBegin
+#define cudaMemAdviseSetReadMostly hipMemAdviseSetReadMostly
+#define cudaDeviceGetDefaultMemPool hipDeviceGetDefaultMemPool
+#define cudaMemPoolAttrReleaseThreshold hipMemPoolAttrReleaseThreshold
 
 // contains flags missing from hipDeviceProp_t but present in cuda's cudaDeviceProp
 struct cudaDeviceProp : hipDeviceProp_t {
@@ -364,6 +371,8 @@ using cudaChannelFormatDesc = hipChannelFormatDesc;
 using cudaComputeMode = hipComputeMode;
 using cudaDeviceAttribute_t = hipDeviceAttribute_t;
 using cudaDevice_t = hipDevice_t;
+using cudaMemPool_t = hipMemPool_t;
+using cudaError = hipError_t;
 using cudaError_t = hipError_t;
 using cudaEvent_t = hipEvent_t;
 using cudaFuncAttributes = hipFuncAttributes;
@@ -381,7 +390,13 @@ using cudaResourceDesc = hipResourceDesc;
 using cudaResourceViewDesc = hipResourceViewDesc;
 using cudaTextureDesc = hipTextureDesc;
 using cudaTextureObject_t = hipTextureObject_t;
+
 using cudaSharedMemConfig = hipSharedMemConfig;
+#define cudaSharedMemBankSizeEightByte hipSharedMemConfig::hipSharedMemBankSizeEightByte
+#define cudaSharedMemBankSizeFourByte hipSharedMemConfig::hipSharedMemBankSizeFourByte
+#define cudaSharedMemBankSizeTwoByte hipSharedMemConfig::hipSharedMemBankSizeTwoByte
+
+
 using cudaStream_t = hipStream_t;
 using cudaStreamCallback_t = hipStreamCallback_t;
 using cudaSurfaceObject_t = hipSurfaceObject_t;
@@ -767,9 +782,6 @@ static inline cudaError_t cudaEventQuery(cudaEvent_t Event) {
 }
 
 //#################
-static inline cudaError_t cudaMalloc(void **Ptr, size_t Size) {
-  return hipMalloc(Ptr, Size);
-}
 template <typename T>
 static inline cudaError_t cudaMalloc(T **ptr, size_t size) {
   return hipMalloc((void **)ptr, size);
@@ -779,20 +791,14 @@ static inline cudaError_t cudaMallocManaged(T **DevPtr, size_t Size,
                                             unsigned int Flags = cudaMemAttachGlobal) {
   return hipMallocManaged((void**)DevPtr, Size, Flags);
 }
-static inline cudaError_t cudaMallocHost(void **Ptr, size_t Size) {
-  return hipHostMalloc(Ptr, Size, 0);
+template <typename T>
+static inline cudaError_t cudaMallocHost(T **ptr, size_t size) {
+  return hipHostMalloc((void **)ptr, size, 0);
 }
 template <class T>
-static inline cudaError_t cudaMallocHost(T **ptr, size_t size) {
-  return hipHostMalloc((void **)ptr, size);
-}
-static inline cudaError_t cudaHostMalloc(void **Ptr, size_t Size,
-                                         unsigned int Flags) {
-  return hipHostMalloc(Ptr, Size, Flags);
-}
-static inline cudaError_t cudaHostAlloc(void **Ptr, size_t Size,
-                                        unsigned int Flags) {
-  return hipHostMalloc(Ptr, Size, Flags);
+static inline cudaError_t cudaHostMalloc(T **ptr, size_t size,
+                                         unsigned int flags) {
+  return hipHostMalloc((void **)ptr, size, flags);
 }
 template <class T>
 static inline cudaError_t cudaHostAlloc(T **Ptr, size_t Size,
@@ -806,6 +812,10 @@ static inline cudaError_t cudaMemPrefetchAsync(const void *Ptr, size_t Count,
                                                int DstDevId,
                                                cudaStream_t Stream __dparm(0)) {
   return hipMemPrefetchAsync(Ptr, Count, DstDevId, Stream);
+}
+static inline cudaError_t cudaFreeAsync(void *Ptr, cudaStream_t Stream __dparm(0)) {
+  #warning "cudaFreeAsync is mapped to hipFree"
+  return hipFree(Ptr);
 }
 
 static inline cudaError_t cudaMemAdvise(const void *Ptr, size_t Count,
@@ -852,6 +862,13 @@ static inline cudaError_t cudaMalloc3D(cudaPitchedPtr *PitchedDevPtr,
                                        cudaExtent Extent) {
   return hipMalloc3D(PitchedDevPtr, Extent);
 }
+
+static inline cudaError_t cudaMallocAsync(void **Ptr, size_t Size,
+                                          cudaStream_t Stream __dparm(0)) {
+  #warning "cudaMallocAsync is mapped to hipMalloc"
+  return hipMallocAsync(Ptr, Size, Stream);
+}
+
 static inline cudaError_t cudaMemGetInfo(size_t *Free, size_t *Total) {
   return hipMemGetInfo(Free, Total);
 }

@@ -131,13 +131,18 @@ def prepare_argparser() -> argparse.ArgumentParser:
     # is potentially more relaxed than --use_fast_math so we may not use it.
     parser.add_argument("-use_fast_math", "--use_fast_math",
                         nargs=0, action=IgnoredOption)
-
+    parser.add_argument("-gencode", "--gencode",
+                        nargs="?", action=IgnoredOption)
     return parser
 
 def get_hip_path() -> str:
     """Get HIP path
+    cucc resides in <instal_dir/build_dir>/../bin
+    so HIP path is always one level up.
     """
-    return "@CUCC_HIP_PATH@"
+    import os
+    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return path
 
 def get_hipcc() -> str:
     """Get path to hipcc executable
@@ -217,6 +222,8 @@ def main():
     languages = determine_input_languages(other_args, known_args.x)
 
     hipcc_args = [get_hipcc(), "-isystem", get_cuda_include_dir()]
+    hipcc_args.append("-include")
+    hipcc_args.append(get_cuda_include_dir()+"/cuda_runtime.h")
 
     hipcc_args.append("-D__NVCC__")
 

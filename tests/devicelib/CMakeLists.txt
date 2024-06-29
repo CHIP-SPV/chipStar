@@ -31,3 +31,9 @@ add_test(NAME "deviceMallocCompile"
   ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
 
 add_hip_test(sincospifSpotTest.cc)
+add_hip_test(shfl_sync.cpp)
+
+set_tests_properties(shfl_sync PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL")
+set_tests_properties(shfl_sync PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")

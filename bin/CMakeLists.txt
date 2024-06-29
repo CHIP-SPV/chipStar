@@ -23,40 +23,32 @@
 #
 #=============================================================================
 
-# For telling cuspvc where to look for clang.
-get_filename_component(CLANG_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
 
-# Read includes, prepend each one with -I.
-set(prop "$<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>")
-set(CHIP_INCLUDES "$<$<BOOL:${prop}>:-I$<JOIN:${prop}, -I>>")
+# copy in cucc.py to build directory and rename to cucc
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cucc.py
+               ${CMAKE_CURRENT_BINARY_DIR}/cucc
+               COPYONLY)
 
-# Generate cuspvc tool that is usable within build directory.
-# TODO: Deprecate cuspvc
-configure_file(cuspvc-build.in cuspvc-build.in @ONLY)
-file(
-  GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc
-  INPUT ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-build.in)
+# create a symbolic link from cucc to nvcc
+file(CREATE_LINK 
+  ${CMAKE_CURRENT_BINARY_DIR}/cucc
+  ${CMAKE_CURRENT_BINARY_DIR}/nvcc
+  SYMBOLIC
+)
 
-# Generate cuspv tool that will be installed.
-# TODO: Deprecate cuspvc
-configure_file(cuspvc-install.in cuspvc-install @ONLY)
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cuspvc-install
-  DESTINATION bin RENAME cuspvc)
+# Install the cucc.py file and rename it to cucc
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc
+  DESTINATION bin
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-# Generate cucc tool that is usable within build directory.
-set(CUCC_HIP_PATH ${CMAKE_BINARY_DIR})
-configure_file(cucc.in cucc @ONLY)
+# Install the nvcc symlink
+install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink cucc nvcc
+                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin)")
 
-# This cucc variant is for the install destination.
-set(CUCC_HIP_PATH ${CMAKE_INSTALL_PREFIX})
-configure_file(cucc.in cucc-install @ONLY)
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc-install
-  DESTINATION bin RENAME cucc)
 
 # Run static type check on cucc if there is a tool available for it.
 find_program(MYPY NAMES mypy)
 if(MYPY)
   add_test(NAME cucc-static-type-check
-    COMMAND ${MYPY} ${CMAKE_CURRENT_SOURCE_DIR}/cucc.in)
+    COMMAND ${MYPY} ${CMAKE_CURRENT_SOURCE_DIR}/cucc.py)
 endif()

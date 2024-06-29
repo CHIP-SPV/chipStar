@@ -36,10 +36,21 @@ extern "C++" inline __device__ uint64_t __ballot(int predicate) {
   return __chip_ballot(predicate);
 }
 
+extern "C++" __device__ uint64_t __chip_ballot_sync(unsigned mask, int predicate); // Custom
+extern "C++" inline __device__ uint64_t __ballot_sync(unsigned mask, int predicate) {
+  return __chip_ballot_sync(mask, predicate);
+}
+
 extern "C++" __device__  int __chip_all(int predicate); // Custom
 extern "C++" inline __device__ int __all(int predicate) {
   return __chip_all(predicate);
 }
+
+extern "C++" __device__ int __chip_all_sync(unsigned mask, int predicate); // Custom
+extern "C++" inline __device__ int __all_sync(unsigned mask, int predicate) {
+  return __chip_all_sync(mask, predicate);
+}
+
 
 extern "C++" __device__  int __chip_any(int predicate); // Custom
 extern "C++" inline __device__ int __any(int predicate) {
@@ -151,6 +162,39 @@ DECL_LONGLONG_SHFL(__shfl_xor, int);
 DECL_LONGLONG_SHFL(__shfl_up, unsigned int);
 DECL_LONGLONG_SHFL(__shfl_down, unsigned int);
 
+
+#define DECL_SHFL_SYNC_OPS(TYPE_)                                              \
+  extern __device__ TYPE_ __shfl_sync(unsigned mask, TYPE_ var, int srcLane,   \
+                                      int warpsize = CHIP_DEFAULT_WARP_SIZE);  \
+  extern __device__ TYPE_ __shfl_xor_sync(unsigned mask, TYPE_ var, int laneMask, \
+                                          int warpsize = CHIP_DEFAULT_WARP_SIZE); \
+  extern __device__ TYPE_ __shfl_up_sync(unsigned mask, TYPE_ var, unsigned int delta, \
+                                         int warpsize = CHIP_DEFAULT_WARP_SIZE); \
+  extern __device__ TYPE_ __shfl_down_sync(unsigned mask, TYPE_ var, unsigned int delta, \
+                                           int warpsize = CHIP_DEFAULT_WARP_SIZE)
+
+DECL_SHFL_SYNC_OPS(int);
+DECL_SHFL_SYNC_OPS(unsigned int);
+DECL_SHFL_SYNC_OPS(long);
+DECL_SHFL_SYNC_OPS(unsigned long);
+DECL_SHFL_SYNC_OPS(float);
+DECL_SHFL_SYNC_OPS(double);
+
+#define DECL_LONGLONG_SHFL_SYNC(OP_, LANE_SEL_TYPE_)                           \
+  inline __device__ long long OP_(unsigned mask, long long var, LANE_SEL_TYPE_ selector, \
+                                  int warpsize = CHIP_DEFAULT_WARP_SIZE) {     \
+    return OP_(mask, static_cast<long>(var), selector, warpsize);              \
+  }                                                                            \
+  inline __device__ unsigned long long OP_(unsigned mask, unsigned long long var, \
+                                           LANE_SEL_TYPE_ selector,            \
+                                           int warpsize = CHIP_DEFAULT_WARP_SIZE) { \
+    return OP_(mask, static_cast<unsigned long>(var), selector, warpsize);     \
+  }
+
+DECL_LONGLONG_SHFL_SYNC(__shfl_sync, int);
+DECL_LONGLONG_SHFL_SYNC(__shfl_xor_sync, int);
+DECL_LONGLONG_SHFL_SYNC(__shfl_up_sync, unsigned int);
+DECL_LONGLONG_SHFL_SYNC(__shfl_down_sync, unsigned int);
 
 }
 
