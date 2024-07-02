@@ -9,103 +9,113 @@ SHELL ["/bin/bash", "-ci"]
 #//                                                         Full layer                                                                     //
 #//                                                                                                                                        //
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-RUN export LLVM_VERSION=16; \
-    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off; \
-    cd llvm-project/llvm/build_${LLVM_VERSION}; \
-    make -j 16; \
-    sudo make install; \
-     -p /apps/modulefiles/Core/llvm/; \
-    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    ml avail; ml llvm/${LLVM_VERSION}; \
-    mkdir -p pocl; \
-    cd pocl; \
-    git init; \
-    git remote add origin https://github.com/pocl/pocl; \
-    git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin d6ec42378fe6f618b92170d2be45f47eae22343f; \
-    git checkout --progress --force d6ec42378fe6f618b92170d2be45f47eae22343f; \
-    git log -1 --format='%H'; \ 
-    mkdir -p build; \
-    cd build; \
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/4.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
-    cmake --build . --parallel $(nproc); \
-    sudo cmake --install . ; \
-     -p /apps/modulefiles/Core/pocl/; \
-    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    export LLVM_VERSION=17; \
-    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off; \
-    cd llvm-project/llvm/build_${LLVM_VERSION}; \
-    make -j 16; \
-    sudo make install; \
-     -p /apps/modulefiles/Core/llvm/; \
-    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    ml avail; ml llvm/${LLVM_VERSION}; \
-    mkdir -p pocl; \
-    cd pocl; \
-    git init; \
-    git remote add origin https://github.com/pocl/pocl; \
-    git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin d6ec42378fe6f618b92170d2be45f47eae22343f; \
-    git checkout --progress --force d6ec42378fe6f618b92170d2be45f47eae22343f; \
-    git log -1 --format='%H'; \ 
-    mkdir -p build; \
-    cd build; \
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/4.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
-    cmake --build . --parallel $(nproc); \
-    sudo cmake --install . ; \
-     -p /apps/modulefiles/Core/pocl/; \
-    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    export LLVM_VERSION=18; \
-    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off; \
-    cd llvm-project/llvm/build_${LLVM_VERSION}; \
-    make -j 16; \
-    sudo make install; \
-     -p /apps/modulefiles/Core/llvm/; \
-    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
-    ml avail; ml llvm/${LLVM_VERSION}; \
-    mkdir -p pocl; \
-    cd pocl; \
-    git init; \
-    git remote add origin https://github.com/pocl/pocl; \
-    git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin d6ec42378fe6f618b92170d2be45f47eae22343f; \
-    git checkout --progress --force d6ec42378fe6f618b92170d2be45f47eae22343f; \
-    git log -1 --format='%H'; \ 
-    mkdir -p build; \
-    cd build; \
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/4.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
-    cmake --build . --parallel $(nproc); \
-    sudo cmake --install . ; \
-     -p /apps/modulefiles/Core/pocl/; \
-    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua; \
-    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/4.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/4.0-llvm-${LLVM_VERSION}.lua;
+# LLVM 16 Layer
+RUN export LLVM_VERSION=16 && \
+    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off && \
+    cd llvm-project/llvm/build_${LLVM_VERSION} && \
+    make -j 16 && \
+    sudo make install && \
+    mkdir -p /apps/modulefiles/Core/llvm/ && \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    ml avail && ml llvm/${LLVM_VERSION}
 
+# POCL 5.0 with LLVM 16 Layer
+RUN export LLVM_VERSION=16 && \
+    ml llvm/${LLVM_VERSION} && \
+    cd /home/chipStarUser && \
+    git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl && \
+    cd pocl && \
+    mkdir -p build && \
+    cd build && \
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/5.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro && \
+    cmake --build . --parallel $(nproc) && \
+    sudo cmake --install . && \
+    cd /home/chipStarUser && \
+    rm -rf pocl && \
+    mkdir -p /apps/modulefiles/Core/pocl/ && \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua
+
+# LLVM 17 Layer
+RUN export LLVM_VERSION=17 && \
+    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off && \
+    cd llvm-project/llvm/build_${LLVM_VERSION} && \
+    make -j 16 && \
+    sudo make install && \
+    mkdir -p /apps/modulefiles/Core/llvm/ && \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    ml avail && ml llvm/${LLVM_VERSION}
+
+# POCL 5.0 with LLVM 17 Layer
+RUN export LLVM_VERSION=17 && \
+    ml llvm/${LLVM_VERSION} && \
+    cd /home/chipStarUser && \
+    git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl && \
+    cd pocl && \
+    mkdir -p build && \
+    cd build && \
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/5.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro && \
+    cmake --build . --parallel $(nproc) && \
+    sudo cmake --install . && \
+    cd /home/chipStarUser && \
+    rm -rf pocl && \
+    mkdir -p /apps/modulefiles/Core/pocl/ && \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua
+
+# LLVM 18 Layer
+RUN export LLVM_VERSION=18 && \
+    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off && \
+    cd llvm-project/llvm/build_${LLVM_VERSION} && \
+    make -j 16 && \
+    sudo make install && \
+    mkdir -p /apps/modulefiles/Core/llvm/ && \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua && \
+    ml avail && ml llvm/${LLVM_VERSION}
+
+# POCL 5.0 with LLVM 18 Layer TODO once pocl supports LLVM 18
+#RUN export LLVM_VERSION=18 && \
+    #ml llvm/${LLVM_VERSION} && \
+    #cd /home/chipStarUser && \
+    #git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl && \
+    #cd pocl && \
+    #mkdir -p build && \
+    #cd build && \
+    #cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/5.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro && \
+    #cmake --build . --parallel $(nproc) && \
+    #sudo cmake --install . && \
+    #cd /home/chipStarUser && \
+    #rm -rf pocl && \
+    #mkdir -p /apps/modulefiles/Core/pocl/ && \
+    #echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    #echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    #echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    #echo "prepend_path(\"PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    #echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua && \
+    #echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
 #//                                                      End of Cpp-linter layer                                                           //
