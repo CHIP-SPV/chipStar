@@ -20,33 +20,22 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - name: Load modules
-        run: ml StdEnv; . /home/chipStarUser/venv/bin/activate;
-          echo "CPATH=$CPATH" >> $GITHUB_ENV;
-          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $GITHUB_ENV;
-          echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV;
-          echo "PATH=$PATH" >> $GITHUB_ENV;
-        shell: bash
-
-      - name: Add includes
-        run: touch `pwd`/include/chipStarConfig.hh;
-          export CPATH=`pwd`/include/:$CPATH;
-          export CPATH=`pwd`/HIP/include/:$CPATH;
-          export CPATH=`pwd`/spirv-extractor/SPIRV-Tools/include/:$CPATH;
-          echo "CPATH=$CPATH" >> $GITHUB_ENV;
-        shell: bash
-
-      - name: show env
-        run: echo "$CPATH";
-          echo "$LD_LIBRARY_PATH";
-          echo "$LIBRARY_PATH";
-          echo "$PATH";
-        shell: bash
-
-      - name: C/C++ Linter
-        id: linter
-        shell: bash
+      - name: Run C/C++ Linter
         run: |
+          ml StdEnv
+          . /home/chipStarUser/venv/bin/activate
+
+          touch `pwd`/include/chipStarConfig.hh
+          export CPATH=`pwd`/include/:$CPATH
+          export CPATH=`pwd`/HIP/include/:$CPATH
+          export CPATH=`pwd`/spirv-extractor/SPIRV-Tools/include/:$CPATH
+          echo "CPATH=$CPATH" >> $GITHUB_ENV
+
+          echo "$CPATH"
+          echo "$LD_LIBRARY_PATH"
+          echo "$LIBRARY_PATH"
+          echo "$PATH"
+
           cpp-linter \
             --style="file" \
             --extensions=cc,hh \
@@ -65,6 +54,8 @@ jobs:
             --extra-arg="-std=c++17" \
             --tidy-review="false" \
             --format-review="false"
-      - name: Fail fast?!
-        if: steps.linter.outputs.checks-failed > 0
-        run: exit 1
+
+          if [ $? -ne 0 ]; then
+            exit 1
+          fi
+        shell: bash
