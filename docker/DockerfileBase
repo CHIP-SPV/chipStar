@@ -1,0 +1,189 @@
+FROM ubuntu:latest
+
+ENV DEBIAN_FRONTEND noninteractive
+
+SHELL ["/bin/bash", "-ci"]
+
+# Get the basic stuff and create chipStarUser user with sudo privileges
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y sudo; \
+    useradd -ms /bin/bash chipStarUser && \
+    groupadd -f video && groupadd -f render && \
+    usermod -aG sudo,video,render chipStarUser; \
+    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Set as default user
+USER chipStarUser
+WORKDIR /home/chipStarUser
+
+
+RUN sudo apt update; sudo apt install -y gcc g++ cmake python3 git software-properties-common; \
+    sudo add-apt-repository ppa:ocl-icd/ppa;  \
+    sudo apt update; \
+    sudo apt install -y python3-dev python3-yaml libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev wget lua5.3 lua-bit32:amd64 lua-posix:amd64 lua-posix-dev liblua5.3-0:amd64 liblua5.3-dev:amd64 tcl tcl-dev tcl8.6 tcl8.6-dev:amd64 libtcl8.6:amd64
+
+COPY scripts/configure_llvm.sh /home/chipStarUser/configure_llvm.sh
+RUN sudo chmod +x /home/chipStarUser/configure_llvm.sh
+
+# Create /apps directory and set ownership to chipStarUser
+RUN sudo mkdir -p /apps && \
+    sudo chown chipStarUser:chipStarUser /apps
+
+# Install and setup lmod with StdEnv and non-interactive support
+RUN sudo chown chipStarUser:chipStarUser configure_llvm.sh; \
+    wget https://sourceforge.net/projects/lmod/files/Lmod-8.7.tar.bz2; \
+    tar -xvf Lmod-8.7.tar.bz2; \
+    cd Lmod-8.7; \
+    ./configure --prefix=/apps; \
+    sudo make install; \
+    sudo ln -s /apps/lmod/lmod/init/profile        /etc/profile.d/z00_lmod.sh; \
+    mkdir -p /apps/modulefiles/Core ; \
+    echo 'if ! shopt -q login_shell; then'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo '  if [ -d /etc/profile.d ]; then'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo '    for i in /etc/profile.d/*.sh; do'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo '      if [ -r $i ]; then'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo '        . $i' | sudo tee -a  /etc/bash.bashrc > /dev/null; \
+    echo '      fi'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo '    done'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo '  fi'  | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo 'fi' | sudo tee -a /etc/bash.bashrc > /dev/null; \
+    echo 'if [ -z "$__Init_Default_Modules" ]; then' | sudo tee /etc/profile.d/z01_StdEnv.sh; \
+    echo '    export __Init_Default_Modules=1;' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    ## ability to predefine elsewhere the default list' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    LMOD_SYSTEM_DEFAULT_MODULES=${LMOD_SYSTEM_DEFAULT_MODULES:-"StdEnv"}' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    export LMOD_SYSTEM_DEFAULT_MODULES' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    module --initial_load --no_redirect restore' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo 'else' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo '    module refresh' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo 'fi' | sudo tee -a /etc/profile.d/z01_StdEnv.sh; \
+    echo 'if [ -f /etc/bash.bashrc ]; then' | tee -a  ~/.bashrc; \
+    echo '   . /etc/bash.bashrc' | tee -a  ~/.bashrc; \
+    echo 'fi' | tee -a  ~/.bashrc
+
+ENV BASH_ENV=/apps/lmod/8.7/init/bash 
+ENV MODULEPATH_ROOT=/apps/modulefiles
+ENV MODULEPATH=/apps/modulefiles/Linux:/apps/modulefiles/Core:/apps/lmod/lmod/modulefiles/Core
+
+# Install default llvm stack and set up defaultly loaded environment (StdEnv)
+RUN export LLVM_VERSION=15; \
+    ./configure_llvm.sh --version ${LLVM_VERSION} --install-dir /apps/llvm/${LLVM_VERSION} --link-type static --only-necessary-spirv-exts off; \
+    cd llvm-project/llvm/build_${LLVM_VERSION}; \
+    make -j 16; \
+    sudo make install; \
+    mkdir -p /apps/modulefiles/Core/llvm/; \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/libexec\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PATH\",\"/apps/llvm/${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PKG_CONFIG_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib/pkgconfig/\")" | tee -a /apps/modulefiles/Core/llvm/${LLVM_VERSION}.lua; \
+    ml avail; ml llvm/${LLVM_VERSION}; \
+    rm -rf /home/chipStarUser/llvm-project;
+
+# Install pocl
+RUN export LLVM_VERSION=15; ml llvm/${LLVM_VERSION} && cd /home/chipStarUser && git clone --depth 1 --branch release_5_0 https://github.com/pocl/pocl.git pocl; \
+    cd pocl; \
+    mkdir -p build; \
+    cd build; \
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/apps/pocl/5.0-llvm-${LLVM_VERSION} -DENABLE_TESTS=OFF -DENABLE_EXAMPLES=OFF -DSTATIC_LLVM=ON -DKERNELLIB_HOST_CPU_VARIANTS=distro; \
+    cmake --build . --parallel $(nproc); \
+    cmake --install . ; \
+    rm -rf /home/chipStarUser/pocl; \
+    mkdir -p /apps/modulefiles/Core/pocl/; \
+    echo "prepend_path(\"CPATH\",\"/apps/llvm/${LLVM_VERSION}/include\")" | tee  /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LD_LIBRARY_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"LIBRARY_PATH\",\"/apps/llvm/${LLVM_VERSION}/lib\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/bin\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
+    echo "prepend_path(\"XDG_DATA_DIRS\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/share\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
+    echo "setenv(\"OPENCL_VENDOR_PATH\",\"/apps/pocl/5.0-llvm-${LLVM_VERSION}/etc/OpenCL/vendors\")" | tee -a /apps/modulefiles/Core/pocl/5.0-llvm-${LLVM_VERSION}.lua; \
+    echo "load(\"llvm/${LLVM_VERSION}\", \"pocl/5.0-llvm-${LLVM_VERSION}\")" | tee  /apps/modulefiles/Core/StdEnv.lua
+
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#//                                                                                                                                        //
+#//                                                         Begin OneAPI layer                                                             //
+#//                                                                                                                                        //
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+# Download and install Miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    bash miniconda.sh -b -p /apps/conda && \
+    rm miniconda.sh
+
+# Set up conda environment
+ENV PATH="/apps/conda/bin:${PATH}"
+RUN conda init bash && \
+    conda config --add channels intel && \
+    conda create -n oneapi-2024.1.0 -y
+
+# Install OneAPI packages
+RUN conda run -n oneapi-2024.1.0 conda install -y \
+    dpcpp-cpp-rt=2024.1.0=intel_963 \
+    dpcpp_impl_linux-64=2024.1.0=intel_963 \
+    icc_rt=2024.1.0=intel_963 \
+    intel-cmplr-lib-rt=2024.1.0=intel_963 \
+    intel-cmplr-lic-rt=2024.1.0=intel_963 \
+    intel-opencl-rt=2024.1.0=intel_963 \
+    intel-openmp=2024.1.0=intel_963 \
+    mkl=2024.1.0=intel_691 \
+    mkl-devel=2024.1.0=intel_691 \
+    mkl-devel-dpcpp=2024.1.0=intel_691 \
+    mkl-dpcpp=2024.1.0=intel_691 \
+    mkl-include=2024.1.0=intel_691 \
+    onedpl-devel=2022.5.0=intel_215 \
+    onemkl-sycl-blas=2024.1.0=intel_691 \
+    onemkl-sycl-datafitting=2024.1.0=intel_691 \
+    onemkl-sycl-dft=2024.1.0=intel_691 \
+    onemkl-sycl-lapack=2024.1.0=intel_691 \
+    onemkl-sycl-rng=2024.1.0=intel_691 \
+    onemkl-sycl-sparse=2024.1.0=intel_691 \
+    onemkl-sycl-stats=2024.1.0=intel_691 \
+    onemkl-sycl-vm=2024.1.0=intel_691 \
+    tbb=2021.12.0=intel_495 \
+    level-zero=1.17.6
+
+# RUN conda config --add channels conda-forge && conda run -n oneapi-2024.1.0 conda install -y intel-compute-runtime
+RUN sudo apt install -y intel-opencl-icd vim
+
+# Install Level Zero headers system-wide
+RUN mkdir -p /tmp/level-zero-headers && \
+    cd /tmp/level-zero-headers && \
+    git clone https://github.com/oneapi-src/level-zero.git && \
+    cd level-zero && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j && \
+    sudo make install && \
+    cd ~/ && \
+    rm -rf /tmp/level-zero-headers
+
+# Delete Intel OpenCL Loader
+RUN rm -f /apps/conda/envs/oneapi-2024.1.0/lib/libOpenCL.so.1
+
+# Create a module file for OneAPI
+RUN mkdir -p /apps/modulefiles/Core/oneapi && \
+    echo 'local version = "2024.1.0"' > /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'local base = "/apps/conda/envs/oneapi-" .. version' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo '' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("PATH", pathJoin(base, "bin"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LD_LIBRARY_PATH", pathJoin(base, "lib"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LD_LIBRARY_PATH", pathJoin(base, "lib64"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LIBRARY_PATH", pathJoin(base, "lib"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("LIBRARY_PATH", pathJoin(base, "lib64"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("PKG_CONFIG_PATH", pathJoin(base, "lib/pkgconfig"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("CMAKE_PREFIX_PATH", pathJoin(base, "lib/cmake"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'prepend_path("XDG_DATA_DIRS", pathJoin(base, "share"))' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("OPENCL_VENDOR_PATH", "/apps/conda/envs/oneapi-2024.1.0/etc/OpenCL/vendors")' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo '' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("ONEAPI_ROOT", base)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
+    echo 'setenv("ONEAPI_VERSION", version)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua
+
+# Set permissionst to enable non-root access to GPUs
+RUN echo 'sudo chmod 666 /dev/dri/* 2>/dev/null || true' >> /home/chipStarUser/.bashrc
+
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#//                                                                                                                                        //
+#//                                                         End OneAPI layer                                                              //
+#//                                                                                                                                        //
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

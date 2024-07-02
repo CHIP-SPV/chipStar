@@ -13,23 +13,49 @@ concurrency:
 jobs:
   cpp-linter:
     runs-on: ubuntu-latest
+    container:
+      image: pveleskopglc/chipstar:cpp-linter
+      options: --user chipStarUser
     steps:
       - uses: actions/checkout@v2
-      - name: Install clang
-        run: sudo apt install clang-11 --install-suggests
-      - name: C/C++ Linter
-        uses: cpp-linter/cpp-linter-action@v2.9.0
-        id: linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          style: file
-          version: 11
-          files-changed-only: true
-          lines-changed-only: true
-          extensions: 'cc,hh'
-          tidy-checks: '-*,readability-*,modernize-*,clang-analyzer-*'
-      - name: Fail fast?!
-        if: steps.linter.outputs.checks-failed > 0
-        run: exit 1
+          submodules: recursive
+      - name: Run C/C++ Linter
+        run: |
+          ml StdEnv
+          . /home/chipStarUser/venv/bin/activate
 
+          touch `pwd`/include/chipStarConfig.hh
+          export CPATH=`pwd`/include/:$CPATH
+          export CPATH=`pwd`/HIP/include/:$CPATH
+          export CPATH=`pwd`/spirv-extractor/SPIRV-Tools/include/:$CPATH
+          echo "CPATH=$CPATH" >> $GITHUB_ENV
+
+          echo "$CPATH"
+          echo "$LD_LIBRARY_PATH"
+          echo "$LIBRARY_PATH"
+          echo "$PATH"
+
+          cpp-linter \
+            --style="file" \
+            --extensions=cc,hh \
+            --tidy-checks="-*,readability-*,modernize-*,clang-analyzer-*" \
+            --repo-root=. \
+            --version=15 \
+            --verbosity=info \
+            --lines-changed-only="true" \
+            --files-changed-only="true" \
+            --thread-comments="false" \
+            --no-lgtm=true \
+            --step-summary="false" \
+            --ignore=".github" \
+            --database= \
+            --file-annotations=true \
+            --extra-arg="-std=c++17" \
+            --tidy-review="false" \
+            --format-review="false"
+
+          if [ $? -ne 0 ]; then
+            exit 1
+          fi
+        shell: bash

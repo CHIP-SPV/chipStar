@@ -805,3 +805,6 @@ endif()
 if(LevelZero_LIBRARY)
   message(STATUS "Level Zero is enabled: ${LevelZero_LIBRARY}")
 endif()
+
+# Include docker targets
+include(cmake/docker.cmake)
