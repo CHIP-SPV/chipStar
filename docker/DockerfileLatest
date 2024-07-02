@@ -32,9 +32,6 @@ RUN module unload pocl; module load oneapi/2024.1.0 && which icpx && git clone h
     /home/chipStarUser/chipStar/build/samples/0_MatrixMultiply/MatrixMultiply && \
     sudo make install 
 
-
-# RUN /home/chipStarUser/chipStar/build/samples/0_MatrixMultiply/MatrixMultiply
-
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
 #//                                                      End of chipStar latest layer                                                      //

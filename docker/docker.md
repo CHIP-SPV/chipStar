@@ -32,6 +32,26 @@
 This process will set up Docker, pull the latest chipStar image, start a container with the necessary environment, and run a sample application to verify the setup.
 
 
+## Running Docker Image with GPU
+
+To run the Docker image with GPU support, follow these steps:
+
+1. Run the Docker container with GPU support:
+   ```
+   docker run -it --device /dev/dri pveleskopglc/chipstar:latest /bin/bash
+   ```
+
+2. Unload PoCL module to expose Intel GPUs (if available):
+   ```
+   module unload pocl/5.0-llvm-15
+   ```
+
+3. Run a GPU-accelerated sample:
+   ```
+   CHIP_DEVICE_TYPE=gpu CHIP_BE=opencl ~/chipStar/build/samples/0_MatrixMultiply/MatrixMultiply
+   ```
+
+This process allows you to run the chipStar Docker image with GPU support, enabling GPU-accelerated computations within the container.
 
 ## DockerfileBase Overview
 

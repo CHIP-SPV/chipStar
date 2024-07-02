@@ -142,6 +142,9 @@ RUN conda run -n oneapi-2024.1.0 conda install -y \
     tbb=2021.12.0=intel_495 \
     level-zero=1.17.6
 
+# RUN conda config --add channels conda-forge && conda run -n oneapi-2024.1.0 conda install -y intel-compute-runtime
+RUN sudo apt install -y intel-opencl-icd vim
+
 # Install Level Zero headers system-wide
 RUN mkdir -p /tmp/level-zero-headers && \
     cd /tmp/level-zero-headers && \
@@ -156,7 +159,7 @@ RUN mkdir -p /tmp/level-zero-headers && \
     rm -rf /tmp/level-zero-headers
 
 # Delete Intel OpenCL Loader
-RUN rm /apps/conda/envs/oneapi-2024.1.0/lib/libOpenCL.so.1
+RUN rm -f /apps/conda/envs/oneapi-2024.1.0/lib/libOpenCL.so.1
 
 # Create a module file for OneAPI
 RUN mkdir -p /apps/modulefiles/Core/oneapi && \
@@ -175,6 +178,9 @@ RUN mkdir -p /apps/modulefiles/Core/oneapi && \
     echo '' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'setenv("ONEAPI_ROOT", base)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'setenv("ONEAPI_VERSION", version)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua
+
+# Set permissionst to enable non-root access to GPUs
+RUN echo 'sudo chmod 666 /dev/dri/* 2>/dev/null || true' >> /home/chipStarUser/.bashrc
 
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
