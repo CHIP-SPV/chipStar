@@ -26,11 +26,6 @@ THE SOFTWARE.
   and minimal modifications.
 */
 
-/* chipStar defines start */
-#define __llvm_rcp_f16(__X) ((__half)1.0f / (__half)__X)
-#define __llvm_rcp_2f16(__X) ((__half2)1.0f / (__half2)__X)
-/* chipStar defines end */
-
 #ifndef HIP_INCLUDE_HIP_HIP_RUNTIME_H
 #include <hip/hip_runtime.h>
 #endif
@@ -361,15 +356,14 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2() = default;
             __HOST_DEVICE__
-            __half2(const __half2_raw& x) : data{x.data} {}
+            __half2(const __half2_raw& xx) : data{xx.data} {}
             __HOST_DEVICE__
-            __half2(decltype(data) x) : data{x} {}
+            __half2(decltype(data) xx) : data{xx} {}
             __HOST_DEVICE__
-            __half2(const __half& x, const __half& y)
+            __half2(const __half& xx, const __half& yy)
                 :
-                data{
-                    static_cast<__half_raw>(x).data,
-                    static_cast<__half_raw>(y).data}
+                data{static_cast<__half_raw>(xx).data,
+                     static_cast<__half_raw>(yy).data}
             {}
             __HOST_DEVICE__
             __half2(const __half2&) = default;
@@ -384,36 +378,36 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2& operator=(__half2&&) = default;
             __HOST_DEVICE__
-            __half2& operator=(const __half2_raw& x)
+            __half2& operator=(const __half2_raw& xx)
             {
-                data = x.data;
+                data = xx.data;
                 return *this;
             }
 
             // MANIPULATORS - DEVICE ONLY
             #if !defined(__HIP_NO_HALF_OPERATORS__)
                 __device__
-                __half2& operator+=(const __half2& x)
+                __half2& operator+=(const __half2& xx)
                 {
-                    data += x.data;
+                    data += xx.data;
                     return *this;
                 }
                 __device__
-                __half2& operator-=(const __half2& x)
+                __half2& operator-=(const __half2& xx)
                 {
-                    data -= x.data;
+                    data -= xx.data;
                     return *this;
                 }
                 __device__
-                __half2& operator*=(const __half2& x)
+                __half2& operator*=(const __half2& xx)
                 {
-                    data *= x.data;
+                    data *= xx.data;
                     return *this;
                 }
                 __device__
-                __half2& operator/=(const __half2& x)
+                __half2& operator/=(const __half2& xx)
                 {
-                    data /= x.data;
+                    data /= xx.data;
                     return *this;
                 }
                 __device__
@@ -464,74 +458,74 @@ THE SOFTWARE.
                 friend
                 inline
                 __device__
-                __half2 operator+(const __half2& x, const __half2& y)
+                __half2 operator+(const __half2& xx, const __half2& yy)
                 {
-                    return __half2{x} += y;
+                    return __half2{xx} += yy;
                 }
                 friend
                 inline
                 __device__
-                __half2 operator-(const __half2& x, const __half2& y)
+                __half2 operator-(const __half2& xx, const __half2& yy)
                 {
-                    return __half2{x} -= y;
+                    return __half2{xx} -= yy;
                 }
                 friend
                 inline
                 __device__
-                __half2 operator*(const __half2& x, const __half2& y)
+                __half2 operator*(const __half2& xx, const __half2& yy)
                 {
-                    return __half2{x} *= y;
+                    return __half2{xx} *= yy;
                 }
                 friend
                 inline
                 __device__
-                __half2 operator/(const __half2& x, const __half2& y)
+                __half2 operator/(const __half2& xx, const __half2& yy)
                 {
-                    return __half2{x} /= y;
+                    return __half2{xx} /= yy;
                 }
                 friend
                 inline
                 __device__
-                bool operator==(const __half2& x, const __half2& y)
+                bool operator==(const __half2& xx, const __half2& yy)
                 {
-                    auto r = x.data == y.data;
+                    auto r = xx.data == yy.data;
                     return r.x != 0 && r.y != 0;
                 }
                 friend
                 inline
                 __device__
-                bool operator!=(const __half2& x, const __half2& y)
+                bool operator!=(const __half2& xx, const __half2& yy)
                 {
-                    return !(x == y);
+                    return !(xx == yy);
                 }
                 friend
                 inline
                 __device__
-                bool operator<(const __half2& x, const __half2& y)
+                bool operator<(const __half2& xx, const __half2& yy)
                 {
-                    auto r = x.data < y.data;
+                    auto r = xx.data < yy.data;
                     return r.x != 0 && r.y != 0;
                 }
                 friend
                 inline
                 __device__
-                bool operator>(const __half2& x, const __half2& y)
+                bool operator>(const __half2& xx, const __half2& yy)
                 {
-                    return y < x;
+                    return yy < xx;
                 }
                 friend
                 inline
                 __device__
-                bool operator<=(const __half2& x, const __half2& y)
+                bool operator<=(const __half2& xx, const __half2& yy)
                 {
-                    return !(y < x);
+                    return !(yy < xx);
                 }
                 friend
                 inline
                 __device__
-                bool operator>=(const __half2& x, const __half2& y)
+                bool operator>=(const __half2& xx, const __half2& yy)
                 {
-                    return !(x < y);
+                    return !(xx < yy);
                 }
             #endif // !defined(__HIP_NO_HALF_OPERATORS__)
         };
@@ -655,7 +649,6 @@ THE SOFTWARE.
                 return r;
             }
 
-            // TODO: rounding behaviour is not correct.
             // float -> half | half2
             inline
             __HOST_DEVICE__
@@ -669,23 +662,44 @@ THE SOFTWARE.
             {
                 return __half_raw{static_cast<_Float16>(x)};
             }
+            #if !defined(__HIPCC_RTC__)
+            // TODO: rounding behaviour is not correct for host functions.
             inline
-            __HOST_DEVICE__
+            __host__
             __half __float2half_rz(float x)
             {
                 return __half_raw{static_cast<_Float16>(x)};
             }
             inline
-            __HOST_DEVICE__
+            __host__
             __half __float2half_rd(float x)
             {
                 return __half_raw{static_cast<_Float16>(x)};
             }
             inline
-            __HOST_DEVICE__
+            __host__
             __half __float2half_ru(float x)
             {
                 return __half_raw{static_cast<_Float16>(x)};
+            }
+            #endif
+            inline
+            __device__
+            __half __float2half_rz(float x)
+            {
+                return __half_raw{__ocml_cvtrtz_f16_f32(x)};
+            }
+            inline
+            __device__
+            __half __float2half_rd(float x)
+            {
+                return __half_raw{__ocml_cvtrtn_f16_f32(x)};
+            }
+            inline
+            __device__
+            __half __float2half_ru(float x)
+            {
+                return __half_raw{__ocml_cvtrtp_f16_f32(x)};
             }
             inline
             __HOST_DEVICE__
@@ -1119,24 +1133,34 @@ THE SOFTWARE.
                 return static_cast<__half_raw>(x).data >
                     static_cast<__half_raw>(y).data;
             }
+             inline __device__
+            bool __hequ(__half x, __half y) {
+                return !(static_cast<__half_raw>(x).data < static_cast<__half_raw>(y).data) &&
+                    !(static_cast<__half_raw>(x).data > static_cast<__half_raw>(y).data);
+            }
+            inline __device__
+            bool __hneu(__half x, __half y) {
+                return !(static_cast<__half_raw>(x).data == static_cast<__half_raw>(y).data);
+            }
+            inline __device__
+            bool __hleu(__half x, __half y) {
+                return !(static_cast<__half_raw>(x).data > static_cast<__half_raw>(y).data);
+            }
             inline
             __device__
-            bool __hequ(__half x, __half y) { return __heq(x, y); }
+            bool __hgeu(__half x, __half y) {
+                return !(static_cast<__half_raw>(x).data < static_cast<__half_raw>(y).data);
+            }
             inline
             __device__
-            bool __hneu(__half x, __half y) { return __hne(x, y); }
+            bool __hltu(__half x, __half y) {
+                return !(static_cast<__half_raw>(x).data >= static_cast<__half_raw>(y).data);
+            }
             inline
             __device__
-            bool __hleu(__half x, __half y) { return __hle(x, y); }
-            inline
-            __device__
-            bool __hgeu(__half x, __half y) { return __hge(x, y); }
-            inline
-            __device__
-            bool __hltu(__half x, __half y) { return __hlt(x, y); }
-            inline
-            __device__
-            bool __hgtu(__half x, __half y) { return __hgt(x, y); }
+            bool __hgtu(__half x, __half y) {
+                return !(static_cast<__half_raw>(x).data <= static_cast<__half_raw>(y).data);
+            }
 
             inline
             __HOST_DEVICE__
@@ -1186,24 +1210,42 @@ THE SOFTWARE.
                     static_cast<__half2_raw>(y).data;
                 return __builtin_convertvector(-r, _Float16_2);
             }
+            inline __HOST_DEVICE__
+            __half2 __hequ2(__half2 x, __half2 y) {
+                auto r = !(static_cast<__half2_raw>(x).data < static_cast<__half2_raw>(y).data) &&
+                    !(static_cast<__half2_raw>(x).data > static_cast<__half2_raw>(y).data);
+                return __builtin_convertvector(-r, _Float16_2);
+            }
             inline
             __HOST_DEVICE__
-            __half2 __hequ2(__half2 x, __half2 y) { return __heq2(x, y); }
+            __half2 __hneu2(__half2 x, __half2 y) {
+                auto r = !(static_cast<__half2_raw>(x).data == static_cast<__half2_raw>(y).data);
+                return __builtin_convertvector(-r, _Float16_2);
+            }
             inline
             __HOST_DEVICE__
-            __half2 __hneu2(__half2 x, __half2 y) { return __hne2(x, y); }
+            __half2 __hleu2(__half2 x, __half2 y) {
+                auto r = !(static_cast<__half2_raw>(x).data > static_cast<__half2_raw>(y).data);
+                return __builtin_convertvector(-r, _Float16_2);
+            }
             inline
             __HOST_DEVICE__
-            __half2 __hleu2(__half2 x, __half2 y) { return __hle2(x, y); }
+            __half2 __hgeu2(__half2 x, __half2 y) {
+                auto r = !(static_cast<__half2_raw>(x).data < static_cast<__half2_raw>(y).data);
+                return __builtin_convertvector(-r, _Float16_2);
+            }
             inline
             __HOST_DEVICE__
-            __half2 __hgeu2(__half2 x, __half2 y) { return __hge2(x, y); }
+            __half2 __hltu2(__half2 x, __half2 y) {
+                auto r = !(static_cast<__half2_raw>(x).data >= static_cast<__half2_raw>(y).data);
+                return __builtin_convertvector(-r, _Float16_2);
+            }
             inline
             __HOST_DEVICE__
-            __half2 __hltu2(__half2 x, __half2 y) { return __hlt2(x, y); }
-            inline
-            __HOST_DEVICE__
-            __half2 __hgtu2(__half2 x, __half2 y) { return __hgt2(x, y); }
+            __half2 __hgtu2(__half2 x, __half2 y) {
+                auto r = !(static_cast<__half2_raw>(x).data <= static_cast<__half2_raw>(y).data);
+                return __builtin_convertvector(-r, _Float16_2);
+            }
 
             inline
             __HOST_DEVICE__
@@ -1265,7 +1307,39 @@ THE SOFTWARE.
             inline
             __HOST_DEVICE__
             bool __hbgtu2(__half2 x, __half2 y) { return __hbgt2(x, y); }
-
+            inline
+            __device__
+            __half __hmax(const __half x, const __half y) {
+              return __half_raw{__ocml_fmax_f16(static_cast<__half_raw>(x).data,
+                                   static_cast<__half_raw>(y).data)};
+            }
+            inline
+            __device__
+            __half __hmax_nan(const __half x, const __half y) {
+                if(__ocml_isnan_f16(static_cast<__half_raw>(x).data)) {
+                  return x;
+                } else if (__ocml_isnan_f16(static_cast<__half_raw>(y).data)) {
+                  return y;
+                }
+                return __hmax(x, y);
+            }
+            inline
+            __device__
+            __half __hmin(const __half x, const __half y) {
+              return __half_raw{__ocml_fmin_f16(static_cast<__half_raw>(x).data,
+                                   static_cast<__half_raw>(y).data)};
+            }
+            inline
+            __device__
+            __half __hmin_nan(const __half x, const __half y) {
+                if(__ocml_isnan_f16(static_cast<__half_raw>(x).data)) {
+                  return x;
+                } else if (__ocml_isnan_f16(static_cast<__half_raw>(y).data)) {
+                  return y;
+                }
+                return __hmin(x, y);
+            }
+            
             // Arithmetic
             inline
             __device__
@@ -1534,7 +1608,7 @@ THE SOFTWARE.
             __half hrcp(__half x)
             {
                 return __half_raw{
-                    __llvm_rcp_f16(static_cast<__half_raw>(x).data)};
+                    static_cast<_Float16>(1.0f) /static_cast<__half_raw>(x).data};
             }
 #endif
             inline
@@ -1568,13 +1642,6 @@ THE SOFTWARE.
             __half __hneg(__half x)
             {
                 return __half_raw{-static_cast<__half_raw>(x).data};
-            }
-            inline
-            __device__
-            __half __hmax(__half x, __half y)
-            {
-                return __half_raw{__ocml_fmax_f16(static_cast<__half_raw>(x).data,
-                    static_cast<__half_raw>(y).data)};
             }
 
             inline
@@ -1645,7 +1712,10 @@ THE SOFTWARE.
             __half2 h2log10(__half2 x) { return __ocml_log10_2f16(x); }
             inline
             __HOST_DEVICE__
-            __half2 h2rcp(__half2 x) { return __llvm_rcp_2f16(x); }
+            __half2 h2rcp(__half2 x) {
+                return _Float16_2{
+                    _Float16_2{static_cast<_Float16>(1.0f), static_cast<_Float16>(1.0f)} / x.data};
+            }
             inline
             __HOST_DEVICE__
             __half2 h2rsqrt(__half2 x) { return __ocml_rsqrt_2f16(x); }
@@ -1680,9 +1750,67 @@ THE SOFTWARE.
             using half = __half;
             using half2 = __half2;
         #endif
+        __device__
+        inline
+        __half __shfl(__half var, int src_lane, int width = warpSize) {
+           union { int i; __half h; } tmp; tmp.h = var;
+           tmp.i = __shfl(tmp.i, src_lane, width);
+           return tmp.h;
+        }
+        __device__
+        inline
+        __half2 __shfl(__half2 var, int src_lane, int width = warpSize) {
+           union { int i; __half2 h; } tmp; tmp.h = var;
+           tmp.i = __shfl(tmp.i, src_lane, width);
+           return tmp.h;
+        }
+        __device__
+        inline
+        __half __shfl_up(__half var, unsigned int lane_delta, int width = warpSize) {
+           union { int i; __half h; } tmp; tmp.h = var;
+           tmp.i = __shfl_up(tmp.i, lane_delta, width);
+           return tmp.h;
+        }
+        __device__
+        inline
+         __half2 __shfl_up(__half2 var, unsigned int lane_delta, int width = warpSize) {
+            union { int i; __half2 h; } tmp; tmp.h = var;
+            tmp.i = __shfl_up(tmp.i, lane_delta, width);
+            return tmp.h;
+         }
+         __device__
+         inline
+         __half __shfl_down(__half var, unsigned int lane_delta, int width = warpSize) {
+            union { int i; __half h; } tmp; tmp.h = var;
+            tmp.i = __shfl_down(tmp.i, lane_delta, width);
+            return tmp.h;
+         }
+         __device__
+         inline
+         __half2 __shfl_down(__half2 var, unsigned int lane_delta, int width = warpSize) {
+            union { int i; __half2 h; } tmp; tmp.h = var;
+            tmp.i = __shfl_down(tmp.i, lane_delta, width);
+            return tmp.h;
+         }
+         __device__
+         inline
+         __half __shfl_xor(__half var,  int lane_mask, int width = warpSize) {
+            union { int i; __half h; } tmp; tmp.h = var;
+            tmp.i = __shfl_xor(tmp.i, lane_mask, width);
+            return tmp.h;
+         }
+         __device__
+         inline
+          __half2 __shfl_xor(__half2 var,  int lane_mask, int width = warpSize) {
+             union { int i; __half2 h; } tmp; tmp.h = var;
+             tmp.i = __shfl_xor(tmp.i, lane_mask, width);
+             return tmp.h;
+         }
     #endif // defined(__cplusplus)
 #elif defined(__GNUC__)
-    #include "hip_fp16_gcc.h"
+    #if !defined(__HIPCC_RTC__)
+        #include "hip_fp16_gcc.h"
+    #endif
 #endif // !defined(__clang__) && defined(__GNUC__)
 
 #endif // HIP_INCLUDE_HIP_HIP_RUNTIME_H
