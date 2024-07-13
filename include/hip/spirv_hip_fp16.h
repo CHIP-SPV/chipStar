@@ -67,11 +67,11 @@ THE SOFTWARE.
         union {
             static_assert(sizeof(_Float16_2) == sizeof(unsigned short[2]), "");
 
-            _Float16_2 data;
             struct {
-                unsigned short x;
-                unsigned short y;
+                __half_raw x;
+                __half_raw y;
             };
+            _Float16_2 data;
         };
     };
 
@@ -350,11 +350,11 @@ THE SOFTWARE.
                 static_assert(
                     sizeof(_Float16_2) == sizeof(unsigned short[2]), "");
 
-                _Float16_2 data;
                 struct {
-                    unsigned short x;
-                    unsigned short y;
+                    __half x;
+                    __half y;
                 };
+                _Float16_2 data;
             };
 
             // CREATORS
@@ -440,7 +440,11 @@ THE SOFTWARE.
             __HOST_DEVICE__
             operator decltype(data)() const { return data; }
             __HOST_DEVICE__
-            operator __half2_raw() const { return __half2_raw{data}; }
+            operator __half2_raw() const {
+              __half2_raw r;
+              r.data = data;
+              return r;
+            }
 
             // ACCESSORS - DEVICE ONLY
             #if !defined(__HIP_NO_HALF_OPERATORS__)
@@ -584,7 +588,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __high2half2(__half2 x)
             {
-                return __half2_raw{
+                return __half2{
                     _Float16_2{
                         static_cast<__half2_raw>(x).data.y,
                         static_cast<__half2_raw>(x).data.y}};
@@ -594,7 +598,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __lows2half2(__half2 x, __half2 y)
             {
-                return __half2_raw{
+                return __half2{
                     _Float16_2{
                         static_cast<__half2_raw>(x).data.x,
                         static_cast<__half2_raw>(y).data.x}};
@@ -604,7 +608,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __highs2half2(__half2 x, __half2 y)
             {
-                return __half2_raw{
+                return __half2{
                     _Float16_2{
                         static_cast<__half2_raw>(x).data.y,
                         static_cast<__half2_raw>(y).data.y}};
@@ -614,7 +618,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __lowhigh2highlow(__half2 x)
             {
-                return __half2_raw{
+                return __half2{
                     _Float16_2{
                         static_cast<__half2_raw>(x).data.y,
                         static_cast<__half2_raw>(x).data.x}};
@@ -687,7 +691,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __float2half2_rn(float x)
             {
-                return __half2_raw{
+                return __half2{
                     _Float16_2{
                         static_cast<_Float16>(x), static_cast<_Float16>(x)}};
             }
@@ -695,7 +699,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __floats2half2_rn(float x, float y)
             {
-                return __half2_raw{_Float16_2{
+                return __half2{_Float16_2{
                     static_cast<_Float16>(x), static_cast<_Float16>(y)}};
             }
             inline
@@ -1351,7 +1355,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __hadd2(__half2 x, __half2 y)
             {
-                return __half2_raw{
+                return __half2{
                     static_cast<__half2_raw>(x).data +
                     static_cast<__half2_raw>(y).data};
             }
@@ -1359,14 +1363,14 @@ THE SOFTWARE.
 	    __HOST_DEVICE__
 	    __half2 __habs2(__half2 x)
 	    {
-	        return __half2_raw{
+	        return __half2{
 		    __ocml_fabs_2f16(static_cast<__half2_raw>(x).data)};
 	    }
             inline
             __HOST_DEVICE__
             __half2 __hsub2(__half2 x, __half2 y)
             {
-                return __half2_raw{
+                return __half2{
                     static_cast<__half2_raw>(x).data -
                     static_cast<__half2_raw>(y).data};
             }
@@ -1374,7 +1378,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __hmul2(__half2 x, __half2 y)
             {
-                return __half2_raw{
+                return __half2{
                     static_cast<__half2_raw>(x).data *
                     static_cast<__half2_raw>(y).data};
             }
@@ -1409,7 +1413,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __hfma2(__half2 x, __half2 y, __half2 z)
             {
-                return __half2_raw{__ocml_fma_2f16(x, y, z)};
+                return __half2{__ocml_fma_2f16(x, y, z)};
             }
             inline
             __HOST_DEVICE__
@@ -1424,7 +1428,7 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 __h2div(__half2 x, __half2 y)
             {
-                return __half2_raw{
+                return __half2{
                     static_cast<__half2_raw>(x).data /
                     static_cast<__half2_raw>(y).data};
             }
@@ -1577,61 +1581,61 @@ THE SOFTWARE.
             __HOST_DEVICE__
             __half2 h2trunc(__half2 x)
             {
-                return __half2_raw{__ocml_trunc_2f16(x)};
+                return __half2{__ocml_trunc_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2ceil(__half2 x)
             {
-                return __half2_raw{__ocml_ceil_2f16(x)};
+                return __half2{__ocml_ceil_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2floor(__half2 x)
             {
-                return __half2_raw{__ocml_floor_2f16(x)};
+                return __half2{__ocml_floor_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2rint(__half2 x)
             {
-                return __half2_raw{__ocml_rint_2f16(x)};
+                return __half2{__ocml_rint_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2sin(__half2 x)
             {
-                return __half2_raw{__ocml_sin_2f16(x)};
+                return __half2{__ocml_sin_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2cos(__half2 x)
             {
-                return __half2_raw{__ocml_cos_2f16(x)};
+                return __half2{__ocml_cos_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2exp(__half2 x)
             {
-                return __half2_raw{__ocml_exp_2f16(x)};
+                return __half2{__ocml_exp_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2exp2(__half2 x)
             {
-                return __half2_raw{__ocml_exp2_2f16(x)};
+                return __half2{__ocml_exp2_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2exp10(__half2 x)
             {
-                return __half2_raw{__ocml_exp10_2f16(x)};
+                return __half2{__ocml_exp10_2f16(x)};
             }
             inline
             __HOST_DEVICE__
             __half2 h2log2(__half2 x)
             {
-                return __half2_raw{__ocml_log2_2f16(x)};
+                return __half2{__ocml_log2_2f16(x)};
             }
             inline
             __HOST_DEVICE__
@@ -1653,7 +1657,7 @@ THE SOFTWARE.
             __half2 __hisinf2(__half2 x)
             {
                 auto r = __ocml_isinf_2f16(x);
-                return __half2_raw{_Float16_2{
+                return __half2{_Float16_2{
                     static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
             }
             inline
@@ -1661,14 +1665,14 @@ THE SOFTWARE.
             __half2 __hisnan2(__half2 x)
             {
                 auto r = __ocml_isnan_2f16(x);
-                return __half2_raw{_Float16_2{
+                return __half2{_Float16_2{
                     static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
             }
             inline
             __HOST_DEVICE__
             __half2 __hneg2(__half2 x)
             {
-                return __half2_raw{-static_cast<__half2_raw>(x).data};
+                return __half2{-static_cast<__half2_raw>(x).data};
             }
         } // Anonymous namespace.
 
