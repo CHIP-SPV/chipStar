@@ -2493,7 +2493,8 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
       KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
 
     Status = zeKernelCreate(ZeModule_, &KernelDesc, &ZeKernel);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    //CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(Status, ZE_RESULT_SUCCESS, DEFAULT_ZE_HIP_ERROR_MAP);
     logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", Status);
     CHIPKernelLevel0 *ChipZeKernel =
         new CHIPKernelLevel0(ZeKernel, LzDev, HostFName, FuncInfo, this);
