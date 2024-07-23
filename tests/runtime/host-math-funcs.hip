@@ -44,7 +44,7 @@ __global__ void mathFunctionsKernel(double* results) {
 }
 
 int main() {
-    const int numResults = 27;
+    const int numResults = 29;
     double hostResults[numResults];
     double* deviceResults;
     
@@ -199,7 +199,7 @@ int main() {
     if (host_signbit_result != static_cast<int>(hostResults[26])) {
         std::cout << "signbit test failed - Host: " << host_signbit_result << ", Device: " << static_cast<int>(hostResults[26]) << ", Diff: " << std::abs(host_signbit_result - static_cast<int>(hostResults[26])) << std::endl;
         all_passed = false;
-    
+    }
     if (std::abs(host_rsqrt_result - hostResults[27]) >= epsilon) {
         std::cout << "rsqrt test failed - Host: " << host_rsqrt_result << ", Device: " << hostResults[27] << ", Diff: " << std::abs(host_rsqrt_result - hostResults[27]) << std::endl;
         all_passed = false;
