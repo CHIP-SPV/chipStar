@@ -125,6 +125,9 @@ void CHIPInitializeCallOnce() {
 
 extern void CHIPInitialize() {
   std::call_once(Initialized, &CHIPInitializeCallOnce);
+  if (!Backend)
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
 }
 
 void CHIPUninitializeCallOnce() {
