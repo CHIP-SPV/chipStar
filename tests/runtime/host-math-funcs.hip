@@ -73,9 +73,9 @@ int main() {
     double host_rcbrt_result = rcbrt(8.0);
     float host_rcbrtf_result = rcbrtf(27.0f);
     double host_sincos_result_sin, host_sincos_result_cos;
-    host_sincos_result_sin = sincospi(0.25, &host_sincos_result_cos);
+    sincospi(0.25, &host_sincos_result_sin, &host_sincos_result_cos);
     float host_sincosf_result_sin, host_sincosf_result_cos;
-    host_sincosf_result_sin = sincospif(0.75f, &host_sincosf_result_cos);
+    sincospif(0.75f, &host_sincosf_result_sin, &host_sincosf_result_cos);
     double host_sinpi_result = sinpi(0.5);
     float host_sinpif_result = sinpif(0.25f);
     long long host_llmax_result = llmax(10LL, 20LL);
@@ -85,6 +85,8 @@ int main() {
     unsigned int host_umax_result = umax(90U, 100U);
     unsigned int host_umin_result = umin(110U, 120U);
     int host_signbit_result = signbit(-1.5);
+    double host_rsqrt_result = rsqrt(4.0);
+    float host_rsqrtf_result = rsqrtf(9.0f);
     
     // Compare results
     const double epsilon = 1e-6;
@@ -196,6 +198,14 @@ int main() {
     }
     if (host_signbit_result != static_cast<int>(hostResults[26])) {
         std::cout << "signbit test failed - Host: " << host_signbit_result << ", Device: " << static_cast<int>(hostResults[26]) << ", Diff: " << std::abs(host_signbit_result - static_cast<int>(hostResults[26])) << std::endl;
+        all_passed = false;
+    
+    if (std::abs(host_rsqrt_result - hostResults[27]) >= epsilon) {
+        std::cout << "rsqrt test failed - Host: " << host_rsqrt_result << ", Device: " << hostResults[27] << ", Diff: " << std::abs(host_rsqrt_result - hostResults[27]) << std::endl;
+        all_passed = false;
+    }
+    if (std::abs(host_rsqrtf_result - hostResults[28]) >= epsilon) {
+        std::cout << "rsqrtf test failed - Host: " << host_rsqrtf_result << ", Device: " << hostResults[28] << ", Diff: " << std::abs(host_rsqrtf_result - hostResults[28]) << std::endl;
         all_passed = false;
     }
     

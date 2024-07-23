@@ -23,6 +23,8 @@ extern "C" {
     extern double __ocml_sincospi_f64(double x, double* pcos);
     extern float __ocml_sincospi_f32(float x, float* pcos);
     extern int __ocml_signbit_f64(double x);
+    extern double __ocml_rsqrt_f64(double x);
+    extern float __ocml_rsqrt_f32(float x);
 }
 
 // Trigonometric functions
@@ -58,11 +60,14 @@ inline float normcdfinvf(float x) { return __ocml_ncdfinv_f32(x); }
 inline double rcbrt(double x) { return __ocml_rcbrt_f64(x); }
 
 inline float rcbrtf(float x) { return __ocml_rcbrt_f32(x); }
-
 // Sine and cosine of pi times x
-inline double sincospi(double x, double* pcos) { return __ocml_sincospi_f64(x, pcos); }
+inline void sincospi(double x, double* psin, double* pcos) { 
+    *psin = __ocml_sincospi_f64(x, pcos);
+}
 
-inline float sincospif(float x, float* pcos) { return __ocml_sincospi_f32(x, pcos); }
+inline void sincospif(float x, float* psin, float* pcos) { 
+    *psin = __ocml_sincospi_f32(x, pcos);
+}
 
 // Integer max/min functions
 inline long long llmax(long long a, long long b) { return std::max(a, b); }
@@ -74,5 +79,10 @@ inline unsigned int umin(unsigned int a, unsigned int b) { return std::min(a, b)
 
 // Sign bit
 inline int signbit(double x) { return __ocml_signbit_f64(x); }
+
+inline double rsqrt(double x) { return __ocml_rsqrt_f64(x); }
+
+inline float rsqrtf(float x) { return __ocml_rsqrt_f32(x); }
+
 
 #endif // HIP_INCLUDE_DEVICELIB_HOST_MATH_FUNCS_H

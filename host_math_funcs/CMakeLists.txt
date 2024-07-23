@@ -96,6 +96,12 @@ file(COPY ${OCML_SRC_DIR}/sinpiD.cl DESTINATION ${CMAKE_BINARY_DIR}/host_math_fu
 # # sinpif			OpenCL in chipStar (call sinpi)
 file(COPY ${OCML_SRC_DIR}/sinpiF.cl DESTINATION ${CMAKE_BINARY_DIR}/host_math_funcs)
 
+# rsqrt			OCML in chipStar (__ocml_rsqrt_f64)
+file(COPY ${OCML_SRC_DIR}/rsqrtD.cl DESTINATION ${CMAKE_BINARY_DIR}/host_math_funcs)
+
+# rsqrtf			OCML in chipStar (__ocml_rsqrt_f32)
+file(COPY ${OCML_SRC_DIR}/rsqrtF.cl DESTINATION ${CMAKE_BINARY_DIR}/host_math_funcs)
+
 # llmax			calling max() in chipStar
 # llmin			calling min() in chipStar
 # ullmax			calling max() in chipStar
