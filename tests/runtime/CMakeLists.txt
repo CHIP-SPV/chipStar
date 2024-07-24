@@ -108,6 +108,7 @@ add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
 
 add_hip_runtime_test(CatchMemLeak1.hip)
 add_hip_runtime_test(TestBufferDevAddr.hip)
+add_hip_runtime_test(Test887.hip)
 
 add_hip_runtime_test(host-math-funcs.hip)
 set_tests_properties("host-math-funcs" PROPERTIES
