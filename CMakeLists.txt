@@ -258,7 +258,7 @@ set(DEFAULT_WARP_SIZE 32 CACHE STRING "The warp size to use.")
 
 # Set the default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "The build type to use Debug, Release, RelWithDebInfo, MinRelSize" FORCE)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "The build type to use Debug, Release, RelWithDebInfo, MinRelSize" FORCE)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
