@@ -90,3 +90,31 @@ add_compile_test(NAME cucc-include-cuda-runtime-twice
 #           cuda-inside.c' line correctly.
 #add_compile_test(NAME cucc-x-behavior
 #  COMPILE_OPTIONS "cuda-inside.cpp cuda-inside.c -x cu")
+
+# Test that cucc translates --relocatable-device-code=true to -fgpu-rdc
+add_compile_test(NAME cucc-relocatable-device-code-true
+  COMPILE_OPTIONS "--relocatable-device-code=true hello.cu -c -o /dev/null")
+set_tests_properties(cucc-relocatable-device-code-true PROPERTIES
+  ENVIRONMENT CHIP_CUCC_VERBOSE=1
+  PASS_REGULAR_EXPRESSION "Executing: .*hipcc .*-fgpu-rdc.*")
+
+# Test that cucc translates --device-c to -fgpu-rdc -c
+add_compile_test(NAME cucc-device-c
+  COMPILE_OPTIONS "--device-c hello.cu -o /dev/null")
+set_tests_properties(cucc-device-c PROPERTIES
+  ENVIRONMENT CHIP_CUCC_VERBOSE=1
+  PASS_REGULAR_EXPRESSION "Executing: .*hipcc .*-fgpu-rdc.*-c.*")
+
+# Test that cucc translates -dc to -fgpu-rdc -c
+add_compile_test(NAME cucc-dc
+  COMPILE_OPTIONS "-dc hello.cu -o /dev/null")
+set_tests_properties(cucc-dc PROPERTIES
+  ENVIRONMENT CHIP_CUCC_VERBOSE=1
+  PASS_REGULAR_EXPRESSION "Executing: .*hipcc .*-fgpu-rdc.*-c.*")
+
+# Test that cucc translates --relocatable-device-code=true --compile to -fgpu-rdc -c
+add_compile_test(NAME cucc-relocatable-device-code-true-compile
+  COMPILE_OPTIONS "--relocatable-device-code=true --compile hello.cu -o /dev/null")
+set_tests_properties(cucc-relocatable-device-code-true-compile PROPERTIES
+  ENVIRONMENT CHIP_CUCC_VERBOSE=1
+  PASS_REGULAR_EXPRESSION "Executing: .*hipcc .*-fgpu-rdc.*-c.*")

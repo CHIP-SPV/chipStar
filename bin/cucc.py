@@ -133,6 +133,12 @@ def prepare_argparser() -> argparse.ArgumentParser:
                         nargs=0, action=IgnoredOption)
     parser.add_argument("-gencode", "--gencode",
                         nargs="?", action=IgnoredOption)
+
+    # Add new arguments for relocatable device code and device compilation
+    parser.add_argument("--relocatable-device-code", choices=['true', 'false'])
+    parser.add_argument("--device-c", action='store_true')
+    parser.add_argument("-dc", action='store_true')
+
     return parser
 
 def get_hip_path() -> str:
@@ -275,6 +281,15 @@ def main():
             # confused by the extra output from the hipcc.
         else:
             hipcc_args.append("-v")
+
+    # Handle relocatable device code and device compilation flags
+    if (known_args.relocatable_device_code == 'true' or
+        known_args.device_c or
+        known_args.dc):
+            hipcc_args.append("-fgpu-rdc")
+    
+    if known_args.device_c or known_args.dc or "-dc" in other_args or "--device-c" in other_args:
+        hipcc_args.append("-c")
 
     if other_args is not None:
         hipcc_args.extend(filter_args_for_hipcc(other_args))
