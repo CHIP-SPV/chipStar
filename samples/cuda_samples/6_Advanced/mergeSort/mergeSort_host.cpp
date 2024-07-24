@@ -37,10 +37,10 @@ static void checkOrder(uint *data, uint N, uint sortDir)
         }
 }
 
-static uint umin(uint a, uint b)
-{
-    return (a <= b) ? a : b;
-}
+// static uint umin(uint a, uint b)
+// {
+//     return (a <= b) ? a : b;
+// }
 
 static uint getSampleCount(uint dividend)
 {

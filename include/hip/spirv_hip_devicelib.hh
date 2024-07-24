@@ -66,6 +66,8 @@ THE SOFTWARE.
 #include <hip/devicelib/integer/int_intrinsics.hh>
 #include <hip/devicelib/integer/int_math.hh>
 
+#include <hip/devicelib/host_math_funcs.hh>
+
 #pragma push_macro("__DEF_FLOAT_FUN")
 #pragma push_macro("__DEF_FLOAT_FUN2")
 #pragma push_macro("__HIP_OVERLOAD")
