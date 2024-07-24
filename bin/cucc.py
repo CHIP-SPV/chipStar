@@ -133,6 +133,10 @@ def prepare_argparser() -> argparse.ArgumentParser:
                         nargs=0, action=IgnoredOption)
     parser.add_argument("-gencode", "--gencode",
                         nargs="?", action=IgnoredOption)
+    parser.add_argument("--relocatable-device-code", "-rdc", choices=['true', 'false'],
+                        help="Enable or disable the generation of relocatable device code.")
+    parser.add_argument("--device-c", "-dc", action='store_true')
+    parser.add_argument("--device-w", "-dw", action='store_true')
     return parser
 
 def get_hip_path() -> str:
@@ -275,6 +279,16 @@ def main():
             # confused by the extra output from the hipcc.
         else:
             hipcc_args.append("-v")
+
+    if known_args.relocatable_device_code == "true":
+        hipcc_args.append("-fgpu-rdc")
+
+    if known_args.device_c:
+        hipcc_args.append("-fgpu-rdc")
+        hipcc_args.append("-c")
+
+    if known_args.device_w:
+        hipcc_args.append("-c")
 
     if other_args is not None:
         hipcc_args.extend(filter_args_for_hipcc(other_args))
