@@ -512,9 +512,9 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 #             combined compile and link or when the --hip-link is
 #             present at the link step.
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
-  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt")
+  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
-  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt")
+  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
@@ -808,3 +808,6 @@ endif()
 
 # Include docker targets
 include(cmake/docker.cmake)
+
+add_subdirectory(host_math_funcs)
+target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)

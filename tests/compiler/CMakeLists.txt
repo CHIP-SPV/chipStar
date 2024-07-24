@@ -122,4 +122,4 @@ add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check __FAST_MATH__ is set for -ffast-math and preprocessor guards
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
-
+add_hipcc_test(invalid-bitwidth-128.hip)
