@@ -68,6 +68,12 @@ public:
     }                                                                          \
   } while (0)
 
+#define CHIPERR_LOG_AND_ABORT(msg)                                             \
+  do {                                                                         \
+    logError("{} in {}:{}:{}\n", msg, __FILE__, __LINE__, __func__);           \
+    std::abort();                                                              \
+  } while (0)
+
 #define CHIPERR_CHECK_LOG_AND_ABORT(status, success, errtype, ...)             \
   do {                                                                         \
     if (status != success) {                                                   \
