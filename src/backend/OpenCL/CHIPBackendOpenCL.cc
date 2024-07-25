@@ -1497,7 +1497,7 @@ void CHIPQueueOpenCL::finish() {
   LOCK(Backend->DubiousLockOpenCL)
 #endif
   auto Status = get()->finish();
-  CHIPERR_CHECK_LOG_AND_ABORT(Status, CL_SUCCESS, hipErrorTbd);
+  // CHIPERR_CHECK_LOG_AND_ABORT(Status, CL_SUCCESS, hipErrorTbd);
 }
 
 std::shared_ptr<chipstar::Event>

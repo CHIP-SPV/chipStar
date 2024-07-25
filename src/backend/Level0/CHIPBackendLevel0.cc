@@ -22,7 +22,6 @@
 
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
-#include "zeHipErrorConversion.hh"
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
