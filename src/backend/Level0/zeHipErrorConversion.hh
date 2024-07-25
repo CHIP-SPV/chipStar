@@ -330,11 +330,11 @@ const std::unordered_map<void *, ze_hip_error_map_t> ZE_HIP_ERROR_MAPS = {
 
 // function converting ze_result_t into hipError_t based on provided map
 template <typename FuncPtr>
-inline hipError_t hip_convert_error(ze_result_t Status, FuncPtr func) {
+inline hipError_t hip_convert_error(ze_result_t zeStatus, FuncPtr func) {
   auto it = ZE_HIP_ERROR_MAPS.find((void *)func);
   if (it != ZE_HIP_ERROR_MAPS.end()) {
     auto &errorMap = it->second;
-    auto errorIt = errorMap.find(Status);
+    auto errorIt = errorMap.find(zeStatus);
     if (errorIt != errorMap.end()) {
       return errorIt->second;
     }
@@ -344,14 +344,14 @@ inline hipError_t hip_convert_error(ze_result_t Status, FuncPtr func) {
 
 #define CHIPERR_CHECK_LOG_AND_THROW_TABLE(func, ...)                           \
   do {                                                                         \
-    if (Status != ZE_RESULT_SUCCESS) {                                         \
-      hipError_t err = hip_convert_error(Status, func);                        \
+    if (zeStatus != ZE_RESULT_SUCCESS) {                                         \
+      hipError_t err = hip_convert_error(zeStatus, func);                        \
       if (err == hipErrorTbd) {                                                \
         std::cerr << "Error: Unmapped API or API Error Code encountered at "   \
                   << __FILE__ << ":" << __LINE__ << std::endl;                 \
         std::abort();                                                          \
       }                                                                        \
-      std::string error_msg = std::string(resultToString(Status));             \
+      std::string error_msg = std::string(resultToString(zeStatus));             \
       std::string custom_msg = std::string(__VA_ARGS__);                       \
       std::string msg_ = error_msg + " " + custom_msg;                         \
       CHIPERR_LOG_AND_THROW(msg_, err);                                        \
@@ -360,8 +360,8 @@ inline hipError_t hip_convert_error(ze_result_t Status, FuncPtr func) {
 
 #define CHIPERR_CHECK_LOG_AND_ABORT(...)                                       \
   do {                                                                         \
-    if (Status != ZE_RESULT_SUCCESS) {                                         \
-      std::string error_msg = std::string(resultToString(Status));             \
+    if (zeStatus != ZE_RESULT_SUCCESS) {                                         \
+      std::string error_msg = std::string(resultToString(zeStatus));             \
       std::string custom_msg = std::string(__VA_ARGS__);                       \
       std::string msg_ = error_msg + " " + custom_msg;                         \
       std::cout << msg_ << std::endl;                                          \
@@ -372,8 +372,8 @@ inline hipError_t hip_convert_error(ze_result_t Status, FuncPtr func) {
 #undef CHIPERR_CHECK_LOG_AND_THROW
 #define CHIPERR_CHECK_LOG_AND_THROW(errtype, ...)                              \
   do {                                                                         \
-    if (Status != ZE_RESULT_SUCCESS) {                                         \
-      std::string error_msg = std::string(resultToString(Status));             \
+    if (zeStatus != ZE_RESULT_SUCCESS) {                                         \
+      std::string error_msg = std::string(resultToString(zeStatus));             \
       std::string custom_msg = std::string(__VA_ARGS__);                       \
       std::string msg_ = error_msg + " " + custom_msg;                         \
       CHIPERR_LOG_AND_THROW(msg_, errtype);                                    \
