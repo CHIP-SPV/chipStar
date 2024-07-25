@@ -58,16 +58,6 @@ public:
     throw CHIPError(msg, errtype);                                             \
   } while (0)
 
-#define CHIPERR_CHECK_LOG_AND_THROW(status, success, errtype, ...)             \
-  do {                                                                         \
-    if (status != success) {                                                   \
-      std::string error_msg = std::string(resultToString(status));             \
-      std::string custom_msg = std::string(__VA_ARGS__);                       \
-      std::string msg_ = error_msg + " " + custom_msg;                         \
-      CHIPERR_LOG_AND_THROW(msg_, errtype);                                    \
-    }                                                                          \
-  } while (0)
-
 #define CHIPERR_LOG_AND_ABORT(msg)                                             \
   do {                                                                         \
     logError("{} in {}:{}:{}\n", msg, __FILE__, __LINE__, __func__);           \

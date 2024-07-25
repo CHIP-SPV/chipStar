@@ -83,9 +83,8 @@ static cl_sampler createSampler(cl_context Ctx, const hipResourceDesc &ResDesc,
                                           CL_SAMPLER_FILTER_MODE,
                                           FilterMode,
                                           0};
-  cl_int clStatus = CL_SUCCESS;
   auto Sampler = clCreateSamplerWithProperties(Ctx, SamplerProps, &clStatus);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateSamplerWithProperties);
   return Sampler;
 }
 
@@ -197,11 +196,11 @@ static cl_mem createImage(cl_context Ctx, unsigned int TextureType,
       getImageDescription(TextureType, Width, Height, Depth);
   cl_int clStatus;
   // These must be zero when host_ptr argument is NULL.
-  CHIPASSERT(ImageDesc.image_row_pitch == 0);
-  CHIPASSERT(ImageDesc.image_slice_pitch == 0);
+  CHIPASSERT(ImageDesc.image_row_pitch == 0 &&
+             ImageDesc.image_slice_pitch == 0);
   cl_mem Image = clCreateImage(Ctx, CL_MEM_READ_ONLY, &ImageFormat, &ImageDesc,
                                nullptr, &clStatus);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateImage);
 
   return Image;
 }
@@ -220,11 +219,11 @@ static void memCopyToImage(cl_command_queue CmdQ, cl_mem Image,
 
   const size_t *DstOrigin = SrcRegion.Offset;
   const size_t *DstRegion = SrcRegion.Size;
-  cl_int clStatus = clEnqueueWriteImage(CmdQ, Image, BlockingCopy, DstOrigin,
-                                      DstRegion, InputRowPitch, InputSlicePitch,
-                                      HostSrc, 0, nullptr, nullptr);
+  cl_int clStatus = clEnqueueWriteImage(
+      CmdQ, Image, BlockingCopy, DstOrigin, DstRegion, InputRowPitch,
+      InputSlicePitch, HostSrc, 0, nullptr, nullptr);
   // TODO update last event
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueWriteImage);
 }
 
 /// Annotate indirect pointers to the OpenCL driver via clSetKernelExecInfo
@@ -279,9 +278,9 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
     // TODO: Optimization. Don't call this function again if we know the
     //       AnnotationList hasn't changed since the last call.
     clStatus = clSetKernelExecInfo(KernelAPIHandle, PtrListName,
-                                      AnnotationList.size() * sizeof(void *),
-                                      AnnotationList.data());
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+                                   AnnotationList.size() * sizeof(void *),
+                                   AnnotationList.data());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
   }
 
   return AllocKeepAlives;
@@ -313,7 +312,7 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
 
 // EventMonitorOpenCL
 // ************************************************************************
-EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor(){};
+EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor() {};
 
 void EventMonitorOpenCL::monitor() {
   logTrace("EventMonitorOpenCL::monitor()");
@@ -646,12 +645,12 @@ uint64_t CHIPEventOpenCL::getFinishTime() {
   int clStatus;
   uint64_t Ret;
   clStatus = clGetEventProfilingInfo(ClEvent, CL_PROFILING_COMMAND_END,
-                                   sizeof(Ret), &Ret, NULL);
+                                     sizeof(Ret), &Ret, NULL);
 
   if (clStatus != CL_SUCCESS) {
     clStatus = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
-                                 sizeof(int), &EventStatus_, NULL);
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+                              sizeof(int), &EventStatus_, NULL);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetEventInfo);
   }
   return Ret;
 }
@@ -661,8 +660,8 @@ size_t CHIPEventOpenCL::getRefCount() {
   if (ClEvent == nullptr)
     return 0;
   int clStatus = clGetEventInfo(getNativeRef(), CL_EVENT_REFERENCE_COUNT, 4,
-                              &RefCount, NULL);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+                                &RefCount, NULL);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetEventInfo);
   return RefCount;
 }
 
@@ -721,7 +720,7 @@ bool CHIPEventOpenCL::wait() {
 
   clStatus = clWaitForEvents(1, &ClEvent);
 
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clWaitForEvents);
   return true;
 }
 
@@ -733,8 +732,8 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
   int UpdatedStatus;
   clStatus = clGetEventInfo(ClEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
-                               sizeof(int), &UpdatedStatus, NULL);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+                            sizeof(int), &UpdatedStatus, NULL);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetEventInfo);
   if (ThrowErrorIfNotReady && UpdatedStatus != CL_COMPLETE) {
     CHIPERR_LOG_AND_THROW("chipstar::Event not yet ready", hipErrorNotReady);
   }
@@ -814,7 +813,7 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                              const std::string &Options = "") {
   cl_int Err;
   cl::Program Prog(clCreateProgramWithIL(Ctx.get(), IL, Length, &Err));
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateProgramWithIL);
 
   cl_device_id DevId = ChipDev.get()->get();
   Err = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0, nullptr,
@@ -889,14 +888,13 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   std::vector<cl::Kernel> Kernels;
   Err = Program_.createKernels(&Kernels);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernelsInProgram);
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
   for (int KernelIdx = 0; KernelIdx < Kernels.size(); KernelIdx++) {
     auto Krnl = Kernels[KernelIdx];
     std::string HostFName = Krnl.getInfo<CL_KERNEL_FUNCTION_NAME>(&Err);
-    CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError,
-                                "Failed to fetch OpenCL kernel name");
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
       continue; // TODO
@@ -971,8 +969,7 @@ Borrowed<cl::Kernel> CHIPKernelOpenCL::borrowUniqueKernelHandle() {
   auto *NewK = new cl::Kernel(*Module->get(), Name_.c_str(), &Err);
   if (Err != CL_SUCCESS) {
     delete NewK;
-    CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                "Failed to create kernel");
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernel);
   }
 
   return Borrowed<cl::Kernel>(NewK, ReturnToPool);
@@ -986,8 +983,7 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
   int Err = 0;
   // TODO attributes
   cl_uint NumArgs = ClKernel.getInfo<CL_KERNEL_NUM_ARGS>(&Err);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                              "Failed to get num args for kernel");
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
   assert(FuncInfo_->getNumKernelArgs() == NumArgs);
 
   MaxWorkGroupSize_ =
@@ -1106,10 +1102,10 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
                         SyncQueuesEventHandles.data(), MemMapEventNative);
   } else if (Type == chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE) {
     logDebug("CHIPQueueOpenCL::MemMap HOST_READ_WRITE");
-    clStatus = clEnqueueSVMMap(QueueHandle, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-                             AllocInfo->HostPtr, AllocInfo->Size,
-                             SyncQueuesEventHandles.size(),
-                             SyncQueuesEventHandles.data(), MemMapEventNative);
+    clStatus = clEnqueueSVMMap(
+        QueueHandle, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, AllocInfo->HostPtr,
+        AllocInfo->Size, SyncQueuesEventHandles.size(),
+        SyncQueuesEventHandles.data(), MemMapEventNative);
   } else {
     assert(0 && "Invalid MemMap Type");
   }
@@ -1183,7 +1179,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 
   std::static_pointer_cast<CHIPEventOpenCL>(CallbackEvent)->ClEvent =
       clCreateUserEvent(ClContext_->get(), &Err);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateUserEvent);
 
   // Make the succeeding commands wait for the user event which will be
   // set CL_COMPLETE by the callback trampoline function pfn_notify after
@@ -1201,7 +1197,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
           ->ClEvent,
       CL_COMPLETE, pfn_notify, Cb);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
   updateLastEvent(CallbackCompleted);
   get()->flush();
@@ -1227,7 +1223,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
       this->get()->get(), SyncQueuesEventHandles.size(),
       SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MarkerEvent)->getNativePtr());
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
   MarkerEvent->Msg = "marker";
   updateLastEvent(MarkerEvent);
   return MarkerEvent;
@@ -1273,7 +1269,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
       get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
       SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueNDRangeKernel);
 
   std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
       ExecItem->getArgSpillBuffer();
@@ -1298,7 +1294,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
         CL_COMPLETE, kernelEventCallback, CBData);
     if (clStatus != CL_SUCCESS) {
       delete CBData;
-      CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
     }
   }
 
@@ -1337,8 +1333,7 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
     cl_int clStatus;
     cl_command_queue_properties QProps =
         QFromUser.getInfo<CL_QUEUE_PROPERTIES>(&clStatus);
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS,
-                                hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetCommandQueueInfo);
 
     bool ProfilingIsEnabled = CL_QUEUE_PROFILING_ENABLE & QProps;
     if (ProfilingIsEnabled) {
@@ -1360,20 +1355,18 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
                                                 CL_QUEUE_PROFILING_ENABLE, 0};
 
     cl_int clStatus;
-    ClRegularQueue_ =
-        cl::CommandQueue(clCreateCommandQueueWithProperties(
-                             ClContext.get(), ClDevice.get(), nullptr, &clStatus),
-                         false);
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS,
-                                hipErrorInitializationError);
+    ClRegularQueue_ = cl::CommandQueue(
+        clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
+                                           nullptr, &clStatus),
+        false);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateCommandQueueWithProperties);
 
     if (!ChipEnvVars.getOCLDisableQueueProfiling()) {
       ClProfilingQueue_ = cl::CommandQueue(
           clCreateCommandQueueWithProperties(ClContext.get(), ClDevice.get(),
                                              QPropsForProfiling, &clStatus),
           false);
-      CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS,
-                                  hipErrorInitializationError);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateCommandQueueWithProperties);
     }
 
     QueueMode_ = Regular;
@@ -1404,12 +1397,12 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     clStatus = clEnqueueMarker(
         get()->get(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
   } else {
 #ifdef CHIP_DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockOpenCL)
 #endif
-      auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
+    auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
     std::vector<cl_event> SyncQueuesEventHandles =
         getOpenCLHandles(EventsToWait);
     auto *Ctx = getContext();
@@ -1427,7 +1420,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
           get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
           SyncQueuesEventHandles.data(),
           std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-      CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorRuntimeMemory);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMemcpy);
       break;
     }
 
@@ -1483,7 +1476,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
         break;
       }
       } // switch (Kind)
-      CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorRuntimeMemory);
+      CHIPERR_CHECK_LOG_AND_THROW(hipErrorRuntimeMemory);
       break;
     }
     } // switch (Ctx->getAllocStrategy())
@@ -1521,14 +1514,14 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
         get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueFillBuffer);
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
     int Retval = ::clEnqueueSVMMemFill(
         get()->get(), Dst, Pattern, PatternSize, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW(Retval, CL_SUCCESS, hipErrorRuntimeMemory);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMemFill);
   }
 
   updateLastEvent(Event);
@@ -1629,7 +1622,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
         get()->get(), SyncQueuesEventHandles.size(),
         SyncQueuesEventHandles.data(),
         &(std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef()));
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
   } else {
     // clStatus = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
     auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
@@ -1640,7 +1633,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
         get()->get(), SyncQueuesEventHandles.size(),
         SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
   }
 
   clGetEventInfo(
@@ -1680,10 +1673,10 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   cl_event SwitchEv;
   cl_int clStatus;
   clStatus = clEnqueueMarkerWithWaitList(FromQ.get(), 0, nullptr, &SwitchEv);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
 
   clStatus = clEnqueueBarrierWithWaitList(ToQ.get(), 1, &SwitchEv, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
 
   auto *ChipEv = new CHIPEventOpenCL(
       static_cast<CHIPContextOpenCL *>(ChipContext_), SwitchEv);
@@ -1728,8 +1721,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       cl_mem Image = TexObj->getImage();
       logTrace("set image arg {} for tex {}\n", Arg.Index, (void *)TexObj);
       Err = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_mem), &Image);
-      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                  "clSetKernelArg failed for image argument.");
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArg);
       break;
     }
     case SPVTypeKind::Sampler: {
@@ -1739,17 +1731,14 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       logTrace("set sampler arg {} for tex {}\n", Arg.Index, (void *)TexObj);
       Err = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_sampler),
                              &Sampler);
-      CHIPERR_CHECK_LOG_AND_THROW(
-          Err, CL_SUCCESS, hipErrorTbd,
-          "clSetKernelArg failed for sampler argument.");
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArg);
       break;
     }
     case SPVTypeKind::POD: {
       logTrace("clSetKernelArg {} SIZE {} to {}\n", Arg.Index, Arg.Size,
                Arg.Data);
       Err = ::clSetKernelArg(KernelHandle, Arg.Index, Arg.Size, Arg.Data);
-      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                  "clSetKernelArg failed");
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArg);
       break;
     }
     case SPVTypeKind::Pointer: {
@@ -1793,16 +1782,14 @@ void CHIPExecItemOpenCL::setupAllArgs() {
           Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, nullptr);
         }
       }
-      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                  "clSetKernelArgSVMPointer failed");
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }
     case SPVTypeKind::PODByRef: {
       auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
       assert(SpillSlot);
       Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, SpillSlot);
-      CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorTbd,
-                                  "clSetKernelArgSVMPointer failed");
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }
     }
@@ -1875,8 +1862,8 @@ void CHIPBackendOpenCL::initializeImpl() {
   logTrace("Using Devices of type {}", ChipEnvVars.getDevice().str());
 
   std::vector<cl::Platform> Platforms;
-  cl_int Err = cl::Platform::get(&Platforms);
-  if (Err != CL_SUCCESS) {
+  clStatus = cl::Platform::get(&Platforms);
+  if (clStatus != CL_SUCCESS) {
     logCritical("OpenCL failed to initialize any devices");
     std::exit(1);
   }
@@ -1898,16 +1885,16 @@ void CHIPBackendOpenCL::initializeImpl() {
             << " with SPIR-V_1 support:\n";
   std::vector<cl::Device> SupportedDevices;
   std::vector<cl::Device> Dev;
-  Err = SelectedPlatform.getDevices(SelectedDevType, &Dev);
-  CHIPERR_CHECK_LOG_AND_THROW(Err, CL_SUCCESS, hipErrorInitializationError);
+  clStatus = SelectedPlatform.getDevices(SelectedDevType, &Dev);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetPlatformIDs);
 
   for (auto D : Dev) {
 
     std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
 
     StrStream << DeviceName << " ";
-    std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&Err);
-    if ((Err != CL_SUCCESS) ||
+    std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&clStatus);
+    if ((clStatus != CL_SUCCESS) ||
         (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
       StrStream << " no SPIR-V support.\n";
       continue;

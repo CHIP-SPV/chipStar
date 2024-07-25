@@ -51,6 +51,8 @@
 #include "spirv.hh"
 #include "Utils.hh"
 
+#include "clHipErrorConversion.hh"
+
 static thread_local cl_int clStatus;
 
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
@@ -437,8 +439,7 @@ public:
   ///
   /// Precondition: HostPtr must be a valid pointer to a host allocation
   /// created with new T[].
-  template <typename T>
-  cl_int enqueueDeleteHostArray(T *HostPtr) {
+  template <typename T> cl_int enqueueDeleteHostArray(T *HostPtr) {
     assert(HostPtr);
     cl::Event CallbackEv;
     clStatus = get()->enqueueMarkerWithWaitList(nullptr, &CallbackEv);
@@ -543,7 +544,7 @@ class CHIPBackendOpenCL : public chipstar::Backend {
 public:
   /// OpenCL events don't require tracking so override and do nothing
   virtual void
-  trackEvent(const std::shared_ptr<chipstar::Event> &Event) override{};
+  trackEvent(const std::shared_ptr<chipstar::Event> &Event) override {};
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
