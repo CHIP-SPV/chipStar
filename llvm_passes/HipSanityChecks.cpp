@@ -13,7 +13,9 @@
 #include "HipSanityChecks.h"
 
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 
@@ -78,7 +80,11 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
     const auto &Name = Callee->getName();
     // Catch use of unexpected atomic built-ins. All HIP atomic operations
     // should be mapped to corresponding OpenCL built-ins.
+#if LLVM_VERSION_MAJOR < 19
     if (Name.startswith("__atomic_") || Name.startswith("__hip_atomic_")) {
+#else
+    if (Name.starts_with("__atomic_") || Name.starts_with("__hip_atomic_")) {
+#endif
       dbgs() << "Warning: Use of unsupported built-in atomic function: "
              << Callee->getName() << "\n";
 

@@ -31,6 +31,7 @@ llvm::Type *getSPIRVImageType(llvm::LLVMContext &Ctx, llvm::StringRef BaseType,
 
   // Choose the dimension of the image--this corresponds to the Dim enum in
   // SPIR-V (first integer parameter of OpTypeImage).
+#if LLVM_VERSION_MAJOR < 19
   if (OpenCLName.startswith("image2d"))
     IntParams[0] = 1; // 1D
   else if (OpenCLName.startswith("image3d"))
@@ -39,6 +40,16 @@ llvm::Type *getSPIRVImageType(llvm::LLVMContext &Ctx, llvm::StringRef BaseType,
     IntParams[0] = 5; // Buffer
   else
     assert(OpenCLName.startswith("image1d") && "Unknown image type");
+#else
+  if (OpenCLName.starts_with("image2d"))
+    IntParams[0] = 1; // 1D
+  else if (OpenCLName.starts_with("image3d"))
+    IntParams[0] = 2; // 2D
+  else if (OpenCLName == "image1d_buffer")
+    IntParams[0] = 5; // Buffer
+  else
+    assert(OpenCLName.starts_with("image1d") && "Unknown image type");
+#endif
 
   // Set the other integer parameters of OpTypeImage if necessary. Note that the
   // OpenCL image types don't provide any information for the Sampled or

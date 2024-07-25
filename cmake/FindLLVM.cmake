@@ -41,10 +41,6 @@ else() # if it was not defined, look for it
 endif()
 message(STATUS "Using llvm-config: ${LLVM_CONFIG_BIN}")
 
-get_filename_component(LLVM_CONFIG_BINARY_NAME ${LLVM_CONFIG_BIN} NAME)
-get_filename_component(LLVM_CONFIG_DIR ${LLVM_CONFIG_BIN} DIRECTORY)
-string(REGEX MATCH "[0-9]+" LLVM_VERSION_MAJOR "${LLVM_CONFIG_BINARY_NAME}")
-
 execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--obj-root"
   RESULT_VARIABLE RES
   OUTPUT_VARIABLE CLANG_ROOT_PATH
@@ -57,6 +53,7 @@ execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--version"
   OUTPUT_VARIABLE LLVM_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "Using LLVM_VERSION: ${LLVM_VERSION}")
+string(REGEX MATCH "[0-9]+" LLVM_VERSION_MAJOR "${LLVM_VERSION}")
 
 # Check if the LLVM_INCLUDE_DIR is already cached
 if(NOT LLVM_INCLUDE_DIRS)
@@ -105,8 +102,10 @@ if(NOT DEFINED LLVM_LINK)
 endif()
 message(STATUS "Using llvm-link: ${LLVM_LINK}")
 
+message(STATUS "XXX LLVM-version-major: ${LLVM_VERSION_MAJOR}") # DEBUG
+
 if(NOT DEFINED LLVM_SPIRV)
-  find_program(LLVM_SPIRV NAMES llvm-spirv llvm-spirv-${LLVM_VERSION_MAJOR} FIND_TARGET NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
+  find_program(LLVM_SPIRV NAMES llvm-spirv-${LLVM_VERSION_MAJOR} llvm-spirv FIND_TARGET NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
   if(NOT LLVM_SPIRV)
     message(FATAL_ERROR "Can't find llvm-spirv. Please provide CMake argument -DLLVM_SPIRV=/path/to/llvm-spirv<-version>")
   endif()
