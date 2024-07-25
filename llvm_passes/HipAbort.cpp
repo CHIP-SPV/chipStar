@@ -48,6 +48,8 @@
 
 #include "../src/common.hh"
 
+#include "llvm/IR/Module.h"
+
 #include <set>
 #include <iostream>
 

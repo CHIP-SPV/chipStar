@@ -23,6 +23,7 @@
 
 #include "HipStripUsedIntrinsics.h"
 
+#include "llvm/IR/Module.h"
 #if LLVM_VERSION_MAJOR >= 14
 #include "llvm/Pass.h"
 #endif

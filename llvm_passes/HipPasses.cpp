@@ -30,6 +30,7 @@
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
 
+#include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Transforms/IPO/Inliner.h"

@@ -49,6 +49,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/CommandLine.h"
@@ -107,7 +108,11 @@ bool isSpecial(const Argument &Arg) {
   // Only consider OpenCL and SPIR-V types - leave user defined opaque
   // structures alone (they are just plain pointers).
   StringRef Name = STy->getName();
+#if LLVM_VERSION_MAJOR < 19
   return (Name.startswith("opencl.") || Name.startswith("__spirv_"));
+#else
+  return (Name.starts_with("opencl.") || Name.starts_with("__spirv_"));
+#endif
 #endif
 }
 
