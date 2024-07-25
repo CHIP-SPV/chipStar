@@ -348,7 +348,7 @@ public:
   std::shared_ptr<chipstar::Event> CpuCallbackComplete;
   std::shared_ptr<chipstar::Event> GpuAck;
 
-  hipError_t Status;
+  hipError_t CallbackStatus;
   void *CallbackArgs;
   hipStreamCallback_t CallbackF;
 
