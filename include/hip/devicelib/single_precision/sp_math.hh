@@ -25,6 +25,20 @@
 
 #include <hip/devicelib/macros.hh>
 
+#ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+// Temporarily include this header to abort on failing math functions
+#if defined(__clang__) && defined(__HIP__)
+extern "C" {
+// A global flag included in all HIP device modules for signaling
+// abort request.
+extern __attribute__((weak)) __device__ int32_t __chipspv_abort_called;
+extern __device__ void __chipspv_abort(int32_t *abort_flag);
+}
+extern "C" __device__ int printf(const char *fmt, ...)
+    __attribute__((format(printf, 1, 2)));
+#endif
+#endif
+
 /**
  * @brief Declare as extern - we state that these funcitons are implemented and
  * will be found at link time
@@ -129,7 +143,11 @@ extern "C++" inline __device__ float erfcf(float x) { return ::erfc(x); }
 #endif
 
 extern "C" __device__  float __ocml_erfcinv_f32(float x); // OCML
-extern "C++" inline __device__ float erfcinvf(float x) { return ::__ocml_erfcinv_f32(x); }
+extern "C++" inline __device__ float erfcinvf(float x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: erfcinvf is known to give bad results\n");
+  #endif
+  return ::__ocml_erfcinv_f32(x); }
 
 extern "C" __device__  float __ocml_erfcx_f32(float x); // OCML
 extern "C++" inline __device__ float erfcxf(float x) { return ::__ocml_erfcx_f32(x); }
@@ -138,7 +156,11 @@ extern "C++" __device__ float erf(float x); // OpenCL
 extern "C++" inline __device__ float erff(float x) { return ::erf(x); }
 
 extern "C" __device__  float __ocml_erfinv_f32(float x); // OCML
-extern "C++" inline __device__ float erfinvf(float x) { return ::__ocml_erfinv_f32(x); }
+extern "C++" inline __device__ float erfinvf(float x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: erfinvf is known to give bad results\n");
+  #endif
+  return ::__ocml_erfinv_f32(x); }
 
 extern "C++" __device__ float exp10(float x); // OpenCL
 extern "C++" __device__ float native_exp10(float x); // OpenCL
@@ -424,6 +446,9 @@ extern "C++" inline __device__ float normcdff(float x) { return ::__ocml_ncdf_f3
 
 extern "C" __device__  float __ocml_ncdfinv_f32(float x); // OCML
 extern "C++" inline __device__ float normcdfinvf(float x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: normcdfinvf is known to give bad results\n");
+  #endif
   return ::__ocml_ncdfinv_f32(x);
 }
 
@@ -449,7 +474,12 @@ extern "C++" inline __device__ float powf(float x, float y) {
 #endif
 
 extern "C" __device__  float __ocml_rcbrt_f32(float x); // OCML
-extern "C++" inline __device__ float rcbrtf(float x) { return ::__ocml_rcbrt_f32(x); }
+extern "C++" inline __device__ float rcbrtf(float x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: rcbrtf is known to give bad results\n");
+  #endif
+  return ::__ocml_rcbrt_f32(x);
+}
 
 extern "C++" __device__ float remainder(float x, float y); // OpenCL
 extern "C++" inline __device__ float remainderf(float x, float y) {
@@ -508,6 +538,9 @@ extern "C++" inline __device__ float roundf(float x) {
 extern "C++" __device__ float rsqrt(float x);        // OpenCL
 extern "C++" __device__ float native_rsqrt(float x); // OpenCL
 extern "C++" inline __device__ float rsqrtf(float x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: rsqrtf is known to give bad results\n");
+  #endif
 #ifdef __FAST_MATH__
   return ::native_rsqrt(x);
 #else
