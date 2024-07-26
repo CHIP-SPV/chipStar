@@ -25,6 +25,20 @@
 
 #include <hip/devicelib/macros.hh>
 
+#ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+// Temporarily include this header to abort on failing math functions
+#if defined(__clang__) && defined(__HIP__)
+extern "C" {
+// A global flag included in all HIP device modules for signaling
+// abort request.
+extern __attribute__((weak)) __device__ int32_t __chipspv_abort_called;
+extern __device__ void __chipspv_abort(int32_t *abort_flag);
+}
+extern "C" __device__ int printf(const char *fmt, ...)
+    __attribute__((format(printf, 1, 2)));
+#endif
+#endif
+
 #if defined __has_builtin && __has_builtin(__builtin_acos)
 // Must use 'static' here for the HIP built-ins mapped to compiler
 // built-ins where the HIP built-ins' signature coincides with OpenCL
@@ -126,6 +140,9 @@ extern "C++" __device__ double erfc(double x);
 
 extern "C" __device__  double __ocml_erfcinv_f64(double x); // OCML
 extern "C++" inline __device__ double erfcinv(double x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: erfcinv is known to give bad results\n");
+  #endif
   return ::__ocml_erfcinv_f64(x);
 }
 
@@ -349,6 +366,9 @@ extern "C++" inline __device__ double normcdf(double x) {
 
 extern "C" __device__  double __ocml_ncdfinv_f64(double x); // OCML
 extern "C++" inline __device__ double normcdfinv(double x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: normcdfinv is known to give bad results\n");
+  #endif
   return ::__ocml_ncdfinv_f64(x);
 }
 
@@ -362,6 +382,9 @@ extern "C++" __device__ double pow(double x, double y); // OpenCL
 
 extern "C" __device__  double __ocml_rcbrt_f64(double x); // OCML
 extern "C++" inline __device__ double rcbrt(double x) {
+  #ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+    printf("Error: rcbrt is known to give bad results\n");
+  #endif
   return ::__ocml_rcbrt_f64(x);
 }
 
@@ -408,7 +431,15 @@ extern "C++" inline __device__ double rsqrt(double x) {
   return ::native_rsqrt(x);
 }
 #else
+#ifdef CHIP_ERROR_ON_FAILING_DEVICE_MATH
+inline __device__ double rsqrt(double x)  {// OpenCL  
+    printf("Error: rsqrt is known to give bad results\n");
+  return 0;
+}
+#else
 extern "C++" __device__ double rsqrt(double x); // OpenCL
+#endif
+
 #endif
 
 extern "C" __device__  double __ocml_scalb_f64(double x, double n);

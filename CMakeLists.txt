@@ -220,6 +220,7 @@ option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extensio
 option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" OFF)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
+option(CHIP_ERROR_ON_FAILING_DEVICE_MATH "Error on failing device math tests" OFF)
 
 # This mitigation might be necessary on some systems with an older runtime. 
 # This mitigation makes memory resident (disable swapping) on the GPU
