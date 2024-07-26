@@ -504,6 +504,7 @@ inline hipError_t hip_convert_error(cl_int clStatus, FuncPtr func) {
   return hipErrorTbd;
 }
 
+#undef CHIPERR_CHECK_LOG_AND_THROW_TABLE
 #define CHIPERR_CHECK_LOG_AND_THROW_TABLE(func, ...)                           \
   do {                                                                         \
     if (clStatus != CL_SUCCESS) {                                              \

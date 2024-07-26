@@ -342,6 +342,7 @@ inline hipError_t hip_convert_error(ze_result_t zeStatus, FuncPtr func) {
   return hipErrorTbd;
 }
 
+#undef CHIPERR_CHECK_LOG_AND_THROW_TABLE
 #define CHIPERR_CHECK_LOG_AND_THROW_TABLE(func, ...)                           \
   do {                                                                         \
     if (zeStatus != ZE_RESULT_SUCCESS) {                                         \
@@ -358,6 +359,7 @@ inline hipError_t hip_convert_error(ze_result_t zeStatus, FuncPtr func) {
     }                                                                          \
   } while (0)
 
+#undef CHIPERR_CHECK_LOG_AND_ABORT
 #define CHIPERR_CHECK_LOG_AND_ABORT(...)                                       \
   do {                                                                         \
     if (zeStatus != ZE_RESULT_SUCCESS) {                                         \
