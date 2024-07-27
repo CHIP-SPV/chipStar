@@ -123,3 +123,4 @@ add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
 add_hipcc_test(invalid-bitwidth-128.hip)
+add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
