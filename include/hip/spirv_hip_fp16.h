@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015 - 2021 Advanced Micro Devices, Inc. All rights reserved.
+Copyright (c) 2015 - 2023 Advanced Micro Devices, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
   This file is an almost verbatim copy of
-  hipamd /include/hip/amd_detail/amd_hip_fp16.h (revision 348a177).
+  hipamd /include/hip/amd_detail/amd_hip_fp16.h (partially updated revision 348a177 to release 6.1.0 (revision eb08a4c)).
 
   Let's try to keep it as close to upstream and possible. No clang-format,
   and minimal modifications.
@@ -71,9 +71,10 @@ THE SOFTWARE.
     };
 
     #if defined(__cplusplus)
+      #if !defined(__HIPCC_RTC__)
         #include "spirv_math_fwd.h"
         #include "spirv_hip_vector_types.h"
-
+      #endif
         namespace std
         {
             template<> struct is_floating_point<_Float16> : std::true_type {};
@@ -649,7 +650,6 @@ THE SOFTWARE.
                 return r;
             }
 
-           // TODO: rounding behaviour is not correct.
             // float -> half | half2
             inline
             __HOST_DEVICE__
@@ -663,23 +663,44 @@ THE SOFTWARE.
             {
                 return __half_raw{static_cast<_Float16>(x)};
             }
+            #if !defined(__HIPCC_RTC__)
+            // TODO: rounding behaviour is not correct for host functions.
             inline
-            __HOST_DEVICE__
+            __host__
             __half __float2half_rz(float x)
             {
                 return __half_raw{static_cast<_Float16>(x)};
             }
             inline
-            __HOST_DEVICE__
+            __host__
             __half __float2half_rd(float x)
             {
                 return __half_raw{static_cast<_Float16>(x)};
             }
             inline
-            __HOST_DEVICE__
+            __host__
             __half __float2half_ru(float x)
             {
                 return __half_raw{static_cast<_Float16>(x)};
+            }
+            #endif
+            inline
+            __device__
+            __half __float2half_rz(float x)
+            {
+                return __half_raw{__ocml_cvtrtz_f16_f32(x)};
+            }
+            inline
+            __device__
+            __half __float2half_rd(float x)
+            {
+                return __half_raw{__ocml_cvtrtn_f16_f32(x)};
+            }
+            inline
+            __device__
+            __half __float2half_ru(float x)
+            {
+                return __half_raw{__ocml_cvtrtp_f16_f32(x)};
             }
             inline
             __HOST_DEVICE__
@@ -1113,7 +1134,7 @@ THE SOFTWARE.
                 return static_cast<__half_raw>(x).data >
                     static_cast<__half_raw>(y).data;
             }
-             inline __device__
+            inline __device__
             bool __hequ(__half x, __half y) {
                 return !(static_cast<__half_raw>(x).data < static_cast<__half_raw>(y).data) &&
                     !(static_cast<__half_raw>(x).data > static_cast<__half_raw>(y).data);
@@ -1287,7 +1308,39 @@ THE SOFTWARE.
             inline
             __HOST_DEVICE__
             bool __hbgtu2(__half2 x, __half2 y) { return __hbgt2(x, y); }
-            
+                        inline
+            __device__
+            __half __hmax(const __half x, const __half y) {
+              return __half_raw{__ocml_fmax_f16(static_cast<__half_raw>(x).data,
+                                   static_cast<__half_raw>(y).data)};
+            }
+            inline
+            __device__
+            __half __hmax_nan(const __half x, const __half y) {
+                if(__ocml_isnan_f16(static_cast<__half_raw>(x).data)) {
+                  return x;
+                } else if (__ocml_isnan_f16(static_cast<__half_raw>(y).data)) {
+                  return y;
+                }
+                return __hmax(x, y);
+            }
+            inline
+            __device__
+            __half __hmin(const __half x, const __half y) {
+              return __half_raw{__ocml_fmin_f16(static_cast<__half_raw>(x).data,
+                                   static_cast<__half_raw>(y).data)};
+            }
+            inline
+            __device__
+            __half __hmin_nan(const __half x, const __half y) {
+                if(__ocml_isnan_f16(static_cast<__half_raw>(x).data)) {
+                  return x;
+                } else if (__ocml_isnan_f16(static_cast<__half_raw>(y).data)) {
+                  return y;
+                }
+                return __hmin(x, y);
+            }
+
             // Arithmetic
             inline
             __device__
@@ -1698,68 +1751,11 @@ THE SOFTWARE.
             using half = __half;
             using half2 = __half2;
         #endif
-        __device__
-        inline
-        __half __shfl(__half var, int src_lane, int width = warpSize) {
-           union { int i; __half h; } tmp; tmp.h = var;
-           tmp.i = __shfl(tmp.i, src_lane, width);
-           return tmp.h;
-        }
-        __device__
-        inline
-        __half2 __shfl(__half2 var, int src_lane, int width = warpSize) {
-           union { int i; __half2 h; } tmp; tmp.h = var;
-           tmp.i = __shfl(tmp.i, src_lane, width);
-           return tmp.h;
-        }
-        __device__
-        inline
-        __half __shfl_up(__half var, unsigned int lane_delta, int width = warpSize) {
-           union { int i; __half h; } tmp; tmp.h = var;
-           tmp.i = __shfl_up(tmp.i, lane_delta, width);
-           return tmp.h;
-        }
-        __device__
-        inline
-         __half2 __shfl_up(__half2 var, unsigned int lane_delta, int width = warpSize) {
-            union { int i; __half2 h; } tmp; tmp.h = var;
-            tmp.i = __shfl_up(tmp.i, lane_delta, width);
-            return tmp.h;
-         }
-         __device__
-         inline
-         __half __shfl_down(__half var, unsigned int lane_delta, int width = warpSize) {
-            union { int i; __half h; } tmp; tmp.h = var;
-            tmp.i = __shfl_down(tmp.i, lane_delta, width);
-            return tmp.h;
-         }
-         __device__
-         inline
-         __half2 __shfl_down(__half2 var, unsigned int lane_delta, int width = warpSize) {
-            union { int i; __half2 h; } tmp; tmp.h = var;
-            tmp.i = __shfl_down(tmp.i, lane_delta, width);
-            return tmp.h;
-         }
-         __device__
-         inline
-         __half __shfl_xor(__half var,  int lane_mask, int width = warpSize) {
-            union { int i; __half h; } tmp; tmp.h = var;
-            tmp.i = __shfl_xor(tmp.i, lane_mask, width);
-            return tmp.h;
-         }
-         __device__
-         inline
-          __half2 __shfl_xor(__half2 var,  int lane_mask, int width = warpSize) {
-             union { int i; __half2 h; } tmp; tmp.h = var;
-             tmp.i = __shfl_xor(tmp.i, lane_mask, width);
-             return tmp.h;
-         }
     #endif // defined(__cplusplus)
 #elif defined(__GNUC__)
     #if !defined(__HIPCC_RTC__)
-        #include "hip_fp16_gcc.h"
+    #include "hip_fp16_gcc.h"
     #endif
 #endif // !defined(__clang__) && defined(__GNUC__)
 
 #endif // HIP_INCLUDE_HIP_HIP_RUNTIME_H
-
