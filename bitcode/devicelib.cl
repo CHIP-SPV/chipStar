@@ -51,73 +51,131 @@ NOOPT void device_free(void* ptr) {};
 // If not found, return -1.
 // In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
 EXPORT int __chip__fns64(unsigned long int mask, unsigned int base, int offset) {
-  unsigned long int temp_mask = mask;
-  int temp_offset = offset;
+    static const unsigned long int bit_masks[65] = {
+        0x0000000000000001ULL, 0x0000000000000002ULL, 0x0000000000000004ULL, 0x0000000000000008ULL,
+        0x0000000000000010ULL, 0x0000000000000020ULL, 0x0000000000000040ULL, 0x0000000000000080ULL,
+        0x0000000000000100ULL, 0x0000000000000200ULL, 0x0000000000000400ULL, 0x0000000000000800ULL,
+        0x0000000000001000ULL, 0x0000000000002000ULL, 0x0000000000004000ULL, 0x0000000000008000ULL,
+        0x0000000000010000ULL, 0x0000000000020000ULL, 0x0000000000040000ULL, 0x0000000000080000ULL,
+        0x0000000000100000ULL, 0x0000000000200000ULL, 0x0000000000400000ULL, 0x0000000000800000ULL,
+        0x0000000001000000ULL, 0x0000000002000000ULL, 0x0000000004000000ULL, 0x0000000008000000ULL,
+        0x0000000010000000ULL, 0x0000000020000000ULL, 0x0000000040000000ULL, 0x0000000080000000ULL,
+        0x0000000100000000ULL, 0x0000000200000000ULL, 0x0000000400000000ULL, 0x0000000800000000ULL,
+        0x0000001000000000ULL, 0x0000002000000000ULL, 0x0000004000000000ULL, 0x0000008000000000ULL,
+        0x0000010000000000ULL, 0x0000020000000000ULL, 0x0000040000000000ULL, 0x0000080000000000ULL,
+        0x0000100000000000ULL, 0x0000200000000000ULL, 0x0000400000000000ULL, 0x0000800000000000ULL,
+        0x0001000000000000ULL, 0x0002000000000000ULL, 0x0004000000000000ULL, 0x0008000000000000ULL,
+        0x0010000000000000ULL, 0x0020000000000000ULL, 0x0040000000000000ULL, 0x0080000000000000ULL,
+        0x0100000000000000ULL, 0x0200000000000000ULL, 0x0400000000000000ULL, 0x0800000000000000ULL,
+        0x1000000000000000ULL, 0x2000000000000000ULL, 0x4000000000000000ULL, 0x8000000000000000ULL,
+        0x0000000000000000ULL  // For base == 64
+    };
 
-  if (offset == 0) {
-    temp_mask &= (1 << base);
-    temp_offset = 1;
-  }
-  else if (offset < 0) {
-    temp_mask = __builtin_bitreverse64(mask);
-    base = 63 - base;
-    temp_offset = -offset;
-  }
+    unsigned long int temp_mask;
+    int temp_offset = offset;
 
-  temp_mask = temp_mask & ((~0ULL) << base);
-  if (__builtin_popcountll(temp_mask) < temp_offset)
-    return -1;
-  int total = 0;
-  for (int i = 0x20; i > 0; i >>= 1) {
-    unsigned long int temp_mask_lo = temp_mask & ((1ULL << i) - 1);
-    int pcnt = __builtin_popcountll(temp_mask_lo);
-    if (pcnt < temp_offset) {
-      temp_mask = temp_mask >> i;
-      temp_offset -= pcnt;
-      total += i;
+    if (offset == 0) {
+        if (base >= 64) {
+            return -1;  // Invalid base, return early
+        }
+        temp_mask = bit_masks[base];
+        temp_offset = 1;
+    }
+    else if (offset < 0) {
+        temp_mask = __builtin_bitreverse64(mask);
+        base = (base < 64) ? (63 - base) : 63;
+        temp_offset = -offset;
     }
     else {
-      temp_mask = temp_mask_lo;
+        temp_mask = mask;
     }
-  }
-  if (offset < 0)
-    return 63 - total;
-  else
-    return total;
+
+    // Ensure base is within 0-63 range
+    base &= 63;
+
+    // Apply mask based on base
+    temp_mask &= ~bit_masks[base] + 1;
+
+    int popcount = __builtin_popcountll(temp_mask);
+    if (popcount < temp_offset) {
+        return -1;
+    }
+
+    int total = 0;
+    for (int i = 32; i > 0; i >>= 1) {
+        unsigned long int temp_mask_lo = temp_mask & (bit_masks[i] - 1);
+        int pcnt = __builtin_popcountll(temp_mask_lo);
+        if (pcnt < temp_offset) {
+            temp_mask >>= i;
+            temp_offset -= pcnt;
+            total += i;
+        }
+        else {
+            temp_mask = temp_mask_lo;
+        }
+    }
+
+    return (offset < 0) ? (63 - total) : total;
 }
 
-EXPORT int __chip__fns32(unsigned long int mask, unsigned int base, int offset) {
-  unsigned long int temp_mask = mask;
-  int temp_offset = offset;
-  if (offset == 0) {
-    temp_mask &= (1 << base);
-    temp_offset = 1;
-  }
-  else if (offset < 0) {
-    temp_mask = __builtin_bitreverse64(mask);
-    base = 63 - base;
-    temp_offset = -offset;
-  }
-  temp_mask = temp_mask & ((~0ULL) << base);
-  if (__builtin_popcountll(temp_mask) < temp_offset)
-    return -1;
-  int total = 0;
-  for (int i = 0x20; i > 0; i >>= 1) {
-    unsigned long int temp_mask_lo = temp_mask & ((1ULL << i) - 1);
-    int pcnt = __builtin_popcountll(temp_mask_lo);
-    if (pcnt < temp_offset) {
-      temp_mask = temp_mask >> i;
-      temp_offset -= pcnt;
-      total += i;
+EXPORT int __chip__fns32(unsigned int mask, unsigned int base, int offset) {
+    static const unsigned int bit_masks[33] = {
+        0x00000001U, 0x00000002U, 0x00000004U, 0x00000008U,
+        0x00000010U, 0x00000020U, 0x00000040U, 0x00000080U,
+        0x00000100U, 0x00000200U, 0x00000400U, 0x00000800U,
+        0x00001000U, 0x00002000U, 0x00004000U, 0x00008000U,
+        0x00010000U, 0x00020000U, 0x00040000U, 0x00080000U,
+        0x00100000U, 0x00200000U, 0x00400000U, 0x00800000U,
+        0x01000000U, 0x02000000U, 0x04000000U, 0x08000000U,
+        0x10000000U, 0x20000000U, 0x40000000U, 0x80000000U,
+        0x00000000U  // For base == 32
+    };
+
+    unsigned int temp_mask;
+    int temp_offset = offset;
+
+    if (offset == 0) {
+        if (base >= 32) {
+            return -1;  // Invalid base, return early
+        }
+        temp_mask = bit_masks[base];
+        temp_offset = 1;
+    }
+    else if (offset < 0) {
+        temp_mask = __builtin_bitreverse32(mask);
+        base = (base < 32) ? (31 - base) : 31;
+        temp_offset = -offset;
     }
     else {
-      temp_mask = temp_mask_lo;
+        temp_mask = mask;
     }
-  }
-  if (offset < 0)
-    return 63 - total;
-  else
-    return total;
+
+    // Ensure base is within 0-31 range
+    base &= 31;
+
+    // Apply mask based on base
+    temp_mask &= ~bit_masks[base] + 1;
+
+    int popcount = __builtin_popcount(temp_mask);
+    if (popcount < temp_offset) {
+        return -1;
+    }
+
+    int total = 0;
+    for (int i = 16; i > 0; i >>= 1) {
+        unsigned int temp_mask_lo = temp_mask & (bit_masks[i] - 1);
+        int pcnt = __builtin_popcount(temp_mask_lo);
+        if (pcnt < temp_offset) {
+            temp_mask >>= i;
+            temp_offset -= pcnt;
+            total += i;
+        }
+        else {
+            temp_mask = temp_mask_lo;
+        }
+    }
+
+    return (offset < 0) ? (31 - total) : total;
 }
 
 
