@@ -28,8 +28,11 @@
 #include "../../CHIPBackend.hh"
 #include "ze_api.h"
 #include "../src/common.hh"
+#include "zeHipErrorConversion.hh"
 
-std::string resultToString(ze_result_t Status);
+static thread_local ze_result_t zeStatus; // instantiated in CHIPBackendLevel0.cc
+
+std::string resultToString(ze_result_t zeStatus);
 
 // fw declares
 class CHIPBackendLevel0;
@@ -206,45 +209,38 @@ class FencedCmdList {
 public:
   FencedCmdList(ze_device_handle_t &DevLz, ze_context_handle_t &CtxLz,
                 ze_command_list_desc_t &Desc) {
-    auto Status = zeCommandListCreate(CtxLz, DevLz, &Desc, &ZeCmdList_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to create command list");
+    zeStatus = zeCommandListCreate(CtxLz, DevLz, &Desc, &ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to create command list");
   }
 
   bool reset() {
-    auto Status = zeCommandListReset(ZeCmdList_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to reset command list");
+    zeStatus = zeCommandListReset(ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to reset command list");
     return true;
   }
 
   void execute(ze_command_queue_handle_t &CmdQLz) {
-    auto Status = zeFenceCreate(CmdQLz, &ZeFenceDesc_, &ZeFence_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to create fence");
-    Status = zeCommandListClose(ZeCmdList_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to close command list");
+    zeStatus = zeFenceCreate(CmdQLz, &ZeFenceDesc_, &ZeFence_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to create fence");
+    zeStatus = zeCommandListClose(ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to close command list");
 
-    Status =
+    zeStatus =
         zeCommandQueueExecuteCommandLists(CmdQLz, 1, &ZeCmdList_, ZeFence_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to execute command list");
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to execute command list");
   }
 
   bool isFinished() {
-    auto Status = zeFenceQueryStatus(ZeFence_);
-    return Status == ZE_RESULT_SUCCESS;
+    zeStatus = zeFenceQueryStatus(ZeFence_);
+    return zeStatus == ZE_RESULT_SUCCESS;
   }
 
   ~FencedCmdList() {
-    auto Status = zeCommandListDestroy(ZeCmdList_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to destroy command list");
+    zeStatus = zeCommandListDestroy(ZeCmdList_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to destroy command list");
 
-    Status = zeFenceDestroy(ZeFence_);
-    CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS,
-                                "Failed to destroy fence");
+    zeStatus = zeFenceDestroy(ZeFence_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to destroy fence");
   }
 
   ze_command_list_handle_t &getCmdList() { return ZeCmdList_; }
@@ -520,8 +516,8 @@ public:
     // The application must not call this function from
     // simultaneous threads with the same image handle.
     // Done via destructor should not be called from multiple threads
-    ze_result_t Status = zeImageDestroy(Handle);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    zeStatus = zeImageDestroy(Handle);
+    CHIPERR_CHECK_LOG_AND_THROW(hipErrorTbd);
   }
 
   // Destroy the LZ sampler object
@@ -529,8 +525,8 @@ public:
     // The application must not call this function
     // from simultaneous threads with the same sampler handle.
     // Done via destructor should not be called from multiple threads
-    ze_result_t Status = zeSamplerDestroy(Handle);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    zeStatus = zeSamplerDestroy(Handle);
+    CHIPERR_CHECK_LOG_AND_THROW(hipErrorTbd);
   }
 };
 

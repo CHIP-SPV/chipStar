@@ -51,6 +51,10 @@
 #include "spirv.hh"
 #include "Utils.hh"
 
+#include "clHipErrorConversion.hh"
+
+static thread_local cl_int clStatus;
+
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
 
 // Temporary definitions (copied from <POCL>/include/CL/cl_ext_pocl.h)
@@ -77,7 +81,7 @@ typedef cl_int(CL_API_CALL *clSetKernelArgDevicePointerEXT_fn)(
 
 #endif // cl_ext_buffer_device_address
 
-std::string resultToString(int Status);
+std::string resultToString(int clStatus);
 
 class CHIPContextOpenCL;
 class CHIPDeviceOpenCL;
@@ -95,7 +99,7 @@ public:
   CHIPQueueOpenCL *ChipQueue;
   void *CallbackArgs;
   hipStreamCallback_t CallbackF;
-  hipError_t Status;
+  hipError_t CallbackStatus;
 
   CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          chipstar::Queue *ChipQueue);
@@ -435,13 +439,12 @@ public:
   ///
   /// Precondition: HostPtr must be a valid pointer to a host allocation
   /// created with new T[].
-  template <typename T>
-  cl_int enqueueDeleteHostArray(T *HostPtr) {
+  template <typename T> cl_int enqueueDeleteHostArray(T *HostPtr) {
     assert(HostPtr);
     cl::Event CallbackEv;
-    auto Status = get()->enqueueMarkerWithWaitList(nullptr, &CallbackEv);
-    if (Status != CL_SUCCESS)
-      return Status;
+    clStatus = get()->enqueueMarkerWithWaitList(nullptr, &CallbackEv);
+    if (clStatus != CL_SUCCESS)
+      return clStatus;
 
     return CallbackEv.setCallback(CL_COMPLETE, deleteArrayCallback<T>,
                                   reinterpret_cast<void *>(HostPtr));
@@ -541,7 +544,7 @@ class CHIPBackendOpenCL : public chipstar::Backend {
 public:
   /// OpenCL events don't require tracking so override and do nothing
   virtual void
-  trackEvent(const std::shared_ptr<chipstar::Event> &Event) override{};
+  trackEvent(const std::shared_ptr<chipstar::Event> &Event) override {};
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
@@ -582,12 +585,11 @@ public:
       : chipstar::Texture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
 
   virtual ~CHIPTextureOpenCL() {
-    cl_int Status;
-    Status = clReleaseMemObject(Image);
-    assert(Status == CL_SUCCESS && "Invalid image handler?");
-    Status = clReleaseSampler(Sampler);
-    assert(Status == CL_SUCCESS && "Invalid sampler handler?");
-    (void)Status;
+    clStatus = clReleaseMemObject(Image);
+    assert(clStatus == CL_SUCCESS && "Invalid image handler?");
+    clStatus = clReleaseSampler(Sampler);
+    assert(clStatus == CL_SUCCESS && "Invalid sampler handler?");
+    (void)clStatus;
   }
 
   cl_mem getImage() const { return Image; }
