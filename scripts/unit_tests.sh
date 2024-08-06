@@ -172,9 +172,11 @@ run_tests() {
 function check_tests {
   file="$1"
   if ! grep -q "The following tests FAILED" "$file"; then
+    echo "PASSED"
     return 0
   else
     grep -q -E "The following tests FAILED:" -A 1000 "$file" | sed '/^$/q' | tail -n +2
+    echo "FAILED"
     return 1
   fi
 }
@@ -193,5 +195,7 @@ run_tests dgpu level0
 dgpu_level0_result=$(check_tests dgpu_level0_make_check_result.txt)
 run_tests dgpu opencl
 dgpu_opencl_result=$(check_tests dgpu_opencl_make_check_result.txt)
+run_tests cpu opencl
+cpu_opencl_result=$(check_tests cpu_opencl_make_check_result.txt)
+exit $((igpu_opencl_result || dgpu_opencl_result || igpu_level0_result || dgpu_level0_result || cpu_opencl_result))
 
-exit $((igpu_opencl_result || dgpu_opencl_result || igpu_level0_result || dgpu_level0_result))
