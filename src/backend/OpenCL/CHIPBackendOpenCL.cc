@@ -313,7 +313,7 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
 
 // EventMonitorOpenCL
 // ************************************************************************
-EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor(){};
+EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor() {};
 
 void EventMonitorOpenCL::monitor() {
   logTrace("EventMonitorOpenCL::monitor()");
@@ -1263,8 +1263,13 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   LOCK(Backend->DubiousLockOpenCL);
 #endif
 
-  auto AllocationsToKeepAlive = annotateIndirectPointers(
-      *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
+  std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocationsToKeepAlive;
+  // Disable annotation for CPU device. Runtime errror.
+  // https://community.intel.com/t5/OpenCL-for-CPU/OpenCL-Using-USM-on-Intel-CPU-Runtime-along-with/m-p/1621136#M7350
+  if (ChipEnvVars.getDevice().getType() != DeviceType::CPU) {
+    AllocationsToKeepAlive = annotateIndirectPointers(
+        *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
+  }
 
   auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(LaunchEvent, false);
   std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
@@ -1409,7 +1414,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 #ifdef CHIP_DUBIOUS_LOCKS
     LOCK(Backend->DubiousLockOpenCL)
 #endif
-      auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
+    auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
     std::vector<cl_event> SyncQueuesEventHandles =
         getOpenCLHandles(EventsToWait);
     auto *Ctx = getContext();

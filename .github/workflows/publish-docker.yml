@@ -28,7 +28,6 @@ jobs:
 
   push:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
     runs-on: [self-hosted, Linux, X64]
     steps:
     - uses: actions/checkout@v3
@@ -49,7 +48,7 @@ jobs:
     
   
   cleanup:
-    needs: [build, push]
+    needs: [push]
     runs-on: [self-hosted, Linux, X64]
     steps:
     - name: Clean up old Docker images
