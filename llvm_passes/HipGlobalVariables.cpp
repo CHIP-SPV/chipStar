@@ -45,6 +45,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 
@@ -308,7 +309,11 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
 static bool shouldLower(const GlobalVariable &GVar) {
   if (!GVar.hasName()) return false;
 
+#if LLVM_VERSION_MAJOR < 19
   if (GVar.getName().startswith(ChipVarPrefix))
+#else
+  if (GVar.getName().starts_with(ChipVarPrefix))
+#endif
     return false;  // Already lowered.
 
   // All host accessible global device variables are marked to be externally
