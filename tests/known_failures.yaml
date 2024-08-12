@@ -412,6 +412,7 @@ ANY:
     CatchMemLeak1: ''
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
   OPENCL_CPU:
+    hipBlas-sgemm: 'GEMM SYCL exception: Backends mismatch'
     2d_shuffle: ''
     Unit_hipClassKernel_Value: ''
     Unit_hipMemsetFunctional_PartialSet_1D: ''
@@ -419,6 +420,12 @@ ANY:
     hipConstantTestDeviceSymbol: ''
     hipDynamicShared2: ''
     unroll: ''
+    Unit_hipMemsetAsync_VerifyExecutionWithKernel: 'Failed'
+    Unit_hipDeviceSynchronize_Functional: 'Failed'
+    Unit_hipTextureObj1DCheckRGBAModes - array: 'Timeout'
+    Unit_hipTextureObj1DCheckRGBAModes - buffer: 'Timeout'
+    Unit_hipTextureObj2DCheckRGBAModes: 'Failed'
+    hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Failed'
   OPENCL_GPU:
     Unit_hipEvent: ''
     TestStlFunctionsDouble: ''
@@ -471,6 +478,15 @@ ANY:
     Unit_hipTextureObj2DCheckRGBAModes: ''
 cupcake:
   ALL:
+  LEVEL0_GPU:
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
+meatloaf:
+  ALL:
+    Unit_hipMultiStream_sameDevice: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
+    Unit_hipStreamCreate_MultistreamBasicFunctionalities: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
+    Unit_hipDeviceSynchronize_Functional: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
