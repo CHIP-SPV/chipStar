@@ -10,8 +10,6 @@ ANY:
     # due to NaNs appearing in the input sometimes (NaN == NaN --> false).
     Unit_hipMultiThreadStreams2: ''
     Print_Out_Attributes: 'old HIP tests + new HIP API'
-    TestAssert: ''
-    TestAssertFail: ''
     TestIndirectCall: ''
     Unit_HMM_OverSubscriptionTst: ''
     Unit_HipDeviceGetCacheConfig_Negative_Parameters: ''
@@ -400,8 +398,6 @@ ANY:
     Unit_hipUserObjectRetain_Negative: ''
     Unit_printf_flags: ''
     Unit_printf_specifier: ''
-    abort: ''
-    abort2: ''
     constant_fold_lgamma_r: ''
     cuda-simpleCallback: ''
     deviceMallocCompile: ''
@@ -409,7 +405,6 @@ ANY:
     hipStreamSemantics: ''
     syncthreadsExitedThreads: ''
   LEVEL0_GPU:
-    CatchMemLeak1: ''
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
   OPENCL_CPU:
     hipBlas-sgemm: 'GEMM SYCL exception: Backends mismatch'
