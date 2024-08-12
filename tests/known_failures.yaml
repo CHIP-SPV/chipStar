@@ -482,6 +482,15 @@ cupcake:
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
+meatloaf:
+  ALL:
+    Unit_hipMultiStream_sameDevice: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
+    Unit_hipStreamCreate_MultistreamBasicFunctionalities: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
+    Unit_hipDeviceSynchronize_Functional: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
+  LEVEL0_GPU:
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
 salami:
   ALL:
   LEVEL0_GPU:
