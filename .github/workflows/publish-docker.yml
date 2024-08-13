@@ -22,7 +22,7 @@ jobs:
         context: .
         file: ./docker/DockerfileLatest
         push: false
-        tags: pveleskopglc/chipstar:${{ github.sha }}
+        tags: pveleskopglc/chipstar:${{ github.head_ref }}
         cache-from: type=local,src=/tmp/.buildx-cache
         cache-to: type=local,dest=/tmp/.buildx-cache
 
@@ -43,7 +43,7 @@ jobs:
     
     - name: Tag and push Docker image
       run: |
-        docker tag pveleskopglc/chipstar:${{ github.sha }} pveleskopglc/chipstar:latest
+        docker tag pveleskopglc/chipstar:${{ github.head_ref }} pveleskopglc/chipstar:latest
         docker push pveleskopglc/chipstar:latest
     
   cleanup:
@@ -52,4 +52,4 @@ jobs:
     steps:
     - name: Clean up old Docker images
       run: |
-        docker rmi $(docker images -q pveleskopglc/chipstar:${{ github.sha }})
+        docker rmi $(docker images -q pveleskopglc/chipstar:${{ github.head_ref }})
