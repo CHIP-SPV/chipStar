@@ -174,6 +174,7 @@ function check_tests {
   if ! grep -q "The following tests FAILED" "$file"; then
     return 0
   else
+    echo "Checking $file"
     grep -E "The following tests FAILED:" -A 1000 "$file" | sed '/^$/q' | tail -n +2
     return 1
   fi

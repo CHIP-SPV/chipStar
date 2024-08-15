@@ -1,6 +1,9 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    TestAssert: 'Works only on dGPU, otherwise, things being printed out of order'
+    TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
+    abort: 'Works only on dGPU, otherwise, things being printed out of order'
     hipcc-invalid-bitwidth-128: 'InvalidBitWidth: Invalid bit width in input: 128'
     host-math-funcs: 'host and dev results differ'
     shfl_sync: 'masks outside of 0xFFFFFFFF are not supported'
@@ -491,7 +494,7 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
-    Unit_hipGraphAddEventRecordNode_Functional_Simple: '' 
+    Unit_hipGraphAddEventRecordNode_Functional_Simple: ''
     Unit_hipGraphAddEventRecordNode_Functional_WithoutFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_WithFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_TimingDisabled: '' 
