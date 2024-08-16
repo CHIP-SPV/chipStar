@@ -281,6 +281,19 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
                                    AnnotationList.size() * sizeof(void *),
                                    AnnotationList.data());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+
+    if (Ctx.getAllocStrategy() == AllocationStrategy::IntelUSM) {
+      cl_bool param = CL_TRUE;
+      clStatus = clSetKernelExecInfo(KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
+                                     sizeof(cl_bool), &param);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+      clStatus = clSetKernelExecInfo(KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
+                                     sizeof(cl_bool), &param);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+      clStatus = clSetKernelExecInfo(KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
+                                     sizeof(cl_bool), &param);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo); 
+    }
   }
 
   return AllocKeepAlives;
@@ -1259,13 +1272,8 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   LOCK(Backend->DubiousLockOpenCL);
 #endif
 
-  std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocationsToKeepAlive;
-  // Disable annotation for CPU device. Runtime errror.
-  // https://community.intel.com/t5/OpenCL-for-CPU/OpenCL-Using-USM-on-Intel-CPU-Runtime-along-with/m-p/1621136#M7350
-  if (ChipEnvVars.getDevice().getType() != DeviceType::CPU) {
-    AllocationsToKeepAlive = annotateIndirectPointers(
-        *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
-  }
+  auto AllocationsToKeepAlive = annotateIndirectPointers(
+      *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
 
   auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(LaunchEvent, false);
   std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
@@ -1891,7 +1899,8 @@ void CHIPBackendOpenCL::initializeImpl() {
   std::vector<cl::Device> SupportedDevices;
   std::vector<cl::Device> Dev;
   clStatus = SelectedPlatform.getDevices(SelectedDevType, &Dev);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetPlatformIDs);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(
+      clGetDeviceIDs); // C equivalent of getDevices
 
   for (auto D : Dev) {
 

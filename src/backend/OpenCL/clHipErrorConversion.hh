@@ -94,7 +94,8 @@ const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
       {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory},
       {CL_MEM_OBJECT_ALLOCATION_FAILURE, hipErrorOutOfMemory},
       {CL_INVALID_EVENT_WAIT_LIST, hipErrorInvalidResourceHandle},
-      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
+      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory},
+      {CL_INVALID_OPERATION, hipErrorInvalidValue}}},
 
     {(void *)&clEnqueueReadBuffer,
      {{CL_SUCCESS, hipSuccess},
@@ -445,11 +446,6 @@ const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
      {{CL_SUCCESS, hipSuccess},
       {CL_INVALID_COMMAND_QUEUE, hipErrorInvalidResourceHandle},
       {CL_INVALID_EVENT_WAIT_LIST, hipErrorInvalidResourceHandle},
-      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
-
-    {(void *)&clGetPlatformIDs,
-     {{CL_SUCCESS, hipSuccess},
-      {CL_INVALID_VALUE, hipErrorInvalidValue},
       {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
 
     {(void *)&clCreateProgramWithIL,
