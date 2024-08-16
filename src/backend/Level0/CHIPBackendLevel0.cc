@@ -22,7 +22,6 @@
 
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
-#include "zeHipErrorConversion.hh"
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -76,7 +75,7 @@ static ze_image_format_t getImageFormat(hipChannelFormatDesc FormatDesc,
                    FormatDesc.f == hipChannelFormatKindSigned ||
                    FormatDesc.f == hipChannelFormatKindFloat;
   if (!Supported)
-    CHIPERR_LOG_AND_THROW("Unsupported channel description.", hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT("Unsupported channel description.");
 
   CHIPASSERT(FormatDesc.x < (1 << 8) && FormatDesc.y < (1 << 8) &&
              FormatDesc.z < (1 << 8) && FormatDesc.w < (1 << 8) && "Overlap");
@@ -84,7 +83,7 @@ static ze_image_format_t getImageFormat(hipChannelFormatDesc FormatDesc,
   ze_image_format_t Result{};
   switch (LAYOUT_KEY_FROM_FORMAT_DESC(FormatDesc)) {
   default:
-    CHIPERR_LOG_AND_THROW("Unsupported channel description.", hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT("Unsupported channel description.");
     break;
     DEF_LAYOUT_MAP(8, 0, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_8);
     DEF_LAYOUT_MAP(8, 8, 0, 0, ZE_IMAGE_FORMAT_LAYOUT_8_8);
@@ -207,9 +206,9 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
   // Create LZ samler handle
   CHIPContextLevel0 *ChipCtxLz = (CHIPContextLevel0 *)ChipDev->getContext();
   ze_sampler_handle_t Sampler{};
-  ze_result_t Status =
+  zeStatus =
       zeSamplerCreate(ChipCtxLz->get(), ChipDev->get(), &SamplerDesc, &Sampler);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeSamplerCreate);
 
   return Sampler;
 }
@@ -221,8 +220,8 @@ void CHIPEventLevel0::reset() {
   logTrace("CHIPEventLevel0::reset() {} msg: {} handle: {}", (void *)this, Msg,
            (void *)Event_);
   DependsOnList.clear();
-  auto Status = zeEventHostReset(Event_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeEventHostReset(Event_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostReset);
   TrackCalled_ = false;
   UserEvent_ = false;
   if (EventStatus_ == EVENT_STATUS_RECORDING)
@@ -249,15 +248,15 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     wait();
   }
 
-  auto Status = zeEventDestroy(Event_);
-  assert(Status == ZE_RESULT_SUCCESS);
+  zeStatus = zeEventDestroy(Event_);
+  assert(zeStatus == ZE_RESULT_SUCCESS);
 
   if (isUserEvent()) {
     assert(!TrackCalled_ &&
            "chipstar::Event tracking was called for a user event");
     assert(EventPoolHandle_ && "UserEvent has a null event pool handle!");
-    auto Status = zeEventPoolDestroy(EventPoolHandle_);
-    assert(Status == ZE_RESULT_SUCCESS);
+    zeStatus = zeEventPoolDestroy(EventPoolHandle_);
+    assert(zeStatus == ZE_RESULT_SUCCESS);
   }
 
   Event_ = nullptr;
@@ -286,9 +285,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
   // Done via EventPoolMtx
-  auto Status = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "Level Zero Event_ creation fail! ");
+  zeStatus = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventCreate);
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
@@ -308,10 +306,9 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       1                                  // count
   };
 
-  ze_result_t Status = zeEventPoolCreate(ZeCtx->get(), &EventPoolDesc, 0,
-                                         nullptr, &EventPoolHandle_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "Level Zero Event_ pool creation fail! ");
+  zeStatus = zeEventPoolCreate(ZeCtx->get(), &EventPoolDesc, 0, nullptr,
+                             &EventPoolHandle_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
 
   ze_event_desc_t EventDesc = {
       ZE_STRUCTURE_TYPE_EVENT_DESC, // stype
@@ -326,9 +323,8 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
   // simultaneous threads with the same event pool handle.
   // Done. chipstar::Event pool handle is local to this event + this is
   // constructor
-  Status = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "Level Zero Event_ creation fail! ");
+  zeStatus = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventCreate);
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
@@ -337,7 +333,6 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       EventPoolHandle_(nullptr), EventPoolIndex(0) {}
 
 void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
-  ze_result_t Status;
   auto ChipEventLz = static_cast<CHIPEventLevel0 *>(ChipEvent);
 
   {
@@ -353,37 +348,37 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   auto [EventsToWaitOn, EventLocks] =
       addDependenciesQueueSync(TimestampWriteCompleteLz);
 
-  Status = zeDeviceGetGlobalTimestamps(ChipDevLz_->get(),
+  zeStatus = zeDeviceGetGlobalTimestamps(ChipDevLz_->get(),
                                        &ChipEventLz->getHostTimestamp(),
                                        &ChipEventLz->getDeviceTimestamp());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetGlobalTimestamps);
 
   Borrowed<FencedCmdList> CommandList = ChipCtxLz_->getCmdListReg();
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendWriteGlobalTimestamp(
+  zeStatus = zeCommandListAppendWriteGlobalTimestamp(
       CommandList->getCmdList(), (uint64_t *)getSharedBufffer(),
       TimestampWriteCompleteLz->peek(), EventsToWaitOn.size(),
       EventsToWaitOn.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendWriteGlobalTimestamp);
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  Status = zeCommandListAppendMemoryCopy(
+  zeStatus = zeCommandListAppendMemoryCopy(
       CommandList->getCmdList(), &ChipEventLz->getTimestamp(),
       getSharedBufffer(), sizeof(uint64_t), TimestampMemcpyCompleteLz->peek(),
       1, &TimestampWriteCompleteLz->peek());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopy);
 
   // Prevent these events from getting collection
   TimestampWriteCompleteLz->addDependency(TimestampMemcpyCompleteLz);
   Backend->trackEvent(TimestampWriteCompleteLz);
 
-  Status =
+  zeStatus =
       zeCommandListAppendBarrier(CommandList->getCmdList(), ChipEventLz->get(),
                                  1, &TimestampMemcpyCompleteLz->get());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   executeCommandList(CommandList, TimestampMemcpyCompleteLz);
 
@@ -396,13 +391,13 @@ bool CHIPEventLevel0::wait() {
   logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
            ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
-  ze_result_t Status = ZE_RESULT_NOT_READY;
+  zeStatus = ZE_RESULT_NOT_READY;
   uint64_t timeout = ChipEnvVars.getL0EventTimeout();
   auto start_time = std::chrono::high_resolution_clock::now();
 
-  while (Status == ZE_RESULT_NOT_READY) {
+  while (zeStatus == ZE_RESULT_NOT_READY) {
     LOCK(EventMtx); // chipstar::Event::EventStatus_
-    Status = zeEventHostSynchronize(Event_, 1);
+    zeStatus = zeEventHostSynchronize(Event_, 1);
 
     auto current_time = std::chrono::high_resolution_clock::now();
     auto elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -429,11 +424,11 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
   auto EventStatusOld = EventStatus_;
 
-  ze_result_t Status = zeEventQueryStatus(Event_);
-  if (Status == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
+  zeStatus = zeEventQueryStatus(Event_);
+  if (zeStatus == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
     CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
   }
-  if (Status == ZE_RESULT_SUCCESS) {
+  if (zeStatus == ZE_RESULT_SUCCESS) {
     EventStatus_ = EVENT_STATUS_RECORDED;
     releaseDependencies();
     doActions();
@@ -490,7 +485,7 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
    *
    * Kernel timestamps execute along a device timeline but because of limited
    * range may wrap unexpectedly. Because of this, the temporal order of two
-   * kernel timestamps shouldn’t be inferred despite coincidental START/END
+   * kernel timestamps shouldn't be inferred despite coincidental START/END
    * values.
    * https://spec.oneapi.io/level-zero/latest/core/PROG.html#kernel-timestamp-events
    */
@@ -529,8 +524,8 @@ void CHIPEventLevel0::hostSignal() {
   isDeletedSanityCheck();
   logTrace("CHIPEventLevel0::hostSignal() {} Msg: {} Handle: {}", (void *)this,
            Msg, (void *)Event_);
-  auto Status = zeEventHostSignal(Event_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeEventHostSignal(Event_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostSignal);
 
   LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDED;
@@ -561,10 +556,10 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto [QueueSyncEvents, EventLocks] =
       ChipQueueLz->addDependenciesQueueSync(GpuReady);
   // Add a barrier so that it signals
-  auto Status = zeCommandListAppendBarrier(
-      CommandList->getCmdList(), GpuReadyLz->get(), QueueSyncEvents.size(),
-      QueueSyncEvents.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeCommandListAppendBarrier(CommandList->getCmdList(),
+                                      GpuReadyLz->get(), QueueSyncEvents.size(),
+                                      QueueSyncEvents.data());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   // This will get triggered manually
   CpuCallbackComplete = BackendLz->createEventShared(ChipContextLz);
@@ -576,10 +571,10 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   GpuAck = BackendLz->createEventShared(ChipContextLz);
   GpuAck->Msg = "GpuAck";
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
-  Status =
+  zeStatus =
       zeCommandListAppendBarrier(CommandList->getCmdList(), GpuAckLz->get(), 1,
                                  &CpuCallbackCompleteLz->get());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   ChipQueueLz->executeCommandList(CommandList, GpuAck);
 }
@@ -607,7 +602,7 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
         CbData->CallbackDataMtx);
     Backend->CallbackQueue.pop();
 
-    // Update Status
+    // Update zeStatus
     logTrace("checkCallbacks: checking event "
              "status for {}",
              static_cast<void *>(CbData->GpuReady.get()));
@@ -736,8 +731,8 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
 
   ze_kernel_properties_t Props = {ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, 0};
 
-  ze_result_t Status = zeKernelGetProperties(ZeKernel, &Props);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeKernelGetProperties(ZeKernel, &Props);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelGetProperties);
 
   PrivateSize_ = Props.privateMemSize;
   StaticLocalSize_ = Props.localMemSize;
@@ -808,7 +803,7 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   LOCK(Backend->DubiousLockLevel0)
 #endif
   if (zeCmdQOwnership_) {
-    zeCommandQueueDestroy(ZeCmdQ_);
+    zeStatus = zeCommandQueueDestroy(ZeCmdQ_);
   } else {
     logTrace("CHIP does not own cmd queue");
   }
@@ -940,7 +935,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
     : Queue(ChipDev, Flags, Priority), ChipDevLz_(ChipDev),
       ChipCtxLz_(static_cast<CHIPContextLevel0 *>(ChipDev->getContext())) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
-  ze_result_t Status;
   ChipDevLz_ = ChipDev;
   auto Ctx = ChipDevLz_->getContext();
   ChipCtxLz_ = (CHIPContextLevel0 *)Ctx;
@@ -955,7 +949,7 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
     CommandListDesc_ = ChipDev->getCommandListCopyDesc();
 
   } else {
-    CHIPERR_LOG_AND_THROW("Unknown queue type requested", hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT("Unknown queue type requested");
   }
   QueueType = TheType;
 
@@ -972,9 +966,8 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 #ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
-  Status = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueCreate);
 
   initializeCmdListImm();
 }
@@ -999,19 +992,18 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
-  auto Status = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
-                                             &ZeCmdListImm_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
+                                        &ZeCmdListImm_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
 }
 
 void CHIPDeviceLevel0::initializeQueueGroupProperties() {
 
   // Discover the number of command queues
   uint32_t CmdqueueGroupCount = 0;
-  auto Status = zeDeviceGetCommandQueueGroupProperties(
-      ZeDev_, &CmdqueueGroupCount, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDeviceGetCommandQueueGroupProperties(ZeDev_, &CmdqueueGroupCount,
+                                                  nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetCommandQueueGroupProperties);
   logTrace("CommandGroups found: {}", CmdqueueGroupCount);
 
   // Create a vector of command queue properties, fill it
@@ -1027,9 +1019,9 @@ void CHIPDeviceLevel0::initializeQueueGroupProperties() {
         0  // numQueues
     };
   }
-  Status = zeDeviceGetCommandQueueGroupProperties(
+  zeStatus = zeDeviceGetCommandQueueGroupProperties(
       ZeDev_, &CmdqueueGroupCount, CmdqueueGroupProperties.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetCommandQueueGroupProperties);
 
   // Find a command queue type that support compute
   for (uint32_t i = 0; i < CmdqueueGroupCount; ++i) {
@@ -1092,8 +1084,8 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
     QueueDesc.priority = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_LOW;
     break;
   default:
-    CHIPERR_LOG_AND_THROW(
-        "Invalid Priority range requested during L0 Queue init", hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT(
+        "Invalid Priority range requested during L0 Queue init");
   }
 
   return QueueDesc;
@@ -1143,10 +1135,10 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
     // The application must not call this function from
     // simultaneous threads with the same kernel handle.
     // Done by locking ExecItemMtx
-    ze_result_t Status =
+    zeStatus =
         zeKernelSetGroupSize(KernelZe, ExecItem->getBlock().x,
                              ExecItem->getBlock().y, ExecItem->getBlock().z);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetGroupSize);
   }
 
   ExecItem->setupAllArgs();
@@ -1163,23 +1155,21 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   if (!LzDev->hasOnDemandPaging()) {
     // The baseline answer is yes (unless we would know that the
     // kernel won't access buffers indirectly).
-    auto Status = zeKernelSetIndirectAccess(
-        KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorInitializationError);
+    zeStatus = zeKernelSetIndirectAccess(KernelZe,
+                                       ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
+                                           ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
   }
 
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via LOCK(CommandListMtx)
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
-  auto Status = zeCommandListAppendLaunchKernel(
+  zeStatus = zeCommandListAppendLaunchKernel(
       CommandList, KernelZe, &LaunchArgs,
       std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(),
       EventHandles.size(), EventHandles.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendLaunchKernel);
   executeCommandList(CommandList, LaunchEvent);
 
   if (std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
@@ -1205,16 +1195,14 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   if (std::ceil(log2(PatternSize)) != std::floor(log2(PatternSize))) {
     logCritical("PatternSize: {} Max: {}", PatternSize,
                 getMaxMemoryFillPatternSize());
-    CHIPERR_LOG_AND_THROW("MemFill PatternSize is not a power of 2",
-                          hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT("MemFill PatternSize is not a power of 2");
   }
 
   // Check that requested pattern is not too long for this queue
   if (PatternSize > getMaxMemoryFillPatternSize()) {
     logCritical("PatternSize: {} Max: {}", PatternSize,
                 getMaxMemoryFillPatternSize());
-    CHIPERR_LOG_AND_THROW("MemFill PatternSize exceeds the max for this queue",
-                          hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT("MemFill PatternSize exceeds the max for this queue");
   }
 
   LOCK(CommandListMtx);
@@ -1223,11 +1211,11 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemFillEvent);
-  ze_result_t Status = zeCommandListAppendMemoryFill(
+  zeStatus = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size,
       std::static_pointer_cast<CHIPEventLevel0>(MemFillEvent)->peek(),
       EventHandles.size(), EventHandles.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryFill);
   executeCommandList(CommandList, MemFillEvent);
 
   return MemFillEvent;
@@ -1273,12 +1261,12 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
   auto [EventHandles, EventLocks] =
       addDependenciesQueueSync(MemCopyRegionEvent);
 
-  ze_result_t Status = zeCommandListAppendMemoryCopyRegion(
+  zeStatus = zeCommandListAppendMemoryCopyRegion(
       CommandList, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
       Sspitch,
       std::static_pointer_cast<CHIPEventLevel0>(MemCopyRegionEvent)->peek(),
       EventHandles.size(), EventHandles.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopyRegion);
   executeCommandList(CommandList, MemCopyRegionEvent);
 
   return MemCopyRegionEvent;
@@ -1300,11 +1288,11 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
     // Done via LOCK(CommandListMtx)
-    ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
+    zeStatus = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, Src, 0,
         std::static_pointer_cast<CHIPEventLevel0>(ImageCopyEvent)->peek(),
         EventHandles.size(), EventHandles.data());
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendImageCopyFromMemory);
     executeCommandList(CommandList, ImageCopyEvent);
 
     return ImageCopyEvent;
@@ -1329,13 +1317,13 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
     // Done via LOCK(CommandListMtx)
-    ze_result_t Status = zeCommandListAppendImageCopyFromMemory(
+    zeStatus = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, SrcRow, &DstZeRegion,
         LastRow
             ? std::static_pointer_cast<CHIPEventLevel0>(ImageCopyEvent)->peek()
             : nullptr,
         EventHandles.size(), EventHandles.data());
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendImageCopyFromMemory);
     SrcRow += SrcRegion.Pitch[0];
   }
   executeCommandList(CommandList, ImageCopyEvent);
@@ -1383,10 +1371,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
-  auto Status = zeCommandListAppendSignalEvent(
+  zeStatus = zeCommandListAppendSignalEvent(
       CommandList,
       std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
   executeCommandList(CommandList, MarkerEvent);
 
   return MarkerEvent;
@@ -1430,9 +1418,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
-  auto Status = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
-                                           NumEventsToWaitFor, EventHandles);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
+                                      NumEventsToWaitFor, EventHandles);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
   executeCommandList(CommandList, BarrierEvent);
 
   if (EventHandles)
@@ -1448,19 +1436,17 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
-  ze_result_t Status;
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImm();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via LOCK(CommandListMtx)
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemCopyEvent);
-  Status = zeCommandListAppendMemoryCopy(
+  zeStatus = zeCommandListAppendMemoryCopy(
       CommandList, Dst, Src, Size,
       std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(),
       EventHandles.size(), EventHandles.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopy);
   executeCommandList(CommandList, MemCopyEvent);
 
   return MemCopyEvent;
@@ -1470,14 +1456,13 @@ void CHIPQueueLevel0::finish() {
 #ifdef CHIP_DUBIOUS_LOCKS
   LOCK(Backend->DubiousLockLevel0)
 #endif
-  ze_result_t Status;
   auto LastEvent = getLastEvent();
   if (LastEvent)
     LastEvent->wait();
 
-  Status = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
-  CHIPERR_CHECK_LOG_AND_ABORT(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "zeCommandQueueSynchronize timeout out");
+  zeStatus = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
+                                    "zeCommandQueueSynchronize timeout out");
 
   return;
 }
@@ -1516,10 +1501,9 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
       Size_                              // count
   };
 
-  ze_result_t Status =
+  zeStatus =
       zeEventPoolCreate(Ctx_->get(), &EventPoolDesc, 0, nullptr, &EventPool_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd,
-                              "Level Zero Event_ pool creation fail! ");
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
 
   for (unsigned i = 0; i < Size_; i++) {
     chipstar::EventFlags Flags;
@@ -1543,9 +1527,9 @@ LZEventPool::~LZEventPool() {
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
   // Done via destructor should not be called from multiple threads
-  auto Status = zeEventPoolDestroy(EventPool_);
+  zeStatus = zeEventPoolDestroy(EventPool_);
   // '~CHIPEventLevel0' has a non-throwing exception specification
-  assert(Status == ZE_RESULT_SUCCESS);
+  assert(zeStatus == ZE_RESULT_SUCCESS);
 };
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
@@ -1633,14 +1617,13 @@ std::string CHIPBackendLevel0::getDefaultJitFlags() {
 }
 
 void CHIPBackendLevel0::initializeCommon(ze_driver_handle_t ZeDriver) {
-  ze_result_t Status;
   uint32_t ExtCount = 0;
-  Status = zeDriverGetExtensionProperties(ZeDriver, &ExtCount, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDriverGetExtensionProperties(ZeDriver, &ExtCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGetExtensionProperties);
   std::vector<ze_driver_extension_properties_t> Extensions(ExtCount);
-  Status =
+  zeStatus =
       zeDriverGetExtensionProperties(ZeDriver, &ExtCount, Extensions.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGetExtensionProperties);
 
   for (const auto &Ext : Extensions) {
     if (std::string_view(Ext.name) == "ZE_experimental_module_program")
@@ -1654,9 +1637,8 @@ void CHIPBackendLevel0::initializeCommon(ze_driver_handle_t ZeDriver) {
 void CHIPBackendLevel0::initializeImpl() {
   logTrace("CHIPBackendLevel0 Initialize");
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
-  ze_result_t Status;
-  Status = zeInit(0);
-  if (Status != ZE_RESULT_SUCCESS) {
+  zeStatus = zeInit(0);
+  if (zeStatus != ZE_RESULT_SUCCESS) {
     logCritical("Level Zero failed to initialize any devices");
     std::exit(1);
   }
@@ -1679,18 +1661,18 @@ void CHIPBackendLevel0::initializeImpl() {
 
   // Get number of drivers
   uint32_t DriverCount = 0, DeviceCount = 0;
-  Status = zeDriverGet(&DriverCount, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDriverGet(&DriverCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGet);
   logTrace("Found Level0 Drivers: {}", DriverCount);
   // Resize and fill ZeDriver vector with drivers
   ZeDrivers.resize(DriverCount);
-  Status = zeDriverGet(&DriverCount, ZeDrivers.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDriverGet(&DriverCount, ZeDrivers.data());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGet);
 
   if (ChipEnvVars.getPlatformIdx() >= DriverCount) {
-    CHIPERR_LOG_AND_THROW("CHIP_PLATFORM for Level0 backend must be"
-                          " < number of drivers",
-                          hipErrorInitializationError);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGet,
+                                      "CHIP_PLATFORM for Level0 backend must be"
+                                      " < number of drivers");
   }
 
   // TODO Allow for multilpe platforms(drivers)
@@ -1704,25 +1686,25 @@ void CHIPBackendLevel0::initializeImpl() {
   ze_driver_properties_t DriverProps;
   DriverProps.stype = ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES;
   DriverProps.pNext = nullptr;
-  Status = zeDriverGetProperties(ZeDriver, &DriverProps);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDriverGetProperties(ZeDriver, &DriverProps);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGetProperties);
   logDebug("Driver version: {}",
            driverVersionToString(DriverProps.driverVersion));
 
   // Load devices to device vector
-  Status = zeDeviceGet(ZeDriver, &DeviceCount, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDeviceGet(ZeDriver, &DeviceCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGet);
   ZeDevices.resize(DeviceCount);
-  Status = zeDeviceGet(ZeDriver, &DeviceCount, ZeDevices.data());
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDeviceGet(ZeDriver, &DeviceCount, ZeDevices.data());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGet);
 
   const ze_context_desc_t CtxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr,
                                      0};
 
   ze_context_handle_t ZeCtx;
-  Status = zeContextCreateEx(ZeDriver, &CtxDesc, DeviceCount, ZeDevices.data(),
+  zeStatus = zeContextCreateEx(ZeDriver, &CtxDesc, DeviceCount, ZeDevices.data(),
                              &ZeCtx);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeContextCreateEx);
   CHIPContextLevel0 *ChipL0Ctx = new CHIPContextLevel0(ZeDriver, ZeCtx);
   ::Backend->addContext(ChipL0Ctx);
 
@@ -1733,8 +1715,8 @@ void CHIPBackendLevel0::initializeImpl() {
   DeviceProperties.pNext = nullptr;
   DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
 
-  Status = zeDeviceGetProperties(Dev, &DeviceProperties);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeDeviceGetProperties(Dev, &DeviceProperties);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetProperties);
   std::string DeviceName = DeviceProperties.name;
   logInfo("Device: {}", DeviceName);
   if (AnyDeviceType || ZeDeviceType == DeviceProperties.type) {
@@ -1796,7 +1778,7 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
   // The application must not call this function from
   // simultaneous threads with the same pointer.
   // Done via ContextMtx. Too broad?
-  zeMemFree(this->ZeCtx, Ptr);
+  zeStatus = zeMemFree(this->ZeCtx, Ptr);
 }
 
 CHIPContextLevel0::~CHIPContextLevel0() {
@@ -1833,7 +1815,7 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   // simultaneous threads with the same context handle.
   // Done via destructor should not be called from multiple threads
   if (ownsZeContext)
-    zeContextDestroy(this->ZeCtx);
+    zeStatus = zeContextDestroy(this->ZeCtx);
 }
 
 void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
@@ -1866,23 +1848,19 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     // *)getDevices()[0])->get();
     ze_device_handle_t ZeDev = nullptr; // Do not associate allocation
 
-    ze_result_t Status = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size,
-                                          Alignment, ZeDev, &Ptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorMemoryAllocation);
+    zeStatus = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size, Alignment, ZeDev,
+                              &Ptr);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocShared);
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();
 
-    ze_result_t Status =
-        zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorMemoryAllocation);
+    zeStatus = zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocDevice);
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO Check if devices support cross-device sharing?
-    ze_result_t Status = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorMemoryAllocation);
+    zeStatus = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocHost);
   } else
     CHIPERR_LOG_AND_THROW("Failed to allocate memory",
                           hipErrorMemoryAllocation);
@@ -1895,9 +1873,8 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
   */
   if (auto *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice())) {
     ze_device_handle_t ZeDev = ChipDev->get();
-    auto Status = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                                hipErrorMemoryAllocation);
+    zeStatus = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeContextMakeMemoryResident);
   }
 #endif
   return Ptr;
@@ -1925,9 +1902,6 @@ CHIPDeviceLevel0 *CHIPDeviceLevel0::create(ze_device_handle_t ZeDev,
 void CHIPDeviceLevel0::resetImpl() { UNIMPLEMENTED(); }
 
 void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
-  ze_result_t Status = ZE_RESULT_SUCCESS;
-
-  // Initialize members used as input for zeDeviceGet*Properties() calls.
   ZeDeviceProps_.pNext = nullptr;
   ZeDeviceProps_.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
 
@@ -1957,37 +1931,31 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   DeviceImageProps.stype = ZE_STRUCTURE_TYPE_DEVICE_IMAGE_PROPERTIES;
 
   // Query device properties
-  Status = zeDeviceGetProperties(ZeDev_, &ZeDeviceProps_);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeDeviceGetProperties(ZeDev_, &ZeDeviceProps_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetProperties);
   this->MaxMallocSize_ = ZeDeviceProps_.maxMemAllocSize;
 
   // Query device memory properties
   uint32_t Count = 1;
-  Status = zeDeviceGetMemoryProperties(ZeDev_, &Count, &DeviceMemProps);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeDeviceGetMemoryProperties(ZeDev_, &Count, &DeviceMemProps);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetMemoryProperties);
 
   // Query device computation properties
-  Status = zeDeviceGetComputeProperties(ZeDev_, &DeviceComputeProps);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeDeviceGetComputeProperties(ZeDev_, &DeviceComputeProps);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetComputeProperties);
 
   // Query device cache properties
   Count = 1;
-  Status = zeDeviceGetCacheProperties(ZeDev_, &Count, &DeviceCacheProps);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeDeviceGetCacheProperties(ZeDev_, &Count, &DeviceCacheProps);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetCacheProperties);
 
   // Query device module properties
-  Status = zeDeviceGetModuleProperties(ZeDev_, &DeviceModuleProps);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeDeviceGetModuleProperties(ZeDev_, &DeviceModuleProps);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetModuleProperties);
 
   // Query device image properties
-  Status = zeDeviceGetImageProperties(ZeDev_, &DeviceImageProps);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorInitializationError);
+  zeStatus = zeDeviceGetImageProperties(ZeDev_, &DeviceImageProps);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetImageProperties);
 
   // Copy device name
   strncpy(HipDeviceProps_.name, ZeDeviceProps_.name,
@@ -2175,9 +2143,8 @@ ze_image_handle_t CHIPDeviceLevel0::allocateImage(unsigned int TextureType,
                                        Width, Height, Depth);
   ze_image_handle_t ImageHandle{};
 
-  ze_result_t Status = zeImageCreate(ZeCtx_, ZeDev_, &ImageDesc, &ImageHandle);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS,
-                              hipErrorMemoryAllocation);
+  zeStatus = zeImageCreate(ZeCtx_, ZeDev_, &ImageDesc, &ImageHandle);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeImageCreate);
   return ImageHandle;
 }
 
@@ -2269,8 +2236,8 @@ CHIPModuleLevel0 *CHIPDeviceLevel0::compile(const SPVModule &SrcMod) {
 
 // Other
 // ***********************************************************************
-std::string resultToString(ze_result_t Status) {
-  switch (Status) {
+std::string resultToString(ze_result_t zeStatus) {
+  switch (zeStatus) {
   case ZE_RESULT_SUCCESS:
     return "ZE_RESULT_SUCCESS";
   case ZE_RESULT_NOT_READY:
@@ -2357,16 +2324,15 @@ std::string resultToString(ze_result_t Status) {
 /// valid handle. This function will destroy the log handle.
 static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
   size_t LogSize;
-  auto Status = zeModuleBuildLogGetString(Log, &LogSize, nullptr);
-  if (Status == ZE_RESULT_SUCCESS) {
+  zeStatus = zeModuleBuildLogGetString(Log, &LogSize, nullptr);
+  if (zeStatus == ZE_RESULT_SUCCESS) {
     std::vector<char> LogVec(LogSize);
-    Status = zeModuleBuildLogGetString(Log, &LogSize, LogVec.data());
-    if (Status == ZE_RESULT_SUCCESS)
+    zeStatus = zeModuleBuildLogGetString(Log, &LogSize, LogVec.data());
+    if (zeStatus == ZE_RESULT_SUCCESS)
       logError("ZE Build Log:\n{}", std::string_view(LogVec.data(), LogSize));
   }
 
-  CHIPERR_CHECK_LOG_AND_THROW(zeModuleBuildLogDestroy(Log), ZE_RESULT_SUCCESS,
-                              hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleBuildLogDestroy);
 }
 
 static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
@@ -2375,14 +2341,14 @@ static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
 
   ze_module_build_log_handle_t Log;
   ze_module_handle_t Object;
-  auto BuildStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
+  zeStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
 
-  if (BuildStatus != ZE_RESULT_SUCCESS)
+  if (zeStatus != ZE_RESULT_SUCCESS)
     dumpBuildLog(std::move(Log));
 
-  CHIPERR_CHECK_LOG_AND_THROW(BuildStatus, ZE_RESULT_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleCreate);
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
-           resultToString(BuildStatus));
+           resultToString(zeStatus));
 
   return Object;
 }
@@ -2423,9 +2389,8 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
 
   auto *LzBackend = static_cast<CHIPBackendLevel0 *>(Backend);
   if (!LzBackend->hasExperimentalModuleProgramExt())
-    CHIPERR_LOG_AND_THROW("Can't compile module. Level zero does not support "
-                          "multi-input compilation.",
-                          hipErrorTbd);
+    CHIPERR_LOG_AND_ABORT("Can't compile module. Level zero does not support "
+                          "multi-input compilation.");
 
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(ChipDev);
 
@@ -2458,13 +2423,13 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc);
 
   uint32_t KernelCount = 0;
-  auto Status = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
   logTrace("Found {} kernels in this module.", KernelCount);
 
   const char *KernelNames[KernelCount];
-  Status = zeModuleGetKernelNames(ZeModule_, &KernelCount, KernelNames);
-  CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+  zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, KernelNames);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
   for (auto &Kernel : KernelNames)
     logTrace("Kernel {}", Kernel);
   for (uint32_t i = 0; i < KernelCount; i++) {
@@ -2493,10 +2458,9 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
       //       indirectly. This requires kernel code inspection.
       KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
 
-    Status = zeKernelCreate(ZeModule_, &KernelDesc, &ZeKernel);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(Status, ZE_RESULT_SUCCESS,
-                                      DEFAULT_ZE_HIP_ERROR_MAP);
-    logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", Status);
+    zeStatus = zeKernelCreate(ZeModule_, &KernelDesc, &ZeKernel);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelCreate);
+    logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", zeStatus);
     CHIPKernelLevel0 *ChipZeKernel =
         new CHIPKernelLevel0(ZeKernel, LzDev, HostFName, FuncInfo, this);
     addKernel(ChipZeKernel);
@@ -2521,19 +2485,14 @@ void CHIPExecItemLevel0::setupAllArgs() {
   }
 
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
-    ze_result_t Status;
     switch (Arg.Kind) {
-    default:
-      CHIPERR_LOG_AND_THROW("Internal chipStar error: Unknown argument kind.",
-                            hipErrorTbd);
-
     case SPVTypeKind::Image: {
       auto *TexObj =
           *reinterpret_cast<const CHIPTextureLevel0 *const *>(Arg.Data);
       ze_image_handle_t ImageHandle = TexObj->getImage();
       logTrace("setImageArg {} size {}\n", Arg.Index,
                sizeof(ze_image_handle_t));
-      Status = zeKernelSetArgumentValue(
+      zeStatus = zeKernelSetArgumentValue(
           Kernel->get(), Arg.Index, sizeof(ze_image_handle_t), &ImageHandle);
       break;
     }
@@ -2543,7 +2502,7 @@ void CHIPExecItemLevel0::setupAllArgs() {
       ze_sampler_handle_t SamplerHandle = TexObj->getSampler();
       logTrace("setSamplerArg {} size {}\n", Arg.Index,
                sizeof(ze_sampler_handle_t));
-      Status =
+      zeStatus =
           zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
                                    sizeof(ze_sampler_handle_t), &SamplerHandle);
       break;
@@ -2569,25 +2528,29 @@ void CHIPExecItemLevel0::setupAllArgs() {
       }
 
       logTrace("setArg {} size {} addr {}\n", Arg.Index, ArgSize, ArgData);
-      Status =
+      zeStatus =
           zeKernelSetArgumentValue(Kernel->get(), Arg.Index, ArgSize, ArgData);
 
-      if (Status != ZE_RESULT_SUCCESS) {
+      if (zeStatus != ZE_RESULT_SUCCESS) {
         logWarn("zeKernelSetArgumentValue returned error, "
                 "setting the ptr arg to nullptr");
-        Status = zeKernelSetArgumentValue(Kernel->get(), Arg.Index, 0, nullptr);
+        zeStatus = zeKernelSetArgumentValue(Kernel->get(), Arg.Index, 0, nullptr);
       }
       break;
     }
     case SPVTypeKind::PODByRef: {
       auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
       assert(SpillSlot);
-      Status = zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
+      zeStatus = zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
                                         sizeof(void *), &SpillSlot);
       break;
     }
+    default:
+      CHIPERR_LOG_AND_ABORT(
+          "Internal chipStar error: CHIPExecItemLevel0::setupAllArgs Unknown "
+          "argument kind.");
     }
-    CHIPERR_CHECK_LOG_AND_THROW(Status, ZE_RESULT_SUCCESS, hipErrorTbd);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetArgumentValue);
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
 
