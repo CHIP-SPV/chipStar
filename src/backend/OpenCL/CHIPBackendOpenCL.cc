@@ -284,15 +284,24 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
 
     if (Ctx.getAllocStrategy() == AllocationStrategy::IntelUSM) {
       cl_bool param = CL_TRUE;
-      clStatus = clSetKernelExecInfo(KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
-                                     sizeof(cl_bool), &param);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
-      clStatus = clSetKernelExecInfo(KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
-                                     sizeof(cl_bool), &param);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
-      clStatus = clSetKernelExecInfo(KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
-                                     sizeof(cl_bool), &param);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo); 
+      if (Ctx.MemManager_.isHostAllocUsed()) {
+        clStatus = clSetKernelExecInfo(
+            KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
+            sizeof(cl_bool), &param);
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+      }
+      if (Ctx.MemManager_.isDeviceAllocUsed()) {
+        clStatus = clSetKernelExecInfo(
+            KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
+            sizeof(cl_bool), &param);
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+      }
+      if (Ctx.MemManager_.isSharedAllocUsed()) {
+        clStatus = clSetKernelExecInfo(
+            KernelAPIHandle, CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
+            sizeof(cl_bool), &param);
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+      }
     }
   }
 

@@ -106,6 +106,11 @@ void MemoryManager::init(CHIPContextOpenCL *ChipCtxCl_) {
   } else {
     std::memset(&USM_, 0, sizeof(USM_));
   }
+
+  // Initialize the allocation usage bools
+  hostAllocUsed = false;
+  deviceAllocUsed = false;
+  sharedAllocUsed = false;
 }
 
 MemoryManager &MemoryManager::operator=(MemoryManager &&Rhs) {
@@ -241,6 +246,25 @@ void *MemoryManager::allocate(size_t Size, size_t Alignment,
   logTrace("Memory allocated: {} / {}\n", Ptr.get(), Size);
   assert(Allocations_.find(Ptr) == Allocations_.end());
   Allocations_.emplace(Ptr, Size);
+
+  // Set the appropriate bool based on the MemType
+  switch (MemType) {
+  case hipMemoryTypeHost:
+    hostAllocUsed = true;
+    break;
+  case hipMemoryTypeDevice:
+    deviceAllocUsed = true;
+    break;
+  case hipMemoryTypeManaged:
+  case hipMemoryTypeUnified:
+    sharedAllocUsed = true;
+    break;
+  default:
+    // Handle unexpected memory type
+    assert(!"Unexpected memory type!");
+    break;
+  }
+
   return Ptr.get();
 }
 

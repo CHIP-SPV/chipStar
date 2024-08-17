@@ -188,6 +188,11 @@ private:
   /// The allocation strategy to use.
   AllocationStrategy AllocStrategy_;
 
+  // Add these three bools
+  bool hostAllocUsed;
+  bool deviceAllocUsed;
+  bool sharedAllocUsed;
+
 public:
   void init(CHIPContextOpenCL *ChipCtxCl);
   MemoryManager &operator=(MemoryManager &&Rhs);
@@ -211,6 +216,11 @@ public:
   AllocationStrategy getAllocStrategy() const noexcept {
     return AllocStrategy_;
   }
+
+  // Add getter methods for the new bools
+  bool isHostAllocUsed() const { return hostAllocUsed; }
+  bool isDeviceAllocUsed() const { return deviceAllocUsed; }
+  bool isSharedAllocUsed() const { return sharedAllocUsed; }
 
   std::pair<cl_mem, size_t> translateDevPtrToBuffer(const void *DevPtr) const;
 
