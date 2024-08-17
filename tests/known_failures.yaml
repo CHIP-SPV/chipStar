@@ -1,6 +1,9 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    TestAssert: 'Works only on dGPU, otherwise, things being printed out of order'
+    TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
+    abort: 'Works only on dGPU, otherwise, things being printed out of order'
     hipcc-invalid-bitwidth-128: 'InvalidBitWidth: Invalid bit width in input: 128'
     host-math-funcs: 'host and dev results differ'
     shfl_sync: 'masks outside of 0xFFFFFFFF are not supported'
@@ -10,8 +13,6 @@ ANY:
     # due to NaNs appearing in the input sometimes (NaN == NaN --> false).
     Unit_hipMultiThreadStreams2: ''
     Print_Out_Attributes: 'old HIP tests + new HIP API'
-    TestAssert: ''
-    TestAssertFail: ''
     TestIndirectCall: ''
     Unit_HMM_OverSubscriptionTst: ''
     Unit_HipDeviceGetCacheConfig_Negative_Parameters: ''
@@ -400,8 +401,6 @@ ANY:
     Unit_hipUserObjectRetain_Negative: ''
     Unit_printf_flags: ''
     Unit_printf_specifier: ''
-    abort: ''
-    abort2: ''
     constant_fold_lgamma_r: ''
     cuda-simpleCallback: ''
     deviceMallocCompile: ''
@@ -409,7 +408,6 @@ ANY:
     hipStreamSemantics: ''
     syncthreadsExitedThreads: ''
   LEVEL0_GPU:
-    CatchMemLeak1: ''
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
   OPENCL_CPU:
     hipBlas-sgemm: 'GEMM SYCL exception: Backends mismatch'
@@ -496,7 +494,7 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
-    Unit_hipGraphAddEventRecordNode_Functional_Simple: '' 
+    Unit_hipGraphAddEventRecordNode_Functional_Simple: ''
     Unit_hipGraphAddEventRecordNode_Functional_WithoutFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_WithFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_TimingDisabled: '' 
