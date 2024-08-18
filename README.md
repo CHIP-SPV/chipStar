@@ -1,6 +1,6 @@
 # chipStar
 
-chipStar enables porting HIP and CUDA applications to platforms which support
+chipStar enables compiling and running HIP and CUDA applications on platforms which support
 SPIR-V as the device intermediate representation. It supports
 OpenCL and Level Zero as the low-level runtime alternatives.
 
@@ -14,6 +14,20 @@ chipStar was initially built by combining the prototyping work done in the (now 
 If you wish to cite chipStar in academic publications, please refer to the [HIPCL poster abstract](https://dl.acm.org/doi/10.1145/3388333.3388641) when discussing the OpenCL backend and/or the [HIPLZ conference paper](https://link.springer.com/chapter/10.1007/978-3-031-31209-0_15) when mentioning the Level Zero backend. The core developers of chipStar are writing a proper article of the integrated chipStar project, but it is in progress.
 
 The name chipStar comes from `c`uda and `hip` and the word `Star` which means asterisk, a typical shell wildcard, denoting the intention to make "CUDA and HIP applications run everywhere". The project was previously called CHIP-SPV.
+
+## Library Support
+
+The following libraries have been ported to work on Intel GPUs via MKL:
+- [hipBLAS](https://github.com/CHIP-SPV/H4I-HipBLAS) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPBLAS=ON`)
+- [hipFTT](https://github.com/CHIP-SPV/H4I-HipFFT) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPFTT=ON`)
+- [hipSOLVER](https://github.com/CHIP-SPV/H4I-HipSOLVER)
+- [hipCUB](https://github.com/CHIP-SPV/hipCUB)
+
+The following libraries have been ported and should work on any platform:
+- [rocRAND](https://github.com/CHIP-SPV/rocRAND)
+- [rocPRIM](https://github.com/CHIP-SPV/rocPRIM)
+
+*If there is a library that you need that is not yet supported, please open an issue stating which libraries you require and what application you are trying to build.*
 
 ## Getting Started
 
