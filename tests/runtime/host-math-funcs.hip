@@ -8,7 +8,7 @@
 __global__ void mathFunctionsKernel(double* results) {
     results[0] = cospi(0.5);
     results[1] = cospif(0.25f);
-    results[2] = erfcinv(0.1);
+    results[2] = erfcinv(0.95f + 0.95f);
     results[3] = erfcinvf(0.2f);
     results[4] = erfcx(0.3);
     results[5] = erfcxf(0.4f);
@@ -16,7 +16,7 @@ __global__ void mathFunctionsKernel(double* results) {
     results[7] = erfinvf(0.6f);
     results[8] = normcdf(0.7);
     results[9] = normcdff(0.8f);
-    results[10] = normcdfinv(0.9);
+    results[10] = normcdfinv(0.95f);
     results[11] = normcdfinvf(0.95f);
     // results[12] = rcbrt(8.0); // causes 128bit error
     results[13] = rcbrtf(27.0f);
@@ -41,10 +41,16 @@ __global__ void mathFunctionsKernel(double* results) {
     results[24] = umax(90U, 100U);
     results[25] = umin(110U, 120U);
     results[26] = signbit(-1.5);
+    results[27] = rsqrt(4.0);
+    results[28] = rsqrtf(9.0f);
+    results[29] = erfc(0.5);
+    results[30] = erfcf(0.5);
+    results[31] = log(2.0);
+    results[32] = logf(2.0f);
 }
 
-int main() {
-    const int numResults = 29;
+int main() {    
+    const int numResults = 33;
     double hostResults[numResults];
     double* deviceResults;
     
@@ -60,7 +66,7 @@ int main() {
     // Compute host results
     double host_cospi_result = cospi(0.5);
     float host_cospif_result = cospif(0.25f);
-    double host_erfcinv_result = erfcinv(0.1); // segfaults
+    double host_erfcinv_result = erfcinv(0.95f + 0.95f); // segfaults
     float host_erfcinvf_result = erfcinvf(0.2f);
     double host_erfcx_result = erfcx(0.3);
     float host_erfcxf_result = erfcxf(0.4f);
@@ -68,7 +74,7 @@ int main() {
     float host_erfinvf_result = erfinvf(0.6f);
     double host_normcdf_result = normcdf(0.7);
     float host_normcdff_result = normcdff(0.8f);
-    double host_normcdfinv_result = normcdfinv(0.9);
+    double host_normcdfinv_result = normcdfinv(0.95f);
     float host_normcdfinvf_result = normcdfinvf(0.95f);
     double host_rcbrt_result = rcbrt(8.0);
     float host_rcbrtf_result = rcbrtf(27.0f);
@@ -87,6 +93,10 @@ int main() {
     int host_signbit_result = signbit(-1.5);
     double host_rsqrt_result = rsqrt(4.0);
     float host_rsqrtf_result = rsqrtf(9.0f);
+    double host_erfc_result = erfc(0.5);
+    float host_erfcf_result = erfcf(0.5);
+    double host_log_result = log(2.0);
+    float host_logf_result = logf(2.0f);
     
     // Compare results
     const double epsilon = 1e-6;
@@ -208,7 +218,22 @@ int main() {
         std::cout << "rsqrtf test failed - Host: " << host_rsqrtf_result << ", Device: " << hostResults[28] << ", Diff: " << std::abs(host_rsqrtf_result - hostResults[28]) << std::endl;
         all_passed = false;
     }
-    
+    if (std::abs(host_erfc_result - hostResults[29]) >= epsilon) {
+        std::cout << "erfc test failed - Host: " << host_erfc_result << ", Device: " << hostResults[29] << ", Diff: " << std::abs(host_erfc_result - hostResults[29]) << std::endl;
+        all_passed = false;
+    }
+    if (std::abs(host_erfcf_result - hostResults[30]) >= epsilon) {
+        std::cout << "erfcf test failed - Host: " << host_erfcf_result << ", Device: " << hostResults[30] << ", Diff: " << std::abs(host_erfcf_result - hostResults[30]) << std::endl;
+        all_passed = false;
+    }
+    if (std::abs(host_log_result - hostResults[31]) >= epsilon) {
+        std::cout << "log test failed - Host: " << host_log_result << ", Device: " << hostResults[31] << ", Diff: " << std::abs(host_log_result - hostResults[31]) << std::endl;
+        all_passed = false;
+    }
+    if (std::abs(host_logf_result - hostResults[32]) >= epsilon) {
+        std::cout << "logf test failed - Host: " << host_logf_result << ", Device: " << hostResults[32] << ", Diff: " << std::abs(host_logf_result - hostResults[32]) << std::endl;
+        all_passed = false;
+    }
     if (all_passed) {
         std::cout << "PASS: All host and device results match within epsilon!" << std::endl;
     } else {
