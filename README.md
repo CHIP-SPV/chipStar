@@ -45,7 +45,7 @@ For this you can use a script included in the chipStar repository:
 ```bash
 ./scripts/configure_llvm.sh
 Usage: ./configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
---version: LLVM version 15, 16, 17, 18
+--version: LLVM version 15, 16, 17, 18, 19
 --install-dir: installation directory
 --link-type: static or dynamic (default: static)
 --only-necessary-spirv-exts: on or off (default: off)

@@ -18,7 +18,7 @@ timeout=1800
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-15|llvm-16|llvm-17|llvm-18> [--skip-build] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
+  echo "Usage: $0 <debug|release> <llvm-16|llvm-17|llvm-18|llvm-19> [--skip-build] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -32,8 +32,8 @@ fi
 build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 # Check if the second argument starts with "llvm-" and is followed by a valid version number
-if [[ ! "$2" =~ ^llvm-(1[5-9]|[2-9][0-9])$ ]]; then
-  echo "Error: Invalid LLVM version. Must be llvm-15, llvm-16, llvm-17, llvm-18, or higher."
+if [[ ! "$2" =~ ^llvm-(1[6-9]|[2-9][0-9])$ ]]; then
+  echo "Error: Invalid LLVM version. Must be llvm-16, llvm-17, llvm-18, or higher."
   exit 1
 fi
 

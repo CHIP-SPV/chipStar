@@ -41,7 +41,7 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>"
-  echo "--version: LLVM version 15, 16, 17, 18"
+  echo "--version: LLVM version 15, 16, 17, 18, 19"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--only-necessary-spirv-exts: on or off (default: off)"
@@ -55,8 +55,9 @@ if [ -z "$INSTALL_DIR" ]; then
 fi
 
 # validate version argument
-if [ "$VERSION" != "15" ] && [ "$VERSION" != "16" ] && [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ]; then
-  echo "Invalid version. Must be 15, 16, 17 or 18."
+if [ "$VERSION" != "15" ] && [ "$VERSION" != "16" ] && [ "$VERSION" != "17" ] \
+       && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ]; then
+  echo "Invalid version. Must be 15, 16, 17, 18 or 19."
   exit 1
 fi
 
@@ -181,8 +182,6 @@ if [ "$LINK_TYPE" == "static" ]; then
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
     -DCMAKE_CXX_COMPILER=g++ \
     -DCMAKE_C_COMPILER=gcc \
-    -DGCC_INSTALL_PREFIX=${gcc_base_path}\
-    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
     -DLLVM_ENABLE_ASSERTIONS=On \
     -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}
 elif [ "$LINK_TYPE" == "dynamic" ]; then
@@ -198,8 +197,6 @@ elif [ "$LINK_TYPE" == "dynamic" ]; then
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_COMPILER=g++ \
     -DCMAKE_C_COMPILER=gcc \
-    -DGCC_INSTALL_PREFIX=${gcc_base_path}\
-    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
     -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
     -DLLVM_ENABLE_ASSERTIONS=On
 else
