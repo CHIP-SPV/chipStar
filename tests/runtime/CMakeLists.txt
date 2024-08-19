@@ -115,3 +115,5 @@ set_tests_properties("host-math-funcs" PROPERTIES
 FAIL_REGULAR_EXPRESSION "FAIL")
 set_tests_properties("host-math-funcs" PROPERTIES
 PASS_REGULAR_EXPRESSION "PASS")
+set_tests_properties("host-math-funcs" PROPERTIES
+SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
