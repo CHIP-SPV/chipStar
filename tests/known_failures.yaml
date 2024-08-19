@@ -4,8 +4,6 @@ ANY:
     TestAssert: 'Works only on dGPU, otherwise, things being printed out of order'
     TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
     abort: 'Works only on dGPU, otherwise, things being printed out of order'
-    hipcc-invalid-bitwidth-128: 'InvalidBitWidth: Invalid bit width in input: 128'
-    host-math-funcs: 'host and dev results differ'
     shfl_sync: 'masks outside of 0xFFFFFFFF are not supported'
     # Invalid test (if it is the one from HIP/ submodule instead of hip-tests/).
     # The source allocation 'Ah' is not initialized (this is fixed in hip-tests/)

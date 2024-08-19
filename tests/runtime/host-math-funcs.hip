@@ -18,7 +18,7 @@ __global__ void mathFunctionsKernel(double* results) {
     results[9] = normcdff(0.8f);
     results[10] = normcdfinv(0.95f);
     results[11] = normcdfinvf(0.95f);
-    // results[12] = rcbrt(8.0); // causes 128bit error
+    results[12] = rcbrt(8.0); // causes 128bit error
     results[13] = rcbrtf(27.0f);
     double sincos_result_cos;
     double sincos_result_sin;
