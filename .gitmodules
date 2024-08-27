@@ -28,4 +28,5 @@
 	branch = origin/develop
 [submodule "H4I-HipFFT"]
 	path = H4I-HipFFT
-	url = https@github.com:CHIP-SPV/H4I-HipFFT.git
+	url = https://github.com/CHIP-SPV/H4I-HipFFT.git
+	branch = origin/main
