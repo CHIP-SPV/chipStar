@@ -1,5 +1,9 @@
 # chipStar
 
+![Unit Tests Intel GPUs](https://github.com/CHIP-SPV/chipStar/workflows/Unit%20Tests%20Intel%20GPUs/badge.svg)
+![Unit Tests ARM GPUs](https://github.com/CHIP-SPV/chipStar/workflows/Unit%20Tests%20ARM%20GPUs/badge.svg)
+![Docker Build and Publish](https://github.com/CHIP-SPV/chipStar/workflows/Docker%20Build%20and%20Publish/badge.svg)
+
 chipStar enables compiling and running HIP and CUDA applications on platforms which support
 SPIR-V as the device intermediate representation. It supports
 OpenCL and Level Zero as the low-level runtime alternatives.
@@ -28,6 +32,13 @@ The following libraries have been ported and should work on any platform:
 - [rocPRIM](https://github.com/CHIP-SPV/rocPRIM)
 
 *If there is a library that you need that is not yet supported, please open an issue stating which libraries you require and what application you are trying to build.*
+
+## Applications
+
+chipStar has so far been tested using the following applications:
+- [libCEED](https://github.com/CHIP-SPV/libCEED) Our fork includes some workarounds. 
+- [GAMESS](https://www.msg.chem.iastate.edu/gamess/) Source code is not public.
+- [HcBench](https://github.com/zjin-lcf/HeCBench) CUDA Benchmarks. 
 
 ## Getting Started
 
