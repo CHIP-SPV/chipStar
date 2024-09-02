@@ -21,6 +21,7 @@ parser.add_argument('-v', '--verbose', action='store_true', help='verbose output
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
 parser.add_argument('--regex-include', type=str, nargs='?', default="", help='Tests to be run must also match this regex (known failures will still be excluded)')
 parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Specifically exclude tests that match this regex (known failures will still be excluded)')
+parser.add_argument('--test-mode-failures', type=str, choices=['exclude', 'include'], default='exclude', help='Control how to handle test failures: exclude (default) or include')
 
 # --total-runtime cannot be used with --num-tries
 group = parser.add_mutually_exclusive_group()
@@ -112,15 +113,36 @@ all_test_list = f"./test_lists/ALL.txt"
 failed_test_list = f"./test_lists/{args.backend.upper()}_{device_type_stripped.upper()}.txt"
 
 def run_tests(num_tries):
-  if len(args.regex_exclude) > 0:
-      args.regex_exclude = f"{args.regex_exclude}|"
-  if len(args.regex_include) > 0:
-      args.regex_include = f"-R {args.regex_include}"
-  # if failed_test_list is not empty, separator is |, otherwise it is empty
-  separator = "|" if os.path.exists(failed_test_list) and os.path.getsize(failed_test_list) > 0 else ""
-  cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {args.regex_include} -E \"{args.regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
-  res, err = run_cmd(cmd)
-  return res, err
+    if len(args.regex_exclude) > 0:
+        args.regex_exclude = f"{args.regex_exclude}|"
+    if len(args.regex_include) > 0:
+        args.regex_include = f"{args.regex_include}|"
+    
+    # Determine the test mode based on the new argument
+    test_mode = "-E" if args.test_mode_failures == "exclude" else "-R"
+    
+    # if failed_test_list is not empty, separator is |, otherwise it is empty
+    separator = "|" if os.path.exists(failed_test_list) and os.path.getsize(failed_test_list) > 0 else ""
+    
+    cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {test_mode} \"{args.regex_exclude}{args.regex_include}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
+    res, err = run_cmd(cmd)
+
+    # If using -R, print the tests that passed
+    if test_mode == "-R":
+        passed_tests = []
+        for line in res.split('\n'):
+            if "Test" in line and "Passed" in line:
+                test_name = line.split(':')[1].strip()
+                passed_tests.append(test_name)
+        
+        if passed_tests:
+            print("The following tests FAILED:")
+            for test in passed_tests:
+                print(f"        {test}")
+        else:
+            print("No tests passed.")
+
+    return res, err
 
 
 # if --total-runtime is set, calculate the number of tries by running run_tests and checking the time
