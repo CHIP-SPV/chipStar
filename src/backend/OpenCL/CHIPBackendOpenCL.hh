@@ -116,6 +116,7 @@ public:
   cl_event ClEvent;
   friend class CHIPEventOpenCL;
   std::shared_ptr<chipstar::Event> RecordedEvent;
+  uint64_t HostTimeStamp;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,
