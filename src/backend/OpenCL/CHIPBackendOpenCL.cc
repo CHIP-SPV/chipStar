@@ -1523,6 +1523,7 @@ void CHIPQueueOpenCL::finish() {
 #endif
   clStatus = get()->finish();
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
+  this->LastEvent_ = nullptr;
 }
 
 std::shared_ptr<chipstar::Event>

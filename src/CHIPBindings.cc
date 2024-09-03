@@ -2464,7 +2464,9 @@ hipError_t hipDeviceGetStreamPriorityRange(int *LeastPriority,
 hipError_t hipStreamDestroy(hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
-  LOCK(Backend->EventsMtx);
+  // Can't be locking this mutex because callback monitor needs to be able to
+  // set events
+  // LOCK(Backend->EventsMtx);
   CHIPInitialize();
   if (Stream == hipStreamPerThread)
     CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
@@ -2483,8 +2485,8 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
 
   chipstar::Device *Dev = Backend->getActiveDevice();
 
-  // make sure nothing is pending in the stream
-  ChipQueue->finish();
+  // finish all streams. Need to make sure that no Dev->synchronizeQueues();
+  hipDeviceSynchronizeInternal();
 
   LOCK(Dev->QueueAddRemoveMtx);
   if (Dev->removeQueue(ChipQueue))

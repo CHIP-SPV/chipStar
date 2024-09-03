@@ -409,7 +409,6 @@ ANY:
     cuda-simpleCallback: ''
     deviceMallocCompile: ''
     hipMultiThreadAddCallback: ''
-    hipStreamSemantics: ''
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
   LEVEL0_GPU:
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
