@@ -2747,7 +2747,9 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
   NULLCHECK(Event);
   chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
-  ChipEvent->wait();
+  if (ChipEvent->isRecordingOrRecorded())
+    ChipEvent->wait();
+
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -2762,16 +2764,23 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   NULLCHECK(Start, Stop);
   chipstar::Event *ChipEventStart = static_cast<chipstar::Event *>(Start);
   chipstar::Event *ChipEventStop = static_cast<chipstar::Event *>(Stop);
+
+  if (ChipEventStart->getFlags().isDisableTiming() ||
+      ChipEventStop->getFlags().isDisableTiming())
+    CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
+                          "Unable to return elasped time",
+                          hipErrorInvalidHandle);
+
   if (!ChipEventStart->isRecordingOrRecorded() ||
       !ChipEventStop->isRecordingOrRecorded()) {
     CHIPERR_LOG_AND_THROW("One of the events was not recorded",
                           hipErrorInvalidHandle);
   }
-  if (ChipEventStart->getFlags().isDisableTiming() ||
-      ChipEventStop->getFlags().isDisableTiming())
-    CHIPERR_LOG_AND_THROW("One of the events has timings disabled. "
-                          "Unable to return elasped time",
-                          hipErrorInvalidResourceHandle);
+
+  if (!ChipEventStart->getEventStatus() == EVENT_STATUS_RECORDING)
+    RETURN(hipErrorNotReady);
+  if (!ChipEventStop->getEventStatus() == EVENT_STATUS_RECORDING)
+    RETURN(hipErrorNotReady);
 
   *Ms = ChipEventStart->getElapsedTime(ChipEventStop);
   RETURN(hipSuccess);

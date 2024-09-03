@@ -164,7 +164,8 @@ const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
     {(void *)&clFinish,
      {{CL_SUCCESS, hipSuccess},
       {CL_INVALID_COMMAND_QUEUE, hipErrorInvalidResourceHandle},
-      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
+      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory},
+      {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory}}},
 
     {(void *)&clFlush,
      {{CL_SUCCESS, hipSuccess},

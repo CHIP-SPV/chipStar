@@ -730,6 +730,8 @@ void CHIPEventOpenCL::recordEventCopy(
   this->ClEvent = Other->ClEvent;
   this->RecordedEvent = Other;
   this->Msg = "recordEventCopy: " + Other->Msg;
+  this->HostTimeStamp =
+      std::chrono::high_resolution_clock::now().time_since_epoch().count();
 }
 
 bool CHIPEventOpenCL::wait() {
@@ -769,10 +771,6 @@ bool CHIPEventOpenCL::updateFinishStatus(bool ThrowErrorIfNotReady) {
 }
 
 float CHIPEventOpenCL::getElapsedTime(chipstar::Event *OtherIn) {
-  // Why do I need to lock the context mutex?
-  // Can I lock the mutex of this and the other event?
-  //
-
   CHIPEventOpenCL *Other = (CHIPEventOpenCL *)OtherIn;
 
   if (this->getContext() != Other->getContext())
@@ -781,8 +779,10 @@ float CHIPEventOpenCL::getElapsedTime(chipstar::Event *OtherIn) {
         "the same context",
         hipErrorTbd);
 
-  this->updateFinishStatus(true);
-  Other->updateFinishStatus(true);
+  if (this->getEventStatus() == EVENT_STATUS_RECORDING)
+    this->updateFinishStatus(false);
+  if (Other->getEventStatus() == EVENT_STATUS_RECORDING)
+    Other->updateFinishStatus(false);
 
   if (!this->isRecordingOrRecorded() || !Other->isRecordingOrRecorded())
     CHIPERR_LOG_AND_THROW("one of the events isn't/hasn't recorded",
@@ -792,23 +792,40 @@ float CHIPEventOpenCL::getElapsedTime(chipstar::Event *OtherIn) {
     CHIPERR_LOG_AND_THROW("one of the events hasn't finished",
                           hipErrorNotReady);
 
-  uint64_t Started = this->getFinishTime();
-  uint64_t Finished = Other->getFinishTime();
+  uint64_t BeginGPU = this->getFinishTime();
+  uint64_t EndGPU = Other->getFinishTime();
+  uint64_t BeginCPU = this->HostTimeStamp;
+  uint64_t EndCPU = Other->HostTimeStamp;
 
-  logTrace("EventElapsedTime: STARTED {} / {} FINISHED {} / {} \n",
-           (void *)this, Started, (void *)Other, Finished);
+  bool ReversedEvents = false;
+  if (EndCPU < BeginCPU) {
+    ReversedEvents = true;
+    std::swap(BeginGPU, EndGPU);
+  }
 
-  // apparently fails for Intel NEO, god knows why
-  // assert(Finished >= Started);
+  // Handle overflow
   int64_t Elapsed;
+  const uint64_t MaxValue = std::numeric_limits<uint64_t>::max();
+  if (EndGPU < BeginGPU) {
+    logError("Overflow detected in CHIPEventOpenCL::getElapsedTime()");
+    logError("BeginGPU: {}, EndGPU: {}", BeginGPU, EndGPU);
+    Elapsed =
+        (MaxValue - BeginGPU) + EndGPU + 1; // +1 to account for wraparound
+  } else {
+    Elapsed = EndGPU - BeginGPU;
+  }
+
   const int64_t NANOSECS = 1000000000;
-  if (Finished < Started)
-    logWarn("Finished < Started\n");
-  Elapsed = Finished - Started;
   int64_t MS = (Elapsed / NANOSECS) * 1000;
   int64_t NS = Elapsed % NANOSECS;
   float FractInMS = ((float)NS) / 1000000.0f;
-  return (float)MS + FractInMS;
+  float Ms = (float)MS + FractInMS;
+
+  Ms = std::abs(Ms);
+  if (ReversedEvents)
+    Ms = -Ms;
+
+  return Ms;
 }
 
 void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
@@ -1069,6 +1086,7 @@ struct HipStreamCallbackData {
   void *UserData;
   hipStreamCallback_t Callback;
   std::shared_ptr<chipstar::Event> CallbackFinishEvent;
+  std::shared_ptr<chipstar::Event> CallbackCompleted;
 };
 
 void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
@@ -1084,6 +1102,7 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
         std::static_pointer_cast<CHIPEventOpenCL>(Cbo->CallbackFinishEvent)
             ->ClEvent,
         CL_COMPLETE);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
   }
   delete Cbo;
 }
@@ -1176,21 +1195,12 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
   cl_int Err;
 
-  std::shared_ptr<chipstar::Event> HoldBackEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
-
-  std::static_pointer_cast<CHIPEventOpenCL>(HoldBackEvent)->ClEvent =
-      clCreateUserEvent(ClContext_->get(), &Err);
-
-  std::vector<std::shared_ptr<chipstar::Event>> WaitForEvents{HoldBackEvent};
-
   // Enqueue a barrier used to ensure the callback is not called too early,
   // otherwise it would be (at worst) executed in this host thread when
   // setting it, blocking the execution, while the clients might expect
   // parallel execution.
   std::shared_ptr<chipstar::Event> HoldbackBarrierCompletedEv =
-      enqueueBarrier(WaitForEvents);
+      enqueueBarrier(std::vector<std::shared_ptr<chipstar::Event>>{});
 
   // OpenCL event callbacks have undefined execution ordering/finishing
   // guarantees. We need to enforce CUDA ordering using user events.
@@ -1208,10 +1218,10 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // finishing the user CB's execution.
 
   HipStreamCallbackData *Cb = new HipStreamCallbackData{
-      this, hipSuccess, UserData, Callback, CallbackEvent};
+      this, hipSuccess, UserData, Callback, CallbackEvent, nullptr};
 
   std::vector<std::shared_ptr<chipstar::Event>> WaitForEventsCBB{CallbackEvent};
-  auto CallbackCompleted = enqueueBarrier(WaitForEventsCBB);
+  Cb->CallbackCompleted = enqueueBarrier(WaitForEventsCBB);
 
   // We know that the callback won't be yet launched since it's depending
   // on the barrier which waits for the user event.
@@ -1221,17 +1231,17 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
-  updateLastEvent(CallbackCompleted);
-  get()->flush();
+  updateLastEvent(Cb->CallbackCompleted);
 
   // Now the CB can start executing in the background:
   clSetUserEventStatus(
-      std::static_pointer_cast<CHIPEventOpenCL>(HoldBackEvent)->ClEvent,
+      std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
+          ->ClEvent,
       CL_COMPLETE);
-  //   HoldBackEvent->decreaseRefCount("Notified finished.");
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
 
   return;
-};
+}
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
@@ -1512,7 +1522,7 @@ void CHIPQueueOpenCL::finish() {
   LOCK(Backend->DubiousLockOpenCL)
 #endif
   clStatus = get()->finish();
-  // CHIPERR_CHECK_LOG_AND_ABORT(clStatus, CL_SUCCESS, hipErrorTbd);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
 }
 
 std::shared_ptr<chipstar::Event>

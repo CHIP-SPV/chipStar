@@ -1,6 +1,6 @@
 # Workflow syntax:
 # https://help.github.com/en/articles/workflow-syntax-for-github-actions
-name: unit-test-checker-arm
+name: Unit Tests ARM GPUs
 
 on:
   pull_request:

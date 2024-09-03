@@ -1,6 +1,6 @@
 # Workflow syntax:
 # https://help.github.com/en/articles/workflow-syntax-for-github-actions
-name: unit-test-checker-intel
+name: Unit Tests Intel GPUs
 
 on:
   pull_request:

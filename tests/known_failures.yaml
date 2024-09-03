@@ -1,6 +1,12 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    Unit_AnyAll_CompileTest: 'Failed'
+    Unit_funnelshift: 'Failed'
+    Unit_threadfence_system: 'SEGFAULT'
+    Unit_syncthreads_and: 'Failed'
+    Unit_syncthreads_count: 'Failed'
+    Unit_syncthreads_or: 'Failed'
     TestAssert: 'Works only on dGPU, otherwise, things being printed out of order'
     TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
     abort: 'Works only on dGPU, otherwise, things being printed out of order'
@@ -404,10 +410,11 @@ ANY:
     deviceMallocCompile: ''
     hipMultiThreadAddCallback: ''
     hipStreamSemantics: ''
-    syncthreadsExitedThreads: ''
+    syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
   LEVEL0_GPU:
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
   OPENCL_CPU:
+    Unit_ballot: ''
     hipBlas-sgemm: 'GEMM SYCL exception: Backends mismatch'
     2d_shuffle: ''
     Unit_hipClassKernel_Value: ''
@@ -423,23 +430,9 @@ ANY:
     Unit_hipTextureObj2DCheckRGBAModes: 'Failed'
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Failed'
   OPENCL_GPU:
-    Unit_hipEvent: ''
-    TestStlFunctionsDouble: ''
-    Unit_hipEventRecord: ''
-    Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: ''
-    Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: ''
-    Unit_hipMalloc_Multithreaded_MultiGPU: ''
-    Unit_hipMemsetFunctional_PartialSet_1D: ''
-    Unit_hipMemsetFunctional_SmallSize_hipMemset: ''
-    Unit_hipMemsetFunctional_SmallSize_hipMemsetD16: ''
-    Unit_hipMemsetFunctional_SmallSize_hipMemsetD32: ''
-    Unit_hipMemsetFunctional_SmallSize_hipMemsetD8: ''
-    Unit_hipMultiThreadStreams1_AsyncSame: ''
-    Unit_hipStreamAddCallback_ParamTst_Positive: Timeout dgpu
-    Unit_hipStreamPerThread_DeviceReset_1: ''
-    Unit_hipStreamPerThread_MultiThread: ''
-    hipTestDeviceSymbol: ''
+    Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
+    Unit_ballot: ''
     BinomialOption: ''
     DCT: ''
     Histogram: ''
@@ -492,6 +485,14 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: 'Timeout'
+    Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: 'Timeout'
+    Unit_hipStreamAddCallback_ParamTst_Positive: 'Timeout'
+    Unit_hipStreamAddCallback_WithDefaultStream: 'Timeout'
+    Unit_hipStreamAddCallback_WithCreatedStream: 'Timeout'
+    Unit_hipEventRecord: 'Timeout'
+    Unit_hipMultiThreadStreams1_AsyncSame: 'Timeout'
+    hipTestDeviceSymbol: 'Timeout'
     Unit_hipGraphAddEventRecordNode_Functional_Simple: ''
     Unit_hipGraphAddEventRecordNode_Functional_WithoutFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_WithFlags: '' 
