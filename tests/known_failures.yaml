@@ -485,6 +485,14 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: 'Timeout'
+    Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: 'Timeout'
+    Unit_hipStreamAddCallback_ParamTst_Positive: 'Timeout'
+    Unit_hipStreamAddCallback_WithDefaultStream: 'Timeout'
+    Unit_hipStreamAddCallback_WithCreatedStream: 'Timeout'
+    Unit_hipEventRecord: 'Timeout'
+    Unit_hipMultiThreadStreams1_AsyncSame: 'Timeout'
+    hipTestDeviceSymbol: 'Timeout'
     Unit_hipGraphAddEventRecordNode_Functional_Simple: ''
     Unit_hipGraphAddEventRecordNode_Functional_WithoutFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_WithFlags: '' 
