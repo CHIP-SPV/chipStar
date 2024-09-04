@@ -484,6 +484,7 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    hipStreamSemantics: 'TestStreamSemantics_2 (non-blocking stream):  Failed, then timeout'
     Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: 'Timeout'
     Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: 'Timeout'
     Unit_hipStreamAddCallback_ParamTst_Positive: 'Timeout'
