@@ -808,9 +808,6 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
-#endif
   if (zeCmdQOwnership_) {
     zeStatus = zeCommandQueueDestroy(ZeCmdQ_);
   } else {
@@ -972,9 +969,6 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ZeDev_ = ChipDevLz_->get();
 
   logTrace("CHIPQueueLevel0 constructor called via Flags and Priority");
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
-#endif
   zeStatus = zeCommandQueueCreate(ZeCtx_, ZeDev_, &QueueDescriptor_, &ZeCmdQ_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueCreate);
 
@@ -1462,9 +1456,6 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueLevel0::finish() {
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockLevel0)
-#endif
   auto LastEvent = getLastEvent();
   if (LastEvent)
     LastEvent->wait();

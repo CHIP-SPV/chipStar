@@ -1857,11 +1857,6 @@ public:
    */
   virtual void trackEvent(const std::shared_ptr<chipstar::Event> &Event);
 
-#ifdef CHIP_DUBIOUS_LOCKS
-  std::mutex DubiousLockOpenCL;
-  std::mutex DubiousLockLevel0;
-#endif
-
   virtual chipstar::ExecItem *createExecItem(dim3 GirdDim, dim3 BlockDim,
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) = 0;
