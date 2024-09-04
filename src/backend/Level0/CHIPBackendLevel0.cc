@@ -576,7 +576,16 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
                                  &CpuCallbackCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
-  ChipQueueLz->executeCommandList(CommandList, GpuAck);
+  // Need to create another event as GpuAck will be destroyed once callback is
+  // complete
+  auto CallbackComplete = BackendLz->createEventShared(ChipContextLz);
+  CallbackComplete->Msg = "CallbackComplete";
+  auto CallbackCompleteLz =
+      std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
+  zeStatus = zeCommandListAppendBarrier(CommandList->getCmdList(),
+                                        CallbackCompleteLz->get(), 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  ChipQueueLz->executeCommandList(CommandList, CallbackComplete);
 }
 
 // End CHIPCallbackDataLevel0

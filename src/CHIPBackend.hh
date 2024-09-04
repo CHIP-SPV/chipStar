@@ -2352,7 +2352,9 @@ public:
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) = 0;
   virtual std::shared_ptr<chipstar::Event> enqueueBarrier(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
-
+  virtual std::shared_ptr<chipstar::Event> enqueueBarrier() {
+    return enqueueBarrier({});
+  }
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() = 0;
   std::shared_ptr<chipstar::Event> enqueueMarker();
 
