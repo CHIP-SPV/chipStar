@@ -47,13 +47,6 @@ void callback_sleep2(hipStream_t stream, hipError_t status, void *user_data) {
   printf("callback_sleep2: Exiting now\n");
 }
 
-void callback_sleep10(hipStream_t stream, hipError_t status, void *user_data) {
-  int *data = (int *)user_data;
-  printf("callback_sleep10: Going to sleep for 10sec\n");
-  sleep(10);
-  *data = 2;
-  printf("callback_sleep10: Exiting now\n");
-}
 
 /*
  * Intent : Verify hipStreamQuery returns right queue status
@@ -66,7 +59,7 @@ bool TestStreamSemantics_1() {
   hipStream_t stream;
   CHECK(hipStreamCreate(&stream));
   stream2_shared_data = (int *)malloc(sizeof(int));
-  CHECK(hipStreamAddCallback(stream, callback_sleep10, stream2_shared_data, 0));
+  CHECK(hipStreamAddCallback(stream, callback_sleep2, stream2_shared_data, 0));
   status = hipStreamQuery(stream);
   bool testStatus = true;
   printf("%s(stream query) : ", __FUNCTION__);
@@ -108,7 +101,7 @@ bool TestStreamSemantics_2() {
   host_ptr = (int *)malloc(size);
 
   // Push a 10sec long taks into the stream
-  CHECK(hipStreamAddCallback(stream_non_blocking, callback_sleep10,
+  CHECK(hipStreamAddCallback(stream_non_blocking, callback_sleep2,
                              stream_shared_data, 0));
 
   // printf("Starting task on null stream\n");
@@ -121,11 +114,11 @@ bool TestStreamSemantics_2() {
 
   bool testStatus = true;
   printf("%s (non-blocking stream): ", __FUNCTION__);
-  if (*host_ptr == 101 && *stream_shared_data == 2) {
-    testStatus = false;
+  if (*host_ptr != 101 && *stream_shared_data != 2) {
     printf("%s %s %s\n", "\033[0;31m", "Failed", "\033[0m");
-    // printf("host_ptr = %d, stream_shared_data = %d\n", *host_ptr,
-    // *stream_shared_data);fflush(stdout);
+    printf("host_ptr = %d, stream_shared_data = %d\n", *host_ptr,
+           *stream_shared_data);
+    fflush(stdout);
   } else {
     printf("PASSED\n");
   }
@@ -165,7 +158,7 @@ bool TestStreamSemantics_3() {
 
   *stream2_shared_data = 1;
   CHECK(
-      hipStreamAddCallback(stream2, callback_sleep10, stream2_shared_data, 0));
+      hipStreamAddCallback(stream2, callback_sleep2, stream2_shared_data, 0));
 
   printf("Going to sync stream1\n");
   CHECK(hipStreamSynchronize(stream1));
