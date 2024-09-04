@@ -51,8 +51,6 @@
 
 #cmakedefine CHIP_USE_INTEL_USM
 
-#cmakedefine CHIP_DUBIOUS_LOCKS
-
 #cmakedefine CHIP_L0_FIRST_TOUCH
 
 #cmakedefine CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE

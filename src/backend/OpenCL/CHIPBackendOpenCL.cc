@@ -1285,12 +1285,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   const size_t Local[NumDims] = {BlockDim.x, BlockDim.y, BlockDim.z};
 
   logTrace("Launch GLOBAL: {} {} {}", Global[0], Global[1], Global[2]);
-
   logTrace("Launch LOCAL: {} {} {}", Local[0], Local[1], Local[2]);
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockOpenCL);
-#endif
-
   auto AllocationsToKeepAlive = annotateIndirectPointers(
       *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
 
@@ -1431,9 +1426,6 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
   } else {
-#ifdef CHIP_DUBIOUS_LOCKS
-    LOCK(Backend->DubiousLockOpenCL)
-#endif
     auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
     std::vector<cl_event> SyncQueuesEventHandles =
         getOpenCLHandles(EventsToWait);
@@ -1518,9 +1510,6 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueOpenCL::finish() {
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockOpenCL)
-#endif
   clStatus = get()->finish();
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
   this->LastEvent_ = nullptr;
@@ -1627,9 +1616,6 @@ CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
-#ifdef CHIP_DUBIOUS_LOCKS
-  LOCK(Backend->DubiousLockOpenCL)
-#endif
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           this->ChipContext_);
