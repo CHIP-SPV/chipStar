@@ -20,6 +20,6 @@ jobs:
             cd ~/chipStar
             git fetch origin
             git checkout ${{ github.event.pull_request.head.sha }}
-            ./scripts/unit_tests.sh release llvm-18
+            bash -x ./scripts/unit_tests.sh release llvm-18
           EOF
         shell: bash
