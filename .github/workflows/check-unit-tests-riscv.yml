@@ -1,0 +1,25 @@
+# Workflow syntax:
+# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+name: Unit Tests RISC-V GPUs
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests-llvm-18-release-macaroni:
+    runs-on: X64 # TODO: Add RISCV64 once runner is supported
+    steps:
+      - name: Run unit tests on RISC-V machine
+        run: |
+          ssh macaroni << EOF
+            cd ~/chipStar
+            git fetch origin
+            git checkout ${{ github.event.pull_request.head.sha }}
+            bash -x ./scripts/unit_tests.sh release llvm-18
+          EOF
+        shell: bash

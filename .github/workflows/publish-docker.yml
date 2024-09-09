@@ -1,42 +1,42 @@
-name: Docker Build and Publish
+# name: Docker Build and Publish
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
 
-jobs:
-  docker:
-    runs-on: [self-hosted, Linux, X64]
-    steps:
-    - uses: actions/checkout@v3
+# jobs:
+#   docker:
+#     runs-on: [self-hosted, Linux, X64]
+#     steps:
+#     - uses: actions/checkout@v3
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+#     - name: Set up Docker Buildx
+#       uses: docker/setup-buildx-action@v2
     
-    - name: Login to DockerHub
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+#     - name: Login to DockerHub
+#       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#       uses: docker/login-action@v2
+#       with:
+#         username: ${{ secrets.DOCKERHUB_USERNAME }}
+#         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        file: ./docker/DockerfileLatest
-        push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        tags: pveleskopglc/chipstar:latest
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache
+#     - name: Build and push Docker image
+#       uses: docker/build-push-action@v4
+#       with:
+#         context: .
+#         file: ./docker/DockerfileLatest
+#         push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+#         tags: pveleskopglc/chipstar:latest
+#         cache-from: type=local,src=/tmp/.buildx-cache
+#         cache-to: type=local,dest=/tmp/.buildx-cache
 
-  cleanup:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [docker]
-    runs-on: [self-hosted, Linux, X64]
-    steps:
-    - name: Clean up old Docker images
-      run: |
-        docker image prune -af
+#   cleanup:
+#     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#     needs: [docker]
+#     runs-on: [self-hosted, Linux, X64]
+#     steps:
+#     - name: Clean up old Docker images
+#       run: |
+#         docker image prune -af
