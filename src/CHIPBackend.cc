@@ -807,6 +807,9 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
   case hipDeviceAttributeUnifiedAddressing:
     return Prop.unifiedAddressing;
     break;
+  case hipDeviceAttributeMemoryPoolsSupported:
+    return Prop.memoryPoolsSupported;
+    break;
   default:
     CHIPERR_LOG_AND_THROW("Device::getAttr asked for an unkown attribute",
                           hipErrorInvalidValue);
@@ -1461,7 +1464,7 @@ chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
     CHIPERR_LOG_AND_THROW("Backend::findQueue() was given a non-nullptr "
                           "queue but this queue "
                           "was not found among the backend queues.",
-                          hipErrorTbd);
+                          hipErrorContextIsDestroyed);
   return *QueueFound;
 }
 
