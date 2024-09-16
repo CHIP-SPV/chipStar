@@ -23,6 +23,13 @@
 #
 # =============================================================================
 
+execute_process(
+  COMMAND uname -m
+  OUTPUT_VARIABLE DETECTED_ARCHITECTURE
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+message(STATUS "Detected architecture: ${DETECTED_ARCHITECTURE}")
+
 # temporary
 add_compile_options(-Wno-format-extra-args)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
