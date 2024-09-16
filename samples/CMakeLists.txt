@@ -131,8 +131,11 @@ set(SAMPLES
     ccompat
     hipComplex
     hipHostMallocSample
-    hipDeviceLink
 )
+
+if (NOT "${DETECTED_ARCHITECTURE}" STREQUAL "riscv64")
+  list(APPEND SAMPLES hipDeviceLink)
+endif()
 
 include(mkl_and_icpx)
 # Add samples that depend on Intel's oneAPI compiler - if available.
