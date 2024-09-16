@@ -30,6 +30,21 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
 -Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
 
+# Find GCC installation path
+execute_process(
+  COMMAND which gcc
+  OUTPUT_VARIABLE GCC_PATH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Extract the base path (removing /bin/gcc from the end)
+get_filename_component(GCC_BASE_PATH ${GCC_PATH} DIRECTORY)
+get_filename_component(GCC_BASE_PATH ${GCC_BASE_PATH} DIRECTORY)
+
+message(STATUS "GCC base path: ${GCC_BASE_PATH}")
+# Necessary on some systems with nonstandard GCC installations
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --gcc-toolchain=${GCC_BASE_PATH}")
+
 # end temporary
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
