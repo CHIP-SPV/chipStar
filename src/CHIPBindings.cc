@@ -333,7 +333,25 @@ hipError_t hipGetChannelDesc(hipChannelFormatDesc *desc,
 }
 
 hipError_t hipDeviceGetUuid(hipUUID *uuid, hipDevice_t device) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  std::cout << "Function started" << std::endl;
+  CHIP_TRY
+  LOCK(ApiMtx);
+  CHIPInitialize();
+
+  //Nullptr check
+  if (uuid == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //invalid device check
+  if (device < 0 || device >= Backend->getDeviceCount()) {
+    RETURN(hipErrorInvalidDevice);
+  }
+
+  //Not implemented so return hipErrorNotSupported
+  RETURN(hipErrorNotSupported);
+
+  CHIP_CATCH
 }
 hipError_t hipDeviceSetLimit(enum hipLimit_t limit, size_t value) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -376,7 +394,24 @@ hipError_t hipDrvMemcpy3DAsync(const HIP_MEMCPY3D *pCopy, hipStream_t stream) {
 }
 
 hipError_t hipDeviceGetDefaultMemPool(hipMemPool_t *mem_pool, int device) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+   CHIP_TRY
+  LOCK(ApiMtx);
+  CHIPInitialize();
+
+  // Nullptr check for mem_pool
+  if (mem_pool == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Invalid device check (negative or out of bounds)
+  if (device < 0 || device >= Backend->getNumDevices()) {
+    RETURN(hipErrorInvalidDevice);
+  }
+
+  //Since memory pools are not implemented, return hipErrorNotSupported
+  RETURN(hipErrorNotSupported);
+
+  CHIP_CATCH
 }
 
 hipError_t hipArrayDestroy(hipArray *Array) { return hipFreeArray(Array); }
@@ -395,7 +430,24 @@ hipError_t hipDeviceSetMemPool(int device, hipMemPool_t mem_pool) {
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipDeviceGetMemPool(hipMemPool_t *mem_pool, int device) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+  CHIP_TRY
+  LOCK(ApiMtx);
+  CHIPInitialize();
+
+  // Nullptr check for mem_pool
+  if (mem_pool == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Invalid device check (negative or out of bounds)
+  if (device < 0 || device >= Backend->getNumDevices()) {
+    RETURN(hipErrorInvalidDevice);
+  }
+
+  // Since mempools are not implemented, return hipErrorNotSupported
+  RETURN(hipErrorNotSupported);
+
+  CHIP_CATCH
 }
 hipError_t hipMallocAsync(void **dev_ptr, size_t size, hipStream_t stream) {
   UNIMPLEMENTED(hipErrorNotSupported);
@@ -720,6 +772,15 @@ hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Checks both parameters for nullptr
+  if (originalGraph == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+  if (pGraphClone == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+
   CHIPGraph *CloneGraph = new CHIPGraph(*GRAPH(originalGraph));
   *pGraphClone = CloneGraph;
   RETURN(hipSuccess);
@@ -1328,7 +1389,32 @@ hipError_t hipGraphAddChildGraphNode(hipGraphNode_t *pGraphNode,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  
+
+  //nullptr checks for pGraphNode, graph, and childGraph
+  if(pGraphNode == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(graph == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(childGraph == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(pDependencies == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   CHIPGraphNodeGraph *Node = new CHIPGraphNodeGraph(GRAPH(childGraph));
+
+  if(Node == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   *pGraphNode = Node;
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
   GRAPH(graph)->addNode(Node);
@@ -2063,7 +2149,12 @@ hipError_t hipDeviceGetCacheConfig(hipFuncCache_t *CacheCfg) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(CacheCfg);
+  //NULLCHECK(CacheCfg);
+
+  // manual NULLCHECK that returns hipErrorInvalidValue
+  if (CacheCfg == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
 
   if (CacheCfg)
     *CacheCfg = Backend->getActiveDevice()->getCacheConfig();
@@ -2076,7 +2167,12 @@ hipError_t hipDeviceGetSharedMemConfig(hipSharedMemConfig *Cfg) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Cfg);
+  //NULLCHECK(Cfg);
+
+  // manual NULLCHECK that returns hipErrorInvalidValue
+  if (Cfg == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
 
   if (Cfg)
     *Cfg = Backend->getActiveDevice()->getSharedMemConfig();
@@ -2227,14 +2323,16 @@ hipError_t hipDriverGetVersion(int *DriverVersion) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(DriverVersion);
+  //NULLCHECK(DriverVersion);
 
-  if (DriverVersion) {
-    *DriverVersion = 4;
-    logWarn("Driver version is hardcoded to 4");
-    RETURN(hipSuccess);
-  } else
+  //manual nullptr check for DriverVersion
+  if (DriverVersion == nullptr) {
     RETURN(hipErrorInvalidValue);
+  }
+
+  *DriverVersion = 4;
+  logWarn("Driver version is hardcoded to 4");
+  RETURN(hipSuccess);
 
   CHIP_CATCH
 }
