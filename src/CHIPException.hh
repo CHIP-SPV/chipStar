@@ -37,6 +37,10 @@
 #include "CHIPBindingsInternal.hh"
 #include "logging.hh"
 #include <string>
+#include <execinfo.h>
+#include <cxxabi.h>
+#include <dlfcn.h>
+
 class CHIPError {
   std::string Msg_;
   hipError_t Err_;
@@ -61,6 +65,23 @@ public:
 #define CHIPERR_LOG_AND_ABORT(msg)                                             \
   do {                                                                         \
     logError("{} in {}:{}:{}\n", msg, __FILE__, __LINE__, __func__);           \
+    void *callstack[128];                                                      \
+    int frames = backtrace(callstack, 128);                                    \
+    char **strs = backtrace_symbols(callstack, frames);                        \
+    for (int i = 0; i < frames; ++i) {                                         \
+      Dl_info info;                                                            \
+      if (dladdr(callstack[i], &info)) {                                       \
+        char *demangled = NULL;                                                \
+        int status;                                                            \
+        demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);     \
+        logError("#{} {}", i, demangled ? demangled : info.dli_sname,          \
+                 info.dli_fname);                                              \
+        free(demangled);                                                       \
+      } else {                                                                 \
+        logError("#{} {}", i, strs[i]);                                        \
+      }                                                                        \
+    }                                                                          \
+    free(strs);                                                                \
     std::abort();                                                              \
   } while (0)
 
