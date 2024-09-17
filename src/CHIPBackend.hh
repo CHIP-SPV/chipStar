@@ -2185,6 +2185,13 @@ public:
     return LastEvent_;
   }
 
+  virtual std::shared_ptr<chipstar::Event> getLastEventNoLock() {
+    if (LastEvent_)
+      LastEvent_->isDeletedSanityCheck();
+    return LastEvent_;
+  }
+
+
   /**
    * @brief Construct a new Queue object
    *

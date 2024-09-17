@@ -1456,7 +1456,8 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueLevel0::finish() {
-  auto LastEvent = getLastEvent();
+  LOCK(LastEventMtx); // Queue::LastEvent_
+  auto LastEvent = getLastEventNoLock();
   if (LastEvent)
     LastEvent->wait();
 
