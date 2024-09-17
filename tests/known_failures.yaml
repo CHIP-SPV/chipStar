@@ -551,3 +551,15 @@ salami:
     cuda-matrixMul: '' 
     cuda-bandwidthTest: '' 
   OPENCL_POCL:
+x4\d\d\dc\ds\db0n0: # aurora
+  ALL:
+  LEVEL0_GPU:
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
+x1921.*b0n0: # sunspot
+  ALL:
+  LEVEL0_GPU:
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
