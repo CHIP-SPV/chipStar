@@ -551,11 +551,18 @@ salami:
     cuda-matrixMul: '' 
     cuda-bandwidthTest: '' 
   OPENCL_POCL:
-x4\d\d\dc\ds\db0n0: # aurora
+x4\d\d\dc\ds\db0n0: # aurora intel_compute_runtime/release/775.20
   ALL:
   LEVEL0_GPU:
+  	firstTouch: 'Runtime bug'
+  	TestIndirectMappedHostAlloc: '*OutH = 0'
+  	hip_async_binomial: '[2] inf 0x7f800000  5.398513 0x40acc09e'
+  	cuda-lambda: 'OutH == 2'
   OPENCL_CPU:
   OPENCL_GPU:
+    Unit_hipStreamAddCallback_WithDefaultStream: 'timeout'
+	  hip_sycl_interop: 'pi::getPlugin couldn't find plugin -59 (PI_ERROR_INVALID_OPERATION)'
+	  hip_sycl_interop_no_buffers: 'pi::getPlugin couldn't find plugin -59 (PI_ERROR_INVALID_OPERATION)'
   OPENCL_POCL:
 x1921.*b0n0: # sunspot
   ALL:
