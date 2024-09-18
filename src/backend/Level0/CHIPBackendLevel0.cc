@@ -472,9 +472,9 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   Other->updateFinishStatus(false);
   if (this->getEventStatus() != EVENT_STATUS_RECORDED) {
     if (Other->getEventStatus() != EVENT_STATUS_RECORDED) {
-      CHIPERR_LOG_AND_THROW(
-          "CHIPEventLevel0::getElapsedTime() neither start nor stop event is recorded",
-          hipErrorNotReady);
+      CHIPERR_LOG_AND_THROW("CHIPEventLevel0::getElapsedTime() neither start "
+                            "nor stop event is recorded",
+                            hipErrorNotReady);
     } else {
       CHIPERR_LOG_AND_THROW(
           "CHIPEventLevel0::getElapsedTime() this(start) event is not recorded",
@@ -1471,10 +1471,13 @@ void CHIPQueueLevel0::finish() {
   if (LastEvent)
     LastEvent->wait();
 
-  zeStatus =
-      zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
+  if (zeCmdQOwnership_) {
+    zeStatus =
+        zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
                                     "zeCommandQueueSynchronize timeout out");
+  }
+
   this->LastEvent_ = nullptr;
   return;
 }
