@@ -2749,8 +2749,7 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
   NULLCHECK(Event);
   chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
-  if (ChipEvent->isRecordingOrRecorded())
-    ChipEvent->wait();
+  ChipEvent->wait();
 
   RETURN(hipSuccess);
 
@@ -2778,11 +2777,6 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
     CHIPERR_LOG_AND_THROW("One of the events was not recorded",
                           hipErrorInvalidHandle);
   }
-
-  if (!ChipEventStart->getEventStatus() == EVENT_STATUS_RECORDING)
-    RETURN(hipErrorNotReady);
-  if (!ChipEventStop->getEventStatus() == EVENT_STATUS_RECORDING)
-    RETURN(hipErrorNotReady);
 
   *Ms = ChipEventStart->getElapsedTime(ChipEventStop);
   RETURN(hipSuccess);
