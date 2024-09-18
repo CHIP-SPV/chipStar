@@ -468,13 +468,23 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   logTrace("CHIPEventLevel0::getElapsedTime()");
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
   LOCK(Backend->EventsMtx); // chipstar::Backend::Events_
-  this->updateFinishStatus();
-  Other->updateFinishStatus();
-  if (!this->isFinished() || !Other->isFinished())
-    std::abort();
-  // CHIPERR_LOG_AND_ABORT("One of the events for getElapsedTime() was done
-  // yet",
-  //                       hipErrorNotReady);
+  this->updateFinishStatus(false);
+  Other->updateFinishStatus(false);
+  if (this->getEventStatus() != EVENT_STATUS_RECORDED) {
+    if (Other->getEventStatus() != EVENT_STATUS_RECORDED) {
+      CHIPERR_LOG_AND_THROW(
+          "CHIPEventLevel0::getElapsedTime() neither start nor stop event is recorded",
+          hipErrorNotReady);
+    } else {
+      CHIPERR_LOG_AND_THROW(
+          "CHIPEventLevel0::getElapsedTime() this(start) event is not recorded",
+          hipErrorNotReady);
+    }
+  } else if (Other->getEventStatus() != EVENT_STATUS_RECORDED) {
+    CHIPERR_LOG_AND_THROW(
+        "CHIPEventLevel0::getElapsedTime() other(stop) event is not recorded",
+        hipErrorNotReady);
+  }
 
   uint32_t Started = this->getFinishTime();
   uint32_t Finished = Other->getFinishTime();
