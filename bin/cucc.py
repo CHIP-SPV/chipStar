@@ -26,13 +26,12 @@
 #=============================================================================
 """Compiler wrapper aiming to be a drop-in replacement for nvcc."""
 # Enable v3.9+ type annotations in older versions (down to 3.7).
-from __future__ import annotations
 import argparse
 import os
 import subprocess
 import sys
 from shlex import quote
-
+from typing import List, Set, Optional
 
 # If true, we change the behavior of this tool so that the CMake
 # considers this tool to be NVvidia's nvcc. This allows us to compile
@@ -165,7 +164,7 @@ def get_cuda_library_dir() -> str:
     """
     return get_hip_path() + "/lib"
 
-def determine_input_languages(arg_list : list[str], xmode=None) -> set[str]:
+def determine_input_languages(arg_list: List[str], xmode: Optional[str] = None) -> Set[str]:
     """Determine input language modes from the argument list
 
     The 'xmode' specifies value of the last '-x' option if it was specified.
@@ -201,7 +200,7 @@ def determine_input_languages(arg_list : list[str], xmode=None) -> set[str]:
 
     return modes
 
-def filter_args_for_hipcc(arg_list : list[str]) -> list[str]:
+def filter_args_for_hipcc(arg_list: List[str]) -> List[str]:
     """Filter out arguments on the way to hipcc.
     """
     filtered = []
