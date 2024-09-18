@@ -2749,7 +2749,8 @@ hipError_t hipEventSynchronize(hipEvent_t Event) {
   NULLCHECK(Event);
   chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
 
-  ChipEvent->wait();
+  if (ChipEvent->isRecordingOrRecorded())
+    ChipEvent->wait();
 
   RETURN(hipSuccess);
 

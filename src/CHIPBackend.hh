@@ -269,7 +269,7 @@ class HostAllocFlags {
   unsigned int FlagsRaw_;
 
 public:
-  HostAllocFlags() : FlagsRaw_(hipHostMallocDefault){};
+  HostAllocFlags() : FlagsRaw_(hipHostMallocDefault) {};
   HostAllocFlags(unsigned int FlagsRaw) : FlagsRaw_(FlagsRaw) {
     if (FlagsRaw & hipHostMallocDefault) {
       Default_ = true;
@@ -384,7 +384,7 @@ public:
     Monitor->monitor();
     return 0;
   }
-  virtual void monitor(){};
+  virtual void monitor() {};
 
   void start() {
     logDebug("Starting chipstar::Event Monitor Thread");
@@ -2190,7 +2190,6 @@ public:
       LastEvent_->isDeletedSanityCheck();
     return LastEvent_;
   }
-
 
   /**
    * @brief Construct a new Queue object

@@ -1474,8 +1474,8 @@ void CHIPQueueLevel0::finish() {
   if (zeCmdQOwnership_) {
     zeStatus =
         zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
-                                    "zeCommandQueueSynchronize timeout out");
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
+                                      "zeCommandQueueSynchronize timeout out");
   }
 
   this->LastEvent_ = nullptr;
