@@ -14,7 +14,7 @@ RUN clinfo -l
 
 RUN pip install pyyaml
 
-RUN sudo apt update && sudo apt install vim-common -y # for xxd
+RUN apt-get update && apt-get install -y vim-common # for xxd
 
 ENV CHIP_BE=opencl
 ENV CHIP_DEVICE_TYPE=cpu
