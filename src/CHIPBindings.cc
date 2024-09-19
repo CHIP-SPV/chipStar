@@ -2779,11 +2779,6 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
                           hipErrorInvalidHandle);
   }
 
-  if (!ChipEventStart->getEventStatus() == EVENT_STATUS_RECORDING)
-    RETURN(hipErrorNotReady);
-  if (!ChipEventStop->getEventStatus() == EVENT_STATUS_RECORDING)
-    RETURN(hipErrorNotReady);
-
   *Ms = ChipEventStart->getElapsedTime(ChipEventStop);
   RETURN(hipSuccess);
 

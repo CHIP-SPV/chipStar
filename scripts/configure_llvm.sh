@@ -119,14 +119,24 @@ else
   cd ${LLVM_DIR}
 fi
 
-# check if the build directory exists, if not create it
-if [ ! -d build_$VERSION ]; then
+# check if the build directory exists
+if [ -d build_$VERSION ]; then
+  read -p "Build directory build_$VERSION already exists. Do you want to delete it and continue? (y/n) " answer
+  case ${answer:0:1} in
+    y|Y )
+      echo "Deleting existing build directory..."
+      rm -rf build_$VERSION
+      mkdir build_$VERSION
+      cd build_$VERSION
+    ;;
+    * )
+      echo "Build directory not deleted. Exiting."
+      exit 1
+    ;;
+  esac
+else
   mkdir build_$VERSION
   cd build_$VERSION
-else
-  # Warn the user, error out
-  echo "Build directory build_$VERSION already exists, please remove it and re-run the script"
-  exit 1
 fi
 
 # Check if /usr/include/plugin-api.h exists
@@ -143,33 +153,38 @@ elif [ -f /usr/include/plugin-api.h ]; then
   BINUTILS_HEADER_DIR=/usr/include
 else
   echo "plugin-api.h was not found at /usr/include/plugin-api.h"
-  echo "Installing binutils-dev from source..."
-
-  # Define the installation location
+  
+  # Check if binutils was installed in a previous attempt
   BINUTILS_INSTALL_DIR=${INSTALL_DIR}/binutils
-  
-  # Create the installation directory if it doesn't exist
-  mkdir -p ${BINUTILS_INSTALL_DIR}
-  
-  # Download the binutils source
-  BINUTILS_VERSION="2.36.1"
-  wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
-  
-  # Extract the source
-  tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
-  cd binutils-${BINUTILS_VERSION}
-  
-  # Configure, compile, and install binutils
-  ./configure --prefix=${BINUTILS_INSTALL_DIR}
-  make -j$(nproc)
-  make install
-  
-  # Clean up
-  cd ..
-  rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
-  
-  echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
-  BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+  if [ -f "${BINUTILS_INSTALL_DIR}/include/plugin-api.h" ]; then
+    echo "Found previously installed binutils at ${BINUTILS_INSTALL_DIR}"
+    BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+  else
+    echo "Installing binutils-dev from source..."
+    
+    # Create the installation directory if it doesn't exist
+    mkdir -p ${BINUTILS_INSTALL_DIR}
+    
+    # Download the binutils source
+    BINUTILS_VERSION="2.36.1"
+    wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
+    
+    # Extract the source
+    tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
+    cd binutils-${BINUTILS_VERSION}
+    
+    # Configure, compile, and install binutils
+    ./configure --prefix=${BINUTILS_INSTALL_DIR}
+    make -j$(nproc)
+    make install
+    
+    # Clean up
+    cd ..
+    rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
+    
+    echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
+    BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+  fi
 fi
 
 # Add build type condition
@@ -180,10 +195,9 @@ if [ "$LINK_TYPE" == "static" ]; then
     -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
     -DLLVM_TARGETS_TO_BUILD=host \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
-    -DCMAKE_CXX_COMPILER=g++ \
-    -DCMAKE_C_COMPILER=gcc \
     -DLLVM_ENABLE_ASSERTIONS=On \
-    -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}
+    -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
+    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64"
 elif [ "$LINK_TYPE" == "dynamic" ]; then
   cmake ../ \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
@@ -195,8 +209,7 @@ elif [ "$LINK_TYPE" == "dynamic" ]; then
     -DLLVM_BUILD_LLVM_DYLIB=ON \
     -DLLVM_PARALLEL_LINK_JOBS=2 \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_COMPILER=g++ \
-    -DCMAKE_C_COMPILER=gcc \
+    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
     -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
     -DLLVM_ENABLE_ASSERTIONS=On
 else

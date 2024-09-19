@@ -109,6 +109,11 @@ if(NOT DEFINED LLVM_SPIRV)
   if(NOT LLVM_SPIRV)
     message(FATAL_ERROR "Can't find llvm-spirv. Please provide CMake argument -DLLVM_SPIRV=/path/to/llvm-spirv<-version>")
   endif()
+else()
+  # Check if the provided LLVM_SPIRV file exists
+  if(NOT EXISTS ${LLVM_SPIRV})
+    message(FATAL_ERROR "Provided LLVM_SPIRV (${LLVM_SPIRV}) does not exist")
+  endif()
 endif()
 message(STATUS "Using llvm-spirv: ${LLVM_SPIRV}")
 

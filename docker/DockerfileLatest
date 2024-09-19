@@ -12,10 +12,6 @@ SHELL ["/bin/bash", "-ci"]
 
 RUN clinfo -l
 
-RUN pip install pyyaml
-
-RUN sudo apt-get install vim-common -y # for xxd
-
 ENV CHIP_BE=opencl
 ENV CHIP_DEVICE_TYPE=cpu
 ENV CHIP_LOGLEVEL=info

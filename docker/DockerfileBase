@@ -1,19 +1,22 @@
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND noninteractive
 
 SHELL ["/bin/bash", "-ci"]
 
+# Set timezone non-interactively
+ENV TZ=Etc/UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # Get the basic stuff and create chipStarUser user with sudo privileges
 RUN apt-get update && \
-    apt-get -y upgrade && \
-    apt-get install -y sudo; \
+    apt-get install -y sudo tzdata && \
     useradd -ms /bin/bash chipStarUser && \
     groupadd -f video && groupadd -f render && \
     usermod -aG sudo,video,render chipStarUser; \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-# Set as default user
+
 USER chipStarUser
 WORKDIR /home/chipStarUser
 
@@ -113,7 +116,8 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
 # Set up conda environment
 ENV PATH="/apps/conda/bin:${PATH}"
 RUN conda init bash && \
-    conda config --add channels intel && \
+    conda config --add channels https://software.repos.intel.com/python/conda/ && \
+    conda config --add channels conda-forge && \
     conda create -n oneapi-2024.1.0 -y
 
 # Install OneAPI packages
@@ -139,24 +143,36 @@ RUN conda run -n oneapi-2024.1.0 conda install -y \
     onemkl-sycl-sparse=2024.1.0=intel_691 \
     onemkl-sycl-stats=2024.1.0=intel_691 \
     onemkl-sycl-vm=2024.1.0=intel_691 \
-    tbb=2021.12.0=intel_495 \
-    level-zero=1.17.6
+    tbb=2021.12.0=intel_495
 
-# RUN conda config --add channels conda-forge && conda run -n oneapi-2024.1.0 conda install -y intel-compute-runtime
-RUN sudo apt install -y intel-opencl-icd vim
+USER root
+# Install level-zero and other dependencies
+RUN sudo apt-get update && \
+    sudo apt-get install -y intel-opencl-icd vim
 
-# Install Level Zero headers system-wide
-RUN mkdir -p /tmp/level-zero-headers && \
-    cd /tmp/level-zero-headers && \
-    git clone https://github.com/oneapi-src/level-zero.git && \
+# Install dependencies for building Level Zero
+RUN apt-get update && apt-get install -y \
+    cmake \
+    pkg-config \
+    build-essential \
+    git
+
+# Clone, build, and install Level Zero
+RUN git clone https://github.com/oneapi-src/level-zero.git && \
     cd level-zero && \
     mkdir build && \
     cd build && \
     cmake .. && \
-    make -j && \
-    sudo make install && \
-    cd ~/ && \
-    rm -rf /tmp/level-zero-headers
+    make -j$(nproc) && \
+    make install && \
+    cd ../.. && \
+    rm -rf level-zero
+
+# Update library cache
+RUN ldconfig
+
+# Optional: If you encounter solver issues, set the following environment variable
+ENV CONDA_LIBMAMBA_SOLVER_NO_CHANNELS_FROM_INSTALLED=1
 
 # Delete Intel OpenCL Loader
 RUN rm -f /apps/conda/envs/oneapi-2024.1.0/lib/libOpenCL.so.1
@@ -179,8 +195,16 @@ RUN mkdir -p /apps/modulefiles/Core/oneapi && \
     echo 'setenv("ONEAPI_ROOT", base)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua && \
     echo 'setenv("ONEAPI_VERSION", version)' >> /apps/modulefiles/Core/oneapi/2024.1.0.lua
 
-# Set permissionst to enable non-root access to GPUs
+RUN pip install pyyaml
+
+RUN apt-get update && apt-get install -y vim-common # for xxd
+
+# Set permissions to enable non-root access to GPUs
 RUN echo 'sudo chmod 666 /dev/dri/* 2>/dev/null || true' >> /home/chipStarUser/.bashrc
+
+# Set as default user
+USER chipStarUser
+WORKDIR /home/chipStarUser
 
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
