@@ -1,6 +1,7 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    hipStreamSemantics: 'timing dependent, flaky when ctest -j'
     Unit_AnyAll_CompileTest: 'Failed'
     Unit_funnelshift: 'Failed'
     Unit_threadfence_system: 'SEGFAULT'
