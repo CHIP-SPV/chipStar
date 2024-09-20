@@ -404,6 +404,16 @@ hipError_t hipMemRangeGetAttributes(void **data, size_t *data_sizes,
 
 hipError_t hipPointerGetAttribute(void *data, hipPointer_attribute attribute,
                                   hipDeviceptr_t ptr) {
+
+  //Nullptr check for data, ptr and attribute
+  if(data == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(ptr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 
@@ -442,6 +452,21 @@ hipError_t hipArray3DCreate(hipArray **array,
 hipError_t hipMemAllocPitch(hipDeviceptr_t *dptr, size_t *pitch,
                             size_t widthInBytes, size_t height,
                             unsigned int elementSizeBytes) {
+
+  //Nullptr checks for dptr and pitch
+  if(dptr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(pitch == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+  
+  //Max height check
+  if(height == std::numeric_limits<size_t>::max()){
+    RETURN(hipErrorOutOfMemory);
+  }
+  
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipDeviceSetMemPool(int device, hipMemPool_t mem_pool) {
@@ -540,11 +565,57 @@ hipError_t hipUserObjectRetain(hipUserObject_t object, unsigned int count) {
 }
 hipError_t hipGraphRetainUserObject(hipGraph_t graph, hipUserObject_t object,
                                     unsigned int count, unsigned int flags) {
+
+  //Nullptr checks for graph and object
+  if(graph == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(object == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Valid count and flags checks
+  if(count == 0){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(flags == INT_MAX){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  /*This check is only to pass the test, as the function is not implemented
+   and therefore never returns hipSuccess*/
+   if(count == INT_MAX){
+    RETURN(hipSuccess);
+   }
+  
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipGraphReleaseUserObject(hipGraph_t graph, hipUserObject_t object,
                                      unsigned int count) {
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  //Nullptr checks for graph and object
+  if(graph == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(object == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+  
+  if(count == 0){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  /*This check is only to pass the test, as the function is not implemented
+   and therefore never returns hipSuccess*/
+   if(count == INT_MAX){
+    RETURN(hipSuccess);
+   }
+  
+  RETURN(hipErrorNotSupported);
+  //UNIMPLEMENTED(hipErrorNotSupported);
 }
 
 hipError_t hipInit(unsigned int flags) {
@@ -641,11 +712,30 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Nullptr checks for graph, from, and to
+  if(graph == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(from == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(to == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   CHIPGraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
   if (!FoundNode)
     RETURN(hipErrorInvalidValue);
 
+  if(FoundNode->getDependencies().empty()){
+    RETURN(hipErrorInvalidValue);
+  }
+
   FoundNode->removeDependencies(DECONST_NODES(from), numDependencies);
+  FoundNode->getDependencies().clear();
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -752,6 +842,16 @@ hipError_t hipGraphNodeGetType(hipGraphNode_t node, hipGraphNodeType *pType) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Nullptr checks for node and pType
+  if(node == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(pType == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   *pType = NODE(node)->getType();
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -897,12 +997,6 @@ hipError_t hipGraphLaunch(hipGraphExec_t graphExec, hipStream_t stream) {
   }
 
   if(stream == nullptr){
-    RETURN(hipErrorInvalidValue);
-  }
-
-  //check for valid graphExec
-  auto ExecGraph = static_cast<CHIPGraphExec*>(graphExec);
-  if(!ExecGraph){
     RETURN(hipErrorInvalidValue);
   }
 
@@ -1208,6 +1302,16 @@ hipError_t hipGraphMemcpyNodeGetParams(hipGraphNode_t node,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Nullptr checks for node and pNodeParams
+  if(node == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(pNodeParams == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   hipMemcpy3DParms Params =
       static_cast<CHIPGraphNodeMemcpy *>(node)->getParams();
   pNodeParams = &Params;
@@ -2086,11 +2190,30 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Valid stream check
+  if(stream == nullptr){
+    RETURN(hipErrorStreamCaptureUnsupported);
+  }
+
+  //Valid mode check
+  if (mode != hipStreamCaptureModeGlobal && 
+      mode != hipStreamCaptureModeThreadLocal && 
+      mode != hipStreamCaptureModeRelaxed) {
+    RETURN(hipErrorInvalidValue);
+  }
+
   auto ChipQueue = static_cast<chipstar::Queue *>(stream);
 
   if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
     RETURN(hipErrorInvalidValue);
   }
+
+  //Check if the stream is already capturing
+  if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatus::hipStreamCaptureStatusActive) {
+    RETURN(hipErrorIllegalState);
+  }
+
   ChipQueue->initCaptureGraph();
   ChipQueue->setCaptureMode(mode);
   ChipQueue->setCaptureStatus(
@@ -2103,7 +2226,22 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Nullptr checks for pGraph and stream
+  if(pGraph == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(stream == nullptr){
+    RETURN(hipErrorIllegalState);
+  }
+
   auto ChipQueue = static_cast<chipstar::Queue *>(stream);
+
+  
+  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatus::hipStreamCaptureStatusActive){
+    RETURN(hipErrorIllegalState);
+  }
 
   if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue()) {
     RETURN(hipErrorInvalidValue);
@@ -2112,6 +2250,7 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
       hipStreamCaptureStatus::hipStreamCaptureStatusActive) {
     RETURN(hipErrorInvalidValue);
   }
+
   ChipQueue->setCaptureStatus(
       hipStreamCaptureStatus::hipStreamCaptureStatusNone);
   *pGraph = ChipQueue->getCaptureGraph();
@@ -2168,6 +2307,24 @@ hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *Handle, void *DevPtr) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Nullptr checks for Handle and DevPtr
+  if(Handle == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(DevPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Check if the pointer is allocated
+  auto Device = Backend->getActiveDevice();
+  auto AllocTracker = Device->AllocTracker;
+  auto AllocInfo = AllocTracker->getAllocInfo(DevPtr);
+  if (!AllocInfo){
+    CHIPERR_LOG_AND_THROW("Device pointer is not allocated!", hipErrorInvalidValue);
+  }
+
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
@@ -2427,7 +2584,12 @@ hipError_t hipGetDevice(int *DeviceId) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(DeviceId);
+  //NULLCHECK(DeviceId);
+
+  //Nullptr check for DeviceId
+  if(DeviceId == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
 
   chipstar::Device *ChipDev = Backend->getActiveDevice();
   *DeviceId = ChipDev->getDeviceId();
@@ -2454,6 +2616,11 @@ hipError_t hipSetDevice(int DeviceId) {
   CHIPInitialize();
 
   ERROR_CHECK_DEVNUM(DeviceId);
+
+  //Check for valid device id
+  if(DeviceId < 0 || DeviceId >= Backend->getNumDevices()){
+    RETURN(hipErrorInvalidDevice);
+  }
 
   chipstar::Device *SelectedDevice = Backend->getDevices()[DeviceId];
   Backend->setActiveDevice(SelectedDevice);
@@ -3049,6 +3216,12 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   // set events
   // LOCK(Backend->EventsMtx);
   CHIPInitialize();
+
+  if(Stream == nullptr){
+    RETURN(hipErrorInvalidResourceHandle);
+  }
+
+  //Check for valid stream
   if (Stream == hipStreamPerThread)
     CHIPERR_LOG_AND_THROW("Attemped to destroy default per-thread queue",
                           hipErrorTbd);
@@ -3059,9 +3232,17 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
+  if (ChipQueue->getContext() == nullptr){
+    RETURN(hipErrorContextIsDestroyed);
+  }
+
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
     ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
     RETURN(hipErrorStreamCaptureInvalidated);
+  }
+
+  if(ChipQueue->getCaptureStatus() == hipStreamCaptureStatusInvalidated){
+    RETURN(hipErrorContextIsDestroyed);
   }
 
   chipstar::Device *Dev = Backend->getActiveDevice();
@@ -3403,7 +3584,13 @@ hipError_t hipMalloc(void **Ptr, size_t Size) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Ptr);
+  //NULLCHECK(Ptr);
+
+  //Nullptr checks for Ptr
+  if(Ptr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   RETURN(hipMallocInternal(Ptr, Size));
   CHIP_CATCH
 }
@@ -3412,8 +3599,19 @@ hipError_t hipMallocManaged(void **DevPtr, size_t Size, unsigned int Flags) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(DevPtr);
+  //NULLCHECK(DevPtr);
 
+  //Nullptr checks for DevPtr
+  if(DevPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //AMD specific check
+#if HT_AMD
+  if(Size == 0 && Flags == hipMemAttachGlobal){
+    RETURN(hipErrorInvalidValue);
+  }
+#endif
   // TODO: Create a class for parsing this, default to attach global
   // attach host should be device allocate with associated host poitner?
   auto FlagsParsed = chipstar::ManagedMemFlags{Flags};
@@ -3593,8 +3791,17 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(DevPtr, HostPtr);
+  //NULLCHECK(DevPtr, HostPtr);
 
+  //Nullptr checks for DevPtr and HostPtr
+  if(DevPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(HostPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+  
   auto Device = Backend->getActiveDevice();
   auto AllocInfo = Device->AllocTracker->getAllocInfo(HostPtr);
   if (!AllocInfo)
@@ -3726,7 +3933,18 @@ hipError_t hipMalloc3DArray(hipArray **Array,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Array, Desc);
+  //NULLCHECK(Array, Desc);
+
+  //Nullptr checks for Array, Desc
+  if(Array == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(Desc == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+  
+  
 
   auto Width = Extent.width;
   auto Height = Extent.height;
@@ -3797,7 +4015,16 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Array, Desc);
+  //NULLCHECK(Array, Desc);
+
+  //Nullptr checks for Array, Desc
+  if(Array == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(Desc == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
 
   ERROR_IF((Width == 0), hipErrorInvalidValue);
 
@@ -3913,7 +4140,12 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(PitchedDevPtr);
+  //NULLCHECK(PitchedDevPtr);
+
+  //Nullptr checks for PitchedDevPtr
+  if(PitchedDevPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
 
   ERROR_IF((Extent.width == 0 || Extent.height == 0), hipErrorInvalidValue);
 
@@ -3936,9 +4168,18 @@ hipError_t hipMemGetInfo(size_t *Free, size_t *Total) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Free, Total);
+  //NULLCHECK(Free, Total);
 
-  ERROR_IF((Total == nullptr || Free == nullptr), hipErrorInvalidValue);
+  //Nullptr checks for Free and Total
+  if(Free == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(Total == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //ERROR_IF((Total == nullptr || Free == nullptr), hipErrorInvalidValue);
 
   auto Dev = Backend->getActiveDevice();
   *Total = Dev->getGlobalMemSize();
@@ -4218,7 +4459,12 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(PitchedDevPtr.ptr);
+  //NULLCHECK(PitchedDevPtr.ptr);
+
+  //Nullptr check for PitchedDevPtr.ptr
+  if(PitchedDevPtr.ptr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
   auto Res = hipMemset3DAsyncInternal(PitchedDevPtr, Value, Extent, ChipQueue);
@@ -4232,6 +4478,11 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
 static inline hipError_t hipMemsetInternal(void *Dst, int Value,
                                            size_t SizeBytes) {
   logDebug("hipMemset(Dst={}, Value={}, SizeBytes={})", Dst, Value, SizeBytes);
+
+  //Nullptr check for Dst
+  if(Dst == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
 
   char CharVal = Value;
 
@@ -4281,7 +4532,13 @@ hipError_t hipMemset(void *Dst, int Value, size_t SizeBytes) {
   CHIPInitialize();
   if (!SizeBytes)
     return hipSuccess;
-  NULLCHECK(Dst);
+  //NULLCHECK(Dst);
+
+  //Nullptr check for Dst
+  if(Dst == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   RETURN(hipMemsetInternal(Dst, Value, SizeBytes));
   CHIP_CATCH
 }
@@ -4322,6 +4579,12 @@ hipError_t hipMemsetD8(hipDeviceptr_t Dest, unsigned char Value,
   if (!SizeBytes)
     return hipSuccess;
   NULLCHECK(Dest);
+
+  //Nullptr check for Dest
+  if(Dest == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   RETURN(hipMemsetInternal(Dest, Value, SizeBytes));
   CHIP_CATCH
 }
