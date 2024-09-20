@@ -15,10 +15,11 @@ fi
 num_tries=1
 # deafult timeout is 30 minutes
 timeout=1800
+build_only=false
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-16|llvm-17|llvm-18|llvm-19> [--skip-build] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
+  echo "Usage: $0 <debug|release> <llvm-16|llvm-17|llvm-18|llvm-19> [--skip-build] [--build-only] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -73,6 +74,10 @@ do
       skip_build=true
       shift
       ;;
+    --build-only)
+      build_only=true
+      shift
+      ;;
     --timeout=*)
       timeout="${arg#*=}"
       shift
@@ -95,6 +100,7 @@ echo "CLANG       = ${CLANG}"
 echo "num_tries   = ${num_tries}"
 echo "num_threads = ${num_threads}"
 echo "skip_build  = ${skip_build}"
+echo "build_only  = ${build_only}"
 echo "timeout     = ${timeout}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
@@ -156,6 +162,11 @@ else
   cmake ../ -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS}
   make all build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
+fi
+
+if [ "$build_only" = true ]; then
+  echo "Build-only mode. Exiting."
+  exit 0
 fi
 
 module unload opencl/dgpu

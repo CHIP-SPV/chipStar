@@ -1,0 +1,34 @@
+name: Nightly Tests
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at midnight every day
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  unit-tests-llvm-19-release:
+    runs-on: [self-hosted, X64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Restore nightly cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: nightly-build-${{ github.sha }}
+          restore-keys: |
+            nightly-build-
+
+      - name: Run Tests Continuously for 6 Hours
+        shell: bash
+        run: |
+          end_time=$(($(date +%s) + 21600))  # Current time + 6 hours
+          while [ $(date +%s) -lt $end_time ]; do
+            ./scripts/unit_tests.sh release llvm-19 --skip-build --num-tries=10
+          done
