@@ -34,7 +34,7 @@
 
 bool isConvertibleToInt(const std::string &str);
 
-std::string readEnvVar(std::string EnvVar, bool Lower = true);
+bool readEnvVar(std::string EnvVar, std::string &Value, bool Lower = true);
 
 std::optional<fs::path> dumpSpirv(std::string_view Spirv);
 

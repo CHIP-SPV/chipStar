@@ -175,7 +175,7 @@ private:
   Type Type_;
 
 public:
-  BackendType(){};
+  BackendType() {};
   BackendType(const std::string &StrIn) {
     if (StrIn == "opencl") {
       Type_ = BackendType::OpenCL;
@@ -264,68 +264,57 @@ public:
 
 private:
   void parseEnvironmentVariables() {
-    // Parse all the environment variables and set the class members
-    if (!readEnvVar("CHIP_PLATFORM").empty())
-      PlatformIdx_ = parseInt("CHIP_PLATFORM");
+    std::string value;
 
-    Device_ = DeviceType(readEnvVar("CHIP_DEVICE_TYPE"));
-
-    if (!readEnvVar("CHIP_DEVICE").empty())
-      DeviceIdx_ = parseInt("CHIP_DEVICE");
-
-    Backend_ = BackendType(readEnvVar("CHIP_BE"));
-
-    if (!readEnvVar("CHIP_DUMP_SPIRV").empty())
-      DumpSpirv_ = parseBoolean("CHIP_DUMP_SPIRV");
-
-    if (!readEnvVar("CHIP_SKIP_UNINIT").empty())
-      SkipUninit_ = parseBoolean("CHIP_SKIP_UNINIT");
-
-    if (!readEnvVar("CHIP_LAZY_JIT").empty())
-      LazyJit_ = parseBoolean("CHIP_LAZY_JIT");
-
-    JitFlags_ = parseJitFlags("CHIP_JIT_FLAGS_OVERRIDE");
-
-    if (!readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT").empty())
-      L0CollectEventsTimeout_ = parseInt("CHIP_L0_COLLECT_EVENTS_TIMEOUT");
-
-    if (!readEnvVar("CHIP_L0_EVENT_TIMEOUT").empty())
-      L0EventTimeout_ = parseInt("CHIP_L0_EVENT_TIMEOUT");
-
-    constexpr char DisableQProfilingEnv[] = "CHIP_OCL_DISABLE_QUEUE_PROFILING";
-    if (!readEnvVar(DisableQProfilingEnv).empty()) {
-      OCLDisableQueueProfiling_ = parseBoolean(DisableQProfilingEnv);
-      logDebug("{}={}", DisableQProfilingEnv, OCLDisableQueueProfiling_);
-    }
-
-    constexpr char OclUseAllocStrategyEnv[] = "CHIP_OCL_USE_ALLOC_STRATEGY";
-    if (auto Str = readEnvVar(OclUseAllocStrategyEnv, true); !Str.empty())
-      OclUseAllocStrategy_ = Str;
+    PlatformIdx_ =
+        readEnvVar("CHIP_PLATFORM", value) ? parseInt(value) : PlatformIdx_;
+    Device_ =
+        readEnvVar("CHIP_DEVICE_TYPE", value) ? DeviceType(value) : Device_;
+    DeviceIdx_ =
+        readEnvVar("CHIP_DEVICE", value) ? parseInt(value) : DeviceIdx_;
+    Backend_ = readEnvVar("CHIP_BE", value) ? BackendType(value) : Backend_;
+    DumpSpirv_ =
+        readEnvVar("CHIP_DUMP_SPIRV", value) ? parseBoolean(value) : DumpSpirv_;
+    SkipUninit_ = readEnvVar("CHIP_SKIP_UNINIT", value) ? parseBoolean(value)
+                                                        : SkipUninit_;
+    LazyJit_ =
+        readEnvVar("CHIP_LAZY_JIT", value) ? parseBoolean(value) : LazyJit_;
+    JitFlags_ = readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value)
+                    ? value
+                    : CHIP_DEFAULT_JIT_FLAGS;
+    L0CollectEventsTimeout_ =
+        readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", value)
+            ? parseInt(value)
+            : L0CollectEventsTimeout_;
+    L0EventTimeout_ = readEnvVar("CHIP_L0_EVENT_TIMEOUT", value)
+                          ? parseInt(value)
+                          : L0EventTimeout_;
+    OCLDisableQueueProfiling_ =
+        readEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING", value)
+            ? parseBoolean(value)
+            : OCLDisableQueueProfiling_;
+    OclUseAllocStrategy_ =
+        readEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY", value, true)
+            ? value
+            : OclUseAllocStrategy_;
   }
 
-  std::string_view parseJitFlags(const std::string &StrIn) {
-    if (readEnvVar(StrIn).empty())
-      return CHIP_DEFAULT_JIT_FLAGS;
-
-    return JitFlags_;
-  }
-
-  int parseInt(const std::string &StrIn) {
-    const auto &Str = readEnvVar(StrIn);
-    if (!isConvertibleToInt(Str))
-      CHIPERR_LOG_AND_THROW("Invalid integer value: " + Str,
+  int parseInt(const std::string &value) {
+    if (value.empty())
+      CHIPERR_LOG_AND_THROW("Empty value for integer environment variable",
                             hipErrorInitializationError);
-    return std::stoi(Str);
+    if (!isConvertibleToInt(value))
+      CHIPERR_LOG_AND_THROW("Invalid integer value: " + value,
+                            hipErrorInitializationError);
+    return std::stoi(value);
   }
 
-  bool parseBoolean(const std::string &StrIn) {
-    const auto &Str = readEnvVar(StrIn);
-    if (Str == "1" || Str == "on")
+  bool parseBoolean(const std::string &value) {
+    if (value == "1" || value == "on")
       return true;
-    if (Str == "0" || Str == "off")
+    if (value == "0" || value == "off")
       return false;
-    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + Str + "while parsing " +
-                              StrIn,
+    CHIPERR_LOG_AND_THROW("Invalid boolean value: " + value,
                           hipErrorInitializationError);
     return false; // This return is never reached
   }
@@ -341,6 +330,12 @@ private:
     logInfo("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
     logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
     logInfo("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
+    logInfo("CHIP_LAZY_JIT={}", LazyJit_ ? "on" : "off");
+    logInfo("CHIP_OCL_DISABLE_QUEUE_PROFILING={}",
+            OCLDisableQueueProfiling_ ? "on" : "off");
+    logInfo("CHIP_OCL_USE_ALLOC_STRATEGY={}", OclUseAllocStrategy_.has_value()
+                                                  ? OclUseAllocStrategy_.value()
+                                                  : "off");
   }
 };
 
