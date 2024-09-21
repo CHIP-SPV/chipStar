@@ -1,0 +1,41 @@
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, X64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
+      - name: Cache build artifacts
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: ${{ runner.os }}-build-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Build
+        shell: bash
+        run: |
+          ./scripts/unit_tests.sh release llvm-19 --build-only
+
+      - name: Update nightly cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: nightly-build-${{ github.sha }}
