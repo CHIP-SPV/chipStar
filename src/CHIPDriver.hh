@@ -129,7 +129,8 @@ private:
   Type Type_;
 
 public:
-  DeviceType() {}
+  DeviceType(Type t) : Type_(t) {}
+  DeviceType() : Type_(Default) {}
   DeviceType(const std::string &StrIn) {
     if (StrIn == "gpu")
       Type_ = DeviceType::GPU;
@@ -175,7 +176,8 @@ private:
   Type Type_;
 
 public:
-  BackendType() {};
+  BackendType() : Type_(Default) {}
+  BackendType(Type t) : Type_(t) {}
   BackendType(const std::string &StrIn) {
     if (StrIn == "opencl") {
       Type_ = BackendType::OpenCL;
@@ -224,9 +226,9 @@ public:
 class EnvVars {
 private:
   int PlatformIdx_ = 0;
-  DeviceType Device_;
+  DeviceType Device_{DeviceType::GPU};
   int DeviceIdx_ = 0;
-  BackendType Backend_;
+  BackendType Backend_{BackendType::OpenCL};
   bool DumpSpirv_ = false;
   bool SkipUninit_ = false;
   bool LazyJit_ = true;
@@ -244,6 +246,7 @@ public:
 
   int getPlatformIdx() const { return PlatformIdx_; }
   DeviceType getDevice() const { return Device_; }
+  int getDeviceType() const { return Device_.getType(); }
   int getDeviceIdx() const { return DeviceIdx_; }
   BackendType getBackend() const { return Backend_; }
   bool getDumpSpirv() const { return DumpSpirv_; }
@@ -255,7 +258,7 @@ public:
     if (L0EventTimeout_ == 0)
       return UINT64_MAX;
 
-    return L0EventTimeout_ * 1e9;
+    return L0EventTimeout_;
   }
   bool getOCLDisableQueueProfiling() const { return OCLDisableQueueProfiling_; }
   const std::optional<std::string> &getOclUseAllocStrategy() const noexcept {
@@ -279,9 +282,8 @@ private:
                                                         : SkipUninit_;
     LazyJit_ =
         readEnvVar("CHIP_LAZY_JIT", value) ? parseBoolean(value) : LazyJit_;
-    JitFlags_ = readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value)
-                    ? value
-                    : CHIP_DEFAULT_JIT_FLAGS;
+    JitFlags_ =
+        readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false) ? value : JitFlags_;
     L0CollectEventsTimeout_ =
         readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", value)
             ? parseInt(value)
