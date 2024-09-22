@@ -392,7 +392,7 @@ bool CHIPEventLevel0::wait() {
            ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
 
   zeStatus = ZE_RESULT_NOT_READY;
-  uint64_t timeout = ChipEnvVars.getL0EventTimeout();
+  uint64_t timeout = ChipEnvVars.getL0EventTimeout() * 1e9;
   auto start_time = std::chrono::high_resolution_clock::now();
 
   while (zeStatus == ZE_RESULT_NOT_READY) {
@@ -1472,8 +1472,8 @@ void CHIPQueueLevel0::finish() {
     LastEvent->wait();
 
   if (zeCmdQOwnership_) {
-    zeStatus =
-        zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout());
+    zeStatus = zeCommandQueueSynchronize(ZeCmdQ_,
+                                         ChipEnvVars.getL0EventTimeout() * 1e9);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
                                       "zeCommandQueueSynchronize timeout out");
   }

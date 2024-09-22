@@ -44,17 +44,16 @@ bool isConvertibleToInt(const std::string &str) {
 }
 
 /// Read an environment variable and return its value as a string.
-std::string readEnvVar(std::string EnvVar, bool Lower) {
+bool readEnvVar(std::string EnvVar, std::string &Value, bool Lower) {
   const char *EnvVarIn = std::getenv(EnvVar.c_str());
-  if (EnvVarIn == nullptr) {
-    return std::string();
-  }
-  std::string Var = std::string(EnvVarIn);
+  if (EnvVarIn == nullptr)
+    return false;
+  Value = std::string(EnvVarIn);
   if (Lower)
-    std::transform(Var.begin(), Var.end(), Var.begin(),
+    std::transform(Value.begin(), Value.end(), Value.begin(),
                    [](unsigned char Ch) { return std::tolower(Ch); });
 
-  return Var;
+  return true;
 }
 
 std::string generateShortHash(std::string_view input, size_t length) {
@@ -139,8 +138,8 @@ std::optional<std::string> readFromFile(const fs::path Path) {
   return std::nullopt;
 }
 
-static int dlIterateCallback(struct dl_phdr_info *Info,
-                               size_t Size, void *Data) {
+static int dlIterateCallback(struct dl_phdr_info *Info, size_t Size,
+                             void *Data) {
   std::string *Res = static_cast<std::string *>(Data);
   std::string DlName(Info->dlpi_name);
   size_t Pos = DlName.find("/libCHIP.so");
@@ -157,16 +156,14 @@ std::optional<fs::path> getHIPCCPath() {
   static std::optional<fs::path> HIPCCPath;
 
   std::string LibCHIPPath("/dev/null");
-  dl_iterate_phdr(dlIterateCallback, static_cast<void*>(&LibCHIPPath));
+  dl_iterate_phdr(dlIterateCallback, static_cast<void *>(&LibCHIPPath));
 
   std::call_once(Flag, [&]() {
-    for (const auto &ExeCand : {
-           fs::path(LibCHIPPath) / "bin/hipcc",
+    for (const auto &ExeCand : {fs::path(LibCHIPPath) / "bin/hipcc",
 #if !CHIP_DEBUG_BUILD
-           fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
+                                fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
 #endif
-           fs::path(CHIP_BUILD_DIR) / "bin/hipcc"
-         })
+                                fs::path(CHIP_BUILD_DIR) / "bin/hipcc"})
       if (canExecuteHipcc(ExeCand)) {
         HIPCCPath = ExeCand;
         return;

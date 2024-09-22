@@ -63,4 +63,10 @@
 
 #cmakedefine CHIP_MALI_GPU_WORKAROUNDS
 
+#cmakedefine HAVE_OPENCL @HAVE_OPENCL@
+
+#cmakedefine HAVE_LEVEL0 @HAVE_LEVEL0@
+
+#cmakedefine SPDLOG_ACTIVE_LEVEL @SPDLOG_ACTIVE_LEVEL@
+
 #endif
