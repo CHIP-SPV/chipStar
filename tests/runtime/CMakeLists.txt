@@ -111,6 +111,14 @@ add_hip_runtime_test(TestBufferDevAddr.hip)
 add_hip_runtime_test(Test887.hip)
 
 add_hip_runtime_test(TestEnvVars.hip)
+set_tests_properties(TestEnvVars PROPERTIES
+  TIMEOUT 60)
+set_tests_properties(TestEnvVars PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL")
+set_tests_properties(TestEnvVars PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
+set_tests_properties(TestEnvVars PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 add_hip_runtime_test(host-math-funcs.hip)
 set_tests_properties("host-math-funcs" PROPERTIES

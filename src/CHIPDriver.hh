@@ -308,7 +308,12 @@ private:
     if (!isConvertibleToInt(value))
       CHIPERR_LOG_AND_THROW("Invalid integer value: " + value,
                             hipErrorInitializationError);
-    return std::stoi(value);
+    int intValue = std::stoi(value);
+    if (intValue < 0) {
+      CHIPERR_LOG_AND_THROW("Negative value not allowed: " + value,
+                            hipErrorInitializationError);
+    }
+    return intValue;
   }
 
   bool parseBoolean(const std::string &value) {
