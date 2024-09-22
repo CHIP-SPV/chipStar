@@ -11,7 +11,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cancel-nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Nightly Tests
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          workflow_id: nightly-tests.yml
+          all_but_latest: true
+
   unit-tests-llvm-16-debug:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -23,6 +33,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-16
         shell: bash
   unit-tests-llvm-16-release:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -34,6 +45,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-16
         shell: bash
   unit-tests-llvm-17-debug:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -45,6 +57,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-17
         shell: bash
   unit-tests-llvm-17-release:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -56,6 +69,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-17
         shell: bash
   unit-tests-llvm-18-debug:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -67,6 +81,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-18
         shell: bash
   unit-tests-llvm-18-release:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -78,6 +93,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-18
         shell: bash
   unit-tests-llvm-19-debug:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3
@@ -89,6 +105,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-19
         shell: bash
   unit-tests-llvm-19-release:
+    needs: cancel-nightly
     runs-on: X64
     steps:
       - uses: actions/checkout@v3

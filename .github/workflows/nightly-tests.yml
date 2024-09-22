@@ -1,8 +1,8 @@
-name: Nightly Tests
+name: Nightly Tests Intel GPUs
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Run every 5 minutes
+    - cron: '* * * * *' 
   workflow_dispatch:  # Allows manual triggering
 
 concurrency:

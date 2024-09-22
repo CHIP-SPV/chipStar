@@ -142,7 +142,7 @@ else
   if [ "$host" = "salami" ]; then
     CHIP_OPTIONS="-DCHIP_MALI_GPU_WORKAROUNDS=ON -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON"
   else
-    CHIP_OPTIONS="-DCHIP_BUILD_HIPBLAS=ON"
+    CHIP_OPTIONS="-DCHIP_BUILD_HIPBLAS=ON -DCHIP_BUILD_HIPFFT=ON"
   fi
   # Build the project
   echo "Building project..."
