@@ -19,17 +19,7 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
 
-      - name: Restore nightly cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            build
-            ~/.cache/ccache
-          key: nightly-build-${{ github.sha }}
-          restore-keys: |
-            nightly-build-
-
       - name: Run Intel GPU Unit Tests
         shell: bash
         run: |
-          ./scripts/unit_tests.sh release llvm-19 --skip-build
+          cp -r /space/chipStar/build ./ && ./scripts/unit_tests.sh release llvm-19 --skip-build
