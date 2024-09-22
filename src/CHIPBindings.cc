@@ -437,7 +437,7 @@ hipError_t hipDeviceGetDefaultMemPool(hipMemPool_t *mem_pool, int device) {
   }
 
   //Since memory pools are not implemented, return hipErrorNotSupported
-  RETURN(hipErrorNotSupported);
+  UNIMPLEMENTED(hipErrorNotSupported);
 
   CHIP_CATCH
 }
@@ -536,6 +536,16 @@ hipError_t hipLaunchHostFunc(hipStream_t stream, hipHostFn_t fn,
 }
 hipError_t hipStreamIsCapturing(hipStream_t stream,
                                 hipStreamCaptureStatus *pCaptureStatus) {
+
+  //Nullptr checks for stream and pCaptureStatus
+  if(stream == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(pCaptureStatus == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+  
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipStreamGetCaptureInfo(hipStream_t stream,
@@ -555,12 +565,57 @@ hipError_t hipUserObjectCreate(hipUserObject_t *object_out, void *ptr,
                                hipHostFn_t destroy,
                                unsigned int initialRefcount,
                                unsigned int flags) {
+
+  //Nullptr checks for object_out, ptr and destroy
+  if(object_out == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(ptr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(destroy == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Check for valid initialRefcount and flags
+  if(initialRefcount == 0){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(flags != hipUserObjectNoDestructorSync){
+    RETURN(hipErrorInvalidValue);
+  }
+  
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipUserObjectRelease(hipUserObject_t object, unsigned int count) {
+
+  //Nullptr check for object
+  if(object == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Check for valid count
+  if(count == 0){
+    RETURN(hipErrorInvalidValue);
+  }
+  
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipUserObjectRetain(hipUserObject_t object, unsigned int count) {
+
+  //Nullptr check for object
+  if(object == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Check for valid count
+  if(count == 0){
+    RETURN(hipErrorInvalidValue);
+  }
+  
   UNIMPLEMENTED(hipErrorNotSupported);
 }
 hipError_t hipGraphRetainUserObject(hipGraph_t graph, hipUserObject_t object,
@@ -2860,15 +2915,31 @@ hipError_t hipDeviceGetPCIBusId(char *PciBusId, int Len, int DeviceId) {
   CHIPInitialize();
   NULLCHECK(PciBusId);
   ERROR_CHECK_DEVNUM(DeviceId);
-  if (Len < 1)
-    RETURN(hipErrorInvalidResourceHandle);
+
+  //Nullptr check for PciBusId
+  if(PciBusId == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Valid device check
+  if (DeviceId < 0 || DeviceId >= Backend->getNumDevices())
+    RETURN(hipErrorInvalidDevice);
+
+  // Valid length check
+  const int requiredLen = 13; // Format "%04x:%02x:%02x" => 12 characters + null terminator
+  if (Len < requiredLen) {
+    snprintf(PciBusId, Len, "%04x:%02x", 0, 0);  // Partial filling
+    PciBusId[Len - 1] = '\0';  // Ensure null termination
+    RETURN(hipErrorInvalidValue); // Return error if buffer is too small
+  }
 
   chipstar::Device *Dev = Backend->getDevices()[DeviceId];
 
   hipDeviceProp_t Prop;
   Dev->copyDeviceProperties(&Prop);
-  snprintf(PciBusId, Len, "%04x:%02x:%02x", Prop.pciDomainID, Prop.pciBusID,
-           Prop.pciDeviceID);
+  snprintf(PciBusId, Len, "%04x:%02x:%02x", Prop.pciDomainID, Prop.pciBusID, Prop.pciDeviceID);
+  PciBusId[Len - 1] = '\0';  // Ensure null termination
+
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -3364,7 +3435,17 @@ hipError_t hipStreamGetFlags(hipStream_t Stream, unsigned int *Flags) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Flags);
+  //NULLCHECK(Flags);
+
+  //Nullptr checks for Stream and Flags
+  if(Stream == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(Flags == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   RETURN(hipStreamGetFlagsInternal(Stream, Flags));
   CHIP_CATCH
 }
@@ -5398,7 +5479,27 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(TexObject, ResDesc, TexDesc);
+  //NULLCHECK(TexObject, ResDesc, TexDesc);
+
+  //Nullptr check for TexObject, ResDesc, TexDesc
+  if(TexObject == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(ResDesc == nullptr)
+  {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(TexDesc == nullptr)
+  {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(ResViewDesc == nullptr)
+  {
+    RETURN(hipErrorInvalidValue);
+  }
 
   // Check the descriptions are valid and supported.
   switch (ResDesc->resType) {
