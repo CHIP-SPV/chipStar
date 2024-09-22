@@ -18,7 +18,7 @@ jobs:
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           workflow_id: nightly-tests.yml
-          all_but_latest: true
+          all_but_latest: false
 
   unit-tests-llvm-16-debug:
     needs: cancel-nightly
