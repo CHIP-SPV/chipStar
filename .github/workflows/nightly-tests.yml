@@ -2,8 +2,12 @@ name: Nightly Tests
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs at midnight every day
+    - cron: '*/5 * * * *'  # Run every 5 minutes
   workflow_dispatch:  # Allows manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   unit-tests-llvm-19-release:
@@ -25,10 +29,7 @@ jobs:
           restore-keys: |
             nightly-build-
 
-      - name: Run Tests Continuously for 6 Hours
+      - name: Run Intel GPU Unit Tests
         shell: bash
         run: |
-          end_time=$(($(date +%s) + 21600))  # Current time + 6 hours
-          while [ $(date +%s) -lt $end_time ]; do
-            ./scripts/unit_tests.sh release llvm-19 --skip-build --num-tries=10
-          done
+          ./scripts/unit_tests.sh release llvm-19 --skip-build
