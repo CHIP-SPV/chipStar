@@ -22,6 +22,8 @@
 
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
+
+#include <fstream>
 #include <chrono>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
@@ -2378,26 +2380,115 @@ static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleBuildLogDestroy);
 }
 
+void save(const ze_module_desc_t &desc, const ze_module_handle_t &module) {
+  const void *pNextConst = desc.pNext;
+  ze_module_program_exp_desc_t *ProgramDesc =
+      const_cast<ze_module_program_exp_desc_t *>(
+          reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
+  int numILs = ProgramDesc->count;
+
+  std::hash<std::string> hasher;
+  std::string combinedInput;
+  for (int i = 0; i < numILs; i++) {
+    combinedInput.append(
+        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
+        ProgramDesc->inputSizes[i]);
+    combinedInput.append(ProgramDesc->pBuildFlags[i]);
+    combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
+  }
+
+  size_t hash = hasher(combinedInput);
+  std::string fullPath = "/tmp/chipstar_module_cache_" + std::to_string(hash);
+
+  size_t binarySize;
+  zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetNativeBinary);
+
+  std::vector<uint8_t> binary(binarySize);
+  zeStatus = zeModuleGetNativeBinary(module, &binarySize, binary.data());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetNativeBinary);
+
+  std::ofstream outFile(fullPath, std::ios::out | std::ios::binary);
+  if (!outFile) {
+    logError("Failed to open file for writing module binary");
+    std::abort();
+  }
+
+  outFile.write(reinterpret_cast<const char *>(binary.data()), binary.size());
+  outFile.close();
+  logTrace("Module binary cached as {}", fullPath);
+}
+
+bool load(ze_module_desc_t &desc) {
+  const void *pNextConst = desc.pNext;
+  ze_module_program_exp_desc_t *ProgramDesc =
+      const_cast<ze_module_program_exp_desc_t *>(
+          reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
+  int numILs = ProgramDesc->count;
+
+  std::hash<std::string> hasher;
+  std::string combinedInput;
+  for (int i = 0; i < numILs; i++) {
+    combinedInput.append(
+        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
+        ProgramDesc->inputSizes[i]);
+    combinedInput.append(ProgramDesc->pBuildFlags[i]);
+    combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
+  }
+
+  size_t hash = hasher(combinedInput);
+  std::string fullPath = "/tmp/chipstar_module_cache_" + std::to_string(hash);
+  // Open the binary file
+  std::ifstream inFile(fullPath, std::ios::in | std::ios::binary);
+  if (!inFile) {
+    return false;
+  }
+
+  // Read the binary da
+  auto binary = std::make_unique<std::vector<uint8_t>>(
+      std::istreambuf_iterator<char>(inFile), std::istreambuf_iterator<char>());
+  inFile.close();
+
+  desc.format = ZE_MODULE_FORMAT_NATIVE;
+  desc.pNext = nullptr;
+  desc.inputSize = binary->size();
+  desc.pInputModule = binary->data();
+  desc.pBuildFlags = nullptr;
+  desc.pConstants = nullptr;
+
+  // Store the unique_ptr in a static variable to keep it alive
+  static std::vector<std::unique_ptr<std::vector<uint8_t>>> binaryStorage;
+  binaryStorage.push_back(std::move(binary));
+
+  logTrace("Module binary loaded from cache as {}", fullPath);
+  return true;
+}
+
 static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
                                     ze_device_handle_t ZeDev,
-                                    const ze_module_desc_t &ModuleDesc) {
+                                    ze_module_desc_t &ModuleDesc) {
 
   ze_module_build_log_handle_t Log;
   ze_module_handle_t Object;
-
+  bool cached = load(ModuleDesc);
   auto start = std::chrono::high_resolution_clock::now();
   zeStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
   auto end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double, std::milli> duration = end - start;
-
-  logTrace("zeModuleCreate took {} ms", duration.count());
-
+  std::chrono::duration<double> elapsed = end - start;
+  if (cached)
+    logTrace("Loaded from cache, zeModuleCreate took {} seconds",
+             elapsed.count());
+  else
+    logTrace("zeModulerCeate took {} seconds", elapsed.count());
   if (zeStatus != ZE_RESULT_SUCCESS)
     dumpBuildLog(std::move(Log));
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleCreate);
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
            resultToString(zeStatus));
+
+  if (!cached)
+    save(ModuleDesc, Object);
 
   return Object;
 }
@@ -2494,13 +2585,7 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
 
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
-      // TODO: __syncthreads() gets turned into
-      // Intel_Symbol_Table_Void_Program This is a call to OCML so it
-      // shouldn't be turned into a Kernel
       continue;
-      // CHIPERR_LOG_AND_THROW("Failed to find kernel in
-      // OpenCLFunctionInfoMap",
-      //                      hipErrorInitializationError);
     }
 
     // Create kernel
@@ -2510,8 +2595,6 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                                    HostFName.c_str()};
 
     if (!LzDev->hasOnDemandPaging())
-      // TODO: This is not needed if the kernel does not access allocations
-      //       indirectly. This requires kernel code inspection.
       KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
 
     auto kernelStart = std::chrono::high_resolution_clock::now();
@@ -2530,10 +2613,11 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
     addKernel(ChipZeKernel);
   }
   auto kernelCreationEnd = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double, std::milli> kernelCreationDuration =
+  std::chrono::duration<double, std::micro> kernelCreationDuration =
       kernelCreationEnd - kernelCreationStart;
 
-  logTrace("Total kernel creation took {} ms", kernelCreationDuration.count());
+  logTrace("zeKernelCreate for {} kernels took {} microseconds", KernelCount,
+           kernelCreationDuration.count());
 }
 
 void CHIPExecItemLevel0::setupAllArgs() {
