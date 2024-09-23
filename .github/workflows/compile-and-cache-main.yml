@@ -1,3 +1,5 @@
+name: Compile and Cache Main
+
 on:
   push:
     branches:
@@ -5,7 +7,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  cancel-nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Nightly Tests
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          workflow_id: nightly-tests.yml
+          all_but_latest: false
+
   build:
+    needs: cancel-nightly
     runs-on: [self-hosted, X64]
     steps:
       - name: Checkout repository
@@ -30,12 +42,4 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          ./scripts/unit_tests.sh release llvm-19 --build-only
-
-      - name: Update nightly cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            build
-            ~/.cache/ccache
-          key: nightly-build-${{ github.sha }}
+          ./scripts/unit_tests.sh release llvm-19 --build-only && cp -r build /space/chipStar/build
