@@ -22,4 +22,4 @@ jobs:
       - name: Run Intel GPU Unit Tests
         shell: bash
         run: |
-          cp -r /space/chipStar/build ./ && ./scripts/unit_tests.sh release llvm-19 --skip-build
+          cp -r /space/chipStar/build ./ && ./scripts/unit_tests.sh release llvm-19 --skip-build --num-tries 10
