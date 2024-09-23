@@ -349,7 +349,7 @@ hipError_t hipDeviceGetUuid(hipUUID *uuid, hipDevice_t device) {
   }
 
   //Not implemented so return hipErrorNotSupported
-  RETURN(hipErrorNotSupported);
+  UNIMPLEMENTED(hipErrorNotSupported);
 
   CHIP_CATCH
 }
@@ -391,7 +391,7 @@ hipError_t hipDrvPointerGetAttributes(unsigned int numAttributes,
     RETURN(hipErrorInvalidValue);
   }
 
-  RETURN(hipErrorNotSupported);
+  UNIMPLEMENTED(hipErrorNotSupported);
   
 }
 
@@ -2829,8 +2829,18 @@ hipError_t hipDeviceTotalMem(size_t *Bytes, hipDevice_t Device) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Bytes);
-  ERROR_CHECK_DEVNUM(Device);
+  //NULLCHECK(Bytes);
+  //ERROR_CHECK_DEVNUM(Device);
+
+  //manual nullptr check for Bytes
+  if (Bytes == nullptr) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //manual device check
+  if (Device < 0 || Device >= Backend->getNumDevices()) {
+    RETURN(hipErrorInvalidDevice);
+  }
 
   if (Bytes)
     *Bytes = (Backend->getDevices()[Device])->getGlobalMemSize();
@@ -2972,7 +2982,12 @@ hipError_t hipSetDeviceFlags(unsigned Flags) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  //Invalid flag check
+  if (Flags != hipDeviceScheduleAuto && Flags != hipDeviceScheduleSpin && Flags != hipDeviceScheduleYield && Flags != hipDeviceScheduleBlockingSync) {
+    RETURN(hipErrorInvalidValue);
+  }
+
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -3900,10 +3915,27 @@ hipError_t hipHostGetFlags(unsigned int *FlagsPtr, void *HostPtr) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(FlagsPtr, HostPtr);
+  //NULLCHECK(FlagsPtr, HostPtr);
+
+  //Manual nullptr checks for FlagsPtr and HostPtr
+  if(FlagsPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(HostPtr == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
 
   auto AllocTracker = Backend->getActiveDevice()->AllocTracker;
   auto AllocInfo = AllocTracker->getAllocInfo(HostPtr);
+
+  if(AllocInfo == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  if(!AllocInfo->IsHostRegistered){
+    RETURN(hipErrorInvalidValue);
+  }
 
   *FlagsPtr = AllocInfo->Flags.getRaw();
 
@@ -6103,6 +6135,12 @@ hipError_t hipGetDeviceFlags(unsigned int *Flags) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  //Nullptr check for Flags
+  if(Flags == nullptr){
+    RETURN(hipErrorInvalidValue);
+  }
+
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
