@@ -4057,13 +4057,41 @@ hipError_t hipMalloc3DArray(hipArray **Array,
     RETURN(hipErrorInvalidValue);
   }
   
-  
+  // Valid channel layout check
+  if (Desc->x == 0 || 
+      (Desc->x != 0 && Desc->x != 8 && Desc->x != 16 && Desc->x != 32) || 
+      (Desc->y != 0 && Desc->y != 8 && Desc->y != 16 && Desc->y != 32) || 
+      (Desc->z != 0 && Desc->z != 8 && Desc->z != 16 && Desc->z != 32) || 
+      (Desc->w != 0 && Desc->w != 8 && Desc->w != 16 && Desc->w != 32) || 
+      ((Desc->z == 0) && (Desc->y != 0 && Desc->x != 0 && Desc->w != 0)) || 
+      ((Desc->w == 0) && (Desc->x != 0 || Desc->y != 0 || Desc->z != 0))) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Arrays with channels of different size are not allowed.
+  if(Desc->x != Desc->y || Desc->x != Desc->z || Desc->x != Desc->w){
+    RETURN(hipErrorInvalidValue);
+  }
 
   auto Width = Extent.width;
   auto Height = Extent.height;
   auto Depth = Extent.depth;
 
   ERROR_IF((Width == 0), hipErrorInvalidValue);
+
+  // Zero height arrays are only allowed for 1D arrays and layered arrays
+  if (Height == 0 && !(Depth == 0 || (Flags & hipArrayLayered))) {
+    RETURN(hipErrorInvalidValue);
+}
+
+  // Check for invalid Height and Depth based on Flags
+  if (Flags != hipArrayLayered && Flags != hipArrayCubemap && Height == 0) {
+    ERROR_IF((Height == 0), hipErrorInvalidValue);
+  }
+  
+  if (Depth > 0 && (Flags == hipArrayTextureGather)) {
+    RETURN(hipErrorInvalidValue);
+  }
 
   *Array = new hipArray;
   ERROR_IF((*Array == nullptr), hipErrorOutOfMemory);
@@ -4085,6 +4113,7 @@ hipError_t hipMalloc3DArray(hipArray **Array,
     break;
 
   case hipChannelFormatKindFloat:
+    ERROR_IF((Desc->x == 8), hipErrorInvalidValue);
     hipArrayFormatArray = HIP_AD_FORMAT_FLOAT;
     break;
 
@@ -4139,7 +4168,59 @@ hipError_t hipMallocArray(hipArray **Array, const hipChannelFormatDesc *Desc,
     RETURN(hipErrorInvalidValue);
   }
 
+  size_t maxSize = std::numeric_limits<size_t>::max();
+  if(Width >= maxSize || Height >= maxSize){
+    RETURN(hipErrorInvalidValue);
+  }
+
+  //Valid channel format check
+  if (Desc->f != hipChannelFormatKindFloat &&
+      Desc->f != hipChannelFormatKindUnsigned &&
+      Desc->f != hipChannelFormatKindSigned) {
+    RETURN(hipErrorUnknown);
+  }
+
+  //Valid bit channels check
+  if ((Desc->x != 8 && Desc->x != 16 && Desc->x != 32) ||
+      (Desc->y != 8 && Desc->y != 16 && Desc->y != 32) ||
+      (Desc->z != 8 && Desc->z != 16 && Desc->z != 32) ||
+      (Desc->w != 8 && Desc->w != 16 && Desc->w != 32)) {
+    RETURN(hipErrorUnknown);
+  }
+
+  //Different sizes channels check
+  if(Desc->x != Desc->y || Desc->x != Desc->z || Desc->x != Desc->w){
+    RETURN(hipErrorUnknown);
+  }
+
+  //Inappropriate flags check for 1D arrays
+  if (Height == 0) {
+    if (Flags & (hipArrayLayered | hipArrayCubemap | hipArrayTextureGather)) {
+      RETURN(hipErrorInvalidValue);
+    }
+  }
+
+  //Inappropriate flags check for 2D arrays
+  if (Height > 0) {
+    if (Flags & (hipArrayCubemap | (hipArrayLayered | hipArrayCubemap))) {
+      RETURN(hipErrorInvalidValue);
+    }
+  }
+
+  // Check if Width or Height exceeds the device's maximum texture size
+
   ERROR_IF((Width == 0), hipErrorInvalidValue);
+
+  //8-bit float channels check (unsupported)
+  if ((Desc->x == 8 || Desc->y == 8 || Desc->z == 8 || Desc->w == 8) && 
+       Desc->f == hipChannelFormatKindFloat) {
+    RETURN(hipErrorUnknown);
+  }
+
+  // creating elements with 3 channels is not supported.
+  if (Desc->x != 0 && Desc->y != 0 && Desc->z != 0 && Desc->w == 0) {
+    RETURN(hipErrorUnknown);
+  }
 
   *Array = new hipArray;
   ERROR_IF((*Array == nullptr), hipErrorOutOfMemory);
@@ -4260,12 +4341,21 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
     RETURN(hipErrorInvalidValue);
   }
 
-  ERROR_IF((Extent.width == 0 || Extent.height == 0), hipErrorInvalidValue);
+  //ERROR_IF((Extent.width == 0 || Extent.height == 0), hipErrorInvalidValue);
+
+  //Zero height arrays are allowed for 1D arrays
+  if ((Extent.width == 0) || (Extent.height == 0 && Extent.depth > 0)) {
+    RETURN(hipErrorInvalidValue);
+  }
 
   size_t Pitch;
 
   hipError_t HipStatus = hipMallocPitch3DInternal(
       &PitchedDevPtr->ptr, &Pitch, Extent.width, Extent.height, Extent.depth);
+
+  if(Pitch == 0){
+    RETURN(hipErrorInvalidValue);
+  }
 
   if (HipStatus == hipSuccess) {
     PitchedDevPtr->pitch = Pitch;
@@ -4294,10 +4384,20 @@ hipError_t hipMemGetInfo(size_t *Free, size_t *Total) {
 
   //ERROR_IF((Total == nullptr || Free == nullptr), hipErrorInvalidValue);
 
+
   auto Dev = Backend->getActiveDevice();
   *Total = Dev->getGlobalMemSize();
-  assert(Dev->getGlobalMemSize() > Dev->getUsedGlobalMem());
-  *Free = Dev->getGlobalMemSize() - Dev->getUsedGlobalMem();
+
+  // Ensure the reported free memory accounts for minimum allocation size
+  size_t usedMemory = Dev->getUsedGlobalMem();
+  size_t minAllocSize = 1024;  // This retrieves the minimum allocatable size
+
+  if (usedMemory > 0 && usedMemory < minAllocSize) {
+    usedMemory = minAllocSize;
+  }
+
+  assert(Dev->getGlobalMemSize() > usedMemory);
+  *Free = Dev->getGlobalMemSize() - usedMemory;
 
   RETURN(hipSuccess);
   CHIP_CATCH
