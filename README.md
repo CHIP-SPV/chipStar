@@ -38,7 +38,7 @@ The following libraries have been ported and should work on any platform:
 chipStar has so far been tested using the following applications:
 - [libCEED](https://github.com/CHIP-SPV/libCEED) Our fork includes some workarounds. 
 - [GAMESS](https://www.msg.chem.iastate.edu/gamess/) Source code is not public.
-- [HcBench](https://github.com/zjin-lcf/HeCBench) CUDA Benchmarks. 
+- [HeCBench](https://github.com/zjin-lcf/HeCBench) CUDA Benchmarks. 
 
 ## Getting Started
 
