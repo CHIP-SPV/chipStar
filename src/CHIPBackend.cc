@@ -807,6 +807,9 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
   case hipDeviceAttributeUnifiedAddressing:
     return Prop.unifiedAddressing;
     break;
+  case hipDeviceAttributeMemoryPoolsSupported:
+    return Prop.memoryPoolsSupported;
+    break;
   default:
     CHIPERR_LOG_AND_THROW("Device::getAttr asked for an unkown attribute",
                           hipErrorInvalidValue);
