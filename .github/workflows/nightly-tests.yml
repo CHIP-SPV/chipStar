@@ -2,30 +2,15 @@ name: Nightly Tests Intel GPUs
 
 on:
   schedule:
-    - cron: '* * * * *' 
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  check-queue:
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - name: Check workflow status
-        id: check
-        run: |
-          queued_or_in_progress=$(gh run list --workflow "${{ github.workflow }}" --json status --jq '.[] | select(.status=="queued" or .status=="in_progress") | .status' | wc -l)
-          echo "Number of queued or in-progress runs: $queued_or_in_progress"
-          if [ "$queued_or_in_progress" -eq "0" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   unit-tests-llvm-19-release:
-    needs: check-queue
-    if: needs.check-queue.outputs.should_run == 'true'
     runs-on: [self-hosted, X64]
     steps:
       - name: Checkout repository
@@ -38,4 +23,3 @@ jobs:
         shell: bash
         run: |
           cp -r /space/chipStar/build ./ && ./scripts/unit_tests.sh release llvm-19 --skip-build --num-tries 10
-
