@@ -1044,7 +1044,12 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 
   logDebug("Compile module {}", static_cast<const void *>(&SrcMod));
 
+  auto start = std::chrono::high_resolution_clock::now();
   auto *Module = compile(SrcMod);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  logInfo("Module compilation took {} microseconds", duration.count());
   if (!Module) { // Probably a compile error.
     logWarn("Compile module returned NULL, probably error");
     return nullptr;

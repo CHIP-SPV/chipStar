@@ -851,12 +851,22 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                              const void *IL, size_t Length,
                              const std::string &Options = "") {
   cl_int Err;
+  auto start = std::chrono::high_resolution_clock::now();
   cl::Program Prog(clCreateProgramWithIL(Ctx.get(), IL, Length, &Err));
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  logTrace("clCreateProgramWithIL took {} microseconds", duration.count());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateProgramWithIL);
 
   cl_device_id DevId = ChipDev.get()->get();
+  auto Start = std::chrono::high_resolution_clock::now();
   Err = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0, nullptr,
                          nullptr, nullptr, nullptr);
+  auto End = std::chrono::high_resolution_clock::now();
+  auto Duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(End - Start);
+  logTrace("clCompileProgram took {} ms", Duration.count());
   if (Err != CL_SUCCESS) {
     dumpProgramLog(ChipDev, Prog);
     CHIPERR_LOG_AND_THROW("Compile step failed.", hipErrorInitializationError);
@@ -918,7 +928,12 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   std::vector<cl::Program> ClObjects;
   ClObjects.push_back(ClMainObj);
   appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
+  auto start = std::chrono::high_resolution_clock::now();
   Program_ = cl::linkProgram(ClObjects, nullptr, nullptr, nullptr, &Err);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  logTrace("cl::linkProgram took {} microseconds", duration.count());
   if (Err != CL_SUCCESS) {
     dumpProgramLog(*ChipDevOcl, Program_);
     CHIPERR_LOG_AND_THROW("Device library link step failed.",
@@ -926,7 +941,11 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   }
 
   std::vector<cl::Kernel> Kernels;
+  start = std::chrono::high_resolution_clock::now();
   Err = Program_.createKernels(&Kernels);
+  end = std::chrono::high_resolution_clock::now();
+  duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  logTrace("clCreateKernelsInProgram took {} microseconds", duration.count());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernelsInProgram);
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());

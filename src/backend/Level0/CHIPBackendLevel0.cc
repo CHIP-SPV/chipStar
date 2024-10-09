@@ -22,6 +22,7 @@
 
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
+#include <chrono>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -2356,7 +2357,13 @@ static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
 
   ze_module_build_log_handle_t Log;
   ze_module_handle_t Object;
+
+  auto start = std::chrono::high_resolution_clock::now();
   zeStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> duration = end - start;
+
+  logTrace("zeModuleCreate took {} ms", duration.count());
 
   if (zeStatus != ZE_RESULT_SUCCESS)
     dumpBuildLog(std::move(Log));
@@ -2435,7 +2442,12 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                                  0, nullptr, nullptr, nullptr};
 
   auto *ChipCtxLz = static_cast<CHIPContextLevel0 *>(ChipDev->getContext());
+  auto start = std::chrono::high_resolution_clock::now();
   ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc);
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> duration = end - start;
+
+  logTrace("Module compilation took {} ms", duration.count());
 
   uint32_t KernelCount = 0;
   zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
@@ -2447,6 +2459,8 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
   for (auto &Kernel : KernelNames)
     logTrace("Kernel {}", Kernel);
+
+  auto kernelCreationStart = std::chrono::high_resolution_clock::now();
   for (uint32_t i = 0; i < KernelCount; i++) {
     std::string HostFName = KernelNames[i];
     logTrace("Registering kernel {}", HostFName);
@@ -2473,13 +2487,26 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
       //       indirectly. This requires kernel code inspection.
       KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
 
+    auto kernelStart = std::chrono::high_resolution_clock::now();
     zeStatus = zeKernelCreate(ZeModule_, &KernelDesc, &ZeKernel);
+    auto kernelEnd = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> kernelDuration =
+        kernelEnd - kernelStart;
+
+    logTrace("zeKernelCreate for kernel {} took {} ms", HostFName,
+             kernelDuration.count());
+
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelCreate);
     logTrace("LZ KERNEL CREATION via calling zeKernelCreate {} ", zeStatus);
     CHIPKernelLevel0 *ChipZeKernel =
         new CHIPKernelLevel0(ZeKernel, LzDev, HostFName, FuncInfo, this);
     addKernel(ChipZeKernel);
   }
+  auto kernelCreationEnd = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> kernelCreationDuration =
+      kernelCreationEnd - kernelCreationStart;
+
+  logTrace("Total kernel creation took {} ms", kernelCreationDuration.count());
 }
 
 void CHIPExecItemLevel0::setupAllArgs() {
