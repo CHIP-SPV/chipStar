@@ -30,3 +30,6 @@
 	path = H4I-HipFFT
 	url = https://github.com/CHIP-SPV/H4I-HipFFT.git
 	branch = origin/main
+[submodule "H4I-HipSOLVER"]
+	path = H4I-HipSOLVER
+	url = git@github.com:CHIP-SPV/H4I-HipSOLVER.git
