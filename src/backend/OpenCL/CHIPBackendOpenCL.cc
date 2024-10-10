@@ -915,6 +915,14 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 }
 
 static void save(const cl::Program &program, const std::string &cacheName) {
+  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
+    logTrace("Module caching is disabled");
+    return;
+  }
+
+  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  std::string fullPath = cacheDir + "/" + cacheName;
+
   // Step 1: Get the sizes of the binaries for each device
   std::vector<size_t> binarySizes;
   program.getInfo(CL_PROGRAM_BINARY_SIZES, &binarySizes);
@@ -951,7 +959,7 @@ static void save(const cl::Program &program, const std::string &cacheName) {
   }
 
   // Step 4: Write the binaries to the output file
-  std::ofstream outFile(cacheName, std::ios::out | std::ios::binary);
+  std::ofstream outFile(fullPath, std::ios::out | std::ios::binary);
   if (!outFile) {
     logError("Failed to open file for writing kernel binary");
     // Clean up allocated memory
@@ -980,7 +988,7 @@ static void save(const cl::Program &program, const std::string &cacheName) {
   outFile.close();
 
   // Step 5: Verify the file size
-  std::ifstream inFile(cacheName,
+  std::ifstream inFile(fullPath,
                        std::ios::in | std::ios::binary | std::ios::ate);
   if (!inFile) {
     logError("Failed to open file for reading to verify size");
@@ -1003,7 +1011,7 @@ static void save(const cl::Program &program, const std::string &cacheName) {
     return;
   }
 
-  logTrace("Kernel binary cached as {}", cacheName);
+  logTrace("Kernel binary cached as {}", fullPath);
   logTrace("Number of binaries: {}", numDevices);
 
   // Step 6: Clean up allocated memory
@@ -1014,9 +1022,16 @@ static void save(const cl::Program &program, const std::string &cacheName) {
 
 static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
                  const std::string &cacheName, cl::Program &program) {
-  logTrace("Loading kernel binary from cache at {}", cacheName);
+  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
+    return false;
+  }
 
-  std::ifstream inFile(cacheName,
+  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  std::string fullPath = cacheDir + "/" + cacheName;
+
+  logTrace("Loading kernel binary from cache at {}", fullPath);
+
+  std::ifstream inFile(fullPath,
                        std::ios::in | std::ios::binary | std::ios::ate);
   if (!inFile) {
     return false;
@@ -1092,14 +1107,14 @@ static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
     return false;
   }
 
-  logTrace("Kernel binary loaded from cache as {}", cacheName);
+  logTrace("Kernel binary loaded from cache as {}", fullPath);
   return true;
 }
 
 std::string generateCacheName(const std::string strIn) {
   std::hash<std::string> hasher;
   size_t hash = hasher(strIn);
-  return "/tmp/chipstar_kernel_cache_" + std::to_string(hash);
+  return "chipstar_kernel_cache_" + std::to_string(hash);
 }
 
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {

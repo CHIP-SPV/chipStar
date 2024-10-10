@@ -2398,7 +2398,14 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module) {
   }
 
   size_t hash = hasher(combinedInput);
-  std::string fullPath = "/tmp/chipstar_module_cache_" + std::to_string(hash);
+
+  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
+    logTrace("Module caching is disabled");
+    return;
+  }
+
+  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  std::string fullPath = cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
@@ -2437,7 +2444,13 @@ bool load(ze_module_desc_t &desc) {
   }
 
   size_t hash = hasher(combinedInput);
-  std::string fullPath = "/tmp/chipstar_module_cache_" + std::to_string(hash);
+
+  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
+    return false;
+  }
+
+  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  std::string fullPath = cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
   // Open the binary file
   std::ifstream inFile(fullPath, std::ios::in | std::ios::binary);
   if (!inFile) {
