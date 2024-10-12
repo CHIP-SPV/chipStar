@@ -213,7 +213,14 @@ public:
     CHIPERR_CHECK_LOG_AND_ABORT("Failed to create command list");
   }
 
+  void wait() {
+    zeStatus = zeFenceHostSynchronize(ZeFence_, UINT64_MAX);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeFenceHostSynchronize);
+  }
+
   bool reset() {
+    zeStatus = zeFenceReset(ZeFence_);
+    CHIPERR_CHECK_LOG_AND_ABORT("Failed to reset fence");
     zeStatus = zeCommandListReset(ZeCmdList_);
     CHIPERR_CHECK_LOG_AND_ABORT("Failed to reset command list");
     return true;
@@ -253,6 +260,7 @@ protected:
   ze_device_handle_t ZeDev_;
   CHIPDeviceLevel0 *ChipDevLz_;
   CHIPContextLevel0 *ChipCtxLz_;
+  ze_fence_handle_t ZeFenceLast_ = nullptr;
 
   // The shared memory buffer
   void *SharedBuf_;

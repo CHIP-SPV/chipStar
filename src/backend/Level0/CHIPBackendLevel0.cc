@@ -1472,6 +1472,25 @@ void CHIPQueueLevel0::finish() {
   if (LastEvent)
     LastEvent->wait();
 
+  if (ZeFenceLast_) {
+    auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+    LOCK(BackendLz->EventsMtx);
+    LOCK(BackendLz->ActiveCmdListsMtx);
+    auto it = std::find_if(BackendLz->ActiveCmdLists.begin(),
+                           BackendLz->ActiveCmdLists.end(),
+                           [this](const auto &CmdList) {
+                             return CmdList->getFence() == ZeFenceLast_;
+                           });
+
+    if (it != BackendLz->ActiveCmdLists.end()) {
+      (*it)->wait();
+      BackendLz->ActiveCmdLists.erase(it);
+      return;
+    }
+
+    ZeFenceLast_ = nullptr;
+  }
+
   if (zeCmdQOwnership_) {
     zeStatus = zeCommandQueueSynchronize(ZeCmdQ_,
                                          ChipEnvVars.getL0EventTimeout() * 1e9);
@@ -1486,7 +1505,11 @@ void CHIPQueueLevel0::finish() {
 void CHIPQueueLevel0::executeCommandList(
     Borrowed<FencedCmdList> &CmdList, std::shared_ptr<chipstar::Event> Event) {
   updateLastEvent(Event);
-  CmdList->execute(getCmdQueue());
+
+  CmdList->execute(getCmdQueue()); // creates fence
+  ZeFenceLast_ = CmdList->getFence();
+  assert(ZeFenceLast_ && "Fence pointer is null");
+
   auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
   LOCK(BackendLz->ActiveCmdListsMtx);
   BackendLz->ActiveCmdLists.push_back(std::move(CmdList));
@@ -1624,6 +1647,7 @@ void CHIPBackendLevel0::uninitialize() {
     EventMonitor_->Stop = true;
   }
   EventMonitor_->join();
+  ActiveCmdLists.clear();
   return;
 }
 
