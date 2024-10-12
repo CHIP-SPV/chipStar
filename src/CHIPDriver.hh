@@ -304,7 +304,8 @@ private:
             ? value
             : OclUseAllocStrategy_;
     if (readEnvVar("CHIP_MODULE_CACHE_DIR", value, true)) {
-      ModuleCacheDir_ = value; // If set (even if empty), use the value
+      if (value.size())
+        ModuleCacheDir_ = value;
     } else {
       ModuleCacheDir_ = "/tmp"; // If not set, default to "/tmp"
     }
