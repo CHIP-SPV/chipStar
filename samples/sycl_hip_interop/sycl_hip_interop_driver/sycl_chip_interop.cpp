@@ -25,10 +25,8 @@
 #include <oneapi/mkl.hpp>
 #if INTEL_MKL_VERSION >= 20230000
 #include <sycl/ext/oneapi/backend/level_zero.hpp>
-#include <sycl/stl.hpp>
 #else
 #include <CL/sycl/backend/level_zero.hpp>
-#include <CL/sycl/stl.hpp>
 #endif
 
 #include <stdint.h>
