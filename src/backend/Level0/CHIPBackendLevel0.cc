@@ -2405,7 +2405,8 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module) {
   }
 
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  std::string fullPath = cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
+  std::string fullPath =
+      cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
@@ -2450,7 +2451,8 @@ bool load(ze_module_desc_t &desc) {
   }
 
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  std::string fullPath = cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
+  std::string fullPath =
+      cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
   // Open the binary file
   std::ifstream inFile(fullPath, std::ios::in | std::ios::binary);
   if (!inFile) {
