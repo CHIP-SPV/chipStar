@@ -3129,9 +3129,14 @@ hipError_t hipRuntimeGetVersion(int *RuntimeVersion) {
 hipError_t hipGetLastError(void) {
   // No runtime initialization here as the function does not depend on the
   // driver nor the driver affects the answer.
+  CHIP_TRY
+  LOCK(ApiMtx);
+
   hipError_t Temp = CHIPTlsLastError;
   CHIPTlsLastError = hipSuccess;
   return Temp;
+
+  CHIP_CATCH
 }
 
 hipError_t hipPeekAtLastError(void) {
@@ -5711,11 +5716,6 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
   }
 
   if(TexDesc == nullptr)
-  {
-    RETURN(hipErrorInvalidValue);
-  }
-
-  if(ResViewDesc == nullptr)
   {
     RETURN(hipErrorInvalidValue);
   }

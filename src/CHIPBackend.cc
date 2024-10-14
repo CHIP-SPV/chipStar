@@ -1464,7 +1464,7 @@ chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
     CHIPERR_LOG_AND_THROW("Backend::findQueue() was given a non-nullptr "
                           "queue but this queue "
                           "was not found among the backend queues.",
-                          hipErrorTbd);
+                          hipErrorContextIsDestroyed);
   return *QueueFound;
 }
 
