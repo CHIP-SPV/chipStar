@@ -432,6 +432,7 @@ ANY:
   OPENCL_GPU:
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
+    TestRecordEventBlocking: 'Segfault in the PoCL driver with module caching on'
     Unit_ballot: ''
     BinomialOption: ''
     DCT: ''
