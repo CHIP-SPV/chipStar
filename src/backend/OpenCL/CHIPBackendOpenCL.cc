@@ -1111,9 +1111,11 @@ static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
   return true;
 }
 
-std::string generateCacheName(const std::string strIn) {
+std::string generateCacheName(const std::string &strIn,
+                              const std::string &deviceName) {
   std::hash<std::string> hasher;
-  size_t hash = hasher(strIn);
+  std::string combinedStr = strIn + deviceName;
+  size_t hash = hasher(combinedStr);
   return "chipstar_kernel_cache_" + std::to_string(hash);
 }
 
@@ -1128,7 +1130,12 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   auto SrcBin = Src_->getBinary();
   std::string buildOptions = ChipEnvVars.getJitFlags();
   std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());
-  std::string cacheName = generateCacheName(binAsStr + buildOptions);
+
+  // Include device name in cache key
+  std::string deviceName = ChipDevOcl->getName();
+  std::string cacheName =
+      generateCacheName(binAsStr + buildOptions, deviceName);
+
   bool cached =
       load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
 

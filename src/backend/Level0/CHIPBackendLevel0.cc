@@ -2380,7 +2380,8 @@ static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleBuildLogDestroy);
 }
 
-void save(const ze_module_desc_t &desc, const ze_module_handle_t &module) {
+void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
+          CHIPDeviceLevel0 *device) {
   const void *pNextConst = desc.pNext;
   ze_module_program_exp_desc_t *ProgramDesc =
       const_cast<ze_module_program_exp_desc_t *>(
@@ -2396,6 +2397,9 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module) {
     combinedInput.append(ProgramDesc->pBuildFlags[i]);
     combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
   }
+
+  // Add device name to the hash input
+  combinedInput.append(device->getName());
 
   size_t hash = hasher(combinedInput);
 
@@ -2427,7 +2431,7 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module) {
   logTrace("Module binary cached as {}", fullPath);
 }
 
-bool load(ze_module_desc_t &desc) {
+bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
   const void *pNextConst = desc.pNext;
   ze_module_program_exp_desc_t *ProgramDesc =
       const_cast<ze_module_program_exp_desc_t *>(
@@ -2443,6 +2447,9 @@ bool load(ze_module_desc_t &desc) {
     combinedInput.append(ProgramDesc->pBuildFlags[i]);
     combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
   }
+
+  // Add device name to the hash input
+  combinedInput.append(device->getName());
 
   size_t hash = hasher(combinedInput);
 
@@ -2481,11 +2488,12 @@ bool load(ze_module_desc_t &desc) {
 
 static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
                                     ze_device_handle_t ZeDev,
-                                    ze_module_desc_t &ModuleDesc) {
+                                    ze_module_desc_t &ModuleDesc,
+                                    CHIPDeviceLevel0 *device) {
 
   ze_module_build_log_handle_t Log;
   ze_module_handle_t Object;
-  bool cached = load(ModuleDesc);
+  bool cached = load(ModuleDesc, device);
   auto start = std::chrono::high_resolution_clock::now();
   zeStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
   auto end = std::chrono::high_resolution_clock::now();
@@ -2503,7 +2511,7 @@ static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
            resultToString(zeStatus));
 
   if (!cached)
-    save(ModuleDesc, Object);
+    save(ModuleDesc, Object, device);
 
   return Object;
 }
@@ -2576,7 +2584,7 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
 
   auto *ChipCtxLz = static_cast<CHIPContextLevel0 *>(ChipDev->getContext());
   auto start = std::chrono::high_resolution_clock::now();
-  ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc);
+  ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc, LzDev);
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double, std::milli> duration = end - start;
 
@@ -2587,8 +2595,9 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
   logTrace("Found {} kernels in this module.", KernelCount);
 
-  const char *KernelNames[KernelCount];
-  zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, KernelNames);
+  std::vector<const char *> KernelNames(KernelCount);
+  zeStatus =
+      zeModuleGetKernelNames(ZeModule_, &KernelCount, KernelNames.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
   for (auto &Kernel : KernelNames)
     logTrace("Kernel {}", Kernel);
