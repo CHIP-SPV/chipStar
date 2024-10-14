@@ -1061,8 +1061,9 @@ static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
     logTrace("loading Binary size: {}", binary.size());
 
     if (binary.empty()) {
-      logError("Binary data is empty");
-      std::abort();
+      logError("Binary data is empty. Deleting the cache file.");
+      std::remove(fullPath.c_str());
+      return false;
     }
 
     cl_int err;
