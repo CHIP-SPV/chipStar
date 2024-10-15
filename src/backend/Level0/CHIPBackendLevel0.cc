@@ -1152,13 +1152,6 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
     zeStatus =
         zeKernelSetGroupSize(KernelZe, ExecItem->getBlock().x,
                              ExecItem->getBlock().y, ExecItem->getBlock().z);
-  
-    if (zeStatus != ZE_RESULT_SUCCESS) {
-      // Map Level Zero error code to HIP error code
-      hipError_t hipErr = hipErrorInvalidConfiguration;
-      CHIPTlsLastError = hipErr;
-    }
-
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetGroupSize);
   }
 

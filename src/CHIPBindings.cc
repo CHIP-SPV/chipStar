@@ -333,7 +333,6 @@ hipError_t hipGetChannelDesc(hipChannelFormatDesc *desc,
 }
 
 hipError_t hipDeviceGetUuid(hipUUID *uuid, hipDevice_t device) {
-  std::cout << "Function started" << std::endl;
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
