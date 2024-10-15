@@ -101,9 +101,10 @@ void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
       // Host pointer should be associated with one source module and variable
       // at most.
       (!HostPtrLookup_.count(Ptr)) ||
-      // A variable made for abort() implementation is an exception to this due
-      // to the way it's modeled.
-      (Name == ChipDeviceAbortFlagName && HostPtrLookup_[Ptr]->Name == Name) &&
+      // A variable made for abort() and device-side malloc implementation is an
+      // exception to this due to the way it's modeled.
+      ((Name == ChipDeviceAbortFlagName || Name == ChipDeviceHeapName) &&
+       HostPtrLookup_[Ptr]->Name == Name) &&
           "Host-pointer is already mapped.");
 
   if (Name == ChipDeviceAbortFlagName) {

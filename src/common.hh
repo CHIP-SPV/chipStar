@@ -90,4 +90,7 @@ constexpr char ChipSpilledArgsVarPrefix[] = "__chip_spilled_args_";
 /// the abort() function was called by a kernel.
 constexpr char ChipDeviceAbortFlagName[] = "__chipspv_abort_called";
 
+/// The name of a global variable which is the device heap.
+constexpr char ChipDeviceHeapName[] = "__chipspv_device_heap";
+
 #endif
