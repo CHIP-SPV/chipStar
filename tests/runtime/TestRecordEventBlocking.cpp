@@ -34,6 +34,7 @@ int main() {
     std::cout << "PASS: Non-Blocking" << std::endl;
     exit(0);
   }
+  hipDeviceSynchronize();
 
   return 0;
 }
