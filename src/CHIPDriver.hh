@@ -307,7 +307,7 @@ private:
       if (value.size())
         ModuleCacheDir_ = value;
     } else {
-      ModuleCacheDir_ = "/tmp"; // If not set, default to "/tmp"
+      ModuleCacheDir_ = std::string(std::getenv("HOME")) + "/.cache/chipStar";
     }
   }
 

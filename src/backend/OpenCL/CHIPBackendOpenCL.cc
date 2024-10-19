@@ -921,6 +921,8 @@ static void save(const cl::Program &program, const std::string &cacheName) {
   }
 
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  // Create the cache directory if it doesn't exist
+  std::filesystem::create_directories(cacheDir);
   std::string fullPath = cacheDir + "/" + cacheName;
 
   // Step 1: Get the sizes of the binaries for each device
@@ -1117,7 +1119,7 @@ std::string generateCacheName(const std::string &strIn,
   std::hash<std::string> hasher;
   std::string combinedStr = strIn + deviceName;
   size_t hash = hasher(combinedStr);
-  return "chipstar_kernel_cache_" + std::to_string(hash);
+  return std::to_string(hash);
 }
 
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {

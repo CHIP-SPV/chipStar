@@ -2409,8 +2409,10 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   }
 
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  // Create the cache directory if it doesn't exist
+  std::filesystem::create_directories(cacheDir);
   std::string fullPath =
-      cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
+      cacheDir + std::to_string(hash);
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
