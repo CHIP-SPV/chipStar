@@ -219,6 +219,7 @@ CHIP_JIT_FLAGS_OVERRIDE=<flags>                 # String to override the default
 CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in seconds for collecting Level Zero events
 CHIP_L0_EVENT_TIMEOUT=<N(0 default)             # Timeout in seconds for how long Level Zero should wait on an event before timing out
 CHIP_SKIP_UNINIT=<ON/OFF(default)>              # If enabled, skips the uninitialization of chipStar's backend objects at program termination
+CHIP_MODULE_CACHE_DIR=/path/to/desired/dir      # Module/Program cache dir. Defaults to $HOME/.cache/chipStar, if caching is undesired, set to empty string i.e. export CHIP_MODULE_CACHE_DIR=
 ```
 
 Example:

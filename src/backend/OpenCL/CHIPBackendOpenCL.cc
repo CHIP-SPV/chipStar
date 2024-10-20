@@ -26,6 +26,8 @@
 #include <sstream>
 
 #include "Utils.hh"
+#include <fstream>
+#include <chrono>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -912,57 +914,291 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   // No fall-back implementation for ballot - let linker raise an error.
 }
 
+static void save(const cl::Program &program, const std::string &cacheName) {
+  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
+    logTrace("Module caching is disabled");
+    return;
+  }
+
+  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  // Create the cache directory if it doesn't exist
+  std::filesystem::create_directories(cacheDir);
+  std::string fullPath = cacheDir + "/" + cacheName;
+
+  // Step 1: Get the sizes of the binaries for each device
+  std::vector<size_t> binarySizes;
+  program.getInfo(CL_PROGRAM_BINARY_SIZES, &binarySizes);
+
+  size_t numDevices = binarySizes.size();
+
+  if (numDevices == 0) {
+    logError("No devices associated with the program.");
+    return;
+  }
+
+  // Step 2: Allocate memory for each binary
+  std::vector<unsigned char *> binaries(numDevices, nullptr);
+  for (size_t i = 0; i < numDevices; ++i) {
+    if (binarySizes[i] > 0) {
+      binaries[i] = new unsigned char[binarySizes[i]];
+    } else {
+      logError("Binary size for device {} is zero.", i);
+      return;
+    }
+  }
+
+  // Step 3: Retrieve the binaries
+  cl_int err = clGetProgramInfo(program(), CL_PROGRAM_BINARIES,
+                                numDevices * sizeof(unsigned char *),
+                                binaries.data(), nullptr);
+  if (err != CL_SUCCESS) {
+    logError("clGetProgramInfo(CL_PROGRAM_BINARIES) failed with error {}", err);
+    // Clean up allocated memory
+    for (auto ptr : binaries) {
+      delete[] ptr;
+    }
+    return;
+  }
+
+  // Step 4: Write the binaries to the output file
+  std::ofstream outFile(fullPath, std::ios::out | std::ios::binary);
+  if (!outFile) {
+    logError("Failed to open file for writing kernel binary");
+    // Clean up allocated memory
+    for (auto ptr : binaries) {
+      delete[] ptr;
+    }
+    return;
+  }
+
+  size_t totalBinarySize = 0;
+  for (size_t i = 0; i < numDevices; ++i) {
+    logTrace("Writing binary for device {}: {} bytes", i, binarySizes[i]);
+    outFile.write(reinterpret_cast<const char *>(binaries[i]), binarySizes[i]);
+    if (!outFile) {
+      logError("Failed to write binary data to file");
+      outFile.close();
+      // Clean up allocated memory
+      for (auto ptr : binaries) {
+        delete[] ptr;
+      }
+      return;
+    }
+    totalBinarySize += binarySizes[i];
+  }
+
+  outFile.close();
+
+  // Step 5: Verify the file size
+  std::ifstream inFile(fullPath,
+                       std::ios::in | std::ios::binary | std::ios::ate);
+  if (!inFile) {
+    logError("Failed to open file for reading to verify size");
+    // Clean up allocated memory
+    for (auto ptr : binaries) {
+      delete[] ptr;
+    }
+    return;
+  }
+  std::streampos fileSize = inFile.tellg();
+  inFile.close();
+
+  if (fileSize != static_cast<std::streampos>(totalBinarySize)) {
+    logError("File size mismatch. Expected: {}, Actual: {}", totalBinarySize,
+             fileSize);
+    // Clean up allocated memory
+    for (auto ptr : binaries) {
+      delete[] ptr;
+    }
+    return;
+  }
+
+  logTrace("Kernel binary cached as {}", fullPath);
+  logTrace("Number of binaries: {}", numDevices);
+
+  // Step 6: Clean up allocated memory
+  for (auto ptr : binaries) {
+    delete[] ptr;
+  }
+}
+
+static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
+                 const std::string &cacheName, cl::Program &program) {
+  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
+    return false;
+  }
+
+  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
+  std::string fullPath = cacheDir + "/" + cacheName;
+
+  logTrace("Loading kernel binary from cache at {}", fullPath);
+
+  std::ifstream inFile(fullPath,
+                       std::ios::in | std::ios::binary | std::ios::ate);
+  if (!inFile) {
+    return false;
+  }
+
+  size_t size = inFile.tellg();
+  logTrace("File size according to tellg(): {}", size);
+
+  inFile.seekg(0, std::ios::beg);
+
+  std::vector<char> binary(size);
+  inFile.read(binary.data(), size);
+
+  if (inFile.fail()) {
+    logError("Failed to read file. Error: {}", strerror(errno));
+    return false;
+  }
+
+  size_t bytesRead = inFile.gcount();
+  logTrace("Bytes actually read: {}", bytesRead);
+
+  inFile.close();
+
+  try {
+    cl::Program::Binaries binaries(
+        1, std::vector<unsigned char>(binary.begin(), binary.end()));
+    logTrace("loading Binary size: {}", binary.size());
+
+    if (binary.empty()) {
+      logError("Binary data is empty. Deleting the cache file.");
+      std::remove(fullPath.c_str());
+      return false;
+    }
+
+    cl_int err;
+    program = cl::Program(context, devices, binaries, nullptr, &err);
+    assert(err == CL_SUCCESS);
+    logTrace("Program created successfully");
+
+    auto buildStart = std::chrono::high_resolution_clock::now();
+    err = program.build();
+    auto buildEnd = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> buildElapsed = buildEnd - buildStart;
+    logInfo("clProgramBuild took {} seconds", buildElapsed.count());
+    if (err != CL_SUCCESS) {
+      logError("Failed to build program from binary: {}", err);
+      return false;
+    }
+
+    // Print kernels available in the program
+    std::vector<cl::Kernel> kernels;
+    err = program.createKernels(&kernels);
+    if (err != CL_SUCCESS) {
+      logError("Failed to create kernels: {}", err);
+    } else {
+      logTrace("Kernels available in the program:");
+      for (const auto &kernel : kernels) {
+        std::string kernelName;
+        err = kernel.getInfo(CL_KERNEL_FUNCTION_NAME, &kernelName);
+        if (err == CL_SUCCESS) {
+          logTrace("  {}", kernelName);
+        } else {
+          logError("Failed to get kernel name: {}", err);
+        }
+      }
+    }
+
+    if (err != CL_SUCCESS) {
+      logError("Failed to create program from binary: {}", err);
+      return false;
+    }
+  } catch (const std::exception &e) {
+    logError("OpenCL error creating program from binary: {}", e.what());
+    return false;
+  }
+
+  logTrace("Kernel binary loaded from cache as {}", fullPath);
+  return true;
+}
+
+std::string generateCacheName(const std::string &strIn,
+                              const std::string &deviceName) {
+  std::hash<std::string> hasher;
+  std::string combinedStr = strIn + deviceName;
+  size_t hash = hasher(combinedStr);
+  return std::to_string(hash);
+}
+
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   logTrace("CHIPModuleOpenCL::compile()");
+  auto start = std::chrono::high_resolution_clock::now();
   CHIPDeviceOpenCL *ChipDevOcl = (CHIPDeviceOpenCL *)ChipDev;
   CHIPContextOpenCL *ChipCtxOcl =
       (CHIPContextOpenCL *)(ChipDevOcl->getContext());
 
   int Err;
   auto SrcBin = Src_->getBinary();
+  std::string buildOptions = ChipEnvVars.getJitFlags();
+  std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());
 
-  cl::Program ClMainObj =
-      compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(), SrcBin.size(),
-                ChipEnvVars.getJitFlags());
+  // Include device name in cache key
+  std::string deviceName = ChipDevOcl->getName();
+  std::string cacheName =
+      generateCacheName(binAsStr + buildOptions, deviceName);
 
-  std::vector<cl::Program> ClObjects;
-  ClObjects.push_back(ClMainObj);
-  appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
-  auto start = std::chrono::high_resolution_clock::now();
-  Program_ = cl::linkProgram(ClObjects, nullptr, nullptr, nullptr, &Err);
-  auto end = std::chrono::high_resolution_clock::now();
-  auto duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  logTrace("cl::linkProgram took {} microseconds", duration.count());
-  if (Err != CL_SUCCESS) {
-    dumpProgramLog(*ChipDevOcl, Program_);
-    CHIPERR_LOG_AND_THROW("Device library link step failed.",
-                          hipErrorInitializationError);
+  bool cached =
+      load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
+
+  if (!cached) {
+    cl::Program ClMainObj =
+        compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(), SrcBin.size(),
+                  buildOptions.c_str());
+
+    std::vector<cl::Program> ClObjects;
+    ClObjects.push_back(ClMainObj);
+    appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
+
+    auto linkStart = std::chrono::high_resolution_clock::now();
+    Program_ = cl::linkProgram(ClObjects, nullptr, nullptr, nullptr, &Err);
+    auto linkEnd = std::chrono::high_resolution_clock::now();
+    auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+        linkEnd - linkStart);
+    logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
+
+    if (Err != CL_SUCCESS) {
+      dumpProgramLog(*ChipDevOcl, Program_);
+      CHIPERR_LOG_AND_THROW("Device library link step failed.",
+                            hipErrorInitializationError);
+    }
+
+    save(Program_, cacheName);
   }
 
   std::vector<cl::Kernel> Kernels;
-  start = std::chrono::high_resolution_clock::now();
+  auto kernelCreationStart = std::chrono::high_resolution_clock::now();
   Err = Program_.createKernels(&Kernels);
-  end = std::chrono::high_resolution_clock::now();
-  duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  logTrace("clCreateKernelsInProgram took {} microseconds", duration.count());
+  auto kernelCreationEnd = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::micro> kernelCreationDuration =
+      kernelCreationEnd - kernelCreationStart;
+  logTrace("clCreateKernelsInProgram took {} microseconds",
+           kernelCreationDuration.count());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernelsInProgram);
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
-  for (int KernelIdx = 0; KernelIdx < Kernels.size(); KernelIdx++) {
-    auto Krnl = Kernels[KernelIdx];
-    std::string HostFName = Krnl.getInfo<CL_KERNEL_FUNCTION_NAME>(&Err);
+  for (auto &Krnl : Kernels) {
+    std::string HostFName;
+    Err = Krnl.getInfo(CL_KERNEL_FUNCTION_NAME, &HostFName);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
-      continue; // TODO
-      CHIPERR_LOG_AND_THROW("Failed to find kernel in OpenCLFunctionInfoMap",
-                            hipErrorInitializationError);
+      continue;
     }
     CHIPKernelOpenCL *ChipKernel =
         new CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - start;
+
+  if (cached)
+    logInfo("Loaded from cache, kernel compilation took {} seconds",
+            elapsed.count());
+  else
+    logInfo("Kernel compilation took {} seconds", elapsed.count());
 }
 
 chipstar::Queue *CHIPDeviceOpenCL::createQueue(chipstar::QueueFlags Flags,

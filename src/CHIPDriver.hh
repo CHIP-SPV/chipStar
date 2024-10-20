@@ -237,6 +237,7 @@ private:
   int L0CollectEventsTimeout_ = 0;
   bool OCLDisableQueueProfiling_ = false;
   std::optional<std::string> OclUseAllocStrategy_;
+  std::optional<std::string> ModuleCacheDir_;
 
 public:
   EnvVars() {
@@ -263,6 +264,9 @@ public:
   bool getOCLDisableQueueProfiling() const { return OCLDisableQueueProfiling_; }
   const std::optional<std::string> &getOclUseAllocStrategy() const noexcept {
     return OclUseAllocStrategy_;
+  }
+  const std::optional<std::string> &getModuleCacheDir() const {
+    return ModuleCacheDir_;
   }
 
 private:
@@ -299,6 +303,12 @@ private:
         readEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY", value, true)
             ? value
             : OclUseAllocStrategy_;
+    if (readEnvVar("CHIP_MODULE_CACHE_DIR", value, true)) {
+      if (value.size())
+        ModuleCacheDir_ = value;
+    } else {
+      ModuleCacheDir_ = std::string(std::getenv("HOME")) + "/.cache/chipStar";
+    }
   }
 
   int parseInt(const std::string &value) {
@@ -343,6 +353,8 @@ private:
     logInfo("CHIP_OCL_USE_ALLOC_STRATEGY={}", OclUseAllocStrategy_.has_value()
                                                   ? OclUseAllocStrategy_.value()
                                                   : "off");
+    logInfo("CHIP_MODULE_CACHE_DIR={}",
+            ModuleCacheDir_.has_value() ? ModuleCacheDir_.value() : "off");
   }
 };
 
