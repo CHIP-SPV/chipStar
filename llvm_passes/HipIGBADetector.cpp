@@ -71,14 +71,18 @@ static bool hasPotentialIGBAs(Module &M) {
           // covered by the above check typically, but this is an additional guard).
           if (!Op->getType()->isIntegerTy())
             continue;
-          {
-            LLVM_DEBUG(dbgs() << "Found genuine IntToPtrInst in function "
-                              << F.getName() << ": " << ITP << "\n");
-            return true;
-          }
-          // Old pointer-type check is now redundant and removed.
+          LLVM_DEBUG(dbgs() << "Found genuine IntToPtrInst in function "
+                            << F.getName() << ": " << *ITP << "\n");
+          return true;
         }
         if (auto *LI = dyn_cast<LoadInst>(&I)) {
+          // Skip the check for __chip_var___chipspv_device_heap
+          Value *PtrOp = LI->getPointerOperand();
+          if (PtrOp && PtrOp->hasName() &&
+              PtrOp->getName() == "__chip_var___chipspv_device_heap") {
+            LLVM_DEBUG(dbgs() << "Skipping LoadInst for __chip_var___chipspv_device_heap\n");
+            continue;
+          }
           // If an instruction loads a pointer from memory, it's a potential IGBA.
           if (LI->getType()->isPointerTy()) {
             LLVM_DEBUG(dbgs() << "Found pointer LoadInst in function " << F.getName()
@@ -103,7 +107,6 @@ static bool detectIGBAs(Module &M) {
 
   if (M.getGlobalVariable(MagicVarName))
     return false; // Bail out: the module has already been processed.
-
   bool Result = hasPotentialIGBAs(M);
   LLVM_DEBUG(dbgs() << "Has IGBAs: " << Result << "\n");
 
