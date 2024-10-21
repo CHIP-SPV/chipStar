@@ -57,7 +57,7 @@ set(BITCODE_C_COMPILE_FLAGS
   -emit-llvm ${EXTRA_FLAGS})
 
 # non-OCML sources
-set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture") # "printf_support"
+set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture" "malloc") # "printf_support"
 
 # Compiles SOURCE treated as OpenCL to LLVM bitcode.
 function(add_opencl_bitcode SOURCE OUTPUT)
