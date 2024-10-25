@@ -1002,9 +1002,13 @@ void CHIPQueueLevel0::initializeCmdListImm() {
                                           &ZeCmdListImm_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
 
-  zeStatus = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptorCopy_,
-                                          &ZeCmdListImmCopy_);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+  if (QueueDescriptorCopy_.ordinal < 0) {
+    zeStatus = zeCommandListCreateImmediate(
+        ZeCtx_, ZeDev_, &QueueDescriptorCopy_, &ZeCmdListImmCopy_);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+  } else {
+    ZeCmdListImmCopy_ = ZeCmdListImm_;
+  }
 }
 
 void CHIPDeviceLevel0::initializeQueueGroupProperties() {
@@ -1103,8 +1107,6 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
 
 ze_command_queue_desc_t
 CHIPDeviceLevel0::getNextComputeQueueDesc(int Priority) {
-
-  assert(ComputeQueueGroupOrdinal_ > -1);
   ze_command_queue_desc_t CommandQueueComputeDesc = getQueueDesc_(Priority);
   CommandQueueComputeDesc.ordinal = ComputeQueueGroupOrdinal_;
 
@@ -1117,14 +1119,15 @@ CHIPDeviceLevel0::getNextComputeQueueDesc(int Priority) {
 }
 
 ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
-  assert(CopyQueueGroupOrdinal_ > -1);
   ze_command_queue_desc_t CommandQueueCopyDesc = getQueueDesc_(Priority);
   CommandQueueCopyDesc.ordinal = CopyQueueGroupOrdinal_;
 
   auto MaxQueues = CopyQueueProperties_.numQueues;
-  LOCK(NextQueueIndexMtx_); // CHIPDeviceLevel0::NextCopyQueueIndex_
-  CommandQueueCopyDesc.index = NextCopyQueueIndex_;
-  NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+  if (MaxQueues > 0) {
+    LOCK(NextQueueIndexMtx_); // CHIPDeviceLevel0::NextCopyQueueIndex_
+    CommandQueueCopyDesc.index = NextCopyQueueIndex_;
+    NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+  }
 
   return CommandQueueCopyDesc;
 }
