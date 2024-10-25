@@ -150,16 +150,31 @@ void createAndDumpLevelZeroKernel(ze_context_handle_t context, const std::vector
 void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spirvData, const std::string& buildFlags) {
     cl_int err;
     
-    // Create program
+    // Create program with SPIR-V
     cl_program program = clCreateProgramWithIL(context, spirvData.data(), spirvData.size(), &err);
     if (err != CL_SUCCESS) {
         throw std::runtime_error("Failed to create OpenCL program");
     }
-    
+
+    // Create a string with the dummy atomic function
+    const char* dummySource = R"(
+        double __chip_atomic_add_f64(volatile __global double* addr, double val) {
+            return 0.0;
+        }
+    )";
+
+    // Create a program with the dummy source
+    cl_program dummyProgram = clCreateProgramWithSource(context, 1, &dummySource, nullptr, &err);
+    if (err != CL_SUCCESS) {
+        clReleaseProgram(program);
+        throw std::runtime_error("Failed to create dummy program");
+    }
+
     // Get device from context
     size_t deviceSize;
     err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, nullptr, &deviceSize);
     if (err != CL_SUCCESS) {
+        clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
         throw std::runtime_error("Failed to get context device size");
     }
@@ -167,55 +182,77 @@ void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spir
     std::vector<cl_device_id> devices(deviceSize / sizeof(cl_device_id));
     err = clGetContextInfo(context, CL_CONTEXT_DEVICES, deviceSize, devices.data(), nullptr);
     if (err != CL_SUCCESS) {
+        clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
         throw std::runtime_error("Failed to get context devices");
     }
-    
-    // Build program with flags
-    err = clBuildProgram(program, 1, devices.data(), 
-                        buildFlags.empty() ? nullptr : buildFlags.c_str(), 
-                        nullptr, nullptr);
-    
-    // Always get build log regardless of build success
-    size_t logSize;
-    clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
-    if (logSize > 1) {  // Size includes null terminator
+
+    // Build dummy program first
+    err = clBuildProgram(dummyProgram, 1, devices.data(), nullptr, nullptr, nullptr);
+    if (err != CL_SUCCESS) {
+        size_t logSize;
+        clGetProgramBuildInfo(dummyProgram, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
         std::vector<char> log(logSize);
-        clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
-        std::cout << "Build log:\n" << log.data() << std::endl;
+        clGetProgramBuildInfo(dummyProgram, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
+        std::cout << "Dummy program build log:\n" << log.data() << std::endl;
+        clReleaseProgram(dummyProgram);
+        clReleaseProgram(program);
+        throw std::runtime_error("Failed to build dummy program");
+    }
+
+    // Link the programs together
+    cl_program programs[] = {program, dummyProgram};
+    cl_program linkedProgram = clLinkProgram(context, 1, devices.data(), 
+                                           buildFlags.empty() ? nullptr : buildFlags.c_str(),
+                                           2, programs, nullptr, nullptr, &err);
+    
+    // Always get build log regardless of link success
+    size_t logSize;
+    clGetProgramBuildInfo(linkedProgram, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
+    if (logSize > 1) {
+        std::vector<char> log(logSize);
+        clGetProgramBuildInfo(linkedProgram, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
+        std::cout << "Link log:\n" << log.data() << std::endl;
     }
 
     if (err != CL_SUCCESS) {
+        clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
-        throw std::runtime_error("Failed to build OpenCL program");
+        throw std::runtime_error("Failed to link programs");
     }
-    
-    // Dump machine code
+
+    // Rest of the function remains the same, but use linkedProgram instead of program
     size_t binarySize;
-    err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binarySize, nullptr);
+    err = clGetProgramInfo(linkedProgram, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binarySize, nullptr);
     if (err != CL_SUCCESS) {
+        clReleaseProgram(linkedProgram);
+        clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
         throw std::runtime_error("Failed to get OpenCL program binary size");
     }
-    
+
     std::vector<unsigned char*> binaries(1);
     binaries[0] = new unsigned char[binarySize];
     
-    err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(unsigned char*), binaries.data(), nullptr);
+    err = clGetProgramInfo(linkedProgram, CL_PROGRAM_BINARIES, sizeof(unsigned char*), binaries.data(), nullptr);
     if (err != CL_SUCCESS) {
         delete[] binaries[0];
+        clReleaseProgram(linkedProgram);
+        clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
         throw std::runtime_error("Failed to get OpenCL program binary");
     }
-    
+
     std::ofstream outFile("opencl_kernel.bin", std::ios::binary);
     outFile.write(reinterpret_cast<const char*>(binaries[0]), binarySize);
     outFile.close();
-    
+
     delete[] binaries[0];
     std::cout << "OpenCL kernel machine code dumped to 'opencl_kernel.bin'" << std::endl;
-    
+
     // Clean up
+    clReleaseProgram(linkedProgram);
+    clReleaseProgram(dummyProgram);
     clReleaseProgram(program);
 }
 
