@@ -91,7 +91,7 @@ cl_context initializeOpenCL() {
 }
 
 // Function to create Level Zero kernel and dump machine code
-void createAndDumpLevelZeroKernel(ze_context_handle_t context, const std::vector<char>& spirvData) {
+void createAndDumpLevelZeroKernel(ze_context_handle_t context, const std::vector<char>& spirvData, const std::string& buildFlags) {
     ze_result_t result;
     
     // Create module
@@ -100,7 +100,8 @@ void createAndDumpLevelZeroKernel(ze_context_handle_t context, const std::vector
     moduleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
     moduleDesc.inputSize = spirvData.size();
     moduleDesc.pInputModule = reinterpret_cast<const uint8_t*>(spirvData.data());
-    
+    moduleDesc.pBuildFlags = buildFlags.empty() ? nullptr : buildFlags.c_str();
+
     // Get the device properly
     uint32_t driverCount = 1;
     ze_driver_handle_t driver;
@@ -146,7 +147,7 @@ void createAndDumpLevelZeroKernel(ze_context_handle_t context, const std::vector
 }
 
 // Function to create OpenCL kernel and dump machine code
-void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spirvData) {
+void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spirvData, const std::string& buildFlags) {
     cl_int err;
     
     // Create program
@@ -155,9 +156,37 @@ void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spir
         throw std::runtime_error("Failed to create OpenCL program");
     }
     
-    // Build program
-    err = clBuildProgram(program, 0, nullptr, nullptr, nullptr, nullptr);
+    // Get device from context
+    size_t deviceSize;
+    err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, nullptr, &deviceSize);
     if (err != CL_SUCCESS) {
+        clReleaseProgram(program);
+        throw std::runtime_error("Failed to get context device size");
+    }
+
+    std::vector<cl_device_id> devices(deviceSize / sizeof(cl_device_id));
+    err = clGetContextInfo(context, CL_CONTEXT_DEVICES, deviceSize, devices.data(), nullptr);
+    if (err != CL_SUCCESS) {
+        clReleaseProgram(program);
+        throw std::runtime_error("Failed to get context devices");
+    }
+    
+    // Build program with flags
+    err = clBuildProgram(program, 1, devices.data(), 
+                        buildFlags.empty() ? nullptr : buildFlags.c_str(), 
+                        nullptr, nullptr);
+    
+    // Always get build log regardless of build success
+    size_t logSize;
+    clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
+    if (logSize > 1) {  // Size includes null terminator
+        std::vector<char> log(logSize);
+        clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
+        std::cout << "Build log:\n" << log.data() << std::endl;
+    }
+
+    if (err != CL_SUCCESS) {
+        clReleaseProgram(program);
         throw std::runtime_error("Failed to build OpenCL program");
     }
     
@@ -165,20 +194,25 @@ void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spir
     size_t binarySize;
     err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binarySize, nullptr);
     if (err != CL_SUCCESS) {
+        clReleaseProgram(program);
         throw std::runtime_error("Failed to get OpenCL program binary size");
     }
     
-    std::vector<unsigned char> binaryData(binarySize);
-    unsigned char* binaryPtr = binaryData.data();
-    err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(unsigned char*), &binaryPtr, nullptr);
+    std::vector<unsigned char*> binaries(1);
+    binaries[0] = new unsigned char[binarySize];
+    
+    err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(unsigned char*), binaries.data(), nullptr);
     if (err != CL_SUCCESS) {
+        delete[] binaries[0];
+        clReleaseProgram(program);
         throw std::runtime_error("Failed to get OpenCL program binary");
     }
     
     std::ofstream outFile("opencl_kernel.bin", std::ios::binary);
-    outFile.write(reinterpret_cast<const char*>(binaryData.data()), binarySize);
+    outFile.write(reinterpret_cast<const char*>(binaries[0]), binarySize);
     outFile.close();
     
+    delete[] binaries[0];
     std::cout << "OpenCL kernel machine code dumped to 'opencl_kernel.bin'" << std::endl;
     
     // Clean up
@@ -200,14 +234,17 @@ void disassembleWithOcloc(const std::string& inputBinaryPath, const std::string&
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <SPIR-V file>" << std::endl;
+    if (argc < 2 || argc > 3) {
+        std::cerr << "Usage: " << argv[0] << " <SPIR-V file> [JIT flags]" << std::endl;
         return 1;
     }
     
     try {
         // Read SPIR-V file
         std::vector<char> spirvData = readSPIRVFile(argv[1]);
+        
+        // Get JIT flags (empty if not provided)
+        std::string jitFlags = (argc == 3) ? argv[2] : "";
         
         // Initialize Level Zero
         ze_context_handle_t zeContext = initializeLevelZero();
@@ -216,11 +253,11 @@ int main(int argc, char* argv[]) {
         cl_context clContext = initializeOpenCL();
         
         // Create and dump Level Zero kernel
-        createAndDumpLevelZeroKernel(zeContext, spirvData);
+        createAndDumpLevelZeroKernel(zeContext, spirvData, jitFlags);
         disassembleWithOcloc("level_zero_kernel.bin", "level_zero_disasm");
         
         // Create and dump OpenCL kernel
-        createAndDumpOpenCLKernel(clContext, spirvData);
+        createAndDumpOpenCLKernel(clContext, spirvData, jitFlags);
         disassembleWithOcloc("opencl_kernel.bin", "opencl_disasm");
         
         // Clean up
