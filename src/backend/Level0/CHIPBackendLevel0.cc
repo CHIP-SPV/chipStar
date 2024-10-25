@@ -2374,7 +2374,7 @@ static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
     std::vector<char> LogVec(LogSize);
     zeStatus = zeModuleBuildLogGetString(Log, &LogSize, LogVec.data());
     if (zeStatus == ZE_RESULT_SUCCESS)
-      logError("ZE Build Log:\n{}", std::string_view(LogVec.data(), LogSize));
+      logInfo("ZE Build Log:\n{}", std::string_view(LogVec.data(), LogSize));
   }
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleBuildLogDestroy);
@@ -2411,8 +2411,7 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
   // Create the cache directory if it doesn't exist
   std::filesystem::create_directories(cacheDir);
-  std::string fullPath =
-      cacheDir + std::to_string(hash);
+  std::string fullPath = cacheDir + std::to_string(hash);
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
@@ -2505,8 +2504,7 @@ static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
              elapsed.count());
   else
     logTrace("zeModulerCeate took {} seconds", elapsed.count());
-  if (zeStatus != ZE_RESULT_SUCCESS)
-    dumpBuildLog(std::move(Log));
+  dumpBuildLog(std::move(Log));
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleCreate);
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
