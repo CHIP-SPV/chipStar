@@ -47,6 +47,16 @@ class LZEventPool;
 class CHIPExecItemLevel0;
 class CHIPKernelLevel0;
 
+enum LevelZeroQueueType {
+  Unknown = 0,
+  Compute,
+  Copy,
+};
+
+// Function to get or create a copy queue for a given compute queue
+CHIPQueueLevel0* getCopyQueue(CHIPQueueLevel0* ComputeQueue);
+
+
 class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
 
@@ -195,11 +205,7 @@ public:
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
 
-enum LevelZeroQueueType {
-  Unknown = 0,
-  Compute,
-  Copy,
-};
+
 
 class FencedCmdList {
   ze_command_list_handle_t ZeCmdList_ = nullptr;

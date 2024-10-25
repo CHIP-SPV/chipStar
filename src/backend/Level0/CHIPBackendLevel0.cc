@@ -29,6 +29,24 @@
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
 
+std::unordered_map<CHIPQueueLevel0*, CHIPQueueLevel0*> ComputeToCopyQueueMap;
+CHIPQueueLevel0* getCopyQueue(CHIPQueueLevel0* ComputeQueue) {
+  auto it = ComputeToCopyQueueMap.find(ComputeQueue);
+  if (it != ComputeToCopyQueueMap.end()) {
+    return it->second;
+  } else {
+    // Create a new copy queue
+    CHIPQueueLevel0* CopyQueue = new CHIPQueueLevel0(ComputeQueue->getDeviceLz(), 
+                                                     chipstar::QueueFlags(), 
+                                                     0, 
+                                                     LevelZeroQueueType::Copy);
+    ComputeQueue->getDeviceLz()->addQueue(CopyQueue);
+    ComputeToCopyQueueMap[ComputeQueue] = CopyQueue;
+    return CopyQueue;
+  }
+}
+
+
 /// Converts driver version queried from zeDriverGetProperties to string.
 static std::string driverVersionToString(uint32_t DriverVersion) noexcept {
   uint32_t Build = DriverVersion & 0xffffu;
@@ -1448,6 +1466,11 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
+  if (QueueType != LevelZeroQueueType::Copy) {
+    auto CopyQueue = getCopyQueue(this);
+    return CopyQueue->memCopyAsyncImpl(Dst, Src, Size, Kind);
+  }
+
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
