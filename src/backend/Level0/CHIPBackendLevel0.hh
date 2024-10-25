@@ -47,16 +47,6 @@ class LZEventPool;
 class CHIPExecItemLevel0;
 class CHIPKernelLevel0;
 
-enum LevelZeroQueueType {
-  Unknown = 0,
-  Compute,
-  Copy,
-};
-
-// Function to get or create a copy queue for a given compute queue
-CHIPQueueLevel0* getCopyQueue(CHIPQueueLevel0* ComputeQueue);
-
-
 class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
 
@@ -205,8 +195,6 @@ public:
   std::shared_ptr<CHIPEventLevel0> getEvent();
 };
 
-
-
 class FencedCmdList {
   ze_command_list_handle_t ZeCmdList_ = nullptr;
   ze_fence_handle_t ZeFence_ = nullptr;
@@ -284,8 +272,15 @@ protected:
   ze_command_queue_group_properties_t QueueProperties_;
   ze_command_queue_desc_t QueueDescriptor_;
   ze_command_list_desc_t CommandListDesc_;
+
+  ze_command_queue_group_properties_t QueuePropertiesCopy_;
+  ze_command_queue_desc_t QueueDescriptorCopy_;
+  ze_command_list_desc_t CommandListDescCopy_;
+
+
   ze_command_queue_handle_t ZeCmdQ_ = 0;
   ze_command_list_handle_t ZeCmdListImm_ = 0;
+  ze_command_list_handle_t ZeCmdListImmCopy_ = 0;
 
   void initializeCmdListImm();
 
@@ -302,6 +297,7 @@ public:
    * @return ze_command_list_handle_t
    */
   ze_command_list_handle_t getCmdListImm();
+  ze_command_list_handle_t getCmdListImmCopy();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
   std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
@@ -310,14 +306,10 @@ public:
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
   }
-  LevelZeroQueueType QueueType = LevelZeroQueueType::Unknown;
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags);
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags,
                   int Priority);
-  CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, chipstar::QueueFlags Flags,
-                  int Priority, LevelZeroQueueType TheQueueType);
-
   CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev, ze_command_queue_handle_t ZeQue);
   virtual ~CHIPQueueLevel0() override;
 

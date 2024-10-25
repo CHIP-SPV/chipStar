@@ -29,24 +29,6 @@
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
 
-std::unordered_map<CHIPQueueLevel0*, CHIPQueueLevel0*> ComputeToCopyQueueMap;
-CHIPQueueLevel0* getCopyQueue(CHIPQueueLevel0* ComputeQueue) {
-  auto it = ComputeToCopyQueueMap.find(ComputeQueue);
-  if (it != ComputeToCopyQueueMap.end()) {
-    return it->second;
-  } else {
-    // Create a new copy queue
-    CHIPQueueLevel0* CopyQueue = new CHIPQueueLevel0(ComputeQueue->getDeviceLz(), 
-                                                     chipstar::QueueFlags(), 
-                                                     0, 
-                                                     LevelZeroQueueType::Copy);
-    ComputeQueue->getDeviceLz()->addQueue(CopyQueue);
-    ComputeToCopyQueueMap[ComputeQueue] = CopyQueue;
-    return CopyQueue;
-  }
-}
-
-
 /// Converts driver version queried from zeDriverGetProperties to string.
 static std::string driverVersionToString(uint32_t DriverVersion) noexcept {
   uint32_t Build = DriverVersion & 0xffffu;
@@ -899,6 +881,10 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListImm() {
   return ZeCmdListImm_;
 }
 
+ze_command_list_handle_t CHIPQueueLevel0::getCmdListImmCopy() {
+  return ZeCmdListImmCopy_;
+}
+
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   // go through all pools and try to get an allocated event
   LOCK(ContextMtx); // Context::EventPools
@@ -954,21 +940,14 @@ Borrowed<FencedCmdList> CHIPContextLevel0::getCmdListReg() {
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
-    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY,
-                      LevelZeroQueueType::Compute) {}
+    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  chipstar::QueueFlags Flags)
-    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY,
-                      LevelZeroQueueType::Compute) {}
+    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  chipstar::QueueFlags Flags, int Priority)
-    : CHIPQueueLevel0(ChipDev, Flags, Priority, LevelZeroQueueType::Compute) {}
-
-CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 chipstar::QueueFlags Flags, int Priority,
-                                 LevelZeroQueueType TheType)
     : Queue(ChipDev, Flags, Priority), ChipDevLz_(ChipDev),
       ChipCtxLz_(static_cast<CHIPContextLevel0 *>(ChipDev->getContext())) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
@@ -976,19 +955,12 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   auto Ctx = ChipDevLz_->getContext();
   ChipCtxLz_ = (CHIPContextLevel0 *)Ctx;
 
-  if (TheType == Compute) {
-    QueueProperties_ = ChipDev->getComputeQueueProps();
-    QueueDescriptor_ = ChipDev->getNextComputeQueueDesc(Priority);
-    CommandListDesc_ = ChipDev->getCommandListComputeDesc();
-  } else if (TheType == Copy) {
-    QueueProperties_ = ChipDev->getCopyQueueProps();
-    QueueDescriptor_ = ChipDev->getNextCopyQueueDesc(Priority);
-    CommandListDesc_ = ChipDev->getCommandListCopyDesc();
-
-  } else {
-    CHIPERR_LOG_AND_ABORT("Unknown queue type requested");
-  }
-  QueueType = TheType;
+  QueueProperties_ = ChipDev->getComputeQueueProps();
+  QueueDescriptor_ = ChipDev->getNextComputeQueueDesc(Priority);
+  CommandListDesc_ = ChipDev->getCommandListComputeDesc();
+  QueuePropertiesCopy_ = ChipDev->getCopyQueueProps();
+  QueueDescriptorCopy_ = ChipDev->getNextCopyQueueDesc(Priority);
+  CommandListDescCopy_ = ChipDev->getCommandListCopyDesc();
 
   SharedBuf_ =
       ChipCtxLz_->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
@@ -1028,6 +1000,10 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 void CHIPQueueLevel0::initializeCmdListImm() {
   zeStatus = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
                                           &ZeCmdListImm_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+
+  zeStatus = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptorCopy_,
+                                          &ZeCmdListImmCopy_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
 }
 
@@ -1240,7 +1216,7 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   }
 
   LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
+  auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1288,7 +1264,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
   LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
+  auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1466,17 +1442,12 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
-  if (QueueType != LevelZeroQueueType::Copy) {
-    auto CopyQueue = getCopyQueue(this);
-    return CopyQueue->memCopyAsyncImpl(Dst, Src, Size, Kind);
-  }
-
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
+  auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via LOCK(CommandListMtx)
