@@ -845,8 +845,8 @@ static void dumpProgramLog(CHIPDeviceOpenCL &ChipDev, cl::Program Prog) {
   std::string Log =
       Prog.getBuildInfo<CL_PROGRAM_BUILD_LOG>(*ChipDev.get(), &Err);
   if (Err == CL_SUCCESS)
-    logError("Program LOG for device #{}:{}:\n{}\n", ChipDev.getDeviceId(),
-             ChipDev.getName(), Log);
+    logInfo("Program LOG for device #{}:{}:\n{}\n", ChipDev.getDeviceId(),
+            ChipDev.getName(), Log);
 }
 
 static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
@@ -869,10 +869,8 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   auto Duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(End - Start);
   logTrace("clCompileProgram took {} ms", Duration.count());
-  if (Err != CL_SUCCESS) {
-    dumpProgramLog(ChipDev, Prog);
-    CHIPERR_LOG_AND_THROW("Compile step failed.", hipErrorInitializationError);
-  }
+  dumpProgramLog(ChipDev, Prog);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCompileProgram);
 
   return Prog;
 }
