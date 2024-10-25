@@ -187,8 +187,9 @@ void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spir
         throw std::runtime_error("Failed to get context devices");
     }
 
-    // Build dummy program first
-    err = clBuildProgram(dummyProgram, 1, devices.data(), nullptr, nullptr, nullptr);
+    // Build dummy program with additional options
+    const char* buildOptions = "-cl-std=CL2.0 -cl-mad-enable -cl-no-signed-zeros";
+    err = clBuildProgram(dummyProgram, 1, devices.data(), buildOptions, nullptr, nullptr);
     if (err != CL_SUCCESS) {
         size_t logSize;
         clGetProgramBuildInfo(dummyProgram, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
@@ -198,26 +199,54 @@ void createAndDumpOpenCLKernel(cl_context context, const std::vector<char>& spir
         clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
         throw std::runtime_error("Failed to build dummy program");
+    } else {
+        std::cout << "Dummy program built successfully" << std::endl;
     }
 
     // Link the programs together
     cl_program programs[] = {program, dummyProgram};
+
+    // Check build status of both programs before linking
+    cl_build_status buildStatus;
+    clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_STATUS, 
+                         sizeof(buildStatus), &buildStatus, nullptr);
+    std::cout << "Main program build status: " << buildStatus << std::endl;
+    
+    clGetProgramBuildInfo(dummyProgram, devices[0], CL_PROGRAM_BUILD_STATUS, 
+                         sizeof(buildStatus), &buildStatus, nullptr);
+    std::cout << "Dummy program build status: " << buildStatus << std::endl;
+
+    // Try to build the main program explicitly before linking
+    err = clBuildProgram(program, 1, devices.data(), buildFlags.empty() ? nullptr : buildFlags.c_str(), 
+                        nullptr, nullptr);
+    if (err != CL_SUCCESS) {
+        std::cout << "Failed to build main program, error: " << err << std::endl;
+    }
+
+    // Get build logs for both programs
+    size_t logSize;
+    clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
+    if (logSize > 1) {
+        std::vector<char> log(logSize);
+        clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
+        std::cout << "Main program build log:\n" << log.data() << std::endl;
+    }
+
+    clGetProgramBuildInfo(dummyProgram, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
+    if (logSize > 1) {
+        std::vector<char> log(logSize);
+        clGetProgramBuildInfo(dummyProgram, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
+        std::cout << "Dummy program build log:\n" << log.data() << std::endl;
+    }
+
     cl_program linkedProgram = clLinkProgram(context, 1, devices.data(), 
                                            buildFlags.empty() ? nullptr : buildFlags.c_str(),
                                            2, programs, nullptr, nullptr, &err);
     
-    // Always get build log regardless of link success
-    size_t logSize;
-    clGetProgramBuildInfo(linkedProgram, devices[0], CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize);
-    if (logSize > 1) {
-        std::vector<char> log(logSize);
-        clGetProgramBuildInfo(linkedProgram, devices[0], CL_PROGRAM_BUILD_LOG, logSize, log.data(), nullptr);
-        std::cout << "Link log:\n" << log.data() << std::endl;
-    }
-
     if (err != CL_SUCCESS) {
         clReleaseProgram(dummyProgram);
         clReleaseProgram(program);
+        std::cout << "OpenCL link error code: " << err << std::endl;
         throw std::runtime_error("Failed to link programs");
     }
 
@@ -288,14 +317,14 @@ int main(int argc, char* argv[]) {
         
         // Initialize OpenCL
         cl_context clContext = initializeOpenCL();
+
+        // Create and dump OpenCL kernel
+        createAndDumpOpenCLKernel(clContext, spirvData, jitFlags);
+        disassembleWithOcloc("opencl_kernel.bin", "opencl_disasm");
         
         // Create and dump Level Zero kernel
         createAndDumpLevelZeroKernel(zeContext, spirvData, jitFlags);
         disassembleWithOcloc("level_zero_kernel.bin", "level_zero_disasm");
-        
-        // Create and dump OpenCL kernel
-        createAndDumpOpenCLKernel(clContext, spirvData, jitFlags);
-        disassembleWithOcloc("opencl_kernel.bin", "opencl_disasm");
         
         // Clean up
         zeContextDestroy(zeContext);
