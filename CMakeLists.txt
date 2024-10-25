@@ -863,3 +863,6 @@ include(cmake/docker.cmake)
 
 add_subdirectory(host_math_funcs)
 target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)
+
+add_executable(testJIT testJIT.cpp)
+target_link_libraries(testJIT PUBLIC CHIP)
