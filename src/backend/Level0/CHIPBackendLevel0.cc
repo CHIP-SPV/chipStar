@@ -881,6 +881,10 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListImm() {
   return ZeCmdListImm_;
 }
 
+ze_command_list_handle_t CHIPQueueLevel0::getCmdListImmCopy() {
+  return ZeCmdListImmCopy_;
+}
+
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   // go through all pools and try to get an allocated event
   LOCK(ContextMtx); // Context::EventPools
@@ -936,21 +940,14 @@ Borrowed<FencedCmdList> CHIPContextLevel0::getCmdListReg() {
 }
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev)
-    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY,
-                      LevelZeroQueueType::Compute) {}
+    : CHIPQueueLevel0(ChipDev, 0, L0_DEFAULT_QUEUE_PRIORITY) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  chipstar::QueueFlags Flags)
-    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY,
-                      LevelZeroQueueType::Compute) {}
+    : CHIPQueueLevel0(ChipDev, Flags, L0_DEFAULT_QUEUE_PRIORITY) {}
 
 CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
                                  chipstar::QueueFlags Flags, int Priority)
-    : CHIPQueueLevel0(ChipDev, Flags, Priority, LevelZeroQueueType::Compute) {}
-
-CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
-                                 chipstar::QueueFlags Flags, int Priority,
-                                 LevelZeroQueueType TheType)
     : Queue(ChipDev, Flags, Priority), ChipDevLz_(ChipDev),
       ChipCtxLz_(static_cast<CHIPContextLevel0 *>(ChipDev->getContext())) {
   logTrace("CHIPQueueLevel0() {}", (void *)this);
@@ -958,19 +955,12 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   auto Ctx = ChipDevLz_->getContext();
   ChipCtxLz_ = (CHIPContextLevel0 *)Ctx;
 
-  if (TheType == Compute) {
-    QueueProperties_ = ChipDev->getComputeQueueProps();
-    QueueDescriptor_ = ChipDev->getNextComputeQueueDesc(Priority);
-    CommandListDesc_ = ChipDev->getCommandListComputeDesc();
-  } else if (TheType == Copy) {
-    QueueProperties_ = ChipDev->getCopyQueueProps();
-    QueueDescriptor_ = ChipDev->getNextCopyQueueDesc(Priority);
-    CommandListDesc_ = ChipDev->getCommandListCopyDesc();
-
-  } else {
-    CHIPERR_LOG_AND_ABORT("Unknown queue type requested");
-  }
-  QueueType = TheType;
+  QueueProperties_ = ChipDev->getComputeQueueProps();
+  QueueDescriptor_ = ChipDev->getNextComputeQueueDesc(Priority);
+  CommandListDesc_ = ChipDev->getCommandListComputeDesc();
+  QueuePropertiesCopy_ = ChipDev->getCopyQueueProps();
+  QueueDescriptorCopy_ = ChipDev->getNextCopyQueueDesc(Priority);
+  CommandListDescCopy_ = ChipDev->getCommandListCopyDesc();
 
   SharedBuf_ =
       ChipCtxLz_->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
@@ -1011,6 +1001,14 @@ void CHIPQueueLevel0::initializeCmdListImm() {
   zeStatus = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
                                           &ZeCmdListImm_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+
+  if (QueueDescriptorCopy_.ordinal < 0) {
+    zeStatus = zeCommandListCreateImmediate(
+        ZeCtx_, ZeDev_, &QueueDescriptorCopy_, &ZeCmdListImmCopy_);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+  } else {
+    ZeCmdListImmCopy_ = ZeCmdListImm_;
+  }
 }
 
 void CHIPDeviceLevel0::initializeQueueGroupProperties() {
@@ -1109,8 +1107,6 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
 
 ze_command_queue_desc_t
 CHIPDeviceLevel0::getNextComputeQueueDesc(int Priority) {
-
-  assert(ComputeQueueGroupOrdinal_ > -1);
   ze_command_queue_desc_t CommandQueueComputeDesc = getQueueDesc_(Priority);
   CommandQueueComputeDesc.ordinal = ComputeQueueGroupOrdinal_;
 
@@ -1123,14 +1119,15 @@ CHIPDeviceLevel0::getNextComputeQueueDesc(int Priority) {
 }
 
 ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
-  assert(CopyQueueGroupOrdinal_ > -1);
   ze_command_queue_desc_t CommandQueueCopyDesc = getQueueDesc_(Priority);
   CommandQueueCopyDesc.ordinal = CopyQueueGroupOrdinal_;
 
   auto MaxQueues = CopyQueueProperties_.numQueues;
-  LOCK(NextQueueIndexMtx_); // CHIPDeviceLevel0::NextCopyQueueIndex_
-  CommandQueueCopyDesc.index = NextCopyQueueIndex_;
-  NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+  if (MaxQueues > 0) {
+    LOCK(NextQueueIndexMtx_); // CHIPDeviceLevel0::NextCopyQueueIndex_
+    CommandQueueCopyDesc.index = NextCopyQueueIndex_;
+    NextCopyQueueIndex_ = (NextCopyQueueIndex_ + 1) % MaxQueues;
+  }
 
   return CommandQueueCopyDesc;
 }
@@ -1222,7 +1219,7 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   }
 
   LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
+  auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1270,7 +1267,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
   LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
+  auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
@@ -1453,7 +1450,7 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe);
   LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
+  auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via LOCK(CommandListMtx)
