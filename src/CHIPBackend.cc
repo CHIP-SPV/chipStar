@@ -446,10 +446,14 @@ void chipstar::Module::invalidateDeviceVariablesNoLock() {
 
 void chipstar::Module::deallocateDeviceVariablesNoLock(
     chipstar::Device *Device) {
+  if (!DeviceVariablesAllocated_)
+    return;
   invalidateDeviceVariablesNoLock();
   for (auto *Var : ChipVars_) {
-    auto Err = Device->getContext()->free(Var->getDevAddr());
-    (void)Err;
+    if (!::Backend->getReinitializeFlag()) {
+      auto Err = Device->getContext()->free(Var->getDevAddr());
+      (void)Err;
+    }
     Var->setDevAddr(nullptr);
   }
   DeviceVariablesAllocated_ = false;
