@@ -1826,6 +1826,7 @@ public:
  */
 class Backend {
 protected:
+  bool ReinitializeFlag_ = false;
   chipstar::EventMonitor *EventMonitor_ = nullptr;
 
   int MinQueuePriority_;
@@ -1839,6 +1840,8 @@ protected:
   std::shared_ptr<spdlog::logger> Logger;
 
 public:
+  void setReinitializeFlag(bool Flag) { ReinitializeFlag_ = Flag; }
+  bool getReinitializeFlag() const { return ReinitializeFlag_; }
   chipstar::Context *PrimaryContext = nullptr;
   std::stack<chipstar::Context *> ChipCtxStack;
 
