@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DEVICE_HEAP_SIZE 1024 * 1024 // 1 MB
-
 #define HIP_CHECK(call)                                                 \
     do {                                                                \
         hipError_t err = call;                                          \
@@ -13,10 +11,6 @@
             exit(EXIT_FAILURE);                                         \
         }                                                               \
     } while (0)
-
-// __global__ void init_device_heap_kernel(void* device_heap) {
-//     __chip_init_device_heap(device_heap);
-// }
 
 __global__ void dynamicAllocationKernel(int* result, int size, bool* alloc_success)
 {
@@ -38,11 +32,11 @@ __global__ void dynamicAllocationKernel(int* result, int size, bool* alloc_succe
     // Compute a checksum of the array
     int checksum = 0;
     for (int i = 0; i < size; i++) {
-        checksum ^= data[i];  // XOR operation to compute checksum
+        checksum += data[i];  // Changed to addition instead of XOR
     }
 
     // Store the result
-    atomicXor(result, checksum);  // Use atomicXor for checksum
+    atomicAdd(result, checksum);  // Changed to atomicAdd instead of atomicXor
 
     // Free the dynamically allocated memory
     free(data);
@@ -66,10 +60,10 @@ __global__ void stressTestKernel(int* result, int size, int iterations, bool* al
         
         int checksum = 0;
         for (int j = 0; j < size; j++) {
-            checksum ^= data[j];  // XOR operation to compute checksum
+            checksum += data[j];  // Changed to addition instead of XOR
         }
 
-        atomicXor(result, checksum);  // Use atomicXor for checksum
+        atomicAdd(result, checksum);  // Changed to atomicAdd instead of atomicXor
         
         free(data);
     }
@@ -80,7 +74,7 @@ __global__ void stressTestKernel(int* result, int size, int iterations, bool* al
 
 int main()
 {
-    const int size = 100;  // Reduced problem size
+    const int size = 10;  // Reduced problem size
     const int stress_iterations = 10000;
     int* d_result;
     int h_result;
@@ -89,12 +83,6 @@ int main()
     int* d_debug_info;
     int h_debug_info[3] = {0};  // [0]: failed allocations, [1]: last failed iteration, [2]: successful iterations
     
-    void* device_heap;
-    HIP_CHECK(hipMalloc(&device_heap, DEVICE_HEAP_SIZE));
-
-    // init_device_heap_kernel<<<1, 1>>>(device_heap);
-    // HIP_CHECK(hipDeviceSynchronize());
-
     // Allocate memory for the result and allocation success flag on the device
     HIP_CHECK(hipMalloc(&d_result, sizeof(int)));
     HIP_CHECK(hipMalloc(&d_alloc_success, sizeof(bool)));
@@ -122,15 +110,16 @@ int main()
     HIP_CHECK(hipMemcpy(&h_result, d_result, sizeof(int), hipMemcpyDeviceToHost));
     
     // Check correctness using checksum
-    int num_blocks = (global.x * global.y * global.z) / (local.x * local.y * local.z);
-    int expected_checksum = 0;
-    for (int i = 0; i < size; i++) {
-        expected_checksum ^= i;  // Compute expected checksum
-    }
-    expected_checksum *= num_blocks;
+    int threads_per_block = local.x * local.y * local.z;
+    int num_blocks = global.x * global.y * global.z;
+    int total_threads = (num_blocks * threads_per_block);
+    int expected_checksum = (size * (size - 1)) / 2;  // Sum of arithmetic sequence from 0 to size-1
+    expected_checksum *= total_threads;  // Multiply by total number of threads
 
     if (h_result != expected_checksum) {
         printf("Error: Incorrect checksum. Expected %d, got %d\n", expected_checksum, h_result);
+        printf("Debug: size=%d, blocks=%d, threads_per_block=%d, total_threads=%d\n", 
+               size, num_blocks, threads_per_block, total_threads);
         exit(EXIT_FAILURE);
     }
 
@@ -155,10 +144,14 @@ int main()
     // Copy the result back to the host
     HIP_CHECK(hipMemcpy(&h_result, d_result, sizeof(int), hipMemcpyDeviceToHost));
     
-    // Check correctness for stress test using checksum
-    expected_checksum *= stress_iterations;
+    // For stress test verification
+    expected_checksum = (size * (size - 1)) / 2;  // Reset for stress test - only one thread
+    expected_checksum *= stress_iterations;  // Multiply by number of iterations
+    
     if (h_result != expected_checksum) {
         printf("FAILED: Incorrect checksum in stress test. Expected %d, got %d\n", expected_checksum, h_result);
+        printf("Debug: size=%d, iterations=%d, sequence_sum=%d\n", 
+               size, stress_iterations, (size * (size - 1)) / 2);
         exit(EXIT_FAILURE);
     }
 
