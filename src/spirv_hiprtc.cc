@@ -115,7 +115,7 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
       continue; // Consider NULL pointers are empty.
     auto OptionIn = trim(std::string_view(Options[OptIdx]));
 
-    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*")) {
+    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") || Match(OptionIn, "-I.*")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
       continue;
