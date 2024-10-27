@@ -126,6 +126,7 @@ void* __chip_malloc(unsigned int size) {
 
     // Broadcast the result to all threads in the workgroup
     result = (__global void*)work_group_broadcast((uintptr_t)result, 0);
+    barrier(CLK_LOCAL_MEM_FENCE);
     return result;
 }
 
@@ -164,7 +165,8 @@ void __chip_free(void* ptr) {
         } else {
             ERROR_PRINT("Attempted to free an already free block at %p", ptr);
         }
-
         unlock(mutex);
     }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
 }

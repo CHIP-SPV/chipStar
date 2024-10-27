@@ -78,7 +78,7 @@ void test2(int size, int stress_iterations);
 
 int main()
 {
-    const int size = 10;  // Reduced problem size
+    const int size = 100;  // Reduced problem size
     const int stress_iterations = 10000;
     
     test1(size);
