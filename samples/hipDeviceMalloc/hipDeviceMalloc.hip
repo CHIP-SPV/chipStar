@@ -72,25 +72,34 @@ __global__ void stressTestKernel(int* result, int size, int iterations, bool* al
     atomicAdd(&debug_info[2], iterations);  // Count successful iterations
 }
 
+// Add function declarations
+void test1(int size);
+void test2(int size, int stress_iterations);
+
 int main()
 {
     const int size = 10;  // Reduced problem size
     const int stress_iterations = 10000;
+    
+    test1(size);
+    test2(size, stress_iterations);
+    
+    return 0;
+}
+
+void test1(int size)
+{
     int* d_result;
     int h_result;
     bool* d_alloc_success;
     bool h_alloc_success;
-    int* d_debug_info;
-    int h_debug_info[3] = {0};  // [0]: failed allocations, [1]: last failed iteration, [2]: successful iterations
     
     // Allocate memory for the result and allocation success flag on the device
     HIP_CHECK(hipMalloc(&d_result, sizeof(int)));
     HIP_CHECK(hipMalloc(&d_alloc_success, sizeof(bool)));
-    HIP_CHECK(hipMalloc(&d_debug_info, 3 * sizeof(int)));
     
     // Initialize the result to 0
     HIP_CHECK(hipMemset(d_result, 0, sizeof(int)));
-    HIP_CHECK(hipMemset(d_debug_info, 0, 3 * sizeof(int)));
     
     // Launch the kernel
     dim3 global(4, 4, 4);
@@ -129,9 +138,31 @@ int main()
     HIP_CHECK(hipMemset(d_result, 0, sizeof(int)));
     HIP_CHECK(hipMemset(d_alloc_success, 0, sizeof(bool)));
     
+    // Free device memory
+    HIP_CHECK(hipFree(d_result));
+    HIP_CHECK(hipFree(d_alloc_success));
+}
+
+void test2(int size, int stress_iterations)
+{
+    int* d_result;
+    int h_result;
+    bool* d_alloc_success;
+    bool h_alloc_success;
+    int* d_debug_info;
+    int h_debug_info[3] = {0};
+    
+    // Allocate memory
+    HIP_CHECK(hipMalloc(&d_result, sizeof(int)));
+    HIP_CHECK(hipMalloc(&d_alloc_success, sizeof(bool)));
+    HIP_CHECK(hipMalloc(&d_debug_info, 3 * sizeof(int)));
+    
+    // Initialize
+    HIP_CHECK(hipMemset(d_result, 0, sizeof(int)));
+    HIP_CHECK(hipMemset(d_debug_info, 0, 3 * sizeof(int)));
+    
     // Launch the stress test kernel
     stressTestKernel<<<1, 1>>>(d_result, size, stress_iterations, d_alloc_success, d_debug_info);
-    HIP_CHECK(hipDeviceSynchronize());
     
     // Copy the allocation success flag back to the host
     HIP_CHECK(hipMemcpy(&h_alloc_success, d_alloc_success, sizeof(bool), hipMemcpyDeviceToHost));
@@ -145,7 +176,7 @@ int main()
     HIP_CHECK(hipMemcpy(&h_result, d_result, sizeof(int), hipMemcpyDeviceToHost));
     
     // For stress test verification
-    expected_checksum = (size * (size - 1)) / 2;  // Reset for stress test - only one thread
+    int expected_checksum = (size * (size - 1)) / 2;  // Reset for stress test - only one thread
     expected_checksum *= stress_iterations;  // Multiply by number of iterations
     
     if (h_result != expected_checksum) {
@@ -171,6 +202,4 @@ int main()
     HIP_CHECK(hipFree(d_result));
     HIP_CHECK(hipFree(d_alloc_success));
     HIP_CHECK(hipFree(d_debug_info));
-    
-    return 0;
 }
