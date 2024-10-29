@@ -240,6 +240,7 @@ option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extensio
 option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_HIPFFT "When enabled, hipFFT will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_HIPSOLVER "When enabled, hipSOLVER will be built and installed along chipStar" OFF)
+option(CHIP_BUILD_ROCPRIM "When enabled, rocPRIM will be built and installed along chipStar" OFF)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 
@@ -792,8 +793,6 @@ INSTALL(TARGETS CHIP host device deviceRDC hiprtc-lib
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-INSTALL(EXPORT hip-targets DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR} NAMESPACE hip::)
-# export(EXPORT hip-targets FILE "${CHIP_BUILD_DIR}/hip-targets.cmake" NAMESPACE hip::)
 
 # hip-config.cmake generation
 include(CMakePackageConfigHelpers)
@@ -894,6 +893,11 @@ endif()
 if (CHIP_BUILD_HIPSOLVER)
   add_subdirectory(H4I-HipSOLVER)
   add_dependencies(hipsolver CHIP MKLShim)
+endif()
+
+if(CHIP_BUILD_ROCPRIM)
+  add_subdirectory(rocPRIM)
+  add_dependencies(rocprim CHIP)
 endif()
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})

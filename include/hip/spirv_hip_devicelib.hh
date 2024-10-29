@@ -73,6 +73,13 @@ THE SOFTWARE.
 #pragma push_macro("__HIP_OVERLOAD")
 #pragma push_macro("__HIP_OVERLOAD2")
 
+#ifdef __HIP_DEVICE_COMPILE__
+__device__ inline void* operator new(size_t, void* ptr) noexcept { return ptr; }
+__device__ inline void* operator new[](size_t, void* ptr) noexcept { return ptr; }
+__device__ inline void operator delete(void*, void*) noexcept {}
+__device__ inline void operator delete[](void*, void*) noexcept {}
+#endif
+
 __device__ void *device_malloc(unsigned int size);
 __device__ void device_free(void *ptr);
 EXPORT void *malloc(size_t size) { return device_malloc(size); }
