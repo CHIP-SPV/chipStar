@@ -34,3 +34,9 @@
 	path = H4I-HipSOLVER
 	url = https://github.com/CHIP-SPV/H4I-HipSOLVER.git
 	branch = origin/develop
+[submodule "rocPRIM"]
+	path = rocPRIM
+	url = https://github.com/CHIP-SPV/rocPRIM.git
+[submodule "rocThrust"]
+	path = rocThrust
+	url = https://github.com/ROCm/rocThrust.git
