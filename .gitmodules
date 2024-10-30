@@ -37,3 +37,6 @@
 [submodule "rocPRIM"]
 	path = rocPRIM
 	url = https://github.com/CHIP-SPV/rocPRIM.git
+[submodule "rocThrust"]
+	path = rocThrust
+	url = https://github.com/ROCm/rocThrust.git
