@@ -241,6 +241,12 @@ atomicMax(unsigned long long *address, unsigned long long val) {
   return __chip_atomic_max_l(address, val);
 }
 
+extern "C" __device__ double 
+__chip_atomic_max_f64(__chip_obfuscated_ptr_t address, double val);
+extern "C++" inline __device__ double atomicMax(double *address, double val) {
+  return __chip_atomic_max_f64(__chip_obfuscate_ptr(address), val);
+}
+
 extern "C" __device__ int __chip_atomic_max_system_i(int *address, int val);
 extern "C++" inline __device__ int atomicMax_system(int *address, int val) {
   return __chip_atomic_max_system_i(address, val);
