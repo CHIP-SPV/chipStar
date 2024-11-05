@@ -863,7 +863,10 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   cl_device_id DevId = ChipDev.get()->get();
   auto Start = std::chrono::high_resolution_clock::now();
-  Err = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0, nullptr,
+  auto Flags = Options + " " + Backend->getDefaultJitFlags() + " " +
+               ChipEnvVars.getJitFlags();
+  logInfo("JIT flags: {}", Flags);
+  Err = clCompileProgram(Prog.get(), 1, &DevId, Flags.c_str(), 0, nullptr,
                          nullptr, nullptr, nullptr);
   auto End = std::chrono::high_resolution_clock::now();
   auto Duration =
@@ -1129,7 +1132,8 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   int Err;
   auto SrcBin = Src_->getBinary();
-  std::string buildOptions = ChipEnvVars.getJitFlags();
+  std::string buildOptions = Backend->getDefaultJitFlags() + " " +
+                             ChipEnvVars.getJitFlags();
   std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());
 
   // Include device name in cache key
@@ -1150,7 +1154,9 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
     appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
 
     auto linkStart = std::chrono::high_resolution_clock::now();
-    Program_ = cl::linkProgram(ClObjects, nullptr, nullptr, nullptr, &Err);
+    auto Flags = Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
+    logInfo("JIT Link flags: {}", Flags);
+    Program_ = cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
     auto linkEnd = std::chrono::high_resolution_clock::now();
     auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
         linkEnd - linkStart);

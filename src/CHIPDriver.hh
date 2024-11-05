@@ -287,7 +287,7 @@ private:
     LazyJit_ =
         readEnvVar("CHIP_LAZY_JIT", value) ? parseBoolean(value) : LazyJit_;
     JitFlags_ =
-        readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false) ? value : JitFlags_;
+        readEnvVar("CHIP_JIT_FLAGS", value, false) ? value : JitFlags_;
     L0CollectEventsTimeout_ =
         readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", value)
             ? parseInt(value)
@@ -343,7 +343,7 @@ private:
     logInfo("CHIP_DEVICE={}", DeviceIdx_);
     logInfo("CHIP_BE={}", Backend_.str());
     logInfo("CHIP_DUMP_SPIRV={}", DumpSpirv_ ? "on" : "off");
-    logInfo("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags_);
+    logInfo("CHIP_JIT_FLAGS={}", JitFlags_);
     logInfo("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
     logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
     logInfo("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");

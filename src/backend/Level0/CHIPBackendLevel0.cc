@@ -1650,10 +1650,7 @@ void CHIPBackendLevel0::uninitialize() {
   return;
 }
 
-std::string CHIPBackendLevel0::getDefaultJitFlags() {
-  return std::string(
-      "-cl-std=CL2.0 -cl-take-global-address -cl-match-sincospi");
-}
+std::string CHIPBackendLevel0::getDefaultJitFlags() { return std::string(""); }
 
 void CHIPBackendLevel0::initializeCommon(ze_driver_handle_t ZeDriver) {
   uint32_t ExtCount = 0;
@@ -2558,7 +2555,9 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   std::vector<size_t> ILSizes(1, SPIRVBin.size());
   std::vector<const uint8_t *> ILInputs(
       1, reinterpret_cast<const uint8_t *>(SPIRVBin.data()));
-  std::vector<const char *> BuildFlags(1, ChipEnvVars.getJitFlags().c_str());
+  auto Flags = ChipEnvVars.getJitFlags() + " " + Backend->getDefaultJitFlags();
+  logInfo("JIT flags: {}", Flags);
+  std::vector<const char *> BuildFlags(1, Flags.c_str());
 
   appendDeviceLibrarySources(ILSizes, ILInputs, BuildFlags,
                              LzDev->getFpAtomicProps());
