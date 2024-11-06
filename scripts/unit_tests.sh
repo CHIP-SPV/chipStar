@@ -2,6 +2,7 @@
 
 set -e
 
+export CHIP_MODULE_CACHE_DIR=""
 host=`hostname`
 echo "Running on ${host}"
 # If not on Salami read the file /opt/actions-runner/num-threads.txt and set the number of threads to the value in the file
