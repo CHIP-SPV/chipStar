@@ -215,7 +215,7 @@ CHIP_DEVICE=<N>                                 # If there are multiple devices 
 CHIP_DEVICE_TYPE=<gpu/cpu/accel/fpga> or empty  # Selects which type of device to use. Defaults to empty.
 CHIP_LOGLEVEL=<trace/debug/info/warn/err/crit>  # Sets the log level. If compiled in RELEASE, only err/crit are available
 CHIP_DUMP_SPIRV=<ON/OFF(default)>               # Dumps the generated SPIR-V code to a file
-CHIP_JIT_FLAGS_OVERRIDE=<flags>                 # String to override the default JIT flags. Defaults to -cl-kernel-arg-info -cl-std=CL3.0
+CHIP_JIT_FLAGS=<flags>                          # Additional JIT flags
 CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in seconds for collecting Level Zero events
 CHIP_L0_EVENT_TIMEOUT=<N(0 default)             # Timeout in seconds for how long Level Zero should wait on an event before timing out
 CHIP_SKIP_UNINIT=<ON/OFF(default)>              # If enabled, skips the uninitialization of chipStar's backend objects at program termination

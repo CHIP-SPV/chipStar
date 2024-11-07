@@ -232,7 +232,8 @@ private:
   bool DumpSpirv_ = false;
   bool SkipUninit_ = false;
   bool LazyJit_ = true;
-  std::string JitFlags_ = CHIP_DEFAULT_JIT_FLAGS;
+  std::string JitFlags_ = "";
+  std::string JitFlagsOverride_ = "";
   unsigned long L0EventTimeout_ = 0;
   int L0CollectEventsTimeout_ = 0;
   bool OCLDisableQueueProfiling_ = false;
@@ -253,6 +254,8 @@ public:
   bool getDumpSpirv() const { return DumpSpirv_; }
   bool getSkipUninit() const { return SkipUninit_; }
   const std::string &getJitFlags() const { return JitFlags_; }
+  const std::string &getJitFlagsOverride() const { return JitFlagsOverride_; }
+  bool hasJitOverride() const { return !JitFlagsOverride_.empty(); }
   bool getLazyJit() const { return LazyJit_; }
   int getL0CollectEventsTimeout() const { return L0CollectEventsTimeout_; }
   unsigned long getL0EventTimeout() const {
@@ -287,7 +290,9 @@ private:
     LazyJit_ =
         readEnvVar("CHIP_LAZY_JIT", value) ? parseBoolean(value) : LazyJit_;
     JitFlags_ =
-        readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false) ? value : JitFlags_;
+        readEnvVar("CHIP_JIT_FLAGS", value, false) ? value : JitFlags_;
+    JitFlagsOverride_ =
+        readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false) ? value : JitFlagsOverride_;
     L0CollectEventsTimeout_ =
         readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", value)
             ? parseInt(value)
@@ -343,7 +348,7 @@ private:
     logInfo("CHIP_DEVICE={}", DeviceIdx_);
     logInfo("CHIP_BE={}", Backend_.str());
     logInfo("CHIP_DUMP_SPIRV={}", DumpSpirv_ ? "on" : "off");
-    logInfo("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlags_);
+    logInfo("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlagsOverride_);
     logInfo("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
     logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
     logInfo("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
