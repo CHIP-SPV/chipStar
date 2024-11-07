@@ -56,7 +56,8 @@ void testEnvironmentVariableParsing() {
         setEnvVar("CHIP_DUMP_SPIRV", "1");
         setEnvVar("CHIP_SKIP_UNINIT", "on");
         setEnvVar("CHIP_LAZY_JIT", "1");
-        setEnvVar("CHIP_JIT_FLAGS", "-O2");
+        setEnvVar("CHIP_JIT_FLAGS", "");
+        setEnvVar("CHIP_JIT_FLAGS_OVERRIDE", "");
         setEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", "1000");
         setEnvVar("CHIP_L0_EVENT_TIMEOUT", "2000");
         setEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING", "1");
@@ -73,7 +74,8 @@ void testEnvironmentVariableParsing() {
         assertEqual(true, envVars.getDumpSpirv(), "CHIP_DUMP_SPIRV");
         assertEqual(true, envVars.getSkipUninit(), "CHIP_SKIP_UNINIT");
         assertEqual(true, envVars.getLazyJit(), "CHIP_LAZY_JIT");
-        assertEqual(std::string("-O2"), envVars.getJitFlags(), "CHIP_JIT_FLAGS");
+        assertEqual(std::string(""), envVars.getJitFlags(), "CHIP_JIT_FLAGS");
+        assertEqual(std::string(""), envVars.getJitFlagsOverride(), "CHIP_JIT_FLAGS_OVERRIDE");
         assertEqual(1000, envVars.getL0CollectEventsTimeout(), "CHIP_L0_COLLECT_EVENTS_TIMEOUT");
         assertEqual(static_cast<unsigned long>(2000), envVars.getL0EventTimeout(), "CHIP_L0_EVENT_TIMEOUT");
         assertEqual(true, envVars.getOCLDisableQueueProfiling(), "CHIP_OCL_DISABLE_QUEUE_PROFILING");
@@ -88,6 +90,7 @@ void testEnvironmentVariableParsing() {
         unsetEnvVar("CHIP_SKIP_UNINIT");
         unsetEnvVar("CHIP_LAZY_JIT");
         unsetEnvVar("CHIP_JIT_FLAGS");
+        unsetEnvVar("CHIP_JIT_FLAGS_OVERRIDE");
         unsetEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT");
         unsetEnvVar("CHIP_L0_EVENT_TIMEOUT");
         unsetEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING");
@@ -108,7 +111,8 @@ void testDefaultValues() {
         assertEqual(false, envVars.getDumpSpirv(), "Default CHIP_DUMP_SPIRV");
         assertEqual(false, envVars.getSkipUninit(), "Default CHIP_SKIP_UNINIT");
         assertEqual(true, envVars.getLazyJit(), "Default CHIP_LAZY_JIT");
-        assertEqual(std::string(CHIP_DEFAULT_JIT_FLAGS), envVars.getJitFlags(), "Default CHIP_JIT_FLAGS");
+        assertEqual(std::string(""), envVars.getJitFlags(), "Default CHIP_JIT_FLAGS");
+        assertEqual(std::string(""), envVars.getJitFlagsOverride(), "Default CHIP_JIT_FLAGS_OVERRIDE");
         assertEqual(0, envVars.getL0CollectEventsTimeout(), "Default CHIP_L0_COLLECT_EVENTS_TIMEOUT");
         assertEqual(UINT64_MAX, envVars.getL0EventTimeout(), "Default CHIP_L0_EVENT_TIMEOUT");
         assertEqual(false, envVars.getOCLDisableQueueProfiling(), "Default CHIP_OCL_DISABLE_QUEUE_PROFILING");

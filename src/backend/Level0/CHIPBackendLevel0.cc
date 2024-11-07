@@ -2555,7 +2555,9 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   std::vector<size_t> ILSizes(1, SPIRVBin.size());
   std::vector<const uint8_t *> ILInputs(
       1, reinterpret_cast<const uint8_t *>(SPIRVBin.data()));
-  auto Flags = ChipEnvVars.getJitFlags() + " " + Backend->getDefaultJitFlags();
+  auto Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
+                                            : ChipEnvVars.getJitFlags() + " " +
+                                                  Backend->getDefaultJitFlags();
   logInfo("JIT flags: {}", Flags);
   std::vector<const char *> BuildFlags(1, Flags.c_str());
 
