@@ -1157,7 +1157,13 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
     auto linkStart = std::chrono::high_resolution_clock::now();
 
     std::string Flags = "";
-    if (ChipEnvVars.getDeviceType() == DeviceType::GPU) {
+    // Check if running on Intel GPU OpenCL driver
+    std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
+    bool isIntelGPU =
+        (vendor.find("Intel") != std::string::npos) &&
+        (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
+
+    if (isIntelGPU) {
       // Only Intel GPU driver seems to need compile flags at the link step
       Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
                                            : ChipEnvVars.getJitFlags() + " " +
