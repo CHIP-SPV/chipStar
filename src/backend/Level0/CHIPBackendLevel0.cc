@@ -2405,7 +2405,7 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
   // Create the cache directory if it doesn't exist
   std::filesystem::create_directories(cacheDir);
-  std::string fullPath = cacheDir + std::to_string(hash);
+  std::string fullPath = cacheDir + "/" + std::to_string(hash);
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
@@ -2453,17 +2453,24 @@ bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
   }
 
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  std::string fullPath =
-      cacheDir + "/chipstar_module_cache_" + std::to_string(hash);
-  // Open the binary file
+  std::string fullPath = cacheDir + "/" + std::to_string(hash);
+
+  logTrace("Loading kernel binary from cache at {}", fullPath);
   std::ifstream inFile(fullPath, std::ios::in | std::ios::binary);
   if (!inFile) {
     return false;
   }
 
-  // Read the binary da
-  auto binary = std::make_unique<std::vector<uint8_t>>(
-      std::istreambuf_iterator<char>(inFile), std::istreambuf_iterator<char>());
+  // Get file size
+  inFile.seekg(0, std::ios::end);
+  size_t fileSize = inFile.tellg();
+  inFile.seekg(0, std::ios::beg);
+
+  assert(fileSize > 0 && "Cache file is empty");
+
+  // Read the binary data
+  auto binary = std::make_unique<std::vector<uint8_t>>(fileSize);
+  inFile.read(reinterpret_cast<char *>(binary->data()), fileSize);
   inFile.close();
 
   desc.format = ZE_MODULE_FORMAT_NATIVE;
@@ -2477,7 +2484,7 @@ bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
   static std::vector<std::unique_ptr<std::vector<uint8_t>>> binaryStorage;
   binaryStorage.push_back(std::move(binary));
 
-  logTrace("Module binary loaded from cache as {}", fullPath);
+  logTrace("Module binary loaded from cache, size: {} bytes", fileSize);
   return true;
 }
 
