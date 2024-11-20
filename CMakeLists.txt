@@ -66,6 +66,9 @@ project(chipStar
   DESCRIPTION "HIP implementation for runtimes that support SPIR-V"
   LANGUAGES NONE)
 
+# Include our own headers in case someone installs chipStar to the same dir as LLVM
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 include(FindLLVM) # Enables C, CXX
 include(LLVMCheck)
 include(chip_spv_cmake_macros)
@@ -107,8 +110,6 @@ if(NOT DEFINED LevelZero_LIBRARY)
   message(STATUS "LevelZero_LIBRARY was not set. Searching for ze_loader.so in LD_LIBRARY_PATH")
   find_library(LevelZero_LIBRARY NAMES ze_loader PATHS ENV LD_LIBRARY_PATH NO_CACHE)
 endif()
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(LevelZero_LIBRARY)
   get_filename_component(LevelZeroLib_DIR ${LevelZero_LIBRARY} DIRECTORY CACHE)
