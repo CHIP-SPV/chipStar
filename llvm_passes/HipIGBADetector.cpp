@@ -52,10 +52,19 @@ static bool hasPotentialIGBAs(Module &M) {
   for (auto &F : M)
     for (auto &BB : F)
       for (auto &I : BB) {
-        if (isa<IntToPtrInst>(&I))
+        if (isa<IntToPtrInst>(&I)) {
+          LLVM_DEBUG(dbgs() << "Found IntToPtrInst: " << I << "\n");
           return true;
-        if (auto *LI = dyn_cast<LoadInst>(&I))
+        }
+        if (auto *LI = dyn_cast<LoadInst>(&I)) {
+          // Skip the check for __chip_var___chipspv_device_heap
+          if (LI->getPointerOperand()->getName() == "__chip_var___chipspv_device_heap") {
+            LLVM_DEBUG(dbgs() << "Skipping LoadInst for __chip_var___chipspv_device_heap\n");
+            continue;
+          }
+          LLVM_DEBUG(dbgs() << "Found LoadInst: " << *LI << "\n");
           return LI->getType()->isPointerTy();
+        }
       }
   return false;
 }
@@ -65,7 +74,6 @@ static bool detectIGBAs(Module &M) {
 
   if (M.getGlobalVariable(MagicVarName))
     return false; // Bail out: the module has already been processed.
-
   bool Result = hasPotentialIGBAs(M);
   LLVM_DEBUG(dbgs() << "Has IGBAs: " << Result << "\n");
 
