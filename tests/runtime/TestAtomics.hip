@@ -66,5 +66,40 @@ int main() {
       });
   assert(Res7 == 3.21f);
 
+  // Test atomicMax with double
+  auto Res8 = launchAtomicOp<4, double>(
+      10.0, 2.0, [] __device__(double *x, double y) { 
+          return atomicMax(x, y);
+      });
+  assert(Res8 == 10.0);  // Should get maximum value after all threads
+
+  // Test with a smaller value that shouldn't affect max
+  auto Res9 = launchAtomicOp<4, double>(
+      5.0, 1.0, [] __device__(double *x, double y) { 
+          return atomicMax(x, y);
+      });
+  assert(Res9 == 5.0);  // Should remain unchanged since 1.0 < 5.0
+
+  // Test atomicMax with float
+  auto Res10 = launchAtomicOp<4, float>(
+      10.0f, 2.0f, [] __device__(float *x, float y) { 
+          return atomicMax(x, y);
+      });
+  assert(Res10 == 10.0f);
+
+  // Test atomicMin with double
+  auto Res11 = launchAtomicOp<4, double>(
+      10.0, 2.0, [] __device__(double *x, double y) { 
+          return atomicMin(x, y);
+      });
+  assert(Res11 == 2.0);
+
+  // Test atomicMin with float
+  auto Res12 = launchAtomicOp<4, float>(
+      10.0f, 2.0f, [] __device__(float *x, float y) { 
+          return atomicMin(x, y);
+      });
+  assert(Res12 == 2.0f);
+
   return 0;
 }
