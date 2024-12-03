@@ -721,6 +721,9 @@ INSTALL(EXPORT hip-targets DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR} NAMESPACE h
 
 add_library(hip::host ALIAS host)
 add_library(hip::device ALIAS device)
+add_library(hiprtc-lib INTERFACE)
+add_library(hiprtc::hiprtc ALIAS hiprtc-lib)
+
 
 # hip-config.cmake generation
 include(CMakePackageConfigHelpers)
