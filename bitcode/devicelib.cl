@@ -1048,14 +1048,14 @@ EXPORT OVLD void __chip_syncwarp() {
 #undef BINARY_FN
 
 
-typedef unsigned long __chip_obfuscated_ptr_t;
-
+// Helper union for double-uint2 conversion (if not already defined)
 union double_uint2 {
     double d;
     uint2 u2;
 };
 
-EXPORT double __chip_atomic_max_f64(__chip_obfuscated_ptr_t address, double val) {
+// Atomic max for double
+EXPORT double __chip_atomic_max_f64(DEFAULT_AS double *address, double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi) {
     double old = *gi;
@@ -1117,7 +1117,8 @@ EXPORT double __chip_atomic_max_f64(__chip_obfuscated_ptr_t address, double val)
   return 0;
 }
 
-EXPORT double __chip_atomic_min_f64(__chip_obfuscated_ptr_t address, double val) {
+// Atomic min for double
+EXPORT double __chip_atomic_min_f64(DEFAULT_AS double *address, double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi) {
     double old = *gi;
@@ -1186,7 +1187,7 @@ union float_uint {
 };
 
 // Atomic max for float
-EXPORT float __chip_atomic_max_f32(__chip_obfuscated_ptr_t address, float val) {
+EXPORT float __chip_atomic_max_f32(DEFAULT_AS float *address, float val) {
   volatile global float *gi = to_global((DEFAULT_AS float *)address);
   if (gi) {
     float old = *gi;
@@ -1241,7 +1242,7 @@ EXPORT float __chip_atomic_max_f32(__chip_obfuscated_ptr_t address, float val) {
 }
 
 // Atomic min for float
-EXPORT float __chip_atomic_min_f32(__chip_obfuscated_ptr_t address, float val) {
+EXPORT float __chip_atomic_min_f32(DEFAULT_AS float *address, float val) {
   volatile global float *gi = to_global((DEFAULT_AS float *)address);
   if (gi) {
     float old = *gi;
@@ -1293,298 +1294,4 @@ EXPORT float __chip_atomic_min_f32(__chip_obfuscated_ptr_t address, float val) {
     return old;
   }
   return 0;
-}
-
-
-EXPORT float __chip_int_as_float(int x) { return as_float(x); }
-EXPORT int __chip_float_as_int(float x) { return as_int(x); }
-EXPORT float __chip_uint_as_float(uint x) { return as_float(x); }
-EXPORT uint __chip_float_as_uint(float x) { return as_uint(x); }
-// In HIP long long is 64-bit integer. In OpenCL it's 128-bit integer.
-EXPORT long __chip_double_as_longlong(double x) { return as_long(x); }
-EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
-
-
-// Returns the high 32 bits of a double as an integer
-EXPORT int __chip_double2hiint(double x) {
-  union {
-    double d;
-    ulong i;
-  } bits;
-  bits.d = x;
-  return (int)(bits.i >> 32); // Always gets the high 32 bits regardless of endianness
-}
-
-// Type casting functions with proper rounding modes
-EXPORT float __chip_double2float_rd(double x) {
-    return rint(x - 0.5);  // Round down
-}
-
-EXPORT float __chip_double2float_rn(double x) {
-    return rint(x);  // Round to nearest even
-}
-
-EXPORT float __chip_double2float_ru(double x) {
-    return rint(x + 0.5);  // Round up
-}
-
-EXPORT float __chip_double2float_rz(double x) {
-    return trunc(x);  // Round toward zero
-}
-
-EXPORT int __chip_double2int_rd(double x) {
-    return (int)floor(x);  // Round down
-}
-
-EXPORT int __chip_double2int_rn(double x) {
-    return (int)rint(x);  // Round to nearest even
-}
-
-EXPORT int __chip_double2int_ru(double x) {
-    return (int)ceil(x);  // Round up
-}
-
-EXPORT int __chip_double2int_rz(double x) {
-    return (int)trunc(x);  // Round toward zero
-}
-
-EXPORT long long int __chip_double2ll_rd(double x) {
-    return (long long int)floor(x);  // Round down
-}
-
-EXPORT long long int __chip_double2ll_rn(double x) {
-    return (long long int)rint(x);  // Round to nearest even
-}
-
-EXPORT long long int __chip_double2ll_ru(double x) {
-    return (long long int)ceil(x);  // Round up
-}
-
-EXPORT long long int __chip_double2ll_rz(double x) {
-    return (long long int)trunc(x);  // Round toward zero
-}
-
-EXPORT unsigned int __chip_double2uint_rd(double x) {
-    return (unsigned int)max(0.0, floor(x));  // Round down, clamp to 0
-}
-
-EXPORT unsigned int __chip_double2uint_rn(double x) {
-    return (unsigned int)max(0.0, rint(x));  // Round to nearest even, clamp to 0
-}
-
-EXPORT unsigned int __chip_double2uint_ru(double x) {
-    return (unsigned int)max(0.0, ceil(x));  // Round up, clamp to 0
-}
-
-EXPORT unsigned int __chip_double2uint_rz(double x) {
-    return (unsigned int)max(0.0, trunc(x));  // Round toward zero, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_double2ull_rd(double x) {
-    return (unsigned long long int)max(0.0, floor(x));  // Round down, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_double2ull_rn(double x) {
-    return (unsigned long long int)max(0.0, rint(x));  // Round to nearest even, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_double2ull_ru(double x) {
-    return (unsigned long long int)max(0.0, ceil(x));  // Round up, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_double2ull_rz(double x) {
-    return (unsigned long long int)max(0.0, trunc(x));  // Round toward zero, clamp to 0
-}
-
-EXPORT float __chip_int2float_rd(int x) {
-    return rint((float)x - 0.5f);  // Round down
-}
-
-EXPORT float __chip_int2float_rn(int x) {
-    return rint((float)x);  // Round to nearest even
-}
-
-EXPORT float __chip_int2float_ru(int x) {
-    return rint((float)x + 0.5f);  // Round up
-}
-
-EXPORT float __chip_int2float_rz(int x) {
-    return trunc((float)x);  // Round toward zero
-}
-
-EXPORT float __chip_uint2float_rd(unsigned int x) {
-    return rint((float)x - 0.5f);  // Round down
-}
-
-EXPORT float __chip_uint2float_rn(unsigned int x) {
-    return rint((float)x);  // Round to nearest even
-}
-
-EXPORT float __chip_uint2float_ru(unsigned int x) {
-    return rint((float)x + 0.5f);  // Round up
-}
-
-EXPORT float __chip_uint2float_rz(unsigned int x) {
-    return trunc((float)x);  // Round toward zero
-}
-
-EXPORT float __chip_ll2float_rd(long long int x) {
-    return rint((float)x - 0.5f);  // Round down
-}
-
-EXPORT float __chip_ll2float_rn(long long int x) {
-    return rint((float)x);  // Round to nearest even
-}
-
-EXPORT float __chip_ll2float_ru(long long int x) {
-    return rint((float)x + 0.5f);  // Round up
-}
-
-EXPORT float __chip_ll2float_rz(long long int x) {
-    return trunc((float)x);  // Round toward zero
-}
-
-EXPORT float __chip_ull2float_rd(unsigned long long int x) {
-    return rint((float)x - 0.5f);  // Round down
-}
-
-EXPORT float __chip_ull2float_rn(unsigned long long int x) {
-    return rint((float)x);  // Round to nearest even
-}
-
-EXPORT float __chip_ull2float_ru(unsigned long long int x) {
-    return rint((float)x + 0.5f);  // Round up
-}
-
-EXPORT float __chip_ull2float_rz(unsigned long long int x) {
-    return trunc((float)x);  // Round toward zero
-}
-
-EXPORT int __chip_double2loint(double x) {
-    union {
-        double d;
-        struct {
-            unsigned int lo;
-            int hi;
-        } i;
-    } u;
-    u.d = x;
-    return u.i.lo;
-}
-
-EXPORT double __chip_hiloint2double(int hi, int lo) {
-    union {
-        double d;
-        struct {
-            unsigned int lo;
-            int hi;
-        } i;
-    } u;
-    u.i.hi = hi;
-    u.i.lo = lo;
-    return u.d;
-}
-
-EXPORT double __chip_int2double_rn(int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ll2double_rd(long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ll2double_rn(long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ll2double_ru(long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ll2double_rz(long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_uint2double_rn(unsigned int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ull2double_rd(unsigned long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ull2double_rn(unsigned long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ull2double_ru(unsigned long long int x) {
-    return (double)x;
-}
-
-EXPORT double __chip_ull2double_rz(unsigned long long int x) {
-    return (double)x;
-}
-
-EXPORT int __chip_float2int_rd(float x) {
-    return (int)floor(x);  // Round down
-}
-
-EXPORT int __chip_float2int_rn(float x) {
-    return (int)rint(x);  // Round to nearest even
-}
-
-EXPORT int __chip_float2int_ru(float x) {
-    return (int)ceil(x);  // Round up
-}
-
-EXPORT int __chip_float2int_rz(float x) {
-    return (int)trunc(x);  // Round toward zero
-}
-
-EXPORT long long int __chip_float2ll_rd(float x) {
-    return (long long int)floor(x);  // Round down
-}
-
-EXPORT long long int __chip_float2ll_rn(float x) {
-    return (long long int)rint(x);  // Round to nearest even
-}
-
-EXPORT long long int __chip_float2ll_ru(float x) {
-    return (long long int)ceil(x);  // Round up
-}
-
-EXPORT long long int __chip_float2ll_rz(float x) {
-    return (long long int)trunc(x);  // Round toward zero
-}
-
-EXPORT unsigned int __chip_float2uint_rd(float x) {
-    return (unsigned int)max(0.0f, floor(x));  // Round down, clamp to 0
-}
-
-EXPORT unsigned int __chip_float2uint_rn(float x) {
-    return (unsigned int)max(0.0f, rint(x));  // Round to nearest even, clamp to 0
-}
-
-EXPORT unsigned int __chip_float2uint_ru(float x) {
-    return (unsigned int)max(0.0f, ceil(x));  // Round up, clamp to 0
-}
-
-EXPORT unsigned int __chip_float2uint_rz(float x) {
-    return (unsigned int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_float2ull_rd(float x) {
-    return (unsigned long long int)max(0.0f, floor(x));  // Round down, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_float2ull_rn(float x) {
-    return (unsigned long long int)max(0.0f, rint(x));  // Round to nearest even, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_float2ull_ru(float x) {
-    return (unsigned long long int)max(0.0f, ceil(x));  // Round up, clamp to 0
-}
-
-EXPORT unsigned long long int __chip_float2ull_rz(float x) {
-    return (unsigned long long int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
 }
