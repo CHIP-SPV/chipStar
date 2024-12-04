@@ -2209,6 +2209,7 @@ void CHIPBackendOpenCL::initializeImpl() {
 
     StrStream << " is supported.\n";
     SupportedDevices.push_back(D);
+    break;
   }
   logInfo("{}", StrStream.str());
 
