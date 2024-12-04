@@ -29,7 +29,12 @@ extern "C++" __device__ float __double2float_rd(double x);
 extern "C++" __device__ float __double2float_rn(double x);
 extern "C++" __device__ float __double2float_ru(double x);
 extern "C++" __device__ float __double2float_rz(double x);
-extern "C++" __device__ int __double2hiint(double x);
+
+extern "C" __device__ int __chip_double2hiint(double x);
+extern "C++" inline __device__ int __double2hiint(double x) {
+  return __chip_double2hiint(x);
+}
+
 extern "C++" __device__ int __double2int_rd(double x);
 extern "C++" __device__ int __double2int_rn(double x);
 extern "C++" __device__ int __double2int_ru(double x);
