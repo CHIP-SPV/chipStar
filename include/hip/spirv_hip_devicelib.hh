@@ -73,6 +73,10 @@ THE SOFTWARE.
 #pragma push_macro("__HIP_OVERLOAD")
 #pragma push_macro("__HIP_OVERLOAD2")
 
+extern "C" __device__ void __builtin_amdgcn_wave_barrier(void);
+extern "C" __device__ void __builtin_amdgcn_fence(int scope, const char* order);
+extern "C" __device__ int __builtin_amdgcn_ds_bpermute(int offset, int src);
+
 __device__ void *device_malloc(unsigned int size);
 __device__ void device_free(void *ptr);
 EXPORT void *malloc(size_t size) { return device_malloc(size); }
