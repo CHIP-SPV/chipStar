@@ -1307,3 +1307,38 @@ EXPORT int __chip_double2hiint(double x) {
   bits.d = x;
   return (int)(bits.i >> 32); // Always gets the high 32 bits regardless of endianness
 }
+EXPORT void __builtin_amdgcn_wave_barrier() {
+  barrier(CLK_LOCAL_MEM_FENCE);
+}
+
+EXPORT void __builtin_amdgcn_fence(int scope, const char* order) {
+  // Implement memory fence using OpenCL mem_fence()
+  if (scope == 1) { // System scope
+    mem_fence(CLK_GLOBAL_MEM_FENCE);
+  }
+  else if (scope == 2) { // Device scope  
+    mem_fence(CLK_LOCAL_MEM_FENCE);
+  }
+  // Other scopes map to no-op
+}
+
+EXPORT int __builtin_amdgcn_ds_bpermute(int offset, int src) {
+    int lid = get_local_id(0);
+    int sub_group_size = get_sub_group_size();
+    int sub_group_id = lid / sub_group_size;
+    int lane_id = lid % sub_group_size;
+    int target_lane = lane_id + offset;
+    
+    // Handle wrap-around within sub-group
+    if (target_lane < 0) {
+        target_lane = sub_group_size - 1;
+    } else if (target_lane >= sub_group_size) {
+        target_lane = 0;
+    }
+    
+    // Map to final target in the same sub-group
+    int final_target = target_lane + (sub_group_id * sub_group_size);
+    
+    // Use direct sub-group shuffle
+    return sub_group_shuffle(src, target_lane);
+}
