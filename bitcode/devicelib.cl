@@ -1056,6 +1056,8 @@ EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 #undef BINARY_FN
 
 
+typedef unsigned long __chip_obfuscated_ptr_t;
+
 // Helper union for double-uint2 conversion (if not already defined)
 union double_uint2 {
     double d;
@@ -1063,7 +1065,7 @@ union double_uint2 {
 };
 
 // Atomic max for double
-EXPORT double __chip_atomic_max_f64(DEFAULT_AS double *address, double val) {
+EXPORT double __chip_atomic_max_f64(__chip_obfuscated_ptr_t address, double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi) {
     double old = *gi;
@@ -1126,7 +1128,7 @@ EXPORT double __chip_atomic_max_f64(DEFAULT_AS double *address, double val) {
 }
 
 // Atomic min for double
-EXPORT double __chip_atomic_min_f64(DEFAULT_AS double *address, double val) {
+EXPORT double __chip_atomic_min_f64(__chip_obfuscated_ptr_t address, double val) {
   volatile global double *gi = to_global((DEFAULT_AS double *)address);
   if (gi) {
     double old = *gi;
@@ -1195,7 +1197,7 @@ union float_uint {
 };
 
 // Atomic max for float
-EXPORT float __chip_atomic_max_f32(DEFAULT_AS float *address, float val) {
+EXPORT float __chip_atomic_max_f32(__chip_obfuscated_ptr_t address, float val) {
   volatile global float *gi = to_global((DEFAULT_AS float *)address);
   if (gi) {
     float old = *gi;
@@ -1250,7 +1252,7 @@ EXPORT float __chip_atomic_max_f32(DEFAULT_AS float *address, float val) {
 }
 
 // Atomic min for float
-EXPORT float __chip_atomic_min_f32(DEFAULT_AS float *address, float val) {
+EXPORT float __chip_atomic_min_f32(__chip_obfuscated_ptr_t address, float val) {
   volatile global float *gi = to_global((DEFAULT_AS float *)address);
   if (gi) {
     float old = *gi;
@@ -1302,4 +1304,14 @@ EXPORT float __chip_atomic_min_f32(DEFAULT_AS float *address, float val) {
     return old;
   }
   return 0;
+}
+
+// Returns the high 32 bits of a double as an integer
+EXPORT int __chip_double2hiint(double x) {
+  union {
+    double d;
+    ulong i;
+  } bits;
+  bits.d = x;
+  return (int)(bits.i >> 32); // Always gets the high 32 bits regardless of endianness
 }
