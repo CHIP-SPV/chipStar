@@ -32,6 +32,7 @@ add_test(NAME "deviceMallocCompile"
 
 add_hip_test(sincospifSpotTest.cc)
 add_hip_test(shfl_sync.cpp)
+add_hip_test(conversions.cpp)
 
 set_tests_properties(shfl_sync PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL")
