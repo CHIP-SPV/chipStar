@@ -191,6 +191,7 @@ static std::string createCompileCommand(const CompileOptions &Options,
 
   // Clients don't need to include hip_runtime.h by themselves.
   Append("--include=hip/hip_runtime.h");
+  Append("--include=hip/hip_fp16_gcc.h");
 
   // User options.
   for (const auto &Opt : Options.Options)
