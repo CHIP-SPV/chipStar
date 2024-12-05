@@ -5826,6 +5826,11 @@ static inline hipError_t hipModuleLaunchKernelInternal(
     unsigned int GridDimZ, unsigned int BlockDimX, unsigned int BlockDimY,
     unsigned int BlockDimZ, unsigned int SharedMemBytes, hipStream_t Stream,
     void *KernelParams[], void *Extra[]) {
+
+  auto name = static_cast<chipstar::Kernel *>(Kernel)->getName();
+  logDebug("hipModuleLaunchKernelInternal: Kernel={}, GridDimX={}, GridDimY={}, GridDimZ={}, BlockDimX={}, BlockDimY={}, BlockDimZ={}, SharedMemBytes={}",
+           name.c_str(), GridDimX, GridDimY, GridDimZ, BlockDimX, BlockDimY, BlockDimZ, SharedMemBytes);
+
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
   if (KernelParams == Extra)
