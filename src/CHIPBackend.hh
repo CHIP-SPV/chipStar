@@ -2150,6 +2150,7 @@ public:
    */
   template <class GraphNodeType, class... ArgTypes>
   bool captureIntoGraph(ArgTypes... ArgsPack) {
+    assert(getCaptureStatus() == hipStreamCaptureStatusNone);
     if (getCaptureStatus() == hipStreamCaptureStatusActive) {
       auto Graph = getCaptureGraph();
       auto Node = new GraphNodeType(ArgsPack...);
@@ -2165,7 +2166,8 @@ public:
 
   hipStreamCaptureStatus getCaptureStatus() const { return CaptureStatus_; }
   void setCaptureStatus(hipStreamCaptureStatus CaptureMode) {
-    CaptureStatus_ = CaptureMode;
+    assert(CaptureStatus_ == hipStreamCaptureStatusNone);
+    // CaptureStatus_ = CaptureMode;
   }
   hipStreamCaptureMode getCaptureMode() const { return CaptureMode_; }
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {
