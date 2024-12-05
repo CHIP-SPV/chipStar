@@ -2532,6 +2532,7 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   NULLCHECK(Dst, Src);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  assert(ChipQueue->getCaptureStatus() == hipStreamCaptureStatusNone);
   checkMemcpyKind(*ChipQueue->getDevice(), Kind);
   LOCK(ChipQueue->QueueMtx);
 
@@ -3322,6 +3323,7 @@ hipStreamCreateWithPriorityInternal(hipStream_t *Stream, unsigned int Flags,
   auto ClampedPriority = std::min(MinPriority, std::max(MaxPriority, Priority));
   chipstar::Queue *ChipQueue =
       Dev->createQueueAndRegister(FlagsParsed, ClampedPriority);
+  assert(ChipQueue->getCaptureStatus() == hipStreamCaptureStatusNone);
   *Stream = ChipQueue;
   return hipSuccess;
 }
