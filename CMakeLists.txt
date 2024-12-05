@@ -417,7 +417,7 @@ file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 
 add_subdirectory(bin)
 
-add_subdirectory(spirv-extractor)
+add_subdirectory(tools/spirv-extractor)
 if (CHIP_SKIP_TESTS_WITH_DOUBLES)
   set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
   else()
@@ -863,3 +863,5 @@ include(cmake/docker.cmake)
 
 add_subdirectory(host_math_funcs)
 target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)
+
+add_subdirectory(tools/opencl-spirv-compiler)
