@@ -1892,7 +1892,7 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
   ExItem->setArgs(Args);
   ExItem->setupAllArgs();
   launch(ExItem);
-  delete ExItem;
+  // delete ExItem;
 }
 
 ///////// End Enqueue Operations //////////

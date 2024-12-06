@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 
 namespace chipstar {
 
@@ -12,8 +13,44 @@ class SerializationBuffer {
 private:
   std::vector<char> Buffer_;
   size_t ReadPos_ = 0;
+  std::string CacheDir_;
 
 public:
+  SerializationBuffer(const std::string& CacheDir = "") : CacheDir_(CacheDir) {}
+
+  // Save buffer to disk
+  bool saveToFile(const std::string& Filename) const {
+    if (CacheDir_.empty())
+      return false;
+      
+    std::string FullPath = CacheDir_ + "/" + Filename;
+    std::ofstream File(FullPath, std::ios::binary);
+    if (!File)
+      return false;
+      
+    File.write(Buffer_.data(), Buffer_.size());
+    return true;
+  }
+
+  // Load buffer from disk
+  bool loadFromFile(const std::string& Filename) {
+    if (CacheDir_.empty())
+      return false;
+      
+    std::string FullPath = CacheDir_ + "/" + Filename;
+    std::ifstream File(FullPath, std::ios::binary | std::ios::ate);
+    if (!File)
+      return false;
+      
+    size_t Size = File.tellg();
+    File.seekg(0);
+    
+    Buffer_.resize(Size);
+    File.read(Buffer_.data(), Size);
+    ReadPos_ = 0;
+    return true;
+  }
+
   // Writing methods
   template<typename T>
   void write(const T& Value) {

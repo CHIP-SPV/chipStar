@@ -1544,7 +1544,10 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
 
-  chipstar::SerializationBuffer Buffer;
+  // Create buffer with cache directory
+  std::string CacheDir = ChipEnvVars.getModuleCacheDir().value_or("");
+  chipstar::SerializationBuffer Buffer(CacheDir);
+  
   ChipOclExecItem->serialize(Buffer);
   ChipOclExecItem->deserialize(Buffer);
 

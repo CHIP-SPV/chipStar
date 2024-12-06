@@ -527,7 +527,26 @@ class CHIPExecItemOpenCL : public chipstar::ExecItem {
 private:
   CHIPKernelOpenCL *ChipKernel_;
   Borrowed<cl::Kernel> ClKernel_;
-  cl::Kernel ClKernelSerializable_;
+
+  std::string getKernelCacheKey() const {
+    if (!ChipKernel_)
+      return "";
+    return ChipKernel_->getName() + "_" + 
+           std::to_string(GridDim_.x) + "_" + std::to_string(GridDim_.y) + "_" + 
+           std::to_string(GridDim_.z) + "_" +
+           std::to_string(BlockDim_.x) + "_" + std::to_string(BlockDim_.y) + "_" + 
+           std::to_string(BlockDim_.z) + "_" +
+           std::to_string(SharedMem_);
+  }
+
+  // Store kernel state instead of the kernel object
+  struct KernelState {
+    std::string Name;
+    std::string ModuleName;
+    dim3 GridDim;
+    dim3 BlockDim;
+    size_t SharedMem;
+  };
 
 public:
   CHIPExecItemOpenCL(const CHIPExecItemOpenCL &Other)
@@ -561,15 +580,34 @@ public:
 
   // Add serialization support
   void serialize(chipstar::SerializationBuffer &Buffer) const override {
-    // Call base class serialization first
+    // Try to load from cache first
+    std::string CacheKey = getKernelCacheKey();
+    if (!CacheKey.empty() && Buffer.loadFromFile(CacheKey)) {
+      logInfo("Loaded kernel {} from cache", CacheKey);
+      return;
+    }
+
+    // If not in cache, serialize kernel state
     ExecItem::serialize(Buffer);
-    Buffer.write<cl::Kernel>(*ClKernel_.get());
+    
+    KernelState State;
+    if (ChipKernel_) {
+      State.Name = ChipKernel_->getName();
+      State.GridDim = GridDim_;
+      State.BlockDim = BlockDim_;
+      State.SharedMem = SharedMem_;
+    }
+    Buffer.write(State);
+
+    // Save to cache for future use
+    if (!CacheKey.empty()) {
+      if (Buffer.saveToFile(CacheKey))
+        logInfo("Saved kernel {} to cache", CacheKey);
+    }
   }
 
   void deserialize(chipstar::SerializationBuffer &Buffer) override {
-    // Deserialize base class first
     ExecItem::deserialize(Buffer);
-    ClKernelSerializable_ = Buffer.read<cl::Kernel>();
   }
 };
 
