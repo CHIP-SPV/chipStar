@@ -1807,14 +1807,14 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
     if (!DstBuf)
       CHIPERR_LOG_AND_THROW("Invalid destination pointer.",
                             hipErrorRuntimeMemory);
-    int Retval = ::clEnqueueFillBuffer(
+    clStatus = ::clEnqueueFillBuffer(
         get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueFillBuffer);
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
-    int Retval = ::clEnqueueSVMMemFill(
+    clStatus = ::clEnqueueSVMMemFill(
         get()->get(), Dst, Pattern, PatternSize, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
