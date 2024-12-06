@@ -6,6 +6,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <fstream>
+#include "../SPIRVFuncInfo.hh"
 
 namespace chipstar {
 
@@ -69,6 +70,12 @@ public:
     std::memcpy(Buffer_.data() + OldSize, Data, Size);
   }
 
+  // Add specialized methods for SPVTypeKind
+  void write(SPVTypeKind Kind) {
+    unsigned RawValue = static_cast<unsigned>(Kind);
+    write(&RawValue, sizeof(RawValue));
+  }
+
   // Reading methods
   template<typename T>
   void read(T& Value) {
@@ -99,6 +106,13 @@ public:
       
     std::memcpy(Data, Buffer_.data() + ReadPos_, Size);
     ReadPos_ += Size;
+  }
+
+  // Add specialized methods for SPVTypeKind
+  void read(SPVTypeKind& Kind) {
+    unsigned RawValue;
+    read(&RawValue, sizeof(RawValue));
+    Kind = static_cast<SPVTypeKind>(RawValue);
   }
 
   // Utility methods

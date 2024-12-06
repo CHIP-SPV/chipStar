@@ -1284,16 +1284,7 @@ public:
   // Add virtual serialize/deserialize methods
   virtual void serialize(chipstar::SerializationBuffer &Buffer) const;
 
-  virtual void deserialize(chipstar::SerializationBuffer &Buffer) {
-    // Deserialize basic execution parameters
-    Buffer.read(GridDim_.x);
-    Buffer.read(GridDim_.y);
-    Buffer.read(GridDim_.z);
-    Buffer.read(BlockDim_.x);
-    Buffer.read(BlockDim_.y);
-    Buffer.read(BlockDim_.z);
-    Buffer.read(SharedMem_);
-  }
+  virtual void deserialize(chipstar::SerializationBuffer &Buffer);
 
   
 };

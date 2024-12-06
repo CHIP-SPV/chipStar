@@ -23,7 +23,7 @@
 #ifndef SRC_SPIRV_FUNCINFO_H
 #define SRC_SPIRV_FUNCINFO_H
 
-#include <map>
+#include <map>j
 #include <memory>
 #include <vector>
 #include <functional>
@@ -47,6 +47,18 @@ enum class SPVTypeKind : unsigned {
   // Should not appear in kernel parameter lists.
   Opaque, // The type is an unresolved, special SPIR-V type.
 };
+
+inline std::string_view to_string(SPVTypeKind kind) {
+  switch (kind) {
+    case SPVTypeKind::POD: return "POD";
+    case SPVTypeKind::Pointer: return "Pointer";
+    case SPVTypeKind::PODByRef: return "PODByRef";
+    case SPVTypeKind::Image: return "Image";
+    case SPVTypeKind::Sampler: return "Sampler";
+    case SPVTypeKind::Opaque: return "Opaque";
+    default: return "Unknown";
+  }
+}
 
 // TODO: Redundant. Could use SPV::StorageClass instead.
 enum class SPVStorageClass : unsigned {

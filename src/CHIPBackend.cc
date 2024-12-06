@@ -506,73 +506,227 @@ void chipstar::ExecItem::serialize(
   Buffer.write(BlockDim_.z);
   Buffer.write(SharedMem_);
 
-  // Serialize arguments
-  Buffer.write(NumArgs_);
-
   auto FuncInfo = getKernel()->getFuncInfo();
+  size_t NumArgs = 0;
+  auto ArgCounter = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    NumArgs++;
+  };
+  FuncInfo->visitKernelArgs(ArgCounter);
+
+  // Write a magic number for validation
+  const uint32_t MAGIC = 0xDEADBEEF;
+  Buffer.write(MAGIC);
+  
+  // Write number of arguments
+  Buffer.write(static_cast<uint32_t>(NumArgs));
+  logInfo("Serializing {} arguments", NumArgs);
+
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
     void *ArgData = Args_[Arg.Index];
     
-    // Write argument metadata
-    Buffer.write(Arg.Kind);  // Write argument type
-    Buffer.write(Arg.Size);  // Write argument size
+    // Write argument index for validation
+    Buffer.write(static_cast<uint32_t>(Arg.Index));
+    
+    // Write argument metadata using fixed width types
+    uint32_t Kind = static_cast<uint32_t>(Arg.Kind);
+    uint64_t Size = static_cast<uint64_t>(Arg.Size);
+    
+    Buffer.write(Kind);
+    Buffer.write(Size);
+    
+    logInfo("Serializing arg {}: kind={}, size={}", Arg.Index, Kind, Size);
     
     switch (Arg.Kind) {
       case SPVTypeKind::POD: {
-        // Plain old data - can be copied directly
         Buffer.write(ArgData, Arg.Size);
+        logInfo("Serialized POD argument: {} of size kb {} of type {}", 
+                Arg.Index, Arg.Size/1024.0, to_string(Arg.Kind));
         break;
       }
       
       case SPVTypeKind::Pointer: {
         if (Arg.isWorkgroupPtr()) {
-          // Local memory - just write size
           Buffer.write(SharedMem_);
+          logInfo("Serialized workgroup pointer argument: {} of size kb {} of type {}", 
+                  Arg.Index, Arg.Size/1024.0, to_string(Arg.Kind));
           break;
         }
         
-        // Device pointer - need to copy data from device
         void *DevPtr = *reinterpret_cast<void**>(ArgData);
         auto AllocInfo = ChipQueue_->getDevice()->AllocTracker->getAllocInfo(DevPtr);
         if (!AllocInfo) {
-          // Handle null or invalid pointer
-          Buffer.write(size_t(0));
+          Buffer.write(static_cast<uint64_t>(0));
+          logInfo("Serialized null pointer argument: {} of size kb {} of type {}", 
+                  Arg.Index, Arg.Size/1024.0, to_string(Arg.Kind));
           break;
         }
         
-        size_t Size = AllocInfo->Size;
-        Buffer.write(Size);
+        uint64_t AllocSize = AllocInfo->Size;
+        Buffer.write(AllocSize);
         
-        std::vector<char> HostData(Size);
-        ChipQueue_->memCopy(HostData.data(), DevPtr, Size, hipMemcpyDeviceToHost);
-        Buffer.write(HostData.data(), Size);
-        
-        logInfo("Serialized device pointer: {} total kb {}", DevPtr, Size/1024.0);
+        std::vector<char> HostData(AllocSize);
+        ChipQueue_->memCopy(HostData.data(), DevPtr, AllocSize, hipMemcpyDeviceToHost);
+        Buffer.write(HostData.data(), AllocSize);
+        logInfo("Serialized device pointer argument: {} of size kb {} of type {}", 
+                Arg.Index, Arg.Size/1024.0, to_string(Arg.Kind));
         break;
       }
       
       case SPVTypeKind::PODByRef: {
-        // POD passed by reference - need to copy from spill buffer
-        auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
-        Buffer.write(SpillSlot, Arg.Size);
+        Buffer.write(ArgData, Arg.Size);
+        logInfo("Serialized PODByRef argument: {} of size kb {} of type {}", 
+                Arg.Index, Arg.Size/1024.0, to_string(Arg.Kind));
         break;
       }
       
       case SPVTypeKind::Image:
-      case SPVTypeKind::Sampler: {
-        // Texture objects - currently not handled
+      case SPVTypeKind::Sampler:
         logWarn("Serialization of texture objects not implemented");
         break;
-      }
-      
+
       default:
         CHIPERR_LOG_AND_THROW("Unknown argument kind in serialization", hipErrorTbd);
     }
-    logInfo("Serialized argument: {} of size kb {}", Arg.Index, Arg.Size/1024.0);
   };
 
-  FuncInfo->visitKernelArgs(Args_, ArgVisitor);
+  FuncInfo->visitKernelArgs(ArgVisitor);
 }
+
+void chipstar::ExecItem::deserialize(chipstar::SerializationBuffer &Buffer) {
+  // Deserialize basic execution parameters
+  Buffer.read(GridDim_.x);
+  Buffer.read(GridDim_.y);
+  Buffer.read(GridDim_.z);
+  Buffer.read(BlockDim_.x);
+  Buffer.read(BlockDim_.y);
+  Buffer.read(BlockDim_.z);
+  Buffer.read(SharedMem_);
+
+  // Verify magic number
+  uint32_t Magic;
+  Buffer.read(Magic);
+  if (Magic != 0xDEADBEEF) {
+    CHIPERR_LOG_AND_THROW("Invalid magic number in deserialization - possible data corruption", hipErrorTbd);
+  }
+
+  // Read number of arguments
+  uint32_t NumArgs;
+  Buffer.read(NumArgs);
+  logInfo("Deserializing {} arguments", NumArgs);
+
+  if (NumArgs > 1024) { // Reasonable limit
+    CHIPERR_LOG_AND_THROW("Invalid number of arguments in deserialization", hipErrorTbd);
+  }
+
+  try {
+    Args_ = new void*[NumArgs]();  // Zero-initialize
+    
+    for (size_t i = 0; i < NumArgs; i++) {
+      // Read and verify argument index
+      uint32_t ArgIndex;
+      Buffer.read(ArgIndex);
+      if (ArgIndex >= NumArgs) {
+        CHIPERR_LOG_AND_THROW("Invalid argument index in deserialization", hipErrorTbd);
+      }
+      
+      uint32_t Kind;
+      uint64_t Size;
+      
+      Buffer.read(Kind);
+      Buffer.read(Size);
+      
+      logInfo("Deserializing arg {}: kind={}, size={}", ArgIndex, Kind, Size);
+      
+      // Validate Kind value
+      if (Kind >= static_cast<uint32_t>(SPVTypeKind::Opaque)) {
+        logError("Invalid argument kind value: {}", Kind);
+        CHIPERR_LOG_AND_THROW("Invalid argument kind in deserialization", hipErrorTbd);
+      }
+      
+      SPVTypeKind ArgKind = static_cast<SPVTypeKind>(Kind);
+      
+      switch (ArgKind) {
+        case SPVTypeKind::POD: {
+          void* ArgData = malloc(Size);
+          if (!ArgData) {
+            CHIPERR_LOG_AND_THROW("Failed to allocate memory for POD argument", hipErrorOutOfMemory);
+          }
+          Buffer.read(ArgData, Size);
+          Args_[i] = ArgData;
+          logInfo("Deserialized POD argument: {} of size kb {} of type {}", 
+                  i, Size/1024.0, to_string(ArgKind));
+          break;
+        }
+
+        case SPVTypeKind::Pointer: {
+          uint64_t AllocSize;
+          Buffer.read(AllocSize);
+          
+          if (AllocSize == 0) {
+            Args_[i] = nullptr;
+            logInfo("Deserialized null pointer argument: {} of size kb {} of type {}", 
+                    i, Size/1024.0, to_string(ArgKind));
+            break;
+          }
+
+          void* DevPtr = ChipQueue_->getContext()->allocate(AllocSize, hipMemoryTypeDevice);
+          if (!DevPtr) {
+            CHIPERR_LOG_AND_THROW("Failed to allocate device memory", hipErrorOutOfMemory);
+          }
+
+          std::vector<char> HostData(AllocSize);
+          Buffer.read(HostData.data(), AllocSize);
+          ChipQueue_->memCopy(DevPtr, HostData.data(), AllocSize, hipMemcpyHostToDevice);
+
+          void** ArgPtr = new void*;
+          *ArgPtr = DevPtr;
+          Args_[i] = ArgPtr;
+          logInfo("Deserialized device pointer argument: {} of size kb {} of type {}", 
+                  i, Size/1024.0, to_string(ArgKind));
+          break;
+        }
+
+        case SPVTypeKind::PODByRef: {
+          void* SpillData = malloc(Size);
+          if (!SpillData) {
+            CHIPERR_LOG_AND_THROW("Failed to allocate spill buffer", hipErrorOutOfMemory);
+          }
+          Buffer.read(SpillData, Size);
+          Args_[i] = SpillData;
+          logInfo("Deserialized PODByRef argument: {} of size kb {} of type {}", 
+                  i, Size/1024.0, to_string(ArgKind));
+          break;
+        }
+
+        case SPVTypeKind::Image:
+        case SPVTypeKind::Sampler:
+          logWarn("Deserialization of texture objects not implemented");
+          Args_[i] = nullptr;
+          break;
+
+        default:
+          CHIPERR_LOG_AND_THROW("Unknown argument kind in deserialization", hipErrorTbd);
+      }
+      
+      // Verify we wrote to the correct index
+      if (Args_[ArgIndex] == nullptr && ArgKind != SPVTypeKind::Image && ArgKind != SPVTypeKind::Sampler) {
+        CHIPERR_LOG_AND_THROW("Failed to deserialize argument", hipErrorTbd);
+      }
+    }
+  } catch (const std::exception& e) {
+    // Clean up allocations
+    if (Args_) {
+      for (size_t i = 0; i < NumArgs; i++) {
+        free(Args_[i]);
+      }
+      delete[] Args_;
+      Args_ = nullptr;
+    }
+    CHIPERR_LOG_AND_THROW("Error during deserialization: " + std::string(e.what()), hipErrorTbd);
+  }
+}
+
+
 
 // Device
 //*************************************************************************************
