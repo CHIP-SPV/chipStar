@@ -1171,6 +1171,7 @@ protected:
   chipstar::Queue *ChipQueue_;
 
   void **Args_;
+  int NumArgs_;
 
   std::shared_ptr<chipstar::ArgSpillBuffer> ArgSpillBuffer_;
 
@@ -1302,6 +1303,8 @@ public:
     Buffer.read(BlockDim_.z);
     Buffer.read(SharedMem_);
   }
+
+  
 };
 
 /**

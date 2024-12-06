@@ -2013,6 +2013,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   cl_kernel KernelHandle = ClKernel_.get()->get();
 
   auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    NumArgs_++;
     switch (Arg.Kind) {
     default:
       CHIPERR_LOG_AND_THROW("Internal chipStar error: Unknown argument kind",
