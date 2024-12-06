@@ -339,7 +339,7 @@ elseif(uppercase_CMAKE_BUILD_TYPE STREQUAL "MINRELSIZE")
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  add_compile_options(-Wall)
+  add_compile_options(-w)
   set(SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE)
 else()
   set(SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO)

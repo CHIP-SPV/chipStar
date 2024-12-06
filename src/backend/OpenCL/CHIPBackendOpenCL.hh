@@ -52,6 +52,7 @@
 #include "Utils.hh"
 
 #include "clHipErrorConversion.hh"
+#include "common/SerializationBuffer.hh"
 
 static thread_local cl_int clStatus;
 
@@ -510,6 +511,13 @@ public:
     return Device->getContext();
   }
 
+  void serialize(chipstar::SerializationBuffer &Buffer) {
+    Buffer.write(Name_);
+  }
+  void deserialize(chipstar::SerializationBuffer &Buffer) {
+    Buffer.read(Name_);
+  }
+
 private:
   // Only allowed for CHIPExecItemOpenCL instances.
   Borrowed<cl::Kernel> borrowUniqueKernelHandle();
@@ -519,6 +527,7 @@ class CHIPExecItemOpenCL : public chipstar::ExecItem {
 private:
   CHIPKernelOpenCL *ChipKernel_;
   Borrowed<cl::Kernel> ClKernel_;
+  cl::Kernel ClKernelSerializable_;
 
 public:
   CHIPExecItemOpenCL(const CHIPExecItemOpenCL &Other)
@@ -549,6 +558,19 @@ public:
 
   void setKernel(chipstar::Kernel *Kernel) override;
   CHIPKernelOpenCL *getKernel() override { return ChipKernel_; }
+
+  // Add serialization support
+  void serialize(chipstar::SerializationBuffer &Buffer) const override {
+    // Call base class serialization first
+    ExecItem::serialize(Buffer);
+    Buffer.write<cl::Kernel>(*ClKernel_.get());
+  }
+
+  void deserialize(chipstar::SerializationBuffer &Buffer) override {
+    // Deserialize base class first
+    ExecItem::deserialize(Buffer);
+    ClKernelSerializable_ = Buffer.read<cl::Kernel>();
+  }
 };
 
 class CHIPBackendOpenCL : public chipstar::Backend {

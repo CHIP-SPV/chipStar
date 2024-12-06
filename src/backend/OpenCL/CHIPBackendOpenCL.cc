@@ -1543,6 +1543,11 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext);
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
+
+  chipstar::SerializationBuffer Buffer;
+  ChipOclExecItem->serialize(Buffer);
+  ChipOclExecItem->deserialize(Buffer);
+
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   cl_kernel KernelHandle = ChipOclExecItem->getKernelHandle();
   assert(Kernel && "Kernel in chipstar::ExecItem is NULL!");

@@ -47,6 +47,7 @@
 #include <utility>
 
 #include "SPVRegister.hh"
+#include "common/SerializationBuffer.hh"
 
 // Used for pool management (kernel, command lists) instead of
 // deleting, returns the "borrowed" object back to the pool.
@@ -1278,6 +1279,29 @@ public:
   std::shared_ptr<chipstar::ArgSpillBuffer> getArgSpillBuffer() const {
     return ArgSpillBuffer_;
   };
+
+  // Add virtual serialize/deserialize methods
+  virtual void serialize(chipstar::SerializationBuffer &Buffer) const {
+    // Serialize basic execution parameters
+    Buffer.write(GridDim_.x);
+    Buffer.write(GridDim_.y);
+    Buffer.write(GridDim_.z);
+    Buffer.write(BlockDim_.x);
+    Buffer.write(BlockDim_.y);
+    Buffer.write(BlockDim_.z);
+    Buffer.write(SharedMem_);
+  }
+
+  virtual void deserialize(chipstar::SerializationBuffer &Buffer) {
+    // Deserialize basic execution parameters
+    Buffer.read(GridDim_.x);
+    Buffer.read(GridDim_.y);
+    Buffer.read(GridDim_.z);
+    Buffer.read(BlockDim_.x);
+    Buffer.read(BlockDim_.y);
+    Buffer.read(BlockDim_.z);
+    Buffer.read(SharedMem_);
+  }
 };
 
 /**
