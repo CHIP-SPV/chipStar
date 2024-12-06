@@ -494,6 +494,86 @@ dim3 chipstar::ExecItem::getBlock() { return BlockDim_; }
 dim3 chipstar::ExecItem::getGrid() { return GridDim_; }
 size_t chipstar::ExecItem::getSharedMem() { return SharedMem_; }
 chipstar::Queue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
+
+void chipstar::ExecItem::serialize(
+    chipstar::SerializationBuffer &Buffer) const {
+  // Serialize basic execution parameters
+  Buffer.write(GridDim_.x);
+  Buffer.write(GridDim_.y);
+  Buffer.write(GridDim_.z);
+  Buffer.write(BlockDim_.x);
+  Buffer.write(BlockDim_.y);
+  Buffer.write(BlockDim_.z);
+  Buffer.write(SharedMem_);
+
+  // Serialize arguments
+  Buffer.write(NumArgs_);
+
+  auto FuncInfo = getKernel()->getFuncInfo();
+  auto ArgVisitor = [&](const SPVFuncInfo::KernelArg &Arg) -> void {
+    void *ArgData = Args_[Arg.Index];
+    
+    // Write argument metadata
+    Buffer.write(Arg.Kind);  // Write argument type
+    Buffer.write(Arg.Size);  // Write argument size
+    
+    switch (Arg.Kind) {
+      case SPVTypeKind::POD: {
+        // Plain old data - can be copied directly
+        Buffer.write(ArgData, Arg.Size);
+        break;
+      }
+      
+      case SPVTypeKind::Pointer: {
+        if (Arg.isWorkgroupPtr()) {
+          // Local memory - just write size
+          Buffer.write(SharedMem_);
+          break;
+        }
+        
+        // Device pointer - need to copy data from device
+        void *DevPtr = *reinterpret_cast<void**>(ArgData);
+        auto AllocInfo = ChipQueue_->getDevice()->AllocTracker->getAllocInfo(DevPtr);
+        if (!AllocInfo) {
+          // Handle null or invalid pointer
+          Buffer.write(size_t(0));
+          break;
+        }
+        
+        size_t Size = AllocInfo->Size;
+        Buffer.write(Size);
+        
+        std::vector<char> HostData(Size);
+        ChipQueue_->memCopy(HostData.data(), DevPtr, Size, hipMemcpyDeviceToHost);
+        Buffer.write(HostData.data(), Size);
+        
+        logInfo("Serialized device pointer: {} total kb {}", DevPtr, Size/1024.0);
+        break;
+      }
+      
+      case SPVTypeKind::PODByRef: {
+        // POD passed by reference - need to copy from spill buffer
+        auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
+        Buffer.write(SpillSlot, Arg.Size);
+        break;
+      }
+      
+      case SPVTypeKind::Image:
+      case SPVTypeKind::Sampler: {
+        // Texture objects - currently not handled
+        logWarn("Serialization of texture objects not implemented");
+        break;
+      }
+      
+      default:
+        CHIPERR_LOG_AND_THROW("Unknown argument kind in serialization", hipErrorTbd);
+    }
+    logInfo("Serialized argument: {} of size kb {}", Arg.Index, Arg.Size/1024.0);
+  };
+
+  FuncInfo->visitKernelArgs(Args_, ArgVisitor);
+}
+
 // Device
 //*************************************************************************************
 chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)

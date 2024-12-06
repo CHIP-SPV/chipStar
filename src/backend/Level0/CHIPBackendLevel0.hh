@@ -72,7 +72,7 @@ public:
   }
 
   void setKernel(chipstar::Kernel *Kernel) override;
-  chipstar::Kernel *getKernel() override;
+  chipstar::Kernel *getKernel() const override;
 };
 
 class CHIPEventLevel0 : public chipstar::Event {

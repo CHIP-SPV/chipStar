@@ -2749,4 +2749,4 @@ void CHIPExecItemLevel0::setKernel(chipstar::Kernel *Kernel) {
   ChipKernel_ = static_cast<CHIPKernelLevel0 *>(Kernel);
 }
 
-chipstar::Kernel *CHIPExecItemLevel0::getKernel() { return ChipKernel_; }
+chipstar::Kernel *CHIPExecItemLevel0::getKernel() const { return ChipKernel_; }

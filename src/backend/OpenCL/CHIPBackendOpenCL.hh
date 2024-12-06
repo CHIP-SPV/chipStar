@@ -576,7 +576,7 @@ public:
   }
 
   void setKernel(chipstar::Kernel *Kernel) override;
-  CHIPKernelOpenCL *getKernel() override { return ChipKernel_; }
+  CHIPKernelOpenCL *getKernel() const override { return ChipKernel_; }
 
   // Add serialization support
   void serialize(chipstar::SerializationBuffer &Buffer) const override {

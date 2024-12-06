@@ -1237,7 +1237,7 @@ public:
    *
    * @return Kernel* chipstar::Kernel to be executed
    */
-  virtual chipstar::Kernel *getKernel() = 0;
+  virtual chipstar::Kernel *getKernel() const = 0;
 
   /**
    * @brief Get the Queue object
@@ -1282,16 +1282,7 @@ public:
   };
 
   // Add virtual serialize/deserialize methods
-  virtual void serialize(chipstar::SerializationBuffer &Buffer) const {
-    // Serialize basic execution parameters
-    Buffer.write(GridDim_.x);
-    Buffer.write(GridDim_.y);
-    Buffer.write(GridDim_.z);
-    Buffer.write(BlockDim_.x);
-    Buffer.write(BlockDim_.y);
-    Buffer.write(BlockDim_.z);
-    Buffer.write(SharedMem_);
-  }
+  virtual void serialize(chipstar::SerializationBuffer &Buffer) const;
 
   virtual void deserialize(chipstar::SerializationBuffer &Buffer) {
     // Deserialize basic execution parameters
