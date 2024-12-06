@@ -168,7 +168,7 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
   auto DumpBinary = [](const std::vector<uint32_t> &Bin) -> void {
     if (ChipEnvVars.getDumpSpirv()) {
       if (auto DumpPath = dumpSpirv(Bin))
-        logDebug("Dumped SPIR-V binary to '{}'", DumpPath->c_str());
+        logDebug("Dumped SPIR-V binary to '{}'", fs::absolute(*DumpPath).c_str());
     }
   };
 
@@ -180,7 +180,7 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
     logError("Failure in SPIR-V preprocessing.");
     if (ChipEnvVars.getDumpSpirv())
       if (auto DumpPath = dumpSpirv(SrcMod->OriginalBinary_))
-        logDebug("Dumped SPIR-V binary to {}", *DumpPath->c_str());
+        logDebug("Dumped SPIR-V binary to '{}'", fs::absolute(*DumpPath).c_str());
     CHIPERR_LOG_AND_THROW("SPIR-V preprocessing failure.", hipErrorTbd);
   }
 
