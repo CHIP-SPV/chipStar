@@ -307,6 +307,12 @@ static void createShadowCopy(void* base_ptr, AllocationInfo& info) {
     if (err != hipSuccess) {
         std::cerr << "Failed to create shadow copy for allocation at " 
                   << base_ptr << " of size " << info.size << std::endl;
+    } else {
+        // Print first 3 values for debugging
+        float* values = reinterpret_cast<float*>(info.shadow_copy.get());
+        std::cout << "Shadow copy for " << base_ptr << " first 3 values: "
+                  << values[0] << ", " << values[1] << ", " << values[2] 
+                  << std::endl;
     }
 }
 
@@ -336,7 +342,16 @@ struct KernelExecution {
 // Track all kernel executions
 static std::vector<KernelExecution> kernel_executions;
 
-// Add this helper function
+// Move this helper function declaration to the top with other helper functions
+// Add before recordMemoryChanges
+static int getArgumentIndex(void* ptr, const std::vector<void*>& arg_ptrs) {
+    for (size_t i = 0; i < arg_ptrs.size(); i++) {
+        if (arg_ptrs[i] == ptr) return i;
+    }
+    return -1;
+}
+
+// Then the recordMemoryChanges function that uses it
 static void recordMemoryChanges(KernelExecution& exec) {
     for (const auto& [ptr, pre] : exec.pre_state) {
         const auto& post = exec.post_state[ptr];
@@ -346,19 +361,19 @@ static void recordMemoryChanges(KernelExecution& exec) {
             float* pre_val = (float*)(pre.data.get() + i);
             float* post_val = (float*)(post.data.get() + i);
             
+            // Only record if values actually changed
             if (*pre_val != *post_val) {
+                // Double check this isn't just comparing against uninitialized memory
+                if (*pre_val == 0.0f && *post_val != 0.0f) {
+                    // This might be a real change or just initial data
+                    // Print for debugging
+                    //std::cout << "Found change at " << ptr << "[" << i/sizeof(float) 
+                              //<< "]: " << *pre_val << " -> " << *post_val << "\n";
+                }
                 exec.changes.push_back({(char*)ptr + i, i});
             }
         }
     }
-}
-
-// Add this helper function near the other helpers
-static int getArgumentIndex(void* ptr, const std::vector<void*>& arg_ptrs) {
-    for (size_t i = 0; i < arg_ptrs.size(); i++) {
-        if (arg_ptrs[i] == ptr) return i;
-    }
-    return -1;
 }
 
 // Replace the printKernelSummary function
@@ -459,13 +474,14 @@ hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
             // Try to find if this points to GPU memory
             auto [base_ptr, info] = findContainingAllocation(arg_ptr);
             if (base_ptr && info) {
-                // Record pre-execution state
+                // Create shadow copy first
+                createShadowCopy(base_ptr, *info);
+                // Then record pre-execution state using the shadow copy
                 exec.pre_state.emplace(base_ptr, 
                     MemoryState(info->shadow_copy.get(), info->size));
                 
-                createShadowCopy(base_ptr, *info);
                 std::cout << "Created shadow copy for GPU memory at " 
-                         << base_ptr << " referenced by arg " << i << std::endl;
+                          << base_ptr << " referenced by arg " << i << std::endl;
             }
         }
     }
